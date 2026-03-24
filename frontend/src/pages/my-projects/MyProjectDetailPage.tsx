@@ -8,6 +8,7 @@ import api, {
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
@@ -559,13 +560,11 @@ export function MyProjectDetailPage() {
                 </Table>
               </>
             ) : (
-              <div className="text-center py-12">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">尚無動物紀錄</h3>
-                <p className="text-muted-foreground">
-                  此計劃目前尚未分配動物
-                </p>
-              </div>
+              <EmptyState
+                icon={FileText}
+                title="尚無動物紀錄"
+                description="此計劃目前尚未分配動物"
+              />
             )}
           </CardContent>
         </Card>

@@ -6,6 +6,7 @@ import { formatNumber, formatDate, formatUom } from '@/lib/utils'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -266,12 +267,7 @@ export function PurchaseLinesReportPage() {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
-                  <Truck className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無採購資料</p>
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={10} icon={Truck} title="尚無採購資料" />
             )}
           </TableBody>
           {report && report.length > 0 && (

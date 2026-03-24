@@ -15,6 +15,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Eye, Edit2, AlertCircle, ArrowUpDown } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import { statusColors, getPenLocationDisplay } from '../constants'
 
 interface AnimalListTableProps {
@@ -90,10 +91,11 @@ export function AnimalListTable({
         {isLoading ? (
           <TableSkeleton rows={10} cols={8} />
         ) : animals.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-            <AlertCircle className="h-12 w-12 mb-4" />
-            <p>{t('animals.noAnimalsFound')}</p>
-          </div>
+          <EmptyState
+            icon={AlertCircle}
+            title={t('animals.noAnimalsFound')}
+            description={t('animals.noAnimalsFoundDescription', '嘗試調整篩選條件，或新增第一筆動物紀錄')}
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table>

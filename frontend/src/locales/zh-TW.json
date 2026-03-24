@@ -120,10 +120,14 @@
   },
   "dashboard": {
     "title": "儀表板",
+    "welcome": {
+      "title": "歡迎，{{name}}！",
+      "description": "這是您的個人儀表板。點擊右上角的「編輯佈局」可拖放調整 Widget 位置，或透過「設定」選擇要顯示的模組。"
+    },
     "editMode": {
       "lock": "儲存佈局",
       "unlock": "編輯佈局",
-      "hint": "拖曳 Widget 調整位置，拖曳右下角調整大小，完成後點選「鎖定佈局」"
+      "hint": "拖曳 Widget 調整位置，拖曳右下角調整大小，完成後點選「儲存佈局」"
     },
     "settings": {
       "title": "自訂儀表板",
@@ -249,6 +253,13 @@
       "applying": "申請中",
       "ongoing": "進行中",
       "closed": "已結案"
+    }
+  },
+  "myProjects": {
+    "welcome": {
+      "title": "歡迎使用計畫管理",
+      "description": "您目前尚無任何計畫書，建立第一個動物使用計畫書以開始使用。",
+      "createFirst": "建立計畫書"
     }
   },
   "protocols": {

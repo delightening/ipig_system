@@ -7,16 +7,14 @@ export function NotFoundPage() {
   const { t } = useTranslation()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-background px-4">
       <div className="text-center max-w-md">
-        <div className="mx-auto w-20 h-20 rounded-full bg-orange-100 flex items-center justify-center mb-6">
-          <FileQuestion className="h-10 w-10 text-orange-500" />
-        </div>
-        <h1 className="text-6xl font-bold text-slate-800 mb-2">404</h1>
-        <h2 className="text-xl font-semibold text-slate-600 mb-4">
+        <FileQuestion className="h-16 w-16 text-muted-foreground/50 mx-auto mb-6" strokeWidth={1.5} />
+        <h1 className="text-6xl font-bold text-foreground mb-2">404</h1>
+        <h2 className="text-xl font-semibold text-muted-foreground mb-4">
           {t('notFound.title', '找不到此頁面')}
         </h2>
-        <p className="text-slate-500 mb-8">
+        <p className="text-muted-foreground mb-8">
           {t('notFound.description', '您要找的頁面不存在、已移除，或網址輸入錯誤。')}
         </p>
         <div className="flex gap-3 justify-center">

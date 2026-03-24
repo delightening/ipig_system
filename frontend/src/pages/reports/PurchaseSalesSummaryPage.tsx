@@ -11,6 +11,7 @@ import type {
   PurchaseSalesCategorySummary,
 } from '@/types/report'
 import { Button } from '@/components/ui/button'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -272,14 +273,7 @@ function LoadingState() {
 }
 
 function EmptyRow({ colSpan }: { colSpan: number }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="text-center py-8">
-        <BarChart3 className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-        <p className="text-muted-foreground">尚無資料</p>
-      </TableCell>
-    </TableRow>
-  )
+  return <TableEmptyRow colSpan={colSpan} icon={BarChart3} title="尚無資料" />
 }
 
 function downloadCSV(filename: string, headers: string[], rows: (string | number | null)[][]) {

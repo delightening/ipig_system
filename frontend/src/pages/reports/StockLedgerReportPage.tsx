@@ -6,6 +6,7 @@ import { formatNumber, formatDateTime } from '@/lib/utils'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -212,12 +213,7 @@ export function StockLedgerReportPage() {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無流水資料</p>
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={9} icon={TrendingUp} title="尚無流水資料" />
             )}
           </TableBody>
         </Table>

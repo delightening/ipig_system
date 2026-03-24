@@ -1,7 +1,8 @@
 import { useMemo, useEffect } from 'react'
-import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
     Truck,
     ShoppingCart,
@@ -16,28 +17,22 @@ import {
     Activity,
     Wrench,
     TrendingUp,
+    Search,
 } from 'lucide-react'
-import { EquipmentPage } from '@/pages/admin/EquipmentPage'
-import { ProductsPage } from '@/pages/master/ProductsPage'
-import { PartnersPage } from '@/pages/master/PartnersPage'
-import { DocumentsPage } from '@/pages/documents/DocumentsPage'
 
-// 定義 ERP 子模組
+interface ErpModuleItem {
+    title: string
+    href: string
+    icon: React.ReactNode
+    description?: string
+}
+
 interface ErpModule {
     id: string
     title: string
-    titleKey?: string
     icon: React.ReactNode
     description: string
-    descriptionKey?: string
-    items: {
-        title: string
-        titleKey?: string
-        href: string
-        icon: React.ReactNode
-        description?: string
-        descriptionKey?: string
-    }[]
+    items: ErpModuleItem[]
 }
 
 const erpModules: ErpModule[] = [
@@ -46,14 +41,40 @@ const erpModules: ErpModule[] = [
         title: '產品管理',
         icon: <Package className="h-5 w-5" />,
         description: '管理產品資料',
-        items: [],
+        items: [
+            {
+                title: '產品列表',
+                href: '/products',
+                icon: <Package className="h-4 w-4" />,
+                description: '瀏覽、搜尋、管理所有產品',
+            },
+            {
+                title: '新增產品',
+                href: '/products/new',
+                icon: <Package className="h-4 w-4" />,
+                description: '建立新產品與 SKU',
+            },
+        ],
     },
     {
         id: 'documents',
         title: '單據管理',
         icon: <FileText className="h-5 w-5" />,
         description: '採購、銷貨、倉儲單據統一管理',
-        items: [],
+        items: [
+            {
+                title: '單據列表',
+                href: '/documents',
+                icon: <FileText className="h-4 w-4" />,
+                description: '瀏覽所有採購、銷貨、調撥單據',
+            },
+            {
+                title: '新增單據',
+                href: '/documents/new',
+                icon: <FileText className="h-4 w-4" />,
+                description: '建立新的單據',
+            },
+        ],
     },
     {
         id: 'warehouse',
@@ -86,7 +107,14 @@ const erpModules: ErpModule[] = [
         title: '設備維護',
         icon: <Wrench className="h-5 w-5" />,
         description: '設備與校正紀錄管理',
-        items: [],
+        items: [
+            {
+                title: '設備管理',
+                href: '/erp?tab=equipment&view=inline',
+                icon: <Wrench className="h-4 w-4" />,
+                description: '設備清單、校正紀錄、維護排程',
+            },
+        ],
     },
     {
         id: 'reports',
@@ -155,19 +183,24 @@ const erpModules: ErpModule[] = [
         title: '供應商／客戶',
         icon: <Users className="h-5 w-5" />,
         description: '管理供應商與客戶',
-        items: [],
+        items: [
+            {
+                title: '供應商／客戶列表',
+                href: '/partners',
+                icon: <Users className="h-4 w-4" />,
+                description: '管理供應商與客戶資料',
+            },
+        ],
     },
 ]
 
 export function ErpPage() {
-  useNavigate() // router context
     const [searchParams, setSearchParams] = useSearchParams()
     const { hasRole, user } = useAuthStore()
 
-    // 從 URL 取得當前 tab，預設為第一個模組 'products'
     const currentTab = searchParams.get('tab') || 'products'
+    const isInlineView = searchParams.get('view') === 'inline'
 
-    // 根據權限過濾模組
     const filteredModules = useMemo(() => {
         const hasErpAccess = hasRole('admin') ||
             user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF'].includes(r)) ||
@@ -183,7 +216,6 @@ export function ErpPage() {
         })
     }, [hasRole, user])
 
-    // 如果沒有 tab 參數，或 tab 已無效（如已刪除的 master），自動導向第一個模組
     useEffect(() => {
         const tab = searchParams.get('tab')
         const hasValidTab = filteredModules.some(m => m.id === tab)
@@ -192,23 +224,49 @@ export function ErpPage() {
         }
     }, [searchParams, filteredModules, setSearchParams])
 
-    // 切換 tab
     const handleTabChange = (tabId: string) => {
         setSearchParams({ tab: tabId })
     }
 
-    // 取得當前模組
     const currentModule = filteredModules.find(m => m.id === currentTab)
+
+    // Equipment 保留 inline 渲染（因為沒有獨立路由）
+    if (currentTab === 'equipment' && isInlineView) {
+        const { EquipmentPage } = require('@/pages/admin/EquipmentPage')
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-3xl font-bold tracking-tight">ERP 系統</h1>
+                </div>
+                <div className="flex flex-wrap gap-2 border-b border-border">
+                    {filteredModules.map((module) => (
+                        <button
+                            key={module.id}
+                            onClick={() => handleTabChange(module.id)}
+                            className={cn(
+                                'px-3 md:px-4 py-2 border-b-2 font-medium text-xs md:text-sm transition-colors flex items-center gap-1.5',
+                                currentTab === module.id
+                                    ? 'border-primary text-primary -mb-px'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                            )}
+                        >
+                            {module.icon}
+                            <span>{module.title}</span>
+                        </button>
+                    ))}
+                </div>
+                <EquipmentPage />
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-6">
-            {/* 頁面標題 */}
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold tracking-tight">ERP 系統</h1>
             </div>
 
-            {/* Tab 導覽列（參考動物列表 tags 樣式） */}
-            <div className="flex flex-wrap gap-2 border-b border-slate-200">
+            <div className="flex flex-wrap gap-2 border-b border-border">
                 {filteredModules.map((module) => (
                     <button
                         key={module.id}
@@ -216,8 +274,8 @@ export function ErpPage() {
                         className={cn(
                             'px-3 md:px-4 py-2 border-b-2 font-medium text-xs md:text-sm transition-colors flex items-center gap-1.5',
                             currentTab === module.id
-                                ? 'border-blue-500 text-blue-600 -mb-px'
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                                ? 'border-primary text-primary -mb-px'
+                                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                         )}
                     >
                         {module.icon}
@@ -226,47 +284,35 @@ export function ErpPage() {
                 ))}
             </div>
 
-            {/* Tab 內容區 */}
             {currentModule ? (
-                currentTab === 'equipment' ? (
-                    <EquipmentPage />
-                ) : currentTab === 'products' ? (
-                    <ProductsPage />
-                ) : currentTab === 'partners' ? (
-                    <PartnersPage />
-                ) : currentTab === 'documents' ? (
-                    <DocumentsPage />
-                ) : (
                 <div className="space-y-6">
-                    {/* 功能列表（無說明欄位） */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {currentModule.items.map((item) => (
                             <Link
                                 key={item.href}
                                 to={item.href}
-                                className="group bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg hover:border-blue-200 transition-all"
+                                className="group bg-card rounded-xl border border-border p-5 hover:shadow-lg hover:border-primary/30 transition-all"
                             >
                                 <div className="flex items-start space-x-4">
-                                    <div className="p-2.5 bg-slate-100 rounded-lg text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                    <div className="p-2.5 bg-muted rounded-lg text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                                         {item.icon}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
+                                        <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">
                                             {item.title}
                                         </h3>
+                                        {item.description && (
+                                            <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                                        )}
                                     </div>
-                                    <ChevronRight className="h-5 w-5 shrink-0 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                                    <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/30 group-hover:text-primary transition-colors" />
                                 </div>
                             </Link>
                         ))}
                     </div>
                 </div>
-                )
             ) : (
-                // 未找到模組
-                <div className="text-center py-12">
-                    <p className="text-slate-500">找不到此模組</p>
-                </div>
+                <EmptyState icon={Search} title="找不到此模組" />
             )}
         </div>
     )
