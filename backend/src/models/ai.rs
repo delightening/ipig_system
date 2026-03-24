@@ -85,7 +85,7 @@ fn default_page() -> i64 {
     1
 }
 fn default_per_page() -> i64 {
-    20
+    100
 }
 fn default_sort_order() -> String {
     "desc".to_string()

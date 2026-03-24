@@ -145,7 +145,7 @@ impl AiRepository {
         sort_by: Option<&str>,
         sort_order: &str,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
-        let per_page = per_page.clamp(1, 100);
+        let per_page = per_page.clamp(1, 500);
         let offset = (page.max(1) - 1) * per_page;
         let order = if sort_order == "asc" { "ASC" } else { "DESC" };
         let sort_col = validate_sort_field(
@@ -213,7 +213,7 @@ impl AiRepository {
         page: i64,
         per_page: i64,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
-        let per_page = per_page.clamp(1, 100);
+        let per_page = per_page.clamp(1, 500);
         let offset = (page.max(1) - 1) * per_page;
         let animal_id = filters
             .get("animal_id")
@@ -265,7 +265,7 @@ impl AiRepository {
         page: i64,
         per_page: i64,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
-        let per_page = per_page.clamp(1, 100);
+        let per_page = per_page.clamp(1, 500);
         let offset = (page.max(1) - 1) * per_page;
         let status = filters.get("status").and_then(|v| v.as_str());
 
@@ -311,7 +311,7 @@ impl AiRepository {
         page: i64,
         per_page: i64,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
-        let per_page = per_page.clamp(1, 100);
+        let per_page = per_page.clamp(1, 500);
         let offset = (page.max(1) - 1) * per_page;
 
         let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM facilities")
@@ -348,7 +348,7 @@ impl AiRepository {
         page: i64,
         per_page: i64,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
-        let per_page = per_page.clamp(1, 100);
+        let per_page = per_page.clamp(1, 500);
         let offset = (page.max(1) - 1) * per_page;
         let animal_id = filters
             .get("animal_id")
@@ -397,7 +397,7 @@ impl AiRepository {
         page: i64,
         per_page: i64,
     ) -> Result<(Vec<serde_json::Value>, i64), AppError> {
-        let per_page = per_page.clamp(1, 100);
+        let per_page = per_page.clamp(1, 500);
         let offset = (page.max(1) - 1) * per_page;
         let animal_id = filters
             .get("animal_id")
