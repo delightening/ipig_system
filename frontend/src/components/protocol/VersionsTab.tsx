@@ -105,7 +105,7 @@ export const VersionsTab = React.memo(function VersionsTab({ protocolId, protoco
                     {compareMode && <TableHead className="w-[50px]"></TableHead>}
                     <TableHead>{t('protocols.detail.tables.versionNo')}</TableHead>
                     <TableHead>{t('protocols.detail.tables.submitTime')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
+                    <TableHead className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -131,17 +131,19 @@ export const VersionsTab = React.memo(function VersionsTab({ protocolId, protoco
                       <TableCell className="font-medium">v{version.version_no}</TableCell>
                       <TableCell>{formatDateTime(version.submitted_at)}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedVersion(version)
-                            setShowVersionDialog(true)
-                          }}
-                        >
-                          <Eye className="mr-1 h-4 w-4" />
-                          {t('protocols.detail.tables.viewContent')}
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedVersion(version)
+                              setShowVersionDialog(true)
+                            }}
+                          >
+                            <Eye className="mr-1 h-4 w-4" />
+                            {t('protocols.detail.tables.viewContent')}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

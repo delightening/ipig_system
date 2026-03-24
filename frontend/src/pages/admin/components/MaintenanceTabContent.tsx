@@ -79,7 +79,7 @@ export function MaintenanceTabContent({
                   <TableHead>報修日期</TableHead>
                   <TableHead>完修日期</TableHead>
                   <TableHead>問題描述/保養項目</TableHead>
-                  {canManage && <TableHead className="w-[100px]">操作</TableHead>}
+                  {canManage && <TableHead className="w-[100px] text-right">操作</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -117,14 +117,16 @@ export function MaintenanceTabContent({
                     </TableCell>
                     {canManage && (
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => onDelete(r.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => onDelete(r.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>

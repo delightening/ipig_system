@@ -97,7 +97,7 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
             <TableHead>主管</TableHead>
             <TableHead>排序</TableHead>
             <TableHead>狀態</TableHead>
-            {canManage && <TableHead className="w-24">操作</TableHead>}
+            {canManage && <TableHead className="w-24 text-right">操作</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -115,7 +115,7 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
               <TableCell><Badge variant={d.is_active ? 'default' : 'secondary'}>{d.is_active ? '啟用' : '停用'}</Badge></TableCell>
               {canManage && (
                 <TableCell>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-end gap-1">
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(d)}><Pencil className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(d)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>

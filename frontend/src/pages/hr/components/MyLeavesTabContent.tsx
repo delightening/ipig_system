@@ -43,7 +43,7 @@ export function MyLeavesTabContent({
                         <TableHead>時數</TableHead>
                         <TableHead>事由</TableHead>
                         <TableHead>狀態</TableHead>
-                        <TableHead>操作</TableHead>
+                        <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -77,7 +77,7 @@ export function MyLeavesTabContent({
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex gap-2">
+                                        <div className="flex items-center justify-end gap-1">
                                             {leave.status === 'DRAFT' && (
                                                 <>
                                                     <Button

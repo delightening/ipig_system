@@ -50,7 +50,7 @@ export function AuditSessionsTab({
                             <TableHead>IP</TableHead>
                             <TableHead>頁面瀏覽</TableHead>
                             <TableHead>操作次數</TableHead>
-                            <TableHead>操作</TableHead>
+                            <TableHead className="text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -110,15 +110,17 @@ function SessionRow({ session, onForceLogout, isPending }: SessionRowProps) {
             <TableCell>{session.page_view_count}</TableCell>
             <TableCell>{session.action_count}</TableCell>
             <TableCell>
-                <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={onForceLogout}
-                    disabled={isPending}
-                >
-                    <LogOut className="h-4 w-4 mr-1" />
-                    強制登出
-                </Button>
+                <div className="flex items-center justify-end gap-1">
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={onForceLogout}
+                        disabled={isPending}
+                    >
+                        <LogOut className="h-4 w-4 mr-1" />
+                        強制登出
+                    </Button>
+                </div>
             </TableCell>
         </TableRow>
     )

@@ -76,7 +76,7 @@ export function DisposalTabContent({
                   <TableHead>申請人</TableHead>
                   <TableHead>申請時間</TableHead>
                   <TableHead>核准人</TableHead>
-                  <TableHead className="w-[120px]">操作</TableHead>
+                  <TableHead className="w-[120px] text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -101,7 +101,7 @@ export function DisposalTabContent({
                     <TableCell>{r.approver_name || '—'}</TableCell>
                     <TableCell>
                       {canApprove && r.status === 'pending' && (
-                        <div className="flex gap-2">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"

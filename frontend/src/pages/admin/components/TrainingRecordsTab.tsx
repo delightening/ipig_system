@@ -122,7 +122,7 @@ export function TrainingRecordsTab({
                     <TableHead>完成日期</TableHead>
                     <TableHead>有效期限</TableHead>
                     <TableHead>備註</TableHead>
-                    <TableHead className="w-[100px]">操作</TableHead>
+                    <TableHead className="w-[100px] text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -146,7 +146,7 @@ export function TrainingRecordsTab({
                       </TableCell>
                       <TableCell>
                         {canManage && (
-                          <div className="flex gap-2">
+                          <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="icon" onClick={() => onEdit(r)}>
                               <Pencil className="h-4 w-4" />
                             </Button>

@@ -50,7 +50,7 @@ function MyOvertimeTableRow({
             <TableCell className="max-w-[150px] truncate">{overtime.reason}</TableCell>
             <TableCell><OvertimeStatusBadge status={overtime.status} /></TableCell>
             <TableCell>
-                <div className="flex gap-2">
+                <div className="flex items-center justify-end gap-1">
                     {overtime.status === 'draft' && (
                         <>
                             <Button
@@ -108,7 +108,7 @@ export function MyOvertimeTabContent({
                             <TableHead>補休</TableHead>
                             <TableHead>事由</TableHead>
                             <TableHead>狀態</TableHead>
-                            <TableHead>操作</TableHead>
+                            <TableHead className="text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

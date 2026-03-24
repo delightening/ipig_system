@@ -94,7 +94,7 @@ export function FacilityTab({ canManage }: { canManage: boolean }) {
             <TableHead>聯絡人</TableHead>
             <TableHead>電話</TableHead>
             <TableHead>狀態</TableHead>
-            {canManage && <TableHead className="w-24">操作</TableHead>}
+            {canManage && <TableHead className="w-24 text-right">操作</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -111,7 +111,7 @@ export function FacilityTab({ canManage }: { canManage: boolean }) {
               <TableCell><Badge variant={f.is_active ? 'default' : 'secondary'}>{f.is_active ? '啟用' : '停用'}</Badge></TableCell>
               {canManage && (
                 <TableCell>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-end gap-1">
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(f)}><Pencil className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(f)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
