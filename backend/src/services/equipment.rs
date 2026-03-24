@@ -235,6 +235,24 @@ impl EquipmentService {
 
     // ========== Equipment Suppliers ==========
 
+    pub async fn list_all_equipment_suppliers_summary(
+        pool: &PgPool,
+        current_user: &CurrentUser,
+    ) -> Result<Vec<crate::models::EquipmentSupplierSummaryRow>> {
+        check_view_permission(current_user)?;
+        let data = sqlx::query_as::<_, crate::models::EquipmentSupplierSummaryRow>(
+            r#"
+            SELECT es.equipment_id, p.name AS partner_name
+            FROM equipment_suppliers es
+            INNER JOIN partners p ON es.partner_id = p.id
+            ORDER BY es.equipment_id, p.name
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(data)
+    }
+
     pub async fn list_equipment_suppliers(
         pool: &PgPool,
         equipment_id: Uuid,

@@ -27,7 +27,13 @@ import type {
   MaintenanceRecordWithDetails,
   DisposalWithDetails,
   AnnualPlanWithEquipment,
+  EquipmentSupplierWithPartner,
 } from './types'
+
+interface Partner {
+  id: string
+  name: string
+}
 import { useEquipmentMutations, emptyEquipForm, emptyCalibForm } from './hooks/useEquipmentMutations'
 import { EquipmentFormDialog } from './components/EquipmentFormDialog'
 import { CalibrationFormDialog } from './components/CalibrationFormDialog'
@@ -59,6 +65,7 @@ export function EquipmentPage() {
 
   const [editingEquip, setEditingEquip] = useState<Equipment | null>(null)
   const [equipForm, setEquipForm] = useState<EquipmentForm>(emptyEquipForm())
+  const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([])
   const [editingCalib, setEditingCalib] = useState<CalibrationWithEquipment | null>(null)
   const [calibForm, setCalibForm] = useState<CalibrationForm>(emptyCalibForm())
 
@@ -136,6 +143,14 @@ export function EquipmentPage() {
       ).data,
   })
 
+  const { data: partnerOptions = [] } = useQuery({
+    queryKey: ['partners-supplier'],
+    queryFn: async () => {
+      const res = await api.get<Partner[]>('/partners', { params: { partner_type: 'supplier' } })
+      return res.data
+    },
+  })
+
   /* ── Mutations ── */
   const mutations = useEquipmentMutations({
     closeEquipCreate: () => dialogs.close('equipCreate'),
@@ -187,7 +202,7 @@ export function EquipmentPage() {
   })
 
   /* ── Handlers ── */
-  const handleEditEquip = (equip: Equipment) => {
+  const handleEditEquip = async (equip: Equipment) => {
     setEditingEquip(equip)
     setEquipForm({
       name: equip.name,
@@ -199,6 +214,12 @@ export function EquipmentPage() {
       calibration_cycle: equip.calibration_cycle || '',
       inspection_cycle: equip.inspection_cycle || '',
     })
+    try {
+      const res = await api.get<EquipmentSupplierWithPartner[]>(`/equipment/${equip.id}/suppliers`)
+      setSelectedPartnerIds(res.data.map((s) => s.partner_id))
+    } catch {
+      setSelectedPartnerIds([])
+    }
     dialogs.open('equipEdit')
   }
 
@@ -373,24 +394,36 @@ export function EquipmentPage() {
       {/* Dialogs */}
       <EquipmentFormDialog
         open={dialogs.isOpen('equipCreate')}
-        onOpenChange={dialogs.setOpen('equipCreate')}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPartnerIds([])
+          dialogs.setOpen('equipCreate')(open)
+        }}
         mode="create"
         form={equipForm}
         onFormChange={setEquipForm}
-        onSubmit={() => mutations.handleCreateEquip(equipForm)}
-        isPending={mutations.createEquipMutation.isPending}
+        onSubmit={() => mutations.handleCreateEquip(equipForm, selectedPartnerIds)}
+        isPending={mutations.equipSaving}
+        partnerOptions={partnerOptions}
+        selectedPartnerIds={selectedPartnerIds}
+        onPartnerIdsChange={setSelectedPartnerIds}
       />
       <EquipmentFormDialog
         open={dialogs.isOpen('equipEdit')}
         onOpenChange={(open) => {
-          if (!open) setEditingEquip(null)
+          if (!open) {
+            setEditingEquip(null)
+            setSelectedPartnerIds([])
+          }
           dialogs.setOpen('equipEdit')(open)
         }}
         mode="edit"
         form={equipForm}
         onFormChange={setEquipForm}
-        onSubmit={() => editingEquip && mutations.handleUpdateEquip(editingEquip.id, equipForm)}
-        isPending={mutations.updateEquipMutation.isPending}
+        onSubmit={() => editingEquip && mutations.handleUpdateEquip(editingEquip.id, equipForm, selectedPartnerIds)}
+        isPending={mutations.equipSaving}
+        partnerOptions={partnerOptions}
+        selectedPartnerIds={selectedPartnerIds}
+        onPartnerIdsChange={setSelectedPartnerIds}
       />
       <CalibrationFormDialog
         open={dialogs.isOpen('calibCreate')}

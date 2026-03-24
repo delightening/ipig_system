@@ -24,6 +24,11 @@ import { Loader2 } from 'lucide-react'
 import type { EquipmentForm, CalibrationType, CalibrationCycle } from '../types'
 import { CALIBRATION_TYPE_LABELS, CALIBRATION_CYCLE_LABELS } from '../types'
 
+interface PartnerOption {
+  id: string
+  name: string
+}
+
 interface EquipmentFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -32,6 +37,9 @@ interface EquipmentFormDialogProps {
   onFormChange: (form: EquipmentForm) => void
   onSubmit: () => void
   isPending: boolean
+  partnerOptions: PartnerOption[]
+  selectedPartnerIds: string[]
+  onPartnerIdsChange: (ids: string[]) => void
 }
 
 const calTypeOptions: CalibrationType[] = ['calibration', 'validation']
@@ -45,12 +53,23 @@ export function EquipmentFormDialog({
   onFormChange,
   onSubmit,
   isPending,
+  partnerOptions,
+  selectedPartnerIds,
+  onPartnerIdsChange,
 }: EquipmentFormDialogProps) {
   const isCreate = mode === 'create'
 
+  const togglePartner = (partnerId: string) => {
+    if (selectedPartnerIds.includes(partnerId)) {
+      onPartnerIdsChange(selectedPartnerIds.filter((id) => id !== partnerId))
+    } else {
+      onPartnerIdsChange([...selectedPartnerIds, partnerId])
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isCreate ? '新增設備' : '編輯設備'}</DialogTitle>
           {isCreate && <DialogDescription>填寫設備基本資料</DialogDescription>}
@@ -86,6 +105,31 @@ export function EquipmentFormDialog({
               value={form.location}
               onChange={(e) => onFormChange({ ...form, location: e.target.value })}
             />
+          </div>
+
+          {/* 廠商選擇 */}
+          <div className="border-t pt-4 space-y-2">
+            <Label>廠商</Label>
+            {partnerOptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">尚無供應商資料</p>
+            ) : (
+              <div className="max-h-32 overflow-y-auto rounded-md border p-2 space-y-1">
+                {partnerOptions.map((p) => (
+                  <label
+                    key={p.id}
+                    className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-muted/50 cursor-pointer text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedPartnerIds.includes(p.id)}
+                      onChange={() => togglePartner(p.id)}
+                      className="rounded border-border"
+                    />
+                    {p.name}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 校正/確效設定 */}

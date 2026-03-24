@@ -130,6 +130,10 @@ pub fn routes() -> Router<AppState> {
         .route("/equipment/:id/delete", post(handlers::delete_equipment))
         // Equipment Suppliers
         .route(
+            "/equipment-suppliers/summary",
+            get(handlers::list_equipment_suppliers_summary),
+        )
+        .route(
             "/equipment/:id/suppliers",
             get(handlers::list_equipment_suppliers)
                 .post(handlers::add_equipment_supplier),

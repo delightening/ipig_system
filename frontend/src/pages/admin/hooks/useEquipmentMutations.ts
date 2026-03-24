@@ -1,13 +1,14 @@
 /**
  * 設備維護管理的 mutation hooks
  */
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { deleteResource } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { format } from 'date-fns'
 
-import type { EquipmentForm, CalibrationForm } from '../types'
+import type { Equipment, EquipmentForm, CalibrationForm, EquipmentSupplierWithPartner } from '../types'
 
 const EQUIP_KEYS = {
   list: ['equipment'],
@@ -17,6 +18,10 @@ const EQUIP_KEYS = {
 const CALIB_KEYS = {
   list: ['equipment-calibrations'],
   all: ['equipment-calibrations-all'],
+} as const
+
+const SUPPLIER_KEYS = {
+  summary: ['equipment-suppliers-summary'],
 } as const
 
 const emptyToNull = (v: string) => v || null
@@ -34,10 +39,12 @@ interface UseEquipmentMutationsOptions {
 
 export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
   const queryClient = useQueryClient()
+  const [equipSaving, setEquipSaving] = useState(false)
 
   const invalidateEquip = () => {
     queryClient.invalidateQueries({ queryKey: EQUIP_KEYS.list })
     queryClient.invalidateQueries({ queryKey: EQUIP_KEYS.all })
+    queryClient.invalidateQueries({ queryKey: SUPPLIER_KEYS.summary })
   }
 
   const invalidateCalib = () => {
@@ -143,22 +150,28 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
     },
   })
 
-  const handleCreateEquip = (form: EquipmentForm) => {
-    if (!form.name.trim()) {
-      toast({ title: '錯誤', description: '設備名稱為必填', variant: 'destructive' })
-      return
-    }
-    createEquipMutation.mutate(form)
+  const syncSuppliers = async (equipmentId: string, partnerIds: string[]) => {
+    const res = await api.get<EquipmentSupplierWithPartner[]>(`/equipment/${equipmentId}/suppliers`)
+    const existing = res.data
+
+    const existingPartnerIds = existing.map((s) => s.partner_id)
+    const toAdd = partnerIds.filter((pid) => !existingPartnerIds.includes(pid))
+    const toRemove = existing.filter((s) => !partnerIds.includes(s.partner_id))
+
+    await Promise.all([
+      ...toAdd.map((pid) => api.post(`/equipment/${equipmentId}/suppliers`, { partner_id: pid })),
+      ...toRemove.map((s) => deleteResource(`/equipment-suppliers/${s.id}`)),
+    ])
   }
 
-  const handleUpdateEquip = (id: string, form: EquipmentForm) => {
+  const handleCreateEquip = async (form: EquipmentForm, partnerIds: string[]) => {
     if (!form.name.trim()) {
       toast({ title: '錯誤', description: '設備名稱為必填', variant: 'destructive' })
       return
     }
-    updateEquipMutation.mutate({
-      id,
-      payload: {
+    setEquipSaving(true)
+    try {
+      const res = await api.post<Equipment>('/equipment', {
         name: form.name,
         model: emptyToNull(form.model),
         serial_number: emptyToNull(form.serial_number),
@@ -167,8 +180,51 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
         calibration_type: form.calibration_type || null,
         calibration_cycle: form.calibration_cycle || null,
         inspection_cycle: form.inspection_cycle || null,
-      },
-    })
+      })
+      const created = res.data
+      if (partnerIds.length > 0) {
+        await Promise.all(
+          partnerIds.map((pid) => api.post(`/equipment/${created.id}/suppliers`, { partner_id: pid })),
+        )
+      }
+      invalidateEquip()
+      options.closeEquipCreate()
+      options.resetEquipForm()
+      toast({ title: '成功', description: '已新增設備' })
+    } catch (err: unknown) {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
+    } finally {
+      setEquipSaving(false)
+    }
+  }
+
+  const handleUpdateEquip = async (id: string, form: EquipmentForm, partnerIds: string[]) => {
+    if (!form.name.trim()) {
+      toast({ title: '錯誤', description: '設備名稱為必填', variant: 'destructive' })
+      return
+    }
+    setEquipSaving(true)
+    try {
+      await api.put(`/equipment/${id}`, {
+        name: form.name,
+        model: emptyToNull(form.model),
+        serial_number: emptyToNull(form.serial_number),
+        location: emptyToNull(form.location),
+        notes: emptyToNull(form.notes),
+        calibration_type: form.calibration_type || null,
+        calibration_cycle: form.calibration_cycle || null,
+        inspection_cycle: form.inspection_cycle || null,
+      })
+      await syncSuppliers(id, partnerIds)
+      invalidateEquip()
+      options.closeEquipEdit()
+      options.clearEditingEquip()
+      toast({ title: '成功', description: '已更新設備' })
+    } catch (err: unknown) {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
+    } finally {
+      setEquipSaving(false)
+    }
   }
 
   const handleCreateCalib = (form: CalibrationForm) => {
@@ -200,8 +256,7 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
   }
 
   return {
-    createEquipMutation,
-    updateEquipMutation,
+    equipSaving,
     deleteEquipMutation,
     createCalibMutation,
     updateCalibMutation,

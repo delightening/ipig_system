@@ -260,6 +260,14 @@ pub struct CreateEquipmentSupplierRequest {
     pub notes: Option<String>,
 }
 
+// ========== Supplier Summary (廠商摘要) ==========
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct EquipmentSupplierSummaryRow {
+    pub equipment_id: Uuid,
+    pub partner_name: String,
+}
+
 // ========== Status Log (狀態變更紀錄) ==========
 
 #[derive(Debug, Clone, Serialize, FromRow)]
