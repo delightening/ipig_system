@@ -55,7 +55,6 @@ export function SectionItems({ formData, updateWorkingContent, setFormData: _set
                 <h3 className="font-semibold">{t('aup.items.testItems')}</h3>
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => {
                     const newItems = [...formData.working_content.items.test_items, {
                       name: '', is_sterile: true, purpose: '', storage_conditions: '', photos: []
@@ -195,7 +194,6 @@ export function SectionItems({ formData, updateWorkingContent, setFormData: _set
                 <h3 className="font-semibold">{t('aup.items.controlItems')}</h3>
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => {
                     const newControls = [...formData.working_content.items.control_items, {
                       name: '', is_sterile: true, purpose: '', storage_conditions: '', photos: []

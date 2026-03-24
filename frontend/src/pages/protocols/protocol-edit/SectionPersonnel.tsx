@@ -22,7 +22,6 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={onAddPersonnel}
             >
               + {t('aup.personnel.addPersonnel')}

@@ -50,7 +50,6 @@ export function SectionSignature({ formData, setFormData, t }: SectionProps) {
           <Button
             type="button"
             variant={signMode === 'upload' ? 'default' : 'outline'}
-            size="sm"
             onClick={() => setSignMode('upload')}
           >
             <Upload className="h-4 w-4 mr-1" />
@@ -59,7 +58,6 @@ export function SectionSignature({ formData, setFormData, t }: SectionProps) {
           <Button
             type="button"
             variant={signMode === 'handwriting' ? 'default' : 'outline'}
-            size="sm"
             onClick={() => setSignMode('handwriting')}
           >
             <PenLine className="h-4 w-4 mr-1" />

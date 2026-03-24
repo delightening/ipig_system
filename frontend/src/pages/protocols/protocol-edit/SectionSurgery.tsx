@@ -26,7 +26,6 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 onClick={() => {
                   // Load default values for surgery section
                   // 6.2 Pre-operative
@@ -302,8 +301,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
-                    onClick={() => {
+                        onClick={() => {
                       const currentDrugs = formData.working_content.surgery.drugs || []
                       const newDrugs = [...currentDrugs, {
                         drug_name: '',
