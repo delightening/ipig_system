@@ -38,7 +38,7 @@ export function ConflictsTab({ conflicts, loadingConflicts, onResolve, resolvePe
                         <TableHead>假別</TableHead>
                         <TableHead>衝突類型</TableHead>
                         <TableHead>差異</TableHead>
-                        <TableHead>操作</TableHead>
+                        <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -69,7 +69,7 @@ export function ConflictsTab({ conflicts, loadingConflicts, onResolve, resolvePe
                                     {c.difference_summary || '-'}
                                 </TableCell>
                                 <TableCell>
-                                    <div className="flex gap-2">
+                                    <div className="flex items-center justify-end gap-1">
                                         <Button
                                             variant="default"
                                             size="sm"

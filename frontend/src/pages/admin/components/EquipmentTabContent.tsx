@@ -142,7 +142,7 @@ export function EquipmentTabContent({
                     <TableHead>廠商</TableHead>
                     <TableHead>校正/確效到期</TableHead>
                     <TableHead>查核到期</TableHead>
-                    {canManage && <TableHead className="w-[100px]">操作</TableHead>}
+                    {canManage && <TableHead className="w-[100px] text-right">操作</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -200,7 +200,7 @@ export function EquipmentTabContent({
                         </TableCell>
                         {canManage && (
                           <TableCell>
-                            <div className="flex gap-2">
+                            <div className="flex items-center justify-end gap-1">
                               <Button variant="ghost" size="icon" onClick={() => onEdit(r)}>
                                 <Pencil className="h-4 w-4" />
                               </Button>

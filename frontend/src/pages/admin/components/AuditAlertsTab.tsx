@@ -117,7 +117,7 @@ export function AuditAlertsTab({
                             <TableHead>標題</TableHead>
                             <TableHead>描述</TableHead>
                             <SortableHead label="狀態" field="status" sortConfig={sortConfig} onSort={onSort} />
-                            <TableHead>操作</TableHead>
+                            <TableHead className="text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -211,16 +211,18 @@ function AlertRow({ alert, onSelect, onResolve, isResolving }: AlertRowProps) {
                 </Badge>
             </TableCell>
             <TableCell>
-                {alert.status !== 'resolved' && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => { e.stopPropagation(); onResolve() }}
-                        disabled={isResolving}
-                    >
-                        標記解決
-                    </Button>
-                )}
+                <div className="flex items-center justify-end gap-1">
+                    {alert.status !== 'resolved' && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); onResolve() }}
+                            disabled={isResolving}
+                        >
+                            標記解決
+                        </Button>
+                    )}
+                </div>
             </TableCell>
         </TableRow>
     )

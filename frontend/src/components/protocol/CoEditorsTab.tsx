@@ -139,7 +139,7 @@ export function CoEditorsTab({ protocolId, canAssignReviewer }: CoEditorsTabProp
                   <TableHead>{t('protocols.detail.tabs.coeditors')}</TableHead>
                   <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
                   <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
-                  <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
+                  <TableHead className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -154,30 +154,32 @@ export function CoEditorsTab({ protocolId, canAssignReviewer }: CoEditorsTabProp
                     <TableCell>{formatDateTime(coEditor.granted_at)}</TableCell>
                     <TableCell>{coEditor.granted_by_name || '-'}</TableCell>
                     <TableCell>
-                      {canAssignReviewer && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={async () => {
-                            const ok = await confirm({
-                              title: '移除協作者',
-                              description: t('protocols.detail.actions.removeCoeditorConfirm'),
-                              variant: 'destructive',
-                              confirmLabel: '確認移除',
-                            })
-                            if (ok) {
-                              removeCoEditorMutation.mutate(coEditor.user_id)
-                            }
-                          }}
-                          disabled={removeCoEditorMutation.isPending}
-                        >
-                          {removeCoEditorMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          )}
-                        </Button>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {canAssignReviewer && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              const ok = await confirm({
+                                title: '移除協作者',
+                                description: t('protocols.detail.actions.removeCoeditorConfirm'),
+                                variant: 'destructive',
+                                confirmLabel: '確認移除',
+                              })
+                              if (ok) {
+                                removeCoEditorMutation.mutate(coEditor.user_id)
+                              }
+                            }}
+                            disabled={removeCoEditorMutation.isPending}
+                          >
+                            {removeCoEditorMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

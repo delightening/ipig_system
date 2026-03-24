@@ -148,7 +148,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
                   <TableHead>{t('protocols.detail.tables.size')}</TableHead>
                   <TableHead>{t('protocols.detail.tables.uploadedBy')}</TableHead>
                   <TableHead>{t('protocols.detail.tables.uploadTime')}</TableHead>
-                  <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
+                  <TableHead className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -164,7 +164,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
                     <TableCell>{attachment.uploaded_by_name || '-'}</TableCell>
                     <TableCell>{formatDateTime(attachment.created_at)}</TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
+                      <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="sm"

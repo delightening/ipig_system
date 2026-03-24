@@ -104,7 +104,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
             <TableHead>容量</TableHead>
             <TableHead>目前數量</TableHead>
             <TableHead>狀態</TableHead>
-            {canManage && <TableHead className="w-24">操作</TableHead>}
+            {canManage && <TableHead className="w-24 text-right">操作</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -122,7 +122,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
               <TableCell><Badge variant={statusBadgeVariant(p.status)}>{PEN_STATUS_NAMES[p.status] ?? p.status}</Badge></TableCell>
               {canManage && (
                 <TableCell>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-end gap-1">
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(p)}><Pencil className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(p)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>

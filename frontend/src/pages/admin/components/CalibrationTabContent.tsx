@@ -127,7 +127,7 @@ export function CalibrationTabContent({
                   <TableHead>下次到期</TableHead>
                   <TableHead>結果</TableHead>
                   <TableHead>報告/人員</TableHead>
-                  {canManage && <TableHead className="w-[100px]">操作</TableHead>}
+                  {canManage && <TableHead className="w-[100px] text-right">操作</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,7 +170,7 @@ export function CalibrationTabContent({
                     </TableCell>
                     {canManage && (
                       <TableCell>
-                        <div className="flex gap-2">
+                        <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => onEdit(r)}>
                             <Pencil className="h-4 w-4" />
                           </Button>

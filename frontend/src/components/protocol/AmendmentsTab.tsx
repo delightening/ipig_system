@@ -172,7 +172,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                                 <TableHead>{t('protocols.amendments.table.type')}</TableHead>
                                 <TableHead>{t('protocols.amendments.table.status')}</TableHead>
                                 <TableHead>{t('protocols.amendments.table.submittedAt')}</TableHead>
-                                <TableHead>{t('protocols.amendments.table.actions')}</TableHead>
+                                <TableHead className="text-right">{t('protocols.amendments.table.actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -197,7 +197,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                                         }
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex gap-2">
+                                        <div className="flex items-center justify-end gap-1">
                                             {amendment.status === 'DRAFT' && isPIorCoEditor && (
                                                 <Button
                                                     variant="outline"

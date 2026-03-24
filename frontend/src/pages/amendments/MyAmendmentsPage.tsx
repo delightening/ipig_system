@@ -106,7 +106,7 @@ export function MyAmendmentsPage() {
                             <TableHead>{t('amendments.columns.type')}</TableHead>
                             <TableHead>{t('amendments.columns.status')}</TableHead>
                             <TableHead>{t('amendments.columns.submittedAt')}</TableHead>
-                            <TableHead>{t('amendments.columns.actions')}</TableHead>
+                            <TableHead className="text-right">{t('amendments.columns.actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -152,12 +152,14 @@ export function MyAmendmentsPage() {
                                                     : '-'}
                                             </TableCell>
                                             <TableCell>
-                                                <Button variant="ghost" size="sm" asChild>
-                                                    <Link to={`/protocols/${amendment.protocol_id}?tab=amendments`}>
-                                                        <Eye className="mr-1 h-4 w-4" />
-                                                        {t('common.view')}
-                                                    </Link>
-                                                </Button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button variant="ghost" size="sm" asChild>
+                                                        <Link to={`/protocols/${amendment.protocol_id}?tab=amendments`}>
+                                                            <Eye className="mr-1 h-4 w-4" />
+                                                            {t('common.view')}
+                                                        </Link>
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))

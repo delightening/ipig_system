@@ -299,7 +299,7 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                             <TableHead>站立</TableHead>
                             <TableHead>行走</TableHead>
                             <TableHead>行為態度</TableHead>
-                            <TableHead className="w-[80px]">操作</TableHead>
+                            <TableHead className="w-[80px] text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -339,7 +339,7 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                                         {r.attitude_behavior ? <Badge variant={getBadgeVariant(r.attitude_behavior, attitudeScore)}>{r.attitude_behavior}</Badge> : '-'}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex gap-1">
+                                        <div className="flex items-center justify-end gap-1">
                                             <Button variant="ghost" size="icon" onClick={() => openEditDialog(r)} title="編輯">
                                                 <Edit2 className="h-3.5 w-3.5" />
                                             </Button>

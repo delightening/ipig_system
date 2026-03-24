@@ -48,7 +48,7 @@ function PendingApprovalRow({
             <TableCell>{parseDecimal(overtime.hours).toFixed(1)} 小時</TableCell>
             <TableCell className="max-w-[200px] truncate">{overtime.reason}</TableCell>
             <TableCell>
-                <div className="flex gap-2">
+                <div className="flex items-center justify-end gap-1">
                     <Button
                         variant="default"
                         size="sm"
@@ -106,7 +106,7 @@ export function PendingApprovalsTabContent({
                                 <TableHead>時間</TableHead>
                                 <TableHead>加班時數</TableHead>
                                 <TableHead>事由</TableHead>
-                                <TableHead>操作</TableHead>
+                                <TableHead className="text-right">操作</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

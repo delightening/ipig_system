@@ -48,7 +48,7 @@ export function LeavePendingApprovalsTab({
                             <TableHead>日期</TableHead>
                             <TableHead>時數</TableHead>
                             <TableHead>事由</TableHead>
-                            <TableHead>操作</TableHead>
+                            <TableHead className="text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -81,7 +81,7 @@ export function LeavePendingApprovalsTab({
                                     <TableCell>{formatLeaveHours(leave)}</TableCell>
                                     <TableCell className="max-w-[200px] truncate">{leave.reason}</TableCell>
                                     <TableCell>
-                                        <div className="flex gap-2">
+                                        <div className="flex items-center justify-end gap-1">
                                             <Button
                                                 variant="default"
                                                 size="sm"
