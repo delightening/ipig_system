@@ -74,6 +74,15 @@ pub async fn delete_equipment(
 
 // ========== Equipment Suppliers ==========
 
+pub async fn list_equipment_suppliers_summary(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<crate::models::EquipmentSupplierSummaryRow>>> {
+    let result =
+        EquipmentService::list_all_equipment_suppliers_summary(&state.db, &current_user).await?;
+    Ok(Json(result))
+}
+
 pub async fn list_equipment_suppliers(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

@@ -2,7 +2,7 @@
  * 設備管理分頁內容：搜尋、表格、分頁
  * 欄位：名稱、型號、序號、位置、狀態、廠商、確效/校正日期、查核日期、操作
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Pencil, Trash2, Loader2, Search, Building2 } from 'lucide-react'
+import { Pencil, Trash2, Loader2, Search, Building2, ArrowUpDown } from 'lucide-react'
 import api from '@/lib/api'
 
 import type {
@@ -34,6 +34,13 @@ import {
   EQUIPMENT_STATUS_LABELS,
   CALIBRATION_TYPE_LABELS,
 } from '../types'
+
+interface SupplierSummaryRow {
+  equipment_id: string
+  partner_name: string
+}
+
+type SortKey = 'name' | 'model' | 'serial_number' | 'location' | 'calibration_due' | 'inspection_due'
 
 interface EquipmentTabContentProps {
   canManage: boolean
@@ -87,6 +94,8 @@ export function EquipmentTabContent({
 }: EquipmentTabContentProps) {
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false)
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(null)
+  const [sortColumn, setSortColumn] = useState<SortKey | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const selectedEquipment = records.find((r) => r.id === selectedEquipmentId)
 
   const { data: suppliers = [] } = useQuery({
@@ -101,10 +110,87 @@ export function EquipmentTabContent({
     enabled: !!selectedEquipmentId && supplierDialogOpen,
   })
 
+  const { data: supplierSummary = [] } = useQuery({
+    queryKey: ['equipment-suppliers-summary'],
+    queryFn: async () => {
+      const res = await api.get<SupplierSummaryRow[]>('/equipment-suppliers/summary')
+      return res.data
+    },
+  })
+
+  const supplierMap = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const row of supplierSummary) {
+      const list = map.get(row.equipment_id) ?? []
+      list.push(row.partner_name)
+      map.set(row.equipment_id, list)
+    }
+    return map
+  }, [supplierSummary])
+
   const handleShowSuppliers = (equipmentId: string) => {
     setSelectedEquipmentId(equipmentId)
     setSupplierDialogOpen(true)
   }
+
+  const handleSort = (column: SortKey) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortColumn(column)
+      setSortDirection('asc')
+    }
+  }
+
+  const SortableHeader = ({ column, label }: { column: SortKey; label: string }) => (
+    <TableHead
+      className="cursor-pointer select-none hover:bg-muted/50"
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        <ArrowUpDown className={`h-3 w-3 ${sortColumn === column ? 'text-primary' : 'text-muted-foreground'}`} />
+      </div>
+    </TableHead>
+  )
+
+  const sortedRecords = useMemo(() => {
+    if (!sortColumn) return records
+
+    return [...records].sort((a, b) => {
+      let aVal: string | number = ''
+      let bVal: string | number = ''
+
+      if (sortColumn === 'calibration_due') {
+        const aType = a.calibration_type
+        const aCal = aType && aType !== 'inspection'
+          ? getLatestCalibrationDate(a.id, aType, allCalibrations)
+          : { nextDue: null, isOverdue: false }
+        const bType = b.calibration_type
+        const bCal = bType && bType !== 'inspection'
+          ? getLatestCalibrationDate(b.id, bType, allCalibrations)
+          : { nextDue: null, isOverdue: false }
+        aVal = aCal.nextDue ? new Date(aCal.nextDue).getTime() : (sortDirection === 'asc' ? Infinity : -Infinity)
+        bVal = bCal.nextDue ? new Date(bCal.nextDue).getTime() : (sortDirection === 'asc' ? Infinity : -Infinity)
+      } else if (sortColumn === 'inspection_due') {
+        const aInsp = a.inspection_cycle
+          ? getLatestCalibrationDate(a.id, 'inspection', allCalibrations)
+          : { nextDue: null, isOverdue: false }
+        const bInsp = b.inspection_cycle
+          ? getLatestCalibrationDate(b.id, 'inspection', allCalibrations)
+          : { nextDue: null, isOverdue: false }
+        aVal = aInsp.nextDue ? new Date(aInsp.nextDue).getTime() : (sortDirection === 'asc' ? Infinity : -Infinity)
+        bVal = bInsp.nextDue ? new Date(bInsp.nextDue).getTime() : (sortDirection === 'asc' ? Infinity : -Infinity)
+      } else {
+        aVal = (a[sortColumn] ?? '').toLowerCase()
+        bVal = (b[sortColumn] ?? '').toLowerCase()
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [records, sortColumn, sortDirection, allCalibrations])
 
   return (
     <>
@@ -134,19 +220,19 @@ export function EquipmentTabContent({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>名稱</TableHead>
-                    <TableHead>型號</TableHead>
-                    <TableHead>序號</TableHead>
-                    <TableHead>位置</TableHead>
+                    <SortableHeader column="name" label="名稱" />
+                    <SortableHeader column="model" label="型號" />
+                    <SortableHeader column="serial_number" label="序號" />
+                    <SortableHeader column="location" label="位置" />
                     <TableHead>狀態</TableHead>
                     <TableHead>廠商</TableHead>
-                    <TableHead>校正/確效到期</TableHead>
-                    <TableHead>查核到期</TableHead>
+                    <SortableHeader column="calibration_due" label="校正/確效到期" />
+                    <SortableHeader column="inspection_due" label="查核到期" />
                     {canManage && <TableHead className="w-[100px] text-right">操作</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {records.map((r) => {
+                  {sortedRecords.map((r) => {
                     const calType = r.calibration_type
                     const calInfo = calType && calType !== 'inspection'
                       ? getLatestCalibrationDate(r.id, calType, allCalibrations)
@@ -154,6 +240,7 @@ export function EquipmentTabContent({
                     const inspInfo = r.inspection_cycle
                       ? getLatestCalibrationDate(r.id, 'inspection', allCalibrations)
                       : { nextDue: null, isOverdue: false }
+                    const names = supplierMap.get(r.id)
 
                     return (
                       <TableRow key={r.id}>
@@ -167,15 +254,17 @@ export function EquipmentTabContent({
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => handleShowSuppliers(r.id)}
-                          >
-                            <Building2 className="h-3 w-3 mr-1" />
-                            查看
-                          </Button>
+                          {names && names.length > 0 ? (
+                            <button
+                              type="button"
+                              className="text-left text-sm text-primary hover:underline"
+                              onClick={() => handleShowSuppliers(r.id)}
+                            >
+                              {names.join('、')}
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {calInfo.nextDue ? (
