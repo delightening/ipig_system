@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>電子名片 | iPig System</title>
+  <meta name="description" content="iPig System 電子名片">
+  <meta name="theme-color" content="#1e293b">
+  <!-- Open Graph -->
+  <meta property="og:title" content="電子名片">
+  <meta property="og:description" content="iPig System 數位名片">
+  <meta property="og:type" content="profile">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --success: #22c55e;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Header / Banner */
+    .card-header {
+      position: relative;
+      height: 120px;
+      background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .avatar {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      border: 4px solid var(--card-bg);
+      background: var(--card-border);
+      position: absolute;
+      bottom: -48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      font-weight: 700;
+      color: var(--accent);
+      overflow: hidden;
+    }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Profile Info */
+    .profile {
+      text-align: center;
+      padding: 56px 24px 16px;
+    }
+
+    .profile h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .profile .title {
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+
+    .profile .company {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    /* Contact Info */
+    .contact-list {
+      padding: 8px 24px 16px;
+      list-style: none;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--card-border);
+      text-decoration: none;
+      color: var(--text);
+      transition: color 0.2s;
+    }
+
+    .contact-item:last-child { border-bottom: none; }
+
+    .contact-item:hover, .contact-item:active {
+      color: var(--accent);
+    }
+
+    .contact-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .contact-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--accent);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .contact-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .contact-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .contact-value {
+      font-size: 14px;
+      margin-top: 1px;
+      word-break: break-all;
+    }
+
+    /* Actions */
+    .actions {
+      padding: 8px 24px 24px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      font-family: inherit;
+    }
+
+    .btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover { background: var(--primary-dark); }
+
+    .btn-secondary {
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(56, 189, 248, 0.2);
+    }
+
+    /* QR Code Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+      max-width: 320px;
+      width: 100%;
+    }
+
+    .modal h3 {
+      margin-bottom: 16px;
+      font-size: 18px;
+    }
+
+    .qr-container {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      display: inline-block;
+      margin-bottom: 16px;
+    }
+
+    .qr-container canvas { display: block; }
+
+    .modal .btn { margin-top: 8px; }
+
+    /* Social Links */
+    .social-links {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      padding: 0 24px 24px;
+    }
+
+    .social-link {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .social-link:hover {
+      background: rgba(56, 189, 248, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .social-link svg {
+      width: 20px;
+      height: 20px;
+      stroke: var(--accent);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--success);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 200;
+      transition: transform 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--card-border);
+      margin: 0 24px;
+    }
+
+    /* Footer branding */
+    .card-footer {
+      text-align: center;
+      padding: 12px 24px 20px;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card" id="businessCard">
+  <!-- Header Banner -->
+  <div class="card-header">
+    <div class="avatar" id="avatar">
+      <!-- 預設顯示姓名首字，可替換為圖片 -->
+    </div>
+  </div>
+
+  <!-- Profile -->
+  <div class="profile">
+    <h1 id="name"></h1>
+    <div class="title" id="jobTitle"></div>
+    <div class="company" id="company"></div>
+  </div>
+
+  <!-- Contact Info -->
+  <ul class="contact-list" id="contactList"></ul>
+
+  <!-- Social Links -->
+  <div class="social-links" id="socialLinks"></div>
+
+  <div class="divider"></div>
+
+  <!-- Action Buttons -->
+  <div class="actions">
+    <button class="btn btn-primary" onclick="downloadVCard()">
+      <svg><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      儲存聯絡人
+    </button>
+    <button class="btn btn-secondary" onclick="showQRCode()">
+      <svg><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      QR Code
+    </button>
+  </div>
+
+  <div class="card-footer">
+    Powered by iPig System
+  </div>
+</div>
+
+<!-- QR Code Modal -->
+<div class="modal-overlay" id="qrModal" onclick="closeQRModal(event)">
+  <div class="modal">
+    <h3>掃描 QR Code</h3>
+    <div class="qr-container">
+      <canvas id="qrCanvas"></canvas>
+    </div>
+    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">
+      掃描以開啟此名片頁面
+    </p>
+    <button class="btn btn-secondary" onclick="closeQRModal()" style="width: 100%;">關閉</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ============================================================
+  // 名片資料設定 — 修改以下內容即可自訂名片
+  // ============================================================
+  const CARD_DATA = {
+    name: '王小明',
+    jobTitle: '資深軟體工程師',
+    company: 'iPig System 智慧豬隻管理',
+    avatarUrl: '', // 可放圖片 URL，留空則顯示姓名首字
+    phone: '+886-912-345-678',
+    email: 'xiaoming@ipig-system.com',
+    website: 'https://ipig-system.com',
+    address: '台北市信義區信義路五段 7 號',
+    // 社群連結（留空則不顯示）
+    social: {
+      linkedin: '',
+      github: '',
+      line: '',
+      facebook: '',
+    },
+    // 額外自訂欄位
+    extra: [
+      // { label: '分機', value: '1234', icon: 'phone' },
+    ],
+  };
+
+  // ============================================================
+  // SVG Icon 定義
+  // ============================================================
+  const ICONS = {
+    phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    email: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+    website: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+    address: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+    linkedin: '<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/>',
+    github: '<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>',
+    line: '<path d="M12 2C6.48 2 2 5.82 2 10.5c0 3.26 2.16 6.12 5.4 7.74l-.86 3.15a.5.5 0 0 0 .72.56l3.72-2.03c.33.03.67.08 1.02.08 5.52 0 10-3.82 10-8.5S17.52 2 12 2z"/>',
+    facebook: '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
+  };
+
+  function svgIcon(name) {
+    return `<svg viewBox="0 0 24 24">${ICONS[name] || ''}</svg>`;
+  }
+
+  // ============================================================
+  // 渲染名片
+  // ============================================================
+  function renderCard() {
+    const d = CARD_DATA;
+
+    // Avatar
+    const avatarEl = document.getElementById('avatar');
+    if (d.avatarUrl) {
+      avatarEl.innerHTML = `<img src="${d.avatarUrl}" alt="${d.name}">`;
+    } else {
+      avatarEl.textContent = d.name.charAt(0);
+    }
+
+    // Profile
+    document.getElementById('name').textContent = d.name;
+    document.getElementById('jobTitle').textContent = d.jobTitle;
+    document.getElementById('company').textContent = d.company;
+
+    // Contact list
+    const contactList = document.getElementById('contactList');
+    const contacts = [];
+
+    if (d.phone) {
+      contacts.push({
+        icon: 'phone', label: '電話', value: d.phone,
+        href: `tel:${d.phone.replace(/[^+\d]/g, '')}`,
+      });
+    }
+    if (d.email) {
+      contacts.push({
+        icon: 'email', label: 'Email', value: d.email,
+        href: `mailto:${d.email}`,
+      });
+    }
+    if (d.website) {
+      contacts.push({
+        icon: 'website', label: '網站', value: d.website.replace(/^https?:\/\//, ''),
+        href: d.website,
+      });
+    }
+    if (d.address) {
+      contacts.push({
+        icon: 'address', label: '地址', value: d.address,
+        href: `https://maps.google.com/?q=${encodeURIComponent(d.address)}`,
+      });
+    }
+
+    // Extra fields
+    if (d.extra) {
+      d.extra.forEach(item => {
+        contacts.push({ icon: item.icon || 'phone', label: item.label, value: item.value, href: item.href || '#' });
+      });
+    }
+
+    contactList.innerHTML = contacts.map(c => `
+      <li>
+        <a class="contact-item" href="${c.href}" target="${c.href.startsWith('http') ? '_blank' : '_self'}" rel="noopener">
+          <div class="contact-icon">${svgIcon(c.icon)}</div>
+          <div class="contact-text">
+            <div class="contact-label">${c.label}</div>
+            <div class="contact-value">${c.value}</div>
+          </div>
+        </a>
+      </li>
+    `).join('');
+
+    // Social Links
+    const socialEl = document.getElementById('socialLinks');
+    const socials = [];
+    if (d.social) {
+      if (d.social.linkedin) socials.push({ icon: 'linkedin', url: d.social.linkedin });
+      if (d.social.github) socials.push({ icon: 'github', url: d.social.github });
+      if (d.social.line) socials.push({ icon: 'line', url: d.social.line });
+      if (d.social.facebook) socials.push({ icon: 'facebook', url: d.social.facebook });
+    }
+
+    if (socials.length > 0) {
+      socialEl.innerHTML = socials.map(s =>
+        `<a class="social-link" href="${s.url}" target="_blank" rel="noopener">${svgIcon(s.icon)}</a>`
+      ).join('');
+    } else {
+      socialEl.style.display = 'none';
+    }
+
+    // Update page title
+    document.title = `${d.name} - 電子名片`;
+  }
+
+  // ============================================================
+  // vCard 下載
+  // ============================================================
+  function downloadVCard() {
+    const d = CARD_DATA;
+    const nameParts = d.name.split('');
+    const lastName = nameParts[0] || '';
+    const firstName = nameParts.slice(1).join('') || '';
+
+    const vcard = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `N:${lastName};${firstName};;;`,
+      `FN:${d.name}`,
+      `ORG:${d.company}`,
+      `TITLE:${d.jobTitle}`,
+      d.phone ? `TEL;TYPE=CELL:${d.phone.replace(/[^+\d]/g, '')}` : '',
+      d.email ? `EMAIL;TYPE=INTERNET:${d.email}` : '',
+      d.website ? `URL:${d.website}` : '',
+      d.address ? `ADR;TYPE=WORK:;;${d.address};;;;` : '',
+      `NOTE:透過 NFC 電子名片新增`,
+      'END:VCARD',
+    ].filter(Boolean).join('\r\n');
+
+    const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${d.name}.vcf`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    showToast('聯絡人已下載');
+  }
+
+  // ============================================================
+  // QR Code（輕量 Canvas 實作，不依賴外部套件）
+  // ============================================================
+  function showQRCode() {
+    const modal = document.getElementById('qrModal');
+    modal.classList.add('active');
+
+    // 使用簡單的 QR code API 圖片
+    const canvas = document.getElementById('qrCanvas');
+    const ctx = canvas.getContext('2d');
+    const pageUrl = window.location.href;
+
+    // 使用 QR code 圖片 API 繪製到 canvas
+    const size = 200;
+    canvas.width = size;
+    canvas.height = size;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, size, size);
+    };
+    img.onerror = () => {
+      // Fallback: 顯示文字連結
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = '#333';
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('QR Code 載入失敗', size / 2, size / 2 - 10);
+      ctx.fillText('請複製頁面網址分享', size / 2, size / 2 + 10);
+    };
+    // 使用 QR Server API（免費、無限制）
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(pageUrl)}&bgcolor=ffffff&color=1e293b`;
+  }
+
+  function closeQRModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('qrModal').classList.remove('active');
+  }
+
+  // ============================================================
+  // Toast 提示
+  // ============================================================
+  function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  // ============================================================
+  // 初始化
+  // ============================================================
+  renderCard();
+</script>
+
+</body>
+</html>

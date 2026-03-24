@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NFC 名片寫入工具 | iPig System</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    h1 {
+      font-size: 24px;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .panel h2 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel h2 .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    .badge-success { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .badge-error { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+    .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+
+    /* Form */
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    input[type="text"], input[type="url"], textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover:not(:disabled) { background: #16a34a; }
+
+    .btn-warning { background: var(--warning); color: #1e293b; }
+    .btn-warning:hover:not(:disabled) { background: #d97706; }
+
+    /* Status */
+    .status-box {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-top: 16px;
+      display: none;
+    }
+
+    .status-box.show { display: block; }
+
+    .status-success {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: var(--success);
+    }
+
+    .status-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--error);
+    }
+
+    .status-info {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent);
+    }
+
+    .status-warning {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: var(--warning);
+    }
+
+    /* Steps */
+    .steps {
+      list-style: none;
+      padding: 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .step:last-child { border-bottom: none; }
+
+    .step-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .step-text {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .step-text strong {
+      color: var(--accent);
+    }
+
+    /* Animation */
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* NFC not supported banner */
+    .not-supported {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .not-supported h3 {
+      color: var(--error);
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .not-supported p {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* Link */
+    a { color: var(--accent); }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .back-link:hover { color: var(--accent); }
+
+    /* Record type selector */
+    .record-types {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .record-type-btn {
+      flex: 1;
+      padding: 8px 12px;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .record-type-btn.active {
+      background: rgba(37, 99, 235, 0.15);
+      border-color: var(--primary);
+      color: var(--accent);
+    }
+
+    .record-type-btn:hover:not(.active) {
+      border-color: var(--text-muted);
+    }
+
+    .record-form { display: none; }
+    .record-form.active { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>NFC 名片寫入工具</h1>
+  <p class="subtitle">將電子名片 URL 寫入 NFC 標籤</p>
+
+  <!-- NFC Not Supported Warning -->
+  <div class="not-supported" id="notSupported" style="display: none;">
+    <h3>此瀏覽器不支援 Web NFC</h3>
+    <p>
+      Web NFC API 目前僅支援 <strong>Android 裝置的 Chrome 瀏覽器</strong>（89 版以上）。<br>
+      請使用 Android 手機的 Chrome 開啟此頁面。<br><br>
+      iOS 裝置可使用第三方 NFC 寫入 App（如 NFC Tools）手動輸入以下 URL。
+    </p>
+  </div>
+
+  <!-- Step 1: Record Type -->
+  <div class="panel">
+    <h2>寫入類型</h2>
+
+    <div class="record-types">
+      <button class="record-type-btn active" onclick="selectRecordType('url')" id="typeUrl">
+        URL 連結
+      </button>
+      <button class="record-type-btn" onclick="selectRecordType('vcard')" id="typeVcard">
+        vCard 名片
+      </button>
+    </div>
+
+    <!-- URL Form -->
+    <div class="record-form active" id="formUrl">
+      <div class="form-group">
+        <label for="cardUrl">名片網頁 URL</label>
+        <input type="url" id="cardUrl" placeholder="https://your-domain.com/nfc-card/">
+        <div class="form-hint">NFC 掃描後將開啟此網址。預設為當前名片頁面。</div>
+      </div>
+    </div>
+
+    <!-- vCard Form -->
+    <div class="record-form" id="formVcard">
+      <div class="form-group">
+        <label for="vcardName">姓名</label>
+        <input type="text" id="vcardName" placeholder="王小明">
+      </div>
+      <div class="form-group">
+        <label for="vcardTitle">職稱</label>
+        <input type="text" id="vcardTitle" placeholder="資深軟體工程師">
+      </div>
+      <div class="form-group">
+        <label for="vcardCompany">公司</label>
+        <input type="text" id="vcardCompany" placeholder="iPig System">
+      </div>
+      <div class="form-group">
+        <label for="vcardPhone">電話</label>
+        <input type="text" id="vcardPhone" placeholder="+886-912-345-678">
+      </div>
+      <div class="form-group">
+        <label for="vcardEmail">Email</label>
+        <input type="text" id="vcardEmail" placeholder="name@example.com">
+      </div>
+      <div class="form-group">
+        <label for="vcardWebsite">網站</label>
+        <input type="url" id="vcardWebsite" placeholder="https://example.com">
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Write -->
+  <div class="panel">
+    <h2>
+      寫入 NFC 標籤
+      <span class="badge" id="nfcBadge"></span>
+    </h2>
+
+    <ul class="steps">
+      <li class="step">
+        <div class="step-number">1</div>
+        <div class="step-text">填寫上方的名片資訊或確認 URL</div>
+      </li>
+      <li class="step">
+        <div class="step-number">2</div>
+        <div class="step-text">點擊下方 <strong>「開始寫入」</strong> 按鈕</div>
+      </li>
+      <li class="step">
+        <div class="step-number">3</div>
+        <div class="step-text">將 <strong>NFC 標籤</strong>靠近手機背面感應區域</div>
+      </li>
+      <li class="step">
+        <div class="step-number">4</div>
+        <div class="step-text">等待寫入完成提示</div>
+      </li>
+    </ul>
+
+    <button class="btn btn-primary" id="writeBtn" onclick="startNfcWrite()">
+      <svg><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      開始寫入 NFC
+    </button>
+
+    <div class="status-box" id="statusBox"></div>
+  </div>
+
+  <!-- Step 3: Read / Verify -->
+  <div class="panel">
+    <h2>驗證 NFC 標籤</h2>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">
+      寫入完成後，可讀取 NFC 標籤驗證內容是否正確。
+    </p>
+    <button class="btn btn-warning" id="readBtn" onclick="startNfcRead()">
+      <svg><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      讀取 NFC 標籤
+    </button>
+    <div class="status-box" id="readStatusBox"></div>
+  </div>
+
+  <a href="./index.html" class="back-link">← 返回名片預覽頁面</a>
+</div>
+
+<script>
+  // ============================================================
+  // 初始化
+  // ============================================================
+  const nfcSupported = 'NDEFReader' in window;
+
+  function init() {
+    // 預填 URL
+    const baseUrl = window.location.href.replace(/nfc-writer\.html.*$/, 'index.html');
+    document.getElementById('cardUrl').value = baseUrl;
+
+    // NFC 支援偵測
+    const badge = document.getElementById('nfcBadge');
+    if (nfcSupported) {
+      badge.textContent = '已支援';
+      badge.classList.add('badge-success');
+    } else {
+      badge.textContent = '不支援';
+      badge.classList.add('badge-error');
+      document.getElementById('notSupported').style.display = 'block';
+      document.getElementById('writeBtn').disabled = true;
+      document.getElementById('readBtn').disabled = true;
+    }
+  }
+
+  // ============================================================
+  // 記錄類型切換
+  // ============================================================
+  function selectRecordType(type) {
+    document.querySelectorAll('.record-type-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.record-form').forEach(f => f.classList.remove('active'));
+
+    document.getElementById(`type${type.charAt(0).toUpperCase() + type.slice(1)}`).classList.add('active');
+    document.getElementById(`form${type.charAt(0).toUpperCase() + type.slice(1)}`).classList.add('active');
+  }
+
+  // ============================================================
+  // 狀態顯示
+  // ============================================================
+  function showStatus(elementId, type, message) {
+    const box = document.getElementById(elementId);
+    box.className = `status-box show status-${type}`;
+    box.innerHTML = message;
+  }
+
+  // ============================================================
+  // NFC 寫入
+  // ============================================================
+  async function startNfcWrite() {
+    if (!nfcSupported) return;
+
+    const btn = document.getElementById('writeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> 等待 NFC 標籤...';
+
+    showStatus('statusBox', 'info', '<span class="pulse">請將 NFC 標籤靠近手機背面...</span>');
+
+    try {
+      const ndef = new NDEFReader();
+      const activeType = document.querySelector('.record-type-btn.active').id;
+
+      if (activeType === 'typeUrl') {
+        // 寫入 URL 記錄
+        const url = document.getElementById('cardUrl').value.trim();
+        if (!url) {
+          showStatus('statusBox', 'error', '請輸入名片網頁 URL');
+          resetWriteBtn();
+          return;
+        }
+
+        await ndef.write({
+          records: [{ recordType: 'url', data: url }],
+        });
+      } else {
+        // 寫入 vCard 文字記錄
+        const vcard = buildVCard();
+        if (!vcard) {
+          showStatus('statusBox', 'error', '請至少填寫姓名');
+          resetWriteBtn();
+          return;
+        }
+
+        await ndef.write({
+          records: [
+            { recordType: 'mime', mediaType: 'text/vcard', data: new TextEncoder().encode(vcard) },
+          ],
+        });
+      }
+
+      showStatus('statusBox', 'success', '✓ NFC 標籤寫入成功！');
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        showStatus('statusBox', 'warning', '寫入已取消');
+      } else if (error.name === 'NotAllowedError') {
+        showStatus('statusBox', 'error', '權限被拒絕。請允許 NFC 權限後重試。');
+      } else {
+        showStatus('statusBox', 'error', `寫入失敗：${error.message}`);
+      }
+    } finally {
+      resetWriteBtn();
+    }
+  }
+
+  function resetWriteBtn() {
+    const btn = document.getElementById('writeBtn');
+    btn.disabled = false;
+    btn.innerHTML = `
+      <svg><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      開始寫入 NFC
+    `;
+  }
+
+  // ============================================================
+  // 組建 vCard
+  // ============================================================
+  function buildVCard() {
+    const name = document.getElementById('vcardName').value.trim();
+    if (!name) return null;
+
+    const title = document.getElementById('vcardTitle').value.trim();
+    const company = document.getElementById('vcardCompany').value.trim();
+    const phone = document.getElementById('vcardPhone').value.trim();
+    const email = document.getElementById('vcardEmail').value.trim();
+    const website = document.getElementById('vcardWebsite').value.trim();
+
+    const nameParts = name.split('');
+    const lastName = nameParts[0] || '';
+    const firstName = nameParts.slice(1).join('') || '';
+
+    return [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `N:${lastName};${firstName};;;`,
+      `FN:${name}`,
+      company ? `ORG:${company}` : '',
+      title ? `TITLE:${title}` : '',
+      phone ? `TEL;TYPE=CELL:${phone.replace(/[^+\d]/g, '')}` : '',
+      email ? `EMAIL;TYPE=INTERNET:${email}` : '',
+      website ? `URL:${website}` : '',
+      'END:VCARD',
+    ].filter(Boolean).join('\r\n');
+  }
+
+  // ============================================================
+  // NFC 讀取（驗證）
+  // ============================================================
+  async function startNfcRead() {
+    if (!nfcSupported) return;
+
+    const btn = document.getElementById('readBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> 等待 NFC 標籤...';
+
+    showStatus('readStatusBox', 'info', '<span class="pulse">請將 NFC 標籤靠近手機背面...</span>');
+
+    try {
+      const ndef = new NDEFReader();
+      const controller = new AbortController();
+
+      // 10 秒逾時
+      const timeout = setTimeout(() => {
+        controller.abort();
+        showStatus('readStatusBox', 'warning', '讀取逾時，請重試。');
+        resetReadBtn();
+      }, 10000);
+
+      await ndef.scan({ signal: controller.signal });
+
+      ndef.addEventListener('reading', ({ message }) => {
+        clearTimeout(timeout);
+        const records = [];
+        for (const record of message.records) {
+          if (record.recordType === 'url' || record.recordType === 'absolute-url') {
+            const decoder = new TextDecoder();
+            records.push(`<strong>URL：</strong>${decoder.decode(record.data)}`);
+          } else if (record.mediaType === 'text/vcard') {
+            const decoder = new TextDecoder();
+            records.push(`<strong>vCard：</strong><pre style="white-space:pre-wrap;font-size:12px;margin-top:4px;">${decoder.decode(record.data)}</pre>`);
+          } else if (record.recordType === 'text') {
+            const decoder = new TextDecoder();
+            records.push(`<strong>文字：</strong>${decoder.decode(record.data)}`);
+          } else {
+            records.push(`<strong>類型：</strong>${record.recordType}`);
+          }
+        }
+
+        showStatus('readStatusBox', 'success',
+          `✓ 讀取成功！共 ${message.records.length} 筆記錄：<br><br>${records.join('<br><br>')}`
+        );
+        resetReadBtn();
+        controller.abort();
+      }, { once: true });
+
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        showStatus('readStatusBox', 'error', `讀取失敗：${error.message}`);
+      }
+      resetReadBtn();
+    }
+  }
+
+  function resetReadBtn() {
+    const btn = document.getElementById('readBtn');
+    btn.disabled = false;
+    btn.innerHTML = `
+      <svg><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      讀取 NFC 標籤
+    `;
+  }
+
+  // Init
+  init();
+</script>
+
+</body>
+</html>
