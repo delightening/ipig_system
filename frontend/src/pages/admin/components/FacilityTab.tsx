@@ -110,9 +110,11 @@ export function FacilityTab({ canManage }: { canManage: boolean }) {
               <TableCell>{f.phone ?? '—'}</TableCell>
               <TableCell><Badge variant={f.is_active ? 'default' : 'secondary'}>{f.is_active ? '啟用' : '停用'}</Badge></TableCell>
               {canManage && (
-                <TableCell className="space-x-1">
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(f)}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(f)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(f)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(f)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </div>
                 </TableCell>
               )}
             </TableRow>

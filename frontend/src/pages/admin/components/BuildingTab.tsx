@@ -106,9 +106,11 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
               <TableCell>{b.sort_order}</TableCell>
               <TableCell><Badge variant={b.is_active ? 'default' : 'secondary'}>{b.is_active ? '啟用' : '停用'}</Badge></TableCell>
               {canManage && (
-                <TableCell className="space-x-1">
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(b)}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(b)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(b)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(b)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </div>
                 </TableCell>
               )}
             </TableRow>
