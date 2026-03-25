@@ -78,6 +78,12 @@
     --subsystem-animal: 160 70% 40%;
     --subsystem-hr: 260 60% 55%;
     --subsystem-admin: 0 0% 45%;
+
+    /* ── Audit Log Subsystem Colors (稽核日誌子系統色彩) ── */
+    --audit-medical: 174 72% 34%;
+    --audit-protocol: 235 60% 52%;
+    --audit-sacrifice: 20 85% 48%;
+    --audit-data: 190 80% 40%;
   }
 
   .dark {
@@ -147,6 +153,12 @@
     --subsystem-animal: 160 70% 50%;
     --subsystem-hr: 260 60% 65%;
     --subsystem-admin: 0 0% 60%;
+
+    /* ── Audit Log Subsystem Colors (Dark) ── */
+    --audit-medical: 174 72% 50%;
+    --audit-protocol: 235 60% 65%;
+    --audit-sacrifice: 20 85% 60%;
+    --audit-data: 190 80% 55%;
   }
 }
 

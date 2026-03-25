@@ -194,20 +194,24 @@ export function AnimalsPage() {
 
       {/* Filters & Tabs */}
       <AnimalFilters
-        statusFilter={statusFilter}
-        onStatusFilterChange={handleStatusFilterChange}
-        breedFilter={breedFilter}
-        onBreedFilterChange={setBreedFilter}
-        search={search}
-        onSearchChange={setSearch}
-        onSearchSubmit={handleSearchSubmit}
+        filters={{
+          statusFilter,
+          onStatusFilterChange: handleStatusFilterChange,
+          breedFilter,
+          onBreedFilterChange: setBreedFilter,
+          search,
+          onSearchChange: setSearch,
+          onSearchSubmit: handleSearchSubmit,
+        }}
+        counts={{
+          statusCounts,
+          allAnimalsCount,
+          penAnimalsCount,
+          selectedAnimalsCount: selectedAnimals.length,
+        }}
         adminOnlyStatuses={adminOnlyStatuses}
         isPIOrClient={isPIOrClient}
         isAdmin={isAdmin}
-        statusCounts={statusCounts}
-        allAnimalsCount={allAnimalsCount}
-        penAnimalsCount={penAnimalsCount}
-        selectedAnimalsCount={selectedAnimals.length}
         onShowBatchAssign={() => setShowBatchAssignDialog(true)}
       />
 
@@ -216,18 +220,24 @@ export function AnimalsPage() {
         <AnimalListTable
           animals={hasPenSearch ? penViewAnimals : animals}
           isLoading={hasPenSearch ? groupedLoading : isLoading}
-          selectedAnimals={selectedAnimals}
-          onToggleSelection={toggleAnimalSelection}
-          onToggleAll={toggleAllAnimals}
           onQuickEdit={setQuickEditAnimalId}
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
-          onSort={handleSort}
-          page={hasPenSearch ? 1 : page}
-          totalPages={hasPenSearch ? 1 : totalPages}
-          totalAnimals={hasPenSearch ? penViewAnimals.length : totalAnimals}
-          perPage={hasPenSearch ? Math.max(perPage, penViewAnimals.length) || 50 : perPage}
-          onPageChange={hasPenSearch ? () => {} : setPage}
+          selection={{
+            selectedAnimals,
+            onToggleSelection: toggleAnimalSelection,
+            onToggleAll: toggleAllAnimals,
+          }}
+          sorting={{
+            sortColumn,
+            sortDirection,
+            onSort: handleSort,
+          }}
+          pagination={{
+            page: hasPenSearch ? 1 : page,
+            totalPages: hasPenSearch ? 1 : totalPages,
+            totalAnimals: hasPenSearch ? penViewAnimals.length : totalAnimals,
+            perPage: hasPenSearch ? Math.max(perPage, penViewAnimals.length) || 50 : perPage,
+            onPageChange: hasPenSearch ? () => {} : setPage,
+          }}
         />
       )}
 

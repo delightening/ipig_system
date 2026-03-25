@@ -305,14 +305,18 @@ export function EquipmentPage() {
             canManage={canManage}
             keyword={equipKeyword}
             onKeywordChange={setEquipKeyword}
-            isLoading={equipLoading}
-            records={equipData?.data ?? []}
-            page={equipPage}
-            totalPages={equipData?.total_pages ?? 1}
-            onPageChange={setEquipPage}
-            onEdit={handleEditEquip}
-            onDelete={handleDeleteEquip}
             allCalibrations={allCalibrations}
+            tableProps={{
+              records: equipData?.data ?? [],
+              isLoading: equipLoading,
+              page: equipPage,
+              totalPages: equipData?.total_pages ?? 1,
+              onPageChange: setEquipPage,
+            }}
+            actions={{
+              onEdit: handleEditEquip,
+              onDelete: handleDeleteEquip,
+            }}
           />
         </PageTabContent>
 

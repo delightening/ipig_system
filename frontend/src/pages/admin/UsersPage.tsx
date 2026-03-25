@@ -38,27 +38,33 @@ export function UsersPage() {
       <UserTable
         users={mgmt.users}
         isLoading={mgmt.isLoading}
-        sortRole={mgmt.sortRole}
-        sortStatus={mgmt.sortStatus}
-        currentPage={mgmt.currentPage}
-        totalPages={mgmt.totalPages}
-        sortedUsersLength={mgmt.sortedUsers.length}
         currentUserId={mgmt.currentUser?.id}
-        onToggleSortRole={mgmt.toggleSortRole}
-        onToggleSortStatus={mgmt.toggleSortStatus}
-        onPrevPage={() => mgmt.setCurrentPage((p) => Math.max(1, p - 1))}
-        onNextPage={() => mgmt.setCurrentPage((p) => Math.min(mgmt.totalPages, p + 1))}
-        onEdit={mgmt.handleEdit}
-        onManageRoles={mgmt.handleManageRoles}
-        onResetPassword={mgmt.openResetPasswordDialog}
-        onToggleActive={mgmt.handleToggleActive}
-        onDelete={(user) => {
-          mgmt.setUserToDelete(user)
-          mgmt.setShowDeleteDialog(true)
+        actions={{
+          onEdit: mgmt.handleEdit,
+          onManageRoles: mgmt.handleManageRoles,
+          onResetPassword: mgmt.openResetPasswordDialog,
+          onToggleActive: mgmt.handleToggleActive,
+          onDelete: (user) => {
+            mgmt.setUserToDelete(user)
+            mgmt.setShowDeleteDialog(true)
+          },
+          onImpersonate: (user) => {
+            mgmt.setUserToImpersonate(user)
+            mgmt.setShowReauthForImpersonate(true)
+          },
         }}
-        onImpersonate={(user) => {
-          mgmt.setUserToImpersonate(user)
-          mgmt.setShowReauthForImpersonate(true)
+        sorting={{
+          sortRole: mgmt.sortRole,
+          sortStatus: mgmt.sortStatus,
+          onToggleSortRole: mgmt.toggleSortRole,
+          onToggleSortStatus: mgmt.toggleSortStatus,
+        }}
+        pagination={{
+          currentPage: mgmt.currentPage,
+          totalPages: mgmt.totalPages,
+          sortedUsersLength: mgmt.sortedUsers.length,
+          onPrevPage: () => mgmt.setCurrentPage((p) => Math.max(1, p - 1)),
+          onNextPage: () => mgmt.setCurrentPage((p) => Math.min(mgmt.totalPages, p + 1)),
         }}
       />
 

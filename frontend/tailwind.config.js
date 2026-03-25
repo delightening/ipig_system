@@ -102,6 +102,13 @@ export default {
           hr: "hsl(var(--subsystem-hr))",
           admin: "hsl(var(--subsystem-admin))",
         },
+        // Audit Log Subsystem Colors (稽核日誌子系統色彩)
+        audit: {
+          medical: "hsl(var(--audit-medical))",
+          protocol: "hsl(var(--audit-protocol))",
+          sacrifice: "hsl(var(--audit-sacrifice))",
+          data: "hsl(var(--audit-data))",
+        },
         // SKU Segment Colors
         sku: {
           name: "hsl(var(--sku-name))",

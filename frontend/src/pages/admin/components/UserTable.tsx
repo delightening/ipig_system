@@ -13,25 +13,37 @@ import { Users, Pencil, Trash2, Shield, UserCheck, UserX, Key, ArrowUpDown, Arro
 import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 
-interface UserTableProps {
-  users: User[]
-  isLoading: boolean
-  sortRole: 'asc' | 'desc' | null
-  sortStatus: 'asc' | 'desc' | null
-  currentPage: number
-  totalPages: number
-  sortedUsersLength: number
-  currentUserId?: string
-  onToggleSortRole: () => void
-  onToggleSortStatus: () => void
-  onPrevPage: () => void
-  onNextPage: () => void
+interface UserTableActions {
   onEdit: (user: User) => void
   onManageRoles: (user: User) => void
   onResetPassword: (user: User) => void
   onToggleActive: (user: User) => void
   onDelete: (user: User) => void
   onImpersonate: (user: User) => void
+}
+
+interface UserTableSorting {
+  sortRole: 'asc' | 'desc' | null
+  sortStatus: 'asc' | 'desc' | null
+  onToggleSortRole: () => void
+  onToggleSortStatus: () => void
+}
+
+interface UserTablePagination {
+  currentPage: number
+  totalPages: number
+  sortedUsersLength: number
+  onPrevPage: () => void
+  onNextPage: () => void
+}
+
+interface UserTableProps {
+  users: User[]
+  isLoading: boolean
+  currentUserId?: string
+  actions: UserTableActions
+  sorting: UserTableSorting
+  pagination: UserTablePagination
 }
 
 function getSortIcon(sort: 'asc' | 'desc' | null) {
@@ -43,23 +55,14 @@ function getSortIcon(sort: 'asc' | 'desc' | null) {
 export function UserTable({
   users,
   isLoading,
-  sortRole,
-  sortStatus,
-  currentPage,
-  totalPages,
-  sortedUsersLength,
   currentUserId,
-  onToggleSortRole,
-  onToggleSortStatus,
-  onPrevPage,
-  onNextPage,
-  onEdit,
-  onManageRoles,
-  onResetPassword,
-  onToggleActive,
-  onDelete,
-  onImpersonate,
+  actions,
+  sorting,
+  pagination,
 }: UserTableProps) {
+  const { onEdit, onManageRoles, onResetPassword, onToggleActive, onDelete, onImpersonate } = actions
+  const { sortRole, sortStatus, onToggleSortRole, onToggleSortStatus } = sorting
+  const { currentPage, totalPages, sortedUsersLength, onPrevPage, onNextPage } = pagination
   return (
     <div className="rounded-md border bg-white">
       <Table>
