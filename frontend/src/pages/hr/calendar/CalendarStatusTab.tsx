@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import type { CalendarSyncStatus, CalendarConfig, UpdateCalendarConfig } from '@/types/hr'
@@ -37,11 +37,11 @@ interface CalendarStatusTabProps {
 function getLastSyncBadge(status: string | null) {
     switch (status) {
         case 'success':
-            return <Badge className="bg-green-500">成功</Badge>
+            return <StatusBadge variant="success">成功</StatusBadge>
         case 'partial':
-            return <Badge className="bg-yellow-500">部分完成</Badge>
+            return <StatusBadge variant="warning">部分完成</StatusBadge>
         case 'failed':
-            return <Badge variant="destructive">失敗</Badge>
+            return <StatusBadge variant="error">失敗</StatusBadge>
         default:
             return null
     }
@@ -102,8 +102,8 @@ export function CalendarStatusTab({
             <div className="space-y-6">
                 {/* 連線標頭 */}
                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                        <CheckCircle className="h-6 w-6 text-green-600" />
+                    <div className="h-12 w-12 rounded-full bg-status-success-bg flex items-center justify-center flex-shrink-0">
+                        <CheckCircle className="h-6 w-6 text-status-success-text" />
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="font-medium">已連接</div>
@@ -143,9 +143,9 @@ export function CalendarStatusTab({
                         </CardHeader>
                         <CardContent>
                             {syncStatus.sync_enabled ? (
-                                <Badge className="bg-green-500">自動同步啟用</Badge>
+                                <StatusBadge variant="success">自動同步啟用</StatusBadge>
                             ) : (
-                                <Badge variant="secondary">自動同步停用</Badge>
+                                <StatusBadge variant="neutral">自動同步停用</StatusBadge>
                             )}
                         </CardContent>
                     </Card>
@@ -194,11 +194,11 @@ export function CalendarStatusTab({
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className={`text-2xl font-bold ${syncStatus.pending_conflicts > 0 ? 'text-orange-500' : ''}`}>
+                            <div className={`text-2xl font-bold ${syncStatus.pending_conflicts > 0 ? 'text-status-warning-text' : ''}`}>
                                 {syncStatus.pending_conflicts}
                             </div>
                             {syncStatus.pending_conflicts > 0 && (
-                                <div className="text-xs text-orange-500 mt-1">需要手動處理</div>
+                                <div className="text-xs text-status-warning-text mt-1">需要手動處理</div>
                             )}
                         </CardContent>
                     </Card>

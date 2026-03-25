@@ -90,13 +90,13 @@ export function BatchNumberSelect({
 
   if (isPurchaseDoc) {
     return (
-      <Input ref={setInputRef} type="text" defaultValue={batchNo} placeholder="輸入批號" onBlur={onBlur} />
+      <Input ref={setInputRef} type="text" defaultValue={batchNo} placeholder="輸入批號" onBlur={onBlur} aria-label="批號" />
     )
   }
 
   if (isSalesDoc) {
     if (!productId || !warehouseId) {
-      return <Input type="text" defaultValue={batchNo} placeholder="批號" disabled />
+      return <Input type="text" defaultValue={batchNo} placeholder="批號" disabled aria-label="批號" />
     }
     if (batchOptions.length > 0) {
       return (
@@ -114,8 +114,8 @@ export function BatchNumberSelect({
         </Select>
       )
     }
-    return <Input type="text" defaultValue={batchNo} placeholder="無可用批號" disabled />
+    return <Input type="text" defaultValue={batchNo} placeholder="無可用批號" disabled aria-label="批號" />
   }
 
-  return <Input ref={setInputRef} type="text" defaultValue={batchNo} placeholder="批號" onBlur={onBlur} />
+  return <Input ref={setInputRef} type="text" defaultValue={batchNo} placeholder="批號" onBlur={onBlur} aria-label="批號" />
 }

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { FileText, ClipboardList, Shield, Stethoscope } from 'lucide-react'
 import api from '@/lib/api'
+import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -71,12 +72,10 @@ export function QAUDashboardPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">QAU 品質保證儀表板</h1>
-        <p className="text-muted-foreground mt-1">
-          GLP 合規：研究狀態、審查進度、稽核摘要、動物實驗概覽（唯讀）
-        </p>
-      </div>
+      <PageHeader
+        title="QAU 品質保證儀表板"
+        description="GLP 合規：研究狀態、審查進度、稽核摘要、動物實驗概覽（唯讀）"
+      />
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

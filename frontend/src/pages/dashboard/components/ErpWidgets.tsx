@@ -82,7 +82,7 @@ export const LowStockAlertWidget = memo(function LowStockAlertWidget({
     <StatWidget
       title={t('dashboard.widgets.names.low_stock_alert')}
       description={t('dashboard.widgets.descriptions.low_stock_alert')}
-      icon={<AlertTriangle className="h-4 w-4 text-yellow-500" />}
+      icon={<AlertTriangle className="h-4 w-4 text-status-warning-text" />}
       value={alerts?.length || 0}
       isLoading={isLoading}
     />
@@ -101,7 +101,7 @@ export const PendingDocumentsWidget = memo(function PendingDocumentsWidget({
     <StatWidget
       title={t('dashboard.widgets.names.pending_documents')}
       description={t('dashboard.widgets.descriptions.pending_documents')}
-      icon={<FileText className="h-4 w-4 text-blue-500" />}
+      icon={<FileText className="h-4 w-4 text-status-info-text" />}
       value={documents?.filter((d) => d.status === 'submitted').length || 0}
       isLoading={isLoading}
     />
@@ -120,7 +120,7 @@ export const TodayInboundWidget = memo(function TodayInboundWidget({
     <StatWidget
       title={t('dashboard.widgets.names.today_inbound')}
       description={t('dashboard.widgets.descriptions.today_inbound')}
-      icon={<TrendingUp className="h-4 w-4 text-green-500" />}
+      icon={<TrendingUp className="h-4 w-4 text-status-success-text" />}
       value={todayApprovedDocs.filter((d) => ['GRN'].includes(d.doc_type)).length}
       isLoading={isLoading}
     />
@@ -139,7 +139,7 @@ export const TodayOutboundWidget = memo(function TodayOutboundWidget({
     <StatWidget
       title={t('dashboard.widgets.names.today_outbound')}
       description={t('dashboard.widgets.descriptions.today_outbound')}
-      icon={<TrendingDown className="h-4 w-4 text-red-500" />}
+      icon={<TrendingDown className="h-4 w-4 text-status-error-text" />}
       value={todayApprovedDocs.filter((d) => ['DO', 'PR'].includes(d.doc_type)).length}
       isLoading={isLoading}
     />
@@ -160,7 +160,7 @@ export const WeeklyTrendWidget = memo(function WeeklyTrendWidget({
     <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-indigo-500" />
+          <Calendar className="h-5 w-5 text-status-info-text" />
           {t('dashboard.widgets.names.weekly_trend')} ({days}{t('dashboard.widgets.common.daysUnit')})
         </CardTitle>
         <CardDescription>{t('dashboard.widgets.erp.trendDesc', { days })}</CardDescription>
@@ -187,19 +187,19 @@ export const WeeklyTrendWidget = memo(function WeeklyTrendWidget({
                   <TableRow key={day.date}>
                     <TableCell className="font-medium">{day.dateStr}</TableCell>
                     <TableCell className="text-right">
-                      <span className="inline-flex items-center gap-1 text-green-600">
+                      <span className="inline-flex items-center gap-1 text-status-success-text">
                         <TrendingUp className="h-3 w-3" />
                         {day.inbound}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="inline-flex items-center gap-1 text-red-600">
+                      <span className="inline-flex items-center gap-1 text-status-error-text">
                         <TrendingDown className="h-3 w-3" />
                         {day.outbound}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className={net > 0 ? 'text-green-600' : net < 0 ? 'text-red-600' : 'text-muted-foreground'}>
+                      <span className={net > 0 ? 'text-status-success-text' : net < 0 ? 'text-status-error-text' : 'text-muted-foreground'}>
                         {net > 0 ? '+' : ''}{net}
                       </span>
                     </TableCell>
@@ -228,7 +228,7 @@ export const RecentDocumentsWidget = memo(function RecentDocumentsWidget({
     <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-blue-500" />
+          <FileText className="h-5 w-5 text-status-info-text" />
           {t('dashboard.widgets.names.recent_documents')}
         </CardTitle>
         <CardDescription>{t('dashboard.widgets.descriptions.recent_documents')}</CardDescription>
@@ -298,7 +298,7 @@ export function UpcomingLeavesWidget() {
     <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-orange-500" />
+          <Calendar className="h-4 w-4 text-status-warning-text" />
           {t('dashboard.widgets.names.upcoming_leaves')}
         </CardTitle>
         <CardDescription>{t('dashboard.widgets.descriptions.upcoming_leaves')}</CardDescription>
@@ -312,26 +312,26 @@ export function UpcomingLeavesWidget() {
           <p className="text-sm text-muted-foreground">{t('dashboard.widgets.common.loadFailed')}</p>
         ) : !hasExpiring ? (
           <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
-            <Calendar className="h-8 w-8 mb-2 text-green-500" />
+            <Calendar className="h-8 w-8 mb-2 text-status-success-text" />
             <p className="text-sm">{t('dashboard.widgets.hr.noExpiring')}</p>
           </div>
         ) : (
           <div className="space-y-3">
             {(data?.expiring_soon_days ?? 0) > 0 && (
-              <div className="flex justify-between items-center p-2 bg-orange-50 rounded-lg border border-orange-200">
-                <span className="text-sm text-orange-700">{t('dashboard.widgets.hr.expiringSoon')}（{t('dashboard.widgets.hr.annualLeave')}）</span>
+              <div className="flex justify-between items-center p-2 bg-status-warning-bg rounded-lg border border-status-warning-text/20">
+                <span className="text-sm text-status-warning-text">{t('dashboard.widgets.hr.expiringSoon')}（{t('dashboard.widgets.hr.annualLeave')}）</span>
                 <div className="text-right">
-                  <span className="text-lg font-semibold text-orange-600">{data?.expiring_soon_days ?? 0}</span>
-                  <span className="text-sm text-orange-600 ml-1">{t('dashboard.widgets.common.days')}</span>
+                  <span className="text-lg font-semibold text-status-warning-text">{data?.expiring_soon_days ?? 0}</span>
+                  <span className="text-sm text-status-warning-text ml-1">{t('dashboard.widgets.common.days')}</span>
                 </div>
               </div>
             )}
             {(data?.expiring_soon_hours ?? 0) > 0 && (
-              <div className="flex justify-between items-center p-2 bg-orange-50 rounded-lg border border-orange-200">
-                <span className="text-sm text-orange-700">{t('dashboard.widgets.hr.expiringSoon')}（{t('dashboard.widgets.hr.compLeave')}）</span>
+              <div className="flex justify-between items-center p-2 bg-status-warning-bg rounded-lg border border-status-warning-text/20">
+                <span className="text-sm text-status-warning-text">{t('dashboard.widgets.hr.expiringSoon')}（{t('dashboard.widgets.hr.compLeave')}）</span>
                 <div className="text-right">
-                  <span className="text-lg font-semibold text-orange-600">{data?.expiring_soon_hours ?? 0}</span>
-                  <span className="text-sm text-orange-600 ml-1">{t('dashboard.widgets.common.hours')}</span>
+                  <span className="text-lg font-semibold text-status-warning-text">{data?.expiring_soon_hours ?? 0}</span>
+                  <span className="text-sm text-status-warning-text ml-1">{t('dashboard.widgets.common.hours')}</span>
                 </div>
               </div>
             )}

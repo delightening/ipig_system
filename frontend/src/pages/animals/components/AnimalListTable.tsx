@@ -56,14 +56,17 @@ export function AnimalListTable({
   const sortedAnimals = useMemo(() => {
     if (!sortColumn) return animals
     return [...animals].sort((a, b) => {
-      let aVal: string | number = String((a as unknown as Record<string, unknown>)[sortColumn] ?? '')
-      let bVal: string | number = String((b as unknown as Record<string, unknown>)[sortColumn] ?? '')
+      const aRaw = (a as unknown as Record<string, unknown>)[sortColumn]
+      const bRaw = (b as unknown as Record<string, unknown>)[sortColumn]
+      let aVal: string | number = String(aRaw ?? '')
+      let bVal: string | number = String(bRaw ?? '')
       if (sortColumn === 'entry_date') {
         aVal = aVal ? new Date(aVal as string).getTime() : 0
         bVal = bVal ? new Date(bVal as string).getTime() : 0
       } else if (sortColumn === 'latest_weight') {
-        aVal = aVal !== null && aVal !== undefined ? Number(aVal) : (sortDirection === 'asc' ? Infinity : -Infinity)
-        bVal = bVal !== null && bVal !== undefined ? Number(bVal) : (sortDirection === 'asc' ? Infinity : -Infinity)
+        const nullSort = sortDirection === 'asc' ? Infinity : -Infinity
+        aVal = aRaw != null && aRaw !== '' ? Number(aRaw) : nullSort
+        bVal = bRaw != null && bRaw !== '' ? Number(bRaw) : nullSort
       } else if (typeof aVal === 'string') aVal = aVal.toLowerCase()
       if (typeof bVal === 'string' && sortColumn !== 'latest_weight') bVal = bVal.toLowerCase()
 
@@ -75,12 +78,12 @@ export function AnimalListTable({
 
   const SortableHeader = ({ column, label }: { column: string; label: string }) => (
     <TableHead
-      className="cursor-pointer hover:bg-slate-100 select-none"
+      className="cursor-pointer hover:bg-muted select-none"
       onClick={() => onSort(column)}
     >
       <div className="flex items-center gap-1">
         {label}
-        <ArrowUpDown className={`h-3 w-3 ${sortColumn === column ? 'text-purple-600' : 'text-slate-400'}`} />
+        <ArrowUpDown className={`h-3 w-3 ${sortColumn === column ? 'text-primary' : 'text-muted-foreground'}`} />
       </div>
     </TableHead>
   )
@@ -107,7 +110,7 @@ export function AnimalListTable({
                       aria-label="全選動物"
                       checked={selectedAnimals.length === animals.length && animals.length > 0}
                       onChange={onToggleAll}
-                      className="rounded border-slate-300"
+                      className="rounded border-border"
                     />
                   </TableHead>
                   <SortableHeader column="ear_tag" label={t('animals.earTag')} />
@@ -127,7 +130,7 @@ export function AnimalListTable({
                 {sortedAnimals.map((animal) => (
                   <TableRow
                     key={animal.id}
-                    className={animal.has_abnormal_record ? 'bg-yellow-50' : ''}
+                    className={animal.has_abnormal_record ? 'bg-status-warning-bg' : ''}
                   >
                     <TableCell>
                       <input
@@ -135,13 +138,13 @@ export function AnimalListTable({
                         aria-label={`選取動物 ${animal.ear_tag || animal.id}`}
                         checked={selectedAnimals.includes(animal.id)}
                         onChange={() => onToggleSelection(animal.id)}
-                        className="rounded border-slate-300"
+                        className="rounded border-border"
                       />
                     </TableCell>
                     <TableCell>
                       <Link
                         to={`/animals/${animal.id}`}
-                        className="text-orange-600 hover:text-orange-700 hover:underline font-medium cursor-pointer block"
+                        className="text-status-warning-text hover:text-status-warning-text/80 hover:underline font-medium cursor-pointer block"
                         title={`點擊進入動物詳情 · 系統號: ${animal.id}`}
                       >
                         {animal.ear_tag}
@@ -150,7 +153,7 @@ export function AnimalListTable({
                     <TableCell>{getPenLocationDisplay(animal, t)}</TableCell>
                     <TableCell>
                       {animal.iacuc_no || (
-                        <span className="text-slate-400">未分配</span>
+                        <span className="text-muted-foreground">未分配</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -168,16 +171,16 @@ export function AnimalListTable({
                       {animal.is_on_medication ? (
                         <Badge variant="destructive" className="text-xs">{t('animals.onMedication')}</Badge>
                       ) : (
-                        <span className="text-slate-400">{t('animals.notOnMedication')}</span>
+                        <span className="text-muted-foreground">{t('animals.notOnMedication')}</span>
                       )}
                     </TableCell>
                     <TableCell>
                       {animal.vet_recommendation_date ? (
-                        <span className="text-sm text-slate-600">
+                        <span className="text-sm text-muted-foreground">
                           {new Date(animal.vet_recommendation_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}
                         </span>
                       ) : (
-                        <span className="text-slate-400">-</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -189,6 +192,7 @@ export function AnimalListTable({
                           className="h-6 w-6"
                           onClick={() => onQuickEdit(animal.id)}
                           title="快速編輯"
+                          aria-label="快速編輯"
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
@@ -197,23 +201,23 @@ export function AnimalListTable({
                     <TableCell>
                       {animal.latest_weight ? (
                         <span
-                          className="text-sm text-slate-700 font-medium"
+                          className="text-sm text-foreground font-medium"
                           title={animal.latest_weight_date ? `量測日期: ${new Date(animal.latest_weight_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}` : undefined}
                         >
                           {animal.latest_weight} kg
                         </span>
                       ) : (
-                        <span className="text-slate-400">-</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" asChild title={t('common.view')}>
+                        <Button variant="ghost" size="icon" asChild title={t('common.view')} aria-label={t('common.view')}>
                           <Link to={`/animals/${animal.id}`}>
                             <Eye className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="icon" asChild title={t('common.edit')}>
+                        <Button variant="ghost" size="icon" asChild title={t('common.edit')} aria-label={t('common.edit')}>
                           <Link to={`/animals/${animal.id}/edit`}>
                             <Edit2 className="h-4 w-4" />
                           </Link>

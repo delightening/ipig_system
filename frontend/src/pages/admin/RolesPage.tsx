@@ -4,6 +4,7 @@ import api, { confirmPassword, deleteResource, Role, Permission } from '@/lib/ap
 import { getErrorMessage } from '@/types/error'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -165,18 +166,16 @@ export function RolesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">角色權限</h1>
-          <p className="text-muted-foreground">管理系統角色與權限設定</p>
-        </div>
-        <div className="flex items-center gap-3">
+      <PageHeader
+        title="角色權限"
+        description="管理系統角色與權限設定"
+        actions={
           <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             新增角色
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 角色列表：<640px 1 欄、<1280px 2 欄、<1920px 3 欄、≥1920px 4 欄 */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 min-[1920px]:grid-cols-4">
@@ -185,7 +184,7 @@ export function RolesPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Shield className="h-5 w-5 text-blue-500" />
+                  <Shield className="h-5 w-5 text-primary" />
                   {role.name}
                   {role.is_system && (
                     <Badge variant="secondary" className="text-xs">
@@ -206,7 +205,7 @@ export function RolesPage() {
                     }}
                     aria-label="刪除"
                   >
-                    <Trash2 className="h-4 w-4 text-red-500" />
+                    <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
               </div>

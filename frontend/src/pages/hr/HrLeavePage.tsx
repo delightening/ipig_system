@@ -1,13 +1,12 @@
 import { useDialogSet } from '@/hooks/useDialogSet'
-import { useTabState } from '@/hooks/useTabState'
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle, FileText, Plus, Users } from 'lucide-react'
 
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { toast } from '@/components/ui/use-toast'
 import { LEAVE_TYPE_NAMES } from '@/types/hr'
 import type { BalanceSummary, LeaveRequestWithUser, StaffInfo } from '@/types/hr'
@@ -22,7 +21,6 @@ import { LeavePendingApprovalsTab } from './components/LeavePendingApprovalsTab'
 import { AllLeaveRecordsTabContent } from './components/AllLeaveRecordsTabContent'
 
 export function HrLeavePage() {
-    const { activeTab, setActiveTab } = useTabState<'my-leaves' | 'pending' | 'all-records'>('my-leaves')
     const dialogs = useDialogSet(['create'] as const)
     const { hasRole } = useAuthStore()
     const canViewAll = hasRole('admin') || hasRole('ADMIN_STAFF')
@@ -78,12 +76,9 @@ export function HrLeavePage() {
             toast({ title: '無歷史紀錄', description: '找不到之前的請假記錄', variant: 'destructive' })
             return
         }
-        leaveForm.setForm(prev => ({
-            ...prev,
-            leaveType: last.leave_type,
-            reason: last.reason ?? '',
-            proxyUserId: last.proxy_user_id ?? '',
-        }))
+        leaveForm.updateField('leaveType', last.leave_type)
+        leaveForm.updateField('reason', last.reason ?? '')
+        leaveForm.updateField('proxyUserId', last.proxy_user_id ?? '')
         toast({ title: '已預填', description: `已套用上次「${LEAVE_TYPE_NAMES[last.leave_type] ?? last.leave_type}」假別資訊` })
     }
 
@@ -106,16 +101,16 @@ export function HrLeavePage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">請假管理</h1>
-                    <p className="text-muted-foreground">申請請假與查看假期餘額</p>
-                </div>
-                <Button onClick={() => dialogs.open('create')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    新增請假
-                </Button>
-            </div>
+            <PageHeader
+                title="請假管理"
+                description="申請請假與查看假期餘額"
+                actions={
+                    <Button onClick={() => dialogs.open('create')}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        新增請假
+                    </Button>
+                }
+            />
 
             <CreateLeaveDialog
                 open={dialogs.isOpen('create')}
@@ -130,30 +125,15 @@ export function HrLeavePage() {
 
             <LeaveBalanceSummary balanceSummary={balanceSummary} />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="my-leaves" className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        我的請假
-                    </TabsTrigger>
-                    <TabsTrigger value="approvals" className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        待我審核
-                        {pendingLeaves && pendingLeaves.total > 0 && (
-                            <Badge variant="destructive" className="ml-1">
-                                {pendingLeaves.total}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
-                    {canViewAll && (
-                        <TabsTrigger value="all-records" className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            請假紀錄
-                        </TabsTrigger>
-                    )}
-                </TabsList>
-
-                <TabsContent value="my-leaves" className="space-y-4">
+            <PageTabs
+                tabs={[
+                    { value: 'my-leaves', label: '我的請假', icon: FileText },
+                    { value: 'approvals', label: '待我審核', icon: CheckCircle, badge: pendingLeaves?.total },
+                    { value: 'all-records', label: '請假紀錄', icon: Users, hidden: !canViewAll },
+                ]}
+                defaultTab="my-leaves"
+            >
+                <PageTabContent value="my-leaves" className="space-y-4">
                     <MyLeavesTabContent
                         leaves={myLeaves?.data}
                         isLoading={loadingLeaves}
@@ -162,9 +142,9 @@ export function HrLeavePage() {
                         submitPending={mutations.submitLeaveMutation.isPending}
                         cancelPending={mutations.cancelLeaveMutation.isPending}
                     />
-                </TabsContent>
+                </PageTabContent>
 
-                <TabsContent value="approvals" className="space-y-4">
+                <PageTabContent value="approvals" className="space-y-4">
                     <LeavePendingApprovalsTab
                         leaves={pendingLeaves?.data}
                         isLoading={loadingPending}
@@ -173,14 +153,14 @@ export function HrLeavePage() {
                         approvePending={mutations.approveLeaveMutation.isPending}
                         rejectPending={mutations.rejectLeaveMutation.isPending}
                     />
-                </TabsContent>
+                </PageTabContent>
 
                 {canViewAll && (
-                    <TabsContent value="all-records" className="space-y-4">
+                    <PageTabContent value="all-records" className="space-y-4">
                         <AllLeaveRecordsTabContent />
-                    </TabsContent>
+                    </PageTabContent>
                 )}
-            </Tabs>
+            </PageTabs>
         </div>
     )
 }

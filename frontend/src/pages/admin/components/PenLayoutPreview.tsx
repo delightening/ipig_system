@@ -207,8 +207,8 @@ function PenCell({ pen, color, isDragging, isDropTarget, canManage, onDragStart,
     return (
       <div
         className={cn(
-          'h-10 rounded border border-dashed border-slate-200 flex items-center justify-center text-xs text-muted-foreground',
-          isDropTarget && 'border-blue-400 bg-blue-50'
+          'h-10 rounded border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground',
+          isDropTarget && 'border-primary bg-primary/10'
         )}
         onDragOver={(e) => { e.preventDefault(); onDragOver() }}
         onDrop={(e) => { e.preventDefault(); onDrop() }}
@@ -231,7 +231,7 @@ function PenCell({ pen, color, isDragging, isDropTarget, canManage, onDragStart,
         'h-10 rounded flex items-center justify-center text-xs font-mono font-medium text-white select-none transition-all',
         canManage && 'cursor-grab active:cursor-grabbing',
         isDragging && 'opacity-40 scale-95',
-        isDropTarget && 'ring-2 ring-blue-400'
+        isDropTarget && 'ring-2 ring-ring'
       )}
       style={{ backgroundColor: statusColor }}
       title={`${pen.code}${pen.name ? ` (${pen.name})` : ''} — ${pen.current_count}/${pen.capacity}`}

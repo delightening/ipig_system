@@ -68,7 +68,7 @@ export function SectionPurpose({ formData, updateWorkingContent, setFormData: _s
                     href="https://ntp.niehs.nih.gov/whatwestudy/niceatm/altbib"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline text-sm break-all"
+                    className="text-primary hover:underline text-sm break-all"
                   >
                     https://ntp.niehs.nih.gov/whatwestudy/niceatm/altbib
                   </a>
@@ -93,7 +93,7 @@ export function SectionPurpose({ formData, updateWorkingContent, setFormData: _s
                     href="https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EURL-ECVAM/datasets/DBALM/LATEST/online/dbalm.html"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline text-sm break-all"
+                    className="text-primary hover:underline text-sm break-all"
                   >
                     https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EURL<br />-ECVAM/datasets/DBALM/LATEST/online/dbalm.html
                   </a>
@@ -118,7 +118,7 @@ export function SectionPurpose({ formData, updateWorkingContent, setFormData: _s
                     href="https://www.re-place.be/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline text-sm break-all"
+                    className="text-primary hover:underline text-sm break-all"
                   >
                     https://www.re-place.be/
                   </a>

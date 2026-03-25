@@ -20,6 +20,8 @@ import { formatDateTime } from '@/lib/utils'
 import type { LoginEventWithUser } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 import { AuditPagination } from './AuditPagination'
+import { TableEmptyRow } from '@/components/ui/empty-state'
+import { LogIn } from 'lucide-react'
 
 interface AuditLoginsTabProps {
     dateFrom: string
@@ -88,11 +90,7 @@ export function AuditLoginsTab({
                                 <TableCell colSpan={7} className="text-center py-8">載入中...</TableCell>
                             </TableRow>
                         ) : loginEvents?.data?.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                    沒有登入事件
-                                </TableCell>
-                            </TableRow>
+                            <TableEmptyRow colSpan={7} icon={LogIn} title="沒有登入事件" />
                         ) : (
                             loginEvents?.data?.map((event) => (
                                 <LoginEventRow key={event.id} event={event} />

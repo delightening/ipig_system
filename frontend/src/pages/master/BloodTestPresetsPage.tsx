@@ -5,14 +5,16 @@
 import { useState, useMemo } from 'react'
 import { STALE_TIME } from '@/lib/query'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   bloodTestPresetApi,
   bloodTestPanelApi,
   BloodTestPreset,
-  CreateBloodTestPresetRequest,
   UpdateBloodTestPresetRequest,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -44,7 +46,7 @@ import {
   ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getApiErrorMessage } from '@/lib/validation'
+import { getApiErrorMessage, bloodTestPresetFormSchema, type BloodTestPresetFormData } from '@/lib/validation'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import { useNavigate } from 'react-router-dom'
 
@@ -58,12 +60,11 @@ export function BloodTestPresetsPage() {
   const [showFilter, setShowFilter] = useState<ShowFilter>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingPreset, setEditingPreset] = useState<BloodTestPreset | null>(null)
-  const [formData, setFormData] = useState<CreateBloodTestPresetRequest>({
-    name: '',
-    icon: '',
-    panel_keys: [],
-    sort_order: 0,
+  const { register, handleSubmit: rhfHandleSubmit, reset, setValue, watch, formState: { errors } } = useForm<BloodTestPresetFormData>({
+    resolver: zodResolver(bloodTestPresetFormSchema),
+    defaultValues: { name: '', icon: '', panel_keys: [], sort_order: 0 },
   })
+  const panelKeysValue = watch('panel_keys')
 
   const { data: presets, isLoading } = useQuery({
     queryKey: ['blood-test-presets-all'],
@@ -84,7 +85,7 @@ export function BloodTestPresetsPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateBloodTestPresetRequest) =>
+    mutationFn: (data: BloodTestPresetFormData) =>
       bloodTestPresetApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blood-test-presets'] })
@@ -147,18 +148,13 @@ export function BloodTestPresetsPage() {
   })
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      icon: '',
-      panel_keys: [],
-      sort_order: 0,
-    })
+    reset({ name: '', icon: '', panel_keys: [], sort_order: 0 })
     setEditingPreset(null)
   }
 
   const handleEdit = (preset: BloodTestPreset) => {
     setEditingPreset(preset)
-    setFormData({
+    reset({
       name: preset.name,
       icon: preset.icon || '',
       panel_keys: preset.panel_keys || [],
@@ -167,31 +163,28 @@ export function BloodTestPresetsPage() {
     setDialogOpen(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const onSubmit = (data: BloodTestPresetFormData) => {
     if (editingPreset) {
       updateMutation.mutate({
         id: editingPreset.id,
         data: {
-          name: formData.name,
-          icon: formData.icon || undefined,
-          panel_keys: formData.panel_keys,
-          sort_order: formData.sort_order,
+          name: data.name,
+          icon: data.icon || undefined,
+          panel_keys: data.panel_keys,
+          sort_order: data.sort_order,
         },
       })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(data)
     }
   }
 
   const togglePanelKey = (key: string) => {
-    setFormData((prev) => {
-      const current = prev.panel_keys || []
-      const next = current.includes(key)
-        ? current.filter((k) => k !== key)
-        : [...current, key]
-      return { ...prev, panel_keys: next }
-    })
+    const current = panelKeysValue || []
+    const next = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key]
+    setValue('panel_keys', next)
   }
 
   const filteredPresets = useMemo(() => {
@@ -217,34 +210,31 @@ export function BloodTestPresetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/blood-test-templates')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              血液檢查常用組合管理
-            </h1>
-            <p className="text-muted-foreground">
-              管理血液檢查結果分析頁面的一鍵選取組合（共 {totalCount} 個，啟用{' '}
-              {activeCount} 個）
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center gap-4">
         <Button
-          onClick={() => {
-            resetForm()
-            setDialogOpen(true)
-          }}
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/blood-test-templates')}
+          aria-label="返回"
         >
-          <Plus className="mr-2 h-4 w-4" />
-          新增常用組合
+          <ArrowLeft className="h-5 w-5" />
         </Button>
+        <PageHeader
+          title="血液檢查常用組合管理"
+          description={`管理血液檢查結果分析頁面的一鍵選取組合（共 ${totalCount} 個，啟用 ${activeCount} 個）`}
+          className="flex-1"
+          actions={
+            <Button
+              onClick={() => {
+                resetForm()
+                setDialogOpen(true)
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              新增常用組合
+            </Button>
+          }
+        />
       </div>
 
       <div className="flex gap-4 items-center">
@@ -378,22 +368,22 @@ export function BloodTestPresetsPage() {
                 : '請輸入常用組合的資訊，供分析頁一鍵選取'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={rhfHandleSubmit(onSubmit)}>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="preset-name" className="text-right">
                   名稱
                 </Label>
-                <Input
-                  id="preset-name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="col-span-3"
-                  placeholder="例：肝腎功能"
-                  required
-                />
+                <div className="col-span-3 space-y-1">
+                  <Input
+                    id="preset-name"
+                    {...register('name')}
+                    placeholder="例：肝腎功能"
+                  />
+                  {errors.name && (
+                    <p className="text-sm text-destructive">{errors.name.message}</p>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="preset-icon" className="text-right">
@@ -401,10 +391,7 @@ export function BloodTestPresetsPage() {
                 </Label>
                 <Input
                   id="preset-icon"
-                  value={formData.icon || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, icon: e.target.value || undefined })
-                  }
+                  {...register('icon')}
                   className="col-span-3"
                   placeholder="emoji 或 /icons/xxx.svg"
                 />
@@ -420,7 +407,7 @@ export function BloodTestPresetsPage() {
                         className="flex items-center gap-2 cursor-pointer"
                       >
                         <Checkbox
-                          checked={(formData.panel_keys || []).includes(p.key)}
+                          checked={(panelKeysValue || []).includes(p.key)}
                           onCheckedChange={() => togglePanelKey(p.key)}
                         />
                         <PanelIcon icon={p.icon} size={16} />
@@ -436,13 +423,7 @@ export function BloodTestPresetsPage() {
                 <Input
                   id="preset-sort"
                   type="number"
-                  value={formData.sort_order ?? 0}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      sort_order: parseInt(e.target.value, 10) || 0,
-                    })
-                  }
+                  {...register('sort_order', { valueAsNumber: true })}
                   className="col-span-3 w-24"
                 />
               </div>

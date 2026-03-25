@@ -1,4 +1,3 @@
-import { Input } from '@/components/ui/input'
 import {
     Select,
     SelectContent,
@@ -6,8 +5,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import { FilterBar } from '@/components/ui/filter-bar'
 import { DRUG_CATEGORIES } from '@/types/treatment-drug'
-import { Search } from 'lucide-react'
 
 interface DrugFilterBarProps {
     keyword: string
@@ -27,16 +26,11 @@ export function DrugFilterBar({
     onActiveChange,
 }: DrugFilterBarProps) {
     return (
-        <div className="flex flex-wrap gap-3 items-center bg-white p-4 rounded-lg border">
-            <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                    placeholder="搜尋藥物名稱..."
-                    value={keyword}
-                    onChange={(e) => onKeywordChange(e.target.value)}
-                    className="pl-9"
-                />
-            </div>
+        <FilterBar
+            search={keyword}
+            onSearchChange={onKeywordChange}
+            searchPlaceholder="搜尋藥物名稱..."
+        >
             <Select value={filterCategory} onValueChange={onCategoryChange}>
                 <SelectTrigger className="w-[140px]">
                     <SelectValue placeholder="分類" />
@@ -58,6 +52,6 @@ export function DrugFilterBar({
                     <SelectItem value="inactive">已停用</SelectItem>
                 </SelectContent>
             </Select>
-        </div>
+        </FilterBar>
     )
 }

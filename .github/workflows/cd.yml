@@ -23,7 +23,9 @@ jobs:
     outputs:
       sha: ${{ github.event.workflow_run.head_sha }}
     steps:
-      - run: echo "CI passed for ${{ github.event.workflow_run.head_sha }}"
+      - run: echo "CI passed for $SHA"
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
 
   # =========================
   # Build and push API image

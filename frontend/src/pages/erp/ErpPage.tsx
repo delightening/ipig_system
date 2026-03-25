@@ -2,6 +2,7 @@ import { useMemo, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
     Truck,
@@ -235,9 +236,7 @@ export function ErpPage() {
         const { EquipmentPage } = require('@/pages/admin/EquipmentPage')
         return (
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-3xl font-bold tracking-tight">ERP 系統</h1>
-                </div>
+                <PageHeader title="ERP 系統" />
                 <div className="flex flex-wrap gap-2 border-b border-border">
                     {filteredModules.map((module) => (
                         <button
@@ -262,9 +261,7 @@ export function ErpPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">ERP 系統</h1>
-            </div>
+            <PageHeader title="ERP 系統" />
 
             <div className="flex flex-wrap gap-2 border-b border-border">
                 {filteredModules.map((module) => (

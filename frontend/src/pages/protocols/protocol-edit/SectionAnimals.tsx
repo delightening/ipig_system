@@ -49,11 +49,12 @@ export function SectionAnimals({ formData, updateWorkingContent, setFormData: _s
           </div>
           {/* Helper to update entire animals array */}
           {(formData.working_content.animals.animals || []).map((animal: ProtocolAnimalItem, index: number) => (
-            <div key={index} className="grid gap-4 p-4 border rounded relative bg-slate-50 mb-4">
+            <div key={index} className="grid gap-4 p-4 border rounded relative bg-muted mb-4">
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                className="absolute right-2 top-2 h-6 w-6 text-destructive"
+                aria-label="刪除"
                 onClick={() => {
                   const newAnimals = [...formData.working_content.animals.animals]
                   newAnimals.splice(index, 1)
@@ -126,7 +127,7 @@ export function SectionAnimals({ formData, updateWorkingContent, setFormData: _s
                       placeholder={t('aup.animals.placeholders.strainOther')}
                     />
                   ) : (
-                    <Input disabled placeholder={t('aup.animals.placeholders.selectSpeciesFirst')} />
+                    <Input disabled placeholder={t('aup.animals.placeholders.selectSpeciesFirst')} aria-label={t('aup.animals.placeholders.selectSpeciesFirst')} />
                   )}
                 </div>
               </div>
@@ -339,7 +340,7 @@ export function SectionAnimals({ formData, updateWorkingContent, setFormData: _s
               </div>
             </div>
           ))}
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-md">
             <h4 className="font-semibold text-sm mb-2">{t('aup.animals.notes.title')}</h4>
             <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
               <li>{t('aup.animals.notes.item1')}</li>

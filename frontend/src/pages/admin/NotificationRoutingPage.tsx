@@ -1,5 +1,6 @@
 import { Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 import { useNotificationRouting } from './NotificationRouting/hooks/useNotificationRouting'
@@ -47,18 +48,16 @@ export function NotificationRoutingPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">通知路由設定</h1>
-                    <p className="text-muted-foreground">
-                        管理事件觸發時的通知對象與通知方式
-                    </p>
-                </div>
-                <Button onClick={() => setShowCreateDialog(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    新增規則
-                </Button>
-            </div>
+            <PageHeader
+                title="通知路由設定"
+                description="管理事件觸發時的通知對象與通知方式"
+                actions={
+                    <Button onClick={() => setShowCreateDialog(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        新增規則
+                    </Button>
+                }
+            />
 
             <RoutingTable
                 rulesByGroup={rulesByGroup}

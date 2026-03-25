@@ -1,5 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { facilityApi } from '@/lib/api/facility'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
@@ -14,16 +18,33 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
-import type { BuildingWithFacility, CreateBuildingRequest, UpdateBuildingRequest } from '@/types/facility'
+import type { BuildingWithFacility } from '@/types/facility'
 
-const EMPTY_FORM: CreateBuildingRequest = { facility_id: '', code: '', name: '', description: '', sort_order: 0 }
+const buildingSchema = z.object({
+  facility_id: z.string().min(1, '請選擇設施'),
+  code: z.string().min(1, '代碼為必填'),
+  name: z.string().min(1, '名稱為必填'),
+  description: z.string().optional(),
+  sort_order: z.coerce.number().int(),
+})
+
+type BuildingFormData = z.output<typeof buildingSchema>
+
+const EMPTY_FORM: BuildingFormData = { facility_id: '', code: '', name: '', description: '', sort_order: 0 }
 
 export function BuildingTab({ canManage }: { canManage: boolean }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const dialogs = useDialogSet(['create', 'edit'] as const)
   const { dialogState, confirm } = useConfirmDialog()
   const [editing, setEditing] = useState<BuildingWithFacility | null>(null)
-  const [form, setForm] = useState<CreateBuildingRequest>(EMPTY_FORM)
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<z.input<typeof buildingSchema>, unknown, BuildingFormData>({
+    resolver: zodResolver(buildingSchema),
+    defaultValues: EMPTY_FORM,
+  })
+
+  const facilityId = watch('facility_id')
 
   const { data: buildings = [], isLoading } = useQuery({
     queryKey: ['buildings'],
@@ -38,13 +59,13 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['buildings'] })
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateBuildingRequest) => facilityApi.createBuilding(data),
-    onSuccess: () => { invalidate(); dialogs.close('create'); setForm(EMPTY_FORM); toast({ title: '已新增棟舍' }) },
+    mutationFn: (data: BuildingFormData) => facilityApi.createBuilding({ ...data, description: data.description || undefined }),
+    onSuccess: () => { invalidate(); dialogs.close('create'); toast({ title: '已新增棟舍' }) },
     onError: (err: unknown) => toast({ title: '新增失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateBuildingRequest }) => facilityApi.updateBuilding(id, data),
+    mutationFn: ({ id, data }: { id: string; data: BuildingFormData }) => facilityApi.updateBuilding(id, { name: data.name, description: data.description || undefined, sort_order: data.sort_order }),
     onSuccess: () => { invalidate(); dialogs.close('edit'); toast({ title: '已更新棟舍' }) },
     onError: (err: unknown) => toast({ title: '更新失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
   })
@@ -57,7 +78,7 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
 
   const handleEdit = (b: BuildingWithFacility) => {
     setEditing(b)
-    setForm({ facility_id: b.facility_id, code: b.code, name: b.name, description: b.description ?? '', sort_order: b.sort_order })
+    reset({ facility_id: b.facility_id, code: b.code, name: b.name, description: b.description ?? '', sort_order: b.sort_order })
     dialogs.open('edit')
   }
 
@@ -70,14 +91,17 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
     if (ok) deleteMutation.mutate(b.id)
   }
 
-  const set = (k: keyof CreateBuildingRequest, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
+  const onCreateSubmit = handleSubmit(data => createMutation.mutate(data))
+  const onEditSubmit = handleSubmit(data => {
+    if (editing) updateMutation.mutate({ id: editing.id, data })
+  })
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <span className="text-sm text-muted-foreground">共 {buildings.length} 筆</span>
         {canManage && (
-          <Button size="sm" onClick={() => { setForm(EMPTY_FORM); dialogs.open('create') }}>
+          <Button size="sm" onClick={() => { reset(EMPTY_FORM); dialogs.open('create') }}>
             <Plus className="h-4 w-4 mr-1" /> 新增棟舍
           </Button>
         )}
@@ -108,8 +132,8 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
               {canManage && (
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(b)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(b)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(b)} aria-label="編輯"><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(b)} aria-label="刪除"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 </TableCell>
               )}
@@ -121,43 +145,62 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
       <Dialog open={dialogs.isOpen('create')} onOpenChange={o => !o && dialogs.close('create')}>
         <DialogContent>
           <DialogHeader><DialogTitle>新增棟舍</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <form onSubmit={onCreateSubmit} className="space-y-3">
             <div>
               <Label>所屬設施 *</Label>
-              <Select value={form.facility_id} onValueChange={v => set('facility_id', v)}>
+              <Select value={facilityId} onValueChange={v => setValue('facility_id', v, { shouldValidate: true })}>
                 <SelectTrigger><SelectValue placeholder="選擇設施" /></SelectTrigger>
                 <SelectContent>{facilities.map(f => <SelectItem key={f.id} value={f.id}>{f.name} ({f.code})</SelectItem>)}</SelectContent>
               </Select>
+              {errors.facility_id && <p className="text-sm text-destructive">{errors.facility_id.message}</p>}
             </div>
-            <div><Label>代碼 *</Label><Input value={form.code} onChange={e => set('code', e.target.value)} /></div>
-            <div><Label>名稱 *</Label><Input value={form.name} onChange={e => set('name', e.target.value)} /></div>
-            <div><Label>描述</Label><Input value={form.description ?? ''} onChange={e => set('description', e.target.value)} /></div>
-            <div><Label>排序</Label><Input type="number" value={form.sort_order ?? 0} onChange={e => set('sort_order', parseInt(e.target.value) || 0)} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => dialogs.close('create')}>取消</Button>
-            <Button onClick={() => createMutation.mutate({ ...form, description: form.description || undefined })} disabled={createMutation.isPending || !form.facility_id || !form.code || !form.name}>
-              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} 新增
-            </Button>
-          </DialogFooter>
+            <div>
+              <Label>代碼 *</Label>
+              <Input {...register('code')} />
+              {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
+            </div>
+            <div>
+              <Label>名稱 *</Label>
+              <Input {...register('name')} />
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+            </div>
+            <div><Label>描述</Label><Input {...register('description')} /></div>
+            <div>
+              <Label>排序</Label>
+              <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => dialogs.close('create')}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} 新增
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
       <Dialog open={dialogs.isOpen('edit')} onOpenChange={o => !o && dialogs.close('edit')}>
         <DialogContent>
           <DialogHeader><DialogTitle>編輯棟舍</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>代碼</Label><Input value={form.code} disabled /></div>
-            <div><Label>名稱 *</Label><Input value={form.name} onChange={e => set('name', e.target.value)} /></div>
-            <div><Label>描述</Label><Input value={form.description ?? ''} onChange={e => set('description', e.target.value)} /></div>
-            <div><Label>排序</Label><Input type="number" value={form.sort_order ?? 0} onChange={e => set('sort_order', parseInt(e.target.value) || 0)} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => dialogs.close('edit')}>取消</Button>
-            <Button onClick={() => editing && updateMutation.mutate({ id: editing.id, data: { name: form.name, description: form.description || undefined, sort_order: form.sort_order } })} disabled={updateMutation.isPending || !form.name}>
-              {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} 儲存
-            </Button>
-          </DialogFooter>
+          <form onSubmit={onEditSubmit} className="space-y-3">
+            <div><Label>代碼</Label><Input {...register('code')} disabled /></div>
+            <div>
+              <Label>名稱 *</Label>
+              <Input {...register('name')} />
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+            </div>
+            <div><Label>描述</Label><Input {...register('description')} /></div>
+            <div>
+              <Label>排序</Label>
+              <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => dialogs.close('edit')}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} 儲存
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

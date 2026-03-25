@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
-import { useTabState } from '@/hooks/useTabState'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { toast } from '@/components/ui/use-toast'
 import type {
@@ -47,7 +47,8 @@ function getDefaultDateTo() {
 export function useAuditData() {
     const { user: currentUser, logout } = useAuthStore()
     const queryClient = useQueryClient()
-    const { activeTab, setActiveTab } = useTabState<AuditTab>('dashboard')
+    const [searchParams] = useSearchParams()
+    const activeTab = (searchParams.get('tab') ?? 'dashboard') as AuditTab
 
     // 分頁狀態
     const [activitiesPage, setActivitiesPage] = useState(1)
@@ -238,9 +239,8 @@ export function useAuditData() {
     }
 
     return {
-        // Tab
+        // Tab (read-only, synced via URL ?tab=)
         activeTab,
-        setActiveTab,
 
         // Date
         dateFrom,

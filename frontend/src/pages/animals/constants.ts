@@ -42,24 +42,24 @@ export function parseTabFromUrl(
   return tabParam as TabType
 }
 
-/** Badge status colors used on the detail page header */
+/** Badge status colors used on the detail page header (solid background + white text) */
 export const detailStatusColors: Record<AnimalStatus, string> = {
-  unassigned: 'bg-gray-500',
-  in_experiment: 'bg-orange-500',
-  completed: 'bg-green-500',
-  euthanized: 'bg-red-500',
-  sudden_death: 'bg-rose-600',
-  transferred: 'bg-indigo-500',
+  unassigned: 'bg-status-neutral-solid',
+  in_experiment: 'bg-status-warning-solid',
+  completed: 'bg-status-success-solid',
+  euthanized: 'bg-status-error-solid',
+  sudden_death: 'bg-status-error-strong-solid',
+  transferred: 'bg-status-purple-solid',
 }
 
-/** List page status colors */
+/** List page status colors (light background + dark text) */
 export const statusColors: Record<AnimalStatus, string> = {
-  unassigned: 'bg-gray-100 text-gray-800',
-  in_experiment: 'bg-orange-100 text-orange-800',
-  completed: 'bg-green-100 text-green-800',
-  euthanized: 'bg-red-100 text-red-800',
-  sudden_death: 'bg-rose-100 text-rose-800',
-  transferred: 'bg-indigo-100 text-indigo-800',
+  unassigned: 'bg-status-neutral-bg text-status-neutral-text',
+  in_experiment: 'bg-status-warning-bg text-status-warning-text',
+  completed: 'bg-status-success-bg text-status-success-text',
+  euthanized: 'bg-status-error-bg text-status-error-text',
+  sudden_death: 'bg-status-error-bg text-status-error-text',
+  transferred: 'bg-status-purple-bg text-status-purple-text',
 }
 
 export const getPenLocationDisplay = (

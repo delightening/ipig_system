@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { formatNumber, formatDateTime } from '@/lib/utils'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
@@ -117,16 +118,16 @@ export function StockLedgerReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">庫存流水報表</h1>
-          <p className="text-muted-foreground">所有庫存異動記錄</p>
-        </div>
-        <Button onClick={exportToCSV} disabled={!report?.length}>
-          <Download className="mr-2 h-4 w-4" />
-          匯出 CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="庫存流水報表"
+        description="所有庫存異動記錄"
+        actions={
+          <Button onClick={exportToCSV} disabled={!report?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            匯出 CSV
+          </Button>
+        }
+      />
 
       {/* 篩選條件 */}
       <div className="flex items-end gap-4 flex-wrap">

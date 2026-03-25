@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { WarehouseShelfTreeSelect } from '@/components/inventory/WarehouseShelfTreeSelect'
+import { PageHeader } from '@/components/ui/page-header'
 import { Search, Loader2, Package, X } from 'lucide-react'
 import { formatNumber, formatCurrency, formatDate, formatUom, cn } from '@/lib/utils'
 
@@ -50,20 +51,16 @@ export function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between pb-2">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-            庫存查詢
-          </h1>
-          <p className="text-muted-foreground mt-1">查看各倉庫與貨架的即時庫存現況</p>
-        </div>
-        {hasFilters && (
+      <PageHeader
+        title="庫存查詢"
+        description="查看各倉庫與貨架的即時庫存現況"
+        actions={hasFilters ? (
           <Button variant="outline" size="sm" onClick={clearFilters} className="h-9 rounded-full px-4 border-dashed hover:border-destructive hover:text-destructive transition-colors">
             <X className="h-4 w-4 mr-2" />
             清除所有篩選
           </Button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       <div className="grid gap-4 md:flex md:items-center bg-card p-4 rounded-xl border shadow-sm items-stretch">
         <div className="relative flex-1 min-w-[200px]">

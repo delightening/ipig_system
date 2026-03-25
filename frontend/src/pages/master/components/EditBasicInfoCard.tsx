@@ -85,7 +85,7 @@ export function EditBasicInfoCard({ formReturn }: EditBasicInfoCardProps) {
                   'flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all',
                   form.categoryCode === cat.code
                     ? 'border-primary bg-primary/5'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-primary/50',
+                    : 'border-border hover:border-primary/50',
                 )}
               >
                 <div
@@ -93,7 +93,7 @@ export function EditBasicInfoCard({ formReturn }: EditBasicInfoCardProps) {
                     'p-2 rounded-md',
                     form.categoryCode === cat.code
                       ? 'bg-primary/10 text-primary'
-                      : 'bg-slate-100 dark:bg-slate-800',
+                      : 'bg-muted',
                   )}
                 >
                   {CATEGORY_ICONS[cat.code]}

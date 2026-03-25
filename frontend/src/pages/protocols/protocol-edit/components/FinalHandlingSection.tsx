@@ -43,7 +43,7 @@ export function FinalHandlingSection({ formData, updateWorkingContent, t }: Prop
       </div>
 
       {final_handling.method === 'euthanasia' && (
-        <div className="space-y-3 border-l-2 border-slate-200 pl-6">
+        <div className="space-y-3 border-l-2 border-border pl-6">
           <Label className="text-sm font-medium">{t('aup.design.euthanasiaLabel')}</Label>
           <Select
             value={final_handling.euthanasia_type || ''}
@@ -77,7 +77,7 @@ export function FinalHandlingSection({ formData, updateWorkingContent, t }: Prop
       )}
 
       {final_handling.method === 'transfer' && (
-        <div className="space-y-3 border-l-2 border-slate-200 pl-6">
+        <div className="space-y-3 border-l-2 border-border pl-6">
           <Label className="text-sm font-medium">{t('aup.design.transferLabel')}</Label>
           <div className="space-y-3">
             <div className="space-y-2">
@@ -109,7 +109,7 @@ export function FinalHandlingSection({ formData, updateWorkingContent, t }: Prop
       )}
 
       {final_handling.method === 'other' && (
-        <div className="space-y-3 border-l-2 border-slate-200 pl-6">
+        <div className="space-y-3 border-l-2 border-border pl-6">
           <Label className="text-sm font-medium">{t('aup.design.handlingMethods.other')}: </Label>
           <Textarea
             value={final_handling.other_description || ''}

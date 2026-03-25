@@ -8,6 +8,7 @@
  */
 
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Upload } from 'lucide-react'
 
 import { useDrugOptions } from './TreatmentDrugOptions/hooks/useDrugOptions'
@@ -43,24 +44,23 @@ export function TreatmentDrugOptionsPage() {
 
     return (
         <div className="space-y-6">
-            {/* 頁面標題 */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">藥物選單管理</h1>
-                    <p className="text-muted-foreground">管理治療方式用藥的下拉選單選項</p>
-                </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={() => dialogs.open('import')}
-                    >
-                        <Upload className="h-4 w-4 mr-2" /> 從 ERP 匯入
-                    </Button>
-                    <Button onClick={() => { resetForm(); dialogs.open('create') }}>
-                        <Plus className="h-4 w-4 mr-2" /> 新增藥物
-                    </Button>
-                </div>
-            </div>
+            <PageHeader
+                title="藥物選單管理"
+                description="管理治療方式用藥的下拉選單選項"
+                actions={
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => dialogs.open('import')}
+                        >
+                            <Upload className="h-4 w-4 mr-2" /> 從 ERP 匯入
+                        </Button>
+                        <Button onClick={() => { resetForm(); dialogs.open('create') }}>
+                            <Plus className="h-4 w-4 mr-2" /> 新增藥物
+                        </Button>
+                    </div>
+                }
+            />
 
             {/* 篩選列 */}
             <DrugFilterBar

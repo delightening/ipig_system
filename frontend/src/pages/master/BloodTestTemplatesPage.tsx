@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Search, ArrowLeft, Settings, Star } from 'lucide-react'
@@ -16,41 +17,41 @@ export function BloodTestTemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/animals')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">血檢項目</h1>
-            <p className="text-muted-foreground">
-              管理血檢項目模板（共 {m.totalCount} 個，啟用 {m.activeCount} 個）
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/blood-test-panels')}>
-            <Settings className="mr-2 h-4 w-4" />
-            管理分類
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/blood-test-presets')}>
-            <Star className="mr-2 h-4 w-4" />
-            管理常用組合
-          </Button>
-          <Button
-            onClick={() => {
-              m.resetForm()
-              m.setDialogOpen(true)
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            新增項目
-          </Button>
-        </div>
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/animals')}
+          aria-label="返回"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <PageHeader
+          title="血檢項目"
+          description={`管理血檢項目模板（共 ${m.totalCount} 個，啟用 ${m.activeCount} 個）`}
+          className="flex-1"
+          actions={
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => navigate('/blood-test-panels')}>
+                <Settings className="mr-2 h-4 w-4" />
+                管理分類
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/blood-test-presets')}>
+                <Star className="mr-2 h-4 w-4" />
+                管理常用組合
+              </Button>
+              <Button
+                onClick={() => {
+                  m.resetForm()
+                  m.setDialogOpen(true)
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                新增項目
+              </Button>
+            </div>
+          }
+        />
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -123,8 +124,7 @@ export function BloodTestTemplatesPage() {
         open={m.dialogOpen}
         onOpenChange={m.setDialogOpen}
         editingTemplate={m.editingTemplate}
-        formData={m.formData}
-        setFormData={m.setFormData}
+        form={m.templateForm}
         panels={m.panels}
         isCreatePending={m.createMutation.isPending}
         isUpdatePending={m.updateMutation.isPending}
@@ -134,13 +134,9 @@ export function BloodTestTemplatesPage() {
       <BloodTestPanelFormDialog
         open={m.panelDialogOpen}
         onOpenChange={m.setPanelDialogOpen}
-        formData={m.panelFormData}
-        setFormData={m.setPanelFormData}
+        form={m.panelForm}
         isPending={m.createPanelMutation.isPending}
-        onSubmit={(e) => {
-          e.preventDefault()
-          m.createPanelMutation.mutate(m.panelFormData)
-        }}
+        onSubmit={m.panelForm.handleSubmit((data) => m.createPanelMutation.mutate(data))}
       />
     </div>
   )

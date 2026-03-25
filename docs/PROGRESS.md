@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-23 (v19)
+> **最後更新：** 2026-03-25 (v21)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-23 設備維護管理擴充、AI 查詢接口、圖片處理服務、Bug 修正、Dependabot 更新 |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-25 R12-4~R12-7 完成、UI 一致性重構、安全性掃描 |
 
 ---
 
@@ -186,6 +186,40 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **移除檔案**：`docker-compose.waf.yml`、`deploy/waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf`、`deploy/waf/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf`、`docs/security-compliance/WAF.md`。
 - ✅ **文件更新**：README、ARCHITECTURE、infrastructure、COMPOSE、deploy/README、TODO（R9-C1 標記完成、SEC-40 描述更新）、code review 文件。
 - ✅ **R9-C1 結案**：原「生產環境 WAF 改為 On」已不適用，改由 Cloudflare Dashboard 啟用 Managed Ruleset。
+
+### 2026-03-25 RHF+Zod 全面遷移 + UI 債全面清理
+
+- ✅ **RHF+Zod 全面遷移**（1→17 檔）：新增 10 個 Zod schema。Auth 3 頁 + Master 5 頁 + Admin UserForm 3 dialog + AnimalEdit + ApAging/ArAging + WarehouseLayout + ProfileSettings。
+- ✅ **PageHeader** 35 頁遷移。**PageTabs** 9 檔遷移。**EmptyState** 24 檔。**i18n** 28 處/15 檔。**a11y** 93 處/43 檔。
+- ✅ 設計系統合規度：~92%。TypeScript 零錯誤。
+
+### 2026-03-25 RHF+Zod 延伸遷移 + DataTable 套用 + Protocol Tab URL 同步
+
+- ✅ **Partner 表單 RHF+Zod 遷移**：`usePartnerForm` 從 useState + 手寫 regex 驗證遷移到 `useForm` + `zodResolver(partnerFormZodSchema)`。`PartnerFormDialog` 改用 `register` 綁定 Input 欄位、`errors` 顯示欄位級錯誤。auto-generated code 和 edit/create 雙模式功能保留。
+- ✅ **DataTable 元件套用 HR 5 個列表頁**：`MyLeavesTabContent`、`AllLeaveRecordsTabContent`、`LeavePendingApprovalsTab`、`MyOvertimeTabContent`、`PendingApprovalsTabContent` 全部從手寫 Table+Skeleton+Empty 模式遷移到 `DataTable<T>` + column definitions。
+- ✅ **ProtocolDetailPage Tab URL 同步**：9 個 Tab（content/versions/history/comments/reviewers/coeditors/attachments/animals/amendments）從 `useState` 遷移到 `PageTabs` URL 同步（`useSearchParams`）。支援瀏覽器前進/後退和分享連結（`?tab=comments`）。`ProtocolTabNav.tsx` 刪除。
+- ✅ **TypeScript 編譯零錯誤**。
+
+### 2026-03-25 R12-4~R12-7 完成
+
+- ✅ **R12-4 硬編碼色彩清理完成**：全專案硬編碼 Tailwind 色彩從 **748→112**（-85%）。本輪清理：auditLogs.ts（58 處轉 status token）、animals/constants.ts（12 處轉 status-*-solid token，新增 `--status-*-solid` CSS 變數）、ErpWidgets（17 處）、Auth 頁面表單內元素（85 處，漸層背景保留）。剩餘 112 處為 Auth 漸層背景（DESIGN.md 規範）和 Canvas 視覺化 hex 色彩。
+- ✅ **R12-5 React Hook Form + Zod 表單遷移**：`lib/validation.ts` 新增 `leaveRequestSchema`、`overtimeRequestSchema`、`annualLeaveEntitlementSchema` 三個 HR 表單 Schema。`CreateOvertimeDialog` 完整遷移到 `useForm` + `zodResolver`（含 `<form onSubmit>`、欄位級錯誤顯示）。`useLeaveRequestForm` 遷移到 RHF，保留雙向日期/時數計算邏輯。`CreateLeaveDialog` 新增欄位級 error 顯示。
+- ✅ **R12-6 子系統色相實際套用**：`sidebarNavConfig.ts` NavItem 介面新增 `subsystem` 欄位，5 個導航群組標記子系統（aup/erp/animal/hr/admin）。`SortableNavItem.tsx` active 狀態從 `bg-blue-600` 改為 `bg-subsystem-*` 動態色彩（`getActiveClass()` 函式）。子選單 active 同步使用父級子系統色相。
+- ✅ **R12-7 CSRF Token 客戶端刷新機制**：`api/client.ts` response interceptor 新增 403 CSRF 錯誤偵測邏輯 → 自動呼叫 `GET /auth/me` 取得新 CSRF cookie → 重試原始請求。`_csrfRetry` flag 防止無限重試。
+- ✅ **TypeScript 編譯零錯誤**。
+
+### 2026-03-24 UI 一致性重構與設計系統合規
+
+- ✅ **共用頁面框架元件**：新增 5 個 UI 骨架元件 — `PageHeader`（統一標題區）、`FilterBar`（統一篩選列）、`PageTabs`（URL 同步 Tab 導航）、`DataTable`（統一表格 + 分頁 + Empty + Loading）、`StatusBadge`（語義化狀態標籤）。
+- ✅ **語義化色彩系統**：CSS Variables 新增 6 組 status token（success/warning/error/info/neutral/purple）含 Light/Dark 雙主題 + 5 個子系統色相變數（`--subsystem-aup/erp/animal/hr/admin`），註冊到 `tailwind.config.js`。
+- ✅ **硬編碼色彩清理**：全專案 `src/pages/` 硬編碼 Tailwind 色彩從 **748 處降至 262 處**（-65%），涵蓋 text-*/bg-*/border-* 三類。剩餘為 Auth 漸層（DESIGN.md 規範）、視覺化 Canvas 色彩、資料映射常數。
+- ✅ **HR 模組全面重構**：4 頁（Leave/Overtime/Attendance/AnnualLeave）遷移到 PageHeader + PageTabs；Tab 導航從 useState 遷移到 URL sync；`window.location.reload()` 移除改用 `invalidateQueries`；Loading 統一為 TableSkeleton。
+- ✅ **ERP 模組遷移**：ProductsPage、PartnerToolbar 遷移到 PageHeader + FilterBar。
+- ✅ **動物管理/協議模組遷移**：AnimalsPage、ProtocolsPage、AnimalSourcesPage 遷移到 PageHeader；AnimalHeaderCard/ListTable/DetailActions/Filters/AddDialog 等 9 個子元件清理硬編碼色彩。
+- ✅ **Admin 模組清理**：14 個元件清理硬編碼色彩（Equipment/Maintenance/Calibration/Disposal/Notification/User/Training/AiApiKey/Settings/Roles/AnimalFieldCorrections）。
+- ✅ **報表/文件模組清理**：BloodTest/CostSummary/PurchaseSales/Documents 等 18 個檔案清理。
+- ✅ **安全性掃描報告**：Backend 安全評分 92/100，確認 JWT/2FA/CSRF/Rate Limiting/File Upload 等防禦完善，3 項中低風險待修。
+- ✅ **TypeScript 編譯零錯誤**。
 
 ### 2026-03-23 R9-C2 CI 密碼改 GitHub Secrets
 

@@ -6,8 +6,9 @@ import api from '@/lib/api'
 import type { ProtocolListItem, ProtocolStatus } from '@/types/aup'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
+import { FilterBar } from '@/components/ui/filter-bar'
 import {
   Table,
   TableBody,
@@ -23,7 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, Eye, Edit, Loader2, FileText, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Copy } from 'lucide-react'
+import { Plus, Eye, Edit, Loader2, FileText, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Copy } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useNavigate } from 'react-router-dom'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
@@ -124,7 +126,7 @@ export function ProtocolsPage() {
 
   const canEditProtocol = (status: ProtocolStatus | string) => {
     const normalized = String(status).toUpperCase()
-    return normalized === 'DRAFT' || normalized === 'REVISION_REQUIRED'
+    return normalized === 'DRAFT' || normalized === 'REVISION_REQUIRED' || normalized === 'PRE_REVIEW_REVISION_REQUIRED' || normalized === 'VET_REVISION_REQUIRED'
   }
 
   const canDeleteProtocol = (status: ProtocolStatus | string) => {
@@ -176,55 +178,40 @@ export function ProtocolsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('protocols.title')}</h1>
-          <p className="text-muted-foreground">
-            {t('protocols.subtitle')}
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="/protocols/new">
-            <Plus className="mr-2 h-4 w-4" />
-            {t('protocols.createNew')}
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title={t('protocols.title')}
+        description={t('protocols.subtitle')}
+        actions={
+          <Button asChild>
+            <Link to="/protocols/new">
+              <Plus className="mr-2 h-4 w-4" />
+              {t('protocols.createNew')}
+            </Link>
+          </Button>
+        }
+      />
 
-      <div className="space-y-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t('protocols.searchPlaceholder')}
-              aria-label={t('protocols.searchPlaceholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder={t('common.allStatus')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('common.allStatus')}</SelectItem>
-              {Object.keys(statusColors).filter(k => k !== 'DELETED').map((key) => (
-                <SelectItem key={key} value={key}>
-                  {getStatusName(key as ProtocolStatus)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {hasFilters && (
-            <Button variant="ghost" onClick={clearFilters}>
-              <X className="h-4 w-4 mr-1" />
-              {t('common.clearFilters')}
-            </Button>
-          )}
-        </div>
-      </div>
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={t('protocols.searchPlaceholder')}
+        hasActiveFilters={!!hasFilters}
+        onClearFilters={clearFilters}
+      >
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder={t('common.allStatus')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('common.allStatus')}</SelectItem>
+            {Object.keys(statusColors).filter(k => k !== 'DELETED').map((key) => (
+              <SelectItem key={key} value={key}>
+                {getStatusName(key as ProtocolStatus)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FilterBar>
 
       <div className="rounded-md border">
         <Table>
@@ -310,7 +297,7 @@ export function ProtocolsPage() {
                     {protocol.iacuc_no ? (
                       <Link
                         to={`/protocols/${protocol.id}`}
-                        className="text-orange-600 hover:text-orange-700 hover:underline cursor-pointer"
+                        className="text-status-warning-text hover:text-status-warning-text/80 hover:underline cursor-pointer"
                       >
                         {protocol.iacuc_no}
                       </Link>
@@ -319,7 +306,7 @@ export function ProtocolsPage() {
                   <TableCell className="max-w-[200px] truncate">
                     <Link
                       to={`/protocols/${protocol.id}`}
-                      className="text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                      className="text-primary hover:text-primary/80 hover:underline cursor-pointer"
                     >
                       {protocol.title}
                     </Link>
@@ -335,13 +322,13 @@ export function ProtocolsPage() {
                   <TableCell>{formatDate(protocol.created_at)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" asChild title={t('common.view')}>
+                      <Button variant="ghost" size="icon" asChild title={t('common.view')} aria-label={t('common.view')}>
                         <Link to={`/protocols/${protocol.id}`}>
                           <Eye className="h-4 w-4" />
                         </Link>
                       </Button>
                       {canEditProtocol(protocol.status) && (
-                        <Button variant="ghost" size="icon" asChild title={t('common.edit')}>
+                        <Button variant="ghost" size="icon" asChild title={t('common.edit')} aria-label={t('common.edit')}>
                           <Link to={`/protocols/${protocol.id}/edit`}>
                             <Edit className="h-4 w-4" />
                           </Link>
@@ -351,6 +338,7 @@ export function ProtocolsPage() {
                         variant="ghost"
                         size="icon"
                         title="複製計畫書"
+                        aria-label="複製計畫書"
                         onClick={() => handleCopy(protocol.id, protocol.title)}
                         disabled={copyMutation.isPending}
                       >
@@ -361,6 +349,7 @@ export function ProtocolsPage() {
                           variant="ghost"
                           size="icon"
                           title={t('common.delete')}
+                          aria-label={t('common.delete')}
                           onClick={() => handleDelete(protocol.id, protocol.title)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -371,12 +360,7 @@ export function ProtocolsPage() {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  <FileText className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">{t('protocols.noData')}</p>
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={8} icon={FileText} title={t('protocols.noData')} />
             )}
           </TableBody>
         </Table>

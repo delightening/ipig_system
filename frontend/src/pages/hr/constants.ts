@@ -59,6 +59,7 @@ export const calculateOvertimeHours = (start: string, end: string): number => {
 
 import { parseDecimal } from '@/lib/utils'
 import { LEAVE_STATUS_NAMES } from '@/types/hr'
+import type { StatusVariant } from '@/components/ui/status-badge'
 
 /** 顯示請假時數（以 0.5 小時為單位，total_hours 優先） */
 export const formatLeaveHours = (leave: { total_hours?: number | string | null; total_days: number | string }): string => {
@@ -66,19 +67,19 @@ export const formatLeaveHours = (leave: { total_hours?: number | string | null; 
     return `${hours} 小時`
 }
 
-/** 取得請假狀態的 Badge variant */
-export const getLeaveStatusVariant = (status: string): { variant: 'default' | 'destructive' | 'secondary' | 'outline'; className?: string; label: string } => {
+/** 取得請假狀態的 StatusBadge variant + label */
+export const getLeaveStatusVariant = (status: string): { variant: StatusVariant; label: string } => {
     const label = LEAVE_STATUS_NAMES[status] || status
     switch (status) {
         case 'APPROVED':
-            return { variant: 'default', className: 'bg-green-500', label }
+            return { variant: 'success', label }
         case 'REJECTED':
-            return { variant: 'destructive', label }
+            return { variant: 'error', label }
         case 'CANCELLED':
-            return { variant: 'secondary', label }
+            return { variant: 'neutral', label }
         case 'DRAFT':
-            return { variant: 'outline', label }
+            return { variant: 'info', label }
         default:
-            return { variant: 'default', label }
+            return { variant: 'warning', label }
     }
 }

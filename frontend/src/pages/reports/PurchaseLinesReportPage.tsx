@@ -5,6 +5,7 @@ import api, { PurchaseLinesReport } from '@/lib/api'
 import { formatNumber, formatDate, formatUom } from '@/lib/utils'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
@@ -148,16 +149,16 @@ export function PurchaseLinesReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">採購明細報表</h1>
-          <p className="text-muted-foreground">採購單、採購入庫、採購退貨明細</p>
-        </div>
-        <Button onClick={exportToCSV} disabled={!report?.length}>
-          <Download className="mr-2 h-4 w-4" />
-          匯出 CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="採購明細報表"
+        description="採購單、採購入庫、採購退貨明細"
+        actions={
+          <Button onClick={exportToCSV} disabled={!report?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            匯出 CSV
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="space-y-1">

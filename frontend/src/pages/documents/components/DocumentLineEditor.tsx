@@ -394,7 +394,7 @@ function LineRow({
         />
       </TableCell>
       <TableCell>
-        <Button variant="ghost" size="icon" onClick={() => onRemoveLine(lineId)} className="text-red-500 hover:text-red-700">
+        <Button variant="ghost" size="icon" onClick={() => onRemoveLine(lineId)} className="text-destructive hover:text-destructive/80" aria-label="刪除">
           <Trash2 className="h-4 w-4" />
         </Button>
       </TableCell>

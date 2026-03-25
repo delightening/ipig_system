@@ -27,17 +27,11 @@ import { toast } from '@/components/ui/use-toast'
 import { aiApi } from '@/lib/api/ai'
 import type { AiApiKeyInfo, CreateAiApiKeyResponse } from '@/lib/api/ai'
 import { getErrorMessage } from '@/types/error'
+import { formatDateTime } from '@/lib/utils'
 import { CreateAiKeyDialog } from './CreateAiKeyDialog'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const SCOPE_LABELS: Record<string, string> = { read: '唯讀查詢' }
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('zh-TW', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
 
 export function AiApiKeySection() {
   const queryClient = useQueryClient()
@@ -104,7 +98,7 @@ export function AiApiKeySection() {
         )}
 
         {error && (
-          <div className="flex items-center gap-2 text-red-600 py-4">
+          <div className="flex items-center gap-2 text-destructive py-4">
             <AlertCircle className="h-4 w-4" />
             <span>無法載入 API Key 清單</span>
           </div>
@@ -153,11 +147,7 @@ function KeyTable({ keys, onToggle, onDelete }: {
 }) {
   if (keys.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        <Key className="mx-auto h-10 w-10 mb-2 opacity-30" />
-        <p>尚未建立任何 API Key</p>
-        <p className="text-sm mt-1">點擊「建立金鑰」來產生第一組 AI 存取金鑰</p>
-      </div>
+      <EmptyState icon={Key} title="尚未建立任何 API Key" description="點擊「建立金鑰」來產生第一組 AI 存取金鑰" />
     )
   }
 
@@ -182,7 +172,7 @@ function KeyTable({ keys, onToggle, onDelete }: {
             <TableRow key={key.id} className={key.is_active ? '' : 'opacity-50'}>
               <TableCell className="font-medium">{key.name}</TableCell>
               <TableCell>
-                <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{key.key_prefix}...</code>
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{key.key_prefix}...</code>
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
@@ -193,14 +183,14 @@ function KeyTable({ keys, onToggle, onDelete }: {
               </TableCell>
               <TableCell className="text-center">{key.rate_limit_per_minute}/min</TableCell>
               <TableCell className="text-center">{key.usage_count.toLocaleString()}</TableCell>
-              <TableCell className="text-sm">{formatDate(key.last_used_at)}</TableCell>
-              <TableCell className="text-sm">{key.expires_at ? formatDate(key.expires_at) : '永不過期'}</TableCell>
+              <TableCell className="text-sm">{key.last_used_at ? formatDateTime(key.last_used_at) : '-'}</TableCell>
+              <TableCell className="text-sm">{key.expires_at ? formatDateTime(key.expires_at) : '永不過期'}</TableCell>
               <TableCell className="text-center">
                 <Switch checked={key.is_active} onCheckedChange={(c) => onToggle(key.id, c)} />
               </TableCell>
               <TableCell className="text-center">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700"
-                  onClick={() => onDelete(key.id, key.name)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/80"
+                  onClick={() => onDelete(key.id, key.name)} aria-label="刪除">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TableCell>
@@ -223,7 +213,7 @@ function CreatedKeyDialog({ createdKey, copied, onCopy, onClose }: {
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <CheckCircle2 className="h-5 w-5 text-status-success-text" />
             API Key 建立成功
           </DialogTitle>
           <DialogDescription>
@@ -239,11 +229,11 @@ function CreatedKeyDialog({ createdKey, copied, onCopy, onClose }: {
             <div>
               <Label className="text-sm font-medium">API Key</Label>
               <div className="flex items-center gap-2 mt-1">
-                <code className="flex-1 text-xs bg-slate-100 p-2 rounded break-all font-mono">
+                <code className="flex-1 text-xs bg-muted p-2 rounded break-all font-mono">
                   {createdKey.api_key}
                 </code>
                 <Button size="sm" variant="outline" onClick={() => onCopy(createdKey.api_key)}>
-                  {copied ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  {copied ? <CheckCircle2 className="h-4 w-4 text-status-success-text" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
@@ -262,7 +252,7 @@ function CreatedKeyDialog({ createdKey, copied, onCopy, onClose }: {
 
 function UsageGuide() {
   return (
-    <div className="mt-6 p-4 bg-slate-50 rounded-lg border text-sm space-y-3">
+    <div className="mt-6 p-4 bg-muted rounded-lg border text-sm space-y-3">
       <h4 className="font-semibold">使用說明</h4>
       <div className="space-y-2 text-muted-foreground">
         <p><strong>1. 建立金鑰：</strong>點擊「建立金鑰」，設定名稱與權限後取得 API Key。</p>

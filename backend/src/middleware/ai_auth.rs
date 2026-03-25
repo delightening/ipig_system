@@ -3,6 +3,10 @@
 //! AI 請求使用 `Authorization: Bearer ipig_ai_xxx` 格式，
 //! 與一般使用者的 JWT 認證分離，走獨立的認證流程。
 
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
 use axum::{
     extract::{Request, State},
     http::header,
@@ -12,6 +16,47 @@ use axum::{
 use sha2::{Digest, Sha256};
 
 use crate::{AppError, AppState, Result};
+
+/// Per-key sliding window rate limiter (in-memory)
+#[derive(Debug, Clone)]
+pub struct AiRateLimiter {
+    windows: Arc<Mutex<HashMap<uuid::Uuid, Vec<std::time::Instant>>>>,
+}
+
+impl AiRateLimiter {
+    pub fn new() -> Self {
+        Self {
+            windows: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub async fn check(&self, key_id: uuid::Uuid, limit: i32) -> bool {
+        if limit <= 0 {
+            return true;
+        }
+        let now = std::time::Instant::now();
+        let window = std::time::Duration::from_secs(60);
+        let mut map = self.windows.lock().await;
+        let entries = map.entry(key_id).or_default();
+        entries.retain(|t| now.duration_since(*t) < window);
+        if entries.len() >= limit as usize {
+            return false;
+        }
+        entries.push(now);
+        true
+    }
+}
+
+impl Default for AiRateLimiter {
+    fn default() -> Self {
+        Self::new()
+    }
+
+    }
+
+/// Global AI rate limiter instance
+static AI_RATE_LIMITER: std::sync::LazyLock<AiRateLimiter> =
+    std::sync::LazyLock::new(AiRateLimiter::new);
 
 /// AI 請求的已驗證身份資訊（插入 request extensions）
 #[derive(Debug, Clone)]
@@ -45,8 +90,8 @@ pub async fn ai_auth_middleware(
 
     let key_hash = hash_api_key(&token);
 
-    let row = sqlx::query_as::<_, (uuid::Uuid, String, serde_json::Value, bool, Option<chrono::DateTime<chrono::Utc>>)>(
-        "SELECT id, name, scopes, is_active, expires_at FROM ai_api_keys WHERE key_hash = $1"
+    let row = sqlx::query_as::<_, (uuid::Uuid, String, serde_json::Value, bool, Option<chrono::DateTime<chrono::Utc>>, i32)>(
+        "SELECT id, name, scopes, is_active, expires_at, rate_limit_per_minute FROM ai_api_keys WHERE key_hash = $1"
     )
     .bind(&key_hash)
     .fetch_optional(&state.db)
@@ -57,7 +102,7 @@ pub async fn ai_auth_middleware(
     })?
     .ok_or(AppError::Unauthorized)?;
 
-    let (id, name, scopes_json, is_active, expires_at) = row;
+    let (id, name, scopes_json, is_active, expires_at, rate_limit) = row;
 
     if !is_active {
         tracing::warn!("[AI Auth] key {} is deactivated", id);
@@ -69,6 +114,15 @@ pub async fn ai_auth_middleware(
             tracing::warn!("[AI Auth] key {} is expired", id);
             return Err(AppError::Forbidden("API key has expired".to_string()));
         }
+    }
+
+    // Per-key rate limit enforcement
+    if !AI_RATE_LIMITER.check(id, rate_limit).await {
+        tracing::warn!("[AI Auth] key {} rate limited ({}/min)", id, rate_limit);
+        return Err(AppError::TooManyRequests(format!(
+            "Rate limit exceeded: {} requests per minute",
+            rate_limit
+        )));
     }
 
     // 更新使用統計（fire-and-forget）

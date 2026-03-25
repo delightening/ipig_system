@@ -43,10 +43,10 @@ export function LeaveBalanceSummary({ balanceSummary }: LeaveBalanceSummaryProps
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">即將到期（特休）</CardTitle>
-                    <Clock className="h-4 w-4 text-orange-500" />
+                    <Clock className="h-4 w-4 text-status-warning-text" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-orange-500">
+                    <div className="text-2xl font-bold text-status-warning-text">
                         {balanceSummary?.expiring_soon_days ?? 0} 天
                     </div>
                     <p className="text-xs text-muted-foreground">30 天內到期</p>
@@ -55,10 +55,10 @@ export function LeaveBalanceSummary({ balanceSummary }: LeaveBalanceSummaryProps
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">即將到期（補休）</CardTitle>
-                    <Clock className="h-4 w-4 text-orange-500" />
+                    <Clock className="h-4 w-4 text-status-warning-text" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-orange-500">
+                    <div className="text-2xl font-bold text-status-warning-text">
                         {parseDecimal(balanceSummary?.expiring_soon_hours).toFixed(1)} 小時
                     </div>
                     <p className="text-xs text-muted-foreground">30 天內到期</p>

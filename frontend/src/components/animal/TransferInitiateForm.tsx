@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { transferApi, transferTypeNames } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,7 @@ interface TransferInitiateFormProps {
 }
 
 export function TransferInitiateForm({ animalId, earTag, onClose }: TransferInitiateFormProps) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const invalidate = useTransferInvalidate(animalId, queryClient)
 
@@ -97,7 +99,7 @@ export function TransferInitiateForm({ animalId, earTag, onClose }: TransferInit
                         {initiateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                         確認發起
                     </Button>
-                    <Button variant="outline" onClick={onClose}>取消</Button>
+                    <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
                 </div>
             </CardContent>
         </Card>

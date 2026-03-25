@@ -18,11 +18,11 @@ interface CreateLeavePayload {
 export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
     const queryClient = useQueryClient()
 
-    const invalidateAndReload = (keys: string[]) => {
+    const invalidateAll = (keys: string[]) => {
         for (const key of keys) {
             queryClient.invalidateQueries({ queryKey: [key] })
         }
-        setTimeout(() => window.location.reload(), 1000)
+        queryClient.invalidateQueries({ queryKey: ['hr-balance-summary'] })
     }
 
     const createLeaveMutation = useMutation({
@@ -30,7 +30,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
             return api.post('/hr/leaves', data)
         },
         onSuccess: () => {
-            invalidateAndReload(['hr-my-leaves'])
+            invalidateAll(['hr-my-leaves'])
             options?.onCreateSuccess?.()
             toast({ title: '成功', description: '已建立請假申請' })
         },
@@ -48,7 +48,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
             return api.post(`/hr/leaves/${id}/submit`)
         },
         onSuccess: () => {
-            invalidateAndReload(['hr-my-leaves'])
+            invalidateAll(['hr-my-leaves'])
             toast({ title: '成功', description: '已送出審核' })
         },
     })
@@ -58,7 +58,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
             return api.post(`/hr/leaves/${id}/approve`, {})
         },
         onSuccess: () => {
-            invalidateAndReload(['hr-pending-leaves', 'hr-my-leaves'])
+            invalidateAll(['hr-pending-leaves', 'hr-my-leaves'])
             toast({ title: '成功', description: '已核准' })
         },
     })
@@ -68,7 +68,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
             return api.post(`/hr/leaves/${id}/reject`, { reason })
         },
         onSuccess: () => {
-            invalidateAndReload(['hr-pending-leaves'])
+            invalidateAll(['hr-pending-leaves'])
             toast({ title: '已駁回', description: '請假已被駁回' })
         },
     })
@@ -78,7 +78,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
             return api.post(`/hr/leaves/${id}/cancel`, {})
         },
         onSuccess: () => {
-            invalidateAndReload(['hr-my-leaves'])
+            invalidateAll(['hr-my-leaves'])
             toast({ title: '成功', description: '已取消請假' })
         },
     })

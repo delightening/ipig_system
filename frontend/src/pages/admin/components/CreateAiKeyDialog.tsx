@@ -1,5 +1,7 @@
-import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -17,6 +19,7 @@ import { toast } from '@/components/ui/use-toast'
 import { aiApi } from '@/lib/api/ai'
 import type { CreateAiApiKeyResponse } from '@/lib/api/ai'
 import { getErrorMessage } from '@/types/error'
+import { createAiKeySchema, type CreateAiKeyFormData } from '@/lib/validation'
 
 const AVAILABLE_SCOPES = [
   { value: 'read', label: '唯讀查詢', description: '查詢動物、計畫、觀察、手術、體重、設施、庫存、人資資料' },
@@ -29,29 +32,33 @@ interface CreateAiKeyDialogProps {
 }
 
 export function CreateAiKeyDialog({ open, onClose, onCreated }: CreateAiKeyDialogProps) {
-  const [name, setName] = useState('')
-  const [scopes, setScopes] = useState<string[]>(['read'])
-  const [rateLimit, setRateLimit] = useState(60)
-  const [expiresInDays, setExpiresInDays] = useState<string>('')
+  const { t } = useTranslation()
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<CreateAiKeyFormData>({
+    resolver: zodResolver(createAiKeySchema),
+    defaultValues: { name: '', scopes: ['read'], rateLimit: 60, expiresInDays: '' },
+  })
+
+  const scopes = watch('scopes')
 
   const createMutation = useMutation({
-    mutationFn: () => {
-      const expires_at = expiresInDays
-        ? new Date(Date.now() + parseInt(expiresInDays) * 86400000).toISOString()
+    mutationFn: (data: CreateAiKeyFormData) => {
+      const expires_at = data.expiresInDays
+        ? new Date(Date.now() + parseInt(data.expiresInDays) * 86400000).toISOString()
         : null
-      return aiApi.createKey({ name, scopes, rate_limit_per_minute: rateLimit, expires_at })
+      return aiApi.createKey({ name: data.name, scopes: data.scopes, rate_limit_per_minute: data.rateLimit, expires_at })
     },
     onSuccess: (resp) => {
       onCreated(resp)
-      setName('')
-      setScopes(['read'])
-      setRateLimit(60)
-      setExpiresInDays('')
+      reset()
     },
     onError: (err: unknown) => {
       toast({ title: '錯誤', description: getErrorMessage(err), variant: 'destructive' })
     },
   })
+
+  const onValid = (data: CreateAiKeyFormData) => {
+    createMutation.mutate(data)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -62,14 +69,16 @@ export function CreateAiKeyDialog({ open, onClose, onCreated }: CreateAiKeyDialo
             建立一組金鑰供外部 AI 系統（如 Claude、ChatGPT）查詢 iPig 資料。
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <form onSubmit={handleSubmit(onValid)} className="space-y-4">
           <div>
             <Label>金鑰名稱 *</Label>
             <Input
               placeholder="例如：Claude Desktop 查詢用"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              {...register('name')}
             />
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name.message}</p>
+            )}
           </div>
           <div>
             <Label>權限範圍</Label>
@@ -80,10 +89,11 @@ export function CreateAiKeyDialog({ open, onClose, onCreated }: CreateAiKeyDialo
                     type="checkbox"
                     checked={scopes.includes(scope.value)}
                     onChange={(e) => {
+                      const current = scopes
                       if (e.target.checked) {
-                        setScopes([...scopes, scope.value])
+                        setValue('scopes', [...current, scope.value], { shouldValidate: true })
                       } else {
-                        setScopes(scopes.filter(s => s !== scope.value))
+                        setValue('scopes', current.filter(s => s !== scope.value), { shouldValidate: true })
                       }
                     }}
                     className="mt-1"
@@ -95,6 +105,9 @@ export function CreateAiKeyDialog({ open, onClose, onCreated }: CreateAiKeyDialo
                 </label>
               ))}
             </div>
+            {errors.scopes && (
+              <p className="text-sm text-destructive">{errors.scopes.message}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -103,9 +116,11 @@ export function CreateAiKeyDialog({ open, onClose, onCreated }: CreateAiKeyDialo
                 type="number"
                 min={1}
                 max={600}
-                value={rateLimit}
-                onChange={(e) => setRateLimit(parseInt(e.target.value) || 60)}
+                {...register('rateLimit', { valueAsNumber: true })}
               />
+              {errors.rateLimit && (
+                <p className="text-sm text-destructive">{errors.rateLimit.message}</p>
+              )}
             </div>
             <div>
               <Label>有效天數（空白=永不過期）</Label>
@@ -113,17 +128,16 @@ export function CreateAiKeyDialog({ open, onClose, onCreated }: CreateAiKeyDialo
                 type="number"
                 min={1}
                 placeholder="例如：365"
-                value={expiresInDays}
-                onChange={(e) => setExpiresInDays(e.target.value)}
+                {...register('expiresInDays')}
               />
             </div>
           </div>
-        </div>
+        </form>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
           <Button
-            onClick={() => createMutation.mutate()}
-            disabled={!name.trim() || scopes.length === 0 || createMutation.isPending}
+            onClick={handleSubmit(onValid)}
+            disabled={createMutation.isPending}
           >
             {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             建立金鑰

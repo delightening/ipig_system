@@ -4,18 +4,18 @@ import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
-import { useTabState } from '@/hooks/useTabState'
 import type {
   PurchaseSalesMonthlySummary,
   PurchaseSalesPartnerSummary,
   PurchaseSalesCategorySummary,
 } from '@/types/report'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import {
   Table,
   TableBody,
@@ -36,7 +36,6 @@ function buildQs(from: string, to: string) {
 
 export function PurchaseSalesSummaryPage() {
   const { from, to, setFrom, setTo } = useDateRangeFilter()
-  const { activeTab: tab, setActiveTab: setTab } = useTabState('monthly')
 
   const qs = useMemo(() => buildQs(from, to), [from, to])
 
@@ -95,32 +94,31 @@ export function PurchaseSalesSummaryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">進銷貨彙總報表</h1>
-          <p className="text-muted-foreground">按月份、供應商/客戶、產品類別多維度分析</p>
-        </div>
-      </div>
+      <PageHeader
+        title="進銷貨彙總報表"
+        description="按月份、供應商/客戶、產品類別多維度分析"
+      />
 
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">
           <Label>起始日期</Label>
-          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" />
+          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" aria-label="起始日期" />
         </div>
         <div className="space-y-1">
           <Label>結束日期</Label>
-          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" />
+          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" aria-label="結束日期" />
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="monthly">月份彙總</TabsTrigger>
-          <TabsTrigger value="partner">供應商/客戶排名</TabsTrigger>
-          <TabsTrigger value="category">產品類別分析</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="monthly" className="space-y-4">
+      <PageTabs
+        tabs={[
+          { value: 'monthly', label: '月份彙總' },
+          { value: 'partner', label: '供應商/客戶排名' },
+          { value: 'category', label: '產品類別分析' },
+        ]}
+        defaultTab="monthly"
+      >
+        <PageTabContent value="monthly" className="space-y-4">
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={exportMonthlyCSV} disabled={!monthly?.length}>
               <Download className="mr-2 h-4 w-4" />匯出 CSV
@@ -150,13 +148,13 @@ export function PurchaseSalesSummaryPage() {
                       <TableRow key={row.year_month}>
                         <TableCell className="font-medium">{row.year_month}</TableCell>
                         <TableCell className="text-right">${formatNumber(row.purchase_total, 2)}</TableCell>
-                        <TableCell className="text-right text-red-600">${formatNumber(row.purchase_return, 2)}</TableCell>
+                        <TableCell className="text-right text-destructive">${formatNumber(row.purchase_return, 2)}</TableCell>
                         <TableCell className="text-right font-medium">${formatNumber(row.net_purchase, 2)}</TableCell>
                         <TableCell className="text-right">${formatNumber(row.sales_total, 2)}</TableCell>
-                        <TableCell className="text-right text-red-600">${formatNumber(row.sales_return, 2)}</TableCell>
+                        <TableCell className="text-right text-destructive">${formatNumber(row.sales_return, 2)}</TableCell>
                         <TableCell className="text-right font-medium">${formatNumber(row.net_sales, 2)}</TableCell>
                         <TableCell className="text-right">${formatNumber(row.cogs_total, 2)}</TableCell>
-                        <TableCell className={`text-right font-bold ${Number(row.gross_profit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <TableCell className={`text-right font-bold ${Number(row.gross_profit) >= 0 ? 'text-status-success-text' : 'text-destructive'}`}>
                           ${formatNumber(row.gross_profit, 2)}
                         </TableCell>
                       </TableRow>
@@ -168,9 +166,9 @@ export function PurchaseSalesSummaryPage() {
               </Table>
             </div>
           )}
-        </TabsContent>
+        </PageTabContent>
 
-        <TabsContent value="partner" className="space-y-4">
+        <PageTabContent value="partner" className="space-y-4">
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={exportPartnerCSV} disabled={!byPartner?.length}>
               <Download className="mr-2 h-4 w-4" />匯出 CSV
@@ -204,7 +202,7 @@ export function PurchaseSalesSummaryPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">${formatNumber(row.total_amount, 2)}</TableCell>
-                        <TableCell className="text-right text-red-600">${formatNumber(row.return_amount, 2)}</TableCell>
+                        <TableCell className="text-right text-destructive">${formatNumber(row.return_amount, 2)}</TableCell>
                         <TableCell className="text-right font-medium">${formatNumber(row.net_amount, 2)}</TableCell>
                         <TableCell className="text-right">{row.doc_count}</TableCell>
                       </TableRow>
@@ -216,9 +214,9 @@ export function PurchaseSalesSummaryPage() {
               </Table>
             </div>
           )}
-        </TabsContent>
+        </PageTabContent>
 
-        <TabsContent value="category" className="space-y-4">
+        <PageTabContent value="category" className="space-y-4">
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={exportCategoryCSV} disabled={!byCategory?.length}>
               <Download className="mr-2 h-4 w-4" />匯出 CSV
@@ -246,7 +244,7 @@ export function PurchaseSalesSummaryPage() {
                         <TableCell className="text-right">${formatNumber(row.purchase_amount, 2)}</TableCell>
                         <TableCell className="text-right">${formatNumber(row.sales_amount, 2)}</TableCell>
                         <TableCell className="text-right">${formatNumber(row.cogs_amount, 2)}</TableCell>
-                        <TableCell className={`text-right font-bold ${Number(row.gross_profit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <TableCell className={`text-right font-bold ${Number(row.gross_profit) >= 0 ? 'text-status-success-text' : 'text-destructive'}`}>
                           ${formatNumber(row.gross_profit, 2)}
                         </TableCell>
                       </TableRow>
@@ -258,8 +256,8 @@ export function PurchaseSalesSummaryPage() {
               </Table>
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </PageTabContent>
+      </PageTabs>
     </div>
   )
 }

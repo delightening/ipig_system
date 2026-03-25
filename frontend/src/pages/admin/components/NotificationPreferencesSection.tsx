@@ -34,10 +34,10 @@ export function NotificationPreferencesSection({
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : error ? (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-destructive bg-status-error-bg">
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertCircle className="h-5 w-5 text-red-500" />
-            <span className="text-red-700">無法載入通知設定，請重新整理頁面</span>
+            <AlertCircle className="h-5 w-5 text-destructive" />
+            <span className="text-status-error-text">無法載入通知設定，請重新整理頁面</span>
           </CardContent>
         </Card>
       ) : settings ? (
@@ -172,19 +172,19 @@ function WarningParametersCard({ settings, onUpdate }: NotificationCardProps) {
           </p>
         </div>
 
-        <div className="rounded-lg bg-slate-50 p-4 space-y-3">
+        <div className="rounded-lg bg-muted p-4 space-y-3">
           <h4 className="text-sm font-medium">通知時間說明</h4>
           <ul className="text-xs text-muted-foreground space-y-2">
             <li className="flex items-start gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+              <CheckCircle2 className="h-4 w-4 text-status-success-text shrink-0 mt-0.5" />
               <span>低庫存檢查：每日上午 8:00 執行</span>
             </li>
             <li className="flex items-start gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+              <CheckCircle2 className="h-4 w-4 text-status-success-text shrink-0 mt-0.5" />
               <span>效期檢查：每日上午 8:00 執行</span>
             </li>
             <li className="flex items-start gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+              <CheckCircle2 className="h-4 w-4 text-status-success-text shrink-0 mt-0.5" />
               <span>過期通知清理：每週日凌晨 3:00 執行</span>
             </li>
           </ul>
@@ -208,11 +208,11 @@ function ActiveNotificationsBadges({ settings }: { settings: NotificationSetting
   const activeBadges = badges.filter(b => settings[b.key])
 
   const colorMap: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700',
-    orange: 'bg-orange-50 text-orange-700',
-    green: 'bg-green-50 text-green-700',
-    purple: 'bg-purple-50 text-purple-700',
-    gray: 'bg-gray-100 text-gray-700',
+    blue: 'bg-status-info-bg text-status-info-text',
+    orange: 'bg-status-warning-bg text-status-warning-text',
+    green: 'bg-status-success-bg text-status-success-text',
+    purple: 'bg-status-purple-bg text-status-purple-text',
+    gray: 'bg-status-neutral-bg text-status-neutral-text',
   }
 
   return (

@@ -1,23 +1,29 @@
 import { useState, useMemo, useCallback } from 'react'
 import { STALE_TIME } from '@/lib/query'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm, type UseFormReturn } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   bloodTestTemplateApi,
   bloodTestPanelApi,
   BloodTestTemplate,
   BloodTestPanel,
-  CreateBloodTestTemplateRequest,
   UpdateBloodTestTemplateRequest,
-  CreateBloodTestPanelRequest,
 } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
-import { getApiErrorMessage } from '@/lib/validation'
+import {
+  getApiErrorMessage,
+  bloodTestTemplateFormSchema,
+  bloodTestPanelFormSchema,
+  type BloodTestTemplateFormData,
+  type BloodTestPanelFormData,
+} from '@/lib/validation'
 
 export type SortField = 'code' | 'name' | 'sort_order' | 'default_unit' | 'default_price'
 export type SortOrder = 'asc' | 'desc'
 export type ShowFilter = 'all' | 'active' | 'inactive'
 
-const defaultFormData: CreateBloodTestTemplateRequest = {
+const defaultTemplateValues: BloodTestTemplateFormData = {
   code: '',
   name: '',
   default_unit: '',
@@ -25,6 +31,13 @@ const defaultFormData: CreateBloodTestTemplateRequest = {
   default_price: 0,
   sort_order: 0,
   panel_id: undefined,
+}
+
+const defaultPanelValues: BloodTestPanelFormData = {
+  key: '',
+  name: '',
+  icon: '',
+  sort_order: 0,
 }
 
 export function useBloodTestTemplates() {
@@ -37,13 +50,16 @@ export function useBloodTestTemplates() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<BloodTestTemplate | null>(null)
   const [selectedPanel, setSelectedPanel] = useState<string>('all')
-  const [formData, setFormData] = useState<CreateBloodTestTemplateRequest>(defaultFormData)
   const [panelDialogOpen, setPanelDialogOpen] = useState(false)
-  const [panelFormData, setPanelFormData] = useState<CreateBloodTestPanelRequest>({
-    key: '',
-    name: '',
-    icon: '',
-    sort_order: 0,
+
+  const templateForm = useForm<BloodTestTemplateFormData>({
+    resolver: zodResolver(bloodTestTemplateFormSchema),
+    defaultValues: defaultTemplateValues,
+  })
+
+  const panelForm = useForm<BloodTestPanelFormData>({
+    resolver: zodResolver(bloodTestPanelFormSchema),
+    defaultValues: defaultPanelValues,
   })
 
   const { data: templates, isLoading } = useQuery({
@@ -146,7 +162,7 @@ export function useBloodTestTemplates() {
   }, [templates, panels, search, showFilter, selectedPanel, sortTemplates])
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateBloodTestTemplateRequest) => bloodTestTemplateApi.create(data),
+    mutationFn: (data: BloodTestTemplateFormData) => bloodTestTemplateApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blood-test-templates'] })
       queryClient.invalidateQueries({ queryKey: ['blood-test-templates-all'] })
@@ -210,12 +226,12 @@ export function useBloodTestTemplates() {
   })
 
   const createPanelMutation = useMutation({
-    mutationFn: (data: CreateBloodTestPanelRequest) => bloodTestPanelApi.create(data),
+    mutationFn: (data: BloodTestPanelFormData) => bloodTestPanelApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blood-test-panels-all'] })
       toast({ title: '成功', description: '分類已建立' })
       setPanelDialogOpen(false)
-      setPanelFormData({ key: '', name: '', icon: '', sort_order: 0 })
+      panelForm.reset(defaultPanelValues)
     },
     onError: (error: unknown) => {
       toast({
@@ -227,7 +243,7 @@ export function useBloodTestTemplates() {
   })
 
   const resetForm = () => {
-    setFormData(defaultFormData)
+    templateForm.reset(defaultTemplateValues)
     setEditingTemplate(null)
   }
 
@@ -235,7 +251,7 @@ export function useBloodTestTemplates() {
     setEditingTemplate(template)
     const panelKey = templatePanelMap.get(template.id)
     const panel = panels?.find((p) => p.key === panelKey)
-    setFormData({
+    templateForm.reset({
       code: template.code,
       name: template.name,
       default_unit: template.default_unit || '',
@@ -247,24 +263,25 @@ export function useBloodTestTemplates() {
     setDialogOpen(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const onTemplateSubmit = (data: BloodTestTemplateFormData) => {
     if (editingTemplate) {
       updateMutation.mutate({
         id: editingTemplate.id,
         data: {
-          name: formData.name,
-          default_unit: formData.default_unit || undefined,
-          reference_range: formData.reference_range || undefined,
-          default_price: formData.default_price || undefined,
-          sort_order: formData.sort_order,
-          panel_id: formData.panel_id || undefined,
+          name: data.name,
+          default_unit: data.default_unit || undefined,
+          reference_range: data.reference_range || undefined,
+          default_price: data.default_price || undefined,
+          sort_order: data.sort_order,
+          panel_id: data.panel_id || undefined,
         },
       })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(data)
     }
   }
+
+  const handleSubmit = templateForm.handleSubmit(onTemplateSubmit)
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -290,12 +307,10 @@ export function useBloodTestTemplates() {
     dialogOpen,
     setDialogOpen,
     editingTemplate,
-    formData,
-    setFormData,
+    templateForm,
     panelDialogOpen,
     setPanelDialogOpen,
-    panelFormData,
-    setPanelFormData,
+    panelForm,
     templates,
     panels,
     isLoading,

@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog'
 import { FileJson } from 'lucide-react'
 import type { UserActivityLog } from '@/types/hr'
+import { formatDate, formatTime } from '@/lib/utils'
 
 import { categoryLabels, eventTypeLabels, entityTypeLabels } from '../constants/auditLogs'
 
@@ -17,13 +18,10 @@ interface ActivityLogDetailDialogProps {
 }
 
 function formatDateTimeDisplay(dateStr: string) {
-  const d = new Date(dateStr)
-  const datePart = d.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' })
-  const timePart = d.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit' })
   return (
     <div className="block leading-tight">
-      <div>{datePart}</div>
-      <div>{timePart}</div>
+      <div>{formatDate(dateStr)}</div>
+      <div>{formatTime(dateStr)}</div>
     </div>
   )
 }
@@ -92,7 +90,7 @@ export function ActivityLogDetailDialog({ selectedLog, onClose }: ActivityLogDet
             {selectedLog.before_data && (
               <div>
                 <Label className="text-muted-foreground">變更前資料</Label>
-                <pre className="mt-1 p-3 bg-red-50 border border-red-200 rounded-md text-sm overflow-x-auto">
+                <pre className="mt-1 p-3 bg-status-error-bg border border-destructive/20 rounded-md text-sm overflow-x-auto">
                   {JSON.stringify(selectedLog.before_data, null, 2)}
                 </pre>
               </div>
@@ -101,7 +99,7 @@ export function ActivityLogDetailDialog({ selectedLog, onClose }: ActivityLogDet
             {selectedLog.after_data && (
               <div>
                 <Label className="text-muted-foreground">變更後資料</Label>
-                <pre className="mt-1 p-3 bg-green-50 border border-green-200 rounded-md text-sm overflow-x-auto">
+                <pre className="mt-1 p-3 bg-status-success-bg border border-status-success-text/20 rounded-md text-sm overflow-x-auto">
                   {JSON.stringify(selectedLog.after_data, null, 2)}
                 </pre>
               </div>

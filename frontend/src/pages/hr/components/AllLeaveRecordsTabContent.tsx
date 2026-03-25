@@ -1,20 +1,14 @@
 import { useState } from 'react'
+import { FileText } from 'lucide-react'
 
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
+import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import {
     Select,
     SelectContent,
@@ -121,59 +115,63 @@ export function AllLeaveRecordsTabContent() {
                 </div>
 
                 {/* 表格 */}
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>申請人</TableHead>
-                            <TableHead>假別</TableHead>
-                            <TableHead>日期</TableHead>
-                            <TableHead>時數</TableHead>
-                            <TableHead>事由</TableHead>
-                            <TableHead>狀態</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8">
-                                    載入中...
-                                </TableCell>
-                            </TableRow>
-                        ) : allLeaves?.data?.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                    沒有符合條件的請假紀錄
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            allLeaves?.data?.map((leave) => {
+                <DataTable<LeaveRequestWithUser>
+                    columns={[
+                        {
+                            key: 'applicant',
+                            header: '申請人',
+                            cell: (leave) => (
+                                <div>
+                                    <div className="font-medium">{leave.user_name}</div>
+                                    <div className="text-sm text-muted-foreground">{leave.user_email}</div>
+                                </div>
+                            ),
+                        },
+                        {
+                            key: 'leave_type',
+                            header: '假別',
+                            cell: (leave) => LEAVE_TYPE_NAMES[leave.leave_type] || leave.leave_type,
+                        },
+                        {
+                            key: 'date',
+                            header: '日期',
+                            cell: (leave) => (
+                                <span className="whitespace-nowrap">
+                                    {formatDate(leave.start_date)}
+                                    {leave.start_date !== leave.end_date && ` ~ ${formatDate(leave.end_date)}`}
+                                </span>
+                            ),
+                        },
+                        {
+                            key: 'hours',
+                            header: '時數',
+                            cell: (leave) => formatLeaveHours(leave),
+                        },
+                        {
+                            key: 'reason',
+                            header: '事由',
+                            className: 'max-w-[200px] truncate',
+                            cell: (leave) => leave.reason,
+                        },
+                        {
+                            key: 'status',
+                            header: '狀態',
+                            cell: (leave) => {
                                 const status = getLeaveStatusVariant(leave.status)
                                 return (
-                                    <TableRow key={leave.id}>
-                                        <TableCell>
-                                            <div>
-                                                <div className="font-medium">{leave.user_name}</div>
-                                                <div className="text-sm text-muted-foreground">{leave.user_email}</div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{LEAVE_TYPE_NAMES[leave.leave_type] || leave.leave_type}</TableCell>
-                                        <TableCell className="whitespace-nowrap">
-                                            {formatDate(leave.start_date)}
-                                            {leave.start_date !== leave.end_date && ` ~ ${formatDate(leave.end_date)}`}
-                                        </TableCell>
-                                        <TableCell>{formatLeaveHours(leave)}</TableCell>
-                                        <TableCell className="max-w-[200px] truncate">{leave.reason}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={status.variant} className={status.className}>
-                                                {status.label}
-                                            </Badge>
-                                        </TableCell>
-                                    </TableRow>
+                                    <StatusBadge variant={status.variant}>
+                                        {status.label}
+                                    </StatusBadge>
                                 )
-                            })
-                        )}
-                    </TableBody>
-                </Table>
+                            },
+                        },
+                    ]}
+                    data={allLeaves?.data}
+                    isLoading={isLoading}
+                    emptyIcon={FileText}
+                    emptyTitle="沒有符合條件的請假紀錄"
+                    rowKey={(row) => row.id}
+                />
                 {allLeaves && allLeaves.total > 0 && (
                     <div className="text-sm text-muted-foreground">
                         共 {allLeaves.total} 筆紀錄

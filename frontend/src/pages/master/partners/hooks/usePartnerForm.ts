@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import api, { deleteResource, Partner } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
-import { getApiErrorMessage } from '@/lib/validation'
+import { getApiErrorMessage, partnerFormZodSchema } from '@/lib/validation'
 import {
   PartnerFormData,
   PartnerSubmissionData,
@@ -15,9 +17,23 @@ import {
 export function usePartnerForm(closeDialog: () => void) {
   const queryClient = useQueryClient()
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null)
-  const [formData, setFormData] = useState<PartnerFormData>({ ...EMPTY_FORM })
+
+  const rhf = useForm<PartnerFormData>({
+    resolver: zodResolver(partnerFormZodSchema),
+    defaultValues: { ...EMPTY_FORM },
+  })
+
+  const { setValue, reset, watch, handleSubmit: rhfHandleSubmit, formState } = rhf
+
+  /** Targeted watches for fields consumed by PartnerFormDialog */
+  const partnerType = watch('partner_type')
+  const supplierCategory = watch('supplier_category')
+  const customerCategory = watch('customer_category')
+  const code = watch('code')
+  const formData = { partner_type: partnerType, supplier_category: supplierCategory, customer_category: customerCategory, code }
+
   const resetForm = () => {
-    setFormData({ ...EMPTY_FORM })
+    reset({ ...EMPTY_FORM })
     setEditingPartner(null)
   }
 
@@ -29,7 +45,7 @@ export function usePartnerForm(closeDialog: () => void) {
       return response.data.code
     },
     onSuccess: (code) => {
-      setFormData(prev => ({ ...prev, code }))
+      setValue('code', code)
     },
     onError: (error: unknown) => {
       toast({
@@ -46,18 +62,16 @@ export function usePartnerForm(closeDialog: () => void) {
   }, [editingPartner, generateCodeMutation])
 
   const handleSupplierCategoryChange = (category: SupplierCategory) => {
-    setFormData(prev => ({ ...prev, supplier_category: category, code: '' }))
+    setValue('supplier_category', category)
+    setValue('code', '')
     generateCode('supplier', category)
   }
 
   const handlePartnerTypeChange = (value: 'supplier' | 'customer') => {
-    setFormData(prev => ({
-      ...prev,
-      partner_type: value,
-      supplier_category: '',
-      customer_category: '',
-      code: '',
-    }))
+    setValue('partner_type', value)
+    setValue('supplier_category', '')
+    setValue('customer_category', '')
+    setValue('code', '')
     if (value === 'customer') {
       generateCode('customer')
     }
@@ -117,7 +131,7 @@ export function usePartnerForm(closeDialog: () => void) {
   const handleEdit = (partner: Partner, openDialog: () => void) => {
     setEditingPartner(partner)
     const raw = (partner as Partner & { supplier_category?: string }).supplier_category || ''
-    setFormData({
+    reset({
       partner_type: partner.partner_type,
       supplier_category: isValidSupplierCategory(raw) ? raw : '',
       customer_category: partner.customer_category || '',
@@ -132,32 +146,17 @@ export function usePartnerForm(closeDialog: () => void) {
     openDialog()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (formData.tax_id.trim() && !/^\d{8}$/.test(formData.tax_id.trim())) {
-      toast({ title: '格式錯誤', description: '統編必須為 8 碼數字', variant: 'destructive' })
-      return
-    }
-    if (formData.phone.trim() && !/^\d{9,10}$/.test(formData.phone.trim())) {
-      toast({ title: '格式錯誤', description: '電話必須為 9 或 10 碼數字', variant: 'destructive' })
-      return
-    }
-    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      toast({ title: '格式錯誤', description: 'Email 格式不正確', variant: 'destructive' })
-      return
-    }
-
+  const onValid = (data: PartnerFormData) => {
     const submitData: PartnerSubmissionData = {
-      ...formData,
-      code: formData.code.trim() || null,
-      supplier_category: formData.supplier_category || null,
-      customer_category: formData.customer_category || null,
-      email: formData.email.trim() || null,
-      phone: formData.phone.trim() || null,
-      phone_ext: formData.phone_ext.trim() || null,
-      tax_id: formData.tax_id.trim() || null,
-      address: formData.address.trim() || null,
+      ...data,
+      code: data.code.trim() || null,
+      supplier_category: data.supplier_category || null,
+      customer_category: data.customer_category || null,
+      email: data.email.trim() || null,
+      phone: data.phone.trim() || null,
+      phone_ext: data.phone_ext.trim() || null,
+      tax_id: data.tax_id.trim() || null,
+      address: data.address.trim() || null,
     }
 
     if (editingPartner) {
@@ -167,9 +166,13 @@ export function usePartnerForm(closeDialog: () => void) {
     }
   }
 
+  const handleSubmit = rhfHandleSubmit(onValid)
+
   return {
     formData,
-    setFormData,
+    register: rhf.register,
+    setValue,
+    errors: formState.errors,
     editingPartner,
     isGeneratingCode: generateCodeMutation.isPending,
     isPending: createMutation.isPending || updateMutation.isPending,

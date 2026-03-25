@@ -302,25 +302,25 @@ function ProductActions({
 }) {
   return (
     <div className="flex items-center justify-end gap-0.5" aria-label={`產品 ${product.sku} 操作`}>
-      <Button variant="ghost" size="icon" className="h-8 w-8" title="檢視" onClick={() => navigate(`/products/${product.id}`)}>
+      <Button variant="ghost" size="icon" className="h-8 w-8" title="檢視" aria-label="檢視" onClick={() => navigate(`/products/${product.id}`)}>
         <Eye className="h-4 w-4" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-8 w-8" title="編輯" onClick={() => navigate(`/products/${product.id}/edit`)}>
+      <Button variant="ghost" size="icon" className="h-8 w-8" title="編輯" aria-label="編輯" onClick={() => navigate(`/products/${product.id}/edit`)}>
         <Pencil className="h-4 w-4" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-8 w-8" title="複製" onClick={() => navigate(`/products/new?copy=${product.id}`)}>
+      <Button variant="ghost" size="icon" className="h-8 w-8" title="複製" aria-label="複製" onClick={() => navigate(`/products/new?copy=${product.id}`)}>
         <Copy className="h-4 w-4" />
       </Button>
       {product.is_active ? (
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="停用" onClick={() => onStatusChange(product, 'deactivate')}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="停用" aria-label="停用" onClick={() => onStatusChange(product, 'deactivate')}>
           <PowerOff className="h-4 w-4 text-destructive" />
         </Button>
       ) : (
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="啟用" onClick={() => onStatusChange(product, 'activate')}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="啟用" aria-label="啟用" onClick={() => onStatusChange(product, 'activate')}>
           <Power className="h-4 w-4 text-green-600" />
         </Button>
       )}
-      <Button variant="ghost" size="icon" className="h-8 w-8" title="標記停產" onClick={() => onStatusChange(product, 'discontinue')}>
+      <Button variant="ghost" size="icon" className="h-8 w-8" title="標記停產" aria-label="標記停產" onClick={() => onStatusChange(product, 'discontinue')}>
         <Ban className="h-4 w-4 text-muted-foreground" />
       </Button>
       {isAdmin && (
@@ -329,6 +329,7 @@ function ProductActions({
           size="icon"
           className="h-8 w-8 text-destructive hover:text-destructive"
           title="硬刪除（僅管理員）"
+          aria-label="硬刪除（僅管理員）"
           onClick={() => onHardDelete(product)}
         >
           <Trash2 className="h-4 w-4" />

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import api, { deleteResource } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { toast } from '@/components/ui/use-toast'
 import { logger } from '@/lib/logger'
 import { Loader2, Settings2, Unlock, Save, Sparkles, X as XIcon } from 'lucide-react'
@@ -215,35 +216,34 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {isEditMode ? (
-            <Button size="sm" onClick={handleSaveLayout} disabled={saveLayoutMutation.isPending}>
-              {saveLayoutMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              <Save className="h-4 w-4 mr-1" />
-              {t('dashboard.editMode.lock')}
-            </Button>
-          ) : (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
-                <Unlock className="h-4 w-4 mr-1" />
-                {t('dashboard.editMode.unlock')}
+      <PageHeader
+        title={t('dashboard.title')}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {isEditMode ? (
+              <Button size="sm" onClick={handleSaveLayout} disabled={saveLayoutMutation.isPending}>
+                {saveLayoutMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                <Save className="h-4 w-4 mr-1" />
+                {t('dashboard.editMode.lock')}
               </Button>
-              <Button variant="outline" size="sm" onClick={handleResetLayout}>
-                重設佈局
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowSettingsDialog(true)}>
-                <Settings2 className="h-4 w-4 mr-1" />
-                {t('dashboard.settings.title')}
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
+                  <Unlock className="h-4 w-4 mr-1" />
+                  {t('dashboard.editMode.unlock')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleResetLayout}>
+                  重設佈局
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowSettingsDialog(true)}>
+                  <Settings2 className="h-4 w-4 mr-1" />
+                  {t('dashboard.settings.title')}
+                </Button>
+              </>
+            )}
+          </div>
+        }
+      />
 
       {showWelcome && !isEditMode && (
         <div className="relative p-4 bg-primary/5 border border-primary/20 rounded-lg">

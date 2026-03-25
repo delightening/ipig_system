@@ -1,19 +1,42 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import type { TrainingRecordWithUser } from '../types/training'
+import { CheckCircle } from 'lucide-react'
 
 interface TrainingExpiringTabProps {
   records: TrainingRecordWithUser[]
 }
+
+const columns: ColumnDef<TrainingRecordWithUser>[] = [
+  {
+    key: 'user', header: '人員',
+    cell: (r) => (
+      <div>
+        <div className="font-medium">{r.user_name || r.user_email}</div>
+        <div className="text-xs text-muted-foreground">{r.user_email}</div>
+      </div>
+    ),
+  },
+  { key: 'course', header: '課程名稱', cell: (r) => r.course_name },
+  {
+    key: 'completed', header: '完成日期',
+    cell: (r) => format(new Date(r.completed_at), 'yyyy/MM/dd', { locale: zhTW }),
+  },
+  {
+    key: 'expires', header: '到期日', className: 'text-status-warning-text',
+    cell: (r) => (
+      <span className="font-bold text-status-warning-text">
+        {r.expires_at ? format(new Date(r.expires_at), 'yyyy/MM/dd', { locale: zhTW }) : '\u2014'}
+      </span>
+    ),
+  },
+  {
+    key: 'notes', header: '備註', className: 'max-w-[200px]',
+    cell: (r) => <span className="truncate block">{r.notes || '\u2014'}</span>,
+  },
+]
 
 export function TrainingExpiringTab({ records }: TrainingExpiringTabProps) {
   return (
@@ -23,41 +46,13 @@ export function TrainingExpiringTab({ records }: TrainingExpiringTabProps) {
         <CardDescription>列出 30 天內到期之證照，請盡快安排複訓或更新</CardDescription>
       </CardHeader>
       <CardContent>
-        {records.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">目前無即將到期之證照</div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>人員</TableHead>
-                <TableHead>課程名稱</TableHead>
-                <TableHead>完成日期</TableHead>
-                <TableHead className="text-orange-500">到期日</TableHead>
-                <TableHead>備註</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {records.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    <div className="font-medium">{r.user_name || r.user_email}</div>
-                    <div className="text-xs text-muted-foreground">{r.user_email}</div>
-                  </TableCell>
-                  <TableCell>{r.course_name}</TableCell>
-                  <TableCell>
-                    {format(new Date(r.completed_at), 'yyyy/MM/dd', { locale: zhTW })}
-                  </TableCell>
-                  <TableCell className="font-bold text-orange-500">
-                    {r.expires_at
-                      ? format(new Date(r.expires_at), 'yyyy/MM/dd', { locale: zhTW })
-                      : '\u2014'}
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate">{r.notes || '\u2014'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <DataTable
+          columns={columns}
+          data={records}
+          emptyIcon={CheckCircle}
+          emptyTitle="目前無即將到期之證照"
+          rowKey={(r) => r.id}
+        />
       </CardContent>
     </Card>
   )

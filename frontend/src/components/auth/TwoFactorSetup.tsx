@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import { QRCodeSVG } from 'qrcode.react'
 import api from '@/lib/api'
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
+  const { t } = useTranslation()
   const [setupData, setSetupData] = useState<TwoFactorSetupResponse | null>(null)
   const dialogs = useDialogSet(['setup', 'disable'] as const)
   const [verifyCode, setVerifyCode] = useState('')
@@ -177,7 +179,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
                 />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => dialogs.close('setup')}>取消</Button>
+                <Button variant="outline" onClick={() => dialogs.close('setup')}>{t('common.cancel')}</Button>
                 <Button onClick={confirmSetup} disabled={loading || verifyCode.length < 6}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   確認啟用
@@ -248,7 +250,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => dialogs.close('disable')}>取消</Button>
+            <Button variant="outline" onClick={() => dialogs.close('disable')}>{t('common.cancel')}</Button>
             <Button
               variant="destructive"
               onClick={disableTwoFactor}

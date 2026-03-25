@@ -38,7 +38,7 @@ export function SuddenDeathDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-rose-600">
+          <DialogTitle className="flex items-center gap-2 text-destructive">
             <Zap className="h-5 w-5" />
             {'\u767B\u8A18\u731D\u6B7B \u2014 \u8033\u865F'} {earTag}
           </DialogTitle>
@@ -105,7 +105,7 @@ export function SuddenDeathDialog({
                   requires_pathology: e.target.checked,
                 }))
               }
-              className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+              className="h-4 w-4 rounded border-border text-destructive focus:ring-destructive"
             />
             <Label
               htmlFor="sd-requires-pathology"
@@ -120,7 +120,7 @@ export function SuddenDeathDialog({
             {'\u53D6\u6D88'}
           </Button>
           <Button
-            className="bg-rose-600 hover:bg-rose-700 text-white"
+            className="bg-destructive hover:bg-destructive/90 text-white"
             disabled={!form.discovered_at || isPending}
             onClick={onConfirm}
           >

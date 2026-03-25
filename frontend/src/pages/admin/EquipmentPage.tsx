@@ -9,11 +9,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { Plus, Wrench, Ruler, Hammer, Trash2, Calendar } from 'lucide-react'
 
-import { useTabState } from '@/hooks/useTabState'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import api, { deleteResource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { useAuthStore } from '@/stores/auth'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -44,15 +44,11 @@ import { DisposalTabContent } from './components/DisposalTabContent'
 import AnnualPlanTabContent from './components/AnnualPlanTabContent'
 import { EquipmentStatsCards } from './components/EquipmentStatsCards'
 
-type TabValue = 'equipment' | 'calibrations' | 'maintenance' | 'disposals' | 'annual-plan'
-
 export function EquipmentPage() {
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('equipment.manage')
   const canApproveDisposal = hasPermission('equipment.disposal.approve')
   const queryClient = useQueryClient()
-
-  const { activeTab, setActiveTab } = useTabState<TabValue>('equipment')
   const dialogs = useDialogSet(['equipCreate', 'equipEdit', 'calibCreate', 'calibEdit'] as const)
 
   const [equipKeyword, setEquipKeyword] = useState('')
@@ -281,48 +277,30 @@ export function EquipmentPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">設備維護管理</h1>
-          <p className="text-muted-foreground">
-            實驗室 GLP 合規：設備管理、校正/確效/查核、維修/保養、報廢
-          </p>
-        </div>
-        {canManage && (
+      <PageHeader
+        title="設備維護管理"
+        description="實驗室 GLP 合規：設備管理、校正/確效/查核、維修/保養、報廢"
+        actions={canManage ? (
           <Button onClick={() => dialogs.open('equipCreate')}>
             <Plus className="h-4 w-4 mr-2" />
             新增設備
           </Button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       <EquipmentStatsCards equipmentList={equipmentList} allCalibrations={allCalibrations} />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="equipment" className="flex items-center gap-1">
-            <Wrench className="h-4 w-4" />
-            設備
-          </TabsTrigger>
-          <TabsTrigger value="calibrations" className="flex items-center gap-1">
-            <Ruler className="h-4 w-4" />
-            校正/確效/查核
-          </TabsTrigger>
-          <TabsTrigger value="maintenance" className="flex items-center gap-1">
-            <Hammer className="h-4 w-4" />
-            維修/保養
-          </TabsTrigger>
-          <TabsTrigger value="disposals" className="flex items-center gap-1">
-            <Trash2 className="h-4 w-4" />
-            報廢
-          </TabsTrigger>
-          <TabsTrigger value="annual-plan" className="flex items-center gap-1">
-            <Calendar className="h-4 w-4" />
-            年度計畫
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="equipment" className="space-y-4">
+      <PageTabs
+        tabs={[
+          { value: 'equipment', label: '設備', icon: Wrench },
+          { value: 'calibrations', label: '校正/確效/查核', icon: Ruler },
+          { value: 'maintenance', label: '維修/保養', icon: Hammer },
+          { value: 'disposals', label: '報廢', icon: Trash2 },
+          { value: 'annual-plan', label: '年度計畫', icon: Calendar },
+        ]}
+        defaultTab="equipment"
+      >
+        <PageTabContent value="equipment" className="space-y-4">
           <EquipmentTabContent
             canManage={canManage}
             keyword={equipKeyword}
@@ -336,9 +314,9 @@ export function EquipmentPage() {
             onDelete={handleDeleteEquip}
             allCalibrations={allCalibrations}
           />
-        </TabsContent>
+        </PageTabContent>
 
-        <TabsContent value="calibrations" className="space-y-4">
+        <PageTabContent value="calibrations" className="space-y-4">
           <CalibrationTabContent
             canManage={canManage}
             equipmentList={equipmentList}
@@ -353,9 +331,9 @@ export function EquipmentPage() {
             onEdit={handleEditCalib}
             onDelete={handleDeleteCalib}
           />
-        </TabsContent>
+        </PageTabContent>
 
-        <TabsContent value="maintenance" className="space-y-4">
+        <PageTabContent value="maintenance" className="space-y-4">
           <MaintenanceTabContent
             canManage={canManage}
             records={maintData?.data ?? []}
@@ -365,9 +343,9 @@ export function EquipmentPage() {
             onPageChange={setMaintPage}
             onDelete={handleDeleteMaint}
           />
-        </TabsContent>
+        </PageTabContent>
 
-        <TabsContent value="disposals" className="space-y-4">
+        <PageTabContent value="disposals" className="space-y-4">
           <DisposalTabContent
             canApprove={canApproveDisposal}
             records={disposalData?.data ?? []}
@@ -377,9 +355,9 @@ export function EquipmentPage() {
             onPageChange={setDisposalPage}
             onApprove={handleApproveDisposal}
           />
-        </TabsContent>
+        </PageTabContent>
 
-        <TabsContent value="annual-plan" className="space-y-4">
+        <PageTabContent value="annual-plan" className="space-y-4">
           <AnnualPlanTabContent
             canManage={canManage}
             plans={plans}
@@ -388,8 +366,8 @@ export function EquipmentPage() {
             onGenerate={() => generatePlanMutation.mutate()}
             isGenerating={generatePlanMutation.isPending}
           />
-        </TabsContent>
-      </Tabs>
+        </PageTabContent>
+      </PageTabs>
 
       {/* Dialogs */}
       <EquipmentFormDialog

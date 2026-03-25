@@ -10,10 +10,10 @@
  * - 部門 (Department) CRUD（樹狀結構）
  */
 
-import { useTabState } from '@/hooks/useTabState'
 import { useAuthStore } from '@/stores/auth'
+import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { Building2, Layers, Grid3X3, TreeDeciduous, Users, MapPin } from 'lucide-react'
 
 import { SpeciesTab } from './components/SpeciesTab'
@@ -23,61 +23,52 @@ import { ZoneTab } from './components/ZoneTab'
 import { PenTab } from './components/PenTab'
 import { DepartmentTab } from './components/DepartmentTab'
 
-type TabKey = 'species' | 'facilities' | 'buildings' | 'zones' | 'pens' | 'departments'
-
-const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: 'species', label: '物種', icon: <TreeDeciduous className="h-4 w-4" /> },
-  { key: 'facilities', label: '設施', icon: <MapPin className="h-4 w-4" /> },
-  { key: 'buildings', label: '棟舍', icon: <Building2 className="h-4 w-4" /> },
-  { key: 'zones', label: '區域', icon: <Layers className="h-4 w-4" /> },
-  { key: 'pens', label: '欄位', icon: <Grid3X3 className="h-4 w-4" /> },
-  { key: 'departments', label: '部門', icon: <Users className="h-4 w-4" /> },
-]
-
 export function FacilitiesPage() {
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('admin') || hasPermission('facilities.manage')
-  const { activeTab, setActiveTab } = useTabState<TabKey>('species')
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">設施管理</h1>
-        <p className="text-muted-foreground">管理物種分類、設施、棟舍、區域、欄位與部門架構</p>
-      </div>
+      <PageHeader
+        title="設施管理"
+        description="管理物種分類、設施、棟舍、區域、欄位與部門架構"
+      />
 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">基礎資料維護</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={v => setActiveTab(v as TabKey)}>
-            <TabsList className="mb-4">
-              {TABS.map(t => (
-                <TabsTrigger key={t.key} value={t.key} className="gap-1.5">
-                  {t.icon} {t.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <TabsContent value="species">
+          <PageTabs
+            tabs={[
+              { value: 'species', label: '物種', icon: TreeDeciduous },
+              { value: 'facilities', label: '設施', icon: MapPin },
+              { value: 'buildings', label: '棟舍', icon: Building2 },
+              { value: 'zones', label: '區域', icon: Layers },
+              { value: 'pens', label: '欄位', icon: Grid3X3 },
+              { value: 'departments', label: '部門', icon: Users },
+            ]}
+            defaultTab="species"
+          >
+            <PageTabContent value="species">
               <SpeciesTab canManage={canManage} />
-            </TabsContent>
-            <TabsContent value="facilities">
+            </PageTabContent>
+            <PageTabContent value="facilities">
               <FacilityTab canManage={canManage} />
-            </TabsContent>
-            <TabsContent value="buildings">
+            </PageTabContent>
+            <PageTabContent value="buildings">
               <BuildingTab canManage={canManage} />
-            </TabsContent>
-            <TabsContent value="zones">
+            </PageTabContent>
+            <PageTabContent value="zones">
               <ZoneTab canManage={canManage} />
-            </TabsContent>
-            <TabsContent value="pens">
+            </PageTabContent>
+            <PageTabContent value="pens">
               <PenTab canManage={canManage} />
-            </TabsContent>
-            <TabsContent value="departments">
+            </PageTabContent>
+            <PageTabContent value="departments">
               <DepartmentTab canManage={canManage} />
-            </TabsContent>
-          </Tabs>
+            </PageTabContent>
+          </PageTabs>
         </CardContent>
       </Card>
     </div>

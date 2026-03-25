@@ -1,3 +1,4 @@
+import { type UseFormReturn } from 'react-hook-form'
 import {
   Dialog,
   DialogContent,
@@ -11,25 +12,26 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { PanelIcon } from '@/components/ui/panel-icon'
-import type { CreateBloodTestPanelRequest } from '@/lib/api'
+import type { BloodTestPanelFormData } from '@/lib/validation'
 
 interface BloodTestPanelFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  formData: CreateBloodTestPanelRequest
-  setFormData: (data: CreateBloodTestPanelRequest) => void
+  form: UseFormReturn<BloodTestPanelFormData>
   isPending: boolean
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e?: React.BaseSyntheticEvent) => Promise<void>
 }
 
 export function BloodTestPanelFormDialog({
   open,
   onOpenChange,
-  formData,
-  setFormData,
+  form,
   isPending,
   onSubmit,
 }: BloodTestPanelFormDialogProps) {
+  const { register, watch, formState: { errors } } = form
+  const iconValue = watch('icon')
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[450px]">
@@ -43,35 +45,40 @@ export function BloodTestPanelFormDialog({
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="panel_key" className="text-right">
-                代碼 <span className="text-red-500">*</span>
+                代碼 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="panel_key"
-                value={formData.key}
-                onChange={(e) =>
-                  setFormData({ ...formData, key: e.target.value.toUpperCase() })
-                }
-                className="col-span-3 font-mono"
-                placeholder="如: CBC、LIVER、RENAL"
-                required
-                maxLength={20}
-              />
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="panel_key"
+                  {...register('key', {
+                    onChange: (e) => {
+                      e.target.value = e.target.value.toUpperCase()
+                    },
+                  })}
+                  className="font-mono"
+                  placeholder="如: CBC、LIVER、RENAL"
+                  maxLength={20}
+                />
+                {errors.key && (
+                  <p className="text-sm text-destructive">{errors.key.message}</p>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="panel_name" className="text-right">
-                名稱 <span className="text-red-500">*</span>
+                名稱 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="panel_name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="col-span-3"
-                placeholder="如: 全血球計數、肝臟功能"
-                required
-                maxLength={100}
-              />
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="panel_name"
+                  {...register('name')}
+                  placeholder="如: 全血球計數、肝臟功能"
+                  maxLength={100}
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="panel_icon" className="text-right">
@@ -80,15 +87,12 @@ export function BloodTestPanelFormDialog({
               <div className="col-span-3 flex items-center gap-2">
                 <Input
                   id="panel_icon"
-                  value={formData.icon || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, icon: e.target.value })
-                  }
+                  {...register('icon')}
                   placeholder="Emoji 或 SVG 路徑"
                   maxLength={200}
                 />
-                {formData.icon && (
-                  <PanelIcon icon={formData.icon} size={24} />
+                {iconValue && (
+                  <PanelIcon icon={iconValue} size={24} />
                 )}
               </div>
             </div>

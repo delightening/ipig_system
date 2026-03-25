@@ -55,7 +55,7 @@ export function BloodTestTemplateTable({
     <ArrowUpDown
       className={cn(
         'ml-1 h-3 w-3 inline-block cursor-pointer',
-        sortField === field ? 'text-blue-600' : 'text-slate-400'
+        sortField === field ? 'text-primary' : 'text-muted-foreground'
       )}
     />
   )
@@ -64,8 +64,8 @@ export function BloodTestTemplateTable({
     <TableRow key={template.id} className={cn(!template.is_active && 'opacity-50')}>
       <TableCell className="font-mono text-sm font-semibold">{template.code}</TableCell>
       <TableCell className="font-medium">{template.name}</TableCell>
-      <TableCell className="text-slate-600">{template.default_unit || '—'}</TableCell>
-      <TableCell className="text-sm text-slate-500">
+      <TableCell className="text-muted-foreground">{template.default_unit || '—'}</TableCell>
+      <TableCell className="text-sm text-muted-foreground">
         {template.reference_range || '—'}
       </TableCell>
       <TableCell className="text-right font-mono text-sm">
@@ -85,6 +85,7 @@ export function BloodTestTemplateTable({
             size="icon"
             onClick={() => onEdit(template)}
             title="編輯"
+            aria-label="編輯"
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -93,11 +94,12 @@ export function BloodTestTemplateTable({
             size="icon"
             onClick={() => onToggle(template)}
             title={template.is_active ? '停用' : '恢復'}
+            aria-label={template.is_active ? '停用' : '恢復'}
           >
             {template.is_active ? (
-              <PowerOff className="h-4 w-4 text-orange-500" />
+              <PowerOff className="h-4 w-4 text-status-warning-text" />
             ) : (
-              <Power className="h-4 w-4 text-green-500" />
+              <Power className="h-4 w-4 text-status-success-text" />
             )}
           </Button>
         </div>

@@ -105,7 +105,7 @@ export function getStrengthLabel(strength: number): string {
 
 /** 密碼強度對應顏色 class（Tailwind） */
 export function getStrengthColor(strength: number): string {
-  if (strength <= 2) return 'bg-red-500'
-  if (strength <= 3) return 'bg-yellow-500'
-  return 'bg-green-500'
+  if (strength <= 2) return 'bg-destructive'
+  if (strength <= 3) return 'bg-status-warning-text'
+  return 'bg-status-success-text'
 }

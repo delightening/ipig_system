@@ -21,10 +21,10 @@ export function TrainingStatsCards({ totalRecords, expiringSoonCount }: Training
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium">證照即將到期</CardTitle>
-          <AlertTriangle className="h-4 w-4 text-orange-500" />
+          <AlertTriangle className="h-4 w-4 text-status-warning-text" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-orange-500">{expiringSoonCount}</div>
+          <div className="text-2xl font-bold text-status-warning-text">{expiringSoonCount}</div>
         </CardContent>
       </Card>
     </div>

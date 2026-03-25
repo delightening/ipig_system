@@ -15,6 +15,8 @@ import {
 import type { ConflictWithDetails } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 import { formatDateTime } from '@/lib/utils'
+import { TableEmptyRow } from '@/components/ui/empty-state'
+import { FileText } from 'lucide-react'
 
 interface ConflictsTabProps {
     conflicts: PaginatedResponse<ConflictWithDetails> | undefined
@@ -49,11 +51,7 @@ export function ConflictsTab({ conflicts, loadingConflicts, onResolve, resolvePe
                             </TableCell>
                         </TableRow>
                     ) : conflicts?.data?.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                沒有待處理的衝突
-                            </TableCell>
-                        </TableRow>
+                        <TableEmptyRow colSpan={6} icon={FileText} title="沒有待處理的衝突" />
                     ) : (
                         conflicts?.data?.map((c) => (
                             <TableRow key={c.id}>

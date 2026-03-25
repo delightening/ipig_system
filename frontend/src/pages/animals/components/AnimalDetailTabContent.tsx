@@ -72,7 +72,7 @@ export function TabBar({ activeTab, setActiveTab, animalStatus }: TabBarProps) {
   )
 
   return (
-    <div className="border-b border-slate-200">
+    <div className="border-b border-border">
       <div className="flex flex-wrap gap-x-6 gap-y-1">
         {tabs.map((tab) => {
           const Icon = tab.icon
@@ -83,8 +83,8 @@ export function TabBar({ activeTab, setActiveTab, animalStatus }: TabBarProps) {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-2 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 isActive
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="h-4 w-4 shrink-0" />

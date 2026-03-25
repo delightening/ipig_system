@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
 import api, { User, UpdateUserRequest } from '@/lib/api'
@@ -7,6 +9,7 @@ import { getErrorMessage } from '@/types/error'
 import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +30,7 @@ import {
     AlertCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { profileSettingsSchema, type ProfileSettingsFormData } from '@/lib/validation'
 
 const TRAINING_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F']
 
@@ -45,11 +49,12 @@ export function ProfileSettingsPage() {
     const { toast } = useToast()
     const queryClient = useQueryClient()
 
-    const [formData, setFormData] = useState<UpdateUserRequest>({
-        display_name: '',
-        phone: '',
-        phone_ext: '',
-        organization: '',
+    const { register, handleSubmit: rhfHandleSubmit, reset: resetProfile, watch, setValue, getValues, formState: { errors } } = useForm<ProfileSettingsFormData>({
+        resolver: zodResolver(profileSettingsSchema),
+        defaultValues: { display_name: '', phone: '', phone_ext: '', organization: '' },
+    })
+
+    const [aupData, setAupData] = useState<Partial<UpdateUserRequest>>({
         entry_date: '',
         position: '',
         aup_roles: [],
@@ -57,14 +62,41 @@ export function ProfileSettingsPage() {
         trainings: [],
     })
 
+    // Targeted watches for profile fields used in the template
+    const displayName = watch('display_name')
+    const phone = watch('phone')
+    const phoneExt = watch('phone_ext')
+    const organization = watch('organization')
+
+    // Merge profile fields + AUP fields
+    const formData = { display_name: displayName, phone, phone_ext: phoneExt, organization, ...aupData } as UpdateUserRequest
+    const setFormData = (updater: UpdateUserRequest | ((prev: UpdateUserRequest) => UpdateUserRequest)) => {
+        const currentProfile = getValues()
+        const current = { ...currentProfile, ...aupData } as UpdateUserRequest
+        const next = typeof updater === 'function' ? updater(current) : updater
+        setValue('display_name', next.display_name || '')
+        setValue('phone', next.phone || '')
+        setValue('phone_ext', next.phone_ext || '')
+        setValue('organization', next.organization || '')
+        setAupData({
+            entry_date: next.entry_date || '',
+            position: next.position || '',
+            aup_roles: next.aup_roles || [],
+            years_experience: next.years_experience || 0,
+            trainings: next.trainings || [],
+        })
+    }
+
     // Sync with currentUser when loaded
     useEffect(() => {
         if (currentUser) {
-            setFormData({
+            resetProfile({
                 display_name: currentUser.display_name || '',
                 phone: currentUser.phone || '',
                 phone_ext: currentUser.phone_ext || '',
                 organization: currentUser.organization || '',
+            })
+            setAupData({
                 entry_date: currentUser.entry_date || '',
                 position: currentUser.position || '',
                 aup_roles: currentUser.aup_roles || [],
@@ -72,7 +104,7 @@ export function ProfileSettingsPage() {
                 trainings: currentUser.trainings || [],
             })
         }
-    }, [currentUser])
+    }, [currentUser, resetProfile])
 
     const updateMutation = useMutation({
         mutationFn: async (data: UpdateUserRequest) => {
@@ -96,21 +128,21 @@ export function ProfileSettingsPage() {
         },
     })
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
-        // 將空字串轉為 null，避免後端 NaiveDate 解析錯誤
+    const handleSubmit = rhfHandleSubmit((profileData: ProfileSettingsFormData) => {
+        // 合併 profile fields + AUP fields
         const payload: UpdateUserRequest = {
-            ...formData,
-            entry_date: formData.entry_date || null,
-            position: formData.position || null,
-            trainings: formData.trainings?.map(t => ({
+            ...profileData,
+            ...aupData,
+            entry_date: aupData.entry_date || null,
+            position: aupData.position || null,
+            trainings: aupData.trainings?.map(t => ({
                 ...t,
                 received_date: t.received_date || undefined,
-                certificate_no: t.certificate_no || undefined,
+                certificate_no: (t as { certificate_no?: string }).certificate_no || undefined,
             })),
         }
         updateMutation.mutate(payload)
-    }
+    })
 
     const toggleAupRole = (roleValue: string) => {
         const roles = formData.aup_roles || []
@@ -159,29 +191,25 @@ export function ProfileSettingsPage() {
 
     return (
         <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                        {t('profile.settings')}
-                    </h1>
-                    <p className="text-muted-foreground mt-1">
-                        {t('profile.description')}
-                    </p>
-                </div>
-                <Button
-                    size="lg"
-                    className="transition-all"
-                    onClick={handleSubmit}
-                    disabled={updateMutation.isPending}
-                >
-                    {updateMutation.isPending ? (
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                        <Save className="mr-2 h-5 w-5" />
-                    )}
-                    {t('common.saveChanges')}
-                </Button>
-            </div>
+            <PageHeader
+                title={t('profile.settings')}
+                description={t('profile.description')}
+                actions={
+                    <Button
+                        size="lg"
+                        className="transition-all"
+                        onClick={handleSubmit}
+                        disabled={updateMutation.isPending}
+                    >
+                        {updateMutation.isPending ? (
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        ) : (
+                            <Save className="mr-2 h-5 w-5" />
+                        )}
+                        {t('common.saveChanges')}
+                    </Button>
+                }
+            />
 
             <div className={`grid grid-cols-1 ${isStaff ? 'lg:grid-cols-3' : ''} gap-8`}>
                 {/* Left Column: Basic Info */}
@@ -207,7 +235,7 @@ export function ProfileSettingsPage() {
                                     <Label className="flex items-center gap-2 text-muted-foreground">
                                         <Mail className="h-4 w-4" /> {t('profile.email')} {t('profile.readOnly')}
                                     </Label>
-                                    <Input value={currentUser.email} disabled className="bg-muted" />
+                                    <Input value={currentUser.email} disabled className="bg-muted" aria-label="電子郵件" />
                                 </div>
 
                                 <div className="space-y-2">
@@ -266,13 +294,13 @@ export function ProfileSettingsPage() {
                 {isStaff && (
                     <div className="lg:col-span-2 space-y-8">
                         <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
-                            <CardHeader className="border-b bg-slate-50/50">
+                            <CardHeader className="border-b bg-muted/50">
                                 <div className="flex items-center justify-between">
-                                    <CardTitle className="flex items-center gap-2 text-slate-800">
-                                        <GraduationCap className="h-5 w-5 text-indigo-500" />
+                                    <CardTitle className="flex items-center gap-2 text-foreground">
+                                        <GraduationCap className="h-5 w-5 text-primary" />
                                         {t('profile.aupSection8')}
                                     </CardTitle>
-                                    <Badge variant="outline" className="border-indigo-200 text-indigo-600">符合規範</Badge>
+                                    <Badge variant="outline" className="border-primary/20 text-primary">符合規範</Badge>
                                 </div>
                                 <CardDescription>
                                     {t('profile.aupSection8Description')}
@@ -282,7 +310,7 @@ export function ProfileSettingsPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <Label htmlFor="entry_date" className="flex items-center gap-2">
-                                            <History className="h-4 w-4 text-slate-400" /> {t('profile.entryDate')}
+                                            <History className="h-4 w-4 text-muted-foreground" /> {t('profile.entryDate')}
                                         </Label>
                                         <Input
                                             id="entry_date"
@@ -293,7 +321,7 @@ export function ProfileSettingsPage() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="position" className="flex items-center gap-2">
-                                            <Briefcase className="h-4 w-4 text-slate-400" /> {t('profile.position') || '職稱'}
+                                            <Briefcase className="h-4 w-4 text-muted-foreground" /> {t('profile.position') || '職稱'}
                                         </Label>
                                         <Input
                                             id="position"
@@ -316,7 +344,7 @@ export function ProfileSettingsPage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-4 pt-4 border-t border-slate-100">
+                                <div className="space-y-4 pt-4 border-t border-border">
                                     <Label className="text-base font-semibold">{t('profile.aupRoles')}</Label>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                         {AUP_ROLE_OPTIONS.map(role => (
@@ -325,8 +353,8 @@ export function ProfileSettingsPage() {
                                                 className={cn(
                                                     "flex items-center space-x-2 p-3 rounded-lg border transition-all cursor-pointer",
                                                     formData.aup_roles?.includes(role.value)
-                                                        ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
-                                                        : "hover:bg-slate-50 border-slate-200"
+                                                        ? "bg-primary/5 border-primary/20 ring-1 ring-primary/20"
+                                                        : "hover:bg-muted border-border"
                                                 )}
                                                 onClick={() => toggleAupRole(role.value)}
                                             >
@@ -348,17 +376,17 @@ export function ProfileSettingsPage() {
 
 
 
-                                <div className="space-y-4 pt-4 border-t border-slate-100">
+                                <div className="space-y-4 pt-4 border-t border-border">
                                     <div className="flex items-center justify-between">
                                         <Label className="text-base font-semibold flex items-center gap-2">
-                                            <Award className="h-5 w-5 text-amber-500" />
+                                            <Award className="h-5 w-5 text-status-warning-text" />
                                             {t('profile.trainings')}
                                         </Label>
                                         <div className="flex gap-1">
                                             {formData.trainings?.length === 0 ? (
                                                 <Badge variant="destructive" className="animate-pulse">{t('profile.notFilled')}</Badge>
                                             ) : (
-                                                <Badge variant="success" className="bg-green-500">{t('profile.completedCount', { count: formData.trainings?.length })}</Badge>
+                                                <Badge variant="success">{t('profile.completedCount', { count: formData.trainings?.length })}</Badge>
                                             )}
                                         </div>
                                     </div>
@@ -372,8 +400,8 @@ export function ProfileSettingsPage() {
                                                     className={cn(
                                                         "p-4 rounded-xl border transition-all space-y-3",
                                                         training
-                                                            ? "bg-amber-50/50 border-amber-200 shadow-sm"
-                                                            : "border-slate-100 hover:border-slate-200"
+                                                            ? "bg-status-warning-bg border-status-warning-text/20 shadow-sm"
+                                                            : "border-border hover:border-border"
                                                     )}
                                                 >
                                                     <div className="flex items-center space-x-3">
@@ -384,7 +412,7 @@ export function ProfileSettingsPage() {
                                                         />
                                                         <label
                                                             htmlFor={`training-${code}`}
-                                                            className="text-sm font-bold leading-none cursor-pointer text-slate-700"
+                                                            className="text-sm font-bold leading-none cursor-pointer text-foreground"
                                                         >
                                                             {t(`aup.personnel.trainings.${code}`)}
                                                         </label>
@@ -393,7 +421,7 @@ export function ProfileSettingsPage() {
                                                     {training && (
                                                         <div className="pl-7 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
                                                             <div className="space-y-1.5">
-                                                                <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                                                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                                                                     {t('profile.certNo')}
                                                                 </Label>
                                                                 <Input
@@ -442,9 +470,9 @@ export function ProfileSettingsPage() {
                                         </div>
                                     )}
 
-                                    <div className="rounded-lg bg-amber-50 p-4 border border-amber-200 flex gap-3">
-                                        <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                                        <div className="text-xs text-amber-800 space-y-1">
+                                    <div className="rounded-lg bg-status-warning-bg p-4 border border-status-warning-text/20 flex gap-3">
+                                        <AlertCircle className="h-5 w-5 text-status-warning-text shrink-0 mt-0.5" />
+                                        <div className="text-xs text-status-warning-text space-y-1">
                                             <p className="font-bold">{t('profile.trainingNotice')}</p>
                                             <p>{t('aup.personnel.roles.list')}</p>
                                             <p className="opacity-80">{t('profile.trainingNoticeDetail')}</p>
@@ -475,7 +503,7 @@ export function ProfileSettingsPage() {
                                     <Button
                                         size="lg"
                                         variant="secondary"
-                                        className="md:ml-auto bg-white text-slate-900 hover:bg-slate-100 font-bold"
+                                        className="md:ml-auto bg-white text-foreground hover:bg-muted font-bold"
                                         onClick={handleSubmit}
                                         disabled={updateMutation.isPending}
                                     >

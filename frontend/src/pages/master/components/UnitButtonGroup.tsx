@@ -48,14 +48,14 @@ export function UnitButtonGroup({
               "relative flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all",
               selectedUnit === unit.name && !isCustom
                 ? "border-primary bg-primary/10"
-                : "border-slate-200 dark:border-slate-700 hover:border-primary/50",
-              highlightedCodes.includes(unit.code) && "ring-2 ring-blue-300 dark:ring-blue-700"
+                : "border-border hover:border-primary/50",
+              highlightedCodes.includes(unit.code) && "ring-2 ring-primary/40"
             )}
           >
             <span className="font-mono font-semibold text-sm">{unit.code}</span>
-            <span className="text-xs text-slate-500">{unit.name}</span>
+            <span className="text-xs text-muted-foreground">{unit.name}</span>
             {highlightedCodes.includes(unit.code) && (
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-slate-800" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-background" />
             )}
           </button>
         ))}
@@ -67,11 +67,11 @@ export function UnitButtonGroup({
             "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 border-dashed transition-all",
             isCustom
               ? "border-primary bg-primary/10"
-              : "border-slate-300 dark:border-slate-600 hover:border-primary/50"
+              : "border-border hover:border-primary/50"
           )}
         >
-          <Plus className="w-5 h-5 text-slate-400" />
-          <span className="text-[10px] text-slate-500 mt-1">自填量詞</span>
+          <Plus className="w-5 h-5 text-muted-foreground" />
+          <span className="text-[10px] text-muted-foreground mt-1">自填量詞</span>
         </button>
       </div>
       {isCustom && (
@@ -89,6 +89,7 @@ export function UnitButtonGroup({
               size="icon"
               className="h-8 w-8"
               onClick={onCustomClear}
+              aria-label="清除"
             >
               <X className="h-4 w-4" />
             </Button>

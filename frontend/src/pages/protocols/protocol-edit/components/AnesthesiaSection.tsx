@@ -86,7 +86,7 @@ export function AnesthesiaSection({ formData, updateWorkingContent, t }: Props) 
       </div>
 
       {anesthesia.is_under_anesthesia === true && (
-        <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+        <div className="space-y-4 pl-6 border-l-2 border-border">
           <div className="space-y-2">
             <Label>{t('aup.design.selectAnesthesiaType')}</Label>
             <Select value={anesthesia.anesthesia_type || ''} onValueChange={handleAnesthesiaTypeChange}>

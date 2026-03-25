@@ -10,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Eye, Edit, Trash2, Loader2, FileText } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import type { DocumentListItem, DocType } from '@/lib/api'
 
@@ -82,7 +83,7 @@ function getStatusBadge(doc: DocumentListItem) {
 
   if (ACCOUNTING_DOC_TYPES.includes(doc.doc_type) && doc.has_journal_entry) {
     badges.push(
-      <Badge key="journal" variant="outline" className="ml-1 text-xs border-emerald-300 text-emerald-700">
+      <Badge key="journal" variant="outline" className="ml-1 text-xs border-status-success-text/30 text-status-success-text">
         已過帳
       </Badge>
     )
@@ -130,14 +131,14 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
                 <TableCell>{doc.created_by_name}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" asChild title="檢視">
+                    <Button variant="ghost" size="icon" asChild title="檢視" aria-label="檢視">
                       <Link to={`/documents/${doc.id}`}>
                         <Eye className="h-4 w-4" />
                       </Link>
                     </Button>
                     {doc.status === 'draft' && (
                       <>
-                        <Button variant="ghost" size="icon" asChild title="編輯">
+                        <Button variant="ghost" size="icon" asChild title="編輯" aria-label="編輯">
                           <Link to={`/documents/${doc.id}/edit`}>
                             <Edit className="h-4 w-4" />
                           </Link>
@@ -147,6 +148,7 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
                           size="icon"
                           onClick={() => onDeleteClick(doc)}
                           title="刪除"
+                          aria-label="刪除"
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -158,12 +160,7 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
               </TableRow>
             ))
           ) : (
-            <TableRow>
-              <TableCell colSpan={9} className="text-center py-8">
-                <FileText className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-muted-foreground">尚無單據資料</p>
-              </TableCell>
-            </TableRow>
+            <TableEmptyRow colSpan={9} icon={FileText} title="尚無單據資料" />
           )}
         </TableBody>
       </Table>

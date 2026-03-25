@@ -3,6 +3,7 @@
  * 提供血液檢查數據的統計、趨勢分析、異常標記與視覺化圖表
  */
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,27 +28,27 @@ import { formatDate } from '@/lib/utils'
 import { useBloodTestAnalysis } from './hooks/useBloodTestAnalysis'
 import { AnalysisItemSelector } from './components/AnalysisItemSelector'
 import { AnalysisChartTabs } from './components/AnalysisChartTabs'
+import { EmptyState } from '@/components/ui/empty-state'
 
 export function BloodTestAnalysisPage() {
   const analysis = useBloodTestAnalysis()
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">血液檢查結果分析</h1>
-          <p className="text-muted-foreground">對血液檢查結果進行統計分析、趨勢追蹤與異常值偵測</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={analysis.exportToCSV} disabled={!analysis.filteredData.length}>
-            <Download className="mr-2 h-4 w-4" /> CSV
-          </Button>
-          <Button onClick={analysis.exportToExcel} disabled={!analysis.filteredData.length}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="血液檢查結果分析"
+        description="對血液檢查結果進行統計分析、趨勢追蹤與異常值偵測"
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={analysis.exportToCSV} disabled={!analysis.filteredData.length}>
+              <Download className="mr-2 h-4 w-4" /> CSV
+            </Button>
+            <Button onClick={analysis.exportToExcel} disabled={!analysis.filteredData.length}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
+            </Button>
+          </div>
+        }
+      />
 
       {/* Filters */}
       <Card>
@@ -86,29 +87,29 @@ export function BloodTestAnalysisPage() {
         <>
           {/* Summary stats */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryCard icon={<FlaskConical className="h-6 w-6 text-blue-600 dark:text-blue-400" />} bgClass="bg-blue-100 dark:bg-blue-900/30" label="檢查項目數" value={analysis.summary.totalItems.toLocaleString()} />
+            <SummaryCard icon={<FlaskConical className="h-6 w-6 text-primary" />} bgClass="bg-primary/10" label="檢查項目數" value={analysis.summary.totalItems.toLocaleString()} />
             <SummaryCard
-              icon={<AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />}
-              bgClass="bg-red-100 dark:bg-red-900/30"
+              icon={<AlertTriangle className="h-6 w-6 text-destructive" />}
+              bgClass="bg-status-error-bg"
               label="異常比率"
               value={`${analysis.summary.abnormalRate.toFixed(1)}%`}
               suffix={`(${analysis.summary.abnormalCount})`}
             />
-            <SummaryCard icon={<Users className="h-6 w-6 text-green-600 dark:text-green-400" />} bgClass="bg-green-100 dark:bg-green-900/30" label="涵蓋動物數" value={String(analysis.summary.animalCount)} />
-            <SummaryCard icon={<Activity className="h-6 w-6 text-purple-600 dark:text-purple-400" />} bgClass="bg-purple-100 dark:bg-purple-900/30" label="檢查次數" value={String(analysis.summary.testDates)} />
+            <SummaryCard icon={<Users className="h-6 w-6 text-status-success-text" />} bgClass="bg-status-success-bg" label="涵蓋動物數" value={String(analysis.summary.animalCount)} />
+            <SummaryCard icon={<Activity className="h-6 w-6 text-status-purple-text" />} bgClass="bg-status-purple-bg" label="檢查次數" value={String(analysis.summary.testDates)} />
           </div>
 
           {/* Abnormal records */}
           {analysis.abnormalRecords.length > 0 && (
-            <Card className="border-red-200 dark:border-red-800">
+            <Card className="border-destructive/30">
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2 text-red-600 dark:text-red-400">
+                <CardTitle className="text-base flex items-center gap-2 text-destructive">
                   <AlertTriangle className="h-5 w-5" />
                   異常值警示（共 {analysis.abnormalRecords.length} 項）
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border border-red-200 dark:border-red-800">
+                <div className="rounded-md border border-destructive/30">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -122,12 +123,12 @@ export function BloodTestAnalysisPage() {
                     </TableHeader>
                     <TableBody>
                       {analysis.abnormalRecords.slice(0, 20).map((r, idx) => (
-                        <TableRow key={idx} className="bg-red-50/50 dark:bg-red-950/20">
+                        <TableRow key={idx} className="bg-status-error-bg/50">
                           <TableCell className="font-medium">{r.ear_tag}</TableCell>
                           <TableCell className="font-mono text-sm">{r.iacuc_no || '-'}</TableCell>
                           <TableCell>{formatDate(r.test_date)}</TableCell>
                           <TableCell>{r.item_name}</TableCell>
-                          <TableCell className="text-right font-semibold text-red-600 dark:text-red-400">
+                          <TableCell className="text-right font-semibold text-destructive">
                             {r.result_value} {r.result_unit}
                           </TableCell>
                           <TableCell className="text-muted-foreground">{r.reference_range || '-'}</TableCell>
@@ -168,12 +169,8 @@ export function BloodTestAnalysisPage() {
       {/* Empty state */}
       {!analysis.isLoading && analysis.filteredData.length === 0 && (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FlaskConical className="h-16 w-16 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">尚無血液檢查分析資料</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              請先在動物管理頁面建立血液檢查紀錄，或調整篩選條件
-            </p>
+          <CardContent className="py-4">
+            <EmptyState icon={FlaskConical} title="尚無血液檢查分析資料" description="請先在動物管理頁面建立血液檢查紀錄，或調整篩選條件" />
           </CardContent>
         </Card>
       )}

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Save, Send, Loader2 } from 'lucide-react'
 
 interface DocumentFormHeaderProps {
@@ -22,42 +23,38 @@ export function DocumentFormHeader({
   hasLines,
 }: DocumentFormHeaderProps) {
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          {isEdit ? '編輯單據' : '新增單據'}
-        </h1>
-        <p className="text-muted-foreground">
-          {isEdit 
-            ? `編輯現有的 ${docTypeName || '單據'}` 
-            : `建立新的 ${docTypeName || '單據'}`}
-        </p>
-      </div>
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          onClick={onSave}
-          disabled={isSaving || isSubmitting}
-        >
-          {isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          儲存草稿
-        </Button>
-        <Button
-          onClick={onSubmit}
-          disabled={isSaving || isSubmitting || !hasLines}
-        >
-          {isSubmitting ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="mr-2 h-4 w-4" />
-          )}
-          儲存並送審
-        </Button>
-      </div>
-    </div>
+    <PageHeader
+      title={isEdit ? '編輯單據' : '新增單據'}
+      description={isEdit
+        ? `編輯現有的 ${docTypeName || '單據'}`
+        : `建立新的 ${docTypeName || '單據'}`}
+      actions={
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={onSave}
+            disabled={isSaving || isSubmitting}
+          >
+            {isSaving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            儲存草稿
+          </Button>
+          <Button
+            onClick={onSubmit}
+            disabled={isSaving || isSubmitting || !hasLines}
+          >
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-2 h-4 w-4" />
+            )}
+            儲存並送審
+          </Button>
+        </div>
+      }
+    />
   )
 }

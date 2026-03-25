@@ -160,7 +160,7 @@ function LayoutDiagram({ locations }: { locations: StorageLocationWithInventory[
         <div className="print:break-inside-avoid">
             <h2 className="text-lg font-semibold mb-3">儲位佈局圖</h2>
             <div
-                className="relative border rounded bg-gray-50"
+                className="relative border rounded bg-muted"
                 style={{
                     width: '100%',
                     aspectRatio: `${maxCol} / ${maxRow}`,
@@ -223,7 +223,7 @@ function LocationInventoryTable({ location }: { location: StorageLocationWithInv
             ) : (
                 <table className="w-full text-xs border-collapse mb-2">
                     <thead>
-                        <tr className="bg-gray-100 print:bg-gray-200">
+                        <tr className="bg-muted print:bg-gray-200">
                             <th className="text-left p-1 border">產品名稱</th>
                             <th className="text-left p-1 border">SKU</th>
                             <th className="text-right p-1 border">數量</th>

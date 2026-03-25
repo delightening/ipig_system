@@ -10,7 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Loader2, Download } from 'lucide-react'
+import { Loader2, Download, FileText } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { TrialBalanceRow } from '@/types/accounting'
@@ -101,11 +102,7 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  尚無試算表資料
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={5} icon={FileText} title="尚無試算表資料" />
             )}
           </TableBody>
         </Table>

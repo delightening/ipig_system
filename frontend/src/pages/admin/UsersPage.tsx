@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Download } from 'lucide-react'
 import { useUserManagement } from './hooks/useUserManagement'
 import { UserTable } from './components/UserTable'
@@ -17,22 +18,22 @@ export function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">使用者管理</h1>
-          <p className="text-muted-foreground">管理系統使用者帳號與角色</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={mgmt.handleExportUsers} disabled={!mgmt.sortedUsers?.length || mgmt.isLoading}>
-            <Download className="h-4 w-4 mr-2" />
-            匯出現在的使用者
-          </Button>
-          <Button data-testid="add-user-button" onClick={() => mgmt.setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            新增使用者
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="使用者管理"
+        description="管理系統使用者帳號與角色"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={mgmt.handleExportUsers} disabled={!mgmt.sortedUsers?.length || mgmt.isLoading}>
+              <Download className="h-4 w-4 mr-2" />
+              匯出現在的使用者
+            </Button>
+            <Button data-testid="add-user-button" onClick={() => mgmt.setShowCreateDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              新增使用者
+            </Button>
+          </div>
+        }
+      />
 
       <UserTable
         users={mgmt.users}
@@ -64,12 +65,9 @@ export function UsersPage() {
       <UserCreateDialog
         open={mgmt.showCreateDialog}
         onOpenChange={mgmt.setShowCreateDialog}
-        formData={mgmt.formData}
-        setFormData={mgmt.setFormData}
         roles={mgmt.roles}
         isPending={mgmt.createMutation.isPending}
-        onSubmit={mgmt.handleCreate}
-        toggleRole={mgmt.toggleRole}
+        onSubmit={mgmt.handleCreateWithData}
       />
 
       <UserEditDialog
@@ -137,19 +135,10 @@ export function UsersPage() {
         open={mgmt.showResetPasswordDialog}
         onOpenChange={mgmt.setShowResetPasswordDialog}
         userToResetPassword={mgmt.userToResetPassword}
-        reauthPassword={mgmt.reauthPassword}
-        setReauthPassword={mgmt.setReauthPassword}
-        newPassword={mgmt.newPassword}
-        setNewPassword={mgmt.setNewPassword}
-        confirmNewPassword={mgmt.confirmNewPassword}
-        setConfirmNewPassword={mgmt.setConfirmNewPassword}
-        isPending={mgmt.resetPasswordMutation.isPending}
-        onSubmit={mgmt.handleResetPassword}
+        isPending={mgmt.resetPasswordMutation.isPending || mgmt.confirmPasswordMutation.isPending}
+        onSubmit={mgmt.handleResetPasswordWithData}
         onClose={() => {
           mgmt.setUserToResetPassword(null)
-          mgmt.setNewPassword('')
-          mgmt.setConfirmNewPassword('')
-          mgmt.setReauthPassword('')
         }}
       />
     </div>

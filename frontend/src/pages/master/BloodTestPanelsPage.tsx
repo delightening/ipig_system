@@ -1,15 +1,17 @@
 import { useState, useMemo } from 'react'
 import { STALE_TIME } from '@/lib/query'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
     bloodTestPanelApi,
     bloodTestTemplateApi,
     BloodTestPanel,
-    CreateBloodTestPanelRequest,
     UpdateBloodTestPanelRequest,
     UpdateBloodTestPanelItemsRequest,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -42,9 +44,10 @@ import {
     Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getApiErrorMessage } from '@/lib/validation'
+import { getApiErrorMessage, bloodTestPanelFormSchema, type BloodTestPanelFormData } from '@/lib/validation'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import { useNavigate } from 'react-router-dom'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 
 // 顯示篩選
 type ShowFilter = 'all' | 'active' | 'inactive'
@@ -58,12 +61,11 @@ export function BloodTestPanelsPage() {
     const [showFilter, setShowFilter] = useState<ShowFilter>('all')
     const [dialogOpen, setDialogOpen] = useState(false)
     const [editingPanel, setEditingPanel] = useState<BloodTestPanel | null>(null)
-    const [formData, setFormData] = useState<CreateBloodTestPanelRequest>({
-        key: '',
-        name: '',
-        icon: '',
-        sort_order: 0,
+    const { register, handleSubmit: rhfHandleSubmit, reset, watch, formState: { errors } } = useForm<BloodTestPanelFormData>({
+        resolver: zodResolver(bloodTestPanelFormSchema),
+        defaultValues: { key: '', name: '', icon: '', sort_order: 0 },
     })
+    const iconValue = watch('icon')
 
     // 管理項目對話框
     const [itemsDialogOpen, setItemsDialogOpen] = useState(false)
@@ -93,7 +95,7 @@ export function BloodTestPanelsPage() {
 
     // 新增 Panel
     const createMutation = useMutation({
-        mutationFn: (data: CreateBloodTestPanelRequest) =>
+        mutationFn: (data: BloodTestPanelFormData) =>
             bloodTestPanelApi.create(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['blood-test-panels'] })
@@ -165,13 +167,13 @@ export function BloodTestPanelsPage() {
     // 重置表單
     const resetForm = () => {
         setEditingPanel(null)
-        setFormData({ key: '', name: '', icon: '', sort_order: 0 })
+        reset({ key: '', name: '', icon: '', sort_order: 0 })
     }
 
     // 開啟編輯
     const handleEdit = (panel: BloodTestPanel) => {
         setEditingPanel(panel)
-        setFormData({
+        reset({
             key: panel.key,
             name: panel.name,
             icon: panel.icon || '',
@@ -189,19 +191,18 @@ export function BloodTestPanelsPage() {
     }
 
     // 提交表單
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
+    const onPanelSubmit = (data: BloodTestPanelFormData) => {
         if (editingPanel) {
             updateMutation.mutate({
                 id: editingPanel.id,
                 data: {
-                    name: formData.name,
-                    icon: formData.icon || undefined,
-                    sort_order: formData.sort_order,
+                    name: data.name,
+                    icon: data.icon || undefined,
+                    sort_order: data.sort_order,
                 },
             })
         } else {
-            createMutation.mutate(formData)
+            createMutation.mutate(data)
         }
     }
 
@@ -279,27 +280,26 @@ export function BloodTestPanelsPage() {
 
     return (
         <div className="space-y-6">
-            {/* 標題列 */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate('/blood-test-templates')}
-                    >
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">血液檢查分類管理</h1>
-                        <p className="text-muted-foreground">
-                            管理血液檢查組合分類（共 {totalCount} 個，啟用 {activeCount} 個）
-                        </p>
-                    </div>
-                </div>
-                <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    新增分類
+            <div className="flex items-center gap-4">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate('/blood-test-templates')}
+                    aria-label="返回"
+                >
+                    <ArrowLeft className="h-5 w-5" />
                 </Button>
+                <PageHeader
+                    title="血液檢查分類管理"
+                    description={`管理血液檢查組合分類（共 ${totalCount} 個，啟用 ${activeCount} 個）`}
+                    className="flex-1"
+                    actions={
+                        <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            新增分類
+                        </Button>
+                    }
+                />
             </div>
 
             {/* 搜尋與篩選列 */}
@@ -427,43 +427,46 @@ export function BloodTestPanelsPage() {
                             {editingPanel ? '修改分類的名稱、圖示和排序' : '請輸入新分類的資訊'}
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleSubmit}>
+                    <form onSubmit={rhfHandleSubmit(onPanelSubmit)}>
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="panel-key" className="text-right">代碼</Label>
-                                <Input
-                                    id="panel-key"
-                                    value={formData.key}
-                                    onChange={(e) => setFormData({ ...formData, key: e.target.value })}
-                                    className="col-span-3"
-                                    placeholder="例：CBC"
-                                    disabled={!!editingPanel}
-                                    required
-                                />
+                                <div className="col-span-3 space-y-1">
+                                    <Input
+                                        id="panel-key"
+                                        {...register('key')}
+                                        placeholder="例：CBC"
+                                        disabled={!!editingPanel}
+                                    />
+                                    {errors.key && (
+                                        <p className="text-sm text-destructive">{errors.key.message}</p>
+                                    )}
+                                </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="panel-name" className="text-right">名稱</Label>
-                                <Input
-                                    id="panel-name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="col-span-3"
-                                    placeholder="例：血液常規"
-                                    required
-                                />
+                                <div className="col-span-3 space-y-1">
+                                    <Input
+                                        id="panel-name"
+                                        {...register('name')}
+                                        placeholder="例：血液常規"
+                                    />
+                                    {errors.name && (
+                                        <p className="text-sm text-destructive">{errors.name.message}</p>
+                                    )}
+                                </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="panel-icon" className="text-right">圖示</Label>
                                 <div className="col-span-3 flex items-center gap-2">
                                     <Input
                                         id="panel-icon"
-                                        value={formData.icon}
-                                        onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                                        placeholder="輸入 emoji（例：🩸）"
+                                        {...register('icon')}
+                                        placeholder="輸入 emoji"
                                         className="flex-1"
                                     />
-                                    {formData.icon && (
-                                        <span className="text-2xl"><PanelIcon icon={formData.icon} size={28} /></span>
+                                    {iconValue && (
+                                        <span className="text-2xl"><PanelIcon icon={iconValue} size={28} /></span>
                                     )}
                                 </div>
                             </div>
@@ -472,10 +475,7 @@ export function BloodTestPanelsPage() {
                                 <Input
                                     id="panel-sort"
                                     type="number"
-                                    value={formData.sort_order}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })
-                                    }
+                                    {...register('sort_order', { valueAsNumber: true })}
                                     className="col-span-3"
                                 />
                             </div>
@@ -547,11 +547,7 @@ export function BloodTestPanelsPage() {
                                     </TableRow>
                                 ))}
                                 {filteredTemplates.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                            沒有符合條件的項目
-                                        </TableCell>
-                                    </TableRow>
+                                    <TableEmptyRow colSpan={4} icon={Search} title="沒有符合條件的項目" />
                                 )}
                             </TableBody>
                         </Table>

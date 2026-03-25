@@ -5,7 +5,6 @@
  * 重構後：邏輯由 useCalendarSync、useCalendarEvents Hook 管理，
  * 各分頁 UI 拆分為獨立子元件，此檔案僅負責佈局與組合。
  */
-import { useState } from 'react'
 import {
     AlertTriangle,
     CalendarDays,
@@ -13,12 +12,13 @@ import {
     RefreshCw,
     Settings,
 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import {
     Dialog,
     DialogContent,
@@ -35,7 +35,8 @@ import { SyncHistoryTab } from './calendar/SyncHistoryTab'
 import { ConflictsTab } from './calendar/ConflictsTab'
 
 export function CalendarSyncSettingsPage() {
-    const [activeTab, setActiveTab] = useState('calendar')
+    const [searchParams] = useSearchParams()
+    const activeTab = searchParams.get('tab') ?? 'calendar'
 
     const {
         syncStatus,
@@ -76,13 +77,10 @@ export function CalendarSyncSettingsPage() {
 
     return (
         <div className="space-y-6">
-            {/* 頁面標題與同步按鈕 */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">Google Calendar</h1>
-                    <p className="text-muted-foreground">設定與管理請假日曆</p>
-                </div>
-                {syncStatus?.is_configured && (
+            <PageHeader
+                title="Google Calendar"
+                description="設定與管理請假日曆"
+                actions={syncStatus?.is_configured ? (
                     <Button
                         onClick={() => syncMutation.mutate()}
                         disabled={syncMutation.isPending}
@@ -90,40 +88,20 @@ export function CalendarSyncSettingsPage() {
                         <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
                         立即同步
                     </Button>
-                )}
-            </div>
+                ) : undefined}
+            />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="calendar" className="flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4" />
-                        日曆
-                    </TabsTrigger>
-                    <TabsTrigger value="history" className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        同步歷史
-                    </TabsTrigger>
-                    {isAdmin && (
-                        <TabsTrigger value="conflicts" className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4" />
-                            衝突處理
-                            {conflicts && conflicts.total > 0 && (
-                                <Badge variant="destructive" className="ml-1">
-                                    {conflicts.total}
-                                </Badge>
-                            )}
-                        </TabsTrigger>
-                    )}
-                    {isAdmin && (
-                        <TabsTrigger value="status" className="flex items-center gap-2">
-                            <Settings className="h-4 w-4" />
-                            連線狀態
-                        </TabsTrigger>
-                    )}
-                </TabsList>
-
+            <PageTabs
+                tabs={[
+                    { value: 'calendar', label: '日曆', icon: CalendarDays },
+                    { value: 'history', label: '同步歷史', icon: Clock },
+                    { value: 'conflicts', label: '衝突處理', icon: AlertTriangle, badge: conflicts?.total, hidden: !isAdmin },
+                    { value: 'status', label: '連線狀態', icon: Settings, hidden: !isAdmin },
+                ]}
+                defaultTab="calendar"
+            >
                 {/* 連線狀態 */}
-                <TabsContent value="status" className="space-y-4">
+                <PageTabContent value="status" className="space-y-4">
                     <Card>
                         <CardHeader>
                             <CardTitle>連線設定</CardTitle>
@@ -145,10 +123,10 @@ export function CalendarSyncSettingsPage() {
                             />
                         </CardContent>
                     </Card>
-                </TabsContent>
+                </PageTabContent>
 
                 {/* 日曆視圖 */}
-                <TabsContent value="calendar" className="space-y-4">
+                <PageTabContent value="calendar" className="space-y-4">
                     <Card>
                         <CardHeader>
                             <CardTitle>Google Calendar 事件</CardTitle>
@@ -168,10 +146,10 @@ export function CalendarSyncSettingsPage() {
                             />
                         </CardContent>
                     </Card>
-                </TabsContent>
+                </PageTabContent>
 
                 {/* 同步歷史 */}
-                <TabsContent value="history" className="space-y-4">
+                <PageTabContent value="history" className="space-y-4">
                     <Card>
                         <CardHeader>
                             <CardTitle>同步歷史記錄</CardTitle>
@@ -185,10 +163,10 @@ export function CalendarSyncSettingsPage() {
                             />
                         </CardContent>
                     </Card>
-                </TabsContent>
+                </PageTabContent>
 
                 {/* 衝突處理 */}
-                <TabsContent value="conflicts" className="space-y-4">
+                <PageTabContent value="conflicts" className="space-y-4">
                     <Card>
                         <CardHeader>
                             <CardTitle>待處理衝突</CardTitle>
@@ -207,8 +185,8 @@ export function CalendarSyncSettingsPage() {
                             />
                         </CardContent>
                     </Card>
-                </TabsContent>
-            </Tabs>
+                </PageTabContent>
+            </PageTabs>
 
             {/* 連接對話框 */}
             <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>

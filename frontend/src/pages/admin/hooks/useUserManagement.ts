@@ -266,6 +266,20 @@ export function useUserManagement() {
     })
   }
 
+  /** RHF-validated create: Zod 已驗證，僅需檢查密碼複雜度 */
+  const handleCreateWithData = (data: CreateUserData) => {
+    const pwError = getPasswordError(data.password)
+    if (pwError) {
+      toast({ title: '錯誤', description: pwError, variant: 'destructive' })
+      return
+    }
+    createMutation.mutate({
+      ...data,
+      entry_date: data.entry_date || undefined,
+      position: data.position || undefined,
+    })
+  }
+
   const handleEdit = (user: User) => {
     setSelectedUser(user)
     setFormData({
@@ -374,6 +388,18 @@ export function useUserManagement() {
     confirmPasswordMutation.mutate(reauthPassword)
   }
 
+  /** RHF-validated reset password: Zod 已驗證基本格式，僅需密碼複雜度檢查 */
+  const handleResetPasswordWithData = (data: { reauth_password: string; new_password: string; confirm_password: string }) => {
+    if (!userToResetPassword) return
+    const resetPwError = getPasswordError(data.new_password)
+    if (resetPwError) {
+      toast({ title: '錯誤', description: resetPwError, variant: 'destructive' })
+      return
+    }
+    setNewPassword(data.new_password)
+    confirmPasswordMutation.mutate(data.reauth_password)
+  }
+
   const openResetPasswordDialog = (user: User) => {
     setUserToResetPassword(user)
     setNewPassword('')
@@ -471,12 +497,14 @@ export function useUserManagement() {
     confirmPasswordMutation,
     deleteUserWithReauth,
     handleCreate,
+    handleCreateWithData,
     handleEdit,
     handleUpdate,
     handleToggleActive,
     handleManageRoles,
     handleUpdateRoles,
     handleResetPassword,
+    handleResetPasswordWithData,
     toggleRole,
     openResetPasswordDialog,
     toggleSortRole,

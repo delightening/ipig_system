@@ -92,10 +92,20 @@ export function useSidebarNav() {
       })
       .map((item) => {
         if (!item.children) return item
-        const filteredChildren = item.children.filter(child => {
-          if (child.permission) return hasPermission(child.permission) || hasRole('admin')
-          return true
-        })
+        const filteredChildren = item.children
+          .filter(child => {
+            if (child.permission) return hasPermission(child.permission) || hasRole('admin')
+            return true
+          })
+          .map(child => {
+            if (!child.children) return child
+            const filteredSubs = child.children.filter(sub => {
+              if (sub.permission) return hasPermission(sub.permission) || hasRole('admin')
+              return true
+            })
+            return filteredSubs.length > 0 ? { ...child, children: filteredSubs } : null
+          })
+          .filter(Boolean) as typeof item.children
         return { ...item, children: filteredChildren }
       })
       .filter((item) => !item.children || item.children.length > 0)
@@ -115,7 +125,10 @@ export function useSidebarNav() {
   }
 
   const isChildActive = (item: NavItem): boolean => {
-    return item.children?.some((child) => isActive(child.href)) || false
+    return item.children?.some((child) => {
+      if (child.href && isActive(child.href)) return true
+      return child.children?.some(sub => sub.href && isActive(sub.href)) ?? false
+    }) ?? false
   }
 
   const handleDragEnd = (activeId: string, overId: string) => {

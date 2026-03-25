@@ -1,4 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import {
+  leaveRequestSchema,
+  type LeaveRequestFormData,
+} from '@/lib/validation'
 
 /** 以 0.5 小時為單位四捨五入 */
 export const roundToHalfHour = (value: number): number =>
@@ -6,59 +12,53 @@ export const roundToHalfHour = (value: number): number =>
 
 const HOURS_PER_DAY = 8
 
-export interface LeaveRequestFormData {
-  leaveType: string
-  startDate: string
-  endDate: string
-  totalHours: string
-  reason: string
-  proxyUserId: string
-  supportingImages: string[]
-}
-
-const initialForm: LeaveRequestFormData = {
-  leaveType: '',
-  startDate: '',
-  endDate: '',
-  totalHours: '8',
-  reason: '',
-  proxyUserId: '',
-  supportingImages: [],
-}
-
 export function useLeaveRequestForm() {
-  const [form, setForm] = useState<LeaveRequestFormData>(initialForm)
+  const form = useForm<LeaveRequestFormData>({
+    resolver: zodResolver(leaveRequestSchema),
+    defaultValues: {
+      leaveType: '',
+      startDate: '',
+      endDate: '',
+      totalHours: '8',
+      reason: '',
+      proxyUserId: '',
+      supportingImages: [],
+    },
+  })
+
   const [uploadingImage, setUploadingImage] = useState(false)
   const [lastChangedField, setLastChangedField] = useState<
     'startDate' | 'endDate' | 'totalHours' | null
   >(null)
 
-  const updateField = useCallback(<K extends keyof LeaveRequestFormData>(
-    key: K,
-    value: LeaveRequestFormData[K]
-  ) => {
-    setForm((prev) => ({ ...prev, [key]: value }))
-  }, [])
+  const { watch, setValue, getValues, reset: resetRHF } = form
+
+  const startDate = watch('startDate')
+  const endDate = watch('endDate')
+  const totalHours = watch('totalHours')
+  const leaveType = watch('leaveType')
+  const proxyUserId = watch('proxyUserId')
+  const reason = watch('reason')
+  const supportingImages = watch('supportingImages')
 
   const handleStartDateChange = useCallback((value: string) => {
-    setForm((prev) => ({ ...prev, startDate: value }))
+    setValue('startDate', value)
     setLastChangedField('startDate')
-  }, [])
+  }, [setValue])
 
   const handleEndDateChange = useCallback((value: string) => {
-    setForm((prev) => ({ ...prev, endDate: value }))
+    setValue('endDate', value)
     setLastChangedField('endDate')
-  }, [])
+  }, [setValue])
 
   const handleTotalHoursChange = useCallback((value: string) => {
-    setForm((prev) => ({ ...prev, totalHours: value }))
+    setValue('totalHours', value)
     setLastChangedField('totalHours')
-  }, [])
+  }, [setValue])
 
   // 自動計算日期/時數（雙向計算，以 0.5 小時為單位）
   useEffect(() => {
     if (!lastChangedField) return
-    const { startDate, endDate, totalHours } = form
 
     if ((lastChangedField === 'startDate' || lastChangedField === 'endDate') && startDate && endDate) {
       const start = new Date(startDate)
@@ -67,7 +67,7 @@ export function useLeaveRequestForm() {
         const diffTime = end.getTime() - start.getTime()
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
         const hours = roundToHalfHour(diffDays * HOURS_PER_DAY)
-        setForm((prev) => ({ ...prev, totalHours: String(hours) }))
+        setValue('totalHours', String(hours))
       }
     }
 
@@ -79,53 +79,52 @@ export function useLeaveRequestForm() {
         const end = new Date(start.getTime() + (days - 1) * 24 * 60 * 60 * 1000)
         const newEndDate = end.toISOString().split('T')[0]
         if (newEndDate !== endDate) {
-          setForm((prev) => ({ ...prev, endDate: newEndDate }))
+          setValue('endDate', newEndDate)
         }
       }
     }
-  }, [form.startDate, form.endDate, form.totalHours, lastChangedField])
+  }, [startDate, endDate, totalHours, lastChangedField, setValue])
 
   const resetForm = useCallback(() => {
-    setForm(initialForm)
+    resetRHF()
     setLastChangedField(null)
-  }, [])
+  }, [resetRHF])
 
   const addSupportingImages = useCallback((urls: string[]) => {
-    setForm((prev) => ({
-      ...prev,
-      supportingImages: [...prev.supportingImages, ...urls],
-    }))
-  }, [])
+    const current = getValues('supportingImages') || []
+    setValue('supportingImages', [...current, ...urls])
+  }, [getValues, setValue])
 
   const removeSupportingImage = useCallback((index: number) => {
-    setForm((prev) => ({
-      ...prev,
-      supportingImages: prev.supportingImages.filter((_, i) => i !== index),
-    }))
-  }, [])
+    const current = getValues('supportingImages') || []
+    setValue('supportingImages', current.filter((_, i) => i !== index))
+  }, [getValues, setValue])
 
-  const isAnnualLeave = form.leaveType === 'ANNUAL'
+  const isAnnualLeave = leaveType === 'ANNUAL'
 
   const buildSubmitPayload = useCallback(() => {
-    const totalHours = roundToHalfHour(parseFloat(form.totalHours) || 0)
+    const values = getValues()
+    const hours = roundToHalfHour(parseFloat(values.totalHours) || 0)
     return {
-      leave_type: form.leaveType,
-      start_date: form.startDate,
-      end_date: form.endDate,
-      total_hours: totalHours,
-      total_days: totalHours / HOURS_PER_DAY,
-      reason: form.reason.trim() || undefined,
+      leave_type: values.leaveType,
+      start_date: values.startDate,
+      end_date: values.endDate,
+      total_hours: hours,
+      total_days: hours / HOURS_PER_DAY,
+      reason: values.reason.trim() || undefined,
       supporting_documents:
-        form.supportingImages.length > 0 ? form.supportingImages : undefined,
+        values.supportingImages.length > 0 ? values.supportingImages : undefined,
       proxy_user_id:
-        form.proxyUserId && form.proxyUserId !== '__none__' ? form.proxyUserId : undefined,
+        values.proxyUserId && values.proxyUserId !== '__none__' ? values.proxyUserId : undefined,
     }
-  }, [form])
+  }, [getValues])
 
   return {
-    form,
-    setForm,
-    updateField,
+    form: { leaveType, startDate, endDate, totalHours, proxyUserId, reason, supportingImages },
+    rhf: form,
+    updateField: <K extends keyof LeaveRequestFormData>(key: K, value: LeaveRequestFormData[K]) => {
+      setValue(key, value as any)
+    },
     uploadingImage,
     setUploadingImage,
     handleStartDateChange,

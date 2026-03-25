@@ -23,14 +23,15 @@ export function CreateProductPage() {
             size="icon"
             onClick={() => form.navigate('/products')}
             disabled={form.isCreating}
+            aria-label="返回"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               新增產品
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               SKU 由系統自動產生
             </p>
           </div>
@@ -41,8 +42,8 @@ export function CreateProductPage() {
               onChange={(e) => form.setQuickMode(e.target.checked)}
               className="rounded"
             />
-            <span className="text-slate-600 dark:text-slate-400 hidden sm:inline">快速模式</span>
-            <Sparkles className={cn("w-4 h-4", form.quickMode ? "text-amber-500" : "text-slate-400")} />
+            <span className="text-muted-foreground hidden sm:inline">快速模式</span>
+            <Sparkles className={cn("w-4 h-4", form.quickMode ? "text-status-warning-text" : "text-muted-foreground")} />
           </label>
         </div>
 

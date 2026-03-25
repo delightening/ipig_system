@@ -86,10 +86,10 @@ function PageButtons({
 }) {
   return (
     <div className="flex items-center gap-1">
-      <Button variant="outline" size="icon" onClick={() => onPageChange(1)} disabled={page === 1}>
+      <Button variant="outline" size="icon" onClick={() => onPageChange(1)} disabled={page === 1} aria-label="第一頁">
         <ChevronsLeft className="h-4 w-4" />
       </Button>
-      <Button variant="outline" size="icon" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1}>
+      <Button variant="outline" size="icon" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1} aria-label="上一頁">
         <ChevronLeft className="h-4 w-4" />
       </Button>
       <div className="flex items-center gap-1 px-2">
@@ -117,10 +117,10 @@ function PageButtons({
           )
         })}
       </div>
-      <Button variant="outline" size="icon" onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page === totalPages}>
+      <Button variant="outline" size="icon" onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page === totalPages} aria-label="下一頁">
         <ChevronRight className="h-4 w-4" />
       </Button>
-      <Button variant="outline" size="icon" onClick={() => onPageChange(totalPages)} disabled={page === totalPages}>
+      <Button variant="outline" size="icon" onClick={() => onPageChange(totalPages)} disabled={page === totalPages} aria-label="最後一頁">
         <ChevronsRight className="h-4 w-4" />
       </Button>
     </div>

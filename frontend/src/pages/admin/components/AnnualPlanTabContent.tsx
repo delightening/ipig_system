@@ -16,6 +16,8 @@ import {
 
 import type { AnnualPlanWithEquipment } from '../types'
 import { CALIBRATION_TYPE_LABELS, CALIBRATION_CYCLE_LABELS } from '../types'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FileText } from 'lucide-react'
 
 interface AnnualPlanTabContentProps {
   canManage: boolean
@@ -59,9 +61,7 @@ export default function AnnualPlanTabContent({
       </CardHeader>
       <CardContent>
         {plans.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground">
-            {year} 年尚無年度計畫資料
-          </p>
+          <EmptyState icon={FileText} title={`${year} 年尚無年度計畫資料`} />
         ) : (
           <PlanMatrix plans={plans} />
         )}
@@ -143,7 +143,7 @@ function PlanRow({ plan }: { plan: AnnualPlanWithEquipment }) {
       {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
         <TableCell key={month} className="text-center">
           {isMonthScheduled(plan, month) && (
-            <CheckCircle2 className="mx-auto h-5 w-5 text-green-600" />
+            <CheckCircle2 className="mx-auto h-5 w-5 text-status-success-text" />
           )}
         </TableCell>
       ))}

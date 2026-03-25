@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +17,7 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Loader2, Download, Droplets, FlaskConical, DollarSign, Hash } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 
 // 血液檢查費用報表型別
 interface BloodTestCostReport {
@@ -103,17 +105,16 @@ export function BloodTestCostReportPage() {
 
     return (
         <div className="space-y-6">
-            {/* 標題列 */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">血液檢查費用報表</h1>
-                    <p className="text-muted-foreground">依專案、日期與實驗室查詢血液檢查費用</p>
-                </div>
-                <Button onClick={exportToCSV} disabled={!report?.length}>
-                    <Download className="mr-2 h-4 w-4" />
-                    匯出 CSV
-                </Button>
-            </div>
+            <PageHeader
+                title="血液檢查費用報表"
+                description="依專案、日期與實驗室查詢血液檢查費用"
+                actions={
+                    <Button onClick={exportToCSV} disabled={!report?.length}>
+                        <Download className="mr-2 h-4 w-4" />
+                        匯出 CSV
+                    </Button>
+                }
+            />
 
             {/* 篩選區 */}
             <Card>
@@ -167,8 +168,8 @@ export function BloodTestCostReportPage() {
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Card>
                         <CardContent className="flex items-center gap-4 pt-6">
-                            <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900/30">
-                                <DollarSign className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                            <div className="rounded-full bg-primary/10 p-3">
+                                <DollarSign className="h-6 w-6 text-primary" />
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">總費用</p>
@@ -178,8 +179,8 @@ export function BloodTestCostReportPage() {
                     </Card>
                     <Card>
                         <CardContent className="flex items-center gap-4 pt-6">
-                            <div className="rounded-full bg-green-100 p-3 dark:bg-green-900/30">
-                                <Hash className="h-6 w-6 text-green-600 dark:text-green-400" />
+                            <div className="rounded-full bg-status-success-bg p-3">
+                                <Hash className="h-6 w-6 text-status-success-text" />
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">檢查項目數</p>
@@ -189,8 +190,8 @@ export function BloodTestCostReportPage() {
                     </Card>
                     <Card>
                         <CardContent className="flex items-center gap-4 pt-6">
-                            <div className="rounded-full bg-purple-100 p-3 dark:bg-purple-900/30">
-                                <FlaskConical className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                            <div className="rounded-full bg-status-purple-bg p-3">
+                                <FlaskConical className="h-6 w-6 text-status-purple-text" />
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">檢查次數</p>
@@ -243,12 +244,7 @@ export function BloodTestCostReportPage() {
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8">
-                                        <Droplets className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                                        <p className="text-muted-foreground">尚無血液檢查費用資料</p>
-                                    </TableCell>
-                                </TableRow>
+                                <TableEmptyRow colSpan={7} icon={Droplets} title="尚無血液檢查費用資料" />
                             )}
                         </TableBody>
                     </Table>

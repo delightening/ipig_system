@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import api, { CostSummaryReport } from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -62,23 +63,23 @@ export function CostSummaryReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">成本摘要報表</h1>
-          <p className="text-muted-foreground">庫存成本與價值摘要</p>
-        </div>
-        <Button onClick={exportToCSV} disabled={!report?.length}>
-          <Download className="mr-2 h-4 w-4" />
-          匯出 CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="成本摘要報表"
+        description="庫存成本與價值摘要"
+        actions={
+          <Button onClick={exportToCSV} disabled={!report?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            匯出 CSV
+          </Button>
+        }
+      />
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">總庫存價值</CardTitle>
-            <DollarSign className="h-4 w-4 text-emerald-500" />
+            <DollarSign className="h-4 w-4 text-status-success-text" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${formatNumber(totalValue, 2)}</div>
@@ -87,7 +88,7 @@ export function CostSummaryReportPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">總庫存量</CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-500" />
+            <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(totalQty, 0)}</div>
@@ -96,7 +97,7 @@ export function CostSummaryReportPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">品項數</CardTitle>
-            <DollarSign className="h-4 w-4 text-purple-500" />
+            <DollarSign className="h-4 w-4 text-status-purple-text" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{report?.length || 0}</div>
@@ -136,7 +137,7 @@ export function CostSummaryReportPage() {
                   <TableCell className="text-right">
                     {row.avg_cost ? `$${formatNumber(row.avg_cost, 2)}` : '-'}
                   </TableCell>
-                  <TableCell className="text-right font-medium text-emerald-600">
+                  <TableCell className="text-right font-medium text-status-success-text">
                     {row.total_value ? `$${formatNumber(row.total_value, 2)}` : '-'}
                   </TableCell>
                 </TableRow>

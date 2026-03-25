@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
+import { apPaymentSchema, type ApPaymentFormData } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -26,7 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, FileText } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
@@ -40,11 +44,37 @@ function CreateApPaymentDialog({
   onSuccess: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [partnerId, setPartnerId] = useState('')
-  const [amount, setAmount] = useState('')
-  const [paymentDate, setPaymentDate] = useState(asOfDate)
-  const [reference, setReference] = useState('')
   const queryClient = useQueryClient()
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors },
+  } = useForm<ApPaymentFormData>({
+    resolver: zodResolver(apPaymentSchema),
+    defaultValues: {
+      partner_id: '',
+      payment_date: asOfDate,
+      amount: '',
+      reference: '',
+    },
+  })
+
+  const partnerId = watch('partner_id')
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        partner_id: '',
+        payment_date: asOfDate,
+        amount: '',
+        reference: '',
+      })
+    }
+  }, [open, asOfDate, reset])
 
   const { data: partners } = useQuery<Partner[]>({
     queryKey: ['partners', 'supplier'],
@@ -61,9 +91,6 @@ function CreateApPaymentDialog({
     onSuccess: () => {
       toast({ title: '付款已建立' })
       setOpen(false)
-      setPartnerId('')
-      setAmount('')
-      setReference('')
       queryClient.invalidateQueries({ queryKey: ['accounting-ap-aging'] })
       queryClient.invalidateQueries({ queryKey: ['accounting-trial-balance'] })
       queryClient.invalidateQueries({ queryKey: ['accounting-journal-entries'] })
@@ -75,22 +102,12 @@ function CreateApPaymentDialog({
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!partnerId || !amount || !paymentDate) {
-      toast({ title: '請填寫必填欄位', variant: 'destructive' })
-      return
-    }
-    const amt = parseFloat(amount)
-    if (isNaN(amt) || amt <= 0) {
-      toast({ title: '請輸入有效金額', variant: 'destructive' })
-      return
-    }
+  const onValid = (data: ApPaymentFormData) => {
     createPaymentMutation.mutate({
-      partner_id: partnerId,
-      payment_date: paymentDate,
-      amount: amt,
-      reference: reference || undefined,
+      partner_id: data.partner_id,
+      payment_date: data.payment_date,
+      amount: parseFloat(data.amount),
+      reference: data.reference || undefined,
     })
   }
 
@@ -103,14 +120,14 @@ function CreateApPaymentDialog({
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onValid)}>
           <DialogHeader>
             <DialogTitle>應付帳款付款</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label>供應商 *</Label>
-              <Select value={partnerId} onValueChange={setPartnerId} required>
+              <Select value={partnerId} onValueChange={(v) => setValue('partner_id', v, { shouldValidate: true })}>
                 <SelectTrigger>
                   <SelectValue placeholder="選擇供應商" />
                 </SelectTrigger>
@@ -122,15 +139,16 @@ function CreateApPaymentDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {errors.partner_id && (
+                <p className="text-sm text-destructive">{errors.partner_id.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>付款日期 *</Label>
-              <Input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                required
-              />
+              <Input type="date" {...register('payment_date')} />
+              {errors.payment_date && (
+                <p className="text-sm text-destructive">{errors.payment_date.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>金額 *</Label>
@@ -138,15 +156,16 @@ function CreateApPaymentDialog({
                 type="number"
                 step="0.01"
                 min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                {...register('amount')}
                 placeholder="0.00"
-                required
               />
+              {errors.amount && (
+                <p className="text-sm text-destructive">{errors.amount.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>備註</Label>
-              <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="選填" />
+              <Input {...register('reference')} placeholder="選填" aria-label="備註" />
             </div>
           </div>
           <DialogFooter>
@@ -231,11 +250,7 @@ export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  尚無應付帳款餘額
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={5} icon={FileText} title="尚無應付帳款餘額" />
             )}
           </TableBody>
         </Table>

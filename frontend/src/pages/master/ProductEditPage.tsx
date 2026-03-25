@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom'
 import { ArrowLeft, Loader2, Package } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { useProductEditForm } from './hooks/useProductEditForm'
 import { EditBasicInfoCard } from './components/EditBasicInfoCard'
 import { EditPackagingCard } from './components/EditPackagingCard'
@@ -48,18 +49,16 @@ export function ProductEditPage() {
           variant="ghost"
           size="icon"
           onClick={() => navigate(`/products/${id}`)}
+          aria-label="返回"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">編輯產品</h1>
-          <p className="text-muted-foreground text-sm">
-            SKU: {product.sku}
-            {isDefaultCategory
-              ? '（目前為預設分類 GEN-OTH，變更分類後將自動產生新 SKU）'
-              : '（唯讀，不可修改）'}
-          </p>
-        </div>
+        <PageHeader
+          title="編輯產品"
+          description={`SKU: ${product.sku}${isDefaultCategory
+            ? '（目前為預設分類 GEN-OTH，變更分類後將自動產生新 SKU）'
+            : '（唯讀，不可修改）'}`}
+        />
       </div>
 
       <form onSubmit={handleSubmit}>

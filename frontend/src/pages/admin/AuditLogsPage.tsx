@@ -7,6 +7,7 @@ import type { User } from '@/types/auth'
 import type { UserActivityLog } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 
+import { PageHeader } from '@/components/ui/page-header'
 import { categoryEntityMap } from './constants/auditLogs'
 import { useAuditLogExport } from './hooks/useAuditLogExport'
 import { AuditLogFilters } from './components/AuditLogFilters'
@@ -107,10 +108,10 @@ export function AuditLogsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">操作日誌</h1>
-        <p className="text-sm md:text-base text-muted-foreground">追蹤所有使用者的操作記錄與變更歷史</p>
-      </div>
+      <PageHeader
+        title="操作日誌"
+        description="追蹤所有使用者的操作記錄與變更歷史"
+      />
 
       <AuditLogFilters
         users={users}

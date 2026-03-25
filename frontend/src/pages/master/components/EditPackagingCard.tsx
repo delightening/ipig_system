@@ -61,11 +61,11 @@ function UnitChipRow({ units, selectedCode, onSelect }: UnitChipRowProps) {
             'flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all',
             selectedCode === u.code
               ? 'border-primary bg-primary/10'
-              : 'border-slate-200 dark:border-slate-700 hover:border-primary/50',
+              : 'border-border hover:border-primary/50',
           )}
         >
           <span className="font-mono text-sm font-semibold">{u.code}</span>
-          <span className="text-xs text-slate-500">{u.name}</span>
+          <span className="text-xs text-muted-foreground">{u.name}</span>
         </button>
       ))}
     </div>
@@ -99,11 +99,11 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
                 'flex-1 p-3 rounded-lg border-2 transition-all text-left',
                 form.packagingLayers === 2
                   ? 'border-primary bg-primary/10 text-primary font-medium'
-                  : 'border-slate-200 dark:border-slate-700 hover:border-primary/50',
+                  : 'border-border hover:border-primary/50',
               )}
             >
               兩層包裝
-              <span className="block text-xs mt-1 text-slate-500">
+              <span className="block text-xs mt-1 text-muted-foreground">
                 外層 → 內層（消耗每內層）
               </span>
             </button>
@@ -114,11 +114,11 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
                 'flex-1 p-3 rounded-lg border-2 transition-all text-left',
                 form.packagingLayers === 3
                   ? 'border-primary bg-primary/10 text-primary font-medium'
-                  : 'border-slate-200 dark:border-slate-700 hover:border-primary/50',
+                  : 'border-border hover:border-primary/50',
               )}
             >
               三層包裝
-              <span className="block text-xs mt-1 text-slate-500">
+              <span className="block text-xs mt-1 text-muted-foreground">
                 外層 → 內層 → 基礎（消耗每基礎）
               </span>
             </button>
@@ -140,8 +140,8 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
               }
             />
             {form.outerUnitCode && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 w-fit">
-                <span className="text-sm text-slate-500">1</span>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border w-fit">
+                <span className="text-sm text-muted-foreground">1</span>
                 <span className="text-sm">
                   {UOM_MAP[form.outerUnitCode] || form.outerUnitCode}
                 </span>
@@ -154,7 +154,7 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
             <Label className="text-sm font-medium">
               內層包裝
               {form.packagingLayers === 2 && (
-                <span className="text-xs text-slate-400 ml-2">（消耗單位）</span>
+                <span className="text-xs text-muted-foreground ml-2">（消耗單位）</span>
               )}
             </Label>
             <UnitChipRow
@@ -167,8 +167,8 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
             />
             {form.innerUnitCode && (
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 w-fit">
-                  <span className="text-sm text-slate-500">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border w-fit">
+                  <span className="text-sm text-muted-foreground">
                     {form.outerUnitCode
                       ? `一${UOM_MAP[form.outerUnitCode] || form.outerUnitCode}`
                       : '一'}
@@ -205,8 +205,8 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
                 onSelect={(code) => updateField('baseUnitCode', code)}
               />
               {form.innerUnitCode && form.baseUnitCode && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 w-fit">
-                  <span className="text-sm text-slate-500">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border w-fit">
+                  <span className="text-sm text-muted-foreground">
                     一{UOM_MAP[form.innerUnitCode] || form.innerUnitCode}
                   </span>
                   <Input

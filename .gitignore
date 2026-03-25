@@ -49,3 +49,4 @@ backend/ci-fail.txt
 backend/error.log
 backend/error.txt
 backend/test_output.txt
+.gstack/

@@ -68,7 +68,7 @@ export function AnimalDetailPage() {
   if (queries.animalLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -76,8 +76,8 @@ export function AnimalDetailPage() {
   if (!queries.animal) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <AlertCircle className="h-12 w-12 text-slate-400 mb-4" />
-        <p className="text-slate-500">
+        <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">
           {t('animalDetail.notFound', '\u627E\u4E0D\u5230\u6B64\u52D5\u7269')}
         </p>
         <Button variant="outline" className="mt-4" onClick={() => navigate('/animals')}>
@@ -107,7 +107,7 @@ export function AnimalDetailPage() {
       <div className="flex items-center justify-between">
         <Link
           to="/animals"
-          className="inline-flex items-center text-slate-600 hover:text-slate-900"
+          className="inline-flex items-center text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('animalDetail.backToAnimalList', '\u56DE\u5230\u52D5\u7269\u5217\u8868')}

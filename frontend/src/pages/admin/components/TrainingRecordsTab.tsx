@@ -13,6 +13,8 @@ import { Pencil, Trash2, Search, User, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import type { TrainingRecordWithUser, TrainingUser } from '../types/training'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FileText } from 'lucide-react'
 
 interface TrainingRecordsTabProps {
   canManage: boolean
@@ -111,7 +113,7 @@ export function TrainingRecordsTab({
               <RefreshCw className="h-6 w-6 animate-spin" />
             </div>
           ) : records.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">尚無訓練紀錄</div>
+            <EmptyState icon={FileText} title="尚無訓練紀錄" />
           ) : (
             <>
               <Table>
@@ -147,7 +149,7 @@ export function TrainingRecordsTab({
                       <TableCell>
                         {canManage && (
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => onEdit(r)}>
+                            <Button variant="ghost" size="icon" onClick={() => onEdit(r)} aria-label="編輯">
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
@@ -155,6 +157,7 @@ export function TrainingRecordsTab({
                               size="icon"
                               onClick={() => onDelete(r)}
                               className="text-destructive hover:text-destructive"
+                              aria-label="刪除"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

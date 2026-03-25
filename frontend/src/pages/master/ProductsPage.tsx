@@ -8,6 +8,7 @@ import { useProductListState } from './hooks/useProductListState'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { toast } from '@/components/ui/use-toast'
 import { Plus, Upload, Download, FolderEdit } from 'lucide-react'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -127,31 +128,30 @@ export function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">產品管理</h1>
-          <p className="text-muted-foreground">管理系統中的產品/品項資料</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => dialogs.open('editCategories')}>
-            <FolderEdit className="mr-2 h-4 w-4" />
-            編輯分類
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => dialogs.open('import')}>
-            <Upload className="mr-2 h-4 w-4" />
-            匯入
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={products.length === 0}>
-            <Download className="mr-2 h-4 w-4" />
-            匯出
-          </Button>
-          <Button onClick={() => navigate('/products/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            新增產品
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="產品管理"
+        description="管理系統中的產品/品項資料"
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => dialogs.open('editCategories')}>
+              <FolderEdit className="mr-2 h-4 w-4" />
+              編輯分類
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => dialogs.open('import')}>
+              <Upload className="mr-2 h-4 w-4" />
+              匯入
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={products.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              匯出
+            </Button>
+            <Button onClick={() => navigate('/products/new')}>
+              <Plus className="mr-2 h-4 w-4" />
+              新增產品
+            </Button>
+          </>
+        }
+      />
 
       {/* Search & Filters */}
       <ProductFilterPanel

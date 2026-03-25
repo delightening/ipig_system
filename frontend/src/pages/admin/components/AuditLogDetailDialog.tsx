@@ -83,7 +83,7 @@ export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetail
             {log.before_data && (
               <div>
                 <Label className="text-muted-foreground">變更前資料</Label>
-                <pre className="mt-1 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md text-sm overflow-x-auto">
+                <pre className="mt-1 p-3 bg-status-error-bg dark:bg-destructive/10 border border-destructive/20 dark:border-destructive/30 rounded-md text-sm overflow-x-auto">
                   {JSON.stringify(log.before_data, null, 2)}
                 </pre>
               </div>
@@ -92,7 +92,7 @@ export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetail
             {log.after_data && (
               <div>
                 <Label className="text-muted-foreground">變更後資料</Label>
-                <pre className="mt-1 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md text-sm overflow-x-auto">
+                <pre className="mt-1 p-3 bg-status-success-bg dark:bg-status-success-text/10 border border-status-success-text/20 dark:border-status-success-text/30 rounded-md text-sm overflow-x-auto">
                   {JSON.stringify(log.after_data, null, 2)}
                 </pre>
               </div>

@@ -25,7 +25,7 @@ export function AnimalDetailActions({
         <>
           <Button
             variant="outline"
-            className="border-amber-500 text-amber-600 hover:bg-amber-50"
+            className="border-status-warning-border text-status-warning-text hover:bg-status-warning-bg"
             onClick={onEmergencyMedication}
           >
             <AlertTriangle className="h-4 w-4 mr-2" />
@@ -33,7 +33,7 @@ export function AnimalDetailActions({
           </Button>
           <Button
             variant="outline"
-            className="border-red-500 text-red-600 hover:bg-red-50"
+            className="border-destructive text-destructive hover:bg-status-error-bg"
             onClick={onEuthanasiaOrder}
           >
             <AlertOctagon className="h-4 w-4 mr-2" />
@@ -43,7 +43,7 @@ export function AnimalDetailActions({
       )}
       <Button
         variant="outline"
-        className="border-rose-500 text-rose-600 hover:bg-rose-50"
+        className="border-destructive text-destructive hover:bg-status-error-bg"
         onClick={onSuddenDeath}
       >
         <Zap className="h-4 w-4 mr-2" />

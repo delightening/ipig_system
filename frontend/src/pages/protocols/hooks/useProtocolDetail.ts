@@ -1,25 +1,22 @@
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import api from '@/lib/api'
 import type {
   ProtocolResponse,
   ProtocolStatus,
-  ChangeStatusRequest,
-  AssignCoEditorRequest,
   User,
 } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
-import { getApiErrorMessage } from '@/lib/validation'
 import { toast } from '@/components/ui/use-toast'
 import { useAuthStore } from '@/stores/auth'
 import { useSidebarStore } from '@/stores/sidebar'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { allowedTransitions, REVIEWABLE_STATUSES } from '../constants'
-import type { TabKey } from '../constants'
 import type { ProtocolVersion } from '@/types/aup'
+import { useProtocolMutations } from './useProtocolMutations'
 
 interface ReviewerOption {
   id: string
@@ -31,11 +28,9 @@ export function useProtocolDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
   const { user } = useAuthStore()
   const { dialogState, confirm } = useConfirmDialog()
 
-  const [activeTab, setActiveTab] = useState<TabKey>('content')
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [newStatus, setNewStatus] = useState<ProtocolStatus | ''>('')
   const [statusRemark, setStatusRemark] = useState('')
@@ -140,76 +135,20 @@ export function useProtocolDetail() {
 
   // --- Mutations ---
 
-  const submitMutation = useMutation({
-    mutationFn: async () => api.post(`/protocols/${id}/submit`),
-    onSuccess: () => {
-      toast({ title: t('common.success'), description: t('protocols.detail.submitSuccess') })
-      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.detail(id!) })
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: t('common.error'),
-        description: getApiErrorMessage(error, t('protocols.detail.submitFailed')),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const changeStatusMutation = useMutation({
-    mutationFn: async (data: ChangeStatusRequest) => api.post(`/protocols/${id}/status`, data),
-    onSuccess: () => {
-      toast({ title: t('common.success'), description: t('protocols.detail.statusChangeSuccess') })
-      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.detail(id!) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.statusHistory(id!) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.reviewers(id!) })
+  const {
+    submitMutation,
+    changeStatusMutation,
+    assignCoEditorMutation,
+    addCommentMutation,
+  } = useProtocolMutations({
+    id,
+    versions,
+    onStatusChangeSuccess: () => {
       setShowStatusDialog(false)
       setNewStatus('')
       setStatusRemark('')
       setSelectedReviewerIds([])
       setSelectedCoEditorId('')
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: t('common.error'),
-        description: getApiErrorMessage(error, t('protocols.detail.statusChangeFailed')),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const assignCoEditorMutation = useMutation({
-    mutationFn: async (data: AssignCoEditorRequest) => api.post(`/protocols/${id}/co-editors`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.detail(id!) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.coEditors(id!) })
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: t('common.error'),
-        description: getApiErrorMessage(error, t('protocols.detail.tables.assignCoeditorFailed')),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const addCommentMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!versions || versions.length === 0) throw new Error('No version found')
-      return api.post('/reviews/comments', {
-        protocol_version_id: versions[0].id,
-        content,
-      })
-    },
-    onSuccess: () => {
-      toast({ title: t('common.success'), description: t('protocols.detail.dialogs.comment.success') })
-      queryClient.invalidateQueries({ queryKey: ['protocol-comments', id] })
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: t('common.error'),
-        description: getApiErrorMessage(error, t('protocols.detail.dialogs.comment.failed')),
-        variant: 'destructive',
-      })
     },
   })
 
@@ -308,8 +247,6 @@ export function useProtocolDetail() {
     pi_organization,
     vet_review,
     isLoading,
-    activeTab,
-    setActiveTab,
     showStatusDialog,
     setShowStatusDialog,
     newStatus,

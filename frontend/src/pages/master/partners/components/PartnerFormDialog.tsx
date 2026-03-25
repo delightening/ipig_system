@@ -1,3 +1,5 @@
+import { UseFormRegister, FieldErrors } from 'react-hook-form'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,8 +28,10 @@ import {
 interface PartnerFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  formData: PartnerFormData
-  setFormData: React.Dispatch<React.SetStateAction<PartnerFormData>>
+  formData: Pick<PartnerFormData, 'partner_type' | 'supplier_category' | 'customer_category' | 'code'>
+  register: UseFormRegister<PartnerFormData>
+  setValue: (field: keyof PartnerFormData, value: string) => void
+  errors: FieldErrors<PartnerFormData>
   isEditing: boolean
   isGeneratingCode: boolean
   isPending: boolean
@@ -37,11 +41,18 @@ interface PartnerFormDialogProps {
   onClose: () => void
 }
 
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return <p className="text-sm text-destructive col-start-2 col-span-3">{message}</p>
+}
+
 export function PartnerFormDialog({
   open,
   onOpenChange,
   formData,
-  setFormData,
+  register,
+  setValue,
+  errors,
   isEditing,
   isGeneratingCode,
   isPending,
@@ -76,48 +87,56 @@ export function PartnerFormDialog({
             {formData.partner_type === 'customer' && (
               <CustomerCategoryField
                 value={formData.customer_category}
-                onChange={(v) => setFormData(prev => ({ ...prev, customer_category: v }))}
+                onChange={(v) => setValue('customer_category', v)}
                 disabled={isEditing}
               />
             )}
             <CodeField code={formData.code} isGenerating={isGeneratingCode} />
-            <TextField
-              id="name"
-              label="名稱"
-              value={formData.name}
-              onChange={(v) => setFormData(prev => ({ ...prev, name: v }))}
-              required
-              disabled={isEditing}
-            />
-            <TextField
-              id="tax_id"
-              label="統編"
-              value={formData.tax_id}
-              onChange={(v) => setFormData(prev => ({ ...prev, tax_id: v }))}
-              placeholder="留白或 8 碼數字"
-              disabled={isEditing}
-            />
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">名稱</Label>
+              <Input
+                id="name"
+                {...register('name')}
+                className="col-span-3"
+                disabled={isEditing}
+              />
+              <FieldError message={errors.name?.message} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="tax_id" className="text-right">統編</Label>
+              <Input
+                id="tax_id"
+                {...register('tax_id')}
+                className="col-span-3"
+                placeholder="留白或 8 碼數字"
+                disabled={isEditing}
+              />
+              <FieldError message={errors.tax_id?.message} />
+            </div>
             <PhoneField
-              phone={formData.phone}
-              phoneExt={formData.phone_ext}
-              onPhoneChange={(v) => setFormData(prev => ({ ...prev, phone: v }))}
-              onPhoneExtChange={(v) => setFormData(prev => ({ ...prev, phone_ext: v }))}
+              register={register}
+              errors={errors}
             />
-            <TextField
-              id="email"
-              label="Email"
-              value={formData.email}
-              onChange={(v) => setFormData(prev => ({ ...prev, email: v }))}
-              placeholder="留白或正確 Email 格式"
-              type="email"
-            />
-            <TextField
-              id="address"
-              label="地址"
-              value={formData.address}
-              onChange={(v) => setFormData(prev => ({ ...prev, address: v }))}
-              placeholder="留白或地址字串"
-            />
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">Email</Label>
+              <Input
+                id="email"
+                {...register('email')}
+                className="col-span-3"
+                placeholder="留白或正確 Email 格式"
+              />
+              <FieldError message={errors.email?.message} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="address" className="text-right">地址</Label>
+              <Input
+                id="address"
+                {...register('address')}
+                className="col-span-3"
+                placeholder="留白或地址字串"
+              />
+              <FieldError message={errors.address?.message} />
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
@@ -235,52 +254,12 @@ function CodeField({ code, isGenerating }: { code: string; isGenerating: boolean
   )
 }
 
-function TextField({
-  id,
-  label,
-  value,
-  onChange,
-  placeholder,
-  required,
-  disabled,
-  type,
-}: {
-  id: string
-  label: string
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  required?: boolean
-  disabled?: boolean
-  type?: string
-}) {
-  return (
-    <div className="grid grid-cols-4 items-center gap-4">
-      <Label htmlFor={id} className="text-right">{label}</Label>
-      <Input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="col-span-3"
-        placeholder={placeholder}
-        required={required}
-        disabled={disabled}
-      />
-    </div>
-  )
-}
-
 function PhoneField({
-  phone,
-  phoneExt,
-  onPhoneChange,
-  onPhoneExtChange,
+  register,
+  errors,
 }: {
-  phone: string
-  phoneExt: string
-  onPhoneChange: (v: string) => void
-  onPhoneExtChange: (v: string) => void
+  register: UseFormRegister<PartnerFormData>
+  errors: FieldErrors<PartnerFormData>
 }) {
   return (
     <div className="grid grid-cols-4 items-center gap-4">
@@ -289,8 +268,7 @@ function PhoneField({
         <Input
           id="phone"
           className="flex-1"
-          value={phone}
-          onChange={(e) => onPhoneChange(e.target.value)}
+          {...register('phone')}
           placeholder="留白或 9-10 碼數字"
         />
         <div className="flex items-center gap-2 shrink-0">
@@ -298,11 +276,11 @@ function PhoneField({
           <Input
             className="w-24"
             placeholder="分機"
-            value={phoneExt}
-            onChange={(e) => onPhoneExtChange(e.target.value)}
+            {...register('phone_ext')}
           />
         </div>
       </div>
+      <FieldError message={errors.phone?.message} />
     </div>
   )
 }

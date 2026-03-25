@@ -1,18 +1,13 @@
 /**
  * 報廢紀錄分頁內容：表格、分頁、核准/駁回操作
  */
+import { useMemo } from 'react'
+import { truncateText } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Loader2, Check, X } from 'lucide-react'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { DataTable, type ColumnDef } from '@/components/ui/data-table'
+import { Check, X, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
@@ -29,18 +24,12 @@ interface DisposalTabContentProps {
   onApprove: (id: string, approved: boolean) => void
 }
 
-const STATUS_COLORS: Record<DisposalStatus, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
+const STATUS_VARIANT: Record<DisposalStatus, 'warning' | 'success' | 'error'> = {
+  pending: 'warning',
+  approved: 'success',
+  rejected: 'error',
 }
 
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) {
-    return text
-  }
-  return `${text.slice(0, maxLength)}...`
-}
 
 export function DisposalTabContent({
   canApprove,
@@ -51,6 +40,44 @@ export function DisposalTabContent({
   onPageChange,
   onApprove,
 }: DisposalTabContentProps) {
+  const columns = useMemo<ColumnDef<DisposalWithDetails>[]>(() => [
+    { key: 'equipment', header: '設備', cell: (r) => <span className="font-medium">{r.equipment_name}</span> },
+    {
+      key: 'status', header: '狀態',
+      cell: (r) => (
+        <StatusBadge variant={STATUS_VARIANT[r.status]}>
+          {DISPOSAL_STATUS_LABELS[r.status]}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'date', header: '報廢日期',
+      cell: (r) => r.disposal_date ? format(new Date(r.disposal_date), 'yyyy/MM/dd', { locale: zhTW }) : '—',
+    },
+    { key: 'reason', header: '原因', cell: (r) => <span title={r.reason}>{truncateText(r.reason, 20)}</span> },
+    { key: 'applicant', header: '申請人', cell: (r) => r.applicant_name },
+    {
+      key: 'appliedAt', header: '申請時間',
+      cell: (r) => format(new Date(r.applied_at), 'yyyy/MM/dd', { locale: zhTW }),
+    },
+    { key: 'approver', header: '核准人', cell: (r) => r.approver_name || '—' },
+    {
+      key: 'actions', header: '操作', className: 'w-[120px] text-right',
+      cell: (r) => (
+        canApprove && r.status === 'pending' ? (
+          <div className="flex items-center justify-end gap-1">
+            <Button variant="ghost" size="icon" className="text-status-success-text hover:text-status-success-text/80" onClick={() => onApprove(r.id, true)} aria-label="核准">
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => onApprove(r.id, false)} aria-label="駁回">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : null
+      ),
+    },
+  ], [canApprove, onApprove])
+
   return (
     <Card>
       <CardHeader>
@@ -58,98 +85,17 @@ export function DisposalTabContent({
         <CardDescription>設備報廢申請與核准紀錄</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-md border">
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : records.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">尚無紀錄</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>設備</TableHead>
-                  <TableHead>狀態</TableHead>
-                  <TableHead>報廢日期</TableHead>
-                  <TableHead>原因</TableHead>
-                  <TableHead>申請人</TableHead>
-                  <TableHead>申請時間</TableHead>
-                  <TableHead>核准人</TableHead>
-                  <TableHead className="w-[120px] text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.equipment_name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={STATUS_COLORS[r.status]}>
-                        {DISPOSAL_STATUS_LABELS[r.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {r.disposal_date
-                        ? format(new Date(r.disposal_date), 'yyyy/MM/dd', { locale: zhTW })
-                        : '—'}
-                    </TableCell>
-                    <TableCell title={r.reason}>{truncateText(r.reason, 20)}</TableCell>
-                    <TableCell>{r.applicant_name}</TableCell>
-                    <TableCell>
-                      {format(new Date(r.applied_at), 'yyyy/MM/dd', { locale: zhTW })}
-                    </TableCell>
-                    <TableCell>{r.approver_name || '—'}</TableCell>
-                    <TableCell>
-                      {canApprove && r.status === 'pending' && (
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-green-600 hover:text-green-700"
-                            onClick={() => onApprove(r.id, true)}
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => onApprove(r.id, false)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => onPageChange(page - 1)}
-            >
-              上一頁
-            </Button>
-            <span className="flex items-center px-4 text-sm text-muted-foreground">
-              第 {page} / {totalPages} 頁
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => onPageChange(page + 1)}
-            >
-              下一頁
-            </Button>
-          </div>
-        )}
+        <DataTable
+          columns={columns}
+          data={records}
+          isLoading={isLoading}
+          emptyIcon={FileText}
+          emptyTitle="尚無紀錄"
+          rowKey={(r) => r.id}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+        />
       </CardContent>
     </Card>
   )

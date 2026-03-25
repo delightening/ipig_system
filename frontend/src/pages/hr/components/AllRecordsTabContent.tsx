@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { TabsContent } from '@/components/ui/tabs'
 import {
     Table,
     TableBody,
@@ -33,6 +32,8 @@ import {
     formatDate,
 } from '../constants'
 import { OvertimeStatusBadge } from './OvertimeStatusBadge'
+import { TableEmptyRow } from '@/components/ui/empty-state'
+import { Search } from 'lucide-react'
 
 interface StaffItem {
     id: string
@@ -90,8 +91,7 @@ export function AllRecordsTabContent({ isActive, staffList }: AllRecordsTabConte
     )
 
     return (
-        <TabsContent value="all-records" className="space-y-4">
-            <Card>
+        <Card>
                 <CardHeader>
                     <CardTitle>全部加班紀錄</CardTitle>
                     <CardDescription>查看所有員工的加班資料</CardDescription>
@@ -125,7 +125,6 @@ export function AllRecordsTabContent({ isActive, staffList }: AllRecordsTabConte
                     )}
                 </CardContent>
             </Card>
-        </TabsContent>
     )
 }
 
@@ -261,11 +260,7 @@ function AllRecordsTable({ data, isLoading }: AllRecordsTableProps) {
                         </TableCell>
                     </TableRow>
                 ) : data?.length === 0 ? (
-                    <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                            沒有符合條件的加班紀錄
-                        </TableCell>
-                    </TableRow>
+                    <TableEmptyRow colSpan={8} icon={Search} title="沒有符合條件的加班紀錄" />
                 ) : (
                     data?.map((overtime) => (
                         <TableRow key={overtime.id}>

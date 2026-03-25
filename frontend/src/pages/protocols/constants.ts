@@ -40,8 +40,6 @@ export const allowedTransitions: Record<ProtocolStatus, ProtocolStatus[]> = {
   DELETED: [],
 }
 
-export type TabKey = 'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments' | 'animals' | 'amendments'
-
 export const REVIEWABLE_STATUSES: ProtocolStatus[] = [
   'SUBMITTED', 'PRE_REVIEW', 'VET_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'APPROVED_WITH_CONDITIONS',
 ]

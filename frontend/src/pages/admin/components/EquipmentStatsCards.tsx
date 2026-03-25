@@ -75,16 +75,16 @@ export function EquipmentStatsCards({ equipmentList, allCalibrations }: Equipmen
         title="維修中"
         value={stats.repairCount}
         icon={Wrench}
-        iconClassName={stats.repairCount > 0 ? 'text-yellow-500' : 'text-muted-foreground'}
-        valueClassName={stats.repairCount > 0 ? 'text-yellow-500' : ''}
+        iconClassName={stats.repairCount > 0 ? 'text-status-warning-text' : 'text-muted-foreground'}
+        valueClassName={stats.repairCount > 0 ? 'text-status-warning-text' : ''}
       />
       <StatsCard title="校正/確效/查核紀錄" value={stats.totalCalib} icon={Ruler} />
       <StatsCard
         title="逾期待處理"
         value={stats.overdueCount}
         icon={AlertTriangle}
-        iconClassName={stats.overdueCount > 0 ? 'text-red-500' : 'text-muted-foreground'}
-        valueClassName={stats.overdueCount > 0 ? 'text-red-500' : ''}
+        iconClassName={stats.overdueCount > 0 ? 'text-destructive' : 'text-muted-foreground'}
+        valueClassName={stats.overdueCount > 0 ? 'text-destructive' : ''}
       />
     </div>
   )

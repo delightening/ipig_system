@@ -6,6 +6,7 @@ import { formatNumber, formatDate } from '@/lib/utils'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { Partner } from '@/types/erp'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
@@ -135,26 +136,26 @@ export function SalesLinesReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">銷貨明細報表</h1>
-          <p className="text-muted-foreground">銷貨單、銷貨出庫明細</p>
-        </div>
-        <Button onClick={exportToCSV} disabled={!report?.length}>
-          <Download className="mr-2 h-4 w-4" />
-          匯出 CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="銷貨明細報表"
+        description="銷貨單、銷貨出庫明細"
+        actions={
+          <Button onClick={exportToCSV} disabled={!report?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            匯出 CSV
+          </Button>
+        }
+      />
 
       {/* 篩選列 */}
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">
           <Label>起始日期</Label>
-          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" />
+          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" aria-label="起始日期" />
         </div>
         <div className="space-y-1">
           <Label>結束日期</Label>
-          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" />
+          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" aria-label="結束日期" />
         </div>
         <div className="space-y-1">
           <Label>客戶</Label>
