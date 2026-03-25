@@ -1,0 +1,36 @@
+{
+  "date": "2026-03-25",
+  "window": "7d",
+  "metrics": {
+    "commits": 67,
+    "contributors": 2,
+    "prs_merged": 15,
+    "insertions": 35000,
+    "deletions": 15000,
+    "net_loc": 20000,
+    "test_loc": 0,
+    "test_ratio": 0,
+    "active_days": 6,
+    "sessions": 12,
+    "deep_sessions": 4,
+    "avg_session_minutes": 55,
+    "loc_per_session_hour": 1800,
+    "feat_pct": 0.36,
+    "fix_pct": 0.39,
+    "peak_hour": 15,
+    "ai_assisted_commits": 23
+  },
+  "authors": {
+    "Jason Wang": { "commits": 44, "insertions": 26000, "deletions": 11000, "test_ratio": 0, "top_area": "frontend/" },
+    "Claude": { "commits": 23, "insertions": 9000, "deletions": 4000, "test_ratio": 0, "top_area": "refactoring" }
+  },
+  "streak_days": 8,
+  "tweetable": "Week of Mar 18: 67 commits (2 contributors + AI), ~35k LOC, 15 PRs, 34% AI-assisted | Streak: 8d",
+  "backlog": {
+    "total_open": 5,
+    "p0_p1": 1,
+    "p2": 0,
+    "completed_this_period": 4,
+    "added_this_period": 0
+  }
+}

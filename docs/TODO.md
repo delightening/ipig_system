@@ -20,7 +20,7 @@
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| P0-R12-1 | **CI 自動觸發恢復** | `.github/workflows/ci.yml` 的 `push`/`pull_request` 觸發被註解，CI 僅能手動觸發；至少恢復 `pull_request` 觸發並限定 `main` 分支 | DevOps | 🧠 Claude | [ ] |
+| P0-R12-1 | **CI 自動觸發恢復** | `.github/workflows/ci.yml` 的 `push`/`pull_request` 觸發已恢復，限定 `main` 分支；CI 加入 `--locked` flag 確保 Cargo.lock 一致性 | DevOps | 🧠 Claude | [x] |
 | P0-R12-2 | **SQL 字串拼接殘留修復** | `core.rs:139` 已為參數化查詢；`data_import.rs:321-336` 表名/欄名來自白名單 + `debug_assert` 防護（R7-P0-2 已修復） | 後端 | 🧠 Claude | [x] |
 
 ---
@@ -353,7 +353,7 @@
 
 | 優先級 | 數量 (未完成) |
 |--------|------|
-| 🚨 P0 上線前必要 | 1 |
+| 🚨 P0 上線前必要 | 0 |
 | 🟡 P1 上線前建議 | 0 |
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
@@ -367,12 +367,13 @@
 | 🔒 R10 程式碼審查 Medium/Low | 0 (3 推遲) |
 | 🔧 R11 技術債掃描 | 0 |
 | 🟢 R12 長期演進項目 | 2 |
-| **合計（未完成）** | **5** |
+| **合計（未完成）** | **4** |
 
 ---
 
 ## 變更紀錄 (最新)
 
+| 2026-03-25 | 🧠 Claude：gstack 全面審查 + Simplify 重構 — Code Review（/review）8 auto-fix + 4 user-approved（deleteResource data 遺失、Retry-After NaN、overtime validation、stale closure、hidden tab bypass、canEditProtocol）；安全審計（/cso）92/100 → 4 項修復（AI rate limit 強制、Cargo.lock 追蹤、CI script injection、/metrics auth）；Simplify（DataTable 7 檔、StatusBadge 7 檔、FilterBar 4 檔、檔案拆分 5→19 檔、watch() 優化 4 檔、formatDate 統一 4 檔）；zodResolver 型別修復 7 檔。待辦 5→5。 |
 | 2026-03-25 | 🧠 Claude：RHF+Zod 全面遷移完成 + UI 債清零 — **RHF+Zod** 從 1 檔擴展到 17 檔（Auth 3 頁 + Master 5 頁 + Admin UserForm 3 dialog + AnimalEdit + ApAging + ArAging + WarehouseLayout + Partner + HR 2），新增 10 個 Zod schema 到 validation.ts。**PageHeader** 35 頁遷移。**PageTabs** 9 頁遷移（含 AdminAudit hook 重構）。**EmptyState** 24 檔（19 TableEmptyRow + 11 standalone）。**i18n** 28 處修復跨 15 檔。**a11y** 93 處修復跨 43 檔（73 aria-label + 20 input label）。設計合規度 ~92%。 |
 | 2026-03-25 | 🧠 Claude：RHF+Zod 延伸遷移 + DataTable 套用 + Protocol Tab URL 同步 — Partner 表單遷移到 RHF+Zod（`partnerFormZodSchema`，欄位級錯誤顯示，移除手寫 regex 驗證）；HR 5 個列表元件遷移到 DataTable（MyLeaves/AllRecords/PendingApprovals/MyOvertime/PendingOT，移除手寫 Table+Skeleton+Empty）；ProtocolDetailPage 9 個 Tab 從 useState 遷移到 PageTabs URL sync（支援瀏覽器前進/後退/分享連結）；刪除 ProtocolTabNav.tsx（已廢棄）。 |
 | 2026-03-25 | 🧠 Claude：R12-4~R12-7 全部完成 — 硬編碼色彩從 748→112（-85%，含 auditLogs 58 處、Auth 表單 85 處、constants 12 處、ErpWidgets 17 處）；HR Leave/Overtime 表單遷移至 React Hook Form + Zod（欄位級驗證錯誤顯示）；Sidebar 子系統色相動態套用（NavItem.subsystem → bg-subsystem-* active 色）；CSRF Token 客戶端自動刷新機制（403 偵測 → GET /auth/me 刷新 cookie → 重試）。待辦 9→5。 |
