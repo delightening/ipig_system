@@ -36,18 +36,26 @@ interface SupplierSummaryRow {
 
 type SortKey = 'name' | 'model' | 'serial_number' | 'location' | 'calibration_due' | 'inspection_due'
 
+interface EquipmentTableProps {
+  records: Equipment[]
+  isLoading: boolean
+  page: number
+  totalPages: number
+  onPageChange: (page: number) => void
+}
+
+interface EquipmentActions {
+  onEdit: (equip: Equipment) => void
+  onDelete: (id: string, name: string) => void
+}
+
 interface EquipmentTabContentProps {
   canManage: boolean
   keyword: string
   onKeywordChange: (v: string) => void
-  isLoading: boolean
-  records: Equipment[]
-  page: number
-  totalPages: number
-  onPageChange: (page: number) => void
-  onEdit: (equip: Equipment) => void
-  onDelete: (id: string, name: string) => void
   allCalibrations: CalibrationWithEquipment[]
+  tableProps: EquipmentTableProps
+  actions: EquipmentActions
 }
 
 const STATUS_VARIANT: Record<string, StatusVariant> = {
@@ -77,15 +85,12 @@ export function EquipmentTabContent({
   canManage,
   keyword,
   onKeywordChange,
-  isLoading,
-  records,
-  page,
-  totalPages,
-  onPageChange,
-  onEdit,
-  onDelete,
   allCalibrations,
+  tableProps,
+  actions,
 }: EquipmentTabContentProps) {
+  const { records, isLoading, page, totalPages, onPageChange } = tableProps
+  const { onEdit, onDelete } = actions
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false)
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(null)
   const [sortColumn, setSortColumn] = useState<SortKey | null>(null)

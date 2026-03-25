@@ -11,7 +11,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Search, LayoutGrid } from 'lucide-react'
 
-interface AnimalFiltersProps {
+interface AnimalFilterState {
   statusFilter: string
   onStatusFilterChange: (value: string) => void
   breedFilter: string
@@ -19,33 +19,34 @@ interface AnimalFiltersProps {
   search: string
   onSearchChange: (value: string) => void
   onSearchSubmit?: () => void
-  adminOnlyStatuses: string[]
-  isPIOrClient: boolean
-  isAdmin: boolean
+}
+
+interface AnimalFilterCounts {
   statusCounts: Record<string, number>
   allAnimalsCount: number
   penAnimalsCount: number
   selectedAnimalsCount: number
+}
+
+interface AnimalFiltersProps {
+  filters: AnimalFilterState
+  counts: AnimalFilterCounts
+  adminOnlyStatuses: string[]
+  isPIOrClient: boolean
+  isAdmin: boolean
   onShowBatchAssign: () => void
 }
 
 export function AnimalFilters({
-  statusFilter,
-  onStatusFilterChange,
-  breedFilter,
-  onBreedFilterChange,
-  search,
-  onSearchChange,
-  onSearchSubmit,
+  filters,
+  counts,
   adminOnlyStatuses,
   isPIOrClient,
   isAdmin,
-  statusCounts,
-  allAnimalsCount,
-  penAnimalsCount,
-  selectedAnimalsCount,
   onShowBatchAssign,
 }: AnimalFiltersProps) {
+  const { statusFilter, onStatusFilterChange, breedFilter, onBreedFilterChange, search, onSearchChange, onSearchSubmit } = filters
+  const { statusCounts, allAnimalsCount, penAnimalsCount, selectedAnimalsCount } = counts
   const { t } = useTranslation()
 
   const tabs = [

@@ -452,7 +452,7 @@ pub async fn export_protocol_pdf_v2(
         serde_json::Value::String(funding_label),
     );
 
-    // 人員資料：預計算 roles_label / trainings_label
+    // 人員資料：預計算 roles_label / trainings_label / trainings_detail
     let personnel: Vec<serde_json::Value> = content
         .get("personnel")
         .and_then(|v| v.as_array())
@@ -461,6 +461,7 @@ pub async fn export_protocol_pdf_v2(
                 .map(|p| {
                     let mut p = p.clone();
                     if let Some(obj) = p.as_object_mut() {
+                        // roles_label: 只顯示代碼，例如 "a, b, c"
                         let roles_label = obj
                             .get("roles")
                             .and_then(|v| v.as_array())
@@ -471,6 +472,7 @@ pub async fn export_protocol_pdf_v2(
                                     .join(", ")
                             })
                             .unwrap_or_default();
+                        // trainings_label: 只顯示代碼，例如 "A, B"
                         let trainings_label = obj
                             .get("trainings")
                             .and_then(|v| v.as_array())
@@ -481,6 +483,42 @@ pub async fn export_protocol_pdf_v2(
                                     .join(", ")
                             })
                             .unwrap_or_default();
+                        // trainings_detail: 代碼 + 證書編號，例如 "A（(112)動訓字第001號）；B"
+                        let certs = obj
+                            .get("training_certificates")
+                            .and_then(|v| v.as_array())
+                            .cloned()
+                            .unwrap_or_default();
+                        let trainings_detail = obj
+                            .get("trainings")
+                            .and_then(|v| v.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|t| t.as_str())
+                                    .map(|code| {
+                                        let cert_nos: Vec<&str> = certs
+                                            .iter()
+                                            .filter(|c| {
+                                                c.get("training_code")
+                                                    .and_then(|v| v.as_str())
+                                                    == Some(code)
+                                            })
+                                            .filter_map(|c| {
+                                                c.get("certificate_no")
+                                                    .and_then(|v| v.as_str())
+                                                    .filter(|s| !s.is_empty())
+                                            })
+                                            .collect();
+                                        if cert_nos.is_empty() {
+                                            code.to_string()
+                                        } else {
+                                            format!("{}（{}）", code, cert_nos.join("；"))
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join("；")
+                            })
+                            .unwrap_or_default();
                         obj.insert(
                             "roles_label".to_string(),
                             serde_json::Value::String(roles_label),
@@ -488,6 +526,10 @@ pub async fn export_protocol_pdf_v2(
                         obj.insert(
                             "trainings_label".to_string(),
                             serde_json::Value::String(trainings_label),
+                        );
+                        obj.insert(
+                            "trainings_detail".to_string(),
+                            serde_json::Value::String(trainings_detail),
                         );
                     }
                     p
@@ -586,7 +628,7 @@ pub async fn export_protocol_pdf_v2(
 
     // 渲染頁首頁尾模板（含動態頁碼）
     let mut hf_ctx = tera::Context::new();
-    hf_ctx.insert("doc_id", "AD-XX-XX-XXE");
+    hf_ctx.insert("doc_id", "AD-04-01-01E");
     let header_html = state.templates.render("partials/header.html", &hf_ctx)?;
     let footer_html = state.templates.render("partials/footer.html", &hf_ctx)?;
 

@@ -20,8 +20,16 @@ body {
 /* ========== 標題頁樣式 ========== */
 .cover-page {
     text-align: center;
-    padding-top: 30mm;
+    padding-top: 0;
     page-break-after: always;
+}
+
+.cover-doc-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9pt;
+    margin-bottom: 20mm;
+    text-align: left;
 }
 
 .cover-title {
@@ -226,6 +234,11 @@ table.data-table td {
 
 <!-- ========== 封面（標題頁） ========== -->
 <div class="cover-page">
+    <div class="cover-doc-header">
+        <span>文件編號　AD-04-01-01E</span>
+        <span>頁次／總頁數　1 of {{ total_pages | default(value="") }}</span>
+    </div>
+
     <div class="cover-title">動物試驗研究計畫書</div>
     <div class="cover-subtitle">(ANIMAL USE PROTOCOL)</div>
 
@@ -240,28 +253,30 @@ table.data-table td {
     {% endif %}
 
     <div class="cover-section-label">試驗單位 (SPONSOR)</div>
-    <div class="cover-value">{{ sponsor_name | default(value="") }}</div>
+    <div style="font-size: 12pt; margin-bottom: 2mm;">{{ sponsor_name | default(value="") }}</div>
 
     <div class="cover-section-label">試驗機構 (TESTING FACILITY)</div>
-    <div class="cover-value">豬博士動物科技股份有限公司(豬博士畜牧場)</div>
+    <div style="font-size: 12pt; margin-bottom: 2mm;">豬博士動物科技股份有限公司(豬博士畜牧場)</div>
 
     <div class="cover-iacuc-row">
         IACUC 核准編號：<span class="cover-sign-line">&nbsp;{{ iacuc_no | default(value="") }}&nbsp;</span>
         &emsp;核准日期：<span class="cover-sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
     </div>
 
-    <div style="margin-top: 10mm; font-size: 14pt; font-weight: bold;">簽核</div>
+    <div style="margin-top: 6mm; text-align: center;">=</div>
+
+    <div style="margin-top: 6mm; font-size: 14pt; font-weight: bold;">簽核</div>
 
     <div class="cover-sign-area">
         <div class="cover-sign-row">
             <span class="cover-sign-label">計畫主持人<br>(Principal Investigator)</span>
             <span class="cover-sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-            <span>(簽章/日 期)</span>
+            <span>(簽章／日期)</span>
         </div>
         <div class="cover-sign-row">
             <span class="cover-sign-label">機構負責人<br>(Facility Manager)</span>
             <span class="cover-sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-            <span>(簽章/日 期)</span>
+            <span>(簽章／日期)</span>
         </div>
     </div>
 
@@ -659,17 +674,20 @@ table.data-table td {
 {% if personnel and personnel | length > 0 %}
 <div class="page-break"></div>
 <div class="sec-marker">§SEC8§</div>
-<div class="section-header">8. 試驗人員資料</div>
+<div class="section-header">8. 試驗人員資料 (Personnel working on animal study)</div>
+
+<div class="subsection-header">8.1 負責進行動物試驗之相關人員資料 (Personnel working on animal study): *</div>
+<div style="font-size: 9pt; color: #666; margin-bottom: 3mm;">欄位若不足請自行新增欄位 more rows can be added if more field is necessary</div>
 
 <table class="data-table">
     <thead>
         <tr>
-            <th>#</th>
-            <th>姓名</th>
-            <th>職位</th>
-            <th>經驗(年)</th>
-            <th>工作內容</th>
-            <th>訓練/資格</th>
+            <th style="width: 6%;">#</th>
+            <th style="width: 12%;">姓名<br><span style="font-weight: normal; font-size: 8pt;">(Name)</span></th>
+            <th style="width: 12%;">職稱<br><span style="font-weight: normal; font-size: 8pt;">(Position)</span></th>
+            <th style="width: 18%;">工作內容<br><span style="font-weight: normal; font-size: 8pt;">(Roles in Project)</span></th>
+            <th style="width: 18%;">參與動物試驗年數<br><span style="font-weight: normal; font-size: 8pt;">(Years of Experience<br>in Animal Experiments)</span></th>
+            <th style="width: 34%;">訓練/資格/取得時間<br><span style="font-weight: normal; font-size: 8pt;">(Trainings/Certifications<br>/Received Time)</span></th>
         </tr>
     </thead>
     <tbody>
@@ -678,13 +696,20 @@ table.data-table td {
             <td style="text-align: center;">{{ loop.index }}</td>
             <td>{{ p.name | default(value="-") }}</td>
             <td>{{ p.position | default(value="-") }}</td>
+            <td style="text-align: center;">{{ p.roles_label | default(value="-") }}</td>
             <td style="text-align: center;">{{ p.years_experience | default(value="-") }}</td>
-            <td>{{ p.roles_label | default(value="-") }}</td>
-            <td>{{ p.trainings_label | default(value="-") }}</td>
+            <td>{{ p.trainings_detail | default(value=p.trainings_label) | default(value="-") }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+<div style="font-size: 9pt; margin-top: 4mm; line-height: 1.8;">
+    <div>請於「工作內容 (Roles in Project)」填寫下列編號：</div>
+    <div style="margin-left: 2mm;">a.計畫督導(Supervision)；b.飼養照顧(Animal care)；c.保定(Restraint)；d.麻醉止痛(Anesthesia and analgesia)；e.手術(Surgery)；f.手術支援(Surgery assistance)；g.觀察緊監測(Monitoring)；h.安樂死(Euthanasia)；i.其他(Other) *</div>
+    <div style="margin-top: 2mm;">請於「訓練/資格/取得時間 (Trainings/Certifications /Received Time)」填寫下列編號：</div>
+    <div style="margin-left: 2mm;">A.實驗動物照護及使用委員會或小組訓練班；B.IACUC 教育訓練研習會；C.輻射安全訓練班；D.生醫產業用畜禽應用研究發展及技術研習會；E.實驗動物法規及照護管理班</div>
+</div>
 {% endif %}
 
 <!-- ========== 第9節：附件 ========== -->

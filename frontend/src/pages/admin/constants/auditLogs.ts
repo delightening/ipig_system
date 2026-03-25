@@ -45,10 +45,10 @@ export const eventTypeLabels: Record<string, { label: string; color: string }> =
   VACCINATION_CREATE: { label: '建立疫苗', color: 'bg-status-success-text' },
   VACCINATION_UPDATE: { label: '更新疫苗', color: 'bg-status-info-text' },
   VACCINATION_DELETE: { label: '刪除疫苗', color: 'bg-status-error-text' },
-  SACRIFICE_UPSERT: { label: '犧牲/安樂死', color: 'bg-status-warning-text' },
+  SACRIFICE_UPSERT: { label: '犧牲/安樂死', color: 'bg-audit-sacrifice' },
   PATHOLOGY_UPSERT: { label: '病理報告', color: 'bg-status-purple-text' },
-  VET_RECOMMENDATION_ADD: { label: '獸醫建議', color: 'bg-status-success-text' },
-  MEDICAL_EXPORT: { label: '匯出醫療資料', color: 'bg-status-info-text' },
+  VET_RECOMMENDATION_ADD: { label: '獸醫建議', color: 'bg-audit-medical' },
+  MEDICAL_EXPORT: { label: '匯出醫療資料', color: 'bg-audit-medical' },
   BLOOD_TEST_CREATE: { label: '建立血液檢查', color: 'bg-status-success-text' },
   BLOOD_TEST_UPDATE: { label: '更新血液檢查', color: 'bg-status-info-text' },
   BLOOD_TEST_DELETE: { label: '刪除血液檢查', color: 'bg-status-error-text' },
@@ -59,13 +59,13 @@ export const eventTypeLabels: Record<string, { label: string; color: string }> =
   PANEL_UPDATE: { label: '更新組合', color: 'bg-status-info-text' },
   PANEL_DELETE: { label: '刪除組合', color: 'bg-status-error-text' },
   // 計畫書
-  PROTOCOL_CREATE: { label: '建立計畫書', color: 'bg-status-success-text' },
-  PROTOCOL_UPDATE: { label: '更新計畫書', color: 'bg-status-info-text' },
-  PROTOCOL_SUBMIT: { label: '送審計畫書', color: 'bg-status-warning-text' },
-  PROTOCOL_APPROVE: { label: '核准計畫書', color: 'bg-status-purple-text' },
+  PROTOCOL_CREATE: { label: '建立計畫書', color: 'bg-audit-protocol' },
+  PROTOCOL_UPDATE: { label: '更新計畫書', color: 'bg-audit-protocol' },
+  PROTOCOL_SUBMIT: { label: '送審計畫書', color: 'bg-audit-protocol' },
+  PROTOCOL_APPROVE: { label: '核准計畫書', color: 'bg-audit-protocol' },
   PROTOCOL_REJECT: { label: '駁回計畫書', color: 'bg-status-error-text' },
-  PROTOCOL_STATUS_CHANGE: { label: '狀態變更', color: 'bg-status-warning-text' },
-  PROTOCOL_REVIEWER_ASSIGN: { label: '指派審查委員', color: 'bg-status-info-text' },
+  PROTOCOL_STATUS_CHANGE: { label: '狀態變更', color: 'bg-audit-protocol' },
+  PROTOCOL_REVIEWER_ASSIGN: { label: '指派審查委員', color: 'bg-audit-protocol' },
 }
 
 // 實體類型對應中文

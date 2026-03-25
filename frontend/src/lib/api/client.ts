@@ -96,25 +96,19 @@ api.interceptors.response.use(
     }
 
     // SEC-24: CSRF Token 自動刷新
-    // 如果收到 403 且原因是 CSRF token 過期/無效，嘗試刷新 token 後重試
+    // 419 (Page Expired) 表示 CSRF token 過期/無效，嘗試刷新 token 後重試
     if (
-      error.response?.status === 403 &&
+      error.response?.status === 419 &&
       !originalRequest?._csrfRetry &&
-      originalRequest &&
-      ['POST', 'PUT', 'DELETE', 'PATCH'].includes((originalRequest.method || '').toUpperCase())
+      originalRequest
     ) {
-      const data = error.response?.data as { error?: { message?: string }; message?: string } | undefined
-      const msg = data?.error?.message || data?.message || ''
-      const isCsrfError = msg.toLowerCase().includes('csrf') || msg.includes('CSRF')
-      if (isCsrfError) {
-        originalRequest._csrfRetry = true
-        try {
-          // 呼叫任意 GET 端點以取得新的 CSRF cookie（CSRF 中介層會對每個回應重新設定 cookie）
-          await api.get('/auth/me')
-          return api(originalRequest)
-        } catch {
-          // CSRF refresh 也失敗，拋出原始錯誤
-        }
+      originalRequest._csrfRetry = true
+      try {
+        // 呼叫任意 GET 端點以取得新的 CSRF cookie（CSRF 中介層會對每個回應重新設定 cookie）
+        await api.get('/auth/me')
+        return api(originalRequest)
+      } catch {
+        // CSRF refresh 也失敗，拋出原始錯誤
       }
     }
 

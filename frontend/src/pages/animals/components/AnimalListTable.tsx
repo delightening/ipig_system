@@ -18,16 +18,7 @@ import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { statusColors, getPenLocationDisplay } from '../constants'
 
-interface AnimalListTableProps {
-  animals: AnimalListItem[]
-  isLoading: boolean
-  selectedAnimals: string[]
-  onToggleSelection: (id: string) => void
-  onToggleAll: () => void
-  onQuickEdit: (animalId: string) => void
-  sortColumn: string | null
-  sortDirection: 'asc' | 'desc'
-  onSort: (column: string) => void
+interface AnimalListPagination {
   page: number
   totalPages: number
   totalAnimals: number
@@ -35,22 +26,38 @@ interface AnimalListTableProps {
   onPageChange: (page: number) => void
 }
 
+interface AnimalListSorting {
+  sortColumn: string | null
+  sortDirection: 'asc' | 'desc'
+  onSort: (column: string) => void
+}
+
+interface AnimalListSelection {
+  selectedAnimals: string[]
+  onToggleSelection: (id: string) => void
+  onToggleAll: () => void
+}
+
+interface AnimalListTableProps {
+  animals: AnimalListItem[]
+  isLoading: boolean
+  onQuickEdit: (animalId: string) => void
+  selection: AnimalListSelection
+  sorting: AnimalListSorting
+  pagination: AnimalListPagination
+}
+
 export function AnimalListTable({
   animals,
   isLoading,
-  selectedAnimals,
-  onToggleSelection,
-  onToggleAll,
   onQuickEdit,
-  sortColumn,
-  sortDirection,
-  onSort,
-  page,
-  totalPages,
-  totalAnimals,
-  perPage,
-  onPageChange,
+  selection,
+  sorting,
+  pagination,
 }: AnimalListTableProps) {
+  const { selectedAnimals, onToggleSelection, onToggleAll } = selection
+  const { sortColumn, sortDirection, onSort } = sorting
+  const { page, totalPages, totalAnimals, perPage, onPageChange } = pagination
   const { t } = useTranslation()
 
   const sortedAnimals = useMemo(() => {

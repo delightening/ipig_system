@@ -15,6 +15,7 @@ use axum::{
     extract::{Request, State},
     http::{header, Method, Response, StatusCode},
     middleware::Next,
+    response::IntoResponse,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -118,12 +119,15 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
+/// 419 Page Expired（CSRF 驗證失敗專用）
+const CSRF_EXPIRED_STATUS: u16 = 419;
+
 /// CSRF 防護中介層（接收 AppState 以讀取 cookie_secure 設定）
 pub async fn csrf_middleware(
     State(state): State<AppState>,
     request: Request,
     next: Next,
-) -> Result<Response<Body>, StatusCode> {
+) -> Result<Response<Body>, Response<Body>> {
     let method = request.method().clone();
     let path = request.uri().path().to_string();
     let cookie_secure = state.config.cookie_secure;
@@ -157,7 +161,15 @@ pub async fn csrf_middleware(
             }
             _ => {
                 tracing::warn!("[CSRF] 驗證失敗 - Method: {}, Path: {}", method, path);
-                return Err(StatusCode::FORBIDDEN);
+                let status = StatusCode::from_u16(CSRF_EXPIRED_STATUS)
+                    .unwrap_or(StatusCode::FORBIDDEN);
+                return Err((
+                    status,
+                    axum::Json(serde_json::json!({
+                        "error": "CSRF token invalid or expired"
+                    })),
+                )
+                    .into_response());
             }
         }
     }
