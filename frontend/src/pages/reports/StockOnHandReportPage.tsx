@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import api, { StockOnHandReport } from '@/lib/api'
 import { formatNumber, formatUom } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import {
   Table,
@@ -61,16 +62,16 @@ export function StockOnHandReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">庫存現況報表</h1>
-          <p className="text-muted-foreground">各倉庫商品庫存量與價值</p>
-        </div>
-        <Button onClick={exportToCSV} disabled={!report?.length}>
-          <Download className="mr-2 h-4 w-4" />
-          匯出 CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="庫存現況報表"
+        description="各倉庫商品庫存量與價值"
+        actions={
+          <Button onClick={exportToCSV} disabled={!report?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            匯出 CSV
+          </Button>
+        }
+      />
 
       <div className="rounded-md border">
         <Table>

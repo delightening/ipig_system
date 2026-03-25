@@ -342,6 +342,10 @@
 | R12-1 | **Dependabot Phase 2.5 升級** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級實作。**Why：** 當前版本存在已知 bug 與效能問題，新版含安全修補與 API 改進；延遲升級將加大未來遷移成本與相容性風險 | `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` | [ ] |
 | R12-2 | **財務模組 Phase 2–5 實作** | AP/AR/GL 後續階段：ap_payments、ar_receipts、trial-balance 等。**Why：** Phase 1 僅完成基礎記帳與報表，缺少付款沖銷、收款核銷、試算平衡等核心財務流程，無法支撐完整的財務結算作業 | `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md` | [ ] |
 | R12-3 | **圖片處理獨立服務** | 將圖片上傳、縮圖產生、格式轉換抽離為獨立微服務。`image-processor/` Node.js 服務（Sharp）+ Docker 容器 + docker-compose 整合。**Why：** 圖片處理為高資源消耗操作，與主應用同行程部署會影響 API 回應延遲；安全審查建議隔離攻擊面，避免惡意檔案解析漏洞擴散至核心服務 | `docs/security-compliance/security.md` | [x] |
+| R12-4 | **剩餘硬編碼色彩清理** | 已完成 auditLogs.ts（58 處）、animals/constants.ts（12 處）、ErpWidgets（17 處）、Auth 頁面表單內色彩（85 處）等。硬編碼從 748→112（-85%）。剩餘為 Auth 漸層背景（DESIGN.md 規範）和 Canvas 視覺化 hex 色彩 | DESIGN.md 合規掃描 | [x] |
+| R12-5 | **React Hook Form + Zod 表單遷移** | 全面完成：27 檔使用 useForm，18 個 Zod schema。涵蓋 Auth 3 頁、HR 3 表單、ERP Partner/Warehouse/BloodTest 5 頁、Admin UserForm 3 dialog + Facility 6 Tab + CreateAiKey + BatchCreatePen、Animal Edit/Sources、AP/AR Aging、WarehouseLayout、ProfileSettings。CRUD 表單覆蓋率 100%。 | CLAUDE.md 規範 | [x] |
+| R12-6 | **子系統色相實際套用** | NavItem 新增 `subsystem` 欄位（aup/erp/animal/hr/admin）。SortableNavItem active 狀態從 `bg-blue-600` 改為 `bg-subsystem-*` 動態色彩。Sidebar 子選單 active 同步使用父級子系統色相 | DESIGN.md §15 | [x] |
+| R12-7 | **CSRF Token 客戶端刷新機制** | API client response interceptor 新增 403 CSRF 錯誤偵測 → 自動呼叫 GET `/auth/me` 刷新 CSRF cookie → 重試原始請求（`_csrfRetry` 防無限迴圈）| 安全性掃描報告 | [x] |
 
 ---
 
@@ -369,6 +373,10 @@
 
 ## 變更紀錄 (最新)
 
+| 2026-03-25 | 🧠 Claude：RHF+Zod 全面遷移完成 + UI 債清零 — **RHF+Zod** 從 1 檔擴展到 17 檔（Auth 3 頁 + Master 5 頁 + Admin UserForm 3 dialog + AnimalEdit + ApAging + ArAging + WarehouseLayout + Partner + HR 2），新增 10 個 Zod schema 到 validation.ts。**PageHeader** 35 頁遷移。**PageTabs** 9 頁遷移（含 AdminAudit hook 重構）。**EmptyState** 24 檔（19 TableEmptyRow + 11 standalone）。**i18n** 28 處修復跨 15 檔。**a11y** 93 處修復跨 43 檔（73 aria-label + 20 input label）。設計合規度 ~92%。 |
+| 2026-03-25 | 🧠 Claude：RHF+Zod 延伸遷移 + DataTable 套用 + Protocol Tab URL 同步 — Partner 表單遷移到 RHF+Zod（`partnerFormZodSchema`，欄位級錯誤顯示，移除手寫 regex 驗證）；HR 5 個列表元件遷移到 DataTable（MyLeaves/AllRecords/PendingApprovals/MyOvertime/PendingOT，移除手寫 Table+Skeleton+Empty）；ProtocolDetailPage 9 個 Tab 從 useState 遷移到 PageTabs URL sync（支援瀏覽器前進/後退/分享連結）；刪除 ProtocolTabNav.tsx（已廢棄）。 |
+| 2026-03-25 | 🧠 Claude：R12-4~R12-7 全部完成 — 硬編碼色彩從 748→112（-85%，含 auditLogs 58 處、Auth 表單 85 處、constants 12 處、ErpWidgets 17 處）；HR Leave/Overtime 表單遷移至 React Hook Form + Zod（欄位級驗證錯誤顯示）；Sidebar 子系統色相動態套用（NavItem.subsystem → bg-subsystem-* active 色）；CSRF Token 客戶端自動刷新機制（403 偵測 → GET /auth/me 刷新 cookie → 重試）。待辦 9→5。 |
+| 2026-03-24 | 🧠 Claude：UI 一致性重構與設計系統合規 — 新增 5 個共用框架元件（PageHeader/FilterBar/PageTabs/DataTable/StatusBadge）；語義化色彩系統（6 組 status token + 5 子系統色相，Light/Dark 雙主題）；硬編碼色彩從 748→262 處（-65%）；HR 模組全面重構（4 頁遷移 PageHeader+PageTabs、Tab URL 同步、移除 window.location.reload）；ERP/動物管理/Admin/報表/文件模組批次清理；Backend 安全掃描 92/100。新增 R12-4~R12-7 待辦。待辦 5→9。 |
 | 2026-03-23 | 🧠 Claude：設備維護管理系統擴充 — Migration 018 新增 6 enum + 5 張新資料表；後端完整 CRUD（廠商/校正確效查核/維修保養/報廢/年度計畫）；前端三個新分頁（維修保養/報廢/年度計畫矩陣）；Email 通知模板 + 排程逾期檢查 + 報廢電子簽章。AI 資料查詢接口 — Migration 017、API Key SHA-256 認證、6 個查詢領域（animals/observations/surgeries/weights/protocols/facilities）、查詢日誌。圖片處理獨立服務 `image-processor/` 上線（R12-3 完成）。會計 Repository 層提取（`repositories/accounting.rs`）。多項 Bug 修正：調整單效期欄位驗證、調撥單批號效期顯示、儲位下拉選單。Dependabot 依賴更新（axum 0.8.8、tower-http 0.6.8、rand 0.9.2、zip 7.2.0、i18next 25.10.4 等）。CI 修復（cargo deny、npm audit、Trivy、SQL guard）。待辦 6→5。 |
 | 2026-03-23 | 🧠 Claude：R9-C2 CI 密碼改 GitHub Secrets — `ci.yml` 和 `docker-compose.test.yml` 中的 JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD 改為 GitHub Secrets 參照（`CI_JWT_SECRET`、`CI_ADMIN_PASSWORD`、`CI_DEV_PASSWORD`）。DB 密碼維持硬編碼（CI 臨時容器，風險極低）。待辦 7→6。 |
 | 2026-03-21 | 🧠 Claude：R10 程式碼審查 17/20 完成 — M2 確認無 N+1、M3 MIME 預檢+欄位級大小檢查、M4 unwrap 已清零、M5 CSRF Signed Double Submit Cookie、M6 Zod 驗證、M7 MIME 白名單、M9 Alert 門檻收緊、M10 確認已安全；L1 auth handler 拆分（734→7 檔）、L2 auth service 拆分（1006→6 檔）、L3 signature 拆分（1459→11 檔）、L4 product service 拆分（832→3 檔）、L6 Cookie consent 重寫、L7 密碼 10 字元+黑名單、L8 Watchtower 3600s、L9 login_events 索引、L10 JSONB 驗證。M1/M8/L5 推遲。待辦 27→7。 |

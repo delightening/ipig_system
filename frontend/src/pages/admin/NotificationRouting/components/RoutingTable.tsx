@@ -121,7 +121,7 @@ function RoutingRow({
         <TableRow className={!rule.is_active ? 'opacity-50' : ''}>
             <TableCell>
                 <div className="flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-blue-500 shrink-0" />
+                    <Bell className="h-4 w-4 text-primary shrink-0" />
                     <div>
                         <div className="font-medium">
                             {eventNameMap[rule.event_type] || rule.event_type}
@@ -155,7 +155,7 @@ function RoutingRow({
                         <Pencil className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => onDelete(rule)} aria-label="刪除">
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                 </div>
             </TableCell>

@@ -4,6 +4,7 @@ import { useToggle } from '@/hooks/useToggle'
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, AlertCircle, Save } from 'lucide-react'
 import api from '@/lib/api'
@@ -120,10 +121,10 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">系統設定</h1>
-        <p className="text-muted-foreground">管理系統的全域設定參數</p>
-      </div>
+      <PageHeader
+        title="系統設定"
+        description="管理系統的全域設定參數"
+      />
 
       {isLoadingSys && (
         <div className="flex items-center justify-center py-12">
@@ -132,10 +133,10 @@ export function SettingsPage() {
       )}
 
       {sysError && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-destructive bg-status-error-bg">
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertCircle className="h-5 w-5 text-red-500" />
-            <span className="text-red-700">無法載入系統設定，請確認您有管理員權限</span>
+            <AlertCircle className="h-5 w-5 text-destructive" />
+            <span className="text-status-error-text">無法載入系統設定，請確認您有管理員權限</span>
           </CardContent>
         </Card>
       )}

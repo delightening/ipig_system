@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import api, { deleteResource, AnimalSource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
   Table,
   TableBody,
@@ -23,7 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
-import { getApiErrorMessage } from '@/lib/validation'
+import { getApiErrorMessage, animalSourceFormSchema, type AnimalSourceFormData } from '@/lib/validation'
 import {
   Plus,
   Edit2,
@@ -37,18 +40,7 @@ import {
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
-interface SourceFormData {
-  code: string
-  name: string
-  address?: string
-  contact?: string
-  phone?: string
-  phone_ext?: string
-  is_active: boolean
-  sort_order: number
-}
-
-const defaultFormData: SourceFormData = {
+const defaultFormValues: AnimalSourceFormData = {
   code: '',
   name: '',
   address: '',
@@ -65,7 +57,11 @@ export function AnimalSourcesPage() {
 
   const [showDialog, setShowDialog] = useState(false)
   const [editingSource, setEditingSource] = useState<AnimalSource | null>(null)
-  const [formData, setFormData] = useState<SourceFormData>(defaultFormData)
+  const { register, handleSubmit: rhfHandleSubmit, reset, setValue, watch, formState: { errors } } = useForm<AnimalSourceFormData>({
+    resolver: zodResolver(animalSourceFormSchema),
+    defaultValues: defaultFormValues,
+  })
+  const isActiveValue = watch('is_active')
 
   // Query sources
   const { data: sources, isLoading } = useQuery({
@@ -79,7 +75,7 @@ export function AnimalSourcesPage() {
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: async (data: SourceFormData) => {
+    mutationFn: async (data: AnimalSourceFormData) => {
       return api.post('/animal-sources', data)
     },
     onSuccess: () => {
@@ -98,7 +94,7 @@ export function AnimalSourcesPage() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<SourceFormData> }) => {
+    mutationFn: async ({ id, data }: { id: string; data: Partial<AnimalSourceFormData> }) => {
       return api.put(`/animal-sources/${id}`, data)
     },
     onSuccess: () => {
@@ -136,7 +132,7 @@ export function AnimalSourcesPage() {
   const handleOpenDialog = (source?: AnimalSource) => {
     if (source) {
       setEditingSource(source)
-      setFormData({
+      reset({
         code: source.code,
         name: source.name,
         address: source.address || '',
@@ -148,7 +144,7 @@ export function AnimalSourcesPage() {
       })
     } else {
       setEditingSource(null)
-      setFormData(defaultFormData)
+      reset(defaultFormValues)
     }
     setShowDialog(true)
   }
@@ -156,20 +152,14 @@ export function AnimalSourcesPage() {
   const handleCloseDialog = () => {
     setShowDialog(false)
     setEditingSource(null)
-    setFormData(defaultFormData)
+    reset(defaultFormValues)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.code.trim() || !formData.name.trim()) {
-      toast({ title: '錯誤', description: '代碼與名稱為必填', variant: 'destructive' })
-      return
-    }
-
+  const onSubmit = (data: AnimalSourceFormData) => {
     if (editingSource) {
-      updateMutation.mutate({ id: editingSource.id, data: formData })
+      updateMutation.mutate({ id: editingSource.id, data })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(data)
     }
   }
 
@@ -182,16 +172,16 @@ export function AnimalSourcesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">動物來源管理</h1>
-          <p className="text-muted-foreground">管理動物的來源/供應商資訊</p>
-        </div>
-        <Button onClick={() => handleOpenDialog()} className="gap-2 bg-purple-600 hover:bg-purple-700">
-          <Plus className="h-4 w-4" />
-          新增來源
-        </Button>
-      </div>
+      <PageHeader
+        title="動物來源管理"
+        description="管理動物的來源/供應商資訊"
+        actions={
+          <Button onClick={() => handleOpenDialog()} className="gap-2 bg-primary hover:bg-primary/90">
+            <Plus className="h-4 w-4" />
+            新增來源
+          </Button>
+        }
+      />
 
       <div className="rounded-md border">
         <Table>
@@ -222,7 +212,7 @@ export function AnimalSourcesPage() {
                   <TableCell className="font-medium">{source.name}</TableCell>
                   <TableCell>
                     {source.address ? (
-                      <span className="flex items-center gap-1 text-sm text-slate-600">
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <MapPin className="h-3 w-3" />
                         {source.address}
                       </span>
@@ -230,7 +220,7 @@ export function AnimalSourcesPage() {
                   </TableCell>
                   <TableCell>
                     {source.contact ? (
-                      <span className="flex items-center gap-1 text-sm text-slate-600">
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <User className="h-3 w-3" />
                         {source.contact}
                       </span>
@@ -238,7 +228,7 @@ export function AnimalSourcesPage() {
                   </TableCell>
                   <TableCell>
                     {source.phone ? (
-                      <span className="flex items-center gap-1 text-sm text-slate-600">
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Phone className="h-3 w-3" />
                         {source.phone}
                         {source.phone_ext ? ` #${source.phone_ext}` : ''}
@@ -246,9 +236,9 @@ export function AnimalSourcesPage() {
                     ) : '-'}
                   </TableCell>
                   <TableCell>
-                    <Badge className={source.is_active ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}>
+                    <StatusBadge variant={source.is_active ? 'success' : 'neutral'}>
                       {source.is_active ? '啟用' : '停用'}
-                    </Badge>
+                    </StatusBadge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -256,6 +246,7 @@ export function AnimalSourcesPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleOpenDialog(source)}
+                        aria-label="編輯"
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
@@ -264,8 +255,9 @@ export function AnimalSourcesPage() {
                         size="icon"
                         onClick={() => handleDelete(source)}
                         disabled={deleteMutation.isPending}
+                        aria-label="刪除"
                       >
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </TableCell>
@@ -295,27 +287,29 @@ export function AnimalSourcesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={rhfHandleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="code">代碼 *</Label>
                 <Input
                   id="code"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  {...register('code')}
                   placeholder="如：SOURCE01"
-                  required
                 />
+                {errors.code && (
+                  <p className="text-sm text-destructive">{errors.code.message}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="name">名稱 *</Label>
                 <Input
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  {...register('name')}
                   placeholder="來源名稱"
-                  required
                 />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                )}
               </div>
             </div>
 
@@ -323,8 +317,7 @@ export function AnimalSourcesPage() {
               <Label htmlFor="address">地址</Label>
               <Input
                 id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                {...register('address')}
                 placeholder="完整地址"
               />
             </div>
@@ -334,8 +327,7 @@ export function AnimalSourcesPage() {
                 <Label htmlFor="contact">聯絡人</Label>
                 <Input
                   id="contact"
-                  value={formData.contact}
-                  onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                  {...register('contact')}
                   placeholder="聯絡人姓名"
                 />
               </div>
@@ -345,8 +337,7 @@ export function AnimalSourcesPage() {
                   <Input
                     id="phone"
                     className="flex-1"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    {...register('phone')}
                     placeholder="聯絡電話"
                   />
                   <div className="flex items-center gap-2 shrink-0">
@@ -354,8 +345,7 @@ export function AnimalSourcesPage() {
                     <Input
                       className="w-24"
                       placeholder="分機"
-                      value={formData.phone_ext}
-                      onChange={(e) => setFormData({ ...formData, phone_ext: e.target.value })}
+                      {...register('phone_ext')}
                     />
                   </div>
                 </div>
@@ -368,8 +358,7 @@ export function AnimalSourcesPage() {
                 <Input
                   id="sort_order"
                   type="number"
-                  value={formData.sort_order}
-                  onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
+                  {...register('sort_order', { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-2">
@@ -378,20 +367,20 @@ export function AnimalSourcesPage() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
-                      name="is_active"
-                      checked={formData.is_active}
-                      onChange={() => setFormData({ ...formData, is_active: true })}
-                      className="w-4 h-4 text-purple-600"
+                      name="is_active_radio"
+                      checked={isActiveValue}
+                      onChange={() => setValue('is_active', true)}
+                      className="w-4 h-4 text-primary"
                     />
                     <span className="text-sm">啟用</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
-                      name="is_active"
-                      checked={!formData.is_active}
-                      onChange={() => setFormData({ ...formData, is_active: false })}
-                      className="w-4 h-4 text-purple-600"
+                      name="is_active_radio"
+                      checked={!isActiveValue}
+                      onChange={() => setValue('is_active', false)}
+                      className="w-4 h-4 text-primary"
                     />
                     <span className="text-sm">停用</span>
                   </label>
@@ -406,7 +395,7 @@ export function AnimalSourcesPage() {
               <Button
                 type="submit"
                 disabled={createMutation.isPending || updateMutation.isPending}
-                className="bg-purple-600 hover:bg-purple-700"
+                className="bg-primary hover:bg-primary/90"
               >
                 {(createMutation.isPending || updateMutation.isPending) && (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

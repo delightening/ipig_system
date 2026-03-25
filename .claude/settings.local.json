@@ -42,7 +42,22 @@
       "WebFetch(domain:docs.rs)",
       "Bash(cargo test:*)",
       "Bash(grep:*)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Skill(gstack)",
+      "Skill(review)",
+      "Read(//c/System Coding/ipig_system/frontend/**)",
+      "Bash(rm -f \"$TMPERR_ADV\")",
+      "Skill(cso)",
+      "Skill(autoplan)",
+      "Bash(B=~/.claude/skills/gstack/browse/dist/browse)",
+      "Bash($B goto:*)",
+      "Bash($B snapshot:*)",
+      "Bash($B url:*)",
+      "Bash($B text:*)",
+      "Bash($B restart:*)",
+      "Bash($B stop:*)",
+      "Bash($B status:*)",
+      "Bash($B screenshot:*)"
     ]
   }
 }

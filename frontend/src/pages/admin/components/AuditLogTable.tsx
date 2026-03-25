@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Loader2, History, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import type { UserActivityLog } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 
@@ -104,6 +105,7 @@ export function AuditLogTable({
                     variant="ghost"
                     size="icon"
                     onClick={() => onSelectLog(log)}
+                    aria-label="查看詳情"
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
@@ -111,12 +113,7 @@ export function AuditLogTable({
               </TableRow>
             ))
           ) : (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
-                <History className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-muted-foreground">尚無操作日誌</p>
-              </TableCell>
-            </TableRow>
+            <TableEmptyRow colSpan={7} icon={History} title="尚無操作日誌" />
           )}
         </TableBody>
       </Table>

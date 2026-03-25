@@ -42,6 +42,8 @@
     "closeTitle": "確認結案",
     "closeDescription": "確定要結案此計畫嗎？此操作無法復原。",
     "close": "結案",
+    "closeDialog": "關閉",
+    "update": "更新",
     "impersonating": "模擬登入中",
     "backToAdmin": "返回管理員",
     "exportSuccess": "匯出成功",

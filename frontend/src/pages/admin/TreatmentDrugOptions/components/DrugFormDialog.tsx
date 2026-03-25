@@ -57,7 +57,7 @@ export function DrugFormDialog({
                             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                             placeholder="例：Meloxicam"
                         />
-                        <p className="text-xs text-slate-500 mt-1">同一「藥物名稱＋分類」僅能有一筆啟用項目，重複時請改為編輯既有項目。</p>
+                        <p className="text-xs text-muted-foreground mt-1">同一「藥物名稱＋分類」僅能有一筆啟用項目，重複時請改為編輯既有項目。</p>
                     </div>
                     <div>
                         <Label>顯示名稱</Label>
@@ -110,8 +110,8 @@ export function DrugFormDialog({
                                     className={cn(
                                         'px-2 py-1 rounded text-xs border transition-colors',
                                         form.available_units?.includes(unit)
-                                            ? 'bg-blue-50 border-blue-300 text-blue-700'
-                                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                                            ? 'bg-primary/10 border-primary/30 text-primary'
+                                            : 'bg-background border-border text-muted-foreground hover:border-border'
                                     )}
                                 >
                                     {unit}

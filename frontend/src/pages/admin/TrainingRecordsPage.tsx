@@ -7,10 +7,9 @@
  * - Card 內搜尋 + 員工標籤選擇
  */
 
-import { useTabState } from '@/hooks/useTabState'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/ui/page-header'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { Plus, User, AlertTriangle } from 'lucide-react'
 
 import { useTrainingRecords } from './hooks/useTrainingRecords'
@@ -20,7 +19,6 @@ import { TrainingExpiringTab } from './components/TrainingExpiringTab'
 import { TrainingFormDialog } from './components/TrainingFormDialog'
 
 export function TrainingRecordsPage() {
-  const { activeTab, setActiveTab } = useTabState<'records' | 'expiring'>('records')
   const {
     canManage,
     canManageAll,
@@ -56,39 +54,27 @@ export function TrainingRecordsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">人員訓練紀錄</h1>
-          <p className="text-muted-foreground">GLP 合規：管理人員訓練與證照有效期限</p>
-        </div>
-        {canManage && (
+      <PageHeader
+        title="人員訓練紀錄"
+        description="GLP 合規：管理人員訓練與證照有效期限"
+        actions={canManage ? (
           <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
             新增訓練紀錄
           </Button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       <TrainingStatsCards totalRecords={totalRecords} expiringSoonCount={expiringSoonCount} />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="records" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            員工訓練紀錄
-          </TabsTrigger>
-          <TabsTrigger value="expiring" className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            證照即將到期
-            {expiringSoonCount > 0 && (
-              <Badge variant="destructive" className="ml-1">
-                {expiringSoonCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="records" className="space-y-4">
+      <PageTabs
+        tabs={[
+          { value: 'records', label: '員工訓練紀錄', icon: User },
+          { value: 'expiring', label: '證照即將到期', icon: AlertTriangle, badge: expiringSoonCount },
+        ]}
+        defaultTab="records"
+      >
+        <PageTabContent value="records" className="space-y-4">
           <TrainingRecordsTab
             canManage={canManage}
             canManageAll={canManageAll}
@@ -107,12 +93,12 @@ export function TrainingRecordsPage() {
             onEdit={openEditDialog}
             onDelete={handleDelete}
           />
-        </TabsContent>
+        </PageTabContent>
 
-        <TabsContent value="expiring" className="space-y-4">
+        <PageTabContent value="expiring" className="space-y-4">
           <TrainingExpiringTab records={expiringSoonRecords} />
-        </TabsContent>
-      </Tabs>
+        </PageTabContent>
+      </PageTabs>
 
       <TrainingFormDialog
         mode="create"

@@ -41,7 +41,7 @@ export function AnimalHeaderCard({
   const penLocation = getPenLocationDisplay(animal, () => '\u72A7\u7272')
 
   return (
-    <Card className="bg-gradient-to-r from-slate-50 to-blue-50 border-slate-200">
+    <Card className="bg-gradient-to-r from-muted to-muted/50 border-border">
       <CardContent className="pt-6">
         <div className="grid grid-cols-3 gap-6">
           <LeftColumn animal={animal} penLocation={penLocation} />
@@ -63,15 +63,15 @@ function LeftColumn({ animal, penLocation }: { animal: Animal; penLocation: stri
   return (
     <div className="space-y-3">
       <div>
-        <span className="text-sm text-slate-500">{'\u8033\u865F'}</span>
-        <p className="text-2xl font-bold text-orange-600">{animal.ear_tag}</p>
+        <span className="text-sm text-muted-foreground">{'\u8033\u865F'}</span>
+        <p className="text-2xl font-bold text-status-warning-text">{animal.ear_tag}</p>
       </div>
       <div>
-        <span className="text-sm text-slate-500">{'\u6B04\u865F'}</span>
+        <span className="text-sm text-muted-foreground">{'\u6B04\u865F'}</span>
         <p className="font-medium">{penLocation}</p>
       </div>
       <div>
-        <span className="text-sm text-slate-500">{'\u54C1\u7A2E'}</span>
+        <span className="text-sm text-muted-foreground">{'\u54C1\u7A2E'}</span>
         <p className="font-medium">
           {animal.breed === 'other'
             ? (animal.breed_other || '\u5176\u4ED6')
@@ -92,7 +92,7 @@ function MiddleColumn({
   return (
     <div className="space-y-3">
       <div>
-        <span className="text-sm text-slate-500">{'\u51FA\u751F\u65E5\u671F'}</span>
+        <span className="text-sm text-muted-foreground">{'\u51FA\u751F\u65E5\u671F'}</span>
         <p className="font-medium">
           {animal.birth_date
             ? new Date(animal.birth_date).toLocaleDateString('zh-TW', {
@@ -102,19 +102,19 @@ function MiddleColumn({
         </p>
       </div>
       <div>
-        <span className="text-sm text-slate-500">IACUC No.</span>
+        <span className="text-sm text-muted-foreground">IACUC No.</span>
         <p className="font-medium">{animal.iacuc_no || '\u672A\u5206\u914D'}</p>
       </div>
       {animal.status !== 'unassigned' &&
         (animal.experiment_assigned_by_name || animal.experiment_date) && (
           <div>
-            <span className="text-sm text-slate-500">{'\u5BE6\u9A57\u5206\u914D'}</span>
+            <span className="text-sm text-muted-foreground">{'\u5BE6\u9A57\u5206\u914D'}</span>
             <p className="font-medium text-sm">
               {animal.experiment_assigned_by_name && (
                 <span>{animal.experiment_assigned_by_name}</span>
               )}
               {animal.experiment_date && (
-                <span className="text-slate-400 ml-1">
+                <span className="text-muted-foreground ml-1">
                   (
                   {new Date(animal.experiment_date).toLocaleDateString('zh-TW', {
                     timeZone: 'Asia/Taipei',
@@ -126,7 +126,7 @@ function MiddleColumn({
           </div>
         )}
       <div>
-        <span className="text-sm text-slate-500">{'\u6700\u8FD1\u9AD4\u91CD'}</span>
+        <span className="text-sm text-muted-foreground">{'\u6700\u8FD1\u9AD4\u91CD'}</span>
         <p className="font-medium">
           {weights && weights.length > 0
             ? `${weights[0].weight} kg`
@@ -155,13 +155,13 @@ function RightColumn({
   return (
     <div className="space-y-3">
       <div>
-        <span className="text-sm text-slate-500">{'\u7CFB\u7D71\u865F'}</span>
+        <span className="text-sm text-muted-foreground">{'\u7CFB\u7D71\u865F'}</span>
         <p className="font-medium" title={animal.id}>
           {animal.id.slice(0, 8)}
         </p>
       </div>
       <div>
-        <span className="text-sm text-slate-500">{'\u52D5\u7269\u72C0\u614B'}</span>
+        <span className="text-sm text-muted-foreground">{'\u52D5\u7269\u72C0\u614B'}</span>
         <p className="mt-1">
           <StatusBadge
             animal={animal}
@@ -173,7 +173,7 @@ function RightColumn({
         </p>
       </div>
       <div>
-        <span className="text-sm text-slate-500">{'\u6027\u5225'}</span>
+        <span className="text-sm text-muted-foreground">{'\u6027\u5225'}</span>
         <p className="font-medium">{animalGenderNames[animal.gender]}</p>
       </div>
     </div>
@@ -236,7 +236,7 @@ function StatusBadge({
           </SelectContent>
         </Select>
         <button
-          className="text-xs text-slate-400 hover:text-slate-600 text-left"
+          className="text-xs text-muted-foreground hover:text-foreground text-left"
           onClick={() => setShowTrialSelect(false)}
         >
           {'\u53D6\u6D88'}

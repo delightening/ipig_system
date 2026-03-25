@@ -7,6 +7,7 @@ import api, {
     amendmentStatusColors,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import {
     Table,
@@ -71,12 +72,10 @@ export function MyAmendmentsPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">{t('amendments.title')}</h1>
-                <p className="text-muted-foreground">
-                    {t('amendments.description')}
-                </p>
-            </div>
+            <PageHeader
+                title={t('amendments.title')}
+                description={t('amendments.description')}
+            />
 
             <div className="space-y-4">
                 <div className="flex flex-wrap gap-4 items-end">

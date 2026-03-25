@@ -76,7 +76,9 @@ export function PartnersPage() {
         open={dialogs.isOpen('form')}
         onOpenChange={dialogs.setOpen('form')}
         formData={partnerForm.formData}
-        setFormData={partnerForm.setFormData}
+        register={partnerForm.register}
+        setValue={partnerForm.setValue}
+        errors={partnerForm.errors}
         isEditing={!!partnerForm.editingPartner}
         isGeneratingCode={partnerForm.isGeneratingCode}
         isPending={partnerForm.isPending}

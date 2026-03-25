@@ -73,7 +73,7 @@ export function HazardsSection({ formData, updateWorkingContent, t }: Props) {
       </div>
 
       {hazards.used === true && (
-        <div className="space-y-4 mt-2 pl-6 border-l-2 border-slate-200">
+        <div className="space-y-4 mt-2 pl-6 border-l-2 border-border">
           <div className="space-y-3">
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t('aup.design.selectHazardType')}</Label>
@@ -105,11 +105,12 @@ export function HazardsSection({ formData, updateWorkingContent, t }: Props) {
                 {filteredMaterials.map((material, _index) => {
                   const materialIndex = hazards.materials.findIndex(m => m === material)
                   return (
-                    <div key={materialIndex} className="space-y-3 relative p-3 border rounded bg-slate-50">
+                    <div key={materialIndex} className="space-y-3 relative p-3 border rounded bg-muted">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                        className="absolute right-2 top-2 h-6 w-6 text-destructive"
+                        aria-label="刪除"
                         onClick={() => handleRemoveMaterial(materialIndex)}
                       >
                         X

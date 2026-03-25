@@ -30,7 +30,7 @@ export function deleteResource(
   url: string,
   options?: { data?: object; headers?: { [key: string]: string } },
 ) {
-  return api.delete(url, { headers: options?.headers })
+  return api.delete(url, { data: options?.data, headers: options?.headers })
 }
 
 // Request interceptor：自動將 csrf_token Cookie 值加到 X-CSRF-Token header
@@ -76,7 +76,7 @@ let isLoggingOut = false
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as typeof error.config & { _retry?: boolean; _503RetryCount?: number }
+    const originalRequest = error.config as typeof error.config & { _retry?: boolean; _503RetryCount?: number; _csrfRetry?: boolean; _silentError?: boolean }
 
     // 如果已經在登出流程中，直接拒絕所有 401，不再重試
     if (isLoggingOut) {
@@ -88,10 +88,34 @@ api.interceptors.response.use(
     const retryCount = originalRequest?._503RetryCount ?? 0
     if (error.response?.status === 503 && retryCount < max503Retries && originalRequest) {
       const retryAfter = error.response?.headers?.['retry-after'] ?? error.response?.headers?.['Retry-After']
-      const delayMs = retryAfter ? Math.min(parseInt(String(retryAfter), 10) * 1000, 3000) : 1000
+      const parsed = retryAfter ? parseInt(String(retryAfter), 10) : NaN
+      const delayMs = !isNaN(parsed) ? Math.min(parsed * 1000, 3000) : 1000
       originalRequest._503RetryCount = retryCount + 1
       await new Promise((r) => setTimeout(r, delayMs))
       return api(originalRequest)
+    }
+
+    // SEC-24: CSRF Token 自動刷新
+    // 如果收到 403 且原因是 CSRF token 過期/無效，嘗試刷新 token 後重試
+    if (
+      error.response?.status === 403 &&
+      !originalRequest?._csrfRetry &&
+      originalRequest &&
+      ['POST', 'PUT', 'DELETE', 'PATCH'].includes((originalRequest.method || '').toUpperCase())
+    ) {
+      const data = error.response?.data as { error?: { message?: string }; message?: string } | undefined
+      const msg = data?.error?.message || data?.message || ''
+      const isCsrfError = msg.toLowerCase().includes('csrf') || msg.includes('CSRF')
+      if (isCsrfError) {
+        originalRequest._csrfRetry = true
+        try {
+          // 呼叫任意 GET 端點以取得新的 CSRF cookie（CSRF 中介層會對每個回應重新設定 cookie）
+          await api.get('/auth/me')
+          return api(originalRequest)
+        } catch {
+          // CSRF refresh 也失敗，拋出原始錯誤
+        }
+      }
     }
 
     // If 401 and not already retrying, try to refresh token

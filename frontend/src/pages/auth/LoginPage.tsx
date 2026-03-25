@@ -149,10 +149,10 @@ export function LoginPage() {
               autoComplete="email"
               placeholder="請輸入電子郵件"
               {...register('email')}
-              className={errors.email ? 'border-red-500' : ''}
+              className={errors.email ? 'border-destructive' : ''}
             />
             {errors.email && (
-              <p className="text-sm text-red-500">{errors.email.message}</p>
+              <p className="text-sm text-destructive">{errors.email.message}</p>
             )}
           </div>
           <div className="space-y-2">
@@ -164,7 +164,7 @@ export function LoginPage() {
                 autoComplete="current-password"
                 placeholder="••••••••"
                 {...register('password')}
-                className={errors.password ? 'border-red-500' : ''}
+                className={errors.password ? 'border-destructive' : ''}
               />
               <Button
                 type="button"
@@ -172,6 +172,7 @@ export function LoginPage() {
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                 onClick={togglePassword}
+                aria-label={showPassword ? '隱藏密碼' : '顯示密碼'}
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -181,7 +182,7 @@ export function LoginPage() {
               </Button>
             </div>
             {errors.password && (
-              <p className="text-sm text-red-500">{errors.password.message}</p>
+              <p className="text-sm text-destructive">{errors.password.message}</p>
             )}
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
@@ -199,16 +200,16 @@ export function LoginPage() {
         <div className="mt-4 text-center">
           <Link
             to="/forgot-password"
-            className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+            className="text-sm text-primary hover:text-primary/80 hover:underline"
           >
             忘記密碼？
           </Link>
         </div>
 
-        <div className="text-center text-xs text-slate-400 mt-4">
-          <Link to="/privacy" className="hover:text-slate-600 hover:underline">隱私權政策</Link>
+        <div className="text-center text-xs text-muted-foreground mt-4">
+          <Link to="/privacy" className="hover:text-foreground hover:underline">隱私權政策</Link>
           {' | '}
-          <Link to="/terms" className="hover:text-slate-600 hover:underline">服務條款</Link>
+          <Link to="/terms" className="hover:text-foreground hover:underline">服務條款</Link>
         </div>
       </CardContent>
     </Card>

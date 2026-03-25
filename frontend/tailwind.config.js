@@ -54,6 +54,54 @@ export default {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
         },
+        // Status Colors (語義化狀態色彩)
+        status: {
+          success: {
+            bg: "hsl(var(--status-success-bg))",
+            text: "hsl(var(--status-success-text))",
+            border: "hsl(var(--status-success-border))",
+            solid: "hsl(var(--status-success-solid))",
+          },
+          warning: {
+            bg: "hsl(var(--status-warning-bg))",
+            text: "hsl(var(--status-warning-text))",
+            border: "hsl(var(--status-warning-border))",
+            solid: "hsl(var(--status-warning-solid))",
+          },
+          error: {
+            bg: "hsl(var(--status-error-bg))",
+            text: "hsl(var(--status-error-text))",
+            border: "hsl(var(--status-error-border))",
+            solid: "hsl(var(--status-error-solid))",
+            "strong-solid": "hsl(var(--status-error-strong-solid))",
+          },
+          info: {
+            bg: "hsl(var(--status-info-bg))",
+            text: "hsl(var(--status-info-text))",
+            border: "hsl(var(--status-info-border))",
+            solid: "hsl(var(--status-info-solid))",
+          },
+          neutral: {
+            bg: "hsl(var(--status-neutral-bg))",
+            text: "hsl(var(--status-neutral-text))",
+            border: "hsl(var(--status-neutral-border))",
+            solid: "hsl(var(--status-neutral-solid))",
+          },
+          purple: {
+            bg: "hsl(var(--status-purple-bg))",
+            text: "hsl(var(--status-purple-text))",
+            border: "hsl(var(--status-purple-border))",
+            solid: "hsl(var(--status-purple-solid))",
+          },
+        },
+        // Subsystem Hues (子系統色相)
+        subsystem: {
+          aup: "hsl(var(--subsystem-aup))",
+          erp: "hsl(var(--subsystem-erp))",
+          animal: "hsl(var(--subsystem-animal))",
+          hr: "hsl(var(--subsystem-hr))",
+          admin: "hsl(var(--subsystem-admin))",
+        },
         // SKU Segment Colors
         sku: {
           name: "hsl(var(--sku-name))",

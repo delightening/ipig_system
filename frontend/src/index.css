@@ -42,6 +42,42 @@
     /* Success color */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
+
+    /* ── Status Colors (語義化狀態色彩) ── */
+    --status-success-bg: 142 76% 95%;
+    --status-success-text: 142 76% 30%;
+    --status-success-border: 142 76% 85%;
+    --status-warning-bg: 38 92% 95%;
+    --status-warning-text: 38 92% 30%;
+    --status-warning-border: 38 92% 85%;
+    --status-error-bg: 0 84% 95%;
+    --status-error-text: 0 84% 40%;
+    --status-error-border: 0 84% 85%;
+    --status-info-bg: 217 91% 95%;
+    --status-info-text: 217 91% 40%;
+    --status-info-border: 217 91% 85%;
+    --status-neutral-bg: 215 16% 95%;
+    --status-neutral-text: 215 16% 46%;
+    --status-neutral-border: 215 16% 85%;
+    --status-purple-bg: 263 70% 95%;
+    --status-purple-text: 263 70% 40%;
+    --status-purple-border: 263 70% 85%;
+
+    /* ── Status Solid Colors (實心狀態色彩，用於 badge 背景) ── */
+    --status-success-solid: 142 76% 36%;
+    --status-warning-solid: 38 92% 50%;
+    --status-error-solid: 0 84% 60%;
+    --status-error-strong-solid: 347 77% 50%;
+    --status-info-solid: 217 91% 60%;
+    --status-neutral-solid: 215 16% 47%;
+    --status-purple-solid: 263 70% 50%;
+
+    /* ── Subsystem Hues (子系統色相識別) ── */
+    --subsystem-aup: 220 70% 50%;
+    --subsystem-erp: 200 70% 45%;
+    --subsystem-animal: 160 70% 40%;
+    --subsystem-hr: 260 60% 55%;
+    --subsystem-admin: 0 0% 45%;
   }
 
   .dark {
@@ -75,6 +111,42 @@
 
     --success: 142 76% 46%;
     --success-foreground: 0 0% 100%;
+
+    /* ── Status Colors (Dark) ── */
+    --status-success-bg: 142 76% 15%;
+    --status-success-text: 142 76% 70%;
+    --status-success-border: 142 76% 25%;
+    --status-warning-bg: 38 92% 15%;
+    --status-warning-text: 38 92% 70%;
+    --status-warning-border: 38 92% 25%;
+    --status-error-bg: 0 84% 15%;
+    --status-error-text: 0 84% 70%;
+    --status-error-border: 0 84% 25%;
+    --status-info-bg: 217 91% 15%;
+    --status-info-text: 217 91% 70%;
+    --status-info-border: 217 91% 25%;
+    --status-neutral-bg: 215 16% 20%;
+    --status-neutral-text: 215 16% 70%;
+    --status-neutral-border: 215 16% 30%;
+    --status-purple-bg: 263 70% 15%;
+    --status-purple-text: 263 70% 70%;
+    --status-purple-border: 263 70% 25%;
+
+    /* ── Status Solid Colors (Dark) ── */
+    --status-success-solid: 142 76% 46%;
+    --status-warning-solid: 38 92% 60%;
+    --status-error-solid: 0 84% 50%;
+    --status-error-strong-solid: 347 77% 60%;
+    --status-info-solid: 217 91% 65%;
+    --status-neutral-solid: 215 16% 55%;
+    --status-purple-solid: 263 70% 60%;
+
+    /* ── Subsystem Hues (Dark) ── */
+    --subsystem-aup: 220 70% 60%;
+    --subsystem-erp: 200 70% 55%;
+    --subsystem-animal: 160 70% 50%;
+    --subsystem-hr: 260 60% 65%;
+    --subsystem-admin: 0 0% 60%;
   }
 }
 

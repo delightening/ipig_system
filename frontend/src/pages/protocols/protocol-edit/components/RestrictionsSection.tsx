@@ -39,7 +39,7 @@ export function RestrictionsSection({ formData, updateWorkingContent, t }: Props
       </div>
 
       {restrictions.is_restricted === true && (
-        <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+        <div className="space-y-4 pl-6 border-l-2 border-border">
           <div className="space-y-2">
             <Label>{t('aup.design.selectRestrictionType')}</Label>
             <Select

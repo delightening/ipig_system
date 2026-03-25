@@ -1,4 +1,5 @@
-import { Eye } from 'lucide-react'
+import { Eye, FileText } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -155,11 +156,7 @@ export function AuditActivitiesTab({
                                 <TableCell colSpan={6} className="text-center py-8">載入中...</TableCell>
                             </TableRow>
                         ) : !activityLogs?.data || activityLogs.data.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                    沒有使用者管理活動記錄
-                                </TableCell>
-                            </TableRow>
+                            <TableEmptyRow colSpan={6} icon={FileText} title="沒有使用者管理活動記錄" />
                         ) : (
                             activityLogs.data.map((log) => (
                                 <ActivityRow key={log.id} log={log} onSelect={onSelectLog} />
@@ -209,7 +206,7 @@ function ActivityRow({ log, onSelect }: { log: AuditLog; onSelect: (log: AuditLo
                 <span className="text-muted-foreground">{getActionSummary(log)}</span>
             </TableCell>
             <TableCell>
-                <Button variant="ghost" size="icon" onClick={() => onSelect(log)} title="查看詳情">
+                <Button variant="ghost" size="icon" onClick={() => onSelect(log)} title="查看詳情" aria-label="查看詳情">
                     <Eye className="h-4 w-4" />
                 </Button>
             </TableCell>

@@ -1,4 +1,5 @@
-import { LogOut } from 'lucide-react'
+import { LogOut, Monitor } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { AxiosResponse } from 'axios'
 
@@ -59,11 +60,7 @@ export function AuditSessionsTab({
                                 <TableCell colSpan={7} className="text-center py-8">載入中...</TableCell>
                             </TableRow>
                         ) : activeSessions.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                    沒有活躍的 Session
-                                </TableCell>
-                            </TableRow>
+                            <TableEmptyRow colSpan={7} icon={Monitor} title="沒有活躍的 Session" />
                         ) : (
                             activeSessions.map((session) => (
                                 <SessionRow

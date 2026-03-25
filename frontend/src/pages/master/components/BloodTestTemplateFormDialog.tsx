@@ -1,3 +1,4 @@
+import { type UseFormReturn } from 'react-hook-form'
 import {
   Dialog,
   DialogContent,
@@ -18,32 +19,33 @@ import {
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
 import { PanelIcon } from '@/components/ui/panel-icon'
-import type { CreateBloodTestTemplateRequest } from '@/lib/api'
 import type { BloodTestTemplate, BloodTestPanel } from '@/lib/api'
+import type { BloodTestTemplateFormData } from '@/lib/validation'
 
 interface BloodTestTemplateFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   editingTemplate: BloodTestTemplate | null
-  formData: CreateBloodTestTemplateRequest
-  setFormData: (data: CreateBloodTestTemplateRequest) => void
+  form: UseFormReturn<BloodTestTemplateFormData>
   panels: BloodTestPanel[] | undefined
   isCreatePending: boolean
   isUpdatePending: boolean
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e?: React.BaseSyntheticEvent) => Promise<void>
 }
 
 export function BloodTestTemplateFormDialog({
   open,
   onOpenChange,
   editingTemplate,
-  formData,
-  setFormData,
+  form,
   panels,
   isCreatePending,
   isUpdatePending,
   onSubmit,
 }: BloodTestTemplateFormDialogProps) {
+  const { register, setValue, watch, formState: { errors } } = form
+  const panelIdValue = watch('panel_id')
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -61,34 +63,41 @@ export function BloodTestTemplateFormDialog({
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="code" className="text-right">
-                代碼 <span className="text-red-500">*</span>
+                代碼 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="code"
-                value={formData.code}
-                onChange={(e) =>
-                  setFormData({ ...formData, code: e.target.value.toUpperCase() })
-                }
-                className="col-span-3 font-mono"
-                placeholder="如: WBC、RBC、AST"
-                required
-                disabled={!!editingTemplate}
-                maxLength={20}
-              />
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="code"
+                  {...register('code', {
+                    onChange: (e) => {
+                      e.target.value = e.target.value.toUpperCase()
+                    },
+                  })}
+                  className="font-mono"
+                  placeholder="如: WBC、RBC、AST"
+                  disabled={!!editingTemplate}
+                  maxLength={20}
+                />
+                {errors.code && (
+                  <p className="text-sm text-destructive">{errors.code.message}</p>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
-                名稱 <span className="text-red-500">*</span>
+                名稱 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="col-span-3"
-                placeholder="如: WBC (白血球計數)"
-                required
-                maxLength={200}
-              />
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="name"
+                  {...register('name')}
+                  placeholder="如: WBC (白血球計數)"
+                  maxLength={200}
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="default_unit" className="text-right">
@@ -96,10 +105,7 @@ export function BloodTestTemplateFormDialog({
               </Label>
               <Input
                 id="default_unit"
-                value={formData.default_unit}
-                onChange={(e) =>
-                  setFormData({ ...formData, default_unit: e.target.value })
-                }
+                {...register('default_unit')}
                 className="col-span-3"
                 placeholder="如: 10³/μL、mg/dL、U/L"
                 maxLength={50}
@@ -111,10 +117,7 @@ export function BloodTestTemplateFormDialog({
               </Label>
               <Input
                 id="reference_range"
-                value={formData.reference_range}
-                onChange={(e) =>
-                  setFormData({ ...formData, reference_range: e.target.value })
-                }
+                {...register('reference_range')}
                 className="col-span-3"
                 placeholder="如: 4.0-10.0"
                 maxLength={100}
@@ -129,13 +132,7 @@ export function BloodTestTemplateFormDialog({
                 type="number"
                 min="0"
                 step="1"
-                value={formData.default_price || ''}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    default_price: e.target.value ? Number(e.target.value) : 0,
-                  })
-                }
+                {...register('default_price', { valueAsNumber: true })}
                 className="col-span-3"
                 placeholder="0"
               />
@@ -145,12 +142,9 @@ export function BloodTestTemplateFormDialog({
                 所屬分類
               </Label>
               <Select
-                value={formData.panel_id || 'none'}
+                value={panelIdValue || 'none'}
                 onValueChange={(val) =>
-                  setFormData({
-                    ...formData,
-                    panel_id: val === 'none' ? undefined : val,
-                  })
+                  setValue('panel_id', val === 'none' ? undefined : val)
                 }
               >
                 <SelectTrigger className="col-span-3">

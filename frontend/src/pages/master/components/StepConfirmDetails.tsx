@@ -136,11 +136,11 @@ function PackagingLayerToggle({
             "flex-1 p-3 rounded-lg border-2 transition-all",
             formData.packagingLayers === 2
               ? "border-primary bg-primary/10 text-primary font-medium"
-              : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+              : "border-border hover:border-primary/50"
           )}
         >
           兩層包裝
-          <span className="block text-xs mt-1 text-slate-500">外層 → 內層（消耗每內層）</span>
+          <span className="block text-xs mt-1 text-muted-foreground">外層 → 內層（消耗每內層）</span>
         </button>
         <button
           type="button"
@@ -150,11 +150,11 @@ function PackagingLayerToggle({
             "flex-1 p-3 rounded-lg border-2 transition-all",
             formData.packagingLayers === 3
               ? "border-primary bg-primary/10 text-primary font-medium"
-              : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+              : "border-border hover:border-primary/50"
           )}
         >
           三層包裝
-          <span className="block text-xs mt-1 text-slate-500">外層 → 內層 → 基礎（消耗每基礎）</span>
+          <span className="block text-xs mt-1 text-muted-foreground">外層 → 內層 → 基礎（消耗每基礎）</span>
         </button>
       </div>
     </div>
@@ -224,7 +224,7 @@ function InnerUnitSection({ formData, setFormData, disabled, isCustom, setIsCust
     <div className="space-y-3">
       <Label className="text-sm font-medium">
         內層包裝
-        {isTwoLayer && <span className="text-xs text-slate-400 ml-2">（消耗單位）</span>}
+        {isTwoLayer && <span className="text-xs text-muted-foreground ml-2">（消耗單位）</span>}
       </Label>
       <UnitButtonGroup
         units={[...UNITS.inner]}
@@ -246,8 +246,8 @@ function InnerUnitSection({ formData, setFormData, disabled, isCustom, setIsCust
         disabled={disabled}
       />
       {formData.innerUnit && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
-          <span className="text-sm text-slate-500">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border whitespace-nowrap ml-auto">
+          <span className="text-sm text-muted-foreground">
             {formData.outerUnit ? `一${formData.outerUnit}` : '一'}
           </span>
           <Input
@@ -257,7 +257,7 @@ function InnerUnitSection({ formData, setFormData, disabled, isCustom, setIsCust
             className="w-16 h-8 text-center"
             disabled={disabled}
           />
-          <span className="text-sm text-slate-500">{formData.innerUnit}</span>
+          <span className="text-sm text-muted-foreground">{formData.innerUnit}</span>
         </div>
       )}
     </div>
@@ -283,7 +283,7 @@ function BaseUnitSection({
     <div className="space-y-3">
       <Label className="text-sm font-medium">
         基礎單位（消耗單位）
-        <span className="text-xs text-slate-400 ml-2">(庫存管理)</span>
+        <span className="text-xs text-muted-foreground ml-2">(庫存管理)</span>
       </Label>
       <UnitButtonGroup
         units={displayUnits}
@@ -306,8 +306,8 @@ function BaseUnitSection({
         highlightedCodes={highlightedCodes}
       />
       {formData.innerUnit && formData.baseUnit && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
-          <span className="text-sm text-slate-500">一{formData.innerUnit}</span>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border whitespace-nowrap ml-auto">
+          <span className="text-sm text-muted-foreground">一{formData.innerUnit}</span>
           <Input
             type="number" min={1}
             value={formData.baseQty}
@@ -315,7 +315,7 @@ function BaseUnitSection({
             className="w-16 h-8 text-center"
             disabled={disabled}
           />
-          <span className="text-sm text-slate-500">{formData.baseUnit}</span>
+          <span className="text-sm text-muted-foreground">{formData.baseUnit}</span>
         </div>
       )}
     </div>
@@ -324,9 +324,9 @@ function BaseUnitSection({
 
 function UnitDisplay({ label, unit }: { label: string; unit: string }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className="text-sm text-slate-700 dark:text-slate-200">{unit}</span>
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border whitespace-nowrap ml-auto">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm text-foreground">{unit}</span>
     </div>
   )
 }

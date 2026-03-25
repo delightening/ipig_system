@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { deleteResource } from '@/lib/api'
 import type { DocType, DocumentListItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -183,24 +184,22 @@ export function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-          <p className="text-muted-foreground">
-            {isLegacyMode ? `管理${TYPE_NAMES[typeFilter as DocType]}` : '採購、銷貨、倉儲單據統一管理'}
-          </p>
-        </div>
-        <Button asChild>
-          <Link to={isLegacyMode ? `/documents/new?type=${typeFilter}` : (subTypeFilter !== 'all' ? `/documents/new?type=${subTypeFilter}` : '/documents/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            新增單據
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title={title}
+        description={isLegacyMode ? `管理${TYPE_NAMES[typeFilter as DocType]}` : '採購、銷貨、倉儲單據統一管理'}
+        actions={
+          <Button asChild>
+            <Link to={isLegacyMode ? `/documents/new?type=${typeFilter}` : (subTypeFilter !== 'all' ? `/documents/new?type=${subTypeFilter}` : '/documents/new')}>
+              <Plus className="mr-2 h-4 w-4" />
+              新增單據
+            </Link>
+          </Button>
+        }
+      />
 
       {/* 類別 Tab（非舊模式才顯示） */}
       {!isLegacyMode && (
-        <div className="flex gap-2 border-b border-slate-200">
+        <div className="flex gap-2 border-b border-border">
           {(Object.keys(CATEGORY_CONFIG) as DocCategory[]).map((cat) => {
             const cfg = CATEGORY_CONFIG[cat]
             return (
@@ -210,8 +209,8 @@ export function DocumentsPage() {
                 className={cn(
                   'flex items-center gap-1.5 px-4 py-2 border-b-2 font-medium text-sm transition-colors',
                   activeCategory === cat
-                    ? 'border-blue-500 text-blue-600 -mb-px'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    ? 'border-primary text-primary -mb-px'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                 )}
               >
                 {cfg.icon}
@@ -226,7 +225,7 @@ export function DocumentsPage() {
       {!isLegacyMode && !activeCategory && !isLoadingPref && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <FileText className="h-16 w-16 mb-4 text-muted-foreground opacity-40" />
-          <p className="text-lg font-medium text-slate-600">請選擇上方的類別以開始查詢</p>
+          <p className="text-lg font-medium text-muted-foreground">請選擇上方的類別以開始查詢</p>
           <p className="text-sm text-muted-foreground mt-1">
             採購類包含採購單、採購入庫、採購退貨；銷貨類包含銷貨單、銷貨出庫
           </p>

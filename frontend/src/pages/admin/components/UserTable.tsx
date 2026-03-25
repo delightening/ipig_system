@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table'
 import { Users, Pencil, Trash2, Shield, UserCheck, UserX, Key, ArrowUpDown, ArrowUp, ArrowDown, LogIn, ChevronLeft, ChevronRight } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 
 interface UserTableProps {
   users: User[]
@@ -127,8 +128,9 @@ export function UserTable({
                         size="icon"
                         onClick={() => onImpersonate(user)}
                         title="模擬登入 (Login As)"
+                        aria-label="模擬登入"
                       >
-                        <LogIn className="h-4 w-4 text-blue-500" />
+                        <LogIn className="h-4 w-4 text-primary" />
                       </Button>
                     )}
                     <Button
@@ -136,6 +138,7 @@ export function UserTable({
                       size="icon"
                       onClick={() => onManageRoles(user)}
                       title="管理角色"
+                      aria-label="管理角色"
                     >
                       <Shield className="h-4 w-4" />
                     </Button>
@@ -145,8 +148,9 @@ export function UserTable({
                         size="icon"
                         onClick={() => onResetPassword(user)}
                         title="重設密碼"
+                        aria-label="重設密碼"
                       >
-                        <Key className="h-4 w-4 text-orange-500" />
+                        <Key className="h-4 w-4 text-status-warning-text" />
                       </Button>
                     )}
                     <Button
@@ -154,6 +158,7 @@ export function UserTable({
                       size="icon"
                       onClick={() => onEdit(user)}
                       title="編輯"
+                      aria-label="編輯"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -162,11 +167,12 @@ export function UserTable({
                       size="icon"
                       onClick={() => onToggleActive(user)}
                       title={user.is_active ? '停用' : '啟用'}
+                      aria-label={user.is_active ? '停用' : '啟用'}
                     >
                       {user.is_active ? (
-                        <UserX className="h-4 w-4 text-red-500" />
+                        <UserX className="h-4 w-4 text-destructive" />
                       ) : (
-                        <UserCheck className="h-4 w-4 text-green-500" />
+                        <UserCheck className="h-4 w-4 text-status-success-text" />
                       )}
                     </Button>
                     <Button
@@ -174,20 +180,16 @@ export function UserTable({
                       size="icon"
                       onClick={() => onDelete(user)}
                       title="刪除"
+                      aria-label="刪除"
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </TableCell>
               </TableRow>
             ))
           ) : (
-            <TableRow>
-              <TableCell colSpan={5} className="text-center py-8">
-                <Users className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-muted-foreground">尚無使用者資料</p>
-              </TableCell>
-            </TableRow>
+            <TableEmptyRow colSpan={5} icon={Users} title="尚無使用者資料" />
           )}
         </TableBody>
       </Table>

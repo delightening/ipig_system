@@ -9,7 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { PageHeader } from '@/components/ui/page-header'
 import { Loader2, FileText } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { formatDateTime, formatNumber, formatCurrency } from '@/lib/utils'
 
 const directionNames: Record<string, string> = {
@@ -41,10 +43,7 @@ export function StockLedgerPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">庫存流水</h1>
-        <p className="text-muted-foreground">查看所有庫存異動記錄</p>
-      </div>
+      <PageHeader title="庫存流水" description="查看所有庫存異動記錄" />
 
       <div className="rounded-md border">
         <Table>
@@ -90,12 +89,7 @@ export function StockLedgerPage() {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  <FileText className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無庫存流水資料</p>
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={8} icon={FileText} title="尚無庫存流水資料" />
             )}
           </TableBody>
         </Table>

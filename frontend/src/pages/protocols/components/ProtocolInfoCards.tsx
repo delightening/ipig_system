@@ -20,12 +20,12 @@ export function ProtocolInfoCards({ protocol, piName, piEmail, piOrganization }:
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <FileText className="h-4 w-4 text-blue-500" />
+            <FileText className="h-4 w-4 text-primary" />
             {protocol.iacuc_no?.startsWith('APIG-') ? t('protocols.detail.info.apigNo') : t('protocols.detail.info.iacucNo')}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xl font-bold text-orange-600">
+          <p className="text-xl font-bold text-status-warning-text">
             {protocol.iacuc_no || t('protocols.detail.info.notIssued')}
           </p>
         </CardContent>
@@ -33,7 +33,7 @@ export function ProtocolInfoCards({ protocol, piName, piEmail, piOrganization }:
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <UserIcon className="h-4 w-4 text-green-500" />
+            <UserIcon className="h-4 w-4 text-status-success-text" />
             {t('protocols.detail.info.pi')}
           </CardTitle>
         </CardHeader>
@@ -45,7 +45,7 @@ export function ProtocolInfoCards({ protocol, piName, piEmail, piOrganization }:
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Building className="h-4 w-4 text-purple-500" />
+            <Building className="h-4 w-4 text-primary" />
             {t('protocols.detail.info.organization')}
           </CardTitle>
         </CardHeader>
@@ -56,7 +56,7 @@ export function ProtocolInfoCards({ protocol, piName, piEmail, piOrganization }:
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-yellow-500" />
+            <Calendar className="h-4 w-4 text-status-warning-text" />
             {t('protocols.detail.info.period')}
           </CardTitle>
         </CardHeader>

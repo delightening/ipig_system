@@ -155,7 +155,7 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose 
 
                 {/* Controls */}
                 <div className="mt-8 flex justify-center gap-4 print:hidden">
-                    <button onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-bold">關閉</button>
+                    <button onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-bold">{t('common.closeDialog')}</button>
                     <button onClick={() => exportPDFMutation.mutate()} disabled={exportPDFMutation.isPending} className="px-8 py-2 bg-purple-600 text-white rounded-lg hover:opacity-80 font-bold disabled:opacity-50">
                         {exportPDFMutation.isPending ? '匯出中...' : '匯出 PDF'}
                     </button>

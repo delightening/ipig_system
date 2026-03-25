@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { ProtocolListItem, ProtocolStatus } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -180,12 +181,10 @@ export function MyProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t('nav.myProjects')}</h1>
-        <p className="text-muted-foreground">
-          {t('dashboard.widgets.projects.description')}
-        </p>
-      </div>
+      <PageHeader
+        title={t('nav.myProjects')}
+        description={t('dashboard.widgets.projects.description')}
+      />
 
       {/* 統計卡片 */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -199,26 +198,26 @@ export function MyProjectsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-600">{t('protocols.status.APPROVED')}</CardTitle>
+            <CardTitle className="text-sm font-medium text-status-success-text">{t('protocols.status.APPROVED')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+            <div className="text-2xl font-bold text-status-success-text">{stats.approved}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">{t('dashboard.widgets.projects.reviewing')}</CardTitle>
+            <CardTitle className="text-sm font-medium text-status-warning-text">{t('dashboard.widgets.projects.reviewing')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.underReview}</div>
+            <div className="text-2xl font-bold text-status-warning-text">{stats.underReview}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">{t('protocols.status.DRAFT')}</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t('protocols.status.DRAFT')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-500">{stats.draft}</div>
+            <div className="text-2xl font-bold text-muted-foreground">{stats.draft}</div>
           </CardContent>
         </Card>
       </div>
@@ -254,7 +253,7 @@ export function MyProjectsPage() {
 
                   return (
                     <TableRow key={project.id}>
-                      <TableCell className="font-mono text-orange-600 font-semibold">
+                      <TableCell className="font-mono text-status-warning-text font-semibold">
                         {project.iacuc_no || '-'}
                       </TableCell>
                       <TableCell>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function ConfirmDialog({ state }: Props) {
+  const { t } = useTranslation()
   return (
     <AlertDialog open={state.open} onOpenChange={(open) => { if (!open) state.onCancel() }}>
       <AlertDialogContent>
@@ -23,12 +25,12 @@ export function ConfirmDialog({ state }: Props) {
           <AlertDialogDescription>{state.description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={state.onCancel}>取消</AlertDialogCancel>
+          <AlertDialogCancel onClick={state.onCancel}>{t('common.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={state.onConfirm}
             className={state.variant === 'destructive' ? 'bg-red-600 hover:bg-red-700' : ''}
           >
-            {state.confirmLabel || '確認'}
+            {state.confirmLabel || t('common.confirm')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

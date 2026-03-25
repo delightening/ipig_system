@@ -141,7 +141,7 @@ export function MyProjectDetailPage() {
   if (!protocol) {
     return (
       <div className="text-center py-12">
-        <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+        <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-status-warning-text" />
         <h2 className="text-xl font-semibold mb-2">找不到計劃</h2>
         <p className="text-muted-foreground mb-4">此計劃不存在或您沒有權限查看</p>
         <Button asChild>
@@ -158,7 +158,7 @@ export function MyProjectDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="返回">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -194,12 +194,12 @@ export function MyProjectDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-500" />
+              <FileText className="h-4 w-4 text-primary" />
               {protocol.protocol.iacuc_no?.startsWith('APIG-') ? 'APIG 編號' : 'IACUC 編號'}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xl font-bold text-orange-600">
+            <p className="text-xl font-bold text-status-warning-text">
               {protocol.protocol.iacuc_no || '尚未核發'}
             </p>
           </CardContent>
@@ -207,7 +207,7 @@ export function MyProjectDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <User className="h-4 w-4 text-green-500" />
+              <User className="h-4 w-4 text-status-success-text" />
               計畫主持人
             </CardTitle>
           </CardHeader>
@@ -218,7 +218,7 @@ export function MyProjectDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Building className="h-4 w-4 text-purple-500" />
+              <Building className="h-4 w-4 text-status-purple-text" />
               委託單位
             </CardTitle>
           </CardHeader>
@@ -229,7 +229,7 @@ export function MyProjectDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-yellow-500" />
+              <Calendar className="h-4 w-4 text-status-warning-text" />
               執行期間
             </CardTitle>
           </CardHeader>
@@ -249,7 +249,7 @@ export function MyProjectDetailPage() {
           <button
             onClick={() => setActiveTab('application')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'application'
-              ? 'border-blue-600 text-blue-600'
+              ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
@@ -259,7 +259,7 @@ export function MyProjectDetailPage() {
           <button
             onClick={() => setActiveTab('animals')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'animals'
-              ? 'border-blue-600 text-blue-600'
+              ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
@@ -541,7 +541,7 @@ export function MyProjectDetailPage() {
                     {animals.map((animal) => (
                       <TableRow key={animal.id}>
                         <TableCell>{animal.animal_no ?? animal.id.slice(0, 8)}</TableCell>
-                        <TableCell className="text-orange-600 font-medium">{animal.ear_tag}</TableCell>
+                        <TableCell className="text-status-warning-text font-medium">{animal.ear_tag}</TableCell>
                         <TableCell>{getPenLocationDisplay(animal)}</TableCell>
                         <TableCell>
                           <Badge variant="warning">{animalStatusNames[animal.status] ?? animal.status}</Badge>

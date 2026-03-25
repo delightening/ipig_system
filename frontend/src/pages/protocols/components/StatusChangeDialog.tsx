@@ -161,7 +161,7 @@ function ReviewerSelection({
       <Label>{t('protocols.detail.dialogs.status.reviewers')}</Label>
       <div className="space-y-2 max-h-48 overflow-y-auto border rounded p-2">
         {availableReviewers?.map((reviewer) => (
-          <label key={reviewer.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+          <label key={reviewer.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted p-1 rounded">
             <input
               type="checkbox"
               checked={selectedReviewerIds.includes(reviewer.id)}

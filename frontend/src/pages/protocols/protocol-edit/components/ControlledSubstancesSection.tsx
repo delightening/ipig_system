@@ -66,7 +66,7 @@ export function ControlledSubstancesSection({ formData, updateWorkingContent, t,
       </div>
 
       {controlled_substances.used === true && (
-        <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+        <div className="space-y-4 pl-6 border-l-2 border-border">
           <div className="flex justify-between items-center">
             <Label className="text-sm font-medium">{t('aup.design.controlledSubstancesList')}</Label>
             <Button variant="outline" onClick={handleAddItem}>
@@ -75,11 +75,12 @@ export function ControlledSubstancesSection({ formData, updateWorkingContent, t,
             </Button>
           </div>
           {controlled_substances.items.map((item, index) => (
-            <div key={index} className="space-y-3 relative p-3 border rounded bg-slate-50">
+            <div key={index} className="space-y-3 relative p-3 border rounded bg-muted">
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                className="absolute right-2 top-2 h-6 w-6 text-destructive"
+                aria-label="刪除"
                 onClick={() => handleRemoveItem(index)}
               >
                 X

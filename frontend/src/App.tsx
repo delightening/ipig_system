@@ -77,8 +77,9 @@ const BloodTestAnalysisPage = lazy(() => import('@/pages/reports/BloodTestAnalys
 const AccountingReportPage = lazy(() => import('@/pages/reports/AccountingReportPage').then(m => ({ default: m.AccountingReportPage })))
 const PurchaseSalesSummaryPage = lazy(() => import('@/pages/reports/PurchaseSalesSummaryPage').then(m => ({ default: m.PurchaseSalesSummaryPage })))
 
-// ERP Page
-const ErpPage = lazy(() => import('@/pages/erp/ErpPage').then(m => ({ default: m.ErpPage })))
+// ERP Pages
+const ErpReportsPage = lazy(() => import('@/pages/erp/ErpReportsPage').then(m => ({ default: m.ErpReportsPage })))
+const EquipmentPage = lazy(() => import('@/pages/admin/EquipmentPage').then(m => ({ default: m.EquipmentPage })))
 
 // AUP Protocol Pages
 const ProtocolsPage = lazy(() => import('@/pages/protocols/ProtocolsPage').then(m => ({ default: m.ProtocolsPage })))
@@ -158,7 +159,7 @@ function App() {
             scheduleIdle(() => {
                 // 第二批：次要頁面
                 prefetchBatch([
-                    () => import('@/pages/erp/ErpPage'),
+                    () => import('@/pages/erp/ErpReportsPage'),
                     () => import('@/pages/protocols/ProtocolEditPage'),
                     () => import('@/pages/animals/AnimalEditPage'),
                     () => import('@/pages/hr/HrAttendancePage'),
@@ -258,7 +259,9 @@ function App() {
                     {/* Dashboard 與 ERP 模組路由 */}
                     <Route element={<DashboardRoute />}>
                         <Route path="/dashboard" element={<PageErrorBoundary><DashboardPage /></PageErrorBoundary>} />
-                        <Route path="/erp" element={<ErpPage />} />
+                        <Route path="/erp" element={<Navigate to="/products" replace />} />
+                        <Route path="/erp/reports" element={<AdminRoute><ErpReportsPage /></AdminRoute>} />
+                        <Route path="/equipment" element={<RequirePermission permission="equipment.view"><EquipmentPage /></RequirePermission>} />
 
                         <Route path="/products" element={<ProductsPage />} />
                         <Route path="/products/new" element={<CreateProductPage />} />
@@ -322,8 +325,8 @@ function App() {
                             <TrainingRecordsPage />
                         </RequirePermission>
                     } />
-                    {/* 設備維護已移至 ERP 系統，舊路徑導向 /erp?tab=equipment */}
-                    <Route path="/admin/equipment" element={<Navigate to="/erp?tab=equipment" replace />} />
+                    {/* 設備維護舊路徑導向 */}
+                    <Route path="/admin/equipment" element={<Navigate to="/equipment" replace />} />
                     {/* 修正審核已移至實驗動物管理 */}
                     <Route path="/admin/animal-field-corrections" element={<Navigate to="/animals/animal-field-corrections" replace />} />
 

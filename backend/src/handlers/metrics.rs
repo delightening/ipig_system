@@ -58,7 +58,20 @@ pub async fn vitals_handler(Json(_metric): Json<WebVitalsMetric>) -> impl IntoRe
     ),
     tag = "監控"
 )]
-pub async fn metrics_handler(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn metrics_handler(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    // If METRICS_TOKEN is set, require it as Bearer token
+    if let Ok(expected) = std::env::var("METRICS_TOKEN") {
+        let provided = headers
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "));
+        if provided != Some(expected.as_str()) {
+            return (StatusCode::UNAUTHORIZED, "Invalid metrics token").into_response();
+        }
+    }
     let pool = &state.db;
     let pool_size = pool.size() as f64;
     let pool_idle = pool.num_idle() as f64;

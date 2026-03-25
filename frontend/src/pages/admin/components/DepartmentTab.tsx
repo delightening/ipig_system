@@ -1,5 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { facilityApi } from '@/lib/api/facility'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
@@ -14,17 +18,36 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
-import type { DepartmentWithManager, CreateDepartmentRequest, UpdateDepartmentRequest } from '@/types/facility'
+import type { DepartmentWithManager } from '@/types/facility'
 
-const EMPTY_FORM: CreateDepartmentRequest = { code: '', name: '', parent_id: undefined, manager_id: undefined, sort_order: 0 }
 const NONE_VALUE = '__none__'
 
+const departmentSchema = z.object({
+  code: z.string().min(1, '代碼為必填'),
+  name: z.string().min(1, '名稱為必填'),
+  parent_id: z.string().optional(),
+  manager_id: z.string().optional(),
+  sort_order: z.coerce.number().int(),
+})
+
+type DepartmentFormData = z.output<typeof departmentSchema>
+
+const EMPTY_FORM: DepartmentFormData = { code: '', name: '', parent_id: undefined, manager_id: undefined, sort_order: 0 }
+
 export function DepartmentTab({ canManage }: { canManage: boolean }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const dialogs = useDialogSet(['create', 'edit'] as const)
   const { dialogState, confirm } = useConfirmDialog()
   const [editing, setEditing] = useState<DepartmentWithManager | null>(null)
-  const [form, setForm] = useState<CreateDepartmentRequest>(EMPTY_FORM)
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<z.input<typeof departmentSchema>, unknown, DepartmentFormData>({
+    resolver: zodResolver(departmentSchema),
+    defaultValues: EMPTY_FORM,
+  })
+
+  const parentId = watch('parent_id')
+  const managerId = watch('manager_id')
 
   const { data: departments = [], isLoading } = useQuery({
     queryKey: ['departments'],
@@ -42,13 +65,13 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['departments'] })
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateDepartmentRequest) => facilityApi.createDepartment(data),
-    onSuccess: () => { invalidate(); dialogs.close('create'); setForm(EMPTY_FORM); toast({ title: '已新增部門' }) },
+    mutationFn: (data: DepartmentFormData) => facilityApi.createDepartment(data),
+    onSuccess: () => { invalidate(); dialogs.close('create'); toast({ title: '已新增部門' }) },
     onError: (err: unknown) => toast({ title: '新增失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateDepartmentRequest }) => facilityApi.updateDepartment(id, data),
+    mutationFn: ({ id, data }: { id: string; data: DepartmentFormData }) => facilityApi.updateDepartment(id, { name: data.name, parent_id: data.parent_id, manager_id: data.manager_id, sort_order: data.sort_order }),
     onSuccess: () => { invalidate(); dialogs.close('edit'); toast({ title: '已更新部門' }) },
     onError: (err: unknown) => toast({ title: '更新失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
   })
@@ -61,7 +84,7 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
 
   const handleEdit = (d: DepartmentWithManager) => {
     setEditing(d)
-    setForm({ code: d.code, name: d.name, parent_id: d.parent_id ?? undefined, manager_id: d.manager_id ?? undefined, sort_order: d.sort_order })
+    reset({ code: d.code, name: d.name, parent_id: d.parent_id ?? undefined, manager_id: d.manager_id ?? undefined, sort_order: d.sort_order })
     dialogs.open('edit')
   }
 
@@ -74,16 +97,19 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
     if (ok) deleteMutation.mutate(d.id)
   }
 
-  const set = (k: keyof CreateDepartmentRequest, v: string | number | undefined) => setForm(prev => ({ ...prev, [k]: v }))
-
   const parentOptions = departments.filter(d => !editing || d.id !== editing.id)
+
+  const onCreateSubmit = handleSubmit(data => createMutation.mutate(data))
+  const onEditSubmit = handleSubmit(data => {
+    if (editing) updateMutation.mutate({ id: editing.id, data })
+  })
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <span className="text-sm text-muted-foreground">共 {departments.length} 筆</span>
         {canManage && (
-          <Button size="sm" onClick={() => { setForm(EMPTY_FORM); dialogs.open('create') }}>
+          <Button size="sm" onClick={() => { reset(EMPTY_FORM); dialogs.open('create') }}>
             <Plus className="h-4 w-4 mr-1" /> 新增部門
           </Button>
         )}
@@ -116,8 +142,8 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
               {canManage && (
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(d)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(d)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(d)} aria-label="編輯"><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(d)} aria-label="刪除"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 </TableCell>
               )}
@@ -130,12 +156,20 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
       <Dialog open={dialogs.isOpen('create')} onOpenChange={o => !o && dialogs.close('create')}>
         <DialogContent>
           <DialogHeader><DialogTitle>新增部門</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>代碼 *</Label><Input value={form.code} onChange={e => set('code', e.target.value)} /></div>
-            <div><Label>名稱 *</Label><Input value={form.name} onChange={e => set('name', e.target.value)} /></div>
+          <form onSubmit={onCreateSubmit} className="space-y-3">
+            <div>
+              <Label>代碼 *</Label>
+              <Input {...register('code')} />
+              {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
+            </div>
+            <div>
+              <Label>名稱 *</Label>
+              <Input {...register('name')} />
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+            </div>
             <div>
               <Label>上層部門</Label>
-              <Select value={form.parent_id ?? NONE_VALUE} onValueChange={v => set('parent_id', v === NONE_VALUE ? undefined : v)}>
+              <Select value={parentId ?? NONE_VALUE} onValueChange={v => setValue('parent_id', v === NONE_VALUE ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="（無）" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>（無）</SelectItem>
@@ -145,7 +179,7 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
             </div>
             <div>
               <Label>主管</Label>
-              <Select value={form.manager_id ?? NONE_VALUE} onValueChange={v => set('manager_id', v === NONE_VALUE ? undefined : v)}>
+              <Select value={managerId ?? NONE_VALUE} onValueChange={v => setValue('manager_id', v === NONE_VALUE ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="（無）" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>（無）</SelectItem>
@@ -153,14 +187,17 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>排序</Label><Input type="number" value={form.sort_order ?? 0} onChange={e => set('sort_order', parseInt(e.target.value) || 0)} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => dialogs.close('create')}>取消</Button>
-            <Button onClick={() => createMutation.mutate(form)} disabled={createMutation.isPending || !form.code || !form.name}>
-              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} 新增
-            </Button>
-          </DialogFooter>
+            <div>
+              <Label>排序</Label>
+              <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => dialogs.close('create')}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} 新增
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -168,12 +205,16 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
       <Dialog open={dialogs.isOpen('edit')} onOpenChange={o => !o && dialogs.close('edit')}>
         <DialogContent>
           <DialogHeader><DialogTitle>編輯部門</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>代碼</Label><Input value={form.code} disabled /></div>
-            <div><Label>名稱 *</Label><Input value={form.name} onChange={e => set('name', e.target.value)} /></div>
+          <form onSubmit={onEditSubmit} className="space-y-3">
+            <div><Label>代碼</Label><Input {...register('code')} disabled /></div>
+            <div>
+              <Label>名稱 *</Label>
+              <Input {...register('name')} />
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+            </div>
             <div>
               <Label>上層部門</Label>
-              <Select value={form.parent_id ?? NONE_VALUE} onValueChange={v => set('parent_id', v === NONE_VALUE ? undefined : v)}>
+              <Select value={parentId ?? NONE_VALUE} onValueChange={v => setValue('parent_id', v === NONE_VALUE ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="（無）" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>（無）</SelectItem>
@@ -183,7 +224,7 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
             </div>
             <div>
               <Label>主管</Label>
-              <Select value={form.manager_id ?? NONE_VALUE} onValueChange={v => set('manager_id', v === NONE_VALUE ? undefined : v)}>
+              <Select value={managerId ?? NONE_VALUE} onValueChange={v => setValue('manager_id', v === NONE_VALUE ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="（無）" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>（無）</SelectItem>
@@ -191,14 +232,17 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>排序</Label><Input type="number" value={form.sort_order ?? 0} onChange={e => set('sort_order', parseInt(e.target.value) || 0)} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => dialogs.close('edit')}>取消</Button>
-            <Button onClick={() => editing && updateMutation.mutate({ id: editing.id, data: { name: form.name, parent_id: form.parent_id, manager_id: form.manager_id, sort_order: form.sort_order } })} disabled={updateMutation.isPending || !form.name}>
-              {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} 儲存
-            </Button>
-          </DialogFooter>
+            <div>
+              <Label>排序</Label>
+              <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => dialogs.close('edit')}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} 儲存
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

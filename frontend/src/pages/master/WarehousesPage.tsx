@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import api, { deleteResource, Warehouse } from '@/lib/api'
 import { useDebounce } from '@/hooks/useDebounce'
 import { STALE_TIME } from '@/lib/query'
@@ -26,7 +28,8 @@ import {
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { logger } from '@/lib/logger'
-import { getApiErrorMessage } from '@/lib/validation'
+import { getApiErrorMessage, warehouseFormSchema, type WarehouseFormData } from '@/lib/validation'
+import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Search, Edit, Trash2, Loader2, Warehouse as WarehouseIcon, Upload, Download } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -41,8 +44,9 @@ export function WarehousesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null)
-  const [formData, setFormData] = useState({
-    name: '',
+  const { register, handleSubmit: rhfHandleSubmit, reset, formState: { errors } } = useForm<WarehouseFormData>({
+    resolver: zodResolver(warehouseFormSchema),
+    defaultValues: { name: '', code: '', address: '', description: '', is_active: true },
   })
 
   const { data: warehouses, isLoading } = useQuery({
@@ -60,7 +64,7 @@ export function WarehousesPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => api.post('/warehouses', data),
+    mutationFn: (data: WarehouseFormData) => api.post('/warehouses', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] })
       toast({ title: '成功', description: '倉庫已建立' })
@@ -79,7 +83,7 @@ export function WarehousesPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: typeof formData }) =>
+    mutationFn: ({ id, data }: { id: string; data: WarehouseFormData }) =>
       api.put(`/warehouses/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] })
@@ -112,24 +116,21 @@ export function WarehousesPage() {
   })
 
   const resetForm = () => {
-    setFormData({ name: '' })
+    reset({ name: '', code: '', address: '', description: '', is_active: true })
     setEditingWarehouse(null)
   }
 
   const handleEdit = (warehouse: Warehouse) => {
     setEditingWarehouse(warehouse)
-    setFormData({
-      name: warehouse.name,
-    })
+    reset({ name: warehouse.name, code: '', address: '', description: '', is_active: true })
     setDialogOpen(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const onSubmit = (data: WarehouseFormData) => {
     if (editingWarehouse) {
-      updateMutation.mutate({ id: editingWarehouse.id, data: formData })
+      updateMutation.mutate({ id: editingWarehouse.id, data })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(data)
     }
   }
 
@@ -159,31 +160,31 @@ export function WarehousesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">倉庫管理</h1>
-          <p className="text-muted-foreground">管理系統中的倉庫資料</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            匯入
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCSV}
-            disabled={!warehouses || warehouses.length === 0}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            匯出
-          </Button>
-          <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
-            <Plus className="mr-2 h-4 w-4" />
-            新增倉庫
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="倉庫管理"
+        description="管理系統中的倉庫資料"
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              匯入
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={!warehouses || warehouses.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              匯出
+            </Button>
+            <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
+              <Plus className="mr-2 h-4 w-4" />
+              新增倉庫
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex gap-4">
         <div className="relative flex-1 max-w-sm">
@@ -262,17 +263,19 @@ export function WarehousesPage() {
               {editingWarehouse ? '修改倉庫資料' : '建立新的倉庫'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={rhfHandleSubmit(onSubmit)}>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">名稱</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="col-span-3"
-                  required
-                />
+                <div className="col-span-3 space-y-1">
+                  <Input
+                    id="name"
+                    {...register('name')}
+                  />
+                  {errors.name && (
+                    <p className="text-sm text-destructive">{errors.name.message}</p>
+                  )}
+                </div>
               </div>
             </div>
             <DialogFooter>

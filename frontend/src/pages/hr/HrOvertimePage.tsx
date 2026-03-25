@@ -1,12 +1,12 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle, Clock, Users } from 'lucide-react'
 
-import { useTabState } from '@/hooks/useTabState'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { CreateOvertimeDialog } from './components/CreateOvertimeDialog'
 import { MyOvertimeTabContent } from './components/MyOvertimeTabContent'
 import { PendingApprovalsTabContent } from './components/PendingApprovalsTabContent'
@@ -15,7 +15,6 @@ import { useMyOvertime, usePendingOvertime, useOvertimeMutations } from './hooks
 import type { CreateOvertimeData } from './constants'
 
 export function HrOvertimePage() {
-    const { activeTab, setActiveTab } = useTabState<'my-overtime' | 'pending' | 'all-records'>('my-overtime')
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const { hasRole } = useAuthStore()
 
@@ -48,71 +47,63 @@ export function HrOvertimePage() {
         })
     }
 
+    const [searchParams] = useSearchParams()
+    const activeTab = searchParams.get('tab') ?? 'my-overtime'
+
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">加班管理</h1>
-                    <p className="text-muted-foreground">申請加班與累積補休時數</p>
-                </div>
-                <CreateOvertimeDialog
-                    open={showCreateDialog}
-                    onOpenChange={setShowCreateDialog}
-                    onSubmit={handleCreateOvertime}
-                    isPending={createOvertime.isPending}
-                />
-            </div>
+            <PageHeader
+                title="加班管理"
+                description="申請加班與累積補休時數"
+                actions={
+                    <CreateOvertimeDialog
+                        open={showCreateDialog}
+                        onOpenChange={setShowCreateDialog}
+                        onSubmit={handleCreateOvertime}
+                        isPending={createOvertime.isPending}
+                    />
+                }
+            />
 
-            {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="my-overtime" className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        我的加班
-                    </TabsTrigger>
-                    <TabsTrigger value="approvals" className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        待我審核
-                        {pendingOvertime && pendingOvertime.total > 0 && (
-                            <Badge variant="destructive" className="ml-1">
-                                {pendingOvertime.total}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
-                    {canViewAll && (
-                        <TabsTrigger value="all-records" className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            加班紀錄
-                        </TabsTrigger>
-                    )}
-                </TabsList>
+            <PageTabs
+                tabs={[
+                    { value: 'my-overtime', label: '我的加班', icon: Clock },
+                    { value: 'approvals', label: '待我審核', icon: CheckCircle, badge: pendingOvertime?.total },
+                    { value: 'all-records', label: '加班紀錄', icon: Users, hidden: !canViewAll },
+                ]}
+                defaultTab="my-overtime"
+            >
+                <PageTabContent value="my-overtime" className="space-y-4">
+                    <MyOvertimeTabContent
+                        overtimeData={myOvertime}
+                        isLoading={loadingOvertime}
+                        onSubmit={(id) => submitOvertime.mutate(id)}
+                        onDelete={(id) => deleteOvertime.mutate(id)}
+                        isSubmitting={submitOvertime.isPending}
+                        isDeleting={deleteOvertime.isPending}
+                    />
+                </PageTabContent>
 
-                <MyOvertimeTabContent
-                    overtimeData={myOvertime}
-                    isLoading={loadingOvertime}
-                    onSubmit={(id) => submitOvertime.mutate(id)}
-                    onDelete={(id) => deleteOvertime.mutate(id)}
-                    isSubmitting={submitOvertime.isPending}
-                    isDeleting={deleteOvertime.isPending}
-                />
-
-                <PendingApprovalsTabContent
-                    pendingData={pendingOvertime}
-                    isLoading={loadingPending}
-                    onApprove={(id) => approveOvertime.mutate(id)}
-                    onReject={(id, reason) => rejectOvertime.mutate({ id, reason })}
-                    isApproving={approveOvertime.isPending}
-                    isRejecting={rejectOvertime.isPending}
-                />
+                <PageTabContent value="approvals" className="space-y-4">
+                    <PendingApprovalsTabContent
+                        pendingData={pendingOvertime}
+                        isLoading={loadingPending}
+                        onApprove={(id) => approveOvertime.mutate(id)}
+                        onReject={(id, reason) => rejectOvertime.mutate({ id, reason })}
+                        isApproving={approveOvertime.isPending}
+                        isRejecting={rejectOvertime.isPending}
+                    />
+                </PageTabContent>
 
                 {canViewAll && (
-                    <AllRecordsTabContent
-                        isActive={canViewAll && activeTab === 'all-records'}
-                        staffList={staffList}
-                    />
+                    <PageTabContent value="all-records" className="space-y-4">
+                        <AllRecordsTabContent
+                            isActive={canViewAll && activeTab === 'all-records'}
+                            staffList={staffList}
+                        />
+                    </PageTabContent>
                 )}
-            </Tabs>
+            </PageTabs>
         </div>
     )
 }

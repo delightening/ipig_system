@@ -5,24 +5,18 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
-import { Pencil, Trash2, Loader2, Search, Building2, ArrowUpDown } from 'lucide-react'
+import { StatusBadge } from '@/components/ui/status-badge'
+import type { StatusVariant } from '@/components/ui/status-badge'
+import { FilterBar } from '@/components/ui/filter-bar'
+import { DataTable, type ColumnDef } from '@/components/ui/data-table'
+import { Pencil, Trash2, Building2, ArrowUpDown } from 'lucide-react'
 import api from '@/lib/api'
 
 import type {
@@ -56,11 +50,11 @@ interface EquipmentTabContentProps {
   allCalibrations: CalibrationWithEquipment[]
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-green-100 text-green-800',
-  inactive: 'bg-gray-100 text-gray-800',
-  under_repair: 'bg-yellow-100 text-yellow-800',
-  decommissioned: 'bg-red-100 text-red-800',
+const STATUS_VARIANT: Record<string, StatusVariant> = {
+  active: 'success',
+  inactive: 'neutral',
+  under_repair: 'warning',
+  decommissioned: 'error',
 }
 
 function getLatestCalibrationDate(
@@ -142,16 +136,15 @@ export function EquipmentTabContent({
     }
   }
 
-  const SortableHeader = ({ column, label }: { column: SortKey; label: string }) => (
-    <TableHead
-      className="cursor-pointer select-none hover:bg-muted/50"
+  const sortableHeader = (column: SortKey, label: string) => (
+    <button
+      type="button"
+      className="flex items-center gap-1 cursor-pointer select-none"
       onClick={() => handleSort(column)}
     >
-      <div className="flex items-center gap-1">
-        {label}
-        <ArrowUpDown className={`h-3 w-3 ${sortColumn === column ? 'text-primary' : 'text-muted-foreground'}`} />
-      </div>
-    </TableHead>
+      {label}
+      <ArrowUpDown className={`h-3 w-3 ${sortColumn === column ? 'text-primary' : 'text-muted-foreground'}`} />
+    </button>
   )
 
   const sortedRecords = useMemo(() => {
@@ -192,6 +185,82 @@ export function EquipmentTabContent({
     })
   }, [records, sortColumn, sortDirection, allCalibrations])
 
+  const columns = useMemo<ColumnDef<Equipment>[]>(() => {
+    const cols: ColumnDef<Equipment>[] = [
+      { key: 'name', header: sortableHeader('name', '名稱'), cell: (r) => <span className="font-medium">{r.name}</span> },
+      { key: 'model', header: sortableHeader('model', '型號'), cell: (r) => r.model || '—' },
+      { key: 'serial', header: sortableHeader('serial_number', '序號'), cell: (r) => r.serial_number || '—' },
+      { key: 'location', header: sortableHeader('location', '位置'), cell: (r) => r.location || '—' },
+      {
+        key: 'status', header: '狀態',
+        cell: (r) => (
+          <StatusBadge variant={STATUS_VARIANT[r.status] || 'neutral'}>
+            {EQUIPMENT_STATUS_LABELS[r.status]}
+          </StatusBadge>
+        ),
+      },
+      {
+        key: 'supplier', header: '廠商',
+        cell: (r) => {
+          const names = supplierMap.get(r.id)
+          return names && names.length > 0 ? (
+            <button type="button" className="text-left text-sm text-primary hover:underline" onClick={() => handleShowSuppliers(r.id)}>
+              {names.join('、')}
+            </button>
+          ) : <span className="text-muted-foreground">—</span>
+        },
+      },
+      {
+        key: 'calDue', header: sortableHeader('calibration_due', '校正/確效到期'),
+        cell: (r) => {
+          const calType = r.calibration_type
+          const calInfo = calType && calType !== 'inspection'
+            ? getLatestCalibrationDate(r.id, calType, allCalibrations)
+            : { nextDue: null, isOverdue: false }
+          if (!calInfo.nextDue) return <span className="text-muted-foreground">—</span>
+          return (
+            <span className={calInfo.isOverdue ? 'text-destructive font-semibold' : ''}>
+              {calType ? CALIBRATION_TYPE_LABELS[calType] : ''} {calInfo.nextDue}
+              {calInfo.isOverdue && ' (逾期)'}
+            </span>
+          )
+        },
+      },
+      {
+        key: 'inspDue', header: sortableHeader('inspection_due', '查核到期'),
+        cell: (r) => {
+          const inspInfo = r.inspection_cycle
+            ? getLatestCalibrationDate(r.id, 'inspection', allCalibrations)
+            : { nextDue: null, isOverdue: false }
+          if (!inspInfo.nextDue) return <span className="text-muted-foreground">—</span>
+          return (
+            <span className={inspInfo.isOverdue ? 'text-destructive font-semibold' : ''}>
+              {inspInfo.nextDue}
+              {inspInfo.isOverdue && ' (逾期)'}
+            </span>
+          )
+        },
+      },
+    ]
+    if (canManage) {
+      cols.push({
+        key: 'actions', header: '操作', className: 'w-[100px] text-right',
+        cell: (r) => (
+          <div className="flex items-center justify-end gap-1">
+            <Button variant="ghost" size="icon" onClick={() => onEdit(r)} aria-label="編輯">
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => onDelete(r.id, r.name)} aria-label="刪除">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+      })
+    }
+    return cols
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage, sortColumn, sortDirection, supplierMap, allCalibrations, onEdit, onDelete])
+
   return (
     <>
       <Card>
@@ -200,140 +269,22 @@ export function EquipmentTabContent({
           <CardDescription>管理實驗室設備，搜尋並維護設備基本資料</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="搜尋設備名稱或型號..."
-              value={keyword}
-              onChange={(e) => onKeywordChange(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          <div className="rounded-md border">
-            {isLoading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : records.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground">尚無設備</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <SortableHeader column="name" label="名稱" />
-                    <SortableHeader column="model" label="型號" />
-                    <SortableHeader column="serial_number" label="序號" />
-                    <SortableHeader column="location" label="位置" />
-                    <TableHead>狀態</TableHead>
-                    <TableHead>廠商</TableHead>
-                    <SortableHeader column="calibration_due" label="校正/確效到期" />
-                    <SortableHeader column="inspection_due" label="查核到期" />
-                    {canManage && <TableHead className="w-[100px] text-right">操作</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedRecords.map((r) => {
-                    const calType = r.calibration_type
-                    const calInfo = calType && calType !== 'inspection'
-                      ? getLatestCalibrationDate(r.id, calType, allCalibrations)
-                      : { nextDue: null, isOverdue: false }
-                    const inspInfo = r.inspection_cycle
-                      ? getLatestCalibrationDate(r.id, 'inspection', allCalibrations)
-                      : { nextDue: null, isOverdue: false }
-                    const names = supplierMap.get(r.id)
-
-                    return (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-medium">{r.name}</TableCell>
-                        <TableCell>{r.model || '—'}</TableCell>
-                        <TableCell>{r.serial_number || '—'}</TableCell>
-                        <TableCell>{r.location || '—'}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={STATUS_COLORS[r.status] || ''}>
-                            {EQUIPMENT_STATUS_LABELS[r.status]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {names && names.length > 0 ? (
-                            <button
-                              type="button"
-                              className="text-left text-sm text-primary hover:underline"
-                              onClick={() => handleShowSuppliers(r.id)}
-                            >
-                              {names.join('、')}
-                            </button>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {calInfo.nextDue ? (
-                            <span className={calInfo.isOverdue ? 'text-red-600 font-semibold' : ''}>
-                              {calType ? CALIBRATION_TYPE_LABELS[calType] : ''}{' '}
-                              {calInfo.nextDue}
-                              {calInfo.isOverdue && ' (逾期)'}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {inspInfo.nextDue ? (
-                            <span className={inspInfo.isOverdue ? 'text-red-600 font-semibold' : ''}>
-                              {inspInfo.nextDue}
-                              {inspInfo.isOverdue && ' (逾期)'}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        {canManage && (
-                          <TableCell>
-                            <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => onEdit(r)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => onDelete(r.id, r.name)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => onPageChange(page - 1)}
-              >
-                上一頁
-              </Button>
-              <span className="flex items-center px-4 text-sm text-muted-foreground">
-                第 {page} / {totalPages} 頁
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => onPageChange(page + 1)}
-              >
-                下一頁
-              </Button>
-            </div>
-          )}
+          <FilterBar
+            search={keyword}
+            onSearchChange={onKeywordChange}
+            searchPlaceholder="搜尋設備名稱或型號..."
+          />
+          <DataTable
+            columns={columns}
+            data={sortedRecords}
+            isLoading={isLoading}
+            emptyIcon={Building2}
+            emptyTitle="尚無設備"
+            rowKey={(r) => r.id}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+          />
         </CardContent>
       </Card>
 

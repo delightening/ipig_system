@@ -140,7 +140,7 @@ export function ProfitLossTab({
           <div className="rounded-md border p-4 bg-muted/30">
             <div className="flex items-center justify-between text-lg font-bold">
               <span>淨利（損）</span>
-              <span className={Number(profitLoss.net_income) >= 0 ? 'text-green-600' : 'text-red-600'}>
+              <span className={Number(profitLoss.net_income) >= 0 ? 'text-status-success-text' : 'text-destructive'}>
                 ${formatNumber(Number(profitLoss.net_income), 2)}
               </span>
             </div>

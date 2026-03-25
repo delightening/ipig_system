@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import { createElement } from 'react'
 
+export type SubsystemKey = 'aup' | 'erp' | 'animal' | 'hr' | 'admin' | null
+
 export interface NavItem {
   title: string
   href?: string
@@ -18,13 +20,16 @@ export interface NavItem {
   permission?: string
   badge?: number
   translate?: boolean
+  /** 子系統色相識別，用於 Sidebar active indicator */
+  subsystem?: SubsystemKey
 }
 
 export interface NavChildItem {
   title: string
-  href: string
+  href?: string
   permission?: string
   translate?: boolean
+  children?: NavChildItem[]
 }
 
 const icon = (Icon: React.ComponentType<{ className?: string }>) =>
@@ -66,6 +71,7 @@ export const navItemsConfig: NavItem[] = [
     title: 'aupReview',
     icon: icon(FileText),
     translate: true,
+    subsystem: 'aup',
     children: [
       { title: 'protocolManagement', href: '/protocols', translate: true },
       { title: 'newProtocol', href: '/protocols/new', translate: true },
@@ -76,6 +82,7 @@ export const navItemsConfig: NavItem[] = [
     title: '人員管理',
     icon: icon(Users),
     translate: false,
+    subsystem: 'hr',
     children: [
       { title: '出勤打卡', href: '/hr/attendance', translate: false },
       { title: '請假管理', href: '/hr/leaves', translate: false },
@@ -89,6 +96,7 @@ export const navItemsConfig: NavItem[] = [
     title: 'animalManagement',
     icon: icon(Stethoscope),
     translate: true,
+    subsystem: 'animal',
     children: [
       { title: 'animalList', href: '/animals', translate: true },
       { title: '血檢分析', href: '/blood-test-analysis', translate: false },
@@ -102,19 +110,29 @@ export const navItemsConfig: NavItem[] = [
     icon: icon(Package),
     translate: false,
     permission: 'erp',
+    subsystem: 'erp',
     children: [
-      { title: '產品管理', href: '/erp?tab=products', translate: false },
-      { title: '單據管理', href: '/erp?tab=documents', translate: false },
-      { title: '倉儲作業', href: '/erp?tab=warehouse', translate: false },
-      { title: '設備維護', href: '/erp?tab=equipment', permission: 'equipment.view', translate: false },
-      { title: '報表中心', href: '/erp?tab=reports', translate: false },
-      { title: '供應商／客戶', href: '/erp?tab=partners', translate: false },
+      { title: '產品管理', href: '/products', translate: false },
+      { title: '單據管理', href: '/documents', translate: false },
+      {
+        title: '倉儲作業',
+        translate: false,
+        children: [
+          { title: '倉庫', href: '/warehouses', translate: false },
+          { title: '庫存查詢', href: '/inventory', translate: false },
+          { title: '庫存流水', href: '/inventory/ledger', translate: false },
+        ],
+      },
+      { title: '設備維護', href: '/equipment', permission: 'equipment.view', translate: false },
+      { title: '供應商／客戶', href: '/partners', translate: false },
+      { title: '報表中心', href: '/erp/reports', permission: 'admin', translate: false },
     ],
   },
   {
     title: '系統管理',
     icon: icon(Settings),
     translate: false,
+    subsystem: 'admin',
     children: [
       { title: '使用者管理', href: '/admin/users', translate: false },
       { title: '角色權限', href: '/admin/roles', translate: false },

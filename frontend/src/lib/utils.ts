@@ -8,12 +8,13 @@ export function cn(...inputs: ClassValue[]) {
 /** 系統統一使用台灣時間 (Asia/Taipei) 顯示，可供元件內聯日期格式使用 */
 export const TAIWAN_TIMEZONE = 'Asia/Taipei'
 
-export function formatDate(date: string | Date) {
+export function formatDate(date: string | Date, options?: { weekday?: boolean }) {
   return new Date(date).toLocaleDateString('zh-TW', {
     timeZone: TAIWAN_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    ...(options?.weekday && { weekday: 'long' as const }),
   })
 }
 
@@ -43,6 +44,11 @@ export function formatCurrency(num: number | string) {
     currency: 'TWD',
     minimumFractionDigits: 0,
   })
+}
+
+export function truncateText(text: string | null, maxLength: number): string {
+  if (!text) return ''
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength)}...`
 }
 
 export function formatFileSize(bytes: number) {
@@ -115,6 +121,12 @@ export const UOM_MAP: Record<string, string> = {
  */
 export function formatUom(uom: string): string {
   return UOM_MAP[uom] || uom
+}
+
+export function sanitizeDecimalInput(value: string): string {
+  const numericValue = value.replace(/[^\d.]/g, '')
+  const parts = numericValue.split('.')
+  return parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue
 }
 
 export function parseDecimal(value: string | number | null | undefined): number {

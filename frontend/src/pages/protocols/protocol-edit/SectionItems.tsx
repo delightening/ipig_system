@@ -67,11 +67,12 @@ export function SectionItems({ formData, updateWorkingContent, setFormData: _set
                 </Button>
               </div>
               {formData.working_content.items.test_items.map((item, index) => (
-                <div key={index} className="grid gap-4 p-4 border rounded relative bg-slate-50">
+                <div key={index} className="grid gap-4 p-4 border rounded relative bg-muted">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                    className="absolute right-2 top-2 h-6 w-6 text-destructive"
+                    aria-label="刪除"
                     onClick={() => {
                       const newItems = [...formData.working_content.items.test_items]
                       newItems.splice(index, 1)
@@ -206,11 +207,12 @@ export function SectionItems({ formData, updateWorkingContent, setFormData: _set
                 </Button>
               </div>
               {formData.working_content.items.control_items.map((item, index) => (
-                <div key={index} className="grid gap-4 p-4 border rounded relative bg-slate-50">
+                <div key={index} className="grid gap-4 p-4 border rounded relative bg-muted">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                    className="absolute right-2 top-2 h-6 w-6 text-destructive"
+                    aria-label="刪除"
                     onClick={() => {
                       const newControls = [...formData.working_content.items.control_items]
                       newControls.splice(index, 1)

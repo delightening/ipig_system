@@ -31,7 +31,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-slate-100">
+                  <tr className="bg-muted">
                     <th className="border p-2 text-center text-sm font-semibold w-16">{t('aup.personnel.table.num')}</th>
                     <th className="border p-2 text-center text-sm font-semibold w-24">{t('aup.personnel.table.name')}</th>
                     <th className="border p-2 text-center text-sm font-semibold w-24">{t('aup.personnel.table.position')}</th>
@@ -43,7 +43,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                 </thead>
                 <tbody>
                   {(formData.working_content.personnel || []).map((person: ProtocolPerson, index: number) => (
-                    <tr key={index} className="hover:bg-slate-50">
+                    <tr key={index} className="hover:bg-muted">
                       <td className="border p-2 w-8">
                         <div className="px-2 py-1 text-center font-medium">
                           {index + 1}
@@ -97,7 +97,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                           </div>
                           {/* Show explanation for F. Other */}
                           {(person.trainings || []).includes('F') && person.trainings_other_text && (
-                            <div className="space-y-1 pl-4 border-l-2 border-slate-200">
+                            <div className="space-y-1 pl-4 border-l-2 border-border">
                               <div className="text-xs font-semibold truncate">F:</div>
                               <div className="text-xs text-muted-foreground truncate">
                                 {person.trainings_other_text}
@@ -109,7 +109,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                             const certificates = (person.training_certificates || []).filter((cert: { training_code?: string }) => cert.training_code === trainingCode)
                             if (certificates.length === 0) return null
                             return (
-                              <div key={trainingCode} className="space-y-1 pl-4 border-l-2 border-slate-200">
+                              <div key={trainingCode} className="space-y-1 pl-4 border-l-2 border-border">
                                 <div className="text-xs font-semibold whitespace-nowrap truncate">{trainingCode}:</div>
                                 {certificates.map((cert: { training_code: string; certificate_no: string }, certIndex: number) => (
                                   <div key={certIndex} className="text-xs text-muted-foreground whitespace-nowrap truncate">
@@ -126,7 +126,8 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-red-500"
+                          className="h-8 w-8 text-destructive"
+                          aria-label="刪除"
                           onClick={() => {
                             const newPersonnel = [...formData.working_content.personnel]
                             newPersonnel.splice(index, 1)
@@ -155,7 +156,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
               </table>
             </div>
           </div>
-          <div className="mt-4 p-4 bg-slate-50 rounded-md">
+          <div className="mt-4 p-4 bg-muted rounded-md">
             <p className="text-sm font-semibold mb-2">{t('aup.personnel.roles.title')}</p>
             <p className="text-xs text-muted-foreground">
               {t('aup.personnel.roles.list')}

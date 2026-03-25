@@ -99,7 +99,7 @@ export function InventorySettingsCard({ formData, setFormData, disabled }: Inven
           <div className="space-y-2">
             <Label>補貨提醒點</Label>
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-slate-500">當庫存低於</span>
+              <span className="text-sm text-muted-foreground">當庫存低於</span>
               <Input
                 type="number"
                 min={0}
@@ -116,7 +116,7 @@ export function InventorySettingsCard({ formData, setFormData, disabled }: Inven
                 includeBase
                 className="w-40"
               />
-              <span className="text-sm text-slate-500">時，發送補貨提醒</span>
+              <span className="text-sm text-muted-foreground">時，發送補貨提醒</span>
             </div>
           </div>
         </div>

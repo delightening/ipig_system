@@ -178,19 +178,19 @@ function DataTable({ data }: { data: BloodTestAnalysisRow[] }) {
             </TableHeader>
             <TableBody>
               {data.slice(0, 200).map((r, idx) => (
-                <TableRow key={idx} className={r.is_abnormal ? 'bg-red-50/50 dark:bg-red-950/20' : ''}>
+                <TableRow key={idx} className={r.is_abnormal ? 'bg-status-error-bg dark:bg-destructive/10' : ''}>
                   <TableCell className="font-medium">{r.ear_tag}</TableCell>
                   <TableCell className="font-mono text-sm">{r.iacuc_no || '-'}</TableCell>
                   <TableCell>{formatDate(r.test_date)}</TableCell>
                   <TableCell>{r.lab_name || '-'}</TableCell>
                   <TableCell>{r.item_name}</TableCell>
-                  <TableCell className={`text-right ${r.is_abnormal ? 'font-semibold text-red-600 dark:text-red-400' : ''}`}>
+                  <TableCell className={`text-right ${r.is_abnormal ? 'font-semibold text-destructive' : ''}`}>
                     {r.result_value || '-'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{r.result_unit || '-'}</TableCell>
                   <TableCell className="text-muted-foreground">{r.reference_range || '-'}</TableCell>
                   <TableCell className="text-center">
-                    {r.is_abnormal && <AlertTriangle className="h-4 w-4 text-red-500 inline" />}
+                    {r.is_abnormal && <AlertTriangle className="h-4 w-4 text-destructive inline" />}
                   </TableCell>
                 </TableRow>
               ))}

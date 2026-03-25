@@ -78,7 +78,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
               <div className="space-y-4">
                 <div className="space-y-2">
                   <h3 className="font-semibold">{t('aup.surgery.labels.surgeryType')}</h3>
-                  <Input value={t('common.na')} disabled />
+                  <Input value={t('common.na')} disabled aria-label={t('aup.surgery.labels.surgeryType')} />
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-semibold">{t('aup.surgery.labels.preop_Preparation')}</h3>
@@ -86,7 +86,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-semibold">{t('aup.surgery.labels.asepticTechniques')}</h3>
-                  <Input value={t('common.na')} disabled />
+                  <Input value={t('common.na')} disabled aria-label={t('aup.surgery.labels.asepticTechniques')} />
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-semibold">{t('aup.surgery.labels.surgeryDescription')}</h3>
@@ -102,14 +102,14 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-semibold">{t('aup.surgery.labels.multipleSurgeries')}</h3>
-                  <Input value={t('common.na')} disabled />
+                  <Input value={t('common.na')} disabled aria-label={t('aup.surgery.labels.multipleSurgeries')} />
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-semibold">{t('aup.surgery.labels.postopCare')}</h3>
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>{t('aup.surgery.labels.postopCareType')}</Label>
-                      <Input value={t('common.na')} disabled />
+                      <Input value={t('common.na')} disabled aria-label={t('aup.surgery.labels.postopCareType')} />
                     </div>
                     <div className="space-y-2">
                       <Label>{t('aup.surgery.labels.postopCareDetail')}</Label>
@@ -123,7 +123,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-semibold">{t('aup.surgery.labels.drugInfo')}</h3>
-                  <Input value={t('common.na')} disabled />
+                  <Input value={t('common.na')} disabled aria-label={t('aup.surgery.labels.drugInfo')} />
                 </div>
               </div>
             )
@@ -139,7 +139,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                     formData.working_content.surgery.surgery_type === 'non_survival' ? t('aup.surgery.types.non_survival') :
                       formData.working_content.surgery.surgery_type || ''}
                   disabled
-                  className="bg-slate-50"
+                  className="bg-muted"
                 />
               </div>
               <div className="space-y-2">
@@ -228,7 +228,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                     </SelectContent>
                   </Select>
                   {formData.working_content.surgery.multiple_surgeries.used && (
-                    <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+                    <div className="space-y-4 pl-6 border-l-2 border-border">
                       <div className="space-y-2">
                         <Label>{t('aup.items.amount')} *</Label>
                         <Input
@@ -320,7 +320,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                       <thead>
-                        <tr className="bg-slate-100">
+                        <tr className="bg-muted">
                           <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.name')}</th>
                           <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.dose')}</th>
                           <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.route')}</th>
@@ -331,7 +331,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                       </thead>
                       <tbody>
                         {(formData.working_content.surgery.drugs || []).map((drug: ProtocolSurgeryDrugItem, index: number) => (
-                          <tr key={index} className="hover:bg-slate-50">
+                          <tr key={index} className="hover:bg-muted">
                             <td className="border p-2">
                               <Input
                                 value={drug.drug_name || ''}
@@ -397,7 +397,8 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-red-500"
+                                className="h-8 w-8 text-destructive"
+                                aria-label="刪除"
                                 onClick={() => {
                                   const newDrugs = [...formData.working_content.surgery.drugs]
                                   newDrugs.splice(index, 1)

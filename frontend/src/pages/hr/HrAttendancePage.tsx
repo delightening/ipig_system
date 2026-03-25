@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     Calendar,
@@ -14,7 +15,10 @@ import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { Badge } from '@/components/ui/badge'
 import {
     Table,
     TableBody,
@@ -23,7 +27,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { Label } from '@/components/ui/label'
 import {
     Select,
@@ -34,14 +38,16 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/use-toast'
-import { formatTime } from '@/lib/utils'
+import { formatDate, formatTime } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { AxiosError } from 'axios'
 import type { AttendanceWithUser, StaffInfo } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 
 export function HrAttendancePage() {
-    const [activeTab, setActiveTab] = useState('today')
+    const [searchParams] = useSearchParams()
+    const activeTab = searchParams.get('tab') ?? 'today'
     const [dateFrom, setDateFrom] = useState('')
     const [dateTo, setDateTo] = useState('')
     const [viewAll, setViewAll] = useState(false)
@@ -213,10 +219,6 @@ export function HrAttendancePage() {
         },
     })
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' })
-    }
-
     const formatHours = (hours: number | string | null) => {
         if (hours === null || hours === undefined) return '-'
         const numHours = typeof hours === 'string' ? parseFloat(hours) : hours
@@ -227,41 +229,34 @@ export function HrAttendancePage() {
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'normal':
-                return <Badge className="bg-green-500">正常</Badge>
+                return <StatusBadge variant="success">正常</StatusBadge>
             case 'late':
-                return <Badge variant="destructive">遲到</Badge>
+                return <StatusBadge variant="error">遲到</StatusBadge>
             case 'early_leave':
-                return <Badge className="bg-orange-500">早退</Badge>
+                return <StatusBadge variant="warning">早退</StatusBadge>
             case 'absent':
-                return <Badge variant="destructive">缺勤</Badge>
+                return <StatusBadge variant="error">缺勤</StatusBadge>
             default:
-                return <Badge variant="secondary">{status}</Badge>
+                return <StatusBadge variant="neutral">{status}</StatusBadge>
         }
     }
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">出勤管理</h1>
-                    <p className="text-muted-foreground">打卡與出勤記錄</p>
-                </div>
-            </div>
+            <PageHeader
+                title="出勤管理"
+                description="打卡與出勤記錄"
+            />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="today" className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        今日打卡
-                    </TabsTrigger>
-                    <TabsTrigger value="history" className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        出勤記錄
-                    </TabsTrigger>
-                </TabsList>
-
+            <PageTabs
+                tabs={[
+                    { value: 'today', label: '今日打卡', icon: Clock },
+                    { value: 'history', label: '出勤記錄', icon: Calendar },
+                ]}
+                defaultTab="today"
+            >
                 {/* 今日打卡 */}
-                <TabsContent value="today" className="space-y-4">
+                <PageTabContent value="today" className="space-y-4">
                     <Card>
                         <CardHeader>
                             <CardTitle>{new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' })}</CardTitle>
@@ -272,7 +267,7 @@ export function HrAttendancePage() {
                                 <Card>
                                     <CardContent className="pt-6">
                                         <div className="text-center space-y-4">
-                                            <LogIn className="h-12 w-12 mx-auto text-green-500" />
+                                            <LogIn className="h-12 w-12 mx-auto text-status-success-text" />
                                             <div>
                                                 <div className="text-sm text-muted-foreground">上班打卡</div>
                                                 <div className="text-3xl font-bold">
@@ -297,7 +292,7 @@ export function HrAttendancePage() {
                                 <Card>
                                     <CardContent className="pt-6">
                                         <div className="text-center space-y-4">
-                                            <LogOut className="h-12 w-12 mx-auto text-red-500" />
+                                            <LogOut className="h-12 w-12 mx-auto text-status-error-text" />
                                             <div>
                                                 <div className="text-sm text-muted-foreground">下班打卡</div>
                                                 <div className="text-3xl font-bold">
@@ -347,10 +342,10 @@ export function HrAttendancePage() {
                             )}
                         </CardContent>
                     </Card>
-                </TabsContent>
+                </PageTabContent>
 
                 {/* 出勤記錄 */}
-                <TabsContent value="history" className="space-y-4">
+                <PageTabContent value="history" className="space-y-4">
                     <div className="flex flex-wrap items-end gap-4">
                         <div className="flex flex-col gap-2">
                             <Label>開始日期</Label>
@@ -436,21 +431,17 @@ export function HrAttendancePage() {
                             <TableBody>
                                 {loadingHistory ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center py-8">
-                                            載入中...
+                                        <TableCell colSpan={8} className="p-0">
+                                            <TableSkeleton rows={5} cols={8} />
                                         </TableCell>
                                     </TableRow>
                                 ) : attendanceHistory?.data?.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                                            沒有出勤記錄
-                                        </TableCell>
-                                    </TableRow>
+                                    <TableEmptyRow colSpan={8} icon={Clock} title="沒有出勤記錄" />
                                 ) : (
                                     attendanceHistory?.data?.map((record) => (
                                         <TableRow key={record.id}>
                                             <TableCell className="whitespace-nowrap">
-                                                {formatDate(record.work_date)}
+                                                {formatDate(record.work_date, { weekday: true })}
                                             </TableCell>
                                             <TableCell className="font-medium">
                                                 {record.user_name}
@@ -474,8 +465,8 @@ export function HrAttendancePage() {
                             </TableBody>
                         </Table>
                     </Card>
-                </TabsContent>
-            </Tabs>
+                </PageTabContent>
+            </PageTabs>
         </div>
     )
 }

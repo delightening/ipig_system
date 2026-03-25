@@ -19,7 +19,6 @@ interface AnimalFiltersProps {
   search: string
   onSearchChange: (value: string) => void
   onSearchSubmit?: () => void
-  allowedStatuses: string[]
   adminOnlyStatuses: string[]
   isPIOrClient: boolean
   isAdmin: boolean
@@ -38,7 +37,6 @@ export function AnimalFilters({
   search,
   onSearchChange,
   onSearchSubmit,
-  allowedStatuses: _allowedStatuses, // intentionally unused
   adminOnlyStatuses,
   isPIOrClient,
   isAdmin,
@@ -77,8 +75,8 @@ export function AnimalFilters({
             onClick={() => onStatusFilterChange(tab.value)}
             className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
               statusFilter === tab.value
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {'icon' in tab && tab.icon}
@@ -93,7 +91,7 @@ export function AnimalFilters({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
             <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 flex-1">
               <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder={t('animals.searchPlaceholder')}
                   aria-label={t('animals.searchPlaceholder')}
@@ -123,7 +121,7 @@ export function AnimalFilters({
 
             {selectedAnimalsCount > 0 && (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-500">
+                <span className="text-sm text-muted-foreground">
                   {t('animals.selectedCount', { count: selectedAnimalsCount })}
                 </span>
                 {statusFilter === 'unassigned' && (

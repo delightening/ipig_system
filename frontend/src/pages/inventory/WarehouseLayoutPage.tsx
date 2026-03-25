@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, {
     Warehouse,
     StorageLocationWithWarehouse,
@@ -9,6 +12,7 @@ import api, {
     UpdateStorageLocationInventoryItemRequest,
     UnassignedInventoryItem,
 } from '@/lib/api'
+import { storageLocationSchema, type StorageLocationFormData } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
 import {
     Dialog,
@@ -48,14 +52,7 @@ const DEFAULT_COLORS: Record<StorageLocationType, string> = {
     window: '#bae6fd',
 }
 
-interface FormData {
-    name: string
-    location_type: StorageLocationType
-    capacity: string
-    color: string
-}
-
-const initialFormData: FormData = {
+const initialFormValues: StorageLocationFormData = {
     name: '',
     location_type: 'shelf',
     capacity: '',
@@ -63,6 +60,7 @@ const initialFormData: FormData = {
 }
 
 export function WarehouseLayoutPage() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { hasPermission } = useAuthStore()
     const { dialogState, confirm } = useConfirmDialog()
@@ -72,7 +70,21 @@ export function WarehouseLayoutPage() {
     const [isEditMode, setIsEditMode] = useState(false)
     const [showDialog, setShowDialog] = useState(false)
     const [editingLocation, setEditingLocation] = useState<StorageLocationWithWarehouse | null>(null)
-    const [formData, setFormData] = useState<FormData>(initialFormData)
+
+    const {
+        register: registerLoc,
+        handleSubmit: handleLocSubmit,
+        watch: watchLoc,
+        setValue: setLocValue,
+        reset: resetLoc,
+        formState: { errors: locErrors },
+    } = useForm<StorageLocationFormData>({
+        resolver: zodResolver(storageLocationSchema),
+        defaultValues: initialFormValues,
+    })
+
+    const locationType = watchLoc('location_type')
+    const locColor = watchLoc('color')
     const [pendingLayoutChanges, setPendingLayoutChanges] = useState<StorageLayoutItem[]>([])
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const [editingInventory, setEditingInventory] = useState<Record<string, string>>({})
@@ -136,7 +148,7 @@ export function WarehouseLayoutPage() {
 
     // Mutations
     const createMutation = useMutation({
-        mutationFn: async (data: typeof formData) => {
+        mutationFn: async (data: StorageLocationFormData) => {
             return api.post('/storage-locations', {
                 warehouse_id: selectedWarehouseId,
                 name: data.name,
@@ -157,7 +169,7 @@ export function WarehouseLayoutPage() {
     })
 
     const updateMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+        mutationFn: async ({ id, data }: { id: string; data: StorageLocationFormData }) => {
             return api.put(`/storage-locations/${id}`, {
                 name: data.name,
                 location_type: data.location_type,
@@ -200,13 +212,13 @@ export function WarehouseLayoutPage() {
     // Event Handlers
     const handleAddLocation = () => {
         setEditingLocation(null)
-        setFormData(initialFormData)
+        resetLoc(initialFormValues)
         setShowDialog(true)
     }
 
     const handleEditLocation = (loc: StorageLocationWithWarehouse) => {
         setEditingLocation(loc)
-        setFormData({
+        resetLoc({
             name: loc.name || loc.code,
             location_type: loc.location_type,
             capacity: loc.capacity?.toString() || '',
@@ -303,34 +315,34 @@ export function WarehouseLayoutPage() {
                         <DialogTitle>{editingLocation ? '編輯項目' : '新增項目'}</DialogTitle>
                         <DialogDescription>建立儲位或是牆壁、門、窗等建築結構</DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={(e) => {
-                        e.preventDefault()
+                    <form onSubmit={handleLocSubmit((data) => {
                         if (editingLocation) {
-                            updateMutation.mutate({ id: editingLocation.id, data: formData })
+                            updateMutation.mutate({ id: editingLocation.id, data })
                         } else {
-                            createMutation.mutate(formData)
+                            createMutation.mutate(data)
                         }
-                    }}>
+                    })}>
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="loc-name" className="text-right">名稱 *</Label>
-                                <Input
-                                    id="loc-name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="col-span-3"
-                                    required
-                                />
+                                <div className="col-span-3">
+                                    <Input
+                                        id="loc-name"
+                                        {...registerLoc('name')}
+                                    />
+                                    {locErrors.name && (
+                                        <p className="text-sm text-destructive mt-1">{locErrors.name.message}</p>
+                                    )}
+                                </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="loc-type" className="text-right">類型</Label>
                                 <Select
-                                    value={formData.location_type}
-                                    onValueChange={(v: StorageLocationType) => setFormData({
-                                        ...formData,
-                                        location_type: v,
-                                        color: DEFAULT_COLORS[v]
-                                    })}
+                                    value={locationType}
+                                    onValueChange={(v: StorageLocationType) => {
+                                        setLocValue('location_type', v)
+                                        setLocValue('color', DEFAULT_COLORS[v])
+                                    }}
                                 >
                                     <SelectTrigger className="col-span-3">
                                         <SelectValue />
@@ -346,14 +358,13 @@ export function WarehouseLayoutPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            {['shelf', 'rack', 'zone', 'bin'].includes(formData.location_type) && (
+                            {['shelf', 'rack', 'zone', 'bin'].includes(locationType) && (
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="loc-capacity" className="text-right">容量</Label>
                                     <Input
                                         id="loc-capacity"
                                         type="number"
-                                        value={formData.capacity}
-                                        onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+                                        {...registerLoc('capacity')}
                                         className="col-span-3"
                                     />
                                 </div>
@@ -363,20 +374,19 @@ export function WarehouseLayoutPage() {
                                 <div className="col-span-3 flex gap-2">
                                     <input
                                         type="color"
-                                        value={formData.color}
-                                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                                        value={locColor}
+                                        onChange={(e) => setLocValue('color', e.target.value)}
                                         className="h-10 w-14 rounded border cursor-pointer"
                                     />
                                     <Input
-                                        value={formData.color}
-                                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                                        {...registerLoc('color')}
                                         className="flex-1"
                                     />
                                 </div>
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>取消</Button>
+                            <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>{t('common.cancel')}</Button>
                             <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
                                 {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                                 確認

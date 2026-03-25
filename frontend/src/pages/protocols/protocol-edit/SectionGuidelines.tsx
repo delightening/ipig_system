@@ -151,7 +151,8 @@ export function SectionGuidelines({ formData, updateWorkingContent, setFormData:
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-red-500 mt-1"
+                  className="h-8 w-8 text-destructive mt-1"
+                  aria-label="刪除"
                   onClick={() => {
                     const newRefs = [...formData.working_content.guidelines.references]
                     newRefs.splice(index, 1)

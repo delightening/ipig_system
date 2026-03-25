@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 import { OVERTIME_STATUS_NAMES } from '../constants'
 
@@ -7,18 +7,18 @@ export function OvertimeStatusBadge({ status }: { status: string }) {
     const statusName = OVERTIME_STATUS_NAMES[status] || status
     switch (status) {
         case 'approved':
-            return <Badge className="bg-green-500">{statusName}</Badge>
+            return <StatusBadge variant="success">{statusName}</StatusBadge>
         case 'rejected':
-            return <Badge variant="destructive">{statusName}</Badge>
+            return <StatusBadge variant="error">{statusName}</StatusBadge>
         case 'cancelled':
-            return <Badge variant="secondary">{statusName}</Badge>
+            return <StatusBadge variant="neutral">{statusName}</StatusBadge>
         case 'draft':
-            return <Badge variant="outline">{statusName}</Badge>
+            return <StatusBadge variant="info">{statusName}</StatusBadge>
         case 'pending_admin_staff':
-            return <Badge className="bg-yellow-500">{statusName}</Badge>
+            return <StatusBadge variant="warning">{statusName}</StatusBadge>
         case 'pending_admin':
-            return <Badge className="bg-orange-500">{statusName}</Badge>
+            return <StatusBadge variant="warning">{statusName}</StatusBadge>
         default:
-            return <Badge>{statusName}</Badge>
+            return <StatusBadge variant="neutral">{statusName}</StatusBadge>
     }
 }

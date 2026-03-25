@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { animalFieldCorrectionApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -116,12 +117,10 @@ export function AnimalFieldCorrectionsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">修正審核</h1>
-        <p className="text-slate-500 mt-1">
-          耳號、出生日期、性別、品種等欄位建立後不可直接修改，需經管理員批准後才能套用修正。
-        </p>
-      </div>
+      <PageHeader
+        title="修正審核"
+        description="耳號、出生日期、性別、品種等欄位建立後不可直接修改，需經管理員批准後才能套用修正。"
+      />
 
       <Card>
         <CardHeader>
@@ -160,7 +159,7 @@ export function AnimalFieldCorrectionsPage() {
                     <TableCell>
                       <Link
                         to={`/animals/${r.animal_id}`}
-                        className="text-purple-600 hover:underline font-medium"
+                        className="text-primary hover:underline font-medium"
                       >
                         {r.animal_ear_tag || '-'}
                       </Link>
@@ -177,7 +176,7 @@ export function AnimalFieldCorrectionsPage() {
                       <div className="flex justify-end gap-2">
                         <Button
                           size="sm"
-                          className="bg-green-600 hover:bg-green-700"
+                          className="bg-status-success-text hover:bg-status-success-text/90"
                           onClick={() => approveMutation.mutate(r.id)}
                           disabled={approveMutation.isPending}
                         >

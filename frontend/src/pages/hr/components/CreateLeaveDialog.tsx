@@ -48,6 +48,7 @@ export function CreateLeaveDialog({
     isPending,
 }: CreateLeaveDialogProps) {
     const isAnnualLeave = leaveForm.isAnnualLeave
+    const errors = leaveForm.rhf?.formState?.errors
 
     const uploadMutation = useMutation({
         mutationFn: async (files: FileList) => {
@@ -55,9 +56,7 @@ export function CreateLeaveDialog({
             for (let i = 0; i < files.length; i++) {
                 formData.append('files', files[i])
             }
-            const res = await api.post<{ id: string; file_path: string }[]>('/hr/leaves/attachments', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            })
+            const res = await api.post<{ id: string; file_path: string }[]>('/hr/leaves/attachments', formData)
             return res.data
         },
         onSuccess: (data) => {
@@ -115,6 +114,9 @@ export function CreateLeaveDialog({
                                 ))}
                             </SelectContent>
                         </Select>
+                        {errors?.leaveType && (
+                            <p className="text-sm text-destructive">{errors.leaveType.message}</p>
+                        )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
@@ -143,6 +145,9 @@ export function CreateLeaveDialog({
                             value={leaveForm.form.totalHours}
                             onChange={(e) => leaveForm.handleTotalHoursChange(e.target.value)}
                         />
+                        {errors?.totalHours && (
+                            <p className="text-sm text-destructive">{errors.totalHours.message}</p>
+                        )}
                     </div>
                     <div className="grid gap-2">
                         <Label>代理人 <span className="text-muted-foreground text-xs">(選填)</span></Label>

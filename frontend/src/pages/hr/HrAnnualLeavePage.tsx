@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import {
@@ -19,7 +21,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
     Table,
     TableBody,
@@ -50,6 +54,8 @@ import {
     ExpiredLeaveReport,
     CreateAnnualLeaveRequest,
 } from '@/types/hr'
+import { EmptyState } from '@/components/ui/empty-state'
+import { annualLeaveEntitlementSchema, type AnnualLeaveEntitlementFormData } from '@/lib/validation'
 
 interface User {
     id: string
@@ -60,18 +66,22 @@ interface User {
 }
 
 export function HrAnnualLeavePage() {
-    const [activeTab, setActiveTab] = useState('entitlements')
     const dialogs = useDialogSet(['create'] as const)
     const [selectedUserId, setSelectedUserId] = useState<string>('')
     const [searchQuery, setSearchQuery] = useState('')
     const queryClient = useQueryClient()
 
     // 表單狀態
-    const [formUserId, setFormUserId] = useState('')
-    const [formYear, setFormYear] = useState(new Date().getFullYear().toString())
-    const [formDays, setFormDays] = useState('')
-    const [formHireDate, setFormHireDate] = useState('')
-    const [formNotes, setFormNotes] = useState('')
+    const { register, handleSubmit, setValue, watch, reset: resetForm, formState: { errors } } = useForm<AnnualLeaveEntitlementFormData>({
+        resolver: zodResolver(annualLeaveEntitlementSchema),
+        defaultValues: {
+            userId: '',
+            year: new Date().getFullYear(),
+            days: '' as unknown as number,
+            hireDate: '',
+            notes: '',
+        },
+    })
 
     // 取得所有內部員工（使用專用的 HR 端點）
     const { data: usersData } = useQuery({
@@ -129,30 +139,13 @@ export function HrAnnualLeavePage() {
         },
     })
 
-    const resetForm = () => {
-        setFormUserId('')
-        setFormYear(new Date().getFullYear().toString())
-        setFormDays('')
-        setFormHireDate('')
-        setFormNotes('')
-    }
-
-    const handleCreateSubmit = () => {
-        if (!formUserId || !formDays) {
-            toast({
-                title: '請填寫必要欄位',
-                description: '請選擇員工並輸入特休天數',
-                variant: 'destructive',
-            })
-            return
-        }
-
+    const onValidSubmit = (data: AnnualLeaveEntitlementFormData) => {
         createEntitlementMutation.mutate({
-            user_id: formUserId,
-            entitlement_year: parseInt(formYear),
-            entitled_days: parseFloat(formDays),
-            hire_date: formHireDate || undefined,
-            notes: formNotes || undefined,
+            user_id: data.userId,
+            entitlement_year: data.year,
+            entitled_days: data.days,
+            hire_date: data.hireDate || undefined,
+            notes: data.notes || undefined,
         })
     }
 
@@ -195,18 +188,16 @@ export function HrAnnualLeavePage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">特休額度管理</h1>
-                    <p className="text-muted-foreground">
-                        管理員工特休假額度、查看過期待補償報表
-                    </p>
-                </div>
-                <Button onClick={() => dialogs.open('create')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    新增特休額度
-                </Button>
-            </div>
+            <PageHeader
+                title="特休額度管理"
+                description="管理員工特休假額度、查看過期待補償報表"
+                actions={
+                    <Button onClick={() => dialogs.open('create')}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        新增特休額度
+                    </Button>
+                }
+            />
 
             {/* 統計卡片 */}
             <div className="grid gap-4 md:grid-cols-3">
@@ -222,10 +213,10 @@ export function HrAnnualLeavePage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">待補償記錄</CardTitle>
-                        <AlertTriangle className="h-4 w-4 text-orange-500" />
+                        <AlertTriangle className="h-4 w-4 text-status-warning-text" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-orange-500">
+                        <div className="text-2xl font-bold text-status-warning-text">
                             {expiredLeaves?.length || 0}
                         </div>
                     </CardContent>
@@ -236,32 +227,22 @@ export function HrAnnualLeavePage() {
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-orange-500">
+                        <div className="text-2xl font-bold text-status-warning-text">
                             {totalExpiredDays.toFixed(1)} 天
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="entitlements" className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        員工特休額度
-                    </TabsTrigger>
-                    <TabsTrigger value="expired" className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4" />
-                        過期待補償
-                        {expiredLeaves && expiredLeaves.length > 0 && (
-                            <Badge variant="destructive" className="ml-1">
-                                {expiredLeaves.length}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
-                </TabsList>
-
+            <PageTabs
+                tabs={[
+                    { value: 'entitlements', label: '員工特休額度', icon: User },
+                    { value: 'expired', label: '過期待補償', icon: AlertTriangle, badge: expiredLeaves?.length },
+                ]}
+                defaultTab="entitlements"
+            >
                 {/* 員工特休額度 Tab */}
-                <TabsContent value="entitlements" className="space-y-4">
+                <PageTabContent value="entitlements" className="space-y-4">
                     <Card>
                         <CardHeader>
                             <CardTitle>選擇員工查看特休額度</CardTitle>
@@ -337,9 +318,9 @@ export function HrAnnualLeavePage() {
                                                             {balance.is_expired ? (
                                                                 <Badge variant="destructive">已過期</Badge>
                                                             ) : balance.days_until_expiry <= 30 ? (
-                                                                <Badge variant="outline" className="text-orange-500 border-orange-500">
+                                                                <StatusBadge variant="warning">
                                                                     即將到期 ({balance.days_until_expiry}天)
-                                                                </Badge>
+                                                                </StatusBadge>
                                                             ) : (
                                                                 <Badge variant="secondary">
                                                                     <CheckCircle className="h-3 w-3 mr-1" />
@@ -360,10 +341,10 @@ export function HrAnnualLeavePage() {
                             )}
                         </CardContent>
                     </Card>
-                </TabsContent>
+                </PageTabContent>
 
                 {/* 過期待補償 Tab */}
-                <TabsContent value="expired" className="space-y-4">
+                <PageTabContent value="expired" className="space-y-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <div>
@@ -391,7 +372,7 @@ export function HrAnnualLeavePage() {
                                             <TableHead>年度</TableHead>
                                             <TableHead>總天數</TableHead>
                                             <TableHead>已使用</TableHead>
-                                            <TableHead className="text-orange-500">待補償天數</TableHead>
+                                            <TableHead className="text-status-warning-text">待補償天數</TableHead>
                                             <TableHead>到期日</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -407,7 +388,7 @@ export function HrAnnualLeavePage() {
                                                 <TableCell>{item.entitlement_year}</TableCell>
                                                 <TableCell>{item.entitled_days}</TableCell>
                                                 <TableCell>{item.used_days}</TableCell>
-                                                <TableCell className="font-bold text-orange-500">
+                                                <TableCell className="font-bold text-status-warning-text">
                                                     {item.remaining_days}
                                                 </TableCell>
                                                 <TableCell>
@@ -418,15 +399,12 @@ export function HrAnnualLeavePage() {
                                     </TableBody>
                                 </Table>
                             ) : (
-                                <div className="text-center py-8 text-muted-foreground">
-                                    <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
-                                    <p>目前沒有過期待補償的特休假</p>
-                                </div>
+                                <EmptyState icon={CheckCircle} title="目前沒有過期待補償的特休假" />
                             )}
                         </CardContent>
                     </Card>
-                </TabsContent>
-            </Tabs>
+                </PageTabContent>
+            </PageTabs>
 
             {/* 新增特休額度對話框 */}
             <Dialog open={dialogs.isOpen('create')} onOpenChange={dialogs.setOpen('create')}>
@@ -437,11 +415,11 @@ export function HrAnnualLeavePage() {
                             為員工建立新年度的特休假額度。若有提供到職日，到期日將自動計算為到職週年日 + 2年。
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
+                    <form onSubmit={handleSubmit(onValidSubmit)} className="space-y-4">
                         {/* 選擇員工 */}
                         <div className="space-y-2">
                             <Label>員工 *</Label>
-                            <Select value={formUserId} onValueChange={setFormUserId}>
+                            <Select value={watch('userId')} onValueChange={v => setValue('userId', v, { shouldValidate: true })}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="選擇員工..." />
                                 </SelectTrigger>
@@ -453,12 +431,15 @@ export function HrAnnualLeavePage() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {errors.userId && (
+                                <p className="text-sm text-destructive">{errors.userId.message}</p>
+                            )}
                         </div>
 
                         {/* 年度 */}
                         <div className="space-y-2">
                             <Label>授予年度 *</Label>
-                            <Select value={formYear} onValueChange={setFormYear}>
+                            <Select value={String(watch('year'))} onValueChange={v => setValue('year', Number(v), { shouldValidate: true })}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -473,6 +454,9 @@ export function HrAnnualLeavePage() {
                                     })}
                                 </SelectContent>
                             </Select>
+                            {errors.year && (
+                                <p className="text-sm text-destructive">{errors.year.message}</p>
+                            )}
                         </div>
 
                         {/* 特休天數 */}
@@ -482,10 +466,12 @@ export function HrAnnualLeavePage() {
                                 type="number"
                                 min="0"
                                 step="0.5"
-                                value={formDays}
-                                onChange={e => setFormDays(e.target.value)}
+                                {...register('days', { valueAsNumber: true })}
                                 placeholder="例：7"
                             />
+                            {errors.days && (
+                                <p className="text-sm text-destructive">{errors.days.message}</p>
+                            )}
                         </div>
 
                         {/* 到職日 */}
@@ -493,8 +479,7 @@ export function HrAnnualLeavePage() {
                             <Label>到職日（用於計算到期日）</Label>
                             <Input
                                 type="date"
-                                value={formHireDate}
-                                onChange={(e) => setFormHireDate(e.target.value)}
+                                {...register('hireDate')}
                             />
                             <p className="text-xs text-muted-foreground">
                                 到期日 = 授予年度 + 2年的到職週年日。若不填寫，到期日為授予年度 + 2年的12月31日。
@@ -505,18 +490,17 @@ export function HrAnnualLeavePage() {
                         <div className="space-y-2">
                             <Label>備註</Label>
                             <Input
-                                value={formNotes}
-                                onChange={e => setFormNotes(e.target.value)}
+                                {...register('notes')}
                                 placeholder="選填"
                             />
                         </div>
-                    </div>
+                    </form>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => dialogs.close('create')}>
                             取消
                         </Button>
                         <Button
-                            onClick={handleCreateSubmit}
+                            onClick={handleSubmit(onValidSubmit)}
                             disabled={createEntitlementMutation.isPending}
                         >
                             {createEntitlementMutation.isPending ? '建立中...' : '建立'}

@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
+import { arReceiptSchema, type ArReceiptFormData } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -26,7 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, FileText } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
@@ -40,11 +44,37 @@ function CreateArReceiptDialog({
   onSuccess: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [partnerId, setPartnerId] = useState('')
-  const [amount, setAmount] = useState('')
-  const [receiptDate, setReceiptDate] = useState(asOfDate)
-  const [reference, setReference] = useState('')
   const queryClient = useQueryClient()
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors },
+  } = useForm<ArReceiptFormData>({
+    resolver: zodResolver(arReceiptSchema),
+    defaultValues: {
+      partner_id: '',
+      receipt_date: asOfDate,
+      amount: '',
+      reference: '',
+    },
+  })
+
+  const partnerId = watch('partner_id')
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        partner_id: '',
+        receipt_date: asOfDate,
+        amount: '',
+        reference: '',
+      })
+    }
+  }, [open, asOfDate, reset])
 
   const { data: partners } = useQuery<Partner[]>({
     queryKey: ['partners', 'customer'],
@@ -61,9 +91,6 @@ function CreateArReceiptDialog({
     onSuccess: () => {
       toast({ title: '收款已建立' })
       setOpen(false)
-      setPartnerId('')
-      setAmount('')
-      setReference('')
       queryClient.invalidateQueries({ queryKey: ['accounting-ar-aging'] })
       queryClient.invalidateQueries({ queryKey: ['accounting-trial-balance'] })
       queryClient.invalidateQueries({ queryKey: ['accounting-journal-entries'] })
@@ -75,22 +102,12 @@ function CreateArReceiptDialog({
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!partnerId || !amount || !receiptDate) {
-      toast({ title: '請填寫必填欄位', variant: 'destructive' })
-      return
-    }
-    const amt = parseFloat(amount)
-    if (isNaN(amt) || amt <= 0) {
-      toast({ title: '請輸入有效金額', variant: 'destructive' })
-      return
-    }
+  const onValid = (data: ArReceiptFormData) => {
     createReceiptMutation.mutate({
-      partner_id: partnerId,
-      receipt_date: receiptDate,
-      amount: amt,
-      reference: reference || undefined,
+      partner_id: data.partner_id,
+      receipt_date: data.receipt_date,
+      amount: parseFloat(data.amount),
+      reference: data.reference || undefined,
     })
   }
 
@@ -103,14 +120,14 @@ function CreateArReceiptDialog({
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onValid)}>
           <DialogHeader>
             <DialogTitle>應收帳款收款</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label>客戶 *</Label>
-              <Select value={partnerId} onValueChange={setPartnerId} required>
+              <Select value={partnerId} onValueChange={(v) => setValue('partner_id', v, { shouldValidate: true })}>
                 <SelectTrigger>
                   <SelectValue placeholder="選擇客戶" />
                 </SelectTrigger>
@@ -122,15 +139,16 @@ function CreateArReceiptDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {errors.partner_id && (
+                <p className="text-sm text-destructive">{errors.partner_id.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>收款日期 *</Label>
-              <Input
-                type="date"
-                value={receiptDate}
-                onChange={(e) => setReceiptDate(e.target.value)}
-                required
-              />
+              <Input type="date" {...register('receipt_date')} />
+              {errors.receipt_date && (
+                <p className="text-sm text-destructive">{errors.receipt_date.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>金額 *</Label>
@@ -138,15 +156,16 @@ function CreateArReceiptDialog({
                 type="number"
                 step="0.01"
                 min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                {...register('amount')}
                 placeholder="0.00"
-                required
               />
+              {errors.amount && (
+                <p className="text-sm text-destructive">{errors.amount.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>備註</Label>
-              <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="選填" />
+              <Input {...register('reference')} placeholder="選填" aria-label="備註" />
             </div>
           </div>
           <DialogFooter>
@@ -231,11 +250,7 @@ export function ArAgingTab({ asOfDate, onAsOfDateChange }: ArAgingTabProps) {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  尚無應收帳款餘額
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={5} icon={FileText} title="尚無應收帳款餘額" />
             )}
           </TableBody>
         </Table>

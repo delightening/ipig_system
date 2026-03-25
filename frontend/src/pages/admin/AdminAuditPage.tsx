@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Activity, AlertTriangle, LogIn, RefreshCw, Shield, Users } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import type { SecurityAlert } from '@/types/hr'
 import { useAuditData } from './hooks/useAuditData'
 import type { AuditLog } from './types/audit'
@@ -23,51 +23,32 @@ export function AdminAuditPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">安全審計</h1>
-                    <p className="text-muted-foreground">監控系統活動與安全事件</p>
-                </div>
-                <Button variant="outline" onClick={audit.refreshAll}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    重新整理
-                </Button>
-            </div>
+            <PageHeader
+                title="安全審計"
+                description="監控系統活動與安全事件"
+                actions={
+                    <Button variant="outline" onClick={audit.refreshAll}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        重新整理
+                    </Button>
+                }
+            />
 
-            <Tabs value={audit.activeTab} onValueChange={audit.setActiveTab}>
-                <TabsList className="flex flex-wrap w-full sm:grid sm:grid-cols-5">
-                    <TabsTrigger value="dashboard" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
-                        <Shield className="h-4 w-4 hidden sm:inline-block" />
-                        總覽
-                    </TabsTrigger>
-                    <TabsTrigger value="activities" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
-                        <Activity className="h-4 w-4 hidden sm:inline-block" />
-                        活動記錄
-                    </TabsTrigger>
-                    <TabsTrigger value="logins" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
-                        <LogIn className="h-4 w-4 hidden sm:inline-block" />
-                        登入事件
-                    </TabsTrigger>
-                    <TabsTrigger value="sessions" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
-                        <Users className="h-4 w-4 hidden sm:inline-block" />
-                        活躍 Sessions
-                    </TabsTrigger>
-                    <TabsTrigger value="alerts" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
-                        <AlertTriangle className="h-4 w-4 hidden sm:inline-block" />
-                        安全警報
-                        {audit.dashboardStats && audit.dashboardStats.open_alerts > 0 && (
-                            <Badge variant="destructive" className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1 sm:px-1.5">
-                                {audit.dashboardStats.open_alerts}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="dashboard" className="space-y-4">
+            <PageTabs
+                tabs={[
+                    { value: 'dashboard', label: '總覽', icon: Shield },
+                    { value: 'activities', label: '活動記錄', icon: Activity },
+                    { value: 'logins', label: '登入事件', icon: LogIn },
+                    { value: 'sessions', label: '活躍 Sessions', icon: Users },
+                    { value: 'alerts', label: '安全警報', icon: AlertTriangle, badge: audit.dashboardStats?.open_alerts },
+                ]}
+                defaultTab="dashboard"
+            >
+                <PageTabContent value="dashboard" className="space-y-4">
                     <AuditDashboardTab stats={audit.dashboardStats} />
-                </TabsContent>
+                </PageTabContent>
 
-                <TabsContent value="activities" className="space-y-4">
+                <PageTabContent value="activities" className="space-y-4">
                     <AuditActivitiesTab
                         dateFrom={audit.dateFrom}
                         dateTo={audit.dateTo}
@@ -79,9 +60,9 @@ export function AdminAuditPage() {
                         onPageChange={audit.setActivitiesPage}
                         onSelectLog={setSelectedLog}
                     />
-                </TabsContent>
+                </PageTabContent>
 
-                <TabsContent value="logins" className="space-y-4">
+                <PageTabContent value="logins" className="space-y-4">
                     <AuditLoginsTab
                         dateFrom={audit.dateFrom}
                         dateTo={audit.dateTo}
@@ -92,9 +73,9 @@ export function AdminAuditPage() {
                         currentPage={audit.loginsPage}
                         onPageChange={audit.setLoginsPage}
                     />
-                </TabsContent>
+                </PageTabContent>
 
-                <TabsContent value="sessions" className="space-y-4">
+                <PageTabContent value="sessions" className="space-y-4">
                     <AuditSessionsTab
                         sessions={audit.sessions}
                         isLoading={audit.loadingSessions}
@@ -102,9 +83,9 @@ export function AdminAuditPage() {
                         onPageChange={audit.setSessionsPage}
                         forceLogoutMutation={audit.forceLogoutMutation}
                     />
-                </TabsContent>
+                </PageTabContent>
 
-                <TabsContent value="alerts" className="space-y-4">
+                <PageTabContent value="alerts" className="space-y-4">
                     <AuditAlertsTab
                         alerts={audit.alerts}
                         sortedAlerts={audit.sortedAlerts}
@@ -120,8 +101,8 @@ export function AdminAuditPage() {
                         statusFilter={audit.alertStatusFilter}
                         onStatusFilterChange={audit.handleAlertStatusFilterChange}
                     />
-                </TabsContent>
-            </Tabs>
+                </PageTabContent>
+            </PageTabs>
 
             <AuditLogDetailDialog
                 log={selectedLog}

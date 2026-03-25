@@ -100,7 +100,7 @@ export function SectionSignature({ formData, setFormData, t }: SectionProps) {
               className="max-w-full"
             />
             {formData.working_content.handwriting_svg && (
-              <p className="text-sm text-green-600">
+              <p className="text-sm text-status-success-text">
                 ✓ {t('signature.signed', '已簽署')}
               </p>
             )}

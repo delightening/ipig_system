@@ -125,7 +125,7 @@ function StepIndicator({ label, done, active, rejected }: {
   return (
     <div className={`flex items-center gap-1 px-2 py-1 rounded-full border text-xs ${
       rejected ? 'border-destructive text-destructive bg-destructive/10'
-      : done ? 'border-green-500 text-green-700 bg-green-50'
+      : done ? 'border-status-success-text text-status-success-text bg-status-success-bg'
       : active ? 'border-primary text-primary bg-primary/10'
       : 'border-muted text-muted-foreground'
     }`}>
@@ -291,7 +291,7 @@ export function DocumentDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)} aria-label="返回">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>

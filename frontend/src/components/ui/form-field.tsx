@@ -14,10 +14,10 @@ export function FormField({ label, htmlFor, error, required, children }: FormFie
     <div className="space-y-2">
       <Label htmlFor={htmlFor}>
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
+        {required && <span className="text-destructive ml-1">*</span>}
       </Label>
       {children}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

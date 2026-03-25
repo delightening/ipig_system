@@ -94,7 +94,7 @@ export function ErpImportDialog({ open, onOpenChange }: ErpImportDialogProps) {
                 <div className="space-y-4">
                     <div className="flex gap-2">
                         <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="搜尋 ERP 產品名稱..."
                                 value={searchText}
@@ -122,7 +122,7 @@ export function ErpImportDialog({ open, onOpenChange }: ErpImportDialogProps) {
                     />
 
                     {selection.size > 0 && (
-                        <p className="text-sm text-blue-600">
+                        <p className="text-sm text-primary">
                             已選擇 {selection.size} 個產品
                         </p>
                     )}
@@ -159,7 +159,7 @@ function ProductList({
         return (
             <div className="max-h-60 overflow-auto border rounded-md">
                 <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
             </div>
         )
@@ -168,7 +168,7 @@ function ProductList({
     if (products.length === 0) {
         return (
             <div className="max-h-60 overflow-auto border rounded-md">
-                <div className="text-center py-8 text-slate-400 text-sm">
+                <div className="text-center py-8 text-muted-foreground text-sm">
                     {searchText ? '無符合的產品' : '請輸入關鍵字搜尋'}
                 </div>
             </div>
@@ -182,21 +182,21 @@ function ProductList({
                     <label
                         key={product.id}
                         className={cn(
-                            'flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors',
-                            selection.has(product.id) && 'bg-blue-50'
+                            'flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted transition-colors',
+                            selection.has(product.id) && 'bg-primary/10'
                         )}
                     >
                         <input
                             type="checkbox"
                             checked={selection.has(product.id)}
                             onChange={() => selection.toggle(product.id)}
-                            className="rounded border-slate-300"
+                            className="rounded border-border"
                         />
                         <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-slate-700 truncate">
+                            <div className="text-sm font-medium text-foreground truncate">
                                 {product.name}
                             </div>
-                            <div className="text-xs text-slate-400">
+                            <div className="text-xs text-muted-foreground">
                                 {product.sku} · {product.base_uom}
                                 {product.spec && ` · ${product.spec}`}
                             </div>

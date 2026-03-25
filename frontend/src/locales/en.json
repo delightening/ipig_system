@@ -42,6 +42,8 @@
         "closeTitle": "Confirm Close",
         "closeDescription": "Are you sure you want to close this project? This action cannot be undone.",
         "close": "Close",
+        "closeDialog": "Close",
+        "update": "Update",
         "impersonating": "Impersonating",
         "backToAdmin": "Back to Admin",
         "exportSuccess": "Export successful",

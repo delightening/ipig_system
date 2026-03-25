@@ -21,7 +21,8 @@ import { AuditPagination } from './AuditPagination'
 
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search } from 'lucide-react'
+import { Search, ShieldAlert } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 
 function getSeverityColor(severity: string) {
     switch (severity) {
@@ -126,11 +127,7 @@ export function AuditAlertsTab({
                                 <TableCell colSpan={7} className="text-center py-8">載入中...</TableCell>
                             </TableRow>
                         ) : alerts?.data?.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                    沒有安全警報
-                                </TableCell>
-                            </TableRow>
+                            <TableEmptyRow colSpan={7} icon={ShieldAlert} title="沒有安全警報" />
                         ) : (
                             sortedAlerts.map((alert) => (
                                 <AlertRow

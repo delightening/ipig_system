@@ -29,8 +29,10 @@ import {
 } from 'lucide-react'
 import { formatDateTime, formatNumber, UOM_MAP } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
+import { EmptyState } from '@/components/ui/empty-state'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
 
+import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { STORAGE_CONDITIONS } from '@/lib/constants/product'
 
 
@@ -52,14 +54,11 @@ interface ExtendedProduct extends Product {
   created_by_name?: string
 }
 
-type TabType = 'basic' | 'inventory' | 'documents' | 'history'
-
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { categories: skuCategories, subcategoriesByCategory } = useSkuCategories()
-  const [activeTab, setActiveTab] = useState<TabType>('basic')
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [statusAction, setStatusAction] = useState<'activate' | 'deactivate' | 'discontinue'>('activate')
 
@@ -153,13 +152,6 @@ export function ProductDetailPage() {
     )
   }
 
-  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
-    { id: 'basic', label: '基本資訊', icon: <Package className="h-4 w-4" /> },
-    { id: 'inventory', label: '庫存設定', icon: <Boxes className="h-4 w-4" /> },
-    { id: 'documents', label: '相關單據', icon: <FileText className="h-4 w-4" /> },
-    { id: 'history', label: '異動紀錄', icon: <History className="h-4 w-4" /> },
-  ]
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -169,6 +161,7 @@ export function ProductDetailPage() {
             variant="ghost"
             size="icon"
             onClick={() => navigate('/products')}
+            aria-label="返回"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -257,26 +250,16 @@ export function ProductDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b">
-        <div className="flex gap-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
-                }`}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'basic' && (
+      <PageTabs
+        tabs={[
+          { value: 'basic', label: '基本資訊', icon: Package },
+          { value: 'inventory', label: '庫存設定', icon: Boxes },
+          { value: 'documents', label: '相關單據', icon: FileText },
+          { value: 'history', label: '異動紀錄', icon: History },
+        ]}
+        defaultTab="basic"
+      >
+        <PageTabContent value="basic">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -360,9 +343,9 @@ export function ProductDetailPage() {
             </Card>
           </div>
         </div>
-      )}
+        </PageTabContent>
 
-      {activeTab === 'inventory' && (
+        <PageTabContent value="inventory">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -393,31 +376,25 @@ export function ProductDetailPage() {
               <CardDescription>目前各倉庫的庫存狀態</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Boxes className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                <p>庫存資料載入中或尚無資料</p>
-              </div>
+              <EmptyState icon={Boxes} title="庫存資料載入中或尚無資料" />
             </CardContent>
           </Card>
         </div>
-      )}
+        </PageTabContent>
 
-      {activeTab === 'documents' && (
+        <PageTabContent value="documents">
         <Card>
           <CardHeader>
             <CardTitle>相關單據</CardTitle>
             <CardDescription>最近的採購單、銷貨單、庫存異動</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12 text-muted-foreground">
-              <FileText className="h-10 w-10 mx-auto mb-2 opacity-50" />
-              <p>尚無相關單據</p>
-            </div>
+            <EmptyState icon={FileText} title="尚無相關單據" />
           </CardContent>
         </Card>
-      )}
+        </PageTabContent>
 
-      {activeTab === 'history' && (
+        <PageTabContent value="history">
         <Card>
           <CardHeader>
             <CardTitle>異動紀錄</CardTitle>
@@ -430,7 +407,8 @@ export function ProductDetailPage() {
             </div>
           </CardContent>
         </Card>
-      )}
+        </PageTabContent>
+      </PageTabs>
 
       {/* 狀態變更對話框 */}
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
