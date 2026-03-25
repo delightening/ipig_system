@@ -1,7 +1,11 @@
 name: CI
 
 on:
-  workflow_dispatch:  # 可於 GitHub Actions 頁面手動觸發
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -124,7 +128,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: cargo check
-        run: cargo check --release
+        run: cargo check --release --locked
 
   # =========================
   # Rust 後端：單元測試
@@ -185,7 +189,7 @@ jobs:
         run: sqlx migrate run
 
       - name: cargo test
-        run: cargo test --verbose -- --test-threads=1
+        run: cargo test --locked --verbose -- --test-threads=1
 
   # =========================
   # Rust 後端：Clippy 靜態分析

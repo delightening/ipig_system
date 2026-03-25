@@ -187,6 +187,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **文件更新**：README、ARCHITECTURE、infrastructure、COMPOSE、deploy/README、TODO（R9-C1 標記完成、SEC-40 描述更新）、code review 文件。
 - ✅ **R9-C1 結案**：原「生產環境 WAF 改為 On」已不適用，改由 Cloudflare Dashboard 啟用 Managed Ruleset。
 
+### 2026-03-25 gstack 全面審查 + Simplify 重構 + 安全修復
+
+- ✅ **Code Review（/review）**：8 項 auto-fixed + 4 項 user-approved — deleteResource data 遺失、Retry-After NaN 防護、overtime endTime 驗證、AnimalPenView stale closure、PageTabs hidden tab URL bypass、canEditProtocol 補齊修訂狀態。Codex second opinion 驗證 4 項修復、排除 4 項誤報。
+- ✅ **安全審計（/cso）**：92/100 分。4 項修復 — AI API key rate_limit_per_minute 強制執行（新增 AiRateLimiter in-memory sliding window + AppError::TooManyRequests 429）、Cargo.lock 納入 git 追蹤、CI cd.yml script injection 改用 env block、/metrics 端點加入 METRICS_TOKEN Bearer auth。
+- ✅ **Simplify 重構**：DataTable 統一採用（7 檔，消除 ~400 行重複）、StatusBadge 採用（7 檔）、FilterBar 採用（4 檔）、檔案拆分（5→19 檔：UserFormDialogs 656→5 檔、AnimalAddDialog 579→5 檔、AnimalPenView 399→3 檔、ProtocolEditPage 880→4 檔、useProtocolDetail 345→2 檔）、watch() 效能優化（4 檔）、formatDate 統一（4 檔）、dead prop 移除。
+- ✅ **zodResolver 型別修復**：7 個 useForm 檔案從 `as never` 改為 `useForm<z.input<typeof schema>, unknown, FormData>` 正確型別。validation.ts `invalid_type_error` 改為 `error`（Zod v4 API）。
+- ✅ **TypeScript 編譯零錯誤**。`cargo check` 通過。
+
 ### 2026-03-25 RHF+Zod 全面遷移 + UI 債全面清理
 
 - ✅ **RHF+Zod 全面遷移**（1→17 檔）：新增 10 個 Zod schema。Auth 3 頁 + Master 5 頁 + Admin UserForm 3 dialog + AnimalEdit + ApAging/ArAging + WarehouseLayout + ProfileSettings。

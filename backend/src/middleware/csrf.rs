@@ -39,6 +39,10 @@ fn is_exempt_path(path: &str) -> bool {
         "/api/auth/refresh",
         "/api/auth/forgot-password",
         "/api/auth/reset-password",
+        "/api/v1/auth/login",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/forgot-password",
+        "/api/v1/auth/reset-password",
     ];
     exempt_paths.contains(&path)
 }
