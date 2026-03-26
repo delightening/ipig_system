@@ -2,7 +2,11 @@ import api from './client'
 
 export interface PoReceiptItem {
   product_id: string
+  product_sku: string
   product_name: string
+  base_uom: string
+  uom: string
+  unit_price: number | null
   ordered_qty: number
   received_qty: number
   remaining_qty: number

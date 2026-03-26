@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
   Table,
   TableBody,
@@ -20,6 +21,8 @@ const docTypeNames: Record<DocType, string> = {
   PR: '採購退貨',
   SO: '銷貨單',
   DO: '銷貨出庫',
+  SR: '銷貨退貨',
+  RTN: '退貨單',
   TR: '調撥單',
   STK: '盤點單',
   ADJ: '調整單',
@@ -33,10 +36,10 @@ const statusNames: Record<string, string> = {
   cancelled: '已作廢',
 }
 
-const receiptStatusNames: Record<string, string> = {
-  pending: '未入庫',
-  partial: '部分入庫',
-  complete: '已入庫',
+const receiptStatusConfig: Record<string, { label: string; variant: 'warning' | 'info' | 'success' }> = {
+  pending: { label: '未入庫', variant: 'warning' },
+  partial: { label: '部分入庫', variant: 'info' },
+  complete: { label: '已入庫', variant: 'success' },
 }
 
 const ACCOUNTING_DOC_TYPES: DocType[] = ['GRN', 'DO', 'PR']
@@ -67,20 +70,6 @@ function getStatusBadge(doc: DocumentListItem) {
       badges.push(<Badge key="base" variant="outline">{doc.status}</Badge>)
   }
 
-  if (doc.doc_type === 'PO' && doc.status === 'approved' && doc.receipt_status) {
-    switch (doc.receipt_status) {
-      case 'pending':
-        badges.push(<Badge key="receipt" variant="destructive" className="ml-1">{receiptStatusNames[doc.receipt_status]}</Badge>)
-        break
-      case 'partial':
-        badges.push(<Badge key="receipt" variant="warning" className="ml-1">{receiptStatusNames[doc.receipt_status]}</Badge>)
-        break
-      case 'complete':
-        badges.push(<Badge key="receipt" variant="success" className="ml-1">{receiptStatusNames[doc.receipt_status]}</Badge>)
-        break
-    }
-  }
-
   if (ACCOUNTING_DOC_TYPES.includes(doc.doc_type) && doc.has_journal_entry) {
     badges.push(
       <Badge key="journal" variant="outline" className="ml-1 text-xs border-status-success-text/30 text-status-success-text">
@@ -92,6 +81,14 @@ function getStatusBadge(doc: DocumentListItem) {
   return <div className="flex flex-wrap items-center gap-1">{badges}</div>
 }
 
+function getReceiptStatusBadge(doc: DocumentListItem) {
+  if (doc.doc_type !== 'PO') return <span className="text-muted-foreground">-</span>
+  if (doc.status !== 'approved') return <span className="text-muted-foreground">-</span>
+  const cfg = doc.receipt_status ? receiptStatusConfig[doc.receipt_status] : null
+  if (!cfg) return <span className="text-muted-foreground">-</span>
+  return <StatusBadge variant={cfg.variant} dot>{cfg.label}</StatusBadge>
+}
+
 export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentTableProps) {
   return (
     <div className="rounded-md border">
@@ -101,6 +98,7 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
             <TableHead>單號</TableHead>
             <TableHead>類型</TableHead>
             <TableHead>狀態</TableHead>
+            <TableHead>入庫進度</TableHead>
             <TableHead>對象</TableHead>
             <TableHead>倉庫</TableHead>
             <TableHead>單據日期</TableHead>
@@ -112,7 +110,7 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
         <TableBody>
           {isLoading ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center py-8">
+              <TableCell colSpan={10} className="text-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
               </TableCell>
             </TableRow>
@@ -122,6 +120,7 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
                 <TableCell className="font-mono font-medium">{doc.doc_no}</TableCell>
                 <TableCell>{docTypeNames[doc.doc_type]}</TableCell>
                 <TableCell>{getStatusBadge(doc)}</TableCell>
+                <TableCell>{getReceiptStatusBadge(doc)}</TableCell>
                 <TableCell>{doc.partner_name || '-'}</TableCell>
                 <TableCell>{doc.warehouse_name || '-'}</TableCell>
                 <TableCell>{formatDate(doc.doc_date)}</TableCell>
@@ -160,7 +159,7 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
               </TableRow>
             ))
           ) : (
-            <TableEmptyRow colSpan={9} icon={FileText} title="尚無單據資料" />
+            <TableEmptyRow colSpan={10} icon={FileText} title="尚無單據資料" />
           )}
         </TableBody>
       </Table>

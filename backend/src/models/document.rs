@@ -291,7 +291,11 @@ pub struct PoReceiptStatus {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PoReceiptItem {
     pub product_id: Uuid,
+    pub product_sku: String,
     pub product_name: String,
+    pub base_uom: String,
+    pub uom: String,
+    pub unit_price: Option<Decimal>,
     pub ordered_qty: Decimal,
     pub received_qty: Decimal,
     pub remaining_qty: Decimal,

@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import api, { StockLedgerDetail } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -10,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PageHeader } from '@/components/ui/page-header'
-import { Loader2, FileText } from 'lucide-react'
+import { Loader2, FileText, Download, ExternalLink } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { formatDateTime, formatNumber, formatCurrency } from '@/lib/utils'
 
@@ -32,6 +34,33 @@ export function StockLedgerPage() {
     },
   })
 
+  const exportToCSV = () => {
+    if (!ledger) return
+
+    const headers = ['時間', '倉庫', '品項代碼', '品項名稱', '單據編號', '方向', '數量', '單位成本', '批號']
+    const rows = ledger.map(item => [
+      item.trx_date,
+      item.warehouse_name,
+      item.product_sku,
+      item.product_name,
+      item.doc_no,
+      directionNames[item.direction] || item.direction,
+      item.qty_base,
+      item.unit_cost || '',
+      item.batch_no || '',
+    ])
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `stock_ledger_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+
   const getDirectionBadge = (direction: string) => {
     const isInbound = ['in', 'transfer_in', 'adjust_in'].includes(direction)
     return (
@@ -43,7 +72,24 @@ export function StockLedgerPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="庫存流水" description="查看所有庫存異動記錄" />
+      <PageHeader
+        title="庫存流水"
+        description="查看所有庫存異動記錄"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/reports/stock-ledger">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                報表中心（進階篩選）
+              </Link>
+            </Button>
+            <Button onClick={exportToCSV} disabled={!ledger?.length}>
+              <Download className="mr-2 h-4 w-4" />
+              匯出 CSV
+            </Button>
+          </div>
+        }
+      />
 
       <div className="rounded-md border">
         <Table>

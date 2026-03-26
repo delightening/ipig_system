@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
-import { ArrowLeft, Send, CheckCircle, XCircle, Loader2, ShieldCheck, ShieldX, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Send, CheckCircle, XCircle, Loader2, ShieldCheck, ShieldX, AlertTriangle, Copy } from 'lucide-react'
 import { formatDate, formatNumber, formatCurrency, formatUom } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 
@@ -34,6 +34,8 @@ const docTypeNames: Record<string, string> = {
   PR: '採購退貨',
   SO: '銷貨單',
   DO: '銷貨出庫',
+  SR: '銷貨退貨',
+  RTN: '退貨單',
   TR: '調撥單',
   STK: '盤點單',
   ADJ: '調整單',
@@ -271,6 +273,32 @@ export function DocumentDetailPage() {
     )
   }
 
+  const handleCopyDocument = () => {
+    if (!document) return
+    const copyData = {
+      doc_type: document.doc_type,
+      warehouse_id: document.warehouse_id || '',
+      warehouse_from_id: document.warehouse_from_id || '',
+      warehouse_to_id: document.warehouse_to_id || '',
+      partner_id: document.partner_id || '',
+      protocol_id: document.protocol_id || '',
+      remark: document.remark || '',
+      lines: document.lines.map((line) => ({
+        product_id: line.product_id,
+        product_name: line.product_name,
+        product_sku: line.product_sku,
+        qty: line.qty,
+        uom: line.uom,
+        unit_price: line.unit_price || '',
+        batch_no: line.batch_no || '',
+        expiry_date: line.expiry_date || '',
+        remark: line.remark || '',
+      })),
+    }
+    sessionStorage.setItem('document_copy_data', JSON.stringify(copyData))
+    navigate(`/documents/new?type=${document.doc_type}&copy=true`)
+  }
+
   // 判斷按鈕顯示邏輯
   const isSubmitted = document.status === 'submitted'
   const isAdjNeedsAdmin = document.requires_manager_approval === true
@@ -305,6 +333,10 @@ export function DocumentDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleCopyDocument}>
+            <Copy className="mr-2 h-4 w-4" />
+            複製單據
+          </Button>
           {document.status === 'draft' && (
             <Button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}>
               {submitMutation.isPending ? (

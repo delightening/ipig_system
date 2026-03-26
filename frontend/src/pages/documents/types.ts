@@ -41,6 +41,8 @@ export const DOC_TYPE_NAMES: Record<DocType, string> = {
   PR: '採購退貨',
   SO: '銷貨單',
   DO: '銷貨出庫', // 雖然計畫中建議簡化到 SO，但保留舊單據查詢相容性
+  SR: '銷貨退貨',
+  RTN: '退貨單',
   TR: '調撥單',
   STK: '盤點單',
   ADJ: '調整單',
