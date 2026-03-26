@@ -10,7 +10,6 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -247,38 +246,36 @@ function ZoneFormFields({ register, setValue, watch, errors, buildings, isCreate
         </FormField>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <FormField label={isCreate ? '代碼' : '代碼'} required={isCreate} error={errors.code?.message}>
+        <FormField label="代碼" required={isCreate} error={errors.code?.message}>
           <Input {...register('code')} disabled={!isCreate} />
         </FormField>
-        <div><Label>名稱</Label><Input {...register('name')} /></div>
+        <FormField label="名稱">
+          <Input {...register('name')} />
+        </FormField>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>顏色</Label>
+        <FormField label="顏色">
           <div className="flex gap-2">
             <Input {...register('color')} placeholder="#FF0000" />
             {color && <span className="w-10 h-10 rounded border shrink-0" style={{ background: color }} />}
           </div>
-        </div>
-        <div>
-          <Label>排序</Label>
+        </FormField>
+        <FormField label="排序">
           <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
-        </div>
+        </FormField>
       </div>
 
       {/* 合併顯示設定 */}
       <div className="border-t pt-3 mt-3">
-        <Label className="text-sm font-semibold">合併顯示設定（選填）</Label>
+        <span className="text-sm font-semibold">合併顯示設定（選填）</span>
         <p className="text-xs text-muted-foreground mb-2">
           設定後，同群組的區域會在動物列表中合併為一張卡片（如 EFG）
         </p>
         <div className="grid grid-cols-3 gap-3">
-          <div>
-            <Label className="text-xs">群組名稱</Label>
+          <FormField label="群組名稱">
             <Input {...register('display_group')} placeholder="如 EFG、RS" />
-          </div>
-          <div>
-            <Label className="text-xs">位置</Label>
+          </FormField>
+          <FormField label="位置">
             <Select value={groupPosition || '_none'} onValueChange={v => setValue('group_position', v === '_none' ? '' : v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -287,11 +284,10 @@ function ZoneFormFields({ register, setValue, watch, errors, buildings, isCreate
                 <SelectItem value="right">右欄</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label className="text-xs">右欄排序</Label>
+          </FormField>
+          <FormField label="右欄排序">
             <Input type="number" {...register('group_order', { valueAsNumber: true })} placeholder="0" />
-          </div>
+          </FormField>
         </div>
       </div>
     </div>

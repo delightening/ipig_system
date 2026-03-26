@@ -10,7 +10,6 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -159,11 +158,12 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
             <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
             </FormField>
-            <div><Label>描述</Label><Input {...register('description')} /></div>
-            <div>
-              <Label>排序</Label>
+            <FormField label="描述">
+              <Input {...register('description')} />
+            </FormField>
+            <FormField label="排序">
               <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
-            </div>
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('create')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={createMutation.isPending}>
@@ -178,15 +178,18 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>編輯棟舍</DialogTitle></DialogHeader>
           <form onSubmit={onEditSubmit} className="space-y-3">
-            <div><Label>代碼</Label><Input {...register('code')} disabled /></div>
+            <FormField label="代碼">
+              <Input {...register('code')} disabled />
+            </FormField>
             <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
             </FormField>
-            <div><Label>描述</Label><Input {...register('description')} /></div>
-            <div>
-              <Label>排序</Label>
+            <FormField label="描述">
+              <Input {...register('description')} />
+            </FormField>
+            <FormField label="排序">
               <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
-            </div>
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('edit')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={updateMutation.isPending}>

@@ -115,8 +115,7 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>排列模式</Label>
+            <FormField label="排列模式">
               <Select value={layout} onValueChange={v => setValue('layout', v as 'single' | 'double')}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -124,15 +123,14 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
                   <SelectItem value="single">單欄</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>每欄容量</Label>
+            </FormField>
+            <FormField label="每欄容量">
               <Input
                 type="number"
                 min={1}
                 {...register('capacity', { valueAsNumber: true })}
               />
-            </div>
+            </FormField>
           </div>
 
           {prefix && count > 0 && (

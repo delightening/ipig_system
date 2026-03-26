@@ -10,7 +10,6 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -164,8 +163,7 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
             <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
             </FormField>
-            <div>
-              <Label>上層部門</Label>
+            <FormField label="上層部門">
               <Select value={parentId ?? NONE_VALUE} onValueChange={v => setValue('parent_id', v === NONE_VALUE ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="（無）" /></SelectTrigger>
                 <SelectContent>
@@ -173,9 +171,8 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
                   {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>主管</Label>
+            </FormField>
+            <FormField label="主管">
               <Select value={managerId ?? NONE_VALUE} onValueChange={v => setValue('manager_id', v === NONE_VALUE ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="（無）" /></SelectTrigger>
                 <SelectContent>
@@ -183,11 +180,10 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
                   {users.map(u => <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>排序</Label>
+            </FormField>
+            <FormField label="排序">
               <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
-            </div>
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('create')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={createMutation.isPending}>
@@ -203,12 +199,13 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>編輯部門</DialogTitle></DialogHeader>
           <form onSubmit={onEditSubmit} className="space-y-3">
-            <div><Label>代碼</Label><Input {...register('code')} disabled /></div>
+            <FormField label="代碼">
+              <Input {...register('code')} disabled />
+            </FormField>
             <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
             </FormField>
-            <div>
-              <Label>上層部門</Label>
+            <FormField label="上層部門">
               <Select value={parentId ?? NONE_VALUE} onValueChange={v => setValue('parent_id', v === NONE_VALUE ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="（無）" /></SelectTrigger>
                 <SelectContent>
@@ -216,9 +213,8 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
                   {parentOptions.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>主管</Label>
+            </FormField>
+            <FormField label="主管">
               <Select value={managerId ?? NONE_VALUE} onValueChange={v => setValue('manager_id', v === NONE_VALUE ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="（無）" /></SelectTrigger>
                 <SelectContent>
@@ -226,11 +222,10 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
                   {users.map(u => <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>排序</Label>
+            </FormField>
+            <FormField label="排序">
               <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
-            </div>
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('edit')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={updateMutation.isPending}>
