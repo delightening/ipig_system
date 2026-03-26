@@ -49,7 +49,7 @@ lettre = { version = "0.11", features = ["tokio1-native-tls", "builder", "smtp-t
 
 # Additional utilities
 regex = "1"
-rand = "0.8"
+rand = "0.9"
 
 # Excel generation
 rust_xlsxwriter = "0.93"
