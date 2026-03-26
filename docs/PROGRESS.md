@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-25 R12-4~R12-7 完成、UI 一致性重構、安全性掃描 |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-26 DESIGN.md §15 按鈕規範制定 |
 
 ---
 
@@ -180,12 +180,38 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-26 DESIGN.md §15 按鈕規範制定
+
+- ✅ **按鈕高度一致性規範**：確立 PageHeader/toolbar 內所有按鈕（含 primary action）統一使用 `size="sm"`（h-9），表單提交區域保留 `default`/`lg`。消除同一按鈕群組混用 `sm` + `default` 造成的高度不齊問題。
+- ✅ **按鈕顏色策略**：確立按鈕顏色全站統一、不按子系統分化。操作語義（藍=主要操作、紅=破壞性）優先於子系統品牌識別。子系統差異化透過 Sidebar active indicator、Badge 等非按鈕元素表達。
+- ✅ **DESIGN.md 更新**：新增 §15 Button Guidelines（高度一致性 + 顏色策略），Decisions Log 新增 2 筆決策紀錄。
+- ✅ **TODO.md 新增 R13-8**：PageHeader 按鈕高度統一實作任務。待辦統計 4→5。
+
 ### 2026-03-20 WAF 架構調整 — 改由 Cloudflare WAF 處理，移除 ModSecurity overlay
 
 - ✅ **決策**：WAF 改由 Cloudflare WAF 處理（流量已經 Cloudflare Tunnel），不再需要本地 ModSecurity container。
 - ✅ **移除檔案**：`docker-compose.waf.yml`、`deploy/waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf`、`deploy/waf/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf`、`docs/security-compliance/WAF.md`。
 - ✅ **文件更新**：README、ARCHITECTURE、infrastructure、COMPOSE、deploy/README、TODO（R9-C1 標記完成、SEC-40 描述更新）、code review 文件。
 - ✅ **R9-C1 結案**：原「生產環境 WAF 改為 On」已不適用，改由 Cloudflare Dashboard 啟用 Managed Ruleset。
+
+### 2026-03-26 R13 更新計畫全面完成
+
+- ✅ **Phase 1 (P0)**：CI 自動觸發恢復（push/PR on main）+ `cargo check --locked` / `cargo test --locked`。P0 歸零。
+- ✅ **Phase 2 (P1) 品質強化**：
+  - 49 個 Vitest 單元測試覆蓋 5 個共用 UI 元件（DataTable/StatusBadge/PageTabs/FilterBar/PageHeader）
+  - Props 合併 4 元件（UserTable 18→6、AnimalListTable 14→6、AnimalFilters 15→6、EquipmentTabContent 11→6）
+  - Audit log 4 個 subsystem 色彩 token（medical/protocol/sacrifice/data）恢復語意區分
+  - CSRF 驗證失敗改回傳 419 (Page Expired)，前端改用 status code 偵測取代字串比對
+- ✅ **Phase 3 (P2) 中優先改進**：
+  - FormField 元件統一採用 12 個表單檔（Admin facility 6 Tab + Auth 3 頁 + HR + AI Key + BatchPen）
+  - StatsCard 共用元件提升（EquipmentStatsCards/TrainingStatsCards/LeaveBalanceSummary 3 處採用）
+  - 請假日期計算時區修復（`toISOString` → 本地日期格式化）
+  - UserEditDialog 重構為單一資料源（移除 watch → setFormData 雙向同步）
+- ✅ **Phase 4 (P3) 長期演進**：
+  - Dependabot 2.5 升級：utoipa 4→5、utoipa-swagger-ui 6→8、axum-extra 0.9→0.12、tailwind-merge 2→3（10 個 handler 檔修復 breaking changes）
+  - QA browser helper scripts（`scripts/qa-browse.sh` + 3 個 chain JSON）
+  - E2E 測試擴充：8→12 specs（+18 tests），新增設備管理、HR 加班、計畫書詳情、ERP 進銷存
+- ✅ **TypeScript 零錯誤**、`cargo check` 通過、Vitest 49/49 通過。
 
 ### 2026-03-25 gstack 全面審查 + Simplify 重構 + 安全修復
 

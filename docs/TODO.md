@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-23 (v22)
+> **最後更新：** 2026-03-26 (v23)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -339,13 +339,23 @@
 
 | # | 項目 | 說明 | 來源 | 狀態 |
 |---|------|------|------|------|
-| R12-1 | **Dependabot Phase 2.5 升級** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級實作。**Why：** 當前版本存在已知 bug 與效能問題，新版含安全修補與 API 改進；延遲升級將加大未來遷移成本與相容性風險 | `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` | [ ] |
-| R12-2 | **財務模組 Phase 2–5 實作** | AP/AR/GL 後續階段：ap_payments、ar_receipts、trial-balance 等。**Why：** Phase 1 僅完成基礎記帳與報表，缺少付款沖銷、收款核銷、試算平衡等核心財務流程，無法支撐完整的財務結算作業 | `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md` | [ ] |
+| R12-1 | **Dependabot Phase 2.5 升級** | 已完成：utoipa 4→5、utoipa-swagger-ui 6→8、axum-extra 0.9→0.12、tailwind-merge 2→3。10 個 handler 檔修復 utoipa 5 breaking changes（body 型別 scope、`decimal` feature 更名、ToSchema derive） | `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` | [x] |
+| R12-2 | **財務模組 Phase 2–5 實作** | 推遲：目前使用 Excel 記錄付款收款。Phase 1 的自動過帳 + 帳齡報表已涵蓋日常營運需求 | `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md` | ⏸️ |
 | R12-3 | **圖片處理獨立服務** | 將圖片上傳、縮圖產生、格式轉換抽離為獨立微服務。`image-processor/` Node.js 服務（Sharp）+ Docker 容器 + docker-compose 整合。**Why：** 圖片處理為高資源消耗操作，與主應用同行程部署會影響 API 回應延遲；安全審查建議隔離攻擊面，避免惡意檔案解析漏洞擴散至核心服務 | `docs/security-compliance/security.md` | [x] |
 | R12-4 | **剩餘硬編碼色彩清理** | 已完成 auditLogs.ts（58 處）、animals/constants.ts（12 處）、ErpWidgets（17 處）、Auth 頁面表單內色彩（85 處）等。硬編碼從 748→112（-85%）。剩餘為 Auth 漸層背景（DESIGN.md 規範）和 Canvas 視覺化 hex 色彩 | DESIGN.md 合規掃描 | [x] |
 | R12-5 | **React Hook Form + Zod 表單遷移** | 全面完成：27 檔使用 useForm，18 個 Zod schema。涵蓋 Auth 3 頁、HR 3 表單、ERP Partner/Warehouse/BloodTest 5 頁、Admin UserForm 3 dialog + Facility 6 Tab + CreateAiKey + BatchCreatePen、Animal Edit/Sources、AP/AR Aging、WarehouseLayout、ProfileSettings。CRUD 表單覆蓋率 100%。 | CLAUDE.md 規範 | [x] |
 | R12-6 | **子系統色相實際套用** | NavItem 新增 `subsystem` 欄位（aup/erp/animal/hr/admin）。SortableNavItem active 狀態從 `bg-blue-600` 改為 `bg-subsystem-*` 動態色彩。Sidebar 子選單 active 同步使用父級子系統色相 | DESIGN.md §15 | [x] |
 | R12-7 | **CSRF Token 客戶端刷新機制** | API client response interceptor 新增 403 CSRF 錯誤偵測 → 自動呼叫 GET `/auth/me` 刷新 CSRF cookie → 重試原始請求（`_csrfRetry` 防無限迴圈）| 安全性掃描報告 | [x] |
+
+---
+
+## 🎨 R13 — UI 一致性與設計規範（2026-03-26）
+
+> 來源：DESIGN.md §15 按鈕規範。UI 元素一致性改善。
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R13-8 | **PageHeader 按鈕高度統一** | 全站 PageHeader/toolbar 內所有按鈕統一為 `size="sm"`（h-9），消除 primary action（default h-10）與 outline 按鈕的高度差異。規則寫入 DESIGN.md §15 | 前端 | ⚡ Flash | [ ] |
 
 ---
 
@@ -366,13 +376,15 @@
 | 🔒 R9 安全與品質修復 | 2 |
 | 🔒 R10 程式碼審查 Medium/Low | 0 (3 推遲) |
 | 🔧 R11 技術債掃描 | 0 |
-| 🟢 R12 長期演進項目 | 2 |
-| **合計（未完成）** | **4** |
+| 🟢 R12 長期演進項目 | 0 (1 暫緩) |
+| 🎨 R13 UI 一致性 | 1 |
+| **合計（未完成）** | **2** |
 
 ---
 
 ## 變更紀錄 (最新)
 
+| 2026-03-26 | 🧠 Claude：R13 更新計畫全面完成 — P0 CI 觸發恢復（P0 歸零）；P1 品質強化（49 Vitest 測試、4 元件 Props 合併、4 audit 色彩 token、CSRF 419）；P2 中優先（FormField 12 檔統一、StatsCard 共用元件、請假日期時區修復、UserEditDialog 單一資料源重構）；P3 長期演進（Dependabot 2.5 utoipa5/axum-extra0.12/tw-merge3、QA browser scripts、E2E 8→12 specs +18 tests）；R12-1 完成、R12-2 暫緩。待辦 5→2。 |
 | 2026-03-25 | 🧠 Claude：gstack 全面審查 + Simplify 重構 — Code Review（/review）8 auto-fix + 4 user-approved（deleteResource data 遺失、Retry-After NaN、overtime validation、stale closure、hidden tab bypass、canEditProtocol）；安全審計（/cso）92/100 → 4 項修復（AI rate limit 強制、Cargo.lock 追蹤、CI script injection、/metrics auth）；Simplify（DataTable 7 檔、StatusBadge 7 檔、FilterBar 4 檔、檔案拆分 5→19 檔、watch() 優化 4 檔、formatDate 統一 4 檔）；zodResolver 型別修復 7 檔。待辦 5→5。 |
 | 2026-03-25 | 🧠 Claude：RHF+Zod 全面遷移完成 + UI 債清零 — **RHF+Zod** 從 1 檔擴展到 17 檔（Auth 3 頁 + Master 5 頁 + Admin UserForm 3 dialog + AnimalEdit + ApAging + ArAging + WarehouseLayout + Partner + HR 2），新增 10 個 Zod schema 到 validation.ts。**PageHeader** 35 頁遷移。**PageTabs** 9 頁遷移（含 AdminAudit hook 重構）。**EmptyState** 24 檔（19 TableEmptyRow + 11 standalone）。**i18n** 28 處修復跨 15 檔。**a11y** 93 處修復跨 43 檔（73 aria-label + 20 input label）。設計合規度 ~92%。 |
 | 2026-03-25 | 🧠 Claude：RHF+Zod 延伸遷移 + DataTable 套用 + Protocol Tab URL 同步 — Partner 表單遷移到 RHF+Zod（`partnerFormZodSchema`，欄位級錯誤顯示，移除手寫 regex 驗證）；HR 5 個列表元件遷移到 DataTable（MyLeaves/AllRecords/PendingApprovals/MyOvertime/PendingOT，移除手寫 Table+Skeleton+Empty）；ProtocolDetailPage 9 個 Tab 從 useState 遷移到 PageTabs URL sync（支援瀏覽器前進/後退/分享連結）；刪除 ProtocolTabNav.tsx（已廢棄）。 |
