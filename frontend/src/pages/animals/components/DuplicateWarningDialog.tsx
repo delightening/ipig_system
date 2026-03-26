@@ -47,8 +47,8 @@ export function DuplicateWarningDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2 my-2">
-          {data?.existingAnimals.map((animal, idx) => (
-            <div key={idx} className="flex items-center gap-3 p-3 bg-status-warning-bg border border-status-warning-border rounded-lg text-sm">
+          {data?.existingAnimals.map((animal) => (
+            <div key={animal.id} className="flex items-center gap-3 p-3 bg-status-warning-bg border border-status-warning-border rounded-lg text-sm">
               <AlertTriangle className="h-4 w-4 text-status-warning-text shrink-0" />
               <div>
                 <div>出生日期: <span className="font-medium">{animal.birth_date || '未設定'}</span></div>

@@ -74,7 +74,7 @@ fn extract_session_id(request: &Request) -> String {
             let payload: serde_json::Value = serde_json::from_slice(&payload_bytes).ok()?;
             payload.get("sub").and_then(|v| v.as_str()).map(|s| s.to_string())
         })
-        .unwrap_or_default() // 未登入時為空字串，CSRF token 仍可綁定（空 session）
+        .unwrap_or_default() // 未登入時為空字串
 }
 
 /// 產生 HMAC 簽署的 CSRF token：`{nonce}.{hmac_hex}`
@@ -140,6 +140,20 @@ pub async fn csrf_middleware(
 
     // 只有需要 CSRF 的方法且非豁免路徑才檢查
     if !skip_csrf && requires_csrf_check(&method) && !is_exempt_path(&path) {
+        // SEC-C6: 非豁免的寫入端點要求已認證 session，
+        // 防止未認證 CSRF token（空 session_id）被跨 session 重用
+        if session_id.is_empty() {
+            tracing::warn!("[CSRF] 拒絕未認證的寫入請求 - Method: {}, Path: {}", method, path);
+            let status = StatusCode::UNAUTHORIZED;
+            return Err((
+                status,
+                axum::Json(serde_json::json!({
+                    "error": "Authentication required for this operation"
+                })),
+            )
+                .into_response());
+        }
+
         let cookie_token = extract_cookie(&request, "csrf_token");
         let header_token = request
             .headers()
@@ -388,12 +402,14 @@ mod tests {
         let token = generate_signed_csrf_token(secret, "");
         assert!(
             verify_signed_csrf_token(secret, &token, ""),
-            "空 session 應可產生並驗證（未登入狀態）"
+            "空 session 應可產生並驗證（僅限豁免路徑使用）"
         );
         assert!(
             !verify_signed_csrf_token(secret, &token, "user-123"),
             "空 session 的 token 不應通過有 session 的驗證"
         );
+        // SEC-C6: 非豁免路徑的寫入操作現在會在 middleware 層拒絕空 session，
+        // 所以空 session CSRF token 實際上不會被用於驗證寫入操作
     }
 
     #[test]

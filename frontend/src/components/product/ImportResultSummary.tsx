@@ -43,7 +43,7 @@ export function ImportResultSummary({ result }: ImportResultSummaryProps) {
               </thead>
               <tbody>
                 {result.errors.map((err, i) => (
-                  <tr key={i} className="border-t">
+                  <tr key={`err-${err.row}-${i}`} className="border-t">
                     <td className="px-3 py-2">{err.row}</td>
                     <td className="px-3 py-2 font-mono">{err.sku || '-'}</td>
                     <td className="px-3 py-2 text-red-600">{err.error}</td>

@@ -58,11 +58,16 @@ impl AnimalService {
         }
     }
 
-    /// 取得動物狀態統計（輕量級 COUNT 查詢）
+    /// 取得動物狀態統計（單一查詢，合併 status count + pen count）
     pub async fn stats(pool: &PgPool) -> Result<AnimalStatsResponse> {
-        let rows: Vec<(String, i64)> = sqlx::query_as(
+        let rows: Vec<(String, i64, i64)> = sqlx::query_as(
             r#"
-            SELECT status::text, COUNT(*) as count
+            SELECT
+                status::text,
+                COUNT(*) as count,
+                COUNT(*) FILTER (
+                    WHERE pen_location IS NOT NULL AND TRIM(pen_location) != ''
+                ) as pen_count
             FROM animals
             WHERE deleted_at IS NULL
             GROUP BY status
@@ -73,22 +78,12 @@ impl AnimalService {
 
         let mut status_counts = std::collections::HashMap::new();
         let mut total: i64 = 0;
-        for (status, count) in &rows {
+        let mut pen_animals_count: i64 = 0;
+        for (status, count, pen_count) in &rows {
             status_counts.insert(status.clone(), *count);
             total += count;
+            pen_animals_count += pen_count;
         }
-
-        let (pen_animals_count,): (i64,) = sqlx::query_as(
-            r#"
-            SELECT COUNT(*)
-            FROM animals
-            WHERE deleted_at IS NULL
-            AND pen_location IS NOT NULL
-            AND TRIM(pen_location) != ''
-            "#,
-        )
-        .fetch_one(pool)
-        .await?;
 
         Ok(AnimalStatsResponse {
             status_counts,
@@ -142,33 +137,29 @@ impl AnimalService {
                         AND ps.no_medication_needed = false
                     )
                 ) as is_on_medication,
-                (
-                    SELECT MAX(vr.created_at)
-                    FROM vet_recommendations vr
-                    WHERE (vr.record_type = 'observation'::vet_record_type AND vr.record_id IN (
-                        SELECT id FROM animal_observations WHERE animal_id = p.id
-                    ))
-                    OR (vr.record_type = 'surgery'::vet_record_type AND vr.record_id IN (
-                        SELECT id FROM animal_surgeries WHERE animal_id = p.id
-                    ))
-                ) as vet_recommendation_date,
-                (
-                    SELECT pw.weight
-                    FROM animal_weights pw
-                    WHERE pw.animal_id = p.id
-                    ORDER BY pw.measure_date DESC
-                    LIMIT 1
-                ) as latest_weight,
-                (
-                    SELECT pw.measure_date
-                    FROM animal_weights pw
-                    WHERE pw.animal_id = p.id
-                    ORDER BY pw.measure_date DESC
-                    LIMIT 1
-                ) as latest_weight_date
+                vrd.max_created_at as vet_recommendation_date,
+                lw.weight as latest_weight,
+                lw.measure_date as latest_weight_date
             FROM animals p
             LEFT JOIN animal_sources s ON p.source_id = s.id
             LEFT JOIN species sp ON p.species_id = sp.id
+            LEFT JOIN LATERAL (
+                SELECT MAX(vr.created_at) as max_created_at
+                FROM vet_recommendations vr
+                WHERE (vr.record_type = 'observation'::vet_record_type AND vr.record_id IN (
+                    SELECT id FROM animal_observations WHERE animal_id = p.id
+                ))
+                OR (vr.record_type = 'surgery'::vet_record_type AND vr.record_id IN (
+                    SELECT id FROM animal_surgeries WHERE animal_id = p.id
+                ))
+            ) vrd ON true
+            LEFT JOIN LATERAL (
+                SELECT pw.weight, pw.measure_date
+                FROM animal_weights pw
+                WHERE pw.animal_id = p.id
+                ORDER BY pw.measure_date DESC
+                LIMIT 1
+            ) lw ON true
             WHERE p.deleted_at IS NULL
             "#,
         );

@@ -48,7 +48,7 @@ export function DashboardPage() {
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [showWelcome, setShowWelcome] = useState(() => {
-    return !localStorage.getItem('dashboard-welcome-dismissed')
+    return !sessionStorage.getItem('dashboard-welcome-dismissed')
   })
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [pendingLayout, setPendingLayout] = useState<WidgetLayoutItem[] | null>(null)
@@ -250,7 +250,7 @@ export function DashboardPage() {
           <button
             onClick={() => {
               setShowWelcome(false)
-              localStorage.setItem('dashboard-welcome-dismissed', '1')
+              sessionStorage.setItem('dashboard-welcome-dismissed', '1')
             }}
             className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
           >

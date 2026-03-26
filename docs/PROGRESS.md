@@ -185,6 +185,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-03-26 Code Review 全面修復（28/35 項，80%）
+
+- ✅ **P0 Critical 全部修復**：密鑰輪換（JWT/HMAC/DB/admin）、Token Refresh 競態條件改 Promise singleton、localStorage 最小化、CSRF 空 session 拒絕未認證寫入
+- ✅ **P1 High 全部修復**：N+1 查詢改 LATERAL JOIN、30+ FK 索引補建、SVG sanitizer 收緊、18 檔 array index key 替換、16 處 audit log 錯誤記錄、unreachable 移除、type guard、logout 競態、users 硬刪除改 soft delete
+- ✅ **P2 Medium 9/12 完成**：Stats 查詢合併、Rate Limiter 50K 上限、partial index、API key CHECK、Heartbeat 重試、staleTime、audit 複合索引、TabContent props 合併、權限 403
+- ✅ **P3 Low 5/9 完成**：welcome banner sessionStorage、prefetch dev warn、SameSite 確認、測試密碼輪換、minimatch override 確認
+- ✅ **工具文件**：`docs/codeReview/` 建立完整報告、推薦工具清單、修復追蹤
+
 ### 2026-03-26 文件結構重整 + DESIGN.md §15 按鈕規範
 
 - ✅ **文件記錄規則制定**：CLAUDE.md 新增「文件記錄規則」section，統一時間排序（反向）、表格欄位（4 欄）、編號格式（`{Section}-{序號}`）、變更紀錄流程（單一來源：PROGRESS.md §9）。

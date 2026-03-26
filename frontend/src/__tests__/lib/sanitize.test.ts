@@ -54,4 +54,34 @@ describe('sanitizeSvg', () => {
   it('handles empty string', () => {
     expect(sanitizeSvg('')).toBe('')
   })
+
+  // SEC-H6: 新增嚴格白名單測試
+  it('removes text and tspan elements (anti-phishing)', () => {
+    const svg = '<svg><text x="10" y="20">Click here</text><tspan>Fake label</tspan></svg>'
+    const result = sanitizeSvg(svg)
+    expect(result).not.toContain('<text')
+    expect(result).not.toContain('<tspan')
+  })
+
+  it('removes foreignObject element', () => {
+    const svg = '<svg><foreignObject><body xmlns="http://www.w3.org/1999/xhtml"><div>XSS</div></body></foreignObject></svg>'
+    const result = sanitizeSvg(svg)
+    expect(result).not.toContain('foreignObject')
+  })
+
+  it('removes anchor and image elements', () => {
+    const svg = '<svg><a href="evil.html"><circle r="10"/></a><image href="evil.png"/></svg>'
+    const result = sanitizeSvg(svg)
+    expect(result).not.toContain('<a')
+    expect(result).not.toContain('<image')
+    expect(result).not.toContain('href')
+  })
+
+  it('removes additional event handlers', () => {
+    const svg = '<svg><circle r="10" onmouseout="evil()" onkeydown="evil()" ontouchstart="evil()"/></svg>'
+    const result = sanitizeSvg(svg)
+    expect(result).not.toContain('onmouseout')
+    expect(result).not.toContain('onkeydown')
+    expect(result).not.toContain('ontouchstart')
+  })
 })

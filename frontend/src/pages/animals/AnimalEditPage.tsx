@@ -72,6 +72,7 @@ export function AnimalEditPage() {
       const res = await api.get<Animal>(`/animals/${animalId}`)
       return res.data
     },
+    staleTime: 5 * 60_000, // M10: 5 分鐘內不重新拉取
   })
 
   // Query sources

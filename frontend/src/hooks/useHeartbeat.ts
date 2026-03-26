@@ -24,14 +24,26 @@ export function useHeartbeat(isAuthenticated: boolean) {
             window.addEventListener(event, markActivity, { passive: true })
         })
 
+        // M9: 連續失敗計數，超過閾值後降低頻率避免無效請求
+        let consecutiveFailures = 0
+        const MAX_FAILURES_BEFORE_BACKOFF = 3
+
         // 每 60 秒檢查是否有活動，若有則發送 heartbeat
         intervalRef.current = setInterval(async () => {
             if (hasActivityRef.current) {
+                // 連續失敗超過閾值時，每 3 次才嘗試一次
+                if (consecutiveFailures >= MAX_FAILURES_BEFORE_BACKOFF) {
+                    if (consecutiveFailures % 3 !== 0) {
+                        consecutiveFailures++
+                        return
+                    }
+                }
                 hasActivityRef.current = false
                 try {
                     await api.post('/auth/heartbeat')
+                    consecutiveFailures = 0
                 } catch {
-                    // 靜默失敗，不影響使用者操作
+                    consecutiveFailures++
                 }
             }
         }, 60_000)

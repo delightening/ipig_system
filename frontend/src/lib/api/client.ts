@@ -55,22 +55,11 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 // SEC-25: Refresh Token Queue（防競態）
 // ============================================
 
-let isRefreshing = false
-let refreshSubscribers: Array<(success: boolean) => void> = []
+// SEC-25: Promise-based singleton 防止重複 refresh（修復競態條件）
+let refreshPromise: Promise<boolean> | null = null
 
-/** 訂閱 refresh 結果 */
-function subscribeTokenRefresh(callback: (success: boolean) => void) {
-  refreshSubscribers.push(callback)
-}
-
-/** 通知所有等待中的請求 refresh 結果 */
-function onRefreshResolved(success: boolean) {
-  refreshSubscribers.forEach(cb => cb(success))
-  refreshSubscribers = []
-}
-
-// 防重複登出鎖：避免多個並行 401 請求同時觸發 logout
-let isLoggingOut = false
+// 防重複登出：Promise-based gate（修復非原子 flag 競態）
+let logoutPromise: Promise<void> | null = null
 
 // Response interceptor - handle errors and token refresh
 api.interceptors.response.use(
@@ -78,9 +67,9 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean; _503RetryCount?: number; _csrfRetry?: boolean; _silentError?: boolean }
 
-    // 如果已經在登出流程中，直接拒絕所有 401，不再重試
-    if (isLoggingOut) {
-      return Promise.reject(error)
+    // 如果已經在登出流程中，等待完成後拒絕
+    if (logoutPromise) {
+      return logoutPromise.then(() => Promise.reject(error))
     }
 
     // 503 暫時性錯誤：依 Retry-After 重試（最多 2 次）
@@ -116,51 +105,29 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true
 
-      // SEC-25: 如果已經有 refresh 在進行中，等待其結果
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          subscribeTokenRefresh((success: boolean) => {
-            if (success && originalRequest) {
-              resolve(api(originalRequest))
-            } else {
-              reject(error)
-            }
+      // SEC-25: Promise-based singleton — 所有並行 401 共用同一個 refresh Promise
+      if (!refreshPromise) {
+        refreshPromise = api.post('/auth/refresh')
+          .then(() => {
+            useAuthStore.getState().sessionExpiresAt = Date.now() + SESSION_TIMEOUT_MS
+            return true
           })
-        })
+          .catch(() => false)
+          .finally(() => { refreshPromise = null })
       }
 
-      isRefreshing = true
+      const success = await refreshPromise
+      if (success && originalRequest) {
+        return api(originalRequest)
+      }
 
-      try {
-        await api.post('/auth/refresh')
-
-        // Reset session expiry timer after successful refresh
-        useAuthStore.getState().sessionExpiresAt = Date.now() + SESSION_TIMEOUT_MS
-
-        isRefreshing = false
-        onRefreshResolved(true)
-
-        if (originalRequest) {
-          return api(originalRequest)
-        }
-      } catch {
-        isRefreshing = false
-        onRefreshResolved(false)
-
-        // Refresh 也失敗 → 清除 auth 狀態，讓 React Router 自然導向 /login
-        // 使用鎖避免多個並行請求重複觸發
-        if (!isLoggingOut) {
-          isLoggingOut = true
-          try {
-            // 使用 getState() 在非 React 上下文存取 store
-            const store = useAuthStore.getState()
-            // 只清 state，不再呼叫後端 logout（token 已失效）
-            store.clearAuth()
-          } finally {
-            // 延遲重置鎖，讓所有排隊的 401 都被靜默拒絕
-            setTimeout(() => { isLoggingOut = false }, 1000)
-          }
-        }
+      // Refresh 失敗 → Promise-based gate 確保只清一次 auth
+      if (!logoutPromise) {
+        logoutPromise = new Promise<void>((resolve) => {
+          useAuthStore.getState().clearAuth()
+          // 延遲重置，讓所有排隊的 401 都被靜默拒絕
+          setTimeout(() => { logoutPromise = null; resolve() }, 1000)
+        })
       }
     }
 

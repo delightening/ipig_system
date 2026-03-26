@@ -188,9 +188,9 @@ export function DatePicker({
 
                     {/* Weekday headers */}
                     <div className="grid grid-cols-7 gap-1 mb-1">
-                        {weekDays.map((day, idx) => (
+                        {weekDays.map((day) => (
                             <div
-                                key={idx}
+                                key={day}
                                 className="h-8 w-8 flex items-center justify-center text-xs text-muted-foreground font-medium"
                             >
                                 {day}
@@ -200,14 +200,14 @@ export function DatePicker({
 
                     {/* Calendar grid */}
                     <div className="grid grid-cols-7 gap-1">
-                        {calendarDays.map((date, idx) => {
+                        {calendarDays.map((date) => {
                             const isCurrentMonth = isSameMonth(date, viewDate)
                             const isSelected = selectedDate && isSameDay(date, selectedDate)
                             const isTodayDate = isToday(date)
 
                             return (
                                 <button
-                                    key={idx}
+                                    key={date.toISOString()}
                                     type="button"
                                     onClick={() => handleDateSelect(date)}
                                     className={cn(

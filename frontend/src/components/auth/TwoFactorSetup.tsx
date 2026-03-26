@@ -197,8 +197,8 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
               </DialogHeader>
               <div className="rounded-lg border bg-muted/50 p-4">
                 <div className="grid grid-cols-2 gap-2 font-mono text-sm">
-                  {setupData.backup_codes.map((code, i) => (
-                    <div key={i} className="rounded bg-background px-3 py-1.5 text-center">
+                  {setupData.backup_codes.map((code) => (
+                    <div key={code} className="rounded bg-background px-3 py-1.5 text-center">
                       {code}
                     </div>
                   ))}

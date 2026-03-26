@@ -55,7 +55,7 @@ pub async fn full_database_export(
 
     let bytes = export_full_database(&state.db, export_params).await?;
 
-    let _ = AuditService::log_activity(
+    if let Err(e) = AuditService::log_activity(
         &state.db,
         current_user.id,
         "ADMIN",
@@ -68,7 +68,7 @@ pub async fn full_database_export(
         None,
         None,
     )
-    .await;
+    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
 
     let (ext, content_type) = match format {
         ExportFormat::Zip => ("zip", "application/zip"),
@@ -104,7 +104,7 @@ pub async fn full_database_import(
     // 匯入後確保 admin 可登入（重設密碼為 ADMIN_INITIAL_PASSWORD）
     let _ = ensure_admin_user_after_import(&state.db, &state.config).await;
 
-    let _ = AuditService::log_activity(
+    if let Err(e) = AuditService::log_activity(
         &state.db,
         current_user.id,
         "ADMIN",
@@ -126,7 +126,7 @@ pub async fn full_database_import(
         None,
         None,
     )
-    .await;
+    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
 
     Ok(Json(result))
 }

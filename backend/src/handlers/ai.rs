@@ -43,7 +43,7 @@ pub async fn create_ai_api_key(
 
     let resp = AiService::create_api_key(&state.db, &req, user.id).await?;
 
-    let _ = AuditService::log(
+    if let Err(e) = AuditService::log(
         &state.db,
         user.id,
         AuditAction::Create,
@@ -52,7 +52,7 @@ pub async fn create_ai_api_key(
         None,
         Some(serde_json::json!({ "name": resp.name })),
     )
-    .await;
+    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
 
     Ok((axum::http::StatusCode::CREATED, Json(resp)))
 }
@@ -97,7 +97,7 @@ pub async fn toggle_ai_api_key(
 
     AiService::toggle_api_key(&state.db, id, body.is_active).await?;
 
-    let _ = AuditService::log(
+    if let Err(e) = AuditService::log(
         &state.db,
         user.id,
         AuditAction::Update,
@@ -106,7 +106,7 @@ pub async fn toggle_ai_api_key(
         None,
         Some(serde_json::json!({ "is_active": body.is_active })),
     )
-    .await;
+    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
 
     Ok(Json(serde_json::json!({ "success": true })))
 }
@@ -131,7 +131,7 @@ pub async fn delete_ai_api_key(
 
     AiService::delete_api_key(&state.db, id).await?;
 
-    let _ = AuditService::log(
+    if let Err(e) = AuditService::log(
         &state.db,
         user.id,
         AuditAction::Delete,
@@ -140,7 +140,7 @@ pub async fn delete_ai_api_key(
         None,
         None,
     )
-    .await;
+    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
 
     Ok(Json(serde_json::json!({ "success": true })))
 }

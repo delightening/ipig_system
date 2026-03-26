@@ -42,10 +42,28 @@ impl RateLimiterState {
             loop {
                 tokio::time::sleep(Duration::from_secs(RATE_LIMIT_CLEANUP_INTERVAL_SECS)).await;
                 let now = Instant::now();
-                cleanup_records.retain(|_ip, timestamps: &mut Vec<Instant>| {
+                cleanup_records.retain(|_ip: &String, timestamps: &mut Vec<Instant>| {
                     timestamps.retain(|t| now.duration_since(*t) < cleanup_window);
                     !timestamps.is_empty()
                 });
+                // SEC-M3: 防止 HashMap 無限成長（DDoS 大量不同 IP）
+                // 超過上限時清除最舊的條目
+                const MAX_TRACKED_IPS: usize = 50_000;
+                if cleanup_records.len() > MAX_TRACKED_IPS {
+                    let overflow = cleanup_records.len() - MAX_TRACKED_IPS;
+                    let keys_to_remove: Vec<String> = cleanup_records
+                        .iter()
+                        .take(overflow)
+                        .map(|entry| entry.key().clone())
+                        .collect();
+                    for key in keys_to_remove {
+                        cleanup_records.remove(&key);
+                    }
+                    tracing::warn!(
+                        "[RateLimit] IP 追蹤數超過上限，已清除 {} 筆舊紀錄",
+                        overflow
+                    );
+                }
             }
         });
 

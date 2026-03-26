@@ -196,7 +196,7 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
                 <h4 className="font-medium text-destructive mb-2">錯誤</h4>
                 <ul className="space-y-1.5 rounded border bg-muted/30 p-3 font-mono text-sm">
                   {lastImportResult.errors.map((err, i) => (
-                    <li key={i} className="text-destructive/90 break-words">{i + 1}. {err}</li>
+                    <li key={`err-${i}`} className="text-destructive/90 break-words">{i + 1}. {err}</li>
                   ))}
                 </ul>
               </div>
@@ -206,7 +206,7 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
                 <h4 className="font-medium text-amber-600 mb-2">略過項目</h4>
                 <ul className="space-y-1.5 rounded border bg-muted/30 p-3 font-mono text-sm">
                   {lastImportResult.skipped_details.map((s, i) => (
-                    <li key={i} className="break-words">
+                    <li key={`skip-${s.table}-${i}`} className="break-words">
                       <span className="font-medium">{s.table}</span>：{s.reason}
                       {s.count != null ? `（${s.count} 筆）` : ''}
                     </li>

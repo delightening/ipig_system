@@ -79,10 +79,10 @@ pub async fn confirm_2fa_setup(
     let db = state.db.clone();
     let user_id = current_user.id;
     tokio::spawn(async move {
-        let _ = AuditService::log_activity(
+        if let Err(e) = AuditService::log_activity(
             &db, user_id, "SECURITY", "2FA_ENABLED",
             Some("user"), Some(user_id), None, None, None, None, None,
-        ).await;
+        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
     });
 
     Ok(Json(serde_json::json!({ "message": "2FA 已成功啟用" })))
@@ -113,10 +113,10 @@ pub async fn disable_2fa(
     let db = state.db.clone();
     let user_id = current_user.id;
     tokio::spawn(async move {
-        let _ = AuditService::log_activity(
+        if let Err(e) = AuditService::log_activity(
             &db, user_id, "SECURITY", "2FA_DISABLED",
             Some("user"), Some(user_id), None, None, None, None, None,
-        ).await;
+        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
     });
 
     Ok(Json(serde_json::json!({ "message": "2FA 已停用" })))

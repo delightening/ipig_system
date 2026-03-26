@@ -25,6 +25,8 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { formatDate } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import type { BloodTestAnalysisRow } from '@/types'
 import { BoxPlotChart } from './BoxPlotChart'
 import type { BoxPlotData } from '../hooks/useBloodTestAnalysis'
@@ -155,6 +157,8 @@ function BoxPlotTab({ data }: { data: BoxPlotData[] }) {
 }
 
 function DataTable({ data }: { data: BloodTestAnalysisRow[] }) {
+  const { sortedData, sort, toggleSort } = useTableSort(data)
+
   return (
     <Card>
       <CardHeader>
@@ -165,20 +169,20 @@ function DataTable({ data }: { data: BloodTestAnalysisRow[] }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>耳號</TableHead>
-                <TableHead>專案</TableHead>
-                <TableHead>日期</TableHead>
-                <TableHead>實驗室</TableHead>
-                <TableHead>項目</TableHead>
-                <TableHead className="text-right">結果值</TableHead>
+                <SortableTableHead sortKey="ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>耳號</SortableTableHead>
+                <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>專案</SortableTableHead>
+                <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
+                <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>實驗室</SortableTableHead>
+                <SortableTableHead sortKey="item_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>項目</SortableTableHead>
+                <SortableTableHead sortKey="result_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">結果值</SortableTableHead>
                 <TableHead>單位</TableHead>
                 <TableHead>參考範圍</TableHead>
-                <TableHead className="text-center">異常</TableHead>
+                <SortableTableHead sortKey="is_abnormal" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center">異常</SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.slice(0, 200).map((r, idx) => (
-                <TableRow key={idx} className={r.is_abnormal ? 'bg-status-error-bg dark:bg-destructive/10' : ''}>
+              {(sortedData ?? data).slice(0, 200).map((r, idx) => (
+                <TableRow key={`${r.ear_tag}-${idx}`} className={r.is_abnormal ? 'bg-status-error-bg dark:bg-destructive/10' : ''}>
                   <TableCell className="font-medium">{r.ear_tag}</TableCell>
                   <TableCell className="font-mono text-sm">{r.iacuc_no || '-'}</TableCell>
                   <TableCell>{formatDate(r.test_date)}</TableCell>

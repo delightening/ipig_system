@@ -285,8 +285,8 @@ export function ProductDetailPage() {
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">搜尋標籤</span>
                   <div className="flex gap-1 flex-wrap justify-end">
-                    {product.tags.map((tag, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-xs">
+                    {product.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
                     ))}

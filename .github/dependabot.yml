@@ -13,6 +13,11 @@ updates:
       - "rust"
     commit-message:
       prefix: "chore(deps):"
+    # L6: 安全更新優先處理
+    groups:
+      patch-updates:
+        update-types:
+          - "patch"
 
   # npm / Frontend
   - package-ecosystem: "npm"
@@ -33,6 +38,9 @@ updates:
         patterns:
           - "react*"
           - "@types/react*"
+      patch-updates:
+        update-types:
+          - "patch"
 
   # Docker
   - package-ecosystem: "docker"

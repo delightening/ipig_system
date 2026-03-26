@@ -301,7 +301,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                       </thead>
                       <tbody>
                         {result.errors.map((error, i) => (
-                          <tr key={i} className="border-t">
+                          <tr key={`err-${error.row}-${i}`} className="border-t">
                             <td className="px-3 py-2">{error.row}</td>
                             <td className="px-3 py-2 font-mono">{error.ear_tag || '-'}</td>
                             <td className="px-3 py-2 text-red-600">{error.error}</td>

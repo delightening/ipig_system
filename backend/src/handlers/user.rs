@@ -184,13 +184,13 @@ pub async fn update_user(
             let ip_c = ip.clone();
             let ua_c = ua.clone();
             tokio::spawn(async move {
-                let _ = AuditService::log_activity(
+                if let Err(e) = AuditService::log_activity(
                     &db, actor, "SECURITY", "ROLE_CHANGE",
                     Some("user"), Some(id), Some(&target_name),
                     Some(serde_json::json!({ "roles": before_roles })),
                     Some(serde_json::json!({ "roles": after_roles })),
                     Some(&ip_c), ua_c.as_deref(),
-                ).await;
+                ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
             });
         }
         if status_changed {
@@ -202,13 +202,13 @@ pub async fn update_user(
             let was_active = before.is_active;
             let now_active = user.is_active;
             tokio::spawn(async move {
-                let _ = AuditService::log_activity(
+                if let Err(e) = AuditService::log_activity(
                     &db, actor, "SECURITY", "ACCOUNT_STATUS_CHANGE",
                     Some("user"), Some(id), Some(&target_name),
                     Some(serde_json::json!({ "is_active": was_active })),
                     Some(serde_json::json!({ "is_active": now_active })),
                     Some(&ip_c), ua_c.as_deref(),
-                ).await;
+                ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
             });
         }
     }
@@ -330,12 +330,12 @@ pub async fn reset_user_password(
     let db = state.db.clone();
     let actor = current_user.id;
     tokio::spawn(async move {
-        let _ = AuditService::log_activity(
+        if let Err(e) = AuditService::log_activity(
             &db, actor, "SECURITY", "PASSWORD_ADMIN_RESET",
             Some("user"), Some(id), None,
             None, Some(serde_json::json!({ "target_user_id": id })),
             Some(&ip), ua.as_deref(),
-        ).await;
+        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
     });
     
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
@@ -399,12 +399,12 @@ pub async fn impersonate_user(
     let db = state.db.clone();
     let actor = current_user.id;
     tokio::spawn(async move {
-        let _ = AuditService::log_activity(
+        if let Err(e) = AuditService::log_activity(
             &db, actor, "SECURITY", "IMPERSONATE_START",
             Some("user"), Some(id), Some(&target_name),
             None, Some(serde_json::json!({ "impersonated_user_id": id })),
             Some(&ip), ua.as_deref(),
-        ).await;
+        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
     });
     
     // 回傳 JSON + Set-Cookie headers
