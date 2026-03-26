@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import {
   Dialog,
   DialogContent,
@@ -70,18 +71,13 @@ export function CreateAiKeyDialog({ open, onClose, onCreated }: CreateAiKeyDialo
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onValid)} className="space-y-4">
-          <div>
-            <Label>金鑰名稱 *</Label>
+          <FormField label="金鑰名稱" required error={errors.name?.message}>
             <Input
               placeholder="例如：Claude Desktop 查詢用"
               {...register('name')}
             />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
-            )}
-          </div>
-          <div>
-            <Label>權限範圍</Label>
+          </FormField>
+          <FormField label="權限範圍" error={errors.scopes?.message}>
             <div className="mt-2 space-y-2">
               {AVAILABLE_SCOPES.map(scope => (
                 <label key={scope.value} className="flex items-start gap-2 cursor-pointer">
@@ -105,23 +101,16 @@ export function CreateAiKeyDialog({ open, onClose, onCreated }: CreateAiKeyDialo
                 </label>
               ))}
             </div>
-            {errors.scopes && (
-              <p className="text-sm text-destructive">{errors.scopes.message}</p>
-            )}
-          </div>
+          </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>速率限制（次/分鐘）</Label>
+            <FormField label="速率限制（次/分鐘）" error={errors.rateLimit?.message}>
               <Input
                 type="number"
                 min={1}
                 max={600}
                 {...register('rateLimit', { valueAsNumber: true })}
               />
-              {errors.rateLimit && (
-                <p className="text-sm text-destructive">{errors.rateLimit.message}</p>
-              )}
-            </div>
+            </FormField>
             <div>
               <Label>有效天數（空白=永不過期）</Label>
               <Input

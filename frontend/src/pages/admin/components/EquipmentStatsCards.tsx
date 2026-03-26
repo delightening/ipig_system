@@ -1,32 +1,9 @@
 import { format } from 'date-fns'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatsCard } from '@/components/ui/stats-card'
 import { Package, Ruler, AlertTriangle, Wrench } from 'lucide-react'
 
 import type { Equipment, CalibrationWithEquipment } from '../types'
-import { EQUIPMENT_STATUS_LABELS } from '../types'
-
-interface StatsCardProps {
-  title: string
-  value: number
-  icon: React.ComponentType<{ className?: string }>
-  iconClassName?: string
-  valueClassName?: string
-}
-
-function StatsCard({ title, value, icon: Icon, iconClassName, valueClassName }: StatsCardProps) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className={`h-4 w-4 ${iconClassName ?? 'text-muted-foreground'}`} />
-      </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-bold ${valueClassName ?? ''}`}>{value}</div>
-      </CardContent>
-    </Card>
-  )
-}
 
 function computeEquipmentStats(
   equipmentList: Equipment[],
@@ -70,17 +47,17 @@ export function EquipmentStatsCards({ equipmentList, allCalibrations }: Equipmen
 
   return (
     <div className="grid gap-4 md:grid-cols-4">
-      <StatsCard title="設備總數 (啟用)" value={stats.activeCount} icon={Package} />
+      <StatsCard label="設備總數 (啟用)" value={stats.activeCount} icon={Package} />
       <StatsCard
-        title="維修中"
+        label="維修中"
         value={stats.repairCount}
         icon={Wrench}
         iconClassName={stats.repairCount > 0 ? 'text-status-warning-text' : 'text-muted-foreground'}
         valueClassName={stats.repairCount > 0 ? 'text-status-warning-text' : ''}
       />
-      <StatsCard title="校正/確效/查核紀錄" value={stats.totalCalib} icon={Ruler} />
+      <StatsCard label="校正/確效/查核紀錄" value={stats.totalCalib} icon={Ruler} />
       <StatsCard
-        title="逾期待處理"
+        label="逾期待處理"
         value={stats.overdueCount}
         icon={AlertTriangle}
         iconClassName={stats.overdueCount > 0 ? 'text-destructive' : 'text-muted-foreground'}

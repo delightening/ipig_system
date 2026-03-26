@@ -11,6 +11,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -238,21 +239,17 @@ function ZoneFormFields({ register, setValue, watch, errors, buildings, isCreate
   return (
     <div className="space-y-3">
       {isCreate && (
-        <div>
-          <Label>所屬棟舍 *</Label>
+        <FormField label="所屬棟舍" required error={errors.building_id?.message}>
           <Select value={buildingId} onValueChange={v => setValue('building_id', v, { shouldValidate: true })}>
             <SelectTrigger><SelectValue placeholder="選擇棟舍" /></SelectTrigger>
             <SelectContent>{buildings.map(b => <SelectItem key={b.id} value={b.id}>{b.name} ({b.facility_code}/{b.code})</SelectItem>)}</SelectContent>
           </Select>
-          {errors.building_id && <p className="text-sm text-destructive">{errors.building_id.message}</p>}
-        </div>
+        </FormField>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>{isCreate ? '代碼 *' : '代碼'}</Label>
+        <FormField label={isCreate ? '代碼' : '代碼'} required={isCreate} error={errors.code?.message}>
           <Input {...register('code')} disabled={!isCreate} />
-          {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
-        </div>
+        </FormField>
         <div><Label>名稱</Label><Input {...register('name')} /></div>
       </div>
       <div className="grid grid-cols-2 gap-3">

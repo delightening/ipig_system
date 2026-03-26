@@ -11,6 +11,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -157,16 +158,12 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>新增部門</DialogTitle></DialogHeader>
           <form onSubmit={onCreateSubmit} className="space-y-3">
-            <div>
-              <Label>代碼 *</Label>
+            <FormField label="代碼" required error={errors.code?.message}>
               <Input {...register('code')} />
-              {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
-            </div>
-            <div>
-              <Label>名稱 *</Label>
+            </FormField>
+            <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
+            </FormField>
             <div>
               <Label>上層部門</Label>
               <Select value={parentId ?? NONE_VALUE} onValueChange={v => setValue('parent_id', v === NONE_VALUE ? undefined : v)}>
@@ -207,11 +204,9 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
           <DialogHeader><DialogTitle>編輯部門</DialogTitle></DialogHeader>
           <form onSubmit={onEditSubmit} className="space-y-3">
             <div><Label>代碼</Label><Input {...register('code')} disabled /></div>
-            <div>
-              <Label>名稱 *</Label>
+            <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
+            </FormField>
             <div>
               <Label>上層部門</Label>
               <Select value={parentId ?? NONE_VALUE} onValueChange={v => setValue('parent_id', v === NONE_VALUE ? undefined : v)}>

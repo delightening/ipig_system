@@ -300,27 +300,16 @@ export function useUserManagement() {
     setShowEditDialog(true)
   }
 
-  const handleUpdate = () => {
+  /** RHF-validated update: dialog 已透過 Zod 驗證，直接提交 */
+  const handleUpdateWithData = (data: { email: string; display_name: string; entry_date: string; trainings: UserTrainingInput[] }) => {
     if (!selectedUser) return
-    const result = updateUserFormSchema.safeParse({
-      email: formData.email,
-      display_name: formData.display_name,
-    })
-    if (!result.success) {
-      const firstError = result.error.issues[0]?.message ?? '驗證失敗'
-      toast({ title: '錯誤', description: firstError, variant: 'destructive' })
-      return
-    }
     updateMutation.mutate({
       id: selectedUser.id,
       data: {
-        email: formData.email || undefined,
-        display_name: formData.display_name || undefined,
-        entry_date: formData.entry_date || undefined,
-        position: formData.position || undefined,
-        aup_roles: formData.aup_roles,
-        years_experience: formData.years_experience,
-        trainings: formData.trainings,
+        email: data.email || undefined,
+        display_name: data.display_name || undefined,
+        entry_date: data.entry_date || undefined,
+        trainings: data.trainings,
       },
     })
   }
@@ -499,7 +488,7 @@ export function useUserManagement() {
     handleCreate,
     handleCreateWithData,
     handleEdit,
-    handleUpdate,
+    handleUpdateWithData,
     handleToggleActive,
     handleManageRoles,
     handleUpdateRoles,
