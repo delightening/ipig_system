@@ -7,9 +7,10 @@ use axum::{
 use std::net::SocketAddr;
 use validator::Validate;
 
+use crate::error::ErrorResponse;
 use crate::{
     middleware::{extract_real_ip_with_trust, CurrentUser},
-    models::{LoginRequest, TwoFactorRequiredResponse, UpdateUserRequest, UserResponse},
+    models::{LoginRequest, LoginResponse, TwoFactorRequiredResponse, UpdateUserRequest, UserResponse},
     services::{AuthService, LoginTracker, SessionManager, UserService},
     AppError, AppState, Result,
 };

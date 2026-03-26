@@ -4,6 +4,7 @@ use axum::{
     Extension,
 };
 
+use crate::error::ErrorResponse;
 use crate::{
     middleware::CurrentUser,
     models::AuditAction,

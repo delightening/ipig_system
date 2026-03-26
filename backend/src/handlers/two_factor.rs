@@ -7,6 +7,7 @@ use axum::{
 use std::net::SocketAddr;
 use validator::Validate;
 
+use crate::error::ErrorResponse;
 use crate::{
     handlers::auth::build_set_cookie,
     middleware::{extract_real_ip_with_trust, CurrentUser},

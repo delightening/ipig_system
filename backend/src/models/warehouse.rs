@@ -43,7 +43,7 @@ pub struct WarehouseQuery {
 }
 
 /// 倉庫樹節點（含貨架）
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct WarehouseTreeNode {
     pub id: Uuid,
     pub code: String,
@@ -52,7 +52,7 @@ pub struct WarehouseTreeNode {
 }
 
 /// 貨架節點
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ShelfNode {
     pub id: Uuid,
     pub code: String,

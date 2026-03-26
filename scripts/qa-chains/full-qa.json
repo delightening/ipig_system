@@ -1,0 +1,65 @@
+[
+  { "action": "goto", "url": "{{BASE_URL}}/login" },
+  { "action": "wait", "selector": "input[name='username'], input[type='email'], #username, #email" },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/01-login-page.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/02-dashboard.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/animals" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/03-animals-list.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/protocols" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/04-protocols-list.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/documents" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/05-documents.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/inventory" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/06-inventory.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/hr/leave" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/07-hr-leave.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/hr/attendance" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/08-hr-attendance.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/master/products" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/09-master-products.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/master/partners" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/10-master-partners.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/master/warehouses" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/11-master-warehouses.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/reports/blood-test-analysis" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/12-reports-blood-test.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/reports/cost-summary" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/13-reports-cost-summary.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/admin/settings" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/14-admin-settings.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/admin/roles" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/15-admin-roles.png" },
+
+  { "action": "goto", "url": "{{BASE_URL}}/profile" },
+  { "action": "wait", "timeout": 3000 },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/16-profile.png" }
+]

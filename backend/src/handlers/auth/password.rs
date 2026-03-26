@@ -6,6 +6,7 @@ use axum::{
 };
 use std::net::SocketAddr;
 
+use crate::error::ErrorResponse;
 use crate::{
     middleware::{extract_real_ip_with_trust, CurrentUser},
     models::{
