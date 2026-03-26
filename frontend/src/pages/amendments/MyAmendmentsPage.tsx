@@ -6,9 +6,11 @@ import api, {
     AmendmentListItem,
     amendmentStatusColors,
 } from '@/lib/api'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import {
     Table,
     TableBody,
@@ -57,6 +59,8 @@ export function MyAmendmentsPage() {
         return amendment.status === statusFilter
     })
 
+    const { sortedData: sortedAmendments, sort, toggleSort } = useTableSort(filteredAmendments)
+
     // 取得變更項目的顯示標籤
     const getChangeItemLabels = (changeItems?: string[]) => {
         if (!changeItems || changeItems.length === 0) return '-'
@@ -98,13 +102,25 @@ export function MyAmendmentsPage() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t('amendments.columns.amendmentNo')}</TableHead>
-                            <TableHead>{t('amendments.columns.protocol')}</TableHead>
-                            <TableHead>{t('amendments.columns.title')}</TableHead>
+                            <SortableTableHead sortKey="amendment_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                                {t('amendments.columns.amendmentNo')}
+                            </SortableTableHead>
+                            <SortableTableHead sortKey="protocol_iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                                {t('amendments.columns.protocol')}
+                            </SortableTableHead>
+                            <SortableTableHead sortKey="title" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                                {t('amendments.columns.title')}
+                            </SortableTableHead>
                             <TableHead>{t('amendments.columns.changeItems')}</TableHead>
-                            <TableHead>{t('amendments.columns.type')}</TableHead>
-                            <TableHead>{t('amendments.columns.status')}</TableHead>
-                            <TableHead>{t('amendments.columns.submittedAt')}</TableHead>
+                            <SortableTableHead sortKey="amendment_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                                {t('amendments.columns.type')}
+                            </SortableTableHead>
+                            <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                                {t('amendments.columns.status')}
+                            </SortableTableHead>
+                            <SortableTableHead sortKey="submitted_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                                {t('amendments.columns.submittedAt')}
+                            </SortableTableHead>
                             <TableHead className="text-right">{t('amendments.columns.actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -115,8 +131,8 @@ export function MyAmendmentsPage() {
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                                         </TableCell>
                                     </TableRow>
-                                ) : filteredAmendments && filteredAmendments.length > 0 ? (
-                                    filteredAmendments.map((amendment) => (
+                                ) : sortedAmendments && sortedAmendments.length > 0 ? (
+                                    sortedAmendments.map((amendment) => (
                                         <TableRow key={amendment.id}>
                                             <TableCell className="font-medium">
                                                 {amendment.amendment_no}

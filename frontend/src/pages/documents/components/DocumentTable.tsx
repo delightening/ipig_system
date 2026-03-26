@@ -10,9 +10,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Eye, Edit, Trash2, Loader2, FileText } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
 import type { DocumentListItem, DocType } from '@/lib/api'
 
 const docTypeNames: Record<DocType, string> = {
@@ -90,20 +92,22 @@ function getReceiptStatusBadge(doc: DocumentListItem) {
 }
 
 export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentTableProps) {
+  const { sortedData, sort, toggleSort } = useTableSort(documents)
+
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>單號</TableHead>
-            <TableHead>類型</TableHead>
-            <TableHead>狀態</TableHead>
-            <TableHead>入庫進度</TableHead>
-            <TableHead>對象</TableHead>
-            <TableHead>倉庫</TableHead>
-            <TableHead>單據日期</TableHead>
-            <TableHead className="text-right">金額</TableHead>
-            <TableHead>建立人</TableHead>
+            <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單號</SortableTableHead>
+            <SortableTableHead sortKey="doc_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
+            <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
+            <SortableTableHead sortKey="receipt_status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>入庫進度</SortableTableHead>
+            <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>對象</SortableTableHead>
+            <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
+            <SortableTableHead sortKey="doc_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據日期</SortableTableHead>
+            <SortableTableHead sortKey="total_amount" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">金額</SortableTableHead>
+            <SortableTableHead sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立人</SortableTableHead>
             <TableHead className="text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
@@ -114,8 +118,8 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
               </TableCell>
             </TableRow>
-          ) : documents && documents.length > 0 ? (
-            documents.map((doc) => (
+          ) : sortedData && sortedData.length > 0 ? (
+            sortedData.map((doc) => (
               <TableRow key={doc.id}>
                 <TableCell className="font-mono font-medium">{doc.doc_no}</TableCell>
                 <TableCell>{docTypeNames[doc.doc_type]}</TableCell>

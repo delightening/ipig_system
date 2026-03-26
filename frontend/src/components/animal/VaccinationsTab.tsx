@@ -24,6 +24,8 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Edit2, Trash2, Syringe, Loader2 } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 
 interface VaccinationsTabProps {
@@ -35,6 +37,7 @@ interface VaccinationsTabProps {
 
 export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, earTag, afterParam: _afterParam, vaccinations }: VaccinationsTabProps) {
   const queryClient = useQueryClient()
+  const { sortedData, sort, toggleSort } = useTableSort(vaccinations)
 
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [newVaccination, setNewVaccination] = useState({ administered_date: new Date().toISOString().split('T')[0], vaccine: '', deworming_dose: '' })
@@ -101,16 +104,16 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>施打日期</TableHead>
-                  <TableHead>疫苗</TableHead>
+                  <SortableTableHead sortKey="administered_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>施打日期</SortableTableHead>
+                  <SortableTableHead sortKey="vaccine" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>疫苗</SortableTableHead>
                   <TableHead>驅蟲劑量</TableHead>
                   <TableHead>記錄者</TableHead>
-                  <TableHead>建立時間</TableHead>
+                  <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立時間</SortableTableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {vaccinations.map((vac) => (
+                {sortedData?.map((vac) => (
                   <TableRow key={vac.id}>
                     <TableCell>{new Date(vac.administered_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                     <TableCell>{vac.vaccine || '-'}</TableCell>

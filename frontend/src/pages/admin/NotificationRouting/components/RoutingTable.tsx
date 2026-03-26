@@ -9,6 +9,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Bell, Pencil, Trash2, FileCheck, PawPrint, Package, Users } from 'lucide-react'
 
@@ -16,6 +17,7 @@ import type { NotificationRouting } from '../types'
 import type { GroupKey } from '../constants'
 import { GROUP_KEYS } from '../constants'
 import { ChannelBadge } from './ChannelBadge'
+import { useTableSort } from '@/hooks/useTableSort'
 
 const groupIcons: Record<GroupKey, typeof FileCheck> = {
     AUP: FileCheck,
@@ -59,44 +61,73 @@ export function RoutingTable({
             </TabsList>
             {GROUP_KEYS.map((groupKey) => (
                 <TabsContent key={groupKey} value={groupKey} className="mt-4">
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[200px]">事件類型</TableHead>
-                                    <TableHead className="w-[140px]">通知角色</TableHead>
-                                    <TableHead className="w-[160px]">通知管道</TableHead>
-                                    <TableHead className="w-[80px] text-center">啟用</TableHead>
-                                    <TableHead>描述</TableHead>
-                                    <TableHead className="w-[100px] text-right">操作</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {rulesByGroup[groupKey].length > 0 ? (
-                                    rulesByGroup[groupKey].map((rule) => (
-                                        <RoutingRow
-                                            key={rule.id}
-                                            rule={rule}
-                                            eventNameMap={eventNameMap}
-                                            roleNameMap={roleNameMap}
-                                            onEdit={onEdit}
-                                            onDelete={onDelete}
-                                            onToggleActive={onToggleActive}
-                                        />
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                                            此分類尚無通知路由規則，可點擊「新增規則」建立
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                    <GroupTable
+                        rules={rulesByGroup[groupKey]}
+                        eventNameMap={eventNameMap}
+                        roleNameMap={roleNameMap}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onToggleActive={onToggleActive}
+                    />
                 </TabsContent>
             ))}
         </Tabs>
+    )
+}
+
+function GroupTable({
+    rules,
+    eventNameMap,
+    roleNameMap,
+    onEdit,
+    onDelete,
+    onToggleActive,
+}: {
+    rules: NotificationRouting[]
+    eventNameMap: Record<string, string>
+    roleNameMap: Record<string, string>
+    onEdit: (rule: NotificationRouting) => void
+    onDelete: (rule: NotificationRouting) => void
+    onToggleActive: (id: string, isActive: boolean) => void
+}) {
+    const { sortedData, sort, toggleSort } = useTableSort(rules)
+
+    return (
+        <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <SortableTableHead sortKey="event_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[200px]">事件類型</SortableTableHead>
+                        <SortableTableHead sortKey="role_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[140px]">通知角色</SortableTableHead>
+                        <SortableTableHead sortKey="channel" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[160px]">通知管道</SortableTableHead>
+                        <TableHead className="w-[80px] text-center">啟用</TableHead>
+                        <TableHead>描述</TableHead>
+                        <TableHead className="w-[100px] text-right">操作</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rules.length > 0 ? (
+                        (sortedData ?? rules).map((rule) => (
+                            <RoutingRow
+                                key={rule.id}
+                                rule={rule}
+                                eventNameMap={eventNameMap}
+                                roleNameMap={roleNameMap}
+                                onEdit={onEdit}
+                                onDelete={onDelete}
+                                onToggleActive={onToggleActive}
+                            />
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                此分類尚無通知路由規則，可點擊「新增規則」建立
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </div>
     )
 }
 

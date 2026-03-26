@@ -40,6 +40,8 @@ import {
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import type { ProtocolWorkingContent, ProtocolAnimalItem } from '@/types/protocol'
 import type { AnimalListItem } from '@/types/animal'
 import { animalStatusNames, animalBreedNames, animalGenderNames } from '@/types/animal'
@@ -129,6 +131,7 @@ export function MyProjectDetailPage() {
     enabled: !!iacucNo,
   })
   const animals = animalsData?.data ?? []
+  const { sortedData: sortedAnimals, sort: animalSort, toggleSort: toggleAnimalSort } = useTableSort(animals)
 
   if (isLoading) {
     return (
@@ -527,18 +530,18 @@ export function MyProjectDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>系統號</TableHead>
-                      <TableHead>耳號</TableHead>
-                      <TableHead>欄位</TableHead>
-                      <TableHead>動物狀態</TableHead>
-                      <TableHead>品種</TableHead>
-                      <TableHead>性別</TableHead>
-                      <TableHead>進場日期</TableHead>
+                      <SortableTableHead sortKey="animal_no" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>系統號</SortableTableHead>
+                      <SortableTableHead sortKey="ear_tag" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>耳號</SortableTableHead>
+                      <SortableTableHead sortKey="pen_location" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>欄位</SortableTableHead>
+                      <SortableTableHead sortKey="status" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>動物狀態</SortableTableHead>
+                      <SortableTableHead sortKey="breed" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>品種</SortableTableHead>
+                      <SortableTableHead sortKey="gender" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>性別</SortableTableHead>
+                      <SortableTableHead sortKey="entry_date" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>進場日期</SortableTableHead>
                       <TableHead className="text-right">動作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {animals.map((animal) => (
+                    {(sortedAnimals ?? animals).map((animal) => (
                       <TableRow key={animal.id}>
                         <TableCell>{animal.animal_no ?? animal.id.slice(0, 8)}</TableCell>
                         <TableCell className="text-status-warning-text font-medium">{animal.ear_tag}</TableCell>

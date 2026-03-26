@@ -23,10 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { toast } from '@/components/ui/use-toast'
 import { aiApi } from '@/lib/api/ai'
 import type { AiApiKeyInfo, CreateAiApiKeyResponse } from '@/lib/api/ai'
 import { getErrorMessage } from '@/types/error'
+import { useTableSort } from '@/hooks/useTableSort'
 import { formatDateTime } from '@/lib/utils'
 import { CreateAiKeyDialog } from './CreateAiKeyDialog'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -145,6 +147,8 @@ function KeyTable({ keys, onToggle, onDelete }: {
   onToggle: (id: string, is_active: boolean) => void
   onDelete: (id: string, name: string) => void
 }) {
+  const { sortedData, sort, toggleSort } = useTableSort(keys)
+
   if (keys.length === 0) {
     return (
       <EmptyState icon={Key} title="尚未建立任何 API Key" description="點擊「建立金鑰」來產生第一組 AI 存取金鑰" />
@@ -156,19 +160,19 @@ function KeyTable({ keys, onToggle, onDelete }: {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>名稱</TableHead>
+            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
             <TableHead>金鑰前綴</TableHead>
             <TableHead>權限</TableHead>
-            <TableHead className="text-center">速率</TableHead>
-            <TableHead className="text-center">使用次數</TableHead>
-            <TableHead>最後使用</TableHead>
-            <TableHead>到期時間</TableHead>
+            <SortableTableHead sortKey="rate_limit_per_minute" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center">速率</SortableTableHead>
+            <SortableTableHead sortKey="usage_count" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center">使用次數</SortableTableHead>
+            <SortableTableHead sortKey="last_used_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>最後使用</SortableTableHead>
+            <SortableTableHead sortKey="expires_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>到期時間</SortableTableHead>
             <TableHead className="text-center">啟用</TableHead>
             <TableHead className="text-center w-16">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {keys.map((key) => (
+          {(sortedData ?? keys).map((key) => (
             <TableRow key={key.id} className={key.is_active ? '' : 'opacity-50'}>
               <TableCell className="font-medium">{key.name}</TableCell>
               <TableCell>

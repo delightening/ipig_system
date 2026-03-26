@@ -18,6 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Loader2, AlertCircle } from 'lucide-react'
 import type { AnimalBloodTestWithItems } from '@/types'
 
@@ -32,6 +34,8 @@ export function BloodTestDetailDialog({
   onOpenChange,
   detail,
 }: BloodTestDetailDialogProps) {
+  const { sortedData, sort, toggleSort } = useTableSort(detail?.items)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
@@ -70,16 +74,16 @@ export function BloodTestDetailDialog({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>項目名稱</TableHead>
-                      <TableHead>結果值</TableHead>
+                      <SortableTableHead sortKey="item_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>項目名稱</SortableTableHead>
+                      <SortableTableHead sortKey="result_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>結果值</SortableTableHead>
                       <TableHead>單位</TableHead>
                       <TableHead>參考範圍</TableHead>
-                      <TableHead className="text-center">狀態</TableHead>
+                      <SortableTableHead sortKey="is_abnormal" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center">狀態</SortableTableHead>
                       <TableHead>備註</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {detail.items.map((item) => (
+                    {(sortedData ?? detail.items).map((item) => (
                       <TableRow key={item.id} className={item.is_abnormal ? 'bg-red-50' : ''}>
                         <TableCell className="font-medium">{item.item_name}</TableCell>
                         <TableCell>{item.result_value || '-'}</TableCell>

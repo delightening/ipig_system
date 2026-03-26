@@ -1,14 +1,16 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import type { ProtocolListItem, ProtocolStatus } from '@/types/aup'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { FilterBar } from '@/components/ui/filter-bar'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import {
   Table,
   TableBody,
@@ -24,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Eye, Edit, Loader2, FileText, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Copy } from 'lucide-react'
+import { Plus, Eye, Edit, Loader2, FileText, Trash2, Copy } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useNavigate } from 'react-router-dom'
 import { formatDate } from '@/lib/utils'
@@ -34,14 +36,6 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { statusColors } from './constants'
 
-type SortField = 'iacuc_no' | 'title' | 'pi_name' | 'pi_organization' | 'status' | 'start_date' | 'created_at'
-type SortOrder = 'asc' | 'desc'
-
-interface SortConfig {
-  field: SortField
-  order: SortOrder
-}
-
 export function ProtocolsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -50,7 +44,6 @@ export function ProtocolsPage() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'created_at', order: 'desc' })
 
   // Get status name from i18n
   const getStatusName = useCallback(
@@ -70,44 +63,10 @@ export function ProtocolsPage() {
     staleTime: 60_000,
   })
 
-  // Sort logic
-  const sortedProtocols = useMemo(() => {
-    if (!rawProtocols) return []
-    const sorted = [...rawProtocols]
-
-    sorted.sort((a, b) => {
-      let valA: string | number | undefined = (a as unknown as Record<string, unknown>)[sortConfig.field] as string | number | undefined
-      let valB: string | number | undefined = (b as unknown as Record<string, unknown>)[sortConfig.field] as string | number | undefined
-      valA = valA ?? ''
-      valB = valB ?? ''
-
-      // Handle status sorting by translated name
-      if (sortConfig.field === 'status') {
-        valA = getStatusName(a.status)
-        valB = getStatusName(b.status)
-      }
-
-      if (valA < valB) return sortConfig.order === 'asc' ? -1 : 1
-      if (valA > valB) return sortConfig.order === 'asc' ? 1 : -1
-      return 0
-    })
-
-    return sorted
-  }, [rawProtocols, sortConfig, getStatusName])
-
-  const handleSort = (field: SortField) => {
-    setSortConfig(prev => ({
-      field,
-      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc'
-    }))
-  }
-
-  const getSortIcon = (field: SortField) => {
-    if (sortConfig.field !== field) return <ArrowUpDown className="ml-1 h-3 w-3" />
-    return sortConfig.order === 'asc' ?
-      <ArrowUp className="ml-1 h-3 w-3 text-primary" /> :
-      <ArrowDown className="ml-1 h-3 w-3 text-primary" />
-  }
+  const { sortedData: sortedProtocols, sort, toggleSort } = useTableSort<ProtocolListItem, string>(
+    rawProtocols,
+    { column: 'created_at', direction: 'desc' },
+  )
 
   const clearFilters = () => {
     setSearch('')
@@ -217,69 +176,27 @@ export function ProtocolsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSort('iacuc_no')}
-              >
-                <div className="flex items-center">
-                  {t('protocols.columns.iacucNo')}
-                  {getSortIcon('iacuc_no')}
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSort('title')}
-              >
-                <div className="flex items-center">
-                  {t('protocols.columns.protocolTitle')}
-                  {getSortIcon('title')}
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSort('pi_name')}
-              >
-                <div className="flex items-center">
-                  {t('protocols.columns.pi')}
-                  {getSortIcon('pi_name')}
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSort('pi_organization')}
-              >
-                <div className="flex items-center">
-                  {t('protocols.columns.organization')}
-                  {getSortIcon('pi_organization')}
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSort('status')}
-              >
-                <div className="flex items-center">
-                  {t('protocols.columns.status')}
-                  {getSortIcon('status')}
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSort('start_date')}
-              >
-                <div className="flex items-center">
-                  {t('protocols.columns.period')}
-                  {getSortIcon('start_date')}
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSort('created_at')}
-              >
-                <div className="flex items-center">
-                  {t('protocols.columns.createdAt')}
-                  {getSortIcon('created_at')}
-                </div>
-              </TableHead>
+              <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                {t('protocols.columns.iacucNo')}
+              </SortableTableHead>
+              <SortableTableHead sortKey="title" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                {t('protocols.columns.protocolTitle')}
+              </SortableTableHead>
+              <SortableTableHead sortKey="pi_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                {t('protocols.columns.pi')}
+              </SortableTableHead>
+              <SortableTableHead sortKey="pi_organization" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                {t('protocols.columns.organization')}
+              </SortableTableHead>
+              <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                {t('protocols.columns.status')}
+              </SortableTableHead>
+              <SortableTableHead sortKey="start_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                {t('protocols.columns.period')}
+              </SortableTableHead>
+              <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                {t('protocols.columns.createdAt')}
+              </SortableTableHead>
               <TableHead className="text-right">{t('protocols.columns.actions')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -291,7 +208,7 @@ export function ProtocolsPage() {
                 </TableCell>
               </TableRow>
             ) : sortedProtocols && sortedProtocols.length > 0 ? (
-              sortedProtocols.map((protocol) => (
+              sortedProtocols.map((protocol: ProtocolListItem) => (
                 <TableRow key={protocol.id}>
                   <TableCell className="font-mono">
                     {protocol.iacuc_no ? (

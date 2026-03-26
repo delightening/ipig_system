@@ -26,6 +26,8 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 import { Loader2, Plus, Eye, Edit2, Trash2, AlertCircle, FileText } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 
 import { LAB_OPTIONS } from './blood-test/constants'
 import { BloodTestFormDialog, type BloodTestFormData } from './blood-test/BloodTestFormDialog'
@@ -62,6 +64,8 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
         },
         staleTime: 30_000,
     })
+
+    const { sortedData: sortedBloodTests, sort, toggleSort } = useTableSort(bloodTests)
 
     // 載入模板與組合
     const { data: templates = [] } = useQuery({
@@ -244,8 +248,8 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>檢查日期</TableHead>
-                                    <TableHead>檢驗機構</TableHead>
+                                    <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>檢查日期</SortableTableHead>
+                                    <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>檢驗機構</SortableTableHead>
                                     <TableHead className="text-center">項目數</TableHead>
                                     <TableHead className="text-center">異常項目</TableHead>
                                     <TableHead>建立者</TableHead>
@@ -253,7 +257,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {bloodTests.map((test) => (
+                                {(sortedBloodTests ?? bloodTests).map((test) => (
                                     <TableRow key={test.id}>
                                         <TableCell className="font-medium">{test.test_date}</TableCell>
                                         <TableCell>{test.lab_name || '-'}</TableCell>

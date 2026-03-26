@@ -84,13 +84,13 @@ export function NotificationDropdown() {
     }
     setShowDropdown(false)
 
-    if (notification.related_entity_type && notification.related_entity_id) {
+    if (notification.related_entity_type) {
       switch (notification.related_entity_type) {
         case 'protocol':
           navigate(`/protocols/${notification.related_entity_id}`)
           break
         case 'document':
-          navigate(`/erp/documents/${notification.related_entity_id}`)
+          navigate(`/documents/${notification.related_entity_id}`)
           break
         case 'animal':
           navigate(`/animals/${notification.related_entity_id}`)
@@ -99,14 +99,31 @@ export function NotificationDropdown() {
           navigate(`/protocols/amendments/${notification.related_entity_id}`)
           break
         case 'leave_request':
-          navigate(`/hr/leaves`)
+          navigate('/hr/leaves')
           break
+        case 'overtime_record':
         case 'overtime':
-          navigate(`/hr/overtime`)
+          navigate('/hr/overtime')
+          break
+        case 'euthanasia_order':
+        case 'euthanasia_appeal':
+          if (notification.related_entity_id) {
+            navigate(`/animals/${notification.related_entity_id}`)
+          }
+          break
+        case 'expiry_warning':
+          navigate('/inventory')
+          break
+        case 'low_stock':
+          navigate('/inventory')
+          break
+        case 'equipment':
+          navigate('/equipment')
+          break
+        case 'report':
+          navigate('/admin/settings')
           break
       }
-    } else if (notification.related_entity_type === 'report') {
-      navigate('/notifications')
     }
   }
 

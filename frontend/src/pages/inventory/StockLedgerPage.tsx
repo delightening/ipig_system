@@ -1,16 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api, { StockLedgerDetail } from '@/lib/api'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { PageHeader } from '@/components/ui/page-header'
 import { Loader2, FileText, Download, ExternalLink } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
@@ -33,6 +34,8 @@ export function StockLedgerPage() {
       return response.data
     },
   })
+
+  const { sortedData: sortedLedger, sort, toggleSort } = useTableSort(ledger)
 
   const exportToCSV = () => {
     if (!ledger) return
@@ -95,14 +98,14 @@ export function StockLedgerPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>時間</TableHead>
-              <TableHead>倉庫</TableHead>
-              <TableHead>品項</TableHead>
-              <TableHead>單據</TableHead>
-              <TableHead>方向</TableHead>
-              <TableHead className="text-right">數量</TableHead>
-              <TableHead className="text-right">單位成本</TableHead>
-              <TableHead>批號</TableHead>
+              <SortableTableHead sortKey="trx_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>品項</SortableTableHead>
+              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據</SortableTableHead>
+              <SortableTableHead sortKey="direction" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>方向</SortableTableHead>
+              <SortableTableHead sortKey="qty_base" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">數量</SortableTableHead>
+              <SortableTableHead sortKey="unit_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">單位成本</SortableTableHead>
+              <SortableTableHead sortKey="batch_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>批號</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -112,8 +115,8 @@ export function StockLedgerPage() {
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ) : ledger && ledger.length > 0 ? (
-              ledger.map((item) => (
+            ) : sortedLedger && sortedLedger.length > 0 ? (
+              sortedLedger.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="text-sm">{formatDateTime(item.trx_date)}</TableCell>
                   <TableCell>{item.warehouse_name}</TableCell>

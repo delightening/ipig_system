@@ -4,16 +4,17 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
 import { arReceiptSchema, type ArReceiptFormData } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import {
   Dialog,
   DialogContent,
@@ -199,6 +200,8 @@ export function ArAgingTab({ asOfDate, onAsOfDateChange }: ArAgingTabProps) {
     },
   })
 
+  const { sortedData, sort, toggleSort } = useTableSort(arAging)
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -225,16 +228,16 @@ export function ArAgingTab({ asOfDate, onAsOfDateChange }: ArAgingTabProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>客戶代碼</TableHead>
-              <TableHead>客戶名稱</TableHead>
-              <TableHead className="text-right">應收總額</TableHead>
-              <TableHead className="text-right">已收總額</TableHead>
-              <TableHead className="text-right">餘額</TableHead>
+              <SortableTableHead sortKey="partner_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>客戶代碼</SortableTableHead>
+              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>客戶名稱</SortableTableHead>
+              <SortableTableHead sortKey="total_receivable" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">應收總額</SortableTableHead>
+              <SortableTableHead sortKey="total_received" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">已收總額</SortableTableHead>
+              <SortableTableHead sortKey="balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">餘額</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {arAging && arAging.length > 0 ? (
-              arAging.map((r) => (
+            {sortedData && sortedData.length > 0 ? (
+              sortedData.map((r) => (
                 <TableRow key={r.partner_id}>
                   <TableCell className="font-mono">{r.partner_code}</TableCell>
                   <TableCell>{r.partner_name}</TableCell>

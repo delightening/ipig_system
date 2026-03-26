@@ -23,6 +23,8 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Upload, Download, FileText, Loader2 } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 
 interface PathologyTabProps {
   animalId: string
@@ -43,6 +45,8 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
     },
     staleTime: 30_000,
   })
+
+  const { sortedData: sortedAttachments, sort, toggleSort } = useTableSort(pathology?.attachments)
 
   const uploadMutation = useMutation({
     mutationFn: async (uploadFiles: FileInfo[]) => {
@@ -92,14 +96,14 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>檔案名稱</TableHead>
-                  <TableHead>檔案大小</TableHead>
-                  <TableHead>上傳時間</TableHead>
+                  <SortableTableHead sortKey="file_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>檔案名稱</SortableTableHead>
+                  <SortableTableHead sortKey="file_size" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>檔案大小</SortableTableHead>
+                  <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>上傳時間</SortableTableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pathology.attachments.map((file) => (
+                {(sortedAttachments ?? pathology.attachments).map((file) => (
                   <TableRow key={file.id}>
                     <TableCell className="font-medium">{file.file_name}</TableCell>
                     <TableCell>{(file.file_size / 1024).toFixed(2)} KB</TableCell>

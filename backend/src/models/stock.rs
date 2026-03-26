@@ -61,6 +61,8 @@ pub struct InventoryOnHand {
     pub expiry_date: Option<NaiveDate>,
     pub safety_stock: Option<Decimal>,
     pub reorder_point: Option<Decimal>,
+    /// 最後異動時間（stock_ledger 最新一筆的 trx_date）
+    pub last_updated_at: Option<DateTime<Utc>>,
 }
 
 /// 庫存快照（可選快取表）

@@ -9,12 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Pencil, Trash2, Search, User, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import type { TrainingRecordWithUser, TrainingUser } from '../types/training'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileText } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
 
 interface TrainingRecordsTabProps {
   canManage: boolean
@@ -53,6 +55,8 @@ export function TrainingRecordsTab({
   onEdit,
   onDelete,
 }: TrainingRecordsTabProps) {
+  const { sortedData, sort, toggleSort } = useTableSort(records)
+
   return (
     <Card>
       <CardHeader>
@@ -119,16 +123,16 @@ export function TrainingRecordsTab({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>人員</TableHead>
-                    <TableHead>課程名稱</TableHead>
-                    <TableHead>完成日期</TableHead>
-                    <TableHead>有效期限</TableHead>
+                    <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>人員</SortableTableHead>
+                    <SortableTableHead sortKey="course_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>課程名稱</SortableTableHead>
+                    <SortableTableHead sortKey="completed_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>完成日期</SortableTableHead>
+                    <SortableTableHead sortKey="expires_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>有效期限</SortableTableHead>
                     <TableHead>備註</TableHead>
                     <TableHead className="w-[100px] text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {records.map((r) => (
+                  {(sortedData ?? records).map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>
                         <div className="font-medium">{r.user_name || r.user_email}</div>

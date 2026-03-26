@@ -28,7 +28,6 @@ import {
     Table,
     TableBody,
     TableCell,
-    TableHead,
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
@@ -55,6 +54,8 @@ import {
     CreateAnnualLeaveRequest,
 } from '@/types/hr'
 import { EmptyState } from '@/components/ui/empty-state'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { annualLeaveEntitlementSchema, type AnnualLeaveEntitlementFormData } from '@/lib/validation'
 
 interface User {
@@ -158,6 +159,10 @@ export function HrAnnualLeavePage() {
             u.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             u.email.toLowerCase().includes(searchQuery.toLowerCase())
     )
+
+    // 表格排序
+    const { sortedData: sortedBalances, sort: balanceSort, toggleSort: toggleBalanceSort } = useTableSort(userBalances)
+    const { sortedData: sortedExpired, sort: expiredSort, toggleSort: toggleExpiredSort } = useTableSort(expiredLeaves)
 
     // 匯出過期報表為 CSV
     const exportExpiredReport = () => {
@@ -292,16 +297,16 @@ export function HrAnnualLeavePage() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>年度</TableHead>
-                                                    <TableHead>總天數</TableHead>
-                                                    <TableHead>已使用</TableHead>
-                                                    <TableHead>剩餘</TableHead>
-                                                    <TableHead>到期日</TableHead>
-                                                    <TableHead>狀態</TableHead>
+                                                    <SortableTableHead sortKey="entitlement_year" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>年度</SortableTableHead>
+                                                    <SortableTableHead sortKey="entitled_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>總天數</SortableTableHead>
+                                                    <SortableTableHead sortKey="used_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>已使用</SortableTableHead>
+                                                    <SortableTableHead sortKey="remaining_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>剩餘</SortableTableHead>
+                                                    <SortableTableHead sortKey="expires_at" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>到期日</SortableTableHead>
+                                                    <SortableTableHead sortKey="is_expired" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>狀態</SortableTableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {userBalances.map((balance, idx) => (
+                                                {sortedBalances?.map((balance, idx) => (
                                                     <TableRow key={idx}>
                                                         <TableCell className="font-medium">
                                                             {balance.entitlement_year}
@@ -367,17 +372,17 @@ export function HrAnnualLeavePage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>員工姓名</TableHead>
-                                            <TableHead>Email</TableHead>
-                                            <TableHead>年度</TableHead>
-                                            <TableHead>總天數</TableHead>
-                                            <TableHead>已使用</TableHead>
-                                            <TableHead className="text-status-warning-text">待補償天數</TableHead>
-                                            <TableHead>到期日</TableHead>
+                                            <SortableTableHead sortKey="user_name" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>員工姓名</SortableTableHead>
+                                            <SortableTableHead sortKey="user_email" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>Email</SortableTableHead>
+                                            <SortableTableHead sortKey="entitlement_year" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>年度</SortableTableHead>
+                                            <SortableTableHead sortKey="entitled_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>總天數</SortableTableHead>
+                                            <SortableTableHead sortKey="used_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>已使用</SortableTableHead>
+                                            <SortableTableHead sortKey="remaining_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort} className="text-status-warning-text">待補償天數</SortableTableHead>
+                                            <SortableTableHead sortKey="expires_at" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>到期日</SortableTableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {expiredLeaves.map((item, idx) => (
+                                        {sortedExpired?.map((item, idx) => (
                                             <TableRow key={idx}>
                                                 <TableCell className="font-medium">
                                                     {item.user_name}

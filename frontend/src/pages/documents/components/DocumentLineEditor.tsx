@@ -112,6 +112,11 @@ export function DocumentLineEditor({
       }))
 
       // Sync uncontrolled input refs (defaultValue won't update existing DOM elements)
+      if (isPoLinkedGrn && extraData) {
+        const refs = inputRefs.current[activeLineId]
+        if (refs?.unit_price) refs.unit_price.value = extraData.unit_price ? String(extraData.unit_price) : ''
+        if (refs?.qty) refs.qty.value = extraData.remaining_qty ? String(extraData.remaining_qty) : ''
+      }
       if (extraData && !isPoLinkedGrn) {
         const refs = inputRefs.current[activeLineId]
         if (refs?.batch_no) refs.batch_no.value = extraData.batch_no || ''
@@ -191,6 +196,7 @@ export function DocumentLineEditor({
                     onUpdateLineAmount={updateLineAmount}
                     onRemoveLine={removeLine}
                     setFormData={setFormData}
+                    products={products}
                   />
                 ))
               )}
@@ -235,6 +241,7 @@ interface LineRowProps {
   onUpdateLineAmount: (lineId: string) => void
   onRemoveLine: (lineId: string) => void
   setFormData: React.Dispatch<React.SetStateAction<DocumentFormData>>
+  products: Product[] | undefined
 }
 
 function LineRow({
@@ -252,9 +259,14 @@ function LineRow({
   onUpdateLineAmount,
   onRemoveLine,
   setFormData,
+  products,
 }: LineRowProps) {
   const lineId = line.id || `temp-${index}`
   if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}
+
+  const product = products?.find((p) => p.id === line.product_id)
+  const showExpiry = !product || product.track_expiry
+  const showBatch = !product || product.track_batch
 
   const qtyDefault = String(line.qty || '')
   const unitPriceDefault = String(line.unit_price || '')
@@ -366,32 +378,40 @@ function LineRow({
         </TableCell>
       ) : null}
       <TableCell>
-        {['SO', 'DO'].includes(docType) ? (
-          <DateTextInput
-            defaultValue={expiryDateDefault}
-            ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].expiry_date = el } }}
-            readOnly
-            disabled
-            className="bg-muted cursor-not-allowed"
-          />
+        {showExpiry ? (
+          ['SO', 'DO'].includes(docType) ? (
+            <DateTextInput
+              defaultValue={expiryDateDefault}
+              ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].expiry_date = el } }}
+              readOnly
+              disabled
+              className="bg-muted cursor-not-allowed"
+            />
+          ) : (
+            <DateTextInput
+              defaultValue={expiryDateDefault}
+              ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].expiry_date = el } }}
+              onBlur={() => onLineBlur(lineId)}
+            />
+          )
         ) : (
-          <DateTextInput
-            defaultValue={expiryDateDefault}
-            ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].expiry_date = el } }}
-            onBlur={() => onLineBlur(lineId)}
-          />
+          <span className="text-muted-foreground text-center block">-</span>
         )}
       </TableCell>
       <TableCell>
-        <BatchNumberSelect
-          productId={line.product_id}
-          warehouseId={warehouseId}
-          batchNo={batchNoDefault}
-          docType={docType}
-          onBatchChange={lineBatchChange}
-          onBlur={() => onLineBlur(lineId)}
-          inputRef={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].batch_no = el } }}
-        />
+        {showBatch ? (
+          <BatchNumberSelect
+            productId={line.product_id}
+            warehouseId={warehouseId}
+            batchNo={batchNoDefault}
+            docType={docType}
+            onBatchChange={lineBatchChange}
+            onBlur={() => onLineBlur(lineId)}
+            inputRef={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].batch_no = el } }}
+          />
+        ) : (
+          <span className="text-muted-foreground text-center block">-</span>
+        )}
       </TableCell>
       <TableCell>
         <Button variant="ghost" size="icon" onClick={() => onRemoveLine(lineId)} className="text-destructive hover:text-destructive/80" aria-label="刪除">

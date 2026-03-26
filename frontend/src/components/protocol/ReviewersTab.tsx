@@ -47,6 +47,8 @@ import {
 } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import VetReviewForm from '@/components/protocol/VetReviewForm'
 import type { VetReviewAssignment } from '@/types/aup'
 
@@ -80,6 +82,8 @@ export function ReviewersTab({
     },
     enabled: !!protocolId,
   })
+
+  const { sortedData: sortedReviewers, sort, toggleSort } = useTableSort(reviewers)
 
   const { data: comments } = useQuery({
     queryKey: ['protocol-comments', protocolId],
@@ -172,19 +176,19 @@ export function ReviewersTab({
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : reviewers && reviewers.length > 0 ? (
+          ) : sortedReviewers && sortedReviewers.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('protocols.detail.tables.reviewer')}</TableHead>
-                  <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
+                  <SortableTableHead sortKey="reviewer_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.reviewer')}</SortableTableHead>
+                  <SortableTableHead sortKey="assigned_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.assignedTime')}</SortableTableHead>
                   <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
                   <TableHead>{t('protocols.detail.tables.commentStatus') || '意見狀態'}</TableHead>
-                  <TableHead>{t('protocols.detail.tables.completedTime')}</TableHead>
+                  <SortableTableHead sortKey="completed_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.completedTime')}</SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reviewers.map((reviewer) => {
+                {sortedReviewers.map((reviewer) => {
                   const hasComment = comments?.some(
                     c => c.reviewer_id === reviewer.reviewer_id && !c.parent_comment_id
                   ) || false

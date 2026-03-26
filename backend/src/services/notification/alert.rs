@@ -117,7 +117,7 @@ impl NotificationService {
                     notification_type: NotificationType::LowStock,
                     title,
                     content: Some(content),
-                    related_entity_type: None,
+                    related_entity_type: Some("low_stock".to_string()),
                     related_entity_id: None,
                 })
                 .await {
@@ -173,11 +173,13 @@ impl NotificationService {
                 .take(5)
                 .map(|a| {
                     format!(
-                        "- {} ({}) 批號:{} 效期:{} ({}天)",
+                        "- {} ({}) 批號:{} 效期:{} ({}天) 近效期量:{} / 總量:{}",
                         a.product_name, a.sku,
                         a.batch_no.as_deref().unwrap_or("-"),
                         a.expiry_date,
-                        a.days_until_expiry
+                        a.days_until_expiry,
+                        a.on_hand_qty,
+                        a.total_qty,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -189,7 +191,7 @@ impl NotificationService {
                     notification_type: NotificationType::ExpiryWarning,
                     title,
                     content: Some(content),
-                    related_entity_type: None,
+                    related_entity_type: Some("expiry_warning".to_string()),
                     related_entity_id: None,
                 })
                 .await {

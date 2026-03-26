@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { facilityApi } from '@/lib/api/facility'
 import { useDialogSet } from '@/hooks/useDialogSet'
+import { useTableSort } from '@/hooks/useTableSort'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -47,6 +49,8 @@ export function FacilityTab({ canManage }: { canManage: boolean }) {
     queryKey: ['facilities'],
     queryFn: async () => (await facilityApi.listFacilities()).data,
   })
+
+  const { sortedData: sortedFacilities, sort, toggleSort } = useTableSort(facilities)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['facilities'] })
 
@@ -101,20 +105,20 @@ export function FacilityTab({ canManage }: { canManage: boolean }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>代碼</TableHead>
-            <TableHead>名稱</TableHead>
-            <TableHead>聯絡人</TableHead>
-            <TableHead>電話</TableHead>
-            <TableHead>狀態</TableHead>
+            <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>代碼</SortableTableHead>
+            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
+            <SortableTableHead sortKey="contact_person" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>聯絡人</SortableTableHead>
+            <SortableTableHead sortKey="phone" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>電話</SortableTableHead>
+            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
             {canManage && <TableHead className="w-24 text-right">操作</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
             <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
-          ) : facilities.length === 0 ? (
+          ) : sortedFacilities?.length === 0 ? (
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">無資料</TableCell></TableRow>
-          ) : facilities.map(f => (
+          ) : sortedFacilities?.map(f => (
             <TableRow key={f.id}>
               <TableCell className="font-mono">{f.code}</TableCell>
               <TableCell>{f.name}</TableCell>

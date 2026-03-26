@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { toast } from '@/components/ui/use-toast'
 import {
   Plus,
@@ -20,11 +21,11 @@ import {
   Power,
   PowerOff,
   Ban,
-  ArrowUpDown,
   ClipboardCopy,
   Trash2,
 } from 'lucide-react'
 import { formatNumber, cn, UOM_MAP } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
 
 import type { ExtendedProduct, StatusAction, ProductListState } from './productTypes'
 
@@ -39,16 +40,6 @@ interface ProductTableProps {
   onStatusChange: (product: ExtendedProduct, action: StatusAction) => void
   onHardDelete: (product: ExtendedProduct) => void
   isAdmin: boolean
-}
-
-/** 排序指示器 */
-function SortIndicator({ field, sortBy }: { field: string; sortBy: string }) {
-  return (
-    <ArrowUpDown className={cn(
-      "ml-1 h-3 w-3 inline-block transition-colors",
-      sortBy === field ? "text-primary" : "text-muted-foreground/50"
-    )} />
-  )
 }
 
 /** 取得狀態 Badge */
@@ -79,6 +70,7 @@ export function ProductTable({
   isAdmin,
 }: ProductTableProps) {
   const navigate = useNavigate()
+  const { sortedData, sort, toggleSort } = useTableSort(products)
 
   const handleCopySku = async (sku: string) => {
     await navigator.clipboard.writeText(sku)
@@ -101,32 +93,38 @@ export function ProductTable({
                 aria-label="全選產品"
               />
             </TableHead>
-            <TableHead className="w-[180px] cursor-pointer select-none" onClick={() => listState.handleSort('sku')}>
-              SKU <SortIndicator field="sku" sortBy={listState.sortBy} />
-            </TableHead>
-            <TableHead className="cursor-pointer select-none" onClick={() => listState.handleSort('name')}>
-              名稱 <SortIndicator field="name" sortBy={listState.sortBy} />
-            </TableHead>
+            <SortableTableHead sortKey="sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[180px]">
+              SKU
+            </SortableTableHead>
+            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+              名稱
+            </SortableTableHead>
             <TableHead className="w-[150px]">規格</TableHead>
-            <TableHead className="w-[60px]">單位</TableHead>
-            <TableHead className="w-[100px] text-right cursor-pointer select-none" onClick={() => listState.handleSort('safety_stock')}>
-              安全庫存 <SortIndicator field="safety_stock" sortBy={listState.sortBy} />
-            </TableHead>
-            <TableHead className="w-[60px] text-center">批號</TableHead>
-            <TableHead className="w-[60px] text-center">效期</TableHead>
-            <TableHead className="w-[80px] cursor-pointer select-none" onClick={() => listState.handleSort('status')}>
-              狀態 <SortIndicator field="status" sortBy={listState.sortBy} />
-            </TableHead>
+            <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[60px]">
+              單位
+            </SortableTableHead>
+            <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[100px] text-right">
+              安全庫存
+            </SortableTableHead>
+            <SortableTableHead sortKey="track_batch" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[60px] text-center">
+              批號
+            </SortableTableHead>
+            <SortableTableHead sortKey="track_expiry" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[60px] text-center">
+              效期
+            </SortableTableHead>
+            <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px]">
+              狀態
+            </SortableTableHead>
             <TableHead className="w-[200px] text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
             <LoadingRow />
-          ) : products.length === 0 ? (
+          ) : !sortedData || sortedData.length === 0 ? (
             <EmptyRow hasFilters={hasFilters} />
           ) : (
-            products.map((product) => (
+            sortedData.map((product) => (
               <ProductRow
                 key={product.id}
                 product={product}

@@ -8,8 +8,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Loader2, History, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { useTableSort } from '@/hooks/useTableSort'
 import type { UserActivityLog } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 
@@ -53,17 +55,19 @@ export function AuditLogTable({
   onPageChange,
   onSelectLog,
 }: AuditLogTableProps) {
+  const { sortedData, sort, toggleSort } = useTableSort(activityLogs?.data)
+
   return (
     <div className="rounded-md border bg-white overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>時間</TableHead>
-            <TableHead>操作者</TableHead>
-            <TableHead>類別</TableHead>
-            <TableHead>事件</TableHead>
-            <TableHead>實體類型</TableHead>
-            <TableHead>實體名稱</TableHead>
+            <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
+            <SortableTableHead sortKey="actor_display_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>操作者</SortableTableHead>
+            <SortableTableHead sortKey="event_category" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類別</SortableTableHead>
+            <SortableTableHead sortKey="event_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>事件</SortableTableHead>
+            <SortableTableHead sortKey="entity_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>實體類型</SortableTableHead>
+            <SortableTableHead sortKey="entity_display_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>實體名稱</SortableTableHead>
             <TableHead className="text-right">詳情</TableHead>
           </TableRow>
         </TableHeader>
@@ -74,8 +78,8 @@ export function AuditLogTable({
                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
               </TableCell>
             </TableRow>
-          ) : activityLogs?.data && activityLogs.data.length > 0 ? (
-            activityLogs.data.map((log) => (
+          ) : sortedData && sortedData.length > 0 ? (
+            sortedData.map((log) => (
               <TableRow key={log.id}>
                 <TableCell className="text-sm">
                   {formatDateTimeDisplay(log.created_at)}

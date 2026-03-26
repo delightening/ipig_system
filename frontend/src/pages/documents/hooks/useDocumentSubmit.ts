@@ -62,6 +62,18 @@ export function useDocumentSubmit({
         if (isShelfRequired && !line.storage_location_id?.trim()) {
           throw new Error(`第 ${idx + 1} 行：儲位/貨架為必填項`)
         }
+        // GRN 單據的單價必填且不可為 0
+        if (mergedData.doc_type === 'GRN') {
+          const lineId = line.id || `temp-${idx}`
+          const refs = inputRefs.current[lineId]
+          const domPrice = refs?.unit_price?.value?.trim() || ''
+          const priceStr = line.unit_price?.trim() || domPrice
+          const price = priceStr ? parseFloat(priceStr) : 0
+          if (!priceStr || isNaN(price) || price <= 0) {
+            throw new Error(`第 ${idx + 1} 行：採購入庫的單價為必填，且不可為 0`)
+          }
+        }
+
         const requiresBatchExpiry = ['GRN', 'DO', 'SO', 'ADJ', 'STK'].includes(mergedData.doc_type)
         if (requiresBatchExpiry) {
           const product = products?.find((p) => p.id === line.product_id)

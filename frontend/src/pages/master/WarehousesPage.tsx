@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import api, { deleteResource, Warehouse } from '@/lib/api'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useTableSort } from '@/hooks/useTableSort'
 import { STALE_TIME } from '@/lib/query'
 import { Button } from '@/components/ui/button'
 import { TableEmptyRow } from '@/components/ui/empty-state'
@@ -33,6 +34,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Search, Edit, Trash2, Loader2, Warehouse as WarehouseIcon, Upload, Download } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { WarehouseImportDialog } from '@/components/warehouse/WarehouseImportDialog'
 
@@ -62,6 +64,8 @@ export function WarehousesPage() {
       return response.data
     },
   })
+
+  const { sortedData: sortedWarehouses, sort, toggleSort } = useTableSort(warehouses)
 
   const createMutation = useMutation({
     mutationFn: (data: WarehouseFormData) => api.post('/warehouses', data),
@@ -203,9 +207,9 @@ export function WarehousesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>代碼</TableHead>
-              <TableHead>名稱</TableHead>
-              <TableHead>狀態</TableHead>
+              <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>代碼</SortableTableHead>
+              <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
+              <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -216,8 +220,8 @@ export function WarehousesPage() {
                   <TableSkeleton rows={5} cols={4} />
                 </TableCell>
               </TableRow>
-            ) : warehouses && warehouses.length > 0 ? (
-              warehouses.map((warehouse) => (
+            ) : sortedWarehouses && sortedWarehouses.length > 0 ? (
+              sortedWarehouses.map((warehouse) => (
                 <TableRow key={warehouse.id}>
                   <TableCell className="font-mono">{warehouse.code}</TableCell>
                   <TableCell className="font-medium">{warehouse.name}</TableCell>

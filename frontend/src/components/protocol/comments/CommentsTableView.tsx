@@ -11,6 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { useTableSort } from '@/hooks/useTableSort'
 import { formatDateTime } from '@/lib/utils'
 import type { ReviewCommentResponse } from '@/types/aup'
 import type { ReviewerGroup } from './useCommentsData'
@@ -42,6 +44,7 @@ function ReviewerSection({
   onReply: (comment: ReviewCommentResponse) => void
 }) {
   const { t } = useTranslation()
+  const { sortedData, sort, toggleSort } = useTableSort(group.questions)
 
   return (
     <div className="mb-6">
@@ -50,13 +53,13 @@ function ReviewerSection({
         <TableHeader>
           <TableRow className="bg-muted/50">
             <TableHead className="w-28 text-center">{t('protocols.detail.tables.targetSection')}</TableHead>
-            <TableHead className="w-[42%]">{t('protocols.detail.tables.reviewOpinion')}</TableHead>
-            <TableHead className="w-[42%]">{t('protocols.detail.tables.applicantReply')}</TableHead>
+            <SortableTableHead sortKey="comment.created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[42%]">{t('protocols.detail.tables.reviewOpinion')}</SortableTableHead>
+            <SortableTableHead sortKey="comment.is_resolved" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[42%]">{t('protocols.detail.tables.applicantReply')}</SortableTableHead>
             {canReply && <TableHead className="w-20 text-center">{t('protocols.detail.tables.actions')}</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {group.questions.map((q) => {
+          {(sortedData ?? group.questions).map((q) => {
             const parsed = parseCommentContent(q.comment.content)
             return (
             <TableRow

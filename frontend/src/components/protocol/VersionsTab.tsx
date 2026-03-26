@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/dialog'
 import { Eye, History } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { ProtocolContentView } from '@/components/protocol/ProtocolContentView'
 import { ProtocolComparisonDialog } from '@/components/protocols/ProtocolComparisonDialog'
 
@@ -41,6 +43,8 @@ export const VersionsTab = React.memo(function VersionsTab({ protocolId, protoco
     },
     enabled: !!protocolId,
   })
+
+  const { sortedData: sortedVersions, sort, toggleSort } = useTableSort(versions)
 
   const [compareMode, setCompareMode] = useState(false)
   const [selectedCompareIds, setSelectedCompareIds] = useState<string[]>([])
@@ -71,7 +75,7 @@ export const VersionsTab = React.memo(function VersionsTab({ protocolId, protoco
           </div>
         </CardHeader>
         <CardContent>
-          {versions && versions.length > 0 ? (
+          {sortedVersions && sortedVersions.length > 0 ? (
             <div className="space-y-4">
               {compareMode && selectedCompareIds.length === 2 && (
                 <div className="bg-blue-50 border border-blue-100 p-3 rounded-md flex justify-between items-center">
@@ -81,8 +85,8 @@ export const VersionsTab = React.memo(function VersionsTab({ protocolId, protoco
                   <Button
                     size="sm"
                     onClick={() => {
-                      const vA = versions.find(v => v.id === selectedCompareIds[0])
-                      const vB = versions.find(v => v.id === selectedCompareIds[1])
+                      const vA = sortedVersions.find(v => v.id === selectedCompareIds[0])
+                      const vB = sortedVersions.find(v => v.id === selectedCompareIds[1])
                       if (vA && vB) {
                         if (vA.version_no > vB.version_no) {
                           setVersionA(vB)
@@ -103,13 +107,13 @@ export const VersionsTab = React.memo(function VersionsTab({ protocolId, protoco
                 <TableHeader>
                   <TableRow>
                     {compareMode && <TableHead className="w-[50px]"></TableHead>}
-                    <TableHead>{t('protocols.detail.tables.versionNo')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.submitTime')}</TableHead>
+                    <SortableTableHead sortKey="version_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.versionNo')}</SortableTableHead>
+                    <SortableTableHead sortKey="submitted_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.submitTime')}</SortableTableHead>
                     <TableHead className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {versions.map((version) => (
+                  {sortedVersions.map((version) => (
                     <TableRow key={version.id}>
                       {compareMode && (
                         <TableCell>

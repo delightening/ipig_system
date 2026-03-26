@@ -11,9 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { WarehouseShelfTreeSelect } from '@/components/inventory/WarehouseShelfTreeSelect'
 import { PageHeader } from '@/components/ui/page-header'
 import { Search, Loader2, Package, X } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
 import { formatNumber, formatCurrency, formatDate, formatUom, cn } from '@/lib/utils'
 
 export function InventoryPage() {
@@ -38,6 +40,8 @@ export function InventoryPage() {
       return response.data
     },
   })
+
+  const { sortedData, sort, toggleSort } = useTableSort(inventory)
 
   const clearFilters = () => {
     setSearch('')
@@ -92,15 +96,15 @@ export function InventoryPage() {
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
-                <TableHead className="font-semibold">倉庫</TableHead>
-                {isShelfQuery && <TableHead className="font-semibold">貨架</TableHead>}
-                <TableHead className="font-semibold">品項</TableHead>
-                <TableHead className="text-right font-semibold">現有量</TableHead>
-                <TableHead className="font-semibold">單位</TableHead>
-                <TableHead className="text-right font-semibold">平均成本</TableHead>
+                <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">倉庫</SortableTableHead>
+                {isShelfQuery && <SortableTableHead sortKey="storage_location_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">貨架</SortableTableHead>}
+                <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">品項</SortableTableHead>
+                <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">現有量</SortableTableHead>
+                <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">單位</SortableTableHead>
+                <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">平均成本</SortableTableHead>
                 <TableHead className="text-right font-semibold">庫存價值</TableHead>
-                <TableHead className="text-right font-semibold">安全庫存</TableHead>
-                <TableHead className="font-semibold">最後異動時間</TableHead>
+                <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">安全庫存</SortableTableHead>
+                <SortableTableHead sortKey="last_updated_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">最後異動時間</SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -116,8 +120,8 @@ export function InventoryPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : inventory && inventory.length > 0 ? (
-                inventory.map((item) => (
+              ) : sortedData && sortedData.length > 0 ? (
+                sortedData.map((item) => (
                   <TableRow
                     key={`${item.warehouse_id}-${item.storage_location_id ?? 'wh'}-${item.product_id}`}
                     className="group hover:bg-muted/50 transition-colors"

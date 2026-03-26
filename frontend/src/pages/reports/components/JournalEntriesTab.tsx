@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/table'
 import { Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Label } from '@/components/ui/label'
 import type { JournalEntryResponse } from '@/types/accounting'
 
@@ -40,6 +42,8 @@ export function JournalEntriesTab({
       return r.data
     },
   })
+
+  const { sortedData: sortedEntries, sort, toggleSort } = useTableSort(journalEntries)
 
   if (isLoading) {
     return (
@@ -72,8 +76,18 @@ export function JournalEntriesTab({
         </div>
       </div>
       <div className="space-y-4">
-        {journalEntries && journalEntries.length > 0 ? (
-          journalEntries.map(({ entry, lines }) => (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>傳票號</SortableTableHead>
+              <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
+              <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>說明</SortableTableHead>
+              <TableHead className="text-right">合計借方</TableHead>
+            </TableRow>
+          </TableHeader>
+        </Table>
+        {(sortedEntries ?? journalEntries) && (sortedEntries ?? journalEntries)!.length > 0 ? (
+          (sortedEntries ?? journalEntries)!.map(({ entry, lines }) => (
             <div key={entry.id} className="rounded-md border p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>

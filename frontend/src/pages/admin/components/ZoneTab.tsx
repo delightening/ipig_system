@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { facilityApi } from '@/lib/api/facility'
 import { useDialogSet } from '@/hooks/useDialogSet'
+import { useTableSort } from '@/hooks/useTableSort'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,7 @@ import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -71,6 +73,8 @@ export function ZoneTab({ canManage }: { canManage: boolean }) {
     queryKey: ['zones'],
     queryFn: async () => (await facilityApi.listZones()).data,
   })
+
+  const { sortedData: sortedZones, sort, toggleSort } = useTableSort(zones)
 
   const { data: buildings = [] } = useQuery({
     queryKey: ['buildings'],
@@ -137,21 +141,21 @@ export function ZoneTab({ canManage }: { canManage: boolean }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>代碼</TableHead>
-            <TableHead>名稱</TableHead>
-            <TableHead>所屬棟舍</TableHead>
-            <TableHead>顏色</TableHead>
+            <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>代碼</SortableTableHead>
+            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
+            <SortableTableHead sortKey="building_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>所屬棟舍</SortableTableHead>
+            <SortableTableHead sortKey="color" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>顏色</SortableTableHead>
             <TableHead>合併群組</TableHead>
-            <TableHead>狀態</TableHead>
+            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
             {canManage && <TableHead className="w-24 text-right">操作</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
             <TableRow><TableCell colSpan={7} className="text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
-          ) : zones.length === 0 ? (
+          ) : sortedZones?.length === 0 ? (
             <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">無資料</TableCell></TableRow>
-          ) : zones.map(z => {
+          ) : sortedZones?.map(z => {
             const lc = parseLayoutConfig(z.layout_config)
             return (
               <TableRow key={z.id}>

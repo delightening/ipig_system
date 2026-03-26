@@ -24,6 +24,8 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Edit2, Trash2, Scale, Loader2 } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 
 interface WeightsTabProps {
@@ -41,6 +43,7 @@ export const WeightsTab = React.memo(function WeightsTab({
   hasAdminRole, developerMode, toggleDeveloperMode,
 }: WeightsTabProps) {
   const queryClient = useQueryClient()
+  const { sortedData, sort, toggleSort } = useTableSort(weights)
 
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [newWeight, setNewWeight] = useState({ measure_date: new Date().toISOString().split('T')[0], weight: '' })
@@ -124,15 +127,15 @@ export const WeightsTab = React.memo(function WeightsTab({
               <TableHeader>
                 <TableRow>
                   {developerMode && <TableHead>系統號</TableHead>}
-                  <TableHead>測量日期</TableHead>
-                  <TableHead>體重 (kg)</TableHead>
+                  <SortableTableHead sortKey="measure_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>測量日期</SortableTableHead>
+                  <SortableTableHead sortKey="weight" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>體重 (kg)</SortableTableHead>
                   <TableHead>記錄者</TableHead>
-                  <TableHead>建立時間</TableHead>
+                  <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立時間</SortableTableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {weights.map((weight) => (
+                {sortedData?.map((weight) => (
                   <TableRow key={weight.id} data-record-id={weight.id}>
                     {developerMode && <TableCell>{weight.id}</TableCell>}
                     <TableCell>{new Date(weight.measure_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>

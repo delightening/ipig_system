@@ -150,9 +150,6 @@ export function SettingsPage() {
               showPassword={showPassword}
               togglePassword={togglePassword}
             />
-            {(canExport || canImport) && (
-              <DataExportImportCard canExport={canExport} canImport={canImport} />
-            )}
           </div>
 
           <div className="flex justify-end">
@@ -181,6 +178,10 @@ export function SettingsPage() {
       />
 
       <AiApiKeySection />
+
+      {!isLoadingSys && !sysError && (canExport || canImport) && (
+        <DataExportImportCard canExport={canExport} canImport={canImport} />
+      )}
     </div>
   )
 }

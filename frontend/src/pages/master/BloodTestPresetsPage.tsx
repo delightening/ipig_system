@@ -46,6 +46,8 @@ import {
   ArrowLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { getApiErrorMessage, bloodTestPresetFormSchema, type BloodTestPresetFormData } from '@/lib/validation'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import { useNavigate } from 'react-router-dom'
@@ -203,6 +205,8 @@ export function BloodTestPresetsPage() {
     return result
   }, [presets, search, showFilter])
 
+  const { sortedData, sort, toggleSort } = useTableSort(filteredPresets)
+
   const totalCount = presets?.length ?? 0
   const activeCount = presets?.filter((p) => p.is_active).length ?? 0
   const activePanels = panels?.filter((p) => p.is_active) ?? []
@@ -267,10 +271,10 @@ export function BloodTestPresetsPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[60px]">圖示</TableHead>
-              <TableHead>名稱</TableHead>
+              <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
               <TableHead>包含分類</TableHead>
-              <TableHead className="w-[80px] text-center">排序</TableHead>
-              <TableHead className="w-[80px] text-center">狀態</TableHead>
+              <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">排序</SortableTableHead>
+              <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">狀態</SortableTableHead>
               <TableHead className="w-[140px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -291,7 +295,7 @@ export function BloodTestPresetsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredPresets.map((preset) => (
+              (sortedData ?? filteredPresets).map((preset) => (
                 <TableRow
                   key={preset.id}
                   className={cn(!preset.is_active && 'opacity-50')}
