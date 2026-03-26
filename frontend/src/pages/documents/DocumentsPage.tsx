@@ -190,7 +190,7 @@ export function DocumentsPage() {
         title={title}
         description={isLegacyMode ? `管理${TYPE_NAMES[typeFilter as DocType]}` : '採購、銷貨、倉儲單據統一管理'}
         actions={
-          <Button asChild>
+          <Button size="sm" asChild>
             <Link to={isLegacyMode ? `/documents/new?type=${typeFilter}` : (subTypeFilter !== 'all' ? `/documents/new?type=${subTypeFilter}` : '/documents/new')}>
               <Plus className="mr-2 h-4 w-4" />
               新增單據

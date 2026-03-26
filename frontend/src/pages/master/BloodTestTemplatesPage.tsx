@@ -32,15 +32,16 @@ export function BloodTestTemplatesPage() {
           className="flex-1"
           actions={
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => navigate('/blood-test-panels')}>
+              <Button size="sm" variant="outline" onClick={() => navigate('/blood-test-panels')}>
                 <Settings className="mr-2 h-4 w-4" />
                 管理分類
               </Button>
-              <Button variant="outline" onClick={() => navigate('/blood-test-presets')}>
+              <Button size="sm" variant="outline" onClick={() => navigate('/blood-test-presets')}>
                 <Star className="mr-2 h-4 w-4" />
                 管理常用組合
               </Button>
               <Button
+                size="sm"
                 onClick={() => {
                   m.resetForm()
                   m.setDialogOpen(true)

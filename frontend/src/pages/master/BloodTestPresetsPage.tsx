@@ -225,6 +225,7 @@ export function BloodTestPresetsPage() {
           className="flex-1"
           actions={
             <Button
+              size="sm"
               onClick={() => {
                 resetForm()
                 setDialogOpen(true)

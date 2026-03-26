@@ -40,10 +40,10 @@ export function BloodTestAnalysisPage() {
         description="對血液檢查結果進行統計分析、趨勢追蹤與異常值偵測"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={analysis.exportToCSV} disabled={!analysis.filteredData.length}>
+            <Button size="sm" variant="outline" onClick={analysis.exportToCSV} disabled={!analysis.filteredData.length}>
               <Download className="mr-2 h-4 w-4" /> CSV
             </Button>
-            <Button onClick={analysis.exportToExcel} disabled={!analysis.filteredData.length}>
+            <Button size="sm" onClick={analysis.exportToExcel} disabled={!analysis.filteredData.length}>
               <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
             </Button>
           </div>

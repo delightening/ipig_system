@@ -192,7 +192,7 @@ export function HrAnnualLeavePage() {
                 title="特休額度管理"
                 description="管理員工特休假額度、查看過期待補償報表"
                 actions={
-                    <Button onClick={() => dialogs.open('create')}>
+                    <Button size="sm" onClick={() => dialogs.open('create')}>
                         <Plus className="h-4 w-4 mr-2" />
                         新增特休額度
                     </Button>

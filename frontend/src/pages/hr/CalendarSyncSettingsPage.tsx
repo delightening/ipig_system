@@ -82,6 +82,7 @@ export function CalendarSyncSettingsPage() {
                 description="設定與管理請假日曆"
                 actions={syncStatus?.is_configured ? (
                     <Button
+                        size="sm"
                         onClick={() => syncMutation.mutate()}
                         disabled={syncMutation.isPending}
                     >

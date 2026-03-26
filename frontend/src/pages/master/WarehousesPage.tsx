@@ -178,7 +178,7 @@ export function WarehousesPage() {
               <Download className="mr-2 h-4 w-4" />
               匯出
             </Button>
-            <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
+            <Button size="sm" onClick={() => { resetForm(); setDialogOpen(true) }}>
               <Plus className="mr-2 h-4 w-4" />
               新增倉庫
             </Button>

@@ -58,7 +58,7 @@ export function TrainingRecordsPage() {
         title="人員訓練紀錄"
         description="GLP 合規：管理人員訓練與證照有效期限"
         actions={canManage ? (
-          <Button onClick={openCreateDialog}>
+          <Button size="sm" onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
             新增訓練紀錄
           </Button>

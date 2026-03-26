@@ -77,13 +77,13 @@ export function StockLedgerPage() {
         description="查看所有庫存異動記錄"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
+            <Button size="sm" variant="outline" asChild>
               <Link to="/reports/stock-ledger">
                 <ExternalLink className="mr-2 h-4 w-4" />
                 報表中心（進階篩選）
               </Link>
             </Button>
-            <Button onClick={exportToCSV} disabled={!ledger?.length}>
+            <Button size="sm" onClick={exportToCSV} disabled={!ledger?.length}>
               <Download className="mr-2 h-4 w-4" />
               匯出 CSV
             </Button>

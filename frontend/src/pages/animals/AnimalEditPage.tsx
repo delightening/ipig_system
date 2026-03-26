@@ -175,6 +175,7 @@ export function AnimalEditPage() {
         description={`耳號：${animal.ear_tag}`}
         actions={
           <Button
+            size="sm"
             type="button"
             variant="outline"
             onClick={() => setCorrectionDialogOpen(true)}

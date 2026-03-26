@@ -140,7 +140,7 @@ export function SalesLinesReportPage() {
         title="銷貨明細報表"
         description="銷貨單、銷貨出庫明細"
         actions={
-          <Button onClick={exportToCSV} disabled={!report?.length}>
+          <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
             匯出 CSV
           </Button>

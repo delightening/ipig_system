@@ -31,6 +31,7 @@ export function DocumentFormHeader({
       actions={
         <div className="flex gap-2">
           <Button
+            size="sm"
             variant="outline"
             onClick={onSave}
             disabled={isSaving || isSubmitting}
@@ -43,6 +44,7 @@ export function DocumentFormHeader({
             儲存草稿
           </Button>
           <Button
+            size="sm"
             onClick={onSubmit}
             disabled={isSaving || isSubmitting || !hasLines}
           >

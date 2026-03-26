@@ -109,7 +109,7 @@ export function BloodTestCostReportPage() {
                 title="血液檢查費用報表"
                 description="依專案、日期與實驗室查詢血液檢查費用"
                 actions={
-                    <Button onClick={exportToCSV} disabled={!report?.length}>
+                    <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
                         <Download className="mr-2 h-4 w-4" />
                         匯出 CSV
                     </Button>

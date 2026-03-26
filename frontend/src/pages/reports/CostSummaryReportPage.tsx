@@ -67,7 +67,7 @@ export function CostSummaryReportPage() {
         title="成本摘要報表"
         description="庫存成本與價值摘要"
         actions={
-          <Button onClick={exportToCSV} disabled={!report?.length}>
+          <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
             匯出 CSV
           </Button>

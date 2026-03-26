@@ -46,7 +46,7 @@ export function PartnerToolbar({
               <Download className="mr-2 h-4 w-4" />
               匯出
             </Button>
-            <Button onClick={onAdd}>
+            <Button size="sm" onClick={onAdd}>
               <Plus className="mr-2 h-4 w-4" />
               新增夥伴
             </Button>

@@ -27,7 +27,7 @@ export function AdminAuditPage() {
                 title="安全審計"
                 description="監控系統活動與安全事件"
                 actions={
-                    <Button variant="outline" onClick={audit.refreshAll}>
+                    <Button size="sm" variant="outline" onClick={audit.refreshAll}>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         重新整理
                     </Button>

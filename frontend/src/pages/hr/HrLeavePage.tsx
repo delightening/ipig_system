@@ -105,7 +105,7 @@ export function HrLeavePage() {
                 title="請假管理"
                 description="申請請假與查看假期餘額"
                 actions={
-                    <Button onClick={() => dialogs.open('create')}>
+                    <Button size="sm" onClick={() => dialogs.open('create')}>
                         <Plus className="h-4 w-4 mr-2" />
                         新增請假
                     </Button>
