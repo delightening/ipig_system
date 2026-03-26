@@ -9,6 +9,7 @@ import { getErrorMessage } from '@/types/error'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
@@ -141,8 +142,7 @@ export function LoginPage() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">電子郵件</Label>
+          <FormField label="電子郵件" htmlFor="email" error={errors.email?.message}>
             <Input
               id="email"
               type="email"
@@ -151,12 +151,8 @@ export function LoginPage() {
               {...register('email')}
               className={errors.email ? 'border-destructive' : ''}
             />
-            {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">密碼</Label>
+          </FormField>
+          <FormField label="密碼" htmlFor="password" error={errors.password?.message}>
             <div className="relative">
               <Input
                 id="password"
@@ -181,10 +177,7 @@ export function LoginPage() {
                 )}
               </Button>
             </div>
-            {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
-            )}
-          </div>
+          </FormField>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <>

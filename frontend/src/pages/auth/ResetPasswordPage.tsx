@@ -10,7 +10,7 @@ import { resetPasswordSchema, ResetPasswordFormData } from '@/lib/validation'
 import { checkPasswordComplexity, getStrengthColor, PASSWORD_MIN_LENGTH } from '@/lib/passwordValidation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, Lock, ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react'
@@ -161,29 +161,27 @@ export function ResetPasswordPage() {
         <CardContent>
           <form onSubmit={handleSubmit(onValid)} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="newPassword" className="text-muted-foreground">
-                新密碼
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="newPassword"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="請輸入新密碼"
-                  {...register('password')}
-                  className="pl-9 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
-                  autoComplete="new-password"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={togglePassword}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+              <FormField label="新密碼" htmlFor="newPassword" error={errors.password?.message}>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="newPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="請輸入新密碼"
+                    {...register('password')}
+                    className="pl-9 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
+                    autoComplete="new-password"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={togglePassword}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </FormField>
 
               {/* Password Strength Indicator */}
               {newPassword && (
@@ -219,10 +217,7 @@ export function ResetPasswordPage() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-muted-foreground">
-                確認新密碼
-              </Label>
+            <FormField label="確認新密碼" htmlFor="confirmPassword" error={errors.confirmPassword?.message}>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -241,11 +236,10 @@ export function ResetPasswordPage() {
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
               {confirmPassword && newPassword === confirmPassword && newPassword && (
                 <p className="text-xs text-status-success-text">✓ 密碼一致</p>
               )}
-            </div>
+            </FormField>
 
             <Button
               type="submit"

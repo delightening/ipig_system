@@ -10,7 +10,7 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -138,19 +138,21 @@ export function FacilityTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>新增設施</DialogTitle></DialogHeader>
           <form onSubmit={onCreateSubmit} className="space-y-3">
-            <div>
-              <Label>代碼 *</Label>
+            <FormField label="代碼" required error={errors.code?.message}>
               <Input {...register('code')} />
-              {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
-            </div>
-            <div>
-              <Label>名稱 *</Label>
+            </FormField>
+            <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
-            <div><Label>地址</Label><Input {...register('address')} /></div>
-            <div><Label>電話</Label><Input {...register('phone')} /></div>
-            <div><Label>聯絡人</Label><Input {...register('contact_person')} /></div>
+            </FormField>
+            <FormField label="地址">
+              <Input {...register('address')} />
+            </FormField>
+            <FormField label="電話">
+              <Input {...register('phone')} />
+            </FormField>
+            <FormField label="聯絡人">
+              <Input {...register('contact_person')} />
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('create')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={createMutation.isPending}>
@@ -165,15 +167,21 @@ export function FacilityTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>編輯設施</DialogTitle></DialogHeader>
           <form onSubmit={onEditSubmit} className="space-y-3">
-            <div><Label>代碼</Label><Input {...register('code')} disabled /></div>
-            <div>
-              <Label>名稱 *</Label>
+            <FormField label="代碼">
+              <Input {...register('code')} disabled />
+            </FormField>
+            <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
-            <div><Label>地址</Label><Input {...register('address')} /></div>
-            <div><Label>電話</Label><Input {...register('phone')} /></div>
-            <div><Label>聯絡人</Label><Input {...register('contact_person')} /></div>
+            </FormField>
+            <FormField label="地址">
+              <Input {...register('address')} />
+            </FormField>
+            <FormField label="電話">
+              <Input {...register('phone')} />
+            </FormField>
+            <FormField label="聯絡人">
+              <Input {...register('contact_person')} />
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('edit')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={updateMutation.isPending}>

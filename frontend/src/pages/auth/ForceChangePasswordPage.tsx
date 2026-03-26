@@ -10,7 +10,7 @@ import { changePasswordSchema, ChangePasswordFormData } from '@/lib/validation'
 import { checkPasswordComplexity, getStrengthColor, PASSWORD_MIN_LENGTH } from '@/lib/passwordValidation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, Lock, Eye, EyeOff, ShieldAlert } from 'lucide-react'
@@ -114,10 +114,7 @@ export function ForceChangePasswordPage() {
               className="absolute opacity-0 pointer-events-none h-0 w-0"
               aria-hidden
             />
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword" className="text-muted-foreground">
-                目前密碼
-              </Label>
+            <FormField label="目前密碼" htmlFor="currentPassword" error={errors.current_password?.message}>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -137,32 +134,29 @@ export function ForceChangePasswordPage() {
                   {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {errors.current_password && <p className="text-sm text-destructive">{errors.current_password.message}</p>}
-            </div>
+            </FormField>
 
             <div className="space-y-2">
-              <Label htmlFor="newPassword" className="text-muted-foreground">
-                新密碼
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="newPassword"
-                  type={showNewPassword ? 'text' : 'password'}
-                  placeholder="請輸入新密碼"
-                  {...register('new_password')}
-                  className="pl-9 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={toggleNewPassword}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {errors.new_password && <p className="text-sm text-destructive">{errors.new_password.message}</p>}
+              <FormField label="新密碼" htmlFor="newPassword" error={errors.new_password?.message}>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="newPassword"
+                    type={showNewPassword ? 'text' : 'password'}
+                    placeholder="請輸入新密碼"
+                    {...register('new_password')}
+                    className="pl-9 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleNewPassword}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </FormField>
 
               {/* Password Strength Indicator */}
               {newPassword && (
@@ -198,10 +192,7 @@ export function ForceChangePasswordPage() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-muted-foreground">
-                確認新密碼
-              </Label>
+            <FormField label="確認新密碼" htmlFor="confirmPassword" error={errors.confirm_password?.message}>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -220,11 +211,10 @@ export function ForceChangePasswordPage() {
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {errors.confirm_password && <p className="text-sm text-destructive">{errors.confirm_password.message}</p>}
               {confirmPassword && newPassword === confirmPassword && newPassword && (
                 <p className="text-xs text-status-success-text">✓ 密碼一致</p>
               )}
-            </div>
+            </FormField>
 
             <Button
               type="submit"

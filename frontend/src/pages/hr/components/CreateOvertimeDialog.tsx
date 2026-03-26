@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Textarea } from '@/components/ui/textarea'
 import {
     Dialog,
@@ -99,28 +99,18 @@ export function CreateOvertimeDialog({
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onValid)}>
                     <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label>加班日期 *</Label>
+                        <FormField label="加班日期" required error={errors.overtimeDate?.message}>
                             <Input type="date" {...register('overtimeDate')} aria-label="加班日期" />
-                            {errors.overtimeDate && (
-                                <p className="text-sm text-destructive">{errors.overtimeDate.message}</p>
-                            )}
-                        </div>
+                        </FormField>
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label>開始時間 *</Label>
+                            <FormField label="開始時間" required>
                                 <Input type="time" {...register('startTime')} aria-label="開始時間" />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>結束時間 *</Label>
+                            </FormField>
+                            <FormField label="結束時間" required error={errors.endTime?.message}>
                                 <Input type="time" {...register('endTime')} aria-label="結束時間" />
-                                {errors.endTime && (
-                                    <p className="text-sm text-destructive">{errors.endTime.message}</p>
-                                )}
-                            </div>
+                            </FormField>
                         </div>
-                        <div className="grid gap-2">
-                            <Label>加班類型</Label>
+                        <FormField label="加班類型">
                             <Select value={overtimeType} onValueChange={(v) => setValue('overtimeType', v)}>
                                 <SelectTrigger>
                                     <SelectValue />
@@ -133,18 +123,14 @@ export function CreateOvertimeDialog({
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>加班事由 *</Label>
+                        </FormField>
+                        <FormField label="加班事由" required error={errors.reason?.message}>
                             <Textarea
                                 placeholder="請說明加班原因..."
                                 {...register('reason')}
                                 rows={3}
                             />
-                            {errors.reason && (
-                                <p className="text-sm text-destructive">{errors.reason.message}</p>
-                            )}
-                        </div>
+                        </FormField>
                         <div className="grid gap-2 p-3 bg-muted rounded-lg space-y-1">
                             <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">預估加班時數</span>

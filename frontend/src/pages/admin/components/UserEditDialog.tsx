@@ -95,10 +95,9 @@ export function UserEditDialog({
           </FormField>
           <div className="border-t pt-4 mt-4">
             <h4 className="font-medium mb-3">AUP 人員資料</h4>
-            <div className="space-y-2 mb-4">
-              <Label htmlFor="edit-entry_date">入職日期 (Entry Date)</Label>
+            <FormField label="入職日期 (Entry Date)" htmlFor="edit-entry_date">
               <Input id="edit-entry_date" type="date" {...register('entry_date')} />
-            </div>
+            </FormField>
             <div className="space-y-2">
               <Label>訓練/資格 (Trainings)</Label>
               <div className="flex flex-wrap gap-2 p-3 border rounded-md">

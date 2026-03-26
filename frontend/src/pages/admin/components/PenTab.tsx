@@ -10,7 +10,6 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -182,11 +181,12 @@ export function PenTab({ canManage }: { canManage: boolean }) {
             <FormField label="代碼" required error={createForm.formState.errors.code?.message}>
               <Input {...createForm.register('code')} />
             </FormField>
-            <div><Label>名稱</Label><Input {...createForm.register('name')} /></div>
-            <div>
-              <Label>容量</Label>
+            <FormField label="名稱">
+              <Input {...createForm.register('name')} />
+            </FormField>
+            <FormField label="容量">
               <Input type="number" min={1} {...createForm.register('capacity', { valueAsNumber: true })} />
-            </div>
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('create')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={createMutation.isPending}>
@@ -201,19 +201,21 @@ export function PenTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>編輯欄位</DialogTitle></DialogHeader>
           <form onSubmit={onEditSubmit} className="space-y-3">
-            <div><Label>代碼</Label><Input {...editForm.register('code')} disabled /></div>
-            <div><Label>名稱</Label><Input {...editForm.register('name')} /></div>
-            <div>
-              <Label>容量</Label>
+            <FormField label="代碼">
+              <Input {...editForm.register('code')} disabled />
+            </FormField>
+            <FormField label="名稱">
+              <Input {...editForm.register('name')} />
+            </FormField>
+            <FormField label="容量">
               <Input type="number" min={1} {...editForm.register('capacity', { valueAsNumber: true })} />
-            </div>
-            <div>
-              <Label>狀態</Label>
+            </FormField>
+            <FormField label="狀態">
               <Select value={editStatus} onValueChange={v => editForm.setValue('status', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{Object.entries(PEN_STATUS_NAMES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
               </Select>
-            </div>
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('edit')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={updateMutation.isPending}>

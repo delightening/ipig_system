@@ -10,7 +10,7 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -147,19 +147,16 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>新增物種</DialogTitle></DialogHeader>
           <form onSubmit={onCreateSubmit} className="space-y-3">
-            <div>
-              <Label>代碼 *</Label>
+            <FormField label="代碼" required error={errors.code?.message}>
               <Input {...register('code')} />
-              {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
-            </div>
-            <div>
-              <Label>名稱 *</Label>
+            </FormField>
+            <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
-            <div><Label>英文名稱</Label><Input {...register('name_en')} /></div>
-            <div>
-              <Label>上層物種</Label>
+            </FormField>
+            <FormField label="英文名稱">
+              <Input {...register('name_en')} />
+            </FormField>
+            <FormField label="上層物種">
               <Select value={parentId ?? 'none'} onValueChange={v => setValue('parent_id', v === 'none' ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="無（頂層物種）" /></SelectTrigger>
                 <SelectContent>
@@ -169,12 +166,13 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div><Label>圖示</Label><Input {...register('icon')} placeholder="emoji 或圖示代碼" /></div>
-            <div>
-              <Label>排序</Label>
+            </FormField>
+            <FormField label="圖示">
+              <Input {...register('icon')} placeholder="emoji 或圖示代碼" />
+            </FormField>
+            <FormField label="排序">
               <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
-            </div>
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('create')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={createMutation.isPending}>
@@ -190,15 +188,16 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>編輯物種</DialogTitle></DialogHeader>
           <form onSubmit={onEditSubmit} className="space-y-3">
-            <div><Label>代碼</Label><Input {...register('code')} disabled /></div>
-            <div>
-              <Label>名稱 *</Label>
+            <FormField label="代碼">
+              <Input {...register('code')} disabled />
+            </FormField>
+            <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
-            <div><Label>英文名稱</Label><Input {...register('name_en')} /></div>
-            <div>
-              <Label>上層物種</Label>
+            </FormField>
+            <FormField label="英文名稱">
+              <Input {...register('name_en')} />
+            </FormField>
+            <FormField label="上層物種">
               <Select value={parentId ?? 'none'} onValueChange={v => setValue('parent_id', v === 'none' ? undefined : v)}>
                 <SelectTrigger><SelectValue placeholder="無（頂層物種）" /></SelectTrigger>
                 <SelectContent>
@@ -208,12 +207,13 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div><Label>圖示</Label><Input {...register('icon')} /></div>
-            <div>
-              <Label>排序</Label>
+            </FormField>
+            <FormField label="圖示">
+              <Input {...register('icon')} />
+            </FormField>
+            <FormField label="排序">
               <Input type="number" {...register('sort_order', { valueAsNumber: true })} />
-            </div>
+            </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('edit')}>{t('common.cancel')}</Button>
               <Button type="submit" disabled={updateMutation.isPending}>
