@@ -434,7 +434,8 @@ impl SchedulerService {
                     <th>批號</th>
                     <th>效期</th>
                     <th>剩餘天數</th>
-                    <th>現有量</th>
+                    <th>近效期量</th>
+                    <th>總量</th>
                 </tr>
             </thead>
             <tbody>"#
@@ -450,6 +451,7 @@ impl SchedulerService {
                     <td>{}</td>
                     <td class="{}">{}</td>
                     <td>{} {}</td>
+                    <td>{} {}</td>
                 </tr>"#,
                 alert.sku,
                 alert.product_name,
@@ -458,6 +460,8 @@ impl SchedulerService {
                 status_class,
                 alert.days_until_expiry,
                 alert.on_hand_qty,
+                alert.base_uom,
+                alert.total_qty,
                 alert.base_uom,
             ));
         }

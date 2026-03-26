@@ -241,6 +241,44 @@ impl DocumentService {
         Self::get_by_id(pool, grn_id).await
     }
 
+    /// GRN 核准後，重新計算並回寫 PO 的 receipt_status
+    pub(crate) async fn update_po_receipt_status(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        po_id: Uuid,
+    ) -> Result<()> {
+        let row: (Decimal, Decimal) = sqlx::query_as(
+            r#"
+            SELECT
+                COALESCE(SUM(pl.qty), 0) AS total_ordered,
+                COALESCE((
+                    SELECT SUM(gl.qty)
+                    FROM documents g
+                    JOIN document_lines gl ON g.id = gl.document_id
+                    WHERE g.source_doc_id = $1
+                      AND g.doc_type = 'GRN'
+                      AND g.status = 'approved'
+                ), 0) AS total_received
+            FROM document_lines pl
+            WHERE pl.document_id = $1
+            "#
+        )
+        .bind(po_id)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        let status = receipt_status_label(row.1, row.0);
+
+        sqlx::query(
+            "UPDATE documents SET receipt_status = $1, updated_at = NOW() WHERE id = $2"
+        )
+        .bind(status)
+        .bind(po_id)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(())
+    }
+
     /// 取得採購單入庫狀態
     pub async fn get_po_receipt_status(pool: &PgPool, po_id: Uuid) -> Result<PoReceiptStatus> {
         let po = sqlx::query_as::<_, Document>(

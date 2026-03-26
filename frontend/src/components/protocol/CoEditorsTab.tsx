@@ -37,6 +37,8 @@ import { toast } from '@/components/ui/use-toast'
 import { Loader2, Trash2, UserPlus } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
@@ -60,6 +62,8 @@ export function CoEditorsTab({ protocolId, canAssignReviewer }: CoEditorsTabProp
     },
     enabled: !!protocolId,
   })
+
+  const { sortedData: sortedCoEditors, sort, toggleSort } = useTableSort(coEditors)
 
   const { data: availableExperimentStaff } = useQuery({
     queryKey: ['available-experiment-staff'],
@@ -132,18 +136,18 @@ export function CoEditorsTab({ protocolId, canAssignReviewer }: CoEditorsTabProp
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : coEditors && coEditors.length > 0 ? (
+          ) : sortedCoEditors && sortedCoEditors.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('protocols.detail.tabs.coeditors')}</TableHead>
-                  <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
+                  <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tabs.coeditors')}</SortableTableHead>
+                  <SortableTableHead sortKey="granted_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.assignedTime')}</SortableTableHead>
                   <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
                   <TableHead className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {coEditors.map((coEditor) => (
+                {sortedCoEditors.map((coEditor) => (
                   <TableRow key={coEditor.user_id}>
                     <TableCell>
                       <div>

@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { facilityApi } from '@/lib/api/facility'
 import { useDialogSet } from '@/hooks/useDialogSet'
+import { useTableSort } from '@/hooks/useTableSort'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,7 @@ import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -53,6 +55,8 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
     queryKey: ['departments'],
     queryFn: async () => (await facilityApi.listDepartments()).data,
   })
+
+  const { sortedData: sortedDepartments, sort, toggleSort } = useTableSort(departments)
 
   const { data: users = [] } = useQuery({
     queryKey: ['internal-users-brief'],
@@ -117,21 +121,21 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>代碼</TableHead>
-            <TableHead>名稱</TableHead>
-            <TableHead>上層部門</TableHead>
-            <TableHead>主管</TableHead>
-            <TableHead>排序</TableHead>
-            <TableHead>狀態</TableHead>
+            <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>代碼</SortableTableHead>
+            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
+            <SortableTableHead sortKey="parent_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>上層部門</SortableTableHead>
+            <SortableTableHead sortKey="manager_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>主管</SortableTableHead>
+            <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>排序</SortableTableHead>
+            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
             {canManage && <TableHead className="w-24 text-right">操作</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
             <TableRow><TableCell colSpan={7} className="text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
-          ) : departments.length === 0 ? (
+          ) : sortedDepartments?.length === 0 ? (
             <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">無資料</TableCell></TableRow>
-          ) : departments.map(d => (
+          ) : sortedDepartments?.map(d => (
             <TableRow key={d.id}>
               <TableCell className="font-mono">{d.code}</TableCell>
               <TableCell>{d.name}</TableCell>

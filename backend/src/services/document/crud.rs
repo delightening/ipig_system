@@ -1,3 +1,4 @@
+use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -40,6 +41,23 @@ impl DocumentService {
                 return Err(AppError::Validation(
                     "At least one line is required".to_string(),
                 ));
+            }
+
+            // GRN 單據的單價必填且不可為 0
+            if req.doc_type == DocType::GRN {
+                for (idx, line) in req.lines.iter().enumerate() {
+                    let invalid = match line.unit_price {
+                        None => true,
+                        Some(d) if d <= Decimal::ZERO => true,
+                        _ => false,
+                    };
+                    if invalid {
+                        return Err(AppError::Validation(format!(
+                            "第 {} 行：採購入庫的單價為必填，且必須大於 0",
+                            idx + 1
+                        )));
+                    }
+                }
             }
 
             // 強制檢查批號與效期 (特定單據類型結合品項設定)

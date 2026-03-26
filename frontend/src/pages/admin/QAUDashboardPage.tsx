@@ -11,8 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { SkeletonPulse } from '@/components/ui/skeleton'
 import { STALE_TIME } from '@/lib/query'
+import { useTableSort } from '@/hooks/useTableSort'
 
 interface ProtocolStatusCount {
   status: string
@@ -61,6 +63,16 @@ export function QAUDashboardPage() {
     },
     staleTime: STALE_TIME.LIST,
   })
+
+  const {
+    sortedData: sortedProtocolStatus, sort: protocolSort, toggleSort: toggleProtocolSort,
+  } = useTableSort(data?.protocol_status_summary)
+  const {
+    sortedData: sortedAudit, sort: auditSort, toggleSort: toggleAuditSort,
+  } = useTableSort(data?.audit_summary)
+  const {
+    sortedData: sortedAnimalStatus, sort: animalSort, toggleSort: toggleAnimalSort,
+  } = useTableSort(data?.animal_summary?.by_status)
 
   if (error) {
     return (
@@ -178,12 +190,12 @@ export function QAUDashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>狀態</TableHead>
-                      <TableHead className="text-right">數量</TableHead>
+                      <SortableTableHead sortKey="display_name" currentSort={protocolSort.column} currentDirection={protocolSort.direction} onSort={toggleProtocolSort}>狀態</SortableTableHead>
+                      <SortableTableHead sortKey="count" currentSort={protocolSort.column} currentDirection={protocolSort.direction} onSort={toggleProtocolSort} className="text-right">數量</SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.protocol_status_summary.map((row) => (
+                    {(sortedProtocolStatus ?? data.protocol_status_summary).map((row) => (
                       <TableRow key={row.status}>
                         <TableCell>{row.display_name}</TableCell>
                         <TableCell className="text-right">{row.count}</TableCell>
@@ -216,12 +228,12 @@ export function QAUDashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>實體類型</TableHead>
-                      <TableHead className="text-right">筆數</TableHead>
+                      <SortableTableHead sortKey="entity_type" currentSort={auditSort.column} currentDirection={auditSort.direction} onSort={toggleAuditSort}>實體類型</SortableTableHead>
+                      <SortableTableHead sortKey="count" currentSort={auditSort.column} currentDirection={auditSort.direction} onSort={toggleAuditSort} className="text-right">筆數</SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.audit_summary.map((row) => (
+                    {(sortedAudit ?? data.audit_summary).map((row) => (
                       <TableRow key={row.entity_type}>
                         <TableCell>{row.entity_type}</TableCell>
                         <TableCell className="text-right">{row.count}</TableCell>
@@ -252,12 +264,12 @@ export function QAUDashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>狀態</TableHead>
-                    <TableHead className="text-right">數量</TableHead>
+                    <SortableTableHead sortKey="display_name" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>狀態</SortableTableHead>
+                    <SortableTableHead sortKey="count" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort} className="text-right">數量</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.animal_summary.by_status.map((row) => (
+                  {(sortedAnimalStatus ?? data.animal_summary.by_status).map((row) => (
                     <TableRow key={row.status}>
                       <TableCell>{row.display_name}</TableCell>
                       <TableCell className="text-right">{row.count}</TableCell>

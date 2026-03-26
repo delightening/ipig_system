@@ -23,10 +23,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, Check, X, FileEdit, CheckCircle2 } from 'lucide-react'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/use-toast'
 import { useState } from 'react'
 import { getApiErrorMessage } from '@/lib/validation'
+import { useTableSort } from '@/hooks/useTableSort'
 
 const FIELD_LABELS: Record<string, string> = {
   ear_tag: '耳號',
@@ -110,6 +112,8 @@ export function AnimalFieldCorrectionsPage() {
     },
   })
 
+  const { sortedData: sortedPending, sort, toggleSort } = useTableSort(pending)
+
   const handleReject = () => {
     if (!rejectDialog) return
     rejectMutation.mutate({ id: rejectDialog.id, reason: rejectReason || '未提供原因' })
@@ -143,18 +147,18 @@ export function AnimalFieldCorrectionsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>耳號</TableHead>
-                  <TableHead>欄位</TableHead>
+                  <SortableTableHead sortKey="animal_ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>耳號</SortableTableHead>
+                  <SortableTableHead sortKey="field_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>欄位</SortableTableHead>
                   <TableHead>原值</TableHead>
                   <TableHead>新值</TableHead>
                   <TableHead>原因</TableHead>
-                  <TableHead>申請人</TableHead>
-                  <TableHead>申請時間</TableHead>
+                  <SortableTableHead sortKey="requested_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請人</SortableTableHead>
+                  <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請時間</SortableTableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pending?.map((r) => (
+                {(sortedPending ?? pending)?.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell>
                       <Link

@@ -17,6 +17,8 @@ import type { PaginatedResponse } from '@/types/common'
 import { formatDateTime } from '@/lib/utils'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { FileText } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 
 interface ConflictsTabProps {
     conflicts: PaginatedResponse<ConflictWithDetails> | undefined
@@ -29,16 +31,17 @@ interface ConflictsTabProps {
 
 export function ConflictsTab({ conflicts, loadingConflicts, onResolve, resolvePending, currentPage, onPageChange }: ConflictsTabProps) {
     const totalPages = conflicts?.total_pages ?? 1
+    const { sortedData, sort, toggleSort } = useTableSort(conflicts?.data)
 
     return (
         <div className="space-y-4">
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>偵測時間</TableHead>
-                        <TableHead>員工</TableHead>
-                        <TableHead>假別</TableHead>
-                        <TableHead>衝突類型</TableHead>
+                        <SortableTableHead sortKey="detected_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>偵測時間</SortableTableHead>
+                        <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>員工</SortableTableHead>
+                        <SortableTableHead sortKey="leave_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>假別</SortableTableHead>
+                        <SortableTableHead sortKey="conflict_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>衝突類型</SortableTableHead>
                         <TableHead>差異</TableHead>
                         <TableHead className="text-right">操作</TableHead>
                     </TableRow>
@@ -53,7 +56,7 @@ export function ConflictsTab({ conflicts, loadingConflicts, onResolve, resolvePe
                     ) : conflicts?.data?.length === 0 ? (
                         <TableEmptyRow colSpan={6} icon={FileText} title="沒有待處理的衝突" />
                     ) : (
-                        conflicts?.data?.map((c) => (
+                        (sortedData ?? conflicts?.data)?.map((c) => (
                             <TableRow key={c.id}>
                                 <TableCell className="whitespace-nowrap">
                                     {formatDateTime(c.detected_at)}

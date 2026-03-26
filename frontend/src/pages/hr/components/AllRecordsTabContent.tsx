@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -238,18 +240,20 @@ interface AllRecordsTableProps {
 }
 
 function AllRecordsTable({ data, isLoading }: AllRecordsTableProps) {
+    const { sortedData, sort, toggleSort } = useTableSort(data)
+
     return (
         <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead>申請人</TableHead>
-                    <TableHead>日期</TableHead>
-                    <TableHead>時間</TableHead>
-                    <TableHead>類型</TableHead>
-                    <TableHead>時數</TableHead>
-                    <TableHead>補休</TableHead>
+                    <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請人</SortableTableHead>
+                    <SortableTableHead sortKey="overtime_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
+                    <SortableTableHead sortKey="start_time" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
+                    <SortableTableHead sortKey="overtime_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
+                    <SortableTableHead sortKey="hours" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時數</SortableTableHead>
+                    <SortableTableHead sortKey="comp_time_hours" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>補休</SortableTableHead>
                     <TableHead>事由</TableHead>
-                    <TableHead>狀態</TableHead>
+                    <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -259,10 +263,10 @@ function AllRecordsTable({ data, isLoading }: AllRecordsTableProps) {
                             載入中...
                         </TableCell>
                     </TableRow>
-                ) : data?.length === 0 ? (
+                ) : sortedData?.length === 0 ? (
                     <TableEmptyRow colSpan={8} icon={Search} title="沒有符合條件的加班紀錄" />
                 ) : (
-                    data?.map((overtime) => (
+                    sortedData?.map((overtime) => (
                         <TableRow key={overtime.id}>
                             <TableCell>
                                 <div>

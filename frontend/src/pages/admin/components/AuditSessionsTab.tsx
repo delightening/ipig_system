@@ -13,7 +13,9 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { formatDateTime } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
 import type { SessionWithUser } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 import { AuditPagination } from './AuditPagination'
@@ -34,6 +36,7 @@ export function AuditSessionsTab({
     forceLogoutMutation,
 }: AuditSessionsTabProps) {
     const activeSessions = sessions?.data?.filter(s => s.is_active) ?? []
+    const { sortedData, sort, toggleSort } = useTableSort(activeSessions)
 
     return (
         <Card>
@@ -45,12 +48,12 @@ export function AuditSessionsTab({
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>使用者</TableHead>
-                            <TableHead>開始時間</TableHead>
-                            <TableHead>最後活動</TableHead>
-                            <TableHead>IP</TableHead>
-                            <TableHead>頁面瀏覽</TableHead>
-                            <TableHead>操作次數</TableHead>
+                            <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>使用者</SortableTableHead>
+                            <SortableTableHead sortKey="started_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>開始時間</SortableTableHead>
+                            <SortableTableHead sortKey="last_activity_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>最後活動</SortableTableHead>
+                            <SortableTableHead sortKey="ip_address" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>IP</SortableTableHead>
+                            <SortableTableHead sortKey="page_view_count" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>頁面瀏覽</SortableTableHead>
+                            <SortableTableHead sortKey="action_count" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>操作次數</SortableTableHead>
                             <TableHead className="text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -59,10 +62,10 @@ export function AuditSessionsTab({
                             <TableRow>
                                 <TableCell colSpan={7} className="text-center py-8">載入中...</TableCell>
                             </TableRow>
-                        ) : activeSessions.length === 0 ? (
+                        ) : sortedData === undefined || sortedData.length === 0 ? (
                             <TableEmptyRow colSpan={7} icon={Monitor} title="沒有活躍的 Session" />
                         ) : (
-                            activeSessions.map((session) => (
+                            sortedData.map((session) => (
                                 <SessionRow
                                     key={session.id}
                                     session={session}

@@ -9,6 +9,7 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import {
     Select,
     SelectContent,
@@ -17,6 +18,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { formatDateTime } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
 import type { LoginEventWithUser } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 import { AuditPagination } from './AuditPagination'
@@ -44,6 +46,8 @@ export function AuditLoginsTab({
     currentPage,
     onPageChange,
 }: AuditLoginsTabProps) {
+    const { sortedData, sort, toggleSort } = useTableSort(loginEvents?.data)
+
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-4">
@@ -75,12 +79,12 @@ export function AuditLoginsTab({
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>時間</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>事件</TableHead>
-                            <TableHead>裝置</TableHead>
-                            <TableHead>瀏覽器</TableHead>
-                            <TableHead>IP</TableHead>
+                            <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
+                            <SortableTableHead sortKey="email" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>Email</SortableTableHead>
+                            <SortableTableHead sortKey="event_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>事件</SortableTableHead>
+                            <SortableTableHead sortKey="device_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>裝置</SortableTableHead>
+                            <SortableTableHead sortKey="browser" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>瀏覽器</SortableTableHead>
+                            <SortableTableHead sortKey="ip_address" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>IP</SortableTableHead>
                             <TableHead>異常</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -89,10 +93,10 @@ export function AuditLoginsTab({
                             <TableRow>
                                 <TableCell colSpan={7} className="text-center py-8">載入中...</TableCell>
                             </TableRow>
-                        ) : loginEvents?.data?.length === 0 ? (
+                        ) : sortedData?.length === 0 ? (
                             <TableEmptyRow colSpan={7} icon={LogIn} title="沒有登入事件" />
                         ) : (
-                            loginEvents?.data?.map((event) => (
+                            sortedData?.map((event) => (
                                 <LoginEventRow key={event.id} event={event} />
                             ))
                         )}

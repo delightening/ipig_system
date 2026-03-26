@@ -224,6 +224,13 @@ impl DocumentService {
             .await?;
         }
 
+        // 如果是入庫單核准，回寫更新來源採購單的 receipt_status
+        if document.doc_type == DocType::GRN {
+            if let Some(po_id) = document.source_doc_id {
+                Self::update_po_receipt_status(&mut tx, po_id).await?;
+            }
+        }
+
         tx.commit().await?;
 
         Self::get_by_id(pool, id).await

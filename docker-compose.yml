@@ -42,7 +42,8 @@ services:
       PORT: ${PORT:-8000}
 
       # 後端在 docker 裡，DB host 一律用 service name db，port 用 5432
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ipig_db}
+      # 密碼使用 URL-encoded 版本（避免 / + 等特殊字元破壞 URL 解析）
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD_URL}@db:5432/${POSTGRES_DB:-ipig_db}
       DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
       DATABASE_RETRY_ATTEMPTS: ${DATABASE_RETRY_ATTEMPTS:-10}
       DATABASE_RETRY_DELAY_SECONDS: ${DATABASE_RETRY_DELAY_SECONDS:-3}

@@ -2,9 +2,11 @@ import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { ProtocolListItem, ProtocolStatus } from '@/lib/api'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -164,12 +166,14 @@ export function MyProjectsPage() {
     }
   }
 
-  // 對計劃列表進行排序
-  const sortedProjects = projects ? [...projects].sort((a, b) => {
+  // 對計劃列表進行排序（預設按狀態分組）
+  const statusSortedProjects = projects ? [...projects].sort((a, b) => {
     const orderA = getStatusSortOrder(a.status)
     const orderB = getStatusSortOrder(b.status)
     return orderA - orderB
-  }) : []
+  }) : undefined
+
+  const { sortedData: sortedProjects, sort, toggleSort } = useTableSort(statusSortedProjects)
 
   // 統計數據
   const stats = {
@@ -237,13 +241,25 @@ export function MyProjectsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('protocols.columns.iacucNo')}</TableHead>
+                  <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                    {t('protocols.columns.iacucNo')}
+                  </SortableTableHead>
+                  <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                    {t('protocols.columns.status')}
+                  </SortableTableHead>
+                  <SortableTableHead sortKey="pi_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                    {t('aup.basic.contactPerson')}
+                  </SortableTableHead>
+                  <SortableTableHead sortKey="pi_organization" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                    {t('aup.basic.organizationName')}
+                  </SortableTableHead>
                   <TableHead>{t('protocols.columns.status')}</TableHead>
-                  <TableHead>{t('aup.basic.contactPerson')}</TableHead>
-                  <TableHead>{t('aup.basic.organizationName')}</TableHead>
-                  <TableHead>{t('protocols.columns.status')}</TableHead>
-                  <TableHead>{t('protocols.columns.protocolTitle')}</TableHead>
-                  <TableHead>{t('protocols.columns.period')}</TableHead>
+                  <SortableTableHead sortKey="title" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                    {t('protocols.columns.protocolTitle')}
+                  </SortableTableHead>
+                  <SortableTableHead sortKey="start_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                    {t('protocols.columns.period')}
+                  </SortableTableHead>
                   <TableHead className="text-right">{t('protocols.columns.actions')}</TableHead>
                 </TableRow>
               </TableHeader>

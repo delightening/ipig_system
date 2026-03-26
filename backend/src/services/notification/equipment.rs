@@ -75,7 +75,7 @@ impl NotificationService {
                         notification_type: NotificationType::SystemAlert,
                         title,
                         content: Some(format!("共 {} 項設備校正/確效已逾期", overdue.len())),
-                        related_entity_type: None,
+                        related_entity_type: Some("equipment".to_string()),
                         related_entity_id: None,
                     })
                     .await
@@ -128,7 +128,7 @@ impl NotificationService {
                             "設備「{}」（{}）經維修後判定無法修復，請安排報廢流程。",
                             equipment_name, serial_number
                         )),
-                        related_entity_type: None,
+                        related_entity_type: Some("equipment".to_string()),
                         related_entity_id: None,
                     })
                     .await
@@ -178,7 +178,7 @@ impl NotificationService {
                             "{} 申請報廢設備「{}」，原因：{}",
                             applicant_name, equipment_name, reason
                         )),
-                        related_entity_type: None,
+                        related_entity_type: Some("equipment".to_string()),
                         related_entity_id: None,
                     })
                     .await

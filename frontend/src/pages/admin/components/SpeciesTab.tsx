@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { facilityApi } from '@/lib/api/facility'
 import { useDialogSet } from '@/hooks/useDialogSet'
+import { useTableSort } from '@/hooks/useTableSort'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -51,6 +53,8 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
     queryKey: ['species'],
     queryFn: async () => (await facilityApi.listSpecies()).data,
   })
+
+  const { sortedData: sortedSpecies, sort, toggleSort } = useTableSort(species)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['species'] })
 
@@ -105,21 +109,21 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>代碼</TableHead>
-            <TableHead>名稱</TableHead>
-            <TableHead>上層物種</TableHead>
-            <TableHead>英文名稱</TableHead>
-            <TableHead>排序</TableHead>
-            <TableHead>狀態</TableHead>
+            <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>代碼</SortableTableHead>
+            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
+            <SortableTableHead sortKey="parent_id" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>上層物種</SortableTableHead>
+            <SortableTableHead sortKey="name_en" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>英文名稱</SortableTableHead>
+            <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>排序</SortableTableHead>
+            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
             {canManage && <TableHead className="w-24 text-right">操作</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
             <TableRow><TableCell colSpan={7} className="text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
-          ) : species.length === 0 ? (
+          ) : sortedSpecies?.length === 0 ? (
             <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">無資料</TableCell></TableRow>
-          ) : species.map(s => {
+          ) : sortedSpecies?.map(s => {
             const parentName = s.parent_id ? species.find(p => p.id === s.parent_id)?.name : null
             return (
             <TableRow key={s.id}>

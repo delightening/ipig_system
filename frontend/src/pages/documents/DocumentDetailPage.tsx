@@ -27,6 +27,8 @@ import { toast } from '@/components/ui/use-toast'
 import { ArrowLeft, Send, CheckCircle, XCircle, Loader2, ShieldCheck, ShieldX, AlertTriangle, Copy } from 'lucide-react'
 import { formatDate, formatNumber, formatCurrency, formatUom } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 
 const docTypeNames: Record<string, string> = {
   PO: '採購單',
@@ -158,6 +160,8 @@ export function DocumentDetailPage() {
     },
     enabled: !!id,
   })
+
+  const { sortedData: sortedLines, sort: lineSort, toggleSort: toggleLineSort } = useTableSort(document?.lines)
 
   const submitMutation = useMutation({
     mutationFn: () => api.post(`/documents/${id}/submit`),
@@ -482,18 +486,18 @@ export function DocumentDetailPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-16">項次</TableHead>
-                <TableHead>品項</TableHead>
-                <TableHead className="text-right">數量</TableHead>
-                <TableHead>單位</TableHead>
-                <TableHead className="text-right">單價</TableHead>
+                <SortableTableHead className="w-16" sortKey="line_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>項次</SortableTableHead>
+                <SortableTableHead sortKey="product_name" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>品項</SortableTableHead>
+                <SortableTableHead className="text-right" sortKey="qty" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>數量</SortableTableHead>
+                <SortableTableHead sortKey="uom" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>單位</SortableTableHead>
+                <SortableTableHead className="text-right" sortKey="unit_price" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>單價</SortableTableHead>
                 <TableHead className="text-right">金額</TableHead>
-                <TableHead>批號</TableHead>
-                <TableHead>效期</TableHead>
+                <SortableTableHead sortKey="batch_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>批號</SortableTableHead>
+                <SortableTableHead sortKey="expiry_date" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>效期</SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {document.lines.map((line) => (
+              {(sortedLines ?? document.lines).map((line) => (
                 <TableRow key={line.id}>
                   <TableCell>{line.line_no}</TableCell>
                   <TableCell>

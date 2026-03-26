@@ -44,6 +44,8 @@ import {
     Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { getApiErrorMessage, bloodTestPanelFormSchema, type BloodTestPanelFormData } from '@/lib/validation'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import { useNavigate } from 'react-router-dom'
@@ -276,6 +278,8 @@ export function BloodTestPanelsPage() {
         return result
     }, [allTemplates, itemSearch])
 
+    const { sortedData, sort, toggleSort } = useTableSort(filteredPanels)
+
     const isSaving = createMutation.isPending || updateMutation.isPending
 
     return (
@@ -333,11 +337,11 @@ export function BloodTestPanelsPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-[60px]">圖示</TableHead>
-                            <TableHead className="w-[120px]">代碼</TableHead>
-                            <TableHead>名稱</TableHead>
-                            <TableHead className="w-[80px] text-center">排序</TableHead>
+                            <SortableTableHead sortKey="key" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[120px]">代碼</SortableTableHead>
+                            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
+                            <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">排序</SortableTableHead>
                             <TableHead className="w-[100px] text-center">包含項目</TableHead>
-                            <TableHead className="w-[80px] text-center">狀態</TableHead>
+                            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">狀態</SortableTableHead>
                             <TableHead className="w-[180px] text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -355,7 +359,7 @@ export function BloodTestPanelsPage() {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            filteredPanels.map((panel) => (
+                            (sortedData ?? filteredPanels).map((panel) => (
                                 <TableRow
                                     key={panel.id}
                                     className={cn(!panel.is_active && 'opacity-50')}

@@ -27,6 +27,8 @@ import {
   Copy,
   Stethoscope,
 } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { SurgeryFormDialog } from './SurgeryFormDialog'
 import { VersionHistoryDialog } from './VersionHistoryDialog'
 import { VetRecommendationDialog } from './VetRecommendationDialog'
@@ -41,6 +43,7 @@ interface SurgeriesTabProps {
 
 export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag, afterParam: _afterParam, surgeries }: SurgeriesTabProps) {
   const queryClient = useQueryClient()
+  const { sortedData, sort, toggleSort } = useTableSort(surgeries)
 
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingSurgery, setEditingSurgery] = useState<AnimalSurgery | null>(null)
@@ -114,8 +117,8 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
                   <TableHead>是否首次</TableHead>
-                  <TableHead>手術日期</TableHead>
-                  <TableHead>手術部位</TableHead>
+                  <SortableTableHead sortKey="surgery_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>手術日期</SortableTableHead>
+                  <SortableTableHead sortKey="surgery_site" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>手術部位</SortableTableHead>
                   <TableHead>停止用藥</TableHead>
                   <TableHead>獸醫師讀取</TableHead>
                   <TableHead>記錄者</TableHead>
@@ -123,7 +126,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {surgeries.map((surgery) => (
+                {sortedData?.map((surgery) => (
                   <>
                     <TableRow key={surgery.id} className="cursor-pointer hover:bg-slate-50">
                       <TableCell>

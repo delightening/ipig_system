@@ -14,6 +14,8 @@ import { Loader2, Download, FileText } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import type { TrialBalanceRow } from '@/types/accounting'
 
 interface TrialBalanceTabProps {
@@ -50,6 +52,8 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
     link.click()
   }
 
+  const { sortedData, sort, toggleSort } = useTableSort(trialBalance)
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -79,16 +83,16 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>科目代碼</TableHead>
-              <TableHead>科目名稱</TableHead>
-              <TableHead>類型</TableHead>
-              <TableHead className="text-right">借方餘額</TableHead>
-              <TableHead className="text-right">貸方餘額</TableHead>
+              <SortableTableHead sortKey="account_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>科目代碼</SortableTableHead>
+              <SortableTableHead sortKey="account_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>科目名稱</SortableTableHead>
+              <SortableTableHead sortKey="account_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
+              <SortableTableHead sortKey="debit_balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">借方餘額</SortableTableHead>
+              <SortableTableHead sortKey="credit_balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">貸方餘額</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {trialBalance && trialBalance.length > 0 ? (
-              trialBalance.map((r) => (
+              (sortedData ?? trialBalance).map((r) => (
                 <TableRow key={r.account_id}>
                   <TableCell className="font-mono">{r.account_code}</TableCell>
                   <TableCell>{r.account_name}</TableCell>

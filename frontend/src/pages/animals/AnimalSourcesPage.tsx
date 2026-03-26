@@ -3,9 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import api, { deleteResource, AnimalSource } from '@/lib/api'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -72,6 +74,8 @@ export function AnimalSourcesPage() {
     },
     staleTime: 600_000,
   })
+
+  const { sortedData: sortedSources, sort, toggleSort } = useTableSort(sources)
 
   // Create mutation
   const createMutation = useMutation({
@@ -187,13 +191,27 @@ export function AnimalSourcesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>排序</TableHead>
-              <TableHead>代碼</TableHead>
-              <TableHead>名稱</TableHead>
-              <TableHead>地址</TableHead>
-              <TableHead>聯絡人</TableHead>
-              <TableHead>電話</TableHead>
-              <TableHead>狀態</TableHead>
+              <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                排序
+              </SortableTableHead>
+              <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                代碼
+              </SortableTableHead>
+              <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                名稱
+              </SortableTableHead>
+              <SortableTableHead sortKey="address" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                地址
+              </SortableTableHead>
+              <SortableTableHead sortKey="contact" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                聯絡人
+              </SortableTableHead>
+              <SortableTableHead sortKey="phone" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                電話
+              </SortableTableHead>
+              <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                狀態
+              </SortableTableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -204,8 +222,8 @@ export function AnimalSourcesPage() {
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ) : sources && sources.length > 0 ? (
-              sources.map((source) => (
+            ) : sortedSources && sortedSources.length > 0 ? (
+              sortedSources.map((source) => (
                 <TableRow key={source.id}>
                   <TableCell>{source.sort_order}</TableCell>
                   <TableCell className="font-mono font-medium">{source.code}</TableCell>

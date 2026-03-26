@@ -18,6 +18,8 @@ import {
     Check,
 } from 'lucide-react'
 import { formatUom } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 
 interface WarehouseDetailTabsProps {
     warehouse: Warehouse | undefined
@@ -57,8 +59,11 @@ export function WarehouseDetailTabs({
     isUpdatingInventory,
     onEditLocationClick,
 }: WarehouseDetailTabsProps) {
-    // 過濾出非建築結構的儲位供列表顯示
     const filteredLocations = locations.filter(loc => !['wall', 'door', 'window'].includes(loc.location_type))
+
+    const { sortedData: sortedInventory, sort: invSort, toggleSort: toggleInvSort } = useTableSort(inventoryItems)
+    const { sortedData: sortedLocations, sort: locSort, toggleSort: toggleLocSort } = useTableSort(filteredLocations)
+    const { sortedData: sortedUnassigned, sort: unaSort, toggleSort: toggleUnaSort } = useTableSort(unassignedItems)
 
     return (
         <Tabs
@@ -109,20 +114,20 @@ export function WarehouseDetailTabs({
                             <div className="flex justify-center py-12">
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                             </div>
-                        ) : inventoryItems && inventoryItems.length > 0 ? (
+                        ) : sortedInventory && sortedInventory.length > 0 ? (
                             <div className="max-h-[400px] overflow-y-auto border rounded-md">
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-muted z-10">
                                         <TableRow>
-                                            <TableHead>產品</TableHead>
-                                            <TableHead className="text-right">數量</TableHead>
-                                            <TableHead>批號</TableHead>
-                                            <TableHead>效期</TableHead>
+                                            <SortableTableHead sortKey="product_name" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort}>產品</SortableTableHead>
+                                            <SortableTableHead sortKey="on_hand_qty" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort} className="text-right">數量</SortableTableHead>
+                                            <SortableTableHead sortKey="batch_no" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort}>批號</SortableTableHead>
+                                            <SortableTableHead sortKey="expiry_date" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort}>效期</SortableTableHead>
                                             {canEditInventory && <TableHead className="w-16" />}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {inventoryItems.map((item) => (
+                                        {sortedInventory.map((item) => (
                                             <TableRow key={item.id}>
                                                 <TableCell>
                                                     <div className="font-medium text-sm">
@@ -217,21 +222,21 @@ export function WarehouseDetailTabs({
                             <div className="flex justify-center py-12">
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                             </div>
-                        ) : filteredLocations.length > 0 ? (
+                        ) : sortedLocations && sortedLocations.length > 0 ? (
                             <div className="border rounded-md max-h-[400px] overflow-y-auto">
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-muted z-10">
                                         <TableRow>
-                                            <TableHead>名稱</TableHead>
-                                            <TableHead>代碼</TableHead>
-                                            <TableHead>類型</TableHead>
-                                            <TableHead className="text-right">產品數量</TableHead>
-                                            <TableHead className="text-right">容量</TableHead>
+                                            <SortableTableHead sortKey="name" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort}>名稱</SortableTableHead>
+                                            <SortableTableHead sortKey="code" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort}>代碼</SortableTableHead>
+                                            <SortableTableHead sortKey="location_type" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort}>類型</SortableTableHead>
+                                            <SortableTableHead sortKey="current_count" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort} className="text-right">產品數量</SortableTableHead>
+                                            <SortableTableHead sortKey="capacity" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort} className="text-right">容量</SortableTableHead>
                                             <TableHead className="w-16" />
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredLocations.map((loc) => {
+                                        {sortedLocations.map((loc) => {
                                             const isSelected = selectedLocation?.id === loc.id
                                             return (
                                                 <TableRow
@@ -298,7 +303,7 @@ export function WarehouseDetailTabs({
                             <div className="flex justify-center py-12">
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                             </div>
-                        ) : !unassignedItems || unassignedItems.length === 0 ? (
+                        ) : !sortedUnassigned || sortedUnassigned.length === 0 ? (
                             <div className="text-center py-12 text-muted-foreground bg-slate-50 rounded-lg border-dashed border">
                                 <p className="text-sm text-green-600 font-medium">✨ 所有庫存均已分配至具體儲位。</p>
                             </div>
@@ -307,14 +312,14 @@ export function WarehouseDetailTabs({
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-muted z-10">
                                         <TableRow>
-                                            <TableHead>產品</TableHead>
-                                            <TableHead className="text-right">倉庫總庫存</TableHead>
-                                            <TableHead className="text-right">已在儲位</TableHead>
-                                            <TableHead className="text-right">未分配數量</TableHead>
+                                            <SortableTableHead sortKey="product_name" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort}>產品</SortableTableHead>
+                                            <SortableTableHead sortKey="qty_on_warehouse" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">倉庫總庫存</SortableTableHead>
+                                            <SortableTableHead sortKey="qty_on_shelves" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">已在儲位</SortableTableHead>
+                                            <SortableTableHead sortKey="qty_unassigned" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">未分配數量</SortableTableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {unassignedItems.map((item) => (
+                                        {sortedUnassigned.map((item) => (
                                             <TableRow key={`${item.warehouse_id}-${item.product_id}`}>
                                                 <TableCell>
                                                     <div className="font-medium text-sm">{item.product_name}</div>

@@ -404,9 +404,14 @@ impl StockService {
     ) -> Result<Vec<crate::models::InventoryOnHand>> {
         // 貨架級查詢（storage_location_inventory）
         if let Some(loc_id) = query.storage_location_id {
-            let rows = sqlx::query_as::<_, InventoryOnHand>(
+            let keyword_filter = if query.keyword.as_ref().is_some_and(|k| !k.is_empty()) {
+                " AND (p.name ILIKE '%' || $2 || '%' OR p.sku ILIKE '%' || $2 || '%')"
+            } else {
+                ""
+            };
+            let sql = format!(
                 r#"
-                SELECT 
+                SELECT
                     sl.warehouse_id,
                     w.code as warehouse_code,
                     w.name as warehouse_name,
@@ -423,20 +428,25 @@ impl StockService {
                     sli.batch_no,
                     sli.expiry_date,
                     p.safety_stock,
-                    p.reorder_point
+                    p.reorder_point,
+                    sli.updated_at as last_updated_at
                 FROM storage_location_inventory sli
                 JOIN storage_locations sl ON sli.storage_location_id = sl.id
                 JOIN warehouses w ON sl.warehouse_id = w.id
                 JOIN products p ON sli.product_id = p.id
                 WHERE sl.id = $1 AND sl.is_active = true AND w.is_active = true AND p.is_active = true
                   AND sli.on_hand_qty > 0
+                  {keyword_filter}
                 ORDER BY p.sku, sli.expiry_date, sli.batch_no
-                "#,
-            )
-            .bind(loc_id)
-            .fetch_all(pool)
-            .await?;
-            return Ok(rows);
+                "#
+            );
+            let mut q = sqlx::query_as::<_, InventoryOnHand>(&sql).bind(loc_id);
+            if let Some(keyword) = &query.keyword {
+                if !keyword.is_empty() {
+                    q = q.bind(keyword);
+                }
+            }
+            return Ok(q.fetch_all(pool).await?);
         }
 
         // 倉庫級查詢：有指定 warehouse_id 時使用 storage_location_inventory 以取得批號/效期
@@ -465,7 +475,8 @@ impl StockService {
                     sli.batch_no,
                     sli.expiry_date,
                     p.safety_stock,
-                    p.reorder_point
+                    p.reorder_point,
+                    sli.updated_at as last_updated_at
                 FROM storage_location_inventory sli
                 JOIN storage_locations sl ON sli.storage_location_id = sl.id
                 JOIN warehouses w ON sl.warehouse_id = w.id
@@ -485,53 +496,62 @@ impl StockService {
             return Ok(q.fetch_all(pool).await?);
         }
 
-        // 全倉庫概覽（無指定 warehouse_id）— 使用 inventory_snapshots（聚合，無批號/效期）
-        let inventory = {
-            let simple_sql = r#"
-                SELECT 
-                    w.id as warehouse_id,
-                    w.code as warehouse_code,
-                    w.name as warehouse_name,
-                    NULL::uuid as storage_location_id,
-                    NULL::varchar as storage_location_code,
-                    NULL::varchar as storage_location_name,
-                    p.id as product_id,
-                    p.sku as product_sku,
-                    p.name as product_name,
-                    p.base_uom,
-                    p.category_code,
-                    COALESCE(SUM(
-                        CASE 
-                            WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
-                            WHEN sl.direction IN ('out', 'transfer_out', 'adjust_out') THEN -sl.qty_base
-                            ELSE 0
-                        END
-                    ), 0) as qty_on_hand,
-                    AVG(sl.unit_cost) as avg_cost,
-                    sl.batch_no,
-                    sl.expiry_date,
-                    p.safety_stock,
-                    p.reorder_point
-                FROM warehouses w
-                CROSS JOIN products p
-                LEFT JOIN stock_ledger sl ON w.id = sl.warehouse_id AND p.id = sl.product_id
-                WHERE w.is_active = true AND p.is_active = true
-                GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, p.category_code, sl.batch_no, sl.expiry_date, p.safety_stock, p.reorder_point
-                HAVING COALESCE(SUM(
-                    CASE 
+        // 全倉庫概覽（無指定 warehouse_id）— 使用 stock_ledger 聚合
+        let keyword_filter = if query.keyword.as_ref().is_some_and(|k| !k.is_empty()) {
+            " AND (p.name ILIKE '%' || $1 || '%' OR p.sku ILIKE '%' || $1 || '%')"
+        } else {
+            ""
+        };
+        let sql = format!(
+            r#"
+            SELECT
+                w.id as warehouse_id,
+                w.code as warehouse_code,
+                w.name as warehouse_name,
+                NULL::uuid as storage_location_id,
+                NULL::varchar as storage_location_code,
+                NULL::varchar as storage_location_name,
+                p.id as product_id,
+                p.sku as product_sku,
+                p.name as product_name,
+                p.base_uom,
+                p.category_code,
+                COALESCE(SUM(
+                    CASE
                         WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
                         WHEN sl.direction IN ('out', 'transfer_out', 'adjust_out') THEN -sl.qty_base
                         ELSE 0
                     END
-                ), 0) != 0
-                ORDER BY w.code, p.sku, sl.expiry_date, sl.batch_no
-            "#;
-            sqlx::query_as::<_, InventoryOnHand>(simple_sql)
-                .fetch_all(pool)
-                .await?
-        };
-
-        Ok(inventory)
+                ), 0) as qty_on_hand,
+                AVG(sl.unit_cost) FILTER (WHERE sl.unit_cost IS NOT NULL) as avg_cost,
+                NULL::varchar as batch_no,
+                NULL::date as expiry_date,
+                p.safety_stock,
+                p.reorder_point,
+                MAX(sl.created_at) as last_updated_at
+            FROM warehouses w
+            CROSS JOIN products p
+            LEFT JOIN stock_ledger sl ON w.id = sl.warehouse_id AND p.id = sl.product_id
+            WHERE w.is_active = true AND p.is_active = true
+              {keyword_filter}
+            GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, p.category_code, p.safety_stock, p.reorder_point
+            HAVING COALESCE(SUM(
+                CASE
+                    WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
+                    WHEN sl.direction IN ('out', 'transfer_out', 'adjust_out') THEN -sl.qty_base
+                    ELSE 0
+                END
+            ), 0) != 0
+            ORDER BY w.code, p.sku
+            "#
+        );
+        let mut q = sqlx::query_as::<_, InventoryOnHand>(&sql);
+        if let Some(keyword) = &query.keyword {
+            if !keyword.is_empty() {
+                q = q.bind(keyword);
+            }
+        }
+        Ok(q.fetch_all(pool).await?)
     }
 
     /// 查詢庫存流水
@@ -663,7 +683,8 @@ impl StockService {
                 NULL::varchar as batch_no,
                 NULL::date as expiry_date,
                 p.safety_stock,
-                p.reorder_point
+                p.reorder_point,
+                NULL::timestamptz as last_updated_at
             FROM warehouses w
             CROSS JOIN products p
             LEFT JOIN stock_ledger sl ON w.id = sl.warehouse_id AND p.id = sl.product_id

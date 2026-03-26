@@ -16,6 +16,8 @@ import { toast } from '@/components/ui/use-toast'
 import { Download, Loader2, Paperclip, Trash2, Upload } from 'lucide-react'
 import { formatDateTime, formatFileSize } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
@@ -40,6 +42,8 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
     },
     enabled: !!protocolId,
   })
+
+  const { sortedData: sortedAttachments, sort, toggleSort } = useTableSort(attachments)
 
   const uploadAttachmentMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -140,19 +144,19 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : attachments && attachments.length > 0 ? (
+          ) : sortedAttachments && sortedAttachments.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('protocols.detail.tables.fileName')}</TableHead>
-                  <TableHead>{t('protocols.detail.tables.size')}</TableHead>
+                  <SortableTableHead sortKey="file_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.fileName')}</SortableTableHead>
+                  <SortableTableHead sortKey="file_size" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.size')}</SortableTableHead>
                   <TableHead>{t('protocols.detail.tables.uploadedBy')}</TableHead>
-                  <TableHead>{t('protocols.detail.tables.uploadTime')}</TableHead>
+                  <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.uploadTime')}</SortableTableHead>
                   <TableHead className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {attachments.map((attachment) => (
+                {sortedAttachments.map((attachment) => (
                   <TableRow key={attachment.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">

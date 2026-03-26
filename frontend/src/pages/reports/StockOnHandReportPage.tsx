@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import api, { StockOnHandReport } from '@/lib/api'
 import { formatNumber, formatUom } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { TableEmptyRow } from '@/components/ui/empty-state'
@@ -8,10 +9,10 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Loader2, Download, Package } from 'lucide-react'
 
 export function StockOnHandReportPage() {
@@ -52,6 +53,8 @@ export function StockOnHandReportPage() {
     link.click()
   }
 
+  const { sortedData: sortedReport, sort, toggleSort } = useTableSort(report)
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -77,20 +80,20 @@ export function StockOnHandReportPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>倉庫</TableHead>
-              <TableHead>產品代碼</TableHead>
-              <TableHead>產品名稱</TableHead>
-              <TableHead>類別</TableHead>
-              <TableHead>單位</TableHead>
-              <TableHead className="text-right">庫存量</TableHead>
-              <TableHead className="text-right">平均成本</TableHead>
-              <TableHead className="text-right">庫存價值</TableHead>
-              <TableHead className="text-right">安全庫存</TableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
+              <SortableTableHead sortKey="product_sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品代碼</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品名稱</SortableTableHead>
+              <SortableTableHead sortKey="category_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類別</SortableTableHead>
+              <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單位</SortableTableHead>
+              <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">庫存量</SortableTableHead>
+              <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">平均成本</SortableTableHead>
+              <SortableTableHead sortKey="total_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">庫存價值</SortableTableHead>
+              <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">安全庫存</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {report && report.length > 0 ? (
-              report.map((row) => (
+            {sortedReport && sortedReport.length > 0 ? (
+              sortedReport.map((row) => (
                 <TableRow key={`${row.warehouse_id}-${row.product_id}`}>
                   <TableCell>
                     <div>

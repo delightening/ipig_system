@@ -35,6 +35,8 @@ import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, Plus, FileEdit, Send, Eye } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
 import { useTranslation } from 'react-i18next'
@@ -63,6 +65,8 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
         },
         enabled: !!protocolId,
     })
+
+    const { sortedData: sortedAmendments, sort, toggleSort } = useTableSort(amendments)
 
     // 建立變更申請
     const createAmendmentMutation = useMutation({
@@ -163,20 +167,20 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                     <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
-                ) : amendments && amendments.length > 0 ? (
+                ) : sortedAmendments && sortedAmendments.length > 0 ? (
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>{t('protocols.amendments.table.amendmentNo')}</TableHead>
+                                <SortableTableHead sortKey="amendment_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.amendments.table.amendmentNo')}</SortableTableHead>
                                 <TableHead>{t('protocols.amendments.table.title')}</TableHead>
-                                <TableHead>{t('protocols.amendments.table.type')}</TableHead>
-                                <TableHead>{t('protocols.amendments.table.status')}</TableHead>
-                                <TableHead>{t('protocols.amendments.table.submittedAt')}</TableHead>
+                                <SortableTableHead sortKey="amendment_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.amendments.table.type')}</SortableTableHead>
+                                <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.amendments.table.status')}</SortableTableHead>
+                                <SortableTableHead sortKey="submitted_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.amendments.table.submittedAt')}</SortableTableHead>
                                 <TableHead className="text-right">{t('protocols.amendments.table.actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {amendments.map((amendment) => (
+                            {sortedAmendments.map((amendment) => (
                                 <TableRow key={amendment.id}>
                                     <TableCell className="font-medium">{amendment.amendment_no}</TableCell>
                                     <TableCell>{amendment.title}</TableCell>

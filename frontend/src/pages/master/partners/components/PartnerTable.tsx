@@ -1,5 +1,6 @@
 import { Partner } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -10,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { Edit, Trash2, Users } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
@@ -34,6 +36,8 @@ export function PartnerTable({
   onDelete,
   confirm,
 }: PartnerTableProps) {
+  const { sortedData, sort, toggleSort } = useTableSort(partners)
+
   const handleDeleteClick = async (partner: Partner) => {
     const isAdmin = useAuthStore.getState().user?.roles.includes('admin')
     const ok = await confirm({
@@ -54,12 +58,12 @@ export function PartnerTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>類型</TableHead>
-            <TableHead>代碼</TableHead>
-            <TableHead>名稱</TableHead>
-            <TableHead>統編</TableHead>
-            <TableHead>電話</TableHead>
-            <TableHead>狀態</TableHead>
+            <SortableTableHead sortKey="partner_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
+            <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>代碼</SortableTableHead>
+            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
+            <SortableTableHead sortKey="tax_id" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>統編</SortableTableHead>
+            <SortableTableHead sortKey="phone" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>電話</SortableTableHead>
+            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
             <TableHead className="text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
@@ -70,8 +74,8 @@ export function PartnerTable({
                 <TableSkeleton rows={8} cols={5} />
               </TableCell>
             </TableRow>
-          ) : partners && partners.length > 0 ? (
-            partners.map((partner) => (
+          ) : sortedData && sortedData.length > 0 ? (
+            sortedData.map((partner) => (
               <PartnerRow
                 key={partner.id}
                 partner={partner}

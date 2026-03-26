@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
+import { useTableSort } from '@/hooks/useTableSort'
 import type {
   PurchaseSalesMonthlySummary,
   PurchaseSalesPartnerSummary,
@@ -12,6 +13,7 @@ import type {
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -20,7 +22,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
@@ -62,6 +63,10 @@ export function PurchaseSalesSummaryPage() {
       return res.data
     },
   })
+
+  const { sortedData: sortedMonthly, sort: sortMonthly, toggleSort: toggleMonthlySort } = useTableSort(monthly)
+  const { sortedData: sortedPartner, sort: sortPartner, toggleSort: togglePartnerSort } = useTableSort(byPartner)
+  const { sortedData: sortedCategory, sort: sortCategory, toggleSort: toggleCategorySort } = useTableSort(byCategory)
 
   const exportMonthlyCSV = () => {
     if (!monthly?.length) return
@@ -131,20 +136,20 @@ export function PurchaseSalesSummaryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>月份</TableHead>
-                    <TableHead className="text-right">採購總額</TableHead>
-                    <TableHead className="text-right">採購退貨</TableHead>
-                    <TableHead className="text-right">淨進貨</TableHead>
-                    <TableHead className="text-right">銷貨總額</TableHead>
-                    <TableHead className="text-right">銷貨退貨</TableHead>
-                    <TableHead className="text-right">淨銷貨</TableHead>
-                    <TableHead className="text-right">銷貨成本</TableHead>
-                    <TableHead className="text-right">毛利</TableHead>
+                    <SortableTableHead sortKey="year_month" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort}>月份</SortableTableHead>
+                    <SortableTableHead sortKey="purchase_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">採購總額</SortableTableHead>
+                    <SortableTableHead sortKey="purchase_return" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">採購退貨</SortableTableHead>
+                    <SortableTableHead sortKey="net_purchase" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">淨進貨</SortableTableHead>
+                    <SortableTableHead sortKey="sales_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">銷貨總額</SortableTableHead>
+                    <SortableTableHead sortKey="sales_return" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">銷貨退貨</SortableTableHead>
+                    <SortableTableHead sortKey="net_sales" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">淨銷貨</SortableTableHead>
+                    <SortableTableHead sortKey="cogs_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">銷貨成本</SortableTableHead>
+                    <SortableTableHead sortKey="gross_profit" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">毛利</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {monthly && monthly.length > 0 ? (
-                    monthly.map(row => (
+                  {sortedMonthly && sortedMonthly.length > 0 ? (
+                    sortedMonthly.map(row => (
                       <TableRow key={row.year_month}>
                         <TableCell className="font-medium">{row.year_month}</TableCell>
                         <TableCell className="text-right">${formatNumber(row.purchase_total, 2)}</TableCell>
@@ -181,18 +186,18 @@ export function PurchaseSalesSummaryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>代碼</TableHead>
-                    <TableHead>名稱</TableHead>
-                    <TableHead>類型</TableHead>
-                    <TableHead className="text-right">總金額</TableHead>
-                    <TableHead className="text-right">退貨金額</TableHead>
-                    <TableHead className="text-right">淨金額</TableHead>
-                    <TableHead className="text-right">單據數</TableHead>
+                    <SortableTableHead sortKey="partner_code" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>代碼</SortableTableHead>
+                    <SortableTableHead sortKey="partner_name" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>名稱</SortableTableHead>
+                    <SortableTableHead sortKey="partner_type" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>類型</SortableTableHead>
+                    <SortableTableHead sortKey="total_amount" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">總金額</SortableTableHead>
+                    <SortableTableHead sortKey="return_amount" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">退貨金額</SortableTableHead>
+                    <SortableTableHead sortKey="net_amount" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">淨金額</SortableTableHead>
+                    <SortableTableHead sortKey="doc_count" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">單據數</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {byPartner && byPartner.length > 0 ? (
-                    byPartner.map(row => (
+                  {sortedPartner && sortedPartner.length > 0 ? (
+                    sortedPartner.map(row => (
                       <TableRow key={row.partner_id}>
                         <TableCell className="font-mono text-sm">{row.partner_code}</TableCell>
                         <TableCell className="font-medium">{row.partner_name}</TableCell>
@@ -229,16 +234,16 @@ export function PurchaseSalesSummaryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>產品類別</TableHead>
-                    <TableHead className="text-right">採購金額</TableHead>
-                    <TableHead className="text-right">銷貨金額</TableHead>
-                    <TableHead className="text-right">銷貨成本</TableHead>
-                    <TableHead className="text-right">毛利</TableHead>
+                    <SortableTableHead sortKey="category_name" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort}>產品類別</SortableTableHead>
+                    <SortableTableHead sortKey="purchase_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">採購金額</SortableTableHead>
+                    <SortableTableHead sortKey="sales_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">銷貨金額</SortableTableHead>
+                    <SortableTableHead sortKey="cogs_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">銷貨成本</SortableTableHead>
+                    <SortableTableHead sortKey="gross_profit" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">毛利</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {byCategory && byCategory.length > 0 ? (
-                    byCategory.map(row => (
+                  {sortedCategory && sortedCategory.length > 0 ? (
+                    sortedCategory.map(row => (
                       <TableRow key={row.category_name}>
                         <TableCell className="font-medium">{row.category_name}</TableCell>
                         <TableCell className="text-right">${formatNumber(row.purchase_amount, 2)}</TableCell>

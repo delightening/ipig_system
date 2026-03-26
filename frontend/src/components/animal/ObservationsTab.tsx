@@ -32,6 +32,8 @@ import {
   Copy,
   Stethoscope,
 } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { ObservationFormDialog } from './ObservationFormDialog'
 import { VersionHistoryDialog } from './VersionHistoryDialog'
 import { VetRecommendationDialog } from './VetRecommendationDialog'
@@ -46,6 +48,7 @@ interface ObservationsTabProps {
 
 export const ObservationsTab = React.memo(function ObservationsTab({ animalId, earTag, afterParam: _afterParam, observations }: ObservationsTabProps) {
   const queryClient = useQueryClient()
+  const { sortedData, sort, toggleSort } = useTableSort(observations)
 
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingObservation, setEditingObservation] = useState<AnimalObservation | null>(null)
@@ -118,8 +121,8 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead>事件日期</TableHead>
-                  <TableHead>紀錄性質</TableHead>
+                  <SortableTableHead sortKey="event_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>事件日期</SortableTableHead>
+                  <SortableTableHead sortKey="record_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>紀錄性質</SortableTableHead>
                   <TableHead>內容</TableHead>
                   <TableHead>停止用藥</TableHead>
                   <TableHead>獸醫師讀取</TableHead>
@@ -128,7 +131,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {observations.map((obs: AnimalObservation) => (
+                {sortedData?.map((obs: AnimalObservation) => (
                   <>
                     <TableRow key={obs.id} className="cursor-pointer hover:bg-slate-50">
                       <TableCell>

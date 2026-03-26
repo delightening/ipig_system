@@ -35,6 +35,8 @@ import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 import { Plus, Trash2, Edit2, Loader2, TrendingUp } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 
 const PainAssessmentChart = lazy(() => import('./PainAssessmentChart'))
 
@@ -101,6 +103,8 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
         },
         staleTime: 30_000,
     })
+
+    const { sortedData: sortedRecords, sort, toggleSort } = useTableSort(records)
 
     // 新增紀錄
     const createMutation = useMutation({
@@ -291,8 +295,8 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[100px]">日期</TableHead>
-                            <TableHead className="w-[60px]">術後天</TableHead>
+                            <SortableTableHead className="w-[100px]" sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
+                            <SortableTableHead className="w-[60px]" sortKey="post_op_days" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>術後天</SortableTableHead>
                             <TableHead className="w-[60px]">時段</TableHead>
                             <TableHead>精神</TableHead>
                             <TableHead>食慾</TableHead>
@@ -318,7 +322,7 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            records.map((r) => (
+                            (sortedRecords ?? records)?.map((r) => (
                                 <TableRow key={r.id}>
                                     <TableCell className="text-xs whitespace-nowrap">{formatDate(r.created_at)}</TableCell>
                                     <TableCell>{r.post_op_days ?? '-'}</TableCell>

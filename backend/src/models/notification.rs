@@ -147,6 +147,8 @@ pub struct ExpiryAlert {
     pub base_uom: String,
     pub days_until_expiry: i32,
     pub expiry_status: String,
+    /// 同品項同倉庫所有批號的合計庫存量
+    pub total_qty: rust_decimal::Decimal,
 }
 
 // ============================================

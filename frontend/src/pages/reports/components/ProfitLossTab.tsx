@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
@@ -9,6 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,6 +39,11 @@ export function ProfitLossTab({
       return r.data
     },
   })
+
+  const revenueRows = useMemo(() => profitLoss?.rows.filter((r) => r.account_type === 'revenue') ?? [], [profitLoss])
+  const expenseRows = useMemo(() => profitLoss?.rows.filter((r) => r.account_type === 'expense') ?? [], [profitLoss])
+  const { sortedData: sortedRevenue, sort: revSort, toggleSort: toggleRevSort } = useTableSort(revenueRows)
+  const { sortedData: sortedExpense, sort: expSort, toggleSort: toggleExpSort } = useTableSort(expenseRows)
 
   if (isLoading) {
     return (
@@ -75,15 +83,13 @@ export function ProfitLossTab({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>科目代碼</TableHead>
-                    <TableHead>科目名稱</TableHead>
-                    <TableHead className="text-right">金額</TableHead>
+                    <SortableTableHead sortKey="account_code" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort}>科目代碼</SortableTableHead>
+                    <SortableTableHead sortKey="account_name" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort}>科目名稱</SortableTableHead>
+                    <SortableTableHead sortKey="amount" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort} className="text-right">金額</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {profitLoss.rows
-                    .filter((r) => r.account_type === 'revenue')
-                    .map((r) => (
+                  {(sortedRevenue ?? revenueRows).map((r) => (
                       <TableRow key={r.account_code}>
                         <TableCell className="font-mono">{r.account_code}</TableCell>
                         <TableCell>{r.account_name}</TableCell>
@@ -109,15 +115,13 @@ export function ProfitLossTab({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>科目代碼</TableHead>
-                    <TableHead>科目名稱</TableHead>
-                    <TableHead className="text-right">金額</TableHead>
+                    <SortableTableHead sortKey="account_code" currentSort={expSort.column} currentDirection={expSort.direction} onSort={toggleExpSort}>科目代碼</SortableTableHead>
+                    <SortableTableHead sortKey="account_name" currentSort={expSort.column} currentDirection={expSort.direction} onSort={toggleExpSort}>科目名稱</SortableTableHead>
+                    <SortableTableHead sortKey="amount" currentSort={expSort.column} currentDirection={expSort.direction} onSort={toggleExpSort} className="text-right">金額</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {profitLoss.rows
-                    .filter((r) => r.account_type === 'expense')
-                    .map((r) => (
+                  {(sortedExpense ?? expenseRows).map((r) => (
                       <TableRow key={r.account_code}>
                         <TableCell className="font-mono">{r.account_code}</TableCell>
                         <TableCell>{r.account_name}</TableCell>

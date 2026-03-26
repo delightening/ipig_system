@@ -13,11 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 
 import type { AnnualPlanWithEquipment } from '../types'
 import { CALIBRATION_TYPE_LABELS, CALIBRATION_CYCLE_LABELS } from '../types'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileText } from 'lucide-react'
+import { useTableSort } from '@/hooks/useTableSort'
 
 interface AnnualPlanTabContentProps {
   canManage: boolean
@@ -101,12 +103,14 @@ function YearSelector({
 }
 
 function PlanMatrix({ plans }: { plans: AnnualPlanWithEquipment[] }) {
+  const { sortedData, sort, toggleSort } = useTableSort(plans)
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="min-w-[160px]">設備名稱</TableHead>
-          <TableHead className="min-w-[100px]">類型</TableHead>
+          <SortableTableHead sortKey="equipment_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="min-w-[160px]">設備名稱</SortableTableHead>
+          <SortableTableHead sortKey="calibration_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="min-w-[100px]">類型</SortableTableHead>
           {MONTHS.map((m) => (
             <TableHead key={m} className="text-center">
               {m}
@@ -115,7 +119,7 @@ function PlanMatrix({ plans }: { plans: AnnualPlanWithEquipment[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {plans.map((plan) => (
+        {(sortedData ?? plans).map((plan) => (
           <PlanRow key={plan.id} plan={plan} />
         ))}
       </TableBody>

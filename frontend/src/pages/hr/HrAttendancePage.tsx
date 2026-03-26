@@ -28,6 +28,8 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Label } from '@/components/ui/label'
 import {
     Select,
@@ -241,6 +243,8 @@ export function HrAttendancePage() {
         }
     }
 
+    const { sortedData: sortedHistory, sort: historySort, toggleSort: toggleHistorySort } = useTableSort(attendanceHistory?.data)
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -418,13 +422,13 @@ export function HrAttendancePage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>日期</TableHead>
-                                    <TableHead>人員名稱</TableHead>
-                                    <TableHead>上班</TableHead>
-                                    <TableHead>下班</TableHead>
-                                    <TableHead>工作時數</TableHead>
-                                    <TableHead>加班時數</TableHead>
-                                    <TableHead>狀態</TableHead>
+                                    <SortableTableHead sortKey="work_date" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>日期</SortableTableHead>
+                                    <SortableTableHead sortKey="user_name" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>人員名稱</SortableTableHead>
+                                    <SortableTableHead sortKey="clock_in_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>上班</SortableTableHead>
+                                    <SortableTableHead sortKey="clock_out_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>下班</SortableTableHead>
+                                    <SortableTableHead sortKey="regular_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>工作時數</SortableTableHead>
+                                    <SortableTableHead sortKey="overtime_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>加班時數</SortableTableHead>
+                                    <SortableTableHead sortKey="status" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>狀態</SortableTableHead>
                                     <TableHead>備註</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -435,10 +439,10 @@ export function HrAttendancePage() {
                                             <TableSkeleton rows={5} cols={8} />
                                         </TableCell>
                                     </TableRow>
-                                ) : attendanceHistory?.data?.length === 0 ? (
+                                ) : sortedHistory?.length === 0 ? (
                                     <TableEmptyRow colSpan={8} icon={Clock} title="沒有出勤記錄" />
                                 ) : (
-                                    attendanceHistory?.data?.map((record) => (
+                                    sortedHistory?.map((record) => (
                                         <TableRow key={record.id}>
                                             <TableCell className="whitespace-nowrap">
                                                 {formatDate(record.work_date, { weekday: true })}

@@ -23,6 +23,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Search } from 'lucide-react'
 import { formatNumber, formatUom } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
 import type { InventoryOnHand } from '@/types'
 
@@ -81,6 +83,7 @@ export function ProductSearchDialog({
   adjMode,
 }: ProductSearchDialogProps) {
   const { categories } = useSkuCategories({ enabled: open })
+  const { sortedData: sortedProducts, sort, toggleSort } = useTableSort(products)
   // ADJ「新增」模式使用產品目錄（手動輸入批號效期），「修改」模式使用庫存清單
   const isStockBasedDoc = docType === 'ADJ'
     ? adjMode === 'modify'
@@ -151,10 +154,10 @@ export function ProductSearchDialog({
                     </>
                   ) : (
                     <>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>品項名稱</TableHead>
-                      <TableHead>規格</TableHead>
-                      <TableHead>單位</TableHead>
+                      <SortableTableHead sortKey="sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>SKU</SortableTableHead>
+                      <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>品項名稱</SortableTableHead>
+                      <SortableTableHead sortKey="spec" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>規格</SortableTableHead>
+                      <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單位</SortableTableHead>
                       <TableHead />
                     </>
                   )}
@@ -175,7 +178,7 @@ export function ProductSearchDialog({
                     onSelect={onSelect}
                   />
                 ) : (
-                  <ProductItemRows products={products} onSelect={onSelect} />
+                  <ProductItemRows products={sortedProducts ?? products} onSelect={onSelect} />
                 )}
               </TableBody>
             </Table>

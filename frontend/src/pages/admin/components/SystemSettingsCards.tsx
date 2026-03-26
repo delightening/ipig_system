@@ -79,34 +79,36 @@ export function SystemSettingsCards({
         </CardContent>
       </Card>
 
-      {/* Inventory settings */}
+      {/* Security settings */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            庫存設定
+            <Shield className="h-5 w-5" />
+            安全設定
           </CardTitle>
-          <CardDescription>設定庫存計算方式</CardDescription>
+          <CardDescription>設定系統安全相關參數</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="costMethod">成本計算方式</Label>
+            <Label htmlFor="sessionTimeout">Session 逾時</Label>
             <Select
-              value={settingsForm.form.costMethod}
-              onValueChange={(v) => settingsForm.updateField('costMethod', v)}
+              value={settingsForm.form.sessionTimeout}
+              onValueChange={(v) => settingsForm.updateField('sessionTimeout', v)}
             >
-              <SelectTrigger id="costMethod">
+              <SelectTrigger id="sessionTimeout">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="weighted_average">加權平均法</SelectItem>
-                <SelectItem value="moving_average">移動平均法</SelectItem>
-                <SelectItem value="fifo" disabled>先進先出 (v0.2)</SelectItem>
-                <SelectItem value="lifo" disabled>後進先出 (v0.2)</SelectItem>
+                <SelectItem value="15">15 分鐘</SelectItem>
+                <SelectItem value="30">30 分鐘</SelectItem>
+                <SelectItem value="60">60 分鐘（1 小時）</SelectItem>
+                <SelectItem value="120">120 分鐘（2 小時）</SelectItem>
+                <SelectItem value="360">360 分鐘（6 小時）</SelectItem>
+                <SelectItem value="480">480 分鐘（8 小時）</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              目前版本支援加權平均法和移動平均法
+              使用者閒置超過此時間後需重新登入（需重啟後端服務才生效）
             </p>
           </div>
         </CardContent>
@@ -203,36 +205,34 @@ export function SystemSettingsCards({
         </CardContent>
       </Card>
 
-      {/* Security settings */}
+      {/* Inventory settings */}
       <Card className="md:col-span-2">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            安全設定
+            <Database className="h-5 w-5" />
+            庫存設定
           </CardTitle>
-          <CardDescription>設定系統安全相關參數</CardDescription>
+          <CardDescription>設定庫存計算方式</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2 max-w-xs">
-            <Label htmlFor="sessionTimeout">Session 逾時</Label>
+            <Label htmlFor="costMethod">成本計算方式</Label>
             <Select
-              value={settingsForm.form.sessionTimeout}
-              onValueChange={(v) => settingsForm.updateField('sessionTimeout', v)}
+              value={settingsForm.form.costMethod}
+              onValueChange={(v) => settingsForm.updateField('costMethod', v)}
             >
-              <SelectTrigger id="sessionTimeout">
+              <SelectTrigger id="costMethod">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="15">15 分鐘</SelectItem>
-                <SelectItem value="30">30 分鐘</SelectItem>
-                <SelectItem value="60">60 分鐘（1 小時）</SelectItem>
-                <SelectItem value="120">120 分鐘（2 小時）</SelectItem>
-                <SelectItem value="360">360 分鐘（6 小時）</SelectItem>
-                <SelectItem value="480">480 分鐘（8 小時）</SelectItem>
+                <SelectItem value="weighted_average">加權平均法</SelectItem>
+                <SelectItem value="moving_average">移動平均法</SelectItem>
+                <SelectItem value="fifo" disabled>先進先出 (v0.2)</SelectItem>
+                <SelectItem value="lifo" disabled>後進先出 (v0.2)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              使用者閒置超過此時間後需重新登入（需重啟後端服務才生效）
+              目前版本支援加權平均法和移動平均法
             </p>
           </div>
         </CardContent>

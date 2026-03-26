@@ -13,7 +13,9 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { formatDateTime } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
 import type { PaginatedResponse } from '@/types/common'
 import type { AuditLog } from '../types/audit'
 import { AuditPagination } from './AuditPagination'
@@ -120,6 +122,8 @@ export function AuditActivitiesTab({
     onPageChange,
     onSelectLog,
 }: AuditActivitiesTabProps) {
+    const { sortedData, sort, toggleSort } = useTableSort(activityLogs?.data)
+
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-4">
@@ -142,10 +146,10 @@ export function AuditActivitiesTab({
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>時間</TableHead>
-                            <TableHead>操作者</TableHead>
-                            <TableHead>操作</TableHead>
-                            <TableHead>目標使用者</TableHead>
+                            <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
+                            <SortableTableHead sortKey="actor_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>操作者</SortableTableHead>
+                            <SortableTableHead sortKey="action" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>操作</SortableTableHead>
+                            <SortableTableHead sortKey="entity_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>目標使用者</SortableTableHead>
                             <TableHead>摘要</TableHead>
                             <TableHead className="w-[60px]">詳情</TableHead>
                         </TableRow>
@@ -155,10 +159,10 @@ export function AuditActivitiesTab({
                             <TableRow>
                                 <TableCell colSpan={6} className="text-center py-8">載入中...</TableCell>
                             </TableRow>
-                        ) : !activityLogs?.data || activityLogs.data.length === 0 ? (
+                        ) : !sortedData || sortedData.length === 0 ? (
                             <TableEmptyRow colSpan={6} icon={FileText} title="沒有使用者管理活動記錄" />
                         ) : (
-                            activityLogs.data.map((log) => (
+                            sortedData.map((log) => (
                                 <ActivityRow key={log.id} log={log} onSelect={onSelectLog} />
                             ))
                         )}

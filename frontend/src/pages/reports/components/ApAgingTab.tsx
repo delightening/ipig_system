@@ -4,16 +4,17 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
 import { apPaymentSchema, type ApPaymentFormData } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import {
   Dialog,
   DialogContent,
@@ -199,6 +200,8 @@ export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
     },
   })
 
+  const { sortedData, sort, toggleSort } = useTableSort(apAging)
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
@@ -225,16 +228,16 @@ export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>供應商代碼</TableHead>
-              <TableHead>供應商名稱</TableHead>
-              <TableHead className="text-right">應付總額</TableHead>
-              <TableHead className="text-right">已付總額</TableHead>
-              <TableHead className="text-right">餘額</TableHead>
+              <SortableTableHead sortKey="partner_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>供應商代碼</SortableTableHead>
+              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>供應商名稱</SortableTableHead>
+              <SortableTableHead sortKey="total_payable" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">應付總額</SortableTableHead>
+              <SortableTableHead sortKey="total_paid" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">已付總額</SortableTableHead>
+              <SortableTableHead sortKey="balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">餘額</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {apAging && apAging.length > 0 ? (
-              apAging.map((r) => (
+            {sortedData && sortedData.length > 0 ? (
+              sortedData.map((r) => (
                 <TableRow key={r.partner_id}>
                   <TableCell className="font-mono">{r.partner_code}</TableCell>
                   <TableCell>{r.partner_name}</TableCell>
