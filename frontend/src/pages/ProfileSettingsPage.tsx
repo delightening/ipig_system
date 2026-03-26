@@ -196,7 +196,7 @@ export function ProfileSettingsPage() {
                 description={t('profile.description')}
                 actions={
                     <Button
-                        size="lg"
+                        size="sm"
                         className="transition-all"
                         onClick={handleSubmit}
                         disabled={updateMutation.isPending}

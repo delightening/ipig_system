@@ -168,23 +168,23 @@ export function AnimalsPage() {
         description={t('animals.description')}
         actions={
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <Button variant="outline" className="w-full gap-2 text-status-warning-text border-orange-200 hover:bg-orange-50 text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>
+            <Button size="sm" variant="outline" className="w-full gap-2 text-status-warning-text border-orange-200 hover:bg-orange-50 text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>
               <Download className="h-4 w-4 shrink-0" />
               <span className="truncate">{t('animals.generateReport')}</span>
             </Button>
-            <Button variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportWeightDialog(true)}>
+            <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportWeightDialog(true)}>
               <Upload className="h-4 w-4 shrink-0" />
               <span className="truncate">{t('animals.importWeight')}</span>
             </Button>
-            <Button variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportBasicDialog(true)}>
+            <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportBasicDialog(true)}>
               <Upload className="h-4 w-4 shrink-0" />
               <span className="truncate">{t('animals.importBasic')}</span>
             </Button>
-            <Button variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowBatchExportDialog(true)}>
+            <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowBatchExportDialog(true)}>
               <FileSpreadsheet className="h-4 w-4 shrink-0" />
               <span className="truncate">{t('animals.batchExport')}</span>
             </Button>
-            <Button onClick={() => setShowAddDialog(true)} className="col-span-2 md:col-span-2 w-full gap-2 bg-primary hover:bg-primary/90 text-xs md:text-sm">
+            <Button size="sm" onClick={() => setShowAddDialog(true)} className="col-span-2 md:col-span-2 w-full gap-2 bg-primary hover:bg-primary/90 text-xs md:text-sm">
               <Plus className="h-4 w-4 shrink-0" />
               {t('animals.addAnimal')}
             </Button>

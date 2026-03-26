@@ -285,7 +285,7 @@ export function ProtocolEditPage() {
           className="flex-1"
           actions={
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => handleSave()} disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button size="sm" variant="outline" onClick={() => handleSave()} disabled={createMutation.isPending || updateMutation.isPending}>
                 {createMutation.isPending || updateMutation.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -294,7 +294,7 @@ export function ProtocolEditPage() {
                 {t('aup.saveDraft')}
               </Button>
               {!isNew && (
-                <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
+                <Button size="sm" onClick={handleSubmit} disabled={submitMutation.isPending}>
                   {submitMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (

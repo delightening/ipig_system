@@ -52,7 +52,7 @@ export function NotificationRoutingPage() {
                 title="通知路由設定"
                 description="管理事件觸發時的通知對象與通知方式"
                 actions={
-                    <Button onClick={() => setShowCreateDialog(true)}>
+                    <Button size="sm" onClick={() => setShowCreateDialog(true)}>
                         <Plus className="h-4 w-4 mr-2" />
                         新增規則
                     </Button>

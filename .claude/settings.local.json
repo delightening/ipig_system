@@ -67,7 +67,12 @@
       "Bash(sleep 1 echo '[:*)",
       "Bash(echo \"[[\"\"goto\"\",\"\"http://localhost:8080/login\"\"],[\"\"wait\"\",\"\"--networkidle\"\"],[\"\"snapshot\"\",\"\"-i\"\"],[\"\"fill\"\",\"\"@e1\"\",\"\"admin@ipig.local\"\"],[\"\"fill\"\",\"\"@e2\"\",\"\"AdminIpig2026!\"\"],[\"\"click\"\",\"\"@e4\"\"],[\"\"js\"\",\"\"await new Promise\\(r => { const i = setInterval\\(\\(\\) => { if \\(!location.pathname.includes\\(\"\"\"login\"\"\"\\)\\) { clearInterval\\(i\\); r\\(\"\"\"navigated\"\"\"\\); }}, 200\\); setTimeout\\(\\(\\) => { clearInterval\\(i\\); r\\(\"\"\"timeout\"\"\"\\); }, 12000\\); }\\)\"\"],[\"\"url\"\"],[\"\"console\"\",\"\"--errors\"\"],[\"\"snapshot\"\",\"\"-i\"\",\"\"-d\"\",\"\"2\"\"],[\"\"screenshot\"\",\"\"C:/System Coding/ipig_system/.gstack/qa-reports/screenshots/01-dashboard.png\"\"]]\")",
       "Bash(sleep 1 echo \"[:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(cargo sqlx:*)",
+      "Bash(echo $DATABASE_URL)",
+      "Bash(DATABASE_URL=\"postgres://postgres:ipig_password_123@localhost:5432/ipig_db\" cargo sqlx migrate run)",
+      "Bash(DATABASE_URL=\"postgres://postgres:ipig_password_123@localhost:543/ipig_db\" cargo sqlx migrate run)",
+      "Bash(DATABASE_URL=\"postgres://postgres:ipig_password_123@localhost:543/ipig_db\" cargo check)"
     ]
   }
 }

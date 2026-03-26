@@ -153,7 +153,7 @@ export function PurchaseLinesReportPage() {
         title="採購明細報表"
         description="採購單、採購入庫、採購退貨明細"
         actions={
-          <Button onClick={exportToCSV} disabled={!report?.length}>
+          <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
             匯出 CSV
           </Button>

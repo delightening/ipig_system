@@ -176,7 +176,7 @@ export function AnimalSourcesPage() {
         title="動物來源管理"
         description="管理動物的來源/供應商資訊"
         actions={
-          <Button onClick={() => handleOpenDialog()} className="gap-2 bg-primary hover:bg-primary/90">
+          <Button size="sm" onClick={() => handleOpenDialog()} className="gap-2 bg-primary hover:bg-primary/90">
             <Plus className="h-4 w-4" />
             新增來源
           </Button>

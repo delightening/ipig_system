@@ -182,7 +182,7 @@ export function ProtocolsPage() {
         title={t('protocols.title')}
         description={t('protocols.subtitle')}
         actions={
-          <Button asChild>
+          <Button size="sm" asChild>
             <Link to="/protocols/new">
               <Plus className="mr-2 h-4 w-4" />
               {t('protocols.createNew')}

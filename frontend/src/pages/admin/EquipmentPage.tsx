@@ -354,7 +354,7 @@ export function EquipmentPage() {
         title="設備維護管理"
         description="實驗室 GLP 合規：設備管理、校正/確效/查核、維修/保養、報廢"
         actions={canManage ? (
-          <Button onClick={() => dialogs.open('equipCreate')}>
+          <Button size="sm" onClick={() => dialogs.open('equipCreate')}>
             <Plus className="h-4 w-4 mr-2" />
             新增設備
           </Button>

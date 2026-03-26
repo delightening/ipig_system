@@ -122,7 +122,7 @@ export function StockLedgerReportPage() {
         title="庫存流水報表"
         description="所有庫存異動記錄"
         actions={
-          <Button onClick={exportToCSV} disabled={!report?.length}>
+          <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
             匯出 CSV
           </Button>

@@ -294,7 +294,7 @@ export function BloodTestPanelsPage() {
                     description={`管理血液檢查組合分類（共 ${totalCount} 個，啟用 ${activeCount} 個）`}
                     className="flex-1"
                     actions={
-                        <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
+                        <Button size="sm" onClick={() => { resetForm(); setDialogOpen(true) }}>
                             <Plus className="mr-2 h-4 w-4" />
                             新增分類
                         </Button>

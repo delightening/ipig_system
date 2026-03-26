@@ -66,7 +66,7 @@ export function StockOnHandReportPage() {
         title="庫存現況報表"
         description="各倉庫商品庫存量與價值"
         actions={
-          <Button onClick={exportToCSV} disabled={!report?.length}>
+          <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
             匯出 CSV
           </Button>

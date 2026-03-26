@@ -170,7 +170,7 @@ export function RolesPage() {
         title="角色權限"
         description="管理系統角色與權限設定"
         actions={
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button size="sm" onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             新增角色
           </Button>

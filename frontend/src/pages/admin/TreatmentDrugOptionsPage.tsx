@@ -50,12 +50,13 @@ export function TreatmentDrugOptionsPage() {
                 actions={
                     <div className="flex gap-2">
                         <Button
+                            size="sm"
                             variant="outline"
                             onClick={() => dialogs.open('import')}
                         >
                             <Upload className="h-4 w-4 mr-2" /> 從 ERP 匯入
                         </Button>
-                        <Button onClick={() => { resetForm(); dialogs.open('create') }}>
+                        <Button size="sm" onClick={() => { resetForm(); dialogs.open('create') }}>
                             <Plus className="h-4 w-4 mr-2" /> 新增藥物
                         </Button>
                     </div>
