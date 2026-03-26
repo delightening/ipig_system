@@ -134,7 +134,7 @@ pub async fn approve_overtime(
         _ => return Err(crate::error::AppError::Validation(format!("無法審核狀態為 {} 的加班申請", current.0))),
     };
     let record = HrService::approve_overtime(&state.db, id, current_user.id, approval_level).await?;
-    let _ = AuditService::log(
+    if let Err(e) = AuditService::log(
         &state.db,
         current_user.id,
         AuditAction::Approve,
@@ -143,7 +143,7 @@ pub async fn approve_overtime(
         None,
         Some(serde_json::json!({ "approval_level": approval_level, "status": &record.status })),
     )
-    .await;
+    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
     Ok(Json(record))
 }
 

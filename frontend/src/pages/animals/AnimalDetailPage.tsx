@@ -148,15 +148,17 @@ export function AnimalDetailPage() {
         activeTab={resolvedActiveTab}
         animal={animal}
         animalId={animalId}
-        afterParam={queries.afterParam}
-        observations={queries.observations}
-        surgeries={queries.surgeries}
-        weights={queries.weights}
-        vaccinations={queries.vaccinations}
-        sacrifice={queries.sacrifice ?? undefined}
-        suddenDeath={queries.suddenDeath ?? undefined}
-        transfers={queries.transfers}
-        iacucEvents={queries.iacucEvents}
+        data={{
+          afterParam: queries.afterParam,
+          observations: queries.observations,
+          surgeries: queries.surgeries,
+          weights: queries.weights,
+          vaccinations: queries.vaccinations,
+          sacrifice: queries.sacrifice ?? undefined,
+          suddenDeath: queries.suddenDeath ?? undefined,
+          transfers: queries.transfers,
+          iacucEvents: queries.iacucEvents,
+        }}
         hasAdminRole={hasRole('admin')}
         developerMode={developerMode}
         toggleDeveloperMode={toggleDeveloperMode}

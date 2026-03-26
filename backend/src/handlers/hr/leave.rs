@@ -171,7 +171,7 @@ pub async fn approve_leave(
     let record =
         HrService::approve_leave(&state.db, id, current_user.id, payload.comments.as_deref())
             .await?;
-    let _ = AuditService::log(
+    if let Err(e) = AuditService::log(
         &state.db,
         current_user.id,
         AuditAction::Approve,
@@ -180,7 +180,7 @@ pub async fn approve_leave(
         None,
         Some(serde_json::json!({ "status": &record.status })),
     )
-    .await;
+    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
     Ok(Json(record))
 }
 
@@ -221,7 +221,7 @@ pub async fn reject_leave(
         }
     }
     let record = HrService::reject_leave(&state.db, id, current_user.id, &payload.reason).await?;
-    let _ = AuditService::log(
+    if let Err(e) = AuditService::log(
         &state.db,
         current_user.id,
         AuditAction::Reject,
@@ -230,7 +230,7 @@ pub async fn reject_leave(
         None,
         Some(serde_json::json!({ "reason": &payload.reason })),
     )
-    .await;
+    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
     Ok(Json(record))
 }
 

@@ -7,11 +7,11 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
@@ -25,6 +25,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
 import { useBloodTestAnalysis } from './hooks/useBloodTestAnalysis'
 import { AnalysisItemSelector } from './components/AnalysisItemSelector'
 import { AnalysisChartTabs } from './components/AnalysisChartTabs'
@@ -32,6 +33,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 
 export function BloodTestAnalysisPage() {
   const analysis = useBloodTestAnalysis()
+  const { sortedData: sortedAbnormal, sort: sortAbnormal, toggleSort: toggleAbnormalSort } = useTableSort(analysis.abnormalRecords)
 
   return (
     <div className="space-y-6">
@@ -113,17 +115,17 @@ export function BloodTestAnalysisPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>耳號</TableHead>
-                        <TableHead>專案</TableHead>
-                        <TableHead>日期</TableHead>
-                        <TableHead>項目</TableHead>
-                        <TableHead className="text-right">結果值</TableHead>
-                        <TableHead>參考範圍</TableHead>
+                        <SortableTableHead sortKey="ear_tag" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>耳號</SortableTableHead>
+                        <SortableTableHead sortKey="iacuc_no" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>專案</SortableTableHead>
+                        <SortableTableHead sortKey="test_date" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>日期</SortableTableHead>
+                        <SortableTableHead sortKey="item_name" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>項目</SortableTableHead>
+                        <SortableTableHead sortKey="result_value" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort} className="text-right">結果值</SortableTableHead>
+                        <SortableTableHead sortKey="reference_range" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>參考範圍</SortableTableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {analysis.abnormalRecords.slice(0, 20).map((r, idx) => (
-                        <TableRow key={idx} className="bg-status-error-bg/50">
+                      {(sortedAbnormal ?? []).slice(0, 20).map((r, idx) => (
+                        <TableRow key={`${r.ear_tag}-${idx}`} className="bg-status-error-bg/50">
                           <TableCell className="font-medium">{r.ear_tag}</TableCell>
                           <TableCell className="font-mono text-sm">{r.iacuc_no || '-'}</TableCell>
                           <TableCell>{formatDate(r.test_date)}</TableCell>

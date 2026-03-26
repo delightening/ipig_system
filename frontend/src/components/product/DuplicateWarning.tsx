@@ -31,7 +31,7 @@ export function DuplicateWarning({
           </thead>
           <tbody>
             {checkResult.duplicates.map((d, i) => (
-              <tr key={i} className="border-t">
+              <tr key={`dup-${d.row}-${i}`} className="border-t">
                 <td className="px-3 py-2">{d.row}</td>
                 <td className="px-3 py-2">{d.name}</td>
                 <td className="px-3 py-2">{d.spec ?? '-'}</td>

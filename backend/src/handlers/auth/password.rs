@@ -56,7 +56,7 @@ pub async fn change_own_password(
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
     tokio::spawn(async move {
-        let _ = AuditService::log_activity(
+        if let Err(e) = AuditService::log_activity(
             &db,
             user_id,
             "SECURITY",
@@ -69,7 +69,7 @@ pub async fn change_own_password(
             Some(&ip_clone),
             ua.as_deref(),
         )
-        .await;
+        .await { tracing::error!("審計日誌寫入失敗: {e}"); }
     });
 
     // 回傳新 tokens 的 Set-Cookie headers，保持用戶登入狀態

@@ -212,7 +212,7 @@ export const amendmentSchema = z.object({
     title: z.string().min(1, '標題為必填').max(200, '標題不得超過 200 字元'),
     description: optionalString,
     change_items: z.array(z.string()).optional(),
-    changes_content: z.any().optional(),
+    changes_content: z.record(z.string(), z.unknown()).optional(),
 })
 export type AmendmentFormData = z.infer<typeof amendmentSchema>
 

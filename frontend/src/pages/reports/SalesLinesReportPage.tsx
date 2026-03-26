@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import api, { SalesLinesReport } from '@/lib/api'
 import { formatNumber, formatDate } from '@/lib/utils'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
+import { useTableSort } from '@/hooks/useTableSort'
 import { Partner } from '@/types/erp'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -15,10 +16,10 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import {
   Select,
   SelectContent,
@@ -126,6 +127,8 @@ export function SalesLinesReportPage() {
     link.click()
   }
 
+  const { sortedData: sortedReport, sort, toggleSort } = useTableSort(report)
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -194,24 +197,24 @@ export function SalesLinesReportPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>單據日期</TableHead>
-              <TableHead>單據編號</TableHead>
-              <TableHead>狀態</TableHead>
-              <TableHead>客戶</TableHead>
-              <TableHead>客戶分類</TableHead>
-              <TableHead>倉庫</TableHead>
-              <TableHead>產品</TableHead>
-              <TableHead className="text-right">數量</TableHead>
-              <TableHead className="text-right">單價</TableHead>
-              <TableHead className="text-right">金額</TableHead>
-              <TableHead>建立者</TableHead>
+              <SortableTableHead sortKey="doc_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據日期</SortableTableHead>
+              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據編號</SortableTableHead>
+              <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
+              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>客戶</SortableTableHead>
+              <SortableTableHead sortKey="customer_category" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>客戶分類</SortableTableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品</SortableTableHead>
+              <SortableTableHead sortKey="qty" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">數量</SortableTableHead>
+              <SortableTableHead sortKey="unit_price" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">單價</SortableTableHead>
+              <SortableTableHead sortKey="line_total" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">金額</SortableTableHead>
+              <SortableTableHead sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立者</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {report && report.length > 0 ? (
+            {sortedReport && sortedReport.length > 0 ? (
               <>
-                {report.map((row, idx) => (
-                  <TableRow key={idx}>
+                {sortedReport.map((row, idx) => (
+                  <TableRow key={`${row.doc_no}-${idx}`}>
                     <TableCell>{formatDate(row.doc_date)}</TableCell>
                     <TableCell className="font-mono text-sm">{row.doc_no}</TableCell>
                     <TableCell>{getStatusBadge(row.status)}</TableCell>

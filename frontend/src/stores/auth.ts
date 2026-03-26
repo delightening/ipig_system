@@ -205,9 +205,16 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      // SEC-C5: 只持久化最小必要資訊，避免 XSS 時洩漏個人資料（phone、email 等）
+      // 完整 user 物件由 checkAuth() 從後端重新取得
       partialize: (state) => ({
-        user: state.user,
-        // isAuthenticated 從 user !== null 派生，不需持久化
+        user: state.user ? {
+          id: state.user.id,
+          display_name: state.user.display_name,
+          roles: state.user.roles,
+          permissions: state.user.permissions,
+          is_active: state.user.is_active,
+        } : null,
         isImpersonating: state.isImpersonating,
       }),
     }

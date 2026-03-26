@@ -220,8 +220,8 @@ export function ProtocolComparisonDialog({
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            {diffs.map((diff, index) => (
-                                <div key={index} className="grid grid-cols-12 gap-4 pb-4 border-b last:border-0">
+                            {diffs.map((diff) => (
+                                <div key={diff.path} className="grid grid-cols-12 gap-4 pb-4 border-b last:border-0">
                                     <div className="col-span-12 md:col-span-3 lg:col-span-2">
                                         <span className="text-sm font-semibold text-slate-700">{getLabel(diff.path)}</span>
                                     </div>

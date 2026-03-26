@@ -21,6 +21,17 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 
+function isTwoFAError(err: unknown): err is { is2FA: true; tempToken: string } {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'is2FA' in err &&
+    (err as Record<string, unknown>).is2FA === true &&
+    'tempToken' in err &&
+    typeof (err as Record<string, unknown>).tempToken === 'string'
+  )
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const { login, verify2FA, isLoading } = useAuthStore()
@@ -51,9 +62,8 @@ export function LoginPage() {
       toast({ title: '登入成功', description: '歡迎回來！' })
       navigate('/dashboard')
     } catch (error: unknown) {
-      const err = error as { is2FA?: boolean; tempToken?: string }
-      if (err?.is2FA) {
-        setTwoFAState({ tempToken: err.tempToken! })
+      if (isTwoFAError(error)) {
+        setTwoFAState({ tempToken: error.tempToken })
         return
       }
       toast({

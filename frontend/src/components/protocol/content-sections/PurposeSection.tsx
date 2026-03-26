@@ -39,8 +39,8 @@ export function PurposeSection({ purpose }: PurposeSectionProps) {
               <h4 className="text-base font-medium mb-1">{t('protocols.content.sections.alternativeSearch')}</h4>
               {purpose.replacement.alt_search.platforms && purpose.replacement.alt_search.platforms.length > 0 && (
                 <ul className="list-disc list-inside text-sm mb-2">
-                  {purpose.replacement.alt_search.platforms.map((p: string, idx: number) => (
-                    <li key={idx}>{p}</li>
+                  {purpose.replacement.alt_search.platforms.map((p: string) => (
+                    <li key={p}>{p}</li>
                   ))}
                 </ul>
               )}

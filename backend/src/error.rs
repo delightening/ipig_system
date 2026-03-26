@@ -103,7 +103,11 @@ impl IntoResponse for AppError {
             AppError::Validation(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
-            AppError::DuplicateWarning { .. } => unreachable!(), // 已在前面 if let 處理
+            AppError::DuplicateWarning { .. } => {
+                // 已在前面 if let 提前 return，理論上不可達；
+                // 但為避免未來重構遺漏，回傳安全預設值而非 panic
+                (StatusCode::CONFLICT, "Duplicate warning".to_string())
+            }
             AppError::BusinessRule(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg.clone()),
             AppError::TooManyRequests(msg) => (StatusCode::TOO_MANY_REQUESTS, msg.clone()),
             AppError::Internal(msg) => {

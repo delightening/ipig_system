@@ -279,12 +279,12 @@ pub async fn force_logout_session(
     let actor = current_user.id;
     let reason = payload.reason.clone();
     tokio::spawn(async move {
-        let _ = AuditService::log_activity(
+        if let Err(e) = AuditService::log_activity(
             &db, actor, "SECURITY", "FORCE_LOGOUT",
             Some("session"), Some(session_id), None,
             None, Some(serde_json::json!({ "session_id": session_id, "reason": reason })),
             None, None,
-        ).await;
+        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
     });
 
     Ok(Json(serde_json::json!({

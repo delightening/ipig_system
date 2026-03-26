@@ -131,8 +131,11 @@ function App() {
 
         const prefetchBatch = (modules: Array<() => Promise<unknown>>) => {
             modules.forEach(load => {
-                // 靜默預載，忽略錯誤（例如網路波動）
-                load().catch(() => { })
+                load().catch((err) => {
+                    if (import.meta.env.DEV) {
+                        console.warn('[Prefetch] Route chunk 預載失敗:', err)
+                    }
+                })
             })
         }
 

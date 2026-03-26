@@ -306,28 +306,29 @@ impl UserService {
         Ok(())
     }
 
-    /// 刪除用戶（硬刪除）
+    /// 刪除用戶（改為 soft delete + 停用，避免 CASCADE 級聯刪除 16+ 關聯表）
+    /// H3: 原為硬刪除，會導致 HR、認證、計畫書等所有關聯資料被靜默刪除
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        // 先刪除用戶的角色關聯
-        sqlx::query("DELETE FROM user_roles WHERE user_id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
-
-        // 刪除用戶的 refresh tokens
+        // 撤銷所有 refresh tokens（登出）
         sqlx::query("DELETE FROM refresh_tokens WHERE user_id = $1")
             .bind(id)
             .execute(pool)
             .await?;
 
-        // 刪除用戶
-        let result = sqlx::query("DELETE FROM users WHERE id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
+        // Soft delete: 停用帳號 + 匿名化個人資料
+        let result = sqlx::query(
+            r#"UPDATE users SET
+                is_active = false,
+                email = 'deleted_' || id::text || '@deleted.local',
+                updated_at = NOW()
+            WHERE id = $1 AND is_active = true"#,
+        )
+        .bind(id)
+        .execute(pool)
+        .await?;
 
         if result.rows_affected() == 0 {
-            return Err(AppError::NotFound("User not found".to_string()));
+            return Err(AppError::NotFound("User not found or already deleted".to_string()));
         }
 
         Ok(())

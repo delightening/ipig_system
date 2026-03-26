@@ -97,10 +97,8 @@ export function TabBar({ activeTab, setActiveTab, animalStatus }: TabBarProps) {
   )
 }
 
-interface TabContentProps {
-  activeTab: TabType
-  animal: Animal
-  animalId: string
+/** M7: 動物紀錄資料（合併 8 個 props 為單一物件） */
+export interface AnimalRecordsData {
   afterParam: string
   observations: AnimalObservation[] | undefined
   surgeries: AnimalSurgery[] | undefined
@@ -110,6 +108,13 @@ interface TabContentProps {
   suddenDeath: AnimalSuddenDeath | undefined
   transfers: AnimalTransfer[] | undefined
   iacucEvents: AnimalEvent[] | undefined
+}
+
+interface TabContentProps {
+  activeTab: TabType
+  animal: Animal
+  animalId: string
+  data: AnimalRecordsData
   hasAdminRole: boolean
   developerMode: boolean
   toggleDeveloperMode: () => void
@@ -120,20 +125,13 @@ export function TabContent({
   activeTab,
   animal,
   animalId,
-  afterParam,
-  observations,
-  surgeries,
-  weights,
-  vaccinations,
-  sacrifice,
-  suddenDeath,
-  transfers,
-  iacucEvents,
+  data,
   hasAdminRole,
   developerMode,
   toggleDeveloperMode,
   setActiveTab,
 }: TabContentProps) {
+  const { afterParam, observations, surgeries, weights, vaccinations, sacrifice, suddenDeath, transfers, iacucEvents } = data
   const handleTimelineAction = useCallback(
     (type: string) => {
       setActiveTab(type === 'observation' ? 'observations' : 'surgeries')

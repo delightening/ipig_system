@@ -39,7 +39,7 @@ pub async fn list_animals(
     let has_view_project = current_user.has_permission("animal.animal.view_project");
 
     if !has_view_all && !has_view_project {
-        return Ok(Json(PaginatedResponse::new(vec![], 0, 1, query.per_page.unwrap_or(50))));
+        return Err(AppError::Forbidden("需要 animal.animal.view_all 或 animal.animal.view_project 權限".to_string()));
     }
 
     let mut result = AnimalService::list(&state.db, &query).await.map_err(|e| {

@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Loader2, AlertTriangle } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { DocType } from '@/lib/api'
 import type { Document as ErpDocument } from '@/types/erp'
 import { DocumentFormHeader } from './components/DocumentFormHeader'
@@ -109,11 +110,7 @@ export function DocumentEditPage() {
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
 
   if (isEdit && loadingDocument) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <Skeleton variant="form" fields={6} />
   }
 
   return (
@@ -516,8 +513,8 @@ export function DocumentEditPage() {
               您目前選擇的銷貨計畫為{' '}
               <span className="font-bold text-destructive">
                 {formData.protocol_id
-                  ? activeProtocols?.find((p: any) => p.id === formData.protocol_id)?.iacuc_no
-                    || activeProtocols?.find((p: any) => p.id === formData.protocol_id)?.protocol_no
+                  ? activeProtocols?.find((p) => p.id === formData.protocol_id)?.iacuc_no
+                    || activeProtocols?.find((p) => p.id === formData.protocol_id)?.protocol_no
                     || formData.protocol_id
                   : '未指定'}
               </span>

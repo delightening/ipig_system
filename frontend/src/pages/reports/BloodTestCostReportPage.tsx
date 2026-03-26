@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
+import { useTableSort } from '@/hooks/useTableSort'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatDate } from '@/lib/utils'
@@ -12,10 +13,10 @@ import {
     Table,
     TableBody,
     TableCell,
-    TableHead,
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Loader2, Download, Droplets, FlaskConical, DollarSign, Hash } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 
@@ -55,6 +56,8 @@ export function BloodTestCostReportPage() {
             return response.data
         },
     })
+
+    const { sortedData, sort, toggleSort } = useTableSort(report)
 
     // 摘要統計
     const summary = useMemo(() => {
@@ -215,19 +218,19 @@ export function BloodTestCostReportPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>專案編號</TableHead>
-                                <TableHead>耳號</TableHead>
-                                <TableHead>檢查日期</TableHead>
-                                <TableHead>實驗室</TableHead>
-                                <TableHead className="text-right">項目數</TableHead>
-                                <TableHead className="text-right">費用</TableHead>
-                                <TableHead>建立者</TableHead>
+                                <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>專案編號</SortableTableHead>
+                                <SortableTableHead sortKey="ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>耳號</SortableTableHead>
+                                <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>檢查日期</SortableTableHead>
+                                <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>實驗室</SortableTableHead>
+                                <SortableTableHead sortKey="item_count" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">項目數</SortableTableHead>
+                                <SortableTableHead sortKey="total_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">費用</SortableTableHead>
+                                <SortableTableHead sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立者</SortableTableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {report && report.length > 0 ? (
-                                report.map((row, idx) => (
-                                    <TableRow key={idx}>
+                            {sortedData && sortedData.length > 0 ? (
+                                sortedData.map((row, idx) => (
+                                    <TableRow key={`${row.iacuc_no}-${row.ear_tag}-${idx}`}>
                                         <TableCell className="font-mono text-sm">
                                             {row.iacuc_no || <span className="text-muted-foreground">未分配</span>}
                                         </TableCell>
