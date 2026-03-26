@@ -297,6 +297,23 @@ pub async fn force_logout_session(
 // Security Alerts
 // ============================================
 
+#[derive(Debug, Deserialize)]
+pub struct RecentAlertsParams {
+    /// ISO 8601 timestamp，回傳此時間之後的警報
+    pub after: Option<chrono::DateTime<Utc>>,
+}
+
+/// 查詢指定時間之後的新安全警報（polling 端點）
+pub async fn get_recent_alerts(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(params): Query<RecentAlertsParams>,
+) -> Result<Json<Vec<SecurityAlert>>> {
+    let after = params.after.unwrap_or_else(|| Utc::now() - chrono::Duration::seconds(60));
+    let alerts = AuditService::find_recent_alerts(&state.db, after).await?;
+    Ok(Json(alerts))
+}
+
 /// 列出安全警報
 pub async fn list_security_alerts(
     State(state): State<AppState>,

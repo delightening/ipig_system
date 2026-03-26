@@ -24,7 +24,6 @@ pub struct AppState {
     pub config: std::sync::Arc<config::Config>,
     pub geoip: GeoIpService,
     pub jwt_blacklist: JwtBlacklist,
-    pub alert_broadcaster: handlers::sse::AlertBroadcaster,
     pub metrics_handle: Option<metrics_exporter_prometheus::PrometheusHandle>,
     pub gotenberg: GotenbergClient,
     pub image_processor: ImageProcessorClient,

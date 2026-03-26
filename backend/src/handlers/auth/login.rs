@@ -50,14 +50,13 @@ pub async fn login(
         Err(e) => {
             let db = state.db.clone();
             let geoip = state.geoip.clone();
-            let broadcaster = state.alert_broadcaster.clone();
             let email = req.email.clone();
             let ip_clone = ip.clone();
             let ua_clone = user_agent.clone();
             let err_msg = e.to_string();
             tokio::spawn(async move {
                 let _ = LoginTracker::log_failure(
-                    &db, &email, Some(&ip_clone), ua_clone.as_deref(), &err_msg, &geoip, &broadcaster,
+                    &db, &email, Some(&ip_clone), ua_clone.as_deref(), &err_msg, &geoip,
                 ).await;
             });
             return Err(e);
@@ -84,7 +83,6 @@ pub async fn login(
             // 登入成功：記錄事件和建立 session
             let db = state.db.clone();
             let geoip = state.geoip.clone();
-            let broadcaster = state.alert_broadcaster.clone();
             let user_id = resp.user.id;
             let email = req.email.clone();
             let ip_clone = ip.clone();
@@ -99,7 +97,6 @@ pub async fn login(
                     Some(&ip_clone),
                     ua_clone.as_deref(),
                     &geoip,
-                    &broadcaster,
                 )
                 .await
                 {

@@ -22,7 +22,6 @@ mod report;
 pub(crate) mod role;
 mod signature;
 pub mod sku;
-pub mod sse;
 mod stock;
 pub mod storage_location;
 pub mod treatment_drug;

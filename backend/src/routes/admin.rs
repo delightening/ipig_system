@@ -13,6 +13,11 @@ pub fn routes() -> Router<AppState> {
             "/admin/system-settings",
             get(handlers::get_system_settings).put(handlers::update_system_settings),
         )
+        // Admin SMTP Test Email
+        .route(
+            "/admin/system-settings/test-email",
+            post(handlers::send_test_email),
+        )
         // Admin Config Warnings
         .route(
             "/admin/config-warnings",
@@ -67,10 +72,10 @@ pub fn routes() -> Router<AppState> {
         )
         // QAU Dashboard
         .route("/qau/dashboard", get(handlers::get_qau_dashboard))
-        // SSE 安全警報即時推送
+        // 安全警報 polling 端點（取代 SSE）
         .route(
-            "/admin/audit/alerts/sse",
-            get(handlers::sse::sse_security_alerts),
+            "/admin/audit/alerts/recent",
+            get(handlers::get_recent_alerts),
         )
         // Admin Notification Routing
         .route(
