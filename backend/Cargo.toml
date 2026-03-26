@@ -79,7 +79,7 @@ lopdf = "0.34"
 tera = "1"
 
 # Zip (IDXF 分檔匯出/匯入)
-zip = "0.6"
+zip = "7.2"
 
 # HTTP Client for external APIs
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart"] }
