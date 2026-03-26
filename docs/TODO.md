@@ -236,8 +236,8 @@
 | R9-1 | **IDOR 漏洞修復** | `download_attachment`/`list_attachments` 加入基於 entity_type 的資源級權限檢查，新增 `check_attachment_permission()` 輔助函式 | 後端 | 🧠 Claude | [x] |
 | R9-2 | **上傳 handler 去重** | 抽取通用 `handle_upload()` 函式，6 個上傳 handler 改用通用函式（upload_sacrifice_photo 因獨特存表邏輯保留），upload.rs 606→420 行 | 後端 | 🧠 Claude | [x] |
 | R9-3 | **DB 錯誤碼修正** | `error.rs` 中 23505→409 Conflict、23503/23502/23514→400 Bad Request（原統一回 500） | 後端 | 🧠 Claude | [x] |
-| R9-4 | **歡迎信安全改善** | `send_welcome_email` 改用密碼重設連結取代明文密碼 | 後端 | 🧠 Claude | [ ] |
-| R9-5 | **ERP/HR 整合測試覆蓋** | 補齊庫存流水帳、GRN 入庫、出勤打卡、附件上傳/下載等 E2E 測試 | 測試 | 🧠 Claude | [ ] |
+| R9-4 | **歡迎信安全改善** | 已完成：`send_welcome_email` 改用密碼重設連結取代明文密碼（commit 8f4b722） | 後端 | 🧠 Claude | [x] |
+| R9-5 | **ERP/HR 整合測試覆蓋** | 部分完成：R13 新增 erp-inventory.spec.ts + hr-overtime.spec.ts。尚缺 GRN 入庫、出勤打卡、附件上傳/下載 | 測試 | 🧠 Claude | [ ] |
 
 ### R9 審查—已知漏洞擱置（開發階段擱置，上線前必做）
 
@@ -373,12 +373,12 @@
 | 🟠 R6 第六輪改善 | 0 |
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
-| 🔒 R9 安全與品質修復 | 2 |
+| 🔒 R9 安全與品質修復 | 1 |
 | 🔒 R10 程式碼審查 Medium/Low | 0 (3 推遲) |
 | 🔧 R11 技術債掃描 | 0 |
 | 🟢 R12 長期演進項目 | 0 (1 暫緩) |
 | 🎨 R13 UI 一致性 | 1 |
-| **合計（未完成）** | **2** |
+| **合計（未完成）** | **1** |
 
 ---
 
