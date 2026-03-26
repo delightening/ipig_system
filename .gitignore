@@ -21,6 +21,7 @@ scripts/trivy_bin/
 *.dump.sql
 *.sql
 !**/migrations/*.sql
+!**/migrations_squashed/*.sql
 
 # app secrets files (optional)
 secrets/

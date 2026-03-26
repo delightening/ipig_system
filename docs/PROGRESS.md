@@ -185,6 +185,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-03-27 Migration Squash — 22 檔合併為 8 檔
+
+- ✅ **Migration 合併**：22 個增量 migration 檔案合併為 8 個乾淨的 squashed migration（`backend/migrations_squashed/001-008`），按業務域分組（types → users/auth → animal → AUP → HR → ERP → audit/security → facility/equipment）
+- ✅ **Schema 完整性驗證**：在測試 DB 上驗證 tables（127）、indexes（491）、constraints（415）與原始 DB 完全一致（僅差 _sqlx_migrations 自動表）
+- ✅ **跨檔 FK 處理**：正確處理跨檔案 FK 約束（animals.pen_id/species_id 延遲到 008、treatment_drug_options.erp_product_id 延遲到 006）
+- ✅ **重複消除**：修復 user_aup_profiles、system_settings、enum types、索引等多處重複定義
+
 ### 2026-03-26 Code Review 全面修復（28/35 項，80%）
 
 - ✅ **P0 Critical 全部修復**：密鑰輪換（JWT/HMAC/DB/admin）、Token Refresh 競態條件改 Promise singleton、localStorage 最小化、CSRF 空 session 拒絕未認證寫入
