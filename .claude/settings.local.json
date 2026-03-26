@@ -74,7 +74,8 @@
       "Bash(DATABASE_URL=\"postgres://postgres:ipig_password_123@localhost:543/ipig_db\" cargo sqlx migrate run)",
       "Bash(DATABASE_URL=\"postgres://postgres:ipig_password_123@localhost:543/ipig_db\" cargo check)",
       "Bash(ipconfig)",
-      "Bash(docker restart:*)"
+      "Bash(docker restart:*)",
+      "Bash(gh pr:*)"
     ]
   }
 }

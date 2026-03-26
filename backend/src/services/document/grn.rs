@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 
 use crate::time;
-use sqlx::PgPool;
+use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::{
@@ -11,6 +11,18 @@ use crate::{
     },
     AppError, Result,
 };
+
+/// 採購單明細查詢結果（避免 clippy::type_complexity）
+#[derive(FromRow)]
+struct PoLineRow {
+    product_id: Uuid,
+    sku: String,
+    name: String,
+    base_uom: String,
+    uom: String,
+    unit_price: Option<Decimal>,
+    qty: Decimal,
+}
 
 use super::DocumentService;
 
@@ -290,7 +302,7 @@ impl DocumentService {
         .ok_or_else(|| AppError::NotFound("Purchase order not found".to_string()))?;
 
         // 取得採購單明細
-        let po_lines: Vec<(Uuid, String, String, String, String, Option<Decimal>, Decimal)> = sqlx::query_as(
+        let po_lines: Vec<PoLineRow> = sqlx::query_as(
             r#"
             SELECT dl.product_id, p.sku, p.name, p.base_uom, dl.uom, dl.unit_price, dl.qty
             FROM document_lines dl
@@ -324,18 +336,18 @@ impl DocumentService {
 
         let items: Vec<PoReceiptItem> = po_lines
             .into_iter()
-            .map(|(product_id, product_sku, product_name, base_uom, uom, unit_price, ordered_qty)| {
-                let received_qty = received_map.get(&product_id).copied().unwrap_or(Decimal::ZERO);
+            .map(|row| {
+                let received_qty = received_map.get(&row.product_id).copied().unwrap_or(Decimal::ZERO);
                 PoReceiptItem {
-                    product_id,
-                    product_sku,
-                    product_name,
-                    base_uom,
-                    uom,
-                    unit_price,
-                    ordered_qty,
+                    product_id: row.product_id,
+                    product_sku: row.sku,
+                    product_name: row.name,
+                    base_uom: row.base_uom,
+                    uom: row.uom,
+                    unit_price: row.unit_price,
+                    ordered_qty: row.qty,
                     received_qty,
-                    remaining_qty: ordered_qty - received_qty,
+                    remaining_qty: row.qty - received_qty,
                 }
             })
             .collect();
