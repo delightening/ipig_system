@@ -34,7 +34,7 @@ import { useDocumentCategory, type DocCategory } from './hooks/useDocumentCatego
 
 const CATEGORY_TYPES: Record<DocCategory, DocType[]> = {
   purchasing: ['PO', 'GRN', 'PR'],
-  sales: ['SO', 'DO'],
+  sales: ['SO', 'DO', 'SR', 'RTN'],
   warehouse: ['TR', 'STK', 'ADJ', 'RM'],
 }
 
@@ -47,7 +47,7 @@ const CATEGORY_CONFIG: Record<DocCategory, { label: string; icon: React.ReactNod
   sales: {
     label: '銷貨類',
     icon: <ShoppingCart className="h-4 w-4" />,
-    desc: '銷貨單、銷貨出庫',
+    desc: '銷貨單、銷貨出庫、銷貨退貨、退貨單',
   },
   warehouse: {
     label: '倉儲類',
@@ -62,6 +62,8 @@ const TYPE_NAMES: Record<DocType, string> = {
   PR: '採購退貨',
   SO: '銷貨單',
   DO: '銷貨出庫',
+  SR: '銷貨退貨',
+  RTN: '退貨單',
   TR: '調撥單',
   STK: '盤點單',
   ADJ: '調整單',
@@ -227,7 +229,7 @@ export function DocumentsPage() {
           <FileText className="h-16 w-16 mb-4 text-muted-foreground opacity-40" />
           <p className="text-lg font-medium text-muted-foreground">請選擇上方的類別以開始查詢</p>
           <p className="text-sm text-muted-foreground mt-1">
-            採購類包含採購單、採購入庫、採購退貨；銷貨類包含銷貨單、銷貨出庫
+            採購類包含採購單、採購入庫、採購退貨；銷貨類包含銷貨單、銷貨出庫、銷貨退貨、退貨單
           </p>
         </div>
       )}

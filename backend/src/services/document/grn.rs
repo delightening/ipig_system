@@ -252,9 +252,9 @@ impl DocumentService {
         .ok_or_else(|| AppError::NotFound("Purchase order not found".to_string()))?;
 
         // 取得採購單明細
-        let po_lines: Vec<(Uuid, String, Decimal)> = sqlx::query_as(
+        let po_lines: Vec<(Uuid, String, String, String, String, Option<Decimal>, Decimal)> = sqlx::query_as(
             r#"
-            SELECT dl.product_id, p.name, dl.qty
+            SELECT dl.product_id, p.sku, p.name, p.base_uom, dl.uom, dl.unit_price, dl.qty
             FROM document_lines dl
             JOIN products p ON dl.product_id = p.id
             WHERE dl.document_id = $1
@@ -286,11 +286,15 @@ impl DocumentService {
 
         let items: Vec<PoReceiptItem> = po_lines
             .into_iter()
-            .map(|(product_id, product_name, ordered_qty)| {
+            .map(|(product_id, product_sku, product_name, base_uom, uom, unit_price, ordered_qty)| {
                 let received_qty = received_map.get(&product_id).copied().unwrap_or(Decimal::ZERO);
                 PoReceiptItem {
                     product_id,
+                    product_sku,
                     product_name,
+                    base_uom,
+                    uom,
+                    unit_price,
                     ordered_qty,
                     received_qty,
                     remaining_qty: ordered_qty - received_qty,

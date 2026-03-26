@@ -1,5 +1,5 @@
 /**
- * 維修/保養紀錄分頁內容：表格、分頁
+ * 維修/保養紀錄分頁內容：表格、分頁、新增/編輯/刪除
  */
 import { useMemo } from 'react'
 import { truncateText } from '@/lib/utils'
@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { StatusBadge } from '@/components/ui/status-badge'
 import type { StatusVariant } from '@/components/ui/status-badge'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
-import { Trash2, Wrench } from 'lucide-react'
+import { Pencil, Plus, Trash2, Wrench } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
@@ -23,6 +23,8 @@ interface MaintenanceTabContentProps {
   totalPages: number
   onPageChange: (page: number) => void
   onDelete: (id: string) => void
+  onAdd?: () => void
+  onEdit?: (record: MaintenanceRecordWithDetails) => void
 }
 
 const TYPE_VARIANT: Record<string, StatusVariant> = {
@@ -46,6 +48,8 @@ export function MaintenanceTabContent({
   totalPages,
   onPageChange,
   onDelete,
+  onAdd,
+  onEdit,
 }: MaintenanceTabContentProps) {
   const columns = useMemo<ColumnDef<MaintenanceRecordWithDetails>[]>(() => {
     const cols: ColumnDef<MaintenanceRecordWithDetails>[] = [
@@ -84,6 +88,11 @@ export function MaintenanceTabContent({
         key: 'actions', header: '操作', className: 'w-[100px] text-right',
         cell: (r) => (
           <div className="flex items-center justify-end gap-1">
+            {onEdit && (
+              <Button variant="ghost" size="icon" onClick={() => onEdit(r)} aria-label="編輯">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => onDelete(r.id)} aria-label="刪除">
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -92,13 +101,23 @@ export function MaintenanceTabContent({
       })
     }
     return cols
-  }, [canManage, onDelete])
+  }, [canManage, onDelete, onEdit])
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>維修/保養紀錄</CardTitle>
-        <CardDescription>查看設備維修與定期保養紀錄</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>維修/保養紀錄</CardTitle>
+            <CardDescription>查看設備維修與定期保養紀錄</CardDescription>
+          </div>
+          {canManage && onAdd && (
+            <Button size="sm" onClick={onAdd}>
+              <Plus className="h-4 w-4 mr-2" />
+              新增維修/保養
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <DataTable

@@ -1,5 +1,5 @@
 /**
- * 報廢紀錄分頁內容：表格、分頁、核准/駁回操作
+ * 報廢紀錄分頁內容：表格、分頁、核准/駁回操作、申請報廢
  */
 import { useMemo } from 'react'
 import { truncateText } from '@/lib/utils'
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
-import { Check, X, FileText } from 'lucide-react'
+import { Check, Plus, X, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
@@ -16,12 +16,14 @@ import { DISPOSAL_STATUS_LABELS } from '../types'
 
 interface DisposalTabContentProps {
   canApprove: boolean
+  canRequest?: boolean
   records: DisposalWithDetails[]
   isLoading: boolean
   page: number
   totalPages: number
   onPageChange: (page: number) => void
   onApprove: (id: string, approved: boolean) => void
+  onRequestDisposal?: () => void
 }
 
 const STATUS_VARIANT: Record<DisposalStatus, 'warning' | 'success' | 'error'> = {
@@ -33,12 +35,14 @@ const STATUS_VARIANT: Record<DisposalStatus, 'warning' | 'success' | 'error'> = 
 
 export function DisposalTabContent({
   canApprove,
+  canRequest,
   records,
   isLoading,
   page,
   totalPages,
   onPageChange,
   onApprove,
+  onRequestDisposal,
 }: DisposalTabContentProps) {
   const columns = useMemo<ColumnDef<DisposalWithDetails>[]>(() => [
     { key: 'equipment', header: '設備', cell: (r) => <span className="font-medium">{r.equipment_name}</span> },
@@ -81,8 +85,18 @@ export function DisposalTabContent({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>報廢紀錄</CardTitle>
-        <CardDescription>設備報廢申請與核准紀錄</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>報廢紀錄</CardTitle>
+            <CardDescription>設備報廢申請與核准紀錄</CardDescription>
+          </div>
+          {canRequest && onRequestDisposal && (
+            <Button size="sm" onClick={onRequestDisposal}>
+              <Plus className="h-4 w-4 mr-2" />
+              申請報廢
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <DataTable

@@ -162,7 +162,7 @@ export interface Partner {
 }
 
 // 單據
-export type DocType = 'PO' | 'GRN' | 'PR' | 'SO' | 'DO' | 'TR' | 'STK' | 'ADJ' | 'RM'
+export type DocType = 'PO' | 'GRN' | 'PR' | 'SO' | 'DO' | 'SR' | 'RTN' | 'TR' | 'STK' | 'ADJ' | 'RM'
 export type DocStatus = 'draft' | 'submitted' | 'approved' | 'cancelled'
 
 export interface DocumentLine {

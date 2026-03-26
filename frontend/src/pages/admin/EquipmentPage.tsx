@@ -37,6 +37,10 @@ interface Partner {
 import { useEquipmentMutations, emptyEquipForm, emptyCalibForm } from './hooks/useEquipmentMutations'
 import { EquipmentFormDialog } from './components/EquipmentFormDialog'
 import { CalibrationFormDialog } from './components/CalibrationFormDialog'
+import { MaintenanceFormDialog, emptyMaintenanceForm, maintenanceFormFromRecord } from './components/MaintenanceFormDialog'
+import type { MaintenanceFormData } from './components/MaintenanceFormDialog'
+import { DisposalFormDialog, emptyDisposalForm } from './components/DisposalFormDialog'
+import type { DisposalFormData } from './components/DisposalFormDialog'
 import { EquipmentTabContent } from './components/EquipmentTabContent'
 import { CalibrationTabContent } from './components/CalibrationTabContent'
 import { MaintenanceTabContent } from './components/MaintenanceTabContent'
@@ -49,7 +53,7 @@ export function EquipmentPage() {
   const canManage = hasPermission('equipment.manage')
   const canApproveDisposal = hasPermission('equipment.disposal.approve')
   const queryClient = useQueryClient()
-  const dialogs = useDialogSet(['equipCreate', 'equipEdit', 'calibCreate', 'calibEdit'] as const)
+  const dialogs = useDialogSet(['equipCreate', 'equipEdit', 'calibCreate', 'calibEdit', 'maintCreate', 'maintEdit', 'disposalCreate'] as const)
 
   const [equipKeyword, setEquipKeyword] = useState('')
   const [equipPage, setEquipPage] = useState(1)
@@ -64,6 +68,9 @@ export function EquipmentPage() {
   const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([])
   const [editingCalib, setEditingCalib] = useState<CalibrationWithEquipment | null>(null)
   const [calibForm, setCalibForm] = useState<CalibrationForm>(emptyCalibForm())
+  const [editingMaint, setEditingMaint] = useState<MaintenanceRecordWithDetails | null>(null)
+  const [maintForm, setMaintForm] = useState<MaintenanceFormData>(emptyMaintenanceForm())
+  const [disposalForm, setDisposalForm] = useState<DisposalFormData>(emptyDisposalForm())
 
   /* ── Queries ── */
   const { data: equipmentList = [] } = useQuery({
@@ -197,6 +204,50 @@ export function EquipmentPage() {
     },
   })
 
+  const createMaintMutation = useMutation({
+    mutationFn: (data: MaintenanceFormData) =>
+      api.post(`/equipment/${data.equipment_id}/maintenance`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
+      dialogs.close('maintCreate')
+      setMaintForm(emptyMaintenanceForm())
+      toast({ title: '成功', description: '已新增維修/保養紀錄' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
+    },
+  })
+
+  const updateMaintMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: MaintenanceFormData }) =>
+      api.put(`/equipment/${data.equipment_id}/maintenance/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
+      dialogs.close('maintEdit')
+      setEditingMaint(null)
+      setMaintForm(emptyMaintenanceForm())
+      toast({ title: '成功', description: '已更新維修/保養紀錄' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
+    },
+  })
+
+  const createDisposalMutation = useMutation({
+    mutationFn: (data: DisposalFormData) =>
+      api.post(`/equipment/${data.equipment_id}/disposals`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-disposals'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-all'] })
+      dialogs.close('disposalCreate')
+      setDisposalForm(emptyDisposalForm())
+      toast({ title: '成功', description: '已送出報廢申請' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '申請失敗'), variant: 'destructive' })
+    },
+  })
+
   /* ── Handlers ── */
   const handleEditEquip = async (equip: Equipment) => {
     setEditingEquip(equip)
@@ -262,10 +313,32 @@ export function EquipmentPage() {
     }
   }
 
+  const handleAddMaint = () => {
+    setMaintForm({
+      ...emptyMaintenanceForm(),
+      equipment_id: equipmentList[0]?.id ?? '',
+    })
+    dialogs.open('maintCreate')
+  }
+
+  const handleEditMaint = (record: MaintenanceRecordWithDetails) => {
+    setEditingMaint(record)
+    setMaintForm(maintenanceFormFromRecord(record))
+    dialogs.open('maintEdit')
+  }
+
   const handleDeleteMaint = (id: string) => {
     if (window.confirm('確定要刪除此紀錄嗎？')) {
       deleteMaintMutation.mutate(id)
     }
+  }
+
+  const handleRequestDisposal = () => {
+    setDisposalForm({
+      ...emptyDisposalForm(),
+      equipment_id: equipmentList[0]?.id ?? '',
+    })
+    dialogs.open('disposalCreate')
   }
 
   const handleApproveDisposal = (id: string, approved: boolean) => {
@@ -346,18 +419,22 @@ export function EquipmentPage() {
             totalPages={maintData?.total_pages ?? 1}
             onPageChange={setMaintPage}
             onDelete={handleDeleteMaint}
+            onAdd={handleAddMaint}
+            onEdit={handleEditMaint}
           />
         </PageTabContent>
 
         <PageTabContent value="disposals" className="space-y-4">
           <DisposalTabContent
             canApprove={canApproveDisposal}
+            canRequest={canManage}
             records={disposalData?.data ?? []}
             isLoading={disposalLoading}
             page={disposalPage}
             totalPages={disposalData?.total_pages ?? 1}
             onPageChange={setDisposalPage}
             onApprove={handleApproveDisposal}
+            onRequestDisposal={handleRequestDisposal}
           />
         </PageTabContent>
 
@@ -431,6 +508,38 @@ export function EquipmentPage() {
         isPending={mutations.updateCalibMutation.isPending}
         equipmentList={equipmentList}
         editingCalib={editingCalib}
+      />
+      <MaintenanceFormDialog
+        open={dialogs.isOpen('maintCreate')}
+        onOpenChange={dialogs.setOpen('maintCreate')}
+        mode="create"
+        form={maintForm}
+        onFormChange={setMaintForm}
+        onSubmit={() => createMaintMutation.mutate(maintForm)}
+        isPending={createMaintMutation.isPending}
+        equipmentList={equipmentList}
+      />
+      <MaintenanceFormDialog
+        open={dialogs.isOpen('maintEdit')}
+        onOpenChange={(open) => {
+          if (!open) setEditingMaint(null)
+          dialogs.setOpen('maintEdit')(open)
+        }}
+        mode="edit"
+        form={maintForm}
+        onFormChange={setMaintForm}
+        onSubmit={() => editingMaint && updateMaintMutation.mutate({ id: editingMaint.id, data: maintForm })}
+        isPending={updateMaintMutation.isPending}
+        equipmentList={equipmentList}
+      />
+      <DisposalFormDialog
+        open={dialogs.isOpen('disposalCreate')}
+        onOpenChange={dialogs.setOpen('disposalCreate')}
+        form={disposalForm}
+        onFormChange={setDisposalForm}
+        onSubmit={() => createDisposalMutation.mutate(disposalForm)}
+        isPending={createDisposalMutation.isPending}
+        equipmentList={equipmentList}
       />
     </div>
   )

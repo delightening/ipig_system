@@ -141,11 +141,23 @@ export function ProductSearchDialog({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>品項名稱</TableHead>
-                  <TableHead>規格</TableHead>
-                  <TableHead>單位</TableHead>
-                  <TableHead />
+                  {isPoLinkedGrn ? (
+                    <>
+                      <TableHead>品項</TableHead>
+                      <TableHead>單位</TableHead>
+                      <TableHead className="text-right">單價</TableHead>
+                      <TableHead className="text-right">數量</TableHead>
+                      <TableHead />
+                    </>
+                  ) : (
+                    <>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>品項名稱</TableHead>
+                      <TableHead>規格</TableHead>
+                      <TableHead>單位</TableHead>
+                      <TableHead />
+                    </>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -186,7 +198,9 @@ function PoItemRows({
   onSelect: (product: Product, extra?: ProductSelectExtraData) => void
 }) {
   const filtered = items.filter(
-    (item) => item.remaining_qty > 0 && (item.product_name.includes(search) || item.product_id.includes(search))
+    (item) => item.remaining_qty > 0 && (
+      item.product_name.includes(search) || item.product_sku.includes(search) || item.product_id.includes(search)
+    )
   )
   return (
     <>
@@ -196,20 +210,23 @@ function PoItemRows({
           className="cursor-pointer hover:bg-muted"
           onClick={() =>
             onSelect(
-              { id: item.product_id, sku: '', name: item.product_name, base_uom: '' } as Product,
-              { unit_price: 0, remaining_qty: item.remaining_qty }
+              { id: item.product_id, sku: item.product_sku, name: item.product_name, base_uom: item.base_uom } as Product,
+              { unit_price: item.unit_price ?? 0, remaining_qty: item.remaining_qty }
             )
           }
         >
           <TableCell>
+            <div className="font-mono text-xs">{item.product_sku}</div>
             <div className="font-medium">{item.product_name}</div>
           </TableCell>
-          <TableCell>
-            <div className="text-xs">採購: {formatNumber(item.ordered_qty, 2)}</div>
-            <div className="text-xs text-muted-foreground">已入庫: {formatNumber(item.received_qty, 2)}</div>
+          <TableCell className="text-sm">{formatUom(item.uom || item.base_uom)}</TableCell>
+          <TableCell className="text-right text-sm">
+            {item.unit_price != null ? `$${formatNumber(item.unit_price, 2)}` : '-'}
           </TableCell>
           <TableCell className="text-right">
-            <div className="font-bold text-primary">剩餘: {formatNumber(item.remaining_qty, 2)}</div>
+            <div className="text-xs">採購: {formatNumber(item.ordered_qty, 0)}</div>
+            <div className="text-xs text-muted-foreground">已入庫: {formatNumber(item.received_qty, 0)}</div>
+            <div className="text-sm font-bold text-primary">剩餘: {formatNumber(item.remaining_qty, 0)}</div>
           </TableCell>
           <TableCell>
             <Button size="sm" variant="outline">選擇</Button>

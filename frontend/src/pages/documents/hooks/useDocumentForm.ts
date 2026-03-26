@@ -3,7 +3,7 @@
  * 組合 useDocumentLines + useDocumentSubmit，管理表單資料與查詢
  */
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api, {
   Document,
@@ -28,6 +28,8 @@ export interface UseDocumentFormOptions {
 export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const isCopy = searchParams.get('copy') === 'true'
   const isEdit = !!id && id !== 'new'
 
   const [formData, setFormData] = useState<DocumentFormData>({
@@ -195,6 +197,37 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
       lines.setLineAmounts(initialAmounts)
     }
   }, [document, isEdit])
+
+  // 複製單據：從 sessionStorage 載入資料
+  useEffect(() => {
+    if (isEdit || !isCopy) return
+    const raw = sessionStorage.getItem('document_copy_data')
+    if (!raw) return
+    sessionStorage.removeItem('document_copy_data')
+    try {
+      const copyData = JSON.parse(raw) as DocumentFormData
+      setFormData({
+        doc_type: copyData.doc_type || defaultType,
+        doc_date: new Date().toISOString().split('T')[0],
+        warehouse_id: copyData.warehouse_id || '',
+        warehouse_from_id: copyData.warehouse_from_id || '',
+        warehouse_to_id: copyData.warehouse_to_id || '',
+        partner_id: copyData.partner_id || '',
+        protocol_id: copyData.protocol_id || '',
+        protocol_no: copyData.protocol_no || '',
+        source_doc_id: '',
+        remark: copyData.remark || '',
+        lines: (copyData.lines || []).map((line, idx) => ({
+          ...line,
+          id: undefined,
+          line_no: idx + 1,
+        })),
+      })
+    } catch {
+      // ignore invalid JSON
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCopy, isEdit])
 
   useEffect(() => {
     if (['PO', 'GRN', 'DO'].includes(formData.doc_type)) {

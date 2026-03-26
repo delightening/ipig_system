@@ -1,11 +1,8 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-26 (v23)
-> **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
-> **AI 標註說明：**
->
-> - ⚡ **Gemini Flash** (適合樣板編寫、簡單設定、文檔生成)
-> - 🧠 **Claude Sonnet/Opus** (適合架構設計、複雜邏輯、安全性強化、大規模重構)
+> **最後更新：** 2026-03-26 (v24)
+> **維護慣例：** 完成項目標 [x] + 更新待辦統計 + 在 `docs/PROGRESS.md` §9 新增變更紀錄。詳見 `CLAUDE.md`「文件記錄規則」。
+> **章節排列：** 禁止事項 → P0~P5（優先級）→ 歷史改善計畫 → R6~R13+（輪次嚴格遞增）→ 待辦統計 → 變更紀錄（封存）
 
 ---
 
@@ -18,89 +15,89 @@
 
 ## 🚨 P0 — 上線前必要 (Production Readiness)
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| P0-R12-1 | **CI 自動觸發恢復** | `.github/workflows/ci.yml` 的 `push`/`pull_request` 觸發已恢復，限定 `main` 分支；CI 加入 `--locked` flag 確保 Cargo.lock 一致性 | DevOps | 🧠 Claude | [x] |
-| P0-R12-2 | **SQL 字串拼接殘留修復** | `core.rs:139` 已為參數化查詢；`data_import.rs:321-336` 表名/欄名來自白名單 + `debug_assert` 防護（R7-P0-2 已修復） | 後端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| P0-1 | **CI 自動觸發恢復** | `ci.yml` push/pull_request 觸發恢復，限定 main 分支；加入 `--locked` flag | [x] |
+| P0-2 | **SQL 字串拼接殘留修復** | `core.rs:139` 已為參數化查詢；`data_import.rs` 表名/欄名來自白名單 + `debug_assert` 防護 | [x] |
 
 ---
 
 ## 🟡 P1 — 上線前強烈建議 (Quality & Compliance)
 
-| # | 項目 | 說明 | 範圍 | 依賴 | 建議 AI | 狀態 |
-|---|------|------|------|------|----------|------|
-| P1-1 | **前端 E2E 測試 (Playwright)** | 7 spec / 34 tests，含 429 重試 + race condition 修正，連續 3 次 0 failures | 前端 | 無 | 🧠 Claude | [x] |
-| P1-2 | **E2E CI 自動化** | `docker-compose.test.yml` + GitHub Actions 整合 | DevOps | P1-1 | ⚡ Flash | [x] |
-| P1-7 | **電子簽章合規審查** | 21 CFR Part 11 或等效法規合規審查 | 文件 | 無 | 🧠 Claude | [x] |
-| P1-8 | **資料保留政策** | 定義各類紀錄的法定保留年限 | 文件 | 無 | 🧠 Claude | [x] |
-| P1-12 | **OpenAPI 文件完善 (≥90%)** | 擴展其餘端點的 Schema 與 Path 定義 | 後端 | 無 | 🧠 Claude | [x] |
-| P1-30 | **Graceful Shutdown** | `main.rs` 加入 `tokio::signal` + `with_graceful_shutdown()`，支援 SIGTERM/Ctrl+C | 後端 | 無 | 🧠 Claude | [x] |
-| P1-31 | **自訂 404 頁面** | `NotFoundPage` 元件取代 catch-all redirect，含「返回上一頁」與「回到首頁」按鈕 | 前端 | 無 | 🧠 Claude | [x] |
-| P1-32 | **Session 逾時預警** | `SessionTimeoutWarning` 元件 + auth store `sessionExpiresAt` 追蹤，到期前 60s 顯示倒數 Dialog | 前端 | 無 | 🧠 Claude | [x] |
-| P1-33 | **刪除記錄時清理檔案** | `FileService::delete_by_entity()` 方法，動物/觀察紀錄刪除時連帶清理 `attachments` 表與磁碟檔案 | 後端 | 無 | 🧠 Claude | [x] |
-| P1-34 | **Optimistic Locking** | `014_optimistic_locking.sql` 新增 `version` 欄位（animals/protocols/observations/surgeries），更新 SQL 含版本檢查 | 後端 | 無 | 🧠 Claude | [x] |
-| P1-35 | **原生 confirm() 統一為 Dialog** | `useConfirmDialog` hook + `ConfirmDialog` + `AlertDialog` 元件，已修復 Admin 設施管理元件中的調用錯誤 | 前端 | 無 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| P1-1 | **前端 E2E 測試 (Playwright)** | 7 spec / 34 tests，含 429 重試 + race condition 修正 | [x] |
+| P1-2 | **E2E CI 自動化** | `docker-compose.test.yml` + GitHub Actions 整合（依賴 P1-1） | [x] |
+| P1-7 | **電子簽章合規審查** | 21 CFR Part 11 或等效法規合規審查 | [x] |
+| P1-8 | **資料保留政策** | 定義各類紀錄的法定保留年限 | [x] |
+| P1-12 | **OpenAPI 文件完善 (≥90%)** | 擴展其餘端點的 Schema 與 Path 定義 | [x] |
+| P1-30 | **Graceful Shutdown** | `main.rs` 加入 `tokio::signal` + `with_graceful_shutdown()` | [x] |
+| P1-31 | **自訂 404 頁面** | `NotFoundPage` 元件取代 catch-all redirect | [x] |
+| P1-32 | **Session 逾時預警** | `SessionTimeoutWarning` 元件，到期前 60s 顯示倒數 Dialog | [x] |
+| P1-33 | **刪除記錄時清理檔案** | `FileService::delete_by_entity()`，連帶清理 attachments 表與磁碟檔案 | [x] |
+| P1-34 | **Optimistic Locking** | `014_optimistic_locking.sql` 新增 `version` 欄位，更新 SQL 含版本檢查 | [x] |
+| P1-35 | **原生 confirm() 統一為 Dialog** | `useConfirmDialog` hook + `ConfirmDialog` + `AlertDialog` 元件 | [x] |
 
 ---
 
 ## 🔴 P2 — 中優先 (品質 / 合規 / UX)
 
-| # | 項目 | 說明 | 範圍 | 依賴 | 建議 AI | 狀態 |
-|---|------|------|------|------|----------|------|
-| P2-36 | **i18n 硬編碼中文補齊** | AnimalDetailPage Tab 標籤 + 404/Session 預警翻譯鍵加入 zh-TW.json 與 en.json | 前端 | 無 | 🧠 Claude | [x] |
-| P2-37 | **列表 API 分頁** | `PaginationParams` + `sql_suffix()` 方法，users/warehouses/partners 三個 handler 支援 `?page=&per_page=`（向後相容） | 後端 | 無 | 🧠 Claude | [x] |
-| P2-38 | **表單離開前確認** | `useUnsavedChangesGuard` hook（useBlocker + beforeunload）+ `UnsavedChangesDialog` 元件，已整合 ProtocolEditPage | 前端 | 無 | 🧠 Claude | [x] |
-| P2-39 | **隱私政策 / 服務條款頁面** | `PrivacyPolicyPage` + `TermsOfServicePage` 靜態頁面，公開路由 `/privacy` `/terms`，登入頁加連結 | 前端 | 無 | 🧠 Claude | [x] |
-| P2-40 | **Cookie 同意橫幅** | `CookieConsent` 元件，localStorage 記憶同意狀態，底部半透明橫幅 + 了解更多連結 | 前端 | 無 | 🧠 Claude | [x] |
-| P2-41 | **DB Migration Rollback 文件** | `docs/database/DB_ROLLBACK.md` 涵蓋 14 個 migration 的精確回滾 SQL（逆序）+ 建議回退流程 | 文件 | 無 | 🧠 Claude | [x] |
-| P2-42 | **`.env.example` 補齊** | 新增 HOST/PORT/DATABASE_MAX_CONNECTIONS/UPLOAD_DIR/GEOIP_DB_PATH 等 9 個缺漏變數 | DevOps | 無 | 🧠 Claude | [x] |
-| P2-43 | **倉庫管理頁面重構** | 依據結構（上/中/下）拆分組件，補全倉庫 CRUD 功能與佈局編輯優化 | 前端 | 無 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| P2-36 | **i18n 硬編碼中文補齊** | AnimalDetailPage Tab 標籤 + 404/Session 預警翻譯鍵 | [x] |
+| P2-37 | **列表 API 分頁** | `PaginationParams` + `sql_suffix()`，users/warehouses/partners 支援分頁 | [x] |
+| P2-38 | **表單離開前確認** | `useUnsavedChangesGuard` hook + `UnsavedChangesDialog` 元件 | [x] |
+| P2-39 | **隱私政策 / 服務條款頁面** | 靜態頁面，公開路由 `/privacy` `/terms` | [x] |
+| P2-40 | **Cookie 同意橫幅** | `CookieConsent` 元件，localStorage 記憶同意狀態 | [x] |
+| P2-41 | **DB Migration Rollback 文件** | `DB_ROLLBACK.md` 涵蓋 14 個 migration 的回滾 SQL | [x] |
+| P2-42 | **`.env.example` 補齊** | 新增 9 個缺漏環境變數 | [x] |
+| P2-43 | **倉庫管理頁面重構** | 拆分組件，補全倉庫 CRUD 與佈局編輯 | [x] |
 
 ---
 
 ## 🔵 P3 — 低優先 (資安 / 基礎設施)
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| 7 | **SEC-33：敏感操作二級認證** | 高危操作要求重新輸入密碼確認 | 前後端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| P3-1 | **SEC-33：敏感操作二級認證** | 高危操作要求重新輸入密碼確認 | [x] |
 
 ---
 
 ## 🟣 P4 — 中期品質提升 (測試 / 文件 / CI)
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| 17 | **基礎映像與 CVE 週期檢查** | 每季或基礎映像大改時，檢查 [georgjung/nginx-brotli](https://hub.docker.com/r/georgjung/nginx-brotli/tags) 是否有新 tag；若有則升級 frontend Dockerfile 的 FROM，並從 `.trivyignore` 移除 CVE-2026-25646。詳見 `docs/security-compliance/security.md`。**2026-02-28 已升級至 1.29.5-alpine（Alpine 3.23.3），CVE 仍存在（libpng 1.6.54→需 1.6.55），下次 Q2 檢查。** | DevOps | 🧠 Claude | [x] |
-| 18 | **E2E Rate Limiting / Session 穩定化** | ~~解決 shared context 下 Session 過期誤判導致大量重新登入~~。已修復：admin-context 改用 auth.setup 儲存的 storageState 免重複登入；API rate limit 120→600/min；login.spec 加入 credential fallback。34/34 連續通過、22s 完成。 | 前端 | 🧠 Claude | [x] |
-| 19 | **Prometheus 服務部署** | `docker-compose.monitoring.yml` overlay 新增 Prometheus + Grafana 服務，`deploy/prometheus.yml` 配置 scrape，Grafana provisioning 自動註冊 datasource + dashboard（10 panels：Request Rate / Latency P50-P99 / Error Rate / Status Codes / Heatmap / DB Pool / Pool Utilization / Top Endpoints）。 | DevOps | 🧠 Claude | [x] |
-| 20 | **後端 API 整合測試** | `backend/tests/` 建立 6 個整合測試檔案（api_auth / api_health / api_animals / api_protocols / api_users / api_reports），共用 `TestApp` 測試基礎架構（spawn Axum + random port + test DB）。重構 `lib.rs` 使 crate 同時支援 library + binary。 | 後端 | 🧠 Claude | [x] |
-| 21 | **效能基準報告文件化** | `docs/assessments/PERFORMANCE_BENCHMARK.md` 正式報告（8 章節：摘要/環境/方法/指標/閾值/資源/限制/結論）。k6 腳本優化：改用 `setup()` 共用 token 消除 rate limit 串連失敗。 | 文件 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| P4-1 | **基礎映像與 CVE 週期檢查** | 每季檢查 nginx-brotli tag；2026-02-28 已升級至 1.29.5-alpine，下次 Q2 檢查 | [x] |
+| P4-2 | **E2E Rate Limiting / Session 穩定化** | admin-context 改用 storageState；rate limit 120→600/min；34/34 通過 | [x] |
+| P4-3 | **Prometheus 服務部署** | `docker-compose.monitoring.yml` + Grafana provisioning（10 panels） | [x] |
+| P4-4 | **後端 API 整合測試** | 6 個整合測試檔案 + `TestApp` 測試基礎架構 | [x] |
+| P4-5 | **效能基準報告文件化** | `PERFORMANCE_BENCHMARK.md` 正式報告 + k6 腳本優化 | [x] |
 
 ---
 
 ## ⚪ P5 — 長期演進
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| 13 | **前端元件庫文件化** | Storybook 10 建置，15 個 Stories（Button/Badge/Card/Checkbox/Input/Skeleton/Switch + Select/Dialog/Slider/Tabs/AlertDialog/FormField/LoadingOverlay/Textarea） | 前端 | ⚡ Flash | [x] |
-| 14 | **前端超長頁面重構** | 漸進式重構巨型組件。**AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件。ProtocolDetailPage 1,929→647 行（-66%），抽離 6 個 Tab 元件（VersionsTab/HistoryTab/CommentsTab/ReviewersTab/CoEditorsTab/AttachmentsTab）。** | 前端 | 🧠 Claude | [x] |
-| 15 | **SEC-39：Two-Factor Authentication** | TOTP 2FA 全端實作：後端 `totp-rs` + DB migration + 4 個 API（setup/confirm/disable/verify）+ 登入流程 2FA 檢查 + 備用碼；前端 QR Code 設定 + TOTP 登入驗證 + Profile 頁 2FA 管理 | 前後端 | 🧠 Claude | [x] |
-| 16 | **SEC-40：Web Application Firewall** | WAF 改由 Cloudflare WAF 處理（流量經 Cloudflare Tunnel），已移除 `docker-compose.waf.yml` ModSecurity overlay | DevOps | ⚡ Flash | [x] |
-| P5-43 | **ARIA 無障礙標籤** | 12 個檔案新增 23 個 `aria-label`（編輯/刪除/檢視/關閉/導航按鈕） | 前端 | 🧠 Claude | [x] |
-| P5-44 | **表單即時驗證回饋** | Input/Textarea 新增 `error` prop 紅框樣式，`FormField` 通用元件含 label + 錯誤訊息 | 前端 | 🧠 Claude | [x] |
-| P5-45 | **磁碟空間監控告警** | `scripts/monitor/check_disk_space.sh` 含 uploads 大小 + 磁碟使用率檢查 + Prometheus textfile 輸出 | DevOps | 🧠 Claude | [x] |
-| P5-46 | **LICENSE 檔案** | MIT License，2026 iPig System Contributors | 文件 | 🧠 Claude | [x] |
-| P5-47 | **index.html Meta Tags** | title「豬博士 iPig 系統」+ description + theme-color + favicon 更新 | 前端 | 🧠 Claude | [x] |
-| P5-48 | **useState → Custom Hooks 重構規劃** | 規劃文件 `docs/development/REFACTOR_PLAN_USESTATE_TO_HOOKS.md`，Phase 1–2 完成：useToggle / useDialogSet / useListFilters，遷移 10+ 元件 | 前端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| P5-1 | **前端元件庫文件化** | Storybook 10 建置，15 個 Stories | [x] |
+| P5-2 | **前端超長頁面重構** | AnimalDetailPage -61%、ProtocolDetailPage -66%，各抽離 6-7 個 Tab 元件 | [x] |
+| P5-3 | **SEC-39：Two-Factor Authentication** | TOTP 2FA 全端實作（totp-rs + QR Code + 備用碼） | [x] |
+| P5-4 | **SEC-40：Web Application Firewall** | WAF 改由 Cloudflare WAF 處理，已移除 ModSecurity overlay | [x] |
+| P5-5 | **ARIA 無障礙標籤** | 12 個檔案新增 23 個 `aria-label` | [x] |
+| P5-6 | **表單即時驗證回饋** | `FormField` 通用元件含 label + 錯誤訊息 | [x] |
+| P5-7 | **磁碟空間監控告警** | `check_disk_space.sh` + Prometheus textfile 輸出 | [x] |
+| P5-8 | **LICENSE 檔案** | MIT License，2026 iPig System Contributors | [x] |
+| P5-9 | **index.html Meta Tags** | title + description + theme-color + favicon | [x] |
+| P5-10 | **useState → Custom Hooks 重構規劃** | Phase 1–2 完成：useToggle / useDialogSet / useListFilters | [x] |
 
 ---
 
 ## 🔴 P2-R3 — 第三輪改善（品質與維運）
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| P2-R3-11 | **Protocol `any` 型別消除** | ProtocolEditPage/ProtocolContentView/CommentsTab/AttachmentsTab/ReviewCommentsReport/ReviewersTab 共消除 ~44 處 `: any`，改用具體介面（AxiosError/ProtocolWorkingContent 子型別/VetReviewAssignment 等）| 前端 | 🧠 Claude | [x] |
-| P2-R3-14 | **Error Boundary 分層** | 新增 `PageErrorBoundary` 元件，於 MainLayout Suspense 外層包裹，捕捉所有 lazy-loaded 頁面的 render 錯誤 | 前端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| P2-R3-11 | **Protocol `any` 型別消除** | 6 個檔案消除 ~44 處 `: any`，改用具體介面 | [x] |
+| P2-R3-14 | **Error Boundary 分層** | 新增 `PageErrorBoundary` 元件，捕捉 lazy-loaded 頁面錯誤 | [x] |
 
 ---
 
@@ -129,26 +126,26 @@
 
 ### 7.1 核心業務邏輯覆蓋率 100%
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R4-100-T1 | **product service 單元測試** | ProductService 核心邏輯（list/validate、code 解析）提取可測函式 + 5–8 個測試 | 後端 | 🧠 Claude | [x] |
-| R4-100-T2 | **partner service 單元測試** | PartnerService 核心邏輯（code 解析、正則）+ 5–8 個測試 | 後端 | 🧠 Claude | [x] |
-| R4-100-T3 | **user/role service 單元測試** | UserService、RoleService 可提取邏輯 + 測試 | 後端 | 🧠 Claude | [x] |
-| R4-100-T4 | **animal 核心 services 單元測試** | animal/core, observation, medical 等可提取邏輯 (2026-03-09 已完成服務拆分重構) | 後端 | 🧠 Claude | [x] |
-| R4-100-T5 | **protocol/document/hr services 單元測試** | 分批補齊 protocol/*, document/*, hr/* | 後端 | 🧠 Claude | [x] |
-| R4-100-T6 | **cargo-tarpaulin 覆蓋率量測** | 安裝 tarpaulin，CI 中量測行覆蓋率並設門檻 | DevOps | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R4-100-T1 | **product service 單元測試** | ProductService 核心邏輯 + 5–8 個測試 | [x] |
+| R4-100-T2 | **partner service 單元測試** | PartnerService 核心邏輯 + 5–8 個測試 | [x] |
+| R4-100-T3 | **user/role service 單元測試** | UserService、RoleService 可提取邏輯 + 測試 | [x] |
+| R4-100-T4 | **animal 核心 services 單元測試** | animal/core, observation, medical 等 | [x] |
+| R4-100-T5 | **protocol/document/hr services 單元測試** | 分批補齊 protocol/*, document/*, hr/* | [x] |
+| R4-100-T6 | **cargo-tarpaulin 覆蓋率量測** | CI 中量測行覆蓋率並設門檻 | [x] |
 
 ### 7.2 API 文件（OpenAPI）100% 端點文件化
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R4-100-O1 | **products handler OpenAPI** | list/create/get/update/delete, import, with-sku 全端點 #[utoipa::path] + openapi.rs 註冊 | 後端 | 🧠 Claude | [x] |
-| R4-100-O2 | **partners handler OpenAPI** | list/create/get/update/delete, import, generate-code 全端點 | 後端 | 🧠 Claude | [x] |
-| R4-100-O3 | **documents/storage_location handler OpenAPI** | documents CRUD + submit/approve/cancel；storage_location 全端點 | 後端 | 🧠 Claude | [x] |
-| R4-100-O4 | **SKU handler OpenAPI** | categories, subcategories, generate, validate, preview 全端點 | 後端 | 🧠 Claude | [x] |
-| R4-100-O5 | **animal 子模組 handler OpenAPI** | observation, surgery, weight, vaccination, transfer, sacrifice, pathology 等 | 後端 | 🧠 Claude | [x] |
-| R4-100-O6 | **HR/notifications/admin handler OpenAPI** | leave, overtime, attendance；notifications；admin audit 等 | 後端 | 🧠 Claude | [x] |
-| R4-100-O7 | **reports/accounting/treatment_drugs 等 OpenAPI** | 其餘端點補齊 | 後端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R4-100-O1 | **products handler OpenAPI** | CRUD + import + with-sku 全端點 | [x] |
+| R4-100-O2 | **partners handler OpenAPI** | CRUD + import + generate-code 全端點 | [x] |
+| R4-100-O3 | **documents/storage_location OpenAPI** | documents CRUD + submit/approve/cancel | [x] |
+| R4-100-O4 | **SKU handler OpenAPI** | categories, subcategories, generate, validate, preview | [x] |
+| R4-100-O5 | **animal 子模組 handler OpenAPI** | observation, surgery, weight, vaccination 等 | [x] |
+| R4-100-O6 | **HR/notifications/admin handler OpenAPI** | leave, overtime, attendance, notifications, audit | [x] |
+| R4-100-O7 | **reports/accounting/treatment_drugs 等 OpenAPI** | 其餘端點補齊 | [x] |
 
 ---
 
@@ -156,18 +153,18 @@
 
 > 依據 `docs/PROGRESS.md` 專案評估產出。重點：前端可維護性、useState 重構延續、元件品質。
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R6-1 | **useState → hooks 擴展** | AccountingReportPage、TransferTab、HrOvertimePage、EquipmentPage、AdminAuditPage 等高複雜頁面（各 7–15 處 useState），依據 `REFACTOR_PLAN_USESTATE_TO_HOOKS.md` 繼續 Phase 5 | 前端 | 🧠 Claude | [x] |
-| R6-2 | **useDateRangeFilter / useTabState** | 建立 `useDateRangeFilter`、`useTabState` 並套用至 HrLeavePage、AdminAuditPage、BloodTestCostReportPage、AuditLogsPage、AccountingReportPage | 前端 | 🧠 Claude | [x] |
-| R6-3 | **Skeleton DOM nesting 修正** | skeleton.stories.tsx「行內骨架」`<div>` 於 `<p>` 內造成 validateDOMNesting 警告，改為 `<span>` 或調整結構 | 前端 | ⚡ Flash | [x] |
-| R6-4 | **財務模組 Phase 2–5 評估** | AP/AR/GL 後續階段（ap_payments、ar_receipts、trial-balance 等）實作評估，依業務需求排程 | 全端 | 🧠 Claude | [x] |
-| R6-5 | **Dependabot Phase 2.5 依賴評估** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級可行性評估，詳見 `DEPENDABOT_MIGRATION_PLAN.md` | 全端 | 🧠 Claude | [x] |
-| R6-6 | **資料庫輸出與歷史重新填寫** | 建立資料庫匯出 API、讓系統可讀取過去資料，並依歷史內容預填表單（手術複製、請假預填、Protocol 複製等），詳見 `docs/development/DATA_EXPORT_IMPORT_DESIGN.md` | 全端 | 🧠 Claude | [x] |
-| R6-7 | **日曆功能審視與重構** | 前端元件拆分、Hooks 抽象、後端 Trait 解耦、實作事件預覽 Popover 與單元測試 | 全端 | 🧠 Claude | [x] |
-| R6-8 | **設施管理 Migration 補建** | species/facilities/buildings/zones/pens/departments 6 張表在 routes.rs 已有 handler，但 migrations/ 中缺少 CREATE TABLE。需新增 migration 檔案建立完整表結構 | 後端 | 🧠 Claude | [x] |
-| R6-9 | **採購單未入庫通知** | 實作已核准採購單未入庫之通知提醒、排程檢查、手動觸發 API 與前端入庫狀態標籤顯示 | 全端 | 🧠 Claude | [x] |
-| R6-10 | **採購入庫品項篩選** | 實作 GRN 僅能選擇 PO 內「已核准但未入庫」之品項，強化數據一致性 | 全端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R6-1 | **useState → hooks 擴展** | 5 個高複雜頁面 useState 重構，Phase 5 完成 | [x] |
+| R6-2 | **useDateRangeFilter / useTabState** | 建立 2 個 hook 並套用至 5 個頁面 | [x] |
+| R6-3 | **Skeleton DOM nesting 修正** | InlineSkeleton `<div>` 改 `<span>` | [x] |
+| R6-4 | **財務模組 Phase 2–5 評估** | AP/AR/GL 後續階段評估，依業務需求排程 | [x] |
+| R6-5 | **Dependabot Phase 2.5 依賴評估** | printpdf 0.9、utoipa 5 等升級可行性評估 | [x] |
+| R6-6 | **資料庫輸出與歷史重新填寫** | 匯出 API + 歷史預填表單 | [x] |
+| R6-7 | **日曆功能審視與重構** | 元件拆分、Hooks 抽象、後端 Trait 解耦 | [x] |
+| R6-8 | **設施管理 Migration 補建** | 6 張表 CREATE TABLE migration 新增 | [x] |
+| R6-9 | **採購單未入庫通知** | 排程檢查 + 手動觸發 API + 狀態標籤 | [x] |
+| R6-10 | **採購入庫品項篩選** | GRN 僅能選擇 PO 內已核准但未入庫品項 | [x] |
 
 ---
 
@@ -175,13 +172,13 @@
 
 > 依據 `docs/development/IMPROVEMENT_PLAN_R7.md` 全面原始碼審視發現。
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R7-P0 | **SQL 拼接修復** | `data_import.rs` 中 `format!()` SQL 改為參數化查詢，消除 SQL injection 風險 | 後端 | 🧠 Claude | [x] |
-| R7-P1-1 | **密碼洩露修復** | `create_admin.rs` 不再將管理員密碼明文印至 stdout | 後端 | 🧠 Claude | [x] |
-| R7-P1-2 | **TRUST_PROXY 預設值** | `config.rs` 中 `trust_proxy` 由 `true` 改預設 `false` | 後端 | 🧠 Claude | [x] |
-| R7-P4-1 | **ETag 常數化** | `etag.rs` 改用 `constants::ETAG_VERSION` 取代硬編碼字串 | 後端 | 🧠 Claude | [x] |
-| R7-P4-2 | **Auth Rate Limit 降低** | 認證端點 rate limit 由 100/min 降至 30/min | 後端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R7-1 | **SQL 拼接修復** | `data_import.rs` `format!()` SQL 改為參數化查詢 | [x] |
+| R7-2 | **密碼洩露修復** | `create_admin.rs` 不再將密碼明文印至 stdout | [x] |
+| R7-3 | **TRUST_PROXY 預設值** | `config.rs` `trust_proxy` 預設改為 `false` | [x] |
+| R7-4 | **ETag 常數化** | 改用 `constants::ETAG_VERSION` 取代硬編碼 | [x] |
+| R7-5 | **Auth Rate Limit 降低** | 認證端點 rate limit 100→30/min | [x] |
 
 ---
 
@@ -191,39 +188,29 @@
 
 ### 🔴 高優先（架構層）
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R8-1 | **`routes.rs` 依業務域拆分** | `api_routes()` 單一函式超過 1,000 行，應拆成 `routes/animal.rs`、`routes/hr.rs`、`routes/protocol.rs` 等子 Router，再在 `routes/mod.rs` 組裝 | 後端 | 🧠 Claude | [x] |
-| R8-2 | **`main.rs` 啟動邏輯提取** | `main()` 約 276 行（migration、middleware、CORS、server 混在一起），`log_startup_config_check()` 約 117 行；應提取至 `startup/` 模組 | 後端 | 🧠 Claude | [x] |
-| R8-3 | **建立 `repositories/` 層** | SQL 查詢直接寫在 `services/`，缺少 Repository 層；依規範「相同 SQL SELECT ≥2 次必須提取」，建立 `repositories/animal.rs`、`repositories/protocol.rs` 等，遷移重複 SQL | 後端 | 🧠 Claude | [x] |
-| R8-4 | **`utils/access.rs` → `services/access.rs`** | `check_resource_access` 依賴 `CurrentUser`（middleware 型別）與 `AppError`，是業務邏輯非純函式，應移至 `services/access.rs` | 後端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R8-1 | **`routes.rs` 依業務域拆分** | 拆成 routes/animal.rs 等子 Router + routes/mod.rs 組裝 | [x] |
+| R8-2 | **`main.rs` 啟動邏輯提取** | 提取至 `startup/` 模組 | [x] |
+| R8-3 | **建立 `repositories/` 層** | 遷移重複 SQL 至 repositories/ | [x] |
+| R8-4 | **`utils/access.rs` → `services/access.rs`** | 權限檢查移至 service 層 | [x] |
 
 ### 🟠 中優先（模組/元件層）
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R8-5 | **`services/animal/core.rs` 拆分** | 684 行，多個方法超過 50 行上限（`list()` 估計 130+ 行含大型 SQL）；依操作類型拆分或提取至 repository 層 | 後端 | 🧠 Claude | [x] |
-| R8-6 | **`App.tsx` Route 元件拆離** | 453 行（超過 300 行），`ProtectedRoute`、`ForcePasswordRoute`、`DashboardRoute`、`AdminRoute` 四個內聯元件應移至獨立檔案；`getHomeRedirect` 與 `DashboardRoute` 中角色陣列重複 | 前端 | 🧠 Claude | [x] |
-| R8-7 | **`lib/api.ts` 依業務域拆分** | 514 行（超過 300 行），同時含 Axios 設定、interceptors、7 個業務域 API 函式、型別 re-export；拆分為 `lib/api/client.ts`、`lib/api/bloodTest.ts`、`lib/api/animal.ts` 等，`index.ts` 統一匯出 | 前端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R8-5 | **`services/animal/core.rs` 拆分** | 684 行→拆分或提取至 repository 層 | [x] |
+| R8-6 | **`App.tsx` Route 元件拆離** | 4 個內聯元件移至獨立檔案 | [x] |
+| R8-7 | **`lib/api.ts` 依業務域拆分** | 拆為 client.ts + 業務域 API 檔案 + index.ts | [x] |
 
 ### 🟡 低優先（細節/一致性）
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R8-8 | **`AnimalsPage.tsx` / `ProtocolsPage.tsx` 拆分** | 分別為 581 行、375 行，超過 300 行上限；提取子元件或邏輯 hooks | 前端 | 🧠 Claude | [x] |
-| R8-9 | **型別 import 路徑統一** | `AnimalsPage.tsx`、`ProtocolsPage.tsx` 等從 `@/lib/api` 取得型別，應改從 `@/types/*` import；移除 `AnimalsPage.tsx` 中未使用的 `import axios` | 前端 | 🧠 Claude | [x] |
-| R8-10 | **內嵌常數移至 `constants.ts`** | `ProtocolsPage.tsx` 中 17 行 `statusColors` 常數（及其他頁面同類問題）應移至同層 `constants.ts` 或 `lib/constants/` | 前端 | 🧠 Claude | [x] |
-| R8-11 | **`use chrono::Datelike` import 位置修正** | `services/protocol/core.rs` 第 20 行在函式體內 `use chrono::Datelike`，應移至檔案頂部 import 區段 | 後端 | 🧠 Claude | [x] |
-
----
-
-## 🔧 R11 — Git 與環境配置修復（2026-03-15）
-
-> 解決分支分歧與開發環境衝突。
-
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R11-1 | **Git 分支衝突修復** | 解決本地與遠端分支領先/落後問題，設定 `pull.rebase true` 策略，清理 `.git/index.lock` 與 `templetes/` 衝突目錄 | DevOps | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R8-8 | **`AnimalsPage/ProtocolsPage` 拆分** | 超過 300 行上限，提取子元件 | [x] |
+| R8-9 | **型別 import 路徑統一** | 改從 `@/types/*` import，移除未使用 import | [x] |
+| R8-10 | **內嵌常數移至 `constants.ts`** | statusColors 等常數移至 lib/constants/ | [x] |
+| R8-11 | **chrono import 位置修正** | 函式體內 `use` 移至檔案頂部 | [x] |
 
 ---
 
@@ -231,13 +218,13 @@
 
 > 依據程式碼審查發現的安全漏洞與品質問題。
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R9-1 | **IDOR 漏洞修復** | `download_attachment`/`list_attachments` 加入基於 entity_type 的資源級權限檢查，新增 `check_attachment_permission()` 輔助函式 | 後端 | 🧠 Claude | [x] |
-| R9-2 | **上傳 handler 去重** | 抽取通用 `handle_upload()` 函式，6 個上傳 handler 改用通用函式（upload_sacrifice_photo 因獨特存表邏輯保留），upload.rs 606→420 行 | 後端 | 🧠 Claude | [x] |
-| R9-3 | **DB 錯誤碼修正** | `error.rs` 中 23505→409 Conflict、23503/23502/23514→400 Bad Request（原統一回 500） | 後端 | 🧠 Claude | [x] |
-| R9-4 | **歡迎信安全改善** | 已完成：`send_welcome_email` 改用密碼重設連結取代明文密碼（commit 8f4b722） | 後端 | 🧠 Claude | [x] |
-| R9-5 | **ERP/HR 整合測試覆蓋** | 部分完成：R13 新增 erp-inventory.spec.ts + hr-overtime.spec.ts。尚缺 GRN 入庫、出勤打卡、附件上傳/下載 | 測試 | 🧠 Claude | [ ] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R9-1 | **IDOR 漏洞修復** | attachment 加入 entity_type 資源級權限檢查 | [x] |
+| R9-2 | **上傳 handler 去重** | 抽取通用 `handle_upload()`，upload.rs 606→420 行 | [x] |
+| R9-3 | **DB 錯誤碼修正** | 23505→409、23503/23502/23514→400 | [x] |
+| R9-4 | **歡迎信安全改善** | `send_welcome_email` 改用密碼重設連結取代明文密碼 | [x] |
+| R9-5 | **ERP/HR 整合測試覆蓋** | 部分完成，尚缺 GRN 入庫、出勤打卡、附件上傳/下載 | [ ] |
 
 ### R9 審查—已知漏洞擱置（開發階段擱置，上線前必做）
 
@@ -254,82 +241,88 @@
 
 ### Medium Severity
 
-| # | 審查# | 項目 | 位置/說明 | 狀態 |
-|---|-------|------|-----------|------|
-| R10-M1 | M1 | Rate limiter 改 Redis | 單機部署暫不需要，推遲至多節點部署時實作 | 推遲 |
-| R10-M2 | M2 | N+1 修正 | 確認 `AnimalService::list` 已用 LEFT JOIN + 子查詢一次往返，無 N+1 問題 | [x] |
-| R10-M3 | M3 | 大檔案串流驗證 | `upload.rs` 新增 MIME 預檢（讀取前拒絕）+ 欄位級大小檢查，全域 30MB body limit 已存在 | [x] |
-| R10-M4 | M4 | unwrap 精簡 | 已清零（0 處 unwrap），之前改善已全部處理 | [x] |
-| R10-M5 | M5 | CSRF 強化 | Signed Double Submit Cookie：HMAC 綁定 session ID + constant_time_eq + 8 個新測試 | [x] |
-| R10-M6 | M6 | useUserManagement Zod | 新增 createUserFormSchema/updateUserFormSchema，email+display_name+role Zod 驗證 | [x] |
-| R10-M7 | M7 | file-upload MIME | ALLOWED_MIME_TYPES 白名單 + ALLOWED_EXTENSIONS 降級檢查，拒絕不允許的檔案類型 | [x] |
-| R10-M8 | M8 | Session timeout | 推遲，依合規需求決定 | 推遲 |
-| R10-M9 | M9 | Alert 門檻 | CPU/Memory 80%→warning 95%→critical，P95 延遲 2s/5s，Error rate 1%/5%，Disk 20%/10% | [x] |
-| R10-M10 | M10 | Prometheus/Grafana 認證 | 確認 Grafana 已用環境變數密碼、Prometheus 綁定 127.0.0.1 僅本機存取，已安全 | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R10-M1 | **Rate limiter 改 Redis** | 單機部署暫不需要，推遲至多節點部署時 | 推遲 |
+| R10-M2 | **N+1 修正** | 確認已用 LEFT JOIN + 子查詢，無 N+1 | [x] |
+| R10-M3 | **大檔案串流驗證** | MIME 預檢 + 欄位級大小檢查 | [x] |
+| R10-M4 | **unwrap 精簡** | 已清零（0 處 unwrap） | [x] |
+| R10-M5 | **CSRF 強化** | Signed Double Submit Cookie + 8 個新測試 | [x] |
+| R10-M6 | **useUserManagement Zod** | createUser/updateUser Zod schema 驗證 | [x] |
+| R10-M7 | **file-upload MIME** | ALLOWED_MIME_TYPES 白名單 + 副檔名檢查 | [x] |
+| R10-M8 | **Session timeout 強化** | 推遲，依合規需求決定 | 推遲 |
+| R10-M9 | **Alert 門檻** | CPU/Memory/P95/Error rate/Disk 門檻收緊 | [x] |
+| R10-M10 | **Prometheus/Grafana 認證** | 確認已安全（環境變數密碼 + 本機綁定） | [x] |
 
 ### Low Severity / Suggestions
 
-| # | 審查# | 項目 | 位置/說明 | 狀態 |
-|---|-------|------|-----------|------|
-| R10-L1 | L1 | auth handler 拆分 | 734→7 檔（login/session/password/account/impersonate/cookie/mod），每檔 ≤227 行 | [x] |
-| R10-L2 | L2 | auth service 拆分 | 1006→6 檔（login/session/password/two_factor/tests/mod），每檔 ≤292 行 | [x] |
-| R10-L3 | L3 | signature 拆分 | handler 560→7 檔，service 899→4 檔（access/content/annotation/mod） | [x] |
-| R10-L4 | L4 | product service 拆分 | 832→3 檔（crud 207 行/import 283 行/mod 308 行） | [x] |
-| R10-L5 | L5 | 外部 error tracking | 推遲至上線後，開發階段 log 已夠用 | 推遲 |
-| R10-L6 | L6 | Cookie consent 實際阻擋 | CookieConsent 重寫：「接受全部」/「僅必要」雙按鈕，Google Fonts 改為動態注入，同意前不載入 | [x] |
-| R10-L7 | L7 | 密碼複雜度 | 前後端統一：≥10 字元 + 大小寫 + 數字 + 30 組弱密碼黑名單 + 密碼強度指示器 | [x] |
-| R10-L8 | L8 | Watchtower 輪詢間隔 | `WATCHTOWER_POLL_INTERVAL` 30→3600 秒 | [x] |
-| R10-L9 | L9 | login_events 複合索引 | migration 016：`(email, event_type, created_at)` + `(created_at::date, event_type)` | [x] |
-| R10-L10 | L10 | JSONB schema validation | 新增 `utils/jsonb_validation.rs`（5 個驗證函式 + 11 個測試），觀察/手術/醫療記錄寫入時驗證 JSONB 結構 | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R10-L1 | **auth handler 拆分** | 734→7 檔，每檔 ≤227 行 | [x] |
+| R10-L2 | **auth service 拆分** | 1006→6 檔，每檔 ≤292 行 | [x] |
+| R10-L3 | **signature 拆分** | handler 560→7 檔，service 899→4 檔 | [x] |
+| R10-L4 | **product service 拆分** | 832→3 檔 | [x] |
+| R10-L5 | **外部 error tracking** | 推遲至上線後 | 推遲 |
+| R10-L6 | **Cookie consent 實際阻擋** | 雙按鈕重寫，Google Fonts 動態注入 | [x] |
+| R10-L7 | **密碼複雜度** | ≥10 字元 + 大小寫 + 數字 + 黑名單 + 強度指示器 | [x] |
+| R10-L8 | **Watchtower 輪詢間隔** | 30→3600 秒 | [x] |
+| R10-L9 | **login_events 複合索引** | migration 016 新增 2 個複合索引 | [x] |
+| R10-L10 | **JSONB schema validation** | 5 個驗證函式 + 11 個測試 | [x] |
 
 ---
 
-## 🔧 R11 — 技術債掃描（2026-03，自動分析產出）
+## 🔧 R11 — 技術債掃描 + Git 修復（2026-03）
 
-> 來源：2026-03-14 靜態分析掃描。依違反 CLAUDE.md 代碼規範嚴重程度排列。
+> 來源：2026-03-14 靜態分析掃描 + Git 環境修復。依違反 CLAUDE.md 代碼規範嚴重程度排列。
 > 後端函數上限 50 行，前端元件上限 300 行（JSX return 80 行），Hook 上限 300 行。
+
+### Git 與環境配置修復
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R11-0 | **Git 分支衝突修復** | 解決本地與遠端分支領先/落後問題，設定 `pull.rebase true` 策略，清理 `.git/index.lock` 與 `templetes/` 衝突目錄 | [x] |
 
 ### 🔴 高優先（後端極長函數 >100 行）
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R11-1 | **`pdf/service.rs` `generate_protocol_pdf` 拆分** | 單一函數 578 行（L63–L630），嚴重違反 50 行上限；應依章節拆出 `render_protocol_header()`、`render_animal_table()`、`render_experiment_section()` 等子函數，再由主函數依序呼叫 | 後端 | 🧠 Claude | [x] |
-| R11-2 | **`animal/import_export.rs` `import_basic_data` 拆分** | 函數 327 行（L200），`import_weight_data` 172 行（L527）；提取 validate_row、map_row_to_entity、batch_insert 等輔助函式，降低至 ≤50 行 | 後端 | 🧠 Claude | [x] |
-| R11-3 | **`services/product.rs` 多個長函數拆分** | `import_products` 196 行、`update` 170 行、`parse_product_csv` 140 行、`parse_product_excel` 114 行、`create` 109 行、`check_import_duplicates` 92 行——全部超過 50 行上限；CSV/Excel 解析邏輯應提取至獨立 parser 模組 | 後端 | 🧠 Claude | [x] |
-| R11-4 | **`handlers/signature.rs` handler 函數過長** | `check_animal_record_access_uuid` 106 行（含業務邏輯，違反 handler 職責）；`sign_sacrifice_record` 97、`sign_observation_record` 95、`sign_transfer_record` 93、`sign_euthanasia_order` 92、`sign_protocol_review` 91、`add_record_annotation` 80 行；簽署驗證邏輯應移至 `services/signature.rs` | 後端 | 🧠 Claude | [x] |
-| R11-5 | **`services/accounting.rs` 長函數拆分** | `post_sr` 121 行、`post_do` 117 行、`post_grn` 66 行；各記帳流程應提取 validate_lines、build_journal_entries、post_entries 等子函式 | 後端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R11-1 | **`pdf/service.rs` 拆分** | 578 行→依章節拆出子函數 | [x] |
+| R11-2 | **`import_export.rs` 拆分** | import_basic_data 327 行 + import_weight_data 172 行→輔助函式 | [x] |
+| R11-3 | **`services/product.rs` 拆分** | 6 個長函數→CSV/Excel parser 獨立模組 | [x] |
+| R11-4 | **`handlers/signature.rs` 拆分** | 簽署驗證邏輯移至 services/signature.rs | [x] |
+| R11-5 | **`services/accounting.rs` 拆分** | post_sr/post_do/post_grn 提取子函式 | [x] |
 
 ### 🔴 高優先（架構違規：Handler 直接 SQL）
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R11-19 | **Handler 層 98 處直接 SQL 查詢清除** | 靜態掃描確認 handlers/ 目錄存在 98 個 `sqlx::query`/`query_as` 直接呼叫，違反「handler 禁止 SQL」規範；重災區：`handlers/auth.rs`（L226/L418/L434）、`handlers/user_preferences.rs`（L32/L78/L112/L149）、`handlers/protocol/`、`handlers/animal/`、`handlers/hr/`、`handlers/signature.rs` 等 21+ 個檔案；應逐步遷移至對應 service 或新建 repository 函式 | 後端 | 🧠 Claude | [x] |
-| R11-20 | **Repository 層擴展（缺少 protocol/animal/hr 等）** | R8-3 已建立 equipment/product/role/sku/user/warehouse 六個 repository，但仍缺少：`repositories/protocol.rs`（協定查詢）、`repositories/animal.rs`（動物查詢）、`repositories/hr.rs`（請假/出勤）、`repositories/user_preferences.rs`（偏好設定）；重複出現的關鍵查詢：`SELECT display_name FROM users WHERE id = $1`（5 次）、`SELECT 1 FROM user_protocols`（4+ 次）、`SELECT 1 FROM vet_review_assignments`（4+ 次）應提取至 repository 層 | 後端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R11-19 | **Handler 層 98 處直接 SQL 清除** | 21+ 個檔案遷移至 service/repository | [x] |
+| R11-20 | **Repository 層擴展** | 新增 protocol/animal/hr/user_preferences repository | [x] |
 
 ### 🟠 中優先（前端超大元件 >600 行）
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R11-6 | **`ProtocolContentView.tsx` 拆分（870 行）** | 超過 300 行上限近 3 倍；依內容區塊（實驗設計/動物規格/統計方法/倫理聲明等）拆分為子元件，提取重複的欄位顯示 pattern 為共用元件 | 前端 | 🧠 Claude | [x] |
-| R11-7 | **`ProductImportDialog.tsx` 拆分（863 行）** | 匯入預覽表格、欄位映射、錯誤清單應各自提取為獨立子元件 | 前端 | 🧠 Claude | [x] |
-| R11-8 | **`hooks/usePermissionManager.ts` 拆分（853 行）** | Hook 超過 300 行上限；應依職責拆分為 `usePermissionCategories`（分類資料處理）、`usePermissionSearch`（搜尋篩選邏輯）、`usePermissionMutation`（新增/刪除 API） | 前端 | 🧠 Claude | [x] |
-| R11-9 | **`AccountingReportPage.tsx` 拆分（838 行）** | 損益表、AP/AR 老齡化、試算表、傳票列表四個區塊應各自提取為 Tab 子元件 | 前端 | 🧠 Claude | [x] |
-| R11-10 | **`HrLeavePage.tsx` 拆分（837 行）** | 請假申請表單、請假紀錄表格、餘額顯示應各自提取為子元件；重複的欄位定義可抽出 `useLeaveColumns` hook | 前端 | 🧠 Claude | [x] |
-| R11-11 | **`BloodTestTab.tsx` 拆分（811 行）** | 血檢套餐選擇、結果輸入、歷史紀錄三大功能區塊拆分為子元件，表格欄位定義提取至 constants | 前端 | 🧠 Claude | [x] |
-| R11-12 | **`DashboardPage.tsx` 拆分（805 行）** | 各儀表板區塊（動物概況、計畫進度、庫存警示、HR 餘額等）已部分提取為 Widget，仍有邏輯殘留在頁面層；提取 `useDashboardData` hook 集中 query 邏輯 | 前端 | 🧠 Claude | [x] |
-| R11-13 | **`DocumentLineEditor.tsx` 拆分 + `any` 消除（723 行 + 10 處 any）** | 元件超過 300 行；`setFormData: any`、`extraData?: any`、`newLine: any`、`prev: any`、`item: any` 等 10+ 處應改用具體型別（`DocumentFormData`、`ProductVariant`、`DocumentLine`）；商品選擇彈窗邏輯提取為子元件 | 前端 | 🧠 Claude | [x] |
-| R11-14 | **`useDocumentForm.ts` 拆分（717 行）** | 717→303 行，提取 `useDocumentLines`（240 行，明細行 CRUD/批號/儲位管理）、`useDocumentSubmit`（146 行，payload 建構/驗證/save/submit mutations） | 前端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R11-6 | **`ProtocolContentView.tsx` 拆分** | 870 行→依內容區塊拆為子元件 | [x] |
+| R11-7 | **`ProductImportDialog.tsx` 拆分** | 863 行→預覽/映射/錯誤各自獨立 | [x] |
+| R11-8 | **`usePermissionManager.ts` 拆分** | 853 行→categories/search/mutation 三個 hook | [x] |
+| R11-9 | **`AccountingReportPage.tsx` 拆分** | 838 行→4 個 Tab 子元件 | [x] |
+| R11-10 | **`HrLeavePage.tsx` 拆分** | 837 行→表單/表格/餘額子元件 | [x] |
+| R11-11 | **`BloodTestTab.tsx` 拆分** | 811 行→套餐/輸入/歷史子元件 | [x] |
+| R11-12 | **`DashboardPage.tsx` 拆分** | 805 行→提取 useDashboardData hook | [x] |
+| R11-13 | **`DocumentLineEditor.tsx` 拆分** | 723 行 + 10 處 any→子元件 + 具體型別 | [x] |
+| R11-14 | **`useDocumentForm.ts` 拆分** | 717→303 行，提取 useDocumentLines + useDocumentSubmit | [x] |
 
 ### 🟡 低優先（前端元件 300–600 行 & 細節問題）
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R11-15 | **中大型元件逐步拆分** | 10 個元件全部拆分完成：AnimalDetailPage（786→203）、AuditLogsPage（686→152）、TrainingRecordsPage（673→146）、ProductEditPage（647→91）、TransferTab（651→117）、TreatmentDrugOptionsPage（646→113）、ProtocolDetailPage（714→156）、Sidebar（635→175）、NotificationRoutingPage（617→98）、PartnersPage（610→96）——全部 ≤300 行 | 前端 | 🧠 Claude | [x] |
-| R11-16 | **`STORAGE_CONDITIONS` 重複常數合併 + `lib/constants/` 目錄建立** | 同一常數定義於 `pages/master/ProductEditPage.tsx:56` 與 `pages/master/ProductDetailPage.tsx:34`，違反 DRY 原則；應建立 `frontend/src/lib/constants/` 目錄（目前不存在），新增 `product.ts` 匯出 `STORAGE_CONDITIONS`，兩頁面改 import | 前端 | ⚡ Flash | [x] |
-| R11-17 | **剩餘 `any` 型別消除** | `WarehouseActionHeader.tsx:96/116/139` 的 `onError: (error: any)` 改用 `AxiosError`；`StorageLocationEditor.tsx:101` 的 `newLayout: any[]` 改用具體型別；`DocumentEditPage.tsx:102/322` 的 `as any[]` 改用 `Document[]` | 前端 | ⚡ Flash | [x] |
-| R11-18 | **後端中長函數清理（50–100 行）** | `services/auth.rs`：`change_own_password`（66 行）、`reset_password_with_token`（57 行）、`refresh_token`（55 行）、`generate_access_token`（51 行）——提取 token 生成邏輯、密碼驗證流程為子函式 | 後端 | 🧠 Claude | [x] |
-| R11-21 | **前端 try-catch 改為 TanStack Query 全域錯誤處理** | 掃描 54 處 try-catch，25 處改為 useMutation（blob 下載 12、表單 API 8、匯出匯入 5），27 處合理保留（auth store、API interceptor、JSON parse、日期格式化等） | 前端 | 🧠 Claude | [x] |
-| R11-22 | **源碼 TODO 註解清理** | `stocktake.rs` 實作類別篩選（推入 SQL WHERE）；`MyProjectDetailPage.tsx` 改用 `/animals?iacuc_no=` API 查詢取代空陣列 | 全端 | 🧠 Claude | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R11-15 | **中大型元件逐步拆分** | 10 個元件全部 ≤300 行（平均 -80%） | [x] |
+| R11-16 | **重複常數合併** | STORAGE_CONDITIONS 提取至 lib/constants/product.ts | [x] |
+| R11-17 | **剩餘 `any` 型別消除** | 3 個檔案 any→AxiosError/具體型別 | [x] |
+| R11-18 | **後端中長函數清理** | auth.rs 4 個 50-66 行函數→提取子函式 | [x] |
+| R11-21 | **try-catch → TanStack Query** | 25 處改 useMutation，27 處合理保留 | [x] |
+| R11-22 | **源碼 TODO 註解清理** | stocktake 類別篩選 + MyProjectDetailPage 動物查詢 | [x] |
 
 ---
 
@@ -337,15 +330,15 @@
 
 > 來源：各評估文件與安全審查建議。視業務需求排程。
 
-| # | 項目 | 說明 | 來源 | 狀態 |
-|---|------|------|------|------|
-| R12-1 | **Dependabot Phase 2.5 升級** | 已完成：utoipa 4→5、utoipa-swagger-ui 6→8、axum-extra 0.9→0.12、tailwind-merge 2→3。10 個 handler 檔修復 utoipa 5 breaking changes（body 型別 scope、`decimal` feature 更名、ToSchema derive） | `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` | [x] |
-| R12-2 | **財務模組 Phase 2–5 實作** | 推遲：目前使用 Excel 記錄付款收款。Phase 1 的自動過帳 + 帳齡報表已涵蓋日常營運需求 | `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md` | ⏸️ |
-| R12-3 | **圖片處理獨立服務** | 將圖片上傳、縮圖產生、格式轉換抽離為獨立微服務。`image-processor/` Node.js 服務（Sharp）+ Docker 容器 + docker-compose 整合。**Why：** 圖片處理為高資源消耗操作，與主應用同行程部署會影響 API 回應延遲；安全審查建議隔離攻擊面，避免惡意檔案解析漏洞擴散至核心服務 | `docs/security-compliance/security.md` | [x] |
-| R12-4 | **剩餘硬編碼色彩清理** | 已完成 auditLogs.ts（58 處）、animals/constants.ts（12 處）、ErpWidgets（17 處）、Auth 頁面表單內色彩（85 處）等。硬編碼從 748→112（-85%）。剩餘為 Auth 漸層背景（DESIGN.md 規範）和 Canvas 視覺化 hex 色彩 | DESIGN.md 合規掃描 | [x] |
-| R12-5 | **React Hook Form + Zod 表單遷移** | 全面完成：27 檔使用 useForm，18 個 Zod schema。涵蓋 Auth 3 頁、HR 3 表單、ERP Partner/Warehouse/BloodTest 5 頁、Admin UserForm 3 dialog + Facility 6 Tab + CreateAiKey + BatchCreatePen、Animal Edit/Sources、AP/AR Aging、WarehouseLayout、ProfileSettings。CRUD 表單覆蓋率 100%。 | CLAUDE.md 規範 | [x] |
-| R12-6 | **子系統色相實際套用** | NavItem 新增 `subsystem` 欄位（aup/erp/animal/hr/admin）。SortableNavItem active 狀態從 `bg-blue-600` 改為 `bg-subsystem-*` 動態色彩。Sidebar 子選單 active 同步使用父級子系統色相 | DESIGN.md §15 | [x] |
-| R12-7 | **CSRF Token 客戶端刷新機制** | API client response interceptor 新增 403 CSRF 錯誤偵測 → 自動呼叫 GET `/auth/me` 刷新 CSRF cookie → 重試原始請求（`_csrfRetry` 防無限迴圈）| 安全性掃描報告 | [x] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R12-1 | **Dependabot Phase 2.5 升級** | utoipa 5、axum-extra 0.12、tailwind-merge 3 等升級完成 | [x] |
+| R12-2 | **財務模組 Phase 2–5 實作** | 推遲：Phase 1 自動過帳 + 帳齡報表已涵蓋日常需求 | ⏸️ |
+| R12-3 | **圖片處理獨立服務** | `image-processor/` Node.js 服務（Sharp）+ Docker 整合 | [x] |
+| R12-4 | **剩餘硬編碼色彩清理** | 748→112 處（-85%），剩餘為規範內或 Canvas 色彩 | [x] |
+| R12-5 | **RHF + Zod 表單遷移** | 27 檔 useForm、18 個 Zod schema，CRUD 覆蓋率 100% | [x] |
+| R12-6 | **子系統色相實際套用** | Sidebar active → `bg-subsystem-*` 動態色彩 | [x] |
+| R12-7 | **CSRF Token 客戶端刷新** | 403 偵測 → 刷新 cookie → 自動重試 | [x] |
 
 ---
 
@@ -353,9 +346,9 @@
 
 > 來源：DESIGN.md §15 按鈕規範。UI 元素一致性改善。
 
-| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
-|---|------|------|------|----------|------|
-| R13-8 | **PageHeader 按鈕高度統一** | 全站 PageHeader/toolbar 內所有按鈕統一為 `size="sm"`（h-9），消除 primary action（default h-10）與 outline 按鈕的高度差異。規則寫入 DESIGN.md §15 | 前端 | ⚡ Flash | [ ] |
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R13-1 | **PageHeader 按鈕高度統一** | 全站 toolbar 按鈕統一 `size="sm"`（h-9），消除高度差異。DESIGN.md §15 | [ ] |
 
 ---
 
@@ -374,15 +367,15 @@
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
 | 🔒 R9 安全與品質修復 | 1 |
-| 🔒 R10 程式碼審查 Medium/Low | 0 (3 推遲) |
-| 🔧 R11 技術債掃描 | 0 |
+| 🔒 R10 程式碼審查 | 0 (3 推遲) |
+| 🔧 R11 技術債 + Git 修復 | 0 |
 | 🟢 R12 長期演進項目 | 0 (1 暫緩) |
 | 🎨 R13 UI 一致性 | 1 |
-| **合計（未完成）** | **1** |
+| **合計（未完成）** | **2** |
 
 ---
 
-## 變更紀錄 (最新)
+## 變更紀錄（封存，不再新增——變更日誌統一記錄於 `docs/PROGRESS.md` §9）
 
 | 2026-03-26 | 🧠 Claude：R13 更新計畫全面完成 — P0 CI 觸發恢復（P0 歸零）；P1 品質強化（49 Vitest 測試、4 元件 Props 合併、4 audit 色彩 token、CSRF 419）；P2 中優先（FormField 12 檔統一、StatsCard 共用元件、請假日期時區修復、UserEditDialog 單一資料源重構）；P3 長期演進（Dependabot 2.5 utoipa5/axum-extra0.12/tw-merge3、QA browser scripts、E2E 8→12 specs +18 tests）；R12-1 完成、R12-2 暫緩。待辦 5→2。 |
 | 2026-03-25 | 🧠 Claude：gstack 全面審查 + Simplify 重構 — Code Review（/review）8 auto-fix + 4 user-approved（deleteResource data 遺失、Retry-After NaN、overtime validation、stale closure、hidden tab bypass、canEditProtocol）；安全審計（/cso）92/100 → 4 項修復（AI rate limit 強制、Cargo.lock 追蹤、CI script injection、/metrics auth）；Simplify（DataTable 7 檔、StatusBadge 7 檔、FilterBar 4 檔、檔案拆分 5→19 檔、watch() 優化 4 檔、formatDate 統一 4 檔）；zodResolver 型別修復 7 檔。待辦 5→5。 |

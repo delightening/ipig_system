@@ -317,7 +317,44 @@ User → Roles → Permissions
 
 ---
 
-## 15. Subsystem Color Identity (藍色系分化)
+## 15. Button Guidelines (按鈕規範)
+
+### 15.1 按鈕高度一致性
+
+同一 toolbar / PageHeader 內的所有按鈕（含 primary action）必須使用相同的 `size`，禁止混用不同高度。
+
+| 場景 | Size | 高度 | 說明 |
+|------|------|------|------|
+| Toolbar / PageHeader actions | `sm` | h-9 (36px) | 列表頁操作列：新增、匯入、匯出、編輯分類等 |
+| 表單提交區域 | `default` | h-10 (40px) | 獨立表單頁底部：儲存、送出、取消 |
+| 重要步驟 CTA | `lg` | h-11 (44px) | 多步驟表單最終送出、Landing page CTA |
+| 表格行內操作 | `icon` | h-10 w-10 | 編輯、刪除等 icon-only 按鈕 |
+
+**規則：**
+- PageHeader `actions` 區域內所有按鈕統一使用 `size="sm"`，包括 primary action（如「新增產品」）
+- 禁止同一按鈕群組中混用 `sm` + `default` 造成高度不齊
+- 表單頁底部的送出/取消按鈕可使用 `default` 或 `lg`
+
+### 15.2 按鈕顏色策略
+
+按鈕顏色全站統一，**不按子系統分化**。子系統差異化透過 Sidebar active indicator、頁面 accent 等非按鈕元素表達。
+
+| Variant | 用途 | 說明 |
+|---------|------|------|
+| `default` (primary) | 主要操作 | 新增、儲存、送出 — 統一使用 `--primary` 藍色 |
+| `outline` | 次要操作 | 匯入、匯出、編輯分類等輔助操作 |
+| `destructive` | 破壞性操作 | 刪除、停用 |
+| `ghost` | 低優先操作 | 取消選擇、關閉 |
+| `secondary` | 中性操作 | 不強調的替代選項 |
+
+**規則：**
+- 所有子系統的 primary button 統一使用 `--primary` 色彩
+- 子系統色相（`--subsystem-*`）僅用於 Sidebar active indicator、Badge、Accent 等非操作元素
+- 操作語義（藍=主要、紅=破壞、灰=次要）優先於子系統品牌識別
+
+---
+
+## 16. Subsystem Color Identity (藍色系分化)
 
 各子系統使用藍色系近鄰色相區分，保持統一的專業感。用於 Auth 背景、Sidebar active indicator、頁面 accent 等場景。
 
@@ -344,7 +381,7 @@ bg-gradient-to-br from-slate-50 to-blue-50
 
 ---
 
-## 16. Empty State Design (統一空白狀態)
+## 17. Empty State Design (統一空白狀態)
 
 ### EmptyState Component 規範
 
@@ -381,7 +418,7 @@ interface EmptyStateProps {
 
 ---
 
-## 17. First-Time User Experience
+## 18. First-Time User Experience
 
 ### 歡迎狀態
 
@@ -397,7 +434,7 @@ interface EmptyStateProps {
 
 ---
 
-## 18. Accessibility Roadmap
+## 19. Accessibility Roadmap
 
 ### 現有基礎（來自 Radix UI）
 - Dialog, Select, Checkbox 等元件內建 ARIA 屬性
@@ -417,7 +454,7 @@ interface EmptyStateProps {
 
 ---
 
-## 19. Design Debt Registry
+## 20. Design Debt Registry
 
 以下為設計審查中發現的技術債，按優先級排列：
 
@@ -433,14 +470,19 @@ interface EmptyStateProps {
 
 ---
 
-## 20. Decisions Log
+## 21. Decisions Log
+
+> **格式：** 反向時間序（新→舊）。新決策加在 header 行之後。
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-03-24 | Initial DESIGN.md created | 由 /design-consultation + /plan-design-review 建立 |
-| 2026-03-24 | 子系統色彩採用藍色系分化 | 保持實驗室專業感，用色相微調（180°-240°）區分子系統 |
-| 2026-03-24 | 統一 EmptyState 元件規範 | 消除各頁面不一致的空白狀態處理 |
-| 2026-03-24 | Auth 背景統一為藍色漸層 | 消除紫色漸層 AI slop，保持品牌一致性 |
-| 2026-03-24 | 加入首次使用引導規範 | 提升新用戶 onboarding 體驗 |
-| 2026-03-24 | 加入 a11y roadmap | 記錄無障礙改進方向，不立即實作 |
+| 2026-03-26 | 文件記錄規則統一 | 統一時間排序（反向）、表格欄位、編號格式；變更日誌單一來源（PROGRESS.md §9） |
+| 2026-03-26 | 按鈕顏色不按子系統分化 | 操作語義（藍=主要、紅=破壞）優先於子系統品牌，子系統差異化透過 Sidebar/Badge 等非按鈕元素 |
+| 2026-03-26 | 按鈕高度統一規範 | PageHeader/toolbar 內所有按鈕統一 `size="sm"`，消除 primary action 與次要按鈕的高度差異 |
 | 2026-03-24 | ERP 導航模式記為設計債 | Tab 嵌入 vs 獨立路由不一致，未來重構統一 |
+| 2026-03-24 | 加入 a11y roadmap | 記錄無障礙改進方向，不立即實作 |
+| 2026-03-24 | 加入首次使用引導規範 | 提升新用戶 onboarding 體驗 |
+| 2026-03-24 | Auth 背景統一為藍色漸層 | 消除紫色漸層 AI slop，保持品牌一致性 |
+| 2026-03-24 | 統一 EmptyState 元件規範 | 消除各頁面不一致的空白狀態處理 |
+| 2026-03-24 | 子系統色彩採用藍色系分化 | 保持實驗室專業感，用色相微調（180°-240°）區分子系統 |
+| 2026-03-24 | Initial DESIGN.md created | 由 /design-consultation + /plan-design-review 建立 |
