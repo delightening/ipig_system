@@ -81,8 +81,12 @@ CREATE INDEX IF NOT EXISTS idx_treatment_drug_options_product_id ON treatment_dr
 -- ============================================================
 -- M5: AI API Key rate_limit CHECK constraint
 -- ============================================================
-ALTER TABLE ai_api_keys
-    ADD CONSTRAINT chk_rate_limit_positive CHECK (rate_limit_per_minute IS NULL OR rate_limit_per_minute > 0);
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_rate_limit_positive') THEN
+        ALTER TABLE ai_api_keys
+            ADD CONSTRAINT chk_rate_limit_positive CHECK (rate_limit_per_minute IS NULL OR rate_limit_per_minute > 0);
+    END IF;
+END $$;
 
 -- ============================================================
 -- M12: Audit log 複合索引（改善 partition pruning）
