@@ -9,6 +9,7 @@ use axum::extract::Multipart;
 use uuid::Uuid;
 use validator::Validate;
 
+use crate::error::ErrorResponse;
 use crate::{
     middleware::CurrentUser,
     models::{

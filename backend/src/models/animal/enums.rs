@@ -56,7 +56,7 @@ impl AnimalStatus {
 }
 
 /// 動物轉讓狀態
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "animal_transfer_status", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum AnimalTransferStatus {
@@ -169,7 +169,7 @@ impl AnimalGender {
 }
 
 /// 紀錄類型
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "record_type", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum RecordType {

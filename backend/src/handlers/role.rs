@@ -6,6 +6,7 @@ use axum::{
 use uuid::Uuid;
 use validator::Validate;
 
+use crate::error::ErrorResponse;
 use crate::{
     handlers::user::require_reauth_token,
     middleware::CurrentUser,

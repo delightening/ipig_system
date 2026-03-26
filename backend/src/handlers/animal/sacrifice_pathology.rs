@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::{
     middleware::CurrentUser,
-    models::{AnimalSacrifice, CreateSacrificeRequest},
+    models::{AnimalPathologyReport, AnimalSacrifice, CreateSacrificeRequest},
     require_permission,
     services::{AnimalMedicalService, AnimalService, AuditService},
     AppState, Result,

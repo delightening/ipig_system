@@ -242,18 +242,6 @@ use utoipa::OpenApi;
         crate::handlers::submit_document,
         crate::handlers::approve_document,
         crate::handlers::cancel_document,
-        // === 儲位管理 ===
-        crate::handlers::storage_location::create_storage_location,
-        crate::handlers::storage_location::list_storage_locations,
-        crate::handlers::storage_location::get_storage_location,
-        crate::handlers::storage_location::update_storage_location,
-        crate::handlers::storage_location::delete_storage_location,
-        crate::handlers::storage_location::generate_storage_location_code,
-        crate::handlers::storage_location::get_storage_location_inventory,
-        crate::handlers::storage_location::create_storage_location_inventory_item,
-        crate::handlers::storage_location::update_storage_location_inventory_item,
-        crate::handlers::storage_location::transfer_storage_location_inventory,
-        crate::handlers::storage_location::update_warehouse_layout,
         // === 報表 ===
         crate::handlers::get_stock_on_hand_report,
         crate::handlers::get_stock_ledger_report,

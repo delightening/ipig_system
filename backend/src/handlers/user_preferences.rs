@@ -3,7 +3,7 @@ use axum::{
     Extension, Json,
 };
 
-use crate::error::AppError;
+use crate::error::{AppError, ErrorResponse};
 use crate::middleware::CurrentUser;
 use crate::models::user_preferences::{
     AllPreferencesResponse, PreferenceResponse, UpsertPreferenceRequest,

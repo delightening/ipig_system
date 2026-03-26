@@ -144,7 +144,7 @@ pub async fn update_partner(
     Ok(Json(partner))
 }
 
-#[derive(Debug, Deserialize, utoipa::IntoParams)]
+#[derive(Debug, Deserialize, utoipa::IntoParams, utoipa::ToSchema)]
 pub struct DeleteQuery {
     pub hard: Option<bool>,
 }

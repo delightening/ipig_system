@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 use uuid::Uuid;
 use validator::Validate;
 
+use crate::error::ErrorResponse;
 use crate::{
     middleware::{CurrentUser, extract_real_ip_with_trust},
     models::{AuditAction, CreateUserRequest, PaginationParams, ResetPasswordRequest, UpdateUserRequest, UserResponse},

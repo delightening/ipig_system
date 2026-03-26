@@ -7,6 +7,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
+use crate::error::ErrorResponse;
 use crate::{
     middleware::CurrentUser,
     models::UserResponse,
