@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use erp_backend::config;
-use erp_backend::handlers;
 use erp_backend::middleware::JwtBlacklist;
 use erp_backend::services::scheduler::SchedulerService;
 use erp_backend::services::{AuditService, FileService, GeoIpService, GotenbergClient, ImageProcessorClient, TemplateService};
@@ -149,7 +148,6 @@ async fn main() -> anyhow::Result<()> {
         config: config.clone(),
         geoip,
         jwt_blacklist,
-        alert_broadcaster: handlers::sse::AlertBroadcaster::new(),
         metrics_handle,
         gotenberg,
         image_processor,

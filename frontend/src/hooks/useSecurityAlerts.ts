@@ -1,98 +1,84 @@
-// 安全警報即時訂閱 hook（SSE）
-// 訂閱後端 SSE 端點，接收安全警報事件並顯示 toast 通知
+// 安全警報 polling hook
+// 每 30 秒輪詢後端，偵測新警報並顯示 toast 通知
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
+
 import { useAuthStore } from '@/stores/auth'
+import api from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 
-interface AlertEvent {
-    alert_type: string
-    severity: string
-    title: string
-    description: string
+interface SecurityAlert {
+  id: string
+  alert_type: string
+  severity: string
+  title: string
+  description: string | null
+  created_at: string
 }
 
-/** 最大重試次數 */
-const MAX_RETRIES = 5
-/** 基礎重連延遲（毫秒） */
-const BASE_DELAY_MS = 2000
+/** Polling 間隔（毫秒） */
+const POLL_INTERVAL_MS = 30_000
 
 /**
- * SSE 安全警報訂閱 hook
- * 僅在使用者為管理員時啟用。收到警報自動顯示 toast。
- * 連線斷開時使用指數退避自動重連（最多 MAX_RETRIES 次）。
+ * 安全警報 polling hook
+ * 僅在使用者為管理員時啟用。偵測到新警報自動顯示 toast。
  */
 export function useSecurityAlerts() {
-    const { user } = useAuthStore()
-    const eventSourceRef = useRef<EventSource | null>(null)
-    const retryCountRef = useRef(0)
-    const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('admin')
+  const { user } = useAuthStore()
+  const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('admin')
 
-    const handleAlert = useCallback((event: MessageEvent) => {
-        try {
-            const alert: AlertEvent = JSON.parse(event.data)
-            const variant = alert.severity === 'critical' ? 'destructive' as const : 'default' as const
-            toast({
-                title: `🔔 ${alert.title}`,
-                description: alert.description,
-                variant,
-                duration: alert.severity === 'critical' ? 15000 : 8000,
-            })
-        } catch {
-            // 忽略解析失敗
-        }
-    }, [])
+  // 追蹤已顯示 toast 的警報 ID，避免重複通知
+  const shownIdsRef = useRef<Set<string>>(new Set())
+  // 追蹤是否為首次載入（首次不彈 toast）
+  const isFirstFetchRef = useRef(true)
 
-    const connect = useCallback(() => {
-        // 關閉既有連線
-        if (eventSourceRef.current) {
-            eventSourceRef.current.close()
-            eventSourceRef.current = null
-        }
+  const { data: alerts } = useQuery<SecurityAlert[]>({
+    queryKey: ['security-alerts-recent'],
+    queryFn: async () => {
+      // 查詢最近 60 秒的警報
+      const after = new Date(Date.now() - 60_000).toISOString()
+      const res = await api.get<SecurityAlert[]>('/admin/audit/alerts/recent', {
+        params: { after },
+      })
+      return res.data
+    },
+    enabled: !!isAdmin,
+    refetchInterval: () => (document.hidden ? false : POLL_INTERVAL_MS),
+    staleTime: POLL_INTERVAL_MS,
+    retry: false,
+  })
 
-        const url = '/api/admin/audit/alerts/sse'
-        const es = new EventSource(url, { withCredentials: true })
-        eventSourceRef.current = es
+  useEffect(() => {
+    if (!alerts || alerts.length === 0) return
 
-        es.addEventListener('security_alert', handleAlert)
+    // 首次載入：記錄現有警報 ID，不彈 toast
+    if (isFirstFetchRef.current) {
+      isFirstFetchRef.current = false
+      for (const alert of alerts) {
+        shownIdsRef.current.add(alert.id)
+      }
+      return
+    }
 
-        es.onopen = () => {
-            // 連線成功，重置重試計數器
-            retryCountRef.current = 0
-        }
+    // 後續輪詢：只對未顯示過的新警報彈 toast
+    for (const alert of alerts) {
+      if (shownIdsRef.current.has(alert.id)) continue
+      shownIdsRef.current.add(alert.id)
 
-        es.onerror = () => {
-            // SSE 連線中斷或逾時（如 524）時關閉後指數退避重連
-            es.close()
-            eventSourceRef.current = null
+      const variant = alert.severity === 'critical' ? 'destructive' as const : 'default' as const
+      toast({
+        title: `🔔 ${alert.title}`,
+        description: alert.description ?? undefined,
+        variant,
+        duration: alert.severity === 'critical' ? 15000 : 8000,
+      })
+    }
 
-            if (retryCountRef.current < MAX_RETRIES) {
-                const delay = BASE_DELAY_MS * Math.pow(2, retryCountRef.current)
-                retryCountRef.current += 1
-                retryTimerRef.current = setTimeout(connect, delay)
-            }
-            // 超過最大重試次數後靜默放棄，不刷 console
-        }
-    }, [handleAlert])
-
-    useEffect(() => {
-        // 僅管理員訂閱
-        if (!isAdmin) return
-
-        connect()
-
-        return () => {
-            // 清理：關閉 EventSource + 取消重連 timer
-            if (retryTimerRef.current) {
-                clearTimeout(retryTimerRef.current)
-                retryTimerRef.current = null
-            }
-            if (eventSourceRef.current) {
-                eventSourceRef.current.close()
-                eventSourceRef.current = null
-            }
-            retryCountRef.current = 0
-        }
-    }, [isAdmin, connect])
+    // 防止 Set 無限增長：只保留最近的 ID
+    if (shownIdsRef.current.size > 200) {
+      const ids = Array.from(shownIdsRef.current)
+      shownIdsRef.current = new Set(ids.slice(-100))
+    }
+  }, [alerts])
 }

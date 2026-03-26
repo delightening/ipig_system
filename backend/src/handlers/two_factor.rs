@@ -154,7 +154,6 @@ pub async fn verify_2fa_login(
     // 登入成功事件
     let db = state.db.clone();
     let geoip = state.geoip.clone();
-    let broadcaster = state.alert_broadcaster.clone();
     let user_id = response.user.id;
     let email = response.user.email.clone();
     let ip_clone = ip.clone();
@@ -164,7 +163,7 @@ pub async fn verify_2fa_login(
     tokio::spawn(async move {
         let _ = LoginTracker::log_success(
             &db, user_id, &email, Some(&ip_clone),
-            ua_clone.as_deref(), &geoip, &broadcaster,
+            ua_clone.as_deref(), &geoip,
         ).await;
         let _ = SessionManager::create_session(
             &db, user_id, Some(&ip_clone), ua_clone.as_deref(),

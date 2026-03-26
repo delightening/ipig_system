@@ -653,6 +653,27 @@ impl AuditService {
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
 
+    /// 查詢指定時間之後的新安全警報（供前端 polling 使用）
+    pub async fn find_recent_alerts(
+        pool: &PgPool,
+        after: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<SecurityAlert>> {
+        let alerts = sqlx::query_as::<_, SecurityAlert>(
+            r#"
+            SELECT * FROM security_alerts
+            WHERE created_at > $1
+              AND status IN ('open', 'acknowledged')
+            ORDER BY created_at DESC
+            LIMIT 20
+            "#,
+        )
+        .bind(after)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(alerts)
+    }
+
     /// 解決安全警報
     pub async fn resolve_alert(
         pool: &PgPool,
