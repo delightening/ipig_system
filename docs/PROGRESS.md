@@ -185,6 +185,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-03-27 SSE → Polling 重構 + 依賴清理
+
+- ✅ **SSE 移除**：刪除 `AlertBroadcaster`、`sse.rs`、nginx SSE location block，解決 Cloudflare 524 timeout 問題
+- ✅ **Polling 端點新增**：`GET /admin/audit/alerts/recent?after=` 每 30 秒輪詢，前端 `useSecurityAlerts` 改用 `useQuery`
+- ✅ **依賴清理**：移除 `async-stream`、`futures` crate（僅 SSE 使用）
+- ✅ **程式碼精簡**：從 `login_tracker.rs`、`login.rs`、`two_factor.rs` 移除所有 broadcaster 參數（淨刪 188 行）
+
 ### 2026-03-27 Migration Squash — 22 檔合併為 8 檔
 
 - ✅ **Migration 合併**：22 個增量 migration 檔案合併為 8 個乾淨的 squashed migration（`backend/migrations_squashed/001-008`），按業務域分組（types → users/auth → animal → AUP → HR → ERP → audit/security → facility/equipment）
