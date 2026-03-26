@@ -7,9 +7,11 @@ services:
     container_name: ipig-db
     env_file:
       - .env
+    secrets:
+      - db_password
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_DB: ${POSTGRES_DB:-ipig_db}
       POSTGRES_INITDB_ARGS: "--locale=C"
     volumes:
@@ -25,6 +27,16 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     restart: unless-stopped
 
   # =========================
@@ -37,28 +49,33 @@ services:
     container_name: ipig-api
     env_file:
       - .env
+    secrets:
+      - google_service_account
+      - jwt_secret
+      - db_url
+      - smtp_password
     environment:
       HOST: ${HOST:-0.0.0.0}
       PORT: ${PORT:-8000}
 
-      # 後端在 docker 裡，DB host 一律用 service name db，port 用 5432
-      # 密碼使用 URL-encoded 版本（避免 / + 等特殊字元破壞 URL 解析）
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD_URL}@db:5432/${POSTGRES_DB:-ipig_db}
+      # Production: 密碼由 Docker Secrets 提供
+      DATABASE_URL_FILE: /run/secrets/db_url
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+
       DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
       DATABASE_RETRY_ATTEMPTS: ${DATABASE_RETRY_ATTEMPTS:-10}
       DATABASE_RETRY_DELAY_SECONDS: ${DATABASE_RETRY_DELAY_SECONDS:-3}
 
-      JWT_SECRET: ${JWT_SECRET}
       # JWT_EXPIRATION_HOURS 已廢棄，改用下方 JWT_EXPIRATION_MINUTES
       JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-7}
       # SEC-32: 統一使用分鐘級設定
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-360}
 
-      # Email settings
+      # Email settings（密碼由 secrets 提供）
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@erp.local}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-ERP System}
 
@@ -68,13 +85,13 @@ services:
       GEOIP_DB_PATH: /app/geoip/GeoLite2-City.mmdb
 
       # Cookie 安全設定（SEC-02 HttpOnly Cookie）
-      # SEC-29: 預設 true，開發環境需手動設為 false
+      # SEC-29: 預設 true
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
 
       # Uploads
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
-      # SEC-29: 預設 false，開發環境需手動設為 true
+      # SEC-29: 預設 false
       SEED_DEV_USERS: ${SEED_DEV_USERS:-false}
 
       # SEC-30: IP Header 信任策略（反向代理後方設 true）
@@ -82,11 +99,10 @@ services:
       # SEC-31: CORS 允許的 Origin（逗號分隔）
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
 
-      # 帳號鎖定：設為 true 可關閉 SEC-20 登入失敗鎖定（開發環境適用）
+      # 帳號鎖定：設為 true 可關閉 SEC-20 登入失敗鎖定
       DISABLE_ACCOUNT_LOCKOUT: ${DISABLE_ACCOUNT_LOCKOUT:-false}
 
       # Google Calendar service account
-      # 你程式端用 Google SDK 或自寫讀檔都可以直接吃這個路徑
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_service_account
       GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
 
@@ -108,14 +124,22 @@ services:
     volumes:
       - ${UPLOAD_VOLUME:-./uploads}:/app/uploads
       - ./geoip:/app/geoip:ro
-    secrets:
-      - google_service_account
     healthcheck:
       test: [ "CMD", "/app/healthcheck" ]
       interval: 10s
       timeout: 3s
       retries: 3
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     networks:
       - backend
       - database
@@ -143,6 +167,16 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - frontend
       - backend
@@ -151,11 +185,14 @@ services:
     restart: unless-stopped
 
   # =========================
-  # React Frontend Dev (Vite)
+  # React Frontend Dev (Vite) — 僅 dev profile 啟用
+  # docker compose --profile dev up web-dev
   # =========================
   web-dev:
     image: node:22-alpine
     container_name: ipig-web-dev
+    profiles:
+      - dev
     working_dir: /app
     volumes:
       - ./frontend:/app
@@ -226,16 +263,19 @@ services:
     container_name: ipig-db-backup
     env_file:
       - .env
+    secrets:
+      - db_password
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-ipig_db}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       PGHOST: db
       PGPORT: "5432"
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
       RSYNC_TARGET: ${RSYNC_TARGET:-}
       BACKUP_ON_START: ${BACKUP_ON_START:-false}
+      BACKUP_REQUIRE_ENCRYPTION: "true"
       # GPG 加密備份（設定收件者 Key ID 或 email，留空則不加密）
       BACKUP_GPG_RECIPIENT: ${BACKUP_GPG_RECIPIENT:-}
     volumes:
@@ -246,6 +286,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
     restart: unless-stopped
 
 # =========================
@@ -265,6 +310,14 @@ networks:
 secrets:
   google_service_account:
     file: ./secrets/google-service-account.json
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  db_url:
+    file: ./secrets/db_url.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  smtp_password:
+    file: ./secrets/smtp_password.txt
 
 # =========================
 # Volumes
