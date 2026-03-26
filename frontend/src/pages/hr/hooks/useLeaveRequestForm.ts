@@ -60,6 +60,7 @@ export function useLeaveRequestForm() {
   useEffect(() => {
     if (!lastChangedField) return
 
+    // 使用曆日計算（含週末），後端為實際請假時數的最終來源
     if ((lastChangedField === 'startDate' || lastChangedField === 'endDate') && startDate && endDate) {
       const start = new Date(startDate)
       const end = new Date(endDate)
@@ -77,7 +78,9 @@ export function useLeaveRequestForm() {
         const days = Math.ceil(hours / HOURS_PER_DAY)
         const start = new Date(startDate)
         const end = new Date(start.getTime() + (days - 1) * 24 * 60 * 60 * 1000)
-        const newEndDate = end.toISOString().split('T')[0]
+        // 使用本地日期格式化，避免 toISOString() 在 UTC+8 時區偏移一天
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const newEndDate = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`
         if (newEndDate !== endDate) {
           setValue('endDate', newEndDate)
         }

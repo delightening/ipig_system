@@ -11,6 +11,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -172,19 +173,15 @@ export function PenTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>新增欄位</DialogTitle></DialogHeader>
           <form onSubmit={onCreateSubmit} className="space-y-3">
-            <div>
-              <Label>所屬區域 *</Label>
+            <FormField label="所屬區域" required error={createForm.formState.errors.zone_id?.message}>
               <Select value={createZoneId} onValueChange={v => createForm.setValue('zone_id', v, { shouldValidate: true })}>
                 <SelectTrigger><SelectValue placeholder="選擇區域" /></SelectTrigger>
                 <SelectContent>{zones.map(z => <SelectItem key={z.id} value={z.id}>{z.building_code}棟 {z.code}區 {z.name ? `(${z.name})` : ''}</SelectItem>)}</SelectContent>
               </Select>
-              {createForm.formState.errors.zone_id && <p className="text-sm text-destructive">{createForm.formState.errors.zone_id.message}</p>}
-            </div>
-            <div>
-              <Label>代碼 *</Label>
+            </FormField>
+            <FormField label="代碼" required error={createForm.formState.errors.code?.message}>
               <Input {...createForm.register('code')} />
-              {createForm.formState.errors.code && <p className="text-sm text-destructive">{createForm.formState.errors.code.message}</p>}
-            </div>
+            </FormField>
             <div><Label>名稱</Label><Input {...createForm.register('name')} /></div>
             <div>
               <Label>容量</Label>

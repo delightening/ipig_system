@@ -79,10 +79,14 @@ export function UsersPage() {
       <UserEditDialog
         open={mgmt.showEditDialog}
         onOpenChange={mgmt.setShowEditDialog}
-        formData={mgmt.formData}
-        setFormData={mgmt.setFormData}
+        initialData={{
+          email: mgmt.formData.email,
+          display_name: mgmt.formData.display_name,
+          entry_date: mgmt.formData.entry_date || '',
+          trainings: mgmt.formData.trainings || [],
+        }}
         isPending={mgmt.updateMutation.isPending}
-        onSubmit={mgmt.handleUpdate}
+        onSubmit={mgmt.handleUpdateWithData}
       />
 
       <UserRolesDialog

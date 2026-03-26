@@ -11,6 +11,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -146,24 +147,18 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
         <DialogContent>
           <DialogHeader><DialogTitle>新增棟舍</DialogTitle></DialogHeader>
           <form onSubmit={onCreateSubmit} className="space-y-3">
-            <div>
-              <Label>所屬設施 *</Label>
+            <FormField label="所屬設施" required error={errors.facility_id?.message}>
               <Select value={facilityId} onValueChange={v => setValue('facility_id', v, { shouldValidate: true })}>
                 <SelectTrigger><SelectValue placeholder="選擇設施" /></SelectTrigger>
                 <SelectContent>{facilities.map(f => <SelectItem key={f.id} value={f.id}>{f.name} ({f.code})</SelectItem>)}</SelectContent>
               </Select>
-              {errors.facility_id && <p className="text-sm text-destructive">{errors.facility_id.message}</p>}
-            </div>
-            <div>
-              <Label>代碼 *</Label>
+            </FormField>
+            <FormField label="代碼" required error={errors.code?.message}>
               <Input {...register('code')} />
-              {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
-            </div>
-            <div>
-              <Label>名稱 *</Label>
+            </FormField>
+            <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
+            </FormField>
             <div><Label>描述</Label><Input {...register('description')} /></div>
             <div>
               <Label>排序</Label>
@@ -184,11 +179,9 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
           <DialogHeader><DialogTitle>編輯棟舍</DialogTitle></DialogHeader>
           <form onSubmit={onEditSubmit} className="space-y-3">
             <div><Label>代碼</Label><Input {...register('code')} disabled /></div>
-            <div>
-              <Label>名稱 *</Label>
+            <FormField label="名稱" required error={errors.name?.message}>
               <Input {...register('name')} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
+            </FormField>
             <div><Label>描述</Label><Input {...register('description')} /></div>
             <div>
               <Label>排序</Label>

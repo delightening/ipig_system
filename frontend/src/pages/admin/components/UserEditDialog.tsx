@@ -12,28 +12,26 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 import {
   editUserSchema,
   type EditUserFormData,
 } from '@/lib/validation'
-import type { CreateUserData } from '../hooks/useUserManagement'
 
 interface UserEditDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  formData: CreateUserData
-  setFormData: (data: CreateUserData | ((prev: CreateUserData) => CreateUserData)) => void
+  initialData: EditUserFormData
   isPending: boolean
-  onSubmit: () => void
+  onSubmit: (data: EditUserFormData) => void
 }
 
 export function UserEditDialog({
   open,
   onOpenChange,
-  formData,
-  setFormData,
+  initialData,
   isPending,
   onSubmit,
 }: UserEditDialogProps) {
@@ -42,45 +40,22 @@ export function UserEditDialog({
     handleSubmit,
     watch,
     setValue,
+    getValues,
     reset,
     formState: { errors },
   } = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
-    defaultValues: {
-      email: formData.email,
-      display_name: formData.display_name,
-      entry_date: formData.entry_date || '',
-      trainings: formData.trainings || [],
-    },
+    defaultValues: initialData,
   })
 
   const trainings = watch('trainings') || []
 
   useEffect(() => {
     if (open) {
-      reset({
-        email: formData.email,
-        display_name: formData.display_name,
-        entry_date: formData.entry_date || '',
-        trainings: formData.trainings || [],
-      })
+      reset(initialData)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset])
-
-  const watchedEmail = watch('email')
-  const watchedDisplayName = watch('display_name')
-  const watchedEntryDate = watch('entry_date')
-
-  useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      email: watchedEmail,
-      display_name: watchedDisplayName,
-      entry_date: watchedEntryDate || '',
-      trainings: trainings,
-    }))
-  }, [watchedEmail, watchedDisplayName, watchedEntryDate, trainings, setFormData])
 
   const toggleTraining = (code: string) => {
     const exists = trainings.some((t) => t.code === code)
@@ -101,7 +76,7 @@ export function UserEditDialog({
   }
 
   const onValid = () => {
-    onSubmit()
+    onSubmit(getValues())
   }
 
   return (
@@ -112,20 +87,12 @@ export function UserEditDialog({
           <DialogDescription>修改使用者資訊</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onValid)} className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="edit-email">Email</Label>
+          <FormField label="Email" error={errors.email?.message} htmlFor="edit-email">
             <Input id="edit-email" type="email" {...register('email')} />
-            {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-display_name">顯示名稱</Label>
+          </FormField>
+          <FormField label="顯示名稱" error={errors.display_name?.message} htmlFor="edit-display_name">
             <Input id="edit-display_name" {...register('display_name')} />
-            {errors.display_name && (
-              <p className="text-sm text-destructive">{errors.display_name.message}</p>
-            )}
-          </div>
+          </FormField>
           <div className="border-t pt-4 mt-4">
             <h4 className="font-medium mb-3">AUP 人員資料</h4>
             <div className="space-y-2 mb-4">

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatsCard } from '@/components/ui/stats-card'
 import { GraduationCap, AlertTriangle } from 'lucide-react'
 
 interface TrainingStatsCardsProps {
@@ -9,24 +9,14 @@ interface TrainingStatsCardsProps {
 export function TrainingStatsCards({ totalRecords, expiringSoonCount }: TrainingStatsCardsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">訓練紀錄數</CardTitle>
-          <GraduationCap className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{totalRecords}</div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">證照即將到期</CardTitle>
-          <AlertTriangle className="h-4 w-4 text-status-warning-text" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-status-warning-text">{expiringSoonCount}</div>
-        </CardContent>
-      </Card>
+      <StatsCard label="訓練紀錄數" value={totalRecords} icon={GraduationCap} />
+      <StatsCard
+        label="證照即將到期"
+        value={expiringSoonCount}
+        icon={AlertTriangle}
+        iconClassName="text-status-warning-text"
+        valueClassName="text-status-warning-text"
+      />
     </div>
   )
 }

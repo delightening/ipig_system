@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Loader2, Key, Eye, EyeOff } from 'lucide-react'
 import { useToggle } from '@/hooks/useToggle'
 import {
@@ -87,8 +87,7 @@ export function UserResetPasswordDialog({
               重設密碼後，該使用者需要使用新密碼重新登入。建議通知該使用者密碼已變更。
             </p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="reset-reauth-password">您的登入密碼（確認身份）</Label>
+          <FormField label="您的登入密碼（確認身份）" error={errors.reauth_password?.message} htmlFor="reset-reauth-password">
             <div className="relative">
               <Input
                 id="reset-reauth-password"
@@ -108,12 +107,8 @@ export function UserResetPasswordDialog({
                 {showReauthPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </Button>
             </div>
-            {errors.reauth_password && (
-              <p className="text-sm text-destructive">{errors.reauth_password.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reset-new-password">新密碼</Label>
+          </FormField>
+          <FormField label="新密碼" error={errors.new_password?.message} htmlFor="reset-new-password">
             <div className="relative">
               <Input
                 id="reset-new-password"
@@ -133,12 +128,8 @@ export function UserResetPasswordDialog({
                 {showNewPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </Button>
             </div>
-            {errors.new_password && (
-              <p className="text-sm text-destructive">{errors.new_password.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reset-confirm-password">確認新密碼</Label>
+          </FormField>
+          <FormField label="確認新密碼" error={errors.confirm_password?.message} htmlFor="reset-confirm-password">
             <div className="relative">
               <Input
                 id="reset-confirm-password"
@@ -158,10 +149,7 @@ export function UserResetPasswordDialog({
                 {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </Button>
             </div>
-            {errors.confirm_password && (
-              <p className="text-sm text-destructive">{errors.confirm_password.message}</p>
-            )}
-          </div>
+          </FormField>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
               取消

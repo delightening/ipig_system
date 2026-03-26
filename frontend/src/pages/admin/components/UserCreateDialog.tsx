@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 import {
@@ -102,43 +102,30 @@ export function UserCreateDialog({
           <DialogDescription>創建新的系統使用者帳號</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onValid)} className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+          <FormField label="Email" required error={errors.email?.message} htmlFor="email">
             <Input
               id="email"
               type="email"
               {...register('email')}
               placeholder="user@example.com"
             />
-            {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">密碼 *</Label>
+          </FormField>
+          <FormField label="密碼" required error={errors.password?.message} htmlFor="password">
             <Input
               id="password"
               type="password"
               {...register('password')}
               placeholder="至少 10 個字元"
             />
-            {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="display_name">顯示名稱 *</Label>
+          </FormField>
+          <FormField label="顯示名稱" required error={errors.display_name?.message} htmlFor="display_name">
             <Input
               id="display_name"
               {...register('display_name')}
               placeholder="使用者名稱"
             />
-            {errors.display_name && (
-              <p className="text-sm text-destructive">{errors.display_name.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label>指派角色</Label>
+          </FormField>
+          <FormField label="指派角色" error={errors.role_ids?.message}>
             <div className="flex flex-wrap gap-2 p-3 border rounded-md">
               {roles?.map((role) => (
                 <Badge
@@ -151,10 +138,7 @@ export function UserCreateDialog({
                 </Badge>
               ))}
             </div>
-            {errors.role_ids && (
-              <p className="text-sm text-destructive">{errors.role_ids.message}</p>
-            )}
-          </div>
+          </FormField>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               取消

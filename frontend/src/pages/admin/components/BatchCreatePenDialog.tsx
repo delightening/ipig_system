@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FormField } from '@/components/ui/form-field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
@@ -82,8 +83,7 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <Label>區域 *</Label>
+          <FormField label="區域" required error={errors.zone_id?.message}>
             <Select value={zoneId} onValueChange={v => setValue('zone_id', v, { shouldValidate: true })}>
               <SelectTrigger><SelectValue placeholder="選擇區域" /></SelectTrigger>
               <SelectContent>
@@ -94,29 +94,24 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
                 ))}
               </SelectContent>
             </Select>
-            {errors.zone_id && <p className="text-sm text-destructive">{errors.zone_id.message}</p>}
-          </div>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>代碼前綴 *</Label>
+            <FormField label="代碼前綴" required error={errors.prefix?.message}>
               <Input
                 {...register('prefix', { onChange: e => { e.target.value = e.target.value.toUpperCase() } })}
                 placeholder="例如：Q"
                 maxLength={10}
               />
-              {errors.prefix && <p className="text-sm text-destructive">{errors.prefix.message}</p>}
-            </div>
-            <div>
-              <Label>數量 *</Label>
+            </FormField>
+            <FormField label="數量" required error={errors.count?.message}>
               <Input
                 type="number"
                 min={1}
                 max={200}
                 {...register('count', { valueAsNumber: true })}
               />
-              {errors.count && <p className="text-sm text-destructive">{errors.count.message}</p>}
-            </div>
+            </FormField>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
