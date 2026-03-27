@@ -1,3 +1,5 @@
+import { useAuthStore } from '@/stores/auth'
+
 /**
  * P2-R4-19: React Query staleTime 常數
  * - 即時資料（動物狀態）：30s
@@ -15,3 +17,17 @@ export const STALE_TIME = {
   /** 設定/偏好 */
   SETTINGS: 30 * 60 * 1000,
 } as const
+
+/** Session 即將過期前停止 polling 的緩衝時間 */
+const EXPIRY_BUFFER_MS = 60_000
+
+/**
+ * Polling 守衛：分頁隱藏或 session 即將過期時回傳 false 停止輪詢。
+ * 用於 TanStack Query 的 refetchInterval callback。
+ */
+export function shouldPoll(intervalMs: number): number | false {
+  if (document.hidden) return false
+  const { sessionExpiresAt } = useAuthStore.getState()
+  if (sessionExpiresAt && sessionExpiresAt - Date.now() < EXPIRY_BUFFER_MS) return false
+  return intervalMs
+}

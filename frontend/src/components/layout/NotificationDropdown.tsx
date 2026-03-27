@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
+import { shouldPoll } from '@/lib/query'
 import { useAuthStore } from '@/stores/auth'
 import type { NotificationItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -33,7 +34,7 @@ export function NotificationDropdown() {
       return res.data.count
     },
     staleTime: 30_000,
-    refetchInterval: () => (document.hidden ? false : 60000),
+    refetchInterval: () => shouldPoll(60_000),
     enabled: isLoggedIn,
   })
 
@@ -112,7 +113,7 @@ export function NotificationDropdown() {
           }
           break
         case 'expiry_warning':
-          navigate('/inventory')
+          navigate('/inventory?filter=expiry_warning')
           break
         case 'low_stock':
           navigate('/inventory')

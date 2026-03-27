@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { arrayMove } from '@dnd-kit/sortable'
 
 import { useAuthStore } from '@/stores/auth'
-import { STALE_TIME } from '@/lib/query'
+import { STALE_TIME, shouldPoll } from '@/lib/query'
 import api, { deleteResource } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 
@@ -67,7 +67,7 @@ export function useSidebarNav() {
       return res.data.count
     },
     staleTime: STALE_TIME.LIST,
-    refetchInterval: () => (document.hidden ? false : 60000),
+    refetchInterval: () => shouldPoll(60_000),
     enabled: !!user,
   })
 
