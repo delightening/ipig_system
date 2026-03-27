@@ -98,6 +98,8 @@ pub struct InventoryQuery {
     pub keyword: Option<String>,
     pub batch_no: Option<String>,
     pub low_stock_only: Option<bool>,
+    /// 效期預警篩選：僅顯示 N 天內到期的品項
+    pub expiry_within_days: Option<i32>,
 }
 
 /// 庫存流水詳情（含關聯名稱）

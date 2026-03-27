@@ -364,6 +364,31 @@ impl DocumentService {
             items,
         })
     }
+
+    /// 重新計算所有已核准 PO 的入庫狀態
+    pub async fn recalculate_all_po_receipt_status(pool: &PgPool) -> Result<i64> {
+        // 取得所有已核准的 PO
+        let pos: Vec<(Uuid,)> = sqlx::query_as(
+            "SELECT id FROM documents WHERE doc_type = 'PO' AND status = 'approved'"
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut tx = pool.begin().await?;
+        let mut count = 0i64;
+        for (po_id,) in &pos {
+            Self::update_po_receipt_status(&mut tx, *po_id).await
+                .map_err(|e| {
+                    tracing::error!("Failed recalculating PO {po_id}: {e}");
+                    e
+                })?;
+            count += 1;
+        }
+        tx.commit().await?;
+
+        tracing::info!("Recalculated receipt_status for {} POs", count);
+        Ok(count)
+    }
 }
 
 #[cfg(test)]

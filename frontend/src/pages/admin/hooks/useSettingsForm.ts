@@ -66,10 +66,6 @@ export function useSettingsForm(sysSettings: SystemSettings | undefined) {
     setDirty(true)
   }, [])
 
-  const markDirty = useCallback(() => {
-    setDirty(true)
-  }, [])
-
   const clearDirty = useCallback(() => {
     setDirty(false)
   }, [])
@@ -102,7 +98,6 @@ export function useSettingsForm(sysSettings: SystemSettings | undefined) {
     setPasswordEdited,
     dirty,
     updateField,
-    markDirty,
     clearDirty,
     buildPayload,
   }

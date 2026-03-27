@@ -510,3 +510,27 @@ pub async fn get_po_receipt_status(
     let status = DocumentService::get_po_receipt_status(&state.db, id).await?;
     Ok(Json(status))
 }
+
+/// 重新計算所有已核准 PO 的入庫狀態
+#[utoipa::path(
+    post,
+    path = "/api/documents/recalculate-receipt-status",
+    responses(
+        (status = 200, description = "重新計算完成", body = serde_json::Value),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "無權限"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
+pub async fn recalculate_receipt_status(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<serde_json::Value>> {
+    if !current_user.is_admin() {
+        return Err(AppError::Forbidden("僅系統管理員可執行批次重算".into()));
+    }
+
+    let count = DocumentService::recalculate_all_po_receipt_status(&state.db).await?;
+    Ok(Json(serde_json::json!({ "updated": count })))
+}

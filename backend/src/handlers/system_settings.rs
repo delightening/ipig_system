@@ -2,13 +2,14 @@ use axum::{
     extract::State,
     Extension, Json,
 };
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::{
     error::AppError,
     middleware::CurrentUser,
-    services::SystemSettingsService,
+    services::{email::EmailService, SystemSettingsService},
     AppState,
 };
 
@@ -66,4 +67,49 @@ pub async fn update_system_settings(
     }
 
     Ok(Json(settings))
+}
+
+#[derive(Deserialize)]
+pub struct TestEmailRequest {
+    pub to_email: String,
+}
+
+/// POST /api/admin/system-settings/test-email
+pub async fn send_test_email(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(body): Json<TestEmailRequest>,
+) -> Result<Json<Value>, AppError> {
+    if !current_user.is_admin() {
+        return Err(AppError::Forbidden("僅管理員可發送測試信件".into()));
+    }
+
+    if body.to_email.is_empty() || !body.to_email.contains('@') {
+        return Err(AppError::BadRequest("請提供有效的收件人 Email".into()));
+    }
+
+    let smtp = EmailService::resolve_smtp(&state.db, &state.config).await;
+    if !smtp.is_email_enabled() {
+        return Err(AppError::BadRequest(
+            "SMTP 尚未設定，請先填寫 SMTP 伺服器資訊".into(),
+        ));
+    }
+
+    EmailService::send_test_email(&smtp, &body.to_email)
+        .await
+        .map_err(|e| {
+            tracing::error!("Test email failed: {e}");
+            AppError::Internal(format!("發送測試信件失敗：{e}"))
+        })?;
+
+    tracing::info!(
+        "Test email sent to {} by user {}",
+        body.to_email,
+        current_user.id
+    );
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": format!("測試信件已成功發送至 {}", body.to_email)
+    })))
 }
