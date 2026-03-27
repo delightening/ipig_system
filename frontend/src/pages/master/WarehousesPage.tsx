@@ -203,7 +203,7 @@ export function WarehousesPage() {
         </div>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>

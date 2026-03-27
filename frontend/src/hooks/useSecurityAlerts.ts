@@ -26,8 +26,8 @@ const POLL_INTERVAL_MS = 30_000
  * 僅在使用者為管理員時啟用。偵測到新警報自動顯示 toast。
  */
 export function useSecurityAlerts() {
-  const { user } = useAuthStore()
-  const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('admin')
+  const { hasRole } = useAuthStore()
+  const isAdmin = hasRole('admin')
 
   // 追蹤已顯示 toast 的警報 ID，避免重複通知
   const shownIdsRef = useRef<Set<string>>(new Set())
@@ -37,12 +37,16 @@ export function useSecurityAlerts() {
   const { data: alerts } = useQuery<SecurityAlert[]>({
     queryKey: ['security-alerts-recent'],
     queryFn: async () => {
-      // 查詢最近 60 秒的警報
-      const after = new Date(Date.now() - 60_000).toISOString()
-      const res = await api.get<SecurityAlert[]>('/admin/audit/alerts/recent', {
-        params: { after },
-      })
-      return res.data
+      try {
+        const after = new Date(Date.now() - 60_000).toISOString()
+        const res = await api.get<SecurityAlert[]>('/admin/audit/alerts/recent', {
+          params: { after },
+        })
+        return res.data
+      } catch {
+        // 401/403 靜默處理：token 未就緒或權限不足時不汙染 console
+        return []
+      }
     },
     enabled: !!isAdmin,
     refetchInterval: () => shouldPoll(POLL_INTERVAL_MS),

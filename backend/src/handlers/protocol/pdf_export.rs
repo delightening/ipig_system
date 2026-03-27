@@ -512,11 +512,11 @@ pub async fn export_protocol_pdf_v2(
                                         if cert_nos.is_empty() {
                                             code.to_string()
                                         } else {
-                                            format!("{}（{}）", code, cert_nos.join("；"))
+                                            format!("{} ({})", code, cert_nos.join("; "))
                                         }
                                     })
                                     .collect::<Vec<_>>()
-                                    .join("；")
+                                    .join("<br>")
                             })
                             .unwrap_or_default();
                         obj.insert(
