@@ -131,6 +131,17 @@ api.interceptors.response.use(
       }
     }
 
+    // 網路錯誤（ERR_CONNECTION_CLOSED 等）+ session 已過期 → 清除 auth 停止 polling
+    if (!error.response) {
+      const { sessionExpiresAt } = useAuthStore.getState()
+      if (sessionExpiresAt && sessionExpiresAt < Date.now() && !logoutPromise) {
+        logoutPromise = new Promise<void>((resolve) => {
+          useAuthStore.getState().clearAuth()
+          setTimeout(() => { logoutPromise = null; resolve() }, 1000)
+        })
+      }
+    }
+
     // Non-401 errors: show global toast for server errors and network issues
     // Skip toast if the request opted-in to silent error handling
     const silent = originalRequest?._silentError

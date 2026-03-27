@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { useAuthStore } from '@/stores/auth'
 import api from '@/lib/api'
+import { shouldPoll } from '@/lib/query'
 import { toast } from '@/components/ui/use-toast'
 
 interface SecurityAlert {
@@ -44,7 +45,7 @@ export function useSecurityAlerts() {
       return res.data
     },
     enabled: !!isAdmin,
-    refetchInterval: () => (document.hidden ? false : POLL_INTERVAL_MS),
+    refetchInterval: () => shouldPoll(POLL_INTERVAL_MS),
     staleTime: POLL_INTERVAL_MS,
     retry: false,
   })
