@@ -72,6 +72,7 @@ impl NotificationService {
     }
 
     /// 發送低庫存通知（批次作業用）— 依 notification_routing 表判斷收件角色
+    /// 同一使用者當天已有相同類型的未讀通知時，跳過不重複建立
     pub async fn send_low_stock_notifications(&self) -> Result<i32, AppError> {
         // 取得低庫存項目
         let alerts: Vec<LowStockAlert> = sqlx::query_as(
@@ -89,7 +90,7 @@ impl NotificationService {
 
         let mut count = 0;
         for (user_id, _email, _name, _channel) in &recipients {
-            // 檢查使用者個人 email 設定
+            // 檢查使用者個人設定
             let user_email_enabled: Option<(bool,)> = sqlx::query_as(
                 "SELECT email_low_stock FROM notification_settings WHERE user_id = $1",
             )
@@ -101,6 +102,11 @@ impl NotificationService {
                 if !enabled {
                     continue;
                 }
+            }
+
+            // 當天去重：若該使用者今天已有同類型未讀通知，跳過
+            if self.has_today_notification(*user_id, "low_stock").await? {
+                continue;
             }
 
             let title = format!("低庫存預警：{} 項產品需要補貨", alerts.len());
@@ -130,6 +136,7 @@ impl NotificationService {
     }
 
     /// 發送效期預警通知（批次作業用）— 依 notification_routing 表判斷收件角色
+    /// 同一使用者當天已有相同類型的未讀通知時，跳過不重複建立
     pub async fn send_expiry_notifications(&self) -> Result<i32, AppError> {
         // 取得效期預警項目
         let alerts: Vec<ExpiryAlert> = sqlx::query_as(
@@ -145,9 +152,12 @@ impl NotificationService {
         // 從路由表動態取得收件者
         let recipients = self.get_recipients_by_event("expiry_alert").await?;
 
+        let expired_count = alerts.iter().filter(|a| a.expiry_status == "expired").count();
+        let expiring_count = alerts.iter().filter(|a| a.expiry_status == "expiring_soon").count();
+
         let mut count = 0;
         for (user_id, _email, _name, _channel) in &recipients {
-            // 檢查使用者個人 email 設定
+            // 檢查使用者個人設定
             let user_email_enabled: Option<(bool,)> = sqlx::query_as(
                 "SELECT email_expiry_warning FROM notification_settings WHERE user_id = $1",
             )
@@ -161,8 +171,10 @@ impl NotificationService {
                 }
             }
 
-            let expired_count = alerts.iter().filter(|a| a.expiry_status == "expired").count();
-            let expiring_count = alerts.iter().filter(|a| a.expiry_status == "expiring_soon").count();
+            // 當天去重：若該使用者今天已有同類型未讀通知，跳過
+            if self.has_today_notification(*user_id, "expiry_warning").await? {
+                continue;
+            }
 
             let title = format!(
                 "效期預警：{} 項已過期，{} 項即將到期",
@@ -201,5 +213,29 @@ impl NotificationService {
         }
 
         Ok(count)
+    }
+
+    /// 檢查使用者今天是否已有指定類型的通知
+    async fn has_today_notification(
+        &self,
+        user_id: uuid::Uuid,
+        related_entity_type: &str,
+    ) -> Result<bool, AppError> {
+        let exists: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM notifications
+                WHERE user_id = $1
+                  AND related_entity_type = $2
+                  AND created_at >= CURRENT_DATE
+            )
+            "#,
+        )
+        .bind(user_id)
+        .bind(related_entity_type)
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok(exists.0)
     }
 }

@@ -254,16 +254,22 @@ impl SchedulerService {
     /// 檢查低庫存並發送通知
     async fn check_low_stock(db: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let service = NotificationService::new(db.clone());
-        
+
         // 取得低庫存項目
         let alerts = service.list_low_stock_alerts(1, 100).await?;
-        
+
         if alerts.data.is_empty() {
             info!("No low stock alerts found");
             return Ok(());
         }
 
-        // 取得需要通知的使用者
+        // 建立站內通知（內部已處理收件者遍歷與當天去重）
+        match service.send_low_stock_notifications().await {
+            Ok(count) => info!("Low stock in-app notifications: {} sent", count),
+            Err(e) => tracing::warn!("發送庫存不足站內通知失敗: {e}"),
+        }
+
+        // 取得需要 email 通知的使用者
         let users: Vec<(uuid::Uuid, String, String)> = sqlx::query_as(
             r#"
             SELECT DISTINCT u.id, u.email, u.display_name
@@ -279,19 +285,10 @@ impl SchedulerService {
         .fetch_all(db)
         .await?;
 
-        // 建構 HTML 表格
+        // 建構 HTML 表格並發送 Email
         let alerts_html = Self::build_low_stock_html(&alerts.data);
-
-        // 發送通知
-        let mut notification_count = 0;
+        let mut email_count = 0;
         for (_user_id, email, name) in users {
-            // 建立站內通知
-            if let Err(e) = service.send_low_stock_notifications().await {
-                tracing::warn!("發送庫存不足通知失敗: {e}");
-            }
-
-            
-            // 發送 Email
             if let Err(e) = EmailService::send_low_stock_alert_email(
                 config,
                 &email,
@@ -301,21 +298,21 @@ impl SchedulerService {
             ).await {
                 error!("Failed to send low stock email to {}: {}", email, e);
             } else {
-                notification_count += 1;
+                email_count += 1;
             }
         }
 
-        info!("Low stock check completed: {} alerts, {} notifications sent", alerts.data.len(), notification_count);
+        info!("Low stock check completed: {} alerts, {} emails sent", alerts.data.len(), email_count);
         Ok(())
     }
 
     /// 檢查效期並發送通知
     async fn check_expiry(db: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let service = NotificationService::new(db.clone());
-        
+
         // 取得效期預警項目
         let alerts = service.list_expiry_alerts(1, 100).await?;
-        
+
         if alerts.data.is_empty() {
             info!("No expiry alerts found");
             return Ok(());
@@ -324,7 +321,13 @@ impl SchedulerService {
         let expired_count = alerts.data.iter().filter(|a| a.expiry_status == "expired").count();
         let expiring_count = alerts.data.iter().filter(|a| a.expiry_status == "expiring_soon").count();
 
-        // 取得需要通知的使用者
+        // 建立站內通知（內部已處理收件者遍歷與當天去重）
+        match service.send_expiry_notifications().await {
+            Ok(count) => info!("Expiry in-app notifications: {} sent", count),
+            Err(e) => tracing::warn!("發送效期預警站內通知失敗: {e}"),
+        }
+
+        // 取得需要 email 通知的使用者
         let users: Vec<(uuid::Uuid, String, String)> = sqlx::query_as(
             r#"
             SELECT DISTINCT u.id, u.email, u.display_name
@@ -340,19 +343,10 @@ impl SchedulerService {
         .fetch_all(db)
         .await?;
 
-        // 建構 HTML 表格
+        // 建構 HTML 表格並發送 Email
         let alerts_html = Self::build_expiry_html(&alerts.data);
-
-        // 發送通知
-        let mut notification_count = 0;
+        let mut email_count = 0;
         for (_user_id, email, name) in users {
-            // 建立站內通知
-            if let Err(e) = service.send_expiry_notifications().await {
-                tracing::warn!("發送效期預警通知失敗: {e}");
-            }
-
-            
-            // 發送 Email
             if let Err(e) = EmailService::send_expiry_alert_email(
                 config,
                 &email,
@@ -363,12 +357,12 @@ impl SchedulerService {
             ).await {
                 error!("Failed to send expiry email to {}: {}", email, e);
             } else {
-                notification_count += 1;
+                email_count += 1;
             }
         }
 
-        info!("Expiry check completed: {} alerts ({} expired, {} expiring), {} notifications sent", 
-              alerts.data.len(), expired_count, expiring_count, notification_count);
+        info!("Expiry check completed: {} alerts ({} expired, {} expiring), {} emails sent",
+              alerts.data.len(), expired_count, expiring_count, email_count);
         Ok(())
     }
 
