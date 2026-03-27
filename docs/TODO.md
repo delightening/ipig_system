@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-26 (v24)
+> **最後更新：** 2026-03-27 (v25)
 > **維護慣例：** 完成項目標 [x] + 更新待辦統計 + 在 `docs/PROGRESS.md` §9 新增變更紀錄。詳見 `CLAUDE.md`「文件記錄規則」。
 > **章節排列：** 禁止事項 → P0~P5（優先級）→ 歷史改善計畫 → R6~R13+（輪次嚴格遞增）→ 待辦統計 → 變更紀錄（封存）
 
@@ -358,8 +358,28 @@
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R14-1 | **PDF 封面標題頁格式修正** | 加入文件編號 header（AD-04-01-01E）、移除試驗單位/機構外框、加入 `=` 分隔、簽章日期格式統一、header doc_id 修正 | [ ] |
-| R14-2 | **PDF 試驗人員表格格式修正** | 工作內容欄只顯示代碼（a,b,c）、訓練欄顯示代碼+證書編號、表頭中英雙語、欄寬調整、表格下方加入代碼備註說明 | [ ] |
+| R14-1 | **PDF 封面標題頁格式修正** | header 字間距、small caps、sponsor/facility 加框線、移除 `=` 分隔、版權固定底部 | [x] |
+| R14-2 | **PDF 試驗人員表格格式修正** | 訓練欄每行一筆（`<br>` 分行）、半形括號、欄寬 45% 訓練欄、`safe` filter | [x] |
+
+---
+
+## 🔍 R15 — Code Review 發現（Claude + Codex 交叉審查，2026-03-27）
+
+> 來源：Claude Code Review + OpenAI Codex (GPT-5.4) 獨立審查，針對未提交變更（email 測試、PO 重算、庫存展開行、stock service product_id 篩選）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R15-1 | **展開行數量不匹配（未分配庫存遺漏）** | 概覽模式父行用 stock_ledger 含未分配庫存，但 BatchDetailRows 查 storage_location_inventory 不含未分配 → 數量不一致誤導倉管。Codex 發現，P2 | [x] |
+| R15-2 | **PO 重算半完成風險** | `recalculate_all_po_receipt_status` 逐筆開 tx，中途失敗前面已 commit 不會 rollback。Claude+Codex 共同發現，P2 | [x] |
+| R15-3 | **expandedRows 不隨 filter 重置** | 切換倉庫/關鍵字篩選時展開狀態殘留，可能對應到不同行。Codex 發現，P2 | [x] |
+| R15-4 | **展開行不傳遞 batchFilter** | BatchDetailRows API 呼叫只傳 warehouse_id + product_id，忽略使用者輸入的 batchFilter。Codex 發現，P2 | [x] |
+| R15-5 | **Email 引號可能破壞含引號名稱** | display name 加雙引號後，若 from_name 含引號（如 `ACME "QA"`）會造成 lettre parse 失敗；中文 UTF-8 需驗證。Codex 發現，P2 | [x] |
+| R15-6 | **recalculate 權限太寬鬆** | 使用 `erp.document.approve` 而非 admin 權限，此維護型 endpoint 應限 admin。Codex 發現，P2 | [x] |
+| R15-7 | **Stock service DRY 違規** | 抽出 `SliFilterBuilder` 共用 keyword/product/batch filter 建構邏輯。Claude 發現，Low | [x] |
+| R15-8 | **send_test_email handler 超 50 行** | email body 移至 `EmailService::send_test_email`，handler 精簡為 ~35 行。Claude 發現，Low | [x] |
+| R15-9 | **`let _ = idx` 抑制 unused 警告** | stock.rs 兩處改為最後一個 filter 後統一放置 + 加註解。R15-4 順便修正 | [x] |
+| R15-10 | **BatchDetailRows key 使用 array index** | 改用 `storage_location_id + batch_no` 組合。R15-1 順便修正 | [x] |
+| R15-11 | **InventoryPage.tsx 超 300 行** | 拆分為 InventoryPage (220 行) + components/InventoryRow.tsx (262 行)。Claude 發現，Low | [x] |
 
 ---
 
@@ -382,8 +402,9 @@
 | 🔧 R11 技術債 + Git 修復 | 0 |
 | 🟢 R12 長期演進項目 | 0 (1 暫緩) |
 | 🎨 R13 UI 一致性 | 0 |
-| 📄 R14 PDF 輸出修正 | 2 |
-| **合計（未完成）** | **2** |
+| 📄 R14 PDF 輸出修正 | 0 |
+| 🔍 R15 Code Review 發現 | 0 |
+| **合計（未完成）** | **0** |
 
 ---
 

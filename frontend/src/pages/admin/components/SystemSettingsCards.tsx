@@ -1,4 +1,6 @@
-import { Building, Database, Mail, Shield, Eye, EyeOff } from 'lucide-react'
+import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { Building, Database, Mail, Shield, Eye, EyeOff, Send, Loader2 } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toast } from '@/components/ui/use-toast'
+import api from '@/lib/api'
+import { getErrorMessage } from '@/types/error'
 import type { Warehouse } from '@/types/erp'
 import type { SystemSettingsFormData } from '../hooks/useSettingsForm'
 
@@ -21,6 +26,7 @@ interface SettingsForm {
   updateField: <K extends keyof SystemSettingsFormData>(key: K, value: SystemSettingsFormData[K]) => void
   passwordEdited: boolean
   setPasswordEdited: (v: boolean) => void
+  dirty: boolean
 }
 
 interface SystemSettingsCardsProps {
@@ -138,6 +144,9 @@ export function SystemSettingsCards({
               <Label htmlFor="emailPort">連接埠</Label>
               <Input
                 id="emailPort"
+                type="number"
+                min={1}
+                max={65535}
                 value={settingsForm.form.emailPort}
                 onChange={(e) => settingsForm.updateField('emailPort', e.target.value)}
                 placeholder="587"
@@ -202,6 +211,7 @@ export function SystemSettingsCards({
               />
             </div>
           </div>
+          <TestEmailSection formDirty={settingsForm.dirty} />
         </CardContent>
       </Card>
 
@@ -238,5 +248,77 @@ export function SystemSettingsCards({
         </CardContent>
       </Card>
     </>
+  )
+}
+
+function TestEmailSection({ formDirty }: { formDirty: boolean }) {
+  const [testEmail, setTestEmail] = useState('')
+
+  const testEmailMutation = useMutation({
+    mutationFn: async (toEmail: string) => {
+      const res = await api.post<{ message: string }>('/admin/system-settings/test-email', {
+        to_email: toEmail,
+      })
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast({ title: '成功', description: data.message })
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: '發送失敗',
+        description: getErrorMessage(error) || '測試信件發送失敗',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const handleSend = () => {
+    const email = testEmail.trim()
+    if (!email || !email.includes('@')) {
+      toast({ title: '錯誤', description: '請輸入有效的收件人 Email', variant: 'destructive' })
+      return
+    }
+    testEmailMutation.mutate(email)
+  }
+
+  const isDisabled = testEmailMutation.isPending || !testEmail.trim() || formDirty
+
+  return (
+    <div className="mt-6 border-t pt-6">
+      <Label className="text-sm font-medium mb-3 block">發送測試信件</Label>
+      <div className="flex gap-2 items-end">
+        <div className="flex-1">
+          <Input
+            type="email"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="輸入收件人 Email"
+            disabled={formDirty}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !isDisabled) handleSend()
+            }}
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleSend}
+          disabled={isDisabled}
+        >
+          {testEmailMutation.isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="mr-2 h-4 w-4" />
+          )}
+          發送測試
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground mt-2">
+        {formDirty
+          ? '請先儲存設定後再發送測試信件'
+          : '使用目前已儲存的 SMTP 設定發送測試信件'}
+      </p>
+    </div>
   )
 }

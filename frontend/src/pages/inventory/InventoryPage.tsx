@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api, { InventoryOnHand } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -14,19 +15,30 @@ import {
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { WarehouseShelfTreeSelect } from '@/components/inventory/WarehouseShelfTreeSelect'
 import { PageHeader } from '@/components/ui/page-header'
-import { Search, Loader2, Package, X } from 'lucide-react'
+import { Search, Loader2, Package, X, AlertTriangle } from 'lucide-react'
 import { useTableSort } from '@/hooks/useTableSort'
-import { formatNumber, formatCurrency, formatDate, formatUom, cn } from '@/lib/utils'
+import { InventoryRow } from './components/InventoryRow'
 
 export function InventoryPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [locationFilter, setLocationFilter] = useState<string>('all')
   const [batchFilter, setBatchFilter] = useState('')
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [expiryFilter, setExpiryFilter] = useState(
+    () => searchParams.get('filter') === 'expiry_warning',
+  )
+
+  // R15-3: filter 變更時清除展開狀態
+  useEffect(() => {
+    setExpandedRows(new Set())
+  }, [locationFilter, search, batchFilter, expiryFilter])
 
   const { data: inventory, isLoading } = useQuery({
-    queryKey: ['inventory', locationFilter, search, batchFilter],
+    queryKey: ['inventory', locationFilter, search, batchFilter, expiryFilter],
     queryFn: async () => {
       let params = ''
+      if (expiryFilter) params += 'expiry_within_days=60&'
       if (locationFilter && locationFilter !== 'all') {
         if (locationFilter.startsWith('wh:')) {
           params += `warehouse_id=${encodeURIComponent(locationFilter.slice(3))}&`
@@ -47,11 +59,31 @@ export function InventoryPage() {
     setSearch('')
     setLocationFilter('all')
     setBatchFilter('')
+    setExpiryFilter(false)
+    setExpandedRows(new Set())
+    setSearchParams({}, { replace: true })
   }
 
   const hasFilters =
-    search || (locationFilter && locationFilter !== 'all') || batchFilter
+    search || (locationFilter && locationFilter !== 'all') || batchFilter || expiryFilter
   const isShelfQuery = locationFilter.startsWith('loc:')
+  const isWarehouseQuery = locationFilter.startsWith('wh:')
+  const showBatchColumns = isWarehouseQuery || isShelfQuery || expiryFilter
+  const isOverviewMode = !isWarehouseQuery && !isShelfQuery && !expiryFilter
+
+  const toggleExpand = (rowKey: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(rowKey)) {
+        next.delete(rowKey)
+      } else {
+        next.add(rowKey)
+      }
+      return next
+    })
+  }
+
+  const colCount = 8 + (isShelfQuery ? 1 : 0) + (showBatchColumns ? 2 : 0)
 
   return (
     <div className="space-y-6">
@@ -65,6 +97,19 @@ export function InventoryPage() {
           </Button>
         ) : undefined}
       />
+
+      {expiryFilter && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-destructive/10 border border-destructive/20">
+          <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+          <span className="text-sm font-medium text-destructive">效期預警篩選中 — 顯示 60 天內到期的品項</span>
+          <button
+            onClick={() => { setExpiryFilter(false); setSearchParams({}, { replace: true }) }}
+            className="ml-auto p-0.5 rounded hover:bg-destructive/20 text-destructive transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-4 md:flex md:items-center bg-card p-4 rounded-xl border shadow-sm items-stretch">
         <div className="relative flex-1 min-w-[200px]">
@@ -99,6 +144,12 @@ export function InventoryPage() {
                 <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">倉庫</SortableTableHead>
                 {isShelfQuery && <SortableTableHead sortKey="storage_location_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">貨架</SortableTableHead>}
                 <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">品項</SortableTableHead>
+                {showBatchColumns && (
+                  <>
+                    <SortableTableHead sortKey="batch_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">批號</SortableTableHead>
+                    <SortableTableHead sortKey="expiry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">效期</SortableTableHead>
+                  </>
+                )}
                 <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">現有量</SortableTableHead>
                 <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">單位</SortableTableHead>
                 <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">平均成本</SortableTableHead>
@@ -110,10 +161,7 @@ export function InventoryPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={isShelfQuery ? 9 : 8}
-                    className="text-center py-24"
-                  >
+                  <TableCell colSpan={colCount} className="text-center py-24">
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       <p className="text-sm text-muted-foreground animate-pulse">正在調度庫存數據...</p>
@@ -121,64 +169,27 @@ export function InventoryPage() {
                   </TableCell>
                 </TableRow>
               ) : sortedData && sortedData.length > 0 ? (
-                sortedData.map((item) => (
-                  <TableRow
-                    key={`${item.warehouse_id}-${item.storage_location_id ?? 'wh'}-${item.product_id}`}
-                    className="group hover:bg-muted/50 transition-colors"
-                  >
-                    <TableCell className="font-medium">{item.warehouse_name}</TableCell>
-                    {isShelfQuery && (
-                      <TableCell>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
-                          {item.storage_location_name ?? item.storage_location_code ?? '-'}
-                        </span>
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-foreground">{item.product_name}</span>
-                        <span className="text-xs text-muted-foreground/70 font-mono italic">{item.product_sku}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-primary">
-                      {formatNumber(item.qty_on_hand, 0)}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs px-1.5 py-0.5 border rounded-md bg-background">
-                        {formatUom(item.base_uom)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {item.avg_cost ? formatCurrency(item.avg_cost) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {item.avg_cost
-                        ? formatCurrency(parseFloat(item.qty_on_hand) * parseFloat(item.avg_cost))
-                        : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {item.safety_stock ? (
-                        <span className={cn(
-                          "px-2 py-0.5 rounded text-xs",
-                          parseFloat(item.qty_on_hand) <= parseFloat(item.safety_stock)
-                            ? "bg-destructive/10 text-destructive font-bold"
-                            : "text-muted-foreground"
-                        )}>
-                          {formatNumber(item.safety_stock, 0)}
-                        </span>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground/60 italic">
-                      {item.last_updated_at ? formatDate(item.last_updated_at) : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))
+                sortedData.map((item) => {
+                  const rowKey = `${item.warehouse_id}-${item.product_id}`
+                  const isExpanded = expandedRows.has(rowKey)
+
+                  return (
+                    <InventoryRow
+                      key={`${item.warehouse_id}-${item.storage_location_id ?? 'wh'}-${item.product_id}-${item.batch_no ?? 'all'}`}
+                      item={item}
+                      isShelfQuery={isShelfQuery}
+                      showBatchColumns={showBatchColumns}
+                      isOverviewMode={isOverviewMode}
+                      isExpanded={isExpanded}
+                      onToggleExpand={() => toggleExpand(rowKey)}
+                      colCount={colCount}
+                      batchFilter={batchFilter}
+                    />
+                  )
+                })
               ) : (
                 <TableRow>
-                  <TableCell
-                    colSpan={isShelfQuery ? 9 : 8}
-                    className="text-center py-20"
-                  >
+                  <TableCell colSpan={colCount} className="text-center py-20">
                     <div className="flex flex-col items-center max-w-[280px] mx-auto">
                       <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-4">
                         <Package className="h-10 w-10 text-muted-foreground/40" />

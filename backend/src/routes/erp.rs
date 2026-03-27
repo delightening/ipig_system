@@ -160,6 +160,10 @@ pub fn routes() -> Router<AppState> {
             get(handlers::list_documents).post(handlers::create_document),
         )
         .route(
+            "/documents/recalculate-receipt-status",
+            post(handlers::recalculate_receipt_status),
+        )
+        .route(
             "/documents/:id",
             get(handlers::get_document)
                 .put(handlers::update_document)

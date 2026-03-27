@@ -185,6 +185,28 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-03-27 R14 — AUP 計畫書 PDF 格式對齊官方紙本
+
+- ✅ **封面標題頁**：header 字間距 `letter-spacing: 0.3em`、`(ANIMAL USE PROTOCOL)` 加 small caps、sponsor/facility 加框線、移除 `=` 分隔符、版權固定頁面底部
+- ✅ **人員表格**：訓練欄改為每行一筆（`<br>` 分行）、括號改半形 `()`、訓練欄寬 34%→45%、字體 9pt、加 `| safe` filter
+
+### 2026-03-27 R15 Low — 代碼規範重構（DRY / 函數長度 / 檔案拆分）
+
+- ✅ **Stock service DRY**：抽出 `SliFilterBuilder` struct，統一貨架/倉庫查詢的 keyword + product_id + batch_no 動態 filter 建構邏輯
+- ✅ **send_test_email 精簡**：email body 建構移至 `EmailService::send_test_email`，handler 從 108 行精簡為 ~35 行
+- ✅ **InventoryPage 拆分**：`BatchDetailRows` + `InventoryRow` + `ExpiryDateBadge` 抽至 `components/InventoryRow.tsx` (262 行)，主頁面 220 行，皆 ≤300 行
+
+### 2026-03-27 R15 P2 Code Review 發現修復（Claude + Codex 交叉審查）
+
+- ✅ **PO 重算交易安全**：`recalculate_all_po_receipt_status` 改為單一 transaction 包覆整個迴圈，失敗全部 rollback + 錯誤 log 含 PO ID
+- ✅ **recalculate 權限收緊**：從 `erp.document.approve` 改為 `is_admin()` 檢查，限制批次重算為系統管理員專用
+- ✅ **Email display name 跳脫**：新增 `sanitize_display_name` helper，跳脫 `\` 和 `"` 避免 RFC 5322 parse 失敗（4 處統一修正）
+- ✅ **庫存 batch_no 篩選**：貨架級 + 倉庫級查詢新增 `batch_no` 動態 filter（ILIKE 模糊匹配）
+- ✅ **未分配庫存提示**：展開行新增第二個 query 取得未分配庫存，若 > 0 顯示琥珀色提示列；後端 `get_unassigned_inventory` 加入 `product_id` 篩選
+- ✅ **展開狀態自動清除**：`useEffect` 監聽 4 個篩選條件，變更時自動收合所有展開行
+- ✅ **batchFilter 傳遞**：`BatchDetailRows` 接收並傳遞 `batchFilter` 參數到 API 呼叫
+- ✅ **順便修正**：BatchDetailRows key 改用 `storage_location_id + batch_no`；`let _ = idx` 統一整理
+
 ### 2026-03-27 SSE → Polling 重構 + 依賴清理
 
 - ✅ **SSE 移除**：刪除 `AlertBroadcaster`、`sse.rs`、nginx SSE location block，解決 Cloudflare 524 timeout 問題

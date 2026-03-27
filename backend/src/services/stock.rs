@@ -24,6 +24,64 @@ struct LedgerEntryParams<'a> {
 
 pub struct StockService;
 
+/// storage_location_inventory 查詢共用的動態 filter 建構器（keyword / product_id / batch_no）
+struct SliFilterBuilder {
+    keyword: String,
+    product: String,
+    batch: String,
+}
+
+impl SliFilterBuilder {
+    fn new(start_idx: u8, query: &crate::models::InventoryQuery) -> Self {
+        let mut idx = start_idx;
+        let keyword = if query.keyword.as_ref().is_some_and(|k| !k.is_empty()) {
+            let f = format!(" AND (p.name ILIKE '%' || ${idx} || '%' OR p.sku ILIKE '%' || ${idx} || '%')");
+            idx += 1;
+            f
+        } else {
+            String::new()
+        };
+        let product = if query.product_id.is_some() {
+            let f = format!(" AND p.id = ${idx}");
+            idx += 1;
+            f
+        } else {
+            String::new()
+        };
+        let batch = if query.batch_no.as_ref().is_some_and(|b| !b.is_empty()) {
+            let f = format!(" AND sli.batch_no ILIKE '%' || ${idx} || '%'");
+            idx += 1;
+            f
+        } else {
+            String::new()
+        };
+        let _ = idx;
+        Self { keyword, product, batch }
+    }
+
+    /// 按建構順序 bind 參數（keyword → product_id → batch_no）
+    fn bind_all<'q>(
+        &self,
+        mut q: sqlx::query::QueryAs<'q, sqlx::Postgres, InventoryOnHand, sqlx::postgres::PgArguments>,
+        query: &'q crate::models::InventoryQuery,
+    ) -> sqlx::query::QueryAs<'q, sqlx::Postgres, InventoryOnHand, sqlx::postgres::PgArguments> {
+        if let Some(keyword) = &query.keyword {
+            if !keyword.is_empty() {
+                q = q.bind(keyword);
+            }
+        }
+        if let Some(product_id) = query.product_id {
+            q = q.bind(product_id);
+        }
+        if let Some(batch_no) = &query.batch_no {
+            if !batch_no.is_empty() {
+                q = q.bind(batch_no);
+            }
+        }
+        q
+    }
+}
+
 impl StockService {
     /// 處理單據核准後的庫存變動
     pub async fn process_document(
@@ -402,33 +460,23 @@ impl StockService {
         pool: &sqlx::PgPool,
         query: &crate::models::InventoryQuery,
     ) -> Result<Vec<crate::models::InventoryOnHand>> {
+        // 效期預警篩選：查詢 N 天內到期的品項（批號級）
+        if let Some(days) = query.expiry_within_days {
+            return Self::get_on_hand_expiry(pool, query, days).await;
+        }
+
         // 貨架級查詢（storage_location_inventory）
         if let Some(loc_id) = query.storage_location_id {
-            let keyword_filter = if query.keyword.as_ref().is_some_and(|k| !k.is_empty()) {
-                " AND (p.name ILIKE '%' || $2 || '%' OR p.sku ILIKE '%' || $2 || '%')"
-            } else {
-                ""
-            };
+            let filters = SliFilterBuilder::new(2, query);
             let sql = format!(
                 r#"
                 SELECT
-                    sl.warehouse_id,
-                    w.code as warehouse_code,
-                    w.name as warehouse_name,
-                    sl.id as storage_location_id,
-                    sl.code as storage_location_code,
-                    sl.name as storage_location_name,
-                    p.id as product_id,
-                    p.sku as product_sku,
-                    p.name as product_name,
-                    p.base_uom,
-                    p.category_code,
-                    sli.on_hand_qty as qty_on_hand,
-                    NULL::numeric as avg_cost,
-                    sli.batch_no,
-                    sli.expiry_date,
-                    p.safety_stock,
-                    p.reorder_point,
+                    sl.warehouse_id, w.code as warehouse_code, w.name as warehouse_name,
+                    sl.id as storage_location_id, sl.code as storage_location_code, sl.name as storage_location_name,
+                    p.id as product_id, p.sku as product_sku, p.name as product_name,
+                    p.base_uom, p.category_code,
+                    sli.on_hand_qty as qty_on_hand, NULL::numeric as avg_cost,
+                    sli.batch_no, sli.expiry_date, p.safety_stock, p.reorder_point,
                     sli.updated_at as last_updated_at
                 FROM storage_location_inventory sli
                 JOIN storage_locations sl ON sli.storage_location_id = sl.id
@@ -436,46 +484,27 @@ impl StockService {
                 JOIN products p ON sli.product_id = p.id
                 WHERE sl.id = $1 AND sl.is_active = true AND w.is_active = true AND p.is_active = true
                   AND sli.on_hand_qty > 0
-                  {keyword_filter}
+                  {kw} {pf} {bf}
                 ORDER BY p.sku, sli.expiry_date, sli.batch_no
-                "#
+                "#,
+                kw = filters.keyword, pf = filters.product, bf = filters.batch,
             );
-            let mut q = sqlx::query_as::<_, InventoryOnHand>(&sql).bind(loc_id);
-            if let Some(keyword) = &query.keyword {
-                if !keyword.is_empty() {
-                    q = q.bind(keyword);
-                }
-            }
+            let q = filters.bind_all(sqlx::query_as::<_, InventoryOnHand>(&sql).bind(loc_id), query);
             return Ok(q.fetch_all(pool).await?);
         }
 
         // 倉庫級查詢：有指定 warehouse_id 時使用 storage_location_inventory 以取得批號/效期
         if let Some(warehouse_id) = query.warehouse_id {
-            let keyword_filter = if query.keyword.as_ref().is_some_and(|k| !k.is_empty()) {
-                " AND (p.name ILIKE '%' || $2 || '%' OR p.sku ILIKE '%' || $2 || '%')"
-            } else {
-                ""
-            };
+            let filters = SliFilterBuilder::new(2, query);
             let sql = format!(
                 r#"
                 SELECT
-                    sl.warehouse_id,
-                    w.code as warehouse_code,
-                    w.name as warehouse_name,
-                    sl.id as storage_location_id,
-                    sl.code as storage_location_code,
-                    sl.name as storage_location_name,
-                    p.id as product_id,
-                    p.sku as product_sku,
-                    p.name as product_name,
-                    p.base_uom,
-                    p.category_code,
-                    sli.on_hand_qty as qty_on_hand,
-                    NULL::numeric as avg_cost,
-                    sli.batch_no,
-                    sli.expiry_date,
-                    p.safety_stock,
-                    p.reorder_point,
+                    sl.warehouse_id, w.code as warehouse_code, w.name as warehouse_name,
+                    sl.id as storage_location_id, sl.code as storage_location_code, sl.name as storage_location_name,
+                    p.id as product_id, p.sku as product_sku, p.name as product_name,
+                    p.base_uom, p.category_code,
+                    sli.on_hand_qty as qty_on_hand, NULL::numeric as avg_cost,
+                    sli.batch_no, sli.expiry_date, p.safety_stock, p.reorder_point,
                     sli.updated_at as last_updated_at
                 FROM storage_location_inventory sli
                 JOIN storage_locations sl ON sli.storage_location_id = sl.id
@@ -483,16 +512,12 @@ impl StockService {
                 JOIN products p ON sli.product_id = p.id
                 WHERE w.id = $1 AND sl.is_active = true AND w.is_active = true AND p.is_active = true
                   AND sli.on_hand_qty > 0
-                  {keyword_filter}
+                  {kw} {pf} {bf}
                 ORDER BY p.sku, sli.expiry_date, sli.batch_no
-                "#
+                "#,
+                kw = filters.keyword, pf = filters.product, bf = filters.batch,
             );
-            let mut q = sqlx::query_as::<_, InventoryOnHand>(&sql).bind(warehouse_id);
-            if let Some(keyword) = &query.keyword {
-                if !keyword.is_empty() {
-                    q = q.bind(keyword);
-                }
-            }
+            let q = filters.bind_all(sqlx::query_as::<_, InventoryOnHand>(&sql).bind(warehouse_id), query);
             return Ok(q.fetch_all(pool).await?);
         }
 
@@ -546,6 +571,78 @@ impl StockService {
             "#
         );
         let mut q = sqlx::query_as::<_, InventoryOnHand>(&sql);
+        if let Some(keyword) = &query.keyword {
+            if !keyword.is_empty() {
+                q = q.bind(keyword);
+            }
+        }
+        Ok(q.fetch_all(pool).await?)
+    }
+
+    /// 效期預警查詢：回傳 N 天內到期的批號級庫存
+    async fn get_on_hand_expiry(
+        pool: &PgPool,
+        query: &crate::models::InventoryQuery,
+        days: i32,
+    ) -> Result<Vec<crate::models::InventoryOnHand>> {
+        let has_keyword = query.keyword.as_ref().is_some_and(|k| !k.is_empty());
+        let has_warehouse = query.warehouse_id.is_some();
+        let mut idx = 2u8; // $1 = days
+
+        let warehouse_filter = if has_warehouse {
+            let f = format!(" AND w.id = ${idx}");
+            idx += 1;
+            f
+        } else {
+            String::new()
+        };
+        let keyword_filter = if has_keyword {
+            let f = format!(" AND (p.name ILIKE '%' || ${idx} || '%' OR p.sku ILIKE '%' || ${idx} || '%')");
+            idx += 1;
+            let _ = idx;
+            f
+        } else {
+            String::new()
+        };
+
+        let sql = format!(
+            r#"
+            SELECT
+                sl.warehouse_id,
+                w.code as warehouse_code,
+                w.name as warehouse_name,
+                sl.id as storage_location_id,
+                sl.code as storage_location_code,
+                sl.name as storage_location_name,
+                p.id as product_id,
+                p.sku as product_sku,
+                p.name as product_name,
+                p.base_uom,
+                p.category_code,
+                sli.on_hand_qty as qty_on_hand,
+                NULL::numeric as avg_cost,
+                sli.batch_no,
+                sli.expiry_date,
+                p.safety_stock,
+                p.reorder_point,
+                sli.updated_at as last_updated_at
+            FROM storage_location_inventory sli
+            JOIN storage_locations sl ON sli.storage_location_id = sl.id
+            JOIN warehouses w ON sl.warehouse_id = w.id
+            JOIN products p ON sli.product_id = p.id
+            WHERE sl.is_active = true AND w.is_active = true AND p.is_active = true
+              AND sli.on_hand_qty > 0
+              AND sli.expiry_date IS NOT NULL
+              AND sli.expiry_date <= CURRENT_DATE + $1
+              {warehouse_filter}
+              {keyword_filter}
+            ORDER BY sli.expiry_date ASC, p.sku
+            "#
+        );
+        let mut q = sqlx::query_as::<_, InventoryOnHand>(&sql).bind(days);
+        if let Some(warehouse_id) = query.warehouse_id {
+            q = q.bind(warehouse_id);
+        }
         if let Some(keyword) = &query.keyword {
             if !keyword.is_empty() {
                 q = q.bind(keyword);
@@ -784,6 +881,11 @@ impl StockService {
             ));
         }
 
+        if query.product_id.is_some() {
+            param_index += 1;
+            sql.push_str(&format!(" AND p.id = ${}", param_index));
+        }
+
         sql.push_str(
             r#"
                 GROUP BY w.id, w.name, p.id, p.sku, p.name, p.base_uom
@@ -828,6 +930,10 @@ impl StockService {
         if let Some(keyword) = &query.keyword {
             let pattern = format!("%{}%", keyword);
             query_builder = query_builder.bind(pattern);
+        }
+
+        if let Some(product_id) = query.product_id {
+            query_builder = query_builder.bind(product_id);
         }
 
         let rows = query_builder.fetch_all(pool).await?;
