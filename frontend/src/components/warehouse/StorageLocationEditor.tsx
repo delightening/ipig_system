@@ -125,7 +125,7 @@ export function StorageLocationEditor({
     }
 
     return (
-        <div className="space-y-4">
+        <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold">儲位佈局圖</h3>
@@ -183,7 +183,7 @@ export function StorageLocationEditor({
                 </div>
             )}
 
-            <div ref={containerRef} className="border rounded-lg bg-slate-50 p-4 min-h-[480px] relative">
+            <div ref={containerRef} className="border rounded-lg bg-muted/30 p-4 min-h-[480px] relative">
                 {locations.length > 0 ? (
                     <GridLayout
                         className="layout"

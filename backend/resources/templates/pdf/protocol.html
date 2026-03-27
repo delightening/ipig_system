@@ -22,6 +22,9 @@ body {
     text-align: center;
     padding-top: 0;
     page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 30mm);
 }
 
 .cover-doc-header {
@@ -30,6 +33,7 @@ body {
     font-size: 9pt;
     margin-bottom: 20mm;
     text-align: left;
+    letter-spacing: 0.3em;
 }
 
 .cover-title {
@@ -44,6 +48,7 @@ body {
     font-weight: bold;
     color: #c00;
     margin-bottom: 10mm;
+    font-variant: small-caps;
 }
 
 .cover-section-label {
@@ -246,26 +251,24 @@ table.data-table td {
     <div class="cover-study-title">
         中文：{{ protocol_title | default(value="") }}
     </div>
-    {% if protocol_title_en %}
+    {% if protocol_title_en is defined and protocol_title_en %}
     <div class="cover-study-title">
-        英文：{{ protocol_title_en | default(value="") }}
+        英文：{{ protocol_title_en }}
     </div>
     {% endif %}
 
     <div class="cover-section-label">試驗單位 (SPONSOR)</div>
-    <div style="font-size: 12pt; margin-bottom: 2mm;">{{ sponsor_name | default(value="") }}</div>
+    <span class="cover-value">{{ sponsor_name | default(value="") }}</span>
 
     <div class="cover-section-label">試驗機構 (TESTING FACILITY)</div>
-    <div style="font-size: 12pt; margin-bottom: 2mm;">豬博士動物科技股份有限公司(豬博士畜牧場)</div>
+    <span class="cover-value">豬博士動物科技股份有限公司(豬博士畜牧場)</span>
 
     <div class="cover-iacuc-row">
         IACUC 核准編號：<span class="cover-sign-line">&nbsp;{{ iacuc_no | default(value="") }}&nbsp;</span>
         &emsp;核准日期：<span class="cover-sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
     </div>
 
-    <div style="margin-top: 6mm; text-align: center;">=</div>
-
-    <div style="margin-top: 6mm; font-size: 14pt; font-weight: bold;">簽核</div>
+    <div style="margin-top: 10mm; font-size: 14pt; font-weight: bold;">簽核</div>
 
     <div class="cover-sign-area">
         <div class="cover-sign-row">
@@ -280,7 +283,7 @@ table.data-table td {
         </div>
     </div>
 
-    <div class="copyright">
+    <div class="copyright" style="margin-top: auto;">
         版權為豬博士動物科技股份有限公司所有，禁止任何未經授權的使用<br>
         All Rights Reserved &copy; DrPIG. Unauthorized use in any form is prohibited.
     </div>
@@ -682,12 +685,12 @@ table.data-table td {
 <table class="data-table">
     <thead>
         <tr>
-            <th style="width: 6%;">#</th>
-            <th style="width: 12%;">姓名<br><span style="font-weight: normal; font-size: 8pt;">(Name)</span></th>
-            <th style="width: 12%;">職稱<br><span style="font-weight: normal; font-size: 8pt;">(Position)</span></th>
-            <th style="width: 18%;">工作內容<br><span style="font-weight: normal; font-size: 8pt;">(Roles in Project)</span></th>
-            <th style="width: 18%;">參與動物試驗年數<br><span style="font-weight: normal; font-size: 8pt;">(Years of Experience<br>in Animal Experiments)</span></th>
-            <th style="width: 34%;">訓練/資格/取得時間<br><span style="font-weight: normal; font-size: 8pt;">(Trainings/Certifications<br>/Received Time)</span></th>
+            <th style="width: 5%;">#</th>
+            <th style="width: 10%;">姓名<br><span style="font-weight: normal; font-size: 8pt;">(Name)</span></th>
+            <th style="width: 10%;">職稱<br><span style="font-weight: normal; font-size: 8pt;">(Position)</span></th>
+            <th style="width: 15%;">工作內容<br><span style="font-weight: normal; font-size: 8pt;">(Roles in Project)</span></th>
+            <th style="width: 15%;">參與動物試驗年數<br><span style="font-weight: normal; font-size: 8pt;">(Years of Experience in<br>Animal Experiments)</span></th>
+            <th style="width: 45%;">訓練/資格/取得時間<br><span style="font-weight: normal; font-size: 8pt;">(Trainings/Certifications<br>/Received Time)</span></th>
         </tr>
     </thead>
     <tbody>
@@ -698,7 +701,7 @@ table.data-table td {
             <td>{{ p.position | default(value="-") }}</td>
             <td style="text-align: center;">{{ p.roles_label | default(value="-") }}</td>
             <td style="text-align: center;">{{ p.years_experience | default(value="-") }}</td>
-            <td>{{ p.trainings_detail | default(value=p.trainings_label) | default(value="-") }}</td>
+            <td style="font-size: 9pt;">{% if p.trainings_detail %}{{ p.trainings_detail }}{% elif p.trainings_label %}{{ p.trainings_label }}{% else %}-{% endif %}</td>
         </tr>
         {% endfor %}
     </tbody>

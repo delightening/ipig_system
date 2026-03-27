@@ -75,7 +75,23 @@
       "Bash(DATABASE_URL=\"postgres://postgres:ipig_password_123@localhost:543/ipig_db\" cargo check)",
       "Bash(ipconfig)",
       "Bash(docker restart:*)",
-      "Bash(gh pr:*)"
+      "Bash(gh pr:*)",
+      "Bash(mkdir -p backups)",
+      "Bash(docker cp:*)",
+      "Bash(echo \"001 types -> 001_types.sql \\(merged with 009 account_type, 018 equipment enums\\)\")",
+      "Bash(echo \"002 users -> 002_users_auth.sql \\(merged with 008 TOTP+version\\)\")",
+      "Bash(echo \"003 notifications -> 003_core_infra.sql \\(merged with 008 jwt/esig/routing, 005 system_settings\\)\")",
+      "Bash(echo \"004 animal -> 004_animal.sql \\(merged with 008 sacrifice lock, transfer_type, version\\)\")",
+      "Bash(echo \"005 aup -> 005_aup.sql \\(merged with 008 protocol version, 014 review decision\\)\")",
+      "Bash(docker exec ipig-db bash -c \":*)",
+      "Bash(\"C:/System Coding/ipig_system/backend/migrations_squashed/001_types.sql\":*)",
+      "Bash(for f:*)",
+      "Bash(do grep:*)",
+      "Skill(codex)",
+      "Bash(findstr /n \".\")",
+      "Bash(findstr /b [0-9]*:)",
+      "Bash(more +1)",
+      "Bash(findstr /v ^$)"
     ]
   }
 }
