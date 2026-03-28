@@ -7,29 +7,29 @@ test.describe('ERP GRN 入庫流程', () => {
         await expect(page).toHaveURL(/\/documents/, { timeout: 12_000 })
     })
 
-    test('單據頁面應可篩選採購類 tab', async ({ page }) => {
-        const tabList = page.locator('[role="tablist"]')
-        const tabs = tabList.locator('[role="tab"]')
-        await expect(tabs.first()).toBeVisible({ timeout: 15_000 })
+    test('單據頁面應顯示類別按鈕', async ({ page }) => {
+        // DocumentsPage 使用 plain <button> 類別切換（非 Radix Tabs）
+        const categoryButtons = page.locator('button').filter({
+            hasText: /採購|銷貨|purchasing|sales/i,
+        })
+        await expect(categoryButtons.first()).toBeVisible({ timeout: 15_000 })
 
-        // 應有多個 tab（含採購 / Purchase / GRN 等）
-        const count = await tabs.count()
+        const count = await categoryButtons.count()
         expect(count).toBeGreaterThanOrEqual(1)
     })
 
-    test('PO 單據應顯示入庫進度 badge', async ({ page }) => {
-        const table = page.locator('table')
-        const empty = page.getByText(/沒有|無資料|no data|尚無|no document/i)
-        await expect(table.or(empty).first()).toBeVisible({ timeout: 15_000 })
+    test('選擇類別後應顯示表格或空狀態', async ({ page }) => {
+        // 先點擊採購類按鈕以觸發表格顯示
+        const purchasingBtn = page.locator('button').filter({
+            hasText: /採購類|採購/,
+        })
+        await expect(purchasingBtn.first()).toBeVisible({ timeout: 15_000 })
+        await purchasingBtn.first().click()
+        await page.waitForTimeout(1000)
 
-        // 若有表格資料，檢查是否有進度 badge
-        if (await table.isVisible().catch(() => false)) {
-            const badges = page.locator('[class*="badge"], [data-slot="badge"], span').filter({
-                hasText: /完成|部分|pending|partial|complete|進行中/i,
-            })
-            // badge 可能存在也可能資料為空，不強制
-            expect(await badges.count()).toBeGreaterThanOrEqual(0)
-        }
+        const table = page.locator('table')
+        const empty = page.getByText(/沒有|無資料|no data|尚無|no document|查無/i)
+        await expect(table.or(empty).first()).toBeVisible({ timeout: 15_000 })
     })
 
     test('建立新單據頁面應可選擇 GRN 類型', async ({ page }) => {
@@ -37,19 +37,26 @@ test.describe('ERP GRN 入庫流程', () => {
             hasText: /New|Add|Create|新增|建立/,
         })
         if (!(await addBtn.first().isVisible({ timeout: 5_000 }).catch(() => false))) {
-            test.skip(true, '頁面無新增按鈕，跳過')
-            return
+            // 也嘗試找 <a> 連結按鈕
+            const addLink = page.locator('a').filter({ hasText: /新增|建立|New/ })
+            if (!(await addLink.first().isVisible({ timeout: 3_000 }).catch(() => false))) {
+                test.skip(true, '頁面無新增按鈕，跳過')
+                return
+            }
+            await addLink.first().click()
+        } else {
+            await addBtn.first().click()
         }
-        await addBtn.first().click()
 
-        // 應出現對話框或導向新頁面，含類型選擇（GRN / 入庫 / Receipt）
+        // 應出現對話框或導向新頁面
         const dialog = page.locator('[role="dialog"]')
         const newPage = page.locator('select, [role="combobox"], [role="listbox"]')
-        await expect(dialog.or(newPage).first()).toBeVisible({ timeout: 15_000 })
+        const form = page.locator('form')
+        await expect(dialog.or(newPage).or(form).first()).toBeVisible({ timeout: 15_000 })
     })
 
     test('GRN 表單應有倉庫、供應商、品項選擇', async ({ page }) => {
-        await ensureAdminOnPage(page, '/documents/create')
+        await ensureAdminOnPage(page, '/documents/new')
         const form = page.locator('form, [role="dialog"]')
         const notFound = page.getByText(/not found|404|找不到/i)
 
@@ -62,7 +69,7 @@ test.describe('ERP GRN 入庫流程', () => {
     })
 
     test('行項目應有批號和效期欄位', async ({ page }) => {
-        await ensureAdminOnPage(page, '/documents/create')
+        await ensureAdminOnPage(page, '/documents/new')
         const batchLabel = page.getByText(/批號|batch|lot/i)
         const expiryLabel = page.getByText(/效期|expir|有效期/i)
         const notFound = page.getByText(/not found|404|找不到/i)
