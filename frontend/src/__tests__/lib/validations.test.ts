@@ -104,7 +104,13 @@ describe('partnerFormSchema', () => {
 
 describe('warehouseFormSchema', () => {
   it('accepts valid warehouse', () => {
-    const result = warehouseFormSchema.safeParse({ name: 'Main Warehouse' })
+    const result = warehouseFormSchema.safeParse({
+      name: 'Main Warehouse',
+      code: 'WH-001',
+      address: '台北市中正區',
+      description: '',
+      is_active: true,
+    })
     expect(result.success).toBe(true)
   })
 

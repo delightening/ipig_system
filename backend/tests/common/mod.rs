@@ -71,7 +71,6 @@ impl TestApp {
 
         let geoip = erp_backend::services::GeoIpService::new("/nonexistent");
         let jwt_blacklist = erp_backend::middleware::JwtBlacklist::new();
-        let alert_broadcaster = erp_backend::handlers::sse::AlertBroadcaster::new();
 
         // Startup: ensure schema, admin, permissions
         let _ = erp_backend::startup::ensure_schema(&pool).await;
@@ -92,7 +91,6 @@ impl TestApp {
             config,
             geoip,
             jwt_blacklist,
-            alert_broadcaster,
             metrics_handle: None,
             gotenberg,
             image_processor,

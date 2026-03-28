@@ -170,6 +170,8 @@ describe('createUserSchema', () => {
       email: 'user@test.com',
       password: 'Abcdef1234',
       display_name: 'Test User',
+      phone: '',
+      organization: '',
       role_ids: ['role-1'],
     })
     expect(result.success).toBe(true)
