@@ -58,14 +58,9 @@ test.describe('ERP GRN 入庫流程', () => {
     test('新增單據頁面應顯示表單欄位', async ({ page }) => {
         await ensureAdminOnPage(page, '/documents/new')
 
-        // DocumentEditPage 不使用 <form> 標籤，使用 div 容器
-        // 確認頁面載入：應有單據類型選擇或返回按鈕
-        const typeSelect = page.locator('select, [role="combobox"]')
-        const backBtn = page.locator('button').filter({ hasText: /返回|Back|←/i })
-        const pageContent = page.getByText(/新增單據|新增|New Document|單據類型|Document Type/i)
-
+        // 確認頁面載入：heading 應含「新增單據」或「New Document」
         await expect(
-            typeSelect.first().or(backBtn.first()).or(pageContent.first()),
+            page.getByRole('heading', { name: /新增單據|New Document/i }),
         ).toBeVisible({ timeout: 15_000 })
     })
 })
