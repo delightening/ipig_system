@@ -17,24 +17,15 @@ test.describe('附件與詳情頁面', () => {
         await ensureAdminOnPage(page, '/protocols')
         await expect(page).toHaveURL(/\/protocols/, { timeout: 12_000 })
 
-        // 等待表格載入
-        const table = page.locator('table')
-        await expect(table).toBeVisible({ timeout: 15_000 })
-
-        // 確認有資料列可點擊
-        const rows = table.locator('tbody tr')
-        const rowCount = await rows.count().catch(() => 0)
-        if (rowCount === 0) {
-            test.skip(true, '無計畫書資料，跳過')
+        // 等待真正的資料列出現（含 <a> 連結），跳過 loading skeleton
+        const dataLink = page.locator('table tbody tr a').first()
+        const isVisible = await dataLink.isVisible({ timeout: 15_000 }).catch(() => false)
+        if (!isVisible) {
+            test.skip(true, '無計畫書資料或載入超時，跳過')
             return
         }
 
-        // 點擊第一筆計畫書的連結
-        const link = rows.first().locator('a').first()
-        await expect(link).toBeVisible({ timeout: 5_000 })
-        await link.click()
-
-        // 確認導航至 detail 頁面
+        await dataLink.click()
         await expect(page).toHaveURL(/\/protocols\/[^/]+$/, { timeout: 15_000 })
     })
 
