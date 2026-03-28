@@ -8,10 +8,8 @@ test.describe('HR 出勤打卡', () => {
     })
 
     test('今日打卡頁面應顯示', async ({ page }) => {
-        // 頁面標題「出勤管理」或 tab 列應可見
-        const pageTitle = page.getByText(/出勤管理|Attendance/i)
-        const tabTrigger = page.locator('[role="tab"]')
-        await expect(pageTitle.first().or(tabTrigger.first())).toBeVisible({ timeout: 15_000 })
+        // 頁面標題「出勤管理」應可見
+        await expect(page.getByRole('heading', { name: /出勤管理|Attendance/i })).toBeVisible({ timeout: 15_000 })
     })
 
     test('應有打卡按鈕或打卡記錄', async ({ page }) => {
