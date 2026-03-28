@@ -3,11 +3,11 @@ import { ensureAdminOnPage } from './auth-helpers'
 
 test.describe('設備管理', () => {
     test.beforeEach(async ({ page }) => {
-        await ensureAdminOnPage(page, '/admin/equipment')
+        await ensureAdminOnPage(page, '/equipment')
         if (page.url().includes('/login')) {
-            await ensureAdminOnPage(page, '/admin/equipment')
+            await ensureAdminOnPage(page, '/equipment')
         }
-        await expect(page).toHaveURL(/\/admin\/equipment/, { timeout: 12_000 })
+        await expect(page).toHaveURL(/\/equipment/, { timeout: 12_000 })
     })
 
     test('應顯示設備管理頁面（表格或 loading）', async ({ page }) => {
