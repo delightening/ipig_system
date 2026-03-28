@@ -13,7 +13,7 @@ test.describe('ERP 進銷存流程', () => {
     })
 
     test('產品主檔頁面應顯示表格', async ({ page }) => {
-        await ensureAdminOnPage(page, '/master/products')
+        await ensureAdminOnPage(page, '/products')
         await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
 
         await expect(
@@ -22,7 +22,7 @@ test.describe('ERP 進銷存流程', () => {
     })
 
     test('合作夥伴頁面應顯示表格', async ({ page }) => {
-        await ensureAdminOnPage(page, '/master/partners')
+        await ensureAdminOnPage(page, '/partners')
         await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
 
         await expect(
@@ -31,7 +31,7 @@ test.describe('ERP 進銷存流程', () => {
     })
 
     test('產品搜尋應可運作', async ({ page }) => {
-        await ensureAdminOnPage(page, '/master/products')
+        await ensureAdminOnPage(page, '/products')
         await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
 
         const searchInput = page.locator('input[placeholder]').first()
@@ -45,7 +45,7 @@ test.describe('ERP 進銷存流程', () => {
     })
 
     test('合作夥伴 Tab 切換（供應商/客戶）', async ({ page }) => {
-        await ensureAdminOnPage(page, '/master/partners')
+        await ensureAdminOnPage(page, '/partners')
         await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
 
         // Tab 切換（供應商 / Supplier / 客戶 / Customer）
