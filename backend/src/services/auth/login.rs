@@ -24,8 +24,7 @@ impl AuthService {
             .bind(&req.email)
             .bind(config.account_lockout_duration_minutes)
             .fetch_one(pool)
-            .await
-            .unwrap_or((0,));
+            .await?;
 
             if fail_count >= config.account_lockout_max_attempts {
                 tracing::warn!(

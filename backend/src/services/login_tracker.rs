@@ -359,7 +359,7 @@ async fn check_new_device(pool: &PgPool, user_id: Uuid, user_agent: Option<&str>
     };
 
     // 檢查過去 30 天是否用過這個 user agent
-    let (count,): (i64,) = sqlx::query_as(
+    let count = sqlx::query_as::<_, (i64,)>(
         r#"
         SELECT COUNT(*) FROM login_events
         WHERE user_id = $1
@@ -372,7 +372,11 @@ async fn check_new_device(pool: &PgPool, user_id: Uuid, user_agent: Option<&str>
     .bind(ua)
     .fetch_one(pool)
     .await
-    .unwrap_or((0,));
+    .map(|r| r.0)
+    .unwrap_or_else(|e| {
+        tracing::error!("check_new_device query failed: {e}");
+        0 // DB 錯誤時保守處理：視為新裝置
+    });
 
     count == 0
 }
@@ -388,7 +392,7 @@ async fn check_unusual_location(
 ) -> bool {
     // 策略 1：如果有國家資訊，使用國家層級比對
     if let Some(ref country) = geo.country {
-        let (count,): (i64,) = sqlx::query_as(
+        let count = sqlx::query_as::<_, (i64,)>(
             r#"
             SELECT COUNT(*) FROM login_events
             WHERE user_id = $1
@@ -401,7 +405,11 @@ async fn check_unusual_location(
         .bind(country)
         .fetch_one(pool)
         .await
-        .unwrap_or((0,));
+        .map(|r| r.0)
+        .unwrap_or_else(|e| {
+            tracing::error!("check_unusual_location country query failed: {e}");
+            0
+        });
 
         return count == 0;
     }
@@ -412,7 +420,7 @@ async fn check_unusual_location(
         None => return false,
     };
 
-    let (count,): (i64,) = sqlx::query_as(
+    let count = sqlx::query_as::<_, (i64,)>(
         r#"
         SELECT COUNT(*) FROM login_events
         WHERE user_id = $1
@@ -425,14 +433,18 @@ async fn check_unusual_location(
     .bind(ip)
     .fetch_one(pool)
     .await
-    .unwrap_or((0,));
+    .map(|r| r.0)
+    .unwrap_or_else(|e| {
+        tracing::error!("check_unusual_location ip query failed: {e}");
+        0
+    });
 
     count == 0
 }
 
 async fn check_mass_login(pool: &PgPool, user_id: Uuid) -> bool {
     // 檢查過去 15 分鐘內成功登入次數
-    let (count,): (i64,) = sqlx::query_as(
+    let count = sqlx::query_as::<_, (i64,)>(
         r#"
         SELECT COUNT(*) FROM login_events
         WHERE user_id = $1
@@ -443,7 +455,11 @@ async fn check_mass_login(pool: &PgPool, user_id: Uuid) -> bool {
     .bind(user_id)
     .fetch_one(pool)
     .await
-    .unwrap_or((0,));
+    .map(|r| r.0)
+    .unwrap_or_else(|e| {
+        tracing::error!("check_mass_login query failed: {e}");
+        0
+    });
 
     // 如果連同本次（尚未寫入前的查詢）已有 4 次以上，則本次標記為大量登入
     count >= 4
@@ -459,8 +475,7 @@ async fn check_global_mass_login(pool: &PgPool) -> Result<()> {
         "#,
     )
     .fetch_one(pool)
-    .await
-    .unwrap_or((0,));
+    .await?;
 
     // 如果 5 分鐘內超過 10 個不同帳號登入，觸發全域警報
     if count >= 10 {
@@ -484,8 +499,7 @@ async fn create_global_mass_login_alert(
         "#,
     )
     .fetch_one(pool)
-    .await
-    .unwrap_or((0,));
+    .await?;
 
     if recent_alert_count > 0 {
         return Ok(());
