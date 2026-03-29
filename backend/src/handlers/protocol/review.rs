@@ -47,10 +47,11 @@ pub async fn list_review_assignments(
     require_permission!(current_user, "aup.protocol.view_own");
     let protocol_id = query.protocol_id
         .ok_or_else(|| AppError::Validation("protocol_id is required".to_string()))?;
-    if !access::has_protocol_view_all(&current_user) && !current_user.is_admin() {
-        if !access::is_reviewer_or_vet(&state.db, protocol_id, current_user.id).await? {
-            return Err(AppError::Forbidden("You don't have permission to view reviewer assignments for this protocol".to_string()));
-        }
+    if !access::has_protocol_view_all(&current_user)
+        && !current_user.is_admin()
+        && !access::is_reviewer_or_vet(&state.db, protocol_id, current_user.id).await?
+    {
+        return Err(AppError::Forbidden("You don't have permission to view reviewer assignments for this protocol".to_string()));
     }
     let assignments: Vec<ReviewAssignmentResponse> = sqlx::query_as(
         r#"SELECT ra.id, ra.protocol_id, ra.reviewer_id,
