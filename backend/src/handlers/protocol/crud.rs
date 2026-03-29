@@ -18,7 +18,7 @@ use crate::{
         SaveVetReviewFormRequest,
     },
     require_permission,
-    services::{NotificationService, ProtocolService},
+    services::{access, NotificationService, ProtocolService},
     AppError, AppState, Result,
 };
 
@@ -89,20 +89,9 @@ pub async fn get_protocol(
 ) -> Result<Json<ProtocolResponse>> {
     require_permission!(current_user, "aup.protocol.view_own");
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
-    let has_view_all = current_user.has_permission("aup.protocol.view_all")
-        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
-    let is_pi_or_coeditor: (bool,) = sqlx::query_as(
-        r#"SELECT EXISTS(SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol IN ('PI', 'CLIENT', 'CO_EDITOR'))"#
-    ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-    let is_assigned_reviewer: (bool,) = sqlx::query_as(
-        r#"SELECT EXISTS(SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2)"#
-    ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-    let is_assigned_vet: (bool,) = sqlx::query_as(
-        r#"SELECT EXISTS(SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2)"#
-    ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 && !is_assigned_reviewer.0 && !is_assigned_vet.0 {
-        return Err(AppError::Forbidden("You don't have permission to view this protocol".to_string()));
-    }
+    access::require_protocol_view_access(
+        &state.db, &current_user, id, protocol.protocol.pi_user_id,
+    ).await?;
     Ok(Json(protocol))
 }
 
@@ -115,10 +104,7 @@ pub async fn update_protocol(
     Json(req): Json<UpdateProtocolRequest>,
 ) -> Result<Json<Protocol>> {
     let has_edit_permission = current_user.has_permission("aup.protocol.edit");
-    let is_authorized: (bool,) = sqlx::query_as(
-        r#"SELECT EXISTS(SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol IN ('PI', 'CLIENT', 'CO_EDITOR'))"#
-    ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-    if !has_edit_permission && !is_authorized.0 {
+    if !has_edit_permission && !access::is_pi_or_coeditor(&state.db, id, current_user.id).await? {
         return Err(AppError::Forbidden("You don't have permission to edit this protocol".to_string()));
     }
     req.validate()?;
@@ -134,10 +120,7 @@ pub async fn submit_protocol(
     Path(id): Path<Uuid>,
 ) -> Result<Json<Protocol>> {
     let has_submit_permission = current_user.has_permission("aup.protocol.submit");
-    let is_authorized: (bool,) = sqlx::query_as(
-        r#"SELECT EXISTS(SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol IN ('PI', 'CO_EDITOR'))"#,
-    ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-    if !has_submit_permission && !is_authorized.0 {
+    if !has_submit_permission && !access::is_pi_or_coeditor(&state.db, id, current_user.id).await? {
         return Err(AppError::Forbidden("You don't have permission to submit this protocol".to_string()));
     }
     let protocol = ProtocolService::submit(&state.db, id, current_user.id).await?;
@@ -187,19 +170,7 @@ pub async fn get_protocol_versions(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<ProtocolVersion>>> {
-    let has_view_all = current_user.has_permission("aup.protocol.view_all")
-        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
-    if !has_view_all {
-        let is_authorized: (bool,) = sqlx::query_as(
-            r#"SELECT EXISTS(
-                SELECT 1 FROM protocols p WHERE p.id = $1 AND p.pi_user_id = $2
-                UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
-                UNION SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
-                UNION SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
-            )"#
-        ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-        if !is_authorized.0 { require_permission!(current_user, "aup.protocol.view_own"); }
-    }
+    access::require_protocol_related_access(&state.db, &current_user, id).await?;
     let versions = ProtocolService::get_versions(&state.db, id).await?;
     Ok(Json(versions))
 }
@@ -211,19 +182,7 @@ pub async fn get_protocol_activities(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<ProtocolActivityResponse>>> {
-    let has_view_all = current_user.has_permission("aup.protocol.view_all")
-        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
-    if !has_view_all {
-        let is_authorized: (bool,) = sqlx::query_as(
-            r#"SELECT EXISTS(
-                SELECT 1 FROM protocols p WHERE p.id = $1 AND p.pi_user_id = $2
-                UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
-                UNION SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
-                UNION SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
-            )"#
-        ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-        if !is_authorized.0 { require_permission!(current_user, "aup.protocol.view_own"); }
-    }
+    access::require_protocol_related_access(&state.db, &current_user, id).await?;
     let activities = ProtocolService::get_activities(&state.db, id).await?;
     Ok(Json(activities))
 }
@@ -297,10 +256,10 @@ pub async fn get_protocol_animal_stats(
             COUNT(*) FILTER (WHERE status IN ('completed', 'euthanized', 'sudden_death')) as completed_count,
             COUNT(*) as total_count
         FROM animals WHERE iacuc_no = $1 AND deleted_at IS NULL"#
-    ).bind(&iacuc_no).fetch_one(&state.db).await.unwrap_or((0, 0, 0));
+    ).bind(&iacuc_no).fetch_one(&state.db).await?;
     let approved_count: (Option<i64>,) = sqlx::query_as(
         r#"SELECT (working_content->>'animal_count')::bigint as approved_count FROM protocols WHERE id = $1"#
-    ).bind(id).fetch_one(&state.db).await.unwrap_or((None,));
+    ).bind(id).fetch_one(&state.db).await?;
     let approved = approved_count.0.unwrap_or(stats.2);
     let remaining = approved - stats.2;
     Ok(Json(serde_json::json!({
@@ -316,13 +275,8 @@ pub async fn save_vet_review_form(
     Json(req): Json<SaveVetReviewFormRequest>,
 ) -> Result<Json<()>> {
     let is_vet = current_user.roles.contains(&"VET".to_string()) || current_user.is_admin();
-    if !is_vet {
-        let is_assigned: (bool,) = sqlx::query_as(
-            "SELECT EXISTS(SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2)"
-        ).bind(req.protocol_id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-        if !is_assigned.0 {
-            return Err(AppError::Forbidden("Permission denied: You are not assigned as a vet for this protocol".to_string()));
-        }
+    if !is_vet && !access::is_assigned_vet(&state.db, req.protocol_id, current_user.id).await? {
+        return Err(AppError::Forbidden("Permission denied: You are not assigned as a vet for this protocol".to_string()));
     }
     ProtocolService::save_vet_review_form(&state.db, req.protocol_id, current_user.id, &req.review_form).await?;
     if let Err(e) = ProtocolService::record_activity(

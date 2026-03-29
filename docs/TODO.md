@@ -392,7 +392,7 @@
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R16-1 | **Auth 查詢錯誤靜默吞掉** | `handlers/protocol/` 13+ 處 `.unwrap_or((false,))` 改用 `?` 傳播錯誤，避免 DB 故障遮蔽為 403。CRITICAL | [ ] |
+| R16-1 | **Auth 查詢錯誤靜默吞掉** | `handlers/protocol/` 13+ 處 `.unwrap_or((false,))` 改用 `?` 傳播錯誤，避免 DB 故障遮蔽為 403。CRITICAL | [x] |
 | R16-2 | **Content-Disposition header injection** | `handlers/upload.rs:466` + 12 處 export handler 檔名未跳脫，改用 RFC 5987 percent-encode。HIGH | [ ] |
 | R16-3 | **稽核日誌 PDF XSS** | `useAuditLogExport.ts:54-62` document.write 未 HTML 跳脫，加入 `escapeHtml()` 函式。HIGH | [ ] |
 | R16-4 | **window.open 缺 noopener** | `VetRecommendationDialog.tsx:85` 補 `'noopener,noreferrer'`。HIGH | [ ] |
@@ -403,8 +403,8 @@
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R16-7 | **Handler 層直接寫 SQL** | `handlers/amendment.rs`, `protocol/crud.rs`, `protocol/review.rs`, `hr/` 等 8+ 檔。抽取至 `repositories/`。CRITICAL（系統性） | [ ] |
-| R16-8 | **3 套重複 check_protocol_access** | `amendment.rs`, `pdf_export.rs`, `signature/access.rs` 合併至 `services/access.rs`。HIGH | [ ] |
+| R16-7 | **Handler 層直接寫 SQL（授權部分）** | 授權查詢已集中至 `services/access.rs`。protocol/crud, review, export, pdf_export, amendment 已改用。CRITICAL（部分完成：授權查詢） | [x] |
+| R16-8 | **3 套重複 check_protocol_access** | 合併至 `services/access.rs`（require_protocol_view_access, require_protocol_related_access 等 9 函式）。HIGH | [x] |
 | R16-9 | **Swagger UI 無認證暴露** | `startup/server.rs:76` production 關閉或加 auth gate。HIGH | [ ] |
 | R16-10 | **動態 table name 無白名單** | `services/signature/access.rs:98-145` 加 allowed_tables 驗證。HIGH | [ ] |
 | R16-11 | **CSRF 可被 env var 關閉** | `DISABLE_CSRF_FOR_TESTS` 加 production guard，拒絕非 dev 環境啟用。MEDIUM | [ ] |
@@ -462,8 +462,8 @@
 | 🎨 R13 UI 一致性 | 0 |
 | 📄 R14 PDF 輸出修正 | 0 |
 | 🔍 R15 Code Review 發現 | 0 |
-| 🔍 R16 全專案 Code Review | 31 |
-| **合計（未完成）** | **31** |
+| 🔍 R16 全專案 Code Review | 28 |
+| **合計（未完成）** | **28** |
 
 ---
 

@@ -134,8 +134,7 @@ impl QauService {
         )
         .bind(week_ago)
         .fetch_one(pool)
-        .await
-        .unwrap_or((0,));
+        .await?;
 
         let in_review: (i64,) = sqlx::query_as(
             r#"
@@ -146,8 +145,7 @@ impl QauService {
             "#,
         )
         .fetch_one(pool)
-        .await
-        .unwrap_or((0,));
+        .await?;
 
         let pending_pi: (i64,) = sqlx::query_as(
             r#"
@@ -158,8 +156,7 @@ impl QauService {
             "#,
         )
         .fetch_one(pool)
-        .await
-        .unwrap_or((0,));
+        .await?;
 
         Ok(ReviewProgressSummary {
             status_changes_last_7_days: status_changes.0,
@@ -198,8 +195,7 @@ impl QauService {
     async fn get_animal_summary(pool: &PgPool) -> Result<AnimalSummary> {
         let total: (i64,) = sqlx::query_as("SELECT COUNT(*)::bigint FROM animals")
             .fetch_one(pool)
-            .await
-            .unwrap_or((0,));
+            .await?;
 
         let rows: Vec<(String, i64)> = sqlx::query_as(
             r#"

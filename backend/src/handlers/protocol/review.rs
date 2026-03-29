@@ -15,7 +15,7 @@ use crate::{
         SaveDraftRequest, SubmitReplyRequest,
     },
     require_permission,
-    services::{NotificationService, ProtocolService},
+    services::{access, NotificationService, ProtocolService},
     AppError, AppState, Result,
 };
 
@@ -47,16 +47,8 @@ pub async fn list_review_assignments(
     require_permission!(current_user, "aup.protocol.view_own");
     let protocol_id = query.protocol_id
         .ok_or_else(|| AppError::Validation("protocol_id is required".to_string()))?;
-    let has_view_all = current_user.has_permission("aup.protocol.view_all")
-        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "SYSTEM_ADMIN", "admin"].contains(&r.as_str()));
-    if !has_view_all {
-        let is_assigned_reviewer: (bool,) = sqlx::query_as(
-            r#"SELECT EXISTS(SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2)"#
-        ).bind(protocol_id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-        let is_assigned_vet: (bool,) = sqlx::query_as(
-            r#"SELECT EXISTS(SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2)"#
-        ).bind(protocol_id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-        if !is_assigned_reviewer.0 && !is_assigned_vet.0 {
+    if !access::has_protocol_view_all(&current_user) && !current_user.is_admin() {
+        if !access::is_reviewer_or_vet(&state.db, protocol_id, current_user.id).await? {
             return Err(AppError::Forbidden("You don't have permission to view reviewer assignments for this protocol".to_string()));
         }
     }
@@ -107,13 +99,9 @@ pub async fn create_review_comment(
         let (protocol_id,): (Uuid,) = sqlx::query_as(
             "SELECT protocol_id FROM protocol_versions WHERE id = $1"
         ).bind(req.protocol_version_id).fetch_one(&state.db).await?;
-        let is_authorized: (bool,) = sqlx::query_as(
-            r#"SELECT EXISTS(
-                SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
-                UNION SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
-            )"#
-        ).bind(protocol_id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-        if !is_authorized.0 { require_permission!(current_user, "aup.review.comment"); }
+        if !access::is_reviewer_or_vet(&state.db, protocol_id, current_user.id).await? {
+            require_permission!(current_user, "aup.review.comment");
+        }
     }
     let comment = ProtocolService::add_comment(&state.db, &req, current_user.id).await?;
     // 非同步通知
@@ -171,19 +159,7 @@ pub async fn list_review_comments(
     } else {
         return Err(AppError::Validation("protocol_id or protocol_version_id is required".to_string()));
     };
-    let has_view_all = current_user.has_permission("aup.protocol.view_all")
-        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
-    if !has_view_all {
-        let is_authorized: (bool,) = sqlx::query_as(
-            r#"SELECT EXISTS(
-                SELECT 1 FROM protocols p WHERE p.id = $1 AND p.pi_user_id = $2
-                UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
-                UNION SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
-                UNION SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
-            )"#
-        ).bind(protocol_id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-        if !is_authorized.0 { require_permission!(current_user, "aup.protocol.view_own"); }
-    }
+    access::require_protocol_related_access(&state.db, &current_user, protocol_id).await?;
     let comments = ProtocolService::get_comments(&state.db, protocol_id).await?;
     Ok(Json(comments))
 }

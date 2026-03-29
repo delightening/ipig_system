@@ -185,6 +185,16 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-03-29 R16 CRITICAL 修復 + 歡迎指引系統 + INTERN 角色
+
+- ✅ **R16-1 授權查詢 unwrap_or 繞過修復**：42 處 `.unwrap_or((false,))` / `.unwrap_or((0,))` 改為 `?` 錯誤傳播或 `unwrap_or_else` + 日誌。涵蓋 protocol/crud, review, export, pdf_export + services/auth/login, audit, login_tracker, calendar, qau
+- ✅ **R16-7/R16-8 授權查詢集中化**：`services/access.rs` 新增 9 個函式（is_pi_or_coeditor, is_assigned_reviewer, require_protocol_view_access 等），取代 3 套重複 check_protocol_access
+- ✅ **角色歡迎指引系統**：13 個非 admin 角色各有專屬歡迎訊息與可點擊頁面連結。多角色合併顯示（「身為 XX」前綴）。支援 sessionStorage 單次關閉 + preference 永久關閉
+- ✅ **INTERN 角色新增**：後端權限定義（同 EXPERIMENT_STAFF）、Migration 023、DashboardRoute 加入 INTERN
+- ✅ **帳號到期日功能**：users.expires_at 欄位 + 登入時自動檢查 + 管理員可設定
+- ✅ **Polling 401 修復**：shouldPoll 增加 isAuthenticated 檢查、QueryClient retry 跳過 401/403、clearAuth 時 cancelQueries
+- ✅ **反模式記錄**：feedback memory 記錄 unwrap_or 吞錯誤 + handler 直接 SQL 兩個反模式
+
 ### 2026-03-29 R16 全專案 Code Review + CI 全面修復
 
 - ✅ **全專案 Code Review**：5 面向平行審查（Backend 安全/Frontend 安全/Backend 品質/Frontend 品質/CI 測試），發現 CRITICAL 2 / HIGH 23 / MEDIUM 22 / LOW 11，新增 R16-1~R16-31 共 31 項待辦至 TODO.md

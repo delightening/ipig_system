@@ -11,8 +11,8 @@ use uuid::Uuid;
 use crate::{
     middleware::CurrentUser,
     require_permission,
-    services::ProtocolService,
-    AppError, AppState, Result,
+    services::{access, ProtocolService},
+    AppState, Result,
 };
 
 /// 建構 PDF 下載回應
@@ -39,40 +39,7 @@ async fn check_protocol_view_access(
     current_user: &CurrentUser,
     protocol_id: Uuid,
 ) -> Result<()> {
-    let has_view_all = current_user.has_permission("aup.protocol.view_all")
-        || current_user
-            .roles
-            .iter()
-            .any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
-
-    if has_view_all {
-        return Ok(());
-    }
-
-    let protocol = ProtocolService::get_by_id(&state.db, protocol_id).await?;
-    if protocol.protocol.pi_user_id == current_user.id {
-        return Ok(());
-    }
-
-    let is_related: (bool,) = sqlx::query_as(
-        r#"SELECT EXISTS(
-            SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
-            UNION SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
-            UNION SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
-        )"#,
-    )
-    .bind(protocol_id)
-    .bind(current_user.id)
-    .fetch_one(&state.db)
-    .await
-    .unwrap_or((false,));
-
-    if !is_related.0 {
-        return Err(AppError::Forbidden(
-            "You don't have permission to export this protocol".to_string(),
-        ));
-    }
-    Ok(())
+    access::require_protocol_related_access(&state.db, current_user, protocol_id).await
 }
 
 /// 匯出審核結果 PDF (AD-04-01-10B)

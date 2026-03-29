@@ -98,21 +98,18 @@ impl CalendarService {
             "SELECT COUNT(*) FROM calendar_event_sync WHERE sync_status IN ('pending', 'error')",
         )
         .fetch_one(pool)
-        .await
-        .unwrap_or((0,));
+        .await?;
 
         let pending_conflicts: (i64,) =
             sqlx::query_as("SELECT COUNT(*) FROM calendar_sync_conflicts WHERE status = 'pending'")
                 .fetch_one(pool)
-                .await
-                .unwrap_or((0,));
+                .await?;
 
         let recent_errors: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM calendar_event_sync WHERE error_count > 0 AND last_error_at > NOW() - INTERVAL '24 hours'",
         )
         .fetch_one(pool)
-        .await
-        .unwrap_or((0,));
+        .await?;
 
         Ok(CalendarSyncStatus {
             is_configured: config.as_ref().map(|c| c.is_configured).unwrap_or(false),

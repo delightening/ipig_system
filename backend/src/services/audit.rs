@@ -719,7 +719,7 @@ impl AuditService {
         .bind(today)
         .fetch_one(pool)
         .await
-        .unwrap_or((0,));
+        .map_err(|e| { tracing::error!("audit stats query failed: {e}"); e })?;
 
         let active_week: (i64,) = sqlx::query_as(
             "SELECT COUNT(DISTINCT actor_user_id) FROM user_activity_logs WHERE partition_date >= $1",
@@ -727,7 +727,7 @@ impl AuditService {
         .bind(week_ago)
         .fetch_one(pool)
         .await
-        .unwrap_or((0,));
+        .map_err(|e| { tracing::error!("audit stats query failed: {e}"); e })?;
 
         let active_month: (i64,) = sqlx::query_as(
             "SELECT COUNT(DISTINCT actor_user_id) FROM user_activity_logs WHERE partition_date >= $1",
@@ -735,7 +735,7 @@ impl AuditService {
         .bind(month_ago)
         .fetch_one(pool)
         .await
-        .unwrap_or((0,));
+        .map_err(|e| { tracing::error!("audit stats query failed: {e}"); e })?;
 
         // 登入統計
         let logins_today: (i64,) = sqlx::query_as(
@@ -744,7 +744,7 @@ impl AuditService {
         .bind(today)
         .fetch_one(pool)
         .await
-        .unwrap_or((0,));
+        .map_err(|e| { tracing::error!("audit stats query failed: {e}"); e })?;
 
         let failed_logins: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM login_events WHERE created_at::date = $1 AND event_type = 'login_failure'",
@@ -752,14 +752,14 @@ impl AuditService {
         .bind(today)
         .fetch_one(pool)
         .await
-        .unwrap_or((0,));
+        .map_err(|e| { tracing::error!("audit stats query failed: {e}"); e })?;
 
         // 活躍 Sessions
         let active_sessions: (i64,) =
             sqlx::query_as("SELECT COUNT(*) FROM user_sessions WHERE is_active = true")
                 .fetch_one(pool)
                 .await
-                .unwrap_or((0,));
+                .map_err(|e| { tracing::error!("audit stats query failed: {e}"); e })?;
 
         // 警報統計
         let open_alerts: (i64,) = sqlx::query_as(
@@ -767,14 +767,14 @@ impl AuditService {
         )
         .fetch_one(pool)
         .await
-        .unwrap_or((0,));
+        .map_err(|e| { tracing::error!("audit stats query failed: {e}"); e })?;
 
         let critical_alerts: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM security_alerts WHERE status IN ('open', 'acknowledged') AND severity = 'critical'",
         )
         .fetch_one(pool)
         .await
-        .unwrap_or((0,));
+        .map_err(|e| { tracing::error!("audit stats query failed: {e}"); e })?;
 
         Ok(AuditDashboardStats {
             active_users_today: active_today.0,
