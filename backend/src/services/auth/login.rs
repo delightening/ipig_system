@@ -18,7 +18,7 @@ impl AuthService {
                 SELECT COUNT(*) FROM login_events
                 WHERE email = $1
                   AND event_type = 'login_failure'
-                  AND created_at > NOW() - make_interval(mins => $2)
+                  AND created_at > NOW() - make_interval(mins => $2::integer)
                 "#,
             )
             .bind(&req.email)
