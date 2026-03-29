@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { toast } from '@/components/ui/use-toast'
 import { logger } from '@/lib/logger'
-import { Loader2, Settings2, Unlock, Save, Sparkles, X as XIcon } from 'lucide-react'
+import { Loader2, Settings2, Unlock, Save } from 'lucide-react'
 import { Responsive, WidthProvider, LayoutItem, Layout } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -20,6 +20,7 @@ import {
   StaffAttendanceWidget,
   CalendarWidget,
   GoogleCalendarEventsWidget,
+  RoleWelcomeGuide,
   WidgetLayoutItem,
   DEFAULT_DASHBOARD_LAYOUT,
   GRID_ROW_HEIGHT,
@@ -47,9 +48,6 @@ export function DashboardPage() {
   const { user, hasRole, hasPermission } = useAuthStore()
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
-  const [showWelcome, setShowWelcome] = useState(() => {
-    return !sessionStorage.getItem('dashboard-welcome-dismissed')
-  })
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [pendingLayout, setPendingLayout] = useState<WidgetLayoutItem[] | null>(null)
 
@@ -245,30 +243,7 @@ export function DashboardPage() {
         }
       />
 
-      {showWelcome && !isEditMode && (
-        <div className="relative p-4 bg-primary/5 border border-primary/20 rounded-lg">
-          <button
-            onClick={() => {
-              setShowWelcome(false)
-              sessionStorage.setItem('dashboard-welcome-dismissed', '1')
-            }}
-            className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
-          >
-            <XIcon className="h-4 w-4" />
-          </button>
-          <div className="flex items-start gap-3">
-            <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-            <div>
-              <p className="font-medium text-foreground">
-                {t('dashboard.welcome.title', { name: user?.display_name || '', defaultValue: `歡迎，${user?.display_name || ''}！` })}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t('dashboard.welcome.description', '這是您的個人儀表板。點擊右上角的「解鎖佈局」可拖放調整 Widget 位置，或透過「設定」選擇要顯示的模組。')}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {!isEditMode && <RoleWelcomeGuide />}
 
       {isEditMode && (
         <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm text-primary">

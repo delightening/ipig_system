@@ -60,6 +60,8 @@ pub struct User {
     pub aup_roles: Vec<String>,
     pub years_experience: i32,
     pub trainings: sqlx::types::Json<Vec<UserTraining>>,
+    // 帳號到期日（NULL = 永不過期）
+    pub expires_at: Option<DateTime<Utc>>,
     // TOTP 2FA
     pub totp_enabled: bool,
     #[serde(skip_serializing)]
@@ -92,6 +94,7 @@ pub struct UserWithRoles {
     pub aup_roles: Vec<String>,
     pub years_experience: i32,
     pub trainings: sqlx::types::Json<Vec<UserTraining>>,
+    pub expires_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub roles: Vec<String>,
@@ -123,6 +126,8 @@ pub struct CreateUserRequest {
     pub is_internal: bool,
     #[serde(default)]
     pub role_ids: Vec<Uuid>,
+    /// 帳號到期日（NULL = 永不過期），用於實習生等臨時帳號
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 fn default_is_internal() -> bool {
@@ -148,6 +153,8 @@ pub struct UpdateUserRequest {
     pub is_internal: Option<bool>,
     pub is_active: Option<bool>,
     pub role_ids: Option<Vec<Uuid>>,
+    /// 帳號到期日（NULL = 永不過期）
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
@@ -192,6 +199,7 @@ pub struct UserResponse {
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
     pub totp_enabled: bool,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 impl UserResponse {
@@ -217,6 +225,7 @@ impl UserResponse {
             roles,
             permissions,
             totp_enabled: user.totp_enabled,
+            expires_at: user.expires_at,
         }
     }
 }

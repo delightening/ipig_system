@@ -312,6 +312,53 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
+        // INTERN (實習生) - 與 EXPERIMENT_STAFF 相同權限，帳號有到期日
+        // ============================================
+        ("INTERN", vec![
+            // 計畫管理（僅 Co-Editor 權限）
+            "aup.protocol.view_own", "aup.protocol.edit",
+            // 審查流程
+            "aup.review.view", "aup.review.reply",
+            // 附件管理
+            "aup.attachment.view", "aup.attachment.download",
+            "aup.attachment.upload", "aup.attachment.delete",
+            // 版本管理
+            "aup.version.view",
+            // 物種管理
+            "species.read", "species.create", "species.update",
+            // 動物管理
+            "animal.animal.view_all", "animal.animal.create", "animal.animal.edit", "animal.animal.import",
+            "animal.record.view", "animal.record.create", "animal.record.edit",
+            "animal.blood_test_template.manage",
+            "animal.record.observation", "animal.record.surgery",
+            "animal.record.weight", "animal.record.vaccine", "animal.record.sacrifice",
+            // 動物來源管理
+            "animal.source.manage",
+            // 緊急處置權限
+            "animal.emergency.medication", "animal.emergency.stop",
+            // 安樂死執行權限（需由 PI 或 VET 核准）
+            "animal.euthanasia.execute",
+            // 匯出（含病歷）
+            "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
+            // ERP 查詢（僅讀取）+ 請購單建立 + 單據建立
+            "erp.warehouse.view", "erp.product.view", "erp.partner.view",
+            "erp.stock.view",
+            "erp.pr.create",
+            // 單據管理
+            "erp.document.view", "erp.document.create", "erp.document.edit",
+            "erp.document.submit",
+            // HR 權限（內部員工基本權限）
+            "hr.attendance.view", "hr.attendance.clock",
+            "hr.leave.view", "hr.leave.create",
+            "hr.overtime.view", "hr.overtime.create",
+            "hr.balance.view",
+            // 人員訓練紀錄（僅管理自己的）
+            "training.view", "training.manage_own",
+            // Dashboard 權限
+            "dashboard.view",
+        ]),
+
+        // ============================================
         // ADMIN_STAFF (行政) - 全部 HR 權限 + 庫存報表 Audit + 管理階級 Audit
         // ============================================
         ("ADMIN_STAFF", vec![

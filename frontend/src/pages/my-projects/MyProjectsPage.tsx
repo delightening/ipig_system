@@ -32,6 +32,7 @@ import { getApiErrorMessage } from '@/lib/validation'
 import { useTranslation } from 'react-i18next'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { RoleWelcomeGuide } from '@/components/dashboard'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -189,6 +190,8 @@ export function MyProjectsPage() {
         title={t('nav.myProjects')}
         description={t('dashboard.widgets.projects.description')}
       />
+
+      <RoleWelcomeGuide />
 
       {/* 統計卡片 */}
       <div className="grid gap-4 md:grid-cols-4">

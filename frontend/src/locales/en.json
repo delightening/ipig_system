@@ -107,7 +107,12 @@
             "ExperimentStaff": "Experiment Staff",
             "Veterinarian": "Veterinarian",
             "AnimalCareStaff": "Animal Care Staff"
-        }
+        },
+        "displayPreferences": "Display Preferences",
+        "showWelcomeGuide": "Show welcome guide on login",
+        "showWelcomeGuideDescription": "Display role-specific guidance and quick links at the top of the page each time you log in.",
+        "welcomeGuideEnabled": "Welcome guide enabled",
+        "welcomeGuideDisabled": "Welcome guide disabled"
     },
     "nav": {
         "dashboard": "Dashboard",
@@ -124,7 +129,75 @@
         "title": "Dashboard",
         "welcome": {
             "title": "Welcome, {{name}}!",
-            "description": "This is your personal dashboard. Click 'Edit Layout' to drag and rearrange widgets, or use 'Settings' to choose which modules to display."
+            "description": "This is your personal dashboard. Click 'Edit Layout' to drag and rearrange widgets, or use 'Settings' to choose which modules to display.",
+            "asRole": "As {{role}}, ",
+            "linkLabels": {
+                "animalList": "Animal List",
+                "protocols": "Protocol Review",
+                "myProjects": "My Projects",
+                "myAmendments": "My Amendments",
+                "inventory": "Inventory",
+                "documents": "Documents",
+                "partners": "Partners",
+                "hrAttendance": "Attendance",
+                "auditLogs": "Audit Logs",
+                "qauDashboard": "QAU Dashboard",
+                "equipment": "Equipment"
+            },
+            "roles": {
+                "experimentStaff": {
+                    "name": "Experiment Staff",
+                    "description": "View and record animal information in {{link0}}. Track today's tasks via the 'Animals on Medication' widget on your dashboard."
+                },
+                "reviewer": {
+                    "name": "Reviewer",
+                    "description": "Protocols pending review are on the {{link0}} page. Review content and submit your opinions there."
+                },
+                "vet": {
+                    "name": "Veterinarian",
+                    "description": "{{link0}} shows animal health status and anomaly reports. Use the 'Vet Comments' widget on your dashboard for clinical notes."
+                },
+                "pi": {
+                    "name": "Principal Investigator",
+                    "description": "Your protocols are in {{link0}}, animal usage in {{link1}}, and amendment requests in {{link2}}."
+                },
+                "client": {
+                    "name": "Client",
+                    "description": "View project progress in {{link0}} and animal status in {{link1}}."
+                },
+                "iacucChair": {
+                    "name": "IACUC Chair",
+                    "description": "{{link0}} shows all protocols pending review and resolution."
+                },
+                "iacucStaff": {
+                    "name": "IACUC Secretary",
+                    "description": "{{link0}} provides an overview of all protocol statuses and reviewer assignment."
+                },
+                "warehouseManager": {
+                    "name": "Warehouse Manager",
+                    "description": "Check stock in {{link0}}, manage inbound/outbound and stocktaking in {{link1}}."
+                },
+                "purchasing": {
+                    "name": "Purchasing",
+                    "description": "Process purchase orders in {{link0}} and manage suppliers in {{link1}}."
+                },
+                "adminStaff": {
+                    "name": "Admin Staff",
+                    "description": "View attendance and leave in {{link0}}, system audit trail in {{link1}}."
+                },
+                "qau": {
+                    "name": "QAU",
+                    "description": "You have read-only access. Use {{link0}} for GLP compliance audits and record inspection."
+                },
+                "equipmentMaintenance": {
+                    "name": "Equipment Maintenance",
+                    "description": "{{link0}} shows equipment list and pending maintenance tasks."
+                },
+                "intern": {
+                    "name": "Intern",
+                    "description": "Browse and record animal information in {{link0}}. Contact your supervisor for any questions."
+                }
+            }
         },
         "editMode": {
             "lock": "Save Layout",
