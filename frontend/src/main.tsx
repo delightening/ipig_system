@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
+import { useAuthStore } from '@/stores/auth'
 import App from './App'
 import './index.css'
 import './lib/i18n' // Initialize i18n
@@ -31,7 +32,14 @@ const queryClient = new QueryClient({
   }),
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => {
+        // 401/403 不重試：token 無效或權限不足無需重試
+        if (error instanceof Error && 'response' in error) {
+          const status = (error as { response?: { status?: number } }).response?.status
+          if (status === 401 || status === 403) return false
+        }
+        return failureCount < 1
+      },
       refetchOnWindowFocus: false,
       refetchOnMount: true,
       staleTime: 2 * 60 * 1000,
@@ -39,6 +47,16 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+// Auth 清除時立即取消所有 queries，停止 polling
+useAuthStore.subscribe(
+  (state, prev) => {
+    if (prev.isAuthenticated && !state.isAuthenticated) {
+      queryClient.cancelQueries()
+      queryClient.clear()
+    }
+  },
+)
 
 // Throttle focus events: at most one focus refetch every 10 seconds
 let lastFocusTime = 0

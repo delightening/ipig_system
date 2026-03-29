@@ -27,7 +27,8 @@ const EXPIRY_BUFFER_MS = 60_000
  */
 export function shouldPoll(intervalMs: number): number | false {
   if (document.hidden) return false
-  const { sessionExpiresAt } = useAuthStore.getState()
+  const { isAuthenticated, sessionExpiresAt } = useAuthStore.getState()
+  if (!isAuthenticated) return false
   if (sessionExpiresAt && sessionExpiresAt - Date.now() < EXPIRY_BUFFER_MS) return false
   return intervalMs
 }
