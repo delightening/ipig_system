@@ -89,7 +89,13 @@ impl NotificationService {
         let recipients = self.get_recipients_by_event("low_stock_alert").await?;
 
         let mut count = 0;
+        let mut notified_users = std::collections::HashSet::new();
         for (user_id, _email, _name, _channel) in &recipients {
+            // 同一使用者可能因多角色出現多筆，跳過已處理的
+            if !notified_users.insert(*user_id) {
+                continue;
+            }
+
             // 檢查使用者個人設定
             let user_email_enabled: Option<(bool,)> = sqlx::query_as(
                 "SELECT email_low_stock FROM notification_settings WHERE user_id = $1",
@@ -104,7 +110,7 @@ impl NotificationService {
                 }
             }
 
-            // 當天去重：若該使用者今天已有同類型未讀通知，跳過
+            // 當天去重：若該使用者今天已有同類型通知，跳過
             if self.has_today_notification(*user_id, "low_stock").await? {
                 continue;
             }
@@ -156,7 +162,13 @@ impl NotificationService {
         let expiring_count = alerts.iter().filter(|a| a.expiry_status == "expiring_soon").count();
 
         let mut count = 0;
+        let mut notified_users = std::collections::HashSet::new();
         for (user_id, _email, _name, _channel) in &recipients {
+            // 同一使用者可能因多角色出現多筆，跳過已處理的
+            if !notified_users.insert(*user_id) {
+                continue;
+            }
+
             // 檢查使用者個人設定
             let user_email_enabled: Option<(bool,)> = sqlx::query_as(
                 "SELECT email_expiry_warning FROM notification_settings WHERE user_id = $1",
@@ -171,7 +183,7 @@ impl NotificationService {
                 }
             }
 
-            // 當天去重：若該使用者今天已有同類型未讀通知，跳過
+            // 當天去重：若該使用者今天已有同類型通知，跳過
             if self.has_today_notification(*user_id, "expiry_warning").await? {
                 continue;
             }
