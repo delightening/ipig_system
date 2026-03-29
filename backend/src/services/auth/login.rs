@@ -55,6 +55,15 @@ impl AuthService {
             .verify_password(req.password.as_bytes(), &parsed_hash)
             .map_err(|_| AppError::InvalidCredentials("Invalid email or password".to_string()))?;
 
+        // 帳號到期日檢查
+        if let Some(expires_at) = user.expires_at {
+            if expires_at < chrono::Utc::now() {
+                return Err(AppError::Validation(
+                    "帳號已過期，請聯繫系統管理員".to_string(),
+                ));
+            }
+        }
+
         Ok(user)
     }
 

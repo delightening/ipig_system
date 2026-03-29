@@ -28,6 +28,8 @@ export interface User {
     aup_roles?: string[]
     years_experience?: number
     trainings?: UserTraining[]
+    // 帳號到期日
+    expires_at?: string | null
 }
 
 // 簡易使用者資訊
@@ -104,6 +106,8 @@ export interface UpdateUserRequest {
     aup_roles?: string[]
     years_experience?: number
     trainings?: UserTraining[]
+    // 帳號到期日
+    expires_at?: string | null
 }
 
 export interface CreateRoleRequest {

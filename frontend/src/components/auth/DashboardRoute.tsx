@@ -2,7 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 
 import { useAuthStore } from '@/stores/auth'
 
-export const DASHBOARD_ROLES = ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF', 'REVIEWER', 'VET', 'IACUC_CHAIR']
+export const DASHBOARD_ROLES = ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF', 'INTERN', 'REVIEWER', 'VET', 'IACUC_CHAIR']
 
 export function DashboardRoute({ children }: { children?: React.ReactNode }) {
     const { user, hasRole } = useAuthStore()

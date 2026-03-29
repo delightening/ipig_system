@@ -52,9 +52,9 @@ impl UserService {
             INSERT INTO users (
                 id, email, password_hash, display_name, phone, phone_ext, organization,
                 entry_date, position, aup_roles, years_experience, trainings,
-                is_internal, is_active, must_change_password, created_at, updated_at
+                is_internal, is_active, must_change_password, expires_at, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, true, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, true, $14, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -71,6 +71,7 @@ impl UserService {
         .bind(req.years_experience)
         .bind(sqlx::types::Json(&req.trainings))
         .bind(req.is_internal)
+        .bind(req.expires_at)
         .fetch_one(pool)
         .await?;
 
@@ -233,8 +234,9 @@ impl UserService {
                 trainings = COALESCE($10, trainings),
                 is_internal = COALESCE($11, is_internal),
                 is_active = COALESCE($12, is_active),
+                expires_at = COALESCE($13, expires_at),
                 updated_at = NOW()
-            WHERE id = $13
+            WHERE id = $14
             RETURNING *
             "#,
         )
@@ -250,6 +252,7 @@ impl UserService {
         .bind(trainings_json)
         .bind(req.is_internal)
         .bind(req.is_active)
+        .bind(req.expires_at)
         .bind(id)
         .fetch_one(pool)
         .await?;

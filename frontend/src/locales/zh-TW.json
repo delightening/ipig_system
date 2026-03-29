@@ -107,7 +107,12 @@
       "ExperimentStaff": "試驗工作人員",
       "Veterinarian": "獸醫師",
       "AnimalCareStaff": "動物照護人員"
-    }
+    },
+    "displayPreferences": "顯示偏好",
+    "showWelcomeGuide": "登入時顯示歡迎指引",
+    "showWelcomeGuideDescription": "每次登入時在頁面頂端顯示角色專屬的操作指引與快速連結。",
+    "welcomeGuideEnabled": "歡迎指引已開啟",
+    "welcomeGuideDisabled": "歡迎指引已關閉"
   },
   "nav": {
     "dashboard": "儀表板",
@@ -124,7 +129,75 @@
     "title": "儀表板",
     "welcome": {
       "title": "歡迎，{{name}}！",
-      "description": "這是您的個人儀表板。點擊右上角的「編輯佈局」可拖放調整 Widget 位置，或透過「設定」選擇要顯示的模組。"
+      "description": "這是您的個人儀表板。點擊右上角的「編輯佈局」可拖放調整 Widget 位置，或透過「設定」選擇要顯示的模組。",
+      "asRole": "身為{{role}}，",
+      "linkLabels": {
+        "animalList": "動物列表",
+        "protocols": "計畫審查",
+        "myProjects": "我的計畫",
+        "myAmendments": "我的變更申請",
+        "inventory": "庫存查詢",
+        "documents": "單據管理",
+        "partners": "供應商／客戶",
+        "hrAttendance": "出勤打卡",
+        "auditLogs": "操作日誌",
+        "qauDashboard": "QAU 品質保證",
+        "equipment": "設備維護"
+      },
+      "roles": {
+        "experimentStaff": {
+          "name": "試驗工作人員",
+          "description": "您可以在 {{link0}} 查看與記錄動物資訊，儀表板上的「用藥中動物」Widget 可追蹤今日待辦。"
+        },
+        "reviewer": {
+          "name": "審查人員",
+          "description": "待審查的實驗計畫在 {{link0}} 頁面，您可以查看計畫內容並提交審查意見。"
+        },
+        "vet": {
+          "name": "獸醫師",
+          "description": "{{link0}} 可查看動物健康狀態與異常通報，儀表板上的「獸醫師評論」Widget 可填寫臨床意見。"
+        },
+        "pi": {
+          "name": "計畫主持人",
+          "description": "您的實驗計畫在 {{link0}}、動物使用狀況在 {{link1}}、變更申請在 {{link2}}。"
+        },
+        "client": {
+          "name": "外部客戶",
+          "description": "您可以在 {{link0}} 查看計畫進度、在 {{link1}} 查看動物狀態。"
+        },
+        "iacucChair": {
+          "name": "IACUC 主席",
+          "description": "{{link0}} 可查看所有待審計畫並進行審查決議。"
+        },
+        "iacucStaff": {
+          "name": "IACUC 執行秘書",
+          "description": "{{link0}} 可總覽所有計畫狀態、分派審查委員。"
+        },
+        "warehouseManager": {
+          "name": "倉庫管理員",
+          "description": "{{link0}} 查看庫存、{{link1}} 處理物料進出與盤點。"
+        },
+        "purchasing": {
+          "name": "採購人員",
+          "description": "{{link0}} 處理請購單與採購流程、{{link1}} 維護廠商資料。"
+        },
+        "adminStaff": {
+          "name": "行政人員",
+          "description": "{{link0}} 查看出勤與請假、{{link1}} 檢視系統操作紀錄。"
+        },
+        "qau": {
+          "name": "品保單位",
+          "description": "您擁有系統唯讀存取權限，可在 {{link0}} 進行 GLP 合規稽核與檢視所有紀錄。"
+        },
+        "equipmentMaintenance": {
+          "name": "設備維護人員",
+          "description": "{{link0}} 查看設備清單與處理待維護項目。"
+        },
+        "intern": {
+          "name": "實習生",
+          "description": "您可以在 {{link0}} 瀏覽與記錄動物資訊。如有操作疑問，請聯繫您的指導人員。"
+        }
+      }
     },
     "editMode": {
       "lock": "儲存佈局",

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
 import api, { User, UpdateUserRequest } from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
@@ -27,7 +27,8 @@ import {
     Briefcase,
     History,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { profileSettingsSchema, type ProfileSettingsFormData } from '@/lib/validation'
@@ -176,9 +177,34 @@ export function ProfileSettingsPage() {
         setFormData({ ...formData, trainings })
     }
 
+    // 歡迎指引顯示偏好
+    const { data: showWelcomePref } = useQuery({
+        queryKey: ['user-preferences', 'show_welcome_guide'],
+        queryFn: async () => {
+            const res = await api.get<{ key: string; value: boolean }>('/me/preferences/show_welcome_guide')
+            return res.data.value
+        },
+    })
+    const welcomeGuideEnabled = showWelcomePref ?? true
+
+    const toggleWelcomeGuideMutation = useMutation({
+        mutationFn: async (enabled: boolean) => {
+            return api.put('/me/preferences/show_welcome_guide', { value: enabled })
+        },
+        onSuccess: (_data, enabled) => {
+            queryClient.setQueryData(['user-preferences', 'show_welcome_guide'], enabled)
+            toast({
+                title: t('common.success'),
+                description: enabled
+                    ? t('profile.welcomeGuideEnabled')
+                    : t('profile.welcomeGuideDisabled'),
+            })
+        },
+    })
+
     // Staff roles that should see AUP Section 8 Data
     // PI-only users should NOT see/edit this section
-    const staffRoles = ['IACUC_STAFF', 'EXPERIMENT_STAFF', 'VET', 'ANIMAL_CARE_STAFF', 'admin', 'SYSTEM_ADMIN']
+    const staffRoles = ['IACUC_STAFF', 'EXPERIMENT_STAFF', 'INTERN', 'VET', 'ANIMAL_CARE_STAFF', 'admin', 'SYSTEM_ADMIN']
     const isStaff = currentUser?.roles?.some(r => staffRoles.includes(r)) ?? false
 
     if (!currentUser) {
@@ -286,6 +312,46 @@ export function ProfileSettingsPage() {
                                     />
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* 顯示偏好 */}
+                    <Card>
+                        <CardHeader className="border-b bg-muted/50">
+                            <CardTitle className="flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-primary" />
+                                {t('profile.displayPreferences')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            <div
+                                className={cn(
+                                    "flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer",
+                                    welcomeGuideEnabled
+                                        ? "bg-primary/5 border-primary/20 ring-1 ring-primary/20"
+                                        : "hover:bg-muted border-border"
+                                )}
+                                onClick={() => toggleWelcomeGuideMutation.mutate(!welcomeGuideEnabled)}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Checkbox
+                                        id="show_welcome_guide"
+                                        checked={welcomeGuideEnabled}
+                                        onCheckedChange={(checked) =>
+                                            toggleWelcomeGuideMutation.mutate(!!checked)
+                                        }
+                                    />
+                                    <label
+                                        htmlFor="show_welcome_guide"
+                                        className="text-sm font-medium leading-none cursor-pointer"
+                                    >
+                                        {t('profile.showWelcomeGuide')}
+                                    </label>
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2 ml-1">
+                                {t('profile.showWelcomeGuideDescription')}
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
