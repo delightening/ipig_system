@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-27 (v25)
+> **最後更新：** 2026-03-29 (v26)
 > **維護慣例：** 完成項目標 [x] + 更新待辦統計 + 在 `docs/PROGRESS.md` §9 新增變更紀錄。詳見 `CLAUDE.md`「文件記錄規則」。
 > **章節排列：** 禁止事項 → P0~P5（優先級）→ 歷史改善計畫 → R6~R13+（輪次嚴格遞增）→ 待辦統計 → 變更紀錄（封存）
 
@@ -383,6 +383,64 @@
 
 ---
 
+## 🔍 R16 — 全專案 Code Review (2026-03-29)
+
+> 5 面向平行審查：Backend 安全、Frontend 安全、Backend 品質、Frontend 品質、CI/測試覆蓋
+> CRITICAL 2 / HIGH 23 / MEDIUM 22 / LOW 11
+
+### 第一批 — 安全 + 功能 Bug（P1）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R16-1 | **Auth 查詢錯誤靜默吞掉** | `handlers/protocol/` 13+ 處 `.unwrap_or((false,))` 改用 `?` 傳播錯誤，避免 DB 故障遮蔽為 403。CRITICAL | [ ] |
+| R16-2 | **Content-Disposition header injection** | `handlers/upload.rs:466` + 12 處 export handler 檔名未跳脫，改用 RFC 5987 percent-encode。HIGH | [ ] |
+| R16-3 | **稽核日誌 PDF XSS** | `useAuditLogExport.ts:54-62` document.write 未 HTML 跳脫，加入 `escapeHtml()` 函式。HIGH | [ ] |
+| R16-4 | **window.open 缺 noopener** | `VetRecommendationDialog.tsx:85` 補 `'noopener,noreferrer'`。HIGH | [ ] |
+| R16-5 | **Query key 不匹配快取 bug** | `useLeaveMutations.ts:25` invalidates `'hr-balance-summary'` 但實際 key 是 `'hr-balance-summary-expiring'`，改用 `queryKeys.hr.balanceSummary`。HIGH | [ ] |
+| R16-6 | **window.location.reload() 強制刷新** | `useDocumentSubmit.ts:168`, `DocumentDetailPage.tsx:171` 改用 `queryClient.invalidateQueries()`。HIGH | [ ] |
+
+### 第二批 — 架構 + 安全加固（P1-P2）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R16-7 | **Handler 層直接寫 SQL** | `handlers/amendment.rs`, `protocol/crud.rs`, `protocol/review.rs`, `hr/` 等 8+ 檔。抽取至 `repositories/`。CRITICAL（系統性） | [ ] |
+| R16-8 | **3 套重複 check_protocol_access** | `amendment.rs`, `pdf_export.rs`, `signature/access.rs` 合併至 `services/access.rs`。HIGH | [ ] |
+| R16-9 | **Swagger UI 無認證暴露** | `startup/server.rs:76` production 關閉或加 auth gate。HIGH | [ ] |
+| R16-10 | **動態 table name 無白名單** | `services/signature/access.rs:98-145` 加 allowed_tables 驗證。HIGH | [ ] |
+| R16-11 | **CSRF 可被 env var 關閉** | `DISABLE_CSRF_FOR_TESTS` 加 production guard，拒絕非 dev 環境啟用。MEDIUM | [ ] |
+| R16-12 | **缺 HSTS header** | `startup/server.rs` 加 `Strict-Transport-Security`，gate on `cookie_secure`。MEDIUM | [ ] |
+| R16-13 | **CI 硬編碼 fallback 密碼** | `ci.yml:411-468` 移除 fallback，secrets 必填。HIGH | [ ] |
+
+### 第三批 — 品質改善（P2-P3）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R16-14 | **角色碼魔術字串** | `hr/dashboard.rs`, `scheduler.rs`, `protocol/crud.rs` 角色碼移至 `constants.rs`。HIGH | [ ] |
+| R16-15 | **scheduler.rs 函數過長** | `start()` 235 行、`generate_monthly_report` 138 行。拆分 helper + 子函式。HIGH | [ ] |
+| R16-16 | **services/stock.rs 超 800 行** | 942 行，拆分 inventory/ledger 模組。HIGH | [ ] |
+| R16-17 | **613 處硬編碼 Tailwind 色彩 token** | 88 個元件/頁面，替換為 CSS Variable token。HIGH（規模大） | [ ] |
+| R16-18 | **5 個元件超 300 行** | HrAttendancePage(460), ObservationFormDialog(457), SacrificeFormDialog(427), AnimalEditPage(385), RolesPage(362)。抽出 hooks + 子元件。HIGH | [ ] |
+| R16-19 | **PageErrorBoundary 僅覆蓋 5/40+ routes** | 在 `MainLayout` 層統一包裹或逐一補齊。HIGH | [ ] |
+| R16-20 | **HR query key 未使用 queryKeys factory** | `HrAttendancePage`, `HrLeavePage` 硬編碼 query key string，遷移至 `queryKeys.hr.*`。HIGH | [ ] |
+| R16-21 | **Zustand store 直接 mutation** | `client.ts:112` `sessionExpiresAt` 直接賦值改用 `setState()`。MEDIUM | [ ] |
+| R16-22 | **format!() 拼接動態 SQL** | `services/stock.rs:471,499,530,608` 改用 `sqlx::QueryBuilder`。MEDIUM | [ ] |
+| R16-23 | **Array index 作 React key** | BloodTestFormDialog, VetReviewForm, HrAnnualLeavePage 等 5 處改用穩定 ID。MEDIUM | [ ] |
+| R16-24 | **直接 import axios 繞過中央 client** | `useAnimalsMutations.ts`, `useUserManagement.ts` 改用 `@/lib/api`。LOW | [ ] |
+| R16-25 | **console.debug 未限 dev-only** | `webVitals.ts:13` 改用 `logger.debug()` 或 gate `import.meta.env.DEV`。LOW | [ ] |
+
+### 第四批 — CI/測試改善（P2-P3）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R16-26 | **GitHub Actions 版本標籤不存在** | `actions/checkout@v6` 等改為正確版本 v4 或 SHA pin。HIGH | [ ] |
+| R16-27 | **Backend coverage threshold 僅 2%** | `tarpaulin --fail-under 2` 提高至合理值或整合 integration test 覆蓋。HIGH | [ ] |
+| R16-28 | **CI 無 ESLint job** | frontend-check 加入 `npx eslint src --max-warnings=0`。MEDIUM | [ ] |
+| R16-29 | **E2E 僅測 read path** | 擴充至少 1 個完整 create+submit flow（animal, protocol, user）。MEDIUM | [ ] |
+| R16-30 | **unsafe-guard 只 warning 不 block** | `ci.yml:97` `::warning::` 改為 `exit 1` 或要求 `// SAFETY:` 註解。MEDIUM | [ ] |
+| R16-31 | **Edge case 測試不足** | 缺少 refresh token replay、暴力破解 rate limit、檔案上傳安全、分頁邊界、SQL injection in search 等 18+ 項。MEDIUM | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -404,7 +462,8 @@
 | 🎨 R13 UI 一致性 | 0 |
 | 📄 R14 PDF 輸出修正 | 0 |
 | 🔍 R15 Code Review 發現 | 0 |
-| **合計（未完成）** | **0** |
+| 🔍 R16 全專案 Code Review | 31 |
+| **合計（未完成）** | **31** |
 
 ---
 

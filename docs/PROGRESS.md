@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-25 (v21)
+> **最後更新：** 2026-03-29 (v22)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -184,6 +184,19 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
+
+### 2026-03-29 R16 全專案 Code Review + CI 全面修復
+
+- ✅ **全專案 Code Review**：5 面向平行審查（Backend 安全/Frontend 安全/Backend 品質/Frontend 品質/CI 測試），發現 CRITICAL 2 / HIGH 23 / MEDIUM 22 / LOW 11，新增 R16-1~R16-31 共 31 項待辦至 TODO.md
+- ✅ **Edge Case 測試分析**：盤點已有覆蓋（驗證邊界、XSS、Auth 401/429、ETag）與缺口（refresh token replay、暴力破解、檔案上傳安全、分頁邊界、SQL injection in search 等 18+ 項）
+
+### 2026-03-29 CI 全面修復 — 從 6 job 失敗到全綠
+
+- ✅ **Backend clippy & cargo test**：移除 `tests/common/mod.rs` 中已刪除的 `AlertBroadcaster` 引用（SSE→Polling 重構遺漏）
+- ✅ **Frontend Vitest (2 tests)**：補全 `warehouseFormSchema` 和 `createUserSchema` 測試資料中缺少的必填欄位
+- ✅ **npm audit**：修復 picomatch high-severity 漏洞（ReDoS + Method Injection），升級相關依賴
+- ✅ **UTF-8 修復**：`backend/examples/parse_mail.rs` 損壞的中文字元重建
+- ✅ **E2E Playwright (15→0 failures)**：5 輪迭代修復，涵蓋路由前綴不匹配（`/admin/equipment`→`/equipment`、`/master/products`→`/products`）、選擇器與實際 DOM 結構不匹配（Documents 頁面非 Radix Tabs、HR 出勤 today/history tab 切換、動物頁面無附件功能）、Playwright strict mode 衝突、loading skeleton 誤判等問題
 
 ### 2026-03-27 R14 — AUP 計畫書 PDF 格式對齊官方紙本
 
