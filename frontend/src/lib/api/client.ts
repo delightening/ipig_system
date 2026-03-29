@@ -94,7 +94,7 @@ api.interceptors.response.use(
       originalRequest._csrfRetry = true
       try {
         // 呼叫任意 GET 端點以取得新的 CSRF cookie（CSRF 中介層會對每個回應重新設定 cookie）
-        await api.get('/auth/me')
+        await api.get('/me')
         return api(originalRequest)
       } catch {
         // CSRF refresh 也失敗，拋出原始錯誤
