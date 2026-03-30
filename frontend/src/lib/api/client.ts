@@ -109,7 +109,7 @@ api.interceptors.response.use(
       if (!refreshPromise) {
         refreshPromise = api.post('/auth/refresh')
           .then(() => {
-            useAuthStore.getState().sessionExpiresAt = Date.now() + SESSION_TIMEOUT_MS
+            useAuthStore.setState({ sessionExpiresAt: Date.now() + SESSION_TIMEOUT_MS })
             return true
           })
           .catch(() => false)
@@ -183,5 +183,8 @@ export async function confirmPassword(password: string): Promise<{ reauth_token:
   const { data } = await api.post<{ reauth_token: string; expires_in: number }>('/auth/confirm-password', { password })
   return data
 }
+
+/** Re-export isAxiosError so consumers don't need to import axios directly */
+export { isAxiosError } from 'axios'
 
 export default api

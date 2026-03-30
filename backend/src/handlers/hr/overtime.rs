@@ -30,7 +30,7 @@ pub async fn list_overtime(
         }
     } else if query.pending_approval.unwrap_or(false) {
         let is_admin = current_user.is_admin();
-        let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
+        let is_admin_staff = current_user.roles.contains(&crate::constants::ROLE_ADMIN_STAFF.to_string());
         if is_admin {
             query.status = Some("pending_admin_staff,pending_admin".to_string());
         } else if is_admin_staff {
@@ -116,7 +116,7 @@ pub async fn approve_overtime(
     Path(id): Path<Uuid>,
 ) -> Result<Json<OvertimeWithUser>> {
     let is_admin = current_user.is_admin();
-    let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
+    let is_admin_staff = current_user.roles.contains(&crate::constants::ROLE_ADMIN_STAFF.to_string());
     if !is_admin && !is_admin_staff {
         return Err(crate::error::AppError::Forbidden("僅行政或負責人可審核加班申請".to_string()));
     }
@@ -155,7 +155,7 @@ pub async fn reject_overtime(
     Json(payload): Json<RejectOvertimeRequest>,
 ) -> Result<Json<OvertimeWithUser>> {
     let can_reject = current_user.is_admin()
-        || current_user.roles.contains(&"ADMIN_STAFF".to_string());
+        || current_user.roles.contains(&crate::constants::ROLE_ADMIN_STAFF.to_string());
     if !can_reject {
         return Err(crate::error::AppError::Forbidden("僅行政或負責人可駁回加班申請".to_string()));
     }

@@ -82,7 +82,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
 
   const handleDownloadAttachment = (attachmentId: string, _fileName: string) => {
     const baseUrl = api.defaults.baseURL || ''
-    window.open(`${baseUrl}/attachments/${attachmentId}`, '_blank')
+    window.open(`${baseUrl}/attachments/${attachmentId}`, '_blank', 'noopener,noreferrer')
   }
 
   // Add recommendation mutation
@@ -153,7 +153,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
             <div className="mb-4">
               <Button
                 onClick={() => setShowAddForm(true)}
-                className="gap-2 bg-green-600 hover:bg-green-700"
+                className="gap-2 bg-status-success-solid hover:bg-green-700"
               >
                 <Plus className="h-4 w-4" />
                 新增建議
@@ -163,7 +163,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
 
           {/* Add Form */}
           {showAddForm && (
-            <form onSubmit={handleSubmit} className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+            <form onSubmit={handleSubmit} className="mb-6 p-4 bg-status-success-bg rounded-lg border border-status-success-border">
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="content">建議內容 *</Label>
@@ -190,7 +190,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
                       htmlFor="is_urgent"
                       className="flex items-center gap-2 text-sm font-medium cursor-pointer"
                     >
-                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                      <AlertTriangle className="h-4 w-4 text-status-error-solid" />
                       緊急建議
                     </Label>
                     <p className="text-xs text-muted-foreground">
@@ -201,9 +201,9 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
 
                 {/* Urgent Warning */}
                 {isUrgent && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                    <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-red-700">
+                  <div className="p-3 bg-status-error-bg border border-status-error-border rounded-lg flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 text-status-error-solid mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-status-error-text">
                       <p className="font-medium">緊急通知模式</p>
                       <p className="text-xs mt-1">
                         系統將立即發送 Email 通知至計畫主持人 (PI) 及共同計畫主持人 (Coeditor)，請確認建議內容正確無誤。
@@ -241,7 +241,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
                   <Button
                     type="submit"
                     disabled={addMutation.isPending}
-                    className={isUrgent ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
+                    className={isUrgent ? "bg-destructive hover:bg-destructive/90" : "bg-status-success-solid hover:bg-green-700"}
                   >
                     {addMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     {isUrgent ? '發送緊急建議' : '送出建議'}
@@ -255,33 +255,33 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
           {/* Recommendations List */}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : !recommendations || recommendations.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <MessageCircle className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+            <div className="text-center py-12 text-muted-foreground">
+              <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p>尚無獸醫師建議</p>
             </div>
           ) : (
             <div className="space-y-4">
               {recommendations.map((rec) => (
-                <div key={rec.id} className="p-4 bg-slate-50 rounded-lg border">
+                <div key={rec.id} className="p-4 bg-muted rounded-lg border">
                   <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <User className="h-4 w-4" />
                       <span className="font-medium">{rec.created_by_name || '獸醫師'}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-slate-400">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4" />
                       <span>{formatDateTime(rec.created_at)}</span>
                     </div>
                   </div>
-                  <p className="text-slate-700 whitespace-pre-wrap">{rec.content}</p>
+                  <p className="text-foreground whitespace-pre-wrap">{rec.content}</p>
 
                   {/* Attachments */}
                   {rec.attachments && typeof rec.attachments === 'object' && Object.keys(rec.attachments).length > 0 && (
                     <div className="mt-3 pt-3 border-t">
-                      <div className="flex items-center gap-1 text-sm text-slate-500 mb-2">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
                         <FileText className="h-4 w-4" />
                         <span>附件</span>
                       </div>

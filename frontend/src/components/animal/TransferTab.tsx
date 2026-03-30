@@ -61,7 +61,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
     const canReject = (isAdmin || isPI || isVet) && !!activeTransfer && !['completed', 'rejected'].includes(activeTransfer.status)
 
     if (isLoading) {
-        return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+        return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
     }
 
     return (
@@ -101,9 +101,9 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
 
             {/* 無資料提示 */}
             {!activeTransfer && !showInitiateForm && historyTransfers.length === 0 && (
-                <Card className="bg-slate-50">
-                    <CardContent className="py-8 text-center text-slate-500">
-                        <ArrowRightLeft className="h-8 w-8 mx-auto mb-3 text-slate-300" />
+                <Card className="bg-muted">
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                        <ArrowRightLeft className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
                         <p>此動物尚無轉讓記錄</p>
                         {canInitiate && <p className="text-xs mt-1">點擊上方按鈕發起轉讓</p>}
                     </CardContent>

@@ -1,25 +1,29 @@
-# Heartbeat Daily Code Review
+# Heartbeat 自動化維護系統
 
-每個工作天自動執行一輪代碼審查，以 2026-01-01 為基準日計算工作天數（排除週末），用 `(工作天數 % 10)` 決定當日模組（0→D10, 1→D1, ..., 9→D9）。
+> 透過 Claude Code 定期排程，持續維護 ipigsystem 的程式碼品質、安全性與功能完整性。
 
-## 排程表
+## 報告類型
 
-| 代號 | 模組範圍 |
-|------|---------|
-| D1 | backend/src/handlers/auth/ + backend/src/middleware/ + backend/src/services/auth/ |
-| D2 | backend/src/handlers/protocol/ + backend/src/services/protocol/ |
-| D3 | backend/src/handlers/animal/ + backend/src/services/animal/ |
-| D4 | backend/src/handlers/hr/ + backend/src/services/hr/ + backend/src/services/calendar/ |
-| D5 | ERP 相關 handlers + services（document, product, stock, warehouse, sku, partner, accounting） |
-| D6 | backend/src/services/notification/ + email/ + pdf/ + repositories/ |
-| D7 | 剩餘 backend/src/services/ + backend/src/models/ |
-| D8 | frontend/src/pages/protocols/ + animals/ + amendments/ |
-| D9 | frontend/src/pages/admin/ + hr/ + dashboard/ + auth/ |
-| D10 | frontend/src/pages/erp/ + inventory/ + master/ + documents/ + reports/ + 共用 components/ + lib/ + hooks/ + stores/ + types/ |
+| 類型 | 頻率 | 檔名格式 | 說明 |
+|------|------|----------|------|
+| 每日分段 Code Review | 週一至週五 08:00 | `YYYY-MM-DD.md` | 10 天一輪迴，每天 review 一個模組區塊 |
+| 每日健康檢查 | 每日 07:00 | `health-YYYY-MM-DD.md` | 編譯、測試、lint、CVE 掃描 |
+| 月度架構審查 | 每月 1 日 09:00 | `architecture-YYYY-MM.md` | 量化指標、重複程式碼、依賴健康度 |
 
-## 報告格式
+## Code Review 輪迴表（10 天）
 
-報告存放於本目錄，檔名格式：`YYYY-MM-DD.md`
+| 天 | 範圍 |
+|----|------|
+| D1 | Backend: handlers/auth/ + middleware/ + services/auth/ |
+| D2 | Backend: handlers/protocol/ + services/protocol/ |
+| D3 | Backend: handlers/animal/ + services/animal/ |
+| D4 | Backend: handlers/hr/ + services/hr/ + services/calendar/ |
+| D5 | Backend: ERP 相關（document, product, stock, warehouse, sku, partner, accounting） |
+| D6 | Backend: services/notification/ + email/ + pdf/ + repositories/ |
+| D7 | Backend: 剩餘 services + models/ |
+| D8 | Frontend: pages/protocols/ + animals/ + amendments/ |
+| D9 | Frontend: pages/admin/ + hr/ + dashboard/ + auth/ |
+| D10 | Frontend: pages/erp/ + inventory/ + master/ + documents/ + reports/ + 共用 components/ |
 
 ## 審查項目
 
@@ -30,3 +34,12 @@
 5. unwrap() 殘留（非測試碼）
 6. TODO/FIXME/HACK 註解
 7. CLAUDE.md 架構分層合規
+
+## 嚴重度定義
+
+| 等級 | 說明 |
+|------|------|
+| Critical | 安全漏洞、資料遺失風險、production 阻斷 |
+| High | 功能 bug、架構違規、效能瓶頸 |
+| Medium | 程式碼品質、規範偏離、可維護性 |
+| Low | 命名不一致、格式問題、建議改善 |

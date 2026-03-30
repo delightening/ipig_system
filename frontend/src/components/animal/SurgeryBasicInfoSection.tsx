@@ -21,7 +21,7 @@ export function SurgeryBasicInfoSection({ formData, onChange }: Props) {
                 name="is_first"
                 checked={formData.is_first_experiment}
                 onChange={() => onChange({ ...formData, is_first_experiment: true })}
-                className="w-4 h-4 text-purple-600"
+                className="w-4 h-4 text-status-purple-text"
               />
               <span className="text-sm">是</span>
             </label>
@@ -31,7 +31,7 @@ export function SurgeryBasicInfoSection({ formData, onChange }: Props) {
                 name="is_first"
                 checked={!formData.is_first_experiment}
                 onChange={() => onChange({ ...formData, is_first_experiment: false })}
-                className="w-4 h-4 text-purple-600"
+                className="w-4 h-4 text-status-purple-text"
               />
               <span className="text-sm">否</span>
             </label>

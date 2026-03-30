@@ -39,7 +39,7 @@ pub async fn create_order(
     req.validate()?;
 
     // 驗證權限：只有 VET 可以建立
-    if !auth.has_permission("animal.euthanasia.create") && !auth.has_role("VET") {
+    if !auth.has_permission("animal.euthanasia.create") && !auth.has_role(crate::constants::ROLE_VET) {
         return Err(AppError::Forbidden("無權限開立安樂死單".to_string()));
     }
 
@@ -150,7 +150,7 @@ pub async fn decide_appeal(
     Json(req): Json<ChairDecisionRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // 驗證權限：只有 CHAIR 可以裁決
-    if !auth.has_role("IACUC_CHAIR") {
+    if !auth.has_role(crate::constants::ROLE_IACUC_CHAIR) {
         return Err(AppError::Forbidden("無權限進行仲裁".to_string()));
     }
 
@@ -167,7 +167,7 @@ pub async fn execute_order(
     Extension(auth): Extension<CurrentUser>,
 ) -> Result<impl IntoResponse, AppError> {
     // 驗證權限：只有 VET 可以執行
-    if !auth.has_permission("animal.euthanasia.execute") && !auth.has_role("VET") {
+    if !auth.has_permission("animal.euthanasia.execute") && !auth.has_role(crate::constants::ROLE_VET) {
         return Err(AppError::Forbidden("無權限執行安樂死".to_string()));
     }
 

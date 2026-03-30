@@ -6,23 +6,23 @@ import type { ImportResultSummaryProps } from './importTypes'
 export function ImportResultSummary({ result }: ImportResultSummaryProps) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
+      <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
         <div className="flex-1">
-          <div className="flex items-center gap-2 text-green-600">
+          <div className="flex items-center gap-2 text-status-success-text">
             <CheckCircle2 className="h-5 w-5" />
             <span className="font-medium">成功匯入</span>
           </div>
-          <p className="text-2xl font-bold text-green-700 mt-1">
+          <p className="text-2xl font-bold text-status-success-text mt-1">
             {result.success_count} 筆
           </p>
         </div>
         {result.error_count > 0 && (
           <div className="flex-1 border-l pl-4">
-            <div className="flex items-center gap-2 text-red-600">
+            <div className="flex items-center gap-2 text-status-error-text">
               <AlertCircle className="h-5 w-5" />
               <span className="font-medium">匯入失敗</span>
             </div>
-            <p className="text-2xl font-bold text-red-700 mt-1">
+            <p className="text-2xl font-bold text-status-error-text mt-1">
               {result.error_count} 筆
             </p>
           </div>
@@ -31,10 +31,10 @@ export function ImportResultSummary({ result }: ImportResultSummaryProps) {
 
       {result.errors && result.errors.length > 0 && (
         <div className="space-y-2">
-          <Label className="text-red-600">錯誤明細</Label>
+          <Label className="text-status-error-text">錯誤明細</Label>
           <div className="max-h-40 overflow-y-auto border rounded-lg">
             <table className="w-full text-sm">
-              <thead className="bg-slate-100 sticky top-0">
+              <thead className="bg-muted sticky top-0">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">列</th>
                   <th className="px-3 py-2 text-left font-medium">SKU</th>
@@ -46,7 +46,7 @@ export function ImportResultSummary({ result }: ImportResultSummaryProps) {
                   <tr key={`err-${err.row}-${i}`} className="border-t">
                     <td className="px-3 py-2">{err.row}</td>
                     <td className="px-3 py-2 font-mono">{err.sku || '-'}</td>
-                    <td className="px-3 py-2 text-red-600">{err.error}</td>
+                    <td className="px-3 py-2 text-status-error-text">{err.error}</td>
                   </tr>
                 ))}
               </tbody>

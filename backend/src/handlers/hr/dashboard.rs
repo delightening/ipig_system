@@ -124,7 +124,7 @@ pub async fn list_internal_users_for_balance(
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<StaffInfo>>> {
     if !current_user.is_admin()
-        && !current_user.roles.contains(&"ADMIN_STAFF".to_string())
+        && !current_user.roles.contains(&crate::constants::ROLE_ADMIN_STAFF.to_string())
         && !current_user.has_permission("hr.balance.manage")
         && !current_user.has_permission("training.view")
         && !current_user.has_permission("training.manage")

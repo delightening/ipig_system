@@ -25,10 +25,15 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 
 import { ProtocolFormData } from '@/types/protocol'
+import type { ValidationResult } from '@/types/aiReview'
 import { defaultFormData, sectionKeys } from './protocol-edit/constants'
 import { validateRequiredFields } from './protocol-edit/validation'
 import { mergeProtocolData } from './protocol-edit/mergeProtocolData'
 import { AddPersonnelDialog } from './protocol-edit/AddPersonnelDialog'
+import { ValidationPanel } from '@/components/protocol/ValidationPanel'
+import { AIReviewButton } from '@/components/protocol/AIReviewButton'
+import { AIReviewPanel } from '@/components/protocol/AIReviewPanel'
+import { aiReviewApi } from '@/lib/api'
 
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -78,6 +83,8 @@ export function ProtocolEditPage() {
   const [formData, setFormData] = useState<FormData>(defaultFormData)
   const [isAddPersonnelDialogOpen, setIsAddPersonnelDialogOpen] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+  const [isValidating, setIsValidating] = useState(false)
 
   const { isBlocked, proceed, reset } = useUnsavedChangesGuard(isDirty)
   const { dialogState, confirm } = useConfirmDialog()
@@ -217,10 +224,33 @@ export function ProtocolEditPage() {
     updateMutation.mutate(data, {
       onSuccess: async () => {
         setIsDirty(false)
+        // R20-3: 先呼叫 validate endpoint
+        setIsValidating(true)
+        try {
+          const result = await aiReviewApi.validate(id)
+          setIsValidating(false)
+          if (result.errors.length > 0) {
+            setValidationResult(result)
+            return
+          }
+          if (result.warnings.length > 0) {
+            setValidationResult(result)
+            return
+          }
+        } catch {
+          setIsValidating(false)
+          // 驗證 API 失敗不阻擋提交
+        }
         const ok = await confirm({ title: '送出計畫書', description: t('aup.messages.confirmSubmit'), confirmLabel: '確認送出' })
         if (ok) submitMutation.mutate()
       },
     })
+  }
+
+  const handleIgnoreAndSubmit = async () => {
+    setValidationResult(null)
+    const ok = await confirm({ title: '送出計畫書', description: t('aup.messages.confirmSubmit'), confirmLabel: '確認送出' })
+    if (ok) submitMutation.mutate()
   }
 
   const updateWorkingContent = (section: keyof FormData['working_content'], path: string, value: unknown) => {
@@ -293,9 +323,12 @@ export function ProtocolEditPage() {
                 )}
                 {t('aup.saveDraft')}
               </Button>
+              {!isNew && id && (
+                <AIReviewButton protocolId={id} />
+              )}
               {!isNew && (
-                <Button size="sm" onClick={handleSubmit} disabled={submitMutation.isPending}>
-                  {submitMutation.isPending ? (
+                <Button size="sm" onClick={handleSubmit} disabled={submitMutation.isPending || isValidating}>
+                  {(submitMutation.isPending || isValidating) ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Send className="mr-2 h-4 w-4" />
@@ -307,6 +340,21 @@ export function ProtocolEditPage() {
           }
         />
       </div>
+
+      {/* R20-3: Validation Panel */}
+      {validationResult && (
+        <ValidationPanel
+          result={validationResult}
+          hasErrors={validationResult.errors.length > 0}
+          onDismiss={() => setValidationResult(null)}
+          onIgnoreAndSubmit={validationResult.errors.length === 0 ? handleIgnoreAndSubmit : undefined}
+        />
+      )}
+
+      {/* R20-6: AI Review Panel */}
+      {!isNew && id && (
+        <AIReviewPanel protocolId={id} />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <Card className="h-fit">

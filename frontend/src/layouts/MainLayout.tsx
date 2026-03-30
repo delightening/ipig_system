@@ -88,7 +88,7 @@ export function MainLayout() {
   }, [configWarningsData])
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-background">
       <Sidebar
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
@@ -106,7 +106,7 @@ export function MainLayout() {
         )}
       >
         {isImpersonating && (
-          <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-between sticky top-0 z-[60] shadow-md">
+          <div className="bg-primary text-primary-foreground px-4 py-2 flex items-center justify-between sticky top-0 z-[60] shadow-md">
             <div className="flex items-center gap-2">
               <UserCircle className="h-5 w-5" />
               <span className="text-sm font-medium">
@@ -117,7 +117,7 @@ export function MainLayout() {
               variant="outline"
               size="sm"
               onClick={stopImpersonating}
-              className="bg-white/20 border-white text-white hover:bg-white hover:text-blue-600 h-8 font-semibold transition-all"
+              className="bg-white/20 border-white text-white hover:bg-white hover:text-primary h-8 font-semibold transition-all"
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               {t('common.backToAdmin')}
@@ -125,7 +125,7 @@ export function MainLayout() {
           </div>
         )}
 
-        <header className="sticky top-0 z-40 flex h-14 md:h-16 items-center justify-between border-b bg-white px-3 md:px-4 shadow-sm">
+        <header className="sticky top-0 z-40 flex h-14 md:h-16 items-center justify-between border-b bg-card px-3 md:px-4 shadow-sm">
           <Button
             variant="ghost"
             size="icon"
@@ -172,7 +172,7 @@ export function MainLayout() {
       <Dialog open={showConfigWarnings} onOpenChange={(open) => { if (!open) { sessionStorage.setItem(configWarningsSessionKey, '1'); setShowConfigWarnings(false) } }}>
         <DialogContent className="sm:max-w-lg" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
+            <DialogTitle className="flex items-center gap-2 text-status-warning-text">
               <AlertTriangle className="h-5 w-5" />
               啟動配置警告
             </DialogTitle>
@@ -185,24 +185,24 @@ export function MainLayout() {
               <div
                 key={idx}
                 className={`flex items-start gap-3 rounded-lg p-3 ${item.level === 'warn'
-                  ? 'bg-amber-50 border border-amber-200'
+                  ? 'bg-status-warning-bg border border-status-warning-border'
                   : item.level === 'ok'
-                    ? 'bg-green-50 border border-green-200'
-                    : 'bg-blue-50 border border-blue-200'
+                    ? 'bg-status-success-bg border border-status-success-border'
+                    : 'bg-status-info-bg border border-status-info-border'
                   }`}
               >
                 <div className="mt-0.5 shrink-0">
-                  {item.level === 'warn' && <AlertTriangle className="h-5 w-5 text-amber-500" />}
-                  {item.level === 'ok' && <ShieldCheck className="h-5 w-5 text-green-500" />}
-                  {item.level === 'info' && <Info className="h-5 w-5 text-blue-500" />}
+                  {item.level === 'warn' && <AlertTriangle className="h-5 w-5 text-status-warning-solid" />}
+                  {item.level === 'ok' && <ShieldCheck className="h-5 w-5 text-status-success-solid" />}
+                  {item.level === 'info' && <Info className="h-5 w-5 text-status-info-solid" />}
                 </div>
                 <div className="min-w-0">
-                  <p className={`font-medium text-sm ${item.level === 'warn' ? 'text-amber-800' : item.level === 'ok' ? 'text-green-800' : 'text-blue-800'
+                  <p className={`font-medium text-sm ${item.level === 'warn' ? 'text-status-warning-text' : item.level === 'ok' ? 'text-status-success-text' : 'text-status-info-text'
                     }`}>
                     {item.title}
                   </p>
                   {item.detail && (
-                    <p className={`text-xs mt-1 ${item.level === 'warn' ? 'text-amber-600' : item.level === 'ok' ? 'text-green-600' : 'text-blue-600'
+                    <p className={`text-xs mt-1 ${item.level === 'warn' ? 'text-status-warning-text' : item.level === 'ok' ? 'text-status-success-text' : 'text-status-info-text'
                       }`}>
                       {item.detail}
                     </p>

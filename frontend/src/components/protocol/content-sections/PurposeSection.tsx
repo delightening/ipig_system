@@ -19,7 +19,7 @@ export function PurposeSection({ purpose }: PurposeSectionProps) {
       {purpose.significance && (
         <div className="mb-4">
           <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.significance')}</h3>
-          <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.significance}</p>
+          <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{purpose.significance}</p>
         </div>
       )}
 
@@ -30,7 +30,7 @@ export function PurposeSection({ purpose }: PurposeSectionProps) {
           {purpose.replacement.rationale && (
             <div className="mb-3">
               <h4 className="text-base font-medium mb-1">{t('protocols.content.sections.replacementRationale')}</h4>
-              <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.replacement.rationale}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{purpose.replacement.rationale}</p>
             </div>
           )}
 
@@ -50,7 +50,7 @@ export function PurposeSection({ purpose }: PurposeSectionProps) {
               {purpose.replacement.alt_search.conclusion && (
                 <div>
                   <p className="text-sm font-medium mb-1">{t('protocols.content.sections.searchConclusion')}:</p>
-                  <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.replacement.alt_search.conclusion}</p>
+                  <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{purpose.replacement.alt_search.conclusion}</p>
                 </div>
               )}
             </div>
@@ -63,7 +63,7 @@ export function PurposeSection({ purpose }: PurposeSectionProps) {
               {purpose.duplicate.experiment && purpose.duplicate.justification && (
                 <div>
                   <p className="text-sm font-medium mb-1">{t('protocols.content.sections.duplicateJustification')}</p>
-                  <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.duplicate.justification}</p>
+                  <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{purpose.duplicate.justification}</p>
                 </div>
               )}
             </div>
@@ -74,7 +74,7 @@ export function PurposeSection({ purpose }: PurposeSectionProps) {
       {purpose.reduction && purpose.reduction.design && (
         <div className="mb-4">
           <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.reduction')}</h3>
-          <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.reduction.design}</p>
+          <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{purpose.reduction.design}</p>
         </div>
       )}
     </section>

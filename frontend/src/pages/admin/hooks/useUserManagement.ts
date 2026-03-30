@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 import { z } from 'zod'
-import api, { confirmPassword, deleteResource, User, Role, ResetPasswordRequest } from '@/lib/api'
+import api, { isAxiosError, confirmPassword, deleteResource, User, Role, ResetPasswordRequest } from '@/lib/api'
 import { getErrorMessage, ApiErrorPayload } from '@/types/error'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -150,7 +149,7 @@ export function useUserManagement() {
     onError: (error: unknown) => {
       let errorMessage: string
       let detailMessage = ''
-      if (axios.isAxiosError(error)) {
+      if (isAxiosError(error)) {
         const backendMessage = (error.response?.data as ApiErrorPayload | undefined)?.error?.message
         const statusCode = error.response?.status
         const rawData = error.response?.data

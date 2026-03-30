@@ -165,7 +165,7 @@ export function ReviewersTab({
                 initialData={vetReview?.review_form}
                 isEditable={protocolStatus === 'VET_REVIEW' || protocolStatus === 'VET_REVISION_REQUIRED'}
               />
-              <div className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-lg flex gap-3 text-amber-800 text-sm">
+              <div className="mt-4 p-4 bg-status-warning-bg border border-amber-100 rounded-lg flex gap-3 text-status-warning-text text-sm">
                 <AlertTriangle className="h-5 w-5 shrink-0" />
                 <p>提示：此表格內容將會自動同步至「審查報告 (PDF)」中。請確保在計畫核准前完成填寫。</p>
               </div>

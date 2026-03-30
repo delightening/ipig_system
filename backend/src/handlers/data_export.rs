@@ -81,7 +81,7 @@ pub async fn full_database_export(
         .header(header::CONTENT_TYPE, content_type)
         .header(
             header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"{}\"", filename),
+            crate::utils::http::content_disposition_header(&filename),
         )
         .header(header::CONTENT_LENGTH, bytes.len())
         .body(Body::from(bytes))

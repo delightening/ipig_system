@@ -36,20 +36,20 @@ export function ApproveForm({ transferId, invalidate }: { transferId: string; in
     })
 
     return (
-        <Card className="border-green-200">
+        <Card className="border-status-success-border">
             <CardContent className="pt-4 space-y-3">
                 {!showSignature ? (
                     <Button
                         onClick={() => setShowSignature(true)}
                         disabled={mutation.isPending}
-                        className="bg-green-600 hover:bg-green-700"
+                        className="bg-status-success-solid hover:bg-green-700"
                     >
                         <PenLine className="h-4 w-4 mr-2" />
                         PI 同意轉讓（需簽名）
                     </Button>
                 ) : (
                     <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                             <PenLine className="h-4 w-4" />
                             {t('signature.handwriting', '手寫簽名')} — 確認同意轉讓
                         </div>
@@ -60,7 +60,7 @@ export function ApproveForm({ transferId, invalidate }: { transferId: string; in
                             </Button>
                             <Button
                                 size="sm"
-                                className="bg-green-600 hover:bg-green-700"
+                                className="bg-status-success-solid hover:bg-green-700"
                                 onClick={() => signatureData && mutation.mutate(signatureData)}
                                 disabled={!signatureData || mutation.isPending}
                             >
@@ -101,7 +101,7 @@ export function CompleteForm({ transferId, invalidate }: { transferId: string; i
     })
 
     return (
-        <Card className="border-indigo-200">
+        <Card className="border-status-info-border">
             <CardContent className="pt-4 space-y-3">
                 {!showSignature ? (
                     <Button
@@ -114,7 +114,7 @@ export function CompleteForm({ transferId, invalidate }: { transferId: string; i
                     </Button>
                 ) : (
                     <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                             <PenLine className="h-4 w-4" />
                             {t('signature.handwriting', '手寫簽名')} — 確認完成轉讓
                         </div>

@@ -177,7 +177,7 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
                     <SelectItem key={project.iacuc_no} value={project.iacuc_no}>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{project.iacuc_no}</span>
-                        <span className="text-slate-500">({project.animal_count} 隻)</span>
+                        <span className="text-muted-foreground">({project.animal_count} 隻)</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -194,8 +194,8 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
                 type="button"
                 onClick={() => setFormat('pdf')}
                 className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'pdf'
-                  ? 'border-purple-500 bg-purple-50 text-purple-700'
-                  : 'border-slate-200 hover:border-slate-300'
+                  ? 'border-purple-500 bg-status-purple-bg text-status-purple-text'
+                  : 'border-border hover:border-border'
                   }`}
               >
                 <FileText className="h-5 w-5" />
@@ -205,8 +205,8 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
                 type="button"
                 onClick={() => setFormat('excel')}
                 className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'excel'
-                  ? 'border-purple-500 bg-purple-50 text-purple-700'
-                  : 'border-slate-200 hover:border-slate-300'
+                  ? 'border-purple-500 bg-status-purple-bg text-status-purple-text'
+                  : 'border-border hover:border-border'
                   }`}
               >
                 <FileSpreadsheet className="h-5 w-5" />
@@ -216,8 +216,8 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
                 type="button"
                 onClick={() => setFormat('csv')}
                 className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'csv'
-                  ? 'border-purple-500 bg-purple-50 text-purple-700'
-                  : 'border-slate-200 hover:border-slate-300'
+                  ? 'border-purple-500 bg-status-purple-bg text-status-purple-text'
+                  : 'border-border hover:border-border'
                   }`}
               >
                 <FileSpreadsheet className="h-5 w-5" />
@@ -233,13 +233,13 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
               <button
                 type="button"
                 onClick={() => handleSelectAll(!allSelected)}
-                className="text-sm text-purple-600 hover:text-purple-700"
+                className="text-sm text-status-purple-text hover:text-status-purple-text"
               >
                 {allSelected ? '取消全選' : '全選'}
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 rounded-lg">
+            <div className="grid grid-cols-2 gap-3 p-4 bg-muted rounded-lg">
               <Checkbox
                 label="動物基本資料"
                 checked={options.basic_info}

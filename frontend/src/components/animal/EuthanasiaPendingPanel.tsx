@@ -128,7 +128,7 @@ export function EuthanasiaPendingPanel() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
         )
     }
@@ -140,13 +140,13 @@ export function EuthanasiaPendingPanel() {
     return (
         <>
             {/* Pending Orders Alert Card */}
-            <Card className="border-red-200 bg-red-50 mb-6">
+            <Card className="border-status-error-border bg-status-error-bg mb-6">
                 <CardHeader className="pb-3">
-                    <CardTitle className="text-red-700 flex items-center gap-2">
+                    <CardTitle className="text-status-error-text flex items-center gap-2">
                         <AlertOctagon className="h-5 w-5" />
                         待處理安樂死單
                     </CardTitle>
-                    <CardDescription className="text-red-600">
+                    <CardDescription className="text-status-error-text">
                         您有 {orders.length} 筆安樂死通知待處理
                     </CardDescription>
                 </CardHeader>
@@ -155,25 +155,25 @@ export function EuthanasiaPendingPanel() {
                         {orders.map((order) => (
                             <div
                                 key={order.id}
-                                className="bg-white rounded-lg p-4 border border-red-200"
+                                className="bg-white rounded-lg p-4 border border-status-error-border"
                             >
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-3">
-                                            <span className="font-bold text-lg text-orange-600">
+                                            <span className="font-bold text-lg text-status-warning-text">
                                                 #{order.animal_ear_tag}
                                             </span>
                                             {order.animal_iacuc_no && (
                                                 <Badge variant="outline">{order.animal_iacuc_no}</Badge>
                                             )}
                                         </div>
-                                        <p className="text-sm text-gray-600">
+                                        <p className="text-sm text-muted-foreground">
                                             開單獸醫：{order.vet_name}
                                         </p>
-                                        <p className="text-sm text-gray-700 line-clamp-2">
+                                        <p className="text-sm text-foreground line-clamp-2">
                                             原因：{order.reason}
                                         </p>
-                                        <div className="flex items-center gap-2 text-sm text-red-600">
+                                        <div className="flex items-center gap-2 text-sm text-status-error-text">
                                             <Clock className="h-4 w-4" />
                                             剩餘時間：{formatCountdown(order.deadline_at)}
                                         </div>
@@ -182,7 +182,7 @@ export function EuthanasiaPendingPanel() {
                                         <div className="flex flex-col gap-2">
                                             <Button
                                                 size="sm"
-                                                className="bg-green-600 hover:bg-green-700"
+                                                className="bg-status-success-solid hover:bg-green-700"
                                                 onClick={() => {
                                                     setSigningOrderId(order.id)
                                                     setSignatureData(null)
@@ -195,7 +195,7 @@ export function EuthanasiaPendingPanel() {
                                             <Button
                                                 size="sm"
                                                 variant="outline"
-                                                className="border-amber-500 text-amber-600 hover:bg-amber-50"
+                                                className="border-status-warning-solid text-status-warning-text hover:bg-status-warning-bg"
                                                 onClick={() => {
                                                     setSelectedOrder(order)
                                                     setShowAppealDialog(true)
@@ -211,7 +211,7 @@ export function EuthanasiaPendingPanel() {
                                 {/* 手寫簽名區塊 */}
                                 {signingOrderId === order.id && (
                                     <div className="space-y-3 pt-3 border-t border-red-100">
-                                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                                             <PenLine className="h-4 w-4" />
                                             {t('signature.handwriting', '手寫簽名')} — 確認同意執行安樂死
                                         </div>
@@ -232,7 +232,7 @@ export function EuthanasiaPendingPanel() {
                                             </Button>
                                             <Button
                                                 size="sm"
-                                                className="bg-green-600 hover:bg-green-700"
+                                                className="bg-status-success-solid hover:bg-green-700"
                                                 onClick={() => {
                                                     if (signatureData) {
                                                         approveMutation.mutate({ orderId: order.id, sigData: signatureData })
@@ -260,7 +260,7 @@ export function EuthanasiaPendingPanel() {
             <Dialog open={showAppealDialog} onOpenChange={setShowAppealDialog}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-amber-600">
+                        <DialogTitle className="flex items-center gap-2 text-status-warning-text">
                             <Hand className="h-5 w-5" />
                             申請暫緩安樂死
                         </DialogTitle>
@@ -275,7 +275,7 @@ export function EuthanasiaPendingPanel() {
                     </DialogHeader>
 
                     <div className="space-y-4">
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+                        <div className="bg-status-warning-bg border border-status-warning-border rounded-lg p-4 text-sm text-status-warning-text">
                             <p className="font-medium mb-2">暫緩申請說明：</p>
                             <ul className="list-disc pl-4 space-y-1">
                                 <li>提交暫緩申請後，CHAIR 將於 24 小時內進行仲裁</li>
@@ -310,7 +310,7 @@ export function EuthanasiaPendingPanel() {
                         </Button>
                         <Button
                             type="button"
-                            className="bg-amber-500 hover:bg-amber-600"
+                            className="bg-status-warning-bg0 hover:bg-status-warning-solid"
                             onClick={() => {
                                 if (selectedOrder && appealReason.trim()) {
                                     appealMutation.mutate({ orderId: selectedOrder.id, reason: appealReason })

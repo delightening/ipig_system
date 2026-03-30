@@ -53,7 +53,7 @@ export function Slider({
   return (
     <div className={cn("space-y-3", className)}>
       {label && (
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className="block text-sm font-medium text-foreground dark:text-muted-foreground">
           {label}
         </label>
       )}
@@ -70,7 +70,7 @@ export function Slider({
               "px-4 py-1.5 text-sm font-medium rounded-full border transition-all",
               value === qv
                 ? "bg-primary text-primary-foreground border-primary"
-                : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5",
+                : "bg-white dark:bg-slate-800 text-foreground dark:text-muted-foreground border-border dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5",
               disabled && "opacity-50 cursor-not-allowed"
             )}
           >
@@ -85,7 +85,7 @@ export function Slider({
             "px-4 py-1.5 text-sm font-medium rounded-full border transition-all",
             !quickValues.includes(value) && value > 0
               ? "bg-primary text-primary-foreground border-primary"
-              : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5",
+              : "bg-white dark:bg-slate-800 text-foreground dark:text-muted-foreground border-border dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5",
             disabled && "opacity-50 cursor-not-allowed"
           )}
         >
@@ -95,7 +95,7 @@ export function Slider({
 
       {/* Slider Track */}
       <div className="relative pt-1">
-        <div className="relative h-2 rounded-full bg-slate-200 dark:bg-slate-700">
+        <div className="relative h-2 rounded-full bg-muted dark:bg-slate-700">
           <div
             className="absolute h-full rounded-full bg-gradient-to-r from-primary/80 to-primary transition-all"
             style={{ width: `${percentage}%` }}
@@ -128,7 +128,7 @@ export function Slider({
           }}
         />
         {/* Scale labels */}
-        <div className="flex justify-between mt-2 text-xs text-slate-400">
+        <div className="flex justify-between mt-2 text-xs text-muted-foreground">
           <span>{min}</span>
           <span>{max}</span>
         </div>
@@ -136,7 +136,7 @@ export function Slider({
 
       {/* Value Input with Unit */}
       <div className="flex items-center gap-3">
-        <span className="text-sm text-slate-500 dark:text-slate-400">當前值：</span>
+        <span className="text-sm text-muted-foreground dark:text-muted-foreground">當前值：</span>
         <input
           ref={inputRef}
           type="number"
@@ -148,7 +148,7 @@ export function Slider({
           disabled={disabled}
           className={cn(
             "w-24 px-3 py-1.5 text-center font-mono text-sm border rounded-md",
-            "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700",
+            "bg-white dark:bg-slate-800 border-border dark:border-slate-700",
             "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
             disabled && "opacity-50 cursor-not-allowed"
           )}
@@ -162,7 +162,7 @@ export function Slider({
             disabled={disabled}
             className={cn(
               "px-3 py-1.5 text-sm border rounded-md",
-              "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700",
+              "bg-white dark:bg-slate-800 border-border dark:border-slate-700",
               "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
               disabled && "opacity-50 cursor-not-allowed"
             )}
@@ -174,7 +174,7 @@ export function Slider({
             ))}
           </select>
         ) : unit && (
-          <span className="text-sm text-slate-600 dark:text-slate-400">{unit}</span>
+          <span className="text-sm text-muted-foreground dark:text-muted-foreground">{unit}</span>
         )}
       </div>
     </div>

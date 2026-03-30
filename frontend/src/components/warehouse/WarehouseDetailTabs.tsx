@@ -77,7 +77,7 @@ export function WarehouseDetailTabs({
                 <TabsTrigger value="unassigned">
                     未分配庫存
                     {unassignedItems && unassignedItems.length > 0 && (
-                        <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] px-1.5 min-w-[18px] h-[18px]">
+                        <span className="ml-1 inline-flex items-center justify-center rounded-full bg-status-warning-bg0 text-white text-[10px] px-1.5 min-w-[18px] h-[18px]">
                             {unassignedItems.length}
                         </span>
                     )}
@@ -106,7 +106,7 @@ export function WarehouseDetailTabs({
                     </CardHeader>
                     <CardContent>
                         {!selectedLocation ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground bg-slate-50 border border-dashed rounded-lg">
+                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground bg-muted border border-dashed rounded-lg">
                                 <Package className="h-10 w-10 mb-2 opacity-20" />
                                 <p className="text-sm">請從上方佈局圖或「儲位列表」中選擇一個儲位以檢視庫存。</p>
                             </div>
@@ -190,7 +190,7 @@ export function WarehouseDetailTabs({
                                                             {isUpdatingInventory ? (
                                                                 <Loader2 className="h-4 w-4 animate-spin" />
                                                             ) : (
-                                                                <Check className="h-4 w-4 text-green-600" />
+                                                                <Check className="h-4 w-4 text-status-success-text" />
                                                             )}
                                                         </Button>
                                                     </TableCell>
@@ -201,7 +201,7 @@ export function WarehouseDetailTabs({
                                 </Table>
                             </div>
                         ) : (
-                            <div className="text-center py-12 text-muted-foreground bg-slate-50/50 rounded-lg">
+                            <div className="text-center py-12 text-muted-foreground bg-muted/50 rounded-lg">
                                 <p className="text-sm">此儲位目前尚無庫存。</p>
                             </div>
                         )}
@@ -241,7 +241,7 @@ export function WarehouseDetailTabs({
                                             return (
                                                 <TableRow
                                                     key={loc.id}
-                                                    className={isSelected ? 'bg-blue-50/50' : 'cursor-pointer hover:bg-slate-50'}
+                                                    className={isSelected ? 'bg-status-info-bg/50' : 'cursor-pointer hover:bg-muted'}
                                                     onClick={() => {
                                                         onLocationSelect(loc)
                                                         onTabChange('location-inventory')
@@ -282,7 +282,7 @@ export function WarehouseDetailTabs({
                                 </Table>
                             </div>
                         ) : (
-                            <div className="text-center py-12 text-muted-foreground bg-slate-50 rounded-lg">
+                            <div className="text-center py-12 text-muted-foreground bg-muted rounded-lg">
                                 <p className="text-sm">此倉庫尚未建立儲位。</p>
                             </div>
                         )}
@@ -293,7 +293,7 @@ export function WarehouseDetailTabs({
             <TabsContent value="unassigned">
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base flex items-center gap-2 text-amber-600">
+                        <CardTitle className="text-base flex items-center gap-2 text-status-warning-text">
                              <Package className="h-4 w-4" />
                              未分配庫存
                         </CardTitle>
@@ -304,8 +304,8 @@ export function WarehouseDetailTabs({
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                             </div>
                         ) : !sortedUnassigned || sortedUnassigned.length === 0 ? (
-                            <div className="text-center py-12 text-muted-foreground bg-slate-50 rounded-lg border-dashed border">
-                                <p className="text-sm text-green-600 font-medium">✨ 所有庫存均已分配至具體儲位。</p>
+                            <div className="text-center py-12 text-muted-foreground bg-muted rounded-lg border-dashed border">
+                                <p className="text-sm text-status-success-text font-medium">✨ 所有庫存均已分配至具體儲位。</p>
                             </div>
                         ) : (
                             <div className="border rounded-md max-h-[400px] overflow-y-auto">
@@ -331,7 +331,7 @@ export function WarehouseDetailTabs({
                                                 <TableCell className="text-right text-sm text-muted-foreground">
                                                     {parseFloat(item.qty_on_shelves).toLocaleString()} {formatUom(item.base_uom)}
                                                 </TableCell>
-                                                <TableCell className="text-right font-semibold text-amber-700 text-sm">
+                                                <TableCell className="text-right font-semibold text-status-warning-text text-sm">
                                                     {parseFloat(item.qty_unassigned).toLocaleString()} {formatUom(item.base_uom)}
                                                 </TableCell>
                                             </TableRow>

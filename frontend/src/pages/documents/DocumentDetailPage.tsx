@@ -167,10 +167,8 @@ export function DocumentDetailPage() {
     mutationFn: () => api.post(`/documents/${id}/submit`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['document', id] })
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
       toast({ title: '成功', description: '單據已送審' })
-      setTimeout(() => {
-        window.location.reload()
-      }, 500)
     },
     onError: (error: unknown) => {
       toast({

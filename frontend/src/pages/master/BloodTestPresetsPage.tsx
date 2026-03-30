@@ -341,7 +341,7 @@ export function BloodTestPresetsPage() {
                         {preset.is_active ? (
                           <PowerOff className="h-4 w-4 text-destructive" />
                         ) : (
-                          <Power className="h-4 w-4 text-green-500" />
+                          <Power className="h-4 w-4 text-status-success-solid" />
                         )}
                       </Button>
                     </div>

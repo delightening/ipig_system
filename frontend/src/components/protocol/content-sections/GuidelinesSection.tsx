@@ -24,7 +24,7 @@ export function GuidelinesSection({ guidelines }: GuidelinesSectionProps) {
           {guidelines.content && (
             <div className="mb-4">
               <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.guidelinesContent')}</h3>
-              <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{guidelines.content}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{guidelines.content}</p>
             </div>
           )}
 
@@ -33,7 +33,7 @@ export function GuidelinesSection({ guidelines }: GuidelinesSectionProps) {
               <h3 className="text-lg font-semibold mb-3">{t('aup.guidelines.databasesTitle')}</h3>
               <ul className="space-y-2">
                 {guidelines.databases.filter((db: GuidelineDatabase) => db.checked).map((db: GuidelineDatabase) => (
-                  <li key={db.code} className="text-sm p-2 bg-slate-50 rounded">
+                  <li key={db.code} className="text-sm p-2 bg-muted rounded">
                     <span className="font-medium">{db.code}. {t(`aup.guidelines.databases.${db.code}`)}</span>
                     {db.keywords && (
                       <span className="ml-2 text-muted-foreground">
@@ -57,7 +57,7 @@ export function GuidelinesSection({ guidelines }: GuidelinesSectionProps) {
                   <li key={index} className="text-sm">
                     {ref.citation || '-'}
                     {ref.url && (
-                      <span className="text-blue-600 ml-2">
+                      <span className="text-status-info-text ml-2">
                         <a href={ref.url} target="_blank" rel="noopener noreferrer">{ref.url}</a>
                       </span>
                     )}

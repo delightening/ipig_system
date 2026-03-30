@@ -13,6 +13,7 @@ mod animal;
 mod auth;
 mod erp;
 mod hr;
+mod invitation;
 mod notification;
 mod protocol;
 mod report;
@@ -21,6 +22,7 @@ mod user;
 
 pub fn api_routes(state: AppState) -> Router {
     let public_routes = auth::public_routes()
+        .merge(invitation::public_routes())
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth_rate_limit_middleware,
@@ -36,6 +38,7 @@ pub fn api_routes(state: AppState) -> Router {
         .merge(notification::routes())
         .merge(admin::routes())
         .merge(hr::routes())
+        .merge(invitation::admin_routes())
         .merge(ai::admin_routes())
         .route_layer(middleware::from_fn_with_state(
             state.clone(),

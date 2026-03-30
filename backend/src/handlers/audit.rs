@@ -185,7 +185,7 @@ pub async fn export_audit_logs(
                 .header(header::CONTENT_TYPE, "text/csv; charset=utf-8")
                 .header(
                     header::CONTENT_DISPOSITION,
-                    format!("attachment; filename=\"{}\"", filename),
+                    crate::utils::http::content_disposition_header(&filename),
                 )
                 .body(Body::from(body))
                 .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
@@ -197,7 +197,7 @@ pub async fn export_audit_logs(
                 .header(header::CONTENT_TYPE, "application/json; charset=utf-8")
                 .header(
                     header::CONTENT_DISPOSITION,
-                    format!("attachment; filename=\"{}\"", filename),
+                    crate::utils::http::content_disposition_header(&filename),
                 )
                 .body(Body::from(json_bytes))
                 .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
@@ -209,7 +209,7 @@ pub async fn export_audit_logs(
                 .header(header::CONTENT_TYPE, "application/json; charset=utf-8")
                 .header(
                     header::CONTENT_DISPOSITION,
-                    format!("attachment; filename=\"{}\"", filename),
+                    crate::utils::http::content_disposition_header(&filename),
                 )
                 .body(Body::from(json_bytes))
                 .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)

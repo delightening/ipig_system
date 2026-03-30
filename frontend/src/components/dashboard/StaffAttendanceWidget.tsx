@@ -42,7 +42,7 @@ export function StaffAttendanceWidget() {
         const lowerStatus = status.toLowerCase()
         switch (lowerStatus) {
             case 'normal':
-                return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px]">{t('dashboard.widgets.attendance.normal')}</Badge>
+                return <Badge variant="secondary" className="bg-status-success-bg text-status-success-text hover:bg-status-success-bg border-none text-[10px]">{t('dashboard.widgets.attendance.normal')}</Badge>
             case 'late':
                 return <Badge variant="destructive" className="text-[10px]">{t('dashboard.widgets.attendance.late')}</Badge>
             case 'leave':
@@ -99,7 +99,7 @@ export function StaffAttendanceWidget() {
                         {records.map((record, idx) => (
                             <div key={idx} className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-600">
+                                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
                                         {record.user_name.charAt(0)}
                                     </div>
                                     <div>

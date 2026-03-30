@@ -5,8 +5,10 @@ use tracing::{info, error};
 
 use crate::{
     config::Config,
-    services::{EmailService, NotificationService, BalanceExpirationJob, CalendarService, PartitionMaintenanceJob, EuthanasiaService},
+    services::{EmailService, InvitationService, NotificationService, BalanceExpirationJob, CalendarService, PartitionMaintenanceJob, EuthanasiaService},
 };
+
+type SchedulerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
 pub struct SchedulerService;
 
@@ -16,7 +18,29 @@ impl SchedulerService {
         let sched = JobScheduler::new().await?;
         let mut job_count = 0;
 
-        // 每日 08:00 執行低庫存檢查
+        Self::register_low_stock_job(&sched, &db, &config, &mut job_count).await?;
+        Self::register_expiry_job(&sched, &db, &config, &mut job_count).await?;
+        Self::register_notification_cleanup_job(&sched, &db, &mut job_count).await?;
+        Self::register_balance_expiration_job(&sched, &db, &mut job_count).await?;
+        Self::register_calendar_sync_jobs(&sched, &db, &mut job_count).await?;
+        Self::register_partition_maintenance_job(&sched, &db, &mut job_count).await?;
+        Self::register_euthanasia_timeout_job(&sched, &db, &mut job_count).await?;
+        Self::register_po_pending_receipt_job(&sched, &db, &mut job_count).await?;
+        Self::register_equipment_overdue_job(&sched, &db, &mut job_count).await?;
+        Self::register_monthly_report_job(&sched, &db, &mut job_count).await?;
+        Self::register_invitation_expiry_job(&sched, &db, &mut job_count).await?;
+        Self::register_db_analyze_job(&sched, &db, &mut job_count).await?;
+
+        sched.start().await?;
+        info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
+
+        Ok(sched)
+    }
+
+    // ── Job 註冊 helpers ──
+
+    /// 每日 08:00 執行低庫存檢查
+    async fn register_low_stock_job(sched: &JobScheduler, db: &PgPool, config: &Arc<Config>, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let config_clone = config.clone();
         let job = Job::new_async("0 0 8 * * *", move |_uuid, _l| {
@@ -31,9 +55,12 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'low_stock_check' registered");
-        job_count += 1;
+        *count += 1;
+        Ok(())
+    }
 
-        // 每日 08:00 執行效期檢查
+    /// 每日 08:00 執行效期檢查
+    async fn register_expiry_job(sched: &JobScheduler, db: &PgPool, config: &Arc<Config>, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let config_clone = config.clone();
         let job = Job::new_async("0 0 8 * * *", move |_uuid, _l| {
@@ -48,10 +75,12 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'expiry_check' registered");
-        job_count += 1;
+        *count += 1;
+        Ok(())
+    }
 
-        // 每週日 03:00 清理過期通知
-        // 使用 "Sun" 作為星期日，避免數字 0 的相容性問題
+    /// 每週日 03:00 清理過期通知
+    async fn register_notification_cleanup_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let job = Job::new_async("0 0 3 * * Sun", move |_uuid, _l| {
             let db = db_clone.clone();
@@ -64,9 +93,12 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'notification_cleanup' registered");
-        job_count += 1;
+        *count += 1;
+        Ok(())
+    }
 
-        // 每日 00:30 執行餘額到期檢查
+    /// 每日 00:30 執行餘額到期檢查
+    async fn register_balance_expiration_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let job = Job::new_async("0 30 0 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
@@ -74,61 +106,42 @@ impl SchedulerService {
                 info!("Running daily balance expiration check...");
                 match BalanceExpirationJob::run(&db).await {
                     Ok(summary) => {
-                        info!("Balance expiration check completed: {} annual, {} comp_time expired", 
+                        info!("Balance expiration check completed: {} annual, {} comp_time expired",
                               summary.annual_leave_expired, summary.comp_time_expired);
                     }
-                    Err(e) => {
-                        error!("Balance expiration check failed: {}", e);
-                    }
+                    Err(e) => error!("Balance expiration check failed: {}", e),
                 }
             })
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'balance_expiration' registered");
-        job_count += 1;
+        *count += 1;
+        Ok(())
+    }
 
-        // 每日 08:00 執行 Google Calendar 同步（早上）
-        let db_clone = db.clone();
-        let job = Job::new_async("0 0 8 * * *", move |_uuid, _l| {
-            let db = db_clone.clone();
-            Box::pin(async move {
-                info!("Running scheduled calendar sync (morning)...");
-                match CalendarService::trigger_sync(&db, None).await {
-                    Ok(history) => {
-                        info!("Calendar sync completed: {:?}", history.status);
+    /// 每日 08:00 與 18:00 執行 Google Calendar 同步
+    async fn register_calendar_sync_jobs(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        for (cron, label) in [("0 0 8 * * *", "morning"), ("0 0 18 * * *", "evening")] {
+            let db_clone = db.clone();
+            let job = Job::new_async(cron, move |_uuid, _l| {
+                let db = db_clone.clone();
+                Box::pin(async move {
+                    info!("Running scheduled calendar sync ({})...", label);
+                    match CalendarService::trigger_sync(&db, None).await {
+                        Ok(history) => info!("Calendar sync completed: {:?}", history.status),
+                        Err(e) => error!("Calendar sync failed: {}", e),
                     }
-                    Err(e) => {
-                        error!("Calendar sync failed: {}", e);
-                    }
-                }
-            })
-        })?;
-        sched.add(job).await?;
-        info!("[Scheduler] ✓ Job 'calendar_sync_morning' registered");
-        job_count += 1;
-        
-        // 每日 18:00 執行 Google Calendar 同步（傍晚）
-        let db_clone = db.clone();
-        let job = Job::new_async("0 0 18 * * *", move |_uuid, _l| {
-            let db = db_clone.clone();
-            Box::pin(async move {
-                info!("Running scheduled calendar sync (evening)...");
-                match CalendarService::trigger_sync(&db, None).await {
-                    Ok(history) => {
-                        info!("Calendar sync completed: {:?}", history.status);
-                    }
-                    Err(e) => {
-                        error!("Calendar sync failed: {}", e);
-                    }
-                }
-            })
-        })?;
-        sched.add(job).await?;
-        info!("[Scheduler] ✓ Job 'calendar_sync_evening' registered");
-        job_count += 1;
+                })
+            })?;
+            sched.add(job).await?;
+            info!("[Scheduler] ✓ Job 'calendar_sync_{}' registered", label);
+            *count += 1;
+        }
+        Ok(())
+    }
 
-        // 每年 12 月 1 日 03:00 執行分區表維護
-        // 確保 user_activity_logs 表有未來 2 年的季度分區
+    /// 每年 12 月 1 日 03:00 執行分區表維護
+    async fn register_partition_maintenance_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let job = Job::new_async("0 0 3 1 12 *", move |_uuid, _l| {
             let db = db_clone.clone();
@@ -139,40 +152,37 @@ impl SchedulerService {
                         info!("Partition maintenance completed: {} checked, {} created, {} existing",
                               result.checked, result.created, result.existing);
                     }
-                    Err(e) => {
-                        error!("Partition maintenance failed: {}", e);
-                    }
+                    Err(e) => error!("Partition maintenance failed: {}", e),
                 }
             })
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'partition_maintenance' registered");
-        job_count += 1;
+        *count += 1;
+        Ok(())
+    }
 
-        // 每 5 分鐘檢查安樂死單據超時
-        // 處理 PI 超時未回應和 CHAIR 仲裁超時
-        // 使用 "0/5" 語法表示從 0 開始每 5 分鐘
+    /// 每 5 分鐘檢查安樂死單據超時
+    async fn register_euthanasia_timeout_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let job = Job::new_async("0 0/5 * * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             Box::pin(async move {
                 match EuthanasiaService::check_expired_orders(&db).await {
-                    Ok(count) => {
-                        if count > 0 {
-                            info!("Euthanasia timeout check: {} orders auto-approved", count);
-                        }
-                    }
-                    Err(e) => {
-                        error!("Euthanasia timeout check failed: {}", e);
-                    }
+                    Ok(c) if c > 0 => info!("Euthanasia timeout check: {} orders auto-approved", c),
+                    Ok(_) => {}
+                    Err(e) => error!("Euthanasia timeout check failed: {}", e),
                 }
             })
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'euthanasia_timeout' registered");
-        job_count += 1;
+        *count += 1;
+        Ok(())
+    }
 
-        // 每日 09:00 檢查已核准但未入庫的採購單，通知倉管人員
+    /// 每日 09:00 檢查已核准但未入庫的採購單
+    async fn register_po_pending_receipt_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let job = Job::new_async("0 0 9 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
@@ -185,9 +195,12 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'po_pending_receipt_check' registered");
-        job_count += 1;
+        *count += 1;
+        Ok(())
+    }
 
-        // 每日 08:30 檢查設備校正/確效逾期
+    /// 每日 08:30 檢查設備校正/確效逾期
+    async fn register_equipment_overdue_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let job = Job::new_async("0 30 8 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
@@ -195,22 +208,20 @@ impl SchedulerService {
                 info!("Running daily equipment overdue check...");
                 let service = NotificationService::new(db);
                 match service.send_equipment_overdue_notifications().await {
-                    Ok(count) => {
-                        if count > 0 {
-                            info!("Equipment overdue check: notified {} recipients", count);
-                        }
-                    }
-                    Err(e) => {
-                        error!("Equipment overdue check failed: {}", e);
-                    }
+                    Ok(c) if c > 0 => info!("Equipment overdue check: notified {} recipients", c),
+                    Ok(_) => {}
+                    Err(e) => error!("Equipment overdue check failed: {}", e),
                 }
             })
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'equipment_overdue_check' registered");
-        job_count += 1;
+        *count += 1;
+        Ok(())
+    }
 
-        // 每月 1 號 06:00 產出上月進銷貨+血液檢查報表
+    /// 每月 1 號 06:00 產出上月進銷貨+血液檢查報表
+    async fn register_monthly_report_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let job = Job::new_async("0 0 6 1 * *", move |_uuid, _l| {
             let db = db_clone.clone();
@@ -223,9 +234,32 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'monthly_report' registered");
-        job_count += 1;
+        *count += 1;
+        Ok(())
+    }
 
-        // 每天 03:30 執行 ANALYZE（更新統計資訊供查詢規劃器使用）
+    /// 每日 04:00 清理過期邀請
+    async fn register_invitation_expiry_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let db_clone = db.clone();
+        let job = Job::new_async("0 0 4 * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            Box::pin(async move {
+                info!("Running daily invitation expiry check...");
+                match InvitationService::expire_stale(&db).await {
+                    Ok(c) if c > 0 => info!("Invitation expiry check: {} invitations expired", c),
+                    Ok(_) => {}
+                    Err(e) => error!("Invitation expiry check failed: {}", e),
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'invitation_expiry' registered");
+        *count += 1;
+        Ok(())
+    }
+
+    /// 每天 03:30 執行 ANALYZE
+    async fn register_db_analyze_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let job = Job::new_async("0 30 3 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
@@ -241,21 +275,15 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'db_maintenance_analyze' registered");
-        job_count += 1;
-
-        // 啟動排程器
-        sched.start().await?;
-        info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
-
-        Ok(sched)
+        *count += 1;
+        Ok(())
     }
 
+    // ── 業務邏輯 helpers ──
 
     /// 檢查低庫存並發送通知
-    async fn check_low_stock(db: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn check_low_stock(db: &PgPool, config: &Config) -> SchedulerResult {
         let service = NotificationService::new(db.clone());
-
-        // 取得低庫存項目
         let alerts = service.list_low_stock_alerts(1, 100).await?;
 
         if alerts.data.is_empty() {
@@ -263,54 +291,22 @@ impl SchedulerService {
             return Ok(());
         }
 
-        // 建立站內通知（內部已處理收件者遍歷與當天去重）
         match service.send_low_stock_notifications().await {
             Ok(count) => info!("Low stock in-app notifications: {} sent", count),
             Err(e) => tracing::warn!("發送庫存不足站內通知失敗: {e}"),
         }
 
-        // 取得需要 email 通知的使用者
-        let users: Vec<(uuid::Uuid, String, String)> = sqlx::query_as(
-            r#"
-            SELECT DISTINCT u.id, u.email, u.display_name
-            FROM users u
-            JOIN notification_settings ns ON u.id = ns.user_id
-            JOIN user_roles ur ON u.id = ur.user_id
-            JOIN roles r ON ur.role_id = r.id
-            WHERE u.is_active = true
-              AND r.code IN ('SYSTEM_ADMIN', 'WAREHOUSE_MANAGER')
-              AND ns.email_low_stock = true
-            "#,
-        )
-        .fetch_all(db)
-        .await?;
-
-        // 建構 HTML 表格並發送 Email
+        let users = Self::fetch_stock_email_recipients(db, "email_low_stock").await?;
         let alerts_html = Self::build_low_stock_html(&alerts.data);
-        let mut email_count = 0;
-        for (_user_id, email, name) in users {
-            if let Err(e) = EmailService::send_low_stock_alert_email(
-                config,
-                &email,
-                &name,
-                &alerts_html,
-                alerts.data.len(),
-            ).await {
-                error!("Failed to send low stock email to {}: {}", email, e);
-            } else {
-                email_count += 1;
-            }
-        }
+        let email_count = Self::send_low_stock_emails(config, &users, &alerts_html, alerts.data.len()).await;
 
         info!("Low stock check completed: {} alerts, {} emails sent", alerts.data.len(), email_count);
         Ok(())
     }
 
     /// 檢查效期並發送通知
-    async fn check_expiry(db: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn check_expiry(db: &PgPool, config: &Config) -> SchedulerResult {
         let service = NotificationService::new(db.clone());
-
-        // 取得效期預警項目
         let alerts = service.list_expiry_alerts(1, 100).await?;
 
         if alerts.data.is_empty() {
@@ -321,14 +317,27 @@ impl SchedulerService {
         let expired_count = alerts.data.iter().filter(|a| a.expiry_status == "expired").count();
         let expiring_count = alerts.data.iter().filter(|a| a.expiry_status == "expiring_soon").count();
 
-        // 建立站內通知（內部已處理收件者遍歷與當天去重）
         match service.send_expiry_notifications().await {
             Ok(count) => info!("Expiry in-app notifications: {} sent", count),
             Err(e) => tracing::warn!("發送效期預警站內通知失敗: {e}"),
         }
 
-        // 取得需要 email 通知的使用者
-        let users: Vec<(uuid::Uuid, String, String)> = sqlx::query_as(
+        let users = Self::fetch_stock_email_recipients(db, "email_expiry_warning").await?;
+        let alerts_html = Self::build_expiry_html(&alerts.data);
+        let email_count = Self::send_expiry_emails(config, &users, &alerts_html, expired_count, expiring_count).await;
+
+        info!("Expiry check completed: {} alerts ({} expired, {} expiring), {} emails sent",
+              alerts.data.len(), expired_count, expiring_count, email_count);
+        Ok(())
+    }
+
+    /// 取得庫存相關 email 通知的收件者
+    async fn fetch_stock_email_recipients(
+        db: &PgPool,
+        setting_column: &str,
+    ) -> Result<Vec<(uuid::Uuid, String, String)>, Box<dyn std::error::Error + Send + Sync>> {
+        // setting_column 為白名單欄位名（email_low_stock / email_expiry_warning）
+        let sql = format!(
             r#"
             SELECT DISTINCT u.id, u.email, u.display_name
             FROM users u
@@ -337,37 +346,60 @@ impl SchedulerService {
             JOIN roles r ON ur.role_id = r.id
             WHERE u.is_active = true
               AND r.code IN ('SYSTEM_ADMIN', 'WAREHOUSE_MANAGER')
-              AND ns.email_expiry_warning = true
+              AND ns.{} = true
             "#,
-        )
-        .fetch_all(db)
-        .await?;
+            match setting_column {
+                "email_low_stock" => "email_low_stock",
+                "email_expiry_warning" => "email_expiry_warning",
+                _ => return Ok(vec![]),
+            }
+        );
+        Ok(sqlx::query_as(&sql).fetch_all(db).await?)
+    }
 
-        // 建構 HTML 表格並發送 Email
-        let alerts_html = Self::build_expiry_html(&alerts.data);
+    /// 發送低庫存 email 並回傳成功數
+    async fn send_low_stock_emails(
+        config: &Config,
+        users: &[(uuid::Uuid, String, String)],
+        alerts_html: &str,
+        alert_count: usize,
+    ) -> usize {
+        let mut email_count = 0;
+        for (_user_id, email, name) in users {
+            if let Err(e) = EmailService::send_low_stock_alert_email(
+                config, email, name, alerts_html, alert_count,
+            ).await {
+                error!("Failed to send low stock email to {}: {}", email, e);
+            } else {
+                email_count += 1;
+            }
+        }
+        email_count
+    }
+
+    /// 發送效期預警 email 並回傳成功數
+    async fn send_expiry_emails(
+        config: &Config,
+        users: &[(uuid::Uuid, String, String)],
+        alerts_html: &str,
+        expired_count: usize,
+        expiring_count: usize,
+    ) -> usize {
         let mut email_count = 0;
         for (_user_id, email, name) in users {
             if let Err(e) = EmailService::send_expiry_alert_email(
-                config,
-                &email,
-                &name,
-                &alerts_html,
-                expired_count,
-                expiring_count,
+                config, email, name, alerts_html, expired_count, expiring_count,
             ).await {
                 error!("Failed to send expiry email to {}: {}", email, e);
             } else {
                 email_count += 1;
             }
         }
-
-        info!("Expiry check completed: {} alerts ({} expired, {} expiring), {} emails sent",
-              alerts.data.len(), expired_count, expiring_count, email_count);
-        Ok(())
+        email_count
     }
 
     /// 清理過期通知
-    async fn cleanup_notifications(db: &PgPool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn cleanup_notifications(db: &PgPool) -> SchedulerResult {
         let service = NotificationService::new(db.clone());
         let deleted = service.cleanup_old_notifications().await?;
         info!("Notification cleanup completed: {} old notifications deleted", deleted);
@@ -380,11 +412,7 @@ impl SchedulerService {
             r#"<table class="alert-table">
             <thead>
                 <tr>
-                    <th>SKU</th>
-                    <th>品名</th>
-                    <th>倉庫</th>
-                    <th>現有量</th>
-                    <th>安全庫存</th>
+                    <th>SKU</th><th>品名</th><th>倉庫</th><th>現有量</th><th>安全庫存</th>
                 </tr>
             </thead>
             <tbody>"#
@@ -392,28 +420,17 @@ impl SchedulerService {
 
         for alert in alerts.iter().take(20) {
             html.push_str(&format!(
-                r#"<tr>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{} {}</td>
-                    <td>{}</td>
-                </tr>"#,
-                alert.product_sku,
-                alert.product_name,
-                alert.warehouse_name,
-                alert.qty_on_hand,
-                alert.base_uom,
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{} {}</td><td>{}</td></tr>",
+                alert.product_sku, alert.product_name, alert.warehouse_name,
+                alert.qty_on_hand, alert.base_uom,
                 alert.safety_stock.map(|s| s.to_string()).unwrap_or("-".to_string()),
             ));
         }
 
         html.push_str("</tbody></table>");
-
         if alerts.len() > 20 {
             html.push_str(&format!("<p>...另外還有 {} 項，請登入系統查看完整列表</p>", alerts.len() - 20));
         }
-
         html
     }
 
@@ -423,13 +440,8 @@ impl SchedulerService {
             r#"<table class="alert-table">
             <thead>
                 <tr>
-                    <th>SKU</th>
-                    <th>品名</th>
-                    <th>批號</th>
-                    <th>效期</th>
-                    <th>剩餘天數</th>
-                    <th>近效期量</th>
-                    <th>總量</th>
+                    <th>SKU</th><th>品名</th><th>批號</th><th>效期</th>
+                    <th>剩餘天數</th><th>近效期量</th><th>總量</th>
                 </tr>
             </thead>
             <tbody>"#
@@ -438,49 +450,34 @@ impl SchedulerService {
         for alert in alerts.iter().take(20) {
             let status_class = if alert.expiry_status == "expired" { "expired" } else { "expiring" };
             html.push_str(&format!(
-                r#"<tr>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td class="{}">{}</td>
-                    <td>{} {}</td>
-                    <td>{} {}</td>
-                </tr>"#,
-                alert.sku,
-                alert.product_name,
-                alert.batch_no.as_deref().unwrap_or("-"),
-                alert.expiry_date,
-                status_class,
-                alert.days_until_expiry,
-                alert.on_hand_qty,
-                alert.base_uom,
-                alert.total_qty,
-                alert.base_uom,
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td>\
+                 <td class=\"{}\">{}</td><td>{} {}</td><td>{} {}</td></tr>",
+                alert.sku, alert.product_name,
+                alert.batch_no.as_deref().unwrap_or("-"), alert.expiry_date,
+                status_class, alert.days_until_expiry,
+                alert.on_hand_qty, alert.base_uom, alert.total_qty, alert.base_uom,
             ));
         }
 
         html.push_str("</tbody></table>");
-
         if alerts.len() > 20 {
             html.push_str(&format!("<p>...另外還有 {} 項，請登入系統查看完整列表</p>", alerts.len() - 20));
         }
-
         html
     }
 
     /// 手動觸發低庫存檢查（供 API 使用）
-    pub async fn trigger_low_stock_check(db: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn trigger_low_stock_check(db: &PgPool, config: &Config) -> SchedulerResult {
         Self::check_low_stock(db, config).await
     }
 
     /// 手動觸發效期檢查（供 API 使用）
-    pub async fn trigger_expiry_check(db: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn trigger_expiry_check(db: &PgPool, config: &Config) -> SchedulerResult {
         Self::check_expiry(db, config).await
     }
 
     /// 檢查已核准但未入庫的採購單並發送通知
-    async fn check_po_pending_receipt(db: &PgPool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn check_po_pending_receipt(db: &PgPool) -> SchedulerResult {
         let service = NotificationService::new(db.clone());
         let count = service.notify_po_pending_receipt().await?;
         info!("PO pending receipt check completed: {} notifications sent", count);
@@ -488,16 +485,39 @@ impl SchedulerService {
     }
 
     /// 手動觸發採購單未入庫檢查（供 API 使用）
-    pub async fn trigger_po_pending_receipt_check(db: &PgPool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn trigger_po_pending_receipt_check(db: &PgPool) -> SchedulerResult {
         Self::check_po_pending_receipt(db).await
     }
 
+    // ── 月報表 ──
+
     /// 產出每月進銷貨+血液檢查報表
-    async fn generate_monthly_report(db: &PgPool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn generate_monthly_report(db: &PgPool) -> SchedulerResult {
+        let (first_day, last_day, month_str) = Self::compute_previous_month_range()?;
+        info!("[Monthly Report] 統計期間：{} ~ {}", first_day, last_day);
+
+        let (po_count, po_amount) = Self::query_purchase_summary(db, first_day, last_day).await?;
+        let (so_count, so_amount) = Self::query_sales_summary(db, first_day, last_day).await?;
+        let blood_test_stats = Self::query_blood_test_stats(db, first_day, last_day).await?;
+
+        let content = Self::build_report_content(
+            &month_str, po_count, &po_amount, so_count, &so_amount, &blood_test_stats,
+        );
+
+        let count = Self::send_report_notifications(db, &month_str, &content).await?;
+
+        info!(
+            "[Monthly Report] {}報表已產出並發送給 {} 位使用者（PO: {}, SO: {}, 血檢項: {}）",
+            month_str, count, po_count, so_count, blood_test_stats.len()
+        );
+        Ok(())
+    }
+
+    /// 計算上月的起迄日期
+    fn compute_previous_month_range() -> Result<(chrono::NaiveDate, chrono::NaiveDate, String), Box<dyn std::error::Error + Send + Sync>> {
         use chrono::{Datelike, NaiveDate};
 
         let now = crate::time::today_taiwan_naive();
-        // 上月的第一天和最後一天
         let year = if now.month() == 1 { now.year() - 1 } else { now.year() };
         let month = if now.month() == 1 { 12 } else { now.month() - 1 };
         let first_day = NaiveDate::from_ymd_opt(year, month, 1)
@@ -513,18 +533,23 @@ impl SchedulerService {
                 .pred_opt()
                 .ok_or_else(|| format!("failed to get last day of {}-{}", now.year(), now.month() - 1))?
         };
+        let month_str = format!("{}年{}月", year, month);
+        Ok((first_day, last_day, month_str))
+    }
 
-        info!("[Monthly Report] 統計期間：{} ~ {}", first_day, last_day);
-
-        // 1. 採購彙總
-        let purchase_summary: Option<(i64, Option<rust_decimal::Decimal>)> = sqlx::query_as(
+    /// 查詢採購彙總
+    async fn query_purchase_summary(
+        db: &PgPool,
+        first_day: chrono::NaiveDate,
+        last_day: chrono::NaiveDate,
+    ) -> Result<(i64, Option<rust_decimal::Decimal>), Box<dyn std::error::Error + Send + Sync>> {
+        let row: Option<(i64, Option<rust_decimal::Decimal>)> = sqlx::query_as(
             r#"
             SELECT COUNT(*) as cnt,
                    SUM(dl.qty * COALESCE(dl.unit_price, 0)) as total_amount
             FROM documents d
             JOIN document_lines dl ON d.id = dl.document_id
-            WHERE d.doc_type = 'PO'
-              AND d.status = 'approved'
+            WHERE d.doc_type = 'PO' AND d.status = 'approved'
               AND d.doc_date BETWEEN $1 AND $2
             "#,
         )
@@ -532,11 +557,16 @@ impl SchedulerService {
         .bind(last_day)
         .fetch_optional(db)
         .await?;
+        Ok(row.unwrap_or((0, None)))
+    }
 
-        let (po_count, po_amount) = purchase_summary.unwrap_or((0, None));
-
-        // 2. 銷貨彙總
-        let sales_summary: Option<(i64, Option<rust_decimal::Decimal>)> = sqlx::query_as(
+    /// 查詢銷貨彙總
+    async fn query_sales_summary(
+        db: &PgPool,
+        first_day: chrono::NaiveDate,
+        last_day: chrono::NaiveDate,
+    ) -> Result<(i64, Option<rust_decimal::Decimal>), Box<dyn std::error::Error + Send + Sync>> {
+        let row: Option<(i64, Option<rust_decimal::Decimal>)> = sqlx::query_as(
             r#"
             SELECT COUNT(*) as cnt,
                    SUM(dl.qty * COALESCE(dl.unit_price,
@@ -545,8 +575,7 @@ impl SchedulerService {
                        0)) as total_amount
             FROM documents d
             JOIN document_lines dl ON d.id = dl.document_id
-            WHERE d.doc_type = 'SO'
-              AND d.status = 'approved'
+            WHERE d.doc_type = 'SO' AND d.status = 'approved'
               AND d.doc_date BETWEEN $1 AND $2
             "#,
         )
@@ -554,11 +583,16 @@ impl SchedulerService {
         .bind(last_day)
         .fetch_optional(db)
         .await?;
+        Ok(row.unwrap_or((0, None)))
+    }
 
-        let (so_count, so_amount) = sales_summary.unwrap_or((0, None));
-
-        // 3. 各計畫血液檢查項目統計
-        let blood_test_stats: Vec<(Option<String>, String, i64)> = sqlx::query_as(
+    /// 查詢血液檢查統計
+    async fn query_blood_test_stats(
+        db: &PgPool,
+        first_day: chrono::NaiveDate,
+        last_day: chrono::NaiveDate,
+    ) -> Result<Vec<(Option<String>, String, i64)>, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(sqlx::query_as(
             r#"
             SELECT p.iacuc_no, bti.item_name, COUNT(*) as cnt
             FROM animal_blood_test_items bti
@@ -574,14 +608,23 @@ impl SchedulerService {
         .bind(last_day)
         .fetch_all(db)
         .await
-        .unwrap_or_default();
+        .unwrap_or_default())
+    }
 
-        // 4. 構建報表內容
-        let month_str = format!("{}年{}月", year, month);
+    /// 構建報表內容文字
+    fn build_report_content(
+        month_str: &str,
+        po_count: i64,
+        po_amount: &Option<rust_decimal::Decimal>,
+        so_count: i64,
+        so_amount: &Option<rust_decimal::Decimal>,
+        blood_test_stats: &[(Option<String>, String, i64)],
+    ) -> String {
         let mut content = format!(
-            "{}月度報表\n\n=== 進銷貨彙總 ===\n採購單（已核准）：{} 筆，金額 ${}\n銷貨單（已核准）：{} 筆，金額 ${}\n",
-            month_str,
-            po_count,
+            "{}月度報表\n\n=== 進銷貨彙總 ===\n\
+             採購單（已核准）：{} 筆，金額 ${}\n\
+             銷貨單（已核准）：{} 筆，金額 ${}\n",
+            month_str, po_count,
             po_amount.map(|a| a.to_string()).unwrap_or("0".to_string()),
             so_count,
             so_amount.map(|a| a.to_string()).unwrap_or("0".to_string()),
@@ -589,20 +632,25 @@ impl SchedulerService {
 
         if !blood_test_stats.is_empty() {
             content.push_str("\n=== 血液檢查統計 ===\n");
-            for (iacuc_no, item_name, cnt) in &blood_test_stats {
+            for (iacuc_no, item_name, cnt) in blood_test_stats {
                 content.push_str(&format!(
                     "計畫 {}：{} × {} 次\n",
-                    iacuc_no.as_deref().unwrap_or("-"),
-                    item_name,
-                    cnt,
+                    iacuc_no.as_deref().unwrap_or("-"), item_name, cnt,
                 ));
             }
         }
+        content
+    }
 
-        // 5. 通知相關使用者
+    /// 發送報表通知給相關使用者
+    async fn send_report_notifications(
+        db: &PgPool,
+        month_str: &str,
+        content: &str,
+    ) -> Result<usize, Box<dyn std::error::Error + Send + Sync>> {
         let service = NotificationService::new(db.clone());
-        let mut recipients = service.get_users_by_role("WAREHOUSE_MANAGER").await?;
-        let admins = service.get_users_by_role("SYSTEM_ADMIN").await?;
+        let mut recipients = service.get_users_by_role(crate::constants::ROLE_WAREHOUSE_MANAGER).await?;
+        let admins = service.get_users_by_role(crate::constants::ROLE_SYSTEM_ADMIN).await?;
         recipients.extend(admins);
         recipients.sort_by_key(|(id, _, _)| *id);
         recipients.dedup_by_key(|(id, _, _)| *id);
@@ -615,21 +663,16 @@ impl SchedulerService {
                     user_id: *user_id,
                     notification_type: crate::models::NotificationType::MonthlyReport,
                     title: title.clone(),
-                    content: Some(content.clone()),
+                    content: Some(content.to_string()),
                     related_entity_type: Some("report".to_string()),
                     related_entity_id: None,
                 })
-                .await {
+                .await
+            {
                 tracing::warn!("create_notification 失敗: {e}");
             }
-
             count += 1;
         }
-
-        info!(
-            "[Monthly Report] {}報表已產出並發送給 {} 位使用者（PO: {}, SO: {}, 血檢項: {}）",
-            month_str, count, po_count, so_count, blood_test_stats.len()
-        );
-        Ok(())
+        Ok(count)
     }
 }

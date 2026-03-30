@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 
-import api from '@/lib/api'
+import api, { isAxiosError } from '@/lib/api'
 import type { Animal, AnimalListItem, CreateAnimalRequest } from '@/types/animal'
 import type { PaginatedResponse } from '@/types/common'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -44,7 +43,7 @@ export function useAnimalsMutations(opts: MutationsOptions) {
     getApiErrorMessage(error, fallback)
 
   const handleDuplicate409 = (error: unknown, source: 'create' | 'quickAdd') => {
-    if (!axios.isAxiosError(error) || error.response?.status !== 409) return false
+    if (!isAxiosError(error) || error.response?.status !== 409) return false
     const errData = error.response.data?.error
     if (errData?.warning_type !== 'duplicate_ear_tag' || errData?.blocking !== false) return false
     let payload: Record<string, unknown> = {}
@@ -117,7 +116,7 @@ export function useAnimalsMutations(opts: MutationsOptions) {
       if (handleDuplicate409(error, 'create')) return
 
       let errorMessage = '新增失敗，請檢查輸入資料'
-      if (axios.isAxiosError(error) && error.response?.status === 422) {
+      if (isAxiosError(error) && error.response?.status === 422) {
         const data = error.response.data as { error?: { message?: string }; message?: string } | undefined
         errorMessage = data?.error?.message || data?.message || '資料格式錯誤：請檢查所有欄位的格式是否正確'
       } else {

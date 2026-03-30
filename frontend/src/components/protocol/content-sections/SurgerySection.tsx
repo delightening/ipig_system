@@ -31,28 +31,28 @@ export function SurgerySection({ design, surgery }: SurgerySectionProps) {
           {surgery.preop_preparation && (
             <div className="mb-4">
               <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.preop_Preparation')}</h3>
-              <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.preop_preparation}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{surgery.preop_preparation}</p>
             </div>
           )}
 
           {surgery.surgery_description && (
             <div className="mb-4">
               <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.surgeryDescription')}</h3>
-              <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.surgery_description}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{surgery.surgery_description}</p>
             </div>
           )}
 
           {surgery.monitoring && (
             <div className="mb-4">
               <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.monitoring')}</h3>
-              <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.monitoring}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{surgery.monitoring}</p>
             </div>
           )}
 
           {surgery.postop_care && (
             <div className="mb-4">
               <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.postopCare')}</h3>
-              <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.postop_care}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{surgery.postop_care}</p>
             </div>
           )}
 
@@ -61,7 +61,7 @@ export function SurgerySection({ design, surgery }: SurgerySectionProps) {
               <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.drugPlan')}</h3>
               <div className="space-y-2">
                 {surgery.drugs.map((drug: SurgeryDrug, index: number) => (
-                  <div key={index} className="p-3 border rounded bg-slate-50">
+                  <div key={index} className="p-3 border rounded bg-muted">
                     <p className="text-sm font-medium">{drug.drug_name || '-'}</p>
                     <p className="text-xs text-muted-foreground">
                       {t('protocols.content.sections.dose')}: {drug.dose || '-'} | {t('protocols.content.sections.route')}: {drug.route || '-'} | {t('protocols.content.sections.frequency')}: {drug.frequency || '-'} | {t('protocols.content.sections.itemPurpose')}: {drug.purpose || '-'}

@@ -66,7 +66,7 @@ pub async fn create_annual_leave_entitlement(
     Json(payload): Json<CreateAnnualLeaveRequest>,
 ) -> Result<(StatusCode, Json<AnnualLeaveEntitlement>)> {
     if !current_user.is_admin()
-        && !current_user.roles.contains(&"ADMIN_STAFF".to_string())
+        && !current_user.roles.contains(&crate::constants::ROLE_ADMIN_STAFF.to_string())
         && !current_user.has_permission("hr.balance.manage")
     {
         return Err(crate::error::AppError::Forbidden("僅管理員或行政可新增特休額度".to_string()));
@@ -93,8 +93,8 @@ pub async fn get_expired_leave_compensation(
 ) -> Result<Json<Vec<ExpiredLeaveReport>>> {
     if !current_user.has_permission("hr.balance.manage")
         && !current_user.is_admin()
-        && !current_user.roles.contains(&"IACUC_STAFF".to_string())
-        && !current_user.roles.contains(&"ADMIN_STAFF".to_string())
+        && !current_user.roles.contains(&crate::constants::ROLE_IACUC_STAFF.to_string())
+        && !current_user.roles.contains(&crate::constants::ROLE_ADMIN_STAFF.to_string())
     {
         return Err(crate::error::AppError::Forbidden("無權查看過期特休報表".to_string()));
     }

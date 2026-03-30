@@ -35,7 +35,7 @@ export function AnimalInfoTab({ animal }: AnimalInfoTabProps) {
           <Button
             variant="outline"
             onClick={() => setCorrectionDialogOpen(true)}
-            className="text-amber-600 border-amber-200 hover:bg-amber-50"
+            className="text-status-warning-text border-status-warning-border hover:bg-status-warning-bg"
           >
             <FileEdit className="h-4 w-4 mr-2" />
             申請修正
@@ -62,67 +62,67 @@ export function AnimalInfoTab({ animal }: AnimalInfoTabProps) {
       <CardContent>
         <div className="grid grid-cols-2 gap-x-8 gap-y-4">
           <div>
-            <Label className="text-slate-500">耳號</Label>
+            <Label className="text-muted-foreground">耳號</Label>
             <p className="font-medium">{animal.ear_tag}</p>
           </div>
           <div>
-            <Label className="text-slate-500">動物狀態</Label>
+            <Label className="text-muted-foreground">動物狀態</Label>
             <p className="font-medium">{allAnimalStatusNames[animal.status]}</p>
           </div>
           <div>
-            <Label className="text-slate-500">進場日期</Label>
+            <Label className="text-muted-foreground">進場日期</Label>
             <p className="font-medium">{new Date(animal.entry_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</p>
           </div>
           <div>
-            <Label className="text-slate-500">品種</Label>
+            <Label className="text-muted-foreground">品種</Label>
             <p className="font-medium">{animalBreedNames[animal.breed]}</p>
           </div>
           <div>
-            <Label className="text-slate-500">來源</Label>
+            <Label className="text-muted-foreground">來源</Label>
             <p className="font-medium">{animal.source_name || '-'}</p>
           </div>
           <div>
-            <Label className="text-slate-500">進場體重 (kg)</Label>
+            <Label className="text-muted-foreground">進場體重 (kg)</Label>
             <p className="font-medium">{animal.entry_weight || '-'}</p>
           </div>
           <div>
-            <Label className="text-slate-500">性別</Label>
+            <Label className="text-muted-foreground">性別</Label>
             <p className="font-medium">{animalGenderNames[animal.gender]}</p>
           </div>
           <div>
-            <Label className="text-slate-500">出生日期</Label>
+            <Label className="text-muted-foreground">出生日期</Label>
             <p className="font-medium">
               {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}
             </p>
           </div>
           <div>
-            <Label className="text-slate-500">實驗前代號</Label>
+            <Label className="text-muted-foreground">實驗前代號</Label>
             <p className="font-medium">{animal.pre_experiment_code || '-'}</p>
           </div>
           <div>
-            <Label className="text-slate-500">IACUC No.</Label>
+            <Label className="text-muted-foreground">IACUC No.</Label>
             <p className="font-medium">{animal.iacuc_no || '-'}</p>
           </div>
           <div>
-            <Label className="text-slate-500">實驗日期</Label>
+            <Label className="text-muted-foreground">實驗日期</Label>
             <p className="font-medium">
               {animal.experiment_date ? new Date(animal.experiment_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}
             </p>
           </div>
           <div>
-            <Label className="text-slate-500">欄位</Label>
+            <Label className="text-muted-foreground">欄位</Label>
             <p className="font-medium">{getPenLocationDisplay(animal)}</p>
           </div>
           <div className="col-span-2">
-            <Label className="text-slate-500">備註</Label>
+            <Label className="text-muted-foreground">備註</Label>
             <p className="font-medium">{animal.remark || '-'}</p>
           </div>
           <div>
-            <Label className="text-slate-500">系統號</Label>
+            <Label className="text-muted-foreground">系統號</Label>
             <p className="font-medium" title={animal.id}>{animal.id.slice(0, 8)}</p>
           </div>
           <div>
-            <Label className="text-slate-500">建立時間</Label>
+            <Label className="text-muted-foreground">建立時間</Label>
             <p className="font-medium">{new Date(animal.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</p>
           </div>
         </div>

@@ -89,10 +89,10 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
     }
 
     return (
-        <Card className="w-full shadow-lg border-2 border-slate-200">
-            <CardHeader className="bg-slate-50 border-b">
+        <Card className="w-full shadow-lg border-2 border-border">
+            <CardHeader className="bg-muted border-b">
                 <div className="flex justify-between items-center">
-                    <CardTitle className="text-xl font-bold text-slate-800">
+                    <CardTitle className="text-xl font-bold text-foreground">
                         {t('protocols.detail.vet_form.title', '獸醫師審查查檢表')}
                     </CardTitle>
                     {isEditable && (
@@ -111,18 +111,18 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
-                            <tr className="bg-slate-100 text-slate-700 font-semibold text-sm">
+                            <tr className="bg-muted text-muted-foreground font-semibold text-sm">
                                 <th className="p-4 text-left border-b w-12">#</th>
                                 <th className="p-4 text-left border-b w-1/3">審查項目</th>
                                 <th className="p-4 text-center border-b w-32 text-nowrap">符合性 (V/X/-)</th>
                                 <th className="p-4 text-left border-b">審查意見 (與原申請計畫不符處)</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-border">
                             {items.map((item, index) => (
-                                <tr key={index} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="p-4 text-slate-500 font-medium">{index + 1}</td>
-                                    <td className="p-4 font-medium text-slate-800 leading-tight">
+                                <tr key={item.item_name} className="hover:bg-muted/50 transition-colors">
+                                    <td className="p-4 text-muted-foreground font-medium">{index + 1}</td>
+                                    <td className="p-4 font-medium text-foreground leading-tight">
                                         {item.item_name}
                                     </td>
                                     <td className="p-4">
@@ -131,20 +131,20 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
                                             value={item.compliance}
                                             onValueChange={(val) => handleUpdateItem(index, 'compliance', val)}
                                         >
-                                            <SelectTrigger className={`w-28 mx-auto font-bold ${item.compliance === 'V' ? 'text-green-600 border-green-200 bg-green-50' :
-                                                item.compliance === 'X' ? 'text-red-600 border-red-200 bg-red-50' :
-                                                    'text-slate-500'
+                                            <SelectTrigger className={`w-28 mx-auto font-bold ${item.compliance === 'V' ? 'text-status-success-text border-status-success-border bg-status-success-bg' :
+                                                item.compliance === 'X' ? 'text-status-error-text border-status-error-border bg-status-error-bg' :
+                                                    'text-muted-foreground'
                                                 }`}>
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="V" className="text-green-600">
+                                                <SelectItem value="V" className="text-status-success-text">
                                                     <div className="flex items-center"><Check className="mr-2 h-4 w-4" /> 符合 (V)</div>
                                                 </SelectItem>
-                                                <SelectItem value="X" className="text-red-600">
+                                                <SelectItem value="X" className="text-status-error-text">
                                                     <div className="flex items-center"><X className="mr-2 h-4 w-4" /> 不符 (X)</div>
                                                 </SelectItem>
-                                                <SelectItem value="-" className="text-slate-500">
+                                                <SelectItem value="-" className="text-muted-foreground">
                                                     <div className="flex items-center"><Minus className="mr-2 h-4 w-4" /> 不適用 (-)</div>
                                                 </SelectItem>
                                             </SelectContent>
@@ -156,7 +156,7 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
                                             value={item.comment || ''}
                                             onChange={(e) => handleUpdateItem(index, 'comment', e.target.value)}
                                             placeholder={t('protocols.detail.vet_form.comment_placeholder', '請輸入審查意見...')}
-                                            className="min-h-[80px] resize-y bg-white/50 focus:bg-white transition-all border-slate-200"
+                                            className="min-h-[80px] resize-y bg-card/50 focus:bg-card transition-all border-border"
                                         />
                                     </td>
                                 </tr>

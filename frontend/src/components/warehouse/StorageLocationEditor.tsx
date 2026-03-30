@@ -118,7 +118,7 @@ export function StorageLocationEditor({
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center py-16 border rounded-lg bg-slate-50 min-h-[480px]">
+            <div className="flex items-center justify-center py-16 border rounded-lg bg-muted min-h-[480px]">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
         )
@@ -130,7 +130,7 @@ export function StorageLocationEditor({
                 <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold">儲位佈局圖</h3>
                     {isEditMode && (
-                        <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                        <Badge variant="outline" className="text-status-info-text border-status-info-border bg-status-info-bg">
                             編輯模式
                         </Badge>
                     )}
@@ -139,7 +139,7 @@ export function StorageLocationEditor({
                     <Button
                         size="sm"
                         onClick={onAddLocationClick}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="bg-primary hover:bg-primary/90 text-white"
                     >
                         <Plus className="h-4 w-4 mr-1" />
                         新增儲位
@@ -178,7 +178,7 @@ export function StorageLocationEditor({
             </div>
 
             {isEditMode && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+                <div className="p-3 bg-status-info-bg border border-status-info-border rounded-lg text-xs text-status-info-text">
                     📐 編輯模式啟用中：拖拽方塊調整位置，拖拽右下角調整大小。建築結構（牆、門、窗）也在此調整。
                 </div>
             )}
@@ -207,7 +207,7 @@ export function StorageLocationEditor({
                             const getIcon = () => {
                                 if (loc.location_type === 'door') return <DoorOpen className="h-5 w-5 opacity-40" />
                                 if (loc.location_type === 'wall') return <Square className="h-5 w-5 opacity-20" />
-                                if (loc.location_type === 'window') return <Square className="h-5 w-5 opacity-40 text-blue-400" />
+                                if (loc.location_type === 'window') return <Square className="h-5 w-5 opacity-40 text-primary" />
                                 return null
                             }
 

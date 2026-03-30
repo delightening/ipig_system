@@ -78,8 +78,8 @@ export const VersionsTab = React.memo(function VersionsTab({ protocolId, protoco
           {sortedVersions && sortedVersions.length > 0 ? (
             <div className="space-y-4">
               {compareMode && selectedCompareIds.length === 2 && (
-                <div className="bg-blue-50 border border-blue-100 p-3 rounded-md flex justify-between items-center">
-                  <span className="text-sm font-medium text-blue-700">
+                <div className="bg-status-info-bg border border-blue-100 p-3 rounded-md flex justify-between items-center">
+                  <span className="text-sm font-medium text-status-info-text">
                     {t('protocols.detail.tables.twoVersionsSelected')}
                   </span>
                   <Button

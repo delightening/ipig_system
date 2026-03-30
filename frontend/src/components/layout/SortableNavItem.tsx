@@ -39,7 +39,7 @@ function DragHandle(props: Record<string, unknown>) {
   return (
     <button
       {...props}
-      className="p-1 mr-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-white"
+      className="p-1 mr-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-white"
     >
       <GripVertical className="h-4 w-4" />
     </button>
@@ -77,7 +77,7 @@ const ChildrenList = memo(function ChildrenList({
                 'block rounded-lg px-3 py-2 text-sm transition-colors',
                 isActive(child.href!)
                   ? activeClass
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  : 'text-muted-foreground hover:bg-slate-800 hover:text-white'
               )}
             >
               {translateTitle(child)}
@@ -111,7 +111,7 @@ function NestedGroup({
           'flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors',
           hasActiveChild
             ? 'text-white'
-            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            : 'text-muted-foreground hover:bg-slate-800 hover:text-white'
         )}
       >
         <span>{translateTitle(child)}</span>
@@ -132,7 +132,7 @@ function NestedGroup({
                   'block rounded-lg px-3 py-1.5 text-xs transition-colors',
                   isActive(sub.href!)
                     ? activeClass
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    : 'text-muted-foreground hover:bg-slate-800 hover:text-white'
                 )}
               >
                 {translateTitle(sub)}
@@ -187,7 +187,7 @@ export const SortableNavItem = memo(function SortableNavItem({
               'flex flex-1 items-center rounded-lg py-2.5 transition-colors',
               isActive(item.href)
                 ? activeClass
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                : 'text-muted-foreground hover:bg-slate-800 hover:text-white'
             )}
           >
             <span className="w-16 flex items-center justify-center shrink-0">{item.icon}</span>
@@ -195,7 +195,7 @@ export const SortableNavItem = memo(function SortableNavItem({
               <span className="flex-1 flex items-center justify-between min-w-0 pr-3">
                 <span className="truncate">{translateTitle(item)}</span>
                 {item.badge && item.badge > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-red-500 text-white shrink-0">
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-status-error-bg0 text-white shrink-0">
                     {item.badge > 99 ? '99+' : item.badge}
                   </span>
                 )}
@@ -224,7 +224,7 @@ export const SortableNavItem = memo(function SortableNavItem({
             'flex flex-1 items-center rounded-lg py-2.5 transition-colors',
             (!sidebarOpen && isChildActive(item))
               ? activeClass
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              : 'text-muted-foreground hover:bg-slate-800 hover:text-white'
           )}
         >
           <span className="w-16 flex items-center justify-center shrink-0">{item.icon}</span>

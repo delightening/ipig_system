@@ -112,10 +112,10 @@ export function CalendarWidget() {
                     <div className="space-y-1">
                         {data?.today_leaves && data.today_leaves.length > 0 ? (
                             data.today_leaves.map((leave, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-sm p-1.5 bg-orange-50/50 rounded-md border border-orange-100/50">
+                                <div key={idx} className="flex items-center justify-between text-sm p-1.5 bg-status-warning-bg/50 rounded-md border border-status-warning-border/50">
                                     <span className="font-medium">{leave.user_name}</span>
-                                    <div className="flex items-center gap-2 text-xs text-orange-600">
-                                        <Badge variant="outline" className="h-5 px-1 bg-white text-[10px] border-orange-200">
+                                    <div className="flex items-center gap-2 text-xs text-status-warning-text">
+                                        <Badge variant="outline" className="h-5 px-1 bg-white text-[10px] border-status-warning-border">
                                             {leave.leave_type}
                                         </Badge>
                                         <span>
@@ -139,7 +139,7 @@ export function CalendarWidget() {
                     <div className="space-y-1">
                         {data?.today_events && data.today_events.length > 0 ? (
                             data.today_events.map((event) => (
-                                <div key={event.id} className="flex flex-col gap-0.5 p-1.5 bg-indigo-50/50 rounded-md border border-indigo-100/50">
+                                <div key={event.id} className="flex flex-col gap-0.5 p-1.5 bg-status-info-bg/50 rounded-md border border-indigo-100/50">
                                     <div className="flex items-center justify-between">
                                         <span className="text-sm font-medium">{event.summary}</span>
                                         {event.location && (
@@ -148,7 +148,7 @@ export function CalendarWidget() {
                                             </Badge>
                                         )}
                                     </div>
-                                    <span className="text-[10px] text-indigo-600 font-medium">
+                                    <span className="text-[10px] text-status-info-text font-medium">
                                         {event.all_day ? t('dashboard.widgets.common.allDay') : `${formatTime(event.start)} - ${formatTime(event.end)}`}
                                     </span>
                                 </div>

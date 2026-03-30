@@ -34,8 +34,8 @@ export function ProtocolSectionNav({ sections, currentSection }: ProtocolSection
                 onClick={() => handleClick(section.id)}
                 className={`w-full text-left text-sm px-2 py-1.5 rounded transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700 font-semibold'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-slate-50'
+                    ? 'bg-status-info-bg text-status-info-text font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
               >
                 {section.label}

@@ -34,8 +34,10 @@ pub(crate) mod user;
 mod system_settings;
 pub mod user_preferences;
 pub(crate) mod warehouse;
+mod invitation;
 
 pub use animal::*;
+pub use invitation::*;
 pub use audit::*;
 pub use auth::*;
 pub use calendar::*;

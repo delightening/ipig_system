@@ -89,7 +89,7 @@ export function SessionTimeoutWarning() {
     <Dialog open={showWarning} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-[400px]" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-amber-600">
+          <DialogTitle className="flex items-center gap-2 text-status-warning-text">
             <Timer className="h-5 w-5" />
             {t('session.timeoutTitle', '登入即將過期')}
           </DialogTitle>
@@ -98,7 +98,7 @@ export function SessionTimeoutWarning() {
           </DialogDescription>
         </DialogHeader>
         <div className="flex items-center justify-center py-4">
-          <div className="text-4xl font-mono font-bold text-amber-600 tabular-nums">
+          <div className="text-4xl font-mono font-bold text-status-warning-text tabular-nums">
             {remaining}s
           </div>
         </div>

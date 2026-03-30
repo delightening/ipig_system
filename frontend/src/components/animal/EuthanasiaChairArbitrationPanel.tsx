@@ -97,7 +97,7 @@ export function EuthanasiaChairArbitrationPanel() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
         )
     }
@@ -109,13 +109,13 @@ export function EuthanasiaChairArbitrationPanel() {
     return (
         <>
             {/* Pending Appeals Card */}
-            <Card className="border-amber-200 bg-amber-50 mb-6">
+            <Card className="border-status-warning-border bg-status-warning-bg mb-6">
                 <CardHeader className="pb-3">
-                    <CardTitle className="text-amber-700 flex items-center gap-2">
+                    <CardTitle className="text-status-warning-text flex items-center gap-2">
                         <Gavel className="h-5 w-5" />
                         待仲裁安樂死暫緩申請
                     </CardTitle>
-                    <CardDescription className="text-amber-600">
+                    <CardDescription className="text-status-warning-text">
                         您有 {appeals.length} 筆暫緩申請待裁決
                     </CardDescription>
                 </CardHeader>
@@ -124,12 +124,12 @@ export function EuthanasiaChairArbitrationPanel() {
                         {appeals.map((appeal) => (
                             <div
                                 key={appeal.id}
-                                className="bg-white rounded-lg p-4 border border-amber-200"
+                                className="bg-white rounded-lg p-4 border border-status-warning-border"
                             >
                                 <div className="flex items-start justify-between">
                                     <div className="space-y-2 flex-1">
                                         <div className="flex items-center gap-3">
-                                            <span className="font-bold text-lg text-orange-600">
+                                            <span className="font-bold text-lg text-status-warning-text">
                                                 #{appeal.animal_ear_tag}
                                             </span>
                                             {appeal.animal_iacuc_no && (
@@ -139,33 +139,33 @@ export function EuthanasiaChairArbitrationPanel() {
 
                                         <div className="grid grid-cols-2 gap-4 text-sm">
                                             <div>
-                                                <span className="text-gray-500">獸醫：</span>
+                                                <span className="text-muted-foreground">獸醫：</span>
                                                 <span className="ml-1">{appeal.vet_name}</span>
                                             </div>
                                             <div>
-                                                <span className="text-gray-500">PI：</span>
+                                                <span className="text-muted-foreground">PI：</span>
                                                 <span className="ml-1">{appeal.pi_name}</span>
                                             </div>
                                         </div>
 
-                                        <div className="bg-red-50 rounded p-3 text-sm">
-                                            <p className="text-gray-600 mb-1">
+                                        <div className="bg-status-error-bg rounded p-3 text-sm">
+                                            <p className="text-muted-foreground mb-1">
                                                 <strong>獸醫安樂死原因：</strong>
                                             </p>
-                                            <p className="text-gray-800">{appeal.vet_reason}</p>
+                                            <p className="text-foreground">{appeal.vet_reason}</p>
                                         </div>
 
-                                        <div className="bg-amber-50 rounded p-3 text-sm">
-                                            <p className="text-gray-600 mb-1">
+                                        <div className="bg-status-warning-bg rounded p-3 text-sm">
+                                            <p className="text-muted-foreground mb-1">
                                                 <strong>PI 暫緩理由：</strong>
                                             </p>
-                                            <p className="text-gray-800">{appeal.reason}</p>
+                                            <p className="text-foreground">{appeal.reason}</p>
                                             {appeal.attachment_path && (
                                                 <a
                                                     href={appeal.attachment_path}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-blue-600 hover:underline mt-2"
+                                                    className="inline-flex items-center gap-1 text-status-info-text hover:underline mt-2"
                                                 >
                                                     <FileText className="h-4 w-4" />
                                                     查看附件
@@ -173,7 +173,7 @@ export function EuthanasiaChairArbitrationPanel() {
                                             )}
                                         </div>
 
-                                        <div className="flex items-center gap-2 text-sm text-amber-600">
+                                        <div className="flex items-center gap-2 text-sm text-status-warning-text">
                                             <Clock className="h-4 w-4" />
                                             裁決期限：{formatCountdown(appeal.chair_deadline_at)}
                                         </div>
@@ -182,7 +182,7 @@ export function EuthanasiaChairArbitrationPanel() {
                                     <div className="flex flex-col gap-2 ml-4">
                                         <Button
                                             size="sm"
-                                            className="bg-green-600 hover:bg-green-700"
+                                            className="bg-status-success-solid hover:bg-green-700"
                                             onClick={() => {
                                                 setSelectedAppeal(appeal)
                                                 setDecision('approve_appeal')
@@ -219,9 +219,9 @@ export function EuthanasiaChairArbitrationPanel() {
                         <DialogTitle className="flex items-center gap-2">
                             <Gavel className="h-5 w-5" />
                             {decision === 'approve_appeal' ? (
-                                <span className="text-green-600">核准暫緩</span>
+                                <span className="text-status-success-text">核准暫緩</span>
                             ) : (
-                                <span className="text-red-600">駁回申請</span>
+                                <span className="text-status-error-text">駁回申請</span>
                             )}
                         </DialogTitle>
                         <DialogDescription>
@@ -236,12 +236,12 @@ export function EuthanasiaChairArbitrationPanel() {
 
                     <div className="space-y-4">
                         {decision === 'approve_appeal' ? (
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
+                            <div className="bg-status-success-bg border border-status-success-border rounded-lg p-4 text-sm text-status-success-text">
                                 <p className="font-medium mb-2">核准暫緩</p>
                                 <p>核准暫緩後，安樂死單將被取消，動物可繼續留在計畫中。</p>
                             </div>
                         ) : (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+                            <div className="bg-status-error-bg border border-status-error-border rounded-lg p-4 text-sm text-status-error-text">
                                 <p className="font-medium mb-2">駁回暫緩申請</p>
                                 <p>駁回後，獸醫師將可執行安樂死操作。</p>
                             </div>
@@ -273,7 +273,7 @@ export function EuthanasiaChairArbitrationPanel() {
                         </Button>
                         <Button
                             type="button"
-                            className={decision === 'approve_appeal' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+                            className={decision === 'approve_appeal' ? 'bg-status-success-solid hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'}
                             onClick={() => {
                                 if (selectedAppeal && decision) {
                                     decideMutation.mutate({

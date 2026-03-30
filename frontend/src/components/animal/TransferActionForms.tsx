@@ -38,10 +38,10 @@ export function VetEvaluateForm({ transferId, invalidate }: { transferId: string
     })
 
     return (
-        <Card className="border-emerald-200">
+        <Card className="border-status-success-border">
             <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                    <Stethoscope className="h-4 w-4 text-emerald-600" />
+                    <Stethoscope className="h-4 w-4 text-status-success-text" />
                     獸醫評估
                 </CardTitle>
             </CardHeader>
@@ -115,10 +115,10 @@ export function AssignPlanForm({ transfer, invalidate }: { transfer: AnimalTrans
     })
 
     return (
-        <Card className="border-blue-200">
+        <Card className="border-status-info-border">
             <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                    <FileCheck className="h-4 w-4 text-blue-600" />
+                    <FileCheck className="h-4 w-4 text-status-info-text" />
                     指定新計劃
                 </CardTitle>
             </CardHeader>
@@ -141,7 +141,7 @@ export function AssignPlanForm({ transfer, invalidate }: { transfer: AnimalTrans
                 <Button
                     onClick={() => mutation.mutate()}
                     disabled={!targetIacuc || mutation.isPending}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-primary hover:bg-primary/90"
                 >
                     {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     確認指定
@@ -167,9 +167,9 @@ export function RejectForm({ transferId, invalidate }: { transferId: string; inv
     })
 
     return (
-        <Card className="border-red-200">
+        <Card className="border-status-error-border">
             <CardContent className="pt-4 space-y-3">
-                <div className="flex items-center gap-2 text-red-600 text-sm font-medium">
+                <div className="flex items-center gap-2 text-status-error-text text-sm font-medium">
                     <AlertTriangle className="h-4 w-4" />
                     拒絕轉讓
                 </div>

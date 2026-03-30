@@ -27,7 +27,7 @@ export function AnimalsOnMedicationWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Pill className="h-4 w-4 text-red-500" />
+                        <Pill className="h-4 w-4 text-status-error-solid" />
                         {t('dashboard.widgets.names.animals_on_medication')}
                     </CardTitle>
                 </CardHeader>
@@ -45,7 +45,7 @@ export function AnimalsOnMedicationWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Pill className="h-4 w-4 text-red-500" />
+                        <Pill className="h-4 w-4 text-status-error-solid" />
                         {t('dashboard.widgets.names.animals_on_medication')}
                     </CardTitle>
                 </CardHeader>
@@ -61,7 +61,7 @@ export function AnimalsOnMedicationWidget() {
             <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Pill className="h-4 w-4 text-red-500" />
+                        <Pill className="h-4 w-4 text-status-error-solid" />
                         {t('dashboard.widgets.names.animals_on_medication')}
                     </CardTitle>
                     {data && data.length > 0 && (
@@ -82,8 +82,8 @@ export function AnimalsOnMedicationWidget() {
                                 onClick={() => navigate(`/animals/${animal.id}`)}
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                                        <Pill className="h-4 w-4 text-red-600" />
+                                    <div className="w-8 h-8 rounded-full bg-status-error-bg flex items-center justify-center">
+                                        <Pill className="h-4 w-4 text-status-error-text" />
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium">{animal.ear_tag}</p>

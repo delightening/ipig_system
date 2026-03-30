@@ -6,6 +6,7 @@ import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import api from '@/lib/api'
+import { queryKeys } from '@/lib/queryKeys'
 import { parseDecimal } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,7 +62,7 @@ export function AllRecordsTabContent({ isActive, staffList }: AllRecordsTabConte
     } = useDateRangeFilter()
 
     const { data: allOvertime, isLoading } = useQuery({
-        queryKey: ['hr-all-overtime', filterStatus, filterOvertimeType, filterFrom, filterTo, filterApplicant],
+        queryKey: queryKeys.hr.allOvertime({ filterStatus, filterOvertimeType, filterFrom, filterTo, filterApplicant }),
         queryFn: async () => {
             const params = new URLSearchParams({ view_all: 'true' })
             if (filterStatus !== 'all') params.append('status', filterStatus)

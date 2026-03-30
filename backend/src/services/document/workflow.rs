@@ -18,7 +18,7 @@ impl DocumentService {
     /// 建立者、倉庫管理員或管理員可存取
     pub fn check_access(current_user: &CurrentUser, created_by: Uuid) -> Result<()> {
         let is_creator = current_user.id == created_by;
-        let is_warehouse_manager = current_user.roles.contains(&"WAREHOUSE_MANAGER".to_string());
+        let is_warehouse_manager = current_user.has_role(crate::constants::ROLE_WAREHOUSE_MANAGER);
         let is_admin = current_user.is_admin();
 
         if is_creator || is_warehouse_manager || is_admin {

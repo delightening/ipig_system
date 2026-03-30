@@ -85,17 +85,17 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
         <div className="flex-1 overflow-y-auto py-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : !data || data.versions.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <History className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+            <div className="text-center py-12 text-muted-foreground">
+              <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p>尚無版本歷史</p>
             </div>
           ) : (
             <div className="space-y-3">
               {/* Current Version */}
-              <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-lg">
+              <div className="flex items-center gap-2 px-3 py-2 bg-status-purple-bg rounded-lg">
                 <Badge className="bg-purple-600">目前版本 v{data.current_version}</Badge>
               </div>
 
@@ -105,42 +105,42 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
                   <div key={version.id} className="relative flex gap-4 pb-6 last:pb-0">
                     {/* Timeline Line */}
                     {index < data.versions.length - 1 && (
-                      <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-slate-200" />
+                      <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-muted" />
                     )}
 
                     {/* Timeline Dot */}
-                    <div className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 ring-4 ring-white">
-                      <span className="text-xs font-medium text-slate-600">{version.version_no}</span>
+                    <div className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted ring-4 ring-white">
+                      <span className="text-xs font-medium text-muted-foreground">{version.version_no}</span>
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-slate-400" />
-                          <span className="text-slate-600">{formatDateTime(version.created_at)}</span>
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">{formatDateTime(version.created_at)}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-slate-500">
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <User className="h-4 w-4" />
                           <span>{version.changed_by_name ?? '系統'}</span>
                         </div>
                       </div>
 
                       {/* Snapshot Preview */}
-                      <div className="p-3 bg-slate-50 rounded-lg text-sm">
+                      <div className="p-3 bg-muted rounded-lg text-sm">
                         <div className="grid grid-cols-2 gap-2">
                           {recordType === 'observation' && (
                             <>
                               <div>
-                                <span className="text-slate-500">紀錄性質：</span>
+                                <span className="text-muted-foreground">紀錄性質：</span>
                                 <span className="ml-1">{String(version.record_snapshot.record_type ?? '-')}</span>
                               </div>
                               <div>
-                                <span className="text-slate-500">事件日期：</span>
+                                <span className="text-muted-foreground">事件日期：</span>
                                 <span className="ml-1">{String(version.record_snapshot.event_date ?? '-')}</span>
                               </div>
                               <div className="col-span-2">
-                                <span className="text-slate-500">內容：</span>
+                                <span className="text-muted-foreground">內容：</span>
                                 <span className="ml-1 line-clamp-2">
                                   {String(version.record_snapshot.content ?? '-')}
                                 </span>
@@ -150,15 +150,15 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
                           {recordType === 'surgery' && (
                             <>
                               <div>
-                                <span className="text-slate-500">手術日期：</span>
+                                <span className="text-muted-foreground">手術日期：</span>
                                 <span className="ml-1">{String(version.record_snapshot.surgery_date ?? '-')}</span>
                               </div>
                               <div>
-                                <span className="text-slate-500">手術部位：</span>
+                                <span className="text-muted-foreground">手術部位：</span>
                                 <span className="ml-1">{String(version.record_snapshot.surgery_site ?? '-')}</span>
                               </div>
                               <div>
-                                <span className="text-slate-500">首次實驗：</span>
+                                <span className="text-muted-foreground">首次實驗：</span>
                                 <span className="ml-1">
                                   {version.record_snapshot.is_first_experiment ? '是' : '否'}
                                 </span>

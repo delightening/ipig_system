@@ -1,4 +1,5 @@
-import axios, { AxiosError } from 'axios'
+import { AxiosError } from 'axios'
+import { isAxiosError } from '@/lib/api'
 
 export interface ApiErrorPayload {
   error: {
@@ -14,7 +15,7 @@ export interface ApiErrorPayload {
 export type ApiError = AxiosError<ApiErrorPayload>
 
 export function getErrorMessage(error: unknown): string {
-  if (axios.isAxiosError(error)) {
+  if (isAxiosError(error)) {
     const data = error.response?.data as ApiErrorPayload | undefined
     return data?.error?.message || error.message
   }

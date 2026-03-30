@@ -1,26 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { AnimalObservation, RecordType } from '@/lib/api'
+import { AnimalObservation, RecordType } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileUpload, FileInfo } from '@/components/ui/file-upload'
+import { FileUpload } from '@/components/ui/file-upload'
 import { Repeater } from '@/components/ui/repeater'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import { toast } from '@/components/ui/use-toast'
-import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, FastForward } from 'lucide-react'
 import { DrugCombobox } from '@/components/animal/DrugCombobox'
+import { useObservationForm, type TreatmentItem } from './hooks/useObservationForm'
 
-// 使用儀器選項
 const EQUIPMENT_OPTIONS = [
   { value: 'c-arm', label: 'C-arm' },
   { value: 'ultrasound', label: '超音波' },
@@ -30,253 +21,25 @@ const EQUIPMENT_OPTIONS = [
   { value: 'other', label: '其他' },
 ]
 
-// 紀錄性質選項
 const RECORD_TYPE_OPTIONS: { value: RecordType; label: string }[] = [
   { value: 'abnormal', label: '異常紀錄' },
   { value: 'experiment', label: '試驗紀錄' },
   { value: 'observation', label: '觀察紀錄' },
 ]
 
-// 治療藥物項目
-interface TreatmentItem {
-  drug: string
-  dosage: string
-  end_date?: string
-  drug_option_id?: string
-  dosage_unit?: string
-}
-
-// 表單狀態
-interface ObservationFormData {
-  event_date: string
-  record_type: RecordType
-  equipment_used: string[]
-  anesthesia_start: string
-  anesthesia_end: string
-  content: string
-  no_medication_needed: boolean
-  treatments: TreatmentItem[]
-  remark: string
-  photos: FileInfo[]
-  attachments: FileInfo[]
-}
-
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   animalId: string
   earTag: string
-  observation?: AnimalObservation // 編輯時傳入
+  observation?: AnimalObservation
 }
 
 export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, observation }: Props) {
-  const queryClient = useQueryClient()
-  const isEdit = !!observation
-
-  const defaultFormData: ObservationFormData = {
-    event_date: new Date().toISOString().split('T')[0],
-    record_type: 'observation',
-    equipment_used: [],
-    anesthesia_start: '',
-    anesthesia_end: '',
-    content: '',
-    no_medication_needed: false,
-    treatments: [],
-    remark: '',
-    photos: [],
-    attachments: [],
-  }
-
-  const [formData, setFormData] = useState<ObservationFormData>(defaultFormData)
-  const pendingFilesRef = useRef<Map<string, File>>(new Map())
-
-  // 將 ISO 8601 日期時間轉換為 datetime-local 格式 (YYYY-MM-DDTHH:mm)
-  const isoToDateTimeLocal = (isoString: string | undefined): string => {
-    if (!isoString) return ''
-    try {
-      const date = new Date(isoString)
-      if (isNaN(date.getTime())) return ''
-      // 轉換為本地時間的 YYYY-MM-DDTHH:mm 格式
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      const hours = String(date.getHours()).padStart(2, '0')
-      const minutes = String(date.getMinutes()).padStart(2, '0')
-      return `${year}-${month}-${day}T${hours}:${minutes}`
-    } catch {
-      return ''
-    }
-  }
-
-  // 將 datetime-local 格式轉換為 ISO 8601 格式
-  const dateTimeLocalToISO = (datetimeLocal: string | null | undefined): string | null => {
-    if (!datetimeLocal || datetimeLocal.trim() === '') return null
-    try {
-      // datetime-local 格式: YYYY-MM-DDTHH:mm
-      // 轉換為 ISO 8601 格式: YYYY-MM-DDTHH:mm:ssZ (UTC)
-      const date = new Date(datetimeLocal)
-      if (isNaN(date.getTime())) return null
-      return date.toISOString()
-    } catch {
-      return null
-    }
-  }
-
-  // 編輯時填入資料
-  useEffect(() => {
-    if (observation) {
-      setFormData({
-        event_date: observation.event_date.split('T')[0],
-        record_type: observation.record_type,
-        equipment_used: observation.equipment_used || [],
-        anesthesia_start: isoToDateTimeLocal(observation.anesthesia_start),
-        anesthesia_end: isoToDateTimeLocal(observation.anesthesia_end),
-        content: observation.content,
-        no_medication_needed: observation.no_medication_needed,
-        treatments: observation.treatments || [],
-        remark: observation.remark || '',
-        photos: [],
-        attachments: [],
-      })
-    } else {
-      setFormData(defaultFormData)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- init only when open/observation changes
-  }, [observation, open])
-
-  const handleEquipmentChange = (value: string, checked: boolean) => {
-    if (checked) {
-      setFormData((prev) => ({
-        ...prev,
-        equipment_used: [...prev.equipment_used, value],
-      }))
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        equipment_used: prev.equipment_used.filter((e) => e !== value),
-      }))
-    }
-  }
-
-  const uploadFilesToObservation = async (observationId: string) => {
-    const files = Array.from(pendingFilesRef.current.values())
-    if (files.length === 0) return
-
-    const formData = new FormData()
-    for (const file of files) {
-      formData.append('file', file)
-    }
-    await api.post(`/observations/${observationId}/attachments`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-  }
-
-  const handlePhotoUpload = async (file: File): Promise<FileInfo> => {
-    if (!isEdit) {
-      const id = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      pendingFilesRef.current.set(id, file)
-      return {
-        id,
-        file_name: file.name,
-        file_path: '',
-        file_size: file.size,
-        file_type: file.type,
-        preview_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
-      }
-    }
-    const fd = new FormData()
-    fd.append('file', file)
-    const res = await api.post(`/observations/${observation!.id}/attachments`, fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    const uploaded = res.data[0]
-    return { id: uploaded.id, file_name: uploaded.file_name, file_path: uploaded.file_path, file_size: uploaded.file_size }
-  }
-
-  const mutation = useMutation({
-    mutationFn: async (data: ObservationFormData) => {
-      const payload = {
-        event_date: data.event_date,
-        record_type: data.record_type,
-        equipment_used: data.equipment_used.length > 0 ? data.equipment_used : null,
-        anesthesia_start: dateTimeLocalToISO(data.anesthesia_start),
-        anesthesia_end: dateTimeLocalToISO(data.anesthesia_end),
-        content: data.content,
-        no_medication_needed: data.no_medication_needed,
-        treatments: data.treatments.length > 0 ? data.treatments : null,
-        remark: data.remark || null,
-      }
-
-      if (isEdit) {
-        return api.put(`/observations/${observation.id}`, payload)
-      }
-      return api.post(`/animals/${animalId}/observations`, payload)
-    },
-    onSuccess: async (response) => {
-      try {
-        if (!isEdit && pendingFilesRef.current.size > 0) {
-          const newId = response.data?.id
-          if (newId) await uploadFilesToObservation(newId)
-        }
-      } catch {
-        toast({ title: '警告', description: '紀錄已儲存，但部分檔案上傳失敗', variant: 'destructive' })
-      }
-      pendingFilesRef.current.clear()
-      queryClient.invalidateQueries({ queryKey: ['animal-observations', animalId] })
-      toast({ title: '成功', description: isEdit ? '觀察紀錄已更新' : '觀察紀錄已新增' })
-      onOpenChange(false)
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '儲存失敗'),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.content.trim()) {
-      toast({ title: '錯誤', description: '請填寫內容', variant: 'destructive' })
-      return
-    }
-    mutation.mutate(formData)
-  }
-
-  // 尋找下一個空白欄位
-  const jumpToNextEmptyField = useCallback(() => {
-    const fields = [
-      { id: 'event_date', value: formData.event_date },
-      { id: 'anesthesia_start', value: formData.anesthesia_start },
-      { id: 'anesthesia_end', value: formData.anesthesia_end },
-      { id: 'content', value: formData.content },
-      { id: 'remark', value: formData.remark },
-    ]
-
-    const nextEmpty = fields.find(f => !f.value || f.value.trim() === '')
-    if (nextEmpty) {
-      const element = document.getElementById(nextEmpty.id)
-      if (element) {
-        element.focus()
-        toast({ title: '已跳轉', description: `跳轉至下一個空白欄位`, duration: 2000 })
-        return
-      }
-    }
-    toast({ title: '完成', description: '所有主要欄位皆已填寫', duration: 2000 })
-  }, [formData])
-
-  // 快捷鍵支援 (Alt + N)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key === 'n') {
-        e.preventDefault()
-        jumpToNextEmptyField()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [jumpToNextEmptyField])
+  const {
+    formData, setFormData, isEdit, mutation,
+    handleEquipmentChange, handlePhotoUpload, handleSubmit, jumpToNextEmptyField,
+  } = useObservationForm({ open, animalId, observation, onOpenChange })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -287,14 +50,8 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
               <DialogTitle>{isEdit ? '編輯觀察試驗紀錄' : '新增觀察試驗紀錄'}</DialogTitle>
               <DialogDescription>耳號：{earTag}</DialogDescription>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={jumpToNextEmptyField}
-              className="flex items-center gap-2 border-purple-200 text-purple-600 hover:bg-purple-50"
-              title="快捷鍵: Alt + N"
-            >
+            <Button type="button" variant="outline" size="sm" onClick={jumpToNextEmptyField}
+              className="flex items-center gap-2 border-status-purple-border text-status-purple-text hover:bg-status-purple-bg" title="快捷鍵: Alt + N">
               <FastForward className="h-4 w-4" />
               下一個空白欄位
             </Button>
@@ -302,31 +59,21 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 基本資訊 */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="event_date">事件發生日期 *</Label>
-              <Input
-                id="event_date"
-                type="date"
-                value={formData.event_date}
-                onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
-                required
-              />
+              <Input id="event_date" type="date" value={formData.event_date}
+                onChange={(e) => setFormData({ ...formData, event_date: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <Label>紀錄性質 *</Label>
               <div className="flex gap-4 pt-2">
                 {RECORD_TYPE_OPTIONS.map((option) => (
                   <label key={option.value} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="record_type"
-                      value={option.value}
+                    <input type="radio" name="record_type" value={option.value}
                       checked={formData.record_type === option.value}
                       onChange={() => setFormData({ ...formData, record_type: option.value })}
-                      className="w-4 h-4 text-purple-600"
-                    />
+                      className="w-4 h-4 text-status-purple-text" />
                     <span className="text-sm">{option.label}</span>
                   </label>
                 ))}
@@ -334,64 +81,40 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
             </div>
           </div>
 
-          {/* 使用儀器 */}
           <div className="space-y-2">
             <Label>使用儀器</Label>
             <div className="flex flex-wrap gap-4">
               {EQUIPMENT_OPTIONS.map((option) => (
-                <Checkbox
-                  key={option.value}
-                  label={option.label}
+                <Checkbox key={option.value} label={option.label}
                   checked={formData.equipment_used.includes(option.value)}
-                  onCheckedChange={(checked) => handleEquipmentChange(option.value, checked)}
-                />
+                  onCheckedChange={(checked) => handleEquipmentChange(option.value, checked)} />
               ))}
             </div>
           </div>
 
-          {/* 麻醉時間 */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="anesthesia_start">麻醉開始時間</Label>
-              <Input
-                id="anesthesia_start"
-                type="datetime-local"
-                value={formData.anesthesia_start}
-                onChange={(e) => setFormData({ ...formData, anesthesia_start: e.target.value })}
-              />
+              <Input id="anesthesia_start" type="datetime-local" value={formData.anesthesia_start}
+                onChange={(e) => setFormData({ ...formData, anesthesia_start: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="anesthesia_end">麻醉結束時間</Label>
-              <Input
-                id="anesthesia_end"
-                type="datetime-local"
-                value={formData.anesthesia_end}
-                onChange={(e) => setFormData({ ...formData, anesthesia_end: e.target.value })}
-              />
+              <Input id="anesthesia_end" type="datetime-local" value={formData.anesthesia_end}
+                onChange={(e) => setFormData({ ...formData, anesthesia_end: e.target.value })} />
             </div>
           </div>
 
-          {/* 內容 */}
           <div className="space-y-2">
             <Label htmlFor="content">內容 *</Label>
-            <Textarea
-              id="content"
-              value={formData.content}
+            <Textarea id="content" value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="詳細描述觀察或試驗內容..."
-              className="min-h-[120px]"
-              required
-            />
+              placeholder="詳細描述觀察或試驗內容..." className="min-h-[120px]" required />
           </div>
 
-          {/* 停止用藥 */}
-          <Checkbox
-            label="不需用藥/停止用藥"
-            checked={formData.no_medication_needed}
-            onCheckedChange={(checked) => setFormData({ ...formData, no_medication_needed: checked })}
-          />
+          <Checkbox label="不需用藥/停止用藥" checked={formData.no_medication_needed}
+            onCheckedChange={(checked) => setFormData({ ...formData, no_medication_needed: checked })} />
 
-          {/* 治療方式 (Repeater) */}
           {!formData.no_medication_needed && (
             <div className="space-y-2">
               <Label>治療方式</Label>
@@ -403,81 +126,40 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
                 renderItem={(item, _index, onChange) => (
                   <div className="space-y-2">
                     <DrugCombobox
-                      value={{
-                        drug_option_id: item.drug_option_id,
-                        drug_name: item.drug,
-                        dosage_value: item.dosage,
-                        dosage_unit: item.dosage_unit || '',
-                      }}
-                      onChange={(sel) => onChange({
-                        ...item,
-                        drug: sel.drug_name,
-                        dosage: sel.dosage_value,
-                        drug_option_id: sel.drug_option_id,
-                        dosage_unit: sel.dosage_unit,
-                      })}
+                      value={{ drug_option_id: item.drug_option_id, drug_name: item.drug, dosage_value: item.dosage, dosage_unit: item.dosage_unit || '' }}
+                      onChange={(sel) => onChange({ ...item, drug: sel.drug_name, dosage: sel.dosage_value, drug_option_id: sel.drug_option_id, dosage_unit: sel.dosage_unit })}
                     />
-                    <Input
-                      type="date"
-                      placeholder="預計最後用藥日期"
-                      value={item.end_date}
-                      onChange={(e) => onChange({ ...item, end_date: e.target.value })}
-                    />
+                    <Input type="date" placeholder="預計最後用藥日期" value={item.end_date}
+                      onChange={(e) => onChange({ ...item, end_date: e.target.value })} />
                   </div>
                 )}
               />
             </div>
           )}
 
-          {/* 備註 */}
           <div className="space-y-2">
             <Label htmlFor="remark">備註</Label>
-            <Textarea
-              id="remark"
-              value={formData.remark}
-              onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-              placeholder="其他備註..."
-            />
+            <Textarea id="remark" value={formData.remark}
+              onChange={(e) => setFormData({ ...formData, remark: e.target.value })} placeholder="其他備註..." />
           </div>
 
-          {/* 相片上傳 */}
           <div className="space-y-2">
             <Label>相片</Label>
-            <FileUpload
-              value={formData.photos}
-              onChange={(photos) => setFormData({ ...formData, photos })}
-              onUpload={handlePhotoUpload}
-              accept="image/*,.pdf,.doc,.docx"
-              placeholder="拖曳相片到此處，或點擊選擇相片"
-              maxSize={20}
-              maxFiles={10}
-            />
+            <FileUpload value={formData.photos} onChange={(photos) => setFormData({ ...formData, photos })}
+              onUpload={handlePhotoUpload} accept="image/*,.pdf,.doc,.docx"
+              placeholder="拖曳相片到此處，或點擊選擇相片" maxSize={20} maxFiles={10} />
           </div>
 
-          {/* 附件上傳 */}
           <div className="space-y-2">
             <Label>附件</Label>
-            <FileUpload
-              value={formData.attachments}
-              onChange={(attachments) => setFormData({ ...formData, attachments })}
-              onUpload={handlePhotoUpload}
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-              placeholder="拖曳附件到此處，或點擊選擇檔案"
-              maxSize={20}
-              maxFiles={10}
-              showPreview={false}
-            />
+            <FileUpload value={formData.attachments} onChange={(attachments) => setFormData({ ...formData, attachments })}
+              onUpload={handlePhotoUpload} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+              placeholder="拖曳附件到此處，或點擊選擇檔案" maxSize={20} maxFiles={10} showPreview={false} />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              取消
-            </Button>
-            <Button
-              type="submit"
-              disabled={mutation.isPending}
-              className="bg-green-600 hover:bg-green-700"
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
+            <Button type="submit" disabled={mutation.isPending} className="bg-status-success-solid hover:bg-status-success-solid/90">
               {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               儲存
             </Button>

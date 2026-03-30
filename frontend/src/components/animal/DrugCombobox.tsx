@@ -188,32 +188,32 @@ export function DrugCombobox({
                         'relative flex items-center h-9 px-3 rounded-md border transition-all text-sm',
                         'bg-white',
                         isFocused
-                            ? 'border-blue-500 ring-1 ring-blue-500/30'
-                            : 'border-slate-300 hover:border-slate-400',
-                        disabled && 'opacity-50 cursor-not-allowed bg-slate-50'
+                            ? 'border-status-info-solid ring-1 ring-blue-500/30'
+                            : 'border-border hover:border-slate-400',
+                        disabled && 'opacity-50 cursor-not-allowed bg-muted'
                     )}
                 >
                     {value.drug_name ? (
                         // 已選擇狀態
                         <>
-                            <Pill className="w-4 h-4 text-blue-500 mr-2 shrink-0" />
-                            <span className="flex-1 truncate text-slate-700">
+                            <Pill className="w-4 h-4 text-status-info-solid mr-2 shrink-0" />
+                            <span className="flex-1 truncate text-foreground">
                                 {displayValue}
                             </span>
                             {!disabled && (
                                 <button
                                     type="button"
                                     onClick={handleClear}
-                                    className="p-0.5 rounded hover:bg-slate-100 transition-colors"
+                                    className="p-0.5 rounded hover:bg-muted transition-colors"
                                 >
-                                    <X className="w-3.5 h-3.5 text-slate-400" />
+                                    <X className="w-3.5 h-3.5 text-muted-foreground" />
                                 </button>
                             )}
                         </>
                     ) : (
                         // 搜尋輸入狀態
                         <>
-                            <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                            <Search className="w-4 h-4 text-muted-foreground mr-2 shrink-0" />
                             <input
                                 ref={inputRef}
                                 type="text"
@@ -226,15 +226,15 @@ export function DrugCombobox({
                                 onKeyDown={handleKeyDown}
                                 placeholder={placeholder}
                                 disabled={disabled}
-                                className="flex-1 bg-transparent border-0 outline-none placeholder:text-slate-400 text-slate-700"
+                                className="flex-1 bg-transparent border-0 outline-none placeholder:text-muted-foreground text-foreground"
                                 role="combobox"
                                 aria-expanded={showDropdown}
                             />
                             {isLoading && (
-                                <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                                <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
                             )}
                             {!isLoading && (
-                                <ChevronDown className="w-4 h-4 text-slate-400" />
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
                             )}
                         </>
                     )}
@@ -244,14 +244,14 @@ export function DrugCombobox({
                 {showDropdown && (
                     <ul
                         role="listbox"
-                        className="absolute z-50 w-full mt-1 py-1 rounded-md border shadow-lg bg-white border-slate-200 max-h-60 overflow-auto"
+                        className="absolute z-50 w-full mt-1 py-1 rounded-md border shadow-lg bg-white border-border max-h-60 overflow-auto"
                     >
                         {isLoading ? (
-                            <li className="px-3 py-2 text-sm text-slate-500 flex items-center gap-2">
+                            <li className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
                                 <Loader2 className="w-4 h-4 animate-spin" /> 載入中...
                             </li>
                         ) : filteredOptions.length === 0 ? (
-                            <li className="px-3 py-2 text-sm text-slate-500">
+                            <li className="px-3 py-2 text-sm text-muted-foreground">
                                 無符合結果，按 Enter 使用自訂名稱
                             </li>
                         ) : (
@@ -264,8 +264,8 @@ export function DrugCombobox({
                                     className={cn(
                                         'px-3 py-2 cursor-pointer transition-colors text-sm',
                                         selectedIndex === index
-                                            ? 'bg-blue-50 text-blue-700'
-                                            : 'hover:bg-slate-50'
+                                            ? 'bg-status-info-bg text-status-info-text'
+                                            : 'hover:bg-muted'
                                     )}
                                 >
                                     <div className="flex items-center justify-between">
@@ -274,13 +274,13 @@ export function DrugCombobox({
                                                 {option.display_name || option.name}
                                             </span>
                                             {option.category && (
-                                                <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+                                                <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                                     {option.category}
                                                 </span>
                                             )}
                                         </div>
                                         {option.default_dosage_unit && (
-                                            <span className="text-xs text-slate-400 shrink-0 ml-2">
+                                            <span className="text-xs text-muted-foreground shrink-0 ml-2">
                                                 {option.default_dosage_unit}
                                             </span>
                                         )}
@@ -303,9 +303,9 @@ export function DrugCombobox({
                         }
                         placeholder="劑量"
                         disabled={disabled}
-                        className="w-20 h-9 px-2 rounded-md border border-slate-300 text-sm text-center
-                       focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 outline-none
-                       disabled:opacity-50 disabled:bg-slate-50"
+                        className="w-20 h-9 px-2 rounded-md border border-border text-sm text-center
+                       focus:border-status-info-solid focus:ring-1 focus:ring-primary/30 outline-none
+                       disabled:opacity-50 disabled:bg-muted"
                     />
                     <select
                         value={value.dosage_unit}
@@ -313,9 +313,9 @@ export function DrugCombobox({
                             onChange({ ...value, dosage_unit: e.target.value })
                         }
                         disabled={disabled}
-                        className="w-20 h-9 px-1 rounded-md border border-slate-300 text-sm
-                       focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 outline-none
-                       disabled:opacity-50 disabled:bg-slate-50"
+                        className="w-20 h-9 px-1 rounded-md border border-border text-sm
+                       focus:border-status-info-solid focus:ring-1 focus:ring-primary/30 outline-none
+                       disabled:opacity-50 disabled:bg-muted"
                     >
                         <option value="">單位</option>
                         {availableUnits.map((unit) => (

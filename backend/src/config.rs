@@ -100,11 +100,21 @@ pub struct Config {
     pub gotenberg_url: String,
     /// Image Processor 微服務 URL（方案 D）
     pub image_processor_url: String,
+    /// R17-4: Prometheus /metrics 端點 Bearer Token（未設定則無認證）
+    pub metrics_token: Option<String>,
+    /// R20-5: Anthropic API Key（AI 預審用）
+    pub anthropic_api_key: Option<String>,
+    /// R20-5: AI 預審模型，預設 claude-haiku-4-5
+    pub ai_review_model: String,
+    /// R20-5: 是否啟用 AI 預審，預設 true
+    pub ai_review_enabled: bool,
+    /// R20-5: AI 預審 API 呼叫逾時秒數，預設 30
+    pub ai_review_timeout_secs: u64,
 }
 
 impl Config {
     pub fn from_env() -> anyhow::Result<Self> {
-        Ok(Self {
+        let mut config = Ok(Self {
             host: std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
             port: std::env::var("PORT")
                 .unwrap_or_else(|_| "3000".to_string())
@@ -225,7 +235,41 @@ impl Config {
                 .unwrap_or_else(|_| "http://localhost:3000".to_string()),
             image_processor_url: std::env::var("IMAGE_PROCESSOR_URL")
                 .unwrap_or_else(|_| "http://image-processor:3100".to_string()),
-        })
+            metrics_token: std::env::var("METRICS_TOKEN").ok().filter(|s| !s.is_empty()),
+            anthropic_api_key: read_secret("ANTHROPIC_API_KEY"),
+            ai_review_model: std::env::var("AI_REVIEW_MODEL")
+                .unwrap_or_else(|_| "claude-haiku-4-5".to_string()),
+            ai_review_enabled: std::env::var("AI_REVIEW_ENABLED")
+                .map(|v| v.to_lowercase() != "false" && v != "0")
+                .unwrap_or(true),
+            ai_review_timeout_secs: std::env::var("AI_REVIEW_TIMEOUT_SECS")
+                .unwrap_or_else(|_| "30".to_string())
+                .parse()
+                .unwrap_or(30),
+        });
+
+        // R16-11: Production 模式下禁止關閉 CSRF
+        if let Ok(ref mut config) = config {
+            if config.cookie_secure && config.disable_csrf_for_tests {
+                tracing::error!(
+                    "DISABLE_CSRF_FOR_TESTS=true 在 production 模式（COOKIE_SECURE=true）下被忽略。\
+                     CSRF 保護不可在生產環境中關閉。"
+                );
+                config.disable_csrf_for_tests = false;
+            }
+        }
+
+        // R17-4: production 模式（cookie_secure=true）下未設 METRICS_TOKEN 時發出警告
+        if let Ok(ref config) = config {
+            if config.cookie_secure && config.metrics_token.is_none() {
+                tracing::warn!(
+                    "METRICS_TOKEN 未設定，/metrics 端點無認證保護。\
+                     建議設定 METRICS_TOKEN 環境變數以啟用 Bearer 認證。"
+                );
+            }
+        }
+
+        config
     }
 
     pub fn is_email_enabled(&self) -> bool {
@@ -282,6 +326,11 @@ mod tests {
             is_ci: false,
             gotenberg_url: "http://localhost:3000".to_string(),
             image_processor_url: "http://localhost:3100".to_string(),
+            metrics_token: None,
+            anthropic_api_key: None,
+            ai_review_model: "claude-haiku-4-5".to_string(),
+            ai_review_enabled: true,
+            ai_review_timeout_secs: 30,
         }
     }
 

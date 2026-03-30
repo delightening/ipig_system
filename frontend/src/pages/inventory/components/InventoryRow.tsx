@@ -21,7 +21,7 @@ function ExpiryDateBadge({ date }: { date: string }) {
   }
   if (diffDays <= 30) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400 text-xs font-medium">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-status-warning-bg0/15 text-status-warning-text dark:text-orange-400 text-xs font-medium">
         {diffDays}天後到期 ({date})
       </span>
     )
@@ -123,14 +123,14 @@ function BatchDetailRows({
         </TableRow>
       ))}
       {unassignedQty > 0 && (
-        <TableRow className="bg-amber-50/50 dark:bg-amber-950/20 text-sm">
+        <TableRow className="bg-status-warning-bg/50 dark:bg-amber-950/20 text-sm">
           <TableCell className="pl-12" colSpan={2}>
-            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 italic">
+            <div className="flex items-center gap-1.5 text-status-warning-text dark:text-amber-400 italic">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               未分配庫存（尚未上架至儲位）
             </div>
           </TableCell>
-          <TableCell className="text-right font-medium text-amber-600 dark:text-amber-400">
+          <TableCell className="text-right font-medium text-status-warning-text dark:text-amber-400">
             {formatNumber(unassignedQty, 0)}
           </TableCell>
           <TableCell colSpan={colSpan - 3} />

@@ -64,7 +64,7 @@ function ReviewerSection({
             return (
             <TableRow
               key={q.comment.id}
-              className={q.comment.is_resolved ? 'bg-green-50' : ''}
+              className={q.comment.is_resolved ? 'bg-status-success-bg' : ''}
             >
               <TableCell className="text-center align-top font-medium text-sm">
                 {parsed.section ?? '-'}

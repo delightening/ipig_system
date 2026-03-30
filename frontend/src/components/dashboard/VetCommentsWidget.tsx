@@ -82,7 +82,7 @@ export function VetCommentsWidget() {
                                 <div className="flex items-start justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
-                                            <User className="h-3 w-3 text-emerald-600" />
+                                            <User className="h-3 w-3 text-status-success-text" />
                                         </div>
                                         <span className="text-xs font-semibold">{comment.author_name}</span>
                                     </div>
@@ -95,7 +95,7 @@ export function VetCommentsWidget() {
                                     "{comment.content}"
                                 </p>
                                 <div className="flex justify-end">
-                                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-medium">
+                                    <span className="text-[10px] bg-muted px-2 py-0.5 rounded-full font-medium">
                                         {t('dashboard.widgets.animals.earTag')}: {comment.ear_tag}
                                     </span>
                                 </div>

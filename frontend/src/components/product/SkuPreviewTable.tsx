@@ -23,19 +23,19 @@ export function SkuPreviewTable({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-700">
+        <p className="text-sm font-medium text-foreground">
           請為以下商品設定 SKU（留空則由系統自動產生），共 {previewRows.length} 筆
         </p>
         <Button variant="ghost" size="sm" onClick={onBack}>
           返回
         </Button>
       </div>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         先選擇品類與子類（與「新增產品」相同分層），再按「產生 SKU」由系統產出編碼；亦可手動輸入或留空由匯入時自動產生。
       </p>
-      <div className="max-h-80 overflow-auto rounded-lg border border-slate-200">
+      <div className="max-h-80 overflow-auto rounded-lg border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-slate-100 sticky top-0">
+          <thead className="bg-muted sticky top-0">
             <tr>
               <th className="px-2 py-2 text-left font-medium w-10">列</th>
               <th className="px-2 py-2 text-left font-medium min-w-[80px]">名稱</th>
@@ -56,10 +56,10 @@ export function SkuPreviewTable({
               const hasSubcategories = subList.length > 0
               const canGenerate = !!catCode && (hasSubcategories ? !!subCode : true)
               return (
-                <tr key={r.row} className="border-t border-slate-100 hover:bg-slate-50">
+                <tr key={r.row} className="border-t border-border hover:bg-muted">
                   <td className="px-2 py-1.5">{r.row}</td>
                   <td className="px-2 py-1.5">{r.name}</td>
-                  <td className="px-2 py-1.5 text-slate-600">{r.spec ?? '-'}</td>
+                  <td className="px-2 py-1.5 text-muted-foreground">{r.spec ?? '-'}</td>
                   <td className="px-2 py-1.5">{r.base_uom}</td>
                   <td className="px-2 py-1.5">{r.safety_stock ?? '-'}</td>
                   <td className="px-2 py-1.5">
@@ -71,7 +71,7 @@ export function SkuPreviewTable({
                         setRowCategoryCode((prev) => ({ ...prev, [r.row]: v }))
                         setRowSubcategoryCode((prev) => ({ ...prev, [r.row]: '' }))
                       }}
-                      className="w-full min-w-[90px] rounded border border-slate-300 px-1.5 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full min-w-[90px] rounded border border-border px-1.5 py-1 text-sm focus:border-status-info-solid focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="">—</option>
                       {skuCategories.map((c) => (
@@ -83,7 +83,7 @@ export function SkuPreviewTable({
                   </td>
                   <td className="px-2 py-1.5">
                     {!catCode ? (
-                      <span className="text-slate-400">—</span>
+                      <span className="text-muted-foreground">—</span>
                     ) : hasSubcategories ? (
                       <select
                         aria-label={`第 ${r.row} 列子類`}
@@ -94,7 +94,7 @@ export function SkuPreviewTable({
                             [r.row]: e.target.value,
                           }))
                         }
-                        className="w-full min-w-[90px] rounded border border-slate-300 px-1.5 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full min-w-[90px] rounded border border-border px-1.5 py-1 text-sm focus:border-status-info-solid focus:outline-none focus:ring-1 focus:ring-primary"
                       >
                         <option value="">—</option>
                         {subList.map((s) => (
@@ -104,7 +104,7 @@ export function SkuPreviewTable({
                         ))}
                       </select>
                     ) : (
-                      <span className="text-slate-500 text-xs">同品類</span>
+                      <span className="text-muted-foreground text-xs">同品類</span>
                     )}
                   </td>
                   <td className="px-2 py-1.5">
@@ -146,7 +146,7 @@ export function SkuPreviewTable({
                         setSkuOverrides((prev) => ({ ...prev, [r.row]: e.target.value }))
                       }
                       placeholder="留空自動產生"
-                      className="w-full min-w-[100px] rounded border border-slate-300 px-2 py-1 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full min-w-[100px] rounded border border-border px-2 py-1 text-sm font-mono focus:border-status-info-solid focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </td>
                 </tr>

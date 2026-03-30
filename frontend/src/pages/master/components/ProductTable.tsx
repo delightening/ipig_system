@@ -315,7 +315,7 @@ function ProductActions({
         </Button>
       ) : (
         <Button variant="ghost" size="icon" className="h-8 w-8" title="啟用" aria-label="啟用" onClick={() => onStatusChange(product, 'activate')}>
-          <Power className="h-4 w-4 text-green-600" />
+          <Power className="h-4 w-4 text-status-success-text" />
         </Button>
       )}
       <Button variant="ghost" size="icon" className="h-8 w-8" title="標記停產" aria-label="標記停產" onClick={() => onStatusChange(product, 'discontinue')}>

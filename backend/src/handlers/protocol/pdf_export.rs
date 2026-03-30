@@ -20,13 +20,12 @@ fn pdf_response(
     pdf_bytes: Vec<u8>,
     filename: &str,
 ) -> Result<impl IntoResponse> {
-    let encoded = urlencoding::encode(filename);
     Ok((
         [
             (header::CONTENT_TYPE, "application/pdf".to_string()),
             (
                 header::CONTENT_DISPOSITION,
-                format!("attachment; filename*=UTF-8''{}", encoded),
+                crate::utils::http::content_disposition_header(filename),
             ),
         ],
         pdf_bytes,

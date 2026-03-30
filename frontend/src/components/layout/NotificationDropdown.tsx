@@ -112,6 +112,9 @@ export function NotificationDropdown() {
             navigate(`/animals/${notification.related_entity_id}`)
           }
           break
+        case 'invitation':
+          navigate('/admin/invitations')
+          break
         case 'expiry_warning':
           navigate('/inventory?filter=expiry_warning')
           break
@@ -155,7 +158,7 @@ export function NotificationDropdown() {
       >
         <Bell className="h-5 w-5" />
         {unreadCount && unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+          <span className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center rounded-full bg-status-error-bg0 text-white text-xs font-bold">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -163,12 +166,12 @@ export function NotificationDropdown() {
 
       {showDropdown && (
         <div className="absolute right-0 top-12 w-[calc(100vw-2rem)] md:w-96 max-w-sm bg-white rounded-lg shadow-xl border z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
-            <h3 className="font-semibold text-slate-900">{t('common.notifications')}</h3>
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted">
+            <h3 className="font-semibold text-foreground">{t('common.notifications')}</h3>
             {unreadCount && unreadCount > 0 && (
               <button
                 onClick={() => markAllReadMutation.mutate()}
-                className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                className="text-sm text-status-info-text hover:text-status-info-text flex items-center gap-1"
                 disabled={markAllReadMutation.isPending}
               >
                 <CheckCheck className="h-4 w-4" />
@@ -179,8 +182,8 @@ export function NotificationDropdown() {
 
           <div className="max-h-[400px] overflow-y-auto">
             {isLoadingNotifications ? (
-              <div className="px-4 py-8 text-center text-slate-500">
-                <Loader2 className="h-8 w-8 mx-auto mb-2 text-slate-300 animate-spin" />
+              <div className="px-4 py-8 text-center text-muted-foreground">
+                <Loader2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground animate-spin" />
                 <p>{t('common.loading')}</p>
               </div>
             ) : notificationsData && notificationsData.length > 0 ? (
@@ -189,53 +192,53 @@ export function NotificationDropdown() {
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
-                    "px-4 py-3 border-b last:border-b-0 cursor-pointer hover:bg-slate-50 transition-colors",
-                    !notification.is_read && "bg-blue-50"
+                    "px-4 py-3 border-b last:border-b-0 cursor-pointer hover:bg-muted transition-colors",
+                    !notification.is_read && "bg-status-info-bg"
                   )}
                 >
                   <div className="flex items-start gap-3">
                     <div className={cn(
                       "w-2 h-2 rounded-full mt-2 shrink-0",
-                      !notification.is_read ? "bg-blue-500" : "bg-transparent"
+                      !notification.is_read ? "bg-status-info-bg0" : "bg-transparent"
                     )} />
                     <div className="flex-1 min-w-0">
                       <p className={cn(
                         "text-sm truncate",
-                        !notification.is_read ? "font-semibold text-slate-900" : "text-slate-700"
+                        !notification.is_read ? "font-semibold text-foreground" : "text-foreground"
                       )}>
                         {notification.title}
                       </p>
                       {notification.content && (
-                        <p className="text-sm text-slate-500 truncate mt-0.5">
+                        <p className="text-sm text-muted-foreground truncate mt-0.5">
                           {notification.content}
                         </p>
                       )}
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {formatNotificationTime(notification.created_at)}
                       </p>
                     </div>
                     {notification.related_entity_type && (
-                      <ExternalLink className="h-4 w-4 text-slate-400 shrink-0 mt-1" />
+                      <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
                     )}
                   </div>
                 </div>
               ))
             ) : (
-              <div className="px-4 py-8 text-center text-slate-500">
-                <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+              <div className="px-4 py-8 text-center text-muted-foreground">
+                <Bell className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                 <p>{t('common.noNotifications')}</p>
               </div>
             )}
           </div>
 
           {notificationsData && notificationsData.length > 0 && (
-            <div className="px-4 py-2 border-t bg-slate-50">
+            <div className="px-4 py-2 border-t bg-muted">
               <button
                 onClick={() => {
                   setShowDropdown(false)
                   navigate('/admin/settings')
                 }}
-                className="text-sm text-blue-600 hover:text-blue-800 w-full text-center"
+                className="text-sm text-status-info-text hover:text-status-info-text w-full text-center"
               >
                 {t('common.viewAll')}
               </button>

@@ -140,7 +140,7 @@ function LoginEventRow({ event }: { event: LoginEventWithUser }) {
 }
 
 function AnomalyBadges({ event }: { event: LoginEventWithUser }) {
-    const anomalyClass = "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200"
+    const anomalyClass = "bg-status-warning-bg text-status-warning-text hover:bg-status-warning-bg border-status-warning-border"
     const hasAnomaly = event.is_unusual_time || event.is_unusual_location || event.is_new_device || event.is_mass_login
 
     if (!hasAnomaly) return <span className="text-muted-foreground">-</span>

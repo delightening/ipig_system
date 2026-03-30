@@ -22,7 +22,7 @@ interface SidebarUserPanelProps {
 function UserAvatar({ user, size }: { user: UserInfo | null; size: 'sm' | 'md' }) {
   const sizeClass = size === 'sm' ? 'h-8 w-8' : 'h-9 w-9'
   return (
-    <div className={`flex ${sizeClass} items-center justify-center rounded-full bg-blue-600 font-semibold text-sm`}>
+    <div className={`flex ${sizeClass} items-center justify-center rounded-full bg-primary font-semibold text-sm`}>
       {user?.display_name?.[0] || user?.email?.[0] || 'U'}
     </div>
   )
@@ -44,7 +44,7 @@ function ExpandedPanel({
         <div className="flex-1 min-w-0">
           <p className="truncate text-sm font-medium">{user?.display_name || user?.email}</p>
           {isAdmin && (
-            <p className="truncate text-xs text-slate-400">{user?.roles?.join(', ')}</p>
+            <p className="truncate text-xs text-muted-foreground">{user?.roles?.join(', ')}</p>
           )}
         </div>
       </div>
@@ -53,7 +53,7 @@ function ExpandedPanel({
           variant="ghost"
           size="sm"
           onClick={onNavigateProfile}
-          className="justify-start text-slate-400 hover:text-white hover:bg-slate-800 text-xs h-7"
+          className="justify-start text-muted-foreground hover:text-white hover:bg-slate-800 text-xs h-7"
         >
           <UserCircle className="h-4 w-4 mr-1.5 shrink-0" />
           {t('profile.settings')}
@@ -62,7 +62,7 @@ function ExpandedPanel({
           variant="ghost"
           size="sm"
           onClick={onChangePassword}
-          className="justify-start text-slate-400 hover:text-white hover:bg-slate-800 text-xs h-7"
+          className="justify-start text-muted-foreground hover:text-white hover:bg-slate-800 text-xs h-7"
         >
           <Key className="h-4 w-4 mr-1.5 shrink-0" />
           {t('common.changePassword')}
@@ -71,7 +71,7 @@ function ExpandedPanel({
           variant="ghost"
           size="sm"
           onClick={onLogout}
-          className="justify-start text-slate-400 hover:text-white hover:bg-slate-800 text-xs h-7"
+          className="justify-start text-muted-foreground hover:text-white hover:bg-slate-800 text-xs h-7"
         >
           <LogOut className="h-4 w-4 mr-1.5 shrink-0" />
           {t('common.logout')}
@@ -92,7 +92,7 @@ function CollapsedPanel({
         variant="ghost"
         size="icon"
         onClick={() => setSidebarOpen(true)}
-        className="text-slate-400 hover:text-white hover:bg-slate-800"
+        className="text-muted-foreground hover:text-white hover:bg-slate-800"
         aria-label="展開側邊欄"
       >
         <Menu className="h-5 w-5" />

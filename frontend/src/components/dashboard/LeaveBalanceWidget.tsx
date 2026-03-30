@@ -55,7 +55,7 @@ export function LeaveBalanceWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-orange-500" />
+                        <Calendar className="h-4 w-4 text-status-warning-solid" />
                         {t('dashboard.widgets.names.leave_balance')}
                     </CardTitle>
                 </CardHeader>
@@ -71,7 +71,7 @@ export function LeaveBalanceWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-orange-500" />
+                        <Calendar className="h-4 w-4 text-status-warning-solid" />
                         {t('dashboard.widgets.names.leave_balance')}
                     </CardTitle>
                 </CardHeader>
@@ -86,7 +86,7 @@ export function LeaveBalanceWidget() {
         <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-orange-500" />
+                    <Calendar className="h-4 w-4 text-status-warning-solid" />
                     {t('dashboard.widgets.names.leave_balance')}
                 </CardTitle>
                 <CardDescription className="text-xs">{t('dashboard.widgets.hr.balanceDescription')}</CardDescription>
@@ -109,12 +109,12 @@ export function LeaveBalanceWidget() {
                             <div className="space-y-2">
                                 <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
                                     <div
-                                        className="h-full bg-orange-500 transition-all"
+                                        className="h-full bg-status-warning-bg0 transition-all"
                                         style={{ width: `${percentage}%` }}
                                     />
                                 </div>
                                 <div className="flex justify-start">
-                                    <span className="text-[10px] font-semibold py-0.5 px-2 rounded-full text-orange-600 bg-orange-100 border border-orange-200">
+                                    <span className="text-[10px] font-semibold py-0.5 px-2 rounded-full text-status-warning-text bg-orange-100 border border-status-warning-border">
                                         {balance.remaining} {balance.unit === 'day' ? t('dashboard.widgets.common.days') : t('dashboard.widgets.common.hours')}
                                     </span>
                                 </div>

@@ -125,7 +125,7 @@ export function Sidebar({
 
         <nav className="flex-1 overflow-y-auto py-4">
           {isEditMode && sidebarOpen && (
-            <div className="mb-3 p-2 bg-blue-600/20 rounded-lg text-xs text-blue-300 text-center">
+            <div className="mb-3 p-2 bg-primary/20 rounded-lg text-xs text-primary-foreground/80 text-center">
               {t('nav.editModeHint')}
             </div>
           )}

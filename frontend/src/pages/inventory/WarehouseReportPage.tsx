@@ -223,7 +223,7 @@ function LocationInventoryTable({ location }: { location: StorageLocationWithInv
             ) : (
                 <table className="w-full text-xs border-collapse mb-2">
                     <thead>
-                        <tr className="bg-muted print:bg-gray-200">
+                        <tr className="bg-muted print:bg-muted">
                             <th className="text-left p-1 border">產品名稱</th>
                             <th className="text-left p-1 border">SKU</th>
                             <th className="text-right p-1 border">數量</th>

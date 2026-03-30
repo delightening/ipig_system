@@ -133,7 +133,7 @@ pub async fn approve_leave(
             .await?;
     let (current_status, applicant_id) = current;
     let is_admin = current_user.is_admin();
-    let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
+    let is_admin_staff = current_user.roles.contains(&crate::constants::ROLE_ADMIN_STAFF.to_string());
     match current_status.as_str() {
         "PENDING_L1" => {
             if !is_admin_staff && !is_admin {
@@ -192,7 +192,7 @@ pub async fn reject_leave(
     Json(payload): Json<RejectLeaveRequest>,
 ) -> Result<Json<LeaveRequest>> {
     let is_admin = current_user.is_admin();
-    let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
+    let is_admin_staff = current_user.roles.contains(&crate::constants::ROLE_ADMIN_STAFF.to_string());
     if !is_admin_staff && !is_admin {
         let current: Option<(String, Uuid)> =
             sqlx::query_as("SELECT status::text, user_id FROM leave_requests WHERE id = $1")

@@ -213,9 +213,9 @@ export function DatePicker({
                                     className={cn(
                                         "h-8 w-8 flex items-center justify-center text-sm rounded-md transition-colors",
                                         !isCurrentMonth && "text-muted-foreground opacity-50",
-                                        isCurrentMonth && !isSelected && "hover:bg-slate-100",
-                                        isSelected && "bg-blue-600 text-white hover:bg-blue-700",
-                                        isTodayDate && !isSelected && "text-blue-600 font-bold"
+                                        isCurrentMonth && !isSelected && "hover:bg-muted",
+                                        isSelected && "bg-primary text-white hover:bg-primary/90",
+                                        isTodayDate && !isSelected && "text-status-info-text font-bold"
                                     )}
                                 >
                                     {format(date, 'd')}
@@ -237,7 +237,7 @@ export function DatePicker({
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-xs text-blue-600"
+                            className="text-xs text-status-info-text"
                             onClick={handleToday}
                         >
                             {t('datePicker.today', 'Today')}

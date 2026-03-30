@@ -65,7 +65,7 @@ export function GoogleCalendarEventsWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-blue-500" />
+                        <CalendarIcon className="h-4 w-4 text-status-info-solid" />
                         {t('dashboard.widgets.names.google_calendar_events')}
                     </CardTitle>
                 </CardHeader>
@@ -81,7 +81,7 @@ export function GoogleCalendarEventsWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-blue-500" />
+                        <CalendarIcon className="h-4 w-4 text-status-info-solid" />
                         {t('dashboard.widgets.names.google_calendar_events')}
                     </CardTitle>
                 </CardHeader>
@@ -96,7 +96,7 @@ export function GoogleCalendarEventsWidget() {
         <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="pb-2 border-b bg-muted/30">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-blue-500" />
+                    <CalendarIcon className="h-4 w-4 text-status-info-solid" />
                     {t('dashboard.widgets.names.google_calendar_events')}
                 </CardTitle>
                 <CardDescription className="text-xs">{t('dashboard.widgets.calendar.googleDescription')}</CardDescription>
@@ -120,11 +120,11 @@ export function GoogleCalendarEventsWidget() {
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs font-semibold text-blue-600">
+                                            <span className="text-xs font-semibold text-status-info-text">
                                                 {formatDate(event.start)}
                                             </span>
                                             {event.all_day && (
-                                                <Badge variant="outline" className="h-4 px-1 text-[9px] bg-blue-50 text-blue-700 border-blue-200">
+                                                <Badge variant="outline" className="h-4 px-1 text-[9px] bg-status-info-bg text-status-info-text border-status-info-border">
                                                     {t('dashboard.widgets.common.allDay')}
                                                 </Badge>
                                             )}

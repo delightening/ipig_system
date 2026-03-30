@@ -29,11 +29,10 @@ pub async fn export_protocol_pdf(
     ).await?;
     let pdf_bytes = PdfService::generate_protocol_pdf(&protocol)?;
     let filename = format!("{}_AUP計畫書.pdf", protocol.protocol.title);
-    let encoded_filename = urlencoding::encode(&filename);
     Ok((
         [
             (header::CONTENT_TYPE, "application/pdf".to_string()),
-            (header::CONTENT_DISPOSITION, format!("attachment; filename*=UTF-8''{}", encoded_filename)),
+            (header::CONTENT_DISPOSITION, crate::utils::http::content_disposition_header(&filename)),
         ],
         pdf_bytes,
     ))

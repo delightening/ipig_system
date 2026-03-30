@@ -174,11 +174,11 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                   ))}
                 </div>
                 <div className="text-xs space-y-0.5 text-muted-foreground">
-                  <p className={passwordChecks.length ? 'text-green-600' : ''}>{passwordChecks.length ? '\u2713' : '\u25CB'} {`\u81F3\u5C11 ${PASSWORD_MIN_LENGTH} \u500B\u5B57\u5143`}</p>
-                  <p className={passwordChecks.uppercase ? 'text-green-600' : ''}>{passwordChecks.uppercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5927\u5BEB\u5B57\u6BCD'}</p>
-                  <p className={passwordChecks.lowercase ? 'text-green-600' : ''}>{passwordChecks.lowercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5C0F\u5BEB\u5B57\u6BCD'}</p>
-                  <p className={passwordChecks.number ? 'text-green-600' : ''}>{passwordChecks.number ? '\u2713' : '\u25CB'} {'\u5305\u542B\u6578\u5B57'}</p>
-                  <p className={passwordChecks.notCommon ? 'text-green-600' : ''}>{passwordChecks.notCommon ? '\u2713' : '\u25CB'} {'\u975E\u5E38\u898B\u5F31\u5BC6\u78BC'}</p>
+                  <p className={passwordChecks.length ? 'text-status-success-text' : ''}>{passwordChecks.length ? '\u2713' : '\u25CB'} {`\u81F3\u5C11 ${PASSWORD_MIN_LENGTH} \u500B\u5B57\u5143`}</p>
+                  <p className={passwordChecks.uppercase ? 'text-status-success-text' : ''}>{passwordChecks.uppercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5927\u5BEB\u5B57\u6BCD'}</p>
+                  <p className={passwordChecks.lowercase ? 'text-status-success-text' : ''}>{passwordChecks.lowercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5C0F\u5BEB\u5B57\u6BCD'}</p>
+                  <p className={passwordChecks.number ? 'text-status-success-text' : ''}>{passwordChecks.number ? '\u2713' : '\u25CB'} {'\u5305\u542B\u6578\u5B57'}</p>
+                  <p className={passwordChecks.notCommon ? 'text-status-success-text' : ''}>{passwordChecks.notCommon ? '\u2713' : '\u25CB'} {'\u975E\u5E38\u898B\u5F31\u5BC6\u78BC'}</p>
                 </div>
               </div>
             )}
