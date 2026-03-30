@@ -44,56 +44,44 @@ test.describe('邀請流程', () => {
             await orgInput.fill('E2E Test Org')
         }
 
-        // 送出
+        // 送出（攔截 API response 以取得邀請連結）
         const submitBtn = dialog.getByRole('button', {
             name: /送出|建立|確認|Submit|Create/,
         })
         await expect(submitBtn).toBeVisible()
-        await submitBtn.click()
 
-        // 4. 驗證成功畫面顯示可複製連結
-        await expect(
-            page.getByText(/成功|已建立|連結|link/i).first(),
-        ).toBeVisible({ timeout: 10_000 })
+        const [apiResponse] = await Promise.all([
+            page.waitForResponse(
+                (res) => res.url().includes('/api/v1/invitations') && res.request().method() === 'POST',
+                { timeout: 15_000 },
+            ),
+            submitBtn.click(),
+        ])
 
-        // 5. 取得邀請連結（從頁面上複製或從 API response 擷取）
-        const inviteLinkEl = page
-            .locator('[data-testid="invite-link"]')
-            .or(page.locator('input[readonly]'))
-            .or(page.locator('code'))
-            .first()
-
+        // 4. 從 API response 直接取得邀請連結
         let inviteLink = ''
-        if (await inviteLinkEl.isVisible({ timeout: 3_000 }).catch(() => false)) {
-            inviteLink =
-                (await inviteLinkEl.getAttribute('value')) ||
-                (await inviteLinkEl.textContent()) ||
-                ''
+        if (apiResponse.ok()) {
+            const body = await apiResponse.json()
+            inviteLink = body.invite_link || ''
         }
 
-        // 若頁面上沒有連結，從 API 取得
+        // fallback：從 UI 取得
         if (!inviteLink || !inviteLink.includes('/invite/')) {
-            // 透過 API 列出邀請，找到剛建立的
-            const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080'
-            const cookies = await context.cookies(baseURL)
-            const accessToken = cookies.find((c) => c.name === 'access_token')
+            await expect(
+                page.getByText(/成功|已建立|連結|link/i).first(),
+            ).toBeVisible({ timeout: 10_000 })
 
-            if (accessToken) {
-                const apiRes = await page.request.get(
-                    '/api/v1/invitations?per_page=1',
-                    {
-                        headers: {
-                            Authorization: `Bearer ${accessToken.value}`,
-                        },
-                    },
-                )
-                if (apiRes.ok()) {
-                    const body = await apiRes.json()
-                    const items = body.data || body
-                    if (Array.isArray(items) && items.length > 0) {
-                        inviteLink = items[0].invite_link || ''
-                    }
-                }
+            const inviteLinkEl = page
+                .locator('[data-testid="invite-link"]')
+                .or(page.locator('input[readonly]'))
+                .or(page.locator('code'))
+                .first()
+
+            if (await inviteLinkEl.isVisible({ timeout: 3_000 }).catch(() => false)) {
+                inviteLink =
+                    (await inviteLinkEl.getAttribute('value')) ||
+                    (await inviteLinkEl.textContent()) ||
+                    ''
             }
         }
 
