@@ -53,7 +53,7 @@ test.describe('邀請流程', () => {
 
         // 4. 驗證成功畫面顯示可複製連結
         await expect(
-            page.getByText(/成功|已建立|連結|link/i),
+            page.getByText(/成功|已建立|連結|link/i).first(),
         ).toBeVisible({ timeout: 10_000 })
 
         // 5. 取得邀請連結（從頁面上複製或從 API response 擷取）
