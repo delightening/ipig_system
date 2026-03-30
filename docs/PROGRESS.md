@@ -185,6 +185,19 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-03-29 R16 剩餘 10 項確認完成（R16-2~6, R16-9~13）
+
+- ✅ **R16-2 Content-Disposition header injection 修復**：`utils/http.rs` 共用 `content_disposition_header()` 函式使用 `urlencoding::encode` 實作 RFC 5987 percent-encode，全部 16 處 export handler 已統一呼叫
+- ✅ **R16-3 稽核日誌 PDF XSS 修復**：`useAuditLogExport.ts` 已有 `escapeHtml()` 函式，`buildPrintHtml` 中所有動態資料皆已包裹
+- ✅ **R16-4 window.open noopener 修復**：`VetRecommendationDialog.tsx` 和 `GoogleCalendarEventsWidget.tsx` 已補上 `'noopener,noreferrer'`；print 用途的空白頁 `window.open('', '_blank')` 不需加
+- ✅ **R16-5 Query key factory 統一**：`useLeaveMutations.ts` 和 `useOvertimeMutations.ts` 已全面使用 `queryKeys.hr.*` factory，無硬編碼 key
+- ✅ **R16-6 window.location.reload() 移除**：`useDocumentSubmit.ts` 和 `DocumentDetailPage.tsx` 已改用 `queryClient.invalidateQueries()`
+- ✅ **R16-9 Swagger UI production 停用**：`server.rs` 以 `!config.cookie_secure` 條件控制掛載
+- ✅ **R16-10 動態 table name 白名單**：`services/signature/access.rs` 定義 `ALLOWED_RECORD_TABLES` 常數，format!() 前驗證
+- ✅ **R16-11 CSRF production guard**：`config.rs` 在 `cookie_secure && disable_csrf_for_tests` 時自動強制關閉並 log error
+- ✅ **R16-12 HSTS header**：`server.rs` 在 `cookie_secure` 時加入 `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+- ✅ **R16-13 CI fallback 密碼移除**：`ci.yml` 所有密碼（JWT_SECRET、ADMIN_PASSWORD、DEV_PASSWORD）已改用 `${{ secrets.* }}`，無 fallback
+
 ### 2026-03-30 R16 第三批 Frontend 品質改善（R16-17~25）
 
 - ✅ **R16-17 硬編碼色彩 token 替換**：從 837 處減至約 213 處（75% 消除），slate/gray/status 色彩全面遷移至 CSS Variable token（bg-muted、text-foreground、border-border、text-status-*-text 等），剩餘為 SKU 色彩系統（56）、設施佈局色碼（8）、sidebar 深色主題等有意的特化色彩

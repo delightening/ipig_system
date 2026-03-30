@@ -393,11 +393,11 @@
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
 | R16-1 | **Auth 查詢錯誤靜默吞掉** | `handlers/protocol/` 13+ 處 `.unwrap_or((false,))` 改用 `?` 傳播錯誤，避免 DB 故障遮蔽為 403。CRITICAL | [x] |
-| R16-2 | **Content-Disposition header injection** | `handlers/upload.rs:466` + 12 處 export handler 檔名未跳脫，改用 RFC 5987 percent-encode。HIGH | [ ] |
-| R16-3 | **稽核日誌 PDF XSS** | `useAuditLogExport.ts:54-62` document.write 未 HTML 跳脫，加入 `escapeHtml()` 函式。HIGH | [ ] |
-| R16-4 | **window.open 缺 noopener** | `VetRecommendationDialog.tsx:85` 補 `'noopener,noreferrer'`。HIGH | [ ] |
-| R16-5 | **Query key 不匹配快取 bug** | `useLeaveMutations.ts:25` invalidates `'hr-balance-summary'` 但實際 key 是 `'hr-balance-summary-expiring'`，改用 `queryKeys.hr.balanceSummary`。HIGH | [ ] |
-| R16-6 | **window.location.reload() 強制刷新** | `useDocumentSubmit.ts:168`, `DocumentDetailPage.tsx:171` 改用 `queryClient.invalidateQueries()`。HIGH | [ ] |
+| R16-2 | **Content-Disposition header injection** | `handlers/upload.rs:466` + 12 處 export handler 檔名未跳脫，改用 RFC 5987 percent-encode。HIGH | [x] |
+| R16-3 | **稽核日誌 PDF XSS** | `useAuditLogExport.ts:54-62` document.write 未 HTML 跳脫，加入 `escapeHtml()` 函式。HIGH | [x] |
+| R16-4 | **window.open 缺 noopener** | `VetRecommendationDialog.tsx:85` 補 `'noopener,noreferrer'`。HIGH | [x] |
+| R16-5 | **Query key 不匹配快取 bug** | `useLeaveMutations.ts:25` invalidates `'hr-balance-summary'` 但實際 key 是 `'hr-balance-summary-expiring'`，改用 `queryKeys.hr.balanceSummary`。HIGH | [x] |
+| R16-6 | **window.location.reload() 強制刷新** | `useDocumentSubmit.ts:168`, `DocumentDetailPage.tsx:171` 改用 `queryClient.invalidateQueries()`。HIGH | [x] |
 
 ### 第二批 — 架構 + 安全加固（P1-P2）
 
@@ -405,11 +405,11 @@
 |---|------|------|------|
 | R16-7 | **Handler 層直接寫 SQL（授權部分）** | 授權查詢已集中至 `services/access.rs`。protocol/crud, review, export, pdf_export, amendment 已改用。CRITICAL（部分完成：授權查詢） | [x] |
 | R16-8 | **3 套重複 check_protocol_access** | 合併至 `services/access.rs`（require_protocol_view_access, require_protocol_related_access 等 9 函式）。HIGH | [x] |
-| R16-9 | **Swagger UI 無認證暴露** | `startup/server.rs:76` production 關閉或加 auth gate。HIGH | [ ] |
-| R16-10 | **動態 table name 無白名單** | `services/signature/access.rs:98-145` 加 allowed_tables 驗證。HIGH | [ ] |
-| R16-11 | **CSRF 可被 env var 關閉** | `DISABLE_CSRF_FOR_TESTS` 加 production guard，拒絕非 dev 環境啟用。MEDIUM | [ ] |
-| R16-12 | **缺 HSTS header** | `startup/server.rs` 加 `Strict-Transport-Security`，gate on `cookie_secure`。MEDIUM | [ ] |
-| R16-13 | **CI 硬編碼 fallback 密碼** | `ci.yml:411-468` 移除 fallback，secrets 必填。HIGH | [ ] |
+| R16-9 | **Swagger UI 無認證暴露** | `startup/server.rs:76` production 關閉或加 auth gate。HIGH | [x] |
+| R16-10 | **動態 table name 無白名單** | `services/signature/access.rs:98-145` 加 allowed_tables 驗證。HIGH | [x] |
+| R16-11 | **CSRF 可被 env var 關閉** | `DISABLE_CSRF_FOR_TESTS` 加 production guard，拒絕非 dev 環境啟用。MEDIUM | [x] |
+| R16-12 | **缺 HSTS header** | `startup/server.rs` 加 `Strict-Transport-Security`，gate on `cookie_secure`。MEDIUM | [x] |
+| R16-13 | **CI 硬編碼 fallback 密碼** | `ci.yml:411-468` 移除 fallback，secrets 必填。HIGH | [x] |
 
 ### 第三批 — 品質改善（P2-P3）
 
@@ -1726,12 +1726,12 @@ ORDER BY 1 DESC;
 | 🎨 R13 UI 一致性 | 0 |
 | 📄 R14 PDF 輸出修正 | 0 |
 | 🔍 R15 Code Review 發現 | 0 |
-| 🔍 R16 全專案 Code Review | 10 |
+| 🔍 R16 全專案 Code Review | 0 |
 | 🔒 R17 CSO 安全審計 | 0 (1 已接受, 3 完成) |
 | 🫀 R18 Heartbeat 自動化維護 | 0 (4 完成) |
 | 🎫 R19 客戶邀請制入口 | 0 (14 完成) |
 | 🤖 R20 AI 預審與執行秘書標註 | 2 (8 完成, R20-9/10 持續性) |
-| **合計（未完成）** | **12** |
+| **合計（未完成）** | **2** |
 
 ---
 
