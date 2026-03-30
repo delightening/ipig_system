@@ -486,9 +486,10 @@ jobs:
           # 須與 docker-compose.test.yml ADMIN_INITIAL_PASSWORD 一致（見 docs/e2e/FLOW.md）
           E2E_BASE_URL: http://localhost:8080
           E2E_USER_EMAIL: admin@ipig.local
-          E2E_USER_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+          E2E_USER_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
           E2E_ADMIN_EMAIL: admin@ipig.local
-          E2E_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
+          ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
         run: npm run test:e2e
 
       - name: 上傳測試報告 (失敗時)
