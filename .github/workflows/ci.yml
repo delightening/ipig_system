@@ -179,7 +179,7 @@ jobs:
       DATABASE_URL: postgres://postgres:password@localhost:5432/ipig_db_test
       SQLX_OFFLINE: "false"
       ADMIN_EMAIL: admin@ipig.local
-      ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+      ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'iPig$ecure1' }}
       # 避免 login_with_wrong_password_returns_401 因平行測試累積 login_events 導致帳號鎖定（400）
       DISABLE_ACCOUNT_LOCKOUT: "true"
 
