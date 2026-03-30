@@ -6,6 +6,7 @@ import { ensureAdminOnPage } from './auth-helpers'
  */
 test.describe('邀請流程', () => {
     test('完整邀請流程：建立→接受→登入', async ({ page, context }) => {
+        test.setTimeout(90_000) // 邀請流程涉及多步操作，CI 需要更多時間
         // 1. Admin 已透過 fixture 登入，導航到邀請管理頁面
         await ensureAdminOnPage(page, '/admin/invitations')
         await expect(page.locator('[class*="animate-spin"]')).toBeHidden({
