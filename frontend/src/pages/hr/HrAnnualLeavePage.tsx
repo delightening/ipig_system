@@ -306,8 +306,8 @@ export function HrAnnualLeavePage() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {sortedBalances?.map((balance, idx) => (
-                                                    <TableRow key={idx}>
+                                                {sortedBalances?.map((balance) => (
+                                                    <TableRow key={balance.entitlement_year}>
                                                         <TableCell className="font-medium">
                                                             {balance.entitlement_year}
                                                         </TableCell>
@@ -382,8 +382,8 @@ export function HrAnnualLeavePage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {sortedExpired?.map((item, idx) => (
-                                            <TableRow key={idx}>
+                                        {sortedExpired?.map((item) => (
+                                            <TableRow key={`${item.user_id}-${item.entitlement_year}`}>
                                                 <TableCell className="font-medium">
                                                     {item.user_name}
                                                 </TableCell>

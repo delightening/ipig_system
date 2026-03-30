@@ -30,7 +30,7 @@ export function PersonnelSection({ personnel }: PersonnelSectionProps) {
       <div className="border rounded-md overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-slate-100">
+            <TableRow className="bg-muted">
               <TableHead className="text-center w-12">#</TableHead>
               <TableHead className="w-24">{t('protocols.content.sections.piName')}</TableHead>
               <TableHead className="w-24">{t('protocols.content.sections.position')}</TableHead>

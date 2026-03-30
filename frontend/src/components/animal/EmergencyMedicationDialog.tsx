@@ -129,14 +129,14 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-lg">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-red-600">
+                    <DialogTitle className="flex items-center gap-2 text-status-error-text">
                         <AlertTriangle className="h-5 w-5" />
                         緊急處置
                     </DialogTitle>
                     <DialogDescription>
                         耳號：{earTag}
                         <br />
-                        <span className="text-red-500">
+                        <span className="text-status-error-solid">
                             此功能用於獸醫不在場時的緊急處置，將通知獸醫師和 PI 進行追認。
                         </span>
                     </DialogDescription>
@@ -205,7 +205,7 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                             <Button
                                 type="button"
                                 onClick={handleConfirmClick}
-                                className="bg-red-600 hover:bg-red-700"
+                                className="bg-destructive hover:bg-destructive/90"
                                 disabled={!formData.emergency_reason.trim() || !formData.drug.trim() || !formData.content.trim()}
                             >
                                 <AlertTriangle className="h-4 w-4 mr-2" />
@@ -215,22 +215,22 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                     </form>
                 ) : (
                     <div className="space-y-6 py-4">
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-3" />
-                            <h3 className="text-lg font-semibold text-red-700 mb-2">
+                        <div className="bg-status-error-bg border border-status-error-border rounded-lg p-4 text-center">
+                            <AlertTriangle className="h-12 w-12 text-status-error-solid mx-auto mb-3" />
+                            <h3 className="text-lg font-semibold text-status-error-text mb-2">
                                 確認執行緊急處置？
                             </h3>
-                            <p className="text-sm text-red-600 mb-4">
+                            <p className="text-sm text-status-error-text mb-4">
                                 此操作將記錄緊急給藥並通知獸醫師追認
                             </p>
 
-                            <div className="bg-red-100 rounded-full w-20 h-20 mx-auto flex items-center justify-center mb-4">
-                                <span className="text-3xl font-bold text-red-700">
+                            <div className="bg-status-error-bg rounded-full w-20 h-20 mx-auto flex items-center justify-center mb-4">
+                                <span className="text-3xl font-bold text-status-error-text">
                                     {countdown > 0 ? countdown : '✓'}
                                 </span>
                             </div>
 
-                            <p className="text-xs text-red-500">
+                            <p className="text-xs text-status-error-solid">
                                 {countdown > 0 ? `請等待 ${countdown} 秒後確認...` : '請點擊下方按鈕確認'}
                             </p>
                         </div>
@@ -242,7 +242,7 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                             <Button
                                 type="button"
                                 onClick={handleConfirmClick}
-                                className="bg-red-600 hover:bg-red-700"
+                                className="bg-destructive hover:bg-destructive/90"
                                 disabled={countdown > 0 || mutation.isPending}
                             >
                                 {mutation.isPending ? (

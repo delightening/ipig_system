@@ -56,13 +56,13 @@ export function ProductInputStep({
                 isLoading={isSuggestionsLoading}
                 placeholder="例如：Amoxicillin 500mg tablet"
               />
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 💡 直接輸入「名稱 規格」，例如：手套 L號 無粉、生理食鹽水 500ml
               </p>
             </div>
 
             <div className="border-t pt-6">
-              <Label className="text-sm text-slate-600 dark:text-slate-400 mb-3 block">
+              <Label className="text-sm text-muted-foreground dark:text-muted-foreground mb-3 block">
                 🏷️ 快速選擇常用品項
               </Label>
               <QuickSelectGrid

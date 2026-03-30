@@ -22,7 +22,7 @@ export function ItemsSection({ items }: ItemsSectionProps) {
             <div className="mb-4">
               <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.testItems')}</h3>
               {items.test_items.map((item: TestItem, index: number) => (
-                <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
+                <div key={index} className="mb-4 p-4 border rounded bg-muted">
                   <h4 className="font-medium mb-2">{t('protocols.content.sections.testItems')} #{index + 1}</h4>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
@@ -61,7 +61,7 @@ export function ItemsSection({ items }: ItemsSectionProps) {
             <div className="mb-4">
               <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.controlItems')}</h3>
               {items.control_items.map((item: ControlItem, index: number) => (
-                <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
+                <div key={index} className="mb-4 p-4 border rounded bg-muted">
                   <h4 className="font-medium mb-2">{t('protocols.content.sections.controlItems')} #{index + 1}</h4>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>

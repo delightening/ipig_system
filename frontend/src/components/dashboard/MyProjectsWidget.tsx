@@ -28,7 +28,7 @@ export function MyProjectsWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <FolderOpen className="h-4 w-4 text-purple-500" />
+                        <FolderOpen className="h-4 w-4 text-status-purple-solid" />
                         {t('dashboard.widgets.names.my_projects')}
                     </CardTitle>
                 </CardHeader>
@@ -46,7 +46,7 @@ export function MyProjectsWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <FolderOpen className="h-4 w-4 text-purple-500" />
+                        <FolderOpen className="h-4 w-4 text-status-purple-solid" />
                         {t('dashboard.widgets.names.my_projects')}
                     </CardTitle>
                 </CardHeader>
@@ -67,7 +67,7 @@ export function MyProjectsWidget() {
             <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <FolderOpen className="h-4 w-4 text-purple-500" />
+                        <FolderOpen className="h-4 w-4 text-status-purple-solid" />
                         {t('dashboard.widgets.names.my_projects')}
                     </CardTitle>
                     <Button
@@ -84,16 +84,16 @@ export function MyProjectsWidget() {
             <CardContent className="flex-1 overflow-auto">
                 {/* 統計數字 */}
                 <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="text-center p-2 bg-slate-50 rounded-lg">
-                        <div className="text-2xl font-bold text-slate-700">{totalCount}</div>
+                    <div className="text-center p-2 bg-muted rounded-lg">
+                        <div className="text-2xl font-bold text-foreground">{totalCount}</div>
                         <div className="text-xs text-muted-foreground">{t('dashboard.widgets.projects.total')}</div>
                     </div>
-                    <div className="text-center p-2 bg-yellow-50 rounded-lg">
-                        <div className="text-2xl font-bold text-yellow-600">{reviewingProjects.length}</div>
+                    <div className="text-center p-2 bg-status-warning-bg rounded-lg">
+                        <div className="text-2xl font-bold text-status-warning-text">{reviewingProjects.length}</div>
                         <div className="text-xs text-muted-foreground">{t('dashboard.widgets.projects.reviewing')}</div>
                     </div>
-                    <div className="text-center p-2 bg-green-50 rounded-lg">
-                        <div className="text-2xl font-bold text-green-600">{activeProjects.length}</div>
+                    <div className="text-center p-2 bg-status-success-bg rounded-lg">
+                        <div className="text-2xl font-bold text-status-success-text">{activeProjects.length}</div>
                         <div className="text-xs text-muted-foreground">{t('dashboard.widgets.projects.active')}</div>
                     </div>
                 </div>
@@ -101,7 +101,7 @@ export function MyProjectsWidget() {
                 {/* 審查中的計畫 */}
                 {reviewingProjects.length > 0 && (
                     <div className="mb-3">
-                        <div className="flex items-center gap-1 text-xs font-medium text-yellow-700 mb-1">
+                        <div className="flex items-center gap-1 text-xs font-medium text-status-warning-text mb-1">
                             <FileSearch className="h-3 w-3" />
                             {t('dashboard.widgets.projects.reviewing')}
                         </div>
@@ -109,7 +109,7 @@ export function MyProjectsWidget() {
                             {reviewingProjects.slice(0, 3).map((project) => (
                                 <div
                                     key={project.id}
-                                    className="text-xs p-2 bg-yellow-50/50 rounded border border-yellow-100 hover:bg-yellow-50 cursor-pointer transition-colors"
+                                    className="text-xs p-2 bg-status-warning-bg/50 rounded border border-status-warning-border hover:bg-status-warning-bg cursor-pointer transition-colors"
                                     onClick={() => navigate(`/protocols/${project.id}`)}
                                 >
                                     <span className="font-medium">{project.title}</span>
@@ -130,7 +130,7 @@ export function MyProjectsWidget() {
                 {/* 執行中的計畫 */}
                 {activeProjects.length > 0 && (
                     <div>
-                        <div className="flex items-center gap-1 text-xs font-medium text-green-700 mb-1">
+                        <div className="flex items-center gap-1 text-xs font-medium text-status-success-text mb-1">
                             <PlayCircle className="h-3 w-3" />
                             {t('dashboard.widgets.projects.active')}
                         </div>
@@ -138,7 +138,7 @@ export function MyProjectsWidget() {
                             {activeProjects.slice(0, 3).map((project) => (
                                 <div
                                     key={project.id}
-                                    className="text-xs p-2 bg-green-50/50 rounded border border-green-100 hover:bg-green-50 cursor-pointer transition-colors"
+                                    className="text-xs p-2 bg-status-success-bg/50 rounded border border-green-100 hover:bg-status-success-bg cursor-pointer transition-colors"
                                     onClick={() => navigate(`/protocols/${project.id}`)}
                                 >
                                     <span className="font-medium">{project.title}</span>

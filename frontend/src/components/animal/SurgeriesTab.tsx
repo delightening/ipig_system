@@ -106,8 +106,8 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
         </CardHeader>
         <CardContent>
           {!surgeries || surgeries.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <Scissors className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+            <div className="text-center py-12 text-muted-foreground">
+              <Scissors className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p>尚無手術紀錄</p>
               <p className="text-sm mt-1">點擊上方按鈕新增</p>
             </div>
@@ -128,12 +128,12 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
               <TableBody>
                 {sortedData?.map((surgery) => (
                   <>
-                    <TableRow key={surgery.id} className="cursor-pointer hover:bg-slate-50">
+                    <TableRow key={surgery.id} className="cursor-pointer hover:bg-muted">
                       <TableCell>
                         <button
                           type="button"
                           onClick={() => setExpandedId(expandedId === surgery.id ? null : surgery.id)}
-                          className="p-1 hover:bg-slate-200 rounded"
+                          className="p-1 hover:bg-muted rounded"
                           title="展開詳細資料"
                           aria-label="展開詳細資料"
                         >
@@ -147,16 +147,16 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                       <TableCell className="max-w-xs truncate">{surgery.surgery_site}</TableCell>
                       <TableCell>
                         {surgery.no_medication_needed ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          <CheckCircle2 className="h-4 w-4 text-status-success-solid" />
                         ) : (
-                          <span className="text-slate-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {surgery.vet_read ? (
-                          <Badge className="bg-green-100 text-green-800">已讀</Badge>
+                          <Badge className="bg-status-success-bg text-status-success-text">已讀</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-slate-500">未讀</Badge>
+                          <Badge variant="outline" className="text-muted-foreground">未讀</Badge>
                         )}
                       </TableCell>
                       <TableCell>{surgery.created_by_name || '-'}</TableCell>
@@ -208,7 +208,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                               setShowVetRec(true)
                             }}
                             title="獸醫師建議"
-                            className="text-green-600 hover:text-green-700"
+                            className="text-status-success-text hover:text-status-success-text"
                           >
                             <Stethoscope className="h-4 w-4" />
                           </Button>
@@ -219,17 +219,17 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                             title="刪除"
                             aria-label="刪除"
                           >
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-status-error-solid" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
                     {expandedId === surgery.id && (
                       <TableRow>
-                        <TableCell colSpan={8} className="bg-slate-50 p-4">
+                        <TableCell colSpan={8} className="bg-muted p-4">
                           <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <Label className="text-slate-500">誘導麻醉</Label>
+                              <Label className="text-muted-foreground">誘導麻醉</Label>
                               <p>
                                 {surgery.induction_anesthesia
                                   ? Object.entries(surgery.induction_anesthesia as Record<string, string>)
@@ -240,7 +240,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                               </p>
                             </div>
                             <div>
-                              <Label className="text-slate-500">麻醉維持</Label>
+                              <Label className="text-muted-foreground">麻醉維持</Label>
                               <p>
                                 {surgery.anesthesia_maintenance
                                   ? Object.entries(surgery.anesthesia_maintenance as Record<string, string>)
@@ -251,18 +251,18 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                               </p>
                             </div>
                             <div>
-                              <Label className="text-slate-500">固定姿勢</Label>
+                              <Label className="text-muted-foreground">固定姿勢</Label>
                               <p>{surgery.positioning || '-'}</p>
                             </div>
                             {surgery.anesthesia_observation && (
                               <div className="col-span-3">
-                                <Label className="text-slate-500">麻醉觀察過程</Label>
+                                <Label className="text-muted-foreground">麻醉觀察過程</Label>
                                 <p className="whitespace-pre-wrap">{surgery.anesthesia_observation}</p>
                               </div>
                             )}
                             {surgery.vital_signs && surgery.vital_signs.length > 0 && (
                               <div className="col-span-3">
-                                <Label className="text-slate-500">生理數值</Label>
+                                <Label className="text-muted-foreground">生理數值</Label>
                                 <div className="mt-2 overflow-x-auto">
                                   <table className="min-w-full text-sm">
                                     <thead>
@@ -291,13 +291,13 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                             )}
                             {surgery.reflex_recovery && (
                               <div className="col-span-3">
-                                <Label className="text-slate-500">反射恢復觀察</Label>
+                                <Label className="text-muted-foreground">反射恢復觀察</Label>
                                 <p>{surgery.reflex_recovery}</p>
                               </div>
                             )}
                             {surgery.remark && (
                               <div className="col-span-3">
-                                <Label className="text-slate-500">備註</Label>
+                                <Label className="text-muted-foreground">備註</Label>
                                 <p>{surgery.remark}</p>
                               </div>
                             )}

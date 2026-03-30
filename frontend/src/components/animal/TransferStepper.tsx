@@ -29,20 +29,20 @@ export function TransferStepper({ transfer }: { transfer: AnimalTransfer }) {
                 return (
                     <div key={step.status} className="flex items-center flex-1 min-w-0">
                         <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap
-              ${isDone ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'}
+              ${isDone ? 'bg-indigo-100 text-status-info-text' : 'bg-muted text-muted-foreground'}
               ${isCurrent ? 'ring-2 ring-indigo-400' : ''}
             `}>
                             <Icon className="h-3.5 w-3.5 flex-shrink-0" />
                             <span className="hidden sm:inline">{step.label}</span>
                         </div>
                         {idx < TRANSFER_STEPS.length - 1 && (
-                            <div className={`h-0.5 flex-1 mx-1 min-w-[12px] ${isDone && idx < currentIdx ? 'bg-indigo-400' : 'bg-slate-200'}`} />
+                            <div className={`h-0.5 flex-1 mx-1 min-w-[12px] ${isDone && idx < currentIdx ? 'bg-indigo-400' : 'bg-muted'}`} />
                         )}
                     </div>
                 )
             })}
             {isRejected && (
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 ring-2 ring-red-400 ml-2">
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-status-error-bg text-status-error-text ring-2 ring-red-400 ml-2">
                     <XCircle className="h-3.5 w-3.5" />
                     <span>已拒絕</span>
                 </div>

@@ -58,7 +58,7 @@ function Repeater<T>({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-10 w-10 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+              className="h-10 w-10 shrink-0 text-status-error-solid hover:text-status-error-text hover:bg-status-error-bg"
               onClick={() => handleRemove(index)}
             >
               <Trash2 className="h-4 w-4" />

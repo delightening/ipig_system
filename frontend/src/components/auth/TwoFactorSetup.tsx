@@ -122,7 +122,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
         <CardContent>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`h-3 w-3 rounded-full ${totpEnabled ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <div className={`h-3 w-3 rounded-full ${totpEnabled ? 'bg-status-success-bg0' : 'bg-muted'}`} />
               <span className="text-sm font-medium">
                 {totpEnabled ? '已啟用' : '未啟用'}
               </span>
@@ -205,7 +205,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
                 </div>
               </div>
               <Button variant="outline" className="w-full" onClick={copyBackupCodes}>
-                {copied ? <Check className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
+                {copied ? <Check className="mr-2 h-4 w-4 text-status-success-solid" /> : <Copy className="mr-2 h-4 w-4" />}
                 {copied ? '已複製' : '複製備用碼'}
               </Button>
               <DialogFooter>

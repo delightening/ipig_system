@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-29 (v26)
+> **最後更新：** 2026-03-29 (v27)
 > **維護慣例：** 完成項目標 [x] + 更新待辦統計 + 在 `docs/PROGRESS.md` §9 新增變更紀錄。詳見 `CLAUDE.md`「文件記錄規則」。
 > **章節排列：** 禁止事項 → P0~P5（優先級）→ 歷史改善計畫 → R6~R13+（輪次嚴格遞增）→ 待辦統計 → 變更紀錄（封存）
 
@@ -415,29 +415,1293 @@
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R16-14 | **角色碼魔術字串** | `hr/dashboard.rs`, `scheduler.rs`, `protocol/crud.rs` 角色碼移至 `constants.rs`。HIGH | [ ] |
-| R16-15 | **scheduler.rs 函數過長** | `start()` 235 行、`generate_monthly_report` 138 行。拆分 helper + 子函式。HIGH | [ ] |
-| R16-16 | **services/stock.rs 超 800 行** | 942 行，拆分 inventory/ledger 模組。HIGH | [ ] |
-| R16-17 | **613 處硬編碼 Tailwind 色彩 token** | 88 個元件/頁面，替換為 CSS Variable token。HIGH（規模大） | [ ] |
-| R16-18 | **5 個元件超 300 行** | HrAttendancePage(460), ObservationFormDialog(457), SacrificeFormDialog(427), AnimalEditPage(385), RolesPage(362)。抽出 hooks + 子元件。HIGH | [ ] |
-| R16-19 | **PageErrorBoundary 僅覆蓋 5/40+ routes** | 在 `MainLayout` 層統一包裹或逐一補齊。HIGH | [ ] |
-| R16-20 | **HR query key 未使用 queryKeys factory** | `HrAttendancePage`, `HrLeavePage` 硬編碼 query key string，遷移至 `queryKeys.hr.*`。HIGH | [ ] |
-| R16-21 | **Zustand store 直接 mutation** | `client.ts:112` `sessionExpiresAt` 直接賦值改用 `setState()`。MEDIUM | [ ] |
-| R16-22 | **format!() 拼接動態 SQL** | `services/stock.rs:471,499,530,608` 改用 `sqlx::QueryBuilder`。MEDIUM | [ ] |
-| R16-23 | **Array index 作 React key** | BloodTestFormDialog, VetReviewForm, HrAnnualLeavePage 等 5 處改用穩定 ID。MEDIUM | [ ] |
-| R16-24 | **直接 import axios 繞過中央 client** | `useAnimalsMutations.ts`, `useUserManagement.ts` 改用 `@/lib/api`。LOW | [ ] |
-| R16-25 | **console.debug 未限 dev-only** | `webVitals.ts:13` 改用 `logger.debug()` 或 gate `import.meta.env.DEV`。LOW | [ ] |
+| R16-14 | **角色碼魔術字串** | `hr/dashboard.rs`, `scheduler.rs`, `protocol/crud.rs` 角色碼移至 `constants.rs`。HIGH | [x] |
+| R16-15 | **scheduler.rs 函數過長** | `start()` 235 行、`generate_monthly_report` 138 行。拆分 helper + 子函式。HIGH | [x] |
+| R16-16 | **services/stock.rs 超 800 行** | 942 行，拆分 inventory/ledger 模組。HIGH | [x] |
+| R16-17 | **613 處硬編碼 Tailwind 色彩 token** | 88 個元件/頁面，替換為 CSS Variable token。HIGH（規模大） | [x] |
+| R16-18 | **5 個元件超 300 行** | HrAttendancePage(460), ObservationFormDialog(457), SacrificeFormDialog(427), AnimalEditPage(385), RolesPage(362)。抽出 hooks + 子元件。HIGH | [x] |
+| R16-19 | **PageErrorBoundary 僅覆蓋 5/40+ routes** | 在 `MainLayout` 層統一包裹或逐一補齊。HIGH | [x] |
+| R16-20 | **HR query key 未使用 queryKeys factory** | `HrAttendancePage`, `HrLeavePage` 硬編碼 query key string，遷移至 `queryKeys.hr.*`。HIGH | [x] |
+| R16-21 | **Zustand store 直接 mutation** | `client.ts:112` `sessionExpiresAt` 直接賦值改用 `setState()`。MEDIUM | [x] |
+| R16-22 | **format!() 拼接動態 SQL** | `services/stock.rs:471,499,530,608` 改用 `sqlx::QueryBuilder`。MEDIUM | [x] |
+| R16-23 | **Array index 作 React key** | BloodTestFormDialog, VetReviewForm, HrAnnualLeavePage 等 5 處改用穩定 ID。MEDIUM | [x] |
+| R16-24 | **直接 import axios 繞過中央 client** | `useAnimalsMutations.ts`, `useUserManagement.ts` 改用 `@/lib/api`。LOW | [x] |
+| R16-25 | **console.debug 未限 dev-only** | `webVitals.ts:13` 改用 `logger.debug()` 或 gate `import.meta.env.DEV`。LOW | [x] |
 
 ### 第四批 — CI/測試改善（P2-P3）
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R16-26 | **GitHub Actions 版本標籤不存在** | `actions/checkout@v6` 等改為正確版本 v4 或 SHA pin。HIGH | [ ] |
-| R16-27 | **Backend coverage threshold 僅 2%** | `tarpaulin --fail-under 2` 提高至合理值或整合 integration test 覆蓋。HIGH | [ ] |
-| R16-28 | **CI 無 ESLint job** | frontend-check 加入 `npx eslint src --max-warnings=0`。MEDIUM | [ ] |
-| R16-29 | **E2E 僅測 read path** | 擴充至少 1 個完整 create+submit flow（animal, protocol, user）。MEDIUM | [ ] |
-| R16-30 | **unsafe-guard 只 warning 不 block** | `ci.yml:97` `::warning::` 改為 `exit 1` 或要求 `// SAFETY:` 註解。MEDIUM | [ ] |
-| R16-31 | **Edge case 測試不足** | 缺少 refresh token replay、暴力破解 rate limit、檔案上傳安全、分頁邊界、SQL injection in search 等 18+ 項。MEDIUM | [ ] |
+| R16-26 | **GitHub Actions 版本標籤不存在** | `actions/checkout@v6` 等改為正確版本 v4 或 SHA pin。HIGH | [x] |
+| R16-27 | **Backend coverage threshold 僅 2%** | `tarpaulin --fail-under 2` 提高至合理值或整合 integration test 覆蓋。HIGH | [x] |
+| R16-28 | **CI 無 ESLint job** | frontend-check 加入 `npx eslint src --max-warnings=0`。MEDIUM | [x] |
+| R16-29 | **E2E 僅測 read path** | 擴充至少 1 個完整 create+submit flow（animal, protocol, user）。MEDIUM | [x] |
+| R16-30 | **unsafe-guard 只 warning 不 block** | `ci.yml:97` `::warning::` 改為 `exit 1` 或要求 `// SAFETY:` 註解。MEDIUM | [x] |
+| R16-31 | **Edge case 測試不足** | 缺少 refresh token replay、暴力破解 rate limit、檔案上傳安全、分頁邊界、SQL injection in search 等 18+ 項。MEDIUM | [x] |
+
+---
+
+## 🔒 R17 — CSO 安全審計發現（2026-03-29）
+
+> 來源：gstack /cso 全面安全審計（14 phase），對比 2026-03-25 基準。0 CRITICAL / 0 HIGH / 5 MEDIUM / 1 LOW。
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R17-1 | **CI 日誌檔含測試密碼** | `logs_61488804168/` 目錄含明文測試密碼已提交至 git，需 `git filter-repo` 移除 + 加 `logs_*/` 到 `.gitignore`。MEDIUM | [x] |
+| R17-2 | **Web 容器綁定 0.0.0.0** | `docker-compose.yml:159` web service 未限制 `127.0.0.1`，對外暴露 port 8080。prod overlay 已修正但基礎 compose 未改。MEDIUM | [x] |
+| R17-3 | **CSP unsafe-inline + unsafe-eval** | `nginx.conf:22` script-src 含 `'unsafe-inline'`（Cloudflare）+ `'unsafe-eval'`（Vite）。已接受風險，DOMPurify 為補償控制。MEDIUM | 已接受 |
+| R17-4 | **/metrics 端點預設無認證** | Prometheus metrics 公開暴露，需設定 `METRICS_TOKEN` 或限制內網存取。LOW | [x] |
+
+> R16-9（Swagger UI 暴露）、R16-26（Actions 未 SHA 釘選）已在 R16 追蹤，不重複列入。
+
+### R17 詳細實作計畫
+
+<details>
+<summary>R17-1：CI 日誌檔含測試密碼</summary>
+
+**問題**：`logs_61488804168/` 目錄含 16 個檔案（安全/測試日誌），可能含明文測試密碼，已提交至 git history。
+
+**步驟**：
+1. 安裝 `git filter-repo`：`pip install git-filter-repo`
+2. 備份 repo：`cp -r .git .git.bak`
+3. 移除 git history 中的 logs 目錄：
+   ```bash
+   git filter-repo --path logs_61488804168/ --invert-paths
+   ```
+4. 加入 `.gitignore`：
+   ```
+   # CI/CD log artifacts
+   logs_*/
+   ```
+5. 驗證：`git log --all --full-history -- logs_61488804168/` 應無結果
+6. Force push（需確認遠端無其他人在用）：`git push --force-with-lease`
+7. 通知所有開發者重新 clone
+
+**風險**：force push 會改變 commit hash，需協調其他分支。
+**前置條件**：確認此 repo 無其他人正在工作中的分支。
+</details>
+
+<details>
+<summary>R17-2：Web 容器綁定 0.0.0.0</summary>
+
+**問題**：`docker-compose.yml:159` web service ports 為 `"${WEB_PORT:-8080}:8080"`（綁 0.0.0.0），`docker-compose.prod.yml:47` 已修正為 `"127.0.0.1:${WEB_PORT:-8080}:8080"`，但基礎 compose 未改。
+
+**步驟**：
+1. 修改 `docker-compose.yml` web service：
+   ```yaml
+   ports:
+     - "127.0.0.1:${WEB_PORT:-8080}:8080"
+   ```
+2. 同步檢查其他 service 的 port binding（API backend、PostgreSQL）是否也綁 0.0.0.0
+3. 驗證：`docker compose up -d` → `ss -tlnp | grep 8080` 確認只綁 127.0.0.1
+4. 確認 CI docker-compose.test.yml 不受影響（CI 可能需要 0.0.0.0）
+
+**影響範圍**：僅開發/基礎 compose，prod overlay 已正確。
+</details>
+
+<details>
+<summary>R17-4：/metrics 端點預設無認證</summary>
+
+**問題**：`handlers/metrics.rs:54-97` 已有 `METRICS_TOKEN` Bearer 認證邏輯，但環境變數未設定時端點公開。`config.rs` 未定義此變數，`.env.example` 也未列出。
+
+**步驟**：
+1. 在 `.env.example` 新增：
+   ```
+   # Prometheus metrics authentication (recommended for production)
+   # METRICS_TOKEN=your-secure-random-token-here
+   ```
+2. 在 `config.rs` Config struct 新增 `metrics_token: Option<String>` 欄位，從 `METRICS_TOKEN` 讀取
+3. 修改 `handlers/metrics.rs` 改讀 `state.config.metrics_token` 而非直接 `std::env::var`（統一 config 管理）
+4. **可選加固**：如果 `cookie_secure = true`（即 production）且 `METRICS_TOKEN` 未設定，回傳 403 並 log warning
+5. 在 `OPERATIONS.md` 補充說明
+
+**影響範圍**：僅 /metrics 端點，不影響其他功能。Prometheus scrape config 需加 Bearer token header。
+</details>
+
+---
+
+## 🫀 R18 — Heartbeat 自動化維護（2026-03-29）
+
+> 來源：`docs/heartbeatImprovement.md`。透過 Claude Code `/schedule` 定期排程持續維護程式碼品質、安全性與功能完整性。
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R18-1 | **每日分段 Code Review 排程** | 10 天一輪迴，每天 review 一個模組區塊（安全、品質、TODO/FIXME、CLAUDE.md 合規），產出報告至 `docs/heartbeat/` | [x] |
+| R18-2 | **每日健康檢查排程** | cargo test + clippy + npm audit + cargo deny + build + E2E，產出 health report | [x] |
+| R18-3 | **月度架構審查排程** | 每月 1 日深度掃描：量化指標、重複程式碼、依賴健康度、測試覆蓋率 | [x] |
+| R18-4 | **Heartbeat 報告目錄建立** | 建立 `docs/heartbeat/` 目錄 + README.md | [x] |
+
+### R18 詳細實作計畫
+
+<details>
+<summary>R18-4：Heartbeat 報告目錄建立（先做）</summary>
+
+**步驟**：
+1. 建立目錄結構：
+   ```
+   docs/heartbeat/
+     README.md          # 系統說明、報告命名規則、連結索引
+   ```
+2. README.md 內容：
+   - Heartbeat 系統概述
+   - 報告類型說明（daily review / health check / monthly architecture）
+   - 檔案命名規則（`YYYY-MM-DD.md` / `health-YYYY-MM-DD.md` / `architecture-YYYY-MM.md`）
+   - 嚴重度定義（Critical / High / Medium / Low）
+3. 加入 `.gitignore` 排除過舊報告（可選）：`docs/heartbeat/` 保留最近 30 天
+
+**前置條件**：無。
+</details>
+
+<details>
+<summary>R18-1：每日分段 Code Review 排程</summary>
+
+**使用工具**：Claude Code `/schedule` 建立 remote trigger
+
+**排程設定**：
+- **頻率**：週一至週五，每日一次
+- **Cron**：`0 8 * * 1-5`（每天早上 8:00）
+
+**Prompt 模板**：
+```
+在 C:\System Coding\ipig_system 執行 Heartbeat 每日 Code Review。
+
+今天是 {date}，根據以下排程表判斷今天是 D 幾：
+  D1: handlers/auth/ + middleware/ + services/auth/（認證安全）
+  D2: handlers/protocol/ + services/protocol/（IACUC 審查流程）
+  D3: handlers/animal/ + services/animal/（動物管理）
+  D4: handlers/hr/ + services/hr/ + services/calendar/（HR 模組）
+  D5: ERP 相關 handlers + services（庫存、採購、倉儲）
+  D6: services/notification/ + email/ + pdf/ + repositories/（通知、PDF、Repository）
+  D7: 剩餘 services + models/（審計、設備、簽章等）
+  D8: frontend pages/protocols/ + animals/ + amendments/
+  D9: frontend pages/admin/ + hr/ + dashboard/ + auth/
+  D10: frontend pages/erp/ + inventory/ + master/ + documents/ + reports/ + 共用 components/
+
+計算方式：(工作天數 % 10) + 1 = 今天的 D 值
+
+檢查項目：
+1. 函數長度 ≤ 50 行、圈複雜度 ≤ 10、巢狀 ≤ 3 層
+2. SQL injection（字串拼接 SQL）、權限檢查完整性、unwrap() 殘留
+3. TODO/FIXME/HACK 列表
+4. CLAUDE.md 架構分層合規
+
+產出報告寫入 docs/heartbeat/YYYY-MM-DD.md，格式依 heartbeatImprovement.md。
+不要自動修復，僅報告發現。
+```
+
+**驗收條件**：每天產出一份 markdown 報告，包含發現問題數和嚴重度分布。
+</details>
+
+<details>
+<summary>R18-2：每日健康檢查排程</summary>
+
+**使用工具**：Claude Code `/schedule` 建立 remote trigger
+
+**排程設定**：
+- **頻率**：每日（含週末）
+- **Cron**：`0 7 * * *`（每天早上 7:00，比 code review 早 1 小時）
+
+**Prompt 模板**：
+```
+在 C:\System Coding\ipig_system 執行 Heartbeat 每日健康檢查。
+
+依序執行以下命令並記錄結果：
+
+1. Backend 編譯：cd backend && cargo build --release 2>&1
+2. Backend lint：cargo clippy -- -D warnings 2>&1
+3. Backend 測試：cargo test 2>&1
+4. Backend 安全掃描：cargo deny check advisories 2>&1
+5. Frontend 編譯：cd frontend && npm run build 2>&1
+6. Frontend 安全掃描：npm audit 2>&1
+7. Migration 檢查：列出 backend/migrations/ 目錄確認命名順序
+
+產出報告寫入 docs/heartbeat/health-YYYY-MM-DD.md，格式依 heartbeatImprovement.md。
+
+注意：
+- E2E 測試需要 Docker（PostgreSQL），如環境不支援則跳過並標記
+- 記錄每項的 pass/fail + 具體錯誤訊息
+- 如果 CVE 為 HIGH/CRITICAL，在報告頂部加 ⚠️ 警告
+```
+
+**前置條件**：
+- Rust toolchain 已安裝（`cargo`、`clippy`）
+- Node.js 已安裝（`npm`）
+- `cargo-deny` 已安裝（`cargo install cargo-deny`）
+</details>
+
+<details>
+<summary>R18-3：月度架構審查排程</summary>
+
+**使用工具**：Claude Code `/schedule` 建立 remote trigger
+
+**排程設定**：
+- **頻率**：每月 1 日
+- **Cron**：`0 9 1 * *`
+
+**Prompt 模板**：
+```
+在 C:\System Coding\ipig_system 執行 Heartbeat 月度架構審查。
+
+深度檢查以下面向：
+
+1. CLAUDE.md 規範合規
+   - 掃描 handlers/ 中是否有直接寫 SQL 的檔案（應在 repositories/）
+   - 掃描 services/ 中是否有建構 HTTP response 的程式碼（應在 handlers/）
+   - 掃描 utils/ 中是否 import AppState（禁止）
+   - 掃描 models/ 中是否 import 其他層（禁止）
+
+2. 量化指標
+   - 列出所有 > 50 行的 Rust 函數
+   - 列出所有 > 300 行的 React 元件（.tsx）
+   - 列出所有 > 6 個 Props 的 React 元件
+   - 列出所有 > 5 個參數的 Rust 函數
+
+3. 重複程式碼
+   - 掃描相同 SQL SELECT 出現 ≥ 2 處
+   - 掃描相同驗證邏輯 ≥ 2 處
+
+4. 依賴健康度
+   - 列出 Cargo.toml 中可升級的依賴
+   - 列出 package.json 中可升級的依賴
+   - 標記 major version behind 的依賴
+
+5. 測試覆蓋
+   - 計算 handler 數量 vs 整合測試數量
+   - 標記無測試的關鍵 handler
+
+產出報告寫入 docs/heartbeat/architecture-YYYY-MM.md，格式依 heartbeatImprovement.md。
+與上月報告對比（如存在），標記趨勢（改善/惡化/持平）。
+```
+
+**驗收條件**：每月產出一份包含量化指標和趨勢的架構審查報告。
+</details>
+
+---
+
+## 🎫 R19 — 客戶邀請制入口（2026-03-29）
+
+> 來源：`docs/clientsAccess.md`。讓外部客戶透過一次性邀請連結自助註冊，提交 IACUC 計劃書。
+
+### Phase 1：邀請後台
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R19-1 | **invitations migration** | `invitations` 表 + pending email UNIQUE index | [x] |
+| R19-2 | **邀請 Backend** | model + handler + service（建立/列表/撤銷/重新發送），含 Email 已註冊→重設密碼、已邀請→重新發送邏輯 | [x] |
+| R19-3 | **邀請 Email 模板** | HTML + plain text，含一次性連結 | [x] |
+| R19-4 | **邀請管理前端頁面** | Admin 建立 Dialog（只需 Email + 可選組織）、送出後顯示可複製連結、列表 + 狀態篩選 | [x] |
+| R19-5 | **邀請權限設定** | `invitation.create/view/revoke/resend` → IACUC_STAFF, SYSTEM_ADMIN | [x] |
+
+### Phase 2：客戶自助註冊
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R19-6 | **公開 verify/accept endpoints** | verify 回傳 token 狀態 + Email；accept 建帳 + 自動分配 PI 角色 + 回傳 JWT | [x] |
+| R19-7 | **客戶註冊頁面** | `/invite/{token}` 頁面：驗證連結→填寫資料→設定密碼→自動登入→導向「我的計劃書」 | [x] |
+| R19-8 | **錯誤處理頁面** | 連結過期/已使用/無效 → 友善提示頁面 | [x] |
+
+### Phase 3：客戶介面
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R19-9 | **客戶 Sidebar 簡化** | PI 角色 sidebar 只顯示「我的計劃書」+ 個人設定 | [x] |
+| R19-10 | **計劃書狀態 Timeline UI** | 視覺化顯示計劃書審查進度（6 階段） | [x] |
+| R19-11 | **審查意見通知** | 審查進度變更時 Email + 站內通知客戶 | [x] |
+
+### Phase 4：測試與上線
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R19-12 | **邀請流程 E2E 測試** | 建立→接受→登入→提交計劃書完整流程 | [x] |
+| R19-13 | **權限隔離測試** | 客戶不可存取其他人資料、不可存取 Admin/HR/ERP | [x] |
+| R19-14 | **安全測試** | Token 暴力破解、過期處理、重複使用防護 | [x] |
+
+### R19 詳細實作計畫
+
+<details>
+<summary>R19-1：invitations migration</summary>
+
+**檔案**：`backend/migrations/0XX_invitations.sql`（接在最後一個 migration 之後）
+
+**SQL**：
+```sql
+CREATE TABLE invitations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL,
+    organization VARCHAR(255),
+    invitation_token VARCHAR(255) UNIQUE NOT NULL,
+    invited_by UUID NOT NULL REFERENCES users(id),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'accepted', 'expired', 'revoked')),
+    expires_at TIMESTAMPTZ NOT NULL,
+    accepted_at TIMESTAMPTZ,
+    created_user_id UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 同一 Email 只能有一筆 pending 邀請
+CREATE UNIQUE INDEX idx_invitations_email_pending
+    ON invitations (email) WHERE status = 'pending';
+
+-- Token 查詢索引
+CREATE INDEX idx_invitations_token ON invitations (invitation_token);
+
+-- 過期清理用索引
+CREATE INDEX idx_invitations_expires_at ON invitations (expires_at)
+    WHERE status = 'pending';
+```
+
+**注意**：不需要 `role_ids` 欄位，角色固定 PI。
+</details>
+
+<details>
+<summary>R19-2：邀請 Backend（model + handler + service）</summary>
+
+**新增檔案**：
+
+1. **`backend/src/models/invitation.rs`**
+   ```rust
+   // DB entity
+   pub struct Invitation { id, email, organization, invitation_token, invited_by, status, expires_at, accepted_at, created_user_id, created_at, updated_at }
+
+   // Request DTOs
+   pub struct CreateInvitationRequest { email: String, organization: Option<String> }
+
+   // Response DTOs
+   pub struct InvitationResponse { ...全欄位..., invite_link: String, invited_by_name: String }
+   pub struct CreateInvitationResponse { invitation: InvitationResponse, invite_link: String }
+
+   // 錯誤類型
+   pub enum InvitationError { EmailAlreadyRegistered, AlreadyInvited { invitation_id: Uuid }, TokenInvalid, TokenExpired, TokenUsed }
+   ```
+
+2. **`backend/src/services/invitation.rs`**
+   ```rust
+   pub struct InvitationService;
+   impl InvitationService {
+       // 建立邀請
+       pub async fn create(db, email, organization, invited_by, base_url) -> Result<CreateInvitationResponse, AppError> {
+           // 1. 檢查 users 表 email 是否已存在 → AppError::Conflict("EmailAlreadyRegistered")
+           // 2. 檢查 invitations 表是否已有 pending → AppError::Conflict("AlreadyInvited")
+           // 3. generate_crypto_random_token(64) → base64url 編碼
+           // 4. INSERT INTO invitations
+           // 5. spawn(send_invitation_email) — 非同步不阻塞
+           // 6. 回傳 invitation + invite_link
+       }
+
+       // 列出邀請（支援 status 篩選 + 分頁）
+       pub async fn list(db, status_filter, page, per_page) -> Result<PaginatedResponse<InvitationResponse>>
+
+       // 撤銷邀請
+       pub async fn revoke(db, invitation_id) -> Result<()>
+           // UPDATE status = 'revoked' WHERE status = 'pending'
+
+       // 重新發送（更新 token + 重設 expires_at + 重發 Email）
+       pub async fn resend(db, invitation_id, base_url) -> Result<CreateInvitationResponse>
+           // 1. 檢查 status = 'pending'
+           // 2. 產生新 token，更新 expires_at = now + 7d
+           // 3. 重發 Email + 回傳新連結
+
+       // 驗證 token
+       pub async fn verify(db, token) -> Result<VerifyResponse>
+           // 回傳 { valid, email, organization, reason }
+
+       // 接受邀請
+       pub async fn accept(db, token, req: AcceptInvitationRequest) -> Result<(User, AuthTokens)>
+           // 1. 驗證 token (pending + 未過期)
+           // 2. UserService::create(email from invitation, ...)
+           // 3. RoleService::assign_role(user_id, PI_ROLE_ID)
+           // 4. UPDATE invitation status='accepted', accepted_at, created_user_id
+           // 5. generate_auth_tokens(user) → 自動登入
+           // 6. audit_log("invitation_accepted", ...)
+
+       // 排程：過期清理（可加入 scheduler.rs）
+       pub async fn expire_stale(db) -> Result<u64>
+           // UPDATE status='expired' WHERE status='pending' AND expires_at < now()
+   }
+   ```
+
+3. **`backend/src/handlers/invitation.rs`**
+   ```rust
+   // 需認證（IACUC_STAFF / SYSTEM_ADMIN）
+   pub async fn create_invitation(State, Extension(user), Json(req)) -> Result<Json<CreateInvitationResponse>>
+   pub async fn list_invitations(State, Extension(user), Query(params)) -> Result<Json<PaginatedResponse>>
+   pub async fn revoke_invitation(State, Extension(user), Path(id)) -> Result<StatusCode>
+   pub async fn resend_invitation(State, Extension(user), Path(id)) -> Result<Json<CreateInvitationResponse>>
+
+   // 公開（無需認證）
+   pub async fn verify_invitation(State, Path(token)) -> Result<Json<VerifyResponse>>
+   pub async fn accept_invitation(State, Json(req)) -> Result<Json<AcceptResponse>>
+   ```
+
+4. **`backend/src/routes/invitation.rs`**
+   ```rust
+   pub fn admin_routes() -> Router {
+       Router::new()
+           .route("/invitations", post(create).get(list))
+           .route("/invitations/:id", delete(revoke))
+           .route("/invitations/:id/resend", post(resend))
+   }
+   pub fn public_routes() -> Router {
+       Router::new()
+           .route("/invitations/verify/:token", get(verify))
+           .route("/invitations/accept", post(accept))
+   }
+   ```
+
+**修改檔案**：
+- `backend/src/routes/mod.rs`：註冊 invitation routes（admin 在 protected_routes、public 在 public_routes）
+- `backend/src/models/mod.rs`：加 `pub mod invitation;`
+- `backend/src/services/mod.rs`：加 `pub mod invitation;`
+- `backend/src/handlers/mod.rs`：加 `pub mod invitation;`
+- `backend/src/services/scheduler.rs`：加入每日過期清理 job（`0 4 * * *`）
+
+**accept endpoint 的回應**：
+```json
+{
+    "user": { "id": "...", "email": "...", "display_name": "..." },
+    "access_token": "eyJ...",
+    "refresh_token": "..."
+}
+```
+前端收到後寫入 cookie/store，直接導向 `/my-projects`。
+</details>
+
+<details>
+<summary>R19-3：邀請 Email 模板</summary>
+
+**新增檔案**：`backend/src/services/email/invitation.rs`
+
+**函式**：
+```rust
+pub async fn send_invitation_email(
+    smtp_config: &SmtpConfig,
+    to_email: &str,
+    invite_link: &str,
+    expires_at: &str,  // 格式化的日期字串
+) -> Result<()>
+```
+
+**Email 模板**（`resources/templates/email/invitation.html`）：
+- 複用現有 Email 模板風格（inline CSS、公司 logo CID、響應式）
+- 內容：
+  - 標題：邀請您加入實驗動物管理平台
+  - 功能說明（提交 AUP、追蹤進度、線上溝通）
+  - CTA 按鈕：「完成註冊」→ `{invite_link}`
+  - 過期提示：`⏰ 此連結將於 {expires_at} 到期`
+  - 聯絡資訊（037-433789）
+  - Plain text fallback 版本
+
+**參考**：複用 `services/email/auth.rs` 的 `send_welcome_email()` 結構。
+</details>
+
+<details>
+<summary>R19-4：邀請管理前端頁面</summary>
+
+**新增檔案**：
+
+1. **`frontend/src/pages/admin/InvitationsPage.tsx`**（≤300 行）
+   - 使用 `PageHeader`（標題 + 「新增邀請」按鈕）
+   - 使用 `DataTable` 顯示邀請列表
+   - 欄位：Email、組織、狀態 badge、邀請人、建立時間、到期時間、操作
+   - 狀態篩選 Tab：全部 / Pending / Accepted / Expired / Revoked
+   - 操作按鈕：重新發送（pending）、撤銷（pending）
+   - 分頁
+
+2. **`frontend/src/pages/admin/components/InvitationCreateDialog.tsx`**（≤200 行）
+   - React Hook Form + Zod 驗證
+   - 欄位：Email（必填）、組織（選填）
+   - 送出成功後切換為「成功狀態」：
+     - 顯示「✅ 邀請已送出至 xxx@xxx.com」
+     - 顯示可複製的連結 + 📋 複製按鈕（`navigator.clipboard.writeText`）
+     - 過期時間提示
+   - 錯誤處理：
+     - `EmailAlreadyRegistered` → 提示「此 Email 已有帳號」+ 連結到使用者管理
+     - `AlreadyInvited` → 提示「已邀請過」+ 「重新發送」按鈕
+
+3. **`frontend/src/lib/api/invitation.ts`**
+   ```typescript
+   export const invitationApi = {
+     create: (data: { email: string; organization?: string }) => client.post('/invitations', data),
+     list: (params: { status?: string; page?: number }) => client.get('/invitations', { params }),
+     revoke: (id: string) => client.delete(`/invitations/${id}`),
+     resend: (id: string) => client.post(`/invitations/${id}/resend`),
+   }
+   ```
+
+4. **`frontend/src/types/invitation.ts`**
+   ```typescript
+   export interface Invitation { id, email, organization, status, invited_by_name, expires_at, accepted_at, created_at }
+   export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked'
+   ```
+
+**修改檔案**：
+- `frontend/src/App.tsx`：加入 `/admin/invitations` 路由
+- Sidebar 導航：在 Admin section 加入「邀請管理」項目
+- `frontend/src/lib/api/index.ts`：匯出 `invitationApi`
+</details>
+
+<details>
+<summary>R19-5：邀請權限設定</summary>
+
+**修改檔案**：`backend/src/startup/permissions.rs`
+
+**新增權限**：
+```rust
+// 在 permissions 定義區加入
+("invitation.create", "建立客戶邀請"),
+("invitation.view", "查看邀請列表"),
+("invitation.revoke", "撤銷邀請"),
+("invitation.resend", "重新發送邀請"),
+```
+
+**分配角色**：
+- `IACUC_STAFF`：invitation.create + view + revoke + resend
+- `SYSTEM_ADMIN`：invitation.create + view + revoke + resend
+
+**其他角色不可見邀請管理頁面**。
+
+**前端**：Sidebar 根據 `invitation.view` 權限顯示/隱藏「邀請管理」。
+</details>
+
+<details>
+<summary>R19-6：公開 verify/accept endpoints</summary>
+
+**verify endpoint**：`GET /api/invitations/verify/{token}`
+- 無需認證，加 rate limiter（10 次/分鐘/IP）
+- 回應：
+  ```json
+  // 有效
+  { "valid": true, "email": "wang@hospital.org", "organization": "台大醫院" }
+  // 已使用
+  { "valid": false, "reason": "already_accepted" }
+  // 已過期
+  { "valid": false, "reason": "expired" }
+  // 不存在
+  → 404
+  ```
+
+**accept endpoint**：`POST /api/invitations/accept`
+- 無需認證，加 rate limiter（5 次/分鐘/IP — 更嚴格防暴力破解）
+- Request body：
+  ```json
+  {
+      "invitation_token": "a8f3...x9z",
+      "display_name": "王大明",
+      "phone": "0912345678",
+      "organization": "台大醫院",
+      "password": "SecurePass123!",
+      "position": "主治醫師",
+      "agree_terms": true
+  }
+  ```
+- 驗證：
+  - `invitation_token`：查 DB，狀態必須 pending + 未過期
+  - `display_name`：1-100 字元
+  - `phone`：9-10 位數字
+  - `password`：≥ 10 字元（複用現有密碼規則，含大小寫 + 數字）
+  - `agree_terms`：必須 true
+- 成功後：
+  1. 建立 user（`must_change_password = false`）
+  2. 分配 PI 角色
+  3. 更新 invitation（status=accepted）
+  4. 產生 JWT access_token + refresh_token
+  5. 回傳：user 資訊 + tokens
+  6. 設定 HttpOnly cookie（與現有 login 一致）
+</details>
+
+<details>
+<summary>R19-7：客戶註冊頁面</summary>
+
+**新增檔案**：`frontend/src/pages/auth/InvitationAcceptPage.tsx`
+
+**路由**：`/invite/:token`（公開路由，無需認證）
+
+**流程**：
+```
+頁面載入
+  → useEffect: GET /api/invitations/verify/{token}
+  → 成功 (valid=true)：顯示註冊表單，Email 預填（readonly）
+  → 失敗 (valid=false)：顯示錯誤頁面（R19-8）
+
+使用者填寫表單
+  → React Hook Form + Zod 驗證
+  → 欄位：
+    - Email（readonly，從 verify 回傳）
+    - 姓名*（display_name）
+    - 電話*（phone）
+    - 組織*（organization，從 verify 預填，可修改）
+    - 職稱（position，選填）
+    - 密碼*（含強度指示器）
+    - 確認密碼*
+    - □ 同意服務條款（連結到 /terms）
+  → 送出：POST /api/invitations/accept
+
+成功回應
+  → 將 tokens 寫入 auth store
+  → 設定 cookie
+  → navigate('/my-projects')
+  → toast.success('歡迎加入！')
+```
+
+**UI 設計**：
+- 使用與 LoginPage 相同的佈局風格（居中卡片）
+- 公司 logo + 標題「完成註冊」
+- 表單 ≤ 250 行，提取 Zod schema 到 validation.ts
+</details>
+
+<details>
+<summary>R19-8：錯誤處理頁面</summary>
+
+**在 InvitationAcceptPage.tsx 中處理**（不需獨立檔案）：
+
+```
+token 不存在 (404)   → 「此邀請連結無效，請聯繫管理員」
+已使用 (accepted)    → 「此邀請已使用，如忘記密碼請」→ 連結到 /forgot-password
+已過期 (expired)     → 「此邀請已過期，請聯繫管理員重新發送」
+已撤銷 (revoked)     → 「此邀請已被撤銷，請聯繫管理員」
+```
+
+每種狀態顯示友善圖示 + 說明 + 操作建議。
+</details>
+
+<details>
+<summary>R19-9：客戶 Sidebar 簡化</summary>
+
+**修改檔案**：`frontend/src/components/layout/Sidebar.tsx`（或同層導航元件）
+
+**邏輯**：
+```typescript
+// 判斷是否為「純客戶」（只有 PI 角色，無其他管理角色）
+const isClientOnly = user.roles.length === 1 && user.roles[0].code === 'PI';
+
+if (isClientOnly) {
+    // 只顯示：
+    // - 我的計劃書 (/my-projects)
+    // - 個人設定 (/profile)
+    // 隱藏所有 Admin、HR、ERP、動物管理、報表 section
+}
+```
+
+**注意**：如果 PI 同時有其他角色（如 EXPERIMENT_STAFF），則顯示完整 sidebar。這個邏輯確保內部人員不受影響。
+</details>
+
+<details>
+<summary>R19-10：計劃書狀態 Timeline UI</summary>
+
+**新增元件**：`frontend/src/components/protocol/ProtocolTimeline.tsx`
+
+**顯示在**：`MyProjectDetailPage.tsx` 頂部
+
+**視覺設計**：水平進度條，6 個節點
+
+```
+[Draft] ─── [Submitted] ─── [Pre-Review] ─── [Vet Review] ─── [Committee] ─── [Approved]
+  ●            ●               ●               ○               ○              ○
+  完成          完成            進行中
+
+  ● = 已完成（綠色）
+  ◉ = 進行中（藍色脈動）
+  ○ = 未到達（灰色）
+  ✕ = 退回修改（橙色，顯示在對應階段）
+```
+
+**狀態對應**：
+- Draft → 節點 1
+- Submitted → 節點 2
+- Pre_Review / Pre_Review_Revision_Required → 節點 3
+- Vet_Review / Vet_Revision_Required → 節點 4
+- Under_Review / Revision_Required / Resubmitted → 節點 5
+- Approved / Approved_With_Conditions → 節點 6
+- Rejected / Suspended / Closed → 特殊狀態標記
+
+**資料來源**：`protocol.status`（已有）+ `protocol_status_history`（顯示各階段時間戳）
+</details>
+
+<details>
+<summary>R19-11：審查意見通知</summary>
+
+**修改檔案**：`backend/src/services/notification/protocol.rs`
+
+**新增通知事件**：
+| 事件 | 通知對象 | 通道 |
+|------|---------|------|
+| 計劃書狀態變更 | PI（protocol owner） | Email + 站內 |
+| 新審查意見 | PI | Email + 站內 |
+| 退回修改 | PI | Email + 站內（含修改建議摘要） |
+| 核准 | PI | Email + 站內（含 IACUC 編號） |
+
+**Email 模板新增**：`resources/templates/email/protocol_status.html`
+- 動態內容：計劃書標題、新狀態、審查意見摘要（如有）
+- CTA 按鈕：「查看詳情」→ `{base_url}/my-projects/{protocol_id}`
+
+**現有基礎**：`services/notification/protocol.rs` 已有通知框架，只需新增 PI 對象的觸發邏輯。
+</details>
+
+<details>
+<summary>R19-12 / R19-13 / R19-14：測試</summary>
+
+**R19-12 E2E 測試**：`frontend/e2e/invitation.spec.ts`
+```
+test('完整邀請流程', async () => {
+    // 1. Admin 登入 → 建立邀請
+    // 2. 取得邀請連結
+    // 3. 開新 context → 訪問邀請連結
+    // 4. 填寫註冊表單 → 提交
+    // 5. 驗證自動登入 → 看到「我的計劃書」
+    // 6. 驗證可建立新計劃書
+})
+
+test('重複邀請處理', async () => { /* 已邀請 Email → 提示 */ })
+test('過期連結處理', async () => { /* 過期 token → 友善提示 */ })
+```
+
+**R19-13 權限隔離測試**：`backend/tests/api_invitations.rs`
+```rust
+#[test] async fn pi_cannot_access_admin_pages() { /* GET /api/users → 403 */ }
+#[test] async fn pi_cannot_see_other_protocols() { /* GET /api/protocols → 只回傳自己的 */ }
+#[test] async fn pi_cannot_access_erp() { /* GET /api/products → 403 */ }
+#[test] async fn pi_cannot_access_hr() { /* GET /api/hr/attendance → 403 */ }
+```
+
+**R19-14 安全測試**：`backend/tests/api_invitations.rs`
+```rust
+#[test] async fn brute_force_token_rate_limited() { /* 10+ requests → 429 */ }
+#[test] async fn expired_token_rejected() { /* 設定過期 → 400 */ }
+#[test] async fn used_token_rejected() { /* 已 accept → 400 */ }
+#[test] async fn revoked_token_rejected() { /* 已 revoke → 400 */ }
+#[test] async fn invalid_token_404() { /* 不存在 → 404 */ }
+```
+</details>
+
+---
+
+## 🤖 R20 — AI 預審與執行秘書標註（2026-03-29）
+
+> 來源：`docs/AIReview.md` + `docs/clientsAccess.md` §4。雙角色 AI 審查：客戶端預審 + 執行秘書標註。
+
+### Phase 1：規則式檢查
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R20-1 | **Backend 驗證規則擴展** | `services/protocol/validation.rs` — 字數門檻、日期邏輯、3Rs 完整性、疼痛分類 vs 麻醉一致性 | [x] |
+| R20-2 | **驗證 API endpoint** | `POST /api/protocols/{id}/validate` — Level 1 規則檢查 | [x] |
+| R20-3 | **前端提交前驗證 UI** | 提交時觸發驗證 + 報告面板（必須修正/建議改善） | [x] |
+
+### Phase 2：Claude API 整合
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R20-4 | **protocol_ai_reviews migration** | 儲存 AI 預審結果，含 `review_type`（client_pre_submit / staff_pre_review） | [x] |
+| R20-5 | **AI 預審 service** | 擴展 `services/ai/` — system prompt、計劃書序列化、回應解析、快取、成本控制 | [x] |
+| R20-6 | **客戶端 AI 預審** | `POST /api/protocols/{id}/ai-review` + 前端 AI 預審按鈕 + 結果面板 | [x] |
+| R20-7 | **執行秘書 AI 標註** | `POST /api/protocols/{id}/staff-review-assist` + Pre-Review 頁面頂部標註面板（🚩⚠️ℹ️ 三類） | [x] |
+| R20-8 | **Pre-Review 自動觸發** | Status 變更為 Pre_Review 時自動呼叫 AI 標註 | [x] |
+
+### Phase 3：調校與優化
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R20-9 | **System prompt 調校** | 收集真實審查意見，對比 AI 預審結果，調整 prompt 提高準確率 | [ ] |
+| R20-10 | **退回率追蹤** | 追蹤 Pre-Review 退回次數是否下降 | [ ] |
+
+### R20 詳細實作計畫
+
+<details>
+<summary>R20-1：Backend 驗證規則擴展（Level 1 規則引擎）</summary>
+
+**新增檔案**：`backend/src/services/protocol/validation.rs`
+
+**規則引擎設計**：
+
+```rust
+pub struct ValidationResult {
+    pub passed: Vec<ValidationCheck>,
+    pub errors: Vec<ValidationIssue>,    // 必須修正
+    pub warnings: Vec<ValidationIssue>,  // 建議改善
+}
+
+pub struct ValidationIssue {
+    pub code: String,           // e.g. "3RS_REDUCTION_MISSING"
+    pub category: String,       // e.g. "3Rs", "animals", "design"
+    pub section: String,        // e.g. "purpose", "animals", "design"
+    pub message: String,        // 人類可讀訊息
+    pub suggestion: String,     // 建議修正方式
+}
+
+pub fn validate_protocol(working_content: &serde_json::Value) -> ValidationResult
+```
+
+**驗證規則清單**（從 `working_content` JSON 解析）：
+
+| 規則 | 類型 | 欄位 | 條件 |
+|------|------|------|------|
+| 研究目的字數 | error | `purpose.significance` | ≥ 100 字，「略」「同上」視為無效 |
+| Replacement 說明 | error | `purpose.replacement` | ≥ 50 字，必須說明為何不能用替代方法 |
+| Reduction 說明 | error | `purpose.reduction` | ≥ 50 字，必須提及統計方法或文獻支持 |
+| Refinement 說明 | error | `purpose.refinement` | ≥ 50 字，必須提及痛苦最小化措施 |
+| 日期邏輯 | error | `basic.start_date`, `end_date` | end > start，期限 ≤ 3 年 |
+| 動物數量 | error | `animals.total_count` | > 0 且與分組合計一致 |
+| 疼痛分類 vs 麻醉 | warning | `design.pain_category`, `design.anesthesia` | C/D/E 類必須有麻醉方案 |
+| 人員訓練證照 | warning | `personnel[].training` | 所有人員應有證照編號 |
+| 替代方案搜尋平台 | warning | `purpose.alternative_databases` | ≥ 2 個平台 |
+| 人道終點具體性 | warning | `design.humane_endpoint` | 不含「明顯」「嚴重」等模糊詞，應有量化指標 |
+| 術後觀察頻率 | warning | `design.post_op_care` | 如有手術，必須提及觀察時間點 |
+| 實驗期程合理性 | warning | `basic.start_date`, `end_date` | > 2 年標記提醒 |
+| 安樂死方法 | warning | `design.euthanasia_method` | 對照 AVMA 推薦方法清單 |
+| 附件完整性 | warning | `attachments[]` | 至少 1 份附件 |
+
+**實作要點**：
+- 從 `working_content` JSONB 解析各欄位，容忍欄位缺失（Option）
+- 每條規則獨立函式，方便擴展
+- 回傳結構化結果，前端可直接對應到表單 section
+</details>
+
+<details>
+<summary>R20-2：驗證 API endpoint</summary>
+
+**新增 handler**：`backend/src/handlers/protocol/validation.rs`
+
+```rust
+/// POST /api/protocols/{id}/validate
+/// 權限：protocol owner (PI/Co-editor) 或 IACUC_STAFF
+pub async fn validate_protocol(
+    State(state): State<AppState>,
+    Extension(user): Extension<CurrentUser>,
+    Path(protocol_id): Path<Uuid>,
+) -> Result<Json<ValidationResult>, AppError> {
+    // 1. 權限檢查：require_protocol_view_access
+    // 2. 讀取 protocol.working_content
+    // 3. 呼叫 validation::validate_protocol(working_content)
+    // 4. 回傳 ValidationResult
+}
+```
+
+**路由**：在 `routes/protocol.rs` 加入：
+```rust
+.route("/protocols/:id/validate", post(validate_protocol))
+```
+
+**回應格式**：
+```json
+{
+    "errors": [
+        { "code": "3RS_REDUCTION_MISSING", "category": "3Rs", "section": "purpose", "message": "...", "suggestion": "..." }
+    ],
+    "warnings": [...],
+    "passed": ["research_purpose", "personnel_qualifications", ...]
+}
+```
+</details>
+
+<details>
+<summary>R20-3：前端提交前驗證 UI</summary>
+
+**新增元件**：`frontend/src/components/protocol/ValidationPanel.tsx`
+
+**觸發時機**：
+1. 使用者點擊「提交」按鈕時，先呼叫 `POST /api/protocols/{id}/validate`
+2. 如有 errors → 阻擋提交，顯示 ValidationPanel
+3. 如只有 warnings → 顯示 ValidationPanel，使用者可選擇「修正」或「忽略並提交」
+4. 全部通過 → 直接提交
+
+**元件結構**：
+```tsx
+<ValidationPanel result={validationResult}>
+  {/* errors 區塊 — 紅色，必須修正 */}
+  <ValidationSection severity="error" issues={result.errors} />
+
+  {/* warnings 區塊 — 黃色，建議改善 */}
+  <ValidationSection severity="warning" issues={result.warnings} />
+
+  {/* passed 區塊 — 綠色，可摺疊 */}
+  <ValidationSection severity="passed" items={result.passed} />
+
+  {/* 操作按鈕 */}
+  <Button onClick={fix}>修正</Button>
+  {onlyWarnings && <Button onClick={submitAnyway}>忽略建議，直接提交</Button>}
+</ValidationPanel>
+```
+
+**每個 issue 可點擊**：跳轉到對應的表單 section（利用既有的 section tab 導航）。
+
+**修改檔案**：
+- `frontend/src/pages/protocols/ProtocolEditPage.tsx`：提交流程插入 validate 步驟
+- `frontend/src/lib/api/protocol.ts`：新增 `validate(protocolId)` API 函式
+</details>
+
+<details>
+<summary>R20-4：protocol_ai_reviews migration</summary>
+
+**檔案**：`backend/migrations/0XX_protocol_ai_reviews.sql`
+
+```sql
+CREATE TABLE protocol_ai_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    protocol_id UUID NOT NULL REFERENCES protocols(id) ON DELETE CASCADE,
+    protocol_version_id UUID REFERENCES protocol_versions(id),
+    review_type VARCHAR(30) NOT NULL
+        CHECK (review_type IN ('client_pre_submit', 'staff_pre_review')),
+    -- Level 1 結果
+    rule_result JSONB,
+    -- Level 2 AI 結果
+    ai_result JSONB,
+    ai_model VARCHAR(50),          -- 'claude-haiku-4-5' | 'claude-sonnet-4-6'
+    ai_input_tokens INTEGER,
+    ai_output_tokens INTEGER,
+    -- 合併結果
+    total_errors INTEGER NOT NULL DEFAULT 0,
+    total_warnings INTEGER NOT NULL DEFAULT 0,
+    score INTEGER,                  -- 0-100 整體評分
+    -- 元資訊
+    triggered_by UUID REFERENCES users(id),  -- NULL = 自動觸發
+    duration_ms INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 查詢最新一筆 AI review
+CREATE INDEX idx_ai_reviews_protocol_latest
+    ON protocol_ai_reviews (protocol_id, created_at DESC);
+
+-- 避免同一 version 重複呼叫
+CREATE UNIQUE INDEX idx_ai_reviews_version_type
+    ON protocol_ai_reviews (protocol_version_id, review_type)
+    WHERE protocol_version_id IS NOT NULL;
+```
+
+**設計考量**：
+- `rule_result` 和 `ai_result` 分開存，Level 1 不花錢可頻繁呼叫
+- `ai_input_tokens` / `ai_output_tokens` 追蹤成本
+- `protocol_version_id` + `review_type` UNIQUE index 防重複呼叫
+- 不分區（量少，每筆計劃書最多幾十筆 review）
+</details>
+
+<details>
+<summary>R20-5：AI 預審 service（Claude API 整合）</summary>
+
+**新增檔案**：`backend/src/services/protocol/ai_review.rs`
+
+**Config 擴展**（`config.rs`）：
+```rust
+pub struct Config {
+    // ... 現有欄位 ...
+    pub anthropic_api_key: Option<String>,       // ANTHROPIC_API_KEY
+    pub ai_review_model: String,                 // AI_REVIEW_MODEL, 預設 "claude-haiku-4-5"
+    pub ai_review_enabled: bool,                 // AI_REVIEW_ENABLED, 預設 true
+    pub ai_review_timeout_secs: u64,             // AI_REVIEW_TIMEOUT_SECS, 預設 30
+}
+```
+
+**Service 結構**：
+```rust
+pub struct AiReviewService;
+
+impl AiReviewService {
+    /// 完整預審（Level 1 + Level 2）
+    pub async fn review_protocol(
+        db: &PgPool,
+        config: &Config,
+        protocol_id: Uuid,
+        review_type: &str,        // "client_pre_submit" | "staff_pre_review"
+        triggered_by: Option<Uuid>,
+    ) -> Result<AiReviewResult, AppError> {
+        let start = Instant::now();
+
+        // 1. 讀取 protocol.working_content
+        let protocol = find_protocol_by_id(db, protocol_id).await?;
+        let content = &protocol.working_content;
+
+        // 2. Level 1：規則引擎
+        let rule_result = validation::validate_protocol(content);
+
+        // 3. 快取檢查：同一 version + type 已有結果 → 直接回傳
+        if let Some(cached) = find_cached_review(db, protocol.current_version_id, review_type).await? {
+            return Ok(cached);
+        }
+
+        // 4. Level 2：Claude API（僅在 Level 1 基本通過 + API key 存在時呼叫）
+        let ai_result = if config.anthropic_api_key.is_some() && config.ai_review_enabled {
+            Some(call_claude_api(config, content, review_type).await?)
+        } else {
+            None
+        };
+
+        // 5. 合併結果
+        let combined = merge_results(rule_result, ai_result);
+
+        // 6. 儲存至 DB
+        insert_ai_review(db, protocol_id, protocol.current_version_id, review_type, &combined, triggered_by, start.elapsed()).await?;
+
+        Ok(combined)
+    }
+
+    /// 呼叫 Claude API
+    async fn call_claude_api(
+        config: &Config,
+        content: &serde_json::Value,
+        review_type: &str,
+    ) -> Result<AiResult, AppError> {
+        let client = reqwest::Client::new();  // 複用現有 reqwest 依賴
+
+        // 序列化計劃書內容為結構化文本
+        let protocol_text = serialize_protocol_for_ai(content);
+
+        // 選擇 system prompt
+        let system_prompt = match review_type {
+            "client_pre_submit" => CLIENT_REVIEW_PROMPT,
+            "staff_pre_review" => STAFF_REVIEW_PROMPT,
+            _ => return Err(AppError::BadRequest("Invalid review type")),
+        };
+
+        let response = client
+            .post("https://api.anthropic.com/v1/messages")
+            .header("x-api-key", config.anthropic_api_key.as_ref().unwrap())
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .timeout(Duration::from_secs(config.ai_review_timeout_secs))
+            .json(&serde_json::json!({
+                "model": config.ai_review_model,
+                "max_tokens": 2048,
+                "system": system_prompt,
+                "messages": [{ "role": "user", "content": protocol_text }]
+            }))
+            .send()
+            .await
+            .map_err(|e| AppError::ExternalService(format!("Claude API: {}", e)))?;
+
+        // 解析回應
+        let body: serde_json::Value = response.json().await?;
+        let text = body["content"][0]["text"].as_str().unwrap_or("");
+
+        // 解析 JSON（Claude 回傳結構化 JSON）
+        parse_ai_response(text)
+    }
+}
+```
+
+**System Prompt 常數**：
+```rust
+const CLIENT_REVIEW_PROMPT: &str = r#"
+你是一位資深的 IACUC 審查委員，擁有實驗動物科學與獸醫學背景。
+你的任務是預審動物實驗計劃書（AUP），幫助計畫主持人在提交前改善內容。
+...（完整 prompt 見 docs/AIReview.md）
+回覆格式為 JSON: { "summary": "...", "score": 72, "issues": [...], "passed": [...] }
+"#;
+
+const STAFF_REVIEW_PROMPT: &str = r#"
+你是一位資深的 IACUC 審查輔助系統，協助執行秘書進行 Pre-Review。
+你的任務是標註計劃書中值得注意的地方，幫助審查人員聚焦重點。
+產出三類標註：
+- 🚩 needs_attention（格式/完整性問題）
+- ⚠️ concern（內容疑慮）
+- ℹ️ suggestion（審查建議）
+回覆格式為 JSON: { "summary": "...", "flags": [...] }
+"#;
+```
+
+**成本控制**：
+- 快取：同一 `protocol_version_id` + `review_type` 不重複呼叫
+- 模型選擇：預設 Haiku（快速便宜），`ai_review_model` 可設為 Sonnet
+- Token 限制：`serialize_protocol_for_ai` 截斷至 ≤ 8K tokens
+- Rate limit：每用戶每日 10 次（在 handler 層檢查 `protocol_ai_reviews` 表 count）
+</details>
+
+<details>
+<summary>R20-6：客戶端 AI 預審</summary>
+
+**Backend handler**：`backend/src/handlers/protocol/ai_review.rs`
+
+```rust
+/// POST /api/protocols/{id}/ai-review
+/// 權限：protocol owner (PI/Co-editor)
+/// Rate limit：10 次/天/用戶
+pub async fn ai_review_protocol(
+    State(state): State<AppState>,
+    Extension(user): Extension<CurrentUser>,
+    Path(protocol_id): Path<Uuid>,
+) -> Result<Json<AiReviewResult>, AppError> {
+    // 1. 權限：require_protocol_edit_access
+    // 2. Rate limit 檢查：今天已用次數
+    // 3. AiReviewService::review_protocol(db, config, id, "client_pre_submit", Some(user.id))
+    // 4. 回傳結果
+}
+
+/// GET /api/protocols/{id}/ai-review/latest
+/// 取得最新一筆 AI review 結果（快取用）
+pub async fn get_latest_ai_review(...)
+```
+
+**Frontend**：
+
+1. **`frontend/src/components/protocol/AIReviewButton.tsx`**
+   ```tsx
+   // 放在 ProtocolEditPage 工具列
+   <Button onClick={triggerAiReview} disabled={isLoading}>
+     {isLoading ? <Spinner /> : '🔍 AI 預審'}
+   </Button>
+   // 剩餘次數顯示：「今日剩餘 8/10 次」
+   ```
+
+2. **`frontend/src/components/protocol/AIReviewPanel.tsx`**
+   ```tsx
+   // 顯示 AI 預審結果
+   <Card>
+     <CardHeader>AI 預審報告 — 評分 {score}/100</CardHeader>
+     <CardContent>
+       {errors.map(issue => <IssueItem severity="error" issue={issue} />)}
+       {warnings.map(issue => <IssueItem severity="warning" issue={issue} />)}
+       <Collapsible><PassedItems items={passed} /></Collapsible>
+     </CardContent>
+     <CardFooter>
+       <Button onClick={rerun}>重新檢查</Button>
+       {onlyWarnings && <Button onClick={submitAnyway}>忽略建議，直接提交</Button>}
+     </CardFooter>
+   </Card>
+   ```
+
+3. **`frontend/src/lib/api/aiReview.ts`**
+   ```typescript
+   export const aiReviewApi = {
+     trigger: (protocolId: string) => client.post(`/protocols/${protocolId}/ai-review`),
+     getLatest: (protocolId: string) => client.get(`/protocols/${protocolId}/ai-review/latest`),
+   }
+   ```
+
+**修改檔案**：
+- `ProtocolEditPage.tsx`：加入 AIReviewButton + AIReviewPanel
+- `routes/protocol.rs`：加入新路由
+</details>
+
+<details>
+<summary>R20-7：執行秘書 AI 標註</summary>
+
+**Backend handler**：
+
+```rust
+/// POST /api/protocols/{id}/staff-review-assist
+/// 權限：IACUC_STAFF, IACUC_CHAIR
+pub async fn staff_review_assist(
+    State(state): State<AppState>,
+    Extension(user): Extension<CurrentUser>,
+    Path(protocol_id): Path<Uuid>,
+) -> Result<Json<StaffReviewResult>, AppError> {
+    // 1. 權限：require permission "aup.review.comment" 或 IACUC_STAFF
+    // 2. AiReviewService::review_protocol(db, config, id, "staff_pre_review", Some(user.id))
+    // 3. 回傳結果
+}
+
+/// GET /api/protocols/{id}/staff-review-assist/latest
+pub async fn get_latest_staff_review(...)
+```
+
+**Frontend 元件**：`frontend/src/components/protocol/StaffReviewAssistPanel.tsx`
+
+```tsx
+// 顯示在 ProtocolDetailPage 的 Pre-Review 階段頂部
+// 只有 IACUC_STAFF / IACUC_CHAIR 可見
+
+<Alert variant="info">
+  <AlertTitle>📋 Pre-Review 審查輔助</AlertTitle>
+
+  {/* 🚩 需要注意 */}
+  <Section title="🚩 需要注意" items={flags.filter(f => f.type === 'needs_attention')} color="red" />
+
+  {/* ⚠️ 留意事項 */}
+  <Section title="⚠️ 留意事項" items={flags.filter(f => f.type === 'concern')} color="yellow" />
+
+  {/* ℹ️ 審查建議 */}
+  <Section title="ℹ️ 審查建議" items={flags.filter(f => f.type === 'suggestion')} color="blue" />
+
+  <footer>
+    AI 標註僅供參考，請依專業判斷審查
+    <Button onClick={reanalyze}>重新分析</Button>
+  </footer>
+</Alert>
+```
+
+**修改檔案**：
+- `ProtocolDetailPage.tsx`：在 Pre-Review 狀態時顯示 StaffReviewAssistPanel
+- `CommentsTab.tsx`：可選 — 在審查意見區旁邊顯示 AI 建議
+</details>
+
+<details>
+<summary>R20-8：Pre-Review 自動觸發</summary>
+
+**修改檔案**：`backend/src/services/protocol/status.rs`
+
+在 `change_status()` 函式中，當狀態變更為 `Pre_Review` 時：
+
+```rust
+ProtocolStatus::PreReview => {
+    // ... 現有邏輯（assign co-editor 等）...
+
+    // 自動觸發 AI 標註（非同步，不阻塞狀態變更）
+    if state.config.ai_review_enabled && state.config.anthropic_api_key.is_some() {
+        let db = state.db.clone();
+        let config = state.config.clone();
+        let pid = protocol_id;
+        tokio::spawn(async move {
+            if let Err(e) = AiReviewService::review_protocol(
+                &db, &config, pid, "staff_pre_review", None  // None = 自動觸發
+            ).await {
+                tracing::warn!("Auto AI review failed for protocol {}: {}", pid, e);
+            }
+        });
+    }
+}
+```
+
+**設計要點**：
+- `tokio::spawn` 非同步執行，狀態變更不等 AI 結果
+- 失敗只 log warning，不影響正常流程
+- 執行秘書打開頁面時，如果 AI 結果已就緒則直接顯示，否則顯示「分析中...」
+- 可手動點「重新分析」強制重跑
+</details>
+
+<details>
+<summary>R20-9：System prompt 調校</summary>
+
+**持續性工作，非一次性開發**。
+
+**方法**：
+1. 上線後收集前 20 筆真實計劃書的 AI 預審結果
+2. 與實際 Pre-Review / Committee 審查意見對比
+3. 分析 False Positive（AI 標記但人工未標記）和 False Negative（人工標記但 AI 遺漏）
+4. 調整 system prompt：
+   - 如 FP 過多 → 提高判斷門檻，減少 warning
+   - 如 FN 過多 → 增加特定領域的檢查指引
+5. 記錄每次 prompt 版本和對應的準確率
+6. 保存在 `docs/ai-review-prompt-history.md`
+
+**目標**：AI 標記問題 vs 人工審查問題的重疊率 ≥ 80%。
+</details>
+
+<details>
+<summary>R20-10：退回率追蹤</summary>
+
+**新增查詢**：在 QAU Dashboard 或新增報表頁面
+
+**SQL**：
+```sql
+-- 月度退回率
+SELECT
+    DATE_TRUNC('month', h.created_at) AS month,
+    COUNT(*) FILTER (WHERE h.to_status IN ('Pre_Review_Revision_Required', 'Vet_Revision_Required', 'Revision_Required')) AS revision_count,
+    COUNT(*) FILTER (WHERE h.to_status IN ('Submitted', 'Resubmitted')) AS submission_count,
+    ROUND(
+        COUNT(*) FILTER (WHERE h.to_status LIKE '%Revision%')::NUMERIC /
+        NULLIF(COUNT(*) FILTER (WHERE h.to_status IN ('Submitted', 'Resubmitted')), 0) * 100, 1
+    ) AS revision_rate_pct
+FROM protocol_status_history h
+GROUP BY 1
+ORDER BY 1 DESC;
+```
+
+**前端**：在 QAU Dashboard 新增「退回率趨勢」圖表（Recharts line chart），月度追蹤。
+
+**衡量基準**：上線 AI 預審前的退回率 vs 上線後，目標降低 50%。
+</details>
 
 ---
 
@@ -462,8 +1726,12 @@
 | 🎨 R13 UI 一致性 | 0 |
 | 📄 R14 PDF 輸出修正 | 0 |
 | 🔍 R15 Code Review 發現 | 0 |
-| 🔍 R16 全專案 Code Review | 28 |
-| **合計（未完成）** | **28** |
+| 🔍 R16 全專案 Code Review | 10 |
+| 🔒 R17 CSO 安全審計 | 0 (1 已接受, 3 完成) |
+| 🫀 R18 Heartbeat 自動化維護 | 0 (4 完成) |
+| 🎫 R19 客戶邀請制入口 | 0 (14 完成) |
+| 🤖 R20 AI 預審與執行秘書標註 | 2 (8 完成, R20-9/10 持續性) |
+| **合計（未完成）** | **12** |
 
 ---
 

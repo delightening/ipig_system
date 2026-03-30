@@ -115,7 +115,7 @@ pub fn default_dashboard_widgets_for_experiment_staff() -> serde_json::Value {
 /// 根據角色取得對應的儀表板預設佈局
 pub fn get_dashboard_widgets_for_roles(roles: &[String]) -> serde_json::Value {
     // 如果只有 EXPERIMENT_STAFF 角色，使用簡潔佈局
-    if roles.len() == 1 && roles.iter().any(|r| r == "EXPERIMENT_STAFF") {
+    if roles.len() == 1 && roles.iter().any(|r| r == crate::constants::ROLE_EXPERIMENT_STAFF) {
         return default_dashboard_widgets_for_experiment_staff();
     }
     // 其他情況使用標準佈局

@@ -463,7 +463,7 @@ pub async fn download_attachment(
         .header(header::CONTENT_TYPE, &attachment.mime_type)
         .header(
             header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"{}\"", attachment.file_name),
+            crate::utils::http::content_disposition_header(&attachment.file_name),
         )
         .body(Body::from(data))
         .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?;

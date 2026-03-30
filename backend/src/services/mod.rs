@@ -71,6 +71,8 @@ pub use image_processor::ImageProcessorClient;
 pub use pdf::PdfService;
 pub use product::ProductService;
 pub use template::TemplateService;
+pub use protocol::ai_review::AiReviewService;
+pub use protocol::ai_review::validate_only as validate_protocol_content;
 pub use protocol::ProtocolService;
 pub use qau::{QauDashboard, QauService};
 pub use role::RoleService;
@@ -86,6 +88,7 @@ pub use system_settings::SystemSettingsService;
 pub use training::TrainingService;
 pub use treatment_drug::TreatmentDrugService;
 pub use user::UserService;
+pub use invitation::InvitationService;
 pub use warehouse::WarehouseService;
 
 pub mod geoip;
@@ -94,6 +97,7 @@ pub use geoip::GeoIpService;
 mod balance_expiration;
 pub use balance_expiration::BalanceExpirationJob;
 
+mod invitation;
 mod data_export;
 mod data_import;
 mod schema_mapping;

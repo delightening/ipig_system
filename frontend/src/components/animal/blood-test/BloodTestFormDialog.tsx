@@ -266,8 +266,8 @@ export function BloodTestFormDialog({
                       variant={isActive ? 'default' : 'outline'}
                       size="sm"
                       className={`transition-all ${isActive
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                        : 'hover:bg-blue-50 hover:border-blue-300'
+                        ? 'bg-primary hover:bg-primary/90 text-white shadow-sm'
+                        : 'hover:bg-status-info-bg hover:border-primary'
                       }`}
                       onClick={() => togglePanel(panel)}
                     >
@@ -315,7 +315,7 @@ export function BloodTestFormDialog({
             </div>
 
             {formData.items.length === 0 ? (
-              <div className="border rounded-lg p-6 text-center text-gray-500">
+              <div className="border rounded-lg p-6 text-center text-muted-foreground">
                 <p>尚無檢查項目</p>
                 <p className="text-sm mt-1">從上方模板選取或新增自訂項目</p>
               </div>
@@ -335,7 +335,7 @@ export function BloodTestFormDialog({
                   </TableHeader>
                   <TableBody>
                     {formData.items.map((item, index) => (
-                      <TableRow key={index}>
+                      <TableRow key={item.template_id || `item-${item.sort_order}`}>
                         <TableCell>
                           <Input
                             value={item.item_name}
@@ -374,7 +374,7 @@ export function BloodTestFormDialog({
                             type="checkbox"
                             checked={item.is_abnormal}
                             onChange={(e) => updateItem(index, 'is_abnormal', e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                            className="h-4 w-4 rounded border-border text-status-error-text focus:ring-destructive"
                             aria-label={`項目 ${index + 1} 異常`}
                           />
                         </TableCell>
@@ -387,7 +387,7 @@ export function BloodTestFormDialog({
                           />
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => removeItem(index)} aria-label="移除">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-status-error-solid" onClick={() => removeItem(index)} aria-label="移除">
                             <X className="h-4 w-4" />
                           </Button>
                         </TableCell>

@@ -49,15 +49,15 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
 
         <div className="space-y-4 py-4">
           {/* Template Download */}
-          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-status-info-bg rounded-lg">
             <div className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-blue-600" />
-              <span className="text-sm text-blue-800">下載範本檔案</span>
+              <FileSpreadsheet className="h-5 w-5 text-status-info-text" />
+              <span className="text-sm text-status-info-text">下載範本檔案</span>
             </div>
             <Button
               variant="outline"
               size="sm"
-              className="border-blue-300 text-blue-700 hover:bg-blue-100"
+              className="border-primary text-status-info-text hover:bg-status-info-bg"
               onClick={() => downloadTemplateMutation.mutate()}
               disabled={downloadTemplateMutation.isPending}
             >
@@ -74,18 +74,18 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
                 type="file"
                 accept=".xlsx,.xls,.csv"
                 onChange={handleFileInputChange}
-                className="block w-full text-sm text-slate-500
+                className="block w-full text-sm text-muted-foreground
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-lg file:border-0
                   file:text-sm file:font-semibold
-                  file:bg-purple-50 file:text-purple-700
-                  hover:file:bg-purple-100
+                  file:bg-status-purple-bg file:text-status-purple-text
+                  hover:file:bg-status-purple-bg
                   file:cursor-pointer"
               />
               {file && (
-                <div className="mt-2 p-2 bg-slate-50 rounded-lg">
+                <div className="mt-2 p-2 bg-muted rounded-lg">
                   <p className="text-sm font-medium">{file.name}</p>
-                  <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
+                  <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</p>
                 </div>
               )}
             </label>
@@ -153,7 +153,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
 
           {/* Instructions */}
           {!result && (
-            <div className="text-sm text-slate-500 space-y-1">
+            <div className="text-sm text-muted-foreground space-y-1">
               <p className="font-medium">注意事項：</p>
               <ul className="list-disc list-inside space-y-0.5">
                 <li>名稱為必填欄位</li>
@@ -183,7 +183,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
             </Button>
           )}
           {result && result.error_count === 0 && (
-            <Button onClick={closeDialog} className="bg-green-600 hover:bg-green-700">
+            <Button onClick={closeDialog} className="bg-status-success-solid hover:bg-green-700">
               完成
             </Button>
           )}

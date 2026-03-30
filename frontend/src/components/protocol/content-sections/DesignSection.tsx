@@ -19,7 +19,7 @@ export function DesignSection({ design }: DesignSectionProps) {
       {design.procedures && (
         <div className="mb-4">
           <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.procedures')}</h3>
-          <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.procedures}</p>
+          <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{design.procedures}</p>
         </div>
       )}
 
@@ -40,7 +40,7 @@ export function DesignSection({ design }: DesignSectionProps) {
           {design.pain.management_plan && (
             <div className="mt-2">
               <p className="text-sm font-medium mb-1">{t('protocols.content.sections.painManagement')}</p>
-              <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.pain.management_plan}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{design.pain.management_plan}</p>
             </div>
           )}
         </div>
@@ -51,13 +51,13 @@ export function DesignSection({ design }: DesignSectionProps) {
           {design.endpoints.experimental_endpoint && (
             <div className="mb-3">
               <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.experimentalEndpoint')}</h3>
-              <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.endpoints.experimental_endpoint}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{design.endpoints.experimental_endpoint}</p>
             </div>
           )}
           {design.endpoints.humane_endpoint && (
             <div>
               <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.humaneEndpoint')}</h3>
-              <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.endpoints.humane_endpoint}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{design.endpoints.humane_endpoint}</p>
             </div>
           )}
         </div>

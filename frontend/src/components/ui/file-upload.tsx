@@ -209,8 +209,8 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
           className={cn(
             "relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors cursor-pointer",
             isDragging
-              ? "border-purple-500 bg-purple-50"
-              : "border-slate-300 hover:border-slate-400 hover:bg-slate-50",
+              ? "border-purple-500 bg-status-purple-bg"
+              : "border-border hover:border-slate-400 hover:bg-muted",
             disabled && "cursor-not-allowed opacity-50",
             uploading && "pointer-events-none"
           )}
@@ -229,17 +229,17 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
 
           {uploading ? (
             <>
-              <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-2" />
-              <p className="text-sm text-slate-600">{t('common.fileUpload.uploading')}</p>
+              <Loader2 className="h-8 w-8 animate-spin text-status-purple-solid mb-2" />
+              <p className="text-sm text-muted-foreground">{t('common.fileUpload.uploading')}</p>
             </>
           ) : (
             <>
-              <Upload className="h-8 w-8 text-slate-400 mb-2" />
-              <p className="text-sm text-slate-600 text-center">
+              <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground text-center">
                 {placeholder || t('common.fileUpload.placeholder')}
               </p>
               {!hideHint && (
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {hint || t('common.fileUpload.hint', { maxSize, maxFiles })}
                 </p>
               )}
@@ -249,7 +249,7 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
 
         {/* Error Message */}
         {error && (
-          <p className="text-sm text-red-500">{error}</p>
+          <p className="text-sm text-status-error-solid">{error}</p>
         )}
 
         {/* File List */}
@@ -258,7 +258,7 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
             {value.map((file) => (
               <div
                 key={file.id}
-                className="flex items-center gap-3 p-2 rounded-lg border bg-slate-50"
+                className="flex items-center gap-3 p-2 rounded-lg border bg-muted"
               >
                 {/* Preview or Icon */}
                 {showPreview && file.preview_url ? (
@@ -268,19 +268,19 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
                     className="h-10 w-10 rounded object-cover"
                   />
                 ) : isImage(file.file_name) ? (
-                  <div className="h-10 w-10 rounded bg-blue-100 flex items-center justify-center">
-                    <Image className="h-5 w-5 text-blue-600" />
+                  <div className="h-10 w-10 rounded bg-status-info-bg flex items-center justify-center">
+                    <Image className="h-5 w-5 text-status-info-text" />
                   </div>
                 ) : (
-                  <div className="h-10 w-10 rounded bg-slate-200 flex items-center justify-center">
-                    <FileText className="h-5 w-5 text-slate-600" />
+                  <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-muted-foreground" />
                   </div>
                 )}
 
                 {/* File Info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{file.file_name}</p>
-                  <p className="text-xs text-slate-500">{formatFileSize(file.file_size)}</p>
+                  <p className="text-xs text-muted-foreground">{formatFileSize(file.file_size)}</p>
                 </div>
 
                 {/* Remove Button */}

@@ -17,6 +17,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import api from '@/lib/api'
+import { queryKeys } from '@/lib/queryKeys'
 import { formatDate } from '@/lib/utils'
 import { LEAVE_STATUS_NAMES, LEAVE_TYPE_NAMES } from '@/types/hr'
 import type { LeaveRequestWithUser } from '@/types/hr'
@@ -30,7 +31,7 @@ export function AllLeaveRecordsTabContent() {
         useDateRangeFilter()
 
     const { data: allLeaves, isLoading } = useQuery({
-        queryKey: ['hr-all-leaves', filterStatus, filterLeaveType, filterFrom, filterTo],
+        queryKey: queryKeys.hr.allLeaves({ filterStatus, filterLeaveType, filterFrom, filterTo }),
         queryFn: async () => {
             const params = new URLSearchParams({ view_all: 'true' })
             if (filterStatus !== 'all') params.append('status', filterStatus)

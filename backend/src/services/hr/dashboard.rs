@@ -81,19 +81,7 @@ impl HrService {
         rows.into_iter()
             .map(
                 |(user_id, user_name, leave_type, start_date, end_date, start_time, end_time)| {
-                    let leave_type_display = match leave_type.as_str() {
-                        "ANNUAL" => "特休假",
-                        "PERSONAL" => "事假",
-                        "SICK" => "病假",
-                        "COMPENSATORY" => "補休假",
-                        "MARRIAGE" => "婚假",
-                        "BEREAVEMENT" => "喪假",
-                        "MATERNITY" => "產假",
-                        "PATERNITY" => "陪產假",
-                        "MENSTRUAL" => "生理假",
-                        "OFFICIAL" => "公假",
-                        _ => "請假",
-                    };
+                    let leave_type_display = crate::constants::get_leave_type_display(&leave_type);
                     let is_all_day = start_time.is_none() && end_time.is_none();
                     TodayLeaveInfo {
                         user_id,

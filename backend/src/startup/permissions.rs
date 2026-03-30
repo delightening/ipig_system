@@ -58,6 +58,11 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("dev.role.view", "查看角色", "dev", "API: 可查看角色列表與詳情"),
         ("dev.role.edit", "編輯角色", "dev", "API: 可編輯角色"),
         ("dev.role.delete", "刪除角色", "dev", "API: 可刪除角色"),
+        // 邀請管理（R19）
+        ("invitation.create", "建立邀請", "invitation", "可建立客戶邀請"),
+        ("invitation.view", "查看邀請", "invitation", "可查看邀請列表"),
+        ("invitation.revoke", "撤銷邀請", "invitation", "可撤銷待接受的邀請"),
+        ("invitation.resend", "重新發送邀請", "invitation", "可重新發送邀請 Email"),
     ];
     
     for (code, name, module, description) in required_permissions {
@@ -81,7 +86,8 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         WHERE r.code = 'admin' AND p.code IN (
             'admin.data.export', 'admin.data.import',
             'dev.role.create', 'dev.role.view', 'dev.role.edit', 'dev.role.delete',
-            'erp.adj.approve'
+            'erp.adj.approve',
+            'invitation.create', 'invitation.view', 'invitation.revoke', 'invitation.resend'
         )
         ON CONFLICT (role_id, permission_id) DO NOTHING
     "#)
@@ -260,6 +266,8 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.amendment.classify",   // 分類修正案（執行秘書負責判斷 Major/Minor）
             "aup.coeditor.assign",      // 指派協作編輯
             "aup.protocol.assign_co_editor", // 確保相容性
+            // 邀請管理（R19）
+            "invitation.create", "invitation.view", "invitation.revoke", "invitation.resend",
             // Dashboard
             "dashboard.view",
         ]),

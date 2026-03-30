@@ -51,3 +51,6 @@ backend/error.log
 backend/error.txt
 backend/test_output.txt
 .gstack/
+
+# R17-1: CI 日誌檔可能含明文測試密碼，不應追蹤
+logs_*/

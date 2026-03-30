@@ -156,15 +156,15 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
 
         <div className="space-y-4 py-4">
           {/* Template Download */}
-          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-status-info-bg rounded-lg">
             <div className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-blue-600" />
-              <span className="text-sm text-blue-800">下載範本檔案</span>
+              <FileSpreadsheet className="h-5 w-5 text-status-info-text" />
+              <span className="text-sm text-status-info-text">下載範本檔案</span>
             </div>
             <Button
               variant="outline"
               size="sm"
-              className="border-blue-300 text-blue-700 hover:bg-blue-100"
+              className="border-primary text-status-info-text hover:bg-status-info-bg"
               onClick={() => downloadTemplateMutation.mutate()}
               disabled={downloadTemplateMutation.isPending}
             >
@@ -181,18 +181,18 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
                 type="file"
                 accept=".xlsx,.xls,.csv"
                 onChange={handleFileInputChange}
-                className="block w-full text-sm text-slate-500
+                className="block w-full text-sm text-muted-foreground
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-lg file:border-0
                   file:text-sm file:font-semibold
-                  file:bg-purple-50 file:text-purple-700
-                  hover:file:bg-purple-100
+                  file:bg-status-purple-bg file:text-status-purple-text
+                  hover:file:bg-status-purple-bg
                   file:cursor-pointer"
               />
               {file && (
-                <div className="mt-2 p-2 bg-slate-50 rounded-lg">
+                <div className="mt-2 p-2 bg-muted rounded-lg">
                   <p className="text-sm font-medium">{file.name}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     {(file.size / 1024).toFixed(1)} KB
                   </p>
                 </div>
@@ -203,23 +203,23 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
           {/* Import Result */}
           {result && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
+              <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 text-green-600">
+                  <div className="flex items-center gap-2 text-status-success-text">
                     <CheckCircle2 className="h-5 w-5" />
                     <span className="font-medium">成功匯入</span>
                   </div>
-                  <p className="text-2xl font-bold text-green-700 mt-1">
+                  <p className="text-2xl font-bold text-status-success-text mt-1">
                     {result.success_count} 筆
                   </p>
                 </div>
                 {result.error_count > 0 && (
                   <div className="flex-1 border-l pl-4">
-                    <div className="flex items-center gap-2 text-red-600">
+                    <div className="flex items-center gap-2 text-status-error-text">
                       <AlertCircle className="h-5 w-5" />
                       <span className="font-medium">匯入失敗</span>
                     </div>
-                    <p className="text-2xl font-bold text-red-700 mt-1">
+                    <p className="text-2xl font-bold text-status-error-text mt-1">
                       {result.error_count} 筆
                     </p>
                   </div>
@@ -229,10 +229,10 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
               {/* Error Details */}
               {result.errors && result.errors.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-red-600">錯誤明細</Label>
+                  <Label className="text-status-error-text">錯誤明細</Label>
                   <div className="max-h-40 overflow-y-auto border rounded-lg">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-100 sticky top-0">
+                      <thead className="bg-muted sticky top-0">
                         <tr>
                           <th className="px-3 py-2 text-left font-medium">列</th>
                           <th className="px-3 py-2 text-left font-medium">代碼</th>
@@ -244,7 +244,7 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
                           <tr key={`err-${err.row}-${i}`} className="border-t">
                             <td className="px-3 py-2">{err.row}</td>
                             <td className="px-3 py-2 font-mono">{err.code || '-'}</td>
-                            <td className="px-3 py-2 text-red-600">{err.error}</td>
+                            <td className="px-3 py-2 text-status-error-text">{err.error}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -257,7 +257,7 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
 
           {/* Instructions */}
           {!result && (
-            <div className="text-sm text-slate-500 space-y-1">
+            <div className="text-sm text-muted-foreground space-y-1">
               <p className="font-medium">注意事項：</p>
               <ul className="list-disc list-inside space-y-0.5">
                 <li>名稱為必填欄位</li>
@@ -283,7 +283,7 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
             </Button>
           )}
           {result && result.error_count === 0 && (
-            <Button onClick={handleClose} className="bg-green-600 hover:bg-green-700">
+            <Button onClick={handleClose} className="bg-status-success-solid hover:bg-green-700">
               完成
             </Button>
           )}

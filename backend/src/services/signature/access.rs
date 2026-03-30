@@ -7,6 +7,16 @@ use crate::{middleware::CurrentUser, AppError, Result};
 
 use super::SignatureService;
 
+/// R16-10: 允許在動態 SQL 中使用的 table 名稱白名單
+const ALLOWED_RECORD_TABLES: &[&str] = &[
+    "animal_observations",
+    "animal_sacrifices",
+    "animal_surgeries",
+    "animal_weights",
+    "animal_vaccinations",
+    "animal_transfers",
+];
+
 impl SignatureService {
     /// 檢查使用者是否有權存取安樂死單據（PI、VET、CHAIR 或管理員）
     pub async fn check_euthanasia_access(
@@ -92,6 +102,9 @@ impl SignatureService {
         record_id: i32,
         current_user: &CurrentUser,
     ) -> Result<()> {
+        if !ALLOWED_RECORD_TABLES.contains(&table) {
+            return Err(AppError::Validation(format!("不允許的資料表名稱: {table}")));
+        }
         if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
             return Ok(());
         }
@@ -122,6 +135,9 @@ impl SignatureService {
         record_id: Uuid,
         current_user: &CurrentUser,
     ) -> Result<()> {
+        if !ALLOWED_RECORD_TABLES.contains(&table) {
+            return Err(AppError::Validation(format!("不允許的資料表名稱: {table}")));
+        }
         if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
             return Ok(());
         }

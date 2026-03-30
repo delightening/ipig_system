@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CheckCircle, Clock, Users } from 'lucide-react'
 
 import api from '@/lib/api'
+import { queryKeys } from '@/lib/queryKeys'
 import { useAuthStore } from '@/stores/auth'
 import { PageHeader } from '@/components/ui/page-header'
 import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
@@ -22,7 +23,7 @@ export function HrOvertimePage() {
 
     // 取得員工清單（供申請人篩選用）
     const { data: staffList } = useQuery({
-        queryKey: ['hr-internal-users'],
+        queryKey: queryKeys.hr.internalUsers,
         queryFn: async () => {
             const res = await api.get<{ id: string; display_name: string; email: string }[]>('/hr/internal-users')
             return res.data

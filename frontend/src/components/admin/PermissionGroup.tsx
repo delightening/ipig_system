@@ -117,7 +117,7 @@ export function PermissionGroup({
           <button
             type="button"
             onClick={() => onToggleSubCategory(category, subCat.subCategory)}
-            className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+            className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             {isSubExpanded ? (
               <ChevronDown className="h-3 w-3" />
@@ -130,7 +130,7 @@ export function PermissionGroup({
             </Badge>
           </button>
         ) : (
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             <span>{subCat.subCategoryName}</span>
             <Badge variant="outline" className="text-xs py-0 px-1.5">
               {subCatSelectedCount}/{subCat.permissions.length}
@@ -153,7 +153,7 @@ export function PermissionGroup({
       <button
         type="button"
         onClick={onToggleExpand}
-        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+        className="w-full flex items-center justify-between p-4 bg-muted hover:bg-muted transition-colors"
       >
         <div className="flex items-center gap-3">
           {isExpanded ? (

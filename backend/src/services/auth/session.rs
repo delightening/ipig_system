@@ -171,7 +171,7 @@ impl AuthService {
         // 回傳 true，故可省略 permissions 以縮小 JWT。
         let is_admin = roles
             .iter()
-            .any(|r| r == "SYSTEM_ADMIN" || r == "admin");
+            .any(|r| r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY);
         let claims_permissions: Vec<String> = if is_admin {
             vec![]
         } else {

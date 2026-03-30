@@ -9,7 +9,7 @@ import { STALE_TIME, shouldPoll } from '@/lib/query'
 import api, { deleteResource } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 
-import { DEFAULT_NAV_ORDER, navItemsConfig } from './sidebarNavConfig'
+import { DEFAULT_NAV_ORDER, navItemsConfig, CLIENT_ONLY_NAV_TITLES } from './sidebarNavConfig'
 import type { NavItem } from './sidebarNavConfig'
 
 export function useSidebarNav() {
@@ -72,6 +72,12 @@ export function useSidebarNav() {
   })
 
   const filteredNavItems = useMemo(() => {
+    // R19-9: 客戶（僅有 PI 角色）只顯示「我的計劃書」
+    const isClientOnly = user?.roles?.length === 1 && user.roles[0] === 'PI'
+    if (isClientOnly) {
+      return sortedNavItems.filter(item => CLIENT_ONLY_NAV_TITLES.has(item.title))
+    }
+
     const rolesWithoutHrAccess = ['REVIEWER', 'VET', 'IACUC_CHAIR', 'PI']
     const shouldHideHr = user?.roles?.every(r =>
       rolesWithoutHrAccess.includes(r)

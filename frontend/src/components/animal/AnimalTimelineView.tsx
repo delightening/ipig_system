@@ -244,43 +244,43 @@ export function AnimalTimelineView({
     // 取得時間軸項目的底色
     const getDotColor = (type: TimelineItemType) => {
         switch (type) {
-            case 'observation': return 'bg-slate-100 dark:bg-slate-700 text-slate-500'
-            case 'surgery': return 'bg-orange-100 dark:bg-orange-900 text-orange-600'
-            case 'weight': return 'bg-blue-100 dark:bg-blue-900 text-blue-600'
-            case 'created': return 'bg-green-100 dark:bg-green-900 text-green-600'
-            case 'sacrificed': return 'bg-red-100 dark:bg-red-900 text-red-600'
-            case 'completed': return 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600'
-            case 'euthanized': return 'bg-red-100 dark:bg-red-900 text-red-600'
-            case 'sudden_death': return 'bg-rose-100 dark:bg-rose-900 text-rose-600'
-            case 'transferred': return 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600'
-            case 'iacuc_change': return 'bg-amber-100 dark:bg-amber-900 text-amber-600'
-            default: return 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+            case 'observation': return 'bg-muted text-muted-foreground'
+            case 'surgery': return 'bg-status-warning-bg text-status-warning-text'
+            case 'weight': return 'bg-status-info-bg text-status-info-text'
+            case 'created': return 'bg-status-success-bg text-status-success-text'
+            case 'sacrificed': return 'bg-status-error-bg text-status-error-text'
+            case 'completed': return 'bg-status-success-bg text-status-success-text'
+            case 'euthanized': return 'bg-status-error-bg text-status-error-text'
+            case 'sudden_death': return 'bg-status-error-bg text-status-error-text'
+            case 'transferred': return 'bg-status-info-bg text-status-info-text'
+            case 'iacuc_change': return 'bg-status-warning-bg text-status-warning-text'
+            default: return 'bg-muted text-muted-foreground'
         }
     }
 
     // 取得時間標籤色
     const getTimeBadgeColor = (type: TimelineItemType) => {
         switch (type) {
-            case 'observation': return 'text-purple-600 bg-purple-50'
-            case 'surgery': return 'text-orange-600 bg-orange-50'
-            case 'weight': return 'text-blue-600 bg-blue-50'
-            case 'created': return 'text-green-600 bg-green-50'
-            case 'sacrificed': return 'text-red-600 bg-red-50'
-            case 'completed': return 'text-emerald-600 bg-emerald-50'
-            case 'euthanized': return 'text-red-600 bg-red-50'
-            case 'sudden_death': return 'text-rose-600 bg-rose-50'
-            case 'transferred': return 'text-indigo-600 bg-indigo-50'
-            case 'iacuc_change': return 'text-amber-600 bg-amber-50'
-            default: return 'text-purple-600 bg-purple-50'
+            case 'observation': return 'text-status-purple-text bg-status-purple-bg'
+            case 'surgery': return 'text-status-warning-text bg-status-warning-bg'
+            case 'weight': return 'text-status-info-text bg-status-info-bg'
+            case 'created': return 'text-status-success-text bg-status-success-bg'
+            case 'sacrificed': return 'text-status-error-text bg-status-error-bg'
+            case 'completed': return 'text-status-success-text bg-status-success-bg'
+            case 'euthanized': return 'text-status-error-text bg-status-error-bg'
+            case 'sudden_death': return 'text-status-error-text bg-status-error-bg'
+            case 'transferred': return 'text-status-info-text bg-status-info-bg'
+            case 'iacuc_change': return 'text-status-warning-text bg-status-warning-bg'
+            default: return 'text-status-purple-text bg-status-purple-bg'
         }
     }
 
     return (
-        <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+        <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
             {timelineItems.length === 0 ? (
                 <Card className="border-dashed">
-                    <CardContent className="py-12 text-center text-slate-500">
-                        <ClipboardList className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                        <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                         <p>尚無任何紀錄</p>
                     </CardContent>
                 </Card>
@@ -292,23 +292,23 @@ export function AnimalTimelineView({
                             {getIcon(item.type)}
                         </div>
                         {/* Card */}
-                        <div className="w-[calc(100%-4rem)] md:w-[45%] bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all hover:shadow-md">
+                        <div className="w-[calc(100%-4rem)] md:w-[45%] bg-card p-4 rounded-xl border border-border shadow-sm transition-all hover:shadow-md">
                             <div className="flex items-center justify-between mb-2">
-                                <div className="font-bold text-slate-900 dark:text-slate-100">{item.title}</div>
+                                <div className="font-bold text-foreground">{item.title}</div>
                                 <time className={`text-xs font-medium ${getTimeBadgeColor(item.type)} px-2 py-1 rounded-full`}>{item.date.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</time>
                             </div>
-                            <div className="text-slate-600 dark:text-slate-400 text-sm mb-4 line-clamp-2">{item.content}</div>
-                            <div className="flex items-center justify-between text-xs text-slate-500">
+                            <div className="text-muted-foreground dark:text-muted-foreground text-sm mb-4 line-clamp-2">{item.content}</div>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                     <span>記錄者: {item.actor || '系統'}</span>
-                                    {item.vetRead && <Badge className="bg-green-100 text-green-800 hover:bg-green-200">獸醫已讀</Badge>}
+                                    {item.vetRead && <Badge className="bg-status-success-bg text-status-success-text hover:bg-status-success-bg">獸醫已讀</Badge>}
                                 </div>
                                 {/* 只有觀察和手術紀錄才有操作按鈕 */}
                                 {!item.isInfoOnly && (item.type === 'observation' || item.type === 'surgery') && (
                                     <div className="flex gap-1">
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => item.raw && (item.type === 'observation' || item.type === 'surgery') && onEdit(item.type, item.raw as AnimalObservation | AnimalSurgery)} aria-label="編輯"><Edit2 className="h-3.5 w-3.5" /></Button>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(item.type as 'observation' | 'surgery', item.originalId as number)} aria-label="檢視"><Eye className="h-3.5 w-3.5" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => onDelete(item.type as 'observation' | 'surgery', item.originalId as number)} aria-label="刪除"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-status-error-solid hover:text-status-error-text" onClick={() => onDelete(item.type as 'observation' | 'surgery', item.originalId as number)} aria-label="刪除"><Trash2 className="h-3.5 w-3.5" /></Button>
                                     </div>
                                 )}
                             </div>

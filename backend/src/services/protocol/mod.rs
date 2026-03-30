@@ -9,6 +9,7 @@
 // - review: 審查流程
 // - status: 計畫狀態管理
 
+pub mod ai_review;
 mod comment;
 mod core;
 mod history;
@@ -16,5 +17,6 @@ mod my_protocols;
 mod numbering;
 mod review;
 mod status;
+pub mod validation;
 
 pub struct ProtocolService;

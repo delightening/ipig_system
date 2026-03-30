@@ -94,6 +94,31 @@ pub fn routes() -> Router<AppState> {
             "/protocols/:id/co-editors/:user_id/delete",
             post(handlers::remove_co_editor),
         )
+        // AI Review & Validation (R20)
+        .route(
+            "/protocols/:id/validate",
+            post(handlers::validate_protocol),
+        )
+        .route(
+            "/protocols/:id/ai-review",
+            post(handlers::ai_review_protocol),
+        )
+        .route(
+            "/protocols/:id/ai-review/latest",
+            get(handlers::get_latest_ai_review),
+        )
+        .route(
+            "/ai-review/remaining",
+            get(handlers::get_ai_review_remaining),
+        )
+        .route(
+            "/protocols/:id/staff-review-assist",
+            post(handlers::staff_review_assist),
+        )
+        .route(
+            "/protocols/:id/staff-review-assist/latest",
+            get(handlers::get_latest_staff_review),
+        )
         // My Projects
         .route("/my-projects", get(handlers::get_my_protocols))
         // Animal Sources

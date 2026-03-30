@@ -229,7 +229,7 @@ pub async fn approve_document(
     require_permission!(current_user, "erp.document.approve");
     
     // 僅 WAREHOUSE_MANAGER (倉庫管理員) 可核准單據
-    if !current_user.roles.contains(&"WAREHOUSE_MANAGER".to_string()) {
+    if !current_user.roles.contains(&crate::constants::ROLE_WAREHOUSE_MANAGER.to_string()) {
         return Err(AppError::Forbidden("僅倉庫管理員可核准單據".to_string()));
     }
     
@@ -404,7 +404,7 @@ pub async fn cancel_document(
     require_permission!(current_user, "erp.document.cancel");
     
     // 僅 WAREHOUSE_MANAGER (倉庫管理員) 可取消/駁回單據
-    if !current_user.roles.contains(&"WAREHOUSE_MANAGER".to_string()) {
+    if !current_user.roles.contains(&crate::constants::ROLE_WAREHOUSE_MANAGER.to_string()) {
         return Err(AppError::Forbidden("僅倉庫管理員可取消單據".to_string()));
     }
     

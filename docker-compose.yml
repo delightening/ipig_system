@@ -157,7 +157,8 @@ services:
       dockerfile: Dockerfile
     container_name: ipig-web
     ports:
-      - "${WEB_PORT:-8080}:8080"
+      # R17-2: 綁定 localhost，避免意外暴露至外部網路
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
     environment:
       # nginx 運行時使用的 API 後端地址
       API_BACKEND_URL: http://api:8000
@@ -198,7 +199,8 @@ services:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "${WEB_DEV_PORT:-5173}:5173"
+      # R17-2: 綁定 localhost
+      - "127.0.0.1:${WEB_DEV_PORT:-5173}:5173"
     environment:
       - VITE_API_URL=http://api:8000
     command: >

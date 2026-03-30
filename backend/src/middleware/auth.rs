@@ -54,7 +54,7 @@ impl CurrentUser {
     pub fn is_admin(&self) -> bool {
         self.roles
             .iter()
-            .any(|r| r == "SYSTEM_ADMIN" || r == "admin")
+            .any(|r| r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY)
     }
 
     pub fn has_permission(&self, permission: &str) -> bool {

@@ -181,7 +181,7 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
       <Dialog open={importResultOpen} onOpenChange={setImportResultOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
+            <DialogTitle className="flex items-center gap-2 text-status-warning-text">
               <AlertCircle className="h-5 w-5" />
               匯入結果詳情
             </DialogTitle>
@@ -203,7 +203,7 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
             ) : null}
             {lastImportResult?.skipped_details?.length ? (
               <div>
-                <h4 className="font-medium text-amber-600 mb-2">略過項目</h4>
+                <h4 className="font-medium text-status-warning-text mb-2">略過項目</h4>
                 <ul className="space-y-1.5 rounded border bg-muted/30 p-3 font-mono text-sm">
                   {lastImportResult.skipped_details.map((s, i) => (
                     <li key={`skip-${s.table}-${i}`} className="break-words">

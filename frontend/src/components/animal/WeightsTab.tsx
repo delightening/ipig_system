@@ -99,7 +99,7 @@ export const WeightsTab = React.memo(function WeightsTab({
           </div>
           <div className="flex items-center gap-2">
             {hasAdminRole && (
-              <label className="flex items-center gap-2 text-sm text-slate-500 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
                   checked={developerMode}
@@ -117,8 +117,8 @@ export const WeightsTab = React.memo(function WeightsTab({
         </CardHeader>
         <CardContent>
           {!weights || weights.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <Scale className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+            <div className="text-center py-12 text-muted-foreground">
+              <Scale className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p>尚無體重紀錄</p>
               <p className="text-sm mt-1">點擊上方按鈕新增</p>
             </div>
@@ -153,7 +153,7 @@ export const WeightsTab = React.memo(function WeightsTab({
                           onClick={() => setDeleteTarget(weight.id)}
                           title={`系統號: ${weight.id} - 點擊刪除`}
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-status-error-solid" />
                         </Button>
                       </div>
                     </TableCell>
@@ -200,7 +200,7 @@ export const WeightsTab = React.memo(function WeightsTab({
             <Button
               onClick={() => addMutation.mutate(newWeight)}
               disabled={addMutation.isPending || !newWeight.weight || !newWeight.measure_date}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-status-success-solid hover:bg-green-700"
             >
               {addMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               儲存

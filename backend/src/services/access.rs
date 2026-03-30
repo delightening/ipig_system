@@ -27,7 +27,7 @@ pub fn check_resource_access(
 // ============================================
 
 /// 角色列表：具有 view_all 權限的角色
-const VIEW_ALL_ROLES: &[&str] = &["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"];
+const VIEW_ALL_ROLES: &[&str] = &[crate::constants::ROLE_IACUC_CHAIR, crate::constants::ROLE_IACUC_STAFF, crate::constants::ROLE_VET, crate::constants::ROLE_REVIEWER];
 
 /// 使用者是否為計畫的 PI / 委託人 / Co-Editor
 pub async fn is_pi_or_coeditor(pool: &PgPool, protocol_id: Uuid, user_id: Uuid) -> Result<bool> {

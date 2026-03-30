@@ -25,7 +25,7 @@ export function SidebarNavEditControls({
           variant="ghost"
           size="sm"
           onClick={() => setIsEditMode(false)}
-          className="w-full text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+          className="w-full text-muted-foreground hover:text-white hover:bg-slate-800 text-xs"
         >
           <X className="h-4 w-4 mr-1" />
           {t('common.finishEdit')}
@@ -35,7 +35,7 @@ export function SidebarNavEditControls({
           size="sm"
           onClick={onResetNavOrder}
           disabled={isResetting}
-          className="w-full text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+          className="w-full text-muted-foreground hover:text-white hover:bg-slate-800 text-xs"
         >
           <RotateCcw className="h-4 w-4 mr-1" />
           {t('common.resetToDefault')}
@@ -50,7 +50,7 @@ export function SidebarNavEditControls({
         variant="ghost"
         size="sm"
         onClick={() => setIsEditMode(true)}
-        className="w-full text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+        className="w-full text-muted-foreground hover:text-white hover:bg-slate-800 text-xs"
       >
         <GripVertical className="h-4 w-4 mr-1" />
         {t('common.editMenuOrder')}

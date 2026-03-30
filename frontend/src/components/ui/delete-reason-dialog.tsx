@@ -61,7 +61,7 @@ export function DeleteReasonDialog({
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-red-600">
+                    <DialogTitle className="flex items-center gap-2 text-status-error-text">
                         <AlertTriangle className="h-5 w-5" />
                         {title}
                     </DialogTitle>
@@ -71,7 +71,7 @@ export function DeleteReasonDialog({
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="delete-reason" className="text-sm font-medium">
-                            刪除原因 <span className="text-red-500">*</span>
+                            刪除原因 <span className="text-status-error-solid">*</span>
                         </Label>
                         <Textarea
                             id="delete-reason"
@@ -81,15 +81,15 @@ export function DeleteReasonDialog({
                                 setReason(e.target.value)
                                 if (error) setError('')
                             }}
-                            className={error ? 'border-red-500' : ''}
+                            className={error ? 'border-status-error-solid' : ''}
                             rows={3}
                             disabled={isPending}
                         />
-                        {error && <p className="text-sm text-red-500">{error}</p>}
+                        {error && <p className="text-sm text-status-error-solid">{error}</p>}
                     </div>
 
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                        <p className="text-sm text-amber-800">
+                    <div className="bg-status-warning-bg border border-status-warning-border rounded-lg p-3">
+                        <p className="text-sm text-status-warning-text">
                             <strong>GLP 合規提醒：</strong>
                             刪除操作將被記錄於操作日誌中，包含刪除原因及操作者資訊。
                         </p>

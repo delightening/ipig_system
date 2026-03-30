@@ -4,6 +4,7 @@
 mod alert;
 mod auth;
 mod equipment;
+mod invitation;
 mod protocol;
 
 use lettre::{

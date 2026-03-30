@@ -275,9 +275,9 @@ export const CommentsTab = React.memo(function CommentsTab({
             <DialogDescription>{t('protocols.detail.dialogs.reply.desc')}</DialogDescription>
           </DialogHeader>
           {selectedCommentForReply && (
-            <div className="bg-slate-50 p-3 rounded-lg border mb-4">
-              <p className="text-sm font-medium text-slate-600">{t('protocols.detail.dialogs.reply.original')}</p>
-              <p className="text-sm text-slate-700 mt-1">{selectedCommentForReply.content}</p>
+            <div className="bg-muted p-3 rounded-lg border mb-4">
+              <p className="text-sm font-medium text-muted-foreground">{t('protocols.detail.dialogs.reply.original')}</p>
+              <p className="text-sm text-foreground mt-1">{selectedCommentForReply.content}</p>
               <p className="text-xs text-muted-foreground mt-2">
                 — {selectedCommentForReply.reviewer_name || selectedCommentForReply.reviewer_email}
               </p>

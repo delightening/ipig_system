@@ -39,7 +39,7 @@ function formatDateTimeDisplay(dateStr: string) {
 }
 
 function getEventBadge(eventType: string) {
-  const config = eventTypeLabels[eventType] || { label: eventType, color: 'bg-gray-500' }
+  const config = eventTypeLabels[eventType] || { label: eventType, color: 'bg-muted0' }
   return (
     <Badge className={`${config.color} text-white`}>
       {config.label}

@@ -79,12 +79,12 @@ export const HistoryTab = React.memo(function HistoryTab({ protocolId }: History
         ) : paginatedActivities.length > 0 ? (
           <>
             <div className="relative">
-              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
+              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted" />
               <ul className="space-y-4">
                 {paginatedActivities.map((activity: ProtocolActivity) => (
                   <li key={activity.id} className="relative pl-10">
-                    <div className="absolute left-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white mt-1.5" />
-                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 shadow-sm">
+                    <div className="absolute left-2 w-4 h-4 rounded-full bg-primary border-2 border-white mt-1.5" />
+                    <div className="bg-muted p-4 rounded-lg border border-border shadow-sm">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Badge
@@ -93,7 +93,7 @@ export const HistoryTab = React.memo(function HistoryTab({ protocolId }: History
                           >
                             {activity.activity_type_display || activity.activity_type}
                           </Badge>
-                          <span className="font-semibold text-slate-900">
+                          <span className="font-semibold text-foreground">
                             {activity.actor_name}
                           </span>
                         </div>
@@ -112,7 +112,7 @@ export const HistoryTab = React.memo(function HistoryTab({ protocolId }: History
                           >
                             {t(`protocols.status.${activity.from_value}`)}
                           </Badge>
-                          <span className="text-slate-400">→</span>
+                          <span className="text-muted-foreground">→</span>
                           <Badge
                             variant={
                               statusColors[activity.to_value as ProtocolStatus] ||
@@ -124,13 +124,13 @@ export const HistoryTab = React.memo(function HistoryTab({ protocolId }: History
                         </div>
                       )}
                       {activity.target_entity_name && (
-                        <p className="text-sm text-slate-600 mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                           {activity.target_entity_name}
                         </p>
                       )}
                       {activity.remark && (
-                        <div className="bg-white p-2 rounded border border-slate-200 text-sm text-slate-600 mt-2">
-                          <span className="font-medium text-xs text-slate-400 block mb-1">
+                        <div className="bg-white p-2 rounded border border-border text-sm text-muted-foreground mt-2">
+                          <span className="font-medium text-xs text-muted-foreground block mb-1">
                             {t('protocols.detail.dialogs.status.remark')}:
                           </span>
                           {activity.remark}

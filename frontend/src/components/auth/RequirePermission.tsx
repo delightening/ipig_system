@@ -65,8 +65,8 @@ export function RequirePermission({
             <div className="container mx-auto py-12 flex items-center justify-center">
                 <Card className="max-w-md">
                     <CardHeader className="text-center">
-                        <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center">
-                            <AlertTriangle className="h-8 w-8 text-yellow-600" />
+                        <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-status-warning-bg flex items-center justify-center">
+                            <AlertTriangle className="h-8 w-8 text-status-warning-text" />
                         </div>
                         <CardTitle>無權限訪問</CardTitle>
                         <CardDescription>

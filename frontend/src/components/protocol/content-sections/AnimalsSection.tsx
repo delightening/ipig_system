@@ -21,7 +21,7 @@ export function AnimalsSection({ animals }: AnimalsSectionProps) {
 
       <div className="space-y-4">
         {animals.animals.map((animal: AnimalEntry, index: number) => (
-          <div key={index} className="p-4 border rounded bg-slate-50">
+          <div key={index} className="p-4 border rounded bg-muted">
             <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.animalGroup')} #{index + 1}</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
@@ -65,7 +65,7 @@ export function AnimalsSection({ animals }: AnimalsSectionProps) {
         ))}
 
         {animals.total_animals && (
-          <div className="mt-4 p-4 bg-blue-50 rounded">
+          <div className="mt-4 p-4 bg-status-info-bg rounded">
             <Label className="text-lg font-semibold">{t('protocols.content.sections.totalAnimals')}: {animals.total_animals}</Label>
           </div>
         )}

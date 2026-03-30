@@ -90,11 +90,11 @@ export function ProtocolComparisonDialog({
     }, [versionA, versionB])
 
     const formatValue = (val: unknown) => {
-        if (val === null || val === undefined) return <span className="text-slate-400 italic">{t('protocols.detail.dialogs.version.noContent')}</span>
-        if (typeof val === 'boolean') return val ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />
+        if (val === null || val === undefined) return <span className="text-muted-foreground italic">{t('protocols.detail.dialogs.version.noContent')}</span>
+        if (typeof val === 'boolean') return val ? <Check className="h-4 w-4 text-status-success-solid" /> : <X className="h-4 w-4 text-status-error-solid" />
 
         if (Array.isArray(val)) {
-            if (val.length === 0) return <span className="text-slate-400 italic">{t('common.noData')}</span>
+            if (val.length === 0) return <span className="text-muted-foreground italic">{t('common.noData')}</span>
             // If it's an array of objects
             if (typeof val[0] === 'object' && val[0] !== null) {
                 // If it's FileInfo
@@ -108,12 +108,12 @@ export function ProtocolComparisonDialog({
                         {val.map((item: unknown, idx: number) => {
                             const o = item as Record<string, unknown>
                             return (
-                            <div key={idx} className="text-xs border-l-2 border-slate-200 pl-2 py-0.5">
+                            <div key={idx} className="text-xs border-l-2 border-border pl-2 py-0.5">
                                 {String(o.name ?? o.species ?? o.drug_name ?? o.agent_name ?? `項目 ${idx + 1}`)}
                             </div>
                             )
                         })}
-                        <div className="text-[10px] text-slate-400 font-normal">共 {val.length} 筆項目</div>
+                        <div className="text-[10px] text-muted-foreground font-normal">共 {val.length} 筆項目</div>
                     </div>
                 )
             }
@@ -214,8 +214,8 @@ export function ProtocolComparisonDialog({
 
                 <div className="flex-1 mt-4 border rounded-md p-4 overflow-y-auto max-h-[70vh]">
                     {diffs.length === 0 ? (
-                        <div className="text-center py-12 text-slate-500">
-                            <Check className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                        <div className="text-center py-12 text-muted-foreground">
+                            <Check className="h-12 w-12 mx-auto mb-4 text-status-success-solid" />
                             <p>{t('common.noData')}</p>
                         </div>
                     ) : (
@@ -223,16 +223,16 @@ export function ProtocolComparisonDialog({
                             {diffs.map((diff) => (
                                 <div key={diff.path} className="grid grid-cols-12 gap-4 pb-4 border-b last:border-0">
                                     <div className="col-span-12 md:col-span-3 lg:col-span-2">
-                                        <span className="text-sm font-semibold text-slate-700">{getLabel(diff.path)}</span>
+                                        <span className="text-sm font-semibold text-foreground">{getLabel(diff.path)}</span>
                                     </div>
-                                    <div className="col-span-12 md:col-span-9 lg:col-span-5 p-3 rounded bg-red-50 border border-red-100">
-                                        <div className="text-xs text-red-600 mb-1 font-medium">
+                                    <div className="col-span-12 md:col-span-9 lg:col-span-5 p-3 rounded bg-status-error-bg border border-red-100">
+                                        <div className="text-xs text-status-error-text mb-1 font-medium">
                                             {t('protocols.detail.dialogs.version.title', { version: versionA?.version_no })}
                                         </div>
                                         <div className="text-sm overflow-hidden text-ellipsis">{formatValue(diff.oldValue)}</div>
                                     </div>
-                                    <div className="col-span-12 md:col-span-9 lg:col-span-5 p-3 rounded bg-green-50 border border-green-100">
-                                        <div className="text-xs text-green-600 mb-1 font-medium">
+                                    <div className="col-span-12 md:col-span-9 lg:col-span-5 p-3 rounded bg-status-success-bg border border-green-100">
+                                        <div className="text-xs text-status-success-text mb-1 font-medium">
                                             {t('protocols.detail.dialogs.version.title', { version: versionB?.version_no })}
                                         </div>
                                         <div className="text-sm overflow-hidden text-ellipsis">{formatValue(diff.newValue)}</div>

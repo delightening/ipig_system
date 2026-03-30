@@ -1,392 +1,133 @@
-import { useState, useEffect } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import api, { AnimalSacrifice, signatureApi } from '@/lib/api'
+import { AnimalSacrifice } from '@/lib/api'
 import { sanitizeSvg } from '@/lib/sanitize'
-import type { SignatureData } from '@/components/ui/handwritten-signature-pad'
 import { HandwrittenSignaturePad } from '@/components/ui/handwritten-signature-pad'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileUpload, FileInfo } from '@/components/ui/file-upload'
+import { FileUpload } from '@/components/ui/file-upload'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import { toast } from '@/components/ui/use-toast'
-import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, PenLine, CheckCircle2 } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useSacrificeForm } from './hooks/useSacrificeForm'
 
-// 採樣部位選項
 const SAMPLING_OPTIONS = [
-  { value: '心', label: '心' },
-  { value: '肝', label: '肝' },
-  { value: '脾', label: '脾' },
-  { value: '肺', label: '肺' },
-  { value: '腎', label: '腎' },
-  { value: '眼', label: '眼' },
-  { value: '耳', label: '耳' },
-  { value: '舌', label: '舌' },
-  { value: '腦', label: '腦' },
-  { value: '骨組織', label: '骨組織' },
-  { value: '脂肪', label: '脂肪' },
-  { value: '肌肉', label: '肌肉' },
-  { value: '皮膚', label: '皮膚' },
-  { value: '其他', label: '其他' },
+  { value: '心', label: '心' }, { value: '肝', label: '肝' },
+  { value: '脾', label: '脾' }, { value: '肺', label: '肺' },
+  { value: '腎', label: '腎' }, { value: '眼', label: '眼' },
+  { value: '耳', label: '耳' }, { value: '舌', label: '舌' },
+  { value: '腦', label: '腦' }, { value: '骨組織', label: '骨組織' },
+  { value: '脂肪', label: '脂肪' }, { value: '肌肉', label: '肌肉' },
+  { value: '皮膚', label: '皮膚' }, { value: '其他', label: '其他' },
 ]
-
-// 表單狀態
-interface SacrificeFormData {
-  sacrifice_date: string
-  zoletil_dose: string
-  method_electrocution: boolean
-  method_bloodletting: boolean
-  method_other: string
-  method_other_enabled: boolean // 追蹤「其他」選項是否被選中
-  sampling: string[]
-  sampling_other: string
-  blood_volume_ml: string
-  confirmed_sacrifice: boolean
-  photos: FileInfo[]
-}
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   animalId: string
   earTag: string
-  sacrifice?: AnimalSacrifice // 編輯時傳入
+  sacrifice?: AnimalSacrifice
 }
 
 export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacrifice }: Props) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const isEdit = !!sacrifice
-
-  // 手寫簽名資料
-  const [signatureData, setSignatureData] = useState<SignatureData | null>(null)
-
-  const defaultFormData: SacrificeFormData = {
-    sacrifice_date: new Date().toISOString().split('T')[0],
-    zoletil_dose: '',
-    method_electrocution: false,
-    method_bloodletting: false,
-    method_other: '',
-    method_other_enabled: false,
-    sampling: [],
-    sampling_other: '',
-    blood_volume_ml: '',
-    confirmed_sacrifice: false,
-    photos: [],
-  }
-
-  const [formData, setFormData] = useState<SacrificeFormData>(defaultFormData)
-
-  // 編輯時填入資料
-  useEffect(() => {
-    if (sacrifice) {
-      const samplingArray = sacrifice.sampling
-        ? sacrifice.sampling.split(',').map((s) => s.trim()).filter(Boolean)
-        : []
-
-      setFormData({
-        sacrifice_date: sacrifice.sacrifice_date
-          ? sacrifice.sacrifice_date.split('T')[0]
-          : new Date().toISOString().split('T')[0],
-        zoletil_dose: sacrifice.zoletil_dose || '',
-        method_electrocution: sacrifice.method_electrocution,
-        method_bloodletting: sacrifice.method_bloodletting,
-        method_other: sacrifice.method_other || '',
-        method_other_enabled: !!sacrifice.method_other,
-        sampling: samplingArray,
-        sampling_other: sacrifice.sampling_other || '',
-        blood_volume_ml: sacrifice.blood_volume_ml?.toString() || '',
-        confirmed_sacrifice: sacrifice.confirmed_sacrifice,
-        photos: [],
-      })
-    } else {
-      setFormData(defaultFormData)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- init only when open/sacrifice changes
-  }, [sacrifice, open])
-
-  const handleSamplingChange = (value: string, checked: boolean) => {
-    if (checked) {
-      setFormData((prev) => ({
-        ...prev,
-        sampling: [...prev.sampling, value],
-      }))
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        sampling: prev.sampling.filter((s) => s !== value),
-      }))
-    }
-  }
-
-  // 處理照片上傳
-  const handlePhotoUpload = async (file: File): Promise<FileInfo> => {
-    const formData = new FormData()
-    formData.append('file', file)
-
-    const response = await api.post<{
-      id: string
-      file_name: string
-      file_path: string
-      file_size: number
-      mime_type: string
-    }>(`/animals/${animalId}/sacrifice/photos`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-
-    return {
-      id: response.data.id,
-      file_name: response.data.file_name,
-      file_path: response.data.file_path,
-      file_size: response.data.file_size,
-      file_type: response.data.mime_type,
-      preview_url: response.data.file_path.startsWith('http')
-        ? response.data.file_path
-        : `/api/files/${response.data.file_path}`,
-    }
-  }
-
-  const mutation = useMutation({
-    mutationFn: async (data: SacrificeFormData) => {
-      const payload = {
-        sacrifice_date: data.sacrifice_date || null,
-        zoletil_dose: data.zoletil_dose || null,
-        method_electrocution: data.method_electrocution,
-        method_bloodletting: data.method_bloodletting,
-        method_other: data.method_other || null,
-        sampling: data.sampling.length > 0 ? data.sampling.join(',') : null,
-        sampling_other: data.sampling_other || null,
-        blood_volume_ml: data.blood_volume_ml ? parseFloat(data.blood_volume_ml) : null,
-        confirmed_sacrifice: data.confirmed_sacrifice,
-      }
-
-      return api.post(`/animals/${animalId}/sacrifice`, payload)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['animal-sacrifice', animalId] })
-      queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
-      toast({ title: '成功', description: isEdit ? '犧牲紀錄已更新' : '犧牲紀錄已建立' })
-      onOpenChange(false)
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '儲存失敗'),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    mutation.mutate(formData)
-  }
-
-  // 簽章 mutation（儲存後觸發）
-  const signMutation = useMutation({
-    mutationFn: async (sigData: SignatureData) => {
-      if (!sacrifice?.id) return
-      return signatureApi.signSacrifice(sacrifice.id, {
-        handwriting_svg: sigData.svg,
-        stroke_data: sigData.strokeData,
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sacrifice-signature', sacrifice?.id] })
-      toast({ title: t('signature.signed', '已簽署'), description: t('signature.signSuccess', '簽章完成') })
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: t('common.error', '錯誤'),
-        description: getApiErrorMessage(error, t('signature.signFailed', '簽章失敗')),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  // 查詢簽章狀態（僅編輯模式且有 sacrifice.id 時）
-  const { data: signatureStatus } = useQuery({
-    queryKey: ['sacrifice-signature', sacrifice?.id],
-    queryFn: () => signatureApi.getSacrificeStatus(sacrifice!.id),
-    enabled: isEdit && !!sacrifice?.id,
-    select: (res) => res.data,
-    staleTime: 30_000,
-    retry: false, // 避免 404/400 時重試刷 console
-  })
-
-  const hasOtherSampling = formData.sampling.includes('其他')
+  const sf = useSacrificeForm({ open, animalId, sacrifice, onOpenChange })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? '編輯犧牲/採樣紀錄' : '新增犧牲/採樣紀錄'}</DialogTitle>
+          <DialogTitle>{sf.isEdit ? '編輯犧牲/採樣紀錄' : '新增犧牲/採樣紀錄'}</DialogTitle>
           <DialogDescription>耳號：{earTag}</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 犧牲日期 */}
+        <form onSubmit={sf.handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="sacrifice_date">犧牲日期 *</Label>
-            <Input
-              id="sacrifice_date"
-              type="date"
-              value={formData.sacrifice_date}
-              onChange={(e) => setFormData({ ...formData, sacrifice_date: e.target.value })}
-              required
-            />
+            <Input id="sacrifice_date" type="date" value={sf.formData.sacrifice_date}
+              onChange={(e) => sf.setFormData({ ...sf.formData, sacrifice_date: e.target.value })} required />
           </div>
 
-          {/* 犧牲方式 */}
           <div className="space-y-4">
             <Label>犧牲方式</Label>
-
-            {/* 麻醉（填寫劑量） */}
             <div className="space-y-2">
-              <Label htmlFor="zoletil_dose" className="text-sm font-normal">
-                Zoletil-50 (ml)
-              </Label>
-              <Input
-                id="zoletil_dose"
-                type="text"
-                value={formData.zoletil_dose}
-                onChange={(e) => setFormData({ ...formData, zoletil_dose: e.target.value })}
-                placeholder="請輸入劑量"
-              />
+              <Label htmlFor="zoletil_dose" className="text-sm font-normal">Zoletil-50 (ml)</Label>
+              <Input id="zoletil_dose" type="text" value={sf.formData.zoletil_dose}
+                onChange={(e) => sf.setFormData({ ...sf.formData, zoletil_dose: e.target.value })} placeholder="請輸入劑量" />
             </div>
-
-            {/* 其他方式選項 */}
             <div className="space-y-2">
               <div className="flex flex-wrap gap-4">
-                <Checkbox
-                  label="220V電擊"
-                  checked={formData.method_electrocution}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, method_electrocution: checked })
-                  }
-                />
-                <Checkbox
-                  label="放血"
-                  checked={formData.method_bloodletting}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, method_bloodletting: checked })
-                  }
-                />
-                <Checkbox
-                  label="其他"
-                  checked={formData.method_other_enabled}
-                  onCheckedChange={(checked) => {
-                    setFormData({
-                      ...formData,
-                      method_other_enabled: checked,
-                      method_other: checked ? (formData.method_other || '') : ''
-                    })
-                  }}
-                />
+                <Checkbox label="220V電擊" checked={sf.formData.method_electrocution}
+                  onCheckedChange={(checked) => sf.setFormData({ ...sf.formData, method_electrocution: checked })} />
+                <Checkbox label="放血" checked={sf.formData.method_bloodletting}
+                  onCheckedChange={(checked) => sf.setFormData({ ...sf.formData, method_bloodletting: checked })} />
+                <Checkbox label="其他" checked={sf.formData.method_other_enabled}
+                  onCheckedChange={(checked) => sf.setFormData({
+                    ...sf.formData, method_other_enabled: checked,
+                    method_other: checked ? (sf.formData.method_other || '') : ''
+                  })} />
               </div>
-              {formData.method_other_enabled && (
-                <Input
-                  type="text"
-                  value={formData.method_other}
-                  onChange={(e) => setFormData({ ...formData, method_other: e.target.value })}
-                  placeholder="請輸入其他方式"
-                  className="mt-2"
-                />
+              {sf.formData.method_other_enabled && (
+                <Input type="text" value={sf.formData.method_other}
+                  onChange={(e) => sf.setFormData({ ...sf.formData, method_other: e.target.value })}
+                  placeholder="請輸入其他方式" className="mt-2" />
               )}
             </div>
           </div>
 
-          {/* 採樣部位 */}
           <div className="space-y-4">
             <Label>採樣部位</Label>
             <div className="grid grid-cols-4 gap-3">
               {SAMPLING_OPTIONS.map((option) => (
-                <Checkbox
-                  key={option.value}
-                  label={option.label}
-                  checked={formData.sampling.includes(option.value)}
-                  onCheckedChange={(checked) => handleSamplingChange(option.value, checked)}
-                />
+                <Checkbox key={option.value} label={option.label}
+                  checked={sf.formData.sampling.includes(option.value)}
+                  onCheckedChange={(checked) => sf.handleSamplingChange(option.value, checked)} />
               ))}
             </div>
-            {hasOtherSampling && (
+            {sf.hasOtherSampling && (
               <div className="mt-2">
-                <Input
-                  type="text"
-                  value={formData.sampling_other}
-                  onChange={(e) => setFormData({ ...formData, sampling_other: e.target.value })}
-                  placeholder="請輸入其他採樣部位說明"
-                />
+                <Input type="text" value={sf.formData.sampling_other}
+                  onChange={(e) => sf.setFormData({ ...sf.formData, sampling_other: e.target.value })}
+                  placeholder="請輸入其他採樣部位說明" />
               </div>
             )}
           </div>
 
-          {/* 採樣血液 */}
           <div className="space-y-2">
             <Label htmlFor="blood_volume_ml">採樣血液 (ml)</Label>
-            <Input
-              id="blood_volume_ml"
-              type="number"
-              step="0.1"
-              value={formData.blood_volume_ml}
-              onChange={(e) => setFormData({ ...formData, blood_volume_ml: e.target.value })}
-              placeholder="請輸入血液採樣量"
-            />
+            <Input id="blood_volume_ml" type="number" step="0.1" value={sf.formData.blood_volume_ml}
+              onChange={(e) => sf.setFormData({ ...sf.formData, blood_volume_ml: e.target.value })}
+              placeholder="請輸入血液採樣量" />
           </div>
 
-          {/* 確定犧牲 */}
           <div className="space-y-2">
-            <Checkbox
-              label="確定犧牲"
-              checked={formData.confirmed_sacrifice}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, confirmed_sacrifice: checked })
-              }
-            />
+            <Checkbox label="確定犧牲" checked={sf.formData.confirmed_sacrifice}
+              onCheckedChange={(checked) => sf.setFormData({ ...sf.formData, confirmed_sacrifice: checked })} />
           </div>
 
-          {/* 手寫簽名區塊 */}
-          {formData.confirmed_sacrifice && (
+          {sf.formData.confirmed_sacrifice && (
             <div className="space-y-3 pt-2 border-t">
               <div className="flex items-center gap-2">
                 <PenLine className="w-4 h-4 text-primary" />
-                <Label className="text-base font-medium">
-                  {t('signature.handwriting', '手寫簽名')}
-                </Label>
-                {signatureStatus?.is_signed && (
+                <Label className="text-base font-medium">{sf.t('signature.handwriting', '手寫簽名')}</Label>
+                {sf.signatureStatus?.is_signed && (
                   <span className="signature-status-badge signature-status-signed">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    {t('signature.signed', '已簽署')}
+                    {sf.t('signature.signed', '已簽署')}
                   </span>
                 )}
               </div>
 
-              {/* 已簽章：顯示預覽 */}
-              {signatureStatus?.is_signed && signatureStatus.signatures.length > 0 ? (
+              {sf.signatureStatus?.is_signed && sf.signatureStatus.signatures.length > 0 ? (
                 <div className="space-y-2">
-                  {signatureStatus.signatures.map((sig) => (
-                    <div key={sig.id} className="rounded-lg border bg-green-50/50 p-3">
+                  {sf.signatureStatus.signatures.map((sig) => (
+                    <div key={sig.id} className="rounded-lg border bg-status-success-bg/50 p-3">
                       {sig.handwriting_svg && (
-                        <div
-                          className="signature-preview-image mb-2"
-                          style={{ height: '120px' }}
-                          dangerouslySetInnerHTML={{ __html: sanitizeSvg(sig.handwriting_svg) }}
-                        />
+                        <div className="signature-preview-image mb-2" style={{ height: '120px' }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeSvg(sig.handwriting_svg) }} />
                       )}
                       <p className="text-xs text-muted-foreground">
-                        {t('signature.signedBy', '由 {{name}} 簽署於 {{date}}', {
+                        {sf.t('signature.signedBy', '由 {{name}} 簽署於 {{date}}', {
                           name: sig.signer_name || '—',
                           date: new Date(sig.signed_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
                         })}
@@ -395,28 +136,17 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
                   ))}
                 </div>
               ) : (
-                /* 未簽章：顯示手寫簽名元件 */
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    {t('signature.signRequired', '需要簽名確認')}
-                  </p>
-                  <HandwrittenSignaturePad
-                    onSignatureChange={setSignatureData}
-                    height={180}
-                    disabled={signatureStatus?.is_locked}
-                  />
-                  {/* 獨立簽章按鈕（僅編輯模式且有 sacrifice.id） */}
-                  {isEdit && sacrifice?.id && signatureData && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="bg-primary hover:bg-primary/90"
-                      disabled={signMutation.isPending}
-                      onClick={() => signMutation.mutate(signatureData)}
-                    >
-                      {signMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  <p className="text-sm text-muted-foreground">{sf.t('signature.signRequired', '需要簽名確認')}</p>
+                  <HandwrittenSignaturePad onSignatureChange={sf.setSignatureData} height={180}
+                    disabled={sf.signatureStatus?.is_locked} />
+                  {sf.isEdit && sacrifice?.id && sf.signatureData && (
+                    <Button type="button" size="sm" className="bg-primary hover:bg-primary/90"
+                      disabled={sf.signMutation.isPending}
+                      onClick={() => sf.signMutation.mutate(sf.signatureData!)}>
+                      {sf.signMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                       <CheckCircle2 className="w-4 h-4 mr-1" />
-                      {t('signature.confirmSign', '確認簽署')}
+                      {sf.t('signature.confirmSign', '確認簽署')}
                     </Button>
                   )}
                 </div>
@@ -424,30 +154,19 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
             </div>
           )}
 
-          {/* 上傳照片 */}
           <div className="space-y-2">
             <Label>上傳照片</Label>
-            <FileUpload
-              value={formData.photos}
-              onChange={(photos) => setFormData({ ...formData, photos })}
-              onUpload={handlePhotoUpload}
-              accept="image/*"
-              placeholder="拖曳照片到此處，或點擊選擇照片"
-              maxSize={10}
-              maxFiles={10}
-            />
+            <FileUpload value={sf.formData.photos}
+              onChange={(photos) => sf.setFormData({ ...sf.formData, photos })}
+              onUpload={sf.handlePhotoUpload} accept="image/*"
+              placeholder="拖曳照片到此處，或點擊選擇照片" maxSize={10} maxFiles={10} />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              取消
-            </Button>
-            <Button
-              type="submit"
-              disabled={mutation.isPending}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
+            <Button type="submit" disabled={sf.mutation.isPending}
+              className="bg-status-success-solid hover:bg-status-success-solid/90">
+              {sf.mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               儲存
             </Button>
           </DialogFooter>

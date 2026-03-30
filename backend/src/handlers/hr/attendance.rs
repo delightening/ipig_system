@@ -261,7 +261,7 @@ pub async fn export_attendance(
         .header(header::CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         .header(
             header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"{}\"", filename),
+            crate::utils::http::content_disposition_header(&filename),
         )
         .body(Body::from(data))
         .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))

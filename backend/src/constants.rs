@@ -66,6 +66,47 @@ pub const DEFAULT_INSECURE_PASSWORD: &str = "iPig$ecure1";
 pub const AUDIT_LOG_MAX_EXPORT: i64 = 10000;
 pub const ACTIVITY_LOG_MAX_PER_PAGE: i64 = 500;
 
+/// Role codes
+pub const ROLE_SYSTEM_ADMIN: &str = "SYSTEM_ADMIN";
+pub const ROLE_ADMIN_LEGACY: &str = "admin";
+pub const ROLE_PI: &str = "PI";
+pub const ROLE_IACUC_STAFF: &str = "IACUC_STAFF";
+pub const ROLE_VET: &str = "VET";
+pub const ROLE_REVIEWER: &str = "REVIEWER";
+pub const ROLE_IACUC_CHAIR: &str = "IACUC_CHAIR";
+pub const ROLE_EXPERIMENT_STAFF: &str = "EXPERIMENT_STAFF";
+pub const ROLE_WAREHOUSE_MANAGER: &str = "WAREHOUSE_MANAGER";
+pub const ROLE_ADMIN_STAFF: &str = "ADMIN_STAFF";
+
+/// Leave type codes
+pub const LEAVE_ANNUAL: &str = "ANNUAL";
+pub const LEAVE_PERSONAL: &str = "PERSONAL";
+pub const LEAVE_SICK: &str = "SICK";
+pub const LEAVE_COMPENSATORY: &str = "COMPENSATORY";
+pub const LEAVE_MARRIAGE: &str = "MARRIAGE";
+pub const LEAVE_BEREAVEMENT: &str = "BEREAVEMENT";
+pub const LEAVE_MATERNITY: &str = "MATERNITY";
+pub const LEAVE_PATERNITY: &str = "PATERNITY";
+pub const LEAVE_MENSTRUAL: &str = "MENSTRUAL";
+pub const LEAVE_OFFICIAL: &str = "OFFICIAL";
+
+/// 假別代碼轉換為中文顯示名稱（共用於 dashboard 與 calendar）
+pub fn get_leave_type_display(leave_type: &str) -> &'static str {
+    match leave_type {
+        LEAVE_ANNUAL => "特休假",
+        LEAVE_PERSONAL => "事假",
+        LEAVE_SICK => "病假",
+        LEAVE_COMPENSATORY => "補休假",
+        LEAVE_MARRIAGE => "婚假",
+        LEAVE_BEREAVEMENT => "喪假",
+        LEAVE_MATERNITY => "產假",
+        LEAVE_PATERNITY => "陪產假",
+        LEAVE_MENSTRUAL => "生理假",
+        LEAVE_OFFICIAL => "公假",
+        _ => "請假",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,5 +144,13 @@ mod tests {
     fn test_audit_export_reasonable_limit() {
         // 匯出上限應在合理範圍內（避免過大記憶體使用）
         const { assert!(AUDIT_LOG_MAX_EXPORT <= 100_000); }
+    }
+
+    #[test]
+    fn test_leave_type_display() {
+        assert_eq!(get_leave_type_display(LEAVE_ANNUAL), "特休假");
+        assert_eq!(get_leave_type_display(LEAVE_PERSONAL), "事假");
+        assert_eq!(get_leave_type_display(LEAVE_SICK), "病假");
+        assert_eq!(get_leave_type_display("UNKNOWN"), "請假");
     }
 }

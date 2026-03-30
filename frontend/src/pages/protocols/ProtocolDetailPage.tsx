@@ -6,12 +6,24 @@ import { PageTabs } from '@/components/ui/page-tabs'
 import { Loader2, AlertTriangle, FileText, ClipboardList, History, Clock, MessageSquare, Users, UserPlus, Paperclip, FileEdit } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useProtocolDetail } from './hooks/useProtocolDetail'
+import { useAuthStore } from '@/stores/auth'
 import { ProtocolDetailHeader } from './components/ProtocolDetailHeader'
 import { ProtocolInfoCards } from './components/ProtocolInfoCards'
 import { ProtocolTabContent } from './components/ProtocolTabContent'
 import { StatusChangeDialog } from './components/StatusChangeDialog'
+import { StaffReviewAssistPanel } from '@/components/protocol/StaffReviewAssistPanel'
+
+const STAFF_REVIEW_STATUSES = [
+  'PRE_REVIEW', 'PRE_REVIEW_REVISION_REQUIRED',
+  'VET_REVIEW', 'VET_REVISION_REQUIRED',
+  'UNDER_REVIEW', 'REVISION_REQUIRED', 'RESUBMITTED',
+] as const
 
 export function ProtocolDetailPage() {
+  const { user: authUser } = useAuthStore()
+  const isStaffOrChair = authUser?.roles?.some(
+    r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN'].includes(r)
+  ) ?? false
   const {
     id,
     t,
@@ -112,6 +124,11 @@ export function ProtocolDetailPage() {
           piEmail={pi_email}
           piOrganization={pi_organization}
         />
+
+        {/* R20-7: 執行秘書 AI 標註面板 */}
+        {isStaffOrChair && protocol && id && STAFF_REVIEW_STATUSES.includes(protocol.status as typeof STAFF_REVIEW_STATUSES[number]) && (
+          <StaffReviewAssistPanel protocolId={id} />
+        )}
 
         <PageTabs tabs={tabs} defaultTab="content">
           <ProtocolTabContent

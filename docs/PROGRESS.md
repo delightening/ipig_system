@@ -185,6 +185,39 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-03-30 R16 第三批 Frontend 品質改善（R16-17~25）
+
+- ✅ **R16-17 硬編碼色彩 token 替換**：從 837 處減至約 213 處（75% 消除），slate/gray/status 色彩全面遷移至 CSS Variable token（bg-muted、text-foreground、border-border、text-status-*-text 等），剩餘為 SKU 色彩系統（56）、設施佈局色碼（8）、sidebar 深色主題等有意的特化色彩
+- ✅ **R16-18 五個超 300 行元件拆分**：HrAttendancePage(460→66)、ObservationFormDialog(489→171)、SacrificeFormDialog(458→177)、AnimalEditPage(414→161)、RolesPage(381→169)，提取 5 個 custom hook + 3 個子元件
+- ✅ **R16-19 PageErrorBoundary 全域化**：MainLayout 已統一包裹 Outlet，移除 App.tsx 中 5 處冗餘的個別包裹及未使用的 import
+- ✅ **R16-20 HR query key factory 化**：HrAttendancePage/HrLeavePage/HrOvertimePage 等 6 個檔案的硬編碼 query key 全部遷移至 queryKeys.hr.*
+- ✅ **R16-21 Zustand store 直接 mutation 修復**：client.ts 中 `sessionExpiresAt` 直接賦值改為 `useAuthStore.setState()`
+- ✅ **R16-23 Array index key 修復**：BloodTestFormDialog、VetReviewForm、HrAnnualLeavePage 3 處改用穩定 ID（template_id/item_name/entitlement_year）
+- ✅ **R16-24 axios 直接 import 消除**：useAnimalsMutations.ts、useUserManagement.ts、types/error.ts 改用 `@/lib/api` 的 `isAxiosError` re-export
+- ✅ **R16-25 console.debug 已確認受保護**：webVitals.ts 已在 `import.meta.env.DEV` 條件內，無需修改
+
+### 2026-03-29 R16 第三批 Backend 品質改善（R16-14/15/16/22）
+
+- ✅ **R16-14 角色碼魔術字串消除**：在 `constants.rs` 定義 10 個角色常數（`ROLE_SYSTEM_ADMIN` 等）+ 10 個假別常數 + 共用 `get_leave_type_display()` 函式，替換 15+ 個檔案中的硬編碼字串
+- ✅ **R16-15 scheduler.rs 函數拆分**：`start()` 從 235 行拆為 12 個獨立 `register_*_job` helper；`generate_monthly_report` 從 138 行拆為 6 個子函式（日期計算 / 採購彙總 / 銷貨彙總 / 血檢統計 / 報表內容 / 通知發送），每個 ≤ 50 行
+- ✅ **R16-16 services/stock.rs 拆分**：942 行單檔拆為 `stock/mod.rs` + `stock/inventory.rs`（庫存查詢）+ `stock/ledger.rs`（流水帳 + 單據處理），外部 import 不需變更
+- ✅ **R16-22 format!() 動態 SQL 改用 QueryBuilder**：`get_ledger` 和 `get_unassigned_inventory` 改用 `sqlx::QueryBuilder` 避免 format! 拼接 SQL；庫存查詢保留安全的參數化佔位符模式
+
+### 2026-03-29 R16 第四批 CI/測試改善（R16-26~31）
+
+- ✅ **R16-26 GitHub Actions 版本標籤修正**：`actions/checkout@v6` → v4、`actions/setup-node@v6` → v4、`actions/upload-artifact@v7` → v4（actions/cache@v5 維持不變，已是最新）
+- ✅ **R16-27 Backend coverage threshold 提升**：tarpaulin `--fail-under` 從 2% 提高至 15%
+- ✅ **R16-28 CI 加入 ESLint job**：frontend-check 新增 `npx eslint src --max-warnings=0` 步驟
+- ✅ **R16-29 E2E create flow 測試**：新增 `frontend/e2e/protocol-create.spec.ts`，涵蓋表單載入、儲存按鈕、填寫基本資訊儲存草稿、section 導覽切換
+- ✅ **R16-30 unsafe-guard 改為 block CI**：從 `::warning::` 改為 `exit 1`，允許附帶 `// SAFETY:` 註解的 unsafe 放行
+- ✅ **R16-31 Edge case 測試**：新增 `backend/tests/api_edge_cases.rs`，含分頁邊界（page=0/per_page=0/per_page=999999/page=-1）、SQL injection（單引號/UNION SELECT/LIKE wildcards/Unicode）、無效 UUID、超大 request body、深度巢狀 JSON 共 13 項測試
+
+### 2026-03-29 R19 Phase 4 測試（R19-12/13/14）
+
+- ✅ **R19-12 邀請流程 E2E 測試**：新增 `frontend/e2e/invitation.spec.ts`，涵蓋完整邀請流程（建立→接受→登入）與無效 token 錯誤頁面測試
+- ✅ **R19-13 權限隔離測試**：新增 `backend/tests/api_invitations.rs`，驗證邀請 CRUD 需認證、PI 使用者無法存取 admin/ERP 端點、PI 可存取 my-projects
+- ✅ **R19-14 安全測試**：同檔新增過期 token、已使用 token、無效 token、弱密碼、verify 無效 token 共 5 項安全測試
+
 ### 2026-03-29 R16 CRITICAL 修復 + 歡迎指引系統 + INTERN 角色
 
 - ✅ **R16-1 授權查詢 unwrap_or 繞過修復**：42 處 `.unwrap_or((false,))` / `.unwrap_or((0,))` 改為 `?` 錯誤傳播或 `unwrap_or_else` + 日誌。涵蓋 protocol/crud, review, export, pdf_export + services/auth/login, audit, login_tracker, calendar, qau

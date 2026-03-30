@@ -51,21 +51,9 @@ impl SyncStats {
     }
 }
 
-/// 假別代碼轉換為中文顯示名稱
+/// 假別代碼轉換為中文顯示名稱（委派至 constants 共用實作）
 fn get_leave_type_display(leave_type: &str) -> &'static str {
-    match leave_type {
-        "ANNUAL" => "特休假",
-        "PERSONAL" => "事假",
-        "SICK" => "病假",
-        "COMPENSATORY" => "補休假",
-        "MARRIAGE" => "婚假",
-        "BEREAVEMENT" => "喪假",
-        "MATERNITY" => "產假",
-        "PATERNITY" => "陪產假",
-        "MENSTRUAL" => "生理假",
-        "OFFICIAL" => "公假",
-        _ => "請假",
-    }
+    crate::constants::get_leave_type_display(leave_type)
 }
 
 /// 建立日曆事件標題：[假別] 人員（代理人）

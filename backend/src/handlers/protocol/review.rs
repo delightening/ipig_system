@@ -95,7 +95,7 @@ pub async fn create_review_comment(
 ) -> Result<Json<ReviewComment>> {
     req.validate()?;
     let has_global_perm = current_user.has_permission("aup.review.comment")
-        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF"].contains(&r.as_str()));
+        || current_user.roles.iter().any(|r| [crate::constants::ROLE_IACUC_CHAIR, crate::constants::ROLE_IACUC_STAFF].contains(&r.as_str()));
     if !has_global_perm {
         let (protocol_id,): (Uuid,) = sqlx::query_as(
             "SELECT protocol_id FROM protocol_versions WHERE id = $1"

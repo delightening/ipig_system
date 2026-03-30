@@ -92,7 +92,7 @@ fn admin_email() -> &'static str {
 }
 
 /// 管理員角色 code（匯入時排除）
-const ADMIN_ROLE_CODES: &[&str] = &["admin", "SYSTEM_ADMIN"];
+const ADMIN_ROLE_CODES: &[&str] = &[crate::constants::ROLE_ADMIN_LEGACY, crate::constants::ROLE_SYSTEM_ADMIN];
 
 /// 排除管理員相關內容，並建立 ID 對應供子表 remap
 async fn filter_admin_content(

@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod ai_review;
 mod user;
 mod role;
 mod warehouse;
@@ -22,8 +23,10 @@ mod treatment_drug;
 mod training;
 mod equipment;
 pub mod accounting;
+mod invitation;
 
 pub use user::*;
+pub use invitation::*;
 pub use role::*;
 pub use warehouse::*;
 pub use product::*;

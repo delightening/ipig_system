@@ -1,7 +1,6 @@
 import { useEffect, lazy } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
-import { PageErrorBoundary } from '@/components/ui/page-error-boundary'
 import { useAuthStore } from '@/stores/auth'
 import { RequirePermission, ProtectedRoute, ForcePasswordRoute, DashboardRoute, AdminRoute, DASHBOARD_ROLES } from '@/components/auth'
 import { SessionTimeoutWarning } from '@/components/SessionTimeoutWarning'
@@ -20,6 +19,7 @@ const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ defau
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 const ForceChangePasswordPage = lazy(() => import('@/pages/auth/ForceChangePasswordPage').then(m => ({ default: m.ForceChangePasswordPage })))
+const InvitationAcceptPage = lazy(() => import('@/pages/auth/InvitationAcceptPage').then(m => ({ default: m.InvitationAcceptPage })))
 
 // Dashboard & Profile
 const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })))
@@ -58,6 +58,7 @@ const TreatmentDrugOptionsPage = lazy(() => import('@/pages/admin/TreatmentDrugO
 const TrainingRecordsPage = lazy(() => import('@/pages/admin/TrainingRecordsPage').then(m => ({ default: m.TrainingRecordsPage })))
 const QAUDashboardPage = lazy(() => import('@/pages/admin/QAUDashboardPage').then(m => ({ default: m.QAUDashboardPage })))
 const FacilitiesPage = lazy(() => import('@/pages/admin/FacilitiesPage').then(m => ({ default: m.FacilitiesPage })))
+const InvitationsPage = lazy(() => import('@/pages/admin/InvitationsPage').then(m => ({ default: m.InvitationsPage })))
 
 // HR Pages
 const HrAttendancePage = lazy(() => import('@/pages/hr/HrAttendancePage').then(m => ({ default: m.HrAttendancePage })))
@@ -108,7 +109,7 @@ function App() {
     const location = useLocation()
 
     // 公開路由不需要檢查認證狀態
-    const publicPaths = ['/login', '/forgot-password', '/reset-password', '/privacy', '/terms']
+    const publicPaths = ['/login', '/forgot-password', '/reset-password', '/privacy', '/terms', '/invite']
     const isPublicRoute = publicPaths.some(path => location.pathname.startsWith(path))
 
     // Validate auth on app initialization (Cookie 自動傳送，不需檢查 localStorage)
@@ -239,6 +240,9 @@ function App() {
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/terms" element={<TermsOfServicePage />} />
 
+                {/* 客戶邀請註冊（公開路由） */}
+                <Route path="/invite/:token" element={<InvitationAcceptPage />} />
+
                 {/* Force Change Password Route */}
                 <Route
                     path="/force-change-password"
@@ -261,7 +265,7 @@ function App() {
 
                     {/* Dashboard 與 ERP 模組路由 */}
                     <Route element={<DashboardRoute />}>
-                        <Route path="/dashboard" element={<PageErrorBoundary><DashboardPage /></PageErrorBoundary>} />
+                        <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/erp" element={<Navigate to="/products" replace />} />
                         <Route path="/erp/reports" element={<AdminRoute><ErpReportsPage /></AdminRoute>} />
                         <Route path="/equipment" element={<RequirePermission permission="equipment.view"><EquipmentPage /></RequirePermission>} />
@@ -315,6 +319,11 @@ function App() {
                         <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />
                         <Route path="/admin/treatment-drugs" element={<TreatmentDrugOptionsPage />} />
                         <Route path="/admin/facilities" element={<FacilitiesPage />} />
+                        <Route path="/admin/invitations" element={
+                          <RequirePermission permission="invitation.view">
+                            <InvitationsPage />
+                          </RequirePermission>
+                        } />
                     </Route>
 
                     {/* 人員訓練 - admin 或 training.view/manage/manage_own 可存取 */}
@@ -349,9 +358,9 @@ function App() {
 
                     {/* AUP 計畫書管理 */}
                     <Route path="/protocols" element={<ProtocolsPage />} />
-                    <Route path="/protocols/new" element={<PageErrorBoundary><ProtocolEditPage /></PageErrorBoundary>} />
+                    <Route path="/protocols/new" element={<ProtocolEditPage />} />
                     <Route path="/protocols/:id" element={<ProtocolDetailPage />} />
-                    <Route path="/protocols/:id/edit" element={<PageErrorBoundary><ProtocolEditPage /></PageErrorBoundary>} />
+                    <Route path="/protocols/:id/edit" element={<ProtocolEditPage />} />
 
                     {/* 我的計劃 */}
                     <Route path="/my-projects" element={<MyProjectsPage />} />
@@ -362,7 +371,7 @@ function App() {
 
                     {/* 實驗動物管理 */}
                     <Route path="/animals" element={<AnimalsPage />} />
-                    <Route path="/animals/:id" element={<PageErrorBoundary><AnimalDetailPage /></PageErrorBoundary>} />
+                    <Route path="/animals/:id" element={<AnimalDetailPage />} />
                     <Route path="/animals/:id/edit" element={<AnimalEditPage />} />
                     <Route path="/animal-sources" element={<AnimalSourcesPage />} />
                     <Route path="/animals/animal-field-corrections" element={

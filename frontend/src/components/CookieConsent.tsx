@@ -72,7 +72,7 @@ export function CookieConsent() {
         <p className="flex-1 min-w-0">
           本系統使用必要性 Cookie 以維持您的登入狀態與安全性。
           選擇「接受全部」將允許載入第三方字型等外部資源以提升顯示效果。
-          <Link to="/privacy" className="ml-1 underline underline-offset-2 hover:text-gray-300">
+          <Link to="/privacy" className="ml-1 underline underline-offset-2 hover:text-muted-foreground">
             了解更多
           </Link>
         </p>
@@ -81,7 +81,7 @@ export function CookieConsent() {
             size="sm"
             variant="outline"
             onClick={() => handleAccept('essential')}
-            className="border-gray-500 text-gray-300 hover:bg-gray-800 hover:text-white"
+            className="border-gray-500 text-muted-foreground hover:bg-gray-800 hover:text-white"
           >
             僅必要 Cookie
           </Button>

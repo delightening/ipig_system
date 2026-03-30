@@ -241,7 +241,7 @@ function CreatedKeyDialog({ createdKey, copied, onCopy, onClose }: {
                 </Button>
               </div>
             </div>
-            <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+            <div className="text-xs text-status-warning-text bg-status-warning-bg p-2 rounded">
               此金鑰僅顯示一次。若遺失需刪除並重新建立。
             </div>
           </div>

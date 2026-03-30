@@ -161,11 +161,13 @@ export function useDocumentSubmit({
       return { documentId }
     },
     onSuccess: async (response: { documentId: string | undefined }) => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      await queryClient.invalidateQueries({ queryKey: ['documents'] })
+      if (response.documentId) {
+        await queryClient.invalidateQueries({ queryKey: ['document', response.documentId] })
+      }
       setUnsavedChanges(false)
       toast({ title: '成功', description: '單據已送審' })
       navigate(`/documents/${response.documentId}`)
-      setTimeout(() => window.location.reload(), 500)
     },
     onError: (error: unknown) => {
       toast({ title: '錯誤', description: getApiErrorMessage(error, '送審失敗'), variant: 'destructive' })

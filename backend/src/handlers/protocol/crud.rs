@@ -36,7 +36,7 @@ pub async fn create_protocol(
     Json(req): Json<CreateProtocolRequest>,
 ) -> Result<Json<Protocol>> {
     let can_create = current_user.has_permission("aup.protocol.create")
-        || current_user.roles.contains(&"PI".to_string())
+        || current_user.has_role(crate::constants::ROLE_PI)
         || current_user.is_admin();
     if !can_create {
         return Err(AppError::Forbidden("Permission denied: requires aup.protocol.create or PI role".to_string()));
@@ -54,11 +54,11 @@ pub async fn list_protocols(
     Query(query): Query<ProtocolQuery>,
 ) -> Result<Json<Vec<ProtocolListItem>>> {
     let has_view_all = current_user.has_permission("aup.protocol.view_all")
-        || current_user.roles.iter().any(|r| ["IACUC_STAFF", "VET", "REVIEWER", "IACUC_CHAIR"].contains(&r.as_str()));
+        || current_user.roles.iter().any(|r| [crate::constants::ROLE_IACUC_STAFF, crate::constants::ROLE_VET, crate::constants::ROLE_REVIEWER, crate::constants::ROLE_IACUC_CHAIR].contains(&r.as_str()));
     let is_reviewer_only = current_user.roles.iter()
-        .all(|r| ["REVIEWER", "VET"].contains(&r.as_str()))
-        && (current_user.roles.contains(&"REVIEWER".to_string())
-            || current_user.roles.contains(&"VET".to_string()));
+        .all(|r| [crate::constants::ROLE_REVIEWER, crate::constants::ROLE_VET].contains(&r.as_str()))
+        && (current_user.has_role(crate::constants::ROLE_REVIEWER)
+            || current_user.has_role(crate::constants::ROLE_VET));
     let mut protocols = if has_view_all {
         ProtocolService::list(&state.db, &query).await?
     } else {
@@ -160,6 +160,21 @@ pub async fn change_protocol_status(
             tracing::warn!("發送計畫審查進度通知失敗: {e}");
         }
     });
+
+    // R20-8: 進入 PreReview 時自動觸發執行秘書 AI 標註
+    if req.to_status == crate::models::ProtocolStatus::PreReview {
+        let db = state.db.clone();
+        let config = state.config.clone();
+        let pid = protocol.id;
+        tokio::spawn(async move {
+            if let Err(e) = crate::services::AiReviewService::review_protocol(
+                &db, &config, pid, "staff_pre_review", None,
+            ).await {
+                tracing::warn!("[R20-8] 自動觸發執行秘書 AI 標註失敗: {e}");
+            }
+        });
+    }
+
     Ok(Json(protocol))
 }
 
@@ -274,7 +289,7 @@ pub async fn save_vet_review_form(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<SaveVetReviewFormRequest>,
 ) -> Result<Json<()>> {
-    let is_vet = current_user.roles.contains(&"VET".to_string()) || current_user.is_admin();
+    let is_vet = current_user.has_role(crate::constants::ROLE_VET) || current_user.is_admin();
     if !is_vet && !access::is_assigned_vet(&state.db, req.protocol_id, current_user.id).await? {
         return Err(AppError::Forbidden("Permission denied: You are not assigned as a vet for this protocol".to_string()));
     }
@@ -299,7 +314,7 @@ pub async fn copy_protocol(
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Json<Protocol>)> {
     let can_create = current_user.has_permission("aup.protocol.create")
-        || current_user.roles.contains(&"PI".to_string())
+        || current_user.has_role(crate::constants::ROLE_PI)
         || current_user.is_admin();
     if !can_create {
         return Err(AppError::Forbidden("Permission denied: requires aup.protocol.create or PI role".to_string()));

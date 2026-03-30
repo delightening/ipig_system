@@ -46,7 +46,7 @@ export function StepIndicator({
                     ? "bg-success text-success-foreground"
                     : isCurrent
                     ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-2 border-slate-200 dark:border-slate-700",
+                    : "bg-muted dark:bg-slate-800 text-muted-foreground border-2 border-border dark:border-slate-700",
                   isClickable && "cursor-pointer hover:scale-105",
                   !isClickable && "cursor-default"
                 )}
@@ -65,8 +65,8 @@ export function StepIndicator({
                   isCurrent
                     ? "text-primary"
                     : isCompleted
-                    ? "text-slate-700 dark:text-slate-300"
-                    : "text-slate-400"
+                    ? "text-foreground dark:text-muted-foreground"
+                    : "text-muted-foreground"
                 )}
               >
                 {step.label}
@@ -74,7 +74,7 @@ export function StepIndicator({
               
               {/* Description */}
               {step.description && (
-                <span className="text-xs text-slate-400 mt-0.5 hidden sm:block">
+                <span className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
                   {step.description}
                 </span>
               )}
@@ -87,7 +87,7 @@ export function StepIndicator({
                   "step-line w-16 sm:w-24 h-0.5 mx-2 transition-colors",
                   index < currentStep || completedSteps.includes(index)
                     ? "bg-success"
-                    : "bg-slate-200 dark:bg-slate-700"
+                    : "bg-muted dark:bg-slate-700"
                 )}
               />
             )}
@@ -112,10 +112,10 @@ export function CompactStepIndicator({
 }: CompactStepIndicatorProps) {
   return (
     <div className={cn("flex items-center justify-between", className)}>
-      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+      <span className="text-sm font-medium text-foreground dark:text-muted-foreground">
         步驟 {currentStep + 1} / {steps.length}
       </span>
-      <span className="text-sm text-slate-500">
+      <span className="text-sm text-muted-foreground">
         {steps[currentStep]?.label}
       </span>
     </div>

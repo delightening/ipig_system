@@ -28,7 +28,7 @@ export function ConfirmDialog({ state }: Props) {
           <AlertDialogCancel onClick={state.onCancel}>{t('common.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={state.onConfirm}
-            className={state.variant === 'destructive' ? 'bg-red-600 hover:bg-red-700' : ''}
+            className={state.variant === 'destructive' ? 'bg-destructive hover:bg-destructive/90' : ''}
           >
             {state.confirmLabel || t('common.confirm')}
           </AlertDialogAction>

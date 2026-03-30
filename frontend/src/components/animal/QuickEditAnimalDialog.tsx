@@ -116,44 +116,44 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
 
         {animalLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : animal ? (
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* 唯讀資訊區域 */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">基本資訊（不可編輯）</h3>
+              <h3 className="text-sm font-semibold text-foreground border-b pb-2">基本資訊（不可編輯）</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-500">系統號</Label>
-                  <Input value={animal.id.slice(0, 8)} disabled className="bg-slate-50" title={animal.id} />
+                  <Label className="text-muted-foreground">系統號</Label>
+                  <Input value={animal.id.slice(0, 8)} disabled className="bg-muted" title={animal.id} />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-500">耳號</Label>
-                  <Input value={animal.ear_tag} disabled className="bg-slate-50" />
+                  <Label className="text-muted-foreground">耳號</Label>
+                  <Input value={animal.ear_tag} disabled className="bg-muted" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-500">品種</Label>
-                  <Input value={animal.breed === 'other' ? (animal.breed_other || '其他') : animalBreedNames[animal.breed]} disabled className="bg-slate-50" />
+                  <Label className="text-muted-foreground">品種</Label>
+                  <Input value={animal.breed === 'other' ? (animal.breed_other || '其他') : animalBreedNames[animal.breed]} disabled className="bg-muted" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-500">性別</Label>
-                  <Input value={animalGenderNames[animal.gender]} disabled className="bg-slate-50" />
+                  <Label className="text-muted-foreground">性別</Label>
+                  <Input value={animalGenderNames[animal.gender]} disabled className="bg-muted" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-500">出生日期</Label>
+                  <Label className="text-muted-foreground">出生日期</Label>
                   <Input
                     value={animal.birth_date ? new Date(animal.birth_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}
                     disabled
-                    className="bg-slate-50"
+                    className="bg-muted"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-500">進場日期</Label>
+                  <Label className="text-muted-foreground">進場日期</Label>
                   <Input
                     value={new Date(animal.entry_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}
                     disabled
-                    className="bg-slate-50"
+                    className="bg-muted"
                   />
                 </div>
               </div>
@@ -161,14 +161,14 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
 
             {/* 可编辑字段区域 */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-purple-700 border-b border-purple-200 pb-2">
+              <h3 className="text-sm font-semibold text-status-purple-text border-b border-status-purple-border pb-2">
                 可編輯欄位
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 {/* 進場體重 */}
                 <div className="space-y-2">
                   <Label htmlFor="entry_weight">
-                    進場體重 (kg) <span className="text-red-500">*</span>
+                    進場體重 (kg) <span className="text-status-error-solid">*</span>
                   </Label>
                   <Input
                     id="entry_weight"
@@ -249,22 +249,22 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
 
             {/* 資訊提示區域（唯讀） */}
             <div className="space-y-4 pt-4 border-t">
-              <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">狀態資訊（僅供參考）</h3>
+              <h3 className="text-sm font-semibold text-foreground border-b pb-2">狀態資訊（僅供參考）</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-500">用藥中</Label>
+                  <Label className="text-muted-foreground">用藥中</Label>
                   <Input
                     value="此資訊由系統自動計算，請至詳情頁查看相關記錄"
                     disabled
-                    className="bg-slate-50 text-slate-500 text-xs"
+                    className="bg-muted text-muted-foreground text-xs"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-500">獸醫師建議</Label>
+                  <Label className="text-muted-foreground">獸醫師建議</Label>
                   <Input
                     value="請至詳情頁查看獸醫師建議"
                     disabled
-                    className="bg-slate-50 text-slate-500 text-xs"
+                    className="bg-muted text-muted-foreground text-xs"
                   />
                 </div>
               </div>

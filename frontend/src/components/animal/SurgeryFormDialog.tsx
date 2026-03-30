@@ -75,7 +75,7 @@ export function SurgeryFormDialog({
               variant="outline"
               size="sm"
               onClick={jumpToNextEmptyField}
-              className="flex items-center gap-2 border-purple-200 text-purple-600 hover:bg-purple-50 mr-4"
+              className="flex items-center gap-2 border-status-purple-border text-status-purple-text hover:bg-status-purple-bg mr-4"
               title="快捷鍵: Alt + N"
             >
               <FastForward className="h-4 w-4" />
@@ -96,7 +96,7 @@ export function SurgeryFormDialog({
             <Button
               type="submit"
               disabled={mutation.isPending}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-status-success-solid hover:bg-green-700"
             >
               {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               儲存

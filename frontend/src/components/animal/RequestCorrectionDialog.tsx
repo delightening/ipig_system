@@ -189,7 +189,7 @@ export function RequestCorrectionDialog({
             </div>
             <div className="space-y-2">
               <Label>目前值</Label>
-              <Input value={getCurrentValue()} disabled className="bg-slate-50" />
+              <Input value={getCurrentValue()} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label>修正後的值 *</Label>

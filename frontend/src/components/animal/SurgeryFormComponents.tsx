@@ -19,7 +19,7 @@ export function CollapsibleSection({
     <div className="border rounded-lg">
       <button
         type="button"
-        className="flex items-center justify-between w-full px-4 py-3 text-left font-medium bg-slate-50 hover:bg-slate-100 rounded-t-lg"
+        className="flex items-center justify-between w-full px-4 py-3 text-left font-medium bg-muted hover:bg-muted rounded-t-lg"
         onClick={() => setIsOpen(!isOpen)}
       >
         {title}

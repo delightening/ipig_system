@@ -64,7 +64,7 @@ pub fn build_app(state: AppState, config: &Config) -> Router {
         HeaderValue::from_static("no-store"),
     );
 
-    crate::routes::api_routes(state)
+    let mut app = crate::routes::api_routes(state)
         .layer(cors)
         .layer(trace_layer)
         .layer(nosniff)
@@ -72,11 +72,28 @@ pub fn build_app(state: AppState, config: &Config) -> Router {
         .layer(no_cache_api)
         .layer(DefaultBodyLimit::max(30 * 1024 * 1024)) // SEC-36: 全域 30MB 請求大小限制
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
-        .layer(PropagateRequestIdLayer::x_request_id())
-        .merge(utoipa_swagger_ui::SwaggerUi::new("/swagger-ui").url(
+        .layer(PropagateRequestIdLayer::x_request_id());
+
+    // R16-9: Production 環境不掛載 Swagger UI
+    if !config.cookie_secure {
+        tracing::info!("[Swagger] 開發模式：掛載 Swagger UI 於 /swagger-ui");
+        app = app.merge(utoipa_swagger_ui::SwaggerUi::new("/swagger-ui").url(
             "/api-docs/openapi.json",
             <crate::openapi::ApiDoc as utoipa::OpenApi>::openapi(),
-        ))
+        ));
+    } else {
+        tracing::info!("[Swagger] Production 模式：Swagger UI 已停用");
+    }
+
+    // R16-12: Production 環境啟用 HSTS header
+    if config.cookie_secure {
+        app = app.layer(SetResponseHeaderLayer::overriding(
+            header::HeaderName::from_static("strict-transport-security"),
+            HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        ));
+    }
+
+    app
 }
 
 /// Graceful Shutdown：監聽 Ctrl+C（及 Unix SIGTERM）

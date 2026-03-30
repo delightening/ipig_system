@@ -88,11 +88,11 @@ export function SmartInput({
           "bg-white dark:bg-slate-800",
           isFocused
             ? "border-primary ring-4 ring-primary/10"
-            : "border-slate-200 dark:border-slate-700 hover:border-slate-300",
+            : "border-border dark:border-slate-700 hover:border-border",
           disabled && "opacity-50 cursor-not-allowed"
         )}
       >
-        <Search className="w-5 h-5 text-slate-400 mr-3 shrink-0" />
+        <Search className="w-5 h-5 text-muted-foreground mr-3 shrink-0" />
         <input
           ref={inputRef}
           type="text"
@@ -105,8 +105,8 @@ export function SmartInput({
           disabled={disabled}
           className={cn(
             "flex-1 text-base bg-transparent border-0 outline-none",
-            "placeholder:text-slate-400",
-            "text-slate-900 dark:text-slate-100"
+            "placeholder:text-muted-foreground",
+            "text-foreground dark:text-slate-100"
           )}
           role="combobox"
           aria-expanded={showSuggestions}
@@ -114,15 +114,15 @@ export function SmartInput({
           aria-activedescendant={selectedIndex >= 0 ? `suggestion-${selectedIndex}` : undefined}
         />
         {isLoading && (
-          <Loader2 className="w-5 h-5 text-slate-400 animate-spin mr-2" />
+          <Loader2 className="w-5 h-5 text-muted-foreground animate-spin mr-2" />
         )}
         {value && !isLoading && (
           <button
             type="button"
             onClick={handleClear}
-            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="p-1 rounded-full hover:bg-muted dark:hover:bg-slate-700 transition-colors"
           >
-            <X className="w-4 h-4 text-slate-400" />
+            <X className="w-4 h-4 text-muted-foreground" />
           </button>
         )}
       </div>
@@ -135,12 +135,12 @@ export function SmartInput({
           role="listbox"
           className={cn(
             "absolute z-50 w-full mt-2 py-2 rounded-lg border shadow-lg",
-            "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700",
+            "bg-white dark:bg-slate-800 border-border dark:border-slate-700",
             "max-h-80 overflow-auto"
           )}
         >
           {isLoading ? (
-            <li className="px-4 py-3 text-sm text-slate-500 flex items-center gap-2">
+            <li className="px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" />
               搜尋中...
             </li>
@@ -157,30 +157,30 @@ export function SmartInput({
                     "px-4 py-3 cursor-pointer transition-colors suggestion-item",
                     selectedIndex === index
                       ? "bg-primary/10 text-primary"
-                      : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                      : "hover:bg-muted dark:hover:bg-slate-700/50"
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    <Package className="w-5 h-5 text-slate-400 mt-0.5 shrink-0" />
+                    <Package className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                        <span className="font-medium text-foreground dark:text-slate-100 truncate">
                           {suggestion.name}
                         </span>
                         {suggestion.spec && (
-                          <span className="text-sm text-slate-500 truncate">
+                          <span className="text-sm text-muted-foreground truncate">
                             {suggestion.spec}
                           </span>
                         )}
                       </div>
                       {suggestion.category && (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-muted-foreground">
                           [{suggestion.category}]
                         </span>
                       )}
                     </div>
                     {suggestion.similarity !== undefined && (
-                      <span className="text-xs font-medium text-slate-400">
+                      <span className="text-xs font-medium text-muted-foreground">
                         {Math.round(suggestion.similarity * 100)}%
                       </span>
                     )}
@@ -191,7 +191,7 @@ export function SmartInput({
               {/* Create New Option */}
               {onCreateNew && (
                 <>
-                  <li className="border-t border-slate-100 dark:border-slate-700 my-1" />
+                  <li className="border-t border-border dark:border-slate-700 my-1" />
                   <li
                     id={`suggestion-${suggestions.length}`}
                     role="option"
@@ -201,12 +201,12 @@ export function SmartInput({
                       "px-4 py-3 cursor-pointer transition-colors",
                       selectedIndex === suggestions.length
                         ? "bg-primary/10 text-primary"
-                        : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                        : "hover:bg-muted dark:hover:bg-slate-700/50"
                     )}
                   >
                     <div className="flex items-center gap-3">
                       <Plus className="w-5 h-5 text-primary" />
-                      <span className="text-slate-700 dark:text-slate-300">
+                      <span className="text-foreground dark:text-muted-foreground">
                         建立新產品「<span className="font-medium">{value}</span>」
                       </span>
                     </div>

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CheckCircle, FileText, Plus, Users } from 'lucide-react'
 
 import api from '@/lib/api'
+import { queryKeys } from '@/lib/queryKeys'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -36,7 +37,7 @@ export function HrLeavePage() {
 
     // 我的餘額
     const { data: balanceSummary } = useQuery({
-        queryKey: ['hr-balance-summary'],
+        queryKey: queryKeys.hr.balanceSummary,
         queryFn: async () => {
             const res = await api.get<BalanceSummary>('/hr/balances/summary')
             return res.data
@@ -45,7 +46,7 @@ export function HrLeavePage() {
 
     // 我的請假記錄
     const { data: myLeaves, isLoading: loadingLeaves } = useQuery({
-        queryKey: ['hr-my-leaves'],
+        queryKey: queryKeys.hr.myLeaves,
         queryFn: async () => {
             const res = await api.get<PaginatedResponse<LeaveRequestWithUser>>('/hr/leaves')
             return res.data
@@ -54,7 +55,7 @@ export function HrLeavePage() {
 
     // 待審核的請假
     const { data: pendingLeaves, isLoading: loadingPending } = useQuery({
-        queryKey: ['hr-pending-leaves'],
+        queryKey: queryKeys.hr.pendingLeaves,
         queryFn: async () => {
             const res = await api.get<PaginatedResponse<LeaveRequestWithUser>>('/hr/leaves?pending_approval=true')
             return res.data
@@ -63,7 +64,7 @@ export function HrLeavePage() {
 
     // 工作人員列表（供代理人選擇）
     const { data: staffList } = useQuery({
-        queryKey: ['hr-staff-for-proxy'],
+        queryKey: queryKeys.hr.staffForProxy,
         queryFn: async () => {
             const res = await api.get<StaffInfo[]>('/hr/staff')
             return res.data

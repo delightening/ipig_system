@@ -54,7 +54,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
             }
           />
           <div className="pt-2">
-            <Label className="text-sm text-slate-600">其他藥劑</Label>
+            <Label className="text-sm text-muted-foreground">其他藥劑</Label>
             <Repeater<MedicationItem>
               value={formData.induction.others}
               onChange={(others) =>
@@ -182,7 +182,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
             }
           />
           <div className="pt-2">
-            <Label className="text-sm text-slate-600">其他藥劑</Label>
+            <Label className="text-sm text-muted-foreground">其他藥劑</Label>
             <Repeater<MedicationItem>
               value={formData.maintenance.others}
               onChange={(others) =>
@@ -249,7 +249,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
               })}
               addLabel="新增測量紀錄"
               renderItem={(item, _index, onItemChange) => (
-                <div className="grid grid-cols-6 gap-2 p-2 bg-slate-50 rounded">
+                <div className="grid grid-cols-6 gap-2 p-2 bg-muted rounded">
                   <Input
                     type="time"
                     placeholder="時間"

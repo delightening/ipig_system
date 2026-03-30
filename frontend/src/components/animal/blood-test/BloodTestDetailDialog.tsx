@@ -47,22 +47,22 @@ export function BloodTestDetailDialog({
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-gray-500 text-sm">檢查日期</Label>
+                <Label className="text-muted-foreground text-sm">檢查日期</Label>
                 <p className="font-medium">{detail.blood_test.test_date}</p>
               </div>
               <div>
-                <Label className="text-gray-500 text-sm">檢驗機構</Label>
+                <Label className="text-muted-foreground text-sm">檢驗機構</Label>
                 <p className="font-medium">{detail.blood_test.lab_name || '-'}</p>
               </div>
             </div>
             {detail.blood_test.remark && (
               <div>
-                <Label className="text-gray-500 text-sm">備註</Label>
+                <Label className="text-muted-foreground text-sm">備註</Label>
                 <p>{detail.blood_test.remark}</p>
               </div>
             )}
             <div>
-              <Label className="text-gray-500 text-sm">建立者</Label>
+              <Label className="text-muted-foreground text-sm">建立者</Label>
               <p>{detail.created_by_name || '-'}</p>
             </div>
 
@@ -84,11 +84,11 @@ export function BloodTestDetailDialog({
                   </TableHeader>
                   <TableBody>
                     {(sortedData ?? detail.items).map((item) => (
-                      <TableRow key={item.id} className={item.is_abnormal ? 'bg-red-50' : ''}>
+                      <TableRow key={item.id} className={item.is_abnormal ? 'bg-status-error-bg' : ''}>
                         <TableCell className="font-medium">{item.item_name}</TableCell>
                         <TableCell>{item.result_value || '-'}</TableCell>
                         <TableCell>{item.result_unit || '-'}</TableCell>
-                        <TableCell className="text-sm text-gray-500">{item.reference_range || '-'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{item.reference_range || '-'}</TableCell>
                         <TableCell className="text-center">
                           {item.is_abnormal ? (
                             <Badge variant="destructive" className="gap-1">
@@ -96,7 +96,7 @@ export function BloodTestDetailDialog({
                               異常
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-green-600 border-green-300">正常</Badge>
+                            <Badge variant="outline" className="text-status-success-text border-status-success-border">正常</Badge>
                           )}
                         </TableCell>
                         <TableCell className="text-sm">{item.remark || '-'}</TableCell>
@@ -109,7 +109,7 @@ export function BloodTestDetailDialog({
           </div>
         ) : (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         )}
       </DialogContent>

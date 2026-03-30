@@ -42,7 +42,7 @@ export function QuickSelectCard({
         "min-w-[100px] h-[88px] p-4",
         selected
           ? "bg-primary/10 border-primary text-primary"
-          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-700/50",
+          : "bg-white dark:bg-slate-800 border-border dark:border-slate-700 hover:border-primary/50 hover:bg-muted dark:hover:bg-slate-700/50",
         disabled && "opacity-50 cursor-not-allowed",
         className
       )}
@@ -55,19 +55,19 @@ export function QuickSelectCard({
       {item.icon && (
         <div className={cn(
           "text-2xl mb-1",
-          selected ? "text-primary" : "text-slate-600 dark:text-slate-400"
+          selected ? "text-primary" : "text-muted-foreground dark:text-muted-foreground"
         )}>
           {item.icon}
         </div>
       )}
       <span className={cn(
         "text-sm font-medium",
-        selected ? "text-primary" : "text-slate-700 dark:text-slate-300"
+        selected ? "text-primary" : "text-foreground dark:text-muted-foreground"
       )}>
         {item.displayLabel || item.label}
       </span>
       {item.sublabel && (
-        <span className="text-xs text-slate-400 mt-0.5">
+        <span className="text-xs text-muted-foreground mt-0.5">
           {item.sublabel}
         </span>
       )}
@@ -113,12 +113,12 @@ export function QuickSelectGrid({
           className={cn(
             "flex flex-col items-center justify-center p-3 rounded-lg border-2 border-dashed transition-all",
             "min-w-[100px] h-[88px] p-4",
-            "border-slate-300 dark:border-slate-600 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-700/50",
+            "border-border dark:border-slate-600 hover:border-primary/50 hover:bg-muted dark:hover:bg-slate-700/50",
             disabled && "opacity-50 cursor-not-allowed"
           )}
         >
-          <ChevronRight className="w-5 h-5 text-slate-400 mb-1" />
-          <span className="text-xs text-slate-500">更多</span>
+          <ChevronRight className="w-5 h-5 text-muted-foreground mb-1" />
+          <span className="text-xs text-muted-foreground">更多</span>
         </button>
       )}
     </div>
@@ -152,7 +152,7 @@ export function SpecSelectionPanel({
 }: SpecSelectionPanelProps) {
   return (
     <div className={cn("space-y-4", className)}>
-      <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+      <h4 className="text-sm font-medium text-foreground dark:text-muted-foreground">
         選擇規格：{title}
       </h4>
 
@@ -167,13 +167,13 @@ export function SpecSelectionPanel({
               "flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all min-h-[56px]",
               selectedId === spec.id
                 ? "bg-primary/10 border-primary text-primary"
-                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/50",
+                : "bg-white dark:bg-slate-800 border-border dark:border-slate-700 hover:border-primary/50",
               disabled && "opacity-50 cursor-not-allowed"
             )}
           >
             <span className="text-sm font-medium">{spec.primary}</span>
             {spec.secondary && (
-              <span className="text-xs text-slate-400 mt-0.5">{spec.secondary}</span>
+              <span className="text-xs text-muted-foreground mt-0.5">{spec.secondary}</span>
             )}
           </button>
         ))}
@@ -183,7 +183,7 @@ export function SpecSelectionPanel({
         <div className="space-y-3 pt-2">
           {extraOptions.map((option, index) => (
             <div key={index} className="flex items-center gap-4">
-              <span className="text-sm text-slate-600 dark:text-slate-400 min-w-[60px]">
+              <span className="text-sm text-muted-foreground dark:text-muted-foreground min-w-[60px]">
                 {option.label}：
               </span>
               <div className="flex gap-2">
@@ -194,7 +194,7 @@ export function SpecSelectionPanel({
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer transition-all text-sm",
                       option.value === opt.value
                         ? "bg-primary/10 border-primary text-primary"
-                        : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+                        : "border-border dark:border-slate-700 hover:border-primary/50"
                     )}
                   >
                     <input

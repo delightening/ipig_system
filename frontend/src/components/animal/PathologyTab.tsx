@@ -87,8 +87,8 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
         </CardHeader>
         <CardContent>
           {!pathology || !pathology.attachments || pathology.attachments.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-slate-300" />
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p>尚無病理組織報告</p>
               <p className="text-sm mt-1">點擊上方按鈕上傳</p>
             </div>
@@ -145,7 +145,7 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
             <Button
               onClick={() => uploadMutation.mutate(files)}
               disabled={uploadMutation.isPending || files.length === 0}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-status-success-solid hover:bg-green-700"
             >
               {uploadMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               上傳

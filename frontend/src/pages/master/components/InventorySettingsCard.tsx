@@ -42,7 +42,7 @@ export function InventorySettingsCard({ formData, setFormData, disabled }: Inven
             </label>
           </div>
           {formData.category === 'DRG' && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">
+            <p className="text-xs text-status-warning-text dark:text-amber-400">
               藥品建議開啟批號和效期追蹤
             </p>
           )}

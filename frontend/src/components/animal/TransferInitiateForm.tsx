@@ -45,10 +45,10 @@ export function TransferInitiateForm({ animalId, earTag, onClose }: TransferInit
     })
 
     return (
-        <Card className="border-indigo-200">
+        <Card className="border-status-info-border">
             <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                    <ArrowRightLeft className="h-5 w-5 text-indigo-600" />
+                    <ArrowRightLeft className="h-5 w-5 text-status-info-text" />
                     發起轉讓 — {earTag}
                 </CardTitle>
                 <CardDescription>
@@ -77,7 +77,7 @@ export function TransferInitiateForm({ animalId, earTag, onClose }: TransferInit
                             <SelectItem value="external">{transferTypeNames.external}</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                         {transferType === 'external' ? '轉給其他機構：完成轉讓後將清空欄位。' : '仍在機構內：完成轉讓後保留欄位，僅移出原計劃。'}
                     </p>
                 </div>

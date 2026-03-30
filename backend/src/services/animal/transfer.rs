@@ -31,7 +31,7 @@ impl AnimalTransferService {
         // Admin / VET / IACUC_STAFF 可看到所有紀錄
         let privileged = user_roles
             .iter()
-            .any(|r| matches!(r.as_str(), "ADMIN" | "VET" | "IACUC_STAFF" | "IACUC_CHAIR"));
+            .any(|r| ["ADMIN", crate::constants::ROLE_VET, crate::constants::ROLE_IACUC_STAFF, crate::constants::ROLE_IACUC_CHAIR].contains(&r.as_str()));
         if privileged {
             return Ok(DataBoundaryResponse { boundary: None });
         }

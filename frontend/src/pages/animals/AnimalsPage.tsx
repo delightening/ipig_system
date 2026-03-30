@@ -168,7 +168,7 @@ export function AnimalsPage() {
         description={t('animals.description')}
         actions={
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <Button size="sm" variant="outline" className="w-full gap-2 text-status-warning-text border-orange-200 hover:bg-orange-50 text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>
+            <Button size="sm" variant="outline" className="w-full gap-2 text-status-warning-text border-status-warning-border hover:bg-status-warning-bg text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>
               <Download className="h-4 w-4 shrink-0" />
               <span className="truncate">{t('animals.generateReport')}</span>
             </Button>

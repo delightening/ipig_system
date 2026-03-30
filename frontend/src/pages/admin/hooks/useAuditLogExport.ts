@@ -7,6 +7,16 @@ import type { UserActivityLog } from '@/types/hr'
 
 import { categoryLabels, eventTypeLabels } from '../constants/auditLogs'
 
+/** 轉義 HTML 特殊字元，防止 XSS */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 interface ExportParams {
   dateFrom: string
   dateTo: string
@@ -49,24 +59,27 @@ function buildCsvContent(logs: UserActivityLog[]): string {
 
 function buildPrintHtml(logs: UserActivityLog[], dateFrom: string, dateTo: string): string {
   const tableRows = logs.map(log => {
-    const evtLabel = eventTypeLabels[log.event_type]?.label || log.event_type
-    const catLabel = categoryLabels[log.event_category] || log.event_category
+    const evtLabel = escapeHtml(eventTypeLabels[log.event_type]?.label || log.event_type)
+    const catLabel = escapeHtml(categoryLabels[log.event_category] || log.event_category)
     return `<tr>
-      <td>${formatDateTime(log.created_at)}</td>
-      <td>${log.actor_display_name || ''}</td>
+      <td>${escapeHtml(formatDateTime(log.created_at))}</td>
+      <td>${escapeHtml(log.actor_display_name || '')}</td>
       <td>${catLabel}</td>
       <td>${evtLabel}</td>
-      <td>${log.entity_type || ''}</td>
-      <td>${log.entity_display_name || ''}</td>
-      <td>${log.ip_address || ''}</td>
+      <td>${escapeHtml(log.entity_type || '')}</td>
+      <td>${escapeHtml(log.entity_display_name || '')}</td>
+      <td>${escapeHtml(log.ip_address || '')}</td>
     </tr>`
   }).join('')
+
+  const safeDateFrom = escapeHtml(dateFrom)
+  const safeDateTo = escapeHtml(dateTo)
 
   return `<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <title>操作日誌 ${dateFrom} ~ ${dateTo}</title>
+  <title>操作日誌 ${safeDateFrom} ~ ${safeDateTo}</title>
   <style>
     body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; font-size: 11px; margin: 20px; }
     h1 { font-size: 18px; margin-bottom: 4px; }
@@ -80,7 +93,7 @@ function buildPrintHtml(logs: UserActivityLog[], dateFrom: string, dateTo: strin
 </head>
 <body>
   <h1>操作日誌報表</h1>
-  <p>期間：${dateFrom} - ${dateTo} | 共 ${logs.length} 筆</p>
+  <p>期間：${safeDateFrom} - ${safeDateTo} | 共 ${logs.length} 筆</p>
   <table>
     <thead>
       <tr><th>時間</th><th>操作者</th><th>類別</th><th>事件</th><th>實體類型</th><th>實體名稱</th><th>IP</th></tr>

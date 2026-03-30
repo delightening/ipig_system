@@ -477,7 +477,7 @@ export function DocumentEditPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              <AlertTriangle className="h-5 w-5 text-status-warning-solid" />
               尚有未儲存的變更
             </DialogTitle>
             <DialogDescription>
@@ -499,7 +499,7 @@ export function DocumentEditPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              <AlertTriangle className="h-5 w-5 text-status-warning-solid" />
               專屬採購計畫不符警告
             </DialogTitle>
             <DialogDescription>

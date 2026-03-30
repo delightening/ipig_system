@@ -90,10 +90,7 @@ pub async fn export_animal_medical_pdf(
                 .header(header::CONTENT_TYPE, "application/pdf")
                 .header(
                     header::CONTENT_DISPOSITION,
-                    format!(
-                        "attachment; filename*=UTF-8''{}",
-                        urlencoding::encode(&filename)
-                    ),
+                    crate::utils::http::content_disposition_header(&filename),
                 )
                 .body(Body::from(pdf_bytes))
                 .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
@@ -145,10 +142,7 @@ pub async fn export_project_medical_pdf(
                 .header(header::CONTENT_TYPE, "application/pdf")
                 .header(
                     header::CONTENT_DISPOSITION,
-                    format!(
-                        "attachment; filename*=UTF-8''{}",
-                        urlencoding::encode(&filename)
-                    ),
+                    crate::utils::http::content_disposition_header(&filename),
                 )
                 .body(Body::from(pdf_bytes))
                 .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
@@ -222,10 +216,7 @@ pub async fn export_pen_report(
         .header(header::CONTENT_TYPE, "application/pdf")
         .header(
             header::CONTENT_DISPOSITION,
-            format!(
-                "attachment; filename*=UTF-8''{}",
-                urlencoding::encode(&filename)
-            ),
+            crate::utils::http::content_disposition_header(&filename),
         )
         .body(Body::from(pdf_bytes))
         .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))

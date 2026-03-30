@@ -62,8 +62,8 @@ pub async fn metrics_handler(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
 ) -> impl IntoResponse {
-    // If METRICS_TOKEN is set, require it as Bearer token
-    if let Ok(expected) = std::env::var("METRICS_TOKEN") {
+    // R17-4: 從 config 讀取 METRICS_TOKEN，不再散落讀取 std::env::var
+    if let Some(ref expected) = state.config.metrics_token {
         let provided = headers
             .get(axum::http::header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())

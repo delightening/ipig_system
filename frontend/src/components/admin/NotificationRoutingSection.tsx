@@ -284,7 +284,7 @@ export function NotificationRoutingSection() {
 
             {/* 新增表單 */}
             {showAddForm && (
-                <Card className="mb-6 border-blue-200 bg-blue-50/30">
+                <Card className="mb-6 border-status-info-border bg-status-info-bg/30">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base">新增路由規則</CardTitle>
                     </CardHeader>
@@ -392,10 +392,10 @@ export function NotificationRoutingSection() {
             )}
 
             {error && (
-                <Card className="border-red-200 bg-red-50">
+                <Card className="border-status-error-border bg-status-error-bg">
                     <CardContent className="flex items-center gap-3 py-6">
-                        <AlertCircle className="h-5 w-5 text-red-500" />
-                        <span className="text-red-700">無法載入通知路由設定</span>
+                        <AlertCircle className="h-5 w-5 text-status-error-solid" />
+                        <span className="text-status-error-text">無法載入通知路由設定</span>
                     </CardContent>
                 </Card>
             )}
@@ -465,7 +465,7 @@ export function NotificationRoutingSection() {
                                                             >
                                                                 {/* 角色 + 說明 */}
                                                                 <div className="flex items-center gap-2 min-w-0">
-                                                                    <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 shrink-0">
+                                                                    <span className="inline-flex items-center rounded-md bg-status-info-bg px-2 py-1 text-xs font-medium text-status-info-text ring-1 ring-inset ring-blue-700/10 shrink-0">
                                                                         {roleNameMap.get(rule.role_code) || rule.role_code}
                                                                     </span>
                                                                     {rule.description && (
@@ -500,7 +500,7 @@ export function NotificationRoutingSection() {
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                                    className="h-8 w-8 text-status-error-solid hover:text-status-error-text hover:bg-status-error-bg"
                                                                     onClick={() => handleDelete(rule)}
                                                                 >
                                                                     <Trash2 className="h-4 w-4" />

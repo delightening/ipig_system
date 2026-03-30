@@ -42,6 +42,7 @@ import { formatDate } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { ProtocolTimeline } from '@/components/protocol/ProtocolTimeline'
 import type { ProtocolWorkingContent, ProtocolAnimalItem } from '@/types/protocol'
 import type { AnimalListItem } from '@/types/animal'
 import { animalStatusNames, animalBreedNames, animalGenderNames } from '@/types/animal'
@@ -191,6 +192,9 @@ export function MyProjectDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Protocol Status Timeline */}
+      <ProtocolTimeline status={protocol.protocol.status} />
 
       {/* Info Cards */}
       <div className="grid gap-4 md:grid-cols-4">

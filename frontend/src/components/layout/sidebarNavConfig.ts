@@ -7,6 +7,7 @@ import {
   Users,
   Stethoscope,
   ClipboardCheck,
+  Mail,
 } from 'lucide-react'
 import { createElement } from 'react'
 
@@ -142,7 +143,11 @@ export const navItemsConfig: NavItem[] = [
       { title: '通知路由', href: '/admin/notification-routing', translate: false },
       { title: '藥物選單', href: '/admin/treatment-drugs', translate: false },
       { title: '設施管理', href: '/admin/facilities', translate: false },
+      { title: '邀請管理', href: '/admin/invitations', permission: 'invitation.view', translate: false },
     ],
     permission: 'admin',
   },
 ]
+
+/** 客戶專屬（PI-only）可見的導航項目 title */
+export const CLIENT_ONLY_NAV_TITLES = new Set(['myProjects'])

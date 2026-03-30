@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { queryKeys } from '@/lib/queryKeys'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -284,7 +285,7 @@ interface BalanceSummaryData {
 export function UpcomingLeavesWidget() {
   const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
-    queryKey: ['hr-balance-summary-expiring'],
+    queryKey: queryKeys.hr.balanceSummaryExpiring,
     queryFn: async () => {
       const res = await api.get<BalanceSummaryData>('/hr/balances/summary')
       return res.data

@@ -92,7 +92,7 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-lg">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-red-600">
+                    <DialogTitle className="flex items-center gap-2 text-status-error-text">
                         <AlertOctagon className="h-5 w-5" />
                         開立安樂死單
                     </DialogTitle>
@@ -104,12 +104,12 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Warning Box */}
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <h4 className="font-medium text-red-800 mb-2 flex items-center gap-2">
+                    <div className="bg-status-error-bg border border-status-error-border rounded-lg p-4">
+                        <h4 className="font-medium text-status-error-text mb-2 flex items-center gap-2">
                             <Clock className="h-4 w-4" />
                             注意事項
                         </h4>
-                        <ul className="text-sm text-red-700 space-y-1 list-disc pl-5">
+                        <ul className="text-sm text-status-error-text space-y-1 list-disc pl-5">
                             <li>開立後將通知計畫主持人（PI）</li>
                             <li>PI 需在 <strong>24 小時內</strong> 回應「同意」或「申請暫緩」</li>
                             <li>若 PI 未於時限內回應，系統將自動解鎖執行權限</li>
@@ -137,9 +137,9 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
                             id="confirm"
                             checked={confirmed}
                             onChange={(e) => setConfirmed(e.target.checked)}
-                            className="h-4 w-4 mt-1 text-red-600 rounded"
+                            className="h-4 w-4 mt-1 text-status-error-text rounded"
                         />
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                             我已閱讀並理解上述注意事項，確認開立安樂死單據
                         </span>
                     </label>
@@ -150,7 +150,7 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-red-600 hover:bg-red-700"
+                            className="bg-destructive hover:bg-destructive/90"
                             disabled={mutation.isPending || !reason.trim() || !confirmed}
                         >
                             {mutation.isPending ? (
