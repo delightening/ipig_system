@@ -152,10 +152,14 @@ impl TestApp {
 
     /// Login as admin (uses ADMIN_EMAIL / ADMIN_INITIAL_PASSWORD from env or defaults).
     pub async fn login_as_admin(&self) -> String {
-        let email =
-            std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipig.local".to_string());
+        let email = std::env::var("ADMIN_EMAIL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "admin@ipig.local".to_string());
         let password = std::env::var("ADMIN_INITIAL_PASSWORD")
-            .unwrap_or_else(|_| "iPig$ecure1".to_string());
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "iPig$ecure1".to_string());
 
         self.login(&email, &password)
             .await

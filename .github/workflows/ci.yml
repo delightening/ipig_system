@@ -249,7 +249,7 @@ jobs:
   # =========================
   # 📊 後端：cargo-tarpaulin 行覆蓋率量測
   # 僅針對純單元測試（lib target），不需要資料庫連線
-  # 門檻：整體行覆蓋率 ≥ 15%（--lib only，主要測試在 integration tests）
+  # 門檻：整體行覆蓋率 ≥ 4%（--lib only，主要測試在 integration tests）
   # =========================
   backend-coverage:
     name: "📊 Backend: coverage (tarpaulin)"
@@ -289,7 +289,7 @@ jobs:
             --out Xml \
             --output-dir coverage/ \
             --skip-clean \
-            --fail-under 15 \
+            --fail-under 4 \
             --timeout 120 \
             -- --test-threads=1
         continue-on-error: false

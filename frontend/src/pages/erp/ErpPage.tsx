@@ -1,9 +1,13 @@
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, lazy, Suspense } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
+
+const LazyEquipmentPage = lazy(() =>
+    import('@/pages/admin/EquipmentPage').then(m => ({ default: m.EquipmentPage }))
+)
 import {
     Truck,
     ShoppingCart,
@@ -233,7 +237,6 @@ export function ErpPage() {
 
     // Equipment 保留 inline 渲染（因為沒有獨立路由）
     if (currentTab === 'equipment' && isInlineView) {
-        const { EquipmentPage } = require('@/pages/admin/EquipmentPage')
         return (
             <div className="space-y-6">
                 <PageHeader title="ERP 系統" />
@@ -254,7 +257,9 @@ export function ErpPage() {
                         </button>
                     ))}
                 </div>
-                <EquipmentPage />
+                <Suspense fallback={<div className="p-4 text-muted-foreground">載入中…</div>}>
+                    <LazyEquipmentPage />
+                </Suspense>
             </div>
         )
     }
