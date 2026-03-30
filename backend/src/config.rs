@@ -20,7 +20,7 @@ fn read_secret(key: &str) -> Option<String> {
             Err(e) => tracing::warn!("Failed to read secret file {}: {}", path, e),
         }
     }
-    std::env::var(key).ok()
+    std::env::var(key).ok().filter(|s| !s.is_empty())
 }
 
 /// Like `read_secret` but returns an error if neither source is available.
