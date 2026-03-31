@@ -319,6 +319,11 @@ impl QaPlanService {
             .await?
             .ok_or(AppError::NotFound("稽查排程不存在".into()))?;
 
+        let items = repo::find_schedule_items(pool, schedule_id).await?;
+        if !items.iter().any(|i| i.id == item_id) {
+            return Err(AppError::NotFound("排程項目不存在".into()));
+        }
+
         repo::update_schedule_item(pool, item_id, payload).await?;
         Self::get_schedule(pool, schedule_id).await
     }

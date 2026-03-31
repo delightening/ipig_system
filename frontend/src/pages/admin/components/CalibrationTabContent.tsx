@@ -1,12 +1,12 @@
 /**
  * 校正/確效/查核紀錄分頁內容：設備篩選、表格、分頁
  */
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import type { StatusVariant } from '@/components/ui/status-badge'
-import { FilterBar } from '@/components/ui/filter-bar'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { Plus, Pencil, Trash2, Wrench, Ruler } from 'lucide-react'
 import { format } from 'date-fns'
@@ -50,10 +50,14 @@ export function CalibrationTabContent({
   onEdit,
   onDelete,
 }: CalibrationTabContentProps) {
-  const [searchKeyword, setSearchKeyword] = useState('')
-
-  const filteredEquip = equipmentList.filter((e) =>
-    e.name.toLowerCase().includes(searchKeyword.toLowerCase()),
+  const equipmentOptions = useMemo(
+    () =>
+      equipmentList.map((e) => ({
+        value: e.id,
+        label: e.name,
+        description: e.serial_number || undefined,
+      })),
+    [equipmentList],
   )
 
   const columns = useMemo<ColumnDef<CalibrationWithEquipment>[]>(() => {
@@ -124,34 +128,16 @@ export function CalibrationTabContent({
         )}
       </CardHeader>
       <CardContent className="space-y-4">
-        <FilterBar
-          search={searchKeyword}
-          onSearchChange={setSearchKeyword}
-          searchPlaceholder="搜尋設備名稱..."
+        <SearchableSelect
+          options={equipmentOptions}
+          value={calibEquipmentFilter}
+          onValueChange={onFilterChange}
+          placeholder="全部設備"
+          searchPlaceholder="搜尋設備名稱或序號..."
+          emptyMessage="找不到符合的設備"
+          icon={Wrench}
+          className="w-72"
         />
-        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-          <Button
-            variant={!calibEquipmentFilter ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onFilterChange('')}
-            className="justify-start"
-          >
-            <Ruler className="h-4 w-4 mr-2" />
-            全部設備
-          </Button>
-          {filteredEquip.map((e) => (
-            <Button
-              key={e.id}
-              variant={calibEquipmentFilter === e.id ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onFilterChange(e.id)}
-              className="justify-start"
-            >
-              <Wrench className="h-4 w-4 mr-2" />
-              {e.name}
-            </Button>
-          ))}
-        </div>
         <DataTable
           columns={columns}
           data={records}

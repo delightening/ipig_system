@@ -135,7 +135,7 @@ pub async fn insert_inspection_items(
         .bind(inspection_id)
         .bind(item.item_order)
         .bind(&item.description)
-        .bind(format!("{:?}", item.result).to_lowercase())
+        .bind(&item.result)
         .bind(&item.remarks)
         .execute(pool)
         .await?;
@@ -659,15 +659,15 @@ pub async fn update_schedule_item(
             notes                 = COALESCE($6, notes),
             updated_at            = NOW()
         WHERE id = $1
-        RETURNING si.*,
-                  (SELECT name FROM users WHERE id = si.responsible_person_id) AS responsible_name
+        RETURNING *,
+                  (SELECT name FROM users WHERE id = responsible_person_id) AS responsible_name
         "#,
     )
     .bind(id)
     .bind(payload.actual_date)
     .bind(payload.responsible_person_id)
     .bind(payload.related_inspection_id)
-    .bind(payload.status.as_ref().map(|s| format!("{s:?}").to_lowercase().replace("inprogress", "in_progress")))
+    .bind(payload.status.as_ref())
     .bind(&payload.notes)
     .fetch_one(pool)
     .await?;

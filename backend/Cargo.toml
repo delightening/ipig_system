@@ -99,6 +99,10 @@ name = "create_admin"
 path = "src/bin/create_admin.rs"
 
 [[bin]]
+name = "create_guest"
+path = "src/bin/create_guest.rs"
+
+[[bin]]
 name = "healthcheck"
 path = "src/bin/healthcheck.rs"
 

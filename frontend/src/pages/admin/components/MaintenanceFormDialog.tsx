@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
+import { format } from 'date-fns'
 
 import type { Equipment, MaintenanceType, MaintenanceRecordWithDetails } from '../types'
 import { MAINTENANCE_TYPE_LABELS } from '../types'
@@ -28,6 +29,7 @@ import { MAINTENANCE_TYPE_LABELS } from '../types'
 export interface MaintenanceFormData {
   equipment_id: string
   maintenance_type: MaintenanceType
+  reported_at: string
   problem_description: string
   maintenance_items: string
   performed_by: string
@@ -39,6 +41,7 @@ export function emptyMaintenanceForm(): MaintenanceFormData {
   return {
     equipment_id: '',
     maintenance_type: 'repair',
+    reported_at: format(new Date(), 'yyyy-MM-dd'),
     problem_description: '',
     maintenance_items: '',
     performed_by: '',
@@ -51,6 +54,7 @@ export function maintenanceFormFromRecord(r: MaintenanceRecordWithDetails): Main
   return {
     equipment_id: r.equipment_id,
     maintenance_type: r.maintenance_type,
+    reported_at: r.reported_at ? r.reported_at.slice(0, 10) : format(new Date(), 'yyyy-MM-dd'),
     problem_description: r.problem_description || '',
     maintenance_items: r.maintenance_items || '',
     performed_by: r.performed_by || '',
@@ -136,6 +140,16 @@ export function MaintenanceFormDialog({
               </Select>
             </FormField>
           </div>
+
+          {/* 報修/報保日期 */}
+          <FormField label="報修日期" htmlFor="maint-reported-at" required>
+            <Input
+              id="maint-reported-at"
+              type="date"
+              value={form.reported_at}
+              onChange={(e) => onFormChange({ ...form, reported_at: e.target.value })}
+            />
+          </FormField>
 
           {/* 維修：問題描述 / 保養：保養項目 */}
           {isRepair ? (

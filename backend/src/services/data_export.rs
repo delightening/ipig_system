@@ -44,11 +44,18 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     // 001 - 核心，無 FK
     "roles",
     "permissions",
-    // 002 - 動物，無 FK
+    // 002 - 動物基礎，無 FK（或僅 self-ref）
     "animal_sources",
+    "species",
     "blood_test_templates",
     "blood_test_panels",
     "blood_test_panel_items",
+    "blood_test_presets",
+    // 設施鏈：facilities → buildings → zones → pens（animals 依賴 pens + species）
+    "facilities",
+    "buildings",
+    "zones",
+    "pens",
     // 006 - ERP 基礎
     "product_categories",
     "sku_categories",
@@ -56,17 +63,22 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "sku_sequences",
     "warehouses",
     "partners",
+    "chart_of_accounts",
     // 001 - users 需在 role_permissions, user_roles 之前
     "users",
+    "departments",
     "role_permissions",
     "user_roles",
     "user_preferences",
+    "invitations",
+    "ai_api_keys",
     "notifications",
     "notification_settings",
     "attachments",
     "audit_logs",
-    "change_reasons", // 依賴 users
-    // 002 - 動物（依賴 users, animal_sources）
+    "change_reasons",
+    "login_events",
+    // 002 - 動物（依賴 users, animal_sources, pens, species）
     "animals",
     "animal_observations",
     "animal_surgeries",
@@ -90,6 +102,7 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "animal_sudden_deaths",
     "animal_transfers",
     "transfer_vet_evaluations",
+    "animal_field_correction_requests",
     // 003 - AUP
     "protocols",
     "user_protocols",
@@ -109,6 +122,7 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "vet_review_assignments",
     "protocol_activities",
     "review_round_history",
+    "protocol_ai_reviews",
     // 004 - HR
     "attendance_records",
     "overtime_records",
@@ -135,6 +149,8 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "storage_location_inventory",
     "stock_ledger",
     "inventory_snapshots",
+    "expiry_notification_config",
+    "expiry_monthly_snapshots",
     // 007 - 補充
     "notification_routing",
     "electronic_signatures",
@@ -144,10 +160,24 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "training_records",
     "equipment",
     "equipment_calibrations",
+    "equipment_suppliers",
+    "equipment_status_logs",
+    "equipment_maintenance_records",
+    "equipment_disposals",
+    "equipment_annual_plans",
     "journal_entries",
     "journal_entry_lines",
     "ap_payments",
     "ar_receipts",
+    // 011 - QA 計畫
+    "qa_inspections",
+    "qa_inspection_items",
+    "qa_non_conformances",
+    "qa_capa",
+    "qa_audit_schedules",
+    "qa_schedule_items",
+    "qa_sop_documents",
+    "qa_sop_acknowledgments",
 ];
 
 /// 稽核相關大表（include_audit=false 時略過）

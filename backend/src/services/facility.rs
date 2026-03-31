@@ -176,6 +176,23 @@ impl FacilityService {
     }
 
     pub async fn delete_facility(pool: &PgPool, id: Uuid) -> Result<()> {
+        let count: (i64,) = sqlx::query_as(
+            r#"SELECT COUNT(*) FROM animals a
+               JOIN pens p ON a.pen_id = p.id
+               JOIN zones z ON p.zone_id = z.id
+               JOIN buildings b ON z.building_id = b.id
+               WHERE b.facility_id = $1
+                 AND a.deleted_at IS NULL
+                 AND a.status NOT IN ('euthanized','sudden_death','transferred')"#,
+        )
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
+        if count.0 > 0 {
+            return Err(crate::AppError::BusinessRule(format!(
+                "此設施內仍有 {} 隻活體動物，請先移出後再刪除", count.0
+            )));
+        }
         sqlx::query("UPDATE facilities SET is_active = false, updated_at = NOW() WHERE id = $1")
             .bind(id)
             .execute(pool)
@@ -270,6 +287,22 @@ impl FacilityService {
     }
 
     pub async fn delete_building(pool: &PgPool, id: Uuid) -> Result<()> {
+        let count: (i64,) = sqlx::query_as(
+            r#"SELECT COUNT(*) FROM animals a
+               JOIN pens p ON a.pen_id = p.id
+               JOIN zones z ON p.zone_id = z.id
+               WHERE z.building_id = $1
+                 AND a.deleted_at IS NULL
+                 AND a.status NOT IN ('euthanized','sudden_death','transferred')"#,
+        )
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
+        if count.0 > 0 {
+            return Err(crate::AppError::BusinessRule(format!(
+                "此棟舍內仍有 {} 隻活體動物，請先移出後再刪除", count.0
+            )));
+        }
         sqlx::query("UPDATE buildings SET is_active = false, updated_at = NOW() WHERE id = $1")
             .bind(id)
             .execute(pool)
@@ -363,6 +396,21 @@ impl FacilityService {
     }
 
     pub async fn delete_zone(pool: &PgPool, id: Uuid) -> Result<()> {
+        let count: (i64,) = sqlx::query_as(
+            r#"SELECT COUNT(*) FROM animals a
+               JOIN pens p ON a.pen_id = p.id
+               WHERE p.zone_id = $1
+                 AND a.deleted_at IS NULL
+                 AND a.status NOT IN ('euthanized','sudden_death','transferred')"#,
+        )
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
+        if count.0 > 0 {
+            return Err(crate::AppError::BusinessRule(format!(
+                "此區域內仍有 {} 隻活體動物，請先移出後再刪除", count.0
+            )));
+        }
         sqlx::query("UPDATE zones SET is_active = false, updated_at = NOW() WHERE id = $1")
             .bind(id)
             .execute(pool)
@@ -520,6 +568,20 @@ impl FacilityService {
     }
 
     pub async fn delete_pen(pool: &PgPool, id: Uuid) -> Result<()> {
+        let count: (i64,) = sqlx::query_as(
+            r#"SELECT COUNT(*) FROM animals
+               WHERE pen_id = $1
+                 AND deleted_at IS NULL
+                 AND status NOT IN ('euthanized','sudden_death','transferred')"#,
+        )
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
+        if count.0 > 0 {
+            return Err(crate::AppError::BusinessRule(format!(
+                "此欄位內仍有 {} 隻活體動物，請先移出後再刪除", count.0
+            )));
+        }
         sqlx::query("UPDATE pens SET is_active = false, updated_at = NOW() WHERE id = $1")
             .bind(id)
             .execute(pool)
