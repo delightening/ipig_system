@@ -11,7 +11,7 @@ use crate::{
         CreateSopRequest, InspectionQuery, NcDetail, NcQuery, QaCapa, QaInspectionDetail,
         QaInspectionWithInspector, QaNonConformanceWithDetails, QaScheduleDetail,
         QaSopDocumentWithAck, ScheduleQuery, SopQuery, UpdateCapaRequest, UpdateInspectionRequest,
-        UpdateNcRequest, UpdateScheduleItemRequest, UpdateSopRequest,
+        UpdateNcRequest, UpdateScheduleItemRequest, UpdateScheduleRequest, UpdateSopRequest,
     },
     repositories::qa_plan as repo,
     Result,
@@ -307,6 +307,19 @@ impl QaPlanService {
         repo::insert_schedule_items(pool, schedule.id, &payload.items).await?;
 
         Self::get_schedule(pool, schedule.id).await
+    }
+
+    pub async fn update_schedule(
+        pool: &PgPool,
+        id: Uuid,
+        payload: &UpdateScheduleRequest,
+    ) -> Result<QaScheduleDetail> {
+        repo::find_schedule_by_id(pool, id)
+            .await?
+            .ok_or(AppError::NotFound("稽查排程不存在".into()))?;
+
+        repo::update_schedule(pool, id, payload).await?;
+        Self::get_schedule(pool, id).await
     }
 
     pub async fn update_schedule_item(

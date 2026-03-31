@@ -2,7 +2,7 @@
 //!
 //! GLP 品質保證：提供研究狀態、審查進度、稽核摘要、動物實驗概覽的唯讀檢視
 
-use chrono::Utc;
+use chrono::{Datelike, Utc};
 use serde::Serialize;
 use sqlx::PgPool;
 
@@ -19,6 +19,28 @@ pub struct QauDashboard {
     pub audit_summary: Vec<AuditEntityCount>,
     /// 動物實驗概覽
     pub animal_summary: AnimalSummary,
+    /// QA 計畫管理摘要
+    pub qa_plan_summary: QaPlanSummary,
+}
+
+#[derive(Debug, Serialize)]
+pub struct QaPlanSummary {
+    /// 開放中的不符合事項數
+    pub open_nc_count: i64,
+    /// 逾期未結的不符合事項數
+    pub overdue_nc_count: i64,
+    /// 現行 SOP 文件數
+    pub active_sop_count: i64,
+    /// 稽查報告（依狀態統計）
+    pub inspection_by_status: Vec<StatusCount>,
+    /// 今年稽查排程項目（依狀態統計）
+    pub schedule_items_by_status: Vec<StatusCount>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StatusCount {
+    pub status: String,
+    pub count: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -66,12 +88,14 @@ impl QauService {
         let review_progress = Self::get_review_progress(pool).await?;
         let audit_summary = Self::get_audit_summary(pool).await?;
         let animal_summary = Self::get_animal_summary(pool).await?;
+        let qa_plan_summary = Self::get_qa_plan_summary(pool).await?;
 
         Ok(QauDashboard {
             protocol_status_summary,
             review_progress,
             audit_summary,
             animal_summary,
+            qa_plan_summary,
         })
     }
 
@@ -254,6 +278,63 @@ impl QauService {
             in_experiment,
             euthanized,
             completed,
+        })
+    }
+
+    async fn get_qa_plan_summary(pool: &PgPool) -> Result<QaPlanSummary> {
+        let open_nc: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM qa_non_conformances WHERE status IN ('open', 'in_progress', 'pending_verification')",
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let today = Utc::now().date_naive();
+        let overdue_nc: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM qa_non_conformances WHERE status IN ('open', 'in_progress') AND due_date IS NOT NULL AND due_date < $1",
+        )
+        .bind(today)
+        .fetch_one(pool)
+        .await?;
+
+        let active_sop: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM qa_sop_documents WHERE status = 'active'",
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let inspection_rows: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT status::text, COUNT(*)::bigint FROM qa_inspections GROUP BY status ORDER BY count DESC",
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let current_year = Utc::now().naive_utc().date().year();
+        let schedule_rows: Vec<(String, i64)> = sqlx::query_as(
+            r#"
+            SELECT si.status::text, COUNT(*)::bigint
+            FROM qa_schedule_items si
+            JOIN qa_audit_schedules s ON s.id = si.schedule_id
+            WHERE s.year = $1
+            GROUP BY si.status
+            ORDER BY count DESC
+            "#,
+        )
+        .bind(current_year)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(QaPlanSummary {
+            open_nc_count: open_nc.0,
+            overdue_nc_count: overdue_nc.0,
+            active_sop_count: active_sop.0,
+            inspection_by_status: inspection_rows
+                .into_iter()
+                .map(|(status, count)| StatusCount { status, count })
+                .collect(),
+            schedule_items_by_status: schedule_rows
+                .into_iter()
+                .map(|(status, count)| StatusCount { status, count })
+                .collect(),
         })
     }
 }

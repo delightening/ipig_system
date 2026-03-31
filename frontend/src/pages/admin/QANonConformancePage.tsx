@@ -9,6 +9,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import api from '@/lib/api'
 
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -88,6 +89,14 @@ export function QANonConformancePage() {
   })
   const [capaForm, setCapaForm] = useState<CapaForm>({
     action_type: 'corrective', description: '', assignee_id: '', due_date: '',
+  })
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['internal-users'],
+    queryFn: async () => {
+      const res = await api.get<{ id: string; display_name: string; email: string }[]>('/hr/internal-users')
+      return res.data
+    },
   })
 
   const { data: ncList = [], isLoading } = useQuery({
@@ -377,9 +386,23 @@ export function QANonConformancePage() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-1">
-              <Label>截止日期</Label>
-              <Input type="date" value={ncForm.due_date} onChange={e => setNcForm(f => ({ ...f, due_date: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>指派人</Label>
+                <Select value={ncForm.assignee_id} onValueChange={v => setNcForm(f => ({ ...f, assignee_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="選擇指派人" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">不指派</SelectItem>
+                    {users.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>截止日期</Label>
+                <Input type="date" value={ncForm.due_date} onChange={e => setNcForm(f => ({ ...f, due_date: e.target.value }))} />
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -412,9 +435,23 @@ export function QANonConformancePage() {
               <Label>行動描述</Label>
               <Textarea rows={3} value={capaForm.description} onChange={e => setCapaForm(f => ({ ...f, description: e.target.value }))} />
             </div>
-            <div className="space-y-1">
-              <Label>截止日期</Label>
-              <Input type="date" value={capaForm.due_date} onChange={e => setCapaForm(f => ({ ...f, due_date: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>指派人</Label>
+                <Select value={capaForm.assignee_id} onValueChange={v => setCapaForm(f => ({ ...f, assignee_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="選擇指派人" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">不指派</SelectItem>
+                    {users.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>截止日期</Label>
+                <Input type="date" value={capaForm.due_date} onChange={e => setCapaForm(f => ({ ...f, due_date: e.target.value }))} />
+              </div>
             </div>
           </div>
           <DialogFooter>

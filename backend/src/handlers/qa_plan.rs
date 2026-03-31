@@ -13,7 +13,7 @@ use crate::{
         CreateCapaRequest, CreateInspectionRequest, CreateNcRequest, CreateScheduleRequest,
         CreateSopRequest, InspectionQuery, NcQuery, ScheduleQuery, SopQuery,
         UpdateCapaRequest, UpdateInspectionRequest, UpdateNcRequest,
-        UpdateScheduleItemRequest, UpdateSopRequest,
+        UpdateScheduleItemRequest, UpdateScheduleRequest, UpdateSopRequest,
     },
     require_permission,
     services::QaPlanService,
@@ -243,6 +243,18 @@ pub async fn get_schedule(
     require_permission!(current_user, "qau.schedule.view");
 
     let detail = QaPlanService::get_schedule(&state.db, id).await?;
+    Ok(Json(serde_json::json!(detail)))
+}
+
+pub async fn update_schedule(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<UpdateScheduleRequest>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "qau.schedule.manage");
+
+    let detail = QaPlanService::update_schedule(&state.db, id, &payload).await?;
     Ok(Json(serde_json::json!(detail)))
 }
 

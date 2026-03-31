@@ -118,7 +118,10 @@ pub fn routes() -> Router<AppState> {
             "/qau/schedules",
             get(handlers::qa_plan::list_schedules).post(handlers::qa_plan::create_schedule),
         )
-        .route("/qau/schedules/:id", get(handlers::qa_plan::get_schedule))
+        .route(
+            "/qau/schedules/:id",
+            get(handlers::qa_plan::get_schedule).put(handlers::qa_plan::update_schedule),
+        )
         .route(
             "/qau/schedules/:schedule_id/items/:item_id",
             put(handlers::qa_plan::update_schedule_item),

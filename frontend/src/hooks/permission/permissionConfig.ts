@@ -92,6 +92,14 @@ export const CATEGORY_NAMES: Record<string, Record<string, string>> = {
   },
   qau: {
     QAU: 'QAU',
+    dashboard: '儀表板',
+    protocol: '計畫',
+    audit: '稽核',
+    animal: '動物',
+    inspection: '稽查報告',
+    nc: '不符合事項',
+    sop: 'SOP 文件',
+    schedule: '稽查排程',
   },
   erp: {
     warehouse: '倉庫',
@@ -332,7 +340,7 @@ export const CATEGORY_MERGE_MAP: Record<string, string> = {
 export const SUB_CATEGORY_CONFIG: Record<string, string[]> = {
   Facility: ['zone', 'facility', 'building', 'pen'],
   HR: ['attendance', 'leave', 'overtime', 'balance', 'hr', 'training'],
-  QAU: ['protocol', 'animal', 'audit', 'dashboard'],
+  QAU: ['protocol', 'animal', 'audit', 'dashboard', 'inspection', 'nc', 'sop', 'schedule'],
 }
 
 // 子類別顯示名稱
@@ -354,6 +362,10 @@ export const SUB_CATEGORY_NAMES: Record<string, string> = {
   animal: '檢視動物',
   audit: '檢視稽核',
   dashboard: '查看QAU儀表板',
+  inspection: '稽查報告',
+  nc: '不符合事項',
+  sop: 'SOP 文件',
+  schedule: '稽查排程',
   // 基於名稱的子群組
   '新增紀錄': '新增紀錄',
   '建立單據': '建立單據',

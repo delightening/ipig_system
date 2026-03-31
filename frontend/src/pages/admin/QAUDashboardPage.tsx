@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { FileText, ClipboardList, Shield, Stethoscope } from 'lucide-react'
+import { FileText, ClipboardList, Shield, Stethoscope, AlertTriangle, BookOpen, Calendar } from 'lucide-react'
 import api from '@/lib/api'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,11 +46,25 @@ interface AnimalSummary {
   completed: number
 }
 
+interface StatusCount {
+  status: string
+  count: number
+}
+
+interface QaPlanSummary {
+  open_nc_count: number
+  overdue_nc_count: number
+  active_sop_count: number
+  inspection_by_status: StatusCount[]
+  schedule_items_by_status: StatusCount[]
+}
+
 interface QauDashboard {
   protocol_status_summary: ProtocolStatusCount[]
   review_progress: ReviewProgressSummary
   audit_summary: AuditEntityCount[]
   animal_summary: AnimalSummary
+  qa_plan_summary: QaPlanSummary
 }
 
 export function QAUDashboardPage() {
@@ -133,6 +147,56 @@ export function QAUDashboardPage() {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   REVISION_REQUIRED / PRE_REVIEW_REVISION_REQUIRED / VET_REVISION_REQUIRED
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* QA 計畫管理摘要 */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">開放中 NC</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{data.qa_plan_summary.open_nc_count}</div>
+                <p className="text-xs text-muted-foreground">open / in_progress / pending_verification</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">逾期 NC</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${data.qa_plan_summary.overdue_nc_count > 0 ? 'text-destructive' : ''}`}>
+                  {data.qa_plan_summary.overdue_nc_count}
+                </div>
+                <p className="text-xs text-muted-foreground">已超過 due_date 未結案</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">現行 SOP</CardTitle>
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{data.qa_plan_summary.active_sop_count}</div>
+                <p className="text-xs text-muted-foreground">狀態為 active 的 SOP 文件</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">稽查報告</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {data.qa_plan_summary.inspection_by_status.reduce((sum, s) => sum + s.count, 0)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {data.qa_plan_summary.inspection_by_status.map(s => `${s.status}: ${s.count}`).join('、') || '無資料'}
                 </p>
               </CardContent>
             </Card>

@@ -10,7 +10,7 @@ use crate::{
         QaInspectionWithInspector, QaNonConformance,
         QaNonConformanceWithDetails, QaScheduleItem, QaSopDocument, QaSopDocumentWithAck,
         ScheduleQuery, SopQuery, UpdateCapaRequest, UpdateInspectionRequest, UpdateNcRequest,
-        UpdateScheduleItemRequest, UpdateSopRequest,
+        UpdateScheduleItemRequest, UpdateScheduleRequest, UpdateSopRequest,
     },
     Result,
 };
@@ -642,6 +642,32 @@ pub async fn insert_schedule_items(
     }
 
     Ok(())
+}
+
+pub async fn update_schedule(
+    pool: &PgPool,
+    id: Uuid,
+    payload: &UpdateScheduleRequest,
+) -> Result<QaAuditSchedule> {
+    let row = sqlx::query_as::<_, QaAuditSchedule>(
+        r#"
+        UPDATE qa_audit_schedules SET
+            title       = COALESCE($2, title),
+            description = COALESCE($3, description),
+            status      = COALESCE($4::qa_schedule_status, status),
+            updated_at  = NOW()
+        WHERE id = $1
+        RETURNING *
+        "#,
+    )
+    .bind(id)
+    .bind(&payload.title)
+    .bind(&payload.description)
+    .bind(payload.status.as_ref())
+    .fetch_one(pool)
+    .await?;
+
+    Ok(row)
 }
 
 pub async fn update_schedule_item(

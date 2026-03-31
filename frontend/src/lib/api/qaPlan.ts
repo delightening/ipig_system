@@ -327,6 +327,14 @@ export const createSchedule = async (payload: {
   return res.data
 }
 
+export const updateSchedule = async (
+  id: string,
+  payload: Partial<{ title: string; description: string; status: QaScheduleStatus }>
+) => {
+  const res = await api.put<QaScheduleDetail>(`/qau/schedules/${id}`, payload)
+  return res.data
+}
+
 export const updateScheduleItem = async (
   scheduleId: string,
   itemId: string,
