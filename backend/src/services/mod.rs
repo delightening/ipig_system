@@ -27,6 +27,7 @@ pub(crate) mod product_parser;
 mod template;
 mod protocol;
 mod qau;
+mod qa_plan;
 pub mod report;
 pub mod retry;
 mod role;
@@ -75,6 +76,7 @@ pub use protocol::ai_review::AiReviewService;
 pub use protocol::ai_review::validate_only as validate_protocol_content;
 pub use protocol::ProtocolService;
 pub use qau::{QauDashboard, QauService};
+pub use qa_plan::QaPlanService;
 pub use role::RoleService;
 pub use session_manager::SessionManager;
 pub use signature::{

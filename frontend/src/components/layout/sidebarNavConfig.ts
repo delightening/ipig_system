@@ -57,10 +57,17 @@ export const navItemsConfig: NavItem[] = [
   },
   {
     title: 'QAU 品質保證',
-    href: '/admin/qau',
     icon: icon(ClipboardCheck),
     permission: 'qau.dashboard.view',
     translate: false,
+    subsystem: 'admin',
+    children: [
+      { title: '品質保證儀表板', href: '/admin/qau', permission: 'qau.dashboard.view', translate: false },
+      { title: '稽查報告', href: '/admin/qau/inspections', permission: 'qau.inspection.view', translate: false },
+      { title: '不符合事項（NC）', href: '/admin/qau/non-conformances', permission: 'qau.nc.view', translate: false },
+      { title: 'SOP 文件', href: '/admin/qau/sop', permission: 'qau.sop.view', translate: false },
+      { title: '稽查排程', href: '/admin/qau/schedules', permission: 'qau.schedule.view', translate: false },
+    ],
   },
   {
     title: 'myProjects',

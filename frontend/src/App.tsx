@@ -57,6 +57,10 @@ const NotificationRoutingPage = lazy(() => import('@/pages/admin/NotificationRou
 const TreatmentDrugOptionsPage = lazy(() => import('@/pages/admin/TreatmentDrugOptionsPage').then(m => ({ default: m.TreatmentDrugOptionsPage })))
 const TrainingRecordsPage = lazy(() => import('@/pages/admin/TrainingRecordsPage').then(m => ({ default: m.TrainingRecordsPage })))
 const QAUDashboardPage = lazy(() => import('@/pages/admin/QAUDashboardPage').then(m => ({ default: m.QAUDashboardPage })))
+const QAInspectionPage = lazy(() => import('@/pages/admin/QAInspectionPage').then(m => ({ default: m.QAInspectionPage })))
+const QANonConformancePage = lazy(() => import('@/pages/admin/QANonConformancePage').then(m => ({ default: m.QANonConformancePage })))
+const QASopPage = lazy(() => import('@/pages/admin/QASopPage').then(m => ({ default: m.QASopPage })))
+const QASchedulePage = lazy(() => import('@/pages/admin/QASchedulePage').then(m => ({ default: m.QASchedulePage })))
 const FacilitiesPage = lazy(() => import('@/pages/admin/FacilitiesPage').then(m => ({ default: m.FacilitiesPage })))
 const InvitationsPage = lazy(() => import('@/pages/admin/InvitationsPage').then(m => ({ default: m.InvitationsPage })))
 
@@ -314,6 +318,26 @@ function App() {
                         <Route path="/admin/qau" element={
                           <RequirePermission permission="qau.dashboard.view">
                             <QAUDashboardPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/qau/inspections" element={
+                          <RequirePermission permission="qau.inspection.view">
+                            <QAInspectionPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/qau/non-conformances" element={
+                          <RequirePermission permission="qau.nc.view">
+                            <QANonConformancePage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/qau/sop" element={
+                          <RequirePermission permission="qau.sop.view">
+                            <QASopPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/qau/schedules" element={
+                          <RequirePermission permission="qau.schedule.view">
+                            <QASchedulePage />
                           </RequirePermission>
                         } />
                         <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />

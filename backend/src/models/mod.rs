@@ -24,6 +24,7 @@ mod training;
 mod equipment;
 pub mod accounting;
 mod invitation;
+mod qa_plan;
 
 pub use user::*;
 pub use invitation::*;
@@ -47,6 +48,7 @@ pub use storage_location::*;
 pub use treatment_drug::*;
 pub use training::*;
 pub use equipment::*;
+pub use qa_plan::*;
 
 
 use serde::{Deserialize, Serialize};

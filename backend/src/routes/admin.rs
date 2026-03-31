@@ -72,6 +72,57 @@ pub fn routes() -> Router<AppState> {
         )
         // QAU Dashboard
         .route("/qau/dashboard", get(handlers::get_qau_dashboard))
+        // QA 稽查報告
+        .route(
+            "/qau/inspections",
+            get(handlers::qa_plan::list_inspections).post(handlers::qa_plan::create_inspection),
+        )
+        .route(
+            "/qau/inspections/:id",
+            get(handlers::qa_plan::get_inspection).put(handlers::qa_plan::update_inspection),
+        )
+        // QA 不符合事項
+        .route(
+            "/qau/non-conformances",
+            get(handlers::qa_plan::list_non_conformances)
+                .post(handlers::qa_plan::create_non_conformance),
+        )
+        .route(
+            "/qau/non-conformances/:id",
+            get(handlers::qa_plan::get_non_conformance)
+                .put(handlers::qa_plan::update_non_conformance),
+        )
+        .route(
+            "/qau/non-conformances/:nc_id/capa",
+            post(handlers::qa_plan::create_capa),
+        )
+        .route(
+            "/qau/non-conformances/:nc_id/capa/:capa_id",
+            put(handlers::qa_plan::update_capa),
+        )
+        // QA SOP 文件
+        .route(
+            "/qau/sop",
+            get(handlers::qa_plan::list_sop_documents).post(handlers::qa_plan::create_sop_document),
+        )
+        .route(
+            "/qau/sop/:id",
+            get(handlers::qa_plan::get_sop_document).put(handlers::qa_plan::update_sop_document),
+        )
+        .route(
+            "/qau/sop/:id/acknowledge",
+            post(handlers::qa_plan::acknowledge_sop),
+        )
+        // QA 稽查排程
+        .route(
+            "/qau/schedules",
+            get(handlers::qa_plan::list_schedules).post(handlers::qa_plan::create_schedule),
+        )
+        .route("/qau/schedules/:id", get(handlers::qa_plan::get_schedule))
+        .route(
+            "/qau/schedules/:schedule_id/items/:item_id",
+            put(handlers::qa_plan::update_schedule_item),
+        )
         // 安全警報 polling 端點（取代 SSE）
         .route(
             "/admin/audit/alerts/recent",
