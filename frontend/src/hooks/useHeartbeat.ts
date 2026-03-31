@@ -48,10 +48,13 @@ export function useHeartbeat(isAuthenticated: boolean) {
             }
         }, 60_000)
 
-        // 首次載入立即發送一次
-        api.post('/auth/heartbeat').catch(() => { })
+        // 首次載入延遲 3 秒發送，確保 CSRF token 已同步
+        const initTimer = setTimeout(() => {
+            api.post('/auth/heartbeat').catch(() => { })
+        }, 3_000)
 
         return () => {
+            clearTimeout(initTimer)
             events.forEach((event) => {
                 window.removeEventListener(event, markActivity)
             })
