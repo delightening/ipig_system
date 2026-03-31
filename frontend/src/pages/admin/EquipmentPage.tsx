@@ -405,6 +405,7 @@ export function EquipmentPage() {
           { value: 'annual-plan', label: '年度計畫', icon: Calendar },
         ]}
         defaultTab="equipment"
+        variant="underline"
       >
         <PageTabContent value="equipment" className="space-y-4">
           <EquipmentTabContent

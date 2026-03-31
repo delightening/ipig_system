@@ -29,6 +29,7 @@ interface AuthState {
   refreshSession: () => Promise<boolean>
   hasPermission: (permission: string) => boolean
   hasRole: (role: string) => boolean
+  isGuest: () => boolean
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -202,6 +203,11 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return false
         return user.roles.includes(role)
       },
+
+      isGuest: () => {
+        const { user } = get()
+        return user?.roles.includes('GUEST') ?? false
+      },
     }),
     {
       name: 'auth-storage',
@@ -230,6 +236,7 @@ export const useAuthIsAuthenticated = () => useAuthStore((s) => s.isAuthenticate
 export const useAuthIsInitialized = () => useAuthStore((s) => s.isInitialized)
 export const useAuthHasRole = () => useAuthStore((s) => s.hasRole)
 export const useAuthHasPermission = () => useAuthStore((s) => s.hasPermission)
+export const useAuthIsGuest = () => useAuthStore((s) => s.isGuest)
 export const useAuthActions = () =>
   useAuthStore(
     useShallow((s) => ({

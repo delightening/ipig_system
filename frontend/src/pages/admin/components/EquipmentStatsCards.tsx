@@ -47,20 +47,20 @@ export function EquipmentStatsCards({ equipmentList, allCalibrations }: Equipmen
 
   return (
     <div className="grid gap-4 md:grid-cols-4">
-      <StatsCard label="設備總數 (啟用)" value={stats.activeCount} icon={Package} />
+      <StatsCard label="設備總數 (啟用)" value={stats.activeCount} icon={Package} accentColor="info" />
       <StatsCard
         label="維修中"
         value={stats.repairCount}
         icon={Wrench}
-        iconClassName={stats.repairCount > 0 ? 'text-status-warning-text' : 'text-muted-foreground'}
+        accentColor="warning"
         valueClassName={stats.repairCount > 0 ? 'text-status-warning-text' : ''}
       />
-      <StatsCard label="校正/確效/查核紀錄" value={stats.totalCalib} icon={Ruler} />
+      <StatsCard label="校正/確效/查核紀錄" value={stats.totalCalib} icon={Ruler} accentColor="info" />
       <StatsCard
         label="逾期待處理"
         value={stats.overdueCount}
         icon={AlertTriangle}
-        iconClassName={stats.overdueCount > 0 ? 'text-destructive' : 'text-muted-foreground'}
+        accentColor="error"
         valueClassName={stats.overdueCount > 0 ? 'text-destructive' : ''}
       />
     </div>

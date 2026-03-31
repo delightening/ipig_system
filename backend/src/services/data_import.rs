@@ -68,8 +68,11 @@ struct IdxfRoot {
 fn get_conflict_columns(table: &str) -> Option<&'static [&'static str]> {
     let cols: &[&str] = match table {
         "roles" | "permissions" | "animal_sources" | "blood_test_templates" | "product_categories"
-        | "sku_categories" | "warehouses" | "partners" => &["code"],
+        | "sku_categories" | "warehouses" | "partners"
+        | "species" | "chart_of_accounts" | "departments" => &["code"],
         "sku_subcategories" => &["category_code", "code"],
+        // facilities/buildings/zones/pens 使用 partial unique index，
+        // 無法作為 ON CONFLICT arbiter，改由 cleanup_partial_unique_tables 先清除再用 PK 匯入
         "blood_test_panels" => &["key"],
         "users" => &["email"],
         "notification_routing" => &["event_type", "role_code"],
@@ -446,6 +449,14 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
     let source_version = manifest.meta.schema_version.as_deref().unwrap_or("010");
     let target_version = crate::services::data_export::get_schema_version(pool).await?;
 
+    // 匯入含設施鏈資料時，先清除 partial unique index 表的既有種子資料
+    let has_partial_tables = manifest.tables.iter().any(|t| {
+        PARTIAL_UNIQUE_TABLES.contains(&t.name.as_str())
+    });
+    if has_partial_tables {
+        cleanup_partial_unique_tables(pool).await?;
+    }
+
     let fk_config = fetch_fk_config(pool).await?;
     let mut id_mapping: IdMapping = HashMap::new();
     let mut excluded_user_ids: HashSet<String> = HashSet::new();
@@ -535,6 +546,40 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
                 continue;
             }
         }
+        if tbl.name == "login_events" {
+            let (filtered, skipped) = filter_orphan_login_events(pool, rows).await?;
+            rows = filtered;
+            if skipped > 0 {
+                result.skipped_details.push(SkippedDetail {
+                    table: tbl.name.clone(),
+                    reason: "user_id 不存在，已略過".into(),
+                    count: Some(skipped),
+                });
+            }
+            if rows.is_empty() { continue; }
+        }
+        if tbl.name == "journal_entry_lines" {
+            let (filtered, skipped) = filter_orphan_journal_entry_lines(pool, rows).await?;
+            rows = filtered;
+            if skipped > 0 {
+                result.skipped_details.push(SkippedDetail {
+                    table: tbl.name.clone(),
+                    reason: "account_id 不存在，已略過".into(),
+                    count: Some(skipped),
+                });
+            }
+            if rows.is_empty() { continue; }
+        }
+        if tbl.name == "animals" {
+            let repaired = repair_animal_pen_id(pool, &mut rows).await?;
+            if repaired > 0 {
+                result.skipped_details.push(SkippedDetail {
+                    table: tbl.name.clone(),
+                    reason: format!("pen_id 修復（pen_location 對應）{} 筆", repaired),
+                    count: Some(repaired),
+                });
+            }
+        }
 
         build_id_mappings(pool, &tbl.name, &rows, &mut id_mapping).await?;
         remap_foreign_keys(&tbl.name, &mut rows, &fk_config, &id_mapping);
@@ -584,6 +629,15 @@ async fn import_from_json(pool: &PgPool, json_bytes: &[u8], _mode: ImportMode) -
 
     let source_version = root.meta.schema_version.as_deref().unwrap_or("010");
     let _target_version = crate::services::data_export::get_schema_version(pool).await?;
+
+    // 匯入含設施鏈資料時，先清除 partial unique index 表的既有種子資料
+    let has_partial_tables = root.tables.iter().any(|t| {
+        PARTIAL_UNIQUE_TABLES.contains(&t.name.as_str())
+            && t.rows.as_array().is_some_and(|a| !a.is_empty())
+    });
+    if has_partial_tables {
+        cleanup_partial_unique_tables(pool).await?;
+    }
 
     let fk_config = fetch_fk_config(pool).await?;
     let mut id_mapping: IdMapping = HashMap::new();
@@ -669,6 +723,40 @@ async fn import_from_json(pool: &PgPool, json_bytes: &[u8], _mode: ImportMode) -
             }
             if rows.is_empty() {
                 continue;
+            }
+        }
+        if table_name == "login_events" {
+            let (filtered, skipped) = filter_orphan_login_events(pool, rows).await?;
+            rows = filtered;
+            if skipped > 0 {
+                result.skipped_details.push(SkippedDetail {
+                    table: table_name.clone(),
+                    reason: "user_id 不存在，已略過".into(),
+                    count: Some(skipped),
+                });
+            }
+            if rows.is_empty() { continue; }
+        }
+        if table_name == "journal_entry_lines" {
+            let (filtered, skipped) = filter_orphan_journal_entry_lines(pool, rows).await?;
+            rows = filtered;
+            if skipped > 0 {
+                result.skipped_details.push(SkippedDetail {
+                    table: table_name.clone(),
+                    reason: "account_id 不存在，已略過".into(),
+                    count: Some(skipped),
+                });
+            }
+            if rows.is_empty() { continue; }
+        }
+        if table_name == "animals" {
+            let repaired = repair_animal_pen_id(pool, &mut rows).await?;
+            if repaired > 0 {
+                result.skipped_details.push(SkippedDetail {
+                    table: table_name.clone(),
+                    reason: format!("pen_id 修復（pen_location 對應）{} 筆", repaired),
+                    count: Some(repaired),
+                });
             }
         }
 
@@ -789,6 +877,143 @@ async fn sanitize_change_reasons(pool: &PgPool, rows: &mut [serde_json::Value]) 
                 obj.insert("changed_by".to_string(), serde_json::Value::Null);
             }
         }
+    }
+    Ok(())
+}
+
+/// login_events 前過濾 user_id 不存在的孤兒列（FK 違反保護）
+async fn filter_orphan_login_events(
+    pool: &PgPool,
+    rows: Vec<serde_json::Value>,
+) -> Result<(Vec<serde_json::Value>, u64)> {
+    if rows.is_empty() {
+        return Ok((rows, 0));
+    }
+    let valid_ids: std::collections::HashSet<String> =
+        sqlx::query_scalar::<_, String>("SELECT id::text FROM users")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Fetch users for login_events sanitize: {}", e)))?
+            .into_iter()
+            .map(|s| normalize_uuid(&s))
+            .collect();
+
+    let mut out = Vec::with_capacity(rows.len());
+    let mut skipped = 0u64;
+    for row in rows {
+        let uid = row.as_object()
+            .and_then(|o| o.get("user_id"))
+            .and_then(|v| v.as_str())
+            .map(normalize_uuid);
+        if uid.as_ref().is_some_and(|id| !valid_ids.contains(id)) {
+            skipped += 1;
+        } else {
+            out.push(row);
+        }
+    }
+    Ok((out, skipped))
+}
+
+/// journal_entry_lines 前過濾 account_id 不存在的孤兒列（FK 違反保護）
+async fn filter_orphan_journal_entry_lines(
+    pool: &PgPool,
+    rows: Vec<serde_json::Value>,
+) -> Result<(Vec<serde_json::Value>, u64)> {
+    if rows.is_empty() {
+        return Ok((rows, 0));
+    }
+    let valid_ids: std::collections::HashSet<String> =
+        sqlx::query_scalar::<_, String>("SELECT id::text FROM chart_of_accounts")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Fetch chart_of_accounts for journal_entry_lines sanitize: {}", e)))?
+            .into_iter()
+            .map(|s| normalize_uuid(&s))
+            .collect();
+
+    let mut out = Vec::with_capacity(rows.len());
+    let mut skipped = 0u64;
+    for row in rows {
+        let aid = row.as_object()
+            .and_then(|o| o.get("account_id"))
+            .and_then(|v| v.as_str())
+            .map(normalize_uuid);
+        if aid.as_ref().is_some_and(|id| !valid_ids.contains(id)) {
+            skipped += 1;
+        } else {
+            out.push(row);
+        }
+    }
+    Ok((out, skipped))
+}
+
+/// animals 匯入前，利用 pen_location → pens.code 修復失效的 pen_id
+async fn repair_animal_pen_id(
+    pool: &PgPool,
+    rows: &mut [serde_json::Value],
+) -> Result<u64> {
+    if rows.is_empty() {
+        return Ok(0);
+    }
+    // 取得目標庫中 code -> id 對應
+    let pen_map: std::collections::HashMap<String, String> =
+        sqlx::query_as::<_, (String, String)>("SELECT code, id::text FROM pens WHERE is_active = true")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Fetch pens for animal repair: {}", e)))?
+            .into_iter()
+            .collect();
+
+    // 取得目前有效的 pen_id 集合（含軟刪除）
+    let valid_pen_ids: std::collections::HashSet<String> =
+        sqlx::query_scalar::<_, String>("SELECT id::text FROM pens")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Fetch pen ids for animal repair: {}", e)))?
+            .into_iter()
+            .map(|s| normalize_uuid(&s))
+            .collect();
+
+    let mut repaired = 0u64;
+    for row in rows.iter_mut() {
+        let obj = match row.as_object_mut() {
+            Some(o) => o,
+            None => continue,
+        };
+        let pen_id_valid = obj.get("pen_id")
+            .and_then(|v| v.as_str())
+            .is_some_and(|id| valid_pen_ids.contains(&normalize_uuid(id)));
+
+        if pen_id_valid {
+            continue;
+        }
+        // pen_id 無效或為 null，嘗試用 pen_location 修復
+        let location = obj.get("pen_location").and_then(|v| v.as_str()).map(String::from);
+        if let Some(loc) = location {
+            if let Some(correct_id) = pen_map.get(&loc) {
+                obj.insert("pen_id".to_string(), serde_json::Value::String(correct_id.clone()));
+                repaired += 1;
+            } else {
+                obj.insert("pen_id".to_string(), serde_json::Value::Null);
+            }
+        }
+    }
+    Ok(repaired)
+}
+
+/// 使用 partial unique index 的表（ON CONFLICT 無法直接使用，需先清除衝突列）
+/// 清除順序：子表先刪，父表後刪（反向 FK 順序）
+const PARTIAL_UNIQUE_TABLES: &[&str] = &["pens", "zones", "buildings", "facilities"];
+
+/// 匯入前清除 partial unique index 表的既有資料，避免 ON CONFLICT 無法匹配
+async fn cleanup_partial_unique_tables(pool: &PgPool) -> Result<()> {
+    for &table in PARTIAL_UNIQUE_TABLES {
+        // 表名來自常數白名單，非使用者輸入
+        let sql = format!(r#"DELETE FROM "{}""#, table);
+        sqlx::query(&sql)
+            .execute(pool)
+            .await
+            .map_err(|e| AppError::Internal(format!("Cleanup {}: {}", table, e)))?;
     }
     Ok(())
 }

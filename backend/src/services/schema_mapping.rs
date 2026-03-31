@@ -10,10 +10,10 @@ use std::collections::HashMap;
 /// 來源 schema 版本 -> 表名 -> (舊欄位名 -> 新欄位名)
 /// 當 migration 有欄位改名時，在此註冊
 fn column_rename_mappings() -> HashMap<&'static str, HashMap<&'static str, HashMap<&'static str, &'static str>>> {
-    // 範例：若 009->010 時 users 表的 foo 改為 bar，可加入：
-    // let m = HashMap::new();
-    // m.entry("009").or_default().entry("users").or_default().insert("foo", "bar");
-    // m
+    // 舊系統（001-030）→ 新整合版本（001-011）：schema 結構等效，無欄位改名。
+    // 新增欄位由 json_populate_recordset 自動補 NULL；已移除欄位自動忽略。
+    // 若未來有欄位改名，在此加入對應，例如：
+    // m.entry("030").or_default().entry("users").or_default().insert("old_col", "new_col");
     HashMap::new()
 }
 

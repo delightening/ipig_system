@@ -36,7 +36,7 @@ COPY migrations ./migrations
 COPY .sqlx ./.sqlx
 COPY resources/fonts ./resources/fonts
 
-RUN cargo build --release --bin erp-backend --bin healthcheck --bin create_admin
+RUN cargo build --release --bin erp-backend --bin healthcheck --bin create_admin --bin create_guest
 
 # Stage 4: Runtime — minimal Debian for user setup
 FROM debian:bookworm-slim AS runtime
@@ -56,6 +56,7 @@ RUN useradd -r -s /bin/false appuser && \
 COPY --from=builder /app/target/release/erp-backend /app/erp-backend
 COPY --from=builder /app/target/release/healthcheck /app/healthcheck
 COPY --from=builder /app/target/release/create_admin /app/create_admin
+COPY --from=builder /app/target/release/create_guest /app/create_guest
 COPY --from=builder /app/migrations /app/migrations
 COPY --from=builder /app/resources /app/resources
 

@@ -46,6 +46,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: ipig-api
     container_name: ipig-api
     env_file:
       - .env
@@ -147,6 +148,24 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+
+  # =========================
+  # Seed: 建立訪客帳號（一次性，冪等）
+  # =========================
+  seed:
+    image: ipig-api
+    container_name: ipig-seed
+    secrets:
+      - db_url
+    environment:
+      DATABASE_URL_FILE: /run/secrets/db_url
+    command: ["/app/create_guest"]
+    networks:
+      - database
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: "no"
 
   # =========================
   # React Frontend (Prod build served by nginx)

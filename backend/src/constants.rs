@@ -77,6 +77,7 @@ pub const ROLE_IACUC_CHAIR: &str = "IACUC_CHAIR";
 pub const ROLE_EXPERIMENT_STAFF: &str = "EXPERIMENT_STAFF";
 pub const ROLE_WAREHOUSE_MANAGER: &str = "WAREHOUSE_MANAGER";
 pub const ROLE_ADMIN_STAFF: &str = "ADMIN_STAFF";
+pub const ROLE_GUEST: &str = "GUEST";
 
 /// Leave type codes
 pub const LEAVE_ANNUAL: &str = "ANNUAL";

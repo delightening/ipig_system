@@ -185,6 +185,20 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-01 Migration 重構後 IDXF 匯出入修復
+
+- ✅ **移除 refresh_tokens**：`EXPORT_TABLE_ORDER` 移除 `refresh_tokens`，避免過期 session token 被匯入新系統（安全性問題）
+- ✅ **補齊遺漏 table**：新增 13 個舊版未涵蓋的表至 `EXPORT_TABLE_ORDER`：`blood_test_presets`、`invitations`、`ai_api_keys`、`animal_field_correction_requests`、`protocol_ai_reviews`、`expiry_notification_config`、`expiry_monthly_snapshots`、`equipment_suppliers`、`equipment_status_logs`、`equipment_maintenance_records`、`equipment_disposals`、`equipment_annual_plans`（依 FK 順序插入）
+- ✅ **schema_mapping 版本說明**：補充 "030 → 011" 為 no-op 對應說明（無欄位改名，新欄位自動補 NULL，舊欄位自動忽略）
+
+### 2026-03-31 QA 計畫管理模組 Bug 修復（Codex Review 5 項）
+
+- ✅ **Bug 1 enum 序列化**：`repositories/qa_plan.rs` 改用 SQLx 原生 enum 綁定取代 `format!("{:?}").to_lowercase()`，修正 `NotApplicable` → `"not_applicable"` 錯誤
+- ✅ **Bug 2 SQL alias**：`update_schedule_item` RETURNING 子句移除無效 `si.*` alias，改用 `*` 與裸欄位名稱
+- ✅ **Bug 3 ownership 驗證**：`services/qa_plan.rs` 新增排程項目歸屬驗證（item 必須屬於指定 schedule_id），防止跨排程更新
+- ✅ **Bug 4 編輯對話框**：`QAInspectionPage.tsx` `openEdit` 改為 async，呼叫 `getInspection` 取得真實稽查項目填入表單
+- ✅ **Bug 5 關閉狀態**：`submitMutation` 重命名為 `changeStatusMutation` 並參數化，關閉按鈕正確傳送 `status: 'closed'`
+
 ### 2026-03-30 通知路由頻率設定 + 效期通知範圍設定
 
 - ✅ **Migration 027**：`notification_routing` 新增 `frequency`、`hour_of_day`、`day_of_week` 三欄，批次型事件預設 daily

@@ -22,6 +22,8 @@ interface PageTabsProps {
   /** 子元素：TabsContent 或 render function */
   children: React.ReactNode
   className?: string
+  /** 樣式變體：pills（預設）或 underline */
+  variant?: 'pills' | 'underline'
 }
 
 /**
@@ -34,6 +36,7 @@ export function PageTabs({
   defaultTab,
   children,
   className,
+  variant = 'pills',
 }: PageTabsProps) {
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -59,11 +62,23 @@ export function PageTabs({
 
   const visibleTabs = tabs.filter((t) => !t.hidden)
 
+  const isUnderline = variant === 'underline'
+
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className={cn('w-full', className)}>
-      <TabsList>
+      <TabsList className={isUnderline
+        ? 'rounded-none bg-transparent p-0 gap-0 border-b border-border'
+        : undefined
+      }>
         {visibleTabs.map((tab) => (
-          <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
+          <TabsTrigger
+            key={tab.value}
+            value={tab.value}
+            className={cn(
+              'gap-1.5',
+              isUnderline && 'rounded-none border-b-2 border-b-transparent px-4 py-2.5 data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none',
+            )}
+          >
             {tab.icon && <tab.icon className="h-4 w-4" />}
             {tab.label}
             {tab.badge !== undefined && tab.badge > 0 && (

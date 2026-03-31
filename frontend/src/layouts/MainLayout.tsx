@@ -55,7 +55,7 @@ function DelayedFallback({ delay = 300 }: { delay?: number }) {
 }
 
 export function MainLayout() {
-  const { user, hasRole, isImpersonating, stopImpersonating } = useAuthStore()
+  const { user, hasRole, isGuest, isImpersonating, stopImpersonating } = useAuthStore()
   const { t, i18n } = useTranslation()
   useSecurityAlerts()
 
@@ -105,6 +105,12 @@ export function MainLayout() {
           sidebarOpen ? 'md:ml-0' : 'md:ml-0'
         )}
       >
+        {isGuest() && (
+          <div className="bg-[var(--color-status-warning-bg)] border-b border-[var(--color-status-warning-border)] px-4 py-2 text-sm text-[var(--color-status-warning-text)] text-center sticky top-0 z-[60]">
+            訪客模式 — 僅供瀏覽系統架構，無法查看實際資料
+          </div>
+        )}
+
         {isImpersonating && (
           <div className="bg-primary text-primary-foreground px-4 py-2 flex items-center justify-between sticky top-0 z-[60] shadow-md">
             <div className="flex items-center gap-2">
