@@ -34,8 +34,13 @@ async fn main() -> Result<()> {
 
     let email = "guest@guest.com";
     let display_name = "訪客";
-    let password = "guest";
-    let password_hash = hash_password(password)?;
+    let password = std::env::var("GUEST_PASSWORD")
+        .unwrap_or_else(|_| {
+            let generated = Uuid::new_v4().to_string();
+            eprintln!("GUEST_PASSWORD 未設定，使用隨機密碼: {}", generated);
+            generated
+        });
+    let password_hash = hash_password(&password)?;
 
     let existing_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
         .bind(email)
