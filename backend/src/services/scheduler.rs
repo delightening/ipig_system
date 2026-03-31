@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use sqlx::PgPool;
 use tracing::{info, error};
+use chrono::{Timelike, Datelike};
 
 use crate::{
     config::Config,
@@ -39,42 +40,40 @@ impl SchedulerService {
 
     // ── Job 註冊 helpers ──
 
-    /// 每日 08:00 執行低庫存檢查
+    /// 每小時整點觸發低庫存檢查（由 DB routing 設定決定實際執行時機）
     async fn register_low_stock_job(sched: &JobScheduler, db: &PgPool, config: &Arc<Config>, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let config_clone = config.clone();
-        let job = Job::new_async("0 0 8 * * *", move |_uuid, _l| {
+        let job = Job::new_async("0 0 * * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
             Box::pin(async move {
-                info!("Running daily low stock check...");
-                if let Err(e) = Self::check_low_stock(&db, &config).await {
-                    error!("Low stock check failed: {}", e);
+                if let Err(e) = Self::maybe_run_low_stock_check(&db, &config).await {
+                    error!("Low stock check runner failed: {}", e);
                 }
             })
         })?;
         sched.add(job).await?;
-        info!("[Scheduler] ✓ Job 'low_stock_check' registered");
+        info!("[Scheduler] ✓ Job 'low_stock_check' registered (dynamic schedule)");
         *count += 1;
         Ok(())
     }
 
-    /// 每日 08:00 執行效期檢查
+    /// 每小時整點觸發效期檢查（由 DB routing 設定決定實際執行時機）
     async fn register_expiry_job(sched: &JobScheduler, db: &PgPool, config: &Arc<Config>, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let config_clone = config.clone();
-        let job = Job::new_async("0 0 8 * * *", move |_uuid, _l| {
+        let job = Job::new_async("0 0 * * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
             Box::pin(async move {
-                info!("Running daily expiry check...");
-                if let Err(e) = Self::check_expiry(&db, &config).await {
-                    error!("Expiry check failed: {}", e);
+                if let Err(e) = Self::maybe_run_expiry_check(&db, &config).await {
+                    error!("Expiry check runner failed: {}", e);
                 }
             })
         })?;
         sched.add(job).await?;
-        info!("[Scheduler] ✓ Job 'expiry_check' registered");
+        info!("[Scheduler] ✓ Job 'expiry_check' registered (dynamic schedule)");
         *count += 1;
         Ok(())
     }
@@ -281,6 +280,59 @@ impl SchedulerService {
 
     // ── 業務邏輯 helpers ──
 
+    /// 動態排程：依 DB routing 設定判斷是否執行低庫存檢查
+    async fn maybe_run_low_stock_check(db: &PgPool, config: &Config) -> SchedulerResult {
+        if Self::should_run_now(db, "low_stock_alert").await? {
+            Self::check_low_stock(db, config).await?;
+        }
+        Ok(())
+    }
+
+    /// 動態排程：依 DB routing 設定判斷是否執行效期檢查
+    async fn maybe_run_expiry_check(db: &PgPool, config: &Config) -> SchedulerResult {
+        if Self::should_run_now(db, "expiry_alert").await? {
+            Self::check_expiry(db, config).await?;
+        }
+        Ok(())
+    }
+
+    /// 判斷當前時間是否符合指定事件的任一 routing 規則排程
+    async fn should_run_now(db: &PgPool, event_type: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let rows: Vec<(String, i16, Option<i16>)> = sqlx::query_as(
+            r#"
+            SELECT frequency, hour_of_day, day_of_week
+            FROM notification_routing
+            WHERE event_type = $1 AND is_active = true
+              AND frequency != 'immediate'
+            "#,
+        )
+        .bind(event_type)
+        .fetch_all(db)
+        .await?;
+
+        if rows.is_empty() {
+            return Ok(false);
+        }
+
+        let now = chrono::Local::now();
+        let current_hour = now.hour() as i16;
+        let current_dow = now.weekday().num_days_from_sunday() as i16;
+        let current_day = now.day();
+
+        for (frequency, hour_of_day, day_of_week) in rows {
+            let matches = match frequency.as_str() {
+                "daily"   => hour_of_day == current_hour,
+                "weekly"  => hour_of_day == current_hour && day_of_week == Some(current_dow),
+                "monthly" => hour_of_day == current_hour && current_day == 1,
+                _         => false,
+            };
+            if matches {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     /// 檢查低庫存並發送通知
     async fn check_low_stock(db: &PgPool, config: &Config) -> SchedulerResult {
         let service = NotificationService::new(db.clone());
@@ -304,18 +356,55 @@ impl SchedulerService {
         Ok(())
     }
 
-    /// 檢查效期並發送通知
+    /// 檢查效期並發送通知（含月度閾值邏輯）
     async fn check_expiry(db: &PgPool, config: &Config) -> SchedulerResult {
-        let service = NotificationService::new(db.clone());
-        let alerts = service.list_expiry_alerts(1, 100).await?;
+        use crate::services::notification::expiry_monthly::{current_ym, previous_ym};
 
-        if alerts.data.is_empty() {
+        let service = NotificationService::new(db.clone());
+        let cfg = service.get_expiry_notification_config().await?;
+
+        let alerts: Vec<crate::models::ExpiryAlert> = sqlx::query_as(
+            "SELECT * FROM fn_expiry_alerts($1, $2)",
+        )
+        .bind(cfg.warn_days as i32)
+        .bind(cfg.cutoff_days as i32)
+        .fetch_all(db)
+        .await?;
+
+        if alerts.is_empty() {
             info!("No expiry alerts found");
             return Ok(());
         }
 
-        let expired_count = alerts.data.iter().filter(|a| a.expiry_status == "expired").count();
-        let expiring_count = alerts.data.iter().filter(|a| a.expiry_status == "expiring_soon").count();
+        // 月度閾值邏輯：超過閾值天數的品項走月度通知路徑
+        if let Some(threshold) = cfg.monthly_threshold_days {
+            let ym = current_ym();
+            if let Err(e) = service.take_expiry_monthly_snapshot(&ym, threshold).await {
+                tracing::warn!("月度快照寫入失敗: {e}");
+            }
+            if let Some(prev_ym) = previous_ym(&ym) {
+                match service.compare_expiry_snapshots(&ym, &prev_ym).await {
+                    Ok(diff) => match service.send_monthly_expiry_comparison(&diff, &ym, threshold).await {
+                        Ok(c) => info!("Monthly expiry comparison notifications: {} sent", c),
+                        Err(e) => tracing::warn!("月度效期比較通知發送失敗: {e}"),
+                    },
+                    Err(e) => tracing::warn!("月度快照比較失敗: {e}"),
+                }
+            }
+        }
+
+        // 一般效期通知（排除月度閾值範圍的品項）
+        let threshold_days = cfg.monthly_threshold_days.unwrap_or(i16::MAX);
+        let regular_alerts: Vec<_> = alerts.into_iter()
+            .filter(|a| a.days_until_expiry >= -(threshold_days as i32))
+            .collect();
+
+        if regular_alerts.is_empty() {
+            return Ok(());
+        }
+
+        let expired_count = regular_alerts.iter().filter(|a| a.expiry_status == "expired").count();
+        let expiring_count = regular_alerts.iter().filter(|a| a.expiry_status == "expiring_soon").count();
 
         match service.send_expiry_notifications().await {
             Ok(count) => info!("Expiry in-app notifications: {} sent", count),
@@ -323,11 +412,11 @@ impl SchedulerService {
         }
 
         let users = Self::fetch_stock_email_recipients(db, "email_expiry_warning").await?;
-        let alerts_html = Self::build_expiry_html(&alerts.data);
+        let alerts_html = Self::build_expiry_html(&regular_alerts);
         let email_count = Self::send_expiry_emails(config, &users, &alerts_html, expired_count, expiring_count).await;
 
         info!("Expiry check completed: {} alerts ({} expired, {} expiring), {} emails sent",
-              alerts.data.len(), expired_count, expiring_count, email_count);
+              regular_alerts.len(), expired_count, expiring_count, email_count);
         Ok(())
     }
 

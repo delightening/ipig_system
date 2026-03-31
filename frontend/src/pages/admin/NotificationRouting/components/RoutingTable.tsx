@@ -17,6 +17,7 @@ import type { NotificationRouting } from '../types'
 import type { GroupKey } from '../constants'
 import { GROUP_KEYS } from '../constants'
 import { ChannelBadge } from './ChannelBadge'
+import { ExpiryConfigPanel } from './ExpiryConfigPanel'
 import { useTableSort } from '@/hooks/useTableSort'
 
 const groupIcons: Record<GroupKey, typeof FileCheck> = {
@@ -69,6 +70,11 @@ export function RoutingTable({
                         onDelete={onDelete}
                         onToggleActive={onToggleActive}
                     />
+                    {groupKey === 'ERP' && (
+                        <div className="mt-6">
+                            <ExpiryConfigPanel />
+                        </div>
+                    )}
                 </TabsContent>
             ))}
         </Tabs>

@@ -249,6 +249,12 @@ pub struct NotificationRouting {
     pub channel: String,
     pub is_active: bool,
     pub description: Option<String>,
+    /// 批次通知頻率：immediate | daily | weekly | monthly
+    pub frequency: String,
+    /// 批次通知執行小時（0-23）
+    pub hour_of_day: i16,
+    /// weekly 時有效：0=週日, 1=週一 ... 6=週六
+    pub day_of_week: Option<i16>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -262,6 +268,11 @@ pub struct CreateNotificationRoutingRequest {
     pub role_code: String,
     pub channel: Option<String>,
     pub description: Option<String>,
+    pub frequency: Option<String>,
+    #[validate(range(min = 0, max = 23, message = "hour_of_day 必須介於 0-23"))]
+    pub hour_of_day: Option<i16>,
+    #[validate(range(min = 0, max = 6, message = "day_of_week 必須介於 0-6"))]
+    pub day_of_week: Option<i16>,
 }
 
 /// 更新通知路由規則請求
@@ -270,6 +281,38 @@ pub struct UpdateNotificationRoutingRequest {
     pub channel: Option<String>,
     pub is_active: Option<bool>,
     pub description: Option<String>,
+    pub frequency: Option<String>,
+    pub hour_of_day: Option<i16>,
+    pub day_of_week: Option<i16>,
+}
+
+// ============================================
+// 效期通知範圍設定
+// ============================================
+
+/// 系統層級效期通知範圍設定（全系統單一列）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct ExpiryNotificationConfig {
+    pub id: Uuid,
+    /// 提前幾天開始預警（預設 60）
+    pub warn_days: i16,
+    /// 過期超過幾天後停止通知（預設 90）
+    pub cutoff_days: i16,
+    /// 過期超過此天數後轉月度彙整通知；None=停用
+    pub monthly_threshold_days: Option<i16>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+}
+
+/// 更新效期通知範圍設定請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct UpdateExpiryNotificationConfigRequest {
+    #[validate(range(min = 1, max = 365, message = "warn_days 必須介於 1-365"))]
+    pub warn_days: Option<i16>,
+    #[validate(range(min = 1, max = 730, message = "cutoff_days 必須介於 1-730"))]
+    pub cutoff_days: Option<i16>,
+    /// None = 停用月度模式
+    pub monthly_threshold_days: Option<i16>,
 }
 
 /// 事件類型分類（含主要分組、子分類名稱與事件清單）

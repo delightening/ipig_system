@@ -185,6 +185,16 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-03-30 通知路由頻率設定 + 效期通知範圍設定
+
+- ✅ **Migration 027**：`notification_routing` 新增 `frequency`、`hour_of_day`、`day_of_week` 三欄，批次型事件預設 daily
+- ✅ **Migration 028**：建立 `expiry_notification_config`（系統層級效期設定）、`expiry_monthly_snapshots`（月度比較快照）、`fn_expiry_alerts(warn, cutoff)` 動態參數函數
+- ✅ **排程器動態化**：`check_expiry` 與 `check_low_stock` job 改為每小時整點觸發，執行時讀 DB 設定判斷是否符合 daily/weekly/monthly 條件
+- ✅ **月度彙整通知**：`expiry_monthly.rs` 實作快照拍攝、月度比較（新增/減少/持續）、通知發送
+- ✅ **新 API**：`GET/PUT /admin/expiry-config` 供系統管理員設定效期閾值
+- ✅ **前端 EditRoutingDialog**：批次事件（expiry_alert 等）顯示頻率/時間/星期選擇器
+- ✅ **前端 ExpiryConfigPanel**：通知路由頁面底部新增效期通知範圍設定面板（warn/cutoff/月度模式）
+
 ### 2026-03-29 R16 剩餘 10 項確認完成（R16-2~6, R16-9~13）
 
 - ✅ **R16-2 Content-Disposition header injection 修復**：`utils/http.rs` 共用 `content_disposition_header()` 函式使用 `urlencoding::encode` 實作 RFC 5987 percent-encode，全部 16 處 export handler 已統一呼叫
