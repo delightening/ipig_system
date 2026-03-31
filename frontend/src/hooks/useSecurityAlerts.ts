@@ -21,6 +21,17 @@ interface SecurityAlert {
 /** Polling 間隔（毫秒） */
 const POLL_INTERVAL_MS = 30_000
 
+/** 在 token 到期前多少毫秒主動 refresh（5 分鐘） */
+const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
+
+/** 若 token 即將過期，先主動 refresh 避免 401 汙染 console */
+async function ensureTokenFresh(): Promise<void> {
+  const { sessionExpiresAt, refreshSession } = useAuthStore.getState()
+  if (sessionExpiresAt && sessionExpiresAt - Date.now() < TOKEN_REFRESH_BUFFER_MS) {
+    await refreshSession()
+  }
+}
+
 /**
  * 安全警報 polling hook
  * 僅在使用者為管理員時啟用。偵測到新警報自動顯示 toast。
@@ -38,6 +49,8 @@ export function useSecurityAlerts() {
     queryKey: ['security-alerts-recent'],
     queryFn: async () => {
       try {
+        // 主動 refresh 即將過期的 token，避免 401 紅字汙染 console
+        await ensureTokenFresh()
         const after = new Date(Date.now() - 60_000).toISOString()
         const res = await api.get<SecurityAlert[]>('/admin/audit/alerts/recent', {
           params: { after },
