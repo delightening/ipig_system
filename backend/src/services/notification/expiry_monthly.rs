@@ -1,5 +1,16 @@
 // 效期月度快照與比較通知
 
+type SnapshotRow = (
+    String,
+    String,
+    Option<String>,
+    chrono::NaiveDate,
+    i16,
+    rust_decimal::Decimal,
+    String,
+    String,
+);
+
 use crate::{
     error::AppError,
     models::{CreateNotificationRequest, NotificationType},
@@ -77,11 +88,11 @@ impl NotificationService {
 
         let prev_keys: std::collections::HashSet<_> = previous
             .iter()
-            .map(|i| Self::snapshot_key(i))
+            .map(Self::snapshot_key)
             .collect();
         let curr_keys: std::collections::HashSet<_> = current
             .iter()
-            .map(|i| Self::snapshot_key(i))
+            .map(Self::snapshot_key)
             .collect();
 
         let added: Vec<_> = current
@@ -149,7 +160,7 @@ impl NotificationService {
     // ── 內部 helpers ──
 
     async fn fetch_snapshot_items(&self, ym: &str) -> Result<Vec<SnapshotItem>, AppError> {
-        let rows: Vec<(String, String, Option<String>, chrono::NaiveDate, i16, rust_decimal::Decimal, String, String)> =
+        let rows: Vec<SnapshotRow> =
             sqlx::query_as(
                 r#"
                 SELECT ems.sku, ems.product_name, ems.batch_no, ems.expiry_date,

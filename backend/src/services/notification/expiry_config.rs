@@ -36,7 +36,7 @@ impl NotificationService {
     ) -> Result<ExpiryNotificationConfig, AppError> {
         if let Some(threshold) = request.monthly_threshold_days {
             let cutoff = request.cutoff_days.unwrap_or(90);
-            if threshold > cutoff as i16 {
+            if threshold > cutoff {
                 return Err(AppError::BadRequest(
                     "monthly_threshold_days 不能大於 cutoff_days".to_string(),
                 ));
