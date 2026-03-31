@@ -15,7 +15,8 @@ use crate::{
         CreateEquipmentRequest, CreateEquipmentSupplierRequest, CreateMaintenanceRequest,
         DisposalQuery, DisposalWithDetails, Equipment, EquipmentCalibration,
         EquipmentMaintenanceRecord, EquipmentQuery, EquipmentStatusLog,
-        EquipmentSupplierWithPartner, GenerateAnnualPlanRequest, MaintenanceQuery,
+        EquipmentSupplierWithPartner, CreateAnnualPlanRequest, UpdateAnnualPlanRequest,
+        GenerateAnnualPlanRequest, MaintenanceQuery,
         MaintenanceRecordWithDetails, PaginatedResponse, UpdateCalibrationRequest,
         UpdateEquipmentRequest, UpdateMaintenanceRequest,
     },
@@ -273,4 +274,34 @@ pub async fn generate_annual_plan(
     let result =
         EquipmentService::generate_annual_plan(&state.db, &payload, &current_user).await?;
     Ok(Json(result))
+}
+
+pub async fn create_annual_plan(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(payload): Json<CreateAnnualPlanRequest>,
+) -> Result<(StatusCode, Json<AnnualPlanWithEquipment>)> {
+    let plan =
+        EquipmentService::create_annual_plan(&state.db, &payload, &current_user).await?;
+    Ok((StatusCode::CREATED, Json(plan)))
+}
+
+pub async fn update_annual_plan(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<UpdateAnnualPlanRequest>,
+) -> Result<Json<AnnualPlanWithEquipment>> {
+    let plan =
+        EquipmentService::update_annual_plan(&state.db, id, &payload, &current_user).await?;
+    Ok(Json(plan))
+}
+
+pub async fn delete_annual_plan(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<StatusCode> {
+    EquipmentService::delete_annual_plan(&state.db, id, &current_user).await?;
+    Ok(StatusCode::NO_CONTENT)
 }

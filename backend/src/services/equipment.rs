@@ -14,7 +14,8 @@ use crate::{
         CreateDisposalRequest, CreateEquipmentRequest, CreateEquipmentSupplierRequest,
         CreateMaintenanceRequest, DisposalQuery, DisposalStatus, DisposalWithDetails, Equipment,
         EquipmentCalibration, EquipmentMaintenanceRecord, EquipmentQuery, EquipmentStatus,
-        EquipmentStatusLog, EquipmentSupplierWithPartner, GenerateAnnualPlanRequest,
+        EquipmentStatusLog, EquipmentSupplierWithPartner, CreateAnnualPlanRequest,
+        UpdateAnnualPlanRequest, GenerateAnnualPlanRequest,
         MaintenanceQuery, MaintenanceRecordWithDetails, MaintenanceStatus, MaintenanceType,
         PaginatedResponse, UpdateCalibrationRequest, UpdateEquipmentRequest,
         UpdateMaintenanceRequest,
@@ -1050,6 +1051,137 @@ impl EquipmentService {
             calibration_type: None,
         };
         Self::list_annual_plans(pool, &query, current_user).await
+    }
+
+    pub async fn create_annual_plan(
+        pool: &PgPool,
+        payload: &CreateAnnualPlanRequest,
+        current_user: &CurrentUser,
+    ) -> Result<AnnualPlanWithEquipment> {
+        if !current_user.has_permission("equipment.plan.manage")
+            && !current_user.has_permission("equipment.manage")
+        {
+            return Err(AppError::Forbidden("無權管理年度計畫".into()));
+        }
+
+        let months = [
+            payload.month_1, payload.month_2, payload.month_3, payload.month_4,
+            payload.month_5, payload.month_6, payload.month_7, payload.month_8,
+            payload.month_9, payload.month_10, payload.month_11, payload.month_12,
+        ];
+        insert_annual_plan(
+            pool,
+            payload.year,
+            payload.equipment_id,
+            &payload.calibration_type,
+            &payload.cycle,
+            &months,
+        )
+        .await?;
+
+        let plan = sqlx::query_as::<_, AnnualPlanWithEquipment>(
+            r#"
+            SELECT ap.id, ap.year, ap.equipment_id, e.name AS equipment_name,
+                   e.serial_number AS equipment_serial_number,
+                   ap.calibration_type, ap.cycle,
+                   ap.month_1, ap.month_2, ap.month_3, ap.month_4,
+                   ap.month_5, ap.month_6, ap.month_7, ap.month_8,
+                   ap.month_9, ap.month_10, ap.month_11, ap.month_12,
+                   ap.generated_at
+            FROM equipment_annual_plans ap
+            INNER JOIN equipment e ON ap.equipment_id = e.id
+            WHERE ap.year = $1 AND ap.equipment_id = $2 AND ap.calibration_type = $3
+            "#,
+        )
+        .bind(payload.year)
+        .bind(payload.equipment_id)
+        .bind(&payload.calibration_type)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(plan)
+    }
+
+    pub async fn update_annual_plan(
+        pool: &PgPool,
+        id: Uuid,
+        payload: &UpdateAnnualPlanRequest,
+        current_user: &CurrentUser,
+    ) -> Result<AnnualPlanWithEquipment> {
+        if !current_user.has_permission("equipment.plan.manage")
+            && !current_user.has_permission("equipment.manage")
+        {
+            return Err(AppError::Forbidden("無權管理年度計畫".into()));
+        }
+
+        sqlx::query(
+            r#"
+            UPDATE equipment_annual_plans SET
+                month_1 = $2, month_2 = $3, month_3 = $4, month_4 = $5,
+                month_5 = $6, month_6 = $7, month_7 = $8, month_8 = $9,
+                month_9 = $10, month_10 = $11, month_11 = $12, month_12 = $13,
+                updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .bind(payload.month_1)
+        .bind(payload.month_2)
+        .bind(payload.month_3)
+        .bind(payload.month_4)
+        .bind(payload.month_5)
+        .bind(payload.month_6)
+        .bind(payload.month_7)
+        .bind(payload.month_8)
+        .bind(payload.month_9)
+        .bind(payload.month_10)
+        .bind(payload.month_11)
+        .bind(payload.month_12)
+        .execute(pool)
+        .await?;
+
+        let plan = sqlx::query_as::<_, AnnualPlanWithEquipment>(
+            r#"
+            SELECT ap.id, ap.year, ap.equipment_id, e.name AS equipment_name,
+                   e.serial_number AS equipment_serial_number,
+                   ap.calibration_type, ap.cycle,
+                   ap.month_1, ap.month_2, ap.month_3, ap.month_4,
+                   ap.month_5, ap.month_6, ap.month_7, ap.month_8,
+                   ap.month_9, ap.month_10, ap.month_11, ap.month_12,
+                   ap.generated_at
+            FROM equipment_annual_plans ap
+            INNER JOIN equipment e ON ap.equipment_id = e.id
+            WHERE ap.id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(plan)
+    }
+
+    pub async fn delete_annual_plan(
+        pool: &PgPool,
+        id: Uuid,
+        current_user: &CurrentUser,
+    ) -> Result<()> {
+        if !current_user.has_permission("equipment.plan.manage")
+            && !current_user.has_permission("equipment.manage")
+        {
+            return Err(AppError::Forbidden("無權管理年度計畫".into()));
+        }
+
+        let result = sqlx::query("DELETE FROM equipment_annual_plans WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(AppError::NotFound("年度計畫項目不存在".into()));
+        }
+
+        Ok(())
     }
 }
 
