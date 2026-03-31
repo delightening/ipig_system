@@ -412,6 +412,8 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // ============================================
         ("EQUIPMENT_MAINTENANCE", vec![
             "equipment.view", "equipment.manage",
+            "equipment.maintenance.manage", "equipment.plan.manage",
+            "erp.partner.view",
             "training.view", "training.manage_own",
             "dashboard.view",
         ]),

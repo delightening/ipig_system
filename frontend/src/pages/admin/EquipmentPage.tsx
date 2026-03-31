@@ -177,6 +177,39 @@ export function EquipmentPage() {
     },
   })
 
+  const createPlanMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => api.post('/equipment-annual-plans', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans'] })
+      toast({ title: '成功', description: '已新增年度計畫項目' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
+    },
+  })
+
+  const updatePlanMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, boolean> }) =>
+      api.put(`/equipment-annual-plans/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans'] })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
+    },
+  })
+
+  const deletePlanMutation = useMutation({
+    mutationFn: (id: string) => deleteResource(`/equipment-annual-plans/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans'] })
+      toast({ title: '成功', description: '已刪除年度計畫項目' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '刪除失敗'), variant: 'destructive' })
+    },
+  })
+
   const approveDisposalMutation = useMutation({
     mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
       api.post(`/equipment-disposals/${id}/approve`, {
@@ -206,7 +239,7 @@ export function EquipmentPage() {
 
   const createMaintMutation = useMutation({
     mutationFn: (data: MaintenanceFormData) =>
-      api.post(`/equipment/${data.equipment_id}/maintenance`, data),
+      api.post('/equipment-maintenance', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
       dialogs.close('maintCreate')
@@ -220,7 +253,7 @@ export function EquipmentPage() {
 
   const updateMaintMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: MaintenanceFormData }) =>
-      api.put(`/equipment/${data.equipment_id}/maintenance/${id}`, data),
+      api.put(`/equipment-maintenance/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
       dialogs.close('maintEdit')
@@ -235,7 +268,7 @@ export function EquipmentPage() {
 
   const createDisposalMutation = useMutation({
     mutationFn: (data: DisposalFormData) =>
-      api.post(`/equipment/${data.equipment_id}/disposals`, data),
+      api.post('/equipment-disposals', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-disposals'] })
       queryClient.invalidateQueries({ queryKey: ['equipment-all'] })
@@ -446,6 +479,17 @@ export function EquipmentPage() {
             onYearChange={setPlanYear}
             onGenerate={() => generatePlanMutation.mutate()}
             isGenerating={generatePlanMutation.isPending}
+            equipmentList={equipmentList}
+            onCreatePlan={(data) => createPlanMutation.mutate(data)}
+            onToggleMonth={(plan, month) => {
+              const monthData: Record<string, boolean> = {}
+              for (let i = 1; i <= 12; i++) {
+                const key = `month_${i}` as keyof AnnualPlanWithEquipment
+                monthData[`month_${i}`] = i === month ? !(plan[key] as boolean) : (plan[key] as boolean)
+              }
+              updatePlanMutation.mutate({ id: plan.id, data: monthData })
+            }}
+            onDeletePlan={(id) => deletePlanMutation.mutate(id)}
           />
         </PageTabContent>
       </PageTabs>

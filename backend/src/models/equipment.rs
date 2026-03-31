@@ -497,3 +497,39 @@ pub struct AnnualPlanQuery {
 pub struct GenerateAnnualPlanRequest {
     pub year: i32,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct CreateAnnualPlanRequest {
+    pub year: i32,
+    pub equipment_id: Uuid,
+    pub calibration_type: CalibrationType,
+    pub cycle: CalibrationCycle,
+    pub month_1: bool,
+    pub month_2: bool,
+    pub month_3: bool,
+    pub month_4: bool,
+    pub month_5: bool,
+    pub month_6: bool,
+    pub month_7: bool,
+    pub month_8: bool,
+    pub month_9: bool,
+    pub month_10: bool,
+    pub month_11: bool,
+    pub month_12: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAnnualPlanRequest {
+    pub month_1: bool,
+    pub month_2: bool,
+    pub month_3: bool,
+    pub month_4: bool,
+    pub month_5: bool,
+    pub month_6: bool,
+    pub month_7: bool,
+    pub month_8: bool,
+    pub month_9: bool,
+    pub month_10: bool,
+    pub month_11: bool,
+    pub month_12: bool,
+}

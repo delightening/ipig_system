@@ -193,11 +193,21 @@ pub fn routes() -> Router<AppState> {
         // Annual Plan (年度計畫)
         .route(
             "/equipment-annual-plans",
-            get(handlers::list_annual_plans),
+            get(handlers::list_annual_plans)
+                .post(handlers::create_annual_plan),
         )
         .route(
             "/equipment-annual-plans/generate",
             post(handlers::generate_annual_plan),
+        )
+        .route(
+            "/equipment-annual-plans/:id",
+            put(handlers::update_annual_plan)
+                .delete(handlers::delete_annual_plan),
+        )
+        .route(
+            "/equipment-annual-plans/:id/delete",
+            post(handlers::delete_annual_plan),
         )
         // Facility Management
         .route(
