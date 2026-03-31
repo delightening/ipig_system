@@ -46,7 +46,9 @@ import type {
     CreateNotificationRoutingRequest,
     UpdateNotificationRoutingRequest,
     EventTypeCategory,
+    NotificationFrequency,
 } from '@/types/notification'
+import { BATCH_EVENT_TYPES, frequencyNames } from '@/types/notification'
 
 const categoryIcons: Record<string, React.ReactNode> = {
     'AUP 計畫審查': <Shield className="h-4 w-4" />,
@@ -230,6 +232,25 @@ export function NotificationRoutingSection() {
             id: rule.id,
             data: { channel },
         })
+    }
+
+    const handleFrequencyChange = (rule: NotificationRouting, frequency: NotificationFrequency) => {
+        updateMutation.mutate({
+            id: rule.id,
+            data: {
+                frequency,
+                // weekly 時保留 day_of_week，否則清除
+                day_of_week: frequency === 'weekly' ? (rule.day_of_week ?? 1) : null,
+            },
+        })
+    }
+
+    const handleHourChange = (rule: NotificationRouting, hour: number) => {
+        updateMutation.mutate({ id: rule.id, data: { hour_of_day: hour } })
+    }
+
+    const handleDowChange = (rule: NotificationRouting, dow: number) => {
+        updateMutation.mutate({ id: rule.id, data: { day_of_week: dow } })
     }
 
     const handleDelete = async (rule: NotificationRouting) => {
@@ -454,59 +475,118 @@ export function NotificationRoutingSection() {
 
                                                     {/* 規則列表 */}
                                                     <div className="space-y-1.5 ml-0.5">
-                                                        {item.rules.map((rule) => (
-                                                            <div
-                                                                key={rule.id}
-                                                                className={`grid grid-cols-[minmax(100px,1fr)_120px_44px_32px] items-center gap-3 rounded-lg border px-4 py-2.5 transition-colors ${
-                                                                    rule.is_active
-                                                                        ? 'bg-white'
-                                                                        : 'bg-muted/40 opacity-60'
-                                                                }`}
-                                                            >
-                                                                {/* 角色 + 說明 */}
-                                                                <div className="flex items-center gap-2 min-w-0">
-                                                                    <span className="inline-flex items-center rounded-md bg-status-info-bg px-2 py-1 text-xs font-medium text-status-info-text ring-1 ring-inset ring-blue-700/10 shrink-0">
-                                                                        {roleNameMap.get(rule.role_code) || rule.role_code}
-                                                                    </span>
-                                                                    {rule.description && (
-                                                                        <span className="text-xs text-muted-foreground truncate" title={rule.description}>
-                                                                            {rule.description}
-                                                                        </span>
+                                                        {item.rules.map((rule) => {
+                                                            const isBatch = BATCH_EVENT_TYPES.has(rule.event_type)
+                                                            return (
+                                                                <div key={rule.id} className="space-y-1">
+                                                                    <div
+                                                                        className={`grid grid-cols-[minmax(100px,1fr)_120px_44px_32px] items-center gap-3 rounded-lg border px-4 py-2.5 transition-colors ${
+                                                                            rule.is_active ? 'bg-white' : 'bg-muted/40 opacity-60'
+                                                                        }`}
+                                                                    >
+                                                                        {/* 角色 + 說明 + 頻率標籤 */}
+                                                                        <div className="flex items-center gap-2 min-w-0">
+                                                                            <span className="inline-flex items-center rounded-md bg-status-info-bg px-2 py-1 text-xs font-medium text-status-info-text ring-1 ring-inset ring-blue-700/10 shrink-0">
+                                                                                {roleNameMap.get(rule.role_code) || rule.role_code}
+                                                                            </span>
+                                                                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+                                                                                {frequencyNames[rule.frequency as NotificationFrequency] ?? rule.frequency}
+                                                                            </span>
+                                                                            {rule.description && (
+                                                                                <span className="text-xs text-muted-foreground truncate" title={rule.description}>
+                                                                                    {rule.description}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {/* 通道選擇 */}
+                                                                        <Select
+                                                                            value={rule.channel}
+                                                                            onValueChange={(v) => handleChannelChange(rule, v)}
+                                                                        >
+                                                                            <SelectTrigger className="h-8 text-xs">
+                                                                                <SelectValue />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="in_app">站內通知</SelectItem>
+                                                                                <SelectItem value="email">Email</SelectItem>
+                                                                                <SelectItem value="both">兩者</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
+
+                                                                        {/* 啟用 Switch */}
+                                                                        <Switch
+                                                                            checked={rule.is_active}
+                                                                            onCheckedChange={() => handleToggleActive(rule)}
+                                                                        />
+
+                                                                        {/* 刪除 */}
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8 text-status-error-solid hover:text-status-error-text hover:bg-status-error-bg"
+                                                                            onClick={() => handleDelete(rule)}
+                                                                        >
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </div>
+
+                                                                    {/* 批次事件的頻率設定列 */}
+                                                                    {isBatch && (
+                                                                        <div className="flex items-center gap-2 pl-4 pb-1">
+                                                                            <span className="text-xs text-muted-foreground w-12 shrink-0">頻率：</span>
+                                                                            <Select
+                                                                                value={rule.frequency}
+                                                                                onValueChange={(v) => handleFrequencyChange(rule, v as NotificationFrequency)}
+                                                                            >
+                                                                                <SelectTrigger className="h-7 w-24 text-xs">
+                                                                                    <SelectValue />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="daily">每日</SelectItem>
+                                                                                    <SelectItem value="weekly">每週</SelectItem>
+                                                                                    <SelectItem value="monthly">每月</SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                            <span className="text-xs text-muted-foreground">時間：</span>
+                                                                            <Select
+                                                                                value={String(rule.hour_of_day)}
+                                                                                onValueChange={(v) => handleHourChange(rule, Number(v))}
+                                                                            >
+                                                                                <SelectTrigger className="h-7 w-20 text-xs">
+                                                                                    <SelectValue />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {Array.from({ length: 24 }, (_, i) => (
+                                                                                        <SelectItem key={i} value={String(i)}>
+                                                                                            {String(i).padStart(2, '0')}:00
+                                                                                        </SelectItem>
+                                                                                    ))}
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                            {rule.frequency === 'weekly' && (
+                                                                                <>
+                                                                                    <span className="text-xs text-muted-foreground">星期：</span>
+                                                                                    <Select
+                                                                                        value={String(rule.day_of_week ?? 1)}
+                                                                                        onValueChange={(v) => handleDowChange(rule, Number(v))}
+                                                                                    >
+                                                                                        <SelectTrigger className="h-7 w-20 text-xs">
+                                                                                            <SelectValue />
+                                                                                        </SelectTrigger>
+                                                                                        <SelectContent>
+                                                                                            {['日','一','二','三','四','五','六'].map((d, i) => (
+                                                                                                <SelectItem key={i} value={String(i)}>星期{d}</SelectItem>
+                                                                                            ))}
+                                                                                        </SelectContent>
+                                                                                    </Select>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
                                                                     )}
                                                                 </div>
-
-                                                                {/* 通道選擇 */}
-                                                                <Select
-                                                                    value={rule.channel}
-                                                                    onValueChange={(v) => handleChannelChange(rule, v)}
-                                                                >
-                                                                    <SelectTrigger className="h-8 text-xs">
-                                                                        <SelectValue />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        <SelectItem value="in_app">站內通知</SelectItem>
-                                                                        <SelectItem value="email">Email</SelectItem>
-                                                                        <SelectItem value="both">兩者</SelectItem>
-                                                                    </SelectContent>
-                                                                </Select>
-
-                                                                {/* 啟用 Switch */}
-                                                                <Switch
-                                                                    checked={rule.is_active}
-                                                                    onCheckedChange={() => handleToggleActive(rule)}
-                                                                />
-
-                                                                {/* 刪除 */}
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8 text-status-error-solid hover:text-status-error-text hover:bg-status-error-bg"
-                                                                    onClick={() => handleDelete(rule)}
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        ))}
+                                                            )
+                                                        })}
                                                     </div>
                                                 </div>
                                             ))}

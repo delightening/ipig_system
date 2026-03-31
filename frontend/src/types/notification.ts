@@ -75,6 +75,8 @@ export interface UpdateNotificationSettingsRequest {
 // 通知路由規則
 // ============================================
 
+export type NotificationFrequency = 'immediate' | 'daily' | 'weekly' | 'monthly'
+
 export interface NotificationRouting {
     id: string
     event_type: string
@@ -82,6 +84,12 @@ export interface NotificationRouting {
     channel: string       // 'in_app' | 'email' | 'both'
     is_active: boolean
     description?: string
+    /** 批次通知頻率 */
+    frequency: NotificationFrequency
+    /** 批次通知執行小時（0-23） */
+    hour_of_day: number
+    /** weekly 時有效：0=週日, 1=週一 ... 6=週六 */
+    day_of_week: number | null
     created_at: string
     updated_at: string
 }
@@ -91,12 +99,41 @@ export interface CreateNotificationRoutingRequest {
     role_code: string
     channel?: string
     description?: string
+    frequency?: NotificationFrequency
+    hour_of_day?: number
+    day_of_week?: number | null
 }
 
 export interface UpdateNotificationRoutingRequest {
     channel?: string
     is_active?: boolean
     description?: string
+    frequency?: NotificationFrequency
+    hour_of_day?: number
+    day_of_week?: number | null
+}
+
+// ============================================
+// 效期通知範圍設定（系統層級）
+// ============================================
+
+export interface ExpiryNotificationConfig {
+    id: string
+    /** 提前幾天開始預警（預設 60） */
+    warn_days: number
+    /** 過期超過幾天後停止通知（預設 90） */
+    cutoff_days: number
+    /** 過期超過此天數後轉月度彙整通知；null=停用 */
+    monthly_threshold_days: number | null
+    updated_at: string
+    updated_by: string | null
+}
+
+export interface UpdateExpiryNotificationConfigRequest {
+    warn_days?: number
+    cutoff_days?: number
+    /** null = 停用月度模式 */
+    monthly_threshold_days?: number | null
 }
 
 /** 事件類型資訊 */
@@ -155,3 +192,19 @@ export const channelNames: Record<string, string> = {
     email: 'Email',
     both: '兩者',
 }
+
+/** 頻率中文名稱對照 */
+export const frequencyNames: Record<NotificationFrequency, string> = {
+    immediate: '即時',
+    daily: '每日',
+    weekly: '每週',
+    monthly: '每月',
+}
+
+/** 可設定批次頻率的事件類型（非 event-driven） */
+export const BATCH_EVENT_TYPES = new Set([
+    'expiry_alert',
+    'low_stock_alert',
+    'po_pending_receipt',
+    'equipment_overdue',
+])

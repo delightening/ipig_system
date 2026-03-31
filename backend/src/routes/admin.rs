@@ -100,6 +100,11 @@ pub fn routes() -> Router<AppState> {
             "/admin/notification-routing/:id/delete",
             post(handlers::delete_notification_routing),
         )
+        // Expiry Notification Config
+        .route(
+            "/admin/expiry-config",
+            get(handlers::get_expiry_config).put(handlers::update_expiry_config),
+        )
         // Treatment Drug Options
         .route(
             "/treatment-drugs",

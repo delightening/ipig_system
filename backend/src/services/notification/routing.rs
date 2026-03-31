@@ -18,7 +18,9 @@ impl NotificationService {
     pub async fn list_notification_routing(&self) -> Result<Vec<NotificationRouting>, AppError> {
         let rules: Vec<NotificationRouting> = sqlx::query_as(
             r#"
-            SELECT id, event_type, role_code, channel, is_active, description, created_at, updated_at
+            SELECT id, event_type, role_code, channel, is_active, description,
+                   frequency, hour_of_day, day_of_week,
+                   created_at, updated_at
             FROM notification_routing
             ORDER BY event_type, role_code
             "#,
@@ -35,15 +37,12 @@ impl NotificationService {
         request: CreateNotificationRoutingRequest,
     ) -> Result<NotificationRouting, AppError> {
         let channel = request.channel.unwrap_or_else(|| "in_app".to_string());
+        let frequency = request.frequency.unwrap_or_else(|| "immediate".to_string());
+        let hour_of_day = request.hour_of_day.unwrap_or(8);
 
-        // 驗證 channel 值
-        if !["in_app", "email", "both"].contains(&channel.as_str()) {
-            return Err(AppError::BadRequest(
-                "channel 必須是 'in_app'、'email' 或 'both'".to_string(),
-            ));
-        }
+        Self::validate_channel(&channel)?;
+        Self::validate_frequency(&frequency, request.day_of_week)?;
 
-        // 驗證 role_code 存在
         let role_exists: Option<(Uuid,)> = sqlx::query_as(
             "SELECT id FROM roles WHERE code = $1",
         )
@@ -59,8 +58,9 @@ impl NotificationService {
 
         let rule: NotificationRouting = sqlx::query_as(
             r#"
-            INSERT INTO notification_routing (event_type, role_code, channel, description)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO notification_routing
+                (event_type, role_code, channel, description, frequency, hour_of_day, day_of_week)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
             "#,
         )
@@ -68,6 +68,9 @@ impl NotificationService {
         .bind(&request.role_code)
         .bind(&channel)
         .bind(&request.description)
+        .bind(&frequency)
+        .bind(hour_of_day)
+        .bind(request.day_of_week)
         .fetch_one(&self.db)
         .await
         .map_err(|e| {
@@ -81,10 +84,8 @@ impl NotificationService {
         })?;
 
         tracing::info!(
-            "[NotificationRouting] 新增路由規則: {} → {} ({})",
-            request.event_type,
-            request.role_code,
-            channel
+            "[NotificationRouting] 新增路由規則: {} → {} ({}, {})",
+            request.event_type, request.role_code, channel, frequency
         );
 
         Ok(rule)
@@ -96,22 +97,23 @@ impl NotificationService {
         id: Uuid,
         request: UpdateNotificationRoutingRequest,
     ) -> Result<NotificationRouting, AppError> {
-        // 驗證 channel 值
         if let Some(ref channel) = request.channel {
-            if !["in_app", "email", "both"].contains(&channel.as_str()) {
-                return Err(AppError::BadRequest(
-                    "channel 必須是 'in_app'、'email' 或 'both'".to_string(),
-                ));
-            }
+            Self::validate_channel(channel)?;
+        }
+        if let Some(ref frequency) = request.frequency {
+            Self::validate_frequency(frequency, request.day_of_week)?;
         }
 
         let rule: NotificationRouting = sqlx::query_as(
             r#"
             UPDATE notification_routing
-            SET channel = COALESCE($2, channel),
-                is_active = COALESCE($3, is_active),
+            SET channel     = COALESCE($2, channel),
+                is_active   = COALESCE($3, is_active),
                 description = COALESCE($4, description),
-                updated_at = NOW()
+                frequency   = COALESCE($5, frequency),
+                hour_of_day = COALESCE($6, hour_of_day),
+                day_of_week = CASE WHEN $5 IS NOT NULL THEN $7 ELSE day_of_week END,
+                updated_at  = NOW()
             WHERE id = $1
             RETURNING *
             "#,
@@ -120,15 +122,16 @@ impl NotificationService {
         .bind(&request.channel)
         .bind(request.is_active)
         .bind(&request.description)
+        .bind(&request.frequency)
+        .bind(request.hour_of_day)
+        .bind(request.day_of_week)
         .fetch_optional(&self.db)
         .await?
         .ok_or_else(|| AppError::NotFound("通知路由規則不存在".to_string()))?;
 
         tracing::info!(
             "[NotificationRouting] 更新路由規則 {}: {} → {}",
-            id,
-            rule.event_type,
-            rule.role_code
+            id, rule.event_type, rule.role_code
         );
 
         Ok(rule)
@@ -211,6 +214,31 @@ impl NotificationService {
                 ],
             },
         ]
+    }
+
+    // ── 內部驗證 helpers ──
+
+    fn validate_channel(channel: &str) -> Result<(), AppError> {
+        if !["in_app", "email", "both"].contains(&channel) {
+            return Err(AppError::BadRequest(
+                "channel 必須是 'in_app'、'email' 或 'both'".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_frequency(frequency: &str, day_of_week: Option<i16>) -> Result<(), AppError> {
+        if !["immediate", "daily", "weekly", "monthly"].contains(&frequency) {
+            return Err(AppError::BadRequest(
+                "frequency 必須是 'immediate'、'daily'、'weekly' 或 'monthly'".to_string(),
+            ));
+        }
+        if frequency == "weekly" && day_of_week.is_none() {
+            return Err(AppError::BadRequest(
+                "frequency 為 'weekly' 時，day_of_week（0-6）為必填".to_string(),
+            ));
+        }
+        Ok(())
     }
 
     /// 取得所有可用角色列表

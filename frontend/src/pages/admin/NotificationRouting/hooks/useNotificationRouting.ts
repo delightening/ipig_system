@@ -183,6 +183,9 @@ export function useNotificationRouting() {
             channel: rule.channel,
             is_active: rule.is_active,
             description: rule.description || '',
+            frequency: rule.frequency,
+            hour_of_day: rule.hour_of_day,
+            day_of_week: rule.day_of_week,
         })
         setShowEditDialog(true)
     }, [])

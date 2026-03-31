@@ -3,6 +3,7 @@ import api, { deleteResource } from './client'
 import type {
   NotificationRouting, CreateNotificationRoutingRequest,
   UpdateNotificationRoutingRequest, EventTypeCategory, RoleInfo,
+  ExpiryNotificationConfig, UpdateExpiryNotificationConfigRequest,
 } from '@/types/notification'
 
 export const notificationRoutingApi = {
@@ -18,4 +19,11 @@ export const notificationRoutingApi = {
     api.get<EventTypeCategory[]>('/admin/notification-routing/event-types'),
   getRoles: () =>
     api.get<RoleInfo[]>('/admin/notification-routing/roles'),
+}
+
+export const expiryConfigApi = {
+  get: () =>
+    api.get<ExpiryNotificationConfig>('/admin/expiry-config'),
+  update: (data: UpdateExpiryNotificationConfigRequest) =>
+    api.put<ExpiryNotificationConfig>('/admin/expiry-config', data),
 }
