@@ -2,6 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 
 import { useAuthStore } from '@/stores/auth'
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const DASHBOARD_ROLES = ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF', 'INTERN', 'REVIEWER', 'VET', 'IACUC_CHAIR']
 
 export function DashboardRoute({ children }: { children?: React.ReactNode }) {

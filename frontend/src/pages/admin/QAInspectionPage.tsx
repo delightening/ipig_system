@@ -8,7 +8,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, ClipboardCheck, CheckCircle2, XCircle, MinusCircle } from 'lucide-react'
+import { Plus, ClipboardCheck, XCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -29,8 +29,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/stores/auth'
 import {
-  listInspections, createInspection, updateInspection,
+  listInspections, getInspection, createInspection, updateInspection,
   type QaInspectionWithInspector, type QaInspectionType, type QaItemResult,
+  type QaInspectionStatus,
 } from '@/lib/api/qaPlan'
 
 const INSPECTION_TYPE_LABELS: Record<string, string> = {
@@ -44,12 +45,6 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   draft: 'secondary', submitted: 'default', closed: 'outline',
-}
-
-const RESULT_ICONS = {
-  pass: <CheckCircle2 className="h-4 w-4 text-green-600" />,
-  fail: <XCircle className="h-4 w-4 text-destructive" />,
-  not_applicable: <MinusCircle className="h-4 w-4 text-muted-foreground" />,
 }
 
 interface ItemRow {
@@ -122,8 +117,9 @@ export function QAInspectionPage() {
     },
   })
 
-  const submitMutation = useMutation({
-    mutationFn: (id: string) => updateInspection(id, { status: 'submitted' }),
+  const changeStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: QaInspectionStatus }) =>
+      updateInspection(id, { status }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['qa-inspections'] }),
   })
 
@@ -133,7 +129,8 @@ export function QAInspectionPage() {
     setOpen(true)
   }
 
-  const openEdit = (row: QaInspectionWithInspector) => {
+  const openEdit = async (row: QaInspectionWithInspector) => {
+    const detail = await getInspection(row.id)
     setEditId(row.id)
     setForm({
       title: row.title,
@@ -141,7 +138,9 @@ export function QAInspectionPage() {
       inspection_date: row.inspection_date,
       findings: row.findings ?? '',
       conclusion: row.conclusion ?? '',
-      items: [{ description: '', result: 'not_applicable', remarks: '' }],
+      items: detail.items.length > 0
+        ? detail.items.map(i => ({ description: i.description, result: i.result, remarks: i.remarks ?? '' }))
+        : [{ description: '', result: 'not_applicable' as QaItemResult, remarks: '' }],
     })
     setOpen(true)
   }
@@ -247,11 +246,11 @@ export function QAInspectionPage() {
                           {row.status === 'draft' && (
                             <>
                               <Button size="sm" variant="ghost" onClick={() => openEdit(row)}>編輯</Button>
-                              <Button size="sm" variant="ghost" onClick={() => submitMutation.mutate(row.id)}>送出</Button>
+                              <Button size="sm" variant="ghost" onClick={() => changeStatusMutation.mutate({ id: row.id, status: 'submitted' })}>送出</Button>
                             </>
                           )}
                           {row.status === 'submitted' && (
-                            <Button size="sm" variant="ghost" onClick={() => submitMutation.mutate(row.id)}>關閉</Button>
+                            <Button size="sm" variant="ghost" onClick={() => changeStatusMutation.mutate({ id: row.id, status: 'closed' })}>關閉</Button>
                           )}
                         </div>
                       </TableCell>

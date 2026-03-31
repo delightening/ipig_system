@@ -26,7 +26,6 @@ import {
     Building2,
     Briefcase,
     History,
-    CheckCircle2,
     AlertCircle,
     Sparkles,
 } from 'lucide-react'
@@ -50,7 +49,7 @@ export function ProfileSettingsPage() {
     const { toast } = useToast()
     const queryClient = useQueryClient()
 
-    const { register, handleSubmit: rhfHandleSubmit, reset: resetProfile, watch, setValue, getValues, formState: { errors } } = useForm<ProfileSettingsFormData>({
+    const { handleSubmit: rhfHandleSubmit, reset: resetProfile, watch, setValue, getValues } = useForm<ProfileSettingsFormData>({
         resolver: zodResolver(profileSettingsSchema),
         defaultValues: { display_name: '', phone: '', phone_ext: '', organization: '' },
     })

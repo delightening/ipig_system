@@ -4,7 +4,7 @@
  */
 import { useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
-import { ChevronDown, ChevronRight, FolderOpen, Warehouse, LayoutGrid, Check } from 'lucide-react'
+import { ChevronDown, FolderOpen, Warehouse, LayoutGrid, Check } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import api, { WarehouseTreeNode } from '@/lib/api'
 import { Button } from '@/components/ui/button'

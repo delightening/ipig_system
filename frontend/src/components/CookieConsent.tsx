@@ -7,6 +7,7 @@ const STORAGE_KEY = 'cookie-consent'
 type ConsentLevel = 'all' | 'essential'
 
 /** 讀取目前的 consent 狀態（供外部使用） */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getCookieConsent(): ConsentLevel | null {
   const value = localStorage.getItem(STORAGE_KEY)
   if (value === 'all' || value === 'essential') return value
@@ -14,6 +15,7 @@ export function getCookieConsent(): ConsentLevel | null {
 }
 
 /** 使用者是否已接受非必要 Cookie（含第三方資源） */
+// eslint-disable-next-line react-refresh/only-export-components
 export function hasFullConsent(): boolean {
   return getCookieConsent() === 'all'
 }

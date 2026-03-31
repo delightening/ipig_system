@@ -16,11 +16,6 @@ const createUserFormSchema = z.object({
   role_ids: z.array(z.string()).min(1, '請選擇角色'),
 })
 
-const updateUserFormSchema = z.object({
-  email: z.string().email('請輸入有效的 Email').optional().or(z.literal('')),
-  display_name: z.string().min(2, '至少 2 個字元').max(50, '最多 50 個字元').trim().optional().or(z.literal('')),
-})
-
 export interface UserTrainingInput {
   code: string
   certificate_no: string

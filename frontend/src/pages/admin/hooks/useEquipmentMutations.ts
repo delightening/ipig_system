@@ -52,43 +52,6 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
     queryClient.invalidateQueries({ queryKey: CALIB_KEYS.all })
   }
 
-  const createEquipMutation = useMutation({
-    mutationFn: (payload: EquipmentForm) =>
-      api.post('/equipment', {
-        name: payload.name,
-        model: emptyToNull(payload.model),
-        serial_number: emptyToNull(payload.serial_number),
-        location: emptyToNull(payload.location),
-        notes: emptyToNull(payload.notes),
-        calibration_type: payload.calibration_type || null,
-        calibration_cycle: payload.calibration_cycle || null,
-        inspection_cycle: payload.inspection_cycle || null,
-      }),
-    onSuccess: () => {
-      invalidateEquip()
-      options.closeEquipCreate()
-      options.resetEquipForm()
-      toast({ title: '成功', description: '已新增設備' })
-    },
-    onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
-    },
-  })
-
-  const updateEquipMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
-      api.put(`/equipment/${id}`, payload),
-    onSuccess: () => {
-      invalidateEquip()
-      options.closeEquipEdit()
-      options.clearEditingEquip()
-      toast({ title: '成功', description: '已更新設備' })
-    },
-    onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
-    },
-  })
-
   const deleteEquipMutation = useMutation({
     mutationFn: (id: string) => deleteResource(`/equipment/${id}`),
     onSuccess: () => {

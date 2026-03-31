@@ -50,7 +50,7 @@ export function useAnimalEdit(animalId: string) {
                 remark: animal.remark || '',
             })
         }
-    }, [animal, form.reset])
+    }, [animal, form])
 
     const updateMutation = useMutation({
         mutationFn: async (data: AnimalEditFormData) => {

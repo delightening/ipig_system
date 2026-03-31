@@ -45,6 +45,7 @@ function exportProductsCsv(products: ExtendedProduct[], filenamePrefix: string) 
   toast({ title: '匯出成功', description: `已匯出 ${products.length} 筆產品` })
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { exportProductsCsv }
 
 export function ProductBatchActions({

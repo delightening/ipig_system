@@ -71,7 +71,6 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
 
   const categories = tree?.categories ?? []
   const selectedCategory = categories.find(c => c.code === selectedCategoryCode)
-  const subcategories = selectedCategory?.subcategories ?? []
 
   // 左側選取變更時，右側「新增子類」的所屬品類一併同步
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -107,11 +107,14 @@ function ZoneGrid({ zone, pens, canManage }: {
   const cols = maxCol + 1
 
   // 建立 grid map
-  const gridMap = new Map<string, PenDetails>()
-  for (const pen of pens) {
-    const key = `${pen.row_index ?? 0}-${pen.col_index ?? 0}`
-    gridMap.set(key, pen)
-  }
+  const gridMap = useMemo(() => {
+    const map = new Map<string, PenDetails>()
+    for (const pen of pens) {
+      const key = `${pen.row_index ?? 0}-${pen.col_index ?? 0}`
+      map.set(key, pen)
+    }
+    return map
+  }, [pens])
 
   const color = zone?.color || '#94a3b8'
 

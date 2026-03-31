@@ -23,7 +23,10 @@ export function useSkuCategories(options?: { enabled?: boolean }) {
     enabled,
   })
 
-  const categories: SkuCategoryOption[] = categoriesData?.categories ?? []
+  const categories = useMemo<SkuCategoryOption[]>(
+    () => categoriesData?.categories ?? [],
+    [categoriesData]
+  )
   const categoryCodes = useMemo(
     () => categories.map((c) => c.code),
     [categories]

@@ -63,7 +63,7 @@ export function WarehouseLayoutPage() {
     const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { hasPermission } = useAuthStore()
-    const { dialogState, confirm } = useConfirmDialog()
+    const { dialogState } = useConfirmDialog()
 
     // 狀態管理
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('')
