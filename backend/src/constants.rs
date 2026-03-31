@@ -78,6 +78,7 @@ pub const ROLE_EXPERIMENT_STAFF: &str = "EXPERIMENT_STAFF";
 pub const ROLE_WAREHOUSE_MANAGER: &str = "WAREHOUSE_MANAGER";
 pub const ROLE_ADMIN_STAFF: &str = "ADMIN_STAFF";
 pub const ROLE_GUEST: &str = "GUEST";
+pub const ROLE_QAU: &str = "QAU";
 
 /// Leave type codes
 pub const LEAVE_ANNUAL: &str = "ANNUAL";

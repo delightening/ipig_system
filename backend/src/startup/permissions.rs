@@ -50,6 +50,15 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("qau.protocol.view", "QAU 檢視計畫", "qau", "唯讀檢視所有計畫書"),
         ("qau.audit.view", "QAU 檢視稽核", "qau", "唯讀檢視稽核日誌"),
         ("qau.animal.view", "QAU 檢視動物", "qau", "唯讀檢視動物紀錄"),
+        // QAU 計畫管理（稽查報告、NC、SOP、稽查排程）
+        ("qau.inspection.view", "QAU 檢視稽查報告", "qau", "查看稽查報告列表與詳情"),
+        ("qau.inspection.manage", "QAU 管理稽查報告", "qau", "建立、編輯、關閉稽查報告"),
+        ("qau.nc.view", "QAU 檢視不符合事項", "qau", "查看 NC 與 CAPA 列表"),
+        ("qau.nc.manage", "QAU 管理不符合事項", "qau", "建立、指派、結案不符合事項"),
+        ("qau.sop.view", "QAU 檢視 SOP", "qau", "查看 SOP 文件列表"),
+        ("qau.sop.manage", "QAU 管理 SOP", "qau", "建立、版本控制 SOP 文件"),
+        ("qau.schedule.view", "QAU 檢視稽查排程", "qau", "查看年度稽查計畫"),
+        ("qau.schedule.manage", "QAU 管理稽查排程", "qau", "建立、維護年度稽查計畫"),
         // 全庫 IDXF 匯出/匯入（一鍵輸出/匯入整個資料庫）
         ("admin.data.export", "全庫資料匯出", "admin", "可一鍵匯出整個資料庫為 IDXF 格式"),
         ("admin.data.import", "全庫資料匯入", "admin", "可上傳 IDXF JSON 匯入資料庫"),
@@ -398,10 +407,16 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
-        // QAU (品質保證單位) - GLP 唯讀檢視，獨立於研究執行
+        // QAU (品質保證單位) - GLP 唯讀檢視 + 計畫管理，獨立於研究執行
         // ============================================
         ("QAU", vec![
             "qau.dashboard.view", "qau.protocol.view", "qau.audit.view", "qau.animal.view",
+            // QA 計畫管理（稽查報告、NC、SOP、稽查排程）
+            "qau.inspection.view", "qau.inspection.manage",
+            "qau.nc.view", "qau.nc.manage",
+            "qau.sop.view", "qau.sop.manage",
+            "qau.schedule.view", "qau.schedule.manage",
+            // 跨模組唯讀
             "aup.protocol.view_all", "aup.review.view", "aup.attachment.view", "aup.attachment.download",
             "aup.version.view", "audit.logs.view", "animal.animal.view_all", "animal.record.view",
             "dashboard.view",

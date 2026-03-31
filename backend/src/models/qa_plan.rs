@@ -501,6 +501,13 @@ pub struct UpdateScheduleItemRequest {
     pub notes:                 Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateScheduleRequest {
+    pub title:       Option<String>,
+    pub description: Option<String>,
+    pub status:      Option<QaScheduleStatus>,
+}
+
 #[derive(Debug, Deserialize, Default)]
 pub struct ScheduleQuery {
     pub year:   Option<i32>,
