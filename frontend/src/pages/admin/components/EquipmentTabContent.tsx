@@ -156,8 +156,8 @@ export function EquipmentTabContent({
     if (!sortColumn) return records
 
     return [...records].sort((a, b) => {
-      let aVal: string | number = ''
-      let bVal: string | number = ''
+      let aVal: string | number
+      let bVal: string | number
 
       if (sortColumn === 'calibration_due') {
         const aType = a.calibration_type

@@ -66,7 +66,7 @@ interface BloodTestFormDialogProps {
 
 export function BloodTestFormDialog({
   open,
-  onOpenChange,
+  onOpenChange: _onOpenChange,
   editingId,
   formData,
   setFormData,

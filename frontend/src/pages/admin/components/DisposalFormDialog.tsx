@@ -33,6 +33,7 @@ export interface DisposalFormData {
   notes: string
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function emptyDisposalForm(): DisposalFormData {
   return {
     equipment_id: '',

@@ -174,12 +174,6 @@ export function DocumentsPage() {
 
   const hasFilters = search || (statusFilter && statusFilter !== 'all') || dateFrom || dateTo || subTypeFilter !== 'all'
 
-  const newDocHref = isLegacyMode
-    ? `/documents/new?type=${typeFilter}`
-    : subTypeFilter !== 'all'
-    ? `/documents/new?type=${subTypeFilter}`
-    : undefined
-
   const title = isLegacyMode
     ? TYPE_NAMES[typeFilter as DocType] || '單據管理'
     : '單據管理'

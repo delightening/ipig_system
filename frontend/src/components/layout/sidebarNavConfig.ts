@@ -7,7 +7,6 @@ import {
   Users,
   Stethoscope,
   ClipboardCheck,
-  Mail,
 } from 'lucide-react'
 import { createElement } from 'react'
 

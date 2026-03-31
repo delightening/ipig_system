@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -22,7 +21,6 @@ import {
   QuickAddDialog,
   DuplicateWarningDialog,
 } from './components/AnimalAddDialog'
-import type { NewAnimalForm } from './components/AnimalAddDialog'
 import {
   useAnimalFilters,
   useAnimalDialogs,

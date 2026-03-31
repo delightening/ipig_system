@@ -125,7 +125,7 @@ export function useDocumentSubmit({
         })),
       }
     },
-    [collectLineValues, products, isShelfRequired]
+    [collectLineValues, products, isShelfRequired, inputRefs]
   )
 
   const saveMutation = useMutation({

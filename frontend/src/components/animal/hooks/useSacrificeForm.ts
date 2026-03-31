@@ -71,7 +71,6 @@ export function useSacrificeForm({ open, animalId, sacrifice, onOpenChange }: Us
         } else {
             setFormData(defaultFormData)
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sacrifice, open])
 
     const handleSamplingChange = (value: string, checked: boolean) => {

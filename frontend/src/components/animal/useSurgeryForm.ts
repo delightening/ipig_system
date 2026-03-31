@@ -190,7 +190,6 @@ export function useSurgeryForm({
     } else {
       setFormData(defaultFormData)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- init only when open/surgery changes
   }, [surgery, open])
 
   const mutation = useMutation({

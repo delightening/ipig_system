@@ -196,7 +196,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
       })
       lines.setLineAmounts(initialAmounts)
     }
-  }, [document, isEdit])
+  }, [document, isEdit, lines])
 
   // 複製單據：從 sessionStorage 載入資料
   useEffect(() => {
@@ -292,7 +292,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     (lineId: string, batchNo: string, expiryDate?: string, sourceIacuc?: string) => {
       lines.handleBatchChange(lineId, batchNo, expiryDate, sourceIacuc, activeProtocols)
     },
-    [lines.handleBatchChange, activeProtocols]
+    [lines, activeProtocols]
   )
 
   return {

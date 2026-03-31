@@ -93,7 +93,7 @@ export function DashboardPage() {
       if (permission === 'admin') return hasRole('admin')
       return hasPermission(permission)
     })
-  }, [currentLayout, hasRole, hasPermission, user, hasErpPermission])
+  }, [currentLayout, hasRole, hasPermission, hasErpPermission])
 
   const visibleWidgets = useMemo(() => {
     return availableWidgets.filter((w) => w.visible !== false)

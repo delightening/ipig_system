@@ -55,7 +55,6 @@ export function DocumentEditPage() {
     loadingDocument,
     loadingProtocols,
     products,
-    warehouses,
     activeProtocols,
     filteredPartners,
     needsPartner,
@@ -87,7 +86,6 @@ export function DocumentEditPage() {
     handleBatchShelfSelectFrom,
     handleBatchShelfSelectTo,
     poReceiptStatus,
-    source_doc_id: _ignored_source_doc_id,
     categoryCode,
     setCategoryCode,
   } = useDocumentForm({ defaultType })

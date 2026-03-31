@@ -6,7 +6,7 @@ import type { NoSkuColumnPromptProps } from './importTypes'
 export function NoSkuColumnPrompt({
   previewMutationIsPending,
   importIsPending,
-  hasDuplicates,
+  hasDuplicates: _hasDuplicates,
   onSetSkuManually,
   onAutoGenerateSku,
   onDownloadTemplate,

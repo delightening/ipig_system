@@ -132,12 +132,6 @@ export function QANonConformancePage() {
     },
   })
 
-  const closeMutation = useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
-      updateNonConformance(id, { status: 'closed', closure_notes: notes }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['qa-nc'] }),
-  })
-
   const openCreateNc = () => {
     setEditNcId(null)
     setNcForm({ title: '', description: '', severity: 'minor', source: 'observation', assignee_id: '', due_date: '' })

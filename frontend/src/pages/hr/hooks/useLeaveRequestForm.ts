@@ -126,6 +126,7 @@ export function useLeaveRequestForm() {
     form: { leaveType, startDate, endDate, totalHours, proxyUserId, reason, supportingImages },
     rhf: form,
     updateField: <K extends keyof LeaveRequestFormData>(key: K, value: LeaveRequestFormData[K]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setValue(key, value as any) // react-hook-form PathValue 型別限制
     },
     uploadingImage,

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { ReviewCommentResponse, Protocol } from '@/types/aup'
@@ -49,7 +49,7 @@ export function useCommentsData({
     return map
   }, [comments, protocolId, t])
 
-  const getReviewerDisplayName = (comment: ReviewCommentResponse) => {
+  const getReviewerDisplayName = useCallback((comment: ReviewCommentResponse) => {
     if (comment.parent_comment_id && (comment.replied_by === protocol.pi_user_id || comment.replied_by_name)) {
       return comment.replied_by_name || piName || t('common.user')
     }
@@ -57,9 +57,9 @@ export function useCommentsData({
       return comment.reviewer_name || comment.reviewer_email || comment.replied_by_name || comment.replied_by_email
     }
     return reviewerAnonymousMap.get(comment.reviewer_id) || t('protocols.detail.actions.reviewer')
-  }
+  }, [protocol, piName, shouldAnonymizeReviewers, reviewerAnonymousMap, t])
 
-  const groupCommentsByReviewer = (stage: string): ReviewerGroup[] => {
+  const groupCommentsByReviewer = useCallback((stage: string): ReviewerGroup[] => {
     const topComments = comments.filter(c => !c.parent_comment_id && c.review_stage === stage)
     const reviewerIds = Array.from(new Set(topComments.map(c => c.reviewer_id)))
 
@@ -76,10 +76,10 @@ export function useCommentsData({
         })),
       }
     })
-  }
+  }, [comments, getReviewerDisplayName])
 
-  const preReviewGroups = useMemo(() => groupCommentsByReviewer('PRE_REVIEW'), [comments])
-  const underReviewGroups = useMemo(() => groupCommentsByReviewer('UNDER_REVIEW'), [comments])
+  const preReviewGroups = useMemo(() => groupCommentsByReviewer('PRE_REVIEW'), [groupCommentsByReviewer])
+  const underReviewGroups = useMemo(() => groupCommentsByReviewer('UNDER_REVIEW'), [groupCommentsByReviewer])
 
   return {
     getReviewerDisplayName,

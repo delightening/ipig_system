@@ -30,11 +30,6 @@ export interface ZoneColorSet {
   borderStyle?: React.CSSProperties
 }
 
-/** 將 hex 色碼轉為淡色背景（加透明度） */
-function hexToLight(hex: string): string {
-  return `${hex}18` // ~10% opacity
-}
-
 export function getZoneColors(color: string | null): ZoneColorSet {
   if (!color) return DEFAULT_COLORS
 

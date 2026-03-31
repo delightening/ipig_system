@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { aiReviewApi } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
-import type { AiReviewResponse, AiReviewAiResult } from '@/types/aiReview'
+import type { AiReviewAiResult } from '@/types/aiReview'
 
 interface AIReviewPanelProps {
     protocolId: string

@@ -12,7 +12,7 @@ import { getApiErrorMessage } from '@/lib/validation'
 import type { SkuStatus, SkuPreviewResult, SkuPreviewError, MissingField } from '@/components/sku/SkuPreviewBlock'
 import type { ProductSuggestion } from '@/components/product/SmartInput'
 import type { QuickSelectItem, QuickSelectSpec } from '@/components/product/QuickSelectCard'
-import { UNITS, initialFormData } from '../constants'
+import { initialFormData } from '../constants'
 import type { ProductFormData } from '../constants'
 
 export function useCreateProductForm() {

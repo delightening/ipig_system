@@ -34,6 +34,7 @@ export interface MaintenanceFormData {
   notes: string
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function emptyMaintenanceForm(): MaintenanceFormData {
   return {
     equipment_id: '',
@@ -45,6 +46,7 @@ export function emptyMaintenanceForm(): MaintenanceFormData {
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function maintenanceFormFromRecord(r: MaintenanceRecordWithDetails): MaintenanceFormData {
   return {
     equipment_id: r.equipment_id,

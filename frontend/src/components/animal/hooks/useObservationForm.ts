@@ -100,7 +100,6 @@ export function useObservationForm({ open, animalId, observation, onOpenChange }
         } else {
             setFormData(defaultFormData)
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [observation, open])
 
     const handleEquipmentChange = (value: string, checked: boolean) => {
