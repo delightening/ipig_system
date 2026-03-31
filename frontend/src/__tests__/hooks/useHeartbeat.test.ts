@@ -28,6 +28,7 @@ describe('useHeartbeat', () => {
 
   it('sends initial heartbeat when authenticated', () => {
     renderHook(() => useHeartbeat(true))
+    vi.advanceTimersByTime(3_000)
     expect(mockPost).toHaveBeenCalledWith('/auth/heartbeat')
   })
 
