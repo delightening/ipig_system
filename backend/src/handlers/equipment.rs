@@ -10,17 +10,18 @@ use uuid::Uuid;
 use crate::{
     middleware::CurrentUser,
     models::{
-        AnnualPlanQuery, AnnualPlanWithEquipment, ApproveDisposalRequest, CalibrationQuery,
-        CalibrationWithEquipment, CreateCalibrationRequest, CreateDisposalRequest,
-        CreateEquipmentRequest, CreateEquipmentSupplierRequest, CreateMaintenanceRequest,
-        DisposalQuery, DisposalWithDetails, Equipment, EquipmentCalibration,
-        EquipmentMaintenanceRecord, EquipmentQuery, EquipmentStatusLog,
+        ActivityLogQuery, AnnualPlanQuery, AnnualPlanWithEquipment, ApproveDisposalRequest,
+        CalibrationQuery, CalibrationWithEquipment, CreateCalibrationRequest,
+        CreateDisposalRequest, CreateEquipmentRequest, CreateEquipmentSupplierRequest,
+        CreateMaintenanceRequest, DisposalQuery, DisposalWithDetails, Equipment,
+        EquipmentCalibration, EquipmentMaintenanceRecord, EquipmentQuery, EquipmentStatusLog,
         EquipmentSupplierWithPartner, CreateAnnualPlanRequest, UpdateAnnualPlanRequest,
-        GenerateAnnualPlanRequest, MaintenanceQuery,
-        MaintenanceRecordWithDetails, PaginatedResponse, UpdateCalibrationRequest,
-        UpdateEquipmentRequest, UpdateMaintenanceRequest,
+        GenerateAnnualPlanRequest, MaintenanceQuery, MaintenanceRecordWithDetails,
+        PaginatedResponse, UpdateCalibrationRequest, UpdateEquipmentRequest,
+        UpdateMaintenanceRequest, UserActivityLog,
     },
-    services::EquipmentService,
+    repositories,
+    services::{AuditService, EquipmentService},
     AppState, Result,
 };
 
@@ -200,6 +201,17 @@ pub async fn create_maintenance_record(
 ) -> Result<(StatusCode, Json<EquipmentMaintenanceRecord>)> {
     let record =
         EquipmentService::create_maintenance_record(&state.db, &payload, &current_user).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "EQUIPMENT", "MAINTENANCE_CREATE",
+        Some("maintenance_record"), Some(record.id), None,
+        None,
+        Some(serde_json::to_value(&record).unwrap_or_default()),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (MAINTENANCE_CREATE): {e}");
+    }
+
     Ok((StatusCode::CREATED, Json(record)))
 }
 
@@ -209,9 +221,23 @@ pub async fn update_maintenance_record(
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateMaintenanceRequest>,
 ) -> Result<Json<EquipmentMaintenanceRecord>> {
+    let before = repositories::equipment::find_maintenance_record_by_id(&state.db, id).await?;
+    let before_json = before.map(|b| serde_json::to_value(&b).unwrap_or_default());
+
     let record =
         EquipmentService::update_maintenance_record(&state.db, id, &payload, &current_user)
             .await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "EQUIPMENT", "MAINTENANCE_UPDATE",
+        Some("maintenance_record"), Some(id), None,
+        before_json,
+        Some(serde_json::to_value(&record).unwrap_or_default()),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (MAINTENANCE_UPDATE): {e}");
+    }
+
     Ok(Json(record))
 }
 
@@ -220,8 +246,43 @@ pub async fn delete_maintenance_record(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode> {
+    let before = repositories::equipment::find_maintenance_record_by_id(&state.db, id).await?;
+    let before_json = before.map(|b| serde_json::to_value(&b).unwrap_or_default());
+
     EquipmentService::delete_maintenance_record(&state.db, id, &current_user).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "EQUIPMENT", "MAINTENANCE_DELETE",
+        Some("maintenance_record"), Some(id), None,
+        before_json,
+        None,
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (MAINTENANCE_DELETE): {e}");
+    }
+
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn get_maintenance_history(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<PaginatedResponse<UserActivityLog>>> {
+    let query = ActivityLogQuery {
+        user_id: None,
+        event_category: Some("EQUIPMENT".to_string()),
+        event_type: None,
+        entity_type: Some("maintenance_record".to_string()),
+        entity_id: Some(id),
+        is_suspicious: None,
+        from: None,
+        to: None,
+        page: Some(1),
+        per_page: Some(100),
+    };
+    let result = AuditService::list_activities(&state.db, &query).await?;
+    Ok(Json(result))
 }
 
 // ========== Disposal Records ==========
