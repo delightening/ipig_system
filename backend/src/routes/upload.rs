@@ -41,4 +41,8 @@ pub fn routes() -> Router<AppState> {
             "/animals/import/weights",
             post(handlers::import_weight_data),
         )
+        .route(
+            "/qau/sop/:id/upload",
+            post(handlers::upload_sop_document),
+        )
 }

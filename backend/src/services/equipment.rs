@@ -13,11 +13,12 @@ use crate::{
         CalibrationQuery, CalibrationWithEquipment, CreateCalibrationRequest,
         CreateDisposalRequest, CreateEquipmentRequest, CreateEquipmentSupplierRequest,
         CreateMaintenanceRequest, DisposalQuery, DisposalStatus, DisposalWithDetails, Equipment,
-        EquipmentCalibration, EquipmentMaintenanceRecord, EquipmentQuery, EquipmentStatus,
-        EquipmentStatusLog, EquipmentSupplierWithPartner, CreateAnnualPlanRequest,
-        UpdateAnnualPlanRequest, GenerateAnnualPlanRequest,
-        MaintenanceQuery, MaintenanceRecordWithDetails, MaintenanceStatus, MaintenanceType,
-        PaginatedResponse, UpdateCalibrationRequest, UpdateEquipmentRequest,
+        EquipmentCalibration, EquipmentHistoryQuery, EquipmentMaintenanceRecord, EquipmentQuery,
+        EquipmentStatus, EquipmentStatusLog, EquipmentSupplierWithPartner,
+        EquipmentTimelineEntry, CreateAnnualPlanRequest, UpdateAnnualPlanRequest,
+        GenerateAnnualPlanRequest, MaintenanceQuery, MaintenanceRecordWithDetails,
+        MaintenanceStatus, MaintenanceType, PaginatedResponse, ReviewMaintenanceRequest,
+        TimelineRow, UpdateCalibrationRequest, UpdateEquipmentRequest,
         UpdateMaintenanceRequest,
     },
     repositories, Result,
@@ -347,6 +348,32 @@ impl EquipmentService {
         Ok(data)
     }
 
+    // ========== Equipment Timeline (設備履歷) ==========
+
+    pub async fn get_equipment_history(
+        pool: &PgPool,
+        equipment_id: Uuid,
+        query: &EquipmentHistoryQuery,
+        current_user: &CurrentUser,
+    ) -> Result<PaginatedResponse<EquipmentTimelineEntry>> {
+        check_view_permission(current_user)?;
+        repositories::equipment::find_equipment_by_id(pool, equipment_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
+
+        let page = query.page.unwrap_or(1);
+        let per_page = query.per_page.unwrap_or(50);
+        let offset = (page - 1) * per_page;
+
+        let total = repositories::equipment::count_equipment_timeline(pool, equipment_id).await?;
+        let rows = repositories::equipment::find_equipment_timeline(
+            pool, equipment_id, per_page, offset,
+        ).await?;
+
+        let data = rows.into_iter().map(build_timeline_entry).collect();
+        Ok(PaginatedResponse::new(data, total, page, per_page))
+    }
+
     // ========== Calibrations (校正/確效/查核) ==========
 
     pub async fn list_calibrations(
@@ -558,10 +585,14 @@ impl EquipmentService {
                    m.problem_description, m.repair_content, m.repair_partner_id,
                    p.name AS repair_partner_name,
                    m.maintenance_items, m.performed_by, m.notes,
-                   m.created_by, m.created_at
+                   m.created_by,
+                   m.reviewed_by, u2.display_name AS reviewer_name,
+                   m.reviewed_at, m.review_notes,
+                   m.created_at
             FROM equipment_maintenance_records m
             INNER JOIN equipment e ON m.equipment_id = e.id
             LEFT JOIN partners p ON m.repair_partner_id = p.id
+            LEFT JOIN users u2 ON m.reviewed_by = u2.id
             WHERE ($1::uuid IS NULL OR m.equipment_id = $1)
               AND ($2::maintenance_type IS NULL OR m.maintenance_type = $2)
               AND ($3::maintenance_status IS NULL OR m.status = $3)
@@ -660,22 +691,14 @@ impl EquipmentService {
             .await?
             .ok_or_else(|| AppError::NotFound("維修保養紀錄不存在".into()))?;
 
-        let new_status = payload.status.clone().unwrap_or(existing.status.clone());
+        let mut new_status = payload.status.clone().unwrap_or(existing.status.clone());
 
-        // 完修後自動恢復設備狀態為「啟用」
-        if new_status == MaintenanceStatus::Completed && existing.status != MaintenanceStatus::Completed {
-            sqlx::query(
-                "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, (SELECT status FROM equipment WHERE id = $1), 'active', $2, '維修完成，自動恢復狀態')",
-            )
-            .bind(existing.equipment_id)
-            .bind(current_user.id)
-            .execute(pool)
-            .await?;
-
-            sqlx::query("UPDATE equipment SET status = 'active', is_active = true, updated_at = NOW() WHERE id = $1")
-                .bind(existing.equipment_id)
-                .execute(pool)
-                .await?;
+        // 完修 → 自動轉為「待驗收」（不直接結案，需主管驗收簽核）
+        if new_status == MaintenanceStatus::Completed
+            && existing.status != MaintenanceStatus::Completed
+            && existing.status != MaintenanceStatus::PendingReview
+        {
+            new_status = MaintenanceStatus::PendingReview;
         }
 
         // 無法維修 → 發送通知給設備管理人與機構負責人
@@ -773,6 +796,57 @@ impl EquipmentService {
             return Err(AppError::NotFound("維修保養紀錄不存在".into()));
         }
         Ok(())
+    }
+
+    pub async fn review_maintenance_record(
+        pool: &PgPool,
+        id: Uuid,
+        payload: &ReviewMaintenanceRequest,
+        current_user: &CurrentUser,
+    ) -> Result<EquipmentMaintenanceRecord> {
+        if !current_user.has_permission("equipment.maintenance.review")
+            && !current_user.has_permission("equipment.manage")
+        {
+            return Err(AppError::Forbidden("無權驗收維修保養紀錄".into()));
+        }
+        payload.validate()?;
+
+        let existing = repositories::equipment::find_maintenance_record_by_id(pool, id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("維修保養紀錄不存在".into()))?;
+
+        if existing.status != MaintenanceStatus::PendingReview {
+            return Err(AppError::BadRequest("此紀錄非待驗收狀態".into()));
+        }
+
+        let new_status = if payload.approved {
+            MaintenanceStatus::Completed
+        } else {
+            MaintenanceStatus::Pending
+        };
+
+        // 驗收通過 → 設備自動恢復啟用
+        if payload.approved {
+            auto_restore_equipment(pool, existing.equipment_id, current_user.id).await?;
+        }
+
+        let record = sqlx::query_as::<_, EquipmentMaintenanceRecord>(
+            r#"
+            UPDATE equipment_maintenance_records
+            SET status = $2, reviewed_by = $3, reviewed_at = NOW(),
+                review_notes = $4, updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
+            "#,
+        )
+        .bind(id)
+        .bind(&new_status)
+        .bind(current_user.id)
+        .bind(&payload.review_notes)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(record)
     }
 
     // ========== Disposal Records (報廢) ==========
@@ -1186,6 +1260,79 @@ impl EquipmentService {
         }
 
         Ok(())
+    }
+}
+
+async fn auto_restore_equipment(pool: &PgPool, equipment_id: Uuid, user_id: Uuid) -> Result<()> {
+    sqlx::query(
+        "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, (SELECT status FROM equipment WHERE id = $1), 'active', $2, '維修驗收通過，自動恢復狀態')",
+    )
+    .bind(equipment_id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "UPDATE equipment SET status = 'active', is_active = true, updated_at = NOW() WHERE id = $1",
+    )
+    .bind(equipment_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+fn build_timeline_entry(row: TimelineRow) -> EquipmentTimelineEntry {
+    let title = match row.event_type.as_str() {
+        "maintenance" => format!(
+            "{}  —  {}",
+            match row.sub_type.as_deref() {
+                Some("repair") => "維修",
+                Some("maintenance") => "保養",
+                _ => "維修/保養",
+            },
+            match row.sub_status.as_deref() {
+                Some("pending") => "待處理",
+                Some("in_progress") => "進行中",
+                Some("completed") => "已完成",
+                Some("unrepairable") => "無法維修",
+                Some("pending_review") => "待驗收",
+                _ => "—",
+            }
+        ),
+        "calibration" => format!(
+            "{}  —  {}",
+            match row.sub_type.as_deref() {
+                Some("calibration") => "校正",
+                Some("validation") => "確效",
+                Some("inspection") => "查核",
+                _ => "校正/確效/查核",
+            },
+            row.sub_status.as_deref().unwrap_or("—")
+        ),
+        "status_change" => format!(
+            "狀態變更：{} → {}",
+            row.sub_type.as_deref().unwrap_or("?"),
+            row.sub_status.as_deref().unwrap_or("?")
+        ),
+        _ => "未知事件".to_string(),
+    };
+
+    let detail = serde_json::json!({
+        "summary": row.summary,
+        "notes": row.notes,
+        "actor_name": row.actor_name,
+        "sub_type": row.sub_type,
+        "sub_status": row.sub_status,
+    });
+
+    EquipmentTimelineEntry {
+        id: row.id,
+        event_type: row.event_type,
+        occurred_at: row.occurred_at,
+        title,
+        subtitle: row.summary,
+        detail,
     }
 }
 

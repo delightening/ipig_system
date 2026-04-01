@@ -53,6 +53,7 @@ import { EquipmentTabContent } from './components/EquipmentTabContent'
 import { CalibrationTabContent } from './components/CalibrationTabContent'
 import { MaintenanceTabContent } from './components/MaintenanceTabContent'
 import { MaintenanceHistoryDialog } from './components/MaintenanceHistoryDialog'
+import { MaintenanceReviewDialog } from './components/MaintenanceReviewDialog'
 import { DisposalTabContent } from './components/DisposalTabContent'
 import AnnualPlanTabContent from './components/AnnualPlanTabContent'
 import { EquipmentStatsCards } from './components/EquipmentStatsCards'
@@ -60,6 +61,7 @@ import { EquipmentStatsCards } from './components/EquipmentStatsCards'
 export function EquipmentPage() {
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('equipment.manage')
+  const canReview = hasPermission('equipment.maintenance.review') || canManage
   const canApproveDisposal = hasPermission('equipment.disposal.approve')
   const queryClient = useQueryClient()
   const dialogs = useDialogSet(['equipCreate', 'equipEdit', 'calibCreate', 'calibEdit', 'maintCreate', 'maintEdit', 'disposalCreate'] as const)
@@ -70,6 +72,8 @@ export function EquipmentPage() {
   const [calibPage, setCalibPage] = useState(1)
   const [maintPage, setMaintPage] = useState(1)
   const [maintHistoryId, setMaintHistoryId] = useState<string | null>(null)
+  const [reviewRecord, setReviewRecord] = useState<MaintenanceRecordWithDetails | null>(null)
+  const [reviewMode, setReviewMode] = useState<'approve' | 'reject'>('approve')
   const [disposalPage, setDisposalPage] = useState(1)
   const [planYear, setPlanYear] = useState(new Date().getFullYear())
 
@@ -263,8 +267,15 @@ export function EquipmentPage() {
   })
 
   const createMaintMutation = useMutation({
-    mutationFn: (data: MaintenanceFormData) =>
-      api.post('/equipment-maintenance', data),
+    mutationFn: (data: MaintenanceFormData) => {
+      const { status: _s, completed_at, repair_content, repair_partner_id, ...rest } = data
+      return api.post('/equipment-maintenance', {
+        ...rest,
+        completed_at: completed_at || null,
+        repair_content: repair_content || null,
+        repair_partner_id: repair_partner_id || null,
+      })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
       dialogs.close('maintCreate')
@@ -277,8 +288,15 @@ export function EquipmentPage() {
   })
 
   const updateMaintMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: MaintenanceFormData }) =>
-      api.put(`/equipment-maintenance/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: MaintenanceFormData }) => {
+      return api.put(`/equipment-maintenance/${id}`, {
+        ...data,
+        status: data.status || null,
+        completed_at: data.completed_at || null,
+        repair_content: data.repair_content || null,
+        repair_partner_id: data.repair_partner_id || null,
+      })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
       dialogs.close('maintEdit')
@@ -474,6 +492,7 @@ export function EquipmentPage() {
         <PageTabContent value="maintenance" className="space-y-4">
           <MaintenanceTabContent
             canManage={canManage}
+            canReview={canReview}
             records={maintData?.data ?? []}
             isLoading={maintLoading}
             page={maintPage}
@@ -483,11 +502,19 @@ export function EquipmentPage() {
             onAdd={handleAddMaint}
             onEdit={handleEditMaint}
             onViewHistory={setMaintHistoryId}
+            onReview={(r) => { setReviewRecord(r); setReviewMode('approve') }}
+            onReject={(r) => { setReviewRecord(r); setReviewMode('reject') }}
           />
           <MaintenanceHistoryDialog
             open={!!maintHistoryId}
             onOpenChange={(open) => { if (!open) setMaintHistoryId(null) }}
             recordId={maintHistoryId}
+          />
+          <MaintenanceReviewDialog
+            open={!!reviewRecord}
+            onOpenChange={(open) => { if (!open) setReviewRecord(null) }}
+            record={reviewRecord}
+            mode={reviewMode}
           />
         </PageTabContent>
 
@@ -611,8 +638,17 @@ export function EquipmentPage() {
         form={maintForm}
         onFormChange={setMaintForm}
         onSubmit={() => editingMaint && updateMaintMutation.mutate({ id: editingMaint.id, data: maintForm })}
+        onSubmitComplete={() => editingMaint && updateMaintMutation.mutate({
+          id: editingMaint.id,
+          data: { ...maintForm, status: 'completed', completed_at: maintForm.completed_at || format(new Date(), 'yyyy-MM-dd') },
+        })}
+        onSubmitUnrepairable={() => editingMaint && updateMaintMutation.mutate({
+          id: editingMaint.id,
+          data: { ...maintForm, status: 'unrepairable' },
+        })}
         isPending={updateMaintMutation.isPending}
         equipmentList={equipmentList}
+        partners={partnerOptions}
       />
       <DisposalFormDialog
         open={dialogs.isOpen('disposalCreate')}

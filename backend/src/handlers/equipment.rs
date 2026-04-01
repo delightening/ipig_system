@@ -14,10 +14,11 @@ use crate::{
         CalibrationQuery, CalibrationWithEquipment, CreateCalibrationRequest,
         CreateDisposalRequest, CreateEquipmentRequest, CreateEquipmentSupplierRequest,
         CreateMaintenanceRequest, DisposalQuery, DisposalWithDetails, Equipment,
-        EquipmentCalibration, EquipmentMaintenanceRecord, EquipmentQuery, EquipmentStatusLog,
-        EquipmentSupplierWithPartner, CreateAnnualPlanRequest, UpdateAnnualPlanRequest,
-        GenerateAnnualPlanRequest, MaintenanceQuery, MaintenanceRecordWithDetails,
-        PaginatedResponse, UpdateCalibrationRequest, UpdateEquipmentRequest,
+        EquipmentCalibration, EquipmentHistoryQuery, EquipmentMaintenanceRecord, EquipmentQuery,
+        EquipmentStatusLog, EquipmentSupplierWithPartner, EquipmentTimelineEntry,
+        CreateAnnualPlanRequest, UpdateAnnualPlanRequest, GenerateAnnualPlanRequest,
+        MaintenanceQuery, MaintenanceRecordWithDetails, PaginatedResponse,
+        ReviewMaintenanceRequest, UpdateCalibrationRequest, UpdateEquipmentRequest,
         UpdateMaintenanceRequest, UserActivityLog,
     },
     repositories,
@@ -129,6 +130,20 @@ pub async fn list_status_logs(
 ) -> Result<Json<Vec<EquipmentStatusLog>>> {
     let result =
         EquipmentService::list_status_logs(&state.db, equipment_id, &current_user).await?;
+    Ok(Json(result))
+}
+
+// ========== Equipment Timeline (設備履歷) ==========
+
+pub async fn get_equipment_timeline(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(equipment_id): Path<Uuid>,
+    Query(params): Query<EquipmentHistoryQuery>,
+) -> Result<Json<PaginatedResponse<EquipmentTimelineEntry>>> {
+    let result = EquipmentService::get_equipment_history(
+        &state.db, equipment_id, &params, &current_user,
+    ).await?;
     Ok(Json(result))
 }
 
@@ -262,6 +277,32 @@ pub async fn delete_maintenance_record(
     }
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn review_maintenance_record(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<ReviewMaintenanceRequest>,
+) -> Result<Json<EquipmentMaintenanceRecord>> {
+    let before = repositories::equipment::find_maintenance_record_by_id(&state.db, id).await?;
+    let before_json = before.map(|b| serde_json::to_value(&b).unwrap_or_default());
+
+    let record =
+        EquipmentService::review_maintenance_record(&state.db, id, &payload, &current_user)
+            .await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "EQUIPMENT", "MAINTENANCE_REVIEW",
+        Some("maintenance_record"), Some(id), None,
+        before_json,
+        Some(serde_json::to_value(&record).unwrap_or_default()),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (MAINTENANCE_REVIEW): {e}");
+    }
+
+    Ok(Json(record))
 }
 
 pub async fn get_maintenance_history(

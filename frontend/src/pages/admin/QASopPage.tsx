@@ -6,10 +6,12 @@
  * - 閱讀確認（Acknowledge）功能
  */
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, BookOpen, CheckCircle2 } from 'lucide-react'
+import { Plus, BookOpen, CheckCircle2, Download, Upload } from 'lucide-react'
 
+import api from '@/lib/api'
+import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
@@ -59,6 +61,7 @@ const defaultForm = (): SopForm => ({
 
 export function QASopPage() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('qau.sop.manage')
 
@@ -67,6 +70,9 @@ export function QASopPage() {
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<SopForm>(defaultForm())
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: sopList = [], isLoading } = useQuery({
     queryKey: ['qa-sop', filterStatus, filterCategory],
@@ -77,7 +83,7 @@ export function QASopPage() {
   })
 
   const saveMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const payload = {
         title: form.title,
         version: form.version,
@@ -88,10 +94,28 @@ export function QASopPage() {
         description: form.description || undefined,
         status: editId ? form.status : undefined,
       }
-      return editId ? updateSopDocument(editId, payload) : createSopDocument(payload)
+      const result = editId
+        ? await updateSopDocument(editId, payload)
+        : await createSopDocument(payload)
+
+      // 儲存成功後上傳檔案
+      if (uploadFile) {
+        const sopId = editId ?? result.id
+        setUploading(true)
+        try {
+          const formData = new FormData()
+          formData.append('file', uploadFile)
+          await api.post(`/qau/sop/${sopId}/upload`, formData)
+        } finally {
+          setUploading(false)
+        }
+      }
+
+      return result
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['qa-sop'] })
+      setUploadFile(null)
       setOpen(false)
     },
   })
@@ -104,6 +128,7 @@ export function QASopPage() {
   const openCreate = () => {
     setEditId(null)
     setForm(defaultForm())
+    setUploadFile(null)
     setOpen(true)
   }
 
@@ -119,7 +144,25 @@ export function QASopPage() {
       description: row.description ?? '',
       status: row.status,
     })
+    setUploadFile(null)
     setOpen(true)
+  }
+
+  const handleDownload = async (id: string, title: string) => {
+    try {
+      const res = await api.get(`/qau/sop/${id}/download`, { responseType: 'blob' })
+      const contentDisposition = res.headers['content-disposition'] ?? ''
+      const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/)
+      const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : `${title}.pdf`
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast({ variant: 'destructive', title: '下載失敗' })
+    }
   }
 
   return (
@@ -210,6 +253,16 @@ export function QASopPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
+                        {row.file_path && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDownload(row.id, row.title)}
+                          >
+                            <Download className="h-3.5 w-3.5 mr-1" />
+                            下載
+                          </Button>
+                        )}
                         {!row.acknowledged_by_me && row.status === 'active' && (
                           <Button
                             size="sm"
@@ -267,8 +320,41 @@ export function QASopPage() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>檔案路徑 / URL</Label>
-              <Input value={form.file_path} onChange={e => setForm(f => ({ ...f, file_path: e.target.value }))} placeholder="例：/docs/SOP-0001.pdf" />
+              <Label>SOP 文件檔案</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    if (file.size > 30 * 1024 * 1024) {
+                      toast({ variant: 'destructive', title: '檔案大小不得超過 30 MB' })
+                      return
+                    }
+                    setUploadFile(file)
+                  }
+                }}
+              />
+              <div
+                className="flex items-center gap-3 rounded-md border border-input px-3 py-2 cursor-pointer hover:bg-muted/50"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm truncate">
+                  {uploadFile
+                    ? uploadFile.name
+                    : form.file_path
+                      ? `已上傳：${form.file_path.split('/').pop()}`
+                      : '點擊選擇 PDF 或 Word 檔案（最大 30 MB）'}
+                </span>
+              </div>
+              {uploadFile && (
+                <p className="text-xs text-muted-foreground">
+                  將在儲存時上傳 ({(uploadFile.size / 1024 / 1024).toFixed(1)} MB)
+                </p>
+              )}
             </div>
             {editId && (
               <div className="space-y-1">
@@ -290,8 +376,8 @@ export function QASopPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={!form.title || saveMutation.isPending}>
-              {saveMutation.isPending ? '儲存中…' : '儲存'}
+            <Button onClick={() => saveMutation.mutate()} disabled={!form.title || saveMutation.isPending || uploading}>
+              {uploading ? '上傳中…' : saveMutation.isPending ? '儲存中…' : '儲存'}
             </Button>
           </DialogFooter>
         </DialogContent>

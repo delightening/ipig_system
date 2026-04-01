@@ -7,6 +7,7 @@ mod transfer;
 mod protocol_review;
 mod annotation;
 mod disposal;
+mod maintenance;
 
 pub use sacrifice::*;
 pub use observation::*;
@@ -15,6 +16,7 @@ pub use transfer::*;
 pub use protocol_review::*;
 pub use annotation::*;
 pub use disposal::*;
+pub use maintenance::*;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

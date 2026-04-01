@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { StatusBadge } from '@/components/ui/status-badge'
 import type { StatusVariant } from '@/components/ui/status-badge'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
-import { History, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
+import { Check, History, Pencil, Plus, Trash2, Wrench, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
@@ -17,6 +17,7 @@ import { MAINTENANCE_TYPE_LABELS, MAINTENANCE_STATUS_LABELS } from '../types'
 
 interface MaintenanceTabContentProps {
   canManage: boolean
+  canReview?: boolean
   records: MaintenanceRecordWithDetails[]
   isLoading: boolean
   page: number
@@ -26,6 +27,8 @@ interface MaintenanceTabContentProps {
   onAdd?: () => void
   onEdit?: (record: MaintenanceRecordWithDetails) => void
   onViewHistory?: (id: string) => void
+  onReview?: (record: MaintenanceRecordWithDetails) => void
+  onReject?: (record: MaintenanceRecordWithDetails) => void
 }
 
 const TYPE_VARIANT: Record<string, StatusVariant> = {
@@ -36,6 +39,7 @@ const TYPE_VARIANT: Record<string, StatusVariant> = {
 const STATUS_VARIANT: Record<string, StatusVariant> = {
   pending: 'neutral',
   in_progress: 'warning',
+  pending_review: 'info',
   completed: 'success',
   unrepairable: 'error',
 }
@@ -43,6 +47,7 @@ const STATUS_VARIANT: Record<string, StatusVariant> = {
 
 export function MaintenanceTabContent({
   canManage,
+  canReview,
   records,
   isLoading,
   page,
@@ -52,6 +57,8 @@ export function MaintenanceTabContent({
   onAdd,
   onEdit,
   onViewHistory,
+  onReview,
+  onReject,
 }: MaintenanceTabContentProps) {
   const columns = useMemo<ColumnDef<MaintenanceRecordWithDetails>[]>(() => {
     const cols: ColumnDef<MaintenanceRecordWithDetails>[] = [
@@ -85,11 +92,21 @@ export function MaintenanceTabContent({
         cell: (r) => r.maintenance_type === 'repair' ? truncateText(r.problem_description, 30) : truncateText(r.maintenance_items, 30),
       },
     ]
-    if (canManage || onViewHistory) {
+    if (canManage || canReview || onViewHistory) {
       cols.push({
-        key: 'actions', header: '操作', className: 'w-[120px] text-right',
+        key: 'actions', header: '操作', className: 'w-[150px] text-right',
         cell: (r) => (
           <div className="flex items-center justify-end gap-1">
+            {canReview && r.status === 'pending_review' && onReview && (
+              <Button variant="ghost" size="icon" className="text-status-success-text hover:text-status-success-text/80" onClick={() => onReview(r)} aria-label="驗收通過">
+                <Check className="h-4 w-4" />
+              </Button>
+            )}
+            {canReview && r.status === 'pending_review' && onReject && (
+              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => onReject(r)} aria-label="退回">
+                <X className="h-4 w-4" />
+              </Button>
+            )}
             {onViewHistory && (
               <Button variant="ghost" size="icon" onClick={() => onViewHistory(r.id)} aria-label="歷史">
                 <History className="h-4 w-4" />
@@ -110,7 +127,7 @@ export function MaintenanceTabContent({
       })
     }
     return cols
-  }, [canManage, onDelete, onEdit, onViewHistory])
+  }, [canManage, canReview, onDelete, onEdit, onViewHistory, onReview, onReject])
 
   return (
     <Card>

@@ -3,6 +3,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
+use serde_json::Value as JsonValue;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -65,6 +66,8 @@ pub enum MaintenanceStatus {
     Completed,
     #[serde(rename = "unrepairable")]
     Unrepairable,
+    #[serde(rename = "pending_review")]
+    PendingReview,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -298,6 +301,10 @@ pub struct EquipmentMaintenanceRecord {
     pub performed_by: Option<String>,
     pub notes: Option<String>,
     pub created_by: Uuid,
+    pub reviewed_by: Option<Uuid>,
+    pub reviewed_at: Option<DateTime<Utc>>,
+    pub reviewer_signature_id: Option<Uuid>,
+    pub review_notes: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -319,6 +326,10 @@ pub struct MaintenanceRecordWithDetails {
     pub performed_by: Option<String>,
     pub notes: Option<String>,
     pub created_by: Uuid,
+    pub reviewed_by: Option<Uuid>,
+    pub reviewer_name: Option<String>,
+    pub reviewed_at: Option<DateTime<Utc>>,
+    pub review_notes: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -365,6 +376,13 @@ pub struct UpdateMaintenanceRequest {
     pub performed_by: Option<String>,
     #[validate(length(max = 2000))]
     pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct ReviewMaintenanceRequest {
+    pub approved: bool,
+    #[validate(length(max = 2000))]
+    pub review_notes: Option<String>,
 }
 
 // ========== Disposal Records (報廢紀錄) ==========
@@ -534,4 +552,36 @@ pub struct UpdateAnnualPlanRequest {
     pub month_10: bool,
     pub month_11: bool,
     pub month_12: bool,
+}
+
+// ========== Equipment Timeline (設備履歷) ==========
+
+/// SQL UNION ALL 查詢的中間 struct
+#[derive(Debug, FromRow)]
+pub struct TimelineRow {
+    pub id: Uuid,
+    pub event_type: String,
+    pub occurred_at: DateTime<Utc>,
+    pub sub_type: Option<String>,
+    pub sub_status: Option<String>,
+    pub summary: Option<String>,
+    pub notes: Option<String>,
+    pub actor_name: Option<String>,
+}
+
+/// API 回傳的 timeline entry
+#[derive(Debug, Clone, Serialize)]
+pub struct EquipmentTimelineEntry {
+    pub id: Uuid,
+    pub event_type: String,
+    pub occurred_at: DateTime<Utc>,
+    pub title: String,
+    pub subtitle: Option<String>,
+    pub detail: JsonValue,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EquipmentHistoryQuery {
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
 }

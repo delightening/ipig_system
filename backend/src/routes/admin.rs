@@ -113,6 +113,10 @@ pub fn routes() -> Router<AppState> {
             "/qau/sop/:id/acknowledge",
             post(handlers::qa_plan::acknowledge_sop),
         )
+        .route(
+            "/qau/sop/:id/download",
+            get(handlers::download_sop_document),
+        )
         // QA 稽查排程
         .route(
             "/qau/schedules",

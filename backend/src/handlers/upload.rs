@@ -540,6 +540,134 @@ async fn save_animal_record_attachment(
     Ok(id.0)
 }
 
+// ─────────────────────────────────────────────────────────────────
+// SOP 文件上傳 / 下載
+// ─────────────────────────────────────────────────────────────────
+
+/// 上傳 SOP 文件（PDF / Word），寫入檔案系統並更新 qa_sop_documents.file_path
+pub async fn upload_sop_document(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(sop_id): Path<Uuid>,
+    mut multipart: Multipart,
+) -> Result<Json<UploadResponse>> {
+    require_permission!(current_user, "qau.sop.manage");
+
+    // 確認 SOP 記錄存在
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM qa_sop_documents WHERE id = $1)",
+    )
+    .bind(sop_id)
+    .fetch_one(&state.db)
+    .await?;
+
+    if !exists {
+        return Err(AppError::NotFound("SOP document not found".to_string()));
+    }
+
+    let category = FileCategory::SopDocument;
+    let max_size = category.max_file_size();
+
+    let field = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::Validation(format!("Failed to read multipart field: {e}")))?
+        .ok_or_else(|| AppError::Validation("No file uploaded".to_string()))?;
+
+    let file_name = field
+        .file_name()
+        .map(String::from)
+        .unwrap_or_else(|| "unnamed".to_string());
+
+    let content_type = field
+        .content_type()
+        .map(String::from)
+        .unwrap_or_else(|| "application/octet-stream".to_string());
+
+    if !category
+        .allowed_mime_types()
+        .contains(&content_type.as_str())
+    {
+        return Err(AppError::Validation(format!(
+            "File type '{}' is not allowed. Only PDF and Word documents are accepted.",
+            content_type
+        )));
+    }
+
+    let data = field.bytes().await.map_err(|e| {
+        AppError::Validation(format!("Failed to read file data: {e}"))
+    })?;
+
+    if data.len() > max_size {
+        return Err(AppError::Validation(format!(
+            "File '{}' exceeds maximum allowed size of {} MB",
+            file_name,
+            max_size / 1024 / 1024
+        )));
+    }
+
+    let upload_result = FileService::upload(
+        category,
+        &file_name,
+        &content_type,
+        &data,
+        Some(&sop_id.to_string()),
+    )
+    .await?;
+
+    // 更新 qa_sop_documents.file_path
+    sqlx::query("UPDATE qa_sop_documents SET file_path = $1, updated_at = NOW() WHERE id = $2")
+        .bind(&upload_result.file_path)
+        .bind(sop_id)
+        .execute(&state.db)
+        .await?;
+
+    Ok(Json(UploadResponse::from(upload_result)))
+}
+
+/// 下載 SOP 文件
+pub async fn download_sop_document(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(sop_id): Path<Uuid>,
+) -> Result<Response> {
+    require_permission!(current_user, "qau.sop.view");
+
+    let row: Option<(Option<String>, String)> = sqlx::query_as(
+        "SELECT file_path, title FROM qa_sop_documents WHERE id = $1",
+    )
+    .bind(sop_id)
+    .fetch_optional(&state.db)
+    .await?;
+
+    let (file_path, title) = row
+        .ok_or_else(|| AppError::NotFound("SOP document not found".to_string()))?;
+
+    let file_path = file_path
+        .ok_or_else(|| AppError::NotFound("No file uploaded for this SOP".to_string()))?;
+
+    let (data, mime_type) = FileService::read(&file_path).await?;
+
+    // 從 file_path 取得副檔名
+    let ext = std::path::Path::new(&file_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("pdf");
+    let download_name = format!("{}.{}", title, ext);
+
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, mime_type)
+        .header(
+            header::CONTENT_DISPOSITION,
+            crate::utils::http::content_disposition_header(&download_name),
+        )
+        .body(Body::from(data))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?;
+
+    Ok(response)
+}
+
 /// 儲存附件記錄到資料庫
 async fn save_attachment(
     db: &PgPool,
