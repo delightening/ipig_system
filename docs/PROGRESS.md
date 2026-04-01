@@ -185,6 +185,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-01 Migration 重構完成（29→12 合併檔案）
+
+- ✅ **Phase 1-2 分析與撰寫**：將 29 個舊 migration 整理為 12 個按業務模組分組的合併檔案（`backend/migrations_v2/`）
+- ✅ **重複補丁消除**：015、020、021、026 等純修補 migration 直接合入最終狀態，fresh install 不再有中間過渡狀態
+- ✅ **種子資料分離**：roles、permissions、notification_routing 種子資料集中於各模組檔案，不混入 schema 定義
+- ✅ **Phase 3 驗證**：確認 129 張表全部存在、跨檔案 FK 依賴順序正確、所有 ENUM 型別在 001 已定義、Views/Functions/Triggers 完整
+
 ### 2026-04-01 Migration 重構後 IDXF 匯出入修復
 
 - ✅ **移除 refresh_tokens**：`EXPORT_TABLE_ORDER` 移除 `refresh_tokens`，避免過期 session token 被匯入新系統（安全性問題）
