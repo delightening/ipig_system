@@ -77,8 +77,8 @@ export function QANonConformancePage() {
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('qau.nc.manage')
 
-  const [filterSeverity, setFilterSeverity] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterSeverity, setFilterSeverity] = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [ncDialogOpen, setNcDialogOpen] = useState(false)
   const [capaDialogOpen, setCapaDialogOpen] = useState(false)
@@ -102,8 +102,8 @@ export function QANonConformancePage() {
   const { data: ncList = [], isLoading } = useQuery({
     queryKey: ['qa-nc', filterSeverity, filterStatus],
     queryFn: () => listNonConformances({
-      severity: filterSeverity || undefined,
-      status: filterStatus || undefined,
+      severity: filterSeverity !== 'all' ? filterSeverity : undefined,
+      status: filterStatus !== 'all' ? filterStatus : undefined,
     }),
   })
 
@@ -196,7 +196,7 @@ export function QANonConformancePage() {
             <SelectValue placeholder="嚴重度" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">全部</SelectItem>
+            <SelectItem value="all">全部</SelectItem>
             <SelectItem value="critical">重大</SelectItem>
             <SelectItem value="major">主要</SelectItem>
             <SelectItem value="minor">輕微</SelectItem>
@@ -207,7 +207,7 @@ export function QANonConformancePage() {
             <SelectValue placeholder="狀態" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">全部狀態</SelectItem>
+            <SelectItem value="all">全部狀態</SelectItem>
             {Object.entries(NC_STATUS_LABELS).map(([v, l]) => (
               <SelectItem key={v} value={v}>{l}</SelectItem>
             ))}
@@ -389,10 +389,13 @@ export function QANonConformancePage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>指派人</Label>
-                <Select value={ncForm.assignee_id} onValueChange={v => setNcForm(f => ({ ...f, assignee_id: v }))}>
+                <Select
+                  value={ncForm.assignee_id || '__none__'}
+                  onValueChange={v => setNcForm(f => ({ ...f, assignee_id: v === '__none__' ? '' : v }))}
+                >
                   <SelectTrigger><SelectValue placeholder="選擇指派人" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">不指派</SelectItem>
+                    <SelectItem value="__none__">不指派</SelectItem>
                     {users.map(u => (
                       <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>
                     ))}
@@ -438,10 +441,13 @@ export function QANonConformancePage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>指派人</Label>
-                <Select value={capaForm.assignee_id} onValueChange={v => setCapaForm(f => ({ ...f, assignee_id: v }))}>
+                <Select
+                  value={capaForm.assignee_id || '__none__'}
+                  onValueChange={v => setCapaForm(f => ({ ...f, assignee_id: v === '__none__' ? '' : v }))}
+                >
                   <SelectTrigger><SelectValue placeholder="選擇指派人" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">不指派</SelectItem>
+                    <SelectItem value="__none__">不指派</SelectItem>
                     {users.map(u => (
                       <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>
                     ))}

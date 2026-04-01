@@ -9,7 +9,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { Plus, Wrench, Ruler, Hammer, Trash2, Calendar } from 'lucide-react'
 
+import { GuestHide } from '@/components/ui/guest-hide'
 import { useDialogSet } from '@/hooks/useDialogSet'
+import { useGuestQuery } from '@/hooks/useGuestQuery'
+import {
+  DEMO_EQUIPMENT_PAGINATED,
+  DEMO_EQUIPMENT_ALL,
+  DEMO_CALIBRATIONS,
+  DEMO_ANNUAL_PLANS,
+} from '@/lib/guest-demo'
 import api, { deleteResource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -73,48 +81,60 @@ export function EquipmentPage() {
   const [disposalForm, setDisposalForm] = useState<DisposalFormData>(emptyDisposalForm())
 
   /* ── Queries ── */
-  const { data: equipmentList = [] } = useQuery({
-    queryKey: ['equipment-all'],
-    queryFn: async () => {
-      const res = await api.get<PaginatedResponse<Equipment>>('/equipment', {
-        params: { per_page: 500 },
-      })
-      return res.data.data
-    },
-  })
-
-  const { data: allCalibrations = [] } = useQuery({
-    queryKey: ['equipment-calibrations-all'],
-    queryFn: async () => {
-      const res = await api.get<PaginatedResponse<CalibrationWithEquipment>>(
-        '/equipment-calibrations',
-        { params: { per_page: 500 } },
-      )
-      return res.data.data
-    },
-  })
-
-  const { data: equipData, isLoading: equipLoading } = useQuery({
-    queryKey: ['equipment', equipKeyword, equipPage],
-    queryFn: async () => {
-      const params: Record<string, string | number> = { page: equipPage, per_page: 20 }
-      if (equipKeyword) params.keyword = equipKeyword
-      return (await api.get<PaginatedResponse<Equipment>>('/equipment', { params })).data
-    },
-  })
-
-  const { data: calibData, isLoading: calibLoading } = useQuery({
-    queryKey: ['equipment-calibrations', calibEquipmentFilter || undefined, calibPage],
-    queryFn: async () => {
-      const params: Record<string, string | number> = { page: calibPage, per_page: 20 }
-      if (calibEquipmentFilter) params.equipment_id = calibEquipmentFilter
-      return (
-        await api.get<PaginatedResponse<CalibrationWithEquipment>>('/equipment-calibrations', {
-          params,
+  const { data: equipmentList = [] } = useGuestQuery(
+    DEMO_EQUIPMENT_ALL.data as unknown as Equipment[],
+    {
+      queryKey: ['equipment-all'],
+      queryFn: async () => {
+        const res = await api.get<PaginatedResponse<Equipment>>('/equipment', {
+          params: { per_page: 500 },
         })
-      ).data
+        return res.data.data
+      },
     },
-  })
+  )
+
+  const { data: allCalibrations = [] } = useGuestQuery(
+    DEMO_CALIBRATIONS.data as unknown as CalibrationWithEquipment[],
+    {
+      queryKey: ['equipment-calibrations-all'],
+      queryFn: async () => {
+        const res = await api.get<PaginatedResponse<CalibrationWithEquipment>>(
+          '/equipment-calibrations',
+          { params: { per_page: 500 } },
+        )
+        return res.data.data
+      },
+    },
+  )
+
+  const { data: equipData, isLoading: equipLoading } = useGuestQuery(
+    DEMO_EQUIPMENT_PAGINATED as unknown as PaginatedResponse<Equipment>,
+    {
+      queryKey: ['equipment', equipKeyword, equipPage],
+      queryFn: async () => {
+        const params: Record<string, string | number> = { page: equipPage, per_page: 20 }
+        if (equipKeyword) params.keyword = equipKeyword
+        return (await api.get<PaginatedResponse<Equipment>>('/equipment', { params })).data
+      },
+    },
+  )
+
+  const { data: calibData, isLoading: calibLoading } = useGuestQuery(
+    DEMO_CALIBRATIONS as unknown as PaginatedResponse<CalibrationWithEquipment>,
+    {
+      queryKey: ['equipment-calibrations', calibEquipmentFilter || undefined, calibPage],
+      queryFn: async () => {
+        const params: Record<string, string | number> = { page: calibPage, per_page: 20 }
+        if (calibEquipmentFilter) params.equipment_id = calibEquipmentFilter
+        return (
+          await api.get<PaginatedResponse<CalibrationWithEquipment>>('/equipment-calibrations', {
+            params,
+          })
+        ).data
+      },
+    },
+  )
 
   const { data: maintData, isLoading: maintLoading } = useQuery({
     queryKey: ['equipment-maintenance', maintPage],
@@ -136,15 +156,18 @@ export function EquipmentPage() {
       ).data,
   })
 
-  const { data: plans = [] } = useQuery({
-    queryKey: ['equipment-annual-plans', planYear],
-    queryFn: async () =>
-      (
-        await api.get<AnnualPlanWithEquipment[]>('/equipment-annual-plans', {
-          params: { year: planYear },
-        })
-      ).data,
-  })
+  const { data: plans = [] } = useGuestQuery(
+    DEMO_ANNUAL_PLANS as unknown as AnnualPlanWithEquipment[],
+    {
+      queryKey: ['equipment-annual-plans', planYear],
+      queryFn: async () =>
+        (
+          await api.get<AnnualPlanWithEquipment[]>('/equipment-annual-plans', {
+            params: { year: planYear },
+          })
+        ).data,
+    },
+  )
 
   const { data: partnerOptions = [] } = useQuery({
     queryKey: ['partners-supplier'],
@@ -387,10 +410,12 @@ export function EquipmentPage() {
         title="設備維護管理"
         description="實驗室 GLP 合規：設備管理、校正/確效/查核、維修/保養、報廢"
         actions={canManage ? (
-          <Button size="sm" onClick={() => dialogs.open('equipCreate')}>
-            <Plus className="h-4 w-4 mr-2" />
-            新增設備
-          </Button>
+          <GuestHide>
+            <Button size="sm" onClick={() => dialogs.open('equipCreate')}>
+              <Plus className="h-4 w-4 mr-2" />
+              新增設備
+            </Button>
+          </GuestHide>
         ) : undefined}
       />
 

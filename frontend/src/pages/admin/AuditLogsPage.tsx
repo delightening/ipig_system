@@ -7,6 +7,7 @@ import type { User } from '@/types/auth'
 import type { UserActivityLog } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 
+import { GuestHide } from '@/components/ui/guest-hide'
 import { PageHeader } from '@/components/ui/page-header'
 import { categoryEntityMap } from './constants/auditLogs'
 import { useAuditLogExport } from './hooks/useAuditLogExport'
@@ -128,12 +129,14 @@ export function AuditLogsPage() {
         onDateToChange={handleDateToChange}
       />
 
-      <AuditLogExportBar
-        isExporting={isExporting}
-        totalCount={activityLogs?.total}
-        onExportCSV={handleExportCSV}
-        onExportPDF={handleExportPDF}
-      />
+      <GuestHide>
+        <AuditLogExportBar
+          isExporting={isExporting}
+          totalCount={activityLogs?.total}
+          onExportCSV={handleExportCSV}
+          onExportPDF={handleExportPDF}
+        />
+      </GuestHide>
 
       <AuditLogTable
         activityLogs={activityLogs}

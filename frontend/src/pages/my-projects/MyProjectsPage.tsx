@@ -33,6 +33,8 @@ import { useTranslation } from 'react-i18next'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { RoleWelcomeGuide } from '@/components/dashboard'
+import { GuestHide } from '@/components/ui/guest-hide'
+import { useAuthStore } from '@/stores/auth'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -55,6 +57,7 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
 
 export function MyProjectsPage() {
   const { t } = useTranslation()
+  const isGuest = useAuthStore((s) => s.isGuest)()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { dialogState, confirm } = useConfirmDialog()
@@ -307,30 +310,32 @@ export function MyProjectsPage() {
                             </Link>
                           </Button>
                           {/* 結案按鈕: 審查委員不應有結案功能 */}
-                          {/* 只有草稿或需修訂狀態可刪除 */}
-                          {['DRAFT', 'REVISION_REQUIRED'].includes(project.status) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteClick(project.id)}
-                              disabled={deleteProtocolMutation.isPending}
-                            >
-                              <X className="mr-2 h-4 w-4" />
-                              {t('common.delete')}
-                            </Button>
-                          )}
-                          {/* 只有核准狀態可結案 */}
-                          {(project.status === 'APPROVED' || project.status === 'APPROVED_WITH_CONDITIONS') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCloseClick(project.id)}
-                              disabled={closeProtocolMutation.isPending}
-                            >
-                              <X className="mr-2 h-4 w-4" />
-                              {t('common.close')}
-                            </Button>
-                          )}
+                          <GuestHide>
+                            {/* 只有草稿或需修訂狀態可刪除 */}
+                            {['DRAFT', 'REVISION_REQUIRED'].includes(project.status) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteClick(project.id)}
+                                disabled={deleteProtocolMutation.isPending}
+                              >
+                                <X className="mr-2 h-4 w-4" />
+                                {t('common.delete')}
+                              </Button>
+                            )}
+                            {/* 只有核准狀態可結案 */}
+                            {(project.status === 'APPROVED' || project.status === 'APPROVED_WITH_CONDITIONS') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCloseClick(project.id)}
+                                disabled={closeProtocolMutation.isPending}
+                              >
+                                <X className="mr-2 h-4 w-4" />
+                                {t('common.close')}
+                              </Button>
+                            )}
+                          </GuestHide>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -343,7 +348,7 @@ export function MyProjectsPage() {
               icon={FileText}
               title={t('myProjects.welcome.title', '歡迎使用計畫管理')}
               description={t('myProjects.welcome.description', '您目前尚無任何計畫書，建立第一個動物使用計畫書以開始使用。')}
-              action={{
+              action={isGuest ? undefined : {
                 label: t('myProjects.welcome.createFirst', '建立計畫書'),
                 onClick: () => window.location.href = '/protocols/new',
               }}

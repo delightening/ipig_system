@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import api, { deleteResource } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
+import { useGuestQuery } from '@/hooks/useGuestQuery'
+import { DEMO_OVERTIME } from '@/lib/guest-demo'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import type { OvertimeWithUser } from '@/types/hr'
@@ -10,7 +12,7 @@ import type { CreateOvertimeData } from '../constants'
 
 /** Hook for fetching my overtime records */
 export const useMyOvertime = () => {
-    return useQuery({
+    return useGuestQuery(DEMO_OVERTIME, {
         queryKey: queryKeys.hr.myOvertime,
         queryFn: async () => {
             const res = await api.get<PaginatedResponse<OvertimeWithUser>>('/hr/overtime')
@@ -21,7 +23,7 @@ export const useMyOvertime = () => {
 
 /** Hook for fetching pending overtime approvals */
 export const usePendingOvertime = () => {
-    return useQuery({
+    return useGuestQuery(DEMO_OVERTIME, {
         queryKey: queryKeys.hr.pendingOvertime,
         queryFn: async () => {
             const res = await api.get<PaginatedResponse<OvertimeWithUser>>(

@@ -159,6 +159,7 @@ services:
       - db_url
     environment:
       DATABASE_URL_FILE: /run/secrets/db_url
+      GUEST_PASSWORD: ${GUEST_PASSWORD:-guest}
     command: ["/app/create_guest"]
     networks:
       - database

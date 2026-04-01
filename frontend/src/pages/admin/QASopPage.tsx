@@ -62,7 +62,7 @@ export function QASopPage() {
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('qau.sop.manage')
 
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
   const [filterCategory, setFilterCategory] = useState('')
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -71,7 +71,7 @@ export function QASopPage() {
   const { data: sopList = [], isLoading } = useQuery({
     queryKey: ['qa-sop', filterStatus, filterCategory],
     queryFn: () => listSopDocuments({
-      status: filterStatus || undefined,
+      status: filterStatus !== 'all' ? filterStatus : undefined,
       category: filterCategory || undefined,
     }),
   })
@@ -141,7 +141,7 @@ export function QASopPage() {
             <SelectValue placeholder="狀態" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">全部狀態</SelectItem>
+            <SelectItem value="all">全部狀態</SelectItem>
             <SelectItem value="draft">草稿</SelectItem>
             <SelectItem value="active">生效中</SelectItem>
             <SelectItem value="obsolete">已廢止</SelectItem>

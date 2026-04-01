@@ -3,6 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 
 import api from '@/lib/api'
 import { STALE_TIME } from '@/lib/query'
+import { useGuestQuery } from '@/hooks/useGuestQuery'
+import {
+  DEMO_ANIMALS_PAGINATED,
+  DEMO_ANIMAL_STATS,
+  DEMO_ANIMALS_BY_PEN,
+} from '@/lib/guest-demo'
 import type { AnimalListItem, AnimalSource, AnimalStatsResponse } from '@/types/animal'
 import type { PaginatedResponse } from '@/types/common'
 
@@ -15,7 +21,7 @@ interface QueryOptions {
 }
 
 export function useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, page, perPage }: QueryOptions) {
-  const { data: statsData } = useQuery({
+  const { data: statsData } = useGuestQuery(DEMO_ANIMAL_STATS as AnimalStatsResponse, {
     queryKey: ['animals-stats'],
     queryFn: async () => {
       const res = await api.get<AnimalStatsResponse>('/animals/stats')
@@ -24,20 +30,23 @@ export function useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, pa
     staleTime: STALE_TIME.REFERENCE,
   })
 
-  const { data: animalsResp, isLoading } = useQuery({
-    queryKey: ['animals', statusFilter, breedFilter, appliedSearch, page],
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      if (statusFilter && statusFilter !== 'all' && statusFilter !== 'pen') params.append('status', statusFilter)
-      if (breedFilter && breedFilter !== 'all') params.append('breed', breedFilter)
-      if (appliedSearch) params.append('keyword', appliedSearch)
-      params.append('page', String(page))
-      params.append('per_page', String(perPage))
-      const res = await api.get<PaginatedResponse<AnimalListItem>>(`/animals?${params}`)
-      return res.data
+  const { data: animalsResp, isLoading } = useGuestQuery(
+    DEMO_ANIMALS_PAGINATED as unknown as PaginatedResponse<AnimalListItem>,
+    {
+      queryKey: ['animals', statusFilter, breedFilter, appliedSearch, page],
+      queryFn: async () => {
+        const params = new URLSearchParams()
+        if (statusFilter && statusFilter !== 'all' && statusFilter !== 'pen') params.append('status', statusFilter)
+        if (breedFilter && breedFilter !== 'all') params.append('breed', breedFilter)
+        if (appliedSearch) params.append('keyword', appliedSearch)
+        params.append('page', String(page))
+        params.append('per_page', String(perPage))
+        const res = await api.get<PaginatedResponse<AnimalListItem>>(`/animals?${params}`)
+        return res.data
+      },
+      staleTime: STALE_TIME.LIST,
     },
-    staleTime: STALE_TIME.LIST,
-  })
+  )
 
   const { data: sourcesData } = useQuery({
     queryKey: ['animal-sources'],
@@ -48,16 +57,19 @@ export function useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, pa
     staleTime: STALE_TIME.REFERENCE,
   })
 
-  const { data: groupedData, isLoading: groupedLoading } = useQuery({
-    queryKey: ['animals-by-pen'],
-    queryFn: async () => {
-      const res = await api.get<{ pen_location: string; animals: AnimalListItem[] }[]>('/animals/by-pen')
-      return res.data
+  const { data: groupedData, isLoading: groupedLoading } = useGuestQuery(
+    DEMO_ANIMALS_BY_PEN as unknown as { pen_location: string; animals: AnimalListItem[] }[],
+    {
+      queryKey: ['animals-by-pen'],
+      queryFn: async () => {
+        const res = await api.get<{ pen_location: string; animals: AnimalListItem[] }[]>('/animals/by-pen')
+        return res.data
+      },
+      enabled: statusFilter === 'pen',
+      staleTime: STALE_TIME.REALTIME,
+      refetchOnWindowFocus: true,
     },
-    enabled: statusFilter === 'pen',
-    staleTime: STALE_TIME.REALTIME,
-    refetchOnWindowFocus: true,
-  })
+  )
 
   const animals = animalsResp?.data ?? []
   const totalPages = animalsResp?.total_pages ?? 1

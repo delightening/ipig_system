@@ -57,7 +57,17 @@ impl CurrentUser {
             .any(|r| r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY)
     }
 
+    pub fn is_guest(&self) -> bool {
+        self.roles
+            .iter()
+            .any(|r| r == crate::constants::ROLE_GUEST)
+    }
+
     pub fn has_permission(&self, permission: &str) -> bool {
+        // Guest 全通行（寫入由 guest_guard middleware 攔截）
+        if self.is_guest() {
+            return true;
+        }
         if self.permissions.contains(&permission.to_string()) {
             return true;
         }

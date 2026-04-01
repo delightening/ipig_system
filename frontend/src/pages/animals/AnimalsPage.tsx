@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Upload, Download, FileSpreadsheet } from 'lucide-react'
 
+import { GuestHide } from '@/components/ui/guest-hide'
 import { ExportDialog } from '@/components/animal/ExportDialog'
 import { ImportDialog } from '@/components/animal/ImportDialog'
 import { QuickEditAnimalDialog } from '@/components/animal/QuickEditAnimalDialog'
@@ -165,28 +166,30 @@ export function AnimalsPage() {
         title={t('animals.title')}
         description={t('animals.description')}
         actions={
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <Button size="sm" variant="outline" className="w-full gap-2 text-status-warning-text border-status-warning-border hover:bg-status-warning-bg text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>
-              <Download className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('animals.generateReport')}</span>
-            </Button>
-            <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportWeightDialog(true)}>
-              <Upload className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('animals.importWeight')}</span>
-            </Button>
-            <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportBasicDialog(true)}>
-              <Upload className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('animals.importBasic')}</span>
-            </Button>
-            <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowBatchExportDialog(true)}>
-              <FileSpreadsheet className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('animals.batchExport')}</span>
-            </Button>
-            <Button size="sm" onClick={() => setShowAddDialog(true)} className="col-span-2 md:col-span-2 w-full gap-2 bg-primary hover:bg-primary/90 text-xs md:text-sm">
-              <Plus className="h-4 w-4 shrink-0" />
-              {t('animals.addAnimal')}
-            </Button>
-          </div>
+          <GuestHide>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <Button size="sm" variant="outline" className="w-full gap-2 text-status-warning-text border-status-warning-border hover:bg-status-warning-bg text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>
+                <Download className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t('animals.generateReport')}</span>
+              </Button>
+              <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportWeightDialog(true)}>
+                <Upload className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t('animals.importWeight')}</span>
+              </Button>
+              <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportBasicDialog(true)}>
+                <Upload className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t('animals.importBasic')}</span>
+              </Button>
+              <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowBatchExportDialog(true)}>
+                <FileSpreadsheet className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t('animals.batchExport')}</span>
+              </Button>
+              <Button size="sm" onClick={() => setShowAddDialog(true)} className="col-span-2 md:col-span-2 w-full gap-2 bg-primary hover:bg-primary/90 text-xs md:text-sm">
+                <Plus className="h-4 w-4 shrink-0" />
+                {t('animals.addAnimal')}
+              </Button>
+            </div>
+          </GuestHide>
         }
       />
 

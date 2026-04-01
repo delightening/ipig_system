@@ -4,6 +4,8 @@ import { Clock, Download, RefreshCw, Users } from 'lucide-react'
 
 import api from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
+import { useGuestQuery } from '@/hooks/useGuestQuery'
+import { DEMO_ATTENDANCE } from '@/lib/guest-demo'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +24,7 @@ import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useTableSort } from '@/hooks/useTableSort'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { formatDate, formatTime } from '@/lib/utils'
 import type { AttendanceWithUser, StaffInfo } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
@@ -62,7 +65,7 @@ export function AttendanceHistoryTab() {
         enabled: canViewAll,
     })
 
-    const { data: attendanceHistory, isLoading: loadingHistory } = useQuery({
+    const { data: attendanceHistory, isLoading: loadingHistory } = useGuestQuery(DEMO_ATTENDANCE, {
         queryKey: queryKeys.hr.attendanceHistory({ dateFrom, dateTo, viewAll, filterUserId }),
         queryFn: async () => {
             const params = new URLSearchParams()
@@ -126,10 +129,12 @@ export function AttendanceHistoryTab() {
                     <RefreshCw className="h-4 w-4 mr-2" />
                     重新整理
                 </Button>
-                <Button variant="outline" onClick={() => exportExcelMutation.mutate()} disabled={exportExcelMutation.isPending}>
-                    <Download className="h-4 w-4 mr-2" />
-                    {exportExcelMutation.isPending ? '匯出中...' : '匯出 Excel'}
-                </Button>
+                <GuestHide>
+                    <Button variant="outline" onClick={() => exportExcelMutation.mutate()} disabled={exportExcelMutation.isPending}>
+                        <Download className="h-4 w-4 mr-2" />
+                        {exportExcelMutation.isPending ? '匯出中...' : '匯出 Excel'}
+                    </Button>
+                </GuestHide>
             </div>
 
             <Card>

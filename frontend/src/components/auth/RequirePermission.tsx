@@ -30,10 +30,13 @@ export function RequirePermission({
     fallback = 'message',
     redirectTo = '/dashboard',
 }: RequirePermissionProps) {
-    const { hasPermission, hasRole } = useAuthStore()
+    const { hasPermission, hasRole, isGuest } = useAuthStore()
 
     // 檢查權限
     const checkAccess = (): boolean => {
+        // Guest 全通行
+        if (isGuest()) return true
+
         // 如果指定了 anyOf，只要任一符合即可
         if (anyOf && anyOf.length > 0) {
             return anyOf.some(item => {

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { deleteResource } from '@/lib/api'
 import type { DocType, DocumentListItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -184,12 +185,14 @@ export function DocumentsPage() {
         title={title}
         description={isLegacyMode ? `管理${TYPE_NAMES[typeFilter as DocType]}` : '採購、銷貨、倉儲單據統一管理'}
         actions={
-          <Button size="sm" asChild>
-            <Link to={isLegacyMode ? `/documents/new?type=${typeFilter}` : (subTypeFilter !== 'all' ? `/documents/new?type=${subTypeFilter}` : '/documents/new')}>
-              <Plus className="mr-2 h-4 w-4" />
-              新增單據
-            </Link>
-          </Button>
+          <GuestHide>
+            <Button size="sm" asChild>
+              <Link to={isLegacyMode ? `/documents/new?type=${typeFilter}` : (subTypeFilter !== 'all' ? `/documents/new?type=${subTypeFilter}` : '/documents/new')}>
+                <Plus className="mr-2 h-4 w-4" />
+                新增單據
+              </Link>
+            </Button>
+          </GuestHide>
         }
       />
 

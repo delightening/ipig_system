@@ -4,8 +4,11 @@ import { CheckCircle, FileText, Plus, Users } from 'lucide-react'
 
 import api from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
+import { useGuestQuery } from '@/hooks/useGuestQuery'
+import { DEMO_LEAVES, DEMO_BALANCE_SUMMARY } from '@/lib/guest-demo'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { PageHeader } from '@/components/ui/page-header'
 import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { toast } from '@/components/ui/use-toast'
@@ -36,7 +39,7 @@ export function HrLeavePage() {
     })
 
     // 我的餘額
-    const { data: balanceSummary } = useQuery({
+    const { data: balanceSummary } = useGuestQuery(DEMO_BALANCE_SUMMARY, {
         queryKey: queryKeys.hr.balanceSummary,
         queryFn: async () => {
             const res = await api.get<BalanceSummary>('/hr/balances/summary')
@@ -45,7 +48,7 @@ export function HrLeavePage() {
     })
 
     // 我的請假記錄
-    const { data: myLeaves, isLoading: loadingLeaves } = useQuery({
+    const { data: myLeaves, isLoading: loadingLeaves } = useGuestQuery(DEMO_LEAVES, {
         queryKey: queryKeys.hr.myLeaves,
         queryFn: async () => {
             const res = await api.get<PaginatedResponse<LeaveRequestWithUser>>('/hr/leaves')
@@ -106,10 +109,12 @@ export function HrLeavePage() {
                 title="請假管理"
                 description="申請請假與查看假期餘額"
                 actions={
-                    <Button size="sm" onClick={() => dialogs.open('create')}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        新增請假
-                    </Button>
+                    <GuestHide>
+                        <Button size="sm" onClick={() => dialogs.open('create')}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            新增請假
+                        </Button>
+                    </GuestHide>
                 }
             />
 

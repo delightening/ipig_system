@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Download } from 'lucide-react'
 import { useUserManagement } from './hooks/useUserManagement'
@@ -22,16 +23,18 @@ export function UsersPage() {
         title="使用者管理"
         description="管理系統使用者帳號與角色"
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={mgmt.handleExportUsers} disabled={!mgmt.sortedUsers?.length || mgmt.isLoading}>
-              <Download className="h-4 w-4 mr-2" />
-              匯出現在的使用者
-            </Button>
-            <Button size="sm" data-testid="add-user-button" onClick={() => mgmt.setShowCreateDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              新增使用者
-            </Button>
-          </div>
+          <GuestHide>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={mgmt.handleExportUsers} disabled={!mgmt.sortedUsers?.length || mgmt.isLoading}>
+                <Download className="h-4 w-4 mr-2" />
+                匯出現在的使用者
+              </Button>
+              <Button size="sm" data-testid="add-user-button" onClick={() => mgmt.setShowCreateDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                新增使用者
+              </Button>
+            </div>
+          </GuestHide>
         }
       />
 

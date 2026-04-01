@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,10 +31,12 @@ export function RolesPage() {
         title="角色權限"
         description="管理系統角色與權限設定"
         actions={
-          <Button size="sm" onClick={() => rm.setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            新增角色
-          </Button>
+          <GuestHide>
+            <Button size="sm" onClick={() => rm.setShowCreateDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              新增角色
+            </Button>
+          </GuestHide>
         }
       />
 
@@ -47,14 +50,16 @@ export function RolesPage() {
                   {role.name}
                   {role.is_system && <Badge variant="secondary" className="text-xs">System</Badge>}
                 </CardTitle>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => rm.handleEdit(role)} aria-label="編輯">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => rm.handleDeleteClick(role)} aria-label="刪除">
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
+                <GuestHide>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => rm.handleEdit(role)} aria-label="編輯">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => rm.handleDeleteClick(role)} aria-label="刪除">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </GuestHide>
               </div>
               <p className="text-sm text-muted-foreground font-mono">{role.code}</p>
             </CardHeader>

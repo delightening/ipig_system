@@ -79,14 +79,14 @@ export function QAInspectionPage() {
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<InspectionForm>(defaultForm())
-  const [filterType, setFilterType] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterType, setFilterType] = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
 
   const { data: inspections = [], isLoading } = useQuery({
     queryKey: ['qa-inspections', filterType, filterStatus],
     queryFn: () => listInspections({
-      inspection_type: filterType || undefined,
-      status: filterStatus || undefined,
+      inspection_type: filterType !== 'all' ? filterType : undefined,
+      status: filterStatus !== 'all' ? filterStatus : undefined,
     }),
   })
 
@@ -178,7 +178,7 @@ export function QAInspectionPage() {
             <SelectValue placeholder="稽查類型" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">全部類型</SelectItem>
+            <SelectItem value="all">全部類型</SelectItem>
             {Object.entries(INSPECTION_TYPE_LABELS).map(([v, l]) => (
               <SelectItem key={v} value={v}>{l}</SelectItem>
             ))}
@@ -189,7 +189,7 @@ export function QAInspectionPage() {
             <SelectValue placeholder="狀態" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">全部狀態</SelectItem>
+            <SelectItem value="all">全部狀態</SelectItem>
             {Object.entries(STATUS_LABELS).map(([v, l]) => (
               <SelectItem key={v} value={v}>{l}</SelectItem>
             ))}
