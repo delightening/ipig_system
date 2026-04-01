@@ -3,7 +3,7 @@
  * 支援自動產生 + 手動新增/編輯/刪除
  */
 import { useState } from 'react'
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, Circle } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Trash2, Circle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -47,6 +47,7 @@ interface AnnualPlanTabContentProps {
   isGenerating: boolean
   equipmentList: Equipment[]
   onCreatePlan: (data: Record<string, unknown>) => void
+  onEditPlan: (id: string, data: Record<string, unknown>) => void
   onToggleMonth: (plan: AnnualPlanWithEquipment, month: number) => void
   onDeletePlan: (id: string) => void
 }
@@ -67,10 +68,12 @@ export default function AnnualPlanTabContent({
   isGenerating,
   equipmentList,
   onCreatePlan,
+  onEditPlan,
   onToggleMonth,
   onDeletePlan,
 }: AnnualPlanTabContentProps) {
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [editingPlan, setEditingPlan] = useState<AnnualPlanWithEquipment | null>(null)
 
   return (
     <Card>
@@ -98,21 +101,33 @@ export default function AnnualPlanTabContent({
         {plans.length === 0 ? (
           <EmptyState icon={FileText} title={`${year} 年尚無年度計畫資料`} />
         ) : (
-          <PlanMatrix plans={plans} canManage={canManage} onToggleMonth={onToggleMonth} onDelete={onDeletePlan} />
+          <PlanMatrix plans={plans} canManage={canManage} onToggleMonth={onToggleMonth} onEdit={setEditingPlan} onDelete={onDeletePlan} />
         )}
       </CardContent>
 
       {canManage && (
-        <AddPlanDialog
-          open={showAddDialog}
-          onOpenChange={setShowAddDialog}
-          equipmentList={equipmentList}
-          year={year}
-          onSubmit={(data) => {
-            onCreatePlan(data)
-            setShowAddDialog(false)
-          }}
-        />
+        <>
+          <AddPlanDialog
+            open={showAddDialog}
+            onOpenChange={setShowAddDialog}
+            equipmentList={equipmentList}
+            year={year}
+            onSubmit={(data) => {
+              onCreatePlan(data)
+              setShowAddDialog(false)
+            }}
+          />
+          <EditPlanDialog
+            plan={editingPlan}
+            onOpenChange={(open) => { if (!open) setEditingPlan(null) }}
+            onSubmit={(data) => {
+              if (editingPlan) {
+                onEditPlan(editingPlan.id, data)
+                setEditingPlan(null)
+              }
+            }}
+          />
+        </>
       )}
     </Card>
   )
@@ -152,11 +167,13 @@ function PlanMatrix({
   plans,
   canManage,
   onToggleMonth,
+  onEdit,
   onDelete,
 }: {
   plans: AnnualPlanWithEquipment[]
   canManage: boolean
   onToggleMonth: (plan: AnnualPlanWithEquipment, month: number) => void
+  onEdit: (plan: AnnualPlanWithEquipment) => void
   onDelete: (id: string) => void
 }) {
   const { sortedData, sort, toggleSort } = useTableSort(plans)
@@ -172,12 +189,12 @@ function PlanMatrix({
               {m}
             </TableHead>
           ))}
-          {canManage && <TableHead className="w-[60px]" />}
+          {canManage && <TableHead className="w-[80px]" />}
         </TableRow>
       </TableHeader>
       <TableBody>
         {(sortedData ?? plans).map((plan) => (
-          <PlanRow key={plan.id} plan={plan} canManage={canManage} onToggleMonth={onToggleMonth} onDelete={onDelete} />
+          <PlanRow key={plan.id} plan={plan} canManage={canManage} onToggleMonth={onToggleMonth} onEdit={onEdit} onDelete={onDelete} />
         ))}
       </TableBody>
     </Table>
@@ -188,11 +205,13 @@ function PlanRow({
   plan,
   canManage,
   onToggleMonth,
+  onEdit,
   onDelete,
 }: {
   plan: AnnualPlanWithEquipment
   canManage: boolean
   onToggleMonth: (plan: AnnualPlanWithEquipment, month: number) => void
+  onEdit: (plan: AnnualPlanWithEquipment) => void
   onDelete: (id: string) => void
 }) {
   return (
@@ -235,18 +254,29 @@ function PlanRow({
       ))}
       {canManage && (
         <TableCell>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive"
-            onClick={() => {
-              if (window.confirm(`確定要刪除「${plan.equipment_name}」的計畫項目嗎？`)) {
-                onDelete(plan.id)
-              }
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onEdit(plan)}
+              title="編輯"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              onClick={() => {
+                if (window.confirm(`確定要刪除「${plan.equipment_name}」的計畫項目嗎？`)) {
+                  onDelete(plan.id)
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </TableCell>
       )}
     </TableRow>
@@ -370,6 +400,113 @@ function AddPlanDialog({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
           <Button onClick={handleSubmit} disabled={!equipmentId}>新增</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EditPlanDialog({
+  plan,
+  onOpenChange,
+  onSubmit,
+}: {
+  plan: AnnualPlanWithEquipment | null
+  onOpenChange: (open: boolean) => void
+  onSubmit: (data: Record<string, unknown>) => void
+}) {
+  const [calibrationType, setCalibrationType] = useState<CalibrationType>('calibration')
+  const [cycle, setCycle] = useState<CalibrationCycle>('quarterly')
+  const [months, setMonths] = useState<boolean[]>(Array(12).fill(false))
+
+  // Sync state when plan changes
+  const [prevPlanId, setPrevPlanId] = useState<string | null>(null)
+  if (plan && plan.id !== prevPlanId) {
+    setPrevPlanId(plan.id)
+    setCalibrationType(plan.calibration_type)
+    setCycle(plan.cycle)
+    setMonths(Array.from({ length: 12 }, (_, i) => isMonthScheduled(plan, i + 1)))
+  } else if (!plan && prevPlanId) {
+    setPrevPlanId(null)
+  }
+
+  const handleSubmit = () => {
+    const data: Record<string, unknown> = {
+      calibration_type: calibrationType,
+      cycle,
+    }
+    months.forEach((v, i) => {
+      data[`month_${i + 1}`] = v
+    })
+    onSubmit(data)
+  }
+
+  const toggleMonth = (idx: number) => {
+    setMonths((prev) => prev.map((v, i) => (i === idx ? !v : v)))
+  }
+
+  return (
+    <Dialog open={!!plan} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            編輯計畫項目 — {plan?.equipment_name}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>類型 *</Label>
+              <Select value={calibrationType} onValueChange={(v) => setCalibrationType(v as CalibrationType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CALIBRATION_TYPE_LABELS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>週期 *</Label>
+              <Select value={cycle} onValueChange={(v) => setCycle(v as CalibrationCycle)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CALIBRATION_CYCLE_LABELS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>排程月份</Label>
+            <div className="grid grid-cols-6 gap-2">
+              {months.map((checked, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`flex items-center justify-center gap-1 rounded border px-2 py-1.5 text-sm transition-colors ${
+                    checked
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground hover:bg-muted'
+                  }`}
+                  onClick={() => toggleMonth(idx)}
+                >
+                  {checked ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
+                  {idx + 1}月
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
+          <Button onClick={handleSubmit}>儲存</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

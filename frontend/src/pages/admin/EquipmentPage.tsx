@@ -189,7 +189,7 @@ export function EquipmentPage() {
   })
 
   const updatePlanMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Record<string, boolean> }) =>
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
       api.put(`/equipment-annual-plans/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans'] })
@@ -482,8 +482,12 @@ export function EquipmentPage() {
             isGenerating={generatePlanMutation.isPending}
             equipmentList={equipmentList}
             onCreatePlan={(data) => createPlanMutation.mutate(data)}
+            onEditPlan={(id, data) => {
+              const monthData: Record<string, unknown> = { ...data }
+              updatePlanMutation.mutate({ id, data: monthData as Record<string, boolean> })
+            }}
             onToggleMonth={(plan, month) => {
-              const monthData: Record<string, boolean> = {}
+              const monthData: Record<string, unknown> = {}
               for (let i = 1; i <= 12; i++) {
                 const key = `month_${i}` as keyof AnnualPlanWithEquipment
                 monthData[`month_${i}`] = i === month ? !(plan[key] as boolean) : (plan[key] as boolean)
