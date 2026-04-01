@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
 import { FileText, ClipboardList, Shield, Stethoscope, AlertTriangle, BookOpen, Calendar } from 'lucide-react'
 import api from '@/lib/api'
+import { useGuestQuery } from '@/hooks/useGuestQuery'
+import { DEMO_QAU_DASHBOARD } from '@/lib/guest-demo'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -68,14 +69,17 @@ interface QauDashboard {
 }
 
 export function QAUDashboardPage() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['qau-dashboard'],
-    queryFn: async () => {
-      const res = await api.get<QauDashboard>('/qau/dashboard')
-      return res.data
+  const { data, isLoading, error } = useGuestQuery(
+    DEMO_QAU_DASHBOARD as unknown as QauDashboard,
+    {
+      queryKey: ['qau-dashboard'],
+      queryFn: async () => {
+        const res = await api.get<QauDashboard>('/qau/dashboard')
+        return res.data
+      },
+      staleTime: STALE_TIME.LIST,
     },
-    staleTime: STALE_TIME.LIST,
-  })
+  )
 
   const {
     sortedData: sortedProtocolStatus, sort: protocolSort, toggleSort: toggleProtocolSort,

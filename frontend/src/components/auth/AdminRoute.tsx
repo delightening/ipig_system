@@ -5,7 +5,10 @@ import { useAuthStore } from '@/stores/auth'
 import { RequirePermission } from './RequirePermission'
 
 export function AdminRoute({ children }: { children?: React.ReactNode }) {
-    const { hasRole } = useAuthStore()
+    const { hasRole, isGuest } = useAuthStore()
+
+    // Guest 全通行
+    if (isGuest()) return children ? <>{children}</> : <Outlet />
 
     if (!hasRole('admin')) {
         return (

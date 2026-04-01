@@ -6,6 +6,7 @@ import { CheckCircle, Clock, Users } from 'lucide-react'
 import api from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { useAuthStore } from '@/stores/auth'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { PageHeader } from '@/components/ui/page-header'
 import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { CreateOvertimeDialog } from './components/CreateOvertimeDialog'
@@ -57,12 +58,14 @@ export function HrOvertimePage() {
                 title="加班管理"
                 description="申請加班與累積補休時數"
                 actions={
-                    <CreateOvertimeDialog
-                        open={showCreateDialog}
-                        onOpenChange={setShowCreateDialog}
-                        onSubmit={handleCreateOvertime}
-                        isPending={createOvertime.isPending}
-                    />
+                    <GuestHide>
+                        <CreateOvertimeDialog
+                            open={showCreateDialog}
+                            onOpenChange={setShowCreateDialog}
+                            onSubmit={handleCreateOvertime}
+                            isPending={createOvertime.isPending}
+                        />
+                    </GuestHide>
                 }
             />
 

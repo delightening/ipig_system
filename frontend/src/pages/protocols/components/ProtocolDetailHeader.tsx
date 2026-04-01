@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { ArrowLeft, Edit, Send, Loader2 } from 'lucide-react'
 import type { Protocol, ProtocolStatus } from '@/lib/api'
 import { statusColors } from '../constants'
@@ -56,31 +57,33 @@ export function ProtocolDetailHeader({
           </div>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 pl-11 md:pl-0">
-        {showEditButton && (
-          <Button variant="outline" asChild>
-            <Link to={`/protocols/${protocolId}/edit`}>
-              <Edit className="mr-2 h-4 w-4" />
-              {isRevisionStatus ? t('protocols.detail.revise') : t('protocols.detail.edit')}
-            </Link>
-          </Button>
-        )}
-        {showSubmitButton && (
-          <Button onClick={onSubmit} disabled={submitIsPending}>
-            {submitIsPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="mr-2 h-4 w-4" />
-            )}
-            {t('protocols.detail.submit')}
-          </Button>
-        )}
-        {showStatusButton && (
-          <Button variant="outline" onClick={onOpenStatusDialog}>
-            {t('protocols.detail.changeStatus')}
-          </Button>
-        )}
-      </div>
+      <GuestHide>
+        <div className="flex flex-wrap gap-2 pl-11 md:pl-0">
+          {showEditButton && (
+            <Button variant="outline" asChild>
+              <Link to={`/protocols/${protocolId}/edit`}>
+                <Edit className="mr-2 h-4 w-4" />
+                {isRevisionStatus ? t('protocols.detail.revise') : t('protocols.detail.edit')}
+              </Link>
+            </Button>
+          )}
+          {showSubmitButton && (
+            <Button onClick={onSubmit} disabled={submitIsPending}>
+              {submitIsPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              {t('protocols.detail.submit')}
+            </Button>
+          )}
+          {showStatusButton && (
+            <Button variant="outline" onClick={onOpenStatusDialog}>
+              {t('protocols.detail.changeStatus')}
+            </Button>
+          )}
+        </div>
+      </GuestHide>
     </div>
   )
 }

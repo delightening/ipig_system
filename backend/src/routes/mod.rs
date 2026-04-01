@@ -5,7 +5,11 @@ use crate::middleware::rate_limiter::{
     api_rate_limit_middleware, auth_rate_limit_middleware, upload_rate_limit_middleware,
     write_rate_limit_middleware,
 };
-use crate::{handlers, middleware::auth_middleware, middleware::csrf_middleware, AppState};
+use crate::{
+    handlers,
+    middleware::{auth_middleware, csrf_middleware, guest_guard_middleware},
+    AppState,
+};
 
 mod admin;
 mod ai;
@@ -44,6 +48,7 @@ pub fn api_routes(state: AppState) -> Router {
             state.clone(),
             write_rate_limit_middleware,
         ))
+        .route_layer(middleware::from_fn(guest_guard_middleware))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             csrf_middleware,
@@ -59,6 +64,7 @@ pub fn api_routes(state: AppState) -> Router {
             state.clone(),
             upload_rate_limit_middleware,
         ))
+        .route_layer(middleware::from_fn(guest_guard_middleware))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             csrf_middleware,

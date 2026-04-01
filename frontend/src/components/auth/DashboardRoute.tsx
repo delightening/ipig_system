@@ -6,7 +6,10 @@ import { useAuthStore } from '@/stores/auth'
 export const DASHBOARD_ROLES = ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF', 'INTERN', 'REVIEWER', 'VET', 'IACUC_CHAIR']
 
 export function DashboardRoute({ children }: { children?: React.ReactNode }) {
-    const { user, hasRole } = useAuthStore()
+    const { user, hasRole, isGuest } = useAuthStore()
+
+    // Guest 全通行
+    if (isGuest()) return children ? <>{children}</> : <Outlet />
 
     const hasDashboardAccess = hasRole('admin') ||
         user?.roles.some(r => DASHBOARD_ROLES.includes(r)) ||

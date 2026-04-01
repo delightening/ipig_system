@@ -39,8 +39,10 @@ import {
   User,
   MapPin,
 } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { GuestHide } from '@/components/ui/guest-hide'
 
 const defaultFormValues: AnimalSourceFormData = {
   code: '',
@@ -54,6 +56,7 @@ const defaultFormValues: AnimalSourceFormData = {
 }
 
 export function AnimalSourcesPage() {
+  const isGuest = useAuthStore((s) => s.isGuest)()
   const queryClient = useQueryClient()
   const { dialogState, confirm } = useConfirmDialog()
 
@@ -180,10 +183,12 @@ export function AnimalSourcesPage() {
         title="動物來源管理"
         description="管理動物的來源/供應商資訊"
         actions={
-          <Button size="sm" onClick={() => handleOpenDialog()} className="gap-2 bg-primary hover:bg-primary/90">
-            <Plus className="h-4 w-4" />
-            新增來源
-          </Button>
+          <GuestHide>
+            <Button size="sm" onClick={() => handleOpenDialog()} className="gap-2 bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4" />
+              新增來源
+            </Button>
+          </GuestHide>
         }
       />
 
@@ -259,25 +264,27 @@ export function AnimalSourcesPage() {
                     </StatusBadge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenDialog(source)}
-                        aria-label="編輯"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(source)}
-                        disabled={deleteMutation.isPending}
-                        aria-label="刪除"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    <GuestHide>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenDialog(source)}
+                          aria-label="編輯"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(source)}
+                          disabled={deleteMutation.isPending}
+                          aria-label="刪除"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </GuestHide>
                   </TableCell>
                 </TableRow>
               ))
@@ -286,7 +293,7 @@ export function AnimalSourcesPage() {
                 colSpan={8}
                 icon={Building2}
                 title="尚無來源資料"
-                action={{ label: '新增第一個來源', onClick: () => handleOpenDialog(), icon: Plus }}
+                action={isGuest ? undefined : { label: '新增第一個來源', onClick: () => handleOpenDialog(), icon: Plus }}
               />
             )}
           </TableBody>

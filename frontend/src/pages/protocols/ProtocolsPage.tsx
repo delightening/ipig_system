@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import type { ProtocolListItem, ProtocolStatus } from '@/types/aup'
+import { useGuestQuery } from '@/hooks/useGuestQuery'
+import { DEMO_PROTOCOLS } from '@/lib/guest-demo'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
@@ -26,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { Plus, Eye, Edit, Loader2, FileText, Trash2, Copy } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useNavigate } from 'react-router-dom'
@@ -51,7 +54,7 @@ export function ProtocolsPage() {
     [t]
   )
 
-  const { data: rawProtocols, isLoading } = useQuery({
+  const { data: rawProtocols, isLoading } = useGuestQuery(DEMO_PROTOCOLS, {
     queryKey: ['protocols', statusFilter, debouncedSearch],
     queryFn: async () => {
       let params = ''
@@ -141,12 +144,14 @@ export function ProtocolsPage() {
         title={t('protocols.title')}
         description={t('protocols.subtitle')}
         actions={
-          <Button size="sm" asChild>
-            <Link to="/protocols/new">
-              <Plus className="mr-2 h-4 w-4" />
-              {t('protocols.createNew')}
-            </Link>
-          </Button>
+          <GuestHide>
+            <Button size="sm" asChild>
+              <Link to="/protocols/new">
+                <Plus className="mr-2 h-4 w-4" />
+                {t('protocols.createNew')}
+              </Link>
+            </Button>
+          </GuestHide>
         }
       />
 
@@ -244,34 +249,36 @@ export function ProtocolsPage() {
                           <Eye className="h-4 w-4" />
                         </Link>
                       </Button>
-                      {canEditProtocol(protocol.status) && (
-                        <Button variant="ghost" size="icon" asChild title={t('common.edit')} aria-label={t('common.edit')}>
-                          <Link to={`/protocols/${protocol.id}/edit`}>
-                            <Edit className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="複製計畫書"
-                        aria-label="複製計畫書"
-                        onClick={() => handleCopy(protocol.id, protocol.title)}
-                        disabled={copyMutation.isPending}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      {canDeleteProtocol(protocol.status) && (
+                      <GuestHide>
+                        {canEditProtocol(protocol.status) && (
+                          <Button variant="ghost" size="icon" asChild title={t('common.edit')} aria-label={t('common.edit')}>
+                            <Link to={`/protocols/${protocol.id}/edit`}>
+                              <Edit className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
-                          title={t('common.delete')}
-                          aria-label={t('common.delete')}
-                          onClick={() => handleDelete(protocol.id, protocol.title)}
+                          title="複製計畫書"
+                          aria-label="複製計畫書"
+                          onClick={() => handleCopy(protocol.id, protocol.title)}
+                          disabled={copyMutation.isPending}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Copy className="h-4 w-4" />
                         </Button>
-                      )}
+                        {canDeleteProtocol(protocol.status) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title={t('common.delete')}
+                            aria-label={t('common.delete')}
+                            onClick={() => handleDelete(protocol.id, protocol.title)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </GuestHide>
                     </div>
                   </TableCell>
                 </TableRow>

@@ -11,6 +11,7 @@ import { EmergencyMedicationDialog } from '@/components/animal/EmergencyMedicati
 import { EuthanasiaOrderDialog } from '@/components/animal/EuthanasiaOrderDialog'
 import { useAuthStore } from '@/stores/auth'
 import { useUIPreferences } from '@/stores/uiPreferences'
+import { GuestHide } from '@/components/ui/guest-hide'
 
 import { parseTabFromUrl } from './constants'
 import type { TabType } from './constants'
@@ -112,10 +113,12 @@ export function AnimalDetailPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('animalDetail.backToAnimalList', '\u56DE\u5230\u52D5\u7269\u5217\u8868')}
         </Link>
-        <Button variant="outline" onClick={() => setShowExportDialog(true)}>
-          <Download className="h-4 w-4 mr-2" />
-          {t('animalDetail.exportRecord', '\u532F\u51FA\u75C5\u6B77')}
-        </Button>
+        <GuestHide>
+          <Button variant="outline" onClick={() => setShowExportDialog(true)}>
+            <Download className="h-4 w-4 mr-2" />
+            {t('animalDetail.exportRecord', '\u532F\u51FA\u75C5\u6B77')}
+          </Button>
+        </GuestHide>
       </div>
 
       {/* Emergency Actions */}
