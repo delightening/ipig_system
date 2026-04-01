@@ -52,6 +52,7 @@ import type { DisposalFormData } from './components/DisposalFormDialog'
 import { EquipmentTabContent } from './components/EquipmentTabContent'
 import { CalibrationTabContent } from './components/CalibrationTabContent'
 import { MaintenanceTabContent } from './components/MaintenanceTabContent'
+import { MaintenanceHistoryDialog } from './components/MaintenanceHistoryDialog'
 import { DisposalTabContent } from './components/DisposalTabContent'
 import AnnualPlanTabContent from './components/AnnualPlanTabContent'
 import { EquipmentStatsCards } from './components/EquipmentStatsCards'
@@ -68,6 +69,7 @@ export function EquipmentPage() {
   const [calibEquipmentFilter, setCalibEquipmentFilter] = useState('')
   const [calibPage, setCalibPage] = useState(1)
   const [maintPage, setMaintPage] = useState(1)
+  const [maintHistoryId, setMaintHistoryId] = useState<string | null>(null)
   const [disposalPage, setDisposalPage] = useState(1)
   const [planYear, setPlanYear] = useState(new Date().getFullYear())
 
@@ -480,6 +482,12 @@ export function EquipmentPage() {
             onDelete={handleDeleteMaint}
             onAdd={handleAddMaint}
             onEdit={handleEditMaint}
+            onViewHistory={setMaintHistoryId}
+          />
+          <MaintenanceHistoryDialog
+            open={!!maintHistoryId}
+            onOpenChange={(open) => { if (!open) setMaintHistoryId(null) }}
+            recordId={maintHistoryId}
           />
         </PageTabContent>
 

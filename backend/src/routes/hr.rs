@@ -181,6 +181,10 @@ pub fn routes() -> Router<AppState> {
             "/equipment-maintenance/:id/delete",
             post(handlers::delete_maintenance_record),
         )
+        .route(
+            "/equipment-maintenance/:id/history",
+            get(handlers::get_maintenance_history),
+        )
         // Disposal Records (報廢)
         .route(
             "/equipment-disposals",

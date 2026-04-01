@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { StatusBadge } from '@/components/ui/status-badge'
 import type { StatusVariant } from '@/components/ui/status-badge'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
-import { Pencil, Plus, Trash2, Wrench } from 'lucide-react'
+import { History, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
@@ -25,6 +25,7 @@ interface MaintenanceTabContentProps {
   onDelete: (id: string) => void
   onAdd?: () => void
   onEdit?: (record: MaintenanceRecordWithDetails) => void
+  onViewHistory?: (id: string) => void
 }
 
 const TYPE_VARIANT: Record<string, StatusVariant> = {
@@ -50,6 +51,7 @@ export function MaintenanceTabContent({
   onDelete,
   onAdd,
   onEdit,
+  onViewHistory,
 }: MaintenanceTabContentProps) {
   const columns = useMemo<ColumnDef<MaintenanceRecordWithDetails>[]>(() => {
     const cols: ColumnDef<MaintenanceRecordWithDetails>[] = [
@@ -83,25 +85,32 @@ export function MaintenanceTabContent({
         cell: (r) => r.maintenance_type === 'repair' ? truncateText(r.problem_description, 30) : truncateText(r.maintenance_items, 30),
       },
     ]
-    if (canManage) {
+    if (canManage || onViewHistory) {
       cols.push({
-        key: 'actions', header: '操作', className: 'w-[100px] text-right',
+        key: 'actions', header: '操作', className: 'w-[120px] text-right',
         cell: (r) => (
           <div className="flex items-center justify-end gap-1">
-            {onEdit && (
+            {onViewHistory && (
+              <Button variant="ghost" size="icon" onClick={() => onViewHistory(r.id)} aria-label="歷史">
+                <History className="h-4 w-4" />
+              </Button>
+            )}
+            {canManage && onEdit && (
               <Button variant="ghost" size="icon" onClick={() => onEdit(r)} aria-label="編輯">
                 <Pencil className="h-4 w-4" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => onDelete(r.id)} aria-label="刪除">
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {canManage && (
+              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => onDelete(r.id)} aria-label="刪除">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         ),
       })
     }
     return cols
-  }, [canManage, onDelete, onEdit])
+  }, [canManage, onDelete, onEdit, onViewHistory])
 
   return (
     <Card>
