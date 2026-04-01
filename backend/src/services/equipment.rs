@@ -1117,8 +1117,8 @@ impl EquipmentService {
         sqlx::query(
             r#"
             UPDATE equipment_annual_plans SET
-                calibration_type = COALESCE($2, calibration_type),
-                cycle = COALESCE($3, cycle),
+                calibration_type = COALESCE($2::calibration_type, calibration_type),
+                cycle = COALESCE($3::calibration_cycle, cycle),
                 month_1 = $4, month_2 = $5, month_3 = $6, month_4 = $7,
                 month_5 = $8, month_6 = $9, month_7 = $10, month_8 = $11,
                 month_9 = $12, month_10 = $13, month_11 = $14, month_12 = $15,
@@ -1127,8 +1127,8 @@ impl EquipmentService {
             "#,
         )
         .bind(id)
-        .bind(&payload.calibration_type)
-        .bind(&payload.cycle)
+        .bind(payload.calibration_type.as_ref())
+        .bind(payload.cycle.as_ref())
         .bind(payload.month_1)
         .bind(payload.month_2)
         .bind(payload.month_3)
