@@ -520,8 +520,8 @@ pub struct CreateAnnualPlanRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateAnnualPlanRequest {
-    pub calibration_type: Option<String>,
-    pub cycle: Option<String>,
+    pub calibration_type: Option<CalibrationType>,
+    pub cycle: Option<CalibrationCycle>,
     pub month_1: bool,
     pub month_2: bool,
     pub month_3: bool,

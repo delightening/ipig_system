@@ -45,6 +45,9 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("training.manage_own", "管理自己的訓練紀錄", "training", "可新增、編輯、刪除自己的訓練紀錄"),
         ("equipment.view", "查看設備", "equipment", "可查看設備與校正紀錄"),
         ("equipment.manage", "管理設備", "equipment", "可新增、編輯、刪除設備與校正紀錄"),
+        ("equipment.maintenance.manage", "管理維修保養紀錄", "equipment", "可新增、編輯、刪除維修保養紀錄"),
+        ("equipment.plan.manage", "管理年度校正計畫", "equipment", "可產生、新增、編輯、刪除年度校正計畫"),
+        ("equipment.disposal.approve", "核准設備報廢申請", "equipment", "可審核並核准設備報廢申請"),
         // QAU (GLP 品質保證單位) - 唯讀檢視
         ("qau.dashboard.view", "查看 QAU 儀表板", "qau", "GLP 品質保證：可查看研究狀態、審查進度、稽核摘要"),
         ("qau.protocol.view", "QAU 檢視計畫", "qau", "唯讀檢視所有計畫書"),
@@ -428,7 +431,8 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("EQUIPMENT_MAINTENANCE", vec![
             "equipment.view", "equipment.manage",
             "equipment.maintenance.manage", "equipment.plan.manage",
-            "erp.partner.view",
+            "equipment.disposal.approve",
+            "erp.partner.view", "erp.partner.create", "erp.partner.edit",
             "training.view", "training.manage_own",
             "dashboard.view",
         ]),
