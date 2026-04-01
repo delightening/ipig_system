@@ -151,6 +151,11 @@ pub fn routes() -> Router<AppState> {
             "/equipment/:id/status-logs",
             get(handlers::list_status_logs),
         )
+        // Equipment Timeline (設備履歷)
+        .route(
+            "/equipment/:id/timeline",
+            get(handlers::get_equipment_timeline),
+        )
         // Calibrations (校正/確效/查核)
         .route(
             "/equipment-calibrations",
@@ -180,6 +185,10 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/equipment-maintenance/:id/delete",
             post(handlers::delete_maintenance_record),
+        )
+        .route(
+            "/equipment-maintenance/:id/review",
+            post(handlers::review_maintenance_record),
         )
         .route(
             "/equipment-maintenance/:id/history",
@@ -305,6 +314,15 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/signatures/disposal/:id",
             get(handlers::get_disposal_signature_status),
+        )
+        // Maintenance Review Signatures
+        .route(
+            "/signatures/maintenance/:id/reviewer",
+            post(handlers::sign_maintenance_reviewer),
+        )
+        .route(
+            "/signatures/maintenance/:id",
+            get(handlers::get_maintenance_signature_status),
         )
         // Electronic Signatures & Annotations (GLP Compliance)
         .route(

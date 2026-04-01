@@ -58,4 +58,9 @@ export const signatureApi = {
     api.post<SignRecordResponse>(`/signatures/disposal/${disposalId}/approver`, data),
   getDisposalStatus: (disposalId: string) =>
     api.get<SignatureStatusResponse>(`/signatures/disposal/${disposalId}`),
+
+  signMaintenanceReviewer: (recordId: string, data: SignRecordRequest) =>
+    api.post<SignRecordResponse>(`/signatures/maintenance/${recordId}/reviewer`, data),
+  getMaintenanceStatus: (recordId: string) =>
+    api.get<SignatureStatusResponse>(`/signatures/maintenance/${recordId}`),
 }

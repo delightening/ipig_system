@@ -29,6 +29,7 @@ pub const FILE_MAX_PATHOLOGY_REPORT: usize = 30 * 1024 * 1024; // 30 MB
 pub const FILE_MAX_VET_RECOMMENDATION: usize = 10 * 1024 * 1024; // 10 MB
 pub const FILE_MAX_LEAVE_ATTACHMENT: usize = 10 * 1024 * 1024; // 10 MB
 pub const FILE_MAX_OBSERVATION_ATTACHMENT: usize = 20 * 1024 * 1024; // 20 MB
+pub const FILE_MAX_SOP_DOCUMENT: usize = 30 * 1024 * 1024; // 30 MB
 
 /// Auth 短期 token 過期秒數
 pub const TWO_FA_TEMP_EXPIRES_SECS: i64 = 300; // 5 分鐘

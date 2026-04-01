@@ -16,7 +16,8 @@ static UPLOAD_DIR: OnceLock<String> = OnceLock::new();
 
 use crate::constants::{
     FILE_MAX_ANIMAL_PHOTO, FILE_MAX_LEAVE_ATTACHMENT, FILE_MAX_OBSERVATION_ATTACHMENT,
-    FILE_MAX_PATHOLOGY_REPORT, FILE_MAX_PROTOCOL_ATTACHMENT, FILE_MAX_VET_RECOMMENDATION,
+    FILE_MAX_PATHOLOGY_REPORT, FILE_MAX_PROTOCOL_ATTACHMENT, FILE_MAX_SOP_DOCUMENT,
+    FILE_MAX_VET_RECOMMENDATION,
 };
 use crate::error::AppError;
 use crate::time;
@@ -49,6 +50,8 @@ pub enum FileCategory {
     LeaveAttachment,
     /// 觀察紀錄附件
     ObservationAttachment,
+    /// SOP 文件
+    SopDocument,
 }
 
 impl FileCategory {
@@ -61,6 +64,7 @@ impl FileCategory {
             FileCategory::VetRecommendation => "vet-recommendations",
             FileCategory::LeaveAttachment => "leave-attachments",
             FileCategory::ObservationAttachment => "observations",
+            FileCategory::SopDocument => "sop-documents",
         }
     }
 
@@ -100,6 +104,11 @@ impl FileCategory {
                 "application/msword",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             ],
+            FileCategory::SopDocument => vec![
+                "application/pdf",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ],
         }
     }
 
@@ -112,6 +121,7 @@ impl FileCategory {
             FileCategory::VetRecommendation => FILE_MAX_VET_RECOMMENDATION,
             FileCategory::LeaveAttachment => FILE_MAX_LEAVE_ATTACHMENT,
             FileCategory::ObservationAttachment => FILE_MAX_OBSERVATION_ATTACHMENT,
+            FileCategory::SopDocument => FILE_MAX_SOP_DOCUMENT,
         }
     }
 }

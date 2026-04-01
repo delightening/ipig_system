@@ -17,6 +17,7 @@ import type { StatusVariant } from '@/components/ui/status-badge'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { Pencil, Trash2, Building2, ArrowUpDown } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import api from '@/lib/api'
 
 import type {
@@ -192,7 +193,7 @@ export function EquipmentTabContent({
 
   const columns = useMemo<ColumnDef<Equipment>[]>(() => {
     const cols: ColumnDef<Equipment>[] = [
-      { key: 'name', header: sortableHeader('name', '名稱'), cell: (r) => <span className="font-medium">{r.name}</span> },
+      { key: 'name', header: sortableHeader('name', '名稱'), cell: (r) => <Link to={`/equipment/${r.id}/history`} className="font-medium text-primary hover:underline">{r.name}</Link> },
       { key: 'model', header: sortableHeader('model', '型號'), cell: (r) => r.model || '—' },
       { key: 'serial', header: sortableHeader('serial_number', '序號'), cell: (r) => r.serial_number || '—' },
       { key: 'location', header: sortableHeader('location', '位置'), cell: (r) => r.location || '—' },

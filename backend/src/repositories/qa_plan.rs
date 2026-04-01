@@ -30,7 +30,7 @@ pub async fn find_inspections(
     let rows = sqlx::query_as::<_, QaInspectionWithInspector>(
         r#"
         SELECT i.*,
-               u.name AS inspector_name
+               u.display_name AS inspector_name
         FROM qa_inspections i
         JOIN users u ON u.id = i.inspector_id
         WHERE ($1::text IS NULL OR i.inspection_type::text = $1)
@@ -56,7 +56,7 @@ pub async fn find_inspection_by_id(
     let row = sqlx::query_as::<_, QaInspectionWithInspector>(
         r#"
         SELECT i.*,
-               u.name AS inspector_name
+               u.display_name AS inspector_name
         FROM qa_inspections i
         JOIN users u ON u.id = i.inspector_id
         WHERE i.id = $1
@@ -198,8 +198,8 @@ pub async fn find_non_conformances(
     let rows = sqlx::query_as::<_, QaNonConformanceWithDetails>(
         r#"
         SELECT nc.*,
-               a.name AS assignee_name,
-               c.name AS creator_name
+               a.display_name AS assignee_name,
+               c.display_name AS creator_name
         FROM qa_non_conformances nc
         LEFT JOIN users a ON a.id = nc.assignee_id
         JOIN      users c ON c.id = nc.created_by
@@ -226,8 +226,8 @@ pub async fn find_nc_by_id(
     let row = sqlx::query_as::<_, QaNonConformanceWithDetails>(
         r#"
         SELECT nc.*,
-               a.name AS assignee_name,
-               c.name AS creator_name
+               a.display_name AS assignee_name,
+               c.display_name AS creator_name
         FROM qa_non_conformances nc
         LEFT JOIN users a ON a.id = nc.assignee_id
         JOIN      users c ON c.id = nc.created_by
@@ -392,7 +392,7 @@ pub async fn find_sop_documents(
     let rows = sqlx::query_as::<_, QaSopDocumentWithAck>(
         r#"
         SELECT s.*,
-               u.name AS creator_name,
+               u.display_name AS creator_name,
                EXISTS(
                    SELECT 1 FROM qa_sop_acknowledgments
                    WHERE sop_id = s.id AND user_id = $3
@@ -425,7 +425,7 @@ pub async fn find_sop_by_id(
     let row = sqlx::query_as::<_, QaSopDocumentWithAck>(
         r#"
         SELECT s.*,
-               u.name AS creator_name,
+               u.display_name AS creator_name,
                EXISTS(
                    SELECT 1 FROM qa_sop_acknowledgments
                    WHERE sop_id = s.id AND user_id = $2
@@ -578,7 +578,7 @@ pub async fn find_schedule_items(
     let rows = sqlx::query_as::<_, QaScheduleItem>(
         r#"
         SELECT si.*,
-               u.name AS responsible_name
+               u.display_name AS responsible_name
         FROM qa_schedule_items si
         LEFT JOIN users u ON u.id = si.responsible_person_id
         WHERE si.schedule_id = $1

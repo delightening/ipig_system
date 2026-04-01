@@ -6,7 +6,7 @@ export type EquipmentStatus = 'active' | 'inactive' | 'under_repair' | 'decommis
 export type CalibrationType = 'calibration' | 'validation' | 'inspection'
 export type CalibrationCycle = 'monthly' | 'quarterly' | 'semi_annual' | 'annual'
 export type MaintenanceType = 'repair' | 'maintenance'
-export type MaintenanceStatus = 'pending' | 'in_progress' | 'completed' | 'unrepairable'
+export type MaintenanceStatus = 'pending' | 'in_progress' | 'completed' | 'unrepairable' | 'pending_review'
 export type DisposalStatus = 'pending' | 'approved' | 'rejected'
 
 export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
@@ -37,6 +37,7 @@ export const MAINTENANCE_TYPE_LABELS: Record<MaintenanceType, string> = {
 export const MAINTENANCE_STATUS_LABELS: Record<MaintenanceStatus, string> = {
   pending: '待處理',
   in_progress: '進行中',
+  pending_review: '待驗收',
   completed: '已完成',
   unrepairable: '無法維修',
 }
@@ -105,6 +106,10 @@ export interface MaintenanceRecordWithDetails {
   performed_by: string | null
   notes: string | null
   created_by: string
+  reviewed_by: string | null
+  reviewer_name: string | null
+  reviewed_at: string | null
+  review_notes: string | null
   created_at: string
 }
 
@@ -146,6 +151,17 @@ export interface AnnualPlanWithEquipment {
   month_10: boolean
   month_11: boolean
   month_12: boolean
+}
+
+export type TimelineEventType = 'maintenance' | 'calibration' | 'status_change'
+
+export interface EquipmentTimelineEntry {
+  id: string
+  event_type: TimelineEventType
+  occurred_at: string
+  title: string
+  subtitle: string | null
+  detail: Record<string, unknown>
 }
 
 export interface EquipmentForm {

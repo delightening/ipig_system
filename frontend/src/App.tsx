@@ -85,6 +85,7 @@ const PurchaseSalesSummaryPage = lazy(() => import('@/pages/reports/PurchaseSale
 // ERP Pages
 const ErpReportsPage = lazy(() => import('@/pages/erp/ErpReportsPage').then(m => ({ default: m.ErpReportsPage })))
 const EquipmentPage = lazy(() => import('@/pages/admin/EquipmentPage').then(m => ({ default: m.EquipmentPage })))
+const EquipmentHistoryPage = lazy(() => import('@/pages/admin/EquipmentHistoryPage').then(m => ({ default: m.EquipmentHistoryPage })))
 
 // AUP Protocol Pages
 const ProtocolsPage = lazy(() => import('@/pages/protocols/ProtocolsPage').then(m => ({ default: m.ProtocolsPage })))
@@ -273,6 +274,7 @@ function App() {
                         <Route path="/erp" element={<Navigate to="/products" replace />} />
                         <Route path="/erp/reports" element={<AdminRoute><ErpReportsPage /></AdminRoute>} />
                         <Route path="/equipment" element={<RequirePermission permission="equipment.view"><EquipmentPage /></RequirePermission>} />
+                        <Route path="/equipment/:id/history" element={<RequirePermission permission="equipment.view"><EquipmentHistoryPage /></RequirePermission>} />
 
                         <Route path="/products" element={<ProductsPage />} />
                         <Route path="/products/new" element={<CreateProductPage />} />
