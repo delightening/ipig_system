@@ -1009,7 +1009,9 @@ const PARTIAL_UNIQUE_TABLES: &[&str] = &["pens", "zones", "buildings", "faciliti
 async fn cleanup_partial_unique_tables(pool: &PgPool) -> Result<()> {
     for &table in PARTIAL_UNIQUE_TABLES {
         // 表名來自常數白名單，非使用者輸入
-        let sql = format!(r#"DELETE FROM "{}""#, table);
+        let mut sql = String::from(r#"DELETE FROM ""#);
+        sql.push_str(table);
+        sql.push('"');
         sqlx::query(&sql)
             .execute(pool)
             .await
