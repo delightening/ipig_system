@@ -1104,6 +1104,71 @@ impl EquipmentService {
         Ok(record)
     }
 
+    /// 管理員恢復已報廢設備（將 status 改回 active、is_active 改回 true）
+    pub async fn restore_equipment(
+        pool: &PgPool,
+        disposal_id: Uuid,
+        current_user: &CurrentUser,
+    ) -> Result<DisposalWithDetails> {
+        if !current_user.has_permission("equipment.disposal.approve") {
+            return Err(AppError::Forbidden("無權恢復報廢設備".into()));
+        }
+
+        let existing = repositories::equipment::find_disposal_by_id(pool, disposal_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("報廢紀錄不存在".into()))?;
+
+        if existing.status != DisposalStatus::Approved {
+            return Err(AppError::BadRequest("只能恢復已核准的報廢設備".into()));
+        }
+
+        // 記錄狀態變更日誌
+        sqlx::query(
+            "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, 'decommissioned', 'active', $2, '管理員手動恢復報廢設備')",
+        )
+        .bind(existing.equipment_id)
+        .bind(current_user.id)
+        .execute(pool)
+        .await?;
+
+        // 恢復設備狀態
+        sqlx::query(
+            "UPDATE equipment SET status = 'active', is_active = true, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(existing.equipment_id)
+        .execute(pool)
+        .await?;
+
+        // 將報廢紀錄狀態改為 rejected（表示已撤銷）
+        sqlx::query(
+            "UPDATE equipment_disposals SET status = 'rejected', rejection_reason = '管理員恢復設備', approved_by = $2, approved_at = NOW(), updated_at = NOW() WHERE id = $1",
+        )
+        .bind(disposal_id)
+        .bind(current_user.id)
+        .execute(pool)
+        .await?;
+
+        let record = sqlx::query_as::<_, DisposalWithDetails>(
+            r#"
+            SELECT d.id, d.equipment_id, e.name AS equipment_name,
+                   d.status, d.disposal_date, d.reason, d.disposal_method,
+                   d.applied_by, u1.display_name AS applicant_name, d.applied_at,
+                   d.approved_by, u2.display_name AS approver_name, d.approved_at,
+                   d.rejection_reason, d.notes, d.created_at
+            FROM equipment_disposals d
+            INNER JOIN equipment e ON d.equipment_id = e.id
+            INNER JOIN users u1 ON d.applied_by = u1.id
+            LEFT JOIN users u2 ON d.approved_by = u2.id
+            WHERE d.id = $1
+            "#,
+        )
+        .bind(disposal_id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(record)
+    }
+
     // ========== Annual Plan (年度計畫) ==========
 
     pub async fn list_annual_plans(
@@ -1412,18 +1477,18 @@ impl EquipmentService {
 
         let cal_records = sqlx::query_as::<_, CalRecord>(
             r#"
-            SELECT
+            SELECT DISTINCT ON (ec.equipment_id, ec.calibration_type, EXTRACT(MONTH FROM ec.calibrated_at))
                 ec.equipment_id,
                 ec.calibration_type,
                 EXTRACT(MONTH FROM ec.calibrated_at)::int AS cal_month,
-                MIN(ec.id) AS calibration_id,
-                MIN(ec.calibrated_at) AS calibrated_at,
-                MIN(ec.result) AS result
+                ec.id AS calibration_id,
+                ec.calibrated_at,
+                ec.result
             FROM equipment_calibrations ec
             WHERE EXTRACT(YEAR FROM ec.calibrated_at) = $1
               AND ($2::uuid IS NULL OR ec.equipment_id = $2)
               AND ($3::calibration_type IS NULL OR ec.calibration_type = $3)
-            GROUP BY ec.equipment_id, ec.calibration_type, EXTRACT(MONTH FROM ec.calibrated_at)
+            ORDER BY ec.equipment_id, ec.calibration_type, EXTRACT(MONTH FROM ec.calibrated_at), ec.calibrated_at ASC
             "#,
         )
         .bind(query.year)
@@ -1472,9 +1537,13 @@ impl EquipmentService {
                         let month_end = if m < 12 {
                             chrono::NaiveDate::from_ymd_opt(query.year, (m + 1) as u32, 1)
                                 .and_then(|d| d.pred_opt())
-                                .unwrap_or(chrono::NaiveDate::from_ymd_opt(query.year, m as u32, 28).unwrap())
+                                .unwrap_or(
+                                    chrono::NaiveDate::from_ymd_opt(query.year, m as u32, 28)
+                                        .expect("valid fallback date m/28"),
+                                )
                         } else {
-                            chrono::NaiveDate::from_ymd_opt(query.year, 12, 31).unwrap()
+                            chrono::NaiveDate::from_ymd_opt(query.year, 12, 31)
+                                .expect("valid date 12/31")
                         };
                         if month_end < today {
                             MonthExecutionStatus::Overdue

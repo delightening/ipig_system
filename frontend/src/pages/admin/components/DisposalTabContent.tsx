@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
-import { Check, Plus, X, FileText } from 'lucide-react'
+import { Check, Plus, X, FileText, RotateCcw } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
@@ -23,6 +23,7 @@ interface DisposalTabContentProps {
   totalPages: number
   onPageChange: (page: number) => void
   onApprove: (id: string, approved: boolean) => void
+  onRestore?: (id: string) => void
   onRequestDisposal?: () => void
 }
 
@@ -42,6 +43,7 @@ export function DisposalTabContent({
   totalPages,
   onPageChange,
   onApprove,
+  onRestore,
   onRequestDisposal,
 }: DisposalTabContentProps) {
   const columns = useMemo<ColumnDef<DisposalWithDetails>[]>(() => [
@@ -68,19 +70,26 @@ export function DisposalTabContent({
     {
       key: 'actions', header: '操作', className: 'w-[120px] text-right',
       cell: (r) => (
-        canApprove && r.status === 'pending' ? (
-          <div className="flex items-center justify-end gap-1">
-            <Button variant="ghost" size="icon" className="text-status-success-text hover:text-status-success-text/80" onClick={() => onApprove(r.id, true)} aria-label="核准">
-              <Check className="h-4 w-4" />
+        <div className="flex items-center justify-end gap-1">
+          {canApprove && r.status === 'pending' && (
+            <>
+              <Button variant="ghost" size="icon" className="text-status-success-text hover:text-status-success-text/80" onClick={() => onApprove(r.id, true)} aria-label="核准">
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => onApprove(r.id, false)} aria-label="駁回">
+                <X className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+          {canApprove && r.status === 'approved' && onRestore && (
+            <Button variant="ghost" size="icon" className="text-primary hover:text-primary/80" onClick={() => onRestore(r.id)} aria-label="恢復設備" title="恢復設備為啟用">
+              <RotateCcw className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => onApprove(r.id, false)} aria-label="駁回">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : null
+          )}
+        </div>
       ),
     },
-  ], [canApprove, onApprove])
+  ], [canApprove, onApprove, onRestore])
 
   return (
     <Card>

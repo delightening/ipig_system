@@ -68,6 +68,7 @@ export function EquipmentPage() {
   const dialogs = useDialogSet(['equipCreate', 'equipEdit', 'calibCreate', 'calibEdit', 'maintCreate', 'maintEdit', 'disposalCreate'] as const)
 
   const [equipKeyword, setEquipKeyword] = useState('')
+  const [equipStatusFilter, setEquipStatusFilter] = useState<string>('')
   const [equipPage, setEquipPage] = useState(1)
   const [calibEquipmentFilter, setCalibEquipmentFilter] = useState('')
   const [calibPage, setCalibPage] = useState(1)
@@ -118,10 +119,11 @@ export function EquipmentPage() {
   const { data: equipData, isLoading: equipLoading } = useGuestQuery(
     DEMO_EQUIPMENT_PAGINATED as unknown as PaginatedResponse<Equipment>,
     {
-      queryKey: ['equipment', equipKeyword, equipPage],
+      queryKey: ['equipment', equipKeyword, equipStatusFilter, equipPage],
       queryFn: async () => {
         const params: Record<string, string | number> = { page: equipPage, per_page: 20 }
         if (equipKeyword) params.keyword = equipKeyword
+        if (equipStatusFilter) params.status = equipStatusFilter
         return (await api.get<PaginatedResponse<Equipment>>('/equipment', { params })).data
       },
     },
@@ -266,6 +268,20 @@ export function EquipmentPage() {
     },
     onError: (err: unknown) => {
       toast({ title: '錯誤', description: getApiErrorMessage(err, '操作失敗'), variant: 'destructive' })
+    },
+  })
+
+  const restoreEquipmentMutation = useMutation({
+    mutationFn: (disposalId: string) =>
+      api.post(`/equipment-disposals/${disposalId}/restore`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-disposals'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-all'] })
+      toast({ title: '成功', description: '設備已恢復為啟用狀態' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '恢復失敗'), variant: 'destructive' })
     },
   })
 
@@ -453,6 +469,12 @@ export function EquipmentPage() {
     }
   }
 
+  const handleRestoreEquipment = (id: string) => {
+    if (window.confirm('確定要恢復此設備為啟用狀態？')) {
+      restoreEquipmentMutation.mutate(id)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -486,6 +508,8 @@ export function EquipmentPage() {
             canManage={canManage}
             keyword={equipKeyword}
             onKeywordChange={setEquipKeyword}
+            statusFilter={equipStatusFilter}
+            onStatusFilterChange={(v) => { setEquipStatusFilter(v); setEquipPage(1) }}
             allCalibrations={allCalibrations}
             tableProps={{
               records: equipData?.data ?? [],
@@ -557,6 +581,7 @@ export function EquipmentPage() {
             totalPages={disposalData?.total_pages ?? 1}
             onPageChange={setDisposalPage}
             onApprove={handleApproveDisposal}
+            onRestore={handleRestoreEquipment}
             onRequestDisposal={handleRequestDisposal}
           />
         </PageTabContent>

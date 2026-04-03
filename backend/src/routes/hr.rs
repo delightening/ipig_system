@@ -203,6 +203,10 @@ pub fn routes() -> Router<AppState> {
             "/equipment-disposals/:id/approve",
             post(handlers::approve_disposal),
         )
+        .route(
+            "/equipment-disposals/:id/restore",
+            post(handlers::restore_equipment),
+        )
         // Annual Plan (年度計畫)
         .route(
             "/equipment-annual-plans",

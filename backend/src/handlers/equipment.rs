@@ -357,6 +357,15 @@ pub async fn approve_disposal(
     Ok(Json(record))
 }
 
+pub async fn restore_equipment(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<DisposalWithDetails>> {
+    let record = EquipmentService::restore_equipment(&state.db, id, &current_user).await?;
+    Ok(Json(record))
+}
+
 // ========== Annual Plan ==========
 
 pub async fn list_annual_plans(

@@ -35,7 +35,7 @@ interface SupplierSummaryRow {
   partner_name: string
 }
 
-type SortKey = 'name' | 'model' | 'serial_number' | 'location' | 'calibration_due' | 'inspection_due'
+type SortKey = 'name' | 'model' | 'serial_number' | 'location' | 'status' | 'calibration_due' | 'inspection_due'
 
 interface EquipmentTableProps {
   records: Equipment[]
@@ -54,6 +54,8 @@ interface EquipmentTabContentProps {
   canManage: boolean
   keyword: string
   onKeywordChange: (v: string) => void
+  statusFilter: string
+  onStatusFilterChange: (v: string) => void
   allCalibrations: CalibrationWithEquipment[]
   tableProps: EquipmentTableProps
   actions: EquipmentActions
@@ -86,6 +88,8 @@ export function EquipmentTabContent({
   canManage,
   keyword,
   onKeywordChange,
+  statusFilter,
+  onStatusFilterChange,
   allCalibrations,
   tableProps,
   actions,
@@ -180,6 +184,10 @@ export function EquipmentTabContent({
           : { nextDue: null, isOverdue: false }
         aVal = aInsp.nextDue ? new Date(aInsp.nextDue).getTime() : (sortDirection === 'asc' ? Infinity : -Infinity)
         bVal = bInsp.nextDue ? new Date(bInsp.nextDue).getTime() : (sortDirection === 'asc' ? Infinity : -Infinity)
+      } else if (sortColumn === 'status') {
+        const order: Record<string, number> = { active: 0, under_repair: 1, decommissioned: 2 }
+        aVal = order[a.status] ?? 99
+        bVal = order[b.status] ?? 99
       } else {
         aVal = (a[sortColumn] ?? '').toLowerCase()
         bVal = (b[sortColumn] ?? '').toLowerCase()
@@ -198,7 +206,7 @@ export function EquipmentTabContent({
       { key: 'serial', header: sortableHeader('serial_number', '序號'), cell: (r) => r.serial_number || '—' },
       { key: 'location', header: sortableHeader('location', '位置'), cell: (r) => r.location || '—' },
       {
-        key: 'status', header: '狀態',
+        key: 'status', header: sortableHeader('status', '狀態'),
         cell: (r) => (
           <StatusBadge variant={STATUS_VARIANT[r.status] || 'neutral'}>
             {EQUIPMENT_STATUS_LABELS[r.status]}
@@ -279,7 +287,20 @@ export function EquipmentTabContent({
             search={keyword}
             onSearchChange={onKeywordChange}
             searchPlaceholder="搜尋設備名稱或型號..."
-          />
+            hasActiveFilters={!!statusFilter}
+            onClearFilters={() => onStatusFilterChange('')}
+          >
+            <select
+              value={statusFilter}
+              onChange={(e) => onStatusFilterChange(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">全部狀態</option>
+              {Object.entries(EQUIPMENT_STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </FilterBar>
           <DataTable
             columns={columns}
             data={sortedRecords}
