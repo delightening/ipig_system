@@ -17,9 +17,10 @@ use crate::{
         EquipmentStatus, EquipmentStatusLog, EquipmentSupplierWithPartner,
         EquipmentTimelineEntry, CreateAnnualPlanRequest, UpdateAnnualPlanRequest,
         GenerateAnnualPlanRequest, MaintenanceQuery, MaintenanceRecordWithDetails,
-        MaintenanceStatus, MaintenanceType, PaginatedResponse, ReviewMaintenanceRequest,
-        TimelineRow, UpdateCalibrationRequest, UpdateEquipmentRequest,
-        UpdateMaintenanceRequest,
+        AnnualPlanExecutionRow, AnnualPlanExecutionSummary, ExecutionSummaryQuery,
+        MaintenanceStatus, MaintenanceType, MonthExecutionDetail, MonthExecutionStatus,
+        PaginatedResponse, ReviewMaintenanceRequest, TimelineRow, UpdateCalibrationRequest,
+        UpdateEquipmentRequest, UpdateMaintenanceRequest,
     },
     repositories, Result,
 };
@@ -112,8 +113,11 @@ impl EquipmentService {
 
         let record = sqlx::query_as::<_, Equipment>(
             r#"
-            INSERT INTO equipment (name, model, serial_number, location, notes, calibration_type, calibration_cycle, inspection_cycle)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO equipment
+                (name, model, serial_number, location, department,
+                 purchase_date, warranty_expiry, notes,
+                 calibration_type, calibration_cycle, inspection_cycle)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
             "#,
         )
@@ -121,6 +125,9 @@ impl EquipmentService {
         .bind(&payload.model)
         .bind(&payload.serial_number)
         .bind(&payload.location)
+        .bind(&payload.department)
+        .bind(payload.purchase_date)
+        .bind(payload.warranty_expiry)
         .bind(&payload.notes)
         .bind(&payload.calibration_type)
         .bind(&payload.calibration_cycle)
@@ -156,6 +163,13 @@ impl EquipmentService {
             .as_ref()
             .or(existing.location.as_ref())
             .cloned();
+        let department = payload
+            .department
+            .as_ref()
+            .or(existing.department.as_ref())
+            .cloned();
+        let purchase_date = payload.purchase_date.or(existing.purchase_date);
+        let warranty_expiry = payload.warranty_expiry.or(existing.warranty_expiry);
         let notes = payload.notes.as_ref().or(existing.notes.as_ref()).cloned();
         let is_active = payload.is_active.unwrap_or(existing.is_active);
         let new_status = payload.status.clone().unwrap_or(existing.status.clone());
@@ -195,8 +209,9 @@ impl EquipmentService {
             r#"
             UPDATE equipment
             SET name = $2, model = $3, serial_number = $4, location = $5,
-                notes = $6, is_active = $7, status = $8,
-                calibration_type = $9, calibration_cycle = $10, inspection_cycle = $11,
+                department = $6, purchase_date = $7, warranty_expiry = $8,
+                notes = $9, is_active = $10, status = $11,
+                calibration_type = $12, calibration_cycle = $13, inspection_cycle = $14,
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -207,6 +222,9 @@ impl EquipmentService {
         .bind(model)
         .bind(serial)
         .bind(location)
+        .bind(department)
+        .bind(purchase_date)
+        .bind(warranty_expiry)
         .bind(notes)
         .bind(is_active)
         .bind(&new_status)
@@ -408,7 +426,11 @@ impl EquipmentService {
                 ec.calibration_type, ec.calibrated_at, ec.next_due_at,
                 ec.result, ec.notes, ec.partner_id,
                 p.name AS partner_name,
-                ec.report_number, ec.inspector, ec.created_at
+                ec.report_number, ec.inspector,
+                ec.certificate_number, ec.performed_by,
+                ec.acceptance_criteria, ec.measurement_uncertainty,
+                ec.validation_phase, ec.protocol_number,
+                ec.created_at
             FROM equipment_calibrations ec
             INNER JOIN equipment e ON ec.equipment_id = e.id
             LEFT JOIN partners p ON ec.partner_id = p.id
@@ -456,8 +478,10 @@ impl EquipmentService {
             r#"
             INSERT INTO equipment_calibrations
                 (equipment_id, calibration_type, calibrated_at, next_due_at, result, notes,
-                 partner_id, report_number, inspector, equipment_serial_number)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                 partner_id, report_number, inspector, equipment_serial_number,
+                 certificate_number, performed_by, acceptance_criteria, measurement_uncertainty,
+                 validation_phase, protocol_number)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING *
             "#,
         )
@@ -471,6 +495,12 @@ impl EquipmentService {
         .bind(&payload.report_number)
         .bind(&payload.inspector)
         .bind(&equipment.serial_number)
+        .bind(&payload.certificate_number)
+        .bind(&payload.performed_by)
+        .bind(&payload.acceptance_criteria)
+        .bind(&payload.measurement_uncertainty)
+        .bind(&payload.validation_phase)
+        .bind(&payload.protocol_number)
         .fetch_one(pool)
         .await?;
 
@@ -509,13 +539,47 @@ impl EquipmentService {
             .as_ref()
             .or(existing.inspector.as_ref())
             .cloned();
+        let certificate_number = payload
+            .certificate_number
+            .as_ref()
+            .or(existing.certificate_number.as_ref())
+            .cloned();
+        let performed_by = payload
+            .performed_by
+            .as_ref()
+            .or(existing.performed_by.as_ref())
+            .cloned();
+        let acceptance_criteria = payload
+            .acceptance_criteria
+            .as_ref()
+            .or(existing.acceptance_criteria.as_ref())
+            .cloned();
+        let measurement_uncertainty = payload
+            .measurement_uncertainty
+            .as_ref()
+            .or(existing.measurement_uncertainty.as_ref())
+            .cloned();
+        let validation_phase = payload
+            .validation_phase
+            .as_ref()
+            .or(existing.validation_phase.as_ref())
+            .cloned();
+        let protocol_number = payload
+            .protocol_number
+            .as_ref()
+            .or(existing.protocol_number.as_ref())
+            .cloned();
 
         let record = sqlx::query_as::<_, EquipmentCalibration>(
             r#"
             UPDATE equipment_calibrations
             SET calibration_type = $2, calibrated_at = $3, next_due_at = $4,
                 result = $5, notes = $6, partner_id = $7,
-                report_number = $8, inspector = $9, updated_at = NOW()
+                report_number = $8, inspector = $9,
+                certificate_number = $10, performed_by = $11,
+                acceptance_criteria = $12, measurement_uncertainty = $13,
+                validation_phase = $14, protocol_number = $15,
+                updated_at = NOW()
             WHERE id = $1
             RETURNING *
             "#,
@@ -529,6 +593,12 @@ impl EquipmentService {
         .bind(partner_id)
         .bind(report_number)
         .bind(inspector)
+        .bind(certificate_number)
+        .bind(performed_by)
+        .bind(acceptance_criteria)
+        .bind(measurement_uncertainty)
+        .bind(validation_phase)
+        .bind(protocol_number)
         .fetch_one(pool)
         .await?;
 
@@ -1087,7 +1157,39 @@ impl EquipmentService {
         .fetch_all(pool)
         .await?;
 
-        // 預先產生所有隨機月份（避免持有 thread_rng 跨 await）
+        // 查詢各設備最後一次校正月份，用於智慧月份推算
+        #[derive(sqlx::FromRow)]
+        struct LastCalMonth {
+            equipment_id: Uuid,
+            calibration_type: crate::models::CalibrationType,
+            last_month: i32,
+        }
+        let eq_ids: Vec<Uuid> = equipment_list.iter().map(|e| e.id).collect();
+        let last_cal_records = if eq_ids.is_empty() {
+            vec![]
+        } else {
+            sqlx::query_as::<_, LastCalMonth>(
+                r#"
+                SELECT equipment_id, calibration_type,
+                       EXTRACT(MONTH FROM MAX(calibrated_at))::int AS last_month
+                FROM equipment_calibrations
+                WHERE equipment_id = ANY($1)
+                GROUP BY equipment_id, calibration_type
+                "#,
+            )
+            .bind(&eq_ids)
+            .fetch_all(pool)
+            .await?
+        };
+
+        use std::collections::HashMap;
+        let mut last_cal_map: HashMap<(Uuid, String), u32> = HashMap::new();
+        for rec in last_cal_records {
+            let type_key = format!("{:?}", rec.calibration_type).to_lowercase();
+            last_cal_map.insert((rec.equipment_id, type_key), rec.last_month as u32);
+        }
+
+        // 預先產生所有月份（避免持有 thread_rng 跨 await）
         let plans: Vec<_> = {
             let mut rng = rand::thread_rng();
             equipment_list
@@ -1097,11 +1199,15 @@ impl EquipmentService {
                     if let (Some(cal_type), Some(cycle)) =
                         (&eq.calibration_type, &eq.calibration_cycle)
                     {
-                        let months = pick_random_months(cycle, &mut rng);
+                        let type_key = format!("{:?}", cal_type).to_lowercase();
+                        let last_month = last_cal_map.get(&(eq.id, type_key)).copied();
+                        let months = pick_smart_months(cycle, last_month, &mut rng);
                         items.push((eq.id, cal_type.clone(), cycle.clone(), months));
                     }
                     if let Some(cycle) = &eq.inspection_cycle {
-                        let months = pick_random_months(cycle, &mut rng);
+                        let type_key = "inspection".to_string();
+                        let last_month = last_cal_map.get(&(eq.id, type_key)).copied();
+                        let months = pick_smart_months(cycle, last_month, &mut rng);
                         items.push((
                             eq.id,
                             crate::models::CalibrationType::Inspection,
@@ -1261,6 +1367,177 @@ impl EquipmentService {
 
         Ok(())
     }
+
+    pub async fn get_execution_summary(
+        pool: &PgPool,
+        query: &ExecutionSummaryQuery,
+        current_user: &CurrentUser,
+    ) -> Result<AnnualPlanExecutionSummary> {
+        check_view_permission(current_user)?;
+
+        // 查詢 1：取計畫列
+        let plans = sqlx::query_as::<_, AnnualPlanWithEquipment>(
+            r#"
+            SELECT ap.id, ap.year, ap.equipment_id, e.name AS equipment_name,
+                   e.serial_number AS equipment_serial_number,
+                   ap.calibration_type, ap.cycle,
+                   ap.month_1, ap.month_2, ap.month_3, ap.month_4,
+                   ap.month_5, ap.month_6, ap.month_7, ap.month_8,
+                   ap.month_9, ap.month_10, ap.month_11, ap.month_12,
+                   ap.generated_at
+            FROM equipment_annual_plans ap
+            INNER JOIN equipment e ON ap.equipment_id = e.id
+            WHERE ap.year = $1
+              AND ($2::uuid IS NULL OR ap.equipment_id = $2)
+              AND ($3::calibration_type IS NULL OR ap.calibration_type = $3)
+            ORDER BY e.name, ap.calibration_type
+            "#,
+        )
+        .bind(query.year)
+        .bind(query.equipment_id)
+        .bind(&query.calibration_type)
+        .fetch_all(pool)
+        .await?;
+
+        // 查詢 2：取該年度實際校正記錄（每組 equipment+type+month 取最早一筆）
+        #[derive(sqlx::FromRow)]
+        struct CalRecord {
+            equipment_id: Uuid,
+            calibration_type: crate::models::CalibrationType,
+            cal_month: i32,
+            calibration_id: Uuid,
+            calibrated_at: chrono::NaiveDate,
+            result: Option<String>,
+        }
+
+        let cal_records = sqlx::query_as::<_, CalRecord>(
+            r#"
+            SELECT
+                ec.equipment_id,
+                ec.calibration_type,
+                EXTRACT(MONTH FROM ec.calibrated_at)::int AS cal_month,
+                MIN(ec.id) AS calibration_id,
+                MIN(ec.calibrated_at) AS calibrated_at,
+                MIN(ec.result) AS result
+            FROM equipment_calibrations ec
+            WHERE EXTRACT(YEAR FROM ec.calibrated_at) = $1
+              AND ($2::uuid IS NULL OR ec.equipment_id = $2)
+              AND ($3::calibration_type IS NULL OR ec.calibration_type = $3)
+            GROUP BY ec.equipment_id, ec.calibration_type, EXTRACT(MONTH FROM ec.calibrated_at)
+            "#,
+        )
+        .bind(query.year)
+        .bind(query.equipment_id)
+        .bind(&query.calibration_type)
+        .fetch_all(pool)
+        .await?;
+
+        // 建立 HashMap 加速查找
+        use std::collections::HashMap;
+        let mut cal_map: HashMap<(Uuid, String, i32), CalRecord> = HashMap::new();
+        for rec in cal_records {
+            let type_key = format!("{:?}", rec.calibration_type).to_lowercase();
+            cal_map.insert((rec.equipment_id, type_key, rec.cal_month), rec);
+        }
+
+        let today = chrono::Local::now().date_naive();
+
+        let mut rows: Vec<AnnualPlanExecutionRow> = Vec::new();
+        let mut total_planned = 0i32;
+        let mut total_completed = 0i32;
+        let mut total_overdue = 0i32;
+
+        for plan in &plans {
+            let type_key = format!("{:?}", plan.calibration_type).to_lowercase();
+            let plan_months = [
+                plan.month_1, plan.month_2, plan.month_3, plan.month_4,
+                plan.month_5, plan.month_6, plan.month_7, plan.month_8,
+                plan.month_9, plan.month_10, plan.month_11, plan.month_12,
+            ];
+
+            let mut month_details: Vec<MonthExecutionDetail> = Vec::with_capacity(12);
+            let mut planned_count = 0i32;
+            let mut completed_count = 0i32;
+            let mut overdue_count = 0i32;
+
+            for m in 1i32..=12 {
+                let planned = plan_months[(m - 1) as usize];
+                let cal = cal_map.get(&(plan.equipment_id, type_key.clone(), m));
+
+                let status = match (planned, cal) {
+                    (false, _) => MonthExecutionStatus::Unplanned,
+                    (true, Some(_)) => MonthExecutionStatus::Completed,
+                    (true, None) => {
+                        // 月末日期：m+1月1日前一天，12月用12/31
+                        let month_end = if m < 12 {
+                            chrono::NaiveDate::from_ymd_opt(query.year, (m + 1) as u32, 1)
+                                .and_then(|d| d.pred_opt())
+                                .unwrap_or(chrono::NaiveDate::from_ymd_opt(query.year, m as u32, 28).unwrap())
+                        } else {
+                            chrono::NaiveDate::from_ymd_opt(query.year, 12, 31).unwrap()
+                        };
+                        if month_end < today {
+                            MonthExecutionStatus::Overdue
+                        } else {
+                            MonthExecutionStatus::PlannedPending
+                        }
+                    }
+                };
+
+                if planned {
+                    planned_count += 1;
+                }
+                if status == MonthExecutionStatus::Completed {
+                    completed_count += 1;
+                }
+                if status == MonthExecutionStatus::Overdue {
+                    overdue_count += 1;
+                }
+
+                month_details.push(MonthExecutionDetail {
+                    month: m,
+                    planned,
+                    status,
+                    calibration_id: cal.map(|c| c.calibration_id),
+                    calibrated_at: cal.map(|c| c.calibrated_at),
+                    result: cal.and_then(|c| c.result.clone()),
+                });
+            }
+
+            total_planned += planned_count;
+            total_completed += completed_count;
+            total_overdue += overdue_count;
+
+            rows.push(AnnualPlanExecutionRow {
+                plan_id: plan.id,
+                year: plan.year,
+                equipment_id: plan.equipment_id,
+                equipment_name: plan.equipment_name.clone(),
+                equipment_serial_number: plan.equipment_serial_number.clone(),
+                calibration_type: plan.calibration_type.clone(),
+                cycle: plan.cycle.clone(),
+                months: month_details,
+                planned_count,
+                completed_count,
+                overdue_count,
+            });
+        }
+
+        let completion_rate = if total_planned > 0 {
+            total_completed as f64 / total_planned as f64
+        } else {
+            0.0
+        };
+
+        Ok(AnnualPlanExecutionSummary {
+            year: query.year,
+            total_planned,
+            total_completed,
+            total_overdue,
+            completion_rate,
+            rows,
+        })
+    }
 }
 
 async fn auto_restore_equipment(pool: &PgPool, equipment_id: Uuid, user_id: Uuid) -> Result<()> {
@@ -1334,6 +1611,41 @@ fn build_timeline_entry(row: TimelineRow) -> EquipmentTimelineEntry {
         subtitle: row.summary,
         detail,
     }
+}
+
+fn pick_smart_months(
+    cycle: &CalibrationCycle,
+    last_month: Option<u32>,
+    rng: &mut impl Rng,
+) -> [bool; 12] {
+    let Some(lm) = last_month else {
+        return pick_random_months(cycle, rng);
+    };
+    let lm = lm.clamp(1, 12) as usize - 1; // 0-indexed
+    let mut months = [false; 12];
+    match cycle {
+        CalibrationCycle::Monthly => {
+            months = [true; 12];
+        }
+        CalibrationCycle::Quarterly => {
+            // 保持與歷史相同的季內偏移（0/1/2）
+            let offset = lm % 3;
+            for q in 0..4 {
+                months[q * 3 + offset] = true;
+            }
+        }
+        CalibrationCycle::SemiAnnual => {
+            // 上半年取歷史月份，下半年加 6
+            let first = lm % 6;
+            let second = (first + 6) % 12;
+            months[first] = true;
+            months[second] = true;
+        }
+        CalibrationCycle::Annual => {
+            months[lm] = true;
+        }
+    }
+    months
 }
 
 fn pick_random_months(cycle: &CalibrationCycle, rng: &mut impl Rng) -> [bool; 12] {

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import type { StatusVariant } from '@/components/ui/status-badge'
 import { Monitor } from 'lucide-react'
+import { format, isPast, parseISO } from 'date-fns'
 
 import type { Equipment } from '../types'
 import { EQUIPMENT_STATUS_LABELS } from '../types'
@@ -20,11 +21,33 @@ interface Props {
   equipment: Equipment
 }
 
+function formatDate(d: string | null) {
+  if (!d) return null
+  try { return format(parseISO(d), 'yyyy/MM/dd') } catch { return d }
+}
+
+function isExpired(d: string | null) {
+  if (!d) return false
+  try { return isPast(parseISO(d)) } catch { return false }
+}
+
 export function EquipmentInfoCard({ equipment }: Props) {
+  const warrantyExpired = isExpired(equipment.warranty_expiry)
+
   const fields = [
     { label: '型號', value: equipment.model },
     { label: '序號', value: equipment.serial_number },
     { label: '位置', value: equipment.location },
+    { label: '部門', value: equipment.department },
+    {
+      label: '購買日期',
+      value: formatDate(equipment.purchase_date),
+    },
+    {
+      label: '保固到期',
+      value: formatDate(equipment.warranty_expiry),
+      highlight: warrantyExpired ? 'error' : undefined,
+    },
   ]
 
   return (
@@ -45,7 +68,16 @@ export function EquipmentInfoCard({ equipment }: Props) {
           {fields.map((f) => (
             <div key={f.label}>
               <span className="text-muted-foreground">{f.label}</span>
-              <p className="font-medium">{f.value || '—'}</p>
+              <p
+                className={
+                  f.highlight === 'error'
+                    ? 'font-medium text-destructive'
+                    : 'font-medium'
+                }
+              >
+                {f.value || '—'}
+                {f.highlight === 'error' && f.value ? ' （已過期）' : ''}
+              </p>
             </div>
           ))}
         </div>

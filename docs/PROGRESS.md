@@ -185,6 +185,16 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-03 設備管理 ISO 17025 / GLP 合規欄位補強
+
+- ✅ **審核確認**：點擊儀器→履歷頁、點擊廠商→聯絡 Dialog、維修保養 5 狀態流程均正確實作
+- ✅ **Migration 015**：設備資料表新增 `department`、`purchase_date`、`warranty_expiry`；校正資料表新增 `certificate_number`、`performed_by`、`acceptance_criteria`、`measurement_uncertainty`、`validation_phase`（IQ/OQ/PQ）、`protocol_number`
+- ✅ **後端模型/Service SQL**：Equipment + EquipmentCalibration + CalibrationWithEquipment struct 及 INSERT/UPDATE/SELECT SQL 全部同步更新
+- ✅ **前端型別 types.ts**：新增 `ValidationPhase` type、`VALIDATION_PHASE_LABELS`；更新 Equipment、CalibrationWithEquipment、EquipmentForm、CalibrationForm interface
+- ✅ **CalibrationFormDialog**：校正類型顯示四個新欄位；確效類型顯示 IQ/OQ/PQ 選擇 + 方案編號；三種類型完全分離條件渲染
+- ✅ **EquipmentFormDialog**：新增部門、購買日期、保固到期日輸入欄位
+- ✅ **EquipmentInfoCard**：顯示部門、購買日期、保固到期日（逾期標紅提示）
+
 ### 2026-04-01 Migration 重構完成（29→12 合併檔案）
 
 - ✅ **Phase 1-2 分析與撰寫**：將 29 個舊 migration 整理為 12 個按業務模組分組的合併檔案（`backend/migrations_v2/`）

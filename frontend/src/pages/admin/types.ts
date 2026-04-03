@@ -8,6 +8,8 @@ export type CalibrationCycle = 'monthly' | 'quarterly' | 'semi_annual' | 'annual
 export type MaintenanceType = 'repair' | 'maintenance'
 export type MaintenanceStatus = 'pending' | 'in_progress' | 'completed' | 'unrepairable' | 'pending_review'
 export type DisposalStatus = 'pending' | 'approved' | 'rejected'
+/** GMP/GLP 確效階段：IQ安裝確效 / OQ作業確效 / PQ效能確效 */
+export type ValidationPhase = 'IQ' | 'OQ' | 'PQ'
 
 export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
   active: '啟用',
@@ -48,12 +50,21 @@ export const DISPOSAL_STATUS_LABELS: Record<DisposalStatus, string> = {
   rejected: '已駁回',
 }
 
+export const VALIDATION_PHASE_LABELS: Record<ValidationPhase, string> = {
+  IQ: 'IQ 安裝確效',
+  OQ: 'OQ 作業確效',
+  PQ: 'PQ 效能確效',
+}
+
 export interface Equipment {
   id: string
   name: string
   model: string | null
   serial_number: string | null
   location: string | null
+  department: string | null
+  purchase_date: string | null
+  warranty_expiry: string | null
   notes: string | null
   is_active: boolean
   status: EquipmentStatus
@@ -76,6 +87,14 @@ export interface CalibrationWithEquipment {
   partner_name: string | null
   report_number: string | null
   inspector: string | null
+  // ISO 17025 合規欄位
+  certificate_number: string | null
+  performed_by: string | null
+  acceptance_criteria: string | null
+  measurement_uncertainty: string | null
+  // GMP/GLP 確效欄位
+  validation_phase: ValidationPhase | null
+  protocol_number: string | null
   created_at: string
 }
 
@@ -153,6 +172,40 @@ export interface AnnualPlanWithEquipment {
   month_12: boolean
 }
 
+export type MonthExecutionStatus = 'unplanned' | 'planned_pending' | 'completed' | 'overdue'
+
+export interface MonthExecutionDetail {
+  month: number
+  planned: boolean
+  status: MonthExecutionStatus
+  calibration_id: string | null
+  calibrated_at: string | null
+  result: string | null
+}
+
+export interface AnnualPlanExecutionRow {
+  plan_id: string
+  year: number
+  equipment_id: string
+  equipment_name: string
+  equipment_serial_number: string | null
+  calibration_type: CalibrationType
+  cycle: CalibrationCycle
+  months: MonthExecutionDetail[]
+  planned_count: number
+  completed_count: number
+  overdue_count: number
+}
+
+export interface AnnualPlanExecutionSummary {
+  year: number
+  total_planned: number
+  total_completed: number
+  total_overdue: number
+  completion_rate: number
+  rows: AnnualPlanExecutionRow[]
+}
+
 export type TimelineEventType = 'maintenance' | 'calibration' | 'status_change'
 
 export interface EquipmentTimelineEntry {
@@ -169,6 +222,9 @@ export interface EquipmentForm {
   model: string
   serial_number: string
   location: string
+  department: string
+  purchase_date: string
+  warranty_expiry: string
   notes: string
   calibration_type: CalibrationType | ''
   calibration_cycle: CalibrationCycle | ''
@@ -185,4 +241,12 @@ export interface CalibrationForm {
   partner_id: string
   report_number: string
   inspector: string
+  // ISO 17025 合規欄位
+  certificate_number: string
+  performed_by: string
+  acceptance_criteria: string
+  measurement_uncertainty: string
+  // GMP/GLP 確效欄位
+  validation_phase: ValidationPhase | ''
+  protocol_number: string
 }

@@ -155,7 +155,7 @@ impl TestApp {
         let email = std::env::var("ADMIN_EMAIL")
             .ok()
             .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "admin@ipig.local".to_string());
+            .unwrap_or_else(|| "admin@ipigsystem.asia".to_string());
         let password = std::env::var("ADMIN_INITIAL_PASSWORD")
             .ok()
             .filter(|s| !s.is_empty())

@@ -99,12 +99,41 @@ export function EquipmentFormDialog({
               />
             </div>
           </div>
-          <div>
-            <Label>位置</Label>
-            <Input
-              value={form.location}
-              onChange={(e) => onFormChange({ ...form, location: e.target.value })}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>位置</Label>
+              <Input
+                value={form.location}
+                onChange={(e) => onFormChange({ ...form, location: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>部門</Label>
+              <Input
+                value={form.department}
+                onChange={(e) => onFormChange({ ...form, department: e.target.value })}
+                placeholder="責任部門/保管單位"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>購買日期</Label>
+              <Input
+                type="date"
+                value={form.purchase_date}
+                onChange={(e) => onFormChange({ ...form, purchase_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>保固到期日</Label>
+              <Input
+                type="date"
+                value={form.warranty_expiry}
+                onChange={(e) => onFormChange({ ...form, warranty_expiry: e.target.value })}
+              />
+            </div>
           </div>
 
           {/* 廠商選擇 */}

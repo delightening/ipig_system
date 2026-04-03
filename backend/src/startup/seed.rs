@@ -20,7 +20,7 @@ pub async fn ensure_admin_user_after_import(pool: &sqlx::PgPool, config: &Config
 }
 
 async fn ensure_admin_user_inner(pool: &sqlx::PgPool, config: &Config, force_reset_password: bool) -> Result<()> {
-    let email = "admin@ipig.local";
+    let email = "admin@ipigsystem.asia";
     let display_name = "系統管理員";
 
     let password = config.admin_initial_password.clone().unwrap_or_else(|| {

@@ -21,8 +21,8 @@ import {
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
 
-import type { Equipment, CalibrationForm, CalibrationWithEquipment, CalibrationType } from '../types'
-import { CALIBRATION_TYPE_LABELS } from '../types'
+import type { Equipment, CalibrationForm, CalibrationWithEquipment, CalibrationType, ValidationPhase } from '../types'
+import { CALIBRATION_TYPE_LABELS, VALIDATION_PHASE_LABELS } from '../types'
 
 interface CalibrationFormDialogProps {
   open: boolean
@@ -37,6 +37,7 @@ interface CalibrationFormDialogProps {
 }
 
 const calTypeOptions: CalibrationType[] = ['calibration', 'validation', 'inspection']
+const validationPhaseOptions: ValidationPhase[] = ['IQ', 'OQ', 'PQ']
 
 export function CalibrationFormDialog({
   open,
@@ -51,10 +52,12 @@ export function CalibrationFormDialog({
 }: CalibrationFormDialogProps) {
   const isCreate = mode === 'create'
   const isInspection = form.calibration_type === 'inspection'
+  const isValidation = form.calibration_type === 'validation'
+  const isCalibration = form.calibration_type === 'calibration'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isCreate ? '新增' : '編輯'}
@@ -143,19 +146,102 @@ export function CalibrationFormDialog({
             />
           </div>
 
-          {/* 校正/確效特有欄位：報告編號 */}
-          {!isInspection && (
-            <div>
-              <Label>報告編號</Label>
-              <Input
-                value={form.report_number}
-                onChange={(e) => onFormChange({ ...form, report_number: e.target.value })}
-                placeholder="校正/確效報告編號"
-              />
-            </div>
+          {/* ── 校正（calibration）特有欄位 ── */}
+          {isCalibration && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>校正證書編號</Label>
+                  <Input
+                    value={form.certificate_number}
+                    onChange={(e) => onFormChange({ ...form, certificate_number: e.target.value })}
+                    placeholder="ISO 17025 §7.8.4"
+                  />
+                </div>
+                <div>
+                  <Label>報告編號</Label>
+                  <Input
+                    value={form.report_number}
+                    onChange={(e) => onFormChange({ ...form, report_number: e.target.value })}
+                    placeholder="校正報告編號"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>執行人員</Label>
+                  <Input
+                    value={form.performed_by}
+                    onChange={(e) => onFormChange({ ...form, performed_by: e.target.value })}
+                    placeholder="執行校正之人員"
+                  />
+                </div>
+                <div>
+                  <Label>量測不確定度</Label>
+                  <Input
+                    value={form.measurement_uncertainty}
+                    onChange={(e) => onFormChange({ ...form, measurement_uncertainty: e.target.value })}
+                    placeholder="例：±0.01 mg (k=2)"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>合格判定標準</Label>
+                <Input
+                  value={form.acceptance_criteria}
+                  onChange={(e) => onFormChange({ ...form, acceptance_criteria: e.target.value })}
+                  placeholder="例：示值誤差 ≤ ±0.5%"
+                />
+              </div>
+            </>
           )}
 
-          {/* 查核特有欄位：查核人員 */}
+          {/* ── 確效（validation）特有欄位 ── */}
+          {isValidation && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>確效階段</Label>
+                  <Select
+                    value={form.validation_phase || '_none'}
+                    onValueChange={(v) =>
+                      onFormChange({ ...form, validation_phase: v === '_none' ? '' : (v as ValidationPhase) })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="選擇確效階段" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">未指定</SelectItem>
+                      {validationPhaseOptions.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {VALIDATION_PHASE_LABELS[p]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>確效方案編號</Label>
+                  <Input
+                    value={form.protocol_number}
+                    onChange={(e) => onFormChange({ ...form, protocol_number: e.target.value })}
+                    placeholder="VP 方案編號"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>報告編號</Label>
+                <Input
+                  value={form.report_number}
+                  onChange={(e) => onFormChange({ ...form, report_number: e.target.value })}
+                  placeholder="確效報告編號"
+                />
+              </div>
+            </>
+          )}
+
+          {/* ── 查核（inspection）特有欄位 ── */}
           {isInspection && (
             <div>
               <Label>查核人員</Label>

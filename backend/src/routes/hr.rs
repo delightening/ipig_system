@@ -214,6 +214,10 @@ pub fn routes() -> Router<AppState> {
             post(handlers::generate_annual_plan),
         )
         .route(
+            "/equipment-annual-plans/execution-summary",
+            get(handlers::get_annual_plan_execution_summary),
+        )
+        .route(
             "/equipment-annual-plans/:id",
             put(handlers::update_annual_plan)
                 .delete(handlers::delete_annual_plan),

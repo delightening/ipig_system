@@ -21,7 +21,7 @@ async fn login_with_wrong_password_returns_401() {
     let app = common::TestApp::spawn().await;
 
     let email =
-        std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipig.local".to_string());
+        std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipigsystem.asia".to_string());
 
     let res = app
         .client
@@ -96,7 +96,7 @@ async fn refresh_with_valid_token_returns_new_tokens() {
     let app = common::TestApp::spawn().await;
 
     let email =
-        std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipig.local".to_string());
+        std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipigsystem.asia".to_string());
     let password = std::env::var("ADMIN_INITIAL_PASSWORD")
         .unwrap_or_else(|_| "iPig$ecure1".to_string());
 

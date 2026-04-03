@@ -91,7 +91,7 @@ fn has_id_remap_table(table: &str) -> bool {
 
 /// 預設管理員 email（匯入時排除，保留目標庫管理員）
 fn admin_email() -> &'static str {
-    option_env!("ADMIN_EMAIL").unwrap_or("admin@ipig.local")
+    option_env!("ADMIN_EMAIL").unwrap_or("admin@ipigsystem.asia")
 }
 
 /// 管理員角色 code（匯入時排除）

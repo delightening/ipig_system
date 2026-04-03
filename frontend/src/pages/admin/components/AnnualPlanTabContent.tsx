@@ -1,9 +1,20 @@
 /**
  * 年度校正/確效/查核計畫矩陣視圖
- * 支援自動產生 + 手動新增/編輯/刪除
+ * 支援自動產生 + 手動新增/編輯/刪除 + 計畫 vs 實際執行對照
  */
 import { useState } from 'react'
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Trash2, Circle } from 'lucide-react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Circle,
+  FileText,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,12 +42,18 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
-
-import type { AnnualPlanWithEquipment, Equipment, CalibrationType, CalibrationCycle } from '../types'
-import { CALIBRATION_TYPE_LABELS, CALIBRATION_CYCLE_LABELS } from '../types'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FileText } from 'lucide-react'
 import { useTableSort } from '@/hooks/useTableSort'
+
+import type {
+  AnnualPlanExecutionSummary,
+  AnnualPlanWithEquipment,
+  CalibrationType,
+  CalibrationCycle,
+  Equipment,
+  MonthExecutionStatus,
+} from '../types'
+import { CALIBRATION_TYPE_LABELS, CALIBRATION_CYCLE_LABELS } from '../types'
 
 interface AnnualPlanTabContentProps {
   canManage: boolean
@@ -46,6 +63,7 @@ interface AnnualPlanTabContentProps {
   onGenerate: () => void
   isGenerating: boolean
   equipmentList: Equipment[]
+  executionSummary: AnnualPlanExecutionSummary | null
   onCreatePlan: (data: Record<string, unknown>) => void
   onEditPlan: (id: string, data: Record<string, unknown>) => void
   onToggleMonth: (plan: AnnualPlanWithEquipment, month: number) => void
@@ -53,6 +71,35 @@ interface AnnualPlanTabContentProps {
 }
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}月`)
+
+type StatusCellConfig = {
+  icon: React.ElementType
+  className: string
+  title: string
+}
+
+const STATUS_CELL_CONFIG: Record<MonthExecutionStatus, StatusCellConfig> = {
+  unplanned: {
+    icon: Circle,
+    className: 'invisible',
+    title: '未計畫',
+  },
+  planned_pending: {
+    icon: Circle,
+    className: 'text-muted-foreground/40',
+    title: '計畫待執行',
+  },
+  completed: {
+    icon: CheckCircle2,
+    className: 'text-status-success-text',
+    title: '已執行',
+  },
+  overdue: {
+    icon: AlertCircle,
+    className: 'text-status-error-text',
+    title: '逾期未執行',
+  },
+}
 
 function isMonthScheduled(plan: AnnualPlanWithEquipment, month: number): boolean {
   const key = `month_${month}` as keyof AnnualPlanWithEquipment
@@ -67,6 +114,7 @@ export default function AnnualPlanTabContent({
   onGenerate,
   isGenerating,
   equipmentList,
+  executionSummary,
   onCreatePlan,
   onEditPlan,
   onToggleMonth,
@@ -98,10 +146,20 @@ export default function AnnualPlanTabContent({
         </div>
       </CardHeader>
       <CardContent>
+        {executionSummary && plans.length > 0 && (
+          <ExecutionSummaryCards summary={executionSummary} />
+        )}
         {plans.length === 0 ? (
           <EmptyState icon={FileText} title={`${year} 年尚無年度計畫資料`} />
         ) : (
-          <PlanMatrix plans={plans} canManage={canManage} onToggleMonth={onToggleMonth} onEdit={setEditingPlan} onDelete={onDeletePlan} />
+          <PlanMatrix
+            plans={plans}
+            canManage={canManage}
+            executionSummary={executionSummary}
+            onToggleMonth={onToggleMonth}
+            onEdit={setEditingPlan}
+            onDelete={onDeletePlan}
+          />
         )}
       </CardContent>
 
@@ -130,6 +188,53 @@ export default function AnnualPlanTabContent({
         </>
       )}
     </Card>
+  )
+}
+
+function ExecutionSummaryCards({ summary }: { summary: AnnualPlanExecutionSummary }) {
+  const completionPct = summary.total_planned > 0
+    ? Math.round(summary.completion_rate * 100)
+    : 0
+  const rateColor =
+    completionPct >= 80
+      ? 'text-status-success-text'
+      : completionPct >= 50
+        ? 'text-status-warning-text'
+        : summary.total_planned > 0
+          ? 'text-status-error-text'
+          : 'text-muted-foreground'
+
+  return (
+    <div className="mb-4 grid grid-cols-4 gap-3">
+      <div className="rounded-lg border bg-card p-3">
+        <div className="text-xs text-muted-foreground">已計畫月份</div>
+        <div className="mt-1 text-2xl font-semibold">{summary.total_planned}</div>
+      </div>
+      <div className="rounded-lg border bg-card p-3">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <CheckCircle2 className="h-3 w-3 text-status-success-text" />
+          已完成
+        </div>
+        <div className="mt-1 text-2xl font-semibold text-status-success-text">
+          {summary.total_completed}
+        </div>
+      </div>
+      <div className="rounded-lg border bg-card p-3">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <AlertCircle className="h-3 w-3 text-status-error-text" />
+          逾期未執行
+        </div>
+        <div className={`mt-1 text-2xl font-semibold ${summary.total_overdue > 0 ? 'text-status-error-text' : ''}`}>
+          {summary.total_overdue}
+        </div>
+      </div>
+      <div className="rounded-lg border bg-card p-3">
+        <div className="text-xs text-muted-foreground">完成率</div>
+        <div className={`mt-1 text-2xl font-semibold ${rateColor}`}>
+          {summary.total_planned > 0 ? `${completionPct}%` : '—'}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -166,12 +271,14 @@ function YearSelector({
 function PlanMatrix({
   plans,
   canManage,
+  executionSummary,
   onToggleMonth,
   onEdit,
   onDelete,
 }: {
   plans: AnnualPlanWithEquipment[]
   canManage: boolean
+  executionSummary: AnnualPlanExecutionSummary | null
   onToggleMonth: (plan: AnnualPlanWithEquipment, month: number) => void
   onEdit: (plan: AnnualPlanWithEquipment) => void
   onDelete: (id: string) => void
@@ -193,9 +300,20 @@ function PlanMatrix({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {(sortedData ?? plans).map((plan) => (
-          <PlanRow key={plan.id} plan={plan} canManage={canManage} onToggleMonth={onToggleMonth} onEdit={onEdit} onDelete={onDelete} />
-        ))}
+        {(sortedData ?? plans).map((plan) => {
+          const execRow = executionSummary?.rows.find((r) => r.plan_id === plan.id) ?? null
+          return (
+            <PlanRow
+              key={plan.id}
+              plan={plan}
+              canManage={canManage}
+              execRow={execRow}
+              onToggleMonth={onToggleMonth}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          )
+        })}
       </TableBody>
     </Table>
   )
@@ -204,12 +322,14 @@ function PlanMatrix({
 function PlanRow({
   plan,
   canManage,
+  execRow,
   onToggleMonth,
   onEdit,
   onDelete,
 }: {
   plan: AnnualPlanWithEquipment
   canManage: boolean
+  execRow: AnnualPlanExecutionSummary['rows'][number] | null
   onToggleMonth: (plan: AnnualPlanWithEquipment, month: number) => void
   onEdit: (plan: AnnualPlanWithEquipment) => void
   onDelete: (id: string) => void
@@ -230,28 +350,33 @@ function PlanRow({
           {CALIBRATION_CYCLE_LABELS[plan.cycle]}
         </div>
       </TableCell>
-      {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-        <TableCell key={month} className="text-center">
-          {canManage ? (
-            <button
-              type="button"
-              className="mx-auto flex h-7 w-7 items-center justify-center rounded hover:bg-muted transition-colors"
-              onClick={() => onToggleMonth(plan, month)}
-              title={isMonthScheduled(plan, month) ? '點擊取消' : '點擊排程'}
-            >
-              {isMonthScheduled(plan, month) ? (
-                <CheckCircle2 className="h-5 w-5 text-status-success-text" />
-              ) : (
-                <Circle className="h-5 w-5 text-muted-foreground/30" />
-              )}
-            </button>
-          ) : (
-            isMonthScheduled(plan, month) && (
-              <CheckCircle2 className="mx-auto h-5 w-5 text-status-success-text" />
-            )
-          )}
-        </TableCell>
-      ))}
+      {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => {
+        const monthDetail = execRow?.months[month - 1]
+        const status: MonthExecutionStatus = monthDetail?.status
+          ?? (isMonthScheduled(plan, month) ? 'planned_pending' : 'unplanned')
+        const config = STATUS_CELL_CONFIG[status]
+        const Icon = config.icon
+        const isVisible = status !== 'unplanned'
+
+        return (
+          <TableCell key={month} className="text-center">
+            {canManage ? (
+              <button
+                type="button"
+                className="mx-auto flex h-7 w-7 items-center justify-center rounded hover:bg-muted transition-colors"
+                onClick={() => onToggleMonth(plan, month)}
+                title={config.title}
+              >
+                <Icon className={`h-5 w-5 ${config.className}`} />
+              </button>
+            ) : (
+              isVisible && (
+                <Icon className={`mx-auto h-5 w-5 ${config.className}`} />
+              )
+            )}
+          </TableCell>
+        )
+      })}
       {canManage && (
         <TableCell>
           <div className="flex items-center gap-1">
@@ -315,7 +440,6 @@ function AddPlanDialog({
       data[`month_${i + 1}`] = v
     })
     onSubmit(data)
-    // reset
     setEquipmentId('')
     setMonths(Array(12).fill(false))
   }
@@ -419,7 +543,6 @@ function EditPlanDialog({
   const [cycle, setCycle] = useState<CalibrationCycle>('quarterly')
   const [months, setMonths] = useState<boolean[]>(Array(12).fill(false))
 
-  // Sync state when plan changes
   const [prevPlanId, setPrevPlanId] = useState<string | null>(null)
   if (plan && plan.id !== prevPlanId) {
     setPrevPlanId(plan.id)

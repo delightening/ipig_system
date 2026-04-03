@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
 
     let pool = PgPool::connect(&database_url).await?;
 
-    let email = "admin@ipig.local";
+    let email = "admin@ipigsystem.asia";
     let display_name = "System Admin";
     let password = std::env::var("ADMIN_INITIAL_PASSWORD")
         .map_err(|_| anyhow!("ADMIN_INITIAL_PASSWORD must be set (no default for security)"))?;

@@ -128,7 +128,7 @@ if (-not $SkipBackend) {
         }
         $env:DATABASE_URL = "postgres://postgres:password@localhost:15432/ipig_db_test"
         $env:SQLX_OFFLINE = "false"
-        $env:ADMIN_EMAIL = "admin@ipig.local"
+        $env:ADMIN_EMAIL = "admin@ipigsystem.asia"
         $env:ADMIN_INITIAL_PASSWORD = "ci_test_admin_password_2024"
         $env:DISABLE_ACCOUNT_LOCKOUT = "true"
 
@@ -228,9 +228,9 @@ if (-not $SkipE2E) {
         npm ci
         npx playwright install --with-deps 2>$null
         $env:E2E_BASE_URL = "http://localhost:18080"
-        $env:E2E_USER_EMAIL = "admin@ipig.local"
+        $env:E2E_USER_EMAIL = "admin@ipigsystem.asia"
         $env:E2E_USER_PASSWORD = "ci_test_admin_password_2024"
-        $env:E2E_ADMIN_EMAIL = "admin@ipig.local"
+        $env:E2E_ADMIN_EMAIL = "admin@ipigsystem.asia"
         $env:E2E_ADMIN_PASSWORD = "ci_test_admin_password_2024"
         npm run test:e2e
         if ($LASTEXITCODE -ne 0) { throw "Playwright E2E exited with $LASTEXITCODE" }

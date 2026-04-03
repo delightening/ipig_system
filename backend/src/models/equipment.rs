@@ -7,6 +7,19 @@ use serde_json::Value as JsonValue;
 use uuid::Uuid;
 use validator::Validate;
 
+// ========== GLP/GMP 確效階段 ==========
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[sqlx(type_name = "validation_phase", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ValidationPhase {
+    #[serde(rename = "IQ")]
+    Iq,
+    #[serde(rename = "OQ")]
+    Oq,
+    #[serde(rename = "PQ")]
+    Pq,
+}
+
 // ========== Enums ==========
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -90,6 +103,9 @@ pub struct Equipment {
     pub model: Option<String>,
     pub serial_number: Option<String>,
     pub location: Option<String>,
+    pub department: Option<String>,
+    pub purchase_date: Option<NaiveDate>,
+    pub warranty_expiry: Option<NaiveDate>,
     pub notes: Option<String>,
     pub is_active: bool,
     pub status: EquipmentStatus,
@@ -119,6 +135,10 @@ pub struct CreateEquipmentRequest {
     pub serial_number: Option<String>,
     #[validate(length(max = 200))]
     pub location: Option<String>,
+    #[validate(length(max = 100))]
+    pub department: Option<String>,
+    pub purchase_date: Option<NaiveDate>,
+    pub warranty_expiry: Option<NaiveDate>,
     #[validate(length(max = 2000))]
     pub notes: Option<String>,
     pub calibration_type: Option<CalibrationType>,
@@ -136,6 +156,10 @@ pub struct UpdateEquipmentRequest {
     pub serial_number: Option<String>,
     #[validate(length(max = 200))]
     pub location: Option<String>,
+    #[validate(length(max = 100))]
+    pub department: Option<String>,
+    pub purchase_date: Option<NaiveDate>,
+    pub warranty_expiry: Option<NaiveDate>,
     #[validate(length(max = 2000))]
     pub notes: Option<String>,
     pub is_active: Option<bool>,
@@ -160,6 +184,14 @@ pub struct EquipmentCalibration {
     pub report_number: Option<String>,
     pub inspector: Option<String>,
     pub equipment_serial_number: Option<String>,
+    // ISO 17025 合規欄位
+    pub certificate_number: Option<String>,
+    pub performed_by: Option<String>,
+    pub acceptance_criteria: Option<String>,
+    pub measurement_uncertainty: Option<String>,
+    // GMP/GLP 確效欄位（calibration_type = validation 時使用）
+    pub validation_phase: Option<ValidationPhase>,
+    pub protocol_number: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -179,6 +211,14 @@ pub struct CalibrationWithEquipment {
     pub partner_name: Option<String>,
     pub report_number: Option<String>,
     pub inspector: Option<String>,
+    // ISO 17025 合規欄位
+    pub certificate_number: Option<String>,
+    pub performed_by: Option<String>,
+    pub acceptance_criteria: Option<String>,
+    pub measurement_uncertainty: Option<String>,
+    // GMP/GLP 確效欄位
+    pub validation_phase: Option<ValidationPhase>,
+    pub protocol_number: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -205,6 +245,19 @@ pub struct CreateCalibrationRequest {
     pub report_number: Option<String>,
     #[validate(length(max = 100))]
     pub inspector: Option<String>,
+    // ISO 17025 合規欄位
+    #[validate(length(max = 100))]
+    pub certificate_number: Option<String>,
+    #[validate(length(max = 100))]
+    pub performed_by: Option<String>,
+    #[validate(length(max = 200))]
+    pub acceptance_criteria: Option<String>,
+    #[validate(length(max = 100))]
+    pub measurement_uncertainty: Option<String>,
+    // GMP/GLP 確效欄位
+    pub validation_phase: Option<ValidationPhase>,
+    #[validate(length(max = 100))]
+    pub protocol_number: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -221,6 +274,19 @@ pub struct UpdateCalibrationRequest {
     pub report_number: Option<String>,
     #[validate(length(max = 100))]
     pub inspector: Option<String>,
+    // ISO 17025 合規欄位
+    #[validate(length(max = 100))]
+    pub certificate_number: Option<String>,
+    #[validate(length(max = 100))]
+    pub performed_by: Option<String>,
+    #[validate(length(max = 200))]
+    pub acceptance_criteria: Option<String>,
+    #[validate(length(max = 100))]
+    pub measurement_uncertainty: Option<String>,
+    // GMP/GLP 確效欄位
+    pub validation_phase: Option<ValidationPhase>,
+    #[validate(length(max = 100))]
+    pub protocol_number: Option<String>,
 }
 
 // ========== Equipment Suppliers (設備-廠商關聯) ==========
@@ -552,6 +618,59 @@ pub struct UpdateAnnualPlanRequest {
     pub month_10: bool,
     pub month_11: bool,
     pub month_12: bool,
+}
+
+// ========== Annual Plan Execution Summary (計畫 vs 實際執行) ==========
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MonthExecutionStatus {
+    Unplanned,
+    PlannedPending,
+    Completed,
+    Overdue,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MonthExecutionDetail {
+    pub month: i32,
+    pub planned: bool,
+    pub status: MonthExecutionStatus,
+    pub calibration_id: Option<Uuid>,
+    pub calibrated_at: Option<chrono::NaiveDate>,
+    pub result: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AnnualPlanExecutionRow {
+    pub plan_id: Uuid,
+    pub year: i32,
+    pub equipment_id: Uuid,
+    pub equipment_name: String,
+    pub equipment_serial_number: Option<String>,
+    pub calibration_type: CalibrationType,
+    pub cycle: CalibrationCycle,
+    pub months: Vec<MonthExecutionDetail>,
+    pub planned_count: i32,
+    pub completed_count: i32,
+    pub overdue_count: i32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AnnualPlanExecutionSummary {
+    pub year: i32,
+    pub total_planned: i32,
+    pub total_completed: i32,
+    pub total_overdue: i32,
+    pub completion_rate: f64,
+    pub rows: Vec<AnnualPlanExecutionRow>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExecutionSummaryQuery {
+    pub year: i32,
+    pub equipment_id: Option<Uuid>,
+    pub calibration_type: Option<CalibrationType>,
 }
 
 // ========== Equipment Timeline (設備履歷) ==========

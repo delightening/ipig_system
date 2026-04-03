@@ -10,16 +10,16 @@ use uuid::Uuid;
 use crate::{
     middleware::CurrentUser,
     models::{
-        ActivityLogQuery, AnnualPlanQuery, AnnualPlanWithEquipment, ApproveDisposalRequest,
-        CalibrationQuery, CalibrationWithEquipment, CreateCalibrationRequest,
-        CreateDisposalRequest, CreateEquipmentRequest, CreateEquipmentSupplierRequest,
-        CreateMaintenanceRequest, DisposalQuery, DisposalWithDetails, Equipment,
-        EquipmentCalibration, EquipmentHistoryQuery, EquipmentMaintenanceRecord, EquipmentQuery,
-        EquipmentStatusLog, EquipmentSupplierWithPartner, EquipmentTimelineEntry,
-        CreateAnnualPlanRequest, UpdateAnnualPlanRequest, GenerateAnnualPlanRequest,
-        MaintenanceQuery, MaintenanceRecordWithDetails, PaginatedResponse,
-        ReviewMaintenanceRequest, UpdateCalibrationRequest, UpdateEquipmentRequest,
-        UpdateMaintenanceRequest, UserActivityLog,
+        ActivityLogQuery, AnnualPlanExecutionSummary, AnnualPlanQuery, AnnualPlanWithEquipment,
+        ApproveDisposalRequest, CalibrationQuery, CalibrationWithEquipment,
+        CreateAnnualPlanRequest, CreateCalibrationRequest, CreateDisposalRequest,
+        CreateEquipmentRequest, CreateEquipmentSupplierRequest, CreateMaintenanceRequest,
+        DisposalQuery, DisposalWithDetails, Equipment, EquipmentCalibration,
+        EquipmentHistoryQuery, EquipmentMaintenanceRecord, EquipmentQuery, EquipmentStatusLog,
+        EquipmentSupplierWithPartner, EquipmentTimelineEntry, ExecutionSummaryQuery,
+        GenerateAnnualPlanRequest, MaintenanceQuery, MaintenanceRecordWithDetails,
+        PaginatedResponse, ReviewMaintenanceRequest, UpdateAnnualPlanRequest,
+        UpdateCalibrationRequest, UpdateEquipmentRequest, UpdateMaintenanceRequest, UserActivityLog,
     },
     repositories,
     services::{AuditService, EquipmentService},
@@ -406,4 +406,14 @@ pub async fn delete_annual_plan(
 ) -> Result<StatusCode> {
     EquipmentService::delete_annual_plan(&state.db, id, &current_user).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn get_annual_plan_execution_summary(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<ExecutionSummaryQuery>,
+) -> Result<Json<AnnualPlanExecutionSummary>> {
+    let result =
+        EquipmentService::get_execution_summary(&state.db, &params, &current_user).await?;
+    Ok(Json(result))
 }

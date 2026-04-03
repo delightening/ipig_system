@@ -29,6 +29,7 @@ import type { PaginatedResponse } from '@/types/common'
 
 import type {
   Equipment,
+  AnnualPlanExecutionSummary,
   CalibrationWithEquipment,
   EquipmentForm,
   CalibrationForm,
@@ -169,6 +170,19 @@ export function EquipmentPage() {
       queryFn: async () =>
         (
           await api.get<AnnualPlanWithEquipment[]>('/equipment-annual-plans', {
+            params: { year: planYear },
+          })
+        ).data,
+    },
+  )
+
+  const { data: executionSummary = null } = useGuestQuery<AnnualPlanExecutionSummary | null>(
+    null,
+    {
+      queryKey: ['equipment-annual-plans-summary', planYear],
+      queryFn: async () =>
+        (
+          await api.get<AnnualPlanExecutionSummary>('/equipment-annual-plans/execution-summary', {
             params: { year: planYear },
           })
         ).data,
@@ -332,6 +346,9 @@ export function EquipmentPage() {
       model: equip.model || '',
       serial_number: equip.serial_number || '',
       location: equip.location || '',
+      department: equip.department || '',
+      purchase_date: equip.purchase_date || '',
+      warranty_expiry: equip.warranty_expiry || '',
       notes: equip.notes || '',
       calibration_type: equip.calibration_type || '',
       calibration_cycle: equip.calibration_cycle || '',
@@ -363,6 +380,12 @@ export function EquipmentPage() {
       partner_id: '',
       report_number: '',
       inspector: '',
+      certificate_number: '',
+      performed_by: '',
+      acceptance_criteria: '',
+      measurement_uncertainty: '',
+      validation_phase: '',
+      protocol_number: '',
     })
     dialogs.open('calibCreate')
   }
@@ -379,6 +402,12 @@ export function EquipmentPage() {
       partner_id: calib.partner_id || '',
       report_number: calib.report_number || '',
       inspector: calib.inspector || '',
+      certificate_number: calib.certificate_number || '',
+      performed_by: calib.performed_by || '',
+      acceptance_criteria: calib.acceptance_criteria || '',
+      measurement_uncertainty: calib.measurement_uncertainty || '',
+      validation_phase: calib.validation_phase || '',
+      protocol_number: calib.protocol_number || '',
     })
     dialogs.open('calibEdit')
   }
@@ -541,6 +570,7 @@ export function EquipmentPage() {
             onGenerate={() => generatePlanMutation.mutate()}
             isGenerating={generatePlanMutation.isPending}
             equipmentList={equipmentList}
+            executionSummary={executionSummary}
             onCreatePlan={(data) => createPlanMutation.mutate(data)}
             onEditPlan={(id, data) => {
               const monthData: Record<string, unknown> = { ...data }

@@ -7,9 +7,9 @@ $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot ".."))
 
 # E2E env (matches CI)
 $env:E2E_BASE_URL = "http://localhost:8080"
-$env:E2E_USER_EMAIL = "admin@ipig.local"
+$env:E2E_USER_EMAIL = "admin@ipigsystem.asia"
 $env:E2E_USER_PASSWORD = "ci_test_admin_password_2024"
-$env:E2E_ADMIN_EMAIL = "admin@ipig.local"
+$env:E2E_ADMIN_EMAIL = "admin@ipigsystem.asia"
 $env:E2E_ADMIN_PASSWORD = "ci_test_admin_password_2024"
 $env:ADMIN_INITIAL_PASSWORD = "ci_test_admin_password_2024"  # 與後端 seed 一致，避免 .env 覆蓋
 $env:CI = "true"

@@ -50,7 +50,7 @@ pub async fn get_attendance_stats(
         FROM users u
         LEFT JOIN attendance_records a ON u.id = a.user_id 
             AND DATE(a.clock_in_time) >= $1::date AND DATE(a.clock_in_time) <= $2::date
-        WHERE u.is_active = true AND u.email != 'admin@ipig.local'
+        WHERE u.is_active = true AND u.email != 'admin@ipigsystem.asia'
         AND NOT EXISTS (
             SELECT 1 FROM user_roles ur JOIN roles r ON ur.role_id = r.id
             WHERE ur.user_id = u.id AND (r.code = 'SYSTEM_ADMIN' OR r.code = 'admin')
@@ -138,7 +138,7 @@ pub async fn list_internal_users_for_balance(
         r#"SELECT u.id, u.display_name, u.email, u.phone, u.organization,
                u.entry_date, u.position, u.aup_roles, u.years_experience, u.trainings
         FROM users u
-        WHERE u.is_active = true AND u.is_internal = true AND u.email != 'admin@ipig.local'
+        WHERE u.is_active = true AND u.is_internal = true AND u.email != 'admin@ipigsystem.asia'
         AND NOT EXISTS (
             SELECT 1 FROM user_roles ur JOIN roles r ON ur.role_id = r.id
             WHERE ur.user_id = u.id AND (r.code = 'SYSTEM_ADMIN' OR r.code = 'admin')

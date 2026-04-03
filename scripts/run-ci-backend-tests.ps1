@@ -13,7 +13,7 @@ $BackendDir = Join-Path $RepoRoot "backend"
 # CI env (matches .github/workflows/ci.yml backend-test)
 $env:DATABASE_URL = "postgres://postgres:password@localhost:5432/ipig_db_test"
 $env:SQLX_OFFLINE = "false"
-$env:ADMIN_EMAIL = "admin@ipig.local"
+$env:ADMIN_EMAIL = "admin@ipigsystem.asia"
 $env:ADMIN_INITIAL_PASSWORD = "ci_test_admin_password_2024"
 $env:DISABLE_ACCOUNT_LOCKOUT = "true"
 
