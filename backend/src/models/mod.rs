@@ -25,6 +25,7 @@ mod equipment;
 pub mod accounting;
 mod invitation;
 mod qa_plan;
+pub mod glp_compliance;
 
 pub use user::*;
 pub use invitation::*;

@@ -64,6 +64,8 @@ pub use euthanasia::EuthanasiaService;
 pub use facility::FacilityService;
 pub use file::{FileCategory, FileService, UploadResult};
 pub use hr::HrService;
+pub use hr::overtime::{OvertimeLimitCheck, WeekdayOvertimeTiers, WorkHoursValidation};
+pub use hr::balance::{calculate_annual_leave_days, seniority_months};
 pub use login_tracker::LoginTracker;
 pub use notification::NotificationService;
 pub use partner::PartnerService;
@@ -100,6 +102,8 @@ mod balance_expiration;
 pub use balance_expiration::BalanceExpirationJob;
 
 mod invitation;
+mod glp_compliance;
+pub use glp_compliance::GlpComplianceService;
 mod data_export;
 mod data_import;
 mod schema_mapping;

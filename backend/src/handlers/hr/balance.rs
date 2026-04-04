@@ -86,6 +86,54 @@ pub async fn adjust_balance(
     Ok(Json(entitlement))
 }
 
+/// 勞基法 §38：自動計算單一員工特休假
+#[derive(serde::Deserialize)]
+pub struct AutoCalcRequest {
+    pub user_id: Uuid,
+    pub entitlement_year: i32,
+}
+
+pub async fn auto_calculate_annual_leave(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(payload): Json<AutoCalcRequest>,
+) -> Result<Json<serde_json::Value>> {
+    if !current_user.is_admin()
+        && !current_user.has_permission("hr.balance.manage")
+    {
+        return Err(crate::error::AppError::Forbidden("僅管理員可執行自動計算".to_string()));
+    }
+    let result = HrService::auto_calculate_annual_leave(
+        &state.db, payload.user_id, payload.entitlement_year, current_user.id,
+    ).await?;
+    match result {
+        Some(ent) => Ok(Json(serde_json::json!({ "created": true, "entitlement": ent }))),
+        None => Ok(Json(serde_json::json!({ "created": false, "message": "已存在或年資不足" }))),
+    }
+}
+
+/// 勞基法 §38：批次自動計算所有在職員工特休假
+#[derive(serde::Deserialize)]
+pub struct BatchAutoCalcRequest {
+    pub entitlement_year: i32,
+}
+
+pub async fn batch_auto_calculate_annual_leave(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(payload): Json<BatchAutoCalcRequest>,
+) -> Result<Json<serde_json::Value>> {
+    if !current_user.is_admin()
+        && !current_user.has_permission("hr.balance.manage")
+    {
+        return Err(crate::error::AppError::Forbidden("僅管理員可執行批次計算".to_string()));
+    }
+    let count = HrService::batch_auto_calculate_annual_leave(
+        &state.db, payload.entitlement_year, current_user.id,
+    ).await?;
+    Ok(Json(serde_json::json!({ "created_count": count })))
+}
+
 /// 取得過期特休假報表
 pub async fn get_expired_leave_compensation(
     State(state): State<AppState>,

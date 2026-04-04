@@ -14,3 +14,4 @@ pub mod user_preference;
 pub mod accounting;
 pub mod warehouse;
 pub mod qa_plan;
+pub mod glp_compliance;

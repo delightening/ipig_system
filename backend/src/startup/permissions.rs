@@ -76,6 +76,35 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("invitation.view", "查看邀請", "invitation", "可查看邀請列表"),
         ("invitation.revoke", "撤銷邀請", "invitation", "可撤銷待接受的邀請"),
         ("invitation.resend", "重新發送邀請", "invitation", "可重新發送邀請 Email"),
+        // GLP 合規模組 (Migration 016)
+        ("glp.study_director.designate", "指定 Study Director", "glp", "可指定研究之 Study Director"),
+        ("glp.study_report.sign", "簽署最終報告", "glp", "Study Director 簽署最終研究報告"),
+        ("glp.compliance.overview", "GLP 遵循總覽", "glp", "查看 GLP 遵循狀態儀表板"),
+        ("glp.management_review.view", "查看管理審查", "glp", "檢視管理審查紀錄"),
+        ("glp.management_review.manage", "管理管理審查", "glp", "建立、編輯管理審查"),
+        // 文件控制系統 (DMS)
+        ("dms.document.view", "查看受控文件", "dms", "檢視受控文件列表與詳情"),
+        ("dms.document.manage", "管理受控文件", "dms", "建立、編輯、審核受控文件"),
+        ("dms.document.approve", "核准受控文件", "dms", "核准受控文件發行"),
+        // 風險管理
+        ("risk.register.view", "查看風險登記簿", "risk", "檢視風險評估紀錄"),
+        ("risk.register.manage", "管理風險登記簿", "risk", "建立、評估、處理風險"),
+        // 變更控制
+        ("change.request.view", "查看變更申請", "change", "檢視變更申請紀錄"),
+        ("change.request.manage", "管理變更申請", "change", "建立、提交變更申請"),
+        ("change.request.approve", "核准變更申請", "change", "審核並核准變更申請"),
+        // 環境監控
+        ("env.monitoring.view", "查看環境監控", "env", "檢視環境監控點與紀錄"),
+        ("env.monitoring.manage", "管理環境監控", "env", "建立監控點、登錄環境數據"),
+        // 能力評鑑
+        ("competency.assessment.view", "查看能力評鑑", "competency", "檢視能力評鑑紀錄"),
+        ("competency.assessment.manage", "管理能力評鑑", "competency", "建立、執行能力評鑑"),
+        // 最終報告
+        ("study.report.view", "查看最終報告", "study", "檢視研究最終報告"),
+        ("study.report.manage", "管理最終報告", "study", "建立、編輯研究最終報告"),
+        // 配製紀錄
+        ("formulation.record.view", "查看配製紀錄", "formulation", "檢視試驗物質配製紀錄"),
+        ("formulation.record.manage", "管理配製紀錄", "formulation", "建立、編輯配製紀錄"),
     ];
     
     for (code, name, module, description) in required_permissions {
@@ -438,6 +467,48 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "dashboard.view",
         ]),
         
+        // ============================================
+        // STUDY_DIRECTOR (GLP 研究主持人) - PI 權限 + GLP 專用
+        // ============================================
+        ("STUDY_DIRECTOR", vec![
+            // PI 核心權限
+            "aup.protocol.view_own", "aup.protocol.create", "aup.protocol.edit",
+            "aup.protocol.submit", "aup.protocol.delete",
+            "aup.review.view", "aup.review.reply",
+            "aup.attachment.view", "aup.attachment.download", "aup.attachment.upload", "aup.attachment.delete",
+            "aup.version.view", "aup.version.restore",
+            "animal.animal.view_project", "animal.record.view",
+            "animal.export.medical", "animal.export.observation", "animal.export.surgery",
+            "dashboard.view",
+            // GLP 專用
+            "glp.study_report.sign", "glp.compliance.overview",
+            "study.report.view", "study.report.manage",
+            "formulation.record.view", "formulation.record.manage",
+        ]),
+
+        // ============================================
+        // TEST_FACILITY_MANAGEMENT (試驗機構管理階層) - GLP 管理 + 全域概覽
+        // ============================================
+        ("TEST_FACILITY_MANAGEMENT", vec![
+            // GLP 管理
+            "glp.study_director.designate", "glp.compliance.overview",
+            "glp.management_review.view", "glp.management_review.manage",
+            // 全域唯讀
+            "aup.protocol.view_all", "aup.review.view",
+            "aup.attachment.view", "aup.attachment.download", "aup.version.view",
+            "animal.animal.view_all", "animal.record.view",
+            "qau.dashboard.view", "qau.inspection.view", "qau.nc.view", "qau.sop.view", "qau.schedule.view",
+            "audit.logs.view",
+            // 管理系統模組
+            "dms.document.view", "dms.document.manage", "dms.document.approve",
+            "risk.register.view", "risk.register.manage",
+            "change.request.view", "change.request.manage", "change.request.approve",
+            "env.monitoring.view",
+            "competency.assessment.view",
+            "study.report.view",
+            "dashboard.view",
+        ]),
+
         // ============================================
         // CLIENT (委託人) - 計畫/動物查看（僅自己相關）
         // ============================================

@@ -33,6 +33,10 @@ pub fn routes() -> Router<AppState> {
         .route("/hr/overtime/:id/submit", post(handlers::submit_overtime))
         .route("/hr/overtime/:id/approve", post(handlers::approve_overtime))
         .route("/hr/overtime/:id/reject", post(handlers::reject_overtime))
+        // 勞基法合規 API
+        .route("/hr/overtime/limit-check", get(handlers::check_overtime_limit))
+        .route("/hr/overtime/weekday-tiers", get(handlers::calculate_weekday_tiers))
+        .route("/hr/work-hours/validate", get(handlers::validate_work_hours))
         // HR Leave
         .route(
             "/hr/leaves",
@@ -64,6 +68,14 @@ pub fn routes() -> Router<AppState> {
             post(handlers::create_annual_leave_entitlement),
         )
         .route("/hr/balances/:id/adjust", post(handlers::adjust_balance))
+        .route(
+            "/hr/balances/annual-auto-calc",
+            post(handlers::auto_calculate_annual_leave),
+        )
+        .route(
+            "/hr/balances/annual-batch-calc",
+            post(handlers::batch_auto_calculate_annual_leave),
+        )
         .route(
             "/hr/balances/expired-compensation",
             get(handlers::get_expired_leave_compensation),

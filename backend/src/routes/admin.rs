@@ -1,5 +1,5 @@
 use axum::{
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 
@@ -185,5 +185,131 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/admin/treatment-drugs/import-erp",
             post(handlers::treatment_drug::import_treatment_drugs_from_erp),
+        )
+        // ============================================================
+        // GLP 合規模組 Routes
+        // ============================================================
+        // Reference Standards (參考標準器)
+        .route(
+            "/admin/reference-standards",
+            get(handlers::glp_compliance::list_reference_standards)
+                .post(handlers::glp_compliance::create_reference_standard),
+        )
+        .route(
+            "/admin/reference-standards/:id",
+            get(handlers::glp_compliance::get_reference_standard)
+                .put(handlers::glp_compliance::update_reference_standard),
+        )
+        // Controlled Documents (文件控制)
+        .route(
+            "/admin/documents",
+            get(handlers::glp_compliance::list_controlled_documents)
+                .post(handlers::glp_compliance::create_controlled_document),
+        )
+        .route(
+            "/admin/documents/:id",
+            get(handlers::glp_compliance::get_controlled_document)
+                .put(handlers::glp_compliance::update_controlled_document),
+        )
+        .route(
+            "/admin/documents/:id/approve",
+            post(handlers::glp_compliance::approve_controlled_document),
+        )
+        .route(
+            "/admin/documents/:id/revisions",
+            post(handlers::glp_compliance::create_revision),
+        )
+        .route(
+            "/admin/documents/:id/acknowledge",
+            post(handlers::glp_compliance::acknowledge_document),
+        )
+        // Management Reviews (管理審查)
+        .route(
+            "/admin/management-reviews",
+            get(handlers::glp_compliance::list_management_reviews)
+                .post(handlers::glp_compliance::create_management_review),
+        )
+        .route(
+            "/admin/management-reviews/:id",
+            get(handlers::glp_compliance::get_management_review)
+                .put(handlers::glp_compliance::update_management_review),
+        )
+        // Risk Register (風險管理)
+        .route(
+            "/admin/risks",
+            get(handlers::glp_compliance::list_risks)
+                .post(handlers::glp_compliance::create_risk),
+        )
+        .route(
+            "/admin/risks/:id",
+            get(handlers::glp_compliance::get_risk)
+                .put(handlers::glp_compliance::update_risk),
+        )
+        // Change Requests (變更控制)
+        .route(
+            "/admin/change-requests",
+            get(handlers::glp_compliance::list_change_requests)
+                .post(handlers::glp_compliance::create_change_request),
+        )
+        .route(
+            "/admin/change-requests/:id",
+            get(handlers::glp_compliance::get_change_request)
+                .put(handlers::glp_compliance::update_change_request),
+        )
+        .route(
+            "/admin/change-requests/:id/approve",
+            post(handlers::glp_compliance::approve_change_request),
+        )
+        // Environment Monitoring (環境監控)
+        .route(
+            "/admin/env-monitoring/points",
+            get(handlers::glp_compliance::list_monitoring_points)
+                .post(handlers::glp_compliance::create_monitoring_point),
+        )
+        .route(
+            "/admin/env-monitoring/points/:id",
+            get(handlers::glp_compliance::get_monitoring_point)
+                .put(handlers::glp_compliance::update_monitoring_point),
+        )
+        .route(
+            "/admin/env-monitoring/readings",
+            get(handlers::glp_compliance::list_readings)
+                .post(handlers::glp_compliance::create_reading),
+        )
+        // Competency Assessments (能力評鑑)
+        .route(
+            "/admin/competency-assessments",
+            get(handlers::glp_compliance::list_competency_assessments)
+                .post(handlers::glp_compliance::create_competency_assessment),
+        )
+        .route(
+            "/admin/competency-assessments/:id",
+            put(handlers::glp_compliance::update_competency_assessment),
+        )
+        .route(
+            "/admin/training-requirements",
+            get(handlers::glp_compliance::list_training_requirements)
+                .post(handlers::glp_compliance::create_training_requirement),
+        )
+        .route(
+            "/admin/training-requirements/:id",
+            delete(handlers::glp_compliance::delete_training_requirement),
+        )
+        // Study Final Reports (最終報告)
+        .route(
+            "/admin/study-reports",
+            get(handlers::glp_compliance::list_study_reports)
+                .post(handlers::glp_compliance::create_study_report),
+        )
+        .route(
+            "/admin/study-reports/:id",
+            get(handlers::glp_compliance::get_study_report)
+                .put(handlers::glp_compliance::update_study_report),
+        )
+        // Formulation Records (配製紀錄)
+        .route(
+            "/admin/formulation-records",
+            get(handlers::glp_compliance::list_formulation_records)
+                .post(handlers::glp_compliance::create_formulation_record),
         )
 }

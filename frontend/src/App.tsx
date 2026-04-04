@@ -61,6 +61,15 @@ const QAInspectionPage = lazy(() => import('@/pages/admin/QAInspectionPage').the
 const QANonConformancePage = lazy(() => import('@/pages/admin/QANonConformancePage').then(m => ({ default: m.QANonConformancePage })))
 const QASopPage = lazy(() => import('@/pages/admin/QASopPage').then(m => ({ default: m.QASopPage })))
 const QASchedulePage = lazy(() => import('@/pages/admin/QASchedulePage').then(m => ({ default: m.QASchedulePage })))
+// GLP Compliance Pages
+const DocumentControlPage = lazy(() => import('@/pages/admin/DocumentControlPage').then(m => ({ default: m.DocumentControlPage })))
+const ManagementReviewPage = lazy(() => import('@/pages/admin/ManagementReviewPage').then(m => ({ default: m.ManagementReviewPage })))
+const RiskRegisterPage = lazy(() => import('@/pages/admin/RiskRegisterPage').then(m => ({ default: m.RiskRegisterPage })))
+const ChangeControlPage = lazy(() => import('@/pages/admin/ChangeControlPage').then(m => ({ default: m.ChangeControlPage })))
+const EnvironmentMonitoringPage = lazy(() => import('@/pages/admin/EnvironmentMonitoringPage').then(m => ({ default: m.EnvironmentMonitoringPage })))
+const CompetencyAssessmentPage = lazy(() => import('@/pages/admin/CompetencyAssessmentPage').then(m => ({ default: m.CompetencyAssessmentPage })))
+const StudyFinalReportPage = lazy(() => import('@/pages/admin/StudyFinalReportPage').then(m => ({ default: m.StudyFinalReportPage })))
+const FormulationRecordsPage = lazy(() => import('@/pages/admin/FormulationRecordsPage').then(m => ({ default: m.FormulationRecordsPage })))
 const FacilitiesPage = lazy(() => import('@/pages/admin/FacilitiesPage').then(m => ({ default: m.FacilitiesPage })))
 const InvitationsPage = lazy(() => import('@/pages/admin/InvitationsPage').then(m => ({ default: m.InvitationsPage })))
 
@@ -348,6 +357,47 @@ function App() {
                         <Route path="/admin/invitations" element={
                           <RequirePermission permission="invitation.view">
                             <InvitationsPage />
+                          </RequirePermission>
+                        } />
+                        {/* GLP Compliance Pages */}
+                        <Route path="/admin/document-control" element={
+                          <RequirePermission permission="dms.document.view">
+                            <DocumentControlPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/management-reviews" element={
+                          <RequirePermission permission="glp.management_review.view">
+                            <ManagementReviewPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/risk-register" element={
+                          <RequirePermission permission="risk.register.view">
+                            <RiskRegisterPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/change-control" element={
+                          <RequirePermission permission="change.request.view">
+                            <ChangeControlPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/environment-monitoring" element={
+                          <RequirePermission permission="env.monitoring.view">
+                            <EnvironmentMonitoringPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/competency-assessments" element={
+                          <RequirePermission permission="competency.assessment.view">
+                            <CompetencyAssessmentPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/study-reports" element={
+                          <RequirePermission permission="study.report.view">
+                            <StudyFinalReportPage />
+                          </RequirePermission>
+                        } />
+                        <Route path="/admin/formulation-records" element={
+                          <RequirePermission permission="formulation.record.view">
+                            <FormulationRecordsPage />
                           </RequirePermission>
                         } />
                     </Route>

@@ -30,6 +30,7 @@ mod training;
 mod equipment;
 mod qau;
 pub mod qa_plan;
+pub mod glp_compliance;
 pub mod two_factor;
 mod upload;
 pub(crate) mod user;

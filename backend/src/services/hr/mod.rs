@@ -2,9 +2,9 @@
 // 拆分自原始 hr.rs（1,453 行）
 
 mod attendance;
-mod overtime;
+pub mod overtime;
 mod leave;
-mod balance;
+pub mod balance;
 mod dashboard;
 
 pub struct HrService;

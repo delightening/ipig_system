@@ -80,6 +80,8 @@ pub const ROLE_WAREHOUSE_MANAGER: &str = "WAREHOUSE_MANAGER";
 pub const ROLE_ADMIN_STAFF: &str = "ADMIN_STAFF";
 pub const ROLE_GUEST: &str = "GUEST";
 pub const ROLE_QAU: &str = "QAU";
+pub const ROLE_STUDY_DIRECTOR: &str = "STUDY_DIRECTOR";
+pub const ROLE_TEST_FACILITY_MANAGEMENT: &str = "TEST_FACILITY_MANAGEMENT";
 
 /// Leave type codes
 pub const LEAVE_ANNUAL: &str = "ANNUAL";

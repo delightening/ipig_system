@@ -16,6 +16,45 @@ use crate::{
 
 use super::HrService;
 
+/// 依台灣勞基法 §38 計算特休假天數。
+///
+/// | 年資 | 天數 |
+/// |------|------|
+/// | 滿 6 個月未滿 1 年 | 3 天 |
+/// | 滿 1 年未滿 2 年 | 7 天 |
+/// | 滿 2 年未滿 3 年 | 10 天 |
+/// | 滿 3 年未滿 5 年 | 14 天 |
+/// | 滿 5 年未滿 10 年 | 15 天 |
+/// | 滿 10 年以上 | 每年加 1 天，上限 30 天 |
+pub fn calculate_annual_leave_days(seniority_months: i32) -> f64 {
+    if seniority_months < 6 {
+        0.0
+    } else if seniority_months < 12 {
+        3.0
+    } else if seniority_months < 24 {
+        7.0
+    } else if seniority_months < 36 {
+        10.0
+    } else if seniority_months < 60 {
+        14.0
+    } else if seniority_months < 120 {
+        15.0
+    } else {
+        // 滿 10 年起，每多 1 年加 1 天，上限 30 天
+        let extra_years = (seniority_months - 120) / 12;
+        let days = 15 + extra_years + 1; // 第 10 年本身就是 16 天
+        (days as f64).min(30.0)
+    }
+}
+
+/// 依到職日計算年資月數（至指定日期）
+pub fn seniority_months(hire_date: NaiveDate, as_of: NaiveDate) -> i32 {
+    let years = as_of.year() - hire_date.year();
+    let months = as_of.month() as i32 - hire_date.month() as i32;
+    let day_adj = if as_of.day() < hire_date.day() { -1 } else { 0 };
+    (years * 12 + months + day_adj).max(0)
+}
+
 /// 計算特休假到期日。
 /// 到期年 = 授予年 + 2。
 /// - 若有到職日：優先以同月同日為到期日（例外處理 2/29）
@@ -224,6 +263,92 @@ impl HrService {
             .collect())
     }
 
+    /// 依勞基法 §38 自動計算特定員工的特休假天數並建立額度。
+    /// 根據 hire_date 計算年資，自動推算天數。
+    pub async fn auto_calculate_annual_leave(
+        pool: &PgPool,
+        user_id: Uuid,
+        entitlement_year: i32,
+        creator_id: Uuid,
+    ) -> Result<Option<AnnualLeaveEntitlement>> {
+        // 查詢是否已存在
+        let existing: Option<(Uuid,)> = sqlx::query_as(
+            "SELECT id FROM annual_leave_entitlements WHERE user_id = $1 AND entitlement_year = $2",
+        )
+        .bind(user_id)
+        .bind(entitlement_year)
+        .fetch_optional(pool)
+        .await?;
+
+        if existing.is_some() {
+            return Ok(None); // 已存在，不重複建立
+        }
+
+        // 查詢到職日
+        let hire_info: Option<(Option<NaiveDate>,)> = sqlx::query_as(
+            "SELECT hire_date FROM users WHERE id = $1",
+        )
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await?;
+
+        let hire_date = hire_info
+            .and_then(|h| h.0)
+            .ok_or_else(|| AppError::Validation("該員工無到職日，無法自動計算特休假".into()))?;
+
+        // 計算到授予年度年底的年資月數
+        let as_of = NaiveDate::from_ymd_opt(entitlement_year, 12, 31)
+            .ok_or_else(|| AppError::Internal("invalid date".into()))?;
+        let months = seniority_months(hire_date, as_of);
+        let days = calculate_annual_leave_days(months);
+
+        if days <= 0.0 {
+            return Ok(None); // 年資不足，無特休假
+        }
+
+        let payload = CreateAnnualLeaveRequest {
+            user_id,
+            entitlement_year,
+            entitled_days: days,
+            hire_date: Some(hire_date),
+            calculation_basis: Some(format!(
+                "auto_calc_art38:seniority_{}m={}d",
+                months, days
+            )),
+            notes: Some(format!(
+                "勞基法§38自動計算：年資{}個月→特休{}天",
+                months, days
+            )),
+        };
+
+        let record = Self::create_annual_leave_entitlement(pool, creator_id, &payload).await?;
+        Ok(Some(record))
+    }
+
+    /// 批次為所有在職員工自動計算指定年度的特休假。
+    /// 回傳成功建立的筆數。
+    pub async fn batch_auto_calculate_annual_leave(
+        pool: &PgPool,
+        entitlement_year: i32,
+        creator_id: Uuid,
+    ) -> Result<i32> {
+        let active_users: Vec<(Uuid,)> = sqlx::query_as(
+            "SELECT id FROM users WHERE is_active = true AND hire_date IS NOT NULL",
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut count = 0;
+        for (uid,) in active_users {
+            if let Ok(Some(_)) = Self::auto_calculate_annual_leave(
+                pool, uid, entitlement_year, creator_id,
+            ).await {
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+
     pub async fn copy_previous_year_entitlement(
         pool: &PgPool,
         user_id: Uuid,
@@ -270,7 +395,7 @@ impl HrService {
 
 #[cfg(test)]
 mod tests {
-    use super::compute_leave_expiry;
+    use super::{compute_leave_expiry, calculate_annual_leave_days, seniority_months};
     use chrono::NaiveDate;
 
     // --- compute_leave_expiry ---
@@ -303,5 +428,81 @@ mod tests {
         // 確認 entitlement_year + 2 邏輯
         let result = compute_leave_expiry(2025, None);
         assert_eq!(result, NaiveDate::from_ymd_opt(2027, 12, 31));
+    }
+
+    // --- 勞基法 §38 特休假自動計算 ---
+
+    #[test]
+    fn test_annual_leave_under_6_months() {
+        assert_eq!(calculate_annual_leave_days(0), 0.0);
+        assert_eq!(calculate_annual_leave_days(5), 0.0);
+    }
+
+    #[test]
+    fn test_annual_leave_6_to_12_months() {
+        assert_eq!(calculate_annual_leave_days(6), 3.0);
+        assert_eq!(calculate_annual_leave_days(11), 3.0);
+    }
+
+    #[test]
+    fn test_annual_leave_1_to_2_years() {
+        assert_eq!(calculate_annual_leave_days(12), 7.0);
+        assert_eq!(calculate_annual_leave_days(23), 7.0);
+    }
+
+    #[test]
+    fn test_annual_leave_2_to_3_years() {
+        assert_eq!(calculate_annual_leave_days(24), 10.0);
+        assert_eq!(calculate_annual_leave_days(35), 10.0);
+    }
+
+    #[test]
+    fn test_annual_leave_3_to_5_years() {
+        assert_eq!(calculate_annual_leave_days(36), 14.0);
+        assert_eq!(calculate_annual_leave_days(59), 14.0);
+    }
+
+    #[test]
+    fn test_annual_leave_5_to_10_years() {
+        assert_eq!(calculate_annual_leave_days(60), 15.0);
+        assert_eq!(calculate_annual_leave_days(119), 15.0);
+    }
+
+    #[test]
+    fn test_annual_leave_10_plus_years() {
+        assert_eq!(calculate_annual_leave_days(120), 16.0); // 滿 10 年
+        assert_eq!(calculate_annual_leave_days(132), 17.0); // 滿 11 年
+        assert_eq!(calculate_annual_leave_days(144), 18.0); // 滿 12 年
+    }
+
+    #[test]
+    fn test_annual_leave_cap_at_30_days() {
+        assert_eq!(calculate_annual_leave_days(120 + 14 * 12), 30.0); // 24 年
+        assert_eq!(calculate_annual_leave_days(120 + 20 * 12), 30.0); // 30 年：上限
+    }
+
+    // --- seniority_months ---
+
+    #[test]
+    fn test_seniority_months_basic() {
+        let hire = NaiveDate::from_ymd_opt(2024, 1, 15)
+            .expect("valid date: 2024-01-15");
+        let as_of = NaiveDate::from_ymd_opt(2026, 1, 15)
+            .expect("valid date: 2026-01-15");
+        assert_eq!(seniority_months(hire, as_of), 24);
+    }
+
+    #[test]
+    fn test_seniority_months_mid_month() {
+        let hire = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
+        let as_of = NaiveDate::from_ymd_opt(2025, 3, 19).unwrap();
+        assert_eq!(seniority_months(hire, as_of), 11); // 未滿 12 個月
+    }
+
+    #[test]
+    fn test_seniority_months_same_day() {
+        let hire = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let as_of = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        assert_eq!(seniority_months(hire, as_of), 0);
     }
 }

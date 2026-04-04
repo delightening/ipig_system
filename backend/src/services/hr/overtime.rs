@@ -1,6 +1,6 @@
 // HR 加班管理
 
-use chrono::{Timelike, TimeZone, Utc};
+use chrono::{Datelike, NaiveDate, Timelike, TimeZone, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -16,8 +16,8 @@ use crate::{
 
 use super::HrService;
 
-/// 依加班類型回傳薪資乘數。
-/// A=平日(1.0), B=假日(1.33), C=國定假日(1.66), D=天災(2.0)
+/// 依加班類型回傳補休乘數（非加班費，本系統不計算加班費）。
+/// A=平日(1.0), B=休息日(1.33), C=國定假日(1.66), D=天災(2.0)
 pub(super) fn overtime_multiplier(overtime_type: &str) -> f64 {
     match overtime_type {
         "A" => 1.0,
@@ -26,6 +26,84 @@ pub(super) fn overtime_multiplier(overtime_type: &str) -> f64 {
         "D" => 2.0,
         _ => 1.0,
     }
+}
+
+// ============================================================
+// 勞基法合規常數
+// ============================================================
+
+/// 勞基法 §30：每日標準工時上限 8 小時
+pub const DAILY_REGULAR_HOURS: f64 = 8.0;
+
+/// 勞基法 §30：每週標準工時上限 40 小時
+pub const WEEKLY_REGULAR_HOURS: f64 = 40.0;
+
+/// 勞基法 §32：每月加班時數上限 46 小時
+pub const MONTHLY_OVERTIME_LIMIT: f64 = 46.0;
+
+/// 勞基法 §32：特殊情況每月加班上限 54 小時（需勞資協議）
+pub const MONTHLY_OVERTIME_LIMIT_EXTENDED: f64 = 54.0;
+
+/// 勞基法 §32：每三個月加班上限 138 小時（46×3）
+pub const QUARTERLY_OVERTIME_LIMIT: f64 = 138.0;
+
+/// 平日加班分段結果
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WeekdayOvertimeTiers {
+    /// 前 2 小時
+    pub tier1_hours: f64,
+    /// 超過 2 小時
+    pub tier2_hours: f64,
+    /// 總時數
+    pub total_hours: f64,
+}
+
+/// 勞基法 §24：平日加班分段計算。
+/// - 前 2 小時為第一段
+/// - 超過 2 小時為第二段
+pub fn split_weekday_overtime(hours: f64) -> WeekdayOvertimeTiers {
+    let total = (hours * 2.0).floor() / 2.0; // 四捨五入至 0.5
+    let tier1 = total.min(2.0);
+    let tier2 = (total - 2.0).max(0.0);
+    WeekdayOvertimeTiers {
+        tier1_hours: tier1,
+        tier2_hours: tier2,
+        total_hours: total,
+    }
+}
+
+/// 加班上限驗證結果
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct OvertimeLimitCheck {
+    /// 本月已累計加班時數
+    pub monthly_total: f64,
+    /// 本次申請時數
+    pub requested_hours: f64,
+    /// 合併後總時數
+    pub projected_total: f64,
+    /// 是否超過標準上限 (46hr)
+    pub exceeds_standard_limit: bool,
+    /// 是否超過特殊上限 (54hr)
+    pub exceeds_extended_limit: bool,
+    /// 警告訊息（空表示通過）
+    pub warnings: Vec<String>,
+}
+
+/// 工時驗證結果
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WorkHoursValidation {
+    /// 當日實際工時
+    pub daily_hours: f64,
+    /// 本週累計工時
+    pub weekly_hours: f64,
+    /// 是否超過每日標準 (8hr)
+    pub exceeds_daily_limit: bool,
+    /// 是否超過每週標準 (40hr)
+    pub exceeds_weekly_limit: bool,
+    /// 建議加班時數（超出 8 小時部分）
+    pub suggested_overtime_hours: f64,
+    /// 警告訊息
+    pub warnings: Vec<String>,
 }
 
 /// 依加班類型回傳補休時數。
@@ -348,6 +426,142 @@ impl HrService {
         Ok(result)
     }
 
+    // ============================================================
+    // 勞基法合規驗證
+    // ============================================================
+
+    /// 勞基法 §32：檢查本月加班上限。
+    /// 查詢該員工當月已核准/待審加班時數，加上本次申請是否超限。
+    pub async fn check_monthly_overtime_limit(
+        pool: &PgPool,
+        user_id: Uuid,
+        overtime_date: NaiveDate,
+        requested_hours: f64,
+    ) -> Result<OvertimeLimitCheck> {
+        let year = overtime_date.year();
+        let month = overtime_date.month();
+
+        let row: (f64,) = sqlx::query_as(
+            r#"
+            SELECT COALESCE(SUM(hours), 0)::float8
+            FROM overtime_records
+            WHERE user_id = $1
+              AND EXTRACT(YEAR FROM overtime_date) = $2
+              AND EXTRACT(MONTH FROM overtime_date) = $3
+              AND status NOT IN ('rejected', 'cancelled')
+            "#,
+        )
+        .bind(user_id)
+        .bind(year as f64)
+        .bind(month as f64)
+        .fetch_one(pool)
+        .await?;
+
+        let monthly_total = row.0;
+        let projected = monthly_total + requested_hours;
+        let mut warnings = Vec::new();
+
+        if projected > MONTHLY_OVERTIME_LIMIT {
+            warnings.push(format!(
+                "本月加班將達 {:.1} 小時，超過勞基法§32標準上限 {} 小時",
+                projected, MONTHLY_OVERTIME_LIMIT
+            ));
+        }
+        if projected > MONTHLY_OVERTIME_LIMIT_EXTENDED {
+            warnings.push(format!(
+                "本月加班將達 {:.1} 小時，超過勞基法§32特殊上限 {} 小時（需勞資協議）",
+                projected, MONTHLY_OVERTIME_LIMIT_EXTENDED
+            ));
+        }
+
+        Ok(OvertimeLimitCheck {
+            monthly_total,
+            requested_hours,
+            projected_total: projected,
+            exceeds_standard_limit: projected > MONTHLY_OVERTIME_LIMIT,
+            exceeds_extended_limit: projected > MONTHLY_OVERTIME_LIMIT_EXTENDED,
+            warnings,
+        })
+    }
+
+    /// 勞基法 §30：驗證日/週工時。
+    /// 計算指定日期的實際工時，以及該週的累計工時。
+    pub async fn validate_work_hours(
+        pool: &PgPool,
+        user_id: Uuid,
+        work_date: NaiveDate,
+    ) -> Result<WorkHoursValidation> {
+        use chrono::Datelike;
+
+        // 查詢當日工時
+        let daily: (f64,) = sqlx::query_as(
+            r#"
+            SELECT COALESCE(regular_hours, 0)::float8
+            FROM attendance_records
+            WHERE user_id = $1 AND work_date = $2
+            "#,
+        )
+        .bind(user_id)
+        .bind(work_date)
+        .fetch_optional(pool)
+        .await?
+        .unwrap_or((0.0,));
+
+        // 計算該週的週一到週日
+        let weekday = work_date.weekday().num_days_from_monday(); // 0=Mon
+        let week_start = work_date - chrono::Duration::days(weekday as i64);
+        let week_end = week_start + chrono::Duration::days(6);
+
+        // 查詢本週累計工時
+        let weekly: (f64,) = sqlx::query_as(
+            r#"
+            SELECT COALESCE(SUM(regular_hours), 0)::float8
+            FROM attendance_records
+            WHERE user_id = $1 AND work_date BETWEEN $2 AND $3
+            "#,
+        )
+        .bind(user_id)
+        .bind(week_start)
+        .bind(week_end)
+        .fetch_one(pool)
+        .await?;
+
+        let daily_hours = daily.0;
+        let weekly_hours = weekly.0;
+        let mut warnings = Vec::new();
+
+        let exceeds_daily = daily_hours > DAILY_REGULAR_HOURS;
+        let exceeds_weekly = weekly_hours > WEEKLY_REGULAR_HOURS;
+        let suggested_ot = (daily_hours - DAILY_REGULAR_HOURS).max(0.0);
+
+        if exceeds_daily {
+            warnings.push(format!(
+                "當日工時 {:.1}hr 超過勞基法§30標準 {}hr，建議登錄 {:.1}hr 加班",
+                daily_hours, DAILY_REGULAR_HOURS, suggested_ot
+            ));
+        }
+        if exceeds_weekly {
+            warnings.push(format!(
+                "本週累計 {:.1}hr 超過勞基法§30標準 {}hr",
+                weekly_hours, WEEKLY_REGULAR_HOURS
+            ));
+        }
+
+        Ok(WorkHoursValidation {
+            daily_hours,
+            weekly_hours,
+            exceeds_daily_limit: exceeds_daily,
+            exceeds_weekly_limit: exceeds_weekly,
+            suggested_overtime_hours: suggested_ot,
+            warnings,
+        })
+    }
+
+    /// 勞基法 §24：計算平日加班分段時數。
+    pub fn calculate_weekday_overtime_tiers(hours: f64) -> WeekdayOvertimeTiers {
+        split_weekday_overtime(hours)
+    }
+
     pub async fn reject_overtime(
         pool: &PgPool,
         id: Uuid,
@@ -389,7 +603,7 @@ impl HrService {
 
 #[cfg(test)]
 mod tests {
-    use super::{calc_hours_from_minutes, comp_time_hours_for_type, overtime_multiplier};
+    use super::{calc_hours_from_minutes, comp_time_hours_for_type, overtime_multiplier, split_weekday_overtime};
 
     // --- overtime_multiplier ---
 
@@ -444,5 +658,53 @@ mod tests {
     fn test_calc_hours_one_and_half() {
         // 90 分鐘 = 1.5 小時
         assert_eq!(calc_hours_from_minutes(0, 90), 1.5);
+    }
+
+    // --- split_weekday_overtime (勞基法 §24) ---
+
+    #[test]
+    fn test_weekday_tiers_under_two_hours() {
+        let t = split_weekday_overtime(1.5);
+        assert_eq!(t.tier1_hours, 1.5);
+        assert_eq!(t.tier2_hours, 0.0);
+        assert_eq!(t.total_hours, 1.5);
+    }
+
+    #[test]
+    fn test_weekday_tiers_exactly_two_hours() {
+        let t = split_weekday_overtime(2.0);
+        assert_eq!(t.tier1_hours, 2.0);
+        assert_eq!(t.tier2_hours, 0.0);
+    }
+
+    #[test]
+    fn test_weekday_tiers_over_two_hours() {
+        let t = split_weekday_overtime(3.5);
+        assert_eq!(t.tier1_hours, 2.0);
+        assert_eq!(t.tier2_hours, 1.5);
+        assert_eq!(t.total_hours, 3.5);
+    }
+
+    #[test]
+    fn test_weekday_tiers_four_hours() {
+        let t = split_weekday_overtime(4.0);
+        assert_eq!(t.tier1_hours, 2.0);
+        assert_eq!(t.tier2_hours, 2.0);
+    }
+
+    #[test]
+    fn test_weekday_tiers_rounds_to_half() {
+        // 2h20m = 2.33... → 捨入至 2.0
+        let t = split_weekday_overtime(2.33);
+        assert_eq!(t.total_hours, 2.0);
+        assert_eq!(t.tier1_hours, 2.0);
+        assert_eq!(t.tier2_hours, 0.0);
+    }
+
+    #[test]
+    fn test_weekday_tiers_zero() {
+        let t = split_weekday_overtime(0.0);
+        assert_eq!(t.tier1_hours, 0.0);
+        assert_eq!(t.tier2_hours, 0.0);
     }
 }

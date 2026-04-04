@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::{
     middleware::CurrentUser,
     models::{AuditAction, CreateOvertimeRequest, OvertimeQuery, OvertimeWithUser, PaginatedResponse, RejectOvertimeRequest, UpdateOvertimeRequest},
-    services::{AuditService, HrService, NotificationService},
+    services::{AuditService, HrService, NotificationService, OvertimeLimitCheck, WeekdayOvertimeTiers, WorkHoursValidation},
     AppState, Result,
 };
 
@@ -145,6 +145,56 @@ pub async fn approve_overtime(
     )
     .await { tracing::error!("審計日誌寫入失敗: {e}"); }
     Ok(Json(record))
+}
+
+/// 勞基法 §32：檢查加班上限
+#[derive(serde::Deserialize)]
+pub struct OvertimeLimitQuery {
+    pub user_id: Uuid,
+    pub overtime_date: chrono::NaiveDate,
+    pub hours: f64,
+}
+
+pub async fn check_overtime_limit(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(params): Query<OvertimeLimitQuery>,
+) -> Result<Json<OvertimeLimitCheck>> {
+    let result = HrService::check_monthly_overtime_limit(
+        &state.db, params.user_id, params.overtime_date, params.hours,
+    ).await?;
+    Ok(Json(result))
+}
+
+/// 勞基法 §30：驗證日/週工時
+#[derive(serde::Deserialize)]
+pub struct WorkHoursQuery {
+    pub user_id: Uuid,
+    pub work_date: chrono::NaiveDate,
+}
+
+pub async fn validate_work_hours(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(params): Query<WorkHoursQuery>,
+) -> Result<Json<WorkHoursValidation>> {
+    let result = HrService::validate_work_hours(
+        &state.db, params.user_id, params.work_date,
+    ).await?;
+    Ok(Json(result))
+}
+
+/// 勞基法 §24：平日加班分段計算
+#[derive(serde::Deserialize)]
+pub struct WeekdayTiersQuery {
+    pub hours: f64,
+}
+
+pub async fn calculate_weekday_tiers(
+    Query(params): Query<WeekdayTiersQuery>,
+) -> Result<Json<WeekdayOvertimeTiers>> {
+    let result = HrService::calculate_weekday_overtime_tiers(params.hours);
+    Ok(Json(result))
 }
 
 /// 駁回加班申請

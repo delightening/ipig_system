@@ -185,6 +185,25 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-03 GLP / ISO 17025 / ISO 9001 合規改進（P0+P1）
+
+- ✅ **合規差距分析報告**：產出 `docs/COMPLIANCE_GAP_ANALYSIS.md`，涵蓋 GLP (OECD) / ISO 17025:2017 / ISO 9001:2015 三大法規逐條分析，識別 3 個 P0 + 9 個 P1 + 16 個 P2 差距項目
+- ✅ **Migration 016**：新增 11 張資料表（reference_standards、controlled_documents、document_revisions、document_acknowledgments、management_reviews、risk_register、change_requests、environment_monitoring_points、environment_readings、competency_assessments、role_training_requirements、study_final_reports、formulation_records）+ ALTER 擴充 equipment_calibrations（追溯鏈欄位）、qa_sop_documents（審核簽署欄位）、products（GLP 試驗物質欄位）
+- ✅ **P0-1/P0-2 GLP 角色**：新增 STUDY_DIRECTOR（研究主持人）與 TEST_FACILITY_MANAGEMENT（試驗機構管理階層）角色，含 22 項新權限定義與 6 個角色權限映射
+- ✅ **P0-3 校正追溯鏈**：新增 reference_standards 表管理參考標準器，calibration 紀錄擴充追溯欄位（calibration_lab_accreditation、traceability_statement、reading_before/after）
+- ✅ **P1-1 文件控制系統 (DMS)**：完整 CRUD + 審核核准 + 版本修訂 + 人員簽收，支援 6 種文件類型
+- ✅ **P1-2 管理審查模組**：排程→執行→結案工作流，含議程、出席者、會議紀錄、決議、行動項目追蹤
+- ✅ **P1-3 風險管理模組**：風險登記簿含嚴重度×可能性評分矩陣、緩解計畫、殘餘風險追蹤
+- ✅ **P1-4 變更控制**：通用變更申請流程（Draft→Submitted→Approved→Implemented→Verified），支援 6 種變更類型
+- ✅ **P1-5 SOP 審核簽署**：qa_sop_documents 擴充 reviewed_by/approved_by/revision_history 欄位
+- ✅ **P1-6 環境監控**：監控點 + 讀數記錄 + 自動超標偵測（JSONB 參數比對），支援手動/感測器/匯入三種來源
+- ✅ **P1-7 能力評鑑**：人員能力評估（initial/periodic/requalification）+ 職位訓練需求矩陣
+- ✅ **P1-8 最終報告**：GLP 研究最終報告模組，含 Study Director 簽署 + QAU 聲明欄位
+- ✅ **P1-9 試驗物質管理**：products 擴充 GLP 特性欄位 + formulation_records 配製紀錄表
+- ✅ **Backend 全棧**：models/glp_compliance.rs (500+ 行) + repositories/glp_compliance.rs (600+ 行) + services/glp_compliance.rs (300+ 行) + handlers/glp_compliance.rs (400+ 行) + 路由註冊 30+ endpoints
+- ✅ **Frontend 全棧**：7 個新管理頁面（DocumentControlPage、ManagementReviewPage、RiskRegisterPage、ChangeControlPage、EnvironmentMonitoringPage、CompetencyAssessmentPage、StudyFinalReportPage）+ API 模組 + App.tsx 路由註冊
+- ✅ **品質驗證**：cargo check ✓、cargo clippy ✓（零警告）、tsc --noEmit ✓、npm run build ✓
+
 ### 2026-04-03 設備管理 ISO 17025 / GLP 合規欄位補強
 
 - ✅ **審核確認**：點擊儀器→履歷頁、點擊廠商→聯絡 Dialog、維修保養 5 狀態流程均正確實作
