@@ -107,6 +107,10 @@ export interface EquipmentSupplierWithPartner {
   contact_phone: string | null
   contact_email: string | null
   notes: string | null
+  partner_phone: string | null
+  partner_phone_ext: string | null
+  partner_email: string | null
+  partner_address: string | null
 }
 
 export interface MaintenanceRecordWithDetails {

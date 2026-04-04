@@ -282,7 +282,10 @@ impl EquipmentService {
         let data = sqlx::query_as::<_, EquipmentSupplierWithPartner>(
             r#"
             SELECT es.id, es.equipment_id, es.partner_id, p.name AS partner_name,
-                   es.contact_person, es.contact_phone, es.contact_email, es.notes, es.created_at
+                   es.contact_person, es.contact_phone, es.contact_email, es.notes,
+                   p.phone AS partner_phone, p.phone_ext AS partner_phone_ext,
+                   p.email AS partner_email, p.address AS partner_address,
+                   es.created_at
             FROM equipment_suppliers es
             INNER JOIN partners p ON es.partner_id = p.id
             WHERE es.equipment_id = $1
@@ -312,7 +315,10 @@ impl EquipmentService {
                 RETURNING *
             )
             SELECT ins.id, ins.equipment_id, ins.partner_id, p.name AS partner_name,
-                   ins.contact_person, ins.contact_phone, ins.contact_email, ins.notes, ins.created_at
+                   ins.contact_person, ins.contact_phone, ins.contact_email, ins.notes,
+                   p.phone AS partner_phone, p.phone_ext AS partner_phone_ext,
+                   p.email AS partner_email, p.address AS partner_address,
+                   ins.created_at
             FROM ins
             INNER JOIN partners p ON ins.partner_id = p.id
             "#,

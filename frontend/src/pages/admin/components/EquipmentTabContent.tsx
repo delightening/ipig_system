@@ -327,20 +327,30 @@ export function EquipmentTabContent({
             <p className="text-muted-foreground text-center py-4">尚未關聯廠商</p>
           ) : (
             <div className="space-y-3">
-              {suppliers.map((s) => (
-                <div key={s.id} className="rounded-lg border p-3 space-y-1">
-                  <p className="font-medium">{s.partner_name}</p>
-                  {s.contact_person && (
-                    <p className="text-sm text-muted-foreground">聯絡人：{s.contact_person}</p>
-                  )}
-                  {s.contact_phone && (
-                    <p className="text-sm text-muted-foreground">電話：{s.contact_phone}</p>
-                  )}
-                  {s.contact_email && (
-                    <p className="text-sm text-muted-foreground">Email：{s.contact_email}</p>
-                  )}
-                </div>
-              ))}
+              {suppliers.map((s) => {
+                const phone = s.contact_phone || s.partner_phone
+                const phoneExt = !s.contact_phone && s.partner_phone_ext ? ` 分機 ${s.partner_phone_ext}` : ''
+                const email = s.contact_email || s.partner_email
+                const contactPerson = s.contact_person
+                const address = s.partner_address
+                return (
+                  <div key={s.id} className="rounded-lg border p-3 space-y-1">
+                    <p className="font-medium">{s.partner_name}</p>
+                    {contactPerson && (
+                      <p className="text-sm text-muted-foreground">聯絡人：{contactPerson}</p>
+                    )}
+                    {phone && (
+                      <p className="text-sm text-muted-foreground">電話：{phone}{phoneExt}</p>
+                    )}
+                    {email && (
+                      <p className="text-sm text-muted-foreground">Email：{email}</p>
+                    )}
+                    {address && (
+                      <p className="text-sm text-muted-foreground">地址：{address}</p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </DialogContent>

@@ -313,6 +313,10 @@ pub struct EquipmentSupplierWithPartner {
     pub contact_phone: Option<String>,
     pub contact_email: Option<String>,
     pub notes: Option<String>,
+    pub partner_phone: Option<String>,
+    pub partner_phone_ext: Option<String>,
+    pub partner_email: Option<String>,
+    pub partner_address: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
