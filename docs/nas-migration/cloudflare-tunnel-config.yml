@@ -1,0 +1,43 @@
+# ============================================================
+# Cloudflare Tunnel — ingress 設定範例
+# ============================================================
+# 此檔案僅供參考，實際 ingress 設定在 Cloudflare Dashboard 操作。
+# 如果你使用 config file 模式（非 Dashboard），請參考此檔。
+#
+# Dashboard 設定方式（推薦）：
+#   1. 登入 Cloudflare Zero Trust Dashboard
+#   2. Networks → Tunnels → 選擇你的 tunnel
+#   3. Public Hostname 頁面新增以下規則
+# ============================================================
+
+# --- Dashboard 對應設定 ---
+#
+# | Subdomain          | Service              | 說明                    |
+# |--------------------|----------------------|------------------------|
+# | app.yourdomain.com | http://ipig-web:8080 | 主站入口（nginx 反代 API）|
+# | （選用）grafana.yourdomain.com | http://ipig-grafana:3000 | 監控儀表板 |
+#
+# 注意：
+# - cloudflared container 在 frontend network，可直接連到 web
+# - 使用 container_name（ipig-web）而非 service name，確保 DNS 解析正確
+# - 如果 Grafana 要對外，需要把 cloudflared 也加入 backend network
+
+# --- 若使用 config file 模式 ---
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: /etc/cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  # 主站：所有流量走 nginx → 自動反代 API
+  - hostname: app.yourdomain.com
+    service: http://ipig-web:8080
+    originRequest:
+      noTLSVerify: true
+
+  # 選用：Grafana 監控（建議加 Cloudflare Access 保護）
+  # - hostname: grafana.yourdomain.com
+  #   service: http://ipig-grafana:3000
+  #   originRequest:
+  #     noTLSVerify: true
+
+  # Catch-all（必須放最後）
+  - service: http_status:404
