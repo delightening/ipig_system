@@ -22,8 +22,8 @@ CREATE INDEX idx_equipment_idle_requests_equipment ON equipment_idle_requests(eq
 CREATE INDEX idx_equipment_idle_requests_status    ON equipment_idle_requests(status);
 
 -- 閒置審批權限
-INSERT INTO permissions (code, name, module, description) VALUES
-    ('equipment.idle.approve', '核准設備閒置', 'equipment', '可核准設備閒置/恢復申請')
+INSERT INTO permissions (id, code, name, module, description) VALUES
+    (gen_random_uuid(), 'equipment.idle.approve', '核准設備閒置', 'equipment', '可核准設備閒置/恢復申請')
 ON CONFLICT (code) DO NOTHING;
 
 -- 授權給管理員
