@@ -191,8 +191,13 @@ export function useUserManagement() {
       const response = await api.put(`/users/${id}`, data)
       return response.data
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
+      // 停用使用者時，後端會刪除其 refresh_token，需刷新 session 相關查詢
+      if (variables.data.is_active === false) {
+        queryClient.invalidateQueries({ queryKey: ['audit-sessions'] })
+        queryClient.invalidateQueries({ queryKey: ['audit-dashboard'] })
+      }
       setShowEditDialog(false)
       setShowRolesDialog(false)
       setSelectedUser(null)
@@ -206,6 +211,9 @@ export function useUserManagement() {
   const deleteUserWithReauth = async (id: string, reauthToken: string) => {
     await deleteResource(`/users/${id}`, { headers: { 'X-Reauth-Token': reauthToken } })
     queryClient.invalidateQueries({ queryKey: ['users'] })
+    // 刪除使用者後，其 session 已失效，需刷新 session 相關查詢
+    queryClient.invalidateQueries({ queryKey: ['audit-sessions'] })
+    queryClient.invalidateQueries({ queryKey: ['audit-dashboard'] })
     toast({ title: '成功', description: '用戶已刪除' })
   }
 

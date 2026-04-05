@@ -61,6 +61,7 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pens'] })
+      queryClient.invalidateQueries({ queryKey: ['facility-pens'] })
       onOpenChange(false)
       reset(INITIAL)
       toast({ title: '批次建立成功', description: `已建立 ${count} 個欄位` })

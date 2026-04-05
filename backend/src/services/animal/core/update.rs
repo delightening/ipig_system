@@ -105,6 +105,11 @@ impl AnimalService {
                 .map(|s| AnimalUtils::format_pen_location(s))
         };
 
+        // 驗證新 pen_id 對應的欄位是否可收容動物
+        if let Some(new_pen_id) = req.pen_id {
+            Self::validate_pen_for_assignment(pool, new_pen_id).await?;
+        }
+
         // 取得更新前的 pen_id，用於更新 current_count
         let old_pen_id: Option<Uuid> = sqlx::query_scalar(
             "SELECT pen_id FROM animals WHERE id = $1",

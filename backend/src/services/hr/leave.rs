@@ -1,6 +1,7 @@
 // HR 請假管理
 
 use chrono::Utc;
+use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -297,7 +298,7 @@ impl HrService {
     ) -> Result<LeaveRequest> {
         let current: LeaveRequest = sqlx::query_as(
             r#"
-            SELECT 
+            SELECT
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 annual_leave_source_id, is_urgent, is_retroactive,
@@ -322,6 +323,12 @@ impl HrService {
             _ => return Err(AppError::Validation("無法核准此狀態的請假".to_string())),
         };
 
+        // 最終核准時，檢查並扣除假別餘額
+        let is_final_approval = next_status == LeaveStatus::Approved.as_str();
+        if is_final_approval {
+            Self::deduct_leave_balance(pool, &current).await?;
+        }
+
         sqlx::query(
             r#"
             INSERT INTO leave_approvals (id, leave_request_id, approver_id, approval_level, action, comments)
@@ -336,7 +343,7 @@ impl HrService {
         .execute(pool)
         .await?;
 
-        let approved_at = if next_status == LeaveStatus::Approved.as_str() {
+        let approved_at = if is_final_approval {
             Some(Utc::now())
         } else {
             None
@@ -357,7 +364,7 @@ impl HrService {
 
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
-            SELECT 
+            SELECT
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 annual_leave_source_id, is_urgent, is_retroactive,
@@ -451,6 +458,26 @@ impl HrService {
         _current_user: &CurrentUser,
         reason: Option<&str>,
     ) -> Result<LeaveRequest> {
+        // 先查詢目前狀態，判斷是否需要回復餘額
+        let current: LeaveRequest = sqlx::query_as(
+            r#"
+            SELECT
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
+                start_time, end_time, total_days, total_hours, reason, supporting_documents,
+                annual_leave_source_id, is_urgent, is_retroactive,
+                status::text as status, current_approver_id, submitted_at, approved_at,
+                rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
+                created_at, updated_at
+            FROM leave_requests WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
+
+        use crate::models::LeaveStatus;
+        let was_approved = current.status == LeaveStatus::Approved.as_str();
+
         sqlx::query(
             r#"
             UPDATE leave_requests
@@ -463,9 +490,14 @@ impl HrService {
         .execute(pool)
         .await?;
 
+        // 已核准的請假取消時，回復餘額
+        if was_approved {
+            Self::restore_leave_balance(pool, &current).await?;
+        }
+
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
-            SELECT 
+            SELECT
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 annual_leave_source_id, is_urgent, is_retroactive,
@@ -480,6 +512,255 @@ impl HrService {
         .await?;
 
         Ok(record)
+    }
+
+    // ============================================
+    // Balance deduction / restoration helpers
+    // ============================================
+
+    /// 扣除特休假餘額（FIFO：先到期先扣）並記錄 leave_balance_usage
+    async fn deduct_annual_leave(
+        pool: &PgPool,
+        leave: &LeaveRequest,
+    ) -> Result<()> {
+        let mut remaining = leave.total_days;
+        let entitlements: Vec<(Uuid, Decimal)> = sqlx::query_as(
+            r#"
+            SELECT id, (entitled_days - used_days) as available
+            FROM annual_leave_entitlements
+            WHERE user_id = $1 AND NOT is_expired AND (entitled_days - used_days) > 0
+            ORDER BY expires_at ASC
+            "#,
+        )
+        .bind(leave.user_id)
+        .fetch_all(pool)
+        .await?;
+
+        let total_available: Decimal = entitlements.iter().map(|e| e.1).sum();
+        if total_available < remaining {
+            return Err(AppError::BusinessRule(format!(
+                "特休假餘額不足：需要 {} 天，剩餘 {} 天",
+                remaining, total_available
+            )));
+        }
+
+        for (ent_id, available) in entitlements {
+            if remaining <= Decimal::ZERO {
+                break;
+            }
+            let deduct = remaining.min(available);
+            Self::apply_annual_deduction(pool, leave.id, ent_id, deduct).await?;
+            remaining -= deduct;
+        }
+        Ok(())
+    }
+
+    /// 執行單筆特休假扣除（UPDATE + INSERT usage）
+    async fn apply_annual_deduction(
+        pool: &PgPool,
+        leave_id: Uuid,
+        entitlement_id: Uuid,
+        days: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE annual_leave_entitlements SET used_days = used_days + $2, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(entitlement_id)
+        .bind(days)
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO leave_balance_usage
+                (id, leave_request_id, source_type, annual_leave_entitlement_id, days_used, action)
+            VALUES ($1, $2, 'annual', $3, $4, 'deduct')
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(leave_id)
+        .bind(entitlement_id)
+        .bind(days)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 扣除補休餘額（FIFO：先到期先扣）並記錄 leave_balance_usage
+    async fn deduct_comp_time(
+        pool: &PgPool,
+        leave: &LeaveRequest,
+    ) -> Result<()> {
+        let hours = Self::effective_hours(
+            leave.total_hours.map(|d| d.to_string().parse::<f64>().unwrap_or(0.0)),
+            leave.total_days.to_string().parse::<f64>().unwrap_or(0.0),
+        );
+        let hours_dec = Decimal::from_f64_retain(hours)
+            .ok_or_else(|| AppError::Internal("無法轉換補休時數".into()))?;
+
+        let balances: Vec<(Uuid, Decimal)> = sqlx::query_as(
+            r#"
+            SELECT id, (original_hours - used_hours) as available
+            FROM comp_time_balances
+            WHERE user_id = $1 AND NOT is_expired AND (original_hours - used_hours) > 0
+            ORDER BY expires_at ASC
+            "#,
+        )
+        .bind(leave.user_id)
+        .fetch_all(pool)
+        .await?;
+
+        let total_available: Decimal = balances.iter().map(|b| b.1).sum();
+        if total_available < hours_dec {
+            return Err(AppError::BusinessRule(format!(
+                "補休餘額不足：需要 {} 小時，剩餘 {} 小時",
+                hours_dec, total_available
+            )));
+        }
+
+        let mut remaining = hours_dec;
+        for (bal_id, available) in balances {
+            if remaining <= Decimal::ZERO {
+                break;
+            }
+            let deduct = remaining.min(available);
+            Self::apply_comp_deduction(pool, leave.id, bal_id, deduct).await?;
+            remaining -= deduct;
+        }
+        Ok(())
+    }
+
+    /// 執行單筆補休扣除（UPDATE + INSERT usage）
+    async fn apply_comp_deduction(
+        pool: &PgPool,
+        leave_id: Uuid,
+        balance_id: Uuid,
+        hours: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE comp_time_balances SET used_hours = used_hours + $2, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(balance_id)
+        .bind(hours)
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO leave_balance_usage
+                (id, leave_request_id, source_type, comp_time_balance_id, hours_used, action)
+            VALUES ($1, $2, 'comp_time', $3, $4, 'deduct')
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(leave_id)
+        .bind(balance_id)
+        .bind(hours)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 核准時依假別檢查並扣除餘額（僅 ANNUAL / COMPENSATORY 需要）
+    async fn deduct_leave_balance(pool: &PgPool, leave: &LeaveRequest) -> Result<()> {
+        match leave.leave_type.as_str() {
+            "ANNUAL" => Self::deduct_annual_leave(pool, leave).await,
+            "COMPENSATORY" => Self::deduct_comp_time(pool, leave).await,
+            _ => Ok(()), // 其他假別無額度限制
+        }
+    }
+
+    /// 取消/銷假時依假別回復餘額（僅 ANNUAL / COMPENSATORY 需要）
+    async fn restore_leave_balance(pool: &PgPool, leave: &LeaveRequest) -> Result<()> {
+        match leave.leave_type.as_str() {
+            "ANNUAL" => Self::restore_annual_leave(pool, leave).await,
+            "COMPENSATORY" => Self::restore_comp_time(pool, leave).await,
+            _ => Ok(()),
+        }
+    }
+
+    /// 回復特休假餘額：依 leave_balance_usage 的 deduct 紀錄逐筆還原
+    async fn restore_annual_leave(pool: &PgPool, leave: &LeaveRequest) -> Result<()> {
+        let usages: Vec<(Uuid, Uuid, Decimal)> = sqlx::query_as(
+            r#"
+            SELECT id, annual_leave_entitlement_id, days_used
+            FROM leave_balance_usage
+            WHERE leave_request_id = $1 AND source_type = 'annual' AND action = 'deduct'
+            "#,
+        )
+        .bind(leave.id)
+        .fetch_all(pool)
+        .await?;
+
+        for (usage_id, ent_id, days) in usages {
+            sqlx::query(
+                "UPDATE annual_leave_entitlements SET used_days = used_days - $2, updated_at = NOW() WHERE id = $1",
+            )
+            .bind(ent_id)
+            .bind(days)
+            .execute(pool)
+            .await?;
+
+            sqlx::query(
+                r#"
+                INSERT INTO leave_balance_usage
+                    (id, leave_request_id, source_type, annual_leave_entitlement_id, days_used, action)
+                VALUES ($1, $2, 'annual', $3, $4, 'restore')
+                "#,
+            )
+            .bind(Uuid::new_v4())
+            .bind(leave.id)
+            .bind(ent_id)
+            .bind(days)
+            .execute(pool)
+            .await?;
+
+            let _ = usage_id; // 僅用於未來稽核需求
+        }
+        Ok(())
+    }
+
+    /// 回復補休餘額：依 leave_balance_usage 的 deduct 紀錄逐筆還原
+    async fn restore_comp_time(pool: &PgPool, leave: &LeaveRequest) -> Result<()> {
+        let usages: Vec<(Uuid, Uuid, Decimal)> = sqlx::query_as(
+            r#"
+            SELECT id, comp_time_balance_id, hours_used
+            FROM leave_balance_usage
+            WHERE leave_request_id = $1 AND source_type = 'comp_time' AND action = 'deduct'
+            "#,
+        )
+        .bind(leave.id)
+        .fetch_all(pool)
+        .await?;
+
+        for (usage_id, bal_id, hours) in usages {
+            sqlx::query(
+                "UPDATE comp_time_balances SET used_hours = used_hours - $2, updated_at = NOW() WHERE id = $1",
+            )
+            .bind(bal_id)
+            .bind(hours)
+            .execute(pool)
+            .await?;
+
+            sqlx::query(
+                r#"
+                INSERT INTO leave_balance_usage
+                    (id, leave_request_id, source_type, comp_time_balance_id, hours_used, action)
+                VALUES ($1, $2, 'comp_time', $3, $4, 'restore')
+                "#,
+            )
+            .bind(Uuid::new_v4())
+            .bind(leave.id)
+            .bind(bal_id)
+            .bind(hours)
+            .execute(pool)
+            .await?;
+
+            let _ = usage_id;
+        }
+        Ok(())
     }
 }
 

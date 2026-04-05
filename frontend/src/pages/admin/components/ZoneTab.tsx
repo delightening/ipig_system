@@ -81,7 +81,10 @@ export function ZoneTab({ canManage }: { canManage: boolean }) {
     queryFn: async () => (await facilityApi.listBuildings()).data,
   })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['zones'] })
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['zones'] })
+    queryClient.invalidateQueries({ queryKey: ['facility-zones'] })
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: ZoneFormData) => facilityApi.createZone({

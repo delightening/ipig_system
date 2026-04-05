@@ -95,7 +95,10 @@ function ZoneGrid({ zone, pens, canManage }: {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdatePenRequest }) =>
       facilityApi.updatePen(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pens'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pens'] })
+      queryClient.invalidateQueries({ queryKey: ['facility-pens'] })
+    },
     onError: (err: unknown) =>
       toast({ title: '更新失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
   })

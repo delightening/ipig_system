@@ -124,6 +124,32 @@ pub async fn submit_protocol(
         return Err(AppError::Forbidden("You don't have permission to submit this protocol".to_string()));
     }
     let protocol = ProtocolService::submit(&state.db, id, current_user.id).await?;
+
+    // 非同步通知：計畫已提交
+    let db = state.db.clone();
+    let p_id = protocol.id;
+    let p_no = protocol.protocol_no.clone();
+    let p_title = protocol.title.clone();
+    let pi_user_id = protocol.pi_user_id;
+    tokio::spawn(async move {
+        // 查詢 PI 姓名
+        let pi_name: String = sqlx::query_scalar(
+            "SELECT COALESCE(display_name, email) FROM users WHERE id = $1",
+        )
+        .bind(pi_user_id)
+        .fetch_one(&db)
+        .await
+        .unwrap_or_else(|_| "Unknown".to_string());
+
+        let svc = NotificationService::new(db);
+        if let Err(e) = svc
+            .notify_protocol_submitted(p_id, &p_no, &p_title, &pi_name)
+            .await
+        {
+            tracing::warn!("發送計畫提交通知失敗: {e}");
+        }
+    });
+
     Ok(Json(protocol))
 }
 
@@ -150,16 +176,56 @@ pub async fn change_protocol_status(
     let protocol_title = protocol.title.clone();
     let new_status = protocol.status.as_str().to_lowercase();
     let operator_id = current_user.id;
+    let pi_user_id = protocol.pi_user_id;
     let reason = req.remark.clone();
     let config = state.config.clone();
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
+        // 角色驅動：路由表通知（行政/獸醫/審查委員等）
         if let Err(e) = svc.notify_protocol_review_progress(
             protocol_id, &protocol_no, &protocol_title, &new_status, operator_id, reason.as_deref(), Some(&config),
         ).await {
             tracing::warn!("發送計畫審查進度通知失敗: {e}");
         }
+        // 直接通知 PI 狀態變更（避免重複：僅在操作者非 PI 時通知）
+        if operator_id != pi_user_id {
+            if let Err(e) = svc.notify_protocol_status_change(
+                protocol_id, &protocol_no, &protocol_title, &new_status, pi_user_id, reason.as_deref(),
+            ).await {
+                tracing::warn!("發送計畫狀態變更通知給 PI 失敗: {e}");
+            }
+        }
     });
+
+    // 進入 UnderReview 時，通知被指派的審查委員
+    if req.to_status == crate::models::ProtocolStatus::UnderReview {
+        if let Some(reviewer_ids) = req.reviewer_ids.clone() {
+            let db = state.db.clone();
+            let pid = protocol.id;
+            let pno = protocol.protocol_no.clone();
+            let ptitle = protocol.title.clone();
+            let pi_uid = protocol.pi_user_id;
+            tokio::spawn(async move {
+                let pi_name: String = sqlx::query_scalar(
+                    "SELECT COALESCE(display_name, email) FROM users WHERE id = $1",
+                )
+                .bind(pi_uid)
+                .fetch_one(&db)
+                .await
+                .unwrap_or_else(|_| "Unknown".to_string());
+
+                let svc = NotificationService::new(db);
+                for rid in reviewer_ids {
+                    if let Err(e) = svc
+                        .notify_review_assignment(pid, &pno, &ptitle, &pi_name, rid, None)
+                        .await
+                    {
+                        tracing::warn!("發送審查委員指派通知失敗 (reviewer={}): {e}", rid);
+                    }
+                }
+            });
+        }
+    }
 
     // R20-8: 進入 PreReview 時自動觸發執行秘書 AI 標註
     if req.to_status == crate::models::ProtocolStatus::PreReview {

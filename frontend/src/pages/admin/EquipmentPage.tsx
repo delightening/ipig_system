@@ -228,6 +228,7 @@ export function EquipmentPage() {
     mutationFn: () => api.post('/equipment-annual-plans/generate', { year: planYear }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans-summary'] })
       toast({ title: '成功', description: `已產生 ${planYear} 年度計畫` })
     },
     onError: (err: unknown) => {
@@ -239,6 +240,7 @@ export function EquipmentPage() {
     mutationFn: (data: Record<string, unknown>) => api.post('/equipment-annual-plans', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans-summary'] })
       toast({ title: '成功', description: '已新增年度計畫項目' })
     },
     onError: (err: unknown) => {
@@ -251,6 +253,7 @@ export function EquipmentPage() {
       api.put(`/equipment-annual-plans/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans-summary'] })
     },
     onError: (err: unknown) => {
       toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
@@ -261,6 +264,7 @@ export function EquipmentPage() {
     mutationFn: (id: string) => deleteResource(`/equipment-annual-plans/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans-summary'] })
       toast({ title: '成功', description: '已刪除年度計畫項目' })
     },
     onError: (err: unknown) => {
@@ -331,6 +335,7 @@ export function EquipmentPage() {
     mutationFn: (id: string) => deleteResource(`/equipment-maintenance/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-maintenance'] })
       toast({ title: '成功', description: '已刪除紀錄' })
     },
     onError: (err: unknown) => {
@@ -350,6 +355,7 @@ export function EquipmentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-maintenance'] })
       dialogs.close('maintCreate')
       setMaintForm(emptyMaintenanceForm())
       toast({ title: '成功', description: '已新增維修/保養紀錄' })
@@ -371,6 +377,7 @@ export function EquipmentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-maintenance'] })
       dialogs.close('maintEdit')
       setEditingMaint(null)
       setMaintForm(emptyMaintenanceForm())

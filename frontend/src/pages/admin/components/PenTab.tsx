@@ -72,7 +72,10 @@ export function PenTab({ canManage }: { canManage: boolean }) {
     queryFn: async () => (await facilityApi.listZones()).data,
   })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['pens'] })
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['pens'] })
+    queryClient.invalidateQueries({ queryKey: ['facility-pens'] })
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: PenCreateFormData) => facilityApi.createPen({ ...data, name: data.name || undefined }),

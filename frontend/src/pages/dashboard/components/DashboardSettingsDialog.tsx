@@ -1,7 +1,7 @@
 /**
  * Dashboard Widget 設定對話框
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -46,12 +46,11 @@ export function DashboardSettingsDialog({
   const { t } = useTranslation()
   const [tempLayout, setTempLayout] = useState<WidgetLayoutItem[]>([])
 
-  const handleOpen = (isOpen: boolean) => {
-    if (isOpen) {
+  useEffect(() => {
+    if (open) {
       setTempLayout([...currentLayout])
     }
-    onOpenChange(isOpen)
-  }
+  }, [open])
 
   const toggleWidgetVisibility = (widgetId: string) => {
     setTempLayout((prev) =>
@@ -70,7 +69,7 @@ export function DashboardSettingsDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

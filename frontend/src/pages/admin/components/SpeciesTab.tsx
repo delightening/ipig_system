@@ -56,7 +56,10 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
 
   const { sortedData: sortedSpecies, sort, toggleSort } = useTableSort(species)
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['species'] })
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['species'] })
+    queryClient.invalidateQueries({ queryKey: ['facility-species'] })
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: SpeciesFormData) => facilityApi.createSpecies(data),

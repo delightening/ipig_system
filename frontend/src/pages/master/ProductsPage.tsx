@@ -74,8 +74,9 @@ export function ProductsPage() {
   // Mutations
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => api.patch(`/products/${id}/status`, { status }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['product', variables.id] })
       toast({ title: '成功', description: '產品狀態已更新' })
       dialogs.close('status')
       setTargetProduct(null)

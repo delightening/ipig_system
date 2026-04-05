@@ -6,7 +6,7 @@ use crate::{
     models::{
         CreateDocumentRequest, DocStatus, DocType, Document, DocumentLine, DocumentLineInput,
         DocumentLineWithProduct, DocumentListItem, DocumentQuery, DocumentWithLines,
-        UpdateDocumentRequest,
+        ProtocolStatus, UpdateDocumentRequest,
     },
     repositories,
     time, AppError, Result,
@@ -92,6 +92,29 @@ impl DocumentService {
             req.lines.clone()
         };
 
+        // 驗證 protocol_id 對應的計畫存在且為已核准狀態
+        if let Some(protocol_id) = req.protocol_id {
+            let status: ProtocolStatus = sqlx::query_scalar(
+                "SELECT status FROM protocols WHERE id = $1",
+            )
+            .bind(protocol_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| {
+                AppError::NotFound(format!("Protocol {} not found", protocol_id))
+            })?;
+
+            if status != ProtocolStatus::Approved
+                && status != ProtocolStatus::ApprovedWithConditions
+            {
+                return Err(AppError::Validation(format!(
+                    "Protocol {} is not in approved status (current: {})",
+                    protocol_id,
+                    status.display_name()
+                )));
+            }
+        }
+
         // 建立單據頭
         let document = sqlx::query_as::<_, Document>(
             r#"
@@ -171,6 +194,29 @@ impl DocumentService {
             return Err(AppError::BusinessRule(
                 "Only draft documents can be updated".to_string(),
             ));
+        }
+
+        // 驗證 protocol_id 對應的計畫存在且為已核准狀態
+        if let Some(protocol_id) = req.protocol_id {
+            let status: ProtocolStatus = sqlx::query_scalar(
+                "SELECT status FROM protocols WHERE id = $1",
+            )
+            .bind(protocol_id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| {
+                AppError::NotFound(format!("Protocol {} not found", protocol_id))
+            })?;
+
+            if status != ProtocolStatus::Approved
+                && status != ProtocolStatus::ApprovedWithConditions
+            {
+                return Err(AppError::Validation(format!(
+                    "Protocol {} is not in approved status (current: {})",
+                    protocol_id,
+                    status.display_name()
+                )));
+            }
         }
 
         let mut tx = pool.begin().await?;

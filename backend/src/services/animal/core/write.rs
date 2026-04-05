@@ -72,6 +72,11 @@ impl AnimalService {
             }
         }
 
+        // 驗證 pen_id 對應的欄位是否可收容動物
+        if let Some(pen_id) = req.pen_id {
+            Self::validate_pen_for_assignment(pool, pen_id).await?;
+        }
+
         let pen_location = match &req.pen_location {
             Some(s) if !s.trim().is_empty() => Some(AnimalUtils::format_pen_location(s)),
             _ => return Err(AppError::Validation("欄位為必填".to_string())),

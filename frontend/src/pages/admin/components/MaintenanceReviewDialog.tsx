@@ -60,6 +60,7 @@ export function MaintenanceReviewDialog({ open, onOpenChange, record, mode }: Pr
         description: isApprove ? '設備已恢復啟用' : '紀錄已退回維修人員',
       })
       queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-maintenance'] })
       queryClient.invalidateQueries({ queryKey: ['equipment'] })
       handleClose()
     },

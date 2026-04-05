@@ -77,8 +77,16 @@ export function usePartnerForm(closeDialog: () => void) {
     }
   }
 
-  const onMutationSuccess = (message: string) => {
+  const invalidatePartnerRelated = () => {
     queryClient.invalidateQueries({ queryKey: ['partners'] })
+    queryClient.invalidateQueries({ queryKey: ['partners-supplier'] })
+    queryClient.invalidateQueries({ queryKey: ['partners-customer-list'] })
+    queryClient.invalidateQueries({ queryKey: ['equipment-suppliers'] })
+    queryClient.invalidateQueries({ queryKey: ['equipment-suppliers-summary'] })
+  }
+
+  const onMutationSuccess = (message: string) => {
+    invalidatePartnerRelated()
     toast({ title: '成功', description: message })
     closeDialog()
     resetForm()
@@ -113,7 +121,7 @@ export function usePartnerForm(closeDialog: () => void) {
     mutationFn: ({ id, hard }: { id: string; hard: boolean }) =>
       deleteResource(`/partners/${id}`, { data: { hard } }),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['partners'] })
+      invalidatePartnerRelated()
       toast({
         title: '成功',
         description: variables.hard ? '夥伴已永久刪除' : '夥伴已刪除',

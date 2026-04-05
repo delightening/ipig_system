@@ -60,7 +60,10 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
     queryFn: async () => (await facilityApi.listFacilities()).data,
   })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['buildings'] })
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['buildings'] })
+    queryClient.invalidateQueries({ queryKey: ['facility-buildings'] })
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: BuildingFormData) => facilityApi.createBuilding({ ...data, description: data.description || undefined }),

@@ -59,6 +59,10 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
     onSuccess: (data) => {
       setResult(data)
       queryClient.invalidateQueries({ queryKey: ['partners'] })
+      queryClient.invalidateQueries({ queryKey: ['partners-supplier'] })
+      queryClient.invalidateQueries({ queryKey: ['partners-customer-list'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-suppliers'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-suppliers-summary'] })
       if (data.error_count === 0) {
         toast({
           title: '匯入成功',

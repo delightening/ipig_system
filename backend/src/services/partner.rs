@@ -333,6 +333,24 @@ impl PartnerService {
 
     /// 刪除夥伴
     pub async fn delete(pool: &PgPool, id: Uuid, is_hard: bool) -> Result<()> {
+        // 檢查是否有未完成的採購單或進貨單
+        let open_doc_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM documents \
+             WHERE partner_id = $1 \
+             AND doc_type IN ('PO', 'GRN') \
+             AND status IN ('draft', 'submitted')",
+        )
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
+
+        if open_doc_count > 0 {
+            return Err(AppError::BusinessRule(format!(
+                "無法停用此夥伴：尚有 {} 筆未完成的採購單或進貨單",
+                open_doc_count
+            )));
+        }
+
         let result = if is_hard {
             sqlx::query("DELETE FROM partners WHERE id = $1")
                 .bind(id)

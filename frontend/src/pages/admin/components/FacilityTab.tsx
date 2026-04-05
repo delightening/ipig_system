@@ -52,7 +52,10 @@ export function FacilityTab({ canManage }: { canManage: boolean }) {
 
   const { sortedData: sortedFacilities, sort, toggleSort } = useTableSort(facilities)
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['facilities'] })
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['facilities'] })
+    queryClient.invalidateQueries({ queryKey: ['facility-buildings'] })
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: FacilityFormData) => facilityApi.createFacility({ ...data, address: data.address || undefined, phone: data.phone || undefined, contact_person: data.contact_person || undefined }),

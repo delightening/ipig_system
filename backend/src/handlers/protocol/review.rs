@@ -34,6 +34,41 @@ pub async fn assign_reviewer(
 ) -> Result<Json<ReviewAssignment>> {
     require_permission!(current_user, "aup.review.assign");
     let assignment = ProtocolService::assign_reviewer(&state.db, &req, current_user.id).await?;
+
+    // 非同步通知：審查指派
+    let db = state.db.clone();
+    let protocol_id = req.protocol_id;
+    let reviewer_id = req.reviewer_id;
+    tokio::spawn(async move {
+        // 查詢計畫資訊與 PI 姓名
+        let info: Option<(String, String, Uuid)> = sqlx::query_as(
+            "SELECT protocol_no, title, pi_user_id FROM protocols WHERE id = $1",
+        )
+        .bind(protocol_id)
+        .fetch_optional(&db)
+        .await
+        .ok()
+        .flatten();
+
+        if let Some((pno, ptitle, pi_user_id)) = info {
+            let pi_name: String = sqlx::query_scalar(
+                "SELECT COALESCE(display_name, email) FROM users WHERE id = $1",
+            )
+            .bind(pi_user_id)
+            .fetch_one(&db)
+            .await
+            .unwrap_or_else(|_| "Unknown".to_string());
+
+            let svc = NotificationService::new(db);
+            if let Err(e) = svc
+                .notify_review_assignment(protocol_id, &pno, &ptitle, &pi_name, reviewer_id, None)
+                .await
+            {
+                tracing::warn!("發送審查指派通知失敗: {e}");
+            }
+        }
+    });
+
     Ok(Json(assignment))
 }
 

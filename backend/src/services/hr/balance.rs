@@ -494,15 +494,19 @@ mod tests {
 
     #[test]
     fn test_seniority_months_mid_month() {
-        let hire = NaiveDate::from_ymd_opt(2024, 3, 20).unwrap();
-        let as_of = NaiveDate::from_ymd_opt(2025, 3, 19).unwrap();
+        let hire = NaiveDate::from_ymd_opt(2024, 3, 20)
+            .expect("valid date: 2024-03-20");
+        let as_of = NaiveDate::from_ymd_opt(2025, 3, 19)
+            .expect("valid date: 2025-03-19");
         assert_eq!(seniority_months(hire, as_of), 11); // 未滿 12 個月
     }
 
     #[test]
     fn test_seniority_months_same_day() {
-        let hire = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
-        let as_of = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let hire = NaiveDate::from_ymd_opt(2024, 6, 1)
+            .expect("valid date: 2024-06-01");
+        let as_of = NaiveDate::from_ymd_opt(2024, 6, 1)
+            .expect("valid date: 2024-06-01");
         assert_eq!(seniority_months(hire, as_of), 0);
     }
 }

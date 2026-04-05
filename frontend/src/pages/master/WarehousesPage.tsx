@@ -67,10 +67,20 @@ export function WarehousesPage() {
 
   const { sortedData: sortedWarehouses, sort, toggleSort } = useTableSort(warehouses)
 
+  const invalidateWarehouseRelated = () => {
+    queryClient.invalidateQueries({ queryKey: ['warehouses'] })
+    queryClient.invalidateQueries({ queryKey: ['storage-locations'] })
+    queryClient.invalidateQueries({ queryKey: ['storage-location-inventory'] })
+    queryClient.invalidateQueries({ queryKey: ['unassigned-inventory'] })
+    queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    queryClient.invalidateQueries({ queryKey: ['stock-ledger'] })
+    queryClient.invalidateQueries({ queryKey: ['warehouse-report'] })
+  }
+
   const createMutation = useMutation({
     mutationFn: (data: WarehouseFormData) => api.post('/warehouses', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouses'] })
+      invalidateWarehouseRelated()
       toast({ title: '成功', description: '倉庫已建立' })
       setDialogOpen(false)
       resetForm()
@@ -90,7 +100,7 @@ export function WarehousesPage() {
     mutationFn: ({ id, data }: { id: string; data: WarehouseFormData }) =>
       api.put(`/warehouses/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouses'] })
+      invalidateWarehouseRelated()
       toast({ title: '成功', description: '倉庫已更新' })
       setDialogOpen(false)
       resetForm()
@@ -107,7 +117,7 @@ export function WarehousesPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteResource(`/warehouses/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouses'] })
+      invalidateWarehouseRelated()
       toast({ title: '成功', description: '倉庫已刪除' })
     },
     onError: (error: unknown) => {
