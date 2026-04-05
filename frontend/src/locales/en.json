@@ -230,6 +230,7 @@
                 "today_outbound": "Today's Outbound",
                 "weekly_trend": "Trend Chart",
                 "recent_documents": "Recent Documents",
+                "recent_maintenance": "Maintenance Records",
                 "upcoming_leaves": "Expiring Leave",
                 "staff_attendance": "Staff Attendance",
                 "google_calendar_events": "Google Calendar Events"
@@ -246,6 +247,7 @@
                 "today_outbound": "Display today's completed outbound documents",
                 "weekly_trend": "Display inbound/outbound trend",
                 "recent_documents": "Display recently created or modified documents",
+                "recent_maintenance": "Display recent equipment maintenance and repair records",
                 "upcoming_leaves": "Display expiring annual or comp leave reminders",
                 "staff_attendance": "Display staff attendance summary",
                 "google_calendar_events": "Display connected Google Calendar events"
@@ -308,6 +310,13 @@
                 "netChange": "Net Change",
                 "noDocs": "No documents",
                 "trendDesc": "Display inbound/outbound trend for the last {{days}} days"
+            },
+            "maintenance": {
+                "equipment": "Equipment",
+                "type": "Type",
+                "reportedAt": "Reported",
+                "description": "Description",
+                "noRecords": "No maintenance records"
             },
             "attendance": {
                 "normal": "Normal",

@@ -34,6 +34,7 @@ import {
   TodayOutboundWidget,
   WeeklyTrendWidget,
   RecentDocumentsWidget,
+  RecentMaintenanceWidget,
   UpcomingLeavesWidget,
 } from './dashboard/components/ErpWidgets'
 import { DashboardSettingsDialog } from './dashboard/components/DashboardSettingsDialog'
@@ -82,7 +83,7 @@ export function DashboardPage() {
       (user?.permissions.some(p => p.startsWith('erp.')) ?? false)
   }, [hasRole, user])
 
-  const { lowStockAlerts, loadingAlerts, recentDocuments, loadingDocuments, todayApprovedDocs, getTrendData } =
+  const { lowStockAlerts, loadingAlerts, recentDocuments, loadingDocuments, recentMaintenance, loadingMaintenance, todayApprovedDocs, getTrendData } =
     useDashboardData(hasErpPermission)
 
   const availableWidgets = useMemo(() => {
@@ -182,6 +183,8 @@ export function DashboardPage() {
       }
       case 'recent_documents':
         return <RecentDocumentsWidget documents={recentDocuments} isLoading={loadingDocuments} />
+      case 'recent_maintenance':
+        return <RecentMaintenanceWidget records={recentMaintenance} isLoading={loadingMaintenance} />
       case 'upcoming_leaves':
         return <UpcomingLeavesWidget />
       default:

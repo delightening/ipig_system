@@ -25,9 +25,11 @@ import {
   FileText,
   Loader2,
   Calendar,
+  Wrench,
 } from 'lucide-react'
 import type { DocumentListItem, LowStockAlert } from '@/lib/api'
 import type { TrendDataPoint } from '../hooks/useDashboardData'
+import type { MaintenanceRecordWithDetails } from '@/pages/admin/types'
 
 // --- Helper ---
 
@@ -268,6 +270,100 @@ export const RecentDocumentsWidget = memo(function RecentDocumentsWidget({
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
             <FileText className="h-12 w-12 mb-2" />
             <p>{t('dashboard.widgets.erp.noDocs')}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+})
+
+// --- 維修/保養紀錄 ---
+
+function getMaintenanceStatusBadge(status: string) {
+  switch (status) {
+    case 'pending':
+      return <Badge variant="warning">待處理</Badge>
+    case 'in_progress':
+      return <Badge variant="secondary">進行中</Badge>
+    case 'pending_review':
+      return <Badge variant="outline">待驗收</Badge>
+    case 'completed':
+      return <Badge variant="success">已完成</Badge>
+    case 'unrepairable':
+      return <Badge variant="destructive">無法維修</Badge>
+    default:
+      return <Badge variant="outline">{status}</Badge>
+  }
+}
+
+function getMaintenanceTypeBadge(type: string) {
+  switch (type) {
+    case 'repair':
+      return <Badge variant="destructive">維修</Badge>
+    case 'maintenance':
+      return <Badge variant="secondary">保養</Badge>
+    default:
+      return <Badge variant="outline">{type}</Badge>
+  }
+}
+
+export const RecentMaintenanceWidget = memo(function RecentMaintenanceWidget({
+  records,
+  isLoading,
+}: {
+  records: MaintenanceRecordWithDetails[] | undefined
+  isLoading: boolean
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+
+  return (
+    <Card className="h-full flex flex-col overflow-hidden">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Wrench className="h-5 w-5 text-status-warning-text" />
+          {t('dashboard.widgets.names.recent_maintenance')}
+        </CardTitle>
+        <CardDescription>{t('dashboard.widgets.descriptions.recent_maintenance')}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1 overflow-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : records && records.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('dashboard.widgets.maintenance.equipment')}</TableHead>
+                <TableHead>{t('dashboard.widgets.maintenance.type')}</TableHead>
+                <TableHead>{t('protocols.columns.status')}</TableHead>
+                <TableHead>{t('dashboard.widgets.maintenance.reportedAt')}</TableHead>
+                <TableHead>{t('dashboard.widgets.maintenance.description')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {records.slice(0, 5).map((rec) => (
+                <TableRow
+                  key={rec.id}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => navigate('/equipment?tab=maintenance')}
+                >
+                  <TableCell className="font-medium">{rec.equipment_name}</TableCell>
+                  <TableCell>{getMaintenanceTypeBadge(rec.maintenance_type)}</TableCell>
+                  <TableCell>{getMaintenanceStatusBadge(rec.status)}</TableCell>
+                  <TableCell>{formatDate(rec.reported_at)}</TableCell>
+                  <TableCell className="max-w-[150px] truncate">
+                    {rec.problem_description || rec.maintenance_items || '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <Wrench className="h-12 w-12 mb-2" />
+            <p>{t('dashboard.widgets.maintenance.noRecords')}</p>
           </div>
         )}
       </CardContent>

@@ -7,6 +7,8 @@ import { format } from 'date-fns'
 import { zhTW, enUS } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
 import api, { LowStockAlert, DocumentListItem } from '@/lib/api'
+import type { PaginatedResponse } from '@/types/common'
+import type { MaintenanceRecordWithDetails } from '@/pages/admin/types'
 
 export interface TrendDataPoint {
   date: string
@@ -34,6 +36,19 @@ export function useDashboardData(hasErpPermission: boolean) {
     queryFn: async () => {
       const response = await api.get<DocumentListItem[]>('/documents')
       return response.data.slice(0, 10)
+    },
+    staleTime: 60_000,
+    enabled: hasErpPermission,
+  })
+
+  const { data: recentMaintenance, isLoading: loadingMaintenance } = useQuery({
+    queryKey: ['recent-maintenance'],
+    queryFn: async () => {
+      const response = await api.get<PaginatedResponse<MaintenanceRecordWithDetails>>(
+        '/equipment-maintenance',
+        { params: { per_page: 10 } }
+      )
+      return response.data.data
     },
     staleTime: 60_000,
     enabled: hasErpPermission,
@@ -71,6 +86,8 @@ export function useDashboardData(hasErpPermission: boolean) {
     loadingAlerts,
     recentDocuments,
     loadingDocuments,
+    recentMaintenance,
+    loadingMaintenance,
     todayApprovedDocs,
     getTrendData,
   }

@@ -72,6 +72,7 @@ export const widgetConstraints: Record<string, { minW: number; minH: number; max
     today_outbound: { minW: 2, minH: 2, maxW: 4 },
     weekly_trend: { minW: 2, minH: 2, maxW: 12 },
     recent_documents: { minW: 2, minH: 2, maxW: 12 },
+    recent_maintenance: { minW: 2, minH: 2, maxW: 12 },
     upcoming_leaves: { minW: 2, minH: 2, maxW: 4 },
     staff_attendance: { minW: 2, minH: 2, maxW: 12 },
     google_calendar_events: { minW: 2, minH: 2, maxW: 8 },
@@ -114,6 +115,9 @@ export const DEFAULT_DASHBOARD_LAYOUT: WidgetLayoutItem[] = [
     { i: 'today_outbound', x: 0, y: 8, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
     { i: 'pending_documents', x: 2, y: 8, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
 
+    // 維修/保養紀錄 (與最近單據同列右側)
+    { i: 'recent_maintenance', x: 9, y: 6, w: 3, h: 4, visible: true, minW: 2, minH: 2 },
+
     // 第五行: 近7天趨勢(4列) + 員工出勤表(5列)
     { i: 'weekly_trend', x: 0, y: 10, w: 4, h: 3, visible: true, minW: 2, minH: 2, options: { days: 7 } },
     { i: 'staff_attendance', x: 4, y: 10, w: 5, h: 3, visible: true, minW: 2, minH: 2 },
@@ -139,6 +143,7 @@ export const widgetNames: Record<string, { label: string; translate: boolean }> 
     today_outbound: { label: 'dashboard.widgets.names.today_outbound', translate: true },
     weekly_trend: { label: 'dashboard.widgets.names.weekly_trend', translate: true },
     recent_documents: { label: 'dashboard.widgets.names.recent_documents', translate: true },
+    recent_maintenance: { label: 'dashboard.widgets.names.recent_maintenance', translate: true },
     upcoming_leaves: { label: 'dashboard.widgets.names.upcoming_leaves', translate: true },
     staff_attendance: { label: 'dashboard.widgets.names.staff_attendance', translate: true },
     google_calendar_events: { label: 'dashboard.widgets.names.google_calendar_events', translate: true },
@@ -157,6 +162,7 @@ export const widgetDescriptions: Record<string, { label: string; translate: bool
     today_outbound: { label: 'dashboard.widgets.descriptions.today_outbound', translate: true },
     weekly_trend: { label: 'dashboard.widgets.descriptions.weekly_trend', translate: true },
     recent_documents: { label: 'dashboard.widgets.descriptions.recent_documents', translate: true },
+    recent_maintenance: { label: 'dashboard.widgets.descriptions.recent_maintenance', translate: true },
     upcoming_leaves: { label: 'dashboard.widgets.descriptions.upcoming_leaves', translate: true },
     staff_attendance: { label: 'dashboard.widgets.descriptions.staff_attendance', translate: true },
     google_calendar_events: { label: 'dashboard.widgets.descriptions.google_calendar_events', translate: true },
@@ -175,6 +181,7 @@ export const widgetPermissions: Record<string, string | undefined> = {
     today_outbound: 'erp',
     weekly_trend: 'erp',
     recent_documents: 'erp',
+    recent_maintenance: 'erp',
     upcoming_leaves: 'hr.leave.view',
     staff_attendance: 'admin',
     google_calendar_events: 'hr.attendance.view',
@@ -193,6 +200,7 @@ export const widgetCategories: Record<string, string> = {
     today_outbound: 'erp',
     weekly_trend: 'erp',
     recent_documents: 'erp',
+    recent_maintenance: 'erp',
     upcoming_leaves: 'hr',
     staff_attendance: 'report',
     google_calendar_events: 'hr',
