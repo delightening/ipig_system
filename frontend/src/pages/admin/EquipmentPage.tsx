@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { Plus, Wrench, Ruler, Hammer, Trash2, Calendar } from 'lucide-react'
+import { Plus, Wrench, Ruler, Hammer, Trash2, Calendar, Pause } from 'lucide-react'
 
 import { GuestHide } from '@/components/ui/guest-hide'
 import { useDialogSet } from '@/hooks/useDialogSet'
@@ -58,12 +58,14 @@ import { MaintenanceReviewDialog } from './components/MaintenanceReviewDialog'
 import { DisposalTabContent } from './components/DisposalTabContent'
 import AnnualPlanTabContent from './components/AnnualPlanTabContent'
 import { EquipmentStatsCards } from './components/EquipmentStatsCards'
+import { IdleTabContent, type IdleRequestWithDetails } from './components/IdleTabContent'
 
 export function EquipmentPage() {
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('equipment.manage')
   const canReview = hasPermission('equipment.maintenance.review') || canManage
   const canApproveDisposal = hasPermission('equipment.disposal.approve')
+  const canApproveIdle = hasPermission('equipment.idle.approve') || hasPermission('admin')
   const queryClient = useQueryClient()
   const dialogs = useDialogSet(['equipCreate', 'equipEdit', 'calibCreate', 'calibEdit', 'maintCreate', 'maintEdit', 'disposalCreate'] as const)
 
@@ -77,6 +79,7 @@ export function EquipmentPage() {
   const [reviewRecord, setReviewRecord] = useState<MaintenanceRecordWithDetails | null>(null)
   const [reviewMode, setReviewMode] = useState<'approve' | 'reject'>('approve')
   const [disposalPage, setDisposalPage] = useState(1)
+  const [idlePage, setIdlePage] = useState(1)
   const [planYear, setPlanYear] = useState(new Date().getFullYear())
 
   const [editingEquip, setEditingEquip] = useState<Equipment | null>(null)
@@ -161,6 +164,16 @@ export function EquipmentPage() {
       (
         await api.get<PaginatedResponse<DisposalWithDetails>>('/equipment-disposals', {
           params: { page: disposalPage, per_page: 20 },
+        })
+      ).data,
+  })
+
+  const { data: idleData, isLoading: idleLoading } = useQuery({
+    queryKey: ['equipment-idle-requests', idlePage],
+    queryFn: async () =>
+      (
+        await api.get<PaginatedResponse<IdleRequestWithDetails>>('/equipment-idle-requests', {
+          params: { page: idlePage, per_page: 20 },
         })
       ).data,
   })
@@ -285,6 +298,35 @@ export function EquipmentPage() {
     },
   })
 
+  const createIdleMutation = useMutation({
+    mutationFn: (data: { equipment_id: string; request_type: string; reason: string }) =>
+      api.post('/equipment-idle-requests', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-idle-requests'] })
+      toast({ title: '成功', description: '已提交閒置申請' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '申請失敗'), variant: 'destructive' })
+    },
+  })
+
+  const approveIdleMutation = useMutation({
+    mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
+      api.post(`/equipment-idle-requests/${id}/approve`, {
+        approved,
+        rejection_reason: approved ? null : '駁回',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-idle-requests'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-all'] })
+      toast({ title: '成功', description: '已處理閒置申請' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '操作失敗'), variant: 'destructive' })
+    },
+  })
+
   const deleteMaintMutation = useMutation({
     mutationFn: (id: string) => deleteResource(`/equipment-maintenance/${id}`),
     onSuccess: () => {
@@ -366,6 +408,7 @@ export function EquipmentPage() {
       purchase_date: equip.purchase_date || '',
       warranty_expiry: equip.warranty_expiry || '',
       notes: equip.notes || '',
+      status: equip.status,
       calibration_type: equip.calibration_type || '',
       calibration_cycle: equip.calibration_cycle || '',
       inspection_cycle: equip.inspection_cycle || '',
@@ -475,6 +518,21 @@ export function EquipmentPage() {
     }
   }
 
+  const handleRequestIdle = (equipmentId: string, requestType: 'idle' | 'restore') => {
+    const label = requestType === 'idle' ? '閒置' : '恢復'
+    const reason = window.prompt(`請輸入${label}原因：`)
+    if (reason) {
+      createIdleMutation.mutate({ equipment_id: equipmentId, request_type: requestType, reason })
+    }
+  }
+
+  const handleApproveIdle = (id: string, approved: boolean) => {
+    const msg = approved ? '確定核准此閒置申請？' : '確定駁回此閒置申請？'
+    if (window.confirm(msg)) {
+      approveIdleMutation.mutate({ id, approved })
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -497,6 +555,7 @@ export function EquipmentPage() {
           { value: 'equipment', label: '設備', icon: Wrench },
           { value: 'calibrations', label: '校正/確效/查核', icon: Ruler },
           { value: 'maintenance', label: '維修/保養', icon: Hammer },
+          { value: 'idle', label: '閒置管理', icon: Pause },
           { value: 'disposals', label: '報廢', icon: Trash2 },
           { value: 'annual-plan', label: '年度計畫', icon: Calendar },
         ]}
@@ -521,6 +580,7 @@ export function EquipmentPage() {
             actions={{
               onEdit: handleEditEquip,
               onDelete: handleDeleteEquip,
+              onRequestIdle: canManage ? handleRequestIdle : undefined,
             }}
           />
         </PageTabContent>
@@ -568,6 +628,18 @@ export function EquipmentPage() {
             onOpenChange={(open) => { if (!open) setReviewRecord(null) }}
             record={reviewRecord}
             mode={reviewMode}
+          />
+        </PageTabContent>
+
+        <PageTabContent value="idle" className="space-y-4">
+          <IdleTabContent
+            canApprove={canApproveIdle}
+            records={idleData?.data ?? []}
+            isLoading={idleLoading}
+            page={idlePage}
+            totalPages={idleData?.total_pages ?? 1}
+            onPageChange={setIdlePage}
+            onApprove={handleApproveIdle}
           />
         </PageTabContent>
 

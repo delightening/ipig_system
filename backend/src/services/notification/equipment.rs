@@ -153,6 +153,41 @@ impl NotificationService {
         Ok(())
     }
 
+    /// 發送設備報修通知（通知維修人員）
+    pub async fn send_equipment_repair_notification(
+        &self,
+        equipment_name: &str,
+        reporter_name: &str,
+        problem: &str,
+    ) -> Result<(), AppError> {
+        let recipients = self
+            .get_recipients_by_event("equipment_maintenance_review")
+            .await?;
+
+        for (user_id, _email, _name, channel) in &recipients {
+            if Self::should_send_in_app(channel) {
+                if let Err(e) = self
+                    .create_notification(CreateNotificationRequest {
+                        user_id: *user_id,
+                        notification_type: NotificationType::SystemAlert,
+                        title: format!("設備報修：{}", equipment_name),
+                        content: Some(format!(
+                            "{} 提報設備「{}」需要維修，問題描述：{}",
+                            reporter_name, equipment_name, problem
+                        )),
+                        related_entity_type: Some("equipment".to_string()),
+                        related_entity_id: None,
+                    })
+                    .await
+                {
+                    tracing::warn!("建立報修通知失敗: {e}");
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// 發送設備報廢申請通知
     pub async fn send_equipment_disposal_notification(
         &self,

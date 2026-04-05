@@ -16,7 +16,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import type { StatusVariant } from '@/components/ui/status-badge'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
-import { Pencil, Trash2, Building2, ArrowUpDown } from 'lucide-react'
+import { Pencil, Trash2, Building2, ArrowUpDown, Pause, Play } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api from '@/lib/api'
 
@@ -48,6 +48,7 @@ interface EquipmentTableProps {
 interface EquipmentActions {
   onEdit: (equip: Equipment) => void
   onDelete: (id: string, name: string) => void
+  onRequestIdle?: (equipmentId: string, requestType: 'idle' | 'restore') => void
 }
 
 interface EquipmentTabContentProps {
@@ -95,7 +96,7 @@ export function EquipmentTabContent({
   actions,
 }: EquipmentTabContentProps) {
   const { records, isLoading, page, totalPages, onPageChange } = tableProps
-  const { onEdit, onDelete } = actions
+  const { onEdit, onDelete, onRequestIdle } = actions
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false)
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(null)
   const [sortColumn, setSortColumn] = useState<SortKey | null>(null)
@@ -258,9 +259,19 @@ export function EquipmentTabContent({
     ]
     if (canManage) {
       cols.push({
-        key: 'actions', header: '操作', className: 'w-[100px] text-right',
+        key: 'actions', header: '操作', className: 'w-[140px] text-right',
         cell: (r) => (
           <div className="flex items-center justify-end gap-1">
+            {onRequestIdle && r.status === 'active' && (
+              <Button variant="ghost" size="icon" onClick={() => onRequestIdle(r.id, 'idle')} aria-label="申請閒置" title="申請閒置">
+                <Pause className="h-4 w-4" />
+              </Button>
+            )}
+            {onRequestIdle && r.status === 'inactive' && (
+              <Button variant="ghost" size="icon" onClick={() => onRequestIdle(r.id, 'restore')} aria-label="申請恢復" title="申請恢復啟用">
+                <Play className="h-4 w-4" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={() => onEdit(r)} aria-label="編輯">
               <Pencil className="h-4 w-4" />
             </Button>
@@ -273,7 +284,7 @@ export function EquipmentTabContent({
     }
     return cols
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, sortColumn, sortDirection, supplierMap, allCalibrations, onEdit, onDelete])
+  }, [canManage, sortColumn, sortDirection, supplierMap, allCalibrations, onEdit, onDelete, onRequestIdle])
 
   return (
     <>

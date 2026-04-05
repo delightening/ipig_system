@@ -9,18 +9,20 @@ use crate::{
     error::AppError,
     middleware::CurrentUser,
     models::{
-        AnnualPlanQuery, AnnualPlanWithEquipment, ApproveDisposalRequest, CalibrationCycle,
+        AnnualPlanQuery, AnnualPlanWithEquipment, ApproveDisposalRequest,
+        ApproveIdleRequestRequest, CalibrationCycle,
         CalibrationQuery, CalibrationWithEquipment, CreateCalibrationRequest,
         CreateDisposalRequest, CreateEquipmentRequest, CreateEquipmentSupplierRequest,
-        CreateMaintenanceRequest, DisposalQuery, DisposalStatus, DisposalWithDetails, Equipment,
-        EquipmentCalibration, EquipmentHistoryQuery, EquipmentMaintenanceRecord, EquipmentQuery,
-        EquipmentStatus, EquipmentStatusLog, EquipmentSupplierWithPartner,
-        EquipmentTimelineEntry, CreateAnnualPlanRequest, UpdateAnnualPlanRequest,
-        GenerateAnnualPlanRequest, MaintenanceQuery, MaintenanceRecordWithDetails,
-        AnnualPlanExecutionRow, AnnualPlanExecutionSummary, ExecutionSummaryQuery,
-        MaintenanceStatus, MaintenanceType, MonthExecutionDetail, MonthExecutionStatus,
-        PaginatedResponse, ReviewMaintenanceRequest, TimelineRow, UpdateCalibrationRequest,
-        UpdateEquipmentRequest, UpdateMaintenanceRequest,
+        CreateIdleRequestRequest, CreateMaintenanceRequest, DisposalQuery, DisposalStatus,
+        DisposalWithDetails, Equipment, EquipmentCalibration, EquipmentHistoryQuery,
+        EquipmentMaintenanceRecord, EquipmentQuery, EquipmentStatus, EquipmentStatusLog,
+        EquipmentSupplierWithPartner, EquipmentTimelineEntry, CreateAnnualPlanRequest,
+        IdleRequestQuery, IdleRequestWithDetails,
+        UpdateAnnualPlanRequest, GenerateAnnualPlanRequest, MaintenanceQuery,
+        MaintenanceRecordWithDetails, AnnualPlanExecutionRow, AnnualPlanExecutionSummary,
+        ExecutionSummaryQuery, MaintenanceStatus, MaintenanceType, MonthExecutionDetail,
+        MonthExecutionStatus, PaginatedResponse, ReviewMaintenanceRequest, TimelineRow,
+        UpdateCalibrationRequest, UpdateEquipmentRequest, UpdateMaintenanceRequest,
     },
     repositories, Result,
 };
@@ -37,6 +39,33 @@ fn check_view_permission(current_user: &CurrentUser) -> Result<()> {
 fn check_manage_permission(current_user: &CurrentUser) -> Result<()> {
     if !current_user.has_permission("equipment.manage") {
         return Err(AppError::Forbidden("無權管理設備".into()));
+    }
+    Ok(())
+}
+
+/// 驗證設備狀態轉換是否合法（GLP/ISO 合規）
+pub fn validate_status_transition(
+    from: &EquipmentStatus,
+    to: &EquipmentStatus,
+) -> Result<()> {
+    if from == to {
+        return Ok(());
+    }
+    let allowed = matches!(
+        (from, to),
+        (EquipmentStatus::Active, EquipmentStatus::UnderRepair)
+            | (EquipmentStatus::Active, EquipmentStatus::Inactive)
+            | (EquipmentStatus::Active, EquipmentStatus::Decommissioned)
+            | (EquipmentStatus::Inactive, EquipmentStatus::Active)
+            | (EquipmentStatus::UnderRepair, EquipmentStatus::Active)
+            | (EquipmentStatus::UnderRepair, EquipmentStatus::Decommissioned)
+            | (EquipmentStatus::Decommissioned, EquipmentStatus::Active)
+    );
+    if !allowed {
+        return Err(AppError::BadRequest(format!(
+            "不允許的狀態轉換：{:?} → {:?}",
+            from, to
+        )));
     }
     Ok(())
 }
@@ -171,8 +200,6 @@ impl EquipmentService {
         let purchase_date = payload.purchase_date.or(existing.purchase_date);
         let warranty_expiry = payload.warranty_expiry.or(existing.warranty_expiry);
         let notes = payload.notes.as_ref().or(existing.notes.as_ref()).cloned();
-        let is_active = payload.is_active.unwrap_or(existing.is_active);
-        let new_status = payload.status.clone().unwrap_or(existing.status.clone());
         let cal_type = payload
             .calibration_type
             .as_ref()
@@ -189,60 +216,13 @@ impl EquipmentService {
             .or(existing.inspection_cycle.as_ref())
             .cloned();
 
-        // 狀態變更時記錄 audit trail
-        if new_status != existing.status {
-            sqlx::query(
-                r#"
-                INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by)
-                VALUES ($1, $2, $3, $4)
-                "#,
-            )
-            .bind(id)
-            .bind(&existing.status)
-            .bind(&new_status)
-            .bind(current_user.id)
-            .execute(pool)
-            .await?;
-
-            // 狀態變更為「維修」時，自動建立一筆待處理的維修紀錄
-            if new_status == EquipmentStatus::UnderRepair {
-                let has_pending: bool = sqlx::query_scalar(
-                    r#"
-                    SELECT EXISTS(
-                        SELECT 1 FROM equipment_maintenance_records
-                        WHERE equipment_id = $1
-                          AND maintenance_type = 'repair'
-                          AND status NOT IN ('completed', 'unrepairable')
-                    )
-                    "#,
-                )
-                .bind(id)
-                .fetch_one(pool)
-                .await?;
-
-                if !has_pending {
-                    sqlx::query(
-                        r#"
-                        INSERT INTO equipment_maintenance_records
-                            (equipment_id, maintenance_type, status, reported_at, problem_description, created_by)
-                        VALUES ($1, 'repair', 'pending', CURRENT_DATE, '設備狀態變更為維修（自動建立）', $2)
-                        "#,
-                    )
-                    .bind(id)
-                    .bind(current_user.id)
-                    .execute(pool)
-                    .await?;
-                }
-            }
-        }
-
         let record = sqlx::query_as::<_, Equipment>(
             r#"
             UPDATE equipment
             SET name = $2, model = $3, serial_number = $4, location = $5,
                 department = $6, purchase_date = $7, warranty_expiry = $8,
-                notes = $9, is_active = $10, status = $11,
-                calibration_type = $12, calibration_cycle = $13, inspection_cycle = $14,
+                notes = $9,
+                calibration_type = $10, calibration_cycle = $11, inspection_cycle = $12,
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -257,8 +237,6 @@ impl EquipmentService {
         .bind(purchase_date)
         .bind(warranty_expiry)
         .bind(notes)
-        .bind(is_active)
-        .bind(&new_status)
         .bind(cal_type)
         .bind(cal_cycle)
         .bind(insp_cycle)
@@ -735,10 +713,11 @@ impl EquipmentService {
             .await?
             .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
 
-        // 維修類型自動變更設備狀態為「維修中」
+        // 維修類型自動變更設備狀態為「待修」
         if payload.maintenance_type == MaintenanceType::Repair
             && equipment.status == EquipmentStatus::Active
         {
+            validate_status_transition(&equipment.status, &EquipmentStatus::UnderRepair)?;
             sqlx::query(
                 "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, $2, 'under_repair', $3, '建立維修紀錄，自動變更狀態')",
             )
@@ -777,6 +756,21 @@ impl EquipmentService {
         .bind(current_user.id)
         .fetch_one(pool)
         .await?;
+
+        // P2-2: 報修自動通知維修人員
+        if payload.maintenance_type == MaintenanceType::Repair {
+            let notification_svc = crate::services::NotificationService::new(pool.clone());
+            if let Err(e) = notification_svc
+                .send_equipment_repair_notification(
+                    &equipment.name,
+                    &current_user.email,
+                    payload.problem_description.as_deref().unwrap_or("-"),
+                )
+                .await
+            {
+                tracing::warn!("發送報修通知失敗: {e}");
+            }
+        }
 
         Ok(record)
     }
@@ -1105,6 +1099,11 @@ impl EquipmentService {
 
         // 核准後自動將設備狀態變為「報廢」
         if payload.approved {
+            let equipment = repositories::equipment::find_equipment_by_id(pool, existing.equipment_id)
+                .await?
+                .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
+            validate_status_transition(&equipment.status, &EquipmentStatus::Decommissioned)?;
+
             sqlx::query(
                 "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, (SELECT status FROM equipment WHERE id = $1), 'decommissioned', $2, '報廢申請核准')",
             )
@@ -1159,9 +1158,20 @@ impl EquipmentService {
             return Err(AppError::BadRequest("只能恢復已核准的報廢設備".into()));
         }
 
+        // P2-1: 二次審批 — 恢復人不得與原核准人相同
+        if let Some(approver) = existing.approved_by {
+            if approver == current_user.id {
+                return Err(AppError::BadRequest(
+                    "報廢恢復需由原核准人以外的管理員執行（二次審批）".into(),
+                ));
+            }
+        }
+
+        validate_status_transition(&EquipmentStatus::Decommissioned, &EquipmentStatus::Active)?;
+
         // 記錄狀態變更日誌
         sqlx::query(
-            "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, 'decommissioned', 'active', $2, '管理員手動恢復報廢設備')",
+            "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, 'decommissioned', 'active', $2, '管理員恢復報廢設備（二次審批）')",
         )
         .bind(existing.equipment_id)
         .bind(current_user.id)
@@ -1200,6 +1210,265 @@ impl EquipmentService {
             "#,
         )
         .bind(disposal_id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(record)
+    }
+
+    // ========== Idle Requests (閒置審批) ==========
+
+    pub async fn list_idle_requests(
+        pool: &PgPool,
+        query: &IdleRequestQuery,
+        current_user: &CurrentUser,
+    ) -> Result<PaginatedResponse<IdleRequestWithDetails>> {
+        check_view_permission(current_user)?;
+
+        let page = query.page.unwrap_or(1);
+        let per_page = query.per_page.unwrap_or(50).min(100);
+        let offset = (page - 1) * per_page;
+
+        let total: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) FROM equipment_idle_requests ir
+            WHERE ($1::uuid IS NULL OR ir.equipment_id = $1)
+              AND ($2::disposal_status IS NULL OR ir.status = $2)
+            "#,
+        )
+        .bind(query.equipment_id)
+        .bind(&query.status)
+        .fetch_one(pool)
+        .await?;
+
+        let data = sqlx::query_as::<_, IdleRequestWithDetails>(
+            r#"
+            SELECT ir.id, ir.equipment_id, e.name AS equipment_name,
+                   ir.request_type, ir.reason, ir.status,
+                   ir.applied_by, u1.display_name AS applicant_name, ir.applied_at,
+                   ir.approved_by, u2.display_name AS approver_name, ir.approved_at,
+                   ir.rejection_reason, ir.notes, ir.created_at
+            FROM equipment_idle_requests ir
+            INNER JOIN equipment e ON ir.equipment_id = e.id
+            INNER JOIN users u1 ON ir.applied_by = u1.id
+            LEFT JOIN users u2 ON ir.approved_by = u2.id
+            WHERE ($1::uuid IS NULL OR ir.equipment_id = $1)
+              AND ($2::disposal_status IS NULL OR ir.status = $2)
+            ORDER BY ir.created_at DESC
+            LIMIT $3 OFFSET $4
+            "#,
+        )
+        .bind(query.equipment_id)
+        .bind(&query.status)
+        .bind(per_page)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(PaginatedResponse::new(data, total.0, page, per_page))
+    }
+
+    pub async fn create_idle_request(
+        pool: &PgPool,
+        payload: &CreateIdleRequestRequest,
+        current_user: &CurrentUser,
+    ) -> Result<IdleRequestWithDetails> {
+        check_manage_permission(current_user)?;
+        payload.validate()?;
+
+        if payload.request_type != "idle" && payload.request_type != "restore" {
+            return Err(AppError::BadRequest(
+                "request_type 必須為 'idle' 或 'restore'".into(),
+            ));
+        }
+
+        let equipment = repositories::equipment::find_equipment_by_id(pool, payload.equipment_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
+
+        // 驗證狀態轉換合法性
+        let target_status = if payload.request_type == "idle" {
+            if equipment.status != EquipmentStatus::Active {
+                return Err(AppError::BadRequest("只有啟用中的設備可以申請閒置".into()));
+            }
+            EquipmentStatus::Inactive
+        } else {
+            if equipment.status != EquipmentStatus::Inactive {
+                return Err(AppError::BadRequest("只有閒置中的設備可以申請恢復".into()));
+            }
+            EquipmentStatus::Active
+        };
+        validate_status_transition(&equipment.status, &target_status)?;
+
+        // 檢查是否已有待審批的申請
+        let has_pending: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM equipment_idle_requests WHERE equipment_id = $1 AND status = 'pending')",
+        )
+        .bind(payload.equipment_id)
+        .fetch_one(pool)
+        .await?;
+
+        if has_pending {
+            return Err(AppError::BadRequest("該設備已有待審批的閒置/恢復申請".into()));
+        }
+
+        let record = sqlx::query_as::<_, IdleRequestWithDetails>(
+            r#"
+            WITH inserted AS (
+                INSERT INTO equipment_idle_requests
+                    (equipment_id, request_type, reason, applied_by, notes)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING *
+            )
+            SELECT i.id, i.equipment_id, e.name AS equipment_name,
+                   i.request_type, i.reason, i.status,
+                   i.applied_by, u1.display_name AS applicant_name, i.applied_at,
+                   i.approved_by, NULL::text AS approver_name, i.approved_at,
+                   i.rejection_reason, i.notes, i.created_at
+            FROM inserted i
+            INNER JOIN equipment e ON i.equipment_id = e.id
+            INNER JOIN users u1 ON i.applied_by = u1.id
+            "#,
+        )
+        .bind(payload.equipment_id)
+        .bind(&payload.request_type)
+        .bind(&payload.reason)
+        .bind(current_user.id)
+        .bind(&payload.notes)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(record)
+    }
+
+    pub async fn approve_idle_request(
+        pool: &PgPool,
+        id: Uuid,
+        payload: &ApproveIdleRequestRequest,
+        current_user: &CurrentUser,
+    ) -> Result<IdleRequestWithDetails> {
+        if !current_user.has_permission("equipment.idle.approve") {
+            return Err(AppError::Forbidden("無權核准閒置申請".into()));
+        }
+        payload.validate()?;
+
+        let existing = sqlx::query_as::<_, IdleRequestWithDetails>(
+            r#"
+            SELECT ir.id, ir.equipment_id, e.name AS equipment_name,
+                   ir.request_type, ir.reason, ir.status,
+                   ir.applied_by, u1.display_name AS applicant_name, ir.applied_at,
+                   ir.approved_by, u2.display_name AS approver_name, ir.approved_at,
+                   ir.rejection_reason, ir.notes, ir.created_at
+            FROM equipment_idle_requests ir
+            INNER JOIN equipment e ON ir.equipment_id = e.id
+            INNER JOIN users u1 ON ir.applied_by = u1.id
+            LEFT JOIN users u2 ON ir.approved_by = u2.id
+            WHERE ir.id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("閒置申請不存在".into()))?;
+
+        if existing.status != DisposalStatus::Pending {
+            return Err(AppError::BadRequest("此申請已處理".into()));
+        }
+
+        let new_status = if payload.approved {
+            DisposalStatus::Approved
+        } else {
+            DisposalStatus::Rejected
+        };
+
+        sqlx::query(
+            r#"
+            UPDATE equipment_idle_requests
+            SET status = $2, approved_by = $3, approved_at = NOW(),
+                rejection_reason = $4, updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .bind(&new_status)
+        .bind(current_user.id)
+        .bind(&payload.rejection_reason)
+        .execute(pool)
+        .await?;
+
+        if payload.approved {
+            let equipment = repositories::equipment::find_equipment_by_id(pool, existing.equipment_id)
+                .await?
+                .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
+
+            let (target_status, is_active, reason) = if existing.request_type == "idle" {
+                (EquipmentStatus::Inactive, false, "閒置申請核准")
+            } else {
+                (EquipmentStatus::Active, true, "閒置恢復申請核准")
+            };
+
+            validate_status_transition(&equipment.status, &target_status)?;
+
+            sqlx::query(
+                "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, $2, $3, $4, $5)",
+            )
+            .bind(existing.equipment_id)
+            .bind(&equipment.status)
+            .bind(&target_status)
+            .bind(current_user.id)
+            .bind(reason)
+            .execute(pool)
+            .await?;
+
+            sqlx::query(
+                "UPDATE equipment SET status = $2, is_active = $3, updated_at = NOW() WHERE id = $1",
+            )
+            .bind(existing.equipment_id)
+            .bind(&target_status)
+            .bind(is_active)
+            .execute(pool)
+            .await?;
+        }
+
+        // P2-3: 通知申請人審批結果
+        {
+            let notification_svc = crate::services::NotificationService::new(pool.clone());
+            let action = if payload.approved { "核准" } else { "駁回" };
+            let type_label = if existing.request_type == "idle" { "閒置" } else { "恢復" };
+            if let Err(e) = notification_svc
+                .create_notification(crate::models::CreateNotificationRequest {
+                    user_id: existing.applied_by,
+                    notification_type: crate::models::NotificationType::SystemAlert,
+                    title: format!("設備{}申請已{}", type_label, action),
+                    content: Some(format!(
+                        "您的設備「{}」{}申請已被{}。",
+                        existing.equipment_name, type_label, action
+                    )),
+                    related_entity_type: Some("equipment".to_string()),
+                    related_entity_id: None,
+                })
+                .await
+            {
+                tracing::warn!("發送閒置審批結果通知失敗: {e}");
+            }
+        }
+
+        // 重新查詢完整紀錄
+        let record = sqlx::query_as::<_, IdleRequestWithDetails>(
+            r#"
+            SELECT ir.id, ir.equipment_id, e.name AS equipment_name,
+                   ir.request_type, ir.reason, ir.status,
+                   ir.applied_by, u1.display_name AS applicant_name, ir.applied_at,
+                   ir.approved_by, u2.display_name AS approver_name, ir.approved_at,
+                   ir.rejection_reason, ir.notes, ir.created_at
+            FROM equipment_idle_requests ir
+            INNER JOIN equipment e ON ir.equipment_id = e.id
+            INNER JOIN users u1 ON ir.applied_by = u1.id
+            LEFT JOIN users u2 ON ir.approved_by = u2.id
+            WHERE ir.id = $1
+            "#,
+        )
+        .bind(id)
         .fetch_one(pool)
         .await?;
 
@@ -1647,6 +1916,11 @@ impl EquipmentService {
 }
 
 async fn auto_restore_equipment(pool: &PgPool, equipment_id: Uuid, user_id: Uuid) -> Result<()> {
+    let equipment = repositories::equipment::find_equipment_by_id(pool, equipment_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
+    validate_status_transition(&equipment.status, &EquipmentStatus::Active)?;
+
     sqlx::query(
         "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, (SELECT status FROM equipment WHERE id = $1), 'active', $2, '維修驗收通過，自動恢復狀態')",
     )

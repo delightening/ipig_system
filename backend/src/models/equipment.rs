@@ -162,8 +162,6 @@ pub struct UpdateEquipmentRequest {
     pub warranty_expiry: Option<NaiveDate>,
     #[validate(length(max = 2000))]
     pub notes: Option<String>,
-    pub is_active: Option<bool>,
-    pub status: Option<EquipmentStatus>,
     pub calibration_type: Option<CalibrationType>,
     pub calibration_cycle: Option<CalibrationCycle>,
     pub inspection_cycle: Option<CalibrationCycle>,
@@ -519,6 +517,53 @@ pub struct CreateDisposalRequest {
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct ApproveDisposalRequest {
+    pub approved: bool,
+    #[validate(length(max = 2000))]
+    pub rejection_reason: Option<String>,
+}
+
+// ========== Idle Requests (閒置審批) ==========
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct IdleRequestWithDetails {
+    pub id: Uuid,
+    pub equipment_id: Uuid,
+    pub equipment_name: String,
+    pub request_type: String,
+    pub reason: String,
+    pub status: DisposalStatus,
+    pub applied_by: Uuid,
+    pub applicant_name: String,
+    pub applied_at: DateTime<Utc>,
+    pub approved_by: Option<Uuid>,
+    pub approver_name: Option<String>,
+    pub approved_at: Option<DateTime<Utc>>,
+    pub rejection_reason: Option<String>,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct IdleRequestQuery {
+    pub equipment_id: Option<Uuid>,
+    pub status: Option<DisposalStatus>,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct CreateIdleRequestRequest {
+    pub equipment_id: Uuid,
+    /// "idle" 或 "restore"
+    pub request_type: String,
+    #[validate(length(min = 1, max = 2000))]
+    pub reason: String,
+    #[validate(length(max = 2000))]
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct ApproveIdleRequestRequest {
     pub approved: bool,
     #[validate(length(max = 2000))]
     pub rejection_reason: Option<String>,

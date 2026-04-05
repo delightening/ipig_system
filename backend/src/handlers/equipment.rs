@@ -11,15 +11,17 @@ use crate::{
     middleware::CurrentUser,
     models::{
         ActivityLogQuery, AnnualPlanExecutionSummary, AnnualPlanQuery, AnnualPlanWithEquipment,
-        ApproveDisposalRequest, CalibrationQuery, CalibrationWithEquipment,
-        CreateAnnualPlanRequest, CreateCalibrationRequest, CreateDisposalRequest,
-        CreateEquipmentRequest, CreateEquipmentSupplierRequest, CreateMaintenanceRequest,
-        DisposalQuery, DisposalWithDetails, Equipment, EquipmentCalibration,
-        EquipmentHistoryQuery, EquipmentMaintenanceRecord, EquipmentQuery, EquipmentStatusLog,
-        EquipmentSupplierWithPartner, EquipmentTimelineEntry, ExecutionSummaryQuery,
-        GenerateAnnualPlanRequest, MaintenanceQuery, MaintenanceRecordWithDetails,
-        PaginatedResponse, ReviewMaintenanceRequest, UpdateAnnualPlanRequest,
-        UpdateCalibrationRequest, UpdateEquipmentRequest, UpdateMaintenanceRequest, UserActivityLog,
+        ApproveDisposalRequest, ApproveIdleRequestRequest, CalibrationQuery,
+        CalibrationWithEquipment, CreateAnnualPlanRequest, CreateCalibrationRequest,
+        CreateDisposalRequest, CreateEquipmentRequest, CreateEquipmentSupplierRequest,
+        CreateIdleRequestRequest, CreateMaintenanceRequest, DisposalQuery, DisposalWithDetails,
+        Equipment, EquipmentCalibration, EquipmentHistoryQuery, EquipmentMaintenanceRecord,
+        EquipmentQuery, EquipmentStatusLog, EquipmentSupplierWithPartner,
+        EquipmentTimelineEntry, ExecutionSummaryQuery, GenerateAnnualPlanRequest,
+        IdleRequestQuery, IdleRequestWithDetails,
+        MaintenanceQuery, MaintenanceRecordWithDetails, PaginatedResponse,
+        ReviewMaintenanceRequest, UpdateAnnualPlanRequest, UpdateCalibrationRequest,
+        UpdateEquipmentRequest, UpdateMaintenanceRequest, UserActivityLog,
     },
     repositories,
     services::{AuditService, EquipmentService},
@@ -363,6 +365,37 @@ pub async fn restore_equipment(
     Path(id): Path<Uuid>,
 ) -> Result<Json<DisposalWithDetails>> {
     let record = EquipmentService::restore_equipment(&state.db, id, &current_user).await?;
+    Ok(Json(record))
+}
+
+// ========== Idle Requests (閒置審批) ==========
+
+pub async fn list_idle_requests(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<IdleRequestQuery>,
+) -> Result<Json<PaginatedResponse<IdleRequestWithDetails>>> {
+    let result = EquipmentService::list_idle_requests(&state.db, &params, &current_user).await?;
+    Ok(Json(result))
+}
+
+pub async fn create_idle_request(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(payload): Json<CreateIdleRequestRequest>,
+) -> Result<(StatusCode, Json<IdleRequestWithDetails>)> {
+    let record = EquipmentService::create_idle_request(&state.db, &payload, &current_user).await?;
+    Ok((StatusCode::CREATED, Json(record)))
+}
+
+pub async fn approve_idle_request(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<ApproveIdleRequestRequest>,
+) -> Result<Json<IdleRequestWithDetails>> {
+    let record =
+        EquipmentService::approve_idle_request(&state.db, id, &payload, &current_user).await?;
     Ok(Json(record))
 }
 

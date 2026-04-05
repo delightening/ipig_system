@@ -13,8 +13,8 @@ export type ValidationPhase = 'IQ' | 'OQ' | 'PQ'
 
 export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
   active: '啟用',
-  inactive: '停用',
-  under_repair: '維修',
+  inactive: '閒置',
+  under_repair: '待修',
   decommissioned: '報廢',
 }
 
@@ -230,6 +230,7 @@ export interface EquipmentForm {
   purchase_date: string
   warranty_expiry: string
   notes: string
+  status: EquipmentStatus
   calibration_type: CalibrationType | ''
   calibration_cycle: CalibrationCycle | ''
   inspection_cycle: CalibrationCycle | ''

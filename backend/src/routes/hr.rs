@@ -219,6 +219,15 @@ pub fn routes() -> Router<AppState> {
             "/equipment-disposals/:id/restore",
             post(handlers::restore_equipment),
         )
+        // Idle Requests (閒置審批)
+        .route(
+            "/equipment-idle-requests",
+            get(handlers::list_idle_requests).post(handlers::create_idle_request),
+        )
+        .route(
+            "/equipment-idle-requests/:id/approve",
+            post(handlers::approve_idle_request),
+        )
         // Annual Plan (年度計畫)
         .route(
             "/equipment-annual-plans",

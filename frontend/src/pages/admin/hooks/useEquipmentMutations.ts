@@ -258,6 +258,7 @@ export const emptyEquipForm = (): EquipmentForm => ({
   purchase_date: '',
   warranty_expiry: '',
   notes: '',
+  status: 'active',
   calibration_type: '',
   calibration_cycle: '',
   inspection_cycle: '',

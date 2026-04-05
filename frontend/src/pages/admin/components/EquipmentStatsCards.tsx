@@ -49,7 +49,7 @@ export function EquipmentStatsCards({ equipmentList, allCalibrations }: Equipmen
     <div className="grid gap-4 md:grid-cols-4">
       <StatsCard label="設備總數 (啟用)" value={stats.activeCount} icon={Package} accentColor="info" />
       <StatsCard
-        label="維修中"
+        label="待修"
         value={stats.repairCount}
         icon={Wrench}
         accentColor="warning"
