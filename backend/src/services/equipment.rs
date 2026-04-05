@@ -203,6 +203,37 @@ impl EquipmentService {
             .bind(current_user.id)
             .execute(pool)
             .await?;
+
+            // 狀態變更為「維修」時，自動建立一筆待處理的維修紀錄
+            if new_status == EquipmentStatus::UnderRepair {
+                let has_pending: bool = sqlx::query_scalar(
+                    r#"
+                    SELECT EXISTS(
+                        SELECT 1 FROM equipment_maintenance_records
+                        WHERE equipment_id = $1
+                          AND maintenance_type = 'repair'
+                          AND status NOT IN ('completed', 'unrepairable')
+                    )
+                    "#,
+                )
+                .bind(id)
+                .fetch_one(pool)
+                .await?;
+
+                if !has_pending {
+                    sqlx::query(
+                        r#"
+                        INSERT INTO equipment_maintenance_records
+                            (equipment_id, maintenance_type, status, reported_at, problem_description, created_by)
+                        VALUES ($1, 'repair', 'pending', CURRENT_DATE, '設備狀態變更為維修（自動建立）', $2)
+                        "#,
+                    )
+                    .bind(id)
+                    .bind(current_user.id)
+                    .execute(pool)
+                    .await?;
+                }
+            }
         }
 
         let record = sqlx::query_as::<_, Equipment>(

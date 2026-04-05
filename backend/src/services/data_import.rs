@@ -89,161 +89,21 @@ fn has_id_remap_table(table: &str) -> bool {
     get_conflict_columns(table).is_some()
 }
 
-/// 預設管理員 email（匯入時排除，保留目標庫管理員）
-fn admin_email() -> &'static str {
-    option_env!("ADMIN_EMAIL").unwrap_or("admin@ipigsystem.asia")
-}
-
-/// 管理員角色 code（匯入時排除）
-const ADMIN_ROLE_CODES: &[&str] = &[crate::constants::ROLE_ADMIN_LEGACY, crate::constants::ROLE_SYSTEM_ADMIN];
-
-/// 排除管理員相關內容，並建立 ID 對應供子表 remap
-async fn filter_admin_content(
-    pool: &PgPool,
-    table: &str,
-    rows: &[serde_json::Value],
-    excluded_user_ids: &mut HashSet<String>,
-    excluded_role_ids: &mut HashSet<String>,
-    id_mapping: &mut IdMapping,
-) -> Result<(Vec<serde_json::Value>, u64)> {
-    let mut out = Vec::with_capacity(rows.len());
-    let mut skipped = 0u64;
-
-    match table {
-        "users" => {
-            let admin = admin_email();
-            for row in rows {
-                let obj = match row.as_object() {
-                    Some(o) => o,
-                    None => {
-                        out.push(row.clone());
-                        continue;
-                    }
-                };
-                let email = obj
-                    .get("email")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                if email.eq_ignore_ascii_case(admin) {
-                    if let Some(serde_json::Value::String(id)) = obj.get("id") {
-                        let sid = normalize_uuid(id);
-                        excluded_user_ids.insert(sid.clone());
-                        // 建立 ID 對應供子表 remap
-                        let target_id: Option<String> = sqlx::query_scalar(r#"SELECT id::text FROM users WHERE email = $1"#)
-                            .bind(admin)
-                            .fetch_optional(pool)
-                            .await?;
-                        if let Some(tid) = target_id {
-                            id_mapping
-                                .entry("users".to_string())
-                                .or_default()
-                                .insert(sid, tid);
-                        }
-                    }
-                    skipped += 1;
-                    continue;
-                }
-                // 全庫匯入後不強制既有使用者變更密碼（保留來源密碼 hash）
-                let mut user_row = row.clone();
-                if let Some(o) = user_row.as_object_mut() {
-                    o.insert("must_change_password".to_string(), serde_json::Value::Bool(false));
-                }
-                out.push(user_row);
+/// 處理使用者表匯入前的欄位調整（所有使用者含管理員均正常匯入）
+fn prepare_user_rows(rows: &[serde_json::Value]) -> Vec<serde_json::Value> {
+    rows.iter()
+        .map(|row| {
+            let mut user_row = row.clone();
+            // 全庫匯入後不強制既有使用者變更密碼（保留來源密碼 hash）
+            if let Some(o) = user_row.as_object_mut() {
+                o.insert(
+                    "must_change_password".to_string(),
+                    serde_json::Value::Bool(false),
+                );
             }
-        }
-        "roles" => {
-            for row in rows {
-                let obj = match row.as_object() {
-                    Some(o) => o,
-                    None => {
-                        out.push(row.clone());
-                        continue;
-                    }
-                };
-                let code = obj
-                    .get("code")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                if ADMIN_ROLE_CODES.iter().any(|&c| c.eq_ignore_ascii_case(code)) {
-                    if let Some(serde_json::Value::String(id)) = obj.get("id") {
-                        let sid = normalize_uuid(id);
-                        excluded_role_ids.insert(sid.clone());
-                        // 建立 ID 對應供子表 remap
-                        let target_id: Option<String> =
-                            sqlx::query_scalar(r#"SELECT id::text FROM roles WHERE code = $1"#)
-                                .bind(code)
-                                .fetch_optional(pool)
-                                .await?;
-                        if let Some(tid) = target_id {
-                            id_mapping
-                                .entry("roles".to_string())
-                                .or_default()
-                                .insert(sid, tid);
-                        }
-                    }
-                    skipped += 1;
-                    continue;
-                }
-                out.push(row.clone());
-            }
-        }
-        "user_roles" => {
-            for row in rows {
-                let obj = match row.as_object() {
-                    Some(o) => o,
-                    None => {
-                        out.push(row.clone());
-                        continue;
-                    }
-                };
-                let user_id = obj
-                    .get("user_id")
-                    .and_then(|v| v.as_str())
-                    .map(normalize_uuid);
-                let role_id = obj
-                    .get("role_id")
-                    .and_then(|v| v.as_str())
-                    .map(normalize_uuid);
-                let skip = user_id
-                    .as_ref()
-                    .is_some_and(|u| excluded_user_ids.contains(u))
-                    || role_id
-                        .as_ref()
-                        .is_some_and(|r| excluded_role_ids.contains(r));
-                if skip {
-                    skipped += 1;
-                    continue;
-                }
-                out.push(row.clone());
-            }
-        }
-        "role_permissions" => {
-            for row in rows {
-                let obj = match row.as_object() {
-                    Some(o) => o,
-                    None => {
-                        out.push(row.clone());
-                        continue;
-                    }
-                };
-                let role_id = obj
-                    .get("role_id")
-                    .and_then(|v| v.as_str())
-                    .map(normalize_uuid);
-                if role_id
-                    .as_ref()
-                    .is_some_and(|r| excluded_role_ids.contains(r))
-                {
-                    skipped += 1;
-                    continue;
-                }
-                out.push(row.clone());
-            }
-        }
-        _ => return Ok((rows.to_vec(), 0)),
-    }
-
-    Ok((out, skipped))
+            user_row
+        })
+        .collect()
 }
 
 
@@ -459,8 +319,6 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
 
     let fk_config = fetch_fk_config(pool).await?;
     let mut id_mapping: IdMapping = HashMap::new();
-    let mut excluded_user_ids: HashSet<String> = HashSet::new();
-    let mut excluded_role_ids: HashSet<String> = HashSet::new();
 
     let mut result = ImportResult {
         tables_processed: 0,
@@ -509,26 +367,8 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
         if tbl.name == "change_reasons" {
             sanitize_change_reasons(pool, &mut rows).await?;
         }
-
-        let (mut rows, admin_skipped) = filter_admin_content(
-            pool,
-            &tbl.name,
-            &rows,
-            &mut excluded_user_ids,
-            &mut excluded_role_ids,
-            &mut id_mapping,
-        )
-        .await?;
-        if admin_skipped > 0 {
-            result.skipped_details.push(SkippedDetail {
-                table: tbl.name.clone(),
-                reason: "管理員相關，已略過".into(),
-                count: Some(admin_skipped),
-            });
-        }
-
-        if rows.is_empty() {
-            continue;
+        if tbl.name == "users" {
+            rows = prepare_user_rows(&rows);
         }
 
         if tbl.name == "treatment_drug_options" {
@@ -641,8 +481,6 @@ async fn import_from_json(pool: &PgPool, json_bytes: &[u8], _mode: ImportMode) -
 
     let fk_config = fetch_fk_config(pool).await?;
     let mut id_mapping: IdMapping = HashMap::new();
-    let mut excluded_user_ids: HashSet<String> = HashSet::new();
-    let mut excluded_role_ids: HashSet<String> = HashSet::new();
 
     let mut result = ImportResult {
         tables_processed: 0,
@@ -688,26 +526,8 @@ async fn import_from_json(pool: &PgPool, json_bytes: &[u8], _mode: ImportMode) -
         if table_name == "change_reasons" {
             sanitize_change_reasons(pool, &mut rows).await?;
         }
-
-        let (mut rows, admin_skipped) = filter_admin_content(
-            pool,
-            &table_name,
-            &rows,
-            &mut excluded_user_ids,
-            &mut excluded_role_ids,
-            &mut id_mapping,
-        )
-        .await?;
-        if admin_skipped > 0 {
-            result.skipped_details.push(SkippedDetail {
-                table: table_name.clone(),
-                reason: "管理員相關，已略過".into(),
-                count: Some(admin_skipped),
-            });
-        }
-
-        if rows.is_empty() {
-            continue;
+        if table_name == "users" {
+            rows = prepare_user_rows(&rows);
         }
 
         if table_name == "treatment_drug_options" {
