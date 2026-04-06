@@ -185,6 +185,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-06 Dashboard 新增設備狀態總覽 Widget
+
+- ✅ **新增 `equipment_status` widget**：顯示啟用中、待修、校正逾期、設備總數 4 個指標，點擊卡片導航至 `/equipment`
+- ✅ **資料層**：`useDashboardData` 新增 `equipmentList`（`GET /equipment?per_page=200`）與 `allCalibrations`（`GET /equipment-calibrations?per_page=200`）查詢，在前端計算逾期校正數
+- ✅ **預設佈局**：widget 預設放置於 `x=9, y=0, w=3, h=6`（右欄頂部），與 `animals_on_medication` 並排
+- ✅ **i18n**：zh-TW / en 兩語系均已新增對應翻譯鍵值
+
 ### 2026-04-03 GLP / ISO 17025 / ISO 9001 合規改進（P0+P1）
 
 - ✅ **合規差距分析報告**：產出 `docs/COMPLIANCE_GAP_ANALYSIS.md`，涵蓋 GLP (OECD) / ISO 17025:2017 / ISO 9001:2015 三大法規逐條分析，識別 3 個 P0 + 9 個 P1 + 16 個 P2 差距項目

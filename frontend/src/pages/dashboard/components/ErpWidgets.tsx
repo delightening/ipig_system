@@ -26,9 +26,11 @@ import {
   Loader2,
   Calendar,
   Wrench,
+  Cpu,
+  CheckCircle2,
 } from 'lucide-react'
 import type { DocumentListItem, LowStockAlert } from '@/lib/api'
-import type { TrendDataPoint } from '../hooks/useDashboardData'
+import type { TrendDataPoint, EquipmentStats } from '../hooks/useDashboardData'
 import type { MaintenanceRecordWithDetails } from '@/pages/admin/types'
 
 // --- Helper ---
@@ -364,6 +366,92 @@ export const RecentMaintenanceWidget = memo(function RecentMaintenanceWidget({
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
             <Wrench className="h-12 w-12 mb-2" />
             <p>{t('dashboard.widgets.maintenance.noRecords')}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+})
+
+// --- 設備狀態總覽 ---
+
+export const EquipmentStatusWidget = memo(function EquipmentStatusWidget({
+  stats,
+  isLoading,
+}: {
+  stats: EquipmentStats | null | undefined
+  isLoading: boolean
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+
+  const metrics = [
+    {
+      value: stats?.activeCount ?? 0,
+      label: t('dashboard.widgets.equipment.active'),
+      icon: CheckCircle2,
+      colorClass: 'text-status-success-text',
+      bgClass: 'bg-status-success-bg',
+      highlight: false,
+    },
+    {
+      value: stats?.repairCount ?? 0,
+      label: t('dashboard.widgets.equipment.underRepair'),
+      icon: Wrench,
+      colorClass: (stats?.repairCount ?? 0) > 0 ? 'text-status-warning-text' : 'text-muted-foreground',
+      bgClass: (stats?.repairCount ?? 0) > 0 ? 'bg-status-warning-bg' : 'bg-muted/40',
+      highlight: (stats?.repairCount ?? 0) > 0,
+    },
+    {
+      value: stats?.overdueCount ?? 0,
+      label: t('dashboard.widgets.equipment.overdueCalibration'),
+      icon: AlertTriangle,
+      colorClass: (stats?.overdueCount ?? 0) > 0 ? 'text-destructive' : 'text-muted-foreground',
+      bgClass: (stats?.overdueCount ?? 0) > 0 ? 'bg-status-error-bg' : 'bg-muted/40',
+      highlight: (stats?.overdueCount ?? 0) > 0,
+    },
+    {
+      value: stats?.total ?? 0,
+      label: t('dashboard.widgets.equipment.total'),
+      icon: Cpu,
+      colorClass: 'text-muted-foreground',
+      bgClass: 'bg-muted/40',
+      highlight: false,
+    },
+  ]
+
+  return (
+    <Card className="h-full flex flex-col overflow-hidden">
+      <CardHeader
+        className="pb-2 cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => navigate('/equipment')}
+      >
+        <CardTitle className="flex items-center gap-2">
+          <Cpu className="h-5 w-5 text-status-info-text" />
+          {t('dashboard.widgets.names.equipment_status')}
+        </CardTitle>
+        <CardDescription>{t('dashboard.widgets.descriptions.equipment_status')}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1 overflow-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {metrics.map(({ value, label, icon: Icon, colorClass, bgClass }) => (
+              <div
+                key={label}
+                className={`p-3 rounded-lg ${bgClass} cursor-pointer hover:opacity-80 transition-opacity`}
+                onClick={() => navigate('/equipment')}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <Icon className={`h-4 w-4 ${colorClass}`} />
+                </div>
+                <div className={`text-2xl font-bold ${colorClass}`}>{value}</div>
+                <div className={`text-xs mt-0.5 ${colorClass}`}>{label}</div>
+              </div>
+            ))}
           </div>
         )}
       </CardContent>

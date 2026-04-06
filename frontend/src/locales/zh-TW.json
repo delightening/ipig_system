@@ -231,6 +231,7 @@
         "weekly_trend": "趨勢圖",
         "recent_documents": "最近單據",
         "recent_maintenance": "維修/保養紀錄",
+        "equipment_status": "設備狀態總覽",
         "upcoming_leaves": "即將到期假期",
         "staff_attendance": "員工出勤狀態",
         "google_calendar_events": "Google 日曆事件"
@@ -248,6 +249,7 @@
         "weekly_trend": "顯示最近幾天的進出庫趨勢",
         "recent_documents": "顯示最近建立或異動的單據",
         "recent_maintenance": "顯示最近的設備維修與保養紀錄",
+        "equipment_status": "顯示設備啟用、待修、校正逾期等狀態統計",
         "upcoming_leaves": "顯示即將過期的特休或補休提醒",
         "staff_attendance": "顯示主管轄下員工的今日出勤彙總",
         "google_calendar_events": "顯示連結的 Google 日曆事件"
@@ -317,6 +319,12 @@
         "reportedAt": "報修日期",
         "description": "問題描述",
         "noRecords": "尚無維修/保養紀錄"
+      },
+      "equipment": {
+        "active": "啟用中",
+        "underRepair": "待修",
+        "overdueCalibration": "校正逾期",
+        "total": "設備總數"
       },
       "attendance": {
         "normal": "正常",

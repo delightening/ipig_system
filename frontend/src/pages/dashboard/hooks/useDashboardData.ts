@@ -8,7 +8,14 @@ import { zhTW, enUS } from 'date-fns/locale'
 import { useTranslation } from 'react-i18next'
 import api, { LowStockAlert, DocumentListItem } from '@/lib/api'
 import type { PaginatedResponse } from '@/types/common'
-import type { MaintenanceRecordWithDetails } from '@/pages/admin/types'
+import type { Equipment, CalibrationWithEquipment, MaintenanceRecordWithDetails } from '@/pages/admin/types'
+
+export interface EquipmentStats {
+  activeCount: number
+  repairCount: number
+  overdueCount: number
+  total: number
+}
 
 export interface TrendDataPoint {
   date: string
@@ -54,6 +61,56 @@ export function useDashboardData(hasErpPermission: boolean) {
     enabled: hasErpPermission,
   })
 
+  const { data: equipmentList, isLoading: loadingEquipment } = useQuery({
+    queryKey: ['dashboard-equipment-list'],
+    queryFn: async () => {
+      const response = await api.get<PaginatedResponse<Equipment>>(
+        '/equipment',
+        { params: { per_page: 200 } }
+      )
+      return response.data.data
+    },
+    staleTime: 120_000,
+    enabled: hasErpPermission,
+  })
+
+  const { data: allCalibrations, isLoading: loadingCalibrations } = useQuery({
+    queryKey: ['dashboard-calibration-list'],
+    queryFn: async () => {
+      const response = await api.get<PaginatedResponse<CalibrationWithEquipment>>(
+        '/equipment-calibrations',
+        { params: { per_page: 200 } }
+      )
+      return response.data.data
+    },
+    staleTime: 120_000,
+    enabled: hasErpPermission,
+  })
+
+  const equipmentStats = useMemo((): EquipmentStats | null => {
+    if (!equipmentList) return null
+    const today = format(new Date(), 'yyyy-MM-dd')
+
+    const latestByKey = new Map<string, CalibrationWithEquipment>()
+    const sorted = [...(allCalibrations ?? [])].sort(
+      (a, b) => new Date(b.calibrated_at).getTime() - new Date(a.calibrated_at).getTime()
+    )
+    for (const c of sorted) {
+      const key = `${c.equipment_id}:${c.calibration_type}`
+      if (!latestByKey.has(key)) latestByKey.set(key, c)
+    }
+    const overdueCount = [...latestByKey.values()].filter(
+      (c) => c.next_due_at && c.next_due_at < today
+    ).length
+
+    return {
+      activeCount: equipmentList.filter((e) => e.status === 'active').length,
+      repairCount: equipmentList.filter((e) => e.status === 'under_repair').length,
+      overdueCount,
+      total: equipmentList.length,
+    }
+  }, [equipmentList, allCalibrations])
+
   const getTrendData = (days: number = 7): TrendDataPoint[] => {
     if (!recentDocuments) return []
     const today = new Date()
@@ -88,6 +145,8 @@ export function useDashboardData(hasErpPermission: boolean) {
     loadingDocuments,
     recentMaintenance,
     loadingMaintenance,
+    equipmentStats,
+    loadingEquipment: loadingEquipment || loadingCalibrations,
     todayApprovedDocs,
     getTrendData,
   }

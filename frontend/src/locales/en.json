@@ -231,6 +231,7 @@
                 "weekly_trend": "Trend Chart",
                 "recent_documents": "Recent Documents",
                 "recent_maintenance": "Maintenance Records",
+                "equipment_status": "Equipment Overview",
                 "upcoming_leaves": "Expiring Leave",
                 "staff_attendance": "Staff Attendance",
                 "google_calendar_events": "Google Calendar Events"
@@ -248,6 +249,7 @@
                 "weekly_trend": "Display inbound/outbound trend",
                 "recent_documents": "Display recently created or modified documents",
                 "recent_maintenance": "Display recent equipment maintenance and repair records",
+                "equipment_status": "Display equipment status: active, under repair, and overdue calibrations",
                 "upcoming_leaves": "Display expiring annual or comp leave reminders",
                 "staff_attendance": "Display staff attendance summary",
                 "google_calendar_events": "Display connected Google Calendar events"
@@ -317,6 +319,12 @@
                 "reportedAt": "Reported",
                 "description": "Description",
                 "noRecords": "No maintenance records"
+            },
+            "equipment": {
+                "active": "Active",
+                "underRepair": "Under Repair",
+                "overdueCalibration": "Overdue Calibration",
+                "total": "Total Equipment"
             },
             "attendance": {
                 "normal": "Normal",
