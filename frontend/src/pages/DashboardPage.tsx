@@ -287,7 +287,9 @@ export function DashboardPage() {
               borderRadius: '0.5rem',
             } : undefined}
           >
-            {renderWidget(widget)}
+            <div className="h-full" style={isEditMode ? { pointerEvents: 'none' } : undefined}>
+              {renderWidget(widget)}
+            </div>
           </div>
         ))}
       </ResponsiveGridLayout>
