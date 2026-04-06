@@ -76,7 +76,14 @@ export function DashboardPage() {
     },
   })
 
-  const currentLayout = useMemo(() => layoutData || DEFAULT_DASHBOARD_LAYOUT, [layoutData])
+  // 將預設佈局中新增的 widget 自動合併到已儲存的佈局
+  const currentLayout = useMemo(() => {
+    if (!layoutData) return DEFAULT_DASHBOARD_LAYOUT
+    const savedIds = new Set(layoutData.map((w) => w.i))
+    const newWidgets = DEFAULT_DASHBOARD_LAYOUT.filter((w) => !savedIds.has(w.i))
+    if (newWidgets.length === 0) return layoutData
+    return [...layoutData, ...newWidgets]
+  }, [layoutData])
 
   const hasErpPermission = useMemo(() => {
     return hasRole('admin') ||
