@@ -254,6 +254,28 @@ pub async fn delete_user(
     require_permission!(current_user, "admin.user.delete");
     require_reauth_token(&headers, &state, &current_user)?;
 
+    // H5: 禁止刪除自己
+    if id == current_user.id {
+        return Err(AppError::Validation("無法刪除自己的帳號".to_string()));
+    }
+
+    // H5: 末代管理員保護 — 確保刪除後至少仍有一位啟用中的管理員
+    let (admin_count,): (i64,) = sqlx::query_as(
+        r#"SELECT COUNT(*) FROM users u
+           INNER JOIN user_roles ur ON u.id = ur.user_id
+           INNER JOIN roles r ON r.id = ur.role_id
+           WHERE r.code IN ('SYSTEM_ADMIN', 'admin')
+             AND u.is_active = true
+             AND u.id != $1"#,
+    )
+    .bind(id)
+    .fetch_one(&state.db)
+    .await?;
+
+    if admin_count == 0 {
+        return Err(AppError::Validation("無法刪除最後一位管理員帳號".to_string()));
+    }
+
     // 先記錄審計日誌再刪除
     if let Err(e) = AuditService::log(
         &state.db,

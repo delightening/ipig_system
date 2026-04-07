@@ -52,6 +52,11 @@ fi
 
 FINAL_FILE="$BACKUP_FILE"
 if [ -n "${BACKUP_GPG_RECIPIENT:-}" ]; then
+  # H11: 先驗證 GPG 金鑰存在，防止金鑰 ID 錯誤時靜默產生未加密備份
+  if ! gpg --list-keys "$BACKUP_GPG_RECIPIENT" > /dev/null 2>&1; then
+    echo "ERROR: GPG key not found for recipient '$BACKUP_GPG_RECIPIENT'. Import the key before running backup."
+    exit 1
+  fi
   echo "Encrypting backup with GPG for recipient: $BACKUP_GPG_RECIPIENT"
   gpg --batch --yes --encrypt --recipient "$BACKUP_GPG_RECIPIENT" -o "${BACKUP_FILE}.gpg" "$BACKUP_FILE" || {
     echo "ERROR: GPG encryption failed"

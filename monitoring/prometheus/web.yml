@@ -1,0 +1,17 @@
+# H6: Prometheus Web 認證設定（basic_auth）
+# 防止內部網路未授權查詢 /api/v1/query 洩漏系統 metrics
+#
+# 部署前必須執行以下步驟產生 bcrypt 密碼雜湊並替換下方佔位符：
+#
+#   docker run --rm -it prom/prometheus:v2.51.0 \
+#     promtool web-ui-hash-password
+#   (輸入密碼後複製輸出的 $2y$... 雜湊)
+#
+# 或使用：htpasswd -nBC 12 prometheus
+#
+# ⚠️  請勿將含有真實雜湊的此檔案提交至版本控制。
+# ⚠️  請在部署時透過 CI/CD secret 或手動填入正確的雜湊值。
+
+basic_auth_users:
+  # 用戶名：prometheus（請將下方替換為實際 bcrypt 雜湊）
+  prometheus: "$2y$12$REPLACE_WITH_ACTUAL_BCRYPT_HASH_OF_YOUR_PASSWORD"

@@ -187,6 +187,9 @@ impl AuthService {
             iat: now.timestamp(),
             jti: Uuid::new_v4().to_string(),
             impersonated_by,
+            // H3: 明確設定 issuer/audience 供驗證端校驗
+            iss: "ipig-backend".to_string(),
+            aud: "ipig-system".to_string(),
         };
 
         let token = encode(

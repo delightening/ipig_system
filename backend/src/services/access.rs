@@ -191,3 +191,83 @@ pub async fn require_protocol_related_access(
     }
     Err(AppError::Forbidden("You don't have permission to access this protocol".into()))
 }
+
+// ============================================
+// 動物層級存取控制（C2: 防範動物醫療記錄 IDOR）
+// ============================================
+
+/// 取得動物所屬的 protocol_id（若動物不存在回傳 NotFound）
+pub async fn get_animal_protocol_id(pool: &PgPool, animal_id: Uuid) -> Result<Uuid> {
+    sqlx::query_scalar("SELECT protocol_id FROM animals WHERE id = $1")
+        .bind(animal_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Animal not found".into()))
+}
+
+/// 檢查使用者是否有權限存取特定動物（透過其所屬計畫成員資格）。
+/// view_all 角色（IACUC Chair/Staff/Vet/Reviewer）直接放行；其他人需為計畫成員。
+pub async fn require_animal_access(
+    pool: &PgPool,
+    current_user: &CurrentUser,
+    animal_id: Uuid,
+) -> Result<()> {
+    if has_protocol_view_all(current_user) {
+        return Ok(());
+    }
+    let protocol_id = get_animal_protocol_id(pool, animal_id).await?;
+    require_protocol_related_access(pool, current_user, protocol_id).await
+}
+
+/// 透過觀察記錄 ID 取得 animal_id
+pub async fn get_observation_animal_id(pool: &PgPool, observation_id: Uuid) -> Result<Uuid> {
+    sqlx::query_scalar("SELECT animal_id FROM animal_observations WHERE id = $1")
+        .bind(observation_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Observation not found".into()))
+}
+
+/// 透過照護紀錄 ID 取得 animal_id（care_medication_records → observation/surgery → animal）
+pub async fn get_care_record_animal_id(pool: &PgPool, care_record_id: Uuid) -> Result<Uuid> {
+    let animal_id: Option<Uuid> = sqlx::query_scalar(
+        r#"
+        SELECT COALESCE(
+            (SELECT animal_id FROM animal_observations WHERE id = c.record_id LIMIT 1),
+            (SELECT animal_id FROM animal_surgeries WHERE id = c.record_id LIMIT 1)
+        )
+        FROM care_medication_records c
+        WHERE c.id = $1
+        "#,
+    )
+    .bind(care_record_id)
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+
+    animal_id.ok_or_else(|| AppError::NotFound("Care record not found".into()))
+}
+
+/// 檢查使用者是否有權限存取特定計畫（透過 IACUC 編號），用於 PDF 匯出等。
+/// admin permission `animal.export.medical` 加上計畫成員才可通過。
+pub async fn require_iacuc_protocol_access(
+    pool: &PgPool,
+    current_user: &CurrentUser,
+    iacuc_no: &str,
+) -> Result<Uuid> {
+    let protocol_id: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM protocols WHERE protocol_no = $1",
+    )
+    .bind(iacuc_no)
+    .fetch_optional(pool)
+    .await?;
+
+    let protocol_id = protocol_id
+        .ok_or_else(|| AppError::NotFound(format!("Protocol '{}' not found", iacuc_no)))?;
+
+    if has_protocol_view_all(current_user) {
+        return Ok(protocol_id);
+    }
+    require_protocol_related_access(pool, current_user, protocol_id).await?;
+    Ok(protocol_id)
+}

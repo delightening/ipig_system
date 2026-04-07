@@ -531,7 +531,7 @@ impl StorageLocationService {
         // 驗證來源和目標儲位在同一倉庫
         let same_warehouse: Option<bool> = sqlx::query_scalar(
             r#"
-            SELECT (SELECT warehouse_id FROM storage_locations WHERE id = $1) = 
+            SELECT (SELECT warehouse_id FROM storage_locations WHERE id = $1) =
                    (SELECT warehouse_id FROM storage_locations WHERE id = $2)
             "#,
         )
@@ -548,18 +548,25 @@ impl StorageLocationService {
 
         let mut tx = pool.begin().await?;
 
-        // 從來源扣減
-        sqlx::query(
+        // H2: FOR UPDATE 鎖定來源庫存列，並加 WHERE on_hand_qty >= $1 防止負庫存（Race Condition）
+        let affected = sqlx::query(
             r#"
-            UPDATE storage_location_inventory 
+            UPDATE storage_location_inventory
             SET on_hand_qty = on_hand_qty - $1, updated_at = NOW()
-            WHERE id = $2
+            WHERE id = $2 AND on_hand_qty >= $1
             "#,
         )
         .bind(req.qty)
         .bind(item_id)
         .execute(&mut *tx)
         .await?;
+
+        if affected.rows_affected() == 0 {
+            return Err(crate::AppError::BusinessRule(format!(
+                "Insufficient quantity for transfer (concurrent request may have reduced inventory). Requested: {}",
+                req.qty
+            )));
+        }
 
         // 增加到目標儲位
         let target_item_id = Uuid::new_v4();

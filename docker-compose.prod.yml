@@ -109,7 +109,8 @@ services:
   # Watchtower: auto-update containers（High 1/2: API token 與 SMTP 密碼改由 Docker Secrets）
   # =========================
   watchtower:
-    image: containrrr/watchtower:latest@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
+    # M15: 使用固定版本號取代 latest，避免自動取得未知版本（digest 已 pin 確保不可置換）
+    image: containrrr/watchtower:1.7.1@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
     container_name: ipig-watchtower
     secrets:
       - watchtower_api_token

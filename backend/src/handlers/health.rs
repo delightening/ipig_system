@@ -11,35 +11,26 @@ use crate::AppState;
 #[derive(Serialize, ToSchema)]
 pub struct HealthResponse {
     pub status: &'static str,
-    pub version: &'static str,
+    // M14: 移除版本號（避免向攻擊者暴露 build 資訊）
     pub checks: HealthChecks,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct HealthChecks {
     pub database: ComponentCheck,
-    pub db_pool: PoolCheck,
+    // M14: 移除 db_pool（size/idle/active 暴露連線池細節）
     pub disk: DiskCheck,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct ComponentCheck {
     pub status: &'static str,
-    pub latency_ms: u64,
-}
-
-#[derive(Serialize, ToSchema)]
-pub struct PoolCheck {
-    pub status: &'static str,
-    pub size: u32,
-    pub idle: u32,
-    pub active: u32,
+    // M14: 移除 latency_ms（可用於探測 DB 回應時序）
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct DiskCheck {
     pub status: &'static str,
-    pub uploads_path_exists: bool,
 }
 
 #[utoipa::path(
@@ -59,40 +50,29 @@ pub async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<He
         .await;
     let latency_ms = start.elapsed().as_millis() as u64;
 
+    // M14: 不在回應中暴露 latency_ms（可用於時序探測），只記錄 log
     let database = match &db_result {
-        Ok(_) => ComponentCheck {
-            status: "up",
-            latency_ms,
-        },
-        Err(_) => ComponentCheck {
-            status: "down",
-            latency_ms,
-        },
+        Ok(_) => ComponentCheck { status: "up" },
+        Err(_) => ComponentCheck { status: "down" },
     };
 
+    // M14: 移除 pool 細節，只在內部用於判斷是否 degraded
     let pool_size = state.db.size();
     let pool_idle = state.db.num_idle() as u32;
     let pool_active = pool_size.saturating_sub(pool_idle);
     let pool_healthy = pool_idle > 0 || pool_size < state.db.options().get_max_connections();
-    let db_pool = PoolCheck {
-        status: if pool_healthy { "healthy" } else { "saturated" },
-        size: pool_size,
-        idle: pool_idle,
-        active: pool_active,
-    };
 
     let uploads_path = std::path::Path::new("./uploads");
     let uploads_exists = uploads_path.exists() && uploads_path.is_dir();
     let disk = DiskCheck {
         status: if uploads_exists { "ok" } else { "missing" },
-        uploads_path_exists: uploads_exists,
     };
 
     let all_ok = db_result.is_ok() && pool_healthy && uploads_exists;
 
     if !all_ok {
         if db_result.is_err() {
-            tracing::warn!("健康檢查失敗：資料庫連線異常");
+            tracing::warn!("健康檢查失敗：資料庫連線異常（latency={}ms）", latency_ms);
         }
         if !pool_healthy {
             tracing::warn!("健康檢查警告：連線池飽和 (active={}, idle={}, size={})", pool_active, pool_idle, pool_size);
@@ -112,10 +92,9 @@ pub async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<He
         status_code,
         Json(HealthResponse {
             status: if all_ok { "healthy" } else { "degraded" },
-            version: env!("CARGO_PKG_VERSION"),
+            // M14: version 與 db_pool 已移除，不對外暴露敏感系統資訊
             checks: HealthChecks {
                 database,
-                db_pool,
                 disk,
             },
         }),

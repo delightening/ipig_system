@@ -265,8 +265,14 @@ impl AuthService {
         .execute(pool)
         .await?;
 
-        // 產生新 token
-        let token = Uuid::new_v4().to_string();
+        // M6: 使用 256-bit CSPRNG token 取代 UUID v4（UUID 僅 122 bit 有效熵）
+        let token = {
+            use rand::RngCore;
+            let mut bytes = [0u8; 32];
+            rand::rngs::OsRng.fill_bytes(&mut bytes);
+            use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+            URL_SAFE_NO_PAD.encode(bytes)
+        };
         let token_hash = Self::hash_token(&token);
         let expires_at = Utc::now() + Duration::hours(1); // 1 小時內有效
 

@@ -15,7 +15,7 @@ use crate::{
         UpdateAnimalRequest,
     },
     require_permission,
-    services::{AnimalService, AuditService},
+    services::{access, AnimalService, AuditService},
     AppError, AppState, Result,
 };
 
@@ -134,9 +134,11 @@ pub async fn list_animals_by_pen(
 )]
 pub async fn get_animal(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Animal>> {
+    // C2: 驗證使用者對此動物所屬計畫的存取權限，防止 IDOR
+    access::require_animal_access(&state.db, &current_user, id).await?;
     let animal = AnimalService::get_by_id(&state.db, id).await?;
     Ok(Json(animal))
 }

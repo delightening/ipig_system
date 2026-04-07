@@ -58,6 +58,14 @@ impl TestApp {
                 "integration_test_secret_key_minimum_32_chars!!",
             );
         }
+        // 確保測試用 admin 密碼與 login_as_admin() 回退值一致
+        if std::env::var("ADMIN_INITIAL_PASSWORD")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .is_none()
+        {
+            std::env::set_var("ADMIN_INITIAL_PASSWORD", "iPig$ecure1");
+        }
 
         // 確保 uploads 目錄存在（health check 需要）
         let uploads_dir = std::path::Path::new("./uploads");

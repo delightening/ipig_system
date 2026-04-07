@@ -120,6 +120,7 @@ services:
 
       # Image Processor 微服務（方案 D）
       IMAGE_PROCESSOR_URL: ${IMAGE_PROCESSOR_URL:-http://image-processor:3100}
+      IMAGE_PROCESSOR_TOKEN: ${IMAGE_PROCESSOR_TOKEN}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     volumes:
@@ -261,6 +262,7 @@ services:
       PORT: "3100"
       MAX_IMAGE_SIZE_MB: "30"
       MAX_PIXELS: "100000000"
+      IMAGE_PROCESSOR_TOKEN: ${IMAGE_PROCESSOR_TOKEN}
     networks:
       - backend
     restart: unless-stopped
@@ -287,6 +289,9 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=30d"
+      # H6: 啟用 basic_auth，防止未授權存取 /api/v1/query
+      # 部署前需先在 monitoring/prometheus/web.yml 填入 bcrypt 密碼雜湊
+      - "--web.config.file=/etc/prometheus/web.yml"
     ports:
       - "127.0.0.1:9090:9090"
     networks:

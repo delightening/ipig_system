@@ -11,8 +11,16 @@ use super::AuthService;
 impl AuthService {
     /// 驗證 email + 密碼（不產生 token，供 handler 決定是否走 2FA）
     pub async fn validate_credentials(pool: &PgPool, config: &Config, req: &LoginRequest) -> Result<User> {
-        // SEC-20: 帳號鎖定檢查
+        // H4: 使用 pg_advisory_xact_lock 串行化相同帳號的並發登入嘗試，防止 TOCTOU 繞過帳號鎖定
+        let mut tx = pool.begin().await?;
+
+        // SEC-20: 帳號鎖定檢查（在 advisory lock 保護下執行，確保 count 原子性）
         if !config.disable_account_lockout {
+            sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1::text))")
+                .bind(&req.email)
+                .execute(&mut *tx)
+                .await?;
+
             let (fail_count,): (i64,) = sqlx::query_as(
                 r#"
                 SELECT COUNT(*) FROM login_events
@@ -23,10 +31,11 @@ impl AuthService {
             )
             .bind(&req.email)
             .bind(config.account_lockout_duration_minutes)
-            .fetch_one(pool)
+            .fetch_one(&mut *tx)
             .await?;
 
             if fail_count >= config.account_lockout_max_attempts {
+                tx.commit().await.ok();
                 tracing::warn!(
                     "[Auth] 帳號 {} 因連續失敗 {} 次被暫時鎖定",
                     req.email, fail_count
@@ -41,7 +50,7 @@ impl AuthService {
             "SELECT * FROM users WHERE email = $1 AND is_active = true"
         )
         .bind(&req.email)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::InvalidCredentials("Invalid email or password".to_string()))?;
 
@@ -49,6 +58,8 @@ impl AuthService {
 
         let parsed_hash = PasswordHash::new(&user.password_hash)
             .map_err(|_| AppError::Internal("Invalid password hash".to_string()))?;
+
+        tx.commit().await?;
 
         Argon2::default()
             .verify_password(req.password.as_bytes(), &parsed_hash)

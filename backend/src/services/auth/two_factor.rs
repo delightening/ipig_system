@@ -231,9 +231,25 @@ impl AuthService {
         let codes = stored_codes.as_ref()
             .ok_or_else(|| AppError::Validation("驗證碼錯誤".into()))?;
 
-        let code_hash = Self::hash_backup_code(code);
+        // M5: 支援新（Argon2）與舊（SHA-256 hex）格式，逐一比對
+        let idx = codes.iter().position(|stored| {
+            if stored.starts_with("$argon2") {
+                // Argon2 格式
+                use argon2::{Argon2, password_hash::{PasswordHash, PasswordVerifier}};
+                PasswordHash::new(stored)
+                    .ok()
+                    .and_then(|h| Argon2::default().verify_password(code.as_bytes(), &h).ok())
+                    .is_some()
+            } else {
+                // 舊 SHA-256 格式（向後相容，下次重設 2FA 會自動升級）
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(code.as_bytes());
+                let legacy_hash = format!("{:x}", hasher.finalize());
+                stored == &legacy_hash
+            }
+        });
 
-        let idx = codes.iter().position(|c| c == &code_hash);
         match idx {
             Some(i) => {
                 let mut remaining = codes.clone();
@@ -250,10 +266,22 @@ impl AuthService {
         }
     }
 
+    /// M5: 使用 Argon2id 加鹽雜湊備用碼（防止預算彩虹表）
     fn hash_backup_code(code: &str) -> String {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(code.as_bytes());
-        format!("{:x}", hasher.finalize())
+        use argon2::{
+            password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+            Argon2,
+        };
+        let salt = SaltString::generate(&mut OsRng);
+        Argon2::default()
+            .hash_password(code.as_bytes(), &salt)
+            .map(|h| h.to_string())
+            .unwrap_or_else(|_| {
+                // 極端情況 fallback（不應發生）：使用 SHA-256
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(code.as_bytes());
+                format!("{:x}", hasher.finalize())
+            })
     }
 }

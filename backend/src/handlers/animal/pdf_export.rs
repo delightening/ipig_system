@@ -15,7 +15,7 @@ use crate::{
     middleware::CurrentUser,
     models::ExportRequest,
     require_permission,
-    services::{AnimalMedicalService, AnimalService, AuditService},
+    services::{access, AnimalMedicalService, AnimalService, AuditService},
     AppError, AppState, Result,
 };
 
@@ -35,6 +35,8 @@ pub async fn export_animal_medical_pdf(
     Json(req): Json<ExportRequest>,
 ) -> Result<Response> {
     require_permission!(current_user, "animal.export.medical");
+    // C3: 驗證使用者是否為該動物所屬計畫的成員，防止跨計畫 PDF 匯出 IDOR
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
 
     let data = AnimalMedicalService::get_animal_medical_data(&state.db, animal_id).await?;
     let _record = AnimalMedicalService::create_export_record(
@@ -118,6 +120,8 @@ pub async fn export_project_medical_pdf(
     Json(req): Json<ExportRequest>,
 ) -> Result<Response> {
     require_permission!(current_user, "animal.export.medical");
+    // C3: 驗證使用者是否為該 IACUC 計畫的成員，防止跨計畫批次 PDF 匯出 IDOR
+    access::require_iacuc_protocol_access(&state.db, &current_user, &iacuc_no).await?;
 
     let data = AnimalMedicalService::get_project_medical_data(&state.db, &iacuc_no).await?;
     let _record = AnimalMedicalService::create_export_record(

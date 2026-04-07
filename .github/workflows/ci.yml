@@ -179,7 +179,8 @@ jobs:
       DATABASE_URL: postgres://postgres:password@localhost:5432/ipig_db_test
       SQLX_OFFLINE: "false"
       ADMIN_EMAIL: admin@ipigsystem.asia
-      ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'iPig$ecure1' }}
+      # H9: 移除 hardcoded fallback，CI_ADMIN_PASSWORD secret 必須設定
+      ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
       # 避免 login_with_wrong_password_returns_401 因平行測試累積 login_events 導致帳號鎖定（400）
       DISABLE_ACCOUNT_LOCKOUT: "true"
 
@@ -486,10 +487,10 @@ jobs:
           # 須與 docker-compose.test.yml ADMIN_INITIAL_PASSWORD 一致（見 docs/e2e/FLOW.md）
           E2E_BASE_URL: http://localhost:8080
           E2E_USER_EMAIL: admin@ipigsystem.asia
-          E2E_USER_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
+          E2E_USER_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
           E2E_ADMIN_EMAIL: admin@ipigsystem.asia
-          E2E_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
-          ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+          ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
         run: npm run test:e2e
 
       - name: 上傳測試報告 (失敗時)

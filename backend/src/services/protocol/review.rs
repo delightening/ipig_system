@@ -17,6 +17,22 @@ impl ProtocolService {
         req: &AssignReviewerRequest,
         assigned_by: Uuid,
     ) -> Result<ReviewAssignment> {
+        // H1: 防止自我審核（提交者 ≠ 審查者），確保 IACUC 獨立審查原則
+        let submitter_id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT pi_user_id FROM protocols WHERE id = $1",
+        )
+        .bind(req.protocol_id)
+        .fetch_optional(pool)
+        .await?;
+
+        if let Some(pi_id) = submitter_id {
+            if pi_id == req.reviewer_id {
+                return Err(AppError::Validation(
+                    "審查委員不得為計畫提交者（PI），違反 IACUC 獨立審查原則".to_string(),
+                ));
+            }
+        }
+
         let assignment = sqlx::query_as::<_, ReviewAssignment>(
             r#"
             INSERT INTO review_assignments (id, protocol_id, reviewer_id, assigned_by, assigned_at)
