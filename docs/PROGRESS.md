@@ -185,6 +185,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-07 疼痛評估表單重構（TU-03-05-03B）+ 固定姿勢複選
+
+- ✅ **DB Migration 018**：`care_medication_records` 舊欄位（spirit/mobility_standing/walking）全部替換為 PDF 正確欄位（incision/attitude_behavior/appetite/feces/urine/pain_score/3個給藥 bool）
+- ✅ **Backend care_record.rs**：CareRecord struct、CreateCareRecordRequest、UpdateCareRecordRequest、SQL 查詢全部更新為新欄位（SMALLINT）
+- ✅ **PainAssessmentTab.tsx 重構**：依 TU-03-05-03B 新增傷口狀況、態度/行為、食慾、排便、排尿、疼痛分數等 6 個評估類別；表單即時計算總分與疼痛分級（0–5正常/6–10輕度/11–15中度/16–20重度）；新增術後給藥三個 checkbox（注射Ketorolac/注射Meloxicam/口服Meloxicam）
+- ✅ **PainAssessmentChart.tsx 更新**：改為顯示疼痛總分趨勢折線圖，加入四個疼痛等級參考線
+- ✅ **固定姿勢改為複選**：`SurgeryAnesthesiaSection.tsx` 從 Select 單選改為 4 個 Checkbox（正趴/左側躺/右側躺/仰躺）；`useSurgeryForm.ts` positioning 型別從 `string` 改為 `string[]`，以逗號分隔儲存至 VARCHAR 欄位（無須 migration）；`SurgeriesTab.tsx` 顯示以頓號分隔
+
 ### 2026-04-06 Dashboard 新增設備狀態總覽 Widget
 
 - ✅ **新增 `equipment_status` widget**：顯示啟用中、待修、校正逾期、設備總數 4 個指標，點擊卡片導航至 `/equipment`

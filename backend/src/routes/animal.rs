@@ -189,6 +189,10 @@ pub fn routes() -> Router<AppState> {
             "/care-records/:id/delete",
             post(handlers::delete_care_record),
         )
+        .route(
+            "/observations/:id/care-records",
+            get(handlers::list_observation_care_records),
+        )
         // Animal Records - Blood Tests
         .route(
             "/animals/:id/blood-tests",

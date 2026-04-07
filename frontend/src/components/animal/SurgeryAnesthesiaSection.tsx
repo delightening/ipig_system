@@ -1,13 +1,7 @@
 import { Input, Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Repeater } from '@/components/ui/repeater'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { DrugCombobox } from '@/components/animal/DrugCombobox'
 import { CollapsibleSection, DrugCheckInput } from './SurgeryFormComponents'
 import type { SurgeryFormData, MedicationItem, VitalSign } from './useSurgeryForm'
@@ -127,24 +121,25 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
         />
       </CollapsibleSection>
 
-      {/* 固定姿勢 */}
+      {/* 固定姿勢（可複選） */}
       <CollapsibleSection title="固定姿勢" defaultOpen={false}>
-        <div className="space-y-2">
-          <Label htmlFor="positioning">固定姿勢</Label>
-          <Select
-            value={formData.positioning || undefined}
-            onValueChange={(value) => onChange({ ...formData, positioning: value })}
-          >
-            <SelectTrigger id="positioning">
-              <SelectValue placeholder="請選擇固定姿勢" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="正趴">正趴</SelectItem>
-              <SelectItem value="左側躺">左側躺</SelectItem>
-              <SelectItem value="右側躺">右側躺</SelectItem>
-              <SelectItem value="仰躺">仰躺</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="space-y-3">
+          <Label>固定姿勢（可複選）</Label>
+          <div className="grid grid-cols-2 gap-3">
+            {(['正趴', '左側躺', '右側躺', '仰躺'] as const).map((posture) => (
+              <Checkbox
+                key={posture}
+                label={posture}
+                checked={formData.positioning.includes(posture)}
+                onCheckedChange={(checked) => {
+                  const next = checked
+                    ? [...formData.positioning, posture]
+                    : formData.positioning.filter((p) => p !== posture)
+                  onChange({ ...formData, positioning: next })
+                }}
+              />
+            ))}
+          </div>
         </div>
       </CollapsibleSection>
 

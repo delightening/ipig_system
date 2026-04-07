@@ -252,7 +252,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                             </div>
                             <div>
                               <Label className="text-muted-foreground">固定姿勢</Label>
-                              <p>{surgery.positioning || '-'}</p>
+                              <p>{surgery.positioning ? surgery.positioning.split(',').join('、') : '-'}</p>
                             </div>
                             {surgery.anesthesia_observation && (
                               <div className="col-span-3">

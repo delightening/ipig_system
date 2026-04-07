@@ -1,5 +1,6 @@
-// 疼痛評估紀錄 Tab — 照護給藥觀察
-// 包含：新增表單、紀錄列表、趨勢折線圖
+// 疼痛評估紀錄 Tab — 依據 TU-03-05-03B 試驗豬隻疼痛評估紀錄表
+// 評估項目：傷口狀況、態度/行為、食慾、排便、排尿、疼痛分數 → 總分 → 疼痛分級
+// 術後給藥：注射 Ketorolac / 注射 Meloxicam / 口服 Meloxicam
 
 import { useState, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -31,6 +32,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
@@ -40,18 +42,19 @@ import { SortableTableHead } from '@/components/ui/sortable-table-head'
 
 const PainAssessmentChart = lazy(() => import('./PainAssessmentChart'))
 
-// 疼痛評估選項
-const spiritOptions = ['良好', '尚可', '不佳', '嗜睡', '興奮'] as const
-const appetiteOptions = ['良好', '食量減少', '不進食', '嘔吐'] as const
-const mobilityOptions = ['正常', '稍慢', '困難', '無法站立/行走'] as const
-const attitudeOptions = ['正常', '焦躁', '退縮', '攻擊性', '自殘行為'] as const
+import {
+    INCISION_OPTIONS,
+    ATTITUDE_OPTIONS,
+    APPETITE_OPTIONS,
+    FECES_OPTIONS,
+    URINE_OPTIONS,
+    PAIN_SCORE_OPTIONS,
+    calcTotal,
+    getPainGrade,
+    type AssessmentOption,
+} from './painAssessmentConstants'
 
-// 量化分數映射（用於折線圖）
-const spiritScore: Record<string, number> = { '良好': 4, '尚可': 3, '不佳': 2, '嗜睡': 1, '興奮': 3 }
-const appetiteScore: Record<string, number> = { '良好': 4, '食量減少': 3, '不進食': 1, '嘔吐': 0 }
-const mobilityScore: Record<string, number> = { '正常': 4, '稍慢': 3, '困難': 2, '無法站立/行走': 0 }
-const attitudeScore: Record<string, number> = { '正常': 4, '焦躁': 2, '退縮': 2, '攻擊性': 1, '自殘行為': 0 }
-
+// ── 型別定義 ────────────────────────────────────────────────────────────────
 interface CareRecord {
     id: string
     record_type: string
@@ -59,11 +62,15 @@ interface CareRecord {
     record_mode: string
     post_op_days: number | null
     time_period: string | null
-    spirit: string | null
-    appetite: string | null
-    mobility_standing: string | null
-    mobility_walking: string | null
-    attitude_behavior: string | null
+    incision: number | null
+    attitude_behavior: number | null
+    appetite: number | null
+    feces: number | null
+    urine: number | null
+    pain_score: number | null
+    injection_ketorolac: boolean
+    injection_meloxicam: boolean
+    oral_meloxicam: boolean
     vet_read: boolean
     created_at: string
 }
@@ -75,17 +82,22 @@ interface PainAssessmentTabProps {
 }
 
 const emptyForm = {
-    record_type: 'observation' as 'observation' | 'surgery',
+    record_type: 'surgery' as 'observation' | 'surgery',
     record_id: '',
     post_op_days: '',
-    time_period: '',
-    spirit: '',
-    appetite: '',
-    mobility_standing: '',
-    mobility_walking: '',
+    time_period: 'AM',
+    incision: '',
     attitude_behavior: '',
+    appetite: '',
+    feces: '',
+    urine: '',
+    pain_score: '',
+    injection_ketorolac: false,
+    injection_meloxicam: false,
+    oral_meloxicam: false,
 }
 
+// ── 主元件 ──────────────────────────────────────────────────────────────────
 export function PainAssessmentTab({ animalId, observations, surgeries }: PainAssessmentTabProps) {
     const queryClient = useQueryClient()
     const [showAddDialog, setShowAddDialog] = useState(false)
@@ -94,7 +106,6 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
     const [form, setForm] = useState(emptyForm)
 
-    // 查詢紀錄
     const { data: records, isLoading } = useQuery({
         queryKey: ['animal-care-records', animalId],
         queryFn: async () => {
@@ -106,22 +117,25 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
 
     const { sortedData: sortedRecords, sort, toggleSort } = useTableSort(records)
 
-    // 新增紀錄
+    const buildPayload = (data: typeof form) => ({
+        record_type: data.record_type,
+        record_id: data.record_id,
+        record_mode: 'pain_assessment',
+        post_op_days: data.post_op_days ? parseInt(data.post_op_days) : null,
+        time_period: data.time_period || null,
+        incision: data.incision !== '' ? parseInt(data.incision) : null,
+        attitude_behavior: data.attitude_behavior !== '' ? parseInt(data.attitude_behavior) : null,
+        appetite: data.appetite !== '' ? parseInt(data.appetite) : null,
+        feces: data.feces !== '' ? parseInt(data.feces) : null,
+        urine: data.urine !== '' ? parseInt(data.urine) : null,
+        pain_score: data.pain_score !== '' ? parseInt(data.pain_score) : null,
+        injection_ketorolac: data.injection_ketorolac,
+        injection_meloxicam: data.injection_meloxicam,
+        oral_meloxicam: data.oral_meloxicam,
+    })
+
     const createMutation = useMutation({
-        mutationFn: async (data: typeof form) => {
-            return api.post(`/animals/${animalId}/care-records`, {
-                record_type: data.record_type,
-                record_id: data.record_id,
-                record_mode: 'pain_assessment',
-                post_op_days: data.post_op_days ? parseInt(data.post_op_days) : null,
-                time_period: data.time_period || null,
-                spirit: data.spirit || null,
-                appetite: data.appetite || null,
-                mobility_standing: data.mobility_standing || null,
-                mobility_walking: data.mobility_walking || null,
-                attitude_behavior: data.attitude_behavior || null,
-            })
-        },
+        mutationFn: async (data: typeof form) => api.post(`/animals/${animalId}/care-records`, buildPayload(data)),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })
             toast({ title: '成功', description: '疼痛評估紀錄已新增' })
@@ -129,26 +143,14 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
             setForm(emptyForm)
         },
         onError: (error: unknown) => {
-            toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '新增失敗'),
-                variant: 'destructive',
-            })
+            toast({ title: '錯誤', description: getApiErrorMessage(error, '新增失敗'), variant: 'destructive' })
         },
     })
 
-    // 更新紀錄
     const updateMutation = useMutation({
         mutationFn: async ({ id, data }: { id: string; data: typeof form }) => {
-            return api.put(`/care-records/${id}`, {
-                post_op_days: data.post_op_days ? parseInt(data.post_op_days) : null,
-                time_period: data.time_period || null,
-                spirit: data.spirit || null,
-                appetite: data.appetite || null,
-                mobility_standing: data.mobility_standing || null,
-                mobility_walking: data.mobility_walking || null,
-                attitude_behavior: data.attitude_behavior || null,
-            })
+            const { record_type: _rt, record_id: _ri, ...rest } = buildPayload(data)
+            return api.put(`/care-records/${id}`, rest)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })
@@ -157,34 +159,23 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
             setForm(emptyForm)
         },
         onError: (error: unknown) => {
-            toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '更新失敗'),
-                variant: 'destructive',
-            })
+            toast({ title: '錯誤', description: getApiErrorMessage(error, '更新失敗'), variant: 'destructive' })
         },
     })
 
-    // 刪除紀錄（軟刪除 + 刪除原因）
     const deleteMutation = useMutation({
-        mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-            return deleteResource(`/care-records/${id}`, { data: { reason } })
-        },
+        mutationFn: async ({ id, reason }: { id: string; reason: string }) =>
+            deleteResource(`/care-records/${id}`, { data: { reason } }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })
             toast({ title: '成功', description: '紀錄已刪除' })
             setDeleteTarget(null)
         },
         onError: (error: unknown) => {
-            toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '刪除失敗'),
-                variant: 'destructive',
-            })
+            toast({ title: '錯誤', description: getApiErrorMessage(error, '刪除失敗'), variant: 'destructive' })
         },
     })
 
-    // 關聯來源選項
     const sourceOptions = [
         ...observations.map((o) => ({
             value: String(o.id),
@@ -198,27 +189,25 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
         })),
     ]
 
-    // 趨勢圖資料
     const chartData = (records || [])
         .slice()
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r, i) => ({
-            name: r.post_op_days != null ? `D${r.post_op_days}` : `#${i + 1}`,
-            精神: r.spirit ? spiritScore[r.spirit] ?? 0 : null,
-            食慾: r.appetite ? appetiteScore[r.appetite] ?? 0 : null,
-            站立: r.mobility_standing ? mobilityScore[r.mobility_standing] ?? 0 : null,
-            行走: r.mobility_walking ? mobilityScore[r.mobility_walking] ?? 0 : null,
-            行為: r.attitude_behavior ? attitudeScore[r.attitude_behavior] ?? 0 : null,
-        }))
-
-    const getBadgeVariant = (val: string | null, scoreMap: Record<string, number>) => {
-        if (!val) return 'outline' as const
-        const s = scoreMap[val]
-        if (s == null) return 'outline' as const
-        if (s >= 4) return 'default' as const
-        if (s >= 3) return 'secondary' as const
-        return 'destructive' as const
-    }
+        .map((r, i) => {
+            const total = calcTotal(
+                r.incision != null ? String(r.incision) : '',
+                r.attitude_behavior != null ? String(r.attitude_behavior) : '',
+                r.appetite != null ? String(r.appetite) : '',
+                r.feces != null ? String(r.feces) : '',
+                r.urine != null ? String(r.urine) : '',
+                r.pain_score != null ? String(r.pain_score) : '',
+            )
+            return {
+                name: r.post_op_days != null
+                    ? `D${r.post_op_days}${r.time_period ? `-${r.time_period}` : ''}`
+                    : `#${i + 1}`,
+                總分: total,
+            }
+        })
 
     const openEditDialog = (record: CareRecord) => {
         setEditingRecord(record)
@@ -226,12 +215,16 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
             record_type: record.record_type as 'observation' | 'surgery',
             record_id: record.record_id,
             post_op_days: record.post_op_days != null ? String(record.post_op_days) : '',
-            time_period: record.time_period || '',
-            spirit: record.spirit || '',
-            appetite: record.appetite || '',
-            mobility_standing: record.mobility_standing || '',
-            mobility_walking: record.mobility_walking || '',
-            attitude_behavior: record.attitude_behavior || '',
+            time_period: record.time_period || 'AM',
+            incision: record.incision != null ? String(record.incision) : '',
+            attitude_behavior: record.attitude_behavior != null ? String(record.attitude_behavior) : '',
+            appetite: record.appetite != null ? String(record.appetite) : '',
+            feces: record.feces != null ? String(record.feces) : '',
+            urine: record.urine != null ? String(record.urine) : '',
+            pain_score: record.pain_score != null ? String(record.pain_score) : '',
+            injection_ketorolac: record.injection_ketorolac,
+            injection_meloxicam: record.injection_meloxicam,
+            oral_meloxicam: record.oral_meloxicam,
         })
     }
 
@@ -247,135 +240,160 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
         }
     }
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('zh-TW', {
+    const formatDate = (dateStr: string) =>
+        new Date(dateStr).toLocaleDateString('zh-TW', {
             timeZone: 'Asia/Taipei',
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
         })
-    }
+
+    const getRecordTotal = (r: CareRecord) =>
+        calcTotal(
+            r.incision != null ? String(r.incision) : '',
+            r.attitude_behavior != null ? String(r.attitude_behavior) : '',
+            r.appetite != null ? String(r.appetite) : '',
+            r.feces != null ? String(r.feces) : '',
+            r.urine != null ? String(r.urine) : '',
+            r.pain_score != null ? String(r.pain_score) : '',
+        )
+
+    const formTotal = calcTotal(
+        form.incision, form.attitude_behavior, form.appetite,
+        form.feces, form.urine, form.pain_score,
+    )
+    const formGrade = getPainGrade(formTotal)
 
     return (
         <>
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>疼痛評估紀錄</CardTitle>
-                    <CardDescription>記錄術後疼痛評估與照護觀察</CardDescription>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-sm text-muted-foreground mr-2">共 {records?.length ?? 0} 筆</span>
-                    <Button variant="outline" onClick={() => setShowChart(!showChart)}>
-                        <TrendingUp className="h-4 w-4 mr-1" />
-                        {showChart ? '隱藏趨勢' : '顯示趨勢'}
-                    </Button>
-                    <Button
-                        className="bg-purple-600 hover:bg-purple-700"
-                        onClick={() => { setForm(emptyForm); setEditingRecord(null); setShowAddDialog(true) }}
-                    >
-                        <Plus className="h-4 w-4 mr-1" />
-                        新增評估
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {/* 趨勢折線圖 */}
-                {showChart && chartData.length > 0 && (
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <h4 className="text-base font-semibold mb-2">疼痛評估趨勢</h4>
-                        <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
-                            <PainAssessmentChart data={chartData} />
-                        </Suspense>
+                        <CardTitle>疼痛評估紀錄</CardTitle>
+                        <CardDescription>依據 TU-03-05-03B 記錄術後疼痛評估與給藥</CardDescription>
                     </div>
-                )}
+                    <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm text-muted-foreground mr-2">共 {records?.length ?? 0} 筆</span>
+                        <Button variant="outline" onClick={() => setShowChart(!showChart)}>
+                            <TrendingUp className="h-4 w-4 mr-1" />
+                            {showChart ? '隱藏趨勢' : '顯示趨勢'}
+                        </Button>
+                        <Button
+                            className="bg-purple-600 hover:bg-purple-700"
+                            onClick={() => { setForm(emptyForm); setEditingRecord(null); setShowAddDialog(true) }}
+                        >
+                            <Plus className="h-4 w-4 mr-1" />
+                            新增評估
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {showChart && chartData.length > 0 && (
+                        <div>
+                            <h4 className="text-base font-semibold mb-2">疼痛總分趨勢</h4>
+                            <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+                                <PainAssessmentChart data={chartData} />
+                            </Suspense>
+                        </div>
+                    )}
 
-                {/* 紀錄列表 */}
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <SortableTableHead className="w-[100px]" sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
-                            <SortableTableHead className="w-[60px]" sortKey="post_op_days" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>術後天</SortableTableHead>
-                            <TableHead className="w-[60px]">時段</TableHead>
-                            <TableHead>精神</TableHead>
-                            <TableHead>食慾</TableHead>
-                            <TableHead>站立</TableHead>
-                            <TableHead>行走</TableHead>
-                            <TableHead>行為態度</TableHead>
-                            <TableHead className="w-[80px] text-right">操作</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
+                    <Table>
+                        <TableHeader>
                             <TableRow>
-                                <TableCell colSpan={9} className="text-center py-8">
-                                    <Loader2 className="h-5 w-5 animate-spin inline-block mr-2" />
-                                    載入中...
-                                </TableCell>
+                                <SortableTableHead className="w-[100px]" sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
+                                <SortableTableHead className="w-[60px]" sortKey="post_op_days" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>術後天</SortableTableHead>
+                                <TableHead className="w-[60px]">時段</TableHead>
+                                <TableHead className="w-[50px]">傷口</TableHead>
+                                <TableHead className="w-[50px]">行為</TableHead>
+                                <TableHead className="w-[50px]">食慾</TableHead>
+                                <TableHead className="w-[50px]">排便</TableHead>
+                                <TableHead className="w-[50px]">排尿</TableHead>
+                                <TableHead className="w-[50px]">疼痛</TableHead>
+                                <TableHead className="w-[50px]">總分</TableHead>
+                                <TableHead>疼痛分級</TableHead>
+                                <TableHead>給藥</TableHead>
+                                <TableHead className="w-[80px] text-right">操作</TableHead>
                             </TableRow>
-                        ) : !records || records.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                                    <div>尚無疼痛評估紀錄</div>
-                                    <div className="text-sm mt-1">點擊上方按鈕新增</div>
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            (sortedRecords ?? records)?.map((r) => (
-                                <TableRow key={r.id}>
-                                    <TableCell className="text-xs whitespace-nowrap">{formatDate(r.created_at)}</TableCell>
-                                    <TableCell>{r.post_op_days ?? '-'}</TableCell>
-                                    <TableCell>{r.time_period || '-'}</TableCell>
-                                    <TableCell>
-                                        {r.spirit ? <Badge variant={getBadgeVariant(r.spirit, spiritScore)}>{r.spirit}</Badge> : '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {r.appetite ? <Badge variant={getBadgeVariant(r.appetite, appetiteScore)}>{r.appetite}</Badge> : '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {r.mobility_standing ? <Badge variant={getBadgeVariant(r.mobility_standing, mobilityScore)}>{r.mobility_standing}</Badge> : '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {r.mobility_walking ? <Badge variant={getBadgeVariant(r.mobility_walking, mobilityScore)}>{r.mobility_walking}</Badge> : '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {r.attitude_behavior ? <Badge variant={getBadgeVariant(r.attitude_behavior, attitudeScore)}>{r.attitude_behavior}</Badge> : '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(r)} title="編輯">
-                                                <Edit2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive"
-                                                onClick={() => setDeleteTarget(r.id)}
-                                                disabled={deleteMutation.isPending}
-                                                title="刪除"
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </div>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={13} className="text-center py-8">
+                                        <Loader2 className="h-5 w-5 animate-spin inline-block mr-2" />載入中...
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                            ) : !records || records.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                                        <div>尚無疼痛評估紀錄</div>
+                                        <div className="text-sm mt-1">點擊上方按鈕新增</div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                (sortedRecords ?? records)?.map((r) => {
+                                    const total = getRecordTotal(r)
+                                    const grade = getPainGrade(total)
+                                    const meds = [
+                                        r.injection_ketorolac && 'Ketorolac(IM)',
+                                        r.injection_meloxicam && 'Meloxicam(IM)',
+                                        r.oral_meloxicam && 'Meloxicam(PO)',
+                                    ].filter(Boolean).join(' ')
+                                    return (
+                                        <TableRow key={r.id}>
+                                            <TableCell className="text-xs whitespace-nowrap">{formatDate(r.created_at)}</TableCell>
+                                            <TableCell>{r.post_op_days ?? '-'}</TableCell>
+                                            <TableCell>{r.time_period || '-'}</TableCell>
+                                            <TableCell className="text-center">{r.incision ?? '-'}</TableCell>
+                                            <TableCell className="text-center">{r.attitude_behavior ?? '-'}</TableCell>
+                                            <TableCell className="text-center">{r.appetite ?? '-'}</TableCell>
+                                            <TableCell className="text-center">{r.feces ?? '-'}</TableCell>
+                                            <TableCell className="text-center">{r.urine ?? '-'}</TableCell>
+                                            <TableCell className="text-center">{r.pain_score ?? '-'}</TableCell>
+                                            <TableCell className="text-center font-bold">{total ?? '-'}</TableCell>
+                                            <TableCell>
+                                                {grade ? (
+                                                    <Badge variant={grade.variant}>{grade.label}</Badge>
+                                                ) : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-xs text-muted-foreground">
+                                                {meds || '-'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(r)} title="編輯">
+                                                        <Edit2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-destructive"
+                                                        onClick={() => setDeleteTarget(r.id)}
+                                                        disabled={deleteMutation.isPending}
+                                                        title="刪除"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
 
             {/* 新增/編輯對話框 */}
             <Dialog open={showAddDialog || !!editingRecord} onOpenChange={(open) => {
                 if (!open) { setShowAddDialog(false); setEditingRecord(null); setForm(emptyForm) }
             }}>
-                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingRecord ? '編輯疼痛評估' : '新增疼痛評估'}</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                         {/* 關聯紀錄 */}
                         {!editingRecord && (
                             <div className="space-y-2">
@@ -421,90 +439,110 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                                 <Label>時段</Label>
                                 <Select value={form.time_period} onValueChange={(v) => setForm((f) => ({ ...f, time_period: v }))}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="選擇時段" />
+                                        <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="AM">上午 (AM)</SelectItem>
                                         <SelectItem value="PM">下午 (PM)</SelectItem>
-                                        <SelectItem value="NIGHT">夜間</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
 
-                        {/* 精神 */}
-                        <div className="space-y-2">
-                            <Label>精神狀況</Label>
-                            <Select value={form.spirit} onValueChange={(v) => setForm((f) => ({ ...f, spirit: v }))}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="選擇..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {spiritOptions.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* 食慾 */}
-                        <div className="space-y-2">
-                            <Label>食慾</Label>
-                            <Select value={form.appetite} onValueChange={(v) => setForm((f) => ({ ...f, appetite: v }))}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="選擇..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {appetiteOptions.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* 站立/行走 */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>站立能力</Label>
-                                <Select value={form.mobility_standing} onValueChange={(v) => setForm((f) => ({ ...f, mobility_standing: v }))}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="選擇..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {mobilityOptions.map((opt) => (
-                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>行走能力</Label>
-                                <Select value={form.mobility_walking} onValueChange={(v) => setForm((f) => ({ ...f, mobility_walking: v }))}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="選擇..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {mobilityOptions.map((opt) => (
-                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                        {/* 評估項目 */}
+                        <div className="border rounded-md overflow-hidden">
+                            <div className="bg-muted px-4 py-2 text-sm font-semibold">評估項目</div>
+                            <div className="divide-y">
+                                <AssessmentRow
+                                    label="傷口狀況"
+                                    subLabel="Incision"
+                                    options={INCISION_OPTIONS}
+                                    value={form.incision}
+                                    onChange={(v) => setForm((f) => ({ ...f, incision: v }))}
+                                />
+                                <AssessmentRow
+                                    label="態度/行為"
+                                    subLabel="Attitude/Behavior"
+                                    options={ATTITUDE_OPTIONS}
+                                    value={form.attitude_behavior}
+                                    onChange={(v) => setForm((f) => ({ ...f, attitude_behavior: v }))}
+                                />
+                                <AssessmentRow
+                                    label="食慾"
+                                    subLabel="Appetite"
+                                    options={APPETITE_OPTIONS}
+                                    value={form.appetite}
+                                    onChange={(v) => setForm((f) => ({ ...f, appetite: v }))}
+                                />
+                                <AssessmentRow
+                                    label="排便"
+                                    subLabel="Feces"
+                                    options={FECES_OPTIONS}
+                                    value={form.feces}
+                                    onChange={(v) => setForm((f) => ({ ...f, feces: v }))}
+                                />
+                                <AssessmentRow
+                                    label="排尿"
+                                    subLabel="Urine"
+                                    options={URINE_OPTIONS}
+                                    value={form.urine}
+                                    onChange={(v) => setForm((f) => ({ ...f, urine: v }))}
+                                />
+                                <AssessmentRow
+                                    label="疼痛分數"
+                                    subLabel="Pain score"
+                                    options={PAIN_SCORE_OPTIONS}
+                                    value={form.pain_score}
+                                    onChange={(v) => setForm((f) => ({ ...f, pain_score: v }))}
+                                />
                             </div>
                         </div>
 
-                        {/* 行為態度 */}
-                        <div className="space-y-2">
-                            <Label>行為態度</Label>
-                            <Select value={form.attitude_behavior} onValueChange={(v) => setForm((f) => ({ ...f, attitude_behavior: v }))}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="選擇..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {attitudeOptions.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        {/* 總分 & 疼痛分級（即時計算） */}
+                        {formTotal !== null && formGrade && (
+                            <div className="rounded-md border p-4 space-y-2 bg-muted/40">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">總分</span>
+                                    <span className="text-2xl font-bold">{formTotal}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">疼痛分級</span>
+                                    <Badge variant={formGrade.variant} className="text-sm px-3 py-1">
+                                        第{formGrade.grade}級：{formGrade.label.split('（')[0]}
+                                    </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {formGrade.grade === 1 && '不給藥，仍需持續觀察'}
+                                    {formGrade.grade === 2 && '給予止痛藥'}
+                                    {formGrade.grade === 3 && '每 8–12 小時給一次止痛藥'}
+                                    {formGrade.grade === 4 && '每 8–12 小時給一次止痛藥並考慮合併用藥'}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* 術後給藥 */}
+                        <div className="space-y-3">
+                            <Label className="text-sm font-semibold">術後給藥</Label>
+                            <div className="grid grid-cols-3 gap-3 border rounded-md p-4">
+                                <Checkbox
+                                    label="注射 Ketorolac"
+                                    checked={form.injection_ketorolac}
+                                    onCheckedChange={(c) => setForm((f) => ({ ...f, injection_ketorolac: c }))}
+                                />
+                                <Checkbox
+                                    label="注射 Meloxicam"
+                                    checked={form.injection_meloxicam}
+                                    onCheckedChange={(c) => setForm((f) => ({ ...f, injection_meloxicam: c }))}
+                                />
+                                <Checkbox
+                                    label="口服 Meloxicam"
+                                    checked={form.oral_meloxicam}
+                                    onCheckedChange={(c) => setForm((f) => ({ ...f, oral_meloxicam: c }))}
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Ketorolac (IM)：60mg/50kg↑，30mg/50kg↓ (SID/BID)　·　Meloxicam：0.1–0.4 mg/kg (SID)
+                            </p>
                         </div>
                     </div>
                     <DialogFooter>
@@ -533,5 +571,42 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                 isPending={deleteMutation.isPending}
             />
         </>
+    )
+}
+
+// ── 評估項目行元件 ───────────────────────────────────────────────────────────
+interface AssessmentRowProps {
+    label: string
+    subLabel: string
+    options: Array<{ score: number; label: string }>
+    value: string
+    onChange: (v: string) => void
+}
+
+function AssessmentRow({ label, subLabel, options, value, onChange }: AssessmentRowProps) {
+    return (
+        <div className="grid grid-cols-[140px_1fr] items-center gap-3 px-4 py-3">
+            <div>
+                <div className="text-sm font-medium">{label}</div>
+                <div className="text-xs text-muted-foreground">{subLabel}</div>
+            </div>
+            <Select value={value} onValueChange={onChange}>
+                <SelectTrigger className="h-9">
+                    <SelectValue placeholder="選擇..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {options.map((opt) => (
+                        <SelectItem key={opt.score} value={String(opt.score)}>
+                            <span className="inline-flex items-center gap-2">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-muted text-xs font-bold shrink-0">
+                                    {opt.score}
+                                </span>
+                                <span className="text-sm">{opt.label}</span>
+                            </span>
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
     )
 }

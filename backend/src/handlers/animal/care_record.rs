@@ -12,7 +12,8 @@ use crate::{
     models::DeleteRequest,
     require_permission,
     services::{
-        CareRecord, CareRecordService, CreateCareRecordRequest, UpdateCareRecordRequest,
+        CareRecord, CareRecordService, CareVetRecordType, CreateCareRecordRequest,
+        UpdateCareRecordRequest,
     },
     services::AuditService,
     AppState, Result,
@@ -37,6 +38,21 @@ pub async fn create_care_record(
 ) -> Result<Json<CareRecord>> {
     let record = CareRecordService::create(&state.db, &req).await?;
     Ok(Json(record))
+}
+
+/// GET /observations/:id/care-records — 列出觀察紀錄的照護紀錄
+pub async fn list_observation_care_records(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Path(observation_id): Path<Uuid>,
+) -> Result<Json<Vec<CareRecord>>> {
+    let records = CareRecordService::list_by_record(
+        &state.db,
+        CareVetRecordType::Observation,
+        observation_id,
+    )
+    .await?;
+    Ok(Json(records))
 }
 
 /// PUT /care-records/:id — 更新照護紀錄
