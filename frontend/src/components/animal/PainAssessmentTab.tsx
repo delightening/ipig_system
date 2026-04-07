@@ -541,7 +541,7 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                                 />
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Ketorolac (IM)：60mg/50kg↑，30mg/50kg↓ (SID/BID)　·　Meloxicam：0.1–0.4 mg/kg (SID)
+                                Ketorolac (IM)：60mg/50kg↑，30mg/50kg↓ (SID/BID) · Meloxicam：0.1–0.4 mg/kg (SID)
                             </p>
                         </div>
                     </div>
