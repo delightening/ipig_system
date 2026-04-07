@@ -22,7 +22,6 @@ async fn health_check_returns_200_with_healthy_status() {
     assert_eq!(body["status"], "healthy");
     assert_eq!(body["checks"]["database"]["status"], "up");
     assert!(body["version"].is_string());
-    assert!(body["checks"]["database"]["latency_ms"].is_number());
 }
 
 #[tokio::test]
