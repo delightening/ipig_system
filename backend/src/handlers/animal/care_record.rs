@@ -12,7 +12,7 @@ use crate::{
     models::DeleteRequest,
     require_permission,
     services::{
-        CareRecord, CareRecordService, CreateCareRecordRequest, UpdateCareRecordRequest,
+        access, CareRecord, CareRecordService, CreateCareRecordRequest, UpdateCareRecordRequest,
     },
     services::AuditService,
     AppState, Result,
@@ -21,9 +21,11 @@ use crate::{
 /// GET /animals/:id/care-records — 列出動物的照護紀錄
 pub async fn list_care_records(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Vec<CareRecord>>> {
+    // C2: 驗證使用者對此動物所屬計畫的存取權限，防止 IDOR
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let records = CareRecordService::list_by_animal(&state.db, animal_id).await?;
     Ok(Json(records))
 }
@@ -31,10 +33,12 @@ pub async fn list_care_records(
 /// POST /animals/:id/care-records — 建立照護紀錄
 pub async fn create_care_record(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
-    Path(_animal_id): Path<Uuid>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(animal_id): Path<Uuid>,
     Json(req): Json<CreateCareRecordRequest>,
 ) -> Result<Json<CareRecord>> {
+    // C2: 驗證使用者對此動物所屬計畫的存取權限，防止 IDOR
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let record = CareRecordService::create(&state.db, &req).await?;
     Ok(Json(record))
 }
@@ -42,10 +46,13 @@ pub async fn create_care_record(
 /// PUT /care-records/:id — 更新照護紀錄
 pub async fn update_care_record(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateCareRecordRequest>,
 ) -> Result<Json<CareRecord>> {
+    // C2: 透過照護紀錄找到 animal，再驗證計畫存取權限，防止 IDOR
+    let animal_id = access::get_care_record_animal_id(&state.db, id).await?;
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let record = CareRecordService::update(&state.db, id, &req).await?;
     Ok(Json(record))
 }

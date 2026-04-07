@@ -318,11 +318,13 @@ impl StockService {
         product_id: Uuid,
         required_qty: Decimal,
     ) -> Result<()> {
+        // H2: FOR UPDATE 鎖定庫存列，防止並發扣減導致負庫存（Race Condition）
         let on_hand: Option<Decimal> = sqlx::query_scalar(
             r#"
             SELECT on_hand_qty_base
             FROM inventory_snapshots
             WHERE warehouse_id = $1 AND product_id = $2
+            FOR UPDATE
             "#,
         )
         .bind(warehouse_id)

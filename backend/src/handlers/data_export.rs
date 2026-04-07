@@ -6,7 +6,7 @@
 use axum::{
     body::Body,
     extract::{Query, State},
-    http::{header, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     response::Response,
     Extension, Json,
 };
@@ -25,6 +25,8 @@ use crate::{
     AppError, AppState, Result,
 };
 
+use super::user::require_reauth_token;
+
 #[derive(Debug, Deserialize)]
 pub struct DataExportQuery {
     #[serde(rename = "include_audit")]
@@ -39,9 +41,12 @@ pub struct DataExportQuery {
 pub async fn full_database_export(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
+    headers: HeaderMap,
     Query(params): Query<DataExportQuery>,
 ) -> Result<Response> {
     require_permission!(current_user, "admin.data.export");
+    // C5: 全庫匯出屬高度敏感操作，強制要求 reauth（二次密碼確認）
+    require_reauth_token(&headers, &state, &current_user)?;
 
     let include_audit = params.include_audit.unwrap_or(false);
     let format = match params.format.as_deref() {

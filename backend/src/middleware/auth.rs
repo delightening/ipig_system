@@ -4,7 +4,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use jsonwebtoken::{decode, DecodingKey, Validation};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -24,6 +24,12 @@ pub struct Claims {
     /// 模擬登入時記錄原始管理員 ID（SEC-11）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub impersonated_by: Option<Uuid>,
+    /// H3: JWT issuer（ipig-backend）
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub iss: String,
+    /// H3: JWT audience（ipig-system）
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub aud: String,
 }
 
 /// SEC-33：敏感操作二級認證用 JWT claims（短期 reauth token）
@@ -94,10 +100,14 @@ pub async fn auth_middleware(
         .or_else(|| extract_token_from_cookie(&request))
         .ok_or(AppError::Unauthorized)?;
 
+    // H3: 明確指定演算法並驗證 audience/issuer，防止跨環境 token 重放
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.set_audience(&["ipig-system"]);
+    validation.set_issuer(&["ipig-backend"]);
     let token_data = decode::<Claims>(
         &token,
         &DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
-        &Validation::default(),
+        &validation,
     )
     .map_err(|_| AppError::Unauthorized)?;
 

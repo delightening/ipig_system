@@ -14,7 +14,7 @@ use crate::{
         ObservationListItem, RecordFilterQuery, UpdateObservationRequest, VersionHistoryResponse,
     },
     require_permission,
-    services::{AnimalObservationService, AnimalService, AuditService},
+    services::{access, AnimalObservationService, AnimalService, AuditService},
     AppState, Result,
 };
 
@@ -29,10 +29,12 @@ use crate::{
 )]
 pub async fn list_animal_observations(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
     Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<AnimalObservation>>> {
+    // C2: 驗證使用者對此動物所屬計畫的存取權限，防止 IDOR
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let observations = AnimalObservationService::list(&state.db, animal_id, filter.after).await?;
     Ok(Json(observations))
 }
@@ -40,10 +42,12 @@ pub async fn list_animal_observations(
 /// 列出動物的觀察記錄（包含獸醫建議）
 pub async fn list_animal_observations_with_recommendations(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
     Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<ObservationListItem>>> {
+    // C2: 驗證使用者對此動物所屬計畫的存取權限，防止 IDOR
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let observations =
         AnimalObservationService::list_with_recommendations(&state.db, animal_id, filter.after)
             .await?;
@@ -61,9 +65,12 @@ pub async fn list_animal_observations_with_recommendations(
 )]
 pub async fn get_animal_observation(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<AnimalObservation>> {
+    // C2: 透過觀察記錄找到 animal，再驗證計畫存取權限，防止 IDOR
+    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let observation = AnimalObservationService::get_by_id(&state.db, id).await?;
     Ok(Json(observation))
 }
