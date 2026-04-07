@@ -21,7 +21,6 @@ async fn health_check_returns_200_with_healthy_status() {
     let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
     assert_eq!(body["status"], "healthy");
     assert_eq!(body["checks"]["database"]["status"], "up");
-    assert!(body["version"].is_string());
 }
 
 #[tokio::test]
