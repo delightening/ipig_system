@@ -272,7 +272,7 @@ use utoipa::OpenApi;
             crate::handlers::health::HealthResponse,
             crate::handlers::health::HealthChecks,
             crate::handlers::health::ComponentCheck,
-            crate::handlers::health::PoolCheck,
+            // M14: PoolCheck 已移除（不再對外暴露 DB pool 細節）
             crate::handlers::health::DiskCheck,
             crate::handlers::metrics::WebVitalsMetric,
             // 共用
