@@ -11,6 +11,7 @@ import {
 import { Loader2, FastForward } from 'lucide-react'
 import { DrugCombobox } from '@/components/animal/DrugCombobox'
 import { useObservationForm, type TreatmentItem } from './hooks/useObservationForm'
+import { ObservationPainSection } from './ObservationPainSection'
 
 const EQUIPMENT_OPTIONS = [
   { value: 'c-arm', label: 'C-arm' },
@@ -156,6 +157,13 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
               onUpload={handlePhotoUpload} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
               placeholder="拖曳附件到此處，或點擊選擇檔案" maxSize={20} maxFiles={10} showPreview={false} />
           </div>
+
+          {/* 疼痛評估（可收合） */}
+          <ObservationPainSection
+            observationId={observation?.id != null ? String(observation.id) : undefined}
+            entries={formData.painAssessments}
+            onChange={(painAssessments) => setFormData({ ...formData, painAssessments })}
+          />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button>

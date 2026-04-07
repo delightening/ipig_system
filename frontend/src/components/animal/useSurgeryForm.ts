@@ -45,8 +45,7 @@ export interface SurgeryFormData {
     medications: MedicationItem[]
     others: MedicationItem[]
   }
-  positioning: string
-  positioning_others: string[]
+  positioning: string[]
   maintenance: {
     o2: AnesthesiaDrug
     n2o: AnesthesiaDrug
@@ -79,8 +78,7 @@ const defaultFormData: SurgeryFormData = {
     medications: [],
     others: [],
   },
-  positioning: '',
-  positioning_others: [],
+  positioning: [],
   maintenance: {
     o2: { name: 'O2', dose: '', enabled: false },
     n2o: { name: 'N2O', dose: '', enabled: false },
@@ -148,8 +146,7 @@ export function useSurgeryForm({
           medications: toMedicationItems(preSurgery.medications),
           others: toMedicationItems(preSurgery.others),
         },
-        positioning: surgery.positioning || '',
-        positioning_others: [],
+        positioning: surgery.positioning ? surgery.positioning.split(',').filter(Boolean) : [],
         maintenance: {
           o2: { name: 'O2', dose: String(maintenance.o2 ?? ''), enabled: !!maintenance.o2 },
           n2o: { name: 'N2O', dose: String(maintenance.n2o ?? ''), enabled: !!maintenance.n2o },
@@ -222,7 +219,7 @@ export function useSurgeryForm({
           Object.keys(inductionAnesthesia).length > 0 ? inductionAnesthesia : null,
         pre_surgery_medication:
           Object.keys(preSurgeryMedication).length > 0 ? preSurgeryMedication : null,
-        positioning: data.positioning || null,
+        positioning: data.positioning.length > 0 ? data.positioning.join(',') : null,
         anesthesia_maintenance:
           Object.keys(anesthesiaMaintenance).length > 0 ? anesthesiaMaintenance : null,
         anesthesia_observation: data.anesthesia_observation || null,
@@ -268,7 +265,6 @@ export function useSurgeryForm({
     const fields = [
       { id: 'surgery_date', value: formData.surgery_date },
       { id: 'surgery_site', value: formData.surgery_site },
-      { id: 'positioning', value: formData.positioning },
       { id: 'anesthesia_observation', value: formData.anesthesia_observation },
       { id: 'reflex_recovery', value: formData.reflex_recovery },
       { id: 'respiration_auto', value: formData.respiration_rate_auto },

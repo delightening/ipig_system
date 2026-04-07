@@ -5,6 +5,7 @@ import api, { AnimalObservation, RecordType } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import type { FileInfo } from '@/components/ui/file-upload'
+import type { PainAssessmentEntry } from '../painAssessmentConstants'
 
 export interface TreatmentItem {
     drug: string
@@ -26,6 +27,7 @@ export interface ObservationFormData {
     remark: string
     photos: FileInfo[]
     attachments: FileInfo[]
+    painAssessments: PainAssessmentEntry[]
 }
 
 const defaultFormData: ObservationFormData = {
@@ -40,6 +42,7 @@ const defaultFormData: ObservationFormData = {
     remark: '',
     photos: [],
     attachments: [],
+    painAssessments: [],
 }
 
 function isoToDateTimeLocal(isoString: string | undefined): string {
@@ -96,6 +99,7 @@ export function useObservationForm({ open, animalId, observation, onOpenChange }
                 remark: observation.remark || '',
                 photos: [],
                 attachments: [],
+                painAssessments: [],
             })
         } else {
             setFormData(defaultFormData)
@@ -160,16 +164,49 @@ export function useObservationForm({ open, animalId, observation, onOpenChange }
             return api.post(`/animals/${animalId}/observations`, payload)
         },
         onSuccess: async (response) => {
+            const observationId = isEdit ? observation!.id : response.data?.id
+
+            // 上傳檔案
             try {
-                if (!isEdit && pendingFilesRef.current.size > 0) {
-                    const newId = response.data?.id
-                    if (newId) await uploadFilesToObservation(newId)
+                if (!isEdit && pendingFilesRef.current.size > 0 && observationId) {
+                    await uploadFilesToObservation(observationId)
                 }
             } catch {
                 toast({ title: '警告', description: '紀錄已儲存，但部分檔案上傳失敗', variant: 'destructive' })
             }
             pendingFilesRef.current.clear()
+
+            // 批次建立新的疼痛評估紀錄
+            const newPainEntries = formData.painAssessments.filter((e) => !e.id)
+            if (newPainEntries.length > 0 && observationId) {
+                try {
+                    await Promise.all(
+                        newPainEntries.map((entry) =>
+                            api.post(`/animals/${animalId}/care-records`, {
+                                record_type: 'observation',
+                                record_id: observationId,
+                                record_mode: 'pain_assessment',
+                                post_op_days: entry.post_op_days ? parseInt(entry.post_op_days) : null,
+                                time_period: entry.time_period || null,
+                                incision: entry.incision !== '' ? parseInt(entry.incision) : null,
+                                attitude_behavior: entry.attitude_behavior !== '' ? parseInt(entry.attitude_behavior) : null,
+                                appetite: entry.appetite !== '' ? parseInt(entry.appetite) : null,
+                                feces: entry.feces !== '' ? parseInt(entry.feces) : null,
+                                urine: entry.urine !== '' ? parseInt(entry.urine) : null,
+                                pain_score: entry.pain_score !== '' ? parseInt(entry.pain_score) : null,
+                                injection_ketorolac: entry.injection_ketorolac,
+                                injection_meloxicam: entry.injection_meloxicam,
+                                oral_meloxicam: entry.oral_meloxicam,
+                            })
+                        )
+                    )
+                } catch {
+                    toast({ title: '警告', description: '紀錄已儲存，但部分疼痛評估新增失敗', variant: 'destructive' })
+                }
+            }
+
             queryClient.invalidateQueries({ queryKey: ['animal-observations', animalId] })
+            queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })
             toast({ title: '成功', description: isEdit ? '觀察紀錄已更新' : '觀察紀錄已新增' })
             onOpenChange(false)
         },

@@ -47,7 +47,8 @@ pub use accounting::AccountingService;
 pub use ai::AiService;
 pub use amendment::AmendmentService;
 pub use animal::care_record::{
-    CareRecord, CareRecordService, CreateCareRecordRequest, UpdateCareRecordRequest,
+    CareRecord, CareRecordService, CareVetRecordType, CreateCareRecordRequest,
+    UpdateCareRecordRequest,
 };
 pub use animal::{
     field_correction::AnimalFieldCorrectionService, AnimalBloodTestService,
