@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import type { AnimalListItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Eye, Edit2 } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import type { getZoneColors } from '../hooks/useFacilityLayout'
 
 interface PenCellProps {
@@ -99,11 +99,6 @@ export const PenCell = React.memo(function PenCell({
         <Button variant="ghost" size="icon" className="h-6 w-6" asChild title="檢視" aria-label="檢視">
           <Link to={`/animals/${animal.id}`}>
             <Eye className="h-3 w-3" />
-          </Link>
-        </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6" asChild title="編輯" aria-label="編輯">
-          <Link to={`/animals/${animal.id}/edit`}>
-            <Edit2 className="h-3 w-3" />
           </Link>
         </Button>
       </div>

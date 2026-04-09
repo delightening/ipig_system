@@ -25,7 +25,11 @@ impl AnimalObservationService {
         after: Option<DateTime<Utc>>,
     ) -> Result<Vec<AnimalObservation>> {
         let observations = sqlx::query_as::<_, AnimalObservation>(
-            "SELECT * FROM animal_observations WHERE animal_id = $1 AND deleted_at IS NULL AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY event_date DESC"
+            r#"SELECT o.*, u.display_name as created_by_name
+               FROM animal_observations o
+               LEFT JOIN users u ON o.created_by = u.id
+               WHERE o.animal_id = $1 AND o.deleted_at IS NULL AND ($2::timestamptz IS NULL OR o.created_at > $2)
+               ORDER BY o.event_date DESC"#
         )
         .bind(animal_id)
         .bind(after)

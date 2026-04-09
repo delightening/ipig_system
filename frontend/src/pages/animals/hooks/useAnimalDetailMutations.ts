@@ -24,7 +24,6 @@ const INITIAL_SUDDEN_DEATH_FORM: SuddenDeathFormData = {
 export function useAnimalDetailMutations(animalId: string) {
   const queryClient = useQueryClient()
 
-  const [showTrialSelect, setShowTrialSelect] = useState(false)
   const [showSuddenDeathDialog, setShowSuddenDeathDialog] = useState(false)
   const [suddenDeathForm, setSuddenDeathForm] = useState<SuddenDeathFormData>(
     INITIAL_SUDDEN_DEATH_FORM,
@@ -41,7 +40,6 @@ export function useAnimalDetailMutations(animalId: string) {
       queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
       queryClient.invalidateQueries({ queryKey: ['animals'] })
       toast({ title: '\u6210\u529F', description: '\u52D5\u7269\u5DF2\u6210\u529F\u5206\u914D\u5230\u8A66\u9A57' })
-      setShowTrialSelect(false)
     },
     onError: (error: unknown) => {
       toast({
@@ -83,8 +81,6 @@ export function useAnimalDetailMutations(animalId: string) {
   })
 
   return {
-    showTrialSelect,
-    setShowTrialSelect,
     showSuddenDeathDialog,
     setShowSuddenDeathDialog,
     suddenDeathForm,

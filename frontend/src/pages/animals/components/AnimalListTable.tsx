@@ -224,11 +224,6 @@ export function AnimalListTable({
                             <Eye className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="icon" asChild title={t('common.edit')} aria-label={t('common.edit')}>
-                          <Link to={`/animals/${animal.id}/edit`}>
-                            <Edit2 className="h-4 w-4" />
-                          </Link>
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -18,14 +18,6 @@ export function SurgeryProcedureSection({ formData, onChange }: Props) {
       {/* 術後區塊 */}
       <CollapsibleSection title="術後">
         <div className="space-y-4">
-          <Checkbox
-            label="術後給藥-優點軟膏"
-            checked={formData.post_ointment}
-            onCheckedChange={(checked) =>
-              onChange({ ...formData, post_ointment: checked === true })
-            }
-          />
-
           <div className="space-y-2">
             <Label>術後給藥-其他</Label>
             <Repeater<MedicationItem>

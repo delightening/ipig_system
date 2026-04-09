@@ -22,13 +22,11 @@ import type { TabType } from '../constants'
 interface UseAnimalDetailQueriesParams {
   animalId: string
   activeTab: TabType
-  animalStatus?: string
 }
 
 export function useAnimalDetailQueries({
   animalId,
   activeTab,
-  animalStatus,
 }: UseAnimalDetailQueriesParams) {
   const { data: animal, isLoading: animalLoading } = useQuery({
     queryKey: ['animal', animalId],
@@ -54,12 +52,13 @@ export function useAnimalDetailQueries({
   const { data: approvedProtocols } = useQuery({
     queryKey: ['approved-protocols'],
     queryFn: async () => {
-      const res = await api.get<ProtocolListItem[]>('/protocols?status=APPROVED')
-      const res2 = await api.get<ProtocolListItem[]>('/protocols?status=APPROVED_WITH_CONDITIONS')
-      return [...res.data, ...res2.data].filter(p => p.iacuc_no)
+      const res = await api.get<ProtocolListItem[]>('/protocols')
+      return res.data.filter(p => {
+        if (p.status === 'CLOSED') return false
+        return (p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS') && p.iacuc_no
+      })
     },
-    enabled: animalStatus === 'unassigned',
-    staleTime: 600_000,
+    staleTime: 60_000,
   })
 
   const { data: observations, error: observationsError } = useQuery({

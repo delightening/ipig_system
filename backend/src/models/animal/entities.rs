@@ -98,6 +98,8 @@ pub struct AnimalObservation {
     #[sqlx(default)]
     pub reviewed_at: Option<DateTime<Utc>>,
     pub created_by: Option<Uuid>,
+    #[sqlx(default)]
+    pub created_by_name: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     // Optimistic locking (migration 014)
@@ -127,6 +129,8 @@ pub struct AnimalSurgery {
     pub vet_read: bool,
     pub vet_read_at: Option<DateTime<Utc>>,
     pub created_by: Option<Uuid>,
+    #[sqlx(default)]
+    pub created_by_name: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

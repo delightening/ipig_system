@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
-import api, { Animal, AnimalSource, ProtocolListItem } from '@/lib/api'
+import api, { Animal, AnimalSource, ProtocolListItem, facilityApi } from '@/lib/api'
 import { getApiErrorMessage, animalEditSchema, type AnimalEditFormData } from '@/lib/validation'
 import { toast } from '@/components/ui/use-toast'
 
@@ -26,6 +26,12 @@ export function useAnimalEdit(animalId: string) {
     const { data: sources } = useQuery({
         queryKey: ['animal-sources'],
         queryFn: async () => (await api.get<AnimalSource[]>('/animal-sources')).data,
+        staleTime: 600_000,
+    })
+
+    const { data: pens } = useQuery({
+        queryKey: ['pens'],
+        queryFn: async () => (await facilityApi.listPens()).data,
         staleTime: 600_000,
     })
 
@@ -78,6 +84,7 @@ export function useAnimalEdit(animalId: string) {
         animal,
         animalLoading,
         sources,
+        pens,
         approvedProtocols,
         updateMutation,
         navigate,

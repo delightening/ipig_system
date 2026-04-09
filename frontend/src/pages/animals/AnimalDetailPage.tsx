@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Loader2, AlertCircle, Download } from 'lucide-react'
+import { ArrowLeft, Loader2, AlertCircle, Download, FileEdit } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ExportDialog } from '@/components/animal/ExportDialog'
@@ -57,7 +57,6 @@ export function AnimalDetailPage() {
   const queries = useAnimalDetailQueries({
     animalId,
     activeTab,
-    animalStatus: undefined,
   })
 
   // Re-derive activeTab with actual animal status
@@ -114,10 +113,18 @@ export function AnimalDetailPage() {
           {t('animalDetail.backToAnimalList', '\u56DE\u5230\u52D5\u7269\u5217\u8868')}
         </Link>
         <GuestHide>
-          <Button variant="outline" onClick={() => setShowExportDialog(true)}>
-            <Download className="h-4 w-4 mr-2" />
-            {t('animalDetail.exportRecord', '\u532F\u51FA\u75C5\u6B77')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <Link to={`/animals/${animalId}/edit`}>
+                <FileEdit className="h-4 w-4 mr-2" />
+                編輯動物資訊
+              </Link>
+            </Button>
+            <Button variant="outline" onClick={() => setShowExportDialog(true)}>
+              <Download className="h-4 w-4 mr-2" />
+              {t('animalDetail.exportRecord', '\u532F\u51FA\u75C5\u6B77')}
+            </Button>
+          </div>
         </GuestHide>
       </div>
 
@@ -131,10 +138,9 @@ export function AnimalDetailPage() {
 
       {/* Animal Header Card */}
       <AnimalHeaderCard
+        animalId={animalId}
         animal={animal}
         weights={queries.weights}
-        showTrialSelect={mutations.showTrialSelect}
-        setShowTrialSelect={mutations.setShowTrialSelect}
         approvedProtocols={queries.approvedProtocols}
         assignTrialMutation={mutations.assignTrialMutation}
       />

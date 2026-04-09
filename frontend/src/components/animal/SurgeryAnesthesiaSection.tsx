@@ -312,6 +312,14 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
               className="w-32"
             />
           </div>
+
+          <Checkbox
+            label="術後給藥-優點軟膏"
+            checked={formData.post_ointment}
+            onCheckedChange={(checked) =>
+              onChange({ ...formData, post_ointment: checked === true })
+            }
+          />
         </div>
       </CollapsibleSection>
     </>

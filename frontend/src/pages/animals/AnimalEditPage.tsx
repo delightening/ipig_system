@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from '@/components/ui/use-toast'
 import { ArrowLeft, Loader2, Save, AlertCircle, FileEdit } from 'lucide-react'
 import { RequestCorrectionDialog } from '@/components/animal/RequestCorrectionDialog'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { AnimalEditReadOnlyFields } from './components/AnimalEditReadOnlyFields'
 import { useAnimalEdit } from './hooks/useAnimalEdit'
 
@@ -21,13 +22,26 @@ export function AnimalEditPage() {
   const animalId = id!
   const [correctionDialogOpen, setCorrectionDialogOpen] = useState(false)
 
-  const { form, animal, animalLoading, sources, approvedProtocols, updateMutation, navigate, queryClient } = useAnimalEdit(animalId)
+  const { form, animal, animalLoading, sources, pens, approvedProtocols, updateMutation, navigate, queryClient } = useAnimalEdit(animalId)
   const { register, handleSubmit, watch, setValue, formState: { errors, isDirty } } = form
 
   const watchedStatus = watch('status')
   const watchedIacucNo = watch('iacuc_no')
+  const watchedPenLocation = watch('pen_location')
 
-  const onValid = (data: AnimalEditFormData) => updateMutation.mutate(data)
+  const penOptions = (pens ?? []).map((p) => ({
+    value: p.code,
+    label: p.code,
+    description: p.name ?? undefined,
+  }))
+
+  const onValid = (data: AnimalEditFormData) => {
+    if (data.pen_location && pens && !pens.some((p) => p.code === data.pen_location)) {
+      form.setError('pen_location', { message: '此欄號不存在，請重新選擇' })
+      return
+    }
+    updateMutation.mutate(data)
+  }
 
   if (animalLoading) {
     return (
@@ -105,8 +119,18 @@ export function AnimalEditPage() {
 
               {/* 欄位 */}
               <div className="space-y-2">
-                <Label htmlFor="pen_location">欄位</Label>
-                <Input id="pen_location" {...register('pen_location')} placeholder="如：A01" />
+                <Label>欄位</Label>
+                <SearchableSelect
+                  options={penOptions}
+                  value={watchedPenLocation ?? ''}
+                  onValueChange={(v) => setValue('pen_location', v, { shouldValidate: true, shouldDirty: true })}
+                  placeholder="選擇欄號"
+                  searchPlaceholder="輸入欄號搜尋..."
+                  emptyMessage="找不到此欄號，請確認欄號正確"
+                />
+                {errors.pen_location && (
+                  <p className="text-sm text-destructive">{errors.pen_location.message}</p>
+                )}
               </div>
 
               {/* IACUC No. */}

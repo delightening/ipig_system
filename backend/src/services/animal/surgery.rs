@@ -49,7 +49,11 @@ impl AnimalSurgeryService {
         after: Option<DateTime<Utc>>,
     ) -> Result<Vec<AnimalSurgery>> {
         let surgeries = sqlx::query_as::<_, AnimalSurgery>(
-            "SELECT * FROM animal_surgeries WHERE animal_id = $1 AND deleted_at IS NULL AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY surgery_date DESC"
+            r#"SELECT s.*, u.display_name as created_by_name
+               FROM animal_surgeries s
+               LEFT JOIN users u ON s.created_by = u.id
+               WHERE s.animal_id = $1 AND s.deleted_at IS NULL AND ($2::timestamptz IS NULL OR s.created_at > $2)
+               ORDER BY s.surgery_date DESC"#
         )
         .bind(animal_id)
         .bind(after)
