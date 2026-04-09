@@ -15,6 +15,46 @@
 - QA 模式下，標記任何不符合 DESIGN.md 的程式碼。
 - 新增 UI 元件時，檢查 `components/ui/` 是否已有可複用的元件。
 
+# Skill 使用規則
+
+## 檔案讀取 skills
+
+| 情境 | 使用 skill | 不使用 |
+|------|-----------|--------|
+| 副檔名明確（.docx / .xlsx / .pptx） | 對應的 `/docx` `/xlsx` `/pptx` | `/file-reading` |
+| PDF，內容簡單（≤10 頁、無複雜表格） | `/pdf` | `/pdf-reading` |
+| PDF，複雜（>10 頁 / 有表格 / 學術論文 / 合約） | `/pdf-reading` | — |
+| 副檔名未知或混合多種格式 | `/file-reading` | — |
+| 一般文字檔（.txt .md .json .ts .rs 等） | 直接用 **Read tool** | ❌ 不啟動任何 skill |
+
+## 除錯 skills
+
+- **/investigate**（gstack 內建）：一般除錯的起點，適合大多數情況
+- **/systematic-debugging**：頑固 bug 升級用，強制執行「無根因不改碼」鐵律
+- **直接修**（不用 skill）：明顯的 typo、缺 import、語法錯誤
+
+> 流程：先 `/investigate` → 若一輪仍找不到根因 → 升級 `/systematic-debugging`
+
+## 設計與品牌
+
+- **/brand-guidelines 本專案規則**：直接 `Read("DESIGN.md")` — DESIGN.md **就是**本專案的品牌指南，不需要搜尋其他檔案
+- 使用時機：新增 UI 元件前、設計 token 決策、QA 檢查不符合設計規範的程式碼
+- **不使用時機**：後端邏輯、資料庫結構、Rust 純邏輯代碼
+
+## 翻譯
+
+- **/translate**：UI 文字 zh-TW ↔ en 翻譯、i18n key 命名、文件翻譯
+- **不使用時機**：資料庫欄位名稱（保持 snake_case 英文）、程式碼邏輯
+
+## 內部溝通
+
+- **/internal-comms**：事故報告、週報、系統異動公告、會議紀錄
+- **不使用時機**：UI 文字（用 i18n `t()` 函數）、API 文件、程式碼注解、commit message
+
+## Skill 建立
+
+- **/skill-creator**：僅在使用者**明確要求**建立新 skill 時使用，不主動建議
+
 # 文件記錄規則
 
 ## 核心原則

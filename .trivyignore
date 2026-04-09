@@ -8,3 +8,11 @@
 # 最後檢查：2026-02-28 — 映像已升級至 1.29.5-alpine，但 libpng 仍為 1.6.54-r0，CVE 尚未修復
 # 下次檢查：2026-Q2 或上游釋出新 tag 時
 CVE-2026-25646
+
+# CVE-2026-28390: libssl3 OpenSSL DoS via NULL pointer dereference
+# 適用：backend 映像（gcr.io/distroless/cc-debian12）
+# 原因：distroless base image 自帶 libssl3，無法透過 apt upgrade 修復；
+#       覆蓋 .so 會造成 ABI 不相容導致應用程式無法啟動
+# 風險：LOW — DoS 需特製 TLS 連線，API 位於反向代理後方
+# 下次檢查：distroless image 更新後移除
+CVE-2026-28390

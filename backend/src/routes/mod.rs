@@ -1,4 +1,5 @@
 use axum::{middleware, Router};
+use tower::ServiceBuilder;
 
 use crate::middleware::etag::etag_middleware;
 use crate::middleware::rate_limiter::{
@@ -27,11 +28,27 @@ mod user;
 pub fn api_routes(state: AppState) -> Router {
     let public_routes = auth::public_routes()
         .merge(invitation::public_routes())
-        .route_layer(middleware::from_fn_with_state(
+        .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_rate_limit_middleware,
         ))
         .with_state(state.clone());
+
+    // 使用 ServiceBuilder 合併 middleware 層（避免 .route_layer 逐路由包裝導致記憶體暴漲）
+    let auth_middleware_stack = ServiceBuilder::new()
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            write_rate_limit_middleware,
+        ))
+        .layer(middleware::from_fn(guest_guard_middleware))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            csrf_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
 
     let protected_routes = auth::protected_routes()
         .merge(user::routes())
@@ -44,35 +61,26 @@ pub fn api_routes(state: AppState) -> Router {
         .merge(hr::routes())
         .merge(invitation::admin_routes())
         .merge(ai::admin_routes())
-        .route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            write_rate_limit_middleware,
-        ))
-        .route_layer(middleware::from_fn(guest_guard_middleware))
-        .route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            csrf_middleware,
-        ))
-        .route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth_middleware,
-        ))
+        .layer(auth_middleware_stack)
         .with_state(state.clone());
 
-    let upload_routes = upload::routes()
-        .route_layer(middleware::from_fn_with_state(
+    let upload_middleware_stack = ServiceBuilder::new()
+        .layer(middleware::from_fn_with_state(
             state.clone(),
             upload_rate_limit_middleware,
         ))
-        .route_layer(middleware::from_fn(guest_guard_middleware))
-        .route_layer(middleware::from_fn_with_state(
+        .layer(middleware::from_fn(guest_guard_middleware))
+        .layer(middleware::from_fn_with_state(
             state.clone(),
             csrf_middleware,
         ))
-        .route_layer(middleware::from_fn_with_state(
+        .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,
-        ))
+        ));
+
+    let upload_routes = upload::routes()
+        .layer(upload_middleware_stack)
         .with_state(state.clone());
 
     // 健康檢查 + 指標路由（不受 Rate Limiter 影響，確保監控系統可探測）
@@ -89,19 +97,21 @@ pub fn api_routes(state: AppState) -> Router {
     let ai_query_routes = ai::ai_routes(state.clone())
         .with_state(state.clone());
 
-    // P1-M1: API 版本路徑 — 引入 /api/v1/ 前綴；/api 保留為 deprecated 向後相容
+    let api_middleware_stack = ServiceBuilder::new()
+        .layer(middleware::from_fn(etag_middleware))
+        .layer(middleware::from_fn_with_state(
+            state,
+            api_rate_limit_middleware,
+        ));
+
+    // P1-M1: API 版本路徑 — /api/v1 為唯一前綴
     let api_v1 = public_routes
         .merge(protected_routes)
         .merge(upload_routes)
         .merge(ai_query_routes);
     health_route.merge(
         Router::new()
-            .nest("/api/v1", api_v1.clone())
-            .nest("/api", api_v1)
-            .route_layer(middleware::from_fn(etag_middleware))
-            .route_layer(middleware::from_fn_with_state(
-                state,
-                api_rate_limit_middleware,
-            )),
+            .nest("/api/v1", api_v1)
+            .layer(api_middleware_stack),
     )
 }

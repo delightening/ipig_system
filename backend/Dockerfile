@@ -70,8 +70,6 @@ COPY --from=runtime /etc/group /etc/group
 COPY --from=runtime /app /app
 COPY --from=runtime /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=runtime /usr/lib/x86_64-linux-gnu/libbz2.so.1.0* /lib/x86_64-linux-gnu/
-COPY --from=runtime /usr/lib/x86_64-linux-gnu/libssl.so.3* /usr/lib/x86_64-linux-gnu/
-COPY --from=runtime /usr/lib/x86_64-linux-gnu/libcrypto.so.3* /usr/lib/x86_64-linux-gnu/
 
 USER appuser
 
