@@ -226,6 +226,102 @@ pub async fn export_pen_report(
         .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
+/// 匯出獸醫巡場報告 PDF
+pub async fn export_vet_patrol_report_pdf(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Response> {
+    use crate::services::VetPatrolReportService;
+
+    let report_with_entries = VetPatrolReportService::get(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("巡場報告不存在".into()))?;
+
+    let report = &report_with_entries.report;
+    let entries = &report_with_entries.entries;
+
+    // 查詢建立者姓名
+    let vet_name: String = if let Some(uid) = report.created_by {
+        sqlx::query_scalar::<_, String>(
+            "SELECT display_name FROM users WHERE id = $1",
+        )
+        .bind(uid)
+        .fetch_optional(&state.db)
+        .await?
+        .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    // 按類別分組並合併文字
+    let category_order = [
+        ("pig_condition", "豬隻狀況"),
+        ("epidemic_prevention", "防疫及消毒計畫"),
+        ("case_record", "病歷紀錄"),
+        ("other", "其他"),
+    ];
+
+    let mut categories: Vec<serde_json::Value> = Vec::new();
+    for (key, label) in &category_order {
+        let cat_entries: Vec<_> = entries
+            .iter()
+            .filter(|e| e.category == *key)
+            .collect();
+
+        let mut obs_parts: Vec<String> = Vec::new();
+        let mut sug_parts: Vec<String> = Vec::new();
+        let mut fup_parts: Vec<String> = Vec::new();
+
+        for e in &cat_entries {
+            let prefix = e.ear_tag.as_deref().map(|t| format!("#{} ", t)).unwrap_or_default();
+            if !e.observation.is_empty() {
+                obs_parts.push(format!("{}{}", prefix, e.observation));
+            }
+            if !e.suggestion.is_empty() {
+                sug_parts.push(format!("{}{}", prefix, e.suggestion));
+            }
+            if !e.follow_up.is_empty() {
+                fup_parts.push(format!("{}{}", prefix, e.follow_up));
+            }
+        }
+
+        categories.push(serde_json::json!({
+            "label": label,
+            "observation": obs_parts.join("\n"),
+            "suggestion": sug_parts.join("\n"),
+            "follow_up": fup_parts.join("\n"),
+        }));
+    }
+
+    // 格式化日期
+    let patrol_date_display = report.patrol_date.format("%Y年%m月%d日").to_string();
+
+    let mut ctx = tera::Context::new();
+    ctx.insert("categories", &categories);
+    ctx.insert("patrol_date_display", &patrol_date_display);
+    ctx.insert("vet_name", &vet_name);
+    ctx.insert("companion", &"");
+    ctx.insert("photos", &Vec::<String>::new());
+
+    let html = state.templates.render("vet_patrol_report.html", &ctx)?;
+    let pdf_bytes = state.gotenberg.html_to_pdf(&html).await?;
+
+    let filename = format!(
+        "試驗豬場巡場報告_{}.pdf",
+        report.patrol_date.format("%Y%m%d")
+    );
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/pdf")
+        .header(
+            header::CONTENT_DISPOSITION,
+            crate::utils::http::content_disposition_header(&filename),
+        )
+        .body(Body::from(pdf_bytes))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
+}
+
 // ─── 內部輔助函式 ───
 
 /// 將單隻動物 JSON 資料轉為 Tera Context

@@ -4,6 +4,9 @@ import api, { AnimalSurgery } from '@/lib/api'
 import { FileInfo } from '@/components/ui/file-upload'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
+import type { PainAssessmentEntry, MedicationItem } from './painAssessmentConstants'
+
+export type { MedicationItem }
 
 /** 誘導麻醉藥物項目 */
 export interface AnesthesiaDrug {
@@ -20,14 +23,6 @@ export interface VitalSign {
   respiration_rate: string
   temperature: string
   spo2: string
-}
-
-/** 其他藥物項目 */
-export interface MedicationItem {
-  name: string
-  dose: string
-  drug_option_id?: string
-  dosage_unit?: string
 }
 
 /** 表單狀態 */
@@ -60,6 +55,7 @@ export interface SurgeryFormData {
   post_medications: MedicationItem[]
   remark: string
   no_medication_needed: boolean
+  painAssessments: PainAssessmentEntry[]
   photos: FileInfo[]
   attachments: FileInfo[]
 }
@@ -93,6 +89,7 @@ const defaultFormData: SurgeryFormData = {
   post_medications: [],
   remark: '',
   no_medication_needed: false,
+  painAssessments: [],
   photos: [],
   attachments: [],
 }
@@ -181,6 +178,7 @@ export function useSurgeryForm({
         post_medications: toMedicationItems(postSurgery.others),
         remark: surgery.remark || '',
         no_medication_needed: surgery.no_medication_needed,
+        painAssessments: [],
         photos: [],
         attachments: [],
       })
@@ -242,13 +240,37 @@ export function useSurgeryForm({
         no_medication_needed: data.no_medication_needed,
       }
 
+      let surgeryId: string
       if (isEdit && surgery) {
-        return api.put(`/surgeries/${surgery.id}`, payload)
+        const res = await api.put<AnimalSurgery>(`/surgeries/${surgery.id}`, payload)
+        surgeryId = String(res.data.id)
+      } else {
+        const res = await api.post<AnimalSurgery>(`/animals/${animalId}/surgeries`, payload)
+        surgeryId = String(res.data.id)
       }
-      return api.post(`/animals/${animalId}/surgeries`, payload)
+
+      // 儲存新增的疼痛評估紀錄
+      const newAssessments = data.painAssessments.filter((e) => !e.id)
+      for (const entry of newAssessments) {
+        await api.post(`/animals/${animalId}/care-records`, {
+          record_type: 'surgery',
+          record_id: surgeryId,
+          record_mode: 'pain_assessment',
+          post_op_days: entry.post_op_days ? parseInt(entry.post_op_days) : null,
+          time_period: entry.time_period || null,
+          incision: entry.incision !== '' ? parseInt(entry.incision) : null,
+          attitude_behavior: entry.attitude_behavior !== '' ? parseInt(entry.attitude_behavior) : null,
+          appetite: entry.appetite !== '' ? parseInt(entry.appetite) : null,
+          feces: entry.feces !== '' ? parseInt(entry.feces) : null,
+          urine: entry.urine !== '' ? parseInt(entry.urine) : null,
+          pain_score: entry.pain_score !== '' ? parseInt(entry.pain_score) : null,
+          post_medications: entry.post_medications.length > 0 ? entry.post_medications : null,
+        })
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-surgeries', animalId] })
+      queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })
       toast({ title: '成功', description: isEdit ? '手術紀錄已更新' : '手術紀錄已新增' })
       onOpenChange(false)
     },

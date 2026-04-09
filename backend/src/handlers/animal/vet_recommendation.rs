@@ -244,6 +244,17 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
     Ok(Json(recommendation))
 }
 
+/// 取得動物的所有獸醫建議（彙整觀察 + 手術）
+pub async fn get_animal_vet_recommendations(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Path(animal_id): Path<Uuid>,
+) -> Result<Json<Vec<VetRecommendation>>> {
+    let recommendations =
+        AnimalMedicalService::get_vet_recommendations_by_animal(&state.db, animal_id).await?;
+    Ok(Json(recommendations))
+}
+
 pub async fn get_observation_vet_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,

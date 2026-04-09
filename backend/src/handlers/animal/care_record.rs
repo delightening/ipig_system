@@ -59,6 +59,21 @@ pub async fn list_observation_care_records(
     Ok(Json(records))
 }
 
+/// GET /surgeries/:id/care-records — 列出手術紀錄的照護紀錄
+pub async fn list_surgery_care_records(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Path(surgery_id): Path<Uuid>,
+) -> Result<Json<Vec<CareRecord>>> {
+    let records = CareRecordService::list_by_record(
+        &state.db,
+        CareVetRecordType::Surgery,
+        surgery_id,
+    )
+    .await?;
+    Ok(Json(records))
+}
+
 /// PUT /care-records/:id — 更新照護紀錄
 pub async fn update_care_record(
     State(state): State<AppState>,

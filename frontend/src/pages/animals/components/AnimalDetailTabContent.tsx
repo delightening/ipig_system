@@ -40,6 +40,7 @@ const PathologyTab = lazy(() => import('@/components/animal/PathologyTab').then(
 const BloodTestTab = lazy(() => import('@/components/animal/BloodTestTab').then(m => ({ default: m.BloodTestTab })))
 const TransferTab = lazy(() => import('@/components/animal/TransferTab').then(m => ({ default: m.TransferTab })))
 const PainAssessmentTab = lazy(() => import('@/components/animal/PainAssessmentTab').then(m => ({ default: m.PainAssessmentTab })))
+const VetRecommendationsTab = lazy(() => import('@/components/animal/VetRecommendationsTab').then(m => ({ default: m.VetRecommendationsTab })))
 
 const TabFallback = () => <Skeleton variant="form" fields={4} />
 
@@ -53,7 +54,7 @@ export function TabBar({ activeTab, setActiveTab, animalStatus }: TabBarProps) {
   const { t } = useTranslation()
 
   const tabs = useMemo(
-    () => [
+    (): Array<{ id: TabType; label: string; icon: React.ComponentType<{ className?: string }>; className?: string }> => [
       { id: 'timeline' as const, label: t('animalDetail.tabs.timeline', '\u7D00\u9304\u6642\u9593\u8EF8'), icon: History },
       { id: 'observations' as const, label: t('animalDetail.tabs.observations', '\u89C0\u5BDF\u8A66\u9A57\u7D00\u9304'), icon: ClipboardList },
       { id: 'surgeries' as const, label: t('animalDetail.tabs.surgeries', '\u624B\u8853\u7D00\u9304'), icon: Scissors },
@@ -62,6 +63,7 @@ export function TabBar({ activeTab, setActiveTab, animalStatus }: TabBarProps) {
       { id: 'sacrifice' as const, label: t('animalDetail.tabs.sacrifice', '\u72A7\u7272/\u63A1\u6A23\u7D00\u9304'), icon: Heart },
       { id: 'blood_tests' as const, label: t('animalDetail.tabs.bloodTests', '\u8840\u6DB2\u6AA2\u67E5'), icon: Droplets },
       { id: 'pain_assessment' as const, label: t('animalDetail.tabs.painAssessment', '\u75BC\u75DB\u8A55\u4F30'), icon: Stethoscope },
+      { id: 'vet_recommendations' as const, label: t('animalDetail.tabs.vetRecommendations', '獸醫師建議'), icon: Stethoscope, className: 'text-status-success-solid' },
       { id: 'info' as const, label: t('animalDetail.tabs.info', '\u52D5\u7269\u8CC7\u6599'), icon: FileText },
       { id: 'pathology' as const, label: t('animalDetail.tabs.pathology', '\u75C5\u7406\u7D44\u7E54\u5831\u544A'), icon: FileText },
       ...((animalStatus === 'completed' || animalStatus === 'transferred')
@@ -77,14 +79,15 @@ export function TabBar({ activeTab, setActiveTab, animalStatus }: TabBarProps) {
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
+          const customClass = tab.className
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-2 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 isActive
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
+                  ? customClass ? `border-current ${customClass}` : 'border-primary text-primary'
+                  : customClass ? `border-transparent ${customClass} opacity-70 hover:opacity-100` : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="h-4 w-4 shrink-0" />
@@ -226,6 +229,10 @@ export function TabContent({
               surgery_date: s.surgery_date,
             }))}
           />
+        )}
+
+        {activeTab === 'vet_recommendations' && (
+          <VetRecommendationsTab animalId={animalId} />
         )}
 
         {activeTab === 'transfer' && (

@@ -75,6 +75,7 @@ export function useAnimalDialogs() {
   const [showImportBasicDialog, setShowImportBasicDialog] = useState(false)
   const [showImportWeightDialog, setShowImportWeightDialog] = useState(false)
   const [showPrintReport, setShowPrintReport] = useState(false)
+  const [showVetPatrolDialog, setShowVetPatrolDialog] = useState(false)
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false)
   const [showQuickAddDialog, setShowQuickAddDialog] = useState(false)
   const [duplicateWarningData, setDuplicateWarningData] =
@@ -93,6 +94,8 @@ export function useAnimalDialogs() {
     setShowImportWeightDialog,
     showPrintReport,
     setShowPrintReport,
+    showVetPatrolDialog,
+    setShowVetPatrolDialog,
     showDuplicateWarning,
     setShowDuplicateWarning,
     showQuickAddDialog,

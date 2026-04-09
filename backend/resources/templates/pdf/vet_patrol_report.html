@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+    size: A4 portrait;
+    margin: 12mm 14mm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #000;
+}
+
+.report-header {
+    text-align: center;
+    margin-bottom: 6mm;
+}
+
+.company-name {
+    font-size: 13pt;
+    font-weight: bold;
+    margin-bottom: 2mm;
+}
+
+.report-title {
+    font-size: 16pt;
+    font-weight: bold;
+    letter-spacing: 2pt;
+}
+
+/* 主報告表格 */
+.main-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6mm;
+}
+
+.main-table th,
+.main-table td {
+    border: 1px solid #000;
+    padding: 3mm 2.5mm;
+    vertical-align: top;
+    font-size: 9.5pt;
+    line-height: 1.5;
+}
+
+.main-table thead th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+    text-align: center;
+    font-size: 10pt;
+    padding: 2mm 2.5mm;
+}
+
+.main-table .cat-cell {
+    width: 18%;
+    font-weight: bold;
+    text-align: center;
+    background-color: #fafafa;
+    white-space: nowrap;
+}
+
+.main-table .obs-cell { width: 34%; }
+.main-table .sug-cell { width: 24%; }
+.main-table .fup-cell { width: 24%; }
+
+.main-table td.obs-cell,
+.main-table td.sug-cell,
+.main-table td.fup-cell {
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* 簽署資訊 */
+.sign-table {
+    width: 50%;
+    margin-left: auto;
+    border-collapse: collapse;
+    margin-bottom: 6mm;
+}
+
+.sign-table td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-size: 10pt;
+}
+
+.sign-table .label-cell {
+    font-weight: bold;
+    white-space: nowrap;
+    width: 40%;
+}
+
+/* 附件照片區 */
+.photos-section {
+    page-break-before: auto;
+    margin-top: 6mm;
+}
+
+.photos-title {
+    font-size: 11pt;
+    font-weight: bold;
+    margin-bottom: 3mm;
+    border-bottom: 2px solid #000;
+    padding-bottom: 1mm;
+}
+
+.photo-row {
+    border: 1px solid #ccc;
+    padding: 2mm 3mm;
+    margin-bottom: 2mm;
+}
+
+.photo-caption {
+    font-size: 9pt;
+    line-height: 1.5;
+}
+
+/* 頁尾 */
+.footer {
+    margin-top: 8mm;
+    padding-top: 2mm;
+    text-align: center;
+    font-size: 7pt;
+    color: #666;
+}
+</style>
+</head>
+<body>
+
+<!-- 標題 -->
+<div class="report-header">
+    <div class="company-name">豬博士動物科技股份有限公司</div>
+    <div class="report-title">試驗豬場巡場報告</div>
+</div>
+
+<!-- 主報告表格 -->
+<table class="main-table">
+    <thead>
+        <tr>
+            <th>項目</th>
+            <th>觀察內容</th>
+            <th>建議</th>
+            <th>追蹤及改善<br><span style="font-weight:normal;font-size:8pt;">（請照護同仁扼要填寫）</span></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cat in categories %}
+        <tr>
+            <td class="cat-cell">{{ cat.label }}</td>
+            <td class="obs-cell">{{ cat.observation }}</td>
+            <td class="sug-cell">{{ cat.suggestion }}</td>
+            <td class="fup-cell">{{ cat.follow_up }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- 簽署資訊 -->
+<table class="sign-table">
+    <tr>
+        <td class="label-cell">陪同人員：</td>
+        <td>{{ companion | default(value="") }}</td>
+    </tr>
+    <tr>
+        <td class="label-cell">巡場獸醫師：</td>
+        <td>{{ vet_name | default(value="") }}</td>
+    </tr>
+    <tr>
+        <td class="label-cell">巡場日期：</td>
+        <td>{{ patrol_date_display }}</td>
+    </tr>
+</table>
+
+{% if photos | length > 0 %}
+<!-- 附件照片/備註 -->
+<div class="photos-section">
+    <div class="photos-title">附件</div>
+    {% for photo in photos %}
+    <div class="photo-row">
+        <div class="photo-caption">{{ photo.caption }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- 頁尾 -->
+<div class="footer">
+    版權為豬博士動物科技股份有限公司所有，禁止任何未經授權的使用<br>
+    All Rights Reserved &copy; DrPIG. Unauthorized use in any form is prohibited.
+</div>
+
+</body>
+</html>

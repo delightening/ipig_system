@@ -320,6 +320,16 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
               onChange({ ...formData, post_ointment: checked === true })
             }
           />
+
+          <div className="space-y-2">
+            <Label htmlFor="remark">備註</Label>
+            <Textarea
+              id="remark"
+              value={formData.remark}
+              onChange={(e) => onChange({ ...formData, remark: e.target.value })}
+              placeholder="其他備註..."
+            />
+          </div>
         </div>
       </CollapsibleSection>
     </>

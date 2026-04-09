@@ -5,10 +5,11 @@ import { useAuthStore } from '@/stores/auth'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
-import { Plus, Upload, Download, FileSpreadsheet } from 'lucide-react'
+import { Plus, Upload, Download, FileSpreadsheet, Stethoscope } from 'lucide-react'
 
 import { GuestHide } from '@/components/ui/guest-hide'
 import { ExportDialog } from '@/components/animal/ExportDialog'
+import { VetPatrolReportDialog } from '@/components/animal/VetPatrolReportDialog'
 import { ImportDialog } from '@/components/animal/ImportDialog'
 import { QuickEditAnimalDialog } from '@/components/animal/QuickEditAnimalDialog'
 import { AnimalPenReport } from '../../components/animal/AnimalPenReport'
@@ -83,6 +84,8 @@ export function AnimalsPage() {
     setShowImportWeightDialog,
     showPrintReport,
     setShowPrintReport,
+    showVetPatrolDialog,
+    setShowVetPatrolDialog,
     showDuplicateWarning,
     setShowDuplicateWarning,
     showQuickAddDialog,
@@ -167,7 +170,7 @@ export function AnimalsPage() {
         description={t('animals.description')}
         actions={
           <GuestHide>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Button size="sm" variant="outline" className="w-full gap-2 text-status-warning-text border-status-warning-border hover:bg-status-warning-bg text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>
                 <Download className="h-4 w-4 shrink-0" />
                 <span className="truncate">{t('animals.generateReport')}</span>
@@ -180,11 +183,15 @@ export function AnimalsPage() {
                 <Upload className="h-4 w-4 shrink-0" />
                 <span className="truncate">{t('animals.importBasic')}</span>
               </Button>
+              <Button size="sm" variant="outline" className="w-full gap-2 text-status-success-solid border-status-success-solid/30 hover:bg-status-success-solid/10 text-xs md:text-sm" onClick={() => setShowVetPatrolDialog(true)}>
+                <Stethoscope className="h-4 w-4 shrink-0" />
+                <span className="truncate">獸醫巡場紀錄</span>
+              </Button>
               <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowBatchExportDialog(true)}>
                 <FileSpreadsheet className="h-4 w-4 shrink-0" />
                 <span className="truncate">{t('animals.batchExport')}</span>
               </Button>
-              <Button size="sm" onClick={() => setShowAddDialog(true)} className="col-span-2 md:col-span-2 w-full gap-2 bg-primary hover:bg-primary/90 text-xs md:text-sm">
+              <Button size="sm" onClick={() => setShowAddDialog(true)} className="w-full gap-2 bg-primary hover:bg-primary/90 text-xs md:text-sm">
                 <Plus className="h-4 w-4 shrink-0" />
                 {t('animals.addAnimal')}
               </Button>
@@ -279,6 +286,7 @@ export function AnimalsPage() {
         isPending={batchAssignMutation.isPending}
       />
 
+      <VetPatrolReportDialog open={showVetPatrolDialog} onOpenChange={setShowVetPatrolDialog} />
       <ExportDialog open={showBatchExportDialog} onOpenChange={setShowBatchExportDialog} type="batch_project" />
       <ImportDialog open={showImportBasicDialog} onOpenChange={setShowImportBasicDialog} type="basic" />
       <ImportDialog open={showImportWeightDialog} onOpenChange={setShowImportWeightDialog} type="weight" />

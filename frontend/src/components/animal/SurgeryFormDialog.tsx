@@ -87,7 +87,7 @@ export function SurgeryFormDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <SurgeryBasicInfoSection formData={formData} onChange={setFormData} />
           <SurgeryAnesthesiaSection formData={formData} onChange={setFormData} />
-          <SurgeryProcedureSection formData={formData} onChange={setFormData} />
+          <SurgeryProcedureSection formData={formData} onChange={setFormData} surgeryId={surgery?.id != null ? String(surgery.id) : undefined} />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

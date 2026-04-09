@@ -47,12 +47,15 @@ pub struct CareRecord {
     pub urine: Option<i16>,
     /// 疼痛分數 (1–4)
     pub pain_score: Option<i16>,
-    /// 術後給藥：注射 Ketorolac
+    /// 術後給藥：注射 Ketorolac（保留向後相容）
     pub injection_ketorolac: bool,
-    /// 術後給藥：注射 Meloxicam
+    /// 術後給藥：注射 Meloxicam（保留向後相容）
     pub injection_meloxicam: bool,
-    /// 術後給藥：口服 Meloxicam
+    /// 術後給藥：口服 Meloxicam（保留向後相容）
     pub oral_meloxicam: bool,
+    /// 術後給藥（自由格式，JSONB 陣列）
+    #[sqlx(default)]
+    pub post_medications: Option<serde_json::Value>,
     pub vet_read: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -78,6 +81,7 @@ pub struct CreateCareRecordRequest {
     pub injection_meloxicam: bool,
     #[serde(default)]
     pub oral_meloxicam: bool,
+    pub post_medications: Option<serde_json::Value>,
 }
 
 fn default_pain_assessment() -> CareRecordMode {
@@ -101,6 +105,7 @@ pub struct UpdateCareRecordRequest {
     pub injection_meloxicam: bool,
     #[serde(default)]
     pub oral_meloxicam: bool,
+    pub post_medications: Option<serde_json::Value>,
 }
 
 pub struct CareRecordService;
@@ -114,7 +119,7 @@ impl CareRecordService {
                    c.time_period, c.incision, c.attitude_behavior, c.appetite,
                    c.feces, c.urine, c.pain_score,
                    c.injection_ketorolac, c.injection_meloxicam, c.oral_meloxicam,
-                   c.vet_read, c.created_at
+                   c.post_medications, c.vet_read, c.created_at
             FROM care_medication_records c
             WHERE c.deleted_at IS NULL
               AND (
@@ -148,7 +153,7 @@ impl CareRecordService {
                    c.time_period, c.incision, c.attitude_behavior, c.appetite,
                    c.feces, c.urine, c.pain_score,
                    c.injection_ketorolac, c.injection_meloxicam, c.oral_meloxicam,
-                   c.vet_read, c.created_at
+                   c.post_medications, c.vet_read, c.created_at
             FROM care_medication_records c
             WHERE c.deleted_at IS NULL
               AND c.record_type = $1
@@ -171,12 +176,12 @@ impl CareRecordService {
             INSERT INTO care_medication_records
                 (record_type, record_id, record_mode, post_op_days, time_period,
                  incision, attitude_behavior, appetite, feces, urine, pain_score,
-                 injection_ketorolac, injection_meloxicam, oral_meloxicam)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                 injection_ketorolac, injection_meloxicam, oral_meloxicam, post_medications)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             RETURNING id, record_type, record_id, record_mode, post_op_days, time_period,
                       incision, attitude_behavior, appetite, feces, urine, pain_score,
                       injection_ketorolac, injection_meloxicam, oral_meloxicam,
-                      vet_read, created_at
+                      post_medications, vet_read, created_at
             "#,
         )
         .bind(req.record_type)
@@ -193,6 +198,7 @@ impl CareRecordService {
         .bind(req.injection_ketorolac)
         .bind(req.injection_meloxicam)
         .bind(req.oral_meloxicam)
+        .bind(&req.post_medications)
         .fetch_one(pool)
         .await?;
 
@@ -218,12 +224,13 @@ impl CareRecordService {
                 pain_score          = $9,
                 injection_ketorolac = $10,
                 injection_meloxicam = $11,
-                oral_meloxicam      = $12
+                oral_meloxicam      = $12,
+                post_medications    = $13
             WHERE id = $1
             RETURNING id, record_type, record_id, record_mode, post_op_days, time_period,
                       incision, attitude_behavior, appetite, feces, urine, pain_score,
                       injection_ketorolac, injection_meloxicam, oral_meloxicam,
-                      vet_read, created_at
+                      post_medications, vet_read, created_at
             "#,
         )
         .bind(id)
@@ -238,6 +245,7 @@ impl CareRecordService {
         .bind(req.injection_ketorolac)
         .bind(req.injection_meloxicam)
         .bind(req.oral_meloxicam)
+        .bind(&req.post_medications)
         .fetch_one(pool)
         .await?;
 

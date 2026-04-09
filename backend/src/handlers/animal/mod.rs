@@ -16,6 +16,8 @@ mod dashboard;
 mod sudden_death;
 mod transfer;
 pub mod care_record;
+mod vet_advice;
+mod vet_patrol;
 
 pub use animal_core::*;
 pub use field_correction::*;
@@ -32,6 +34,8 @@ pub use dashboard::*;
 pub use sudden_death::*;
 pub use transfer::*;
 pub use care_record::*;
+pub use vet_advice::*;
+pub use vet_patrol::*;
 
 // 通知用輔助函式（供 vet_recommendation 子模組使用）
 use sqlx::PgPool;

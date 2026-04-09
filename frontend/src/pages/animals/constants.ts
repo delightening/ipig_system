@@ -11,6 +11,7 @@ export type TabType =
   | 'pathology'
   | 'blood_tests'
   | 'pain_assessment'
+  | 'vet_recommendations'
   | 'transfer'
 
 export const VALID_TABS: TabType[] = [
@@ -24,6 +25,7 @@ export const VALID_TABS: TabType[] = [
   'pathology',
   'blood_tests',
   'pain_assessment',
+  'vet_recommendations',
   'transfer',
 ]
 

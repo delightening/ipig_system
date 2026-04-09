@@ -1,71 +1,38 @@
-import { Textarea } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FileUpload } from '@/components/ui/file-upload'
-import { Repeater } from '@/components/ui/repeater'
-import { DrugCombobox } from '@/components/animal/DrugCombobox'
+import { Label } from '@/components/ui/label'
 import { CollapsibleSection } from './SurgeryFormComponents'
-import type { SurgeryFormData, MedicationItem } from './useSurgeryForm'
+import { SurgeryPainSection } from './SurgeryPainSection'
+import type { SurgeryFormData } from './useSurgeryForm'
 
 interface Props {
   formData: SurgeryFormData
   onChange: (data: SurgeryFormData) => void
+  surgeryId?: string
 }
 
-export function SurgeryProcedureSection({ formData, onChange }: Props) {
+export function SurgeryProcedureSection({ formData, onChange, surgeryId }: Props) {
   return (
     <>
-      {/* 術後區塊 */}
-      <CollapsibleSection title="術後">
+      {/* 疼痛評估區塊 */}
+      <CollapsibleSection title="疼痛評估">
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>術後給藥-其他</Label>
-            <Repeater<MedicationItem>
-              value={formData.post_medications}
-              onChange={(post_medications) => onChange({ ...formData, post_medications })}
-              defaultItem={() => ({ name: '', dose: '', drug_option_id: undefined, dosage_unit: '' })}
-              addLabel="新增術後藥品"
-              renderItem={(item, _index, onItemChange) => (
-                <div className="grid grid-cols-2 gap-2">
-                  <DrugCombobox
-                    value={{
-                      drug_option_id: item.drug_option_id,
-                      drug_name: item.name,
-                      dosage_value: item.dose,
-                      dosage_unit: item.dosage_unit || '',
-                    }}
-                    onChange={(sel) =>
-                      onItemChange({
-                        ...item,
-                        name: sel.drug_name,
-                        dose: sel.dosage_value,
-                        drug_option_id: sel.drug_option_id,
-                        dosage_unit: sel.dosage_unit,
-                      })
-                    }
-                  />
-                </div>
-              )}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="remark">備註</Label>
-            <Textarea
-              id="remark"
-              value={formData.remark}
-              onChange={(e) => onChange({ ...formData, remark: e.target.value })}
-              placeholder="其他備註..."
-            />
-          </div>
-
-          <Checkbox
-            label="不需用藥/停止用藥"
-            checked={formData.no_medication_needed}
-            onCheckedChange={(checked) =>
-              onChange({ ...formData, no_medication_needed: checked === true })
-            }
+          <SurgeryPainSection
+            surgeryId={surgeryId}
+            entries={formData.painAssessments}
+            onChange={(painAssessments) => onChange({ ...formData, painAssessments })}
           />
+
+          <div className="pt-2">
+            <Label className="text-sm text-muted-foreground block mb-1">不需用藥/停止用藥</Label>
+            <Checkbox
+              label="不需用藥/停止用藥"
+              checked={formData.no_medication_needed}
+              onCheckedChange={(checked) =>
+                onChange({ ...formData, no_medication_needed: checked === true })
+              }
+            />
+          </div>
         </div>
       </CollapsibleSection>
 

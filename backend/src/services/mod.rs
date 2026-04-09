@@ -53,7 +53,17 @@ pub use animal::care_record::{
 pub use animal::{
     field_correction::AnimalFieldCorrectionService, AnimalBloodTestService,
     AnimalImportExportService, AnimalMedicalService, AnimalObservationService, AnimalService,
-    AnimalSourceService, AnimalSurgeryService, AnimalTransferService, AnimalWeightService,
+    AnimalSourceService, AnimalSurgeryService, AnimalTransferService, AnimalVetAdviceService,
+    AnimalWeightService, VetPatrolReportService,
+};
+pub use animal::vet_advice::{
+    AnimalVetAdvice, UpsertVetAdviceRequest,
+    VetAdviceRecord, VetAdviceRecordService,
+    CreateVetAdviceRecordRequest, UpdateVetAdviceRecordRequest,
+};
+pub use animal::vet_patrol::{
+    VetPatrolReport, VetPatrolReportWithEntries,
+    CreateVetPatrolReportRequest, UpdateVetPatrolReportRequest,
 };
 pub use audit::AuditService;
 pub use auth::AuthService;

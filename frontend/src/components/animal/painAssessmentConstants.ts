@@ -81,6 +81,14 @@ export function getPainGrade(total: number | null): PainGrade | null {
     return { label: `重度疼痛（${total}分）`, grade: 4, variant: 'destructive', advice: '每 8–12 小時給一次止痛藥並考慮合併用藥' }
 }
 
+// ── 術後給藥項目型別 ─────────────────────────
+export interface MedicationItem {
+    name: string
+    dose: string
+    drug_option_id?: string
+    dosage_unit?: string
+}
+
 // ── 疼痛評估表單項目型別 ─────────────────────
 export interface PainAssessmentEntry {
     id?: string
@@ -92,9 +100,7 @@ export interface PainAssessmentEntry {
     feces: string
     urine: string
     pain_score: string
-    injection_ketorolac: boolean
-    injection_meloxicam: boolean
-    oral_meloxicam: boolean
+    post_medications: MedicationItem[]
 }
 
 export const emptyPainEntry: PainAssessmentEntry = {
@@ -106,7 +112,5 @@ export const emptyPainEntry: PainAssessmentEntry = {
     feces: '',
     urine: '',
     pain_score: '',
-    injection_ketorolac: false,
-    injection_meloxicam: false,
-    oral_meloxicam: false,
+    post_medications: [],
 }

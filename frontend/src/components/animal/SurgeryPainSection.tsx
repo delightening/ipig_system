@@ -1,5 +1,5 @@
-// 觀察紀錄內嵌 — 疼痛評估可收合區塊
-// 支援多筆評估、即時總分/分級計算
+// 手術紀錄內嵌 — 疼痛評估可收合區塊
+// 術後給藥使用自由格式 Repeater + DrugCombobox
 
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -47,28 +47,27 @@ interface CareRecordFromAPI {
 }
 
 interface Props {
-    observationId?: string
+    surgeryId?: string
     entries: PainAssessmentEntry[]
     onChange: (entries: PainAssessmentEntry[]) => void
 }
 
-export function ObservationPainSection({ observationId, entries, onChange }: Props) {
+export function SurgeryPainSection({ surgeryId, entries, onChange }: Props) {
     const [isOpen, setIsOpen] = useState(false)
     const [showAddForm, setShowAddForm] = useState(false)
     const [addForm, setAddForm] = useState<PainAssessmentEntry>({ ...emptyPainEntry })
 
-    // 編輯模式：載入此觀察紀錄的既有疼痛評估
+    // 編輯模式：載入此手術的既有疼痛評估
     const { data: existingRecords } = useQuery({
-        queryKey: ['observation-care-records', observationId],
+        queryKey: ['surgery-care-records', surgeryId],
         queryFn: async () => {
-            const res = await api.get<CareRecordFromAPI[]>(`/observations/${observationId}/care-records`)
+            const res = await api.get<CareRecordFromAPI[]>(`/surgeries/${surgeryId}/care-records`)
             return res.data
         },
-        enabled: !!observationId,
+        enabled: !!surgeryId,
         staleTime: 30_000,
     })
 
-    // 載入既有紀錄到 entries（僅在首次載入）
     useEffect(() => {
         if (existingRecords && existingRecords.length > 0 && entries.length === 0) {
             const loaded: PainAssessmentEntry[] = existingRecords.map((r) => ({
@@ -86,6 +85,7 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
             onChange(loaded)
             setIsOpen(true)
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [existingRecords])
 
     const totalCount = entries.length
@@ -128,7 +128,6 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
 
             {isOpen && (
                 <div className="px-4 py-3 space-y-3">
-                    {/* 既有評估列表 */}
                     {entries.length > 0 && (
                         <div className="space-y-2">
                             {entries.map((entry, idx) => {
@@ -181,7 +180,6 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                         </div>
                     )}
 
-                    {/* 新增評估表單 */}
                     {showAddForm ? (
                         <div className="border rounded-md p-4 space-y-4 bg-background">
                             <div className="flex items-center justify-between">
@@ -192,7 +190,6 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                                 </Button>
                             </div>
 
-                            {/* 術後天數 & 時段 */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
                                     <Label className="text-xs">術後天數</Label>
@@ -213,7 +210,6 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                                 </div>
                             </div>
 
-                            {/* 評估項目 */}
                             <div className="space-y-2">
                                 <CompactAssessmentRow label="傷口狀況" options={INCISION_OPTIONS}
                                     value={addForm.incision} onChange={(v) => setAddForm({ ...addForm, incision: v })} />
@@ -229,7 +225,6 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                                     value={addForm.pain_score} onChange={(v) => setAddForm({ ...addForm, pain_score: v })} />
                             </div>
 
-                            {/* 總分 & 疼痛分級 */}
                             {addFormTotal !== null && addFormGrade && (
                                 <div className="flex items-center gap-4 rounded-md bg-muted/40 px-3 py-2 text-sm">
                                     <span>總分: <strong className="text-lg">{addFormTotal}</strong></span>
@@ -240,7 +235,6 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                                 </div>
                             )}
 
-                            {/* 術後給藥 */}
                             <div className="space-y-1">
                                 <Label className="text-xs font-medium">術後給藥</Label>
                                 <Repeater<MedicationItem>
@@ -299,7 +293,6 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
     )
 }
 
-// ── 精簡版評估項目行 ────────────────────────────────────────────────────────
 function CompactAssessmentRow({ label, options, value, onChange }: {
     label: string
     options: AssessmentOption[]

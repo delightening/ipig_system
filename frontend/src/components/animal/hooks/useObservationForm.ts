@@ -194,9 +194,7 @@ export function useObservationForm({ open, animalId, observation, onOpenChange }
                                 feces: entry.feces !== '' ? parseInt(entry.feces) : null,
                                 urine: entry.urine !== '' ? parseInt(entry.urine) : null,
                                 pain_score: entry.pain_score !== '' ? parseInt(entry.pain_score) : null,
-                                injection_ketorolac: entry.injection_ketorolac,
-                                injection_meloxicam: entry.injection_meloxicam,
-                                oral_meloxicam: entry.oral_meloxicam,
+                                post_medications: entry.post_medications.length > 0 ? entry.post_medications : null,
                             })
                         )
                     )

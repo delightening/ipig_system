@@ -34,7 +34,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY migrations ./migrations
 COPY .sqlx ./.sqlx
-COPY resources/fonts ./resources/fonts
+COPY resources ./resources
 
 RUN cargo build --release --bin erp-backend --bin healthcheck --bin create_admin --bin create_guest
 

@@ -358,6 +358,30 @@ impl AnimalMedicalService {
         Ok(recommendations)
     }
 
+    /// 取得動物的所有獸醫師建議（彙整觀察紀錄 + 手術紀錄）
+    pub async fn get_vet_recommendations_by_animal(
+        pool: &PgPool,
+        animal_id: Uuid,
+    ) -> Result<Vec<VetRecommendation>> {
+        let recommendations = sqlx::query_as::<_, VetRecommendation>(
+            r#"
+            SELECT vr.*
+            FROM vet_recommendations vr
+            WHERE vr.record_id IN (
+                SELECT id FROM animal_observations WHERE animal_id = $1 AND deleted_at IS NULL
+                UNION ALL
+                SELECT id FROM animal_surgeries WHERE animal_id = $1 AND deleted_at IS NULL
+            )
+            ORDER BY vr.created_at DESC
+            "#,
+        )
+        .bind(animal_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(recommendations)
+    }
+
     // ============================================
     // 版本歷史功能
     // ============================================

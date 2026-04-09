@@ -21,6 +21,8 @@ mod source;
 pub(crate) mod surgery;
 mod transfer;
 pub mod utils;
+pub(crate) mod vet_advice;
+pub(crate) mod vet_patrol;
 pub(crate) mod weight;
 
 pub use blood_test::AnimalBloodTestService;
@@ -31,6 +33,8 @@ pub use observation::AnimalObservationService;
 pub use source::AnimalSourceService;
 pub use surgery::AnimalSurgeryService;
 pub use transfer::AnimalTransferService;
+pub use vet_advice::AnimalVetAdviceService;
+pub use vet_patrol::VetPatrolReportService;
 pub use weight::AnimalWeightService;
 
 pub struct AnimalService;

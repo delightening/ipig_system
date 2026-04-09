@@ -186,7 +186,8 @@ body {
         <!-- D 區 (D01~D18 左列, D19~D33 右列) -->
         {% for n in range(end=18) %}
         {% set num = 18 - n %}
-        {% set key_l = "D" ~ (num | pad2) %}
+        {% set num_pad = num | pad2 %}
+        {% set key_l = "D" ~ num_pad %}
         <div class="pen-row">
             <div class="pen-cell">
                 <div class="pen-tag color-d">{{ pens[key_l].ear_tags | default(value="") }}</div>
@@ -194,7 +195,8 @@ body {
             </div>
             <div class="pen-cell">
                 {% if num <= 15 %}
-                {% set key_r = "D" ~ (num + 18 | pad2) %}
+                {% set rnum = num + 18 %}{% set rnum_pad = rnum | pad2 %}
+                {% set key_r = "D" ~ rnum_pad %}
                 <div class="pen-circle">{% if pens[key_r].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_r].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
                 <div class="pen-tag color-d">{{ pens[key_r].ear_tags | default(value="") }}</div>
                 {% else %}
@@ -208,8 +210,9 @@ body {
         <!-- C 區 (C01~C10 左, C11~C20 右) -->
         {% for n in range(end=10) %}
         {% set num = 10 - n %}
-        {% set key_l = "C" ~ (num | pad2) %}
-        {% set key_r = "C" ~ (num + 10 | pad2) %}
+        {% set num_pad = num | pad2 %}{% set rnum = num + 10 %}{% set rnum_pad = rnum | pad2 %}
+        {% set key_l = "C" ~ num_pad %}
+        {% set key_r = "C" ~ rnum_pad %}
         <div class="pen-row">
             <div class="pen-cell">
                 <div class="pen-tag color-c">{{ pens[key_l].ear_tags | default(value="") }}</div>
@@ -230,7 +233,8 @@ body {
         <div class="eg-grid" style="grid-template-rows: repeat(15, 5.5mm);">
             {% for n in range(end=15) %}
             {% set enum_val = 25 - n %}
-            {% set key_e = "E" ~ (enum_val | pad2) %}
+            {% set eval_pad = enum_val | pad2 %}
+            {% set key_e = "E" ~ eval_pad %}
             <div style="grid-column: 1; grid-row: {{ n + 1 }};">
                 <div class="pen-row" style="height: 100%;">
                     <div class="pen-cell">
@@ -245,7 +249,8 @@ body {
             {% for g_idx in range(end=5) %}
             {% set g_num = 6 - g_idx %}
             {% set g_start = g_idx * 3 + 1 %}
-            {% set key_g = "G" ~ (g_num | pad2) %}
+            {% set gnum_pad = g_num | pad2 %}
+            {% set key_g = "G" ~ gnum_pad %}
             <div style="grid-column: 2; grid-row: {{ g_start }} / span 3; border-left: 1px solid #000;">
                 <div style="height: 100%; display: flex; align-items: center;">
                     <div class="pen-cell">
@@ -265,7 +270,8 @@ body {
         <div class="eg-grid" style="grid-template-rows: repeat(10, 5.5mm);">
             {% for n in range(end=10) %}
             {% set enum_val = 10 - n %}
-            {% set key_e = "E" ~ (enum_val | pad2) %}
+            {% set eval_pad = enum_val | pad2 %}
+            {% set key_e = "E" ~ eval_pad %}
             <div style="grid-column: 1; grid-row: {{ n + 1 }};">
                 <div class="pen-row" style="height: 100%;">
                     <div class="pen-cell">
@@ -330,8 +336,9 @@ body {
         <div style="width: 50%; padding-right: 3mm;">
             {% for n in range(end=10) %}
             {% set num = 10 - n %}
-            {% set key_l = "A" ~ (num | pad2) %}
-            {% set key_r = "A" ~ (num + 10 | pad2) %}
+            {% set num_pad = num | pad2 %}{% set rnum = num + 10 %}{% set rnum_pad = rnum | pad2 %}
+            {% set key_l = "A" ~ num_pad %}
+            {% set key_r = "A" ~ rnum_pad %}
             <div class="pen-row">
                 <div class="pen-cell">
                     <div class="pen-tag color-a">{{ pens[key_l].ear_tags | default(value="") }}</div>
@@ -348,8 +355,9 @@ body {
         <div style="width: 50%; padding-left: 3mm;">
             {% for n in range(end=10) %}
             {% set num = 10 - n %}
-            {% set key_l = "B" ~ (num | pad2) %}
-            {% set key_r = "B" ~ (num + 10 | pad2) %}
+            {% set num_pad = num | pad2 %}{% set rnum = num + 10 %}{% set rnum_pad = rnum | pad2 %}
+            {% set key_l = "B" ~ num_pad %}
+            {% set key_r = "B" ~ rnum_pad %}
             <div class="pen-row">
                 <div class="pen-cell">
                     <div class="pen-tag color-b">{{ pens[key_l].ear_tags | default(value="") }}</div>

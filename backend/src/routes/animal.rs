@@ -32,6 +32,30 @@ pub fn routes() -> Router<AppState> {
             "/animals/:id/vet-read",
             post(handlers::mark_animal_vet_read),
         )
+        .route(
+            "/animals/:id/vet-recommendations",
+            get(handlers::get_animal_vet_recommendations),
+        )
+        .route(
+            "/animals/:id/vet-advice",
+            get(handlers::get_animal_vet_advice)
+                .put(handlers::upsert_animal_vet_advice),
+        )
+        // 獸醫師建議紀錄（多筆 CRUD）
+        .route(
+            "/animals/:id/vet-advice-records",
+            get(handlers::list_vet_advice_records)
+                .post(handlers::create_vet_advice_record),
+        )
+        .route(
+            "/vet-advice-records/:id",
+            put(handlers::update_vet_advice_record)
+                .delete(handlers::delete_vet_advice_record),
+        )
+        .route(
+            "/vet-advice-records/:id/delete",
+            post(handlers::delete_vet_advice_record),
+        )
         // 動物欄位修正申請
         .route(
             "/animals/:id/field-corrections",
@@ -193,6 +217,10 @@ pub fn routes() -> Router<AppState> {
             "/observations/:id/care-records",
             get(handlers::list_observation_care_records),
         )
+        .route(
+            "/surgeries/:id/care-records",
+            get(handlers::list_surgery_care_records),
+        )
         // Animal Records - Blood Tests
         .route(
             "/animals/:id/blood-tests",
@@ -323,5 +351,24 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/animals/import/template/weight",
             get(handlers::download_weight_import_template),
+        )
+        // 獸醫巡場報告
+        .route(
+            "/vet-patrol-reports",
+            get(handlers::list_vet_patrol_reports)
+                .post(handlers::create_vet_patrol_report),
+        )
+        .route(
+            "/vet-patrol-reports/:id",
+            get(handlers::get_vet_patrol_report)
+                .put(handlers::update_vet_patrol_report),
+        )
+        .route(
+            "/vet-patrol-reports/:id/delete",
+            post(handlers::delete_vet_patrol_report),
+        )
+        .route(
+            "/vet-patrol-reports/:id/export-pdf",
+            post(handlers::export_vet_patrol_report_pdf),
         )
 }
