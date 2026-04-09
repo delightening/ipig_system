@@ -20,7 +20,6 @@ import {
 import {
     Loader2,
     Plus,
-    X,
     Save,
     Stethoscope,
     ChevronDown,
