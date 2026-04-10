@@ -66,6 +66,10 @@ impl TestApp {
         {
             std::env::set_var("ADMIN_INITIAL_PASSWORD", "iPig$ecure1");
         }
+        // 測試環境標記為 CI，避免 must_change_password = true 影響登入
+        if std::env::var("CI").is_err() {
+            std::env::set_var("CI", "1");
+        }
 
         // 確保 uploads 目錄存在（health check 需要）
         let uploads_dir = std::path::Path::new("./uploads");
@@ -81,8 +85,10 @@ impl TestApp {
         let jwt_blacklist = erp_backend::middleware::JwtBlacklist::new();
 
         // Startup: ensure schema, admin, permissions
+        // 測試環境使用 ensure_admin_user_after_import，強制將 admin 密碼重設為
+        // 目前 ADMIN_INITIAL_PASSWORD 的值，避免 DB 中殘留舊密碼導致登入失敗
         let _ = erp_backend::startup::ensure_schema(&pool).await;
-        let _ = erp_backend::startup::ensure_admin_user(&pool, &config).await;
+        let _ = erp_backend::startup::ensure_admin_user_after_import(&pool, &config).await;
         let _ = erp_backend::startup::ensure_required_permissions(&pool).await;
         let _ = erp_backend::startup::ensure_all_role_permissions(&pool).await;
 
@@ -103,6 +109,7 @@ impl TestApp {
             gotenberg,
             image_processor,
             templates,
+            permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
         };
 
         let app = erp_backend::routes::api_routes(state);
