@@ -166,17 +166,11 @@ impl AuthService {
         };
         let exp = now + Duration::seconds(expires_in);
 
-        // Cookie 限制：Set-Cookie 的 name+value 須 ≤ 4096 字元。Admin 擁有全部權限時
-        // JWT 會過大，導致瀏覽器忽略 cookie、登入失敗。Admin 的 has_permission 會直接
-        // 回傳 true，故可省略 permissions 以縮小 JWT。
-        let is_admin = roles
-            .iter()
-            .any(|r| r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY);
-        let claims_permissions: Vec<String> = if is_admin {
-            vec![]
-        } else {
-            permissions.to_vec()
-        };
+        // Cookie 限制：Set-Cookie 的 name+value 須 ≤ 4096 字元。將 permissions 陣列
+        // 嵌入 JWT 會使 cookie 超過瀏覽器硬限制（4096 bytes），導致 Set-Cookie 靜默丟棄、
+        // 所有後續請求回傳 401。故一律省略 permissions，改由 auth_middleware 從資料庫
+        // 動態載入並注入 CurrentUser。Admin 的 has_permission() 直接回傳 true，不需載入。
+        let claims_permissions: Vec<String> = vec![];
 
         let claims = Claims {
             sub: user.id,

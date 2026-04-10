@@ -120,14 +120,40 @@ pub async fn auth_middleware(
         return Err(AppError::Unauthorized);
     }
 
+    let claims = token_data.claims;
+
+    // JWT 中省略 permissions 以符合 4096 bytes cookie 限制。
+    // 非 admin 使用者從資料庫動態載入，admin 的 has_permission() 直接回傳 true 不需載入。
+    let is_admin = claims.roles.iter().any(|r| {
+        r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY
+    });
+    let permissions = if !is_admin {
+        sqlx::query_scalar::<_, String>(
+            r#"SELECT DISTINCT p.code FROM permissions p
+               INNER JOIN role_permissions rp ON p.id = rp.permission_id
+               INNER JOIN user_roles ur ON rp.role_id = ur.role_id
+               INNER JOIN roles r ON r.id = ur.role_id
+               WHERE ur.user_id = $1 AND r.is_active = true"#,
+        )
+        .bind(claims.sub)
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| {
+            tracing::error!("[Auth] 無法載入使用者 {} 的權限: {}", claims.sub, e);
+            AppError::Internal("無法載入使用者權限".to_string())
+        })?
+    } else {
+        vec![]
+    };
+
     let current_user = CurrentUser {
-        id: token_data.claims.sub,
-        email: token_data.claims.email,
-        roles: token_data.claims.roles,
-        permissions: token_data.claims.permissions,
-        jti: token_data.claims.jti,
-        exp: token_data.claims.exp,
-        impersonated_by: token_data.claims.impersonated_by,
+        id: claims.sub,
+        email: claims.email,
+        roles: claims.roles,
+        permissions,
+        jti: claims.jti,
+        exp: claims.exp,
+        impersonated_by: claims.impersonated_by,
     };
 
     request.extensions_mut().insert(current_user);
