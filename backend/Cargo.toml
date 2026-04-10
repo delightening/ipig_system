@@ -63,7 +63,7 @@ tokio-cron-scheduler = "0.15"
 
 # Hashing for migration resolution and audit integrity
 sha2 = "0.10"
-hmac = "0.12"
+hmac = "0.13"
 hex = "0.4"
 
 # TOTP 2FA
