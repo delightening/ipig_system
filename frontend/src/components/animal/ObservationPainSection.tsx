@@ -86,7 +86,7 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
             onChange(loaded)
             setIsOpen(true)
         }
-    }, [existingRecords])
+    }, [existingRecords, entries.length, onChange])
 
     const totalCount = entries.length
     const hasNewEntries = entries.some((e) => !e.id)

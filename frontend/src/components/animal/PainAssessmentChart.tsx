@@ -27,7 +27,7 @@ export default function PainAssessmentChart({ data }: PainAssessmentChartProps) 
                     <Tooltip
                         formatter={(value: number | undefined) => {
                             if (value == null) return ['-', '總分']
-                            let grade = ''
+                            let grade: string
                             if (value <= 5) grade = '正常（等級1）'
                             else if (value <= 10) grade = '輕度疼痛（等級2）'
                             else if (value <= 15) grade = '中度疼痛（等級3）'

@@ -6,7 +6,6 @@ import {
   listChangeRequests,
   createChangeRequest,
   approveChangeRequest,
-  type ChangeRequest,
 } from '@/lib/api/glpCompliance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,7 +20,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { useTranslation } from 'react-i18next'
 import { Plus, CheckCircle } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -58,7 +56,6 @@ const STATUS_COLORS: Record<string, string> = {
 const INITIAL_FORM = { title: '', change_type: 'equipment', description: '', justification: '' }
 
 export function ChangeControlPage() {
-  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('change.request.manage')

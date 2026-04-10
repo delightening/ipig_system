@@ -5,7 +5,6 @@ import { useAuthStore } from '@/stores/auth'
 import {
   listCompetencyAssessments,
   createCompetencyAssessment,
-  type CompetencyAssessment,
 } from '@/lib/api/glpCompliance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,7 +19,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -62,7 +60,6 @@ const INITIAL_FORM = {
 }
 
 export function CompetencyAssessmentPage() {
-  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('competency.assessment.manage')

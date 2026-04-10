@@ -5,14 +5,12 @@ import { useAuthStore } from '@/stores/auth'
 import {
   listControlledDocuments,
   createControlledDocument,
-  updateControlledDocument,
   approveControlledDocument,
   acknowledgeDocument,
-  type ControlledDocument,
 } from '@/lib/api/glpCompliance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -23,7 +21,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { useTranslation } from 'react-i18next'
 import { Plus, FileCheck, CheckCircle } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -46,7 +43,6 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export function DocumentControlPage() {
-  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('dms.document.manage')
