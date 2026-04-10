@@ -494,13 +494,15 @@ jobs:
       - name: 執行 Playwright E2E 測試
         working-directory: ./frontend
         env:
-          # 須與 docker-compose.test.yml ADMIN_INITIAL_PASSWORD 一致（見 docs/e2e/FLOW.md）
+          # 須與 docker-compose.test.yml ADMIN_INITIAL_PASSWORD fallback 一致（見 docs/e2e/FLOW.md）
+          # docker-compose.test.yml: ${CI_ADMIN_PASSWORD:-ci_test_admin_password_for_local}
+          # 若 secret 未設定，兩端皆 fallback 到同一個值，確保密碼一致
           E2E_BASE_URL: http://localhost:8080
           E2E_USER_EMAIL: admin@ipigsystem.asia
-          E2E_USER_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+          E2E_USER_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
           E2E_ADMIN_EMAIL: admin@ipigsystem.asia
-          E2E_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
-          ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
+          ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
         run: npm run test:e2e
 
       - name: 上傳測試報告 (失敗時)
