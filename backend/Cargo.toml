@@ -64,6 +64,7 @@ tokio-cron-scheduler = "0.15"
 # Hashing for migration resolution and audit integrity
 sha2 = "0.10"
 hmac = "0.12"
+hex = "0.4"
 
 # TOTP 2FA
 totp-rs = { version = "5", features = ["otpauth", "qr", "serde_support", "gen_secret"] }

@@ -44,24 +44,8 @@ pub async fn login(
 
     req.validate()?;
 
-    // Phase 1: 驗證帳密
-    let user = match AuthService::validate_credentials(&state.db, &state.config, &req).await {
-        Ok(u) => u,
-        Err(e) => {
-            let db = state.db.clone();
-            let geoip = state.geoip.clone();
-            let email = req.email.clone();
-            let ip_clone = ip.clone();
-            let ua_clone = user_agent.clone();
-            let err_msg = e.to_string();
-            tokio::spawn(async move {
-                let _ = LoginTracker::log_failure(
-                    &db, &email, Some(&ip_clone), ua_clone.as_deref(), &err_msg, &geoip,
-                ).await;
-            });
-            return Err(e);
-        }
-    };
+    // Phase 1: 驗證帳密（CRIT-01: ip 傳入服務層，失敗事件在 advisory lock 事務內原子性寫入）
+    let user = AuthService::validate_credentials(&state.db, &state.config, &req, Some(&ip)).await?;
 
     // Phase 2: 2FA 檢查 — 若啟用，回傳 temp token 給前端進行第二步驗證
     if user.totp_enabled {
@@ -78,54 +62,43 @@ pub async fn login(
     }
 
     // Phase 3: 正常登入（無 2FA）
-    let response = match AuthService::issue_login_tokens(&state.db, &state.config, &user).await {
-        Ok(resp) => {
-            // 登入成功：記錄事件和建立 session
-            let db = state.db.clone();
-            let geoip = state.geoip.clone();
-            let user_id = resp.user.id;
-            let email = req.email.clone();
-            let ip_clone = ip.clone();
-            let ua_clone = user_agent.clone();
-            let max_sess = state.config.max_sessions_per_user;
+    let response = AuthService::issue_login_tokens(&state.db, &state.config, &user).await?;
+    let user_id = response.user.id;
 
-            tokio::spawn(async move {
-                if let Err(e) = LoginTracker::log_success(
-                    &db,
-                    user_id,
-                    &email,
-                    Some(&ip_clone),
-                    ua_clone.as_deref(),
-                    &geoip,
-                )
-                .await
-                {
-                    tracing::error!("Failed to log login success for {}: {}", email, e);
-                }
+    // CRIT-04: Session 建立必須在 token 發出前同步完成，以確保 SEC-28 併發上限被執行。
+    // 若 create_session 或 end_excess_sessions 失敗，登入中止（不發出 token）。
+    SessionManager::create_session(
+        &state.db,
+        user_id,
+        Some(&ip),
+        user_agent.as_deref(),
+    )
+    .await?;
+    SessionManager::end_excess_sessions(&state.db, user_id, state.config.max_sessions_per_user)
+        .await?;
 
-                if let Err(e) = SessionManager::create_session(
-                    &db,
-                    user_id,
-                    Some(&ip_clone),
-                    ua_clone.as_deref(),
-                )
-                .await
-                {
-                    tracing::error!("Failed to create session for {}: {}", email, e);
-                }
-
-                // SEC-28: Session 併發限制，超過上限時自動結束最舊的 session
-                if let Err(e) = SessionManager::end_excess_sessions(&db, user_id, max_sess).await {
-                    tracing::warn!("[Session] 清理超額 session 失敗 for {}: {}", email, e);
-                }
-            });
-
-            resp
-        }
-        Err(e) => {
-            return Err(e);
-        }
-    };
+    // Fire-and-forget: GeoIP 異常偵測屬遙測，非安全強制，允許非同步執行
+    {
+        let db = state.db.clone();
+        let geoip = state.geoip.clone();
+        let email = req.email.clone();
+        let ip_clone = ip.clone();
+        let ua_clone = user_agent.clone();
+        tokio::spawn(async move {
+            if let Err(e) = LoginTracker::log_success(
+                &db,
+                user_id,
+                &email,
+                Some(&ip_clone),
+                ua_clone.as_deref(),
+                &geoip,
+            )
+            .await
+            {
+                tracing::error!("Failed to log login success for {}: {}", email, e);
+            }
+        });
+    }
 
     // 回傳 JSON + Set-Cookie headers
     login_response_with_cookies(&response, &state.config)
@@ -179,7 +152,7 @@ pub async fn logout(
 
     AuthService::logout(&state.db, current_user.id).await?;
 
-    // 清除所有認證 Cookie
+    // 清除所有認證 Cookie（含 csrf_token，MED-01）
     let body = serde_json::json!({ "message": "Logged out successfully" });
     let response = Response::builder()
         .status(StatusCode::OK)
@@ -191,6 +164,10 @@ pub async fn logout(
         .header(
             header::SET_COOKIE,
             build_clear_cookie("refresh_token", &state.config),
+        )
+        .header(
+            header::SET_COOKIE,
+            build_clear_cookie("csrf_token", &state.config),
         )
         .body(
             serde_json::to_string(&body)

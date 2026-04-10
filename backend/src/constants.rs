@@ -20,6 +20,9 @@ pub const UPLOAD_RATE_LIMIT_PER_MINUTE: u32 = 30;
 pub const RATE_LIMIT_WINDOW_SECS: u64 = 60;
 pub const RATE_LIMIT_CLEANUP_INTERVAL_SECS: u64 = 300;
 
+/// CRIT-03: 使用者權限快取 TTL（秒）。角色異動後最多延遲此時間生效。
+pub const PERMISSION_CACHE_TTL_SECS: u64 = 300; // 5 分鐘
+
 /// File Upload — 各類別最大檔案大小 (bytes)
 pub const MAX_UPLOAD_SIZE_BYTES: usize = 30 * 1024 * 1024; // 30MB 全域
 pub const FILE_MAX_PROTOCOL_ATTACHMENT: usize = 30 * 1024 * 1024; // 30 MB

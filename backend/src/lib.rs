@@ -28,4 +28,8 @@ pub struct AppState {
     pub gotenberg: GotenbergClient,
     pub image_processor: ImageProcessorClient,
     pub templates: TemplateService,
+    /// CRIT-03: 使用者權限快取，減少每次 API 請求對 DB 的 4-table JOIN。
+    /// Key: user_id, Value: (permission_codes, cached_at)
+    /// TTL 由 PERMISSION_CACHE_TTL_SECS 控制，角色異動時應呼叫 invalidate_permission_cache。
+    pub permission_cache: std::sync::Arc<dashmap::DashMap<uuid::Uuid, (Vec<String>, std::time::Instant)>>,
 }

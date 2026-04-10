@@ -34,12 +34,9 @@ fn requires_csrf_check(method: &Method) -> bool {
 }
 
 /// 不需要 CSRF 驗證的路徑（公開端點）
+/// MED-04: 僅保留 /api/v1 前綴的現行路徑，移除已無對應路由的舊 /api/auth/* 路徑。
 fn is_exempt_path(path: &str) -> bool {
     let exempt_paths = [
-        "/api/auth/login",
-        "/api/auth/refresh",
-        "/api/auth/forgot-password",
-        "/api/auth/reset-password",
         "/api/v1/auth/login",
         "/api/v1/auth/refresh",
         "/api/v1/auth/forgot-password",
@@ -166,7 +163,7 @@ pub async fn csrf_middleware(
                 if !cookie.is_empty()
                     && cookie == header_val
                     && verify_signed_csrf_token(
-                        &state.config.jwt_secret,
+                        &state.config.csrf_secret,
                         &cookie,
                         &session_id,
                     ) =>
@@ -203,7 +200,7 @@ pub async fn csrf_middleware(
         });
 
     if !has_csrf_cookie {
-        let csrf_token = generate_signed_csrf_token(&state.config.jwt_secret, &session_id);
+        let csrf_token = generate_signed_csrf_token(&state.config.csrf_secret, &session_id);
         // SEC-29: 依 COOKIE_SECURE 設定動態加入 Secure flag
         let cookie_value = if cookie_secure {
             format!(
@@ -269,22 +266,29 @@ mod tests {
 
     #[test]
     fn test_login_exempt() {
-        assert!(is_exempt_path("/api/auth/login"));
+        assert!(is_exempt_path("/api/v1/auth/login"));
     }
 
     #[test]
     fn test_refresh_exempt() {
-        assert!(is_exempt_path("/api/auth/refresh"));
+        assert!(is_exempt_path("/api/v1/auth/refresh"));
     }
 
     #[test]
     fn test_forgot_password_exempt() {
-        assert!(is_exempt_path("/api/auth/forgot-password"));
+        assert!(is_exempt_path("/api/v1/auth/forgot-password"));
     }
 
     #[test]
     fn test_reset_password_exempt() {
-        assert!(is_exempt_path("/api/auth/reset-password"));
+        assert!(is_exempt_path("/api/v1/auth/reset-password"));
+    }
+
+    #[test]
+    fn test_old_paths_not_exempt() {
+        // MED-04: 舊路徑已移除，確認不再被豁免
+        assert!(!is_exempt_path("/api/auth/login"));
+        assert!(!is_exempt_path("/api/auth/refresh"));
     }
 
     #[test]

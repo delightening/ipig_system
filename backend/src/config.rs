@@ -41,6 +41,9 @@ pub struct Config {
     pub database_retry_attempts: u32,
     pub database_retry_delay_seconds: u64,
     pub jwt_secret: String,
+    /// CSRF HMAC 密鑰（應與 jwt_secret 不同，防止單一金鑰洩漏同時破壞 JWT 與 CSRF 保護）
+    /// 讀取 CSRF_SECRET 環境變數；若未設定，從 jwt_secret 派生（向後相容）
+    pub csrf_secret: String,
     pub jwt_expiration_seconds: i64,
     pub jwt_refresh_expiration_days: i64,
     /// 每個使用者同時可擁有的最大活躍 Session 數量（SEC-28）
@@ -151,6 +154,21 @@ impl Config {
                     );
                 }
                 secret
+            },
+            // CRIT-02: CSRF 密鑰與 JWT 密鑰隔離，防止單一金鑰洩漏同時破壞兩種保護機制
+            csrf_secret: {
+                if let Some(s) = read_secret("CSRF_SECRET") {
+                    s
+                } else {
+                    // 向後相容：從 jwt_secret 派生（透過 HMAC-SHA256 產生獨立派生金鑰）
+                    // 建議在正式環境設定獨立的 CSRF_SECRET 環境變數
+                    use sha2::{Digest, Sha256};
+                    let jwt_raw = require_secret("JWT_SECRET")?;
+                    let mut hasher = Sha256::new();
+                    hasher.update(jwt_raw.as_bytes());
+                    hasher.update(b":csrf-derived");
+                    format!("{:x}", hasher.finalize())
+                }
             },
             // SEC-32: 統一使用 JWT_EXPIRATION_MINUTES，預設 360 分鐘（6 小時）
             jwt_expiration_seconds: {
@@ -293,6 +311,7 @@ mod tests {
             database_retry_attempts: 5,
             database_retry_delay_seconds: 5,
             jwt_secret: "a".repeat(32),
+            csrf_secret: "b".repeat(64),
             jwt_expiration_seconds: 21600,
             jwt_refresh_expiration_days: 7,
             max_sessions_per_user: 5,

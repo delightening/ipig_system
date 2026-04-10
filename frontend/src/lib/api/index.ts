@@ -1,5 +1,7 @@
 export { default } from './client'
-export { deleteResource, formatEarTag, confirmPassword, isAxiosError } from './client'
+export { deleteResource, confirmPassword, isAxiosError } from './client'
+// LOW-02: formatEarTag 已移至 lib/utils.ts（原在 client.ts 中職責不符）
+export { formatEarTag } from '@/lib/utils'
 
 export { bloodTestApi, bloodTestTemplateApi, bloodTestPanelApi, bloodTestPresetApi, bloodTestAnalysisApi } from './bloodTest'
 export { getProtocolActivities } from './protocol'

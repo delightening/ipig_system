@@ -406,7 +406,9 @@ pub async fn list_attachments(
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<UploadQuery>,
 ) -> Result<Json<Vec<Attachment>>> {
-    let entity_type = query.entity_type.unwrap_or_default();
+    let entity_type = query.entity_type
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| AppError::BadRequest("entity_type 為必填參數".to_string()))?;
     let entity_id = query.entity_id.unwrap_or_default();
 
     // IDOR 防護：根據 entity_type 檢查使用者權限

@@ -152,6 +152,7 @@ async fn main() -> anyhow::Result<()> {
         gotenberg,
         image_processor,
         templates,
+        permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
     };
 
     let app = build_app(state, &config);

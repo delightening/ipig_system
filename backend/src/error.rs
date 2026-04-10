@@ -104,9 +104,9 @@ impl IntoResponse for AppError {
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
             AppError::DuplicateWarning { .. } => {
-                // 已在前面 if let 提前 return，理論上不可達；
-                // 但為避免未來重構遺漏，回傳安全預設值而非 panic
-                (StatusCode::CONFLICT, "Duplicate warning".to_string())
+                // LOW-03: 此分支已在上方 if let 提前 return，理論上不可達。
+                // 使用 unreachable! 使迴歸在 debug build 中立即 panic 而非靜默繼續。
+                unreachable!("DuplicateWarning 應在 IntoResponse 開頭的 if let 中處理")
             }
             AppError::BusinessRule(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg.clone()),
             AppError::TooManyRequests(msg) => (StatusCode::TOO_MANY_REQUESTS, msg.clone()),

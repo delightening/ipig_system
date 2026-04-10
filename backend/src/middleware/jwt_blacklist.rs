@@ -11,12 +11,13 @@
 use chrono::Utc;
 use sqlx::PgPool;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct JwtBlacklist {
     /// jti -> expires_at (Unix timestamp)
-    revoked: Arc<Mutex<HashMap<String, i64>>>,
+    /// HIGH-01: 改用 RwLock 使並發讀取不再互斥（is_revoked 為每請求 hot path）
+    revoked: Arc<RwLock<HashMap<String, i64>>>,
 }
 
 impl Default for JwtBlacklist {
@@ -28,7 +29,7 @@ impl Default for JwtBlacklist {
 impl JwtBlacklist {
     pub fn new() -> Self {
         Self {
-            revoked: Arc::new(Mutex::new(HashMap::new())),
+            revoked: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -43,7 +44,7 @@ impl JwtBlacklist {
         .await
         {
             Ok(rows) => {
-                if let Ok(mut map) = self.revoked.lock() {
+                if let Ok(mut map) = self.revoked.write() {
                     for (jti, exp) in &rows {
                         map.insert(jti.clone(), exp.timestamp());
                     }
@@ -65,7 +66,7 @@ impl JwtBlacklist {
     /// 撤銷 JWT（同時寫入記憶體和 DB）
     pub async fn revoke(&self, jti: String, exp: i64, pool: &PgPool) {
         // 寫入記憶體快取
-        if let Ok(mut map) = self.revoked.lock() {
+        if let Ok(mut map) = self.revoked.write() {
             map.insert(jti.clone(), exp);
         }
 
@@ -85,18 +86,18 @@ impl JwtBlacklist {
 
     /// 撤銷 JWT（僅寫入記憶體，向後相容）
     pub fn revoke_memory_only(&self, jti: String, exp: i64) {
-        if let Ok(mut map) = self.revoked.lock() {
+        if let Ok(mut map) = self.revoked.write() {
             map.insert(jti, exp);
         }
     }
 
     /// 檢查 JWT 是否已撤銷
-    /// SEC-33: Mutex 中毒時回傳 true（fail-closed，拒絕存取）
+    /// HIGH-01: 使用 read() 允許並發讀取；RwLock 中毒時 fail-closed（拒絕存取）
     pub fn is_revoked(&self, jti: &str) -> bool {
-        match self.revoked.lock() {
+        match self.revoked.read() {
             Ok(map) => map.contains_key(jti),
             Err(_) => {
-                tracing::error!("[JwtBlacklist] Mutex 中毒，啟用 fail-closed 策略");
+                tracing::error!("[JwtBlacklist] RwLock 中毒，啟用 fail-closed 策略");
                 true // 中毒時拒絕存取
             }
         }
@@ -110,19 +111,20 @@ impl JwtBlacklist {
             return true;
         }
 
-        // 記憶體 miss，查 DB
-        match sqlx::query_as::<_, (String,)>(
-            "SELECT jti FROM jwt_blacklist WHERE jti = $1 AND expires_at > NOW()",
+        // 記憶體 miss，查 DB（HIGH-02: 取得真實 expires_at 以正確回填快取）
+        match sqlx::query_as::<_, (i64,)>(
+            r#"SELECT EXTRACT(EPOCH FROM expires_at)::bigint
+               FROM jwt_blacklist WHERE jti = $1 AND expires_at > NOW()"#,
         )
         .bind(jti)
         .fetch_optional(pool)
         .await
         {
-            Ok(Some(_)) => {
+            Ok(Some((expires_at_ts,))) => {
                 tracing::debug!("[JwtBlacklist] DB 命中，回填快取 jti={}", jti);
-                // 回填記憶體快取（不需要精確 exp，只要有就好）
-                if let Ok(mut map) = self.revoked.lock() {
-                    map.insert(jti.to_string(), Utc::now().timestamp() + 3600);
+                // HIGH-02: 使用 DB 中的真實過期時間，而非任意 now+3600
+                if let Ok(mut map) = self.revoked.write() {
+                    map.insert(jti.to_string(), expires_at_ts);
                 }
                 true
             }
@@ -136,7 +138,7 @@ impl JwtBlacklist {
 
     /// 清理已過期的記憶體項目
     pub fn cleanup(&self) {
-        if let Ok(mut map) = self.revoked.lock() {
+        if let Ok(mut map) = self.revoked.write() {
             let now = Utc::now().timestamp();
             map.retain(|_, exp| *exp > now);
         }

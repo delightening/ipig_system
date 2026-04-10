@@ -1293,6 +1293,7 @@ dependencies = [
  "csv",
  "dashmap",
  "dotenvy",
+ "hex",
  "hmac",
  "http-body-util",
  "jsonwebtoken",

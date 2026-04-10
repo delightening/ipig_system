@@ -109,16 +109,18 @@ pub async fn auth_rate_limit_middleware(
 }
 
 fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
+    // HIGH-04: 使用實際設定的時間窗口，而非硬編碼 "60"
+    let window_secs = limiter.config.window.as_secs();
     let body = serde_json::json!({
         "error": "Too Many Requests",
         "message": "請求過於頻繁，請稍後再試",
-        "retry_after_seconds": 60
+        "retry_after_seconds": window_secs
     });
 
     Response::builder()
         .status(StatusCode::TOO_MANY_REQUESTS)
         .header("Content-Type", "application/json")
-        .header("Retry-After", "60")
+        .header("Retry-After", window_secs.to_string())
         .header("X-RateLimit-Limit", limiter.config.max_requests.to_string())
         .header("X-RateLimit-Remaining", "0")
         .body(Body::from(serde_json::to_string(&body).unwrap_or_default()))

@@ -43,6 +43,7 @@ pub(super) fn extract_cookie_value(headers: &HeaderMap, name: &str) -> Option<St
 }
 
 /// 將 LoginResponse 附加 Set-Cookie headers 回傳
+/// MED-03: 若 refresh_token 為空（如模擬登入），跳過設定 refresh_token cookie。
 pub(super) fn login_response_with_cookies(
     response: &LoginResponse,
     config: &Config,
@@ -53,21 +54,27 @@ pub(super) fn login_response_with_cookies(
         response.expires_in,
         config,
     );
-    let refresh_cookie = build_set_cookie(
-        "refresh_token",
-        &response.refresh_token,
-        7 * 24 * 3600, // 7 天
-        config,
-    );
 
     let body = serde_json::to_string(response)
         .map_err(|e| AppError::Internal(format!("JSON 序列化失敗: {}", e)))?;
 
-    Response::builder()
+    let mut builder = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
-        .header(header::SET_COOKIE, access_cookie)
-        .header(header::SET_COOKIE, refresh_cookie)
+        .header(header::SET_COOKIE, access_cookie);
+
+    // 模擬登入（impersonation）不發放 refresh token，跳過此 cookie
+    if !response.refresh_token.is_empty() {
+        let refresh_cookie = build_set_cookie(
+            "refresh_token",
+            &response.refresh_token,
+            7 * 24 * 3600, // 7 天
+            config,
+        );
+        builder = builder.header(header::SET_COOKIE, refresh_cookie);
+    }
+
+    builder
         .body(body.into())
         .map_err(|e| AppError::Internal(format!("Response 建構失敗: {e}")))
 }

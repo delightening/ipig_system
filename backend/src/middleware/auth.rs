@@ -124,24 +124,46 @@ pub async fn auth_middleware(
 
     // JWT 中省略 permissions 以符合 4096 bytes cookie 限制。
     // 非 admin 使用者從資料庫動態載入，admin 的 has_permission() 直接回傳 true 不需載入。
+    // CRIT-03: 先查記憶體快取（TTL 5 分鐘），miss 時才打 DB，減少每請求的 4-table JOIN。
     let is_admin = claims.roles.iter().any(|r| {
         r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY
     });
     let permissions = if !is_admin {
-        sqlx::query_scalar::<_, String>(
-            r#"SELECT DISTINCT p.code FROM permissions p
-               INNER JOIN role_permissions rp ON p.id = rp.permission_id
-               INNER JOIN user_roles ur ON rp.role_id = ur.role_id
-               INNER JOIN roles r ON r.id = ur.role_id
-               WHERE ur.user_id = $1 AND r.is_active = true"#,
-        )
-        .bind(claims.sub)
-        .fetch_all(&state.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("[Auth] 無法載入使用者 {} 的權限: {}", claims.sub, e);
-            AppError::Internal("無法載入使用者權限".to_string())
-        })?
+        let cache_ttl = std::time::Duration::from_secs(crate::constants::PERMISSION_CACHE_TTL_SECS);
+        let user_id = claims.sub;
+
+        // 嘗試從快取取得有效的權限
+        let cached = state.permission_cache.get(&user_id).and_then(|entry| {
+            let (ref perms, cached_at) = *entry;
+            if cached_at.elapsed() < cache_ttl {
+                Some(perms.clone())
+            } else {
+                None
+            }
+        });
+
+        if let Some(perms) = cached {
+            perms
+        } else {
+            // 快取未命中或已過期：查詢 DB
+            let fresh = sqlx::query_scalar::<_, String>(
+                r#"SELECT DISTINCT p.code FROM permissions p
+                   INNER JOIN role_permissions rp ON p.id = rp.permission_id
+                   INNER JOIN user_roles ur ON rp.role_id = ur.role_id
+                   INNER JOIN roles r ON r.id = ur.role_id
+                   WHERE ur.user_id = $1 AND r.is_active = true"#,
+            )
+            .bind(user_id)
+            .fetch_all(&state.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("[Auth] 無法載入使用者 {} 的權限: {}", user_id, e);
+                AppError::Internal("無法載入使用者權限".to_string())
+            })?;
+
+            state.permission_cache.insert(user_id, (fresh.clone(), std::time::Instant::now()));
+            fresh
+        }
     } else {
         vec![]
     };

@@ -87,13 +87,18 @@ impl AuthService {
         // 獲取角色和權限
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
 
-        // 生成 JWT（包含 impersonated_by 資訊，有效期受限）
+        // 生成 JWT（包含 impersonated_by 資訊，有效期受限為 30 分鐘）
         let (access_token, expires_in) = Self::generate_access_token(
             config, &user, &roles, &permissions, Some(admin_user_id)
         )?;
 
-        // 生成 Refresh Token
-        let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
+        // MED-03: 模擬登入不為目標用戶建立 refresh token。
+        // 原本做法會：1) 消耗目標用戶的 session 配額（SEC-28）；
+        // 2) 產生目標用戶不知情的 session 記錄；
+        // 3) 若管理員離開後，refresh token 可能被截取。
+        // 模擬登入使用短效 access-only session（30 分鐘無法 refresh），
+        // cookie builder 會跳過設定空的 refresh_token cookie。
+        let refresh_token = String::new();
 
         // 審計日誌：記錄模擬登入行為（SEC-11）
         tracing::warn!(
@@ -206,7 +211,7 @@ impl AuthService {
         use rand::RngCore;
         let mut token_bytes = [0u8; 32];
         rand::rngs::OsRng.fill_bytes(&mut token_bytes);
-        let token = token_bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        let token = hex::encode(token_bytes);
         let token_hash = Self::hash_token(&token);
         let expires_at = Utc::now() + Duration::days(config.jwt_refresh_expiration_days);
 

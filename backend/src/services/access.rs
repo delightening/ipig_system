@@ -159,6 +159,8 @@ pub fn has_protocol_view_all(current_user: &CurrentUser) -> bool {
 }
 
 /// 檢查計畫查看權限（view_all 或有任何計畫角色），失敗回傳 403
+///
+/// HIGH-03: 原本最多執行 3 次獨立 DB 查詢，改為單一 4-way UNION EXISTS 查詢。
 pub async fn require_protocol_view_access(
     pool: &PgPool,
     current_user: &CurrentUser,
@@ -168,13 +170,29 @@ pub async fn require_protocol_view_access(
     if has_protocol_view_all(current_user) || current_user.id == pi_user_id {
         return Ok(());
     }
-    if is_pi_or_coeditor(pool, protocol_id, current_user.id).await?
-        || is_assigned_reviewer(pool, protocol_id, current_user.id).await?
-        || is_assigned_vet(pool, protocol_id, current_user.id).await?
-    {
-        return Ok(());
+    let (has_access,): (bool,) = sqlx::query_as(
+        r#"SELECT EXISTS(
+            SELECT 1 FROM protocols WHERE id = $1 AND pi_user_id = $2
+            UNION
+            SELECT 1 FROM user_protocols
+            WHERE protocol_id = $1 AND user_id = $2
+              AND role_in_protocol IN ('PI', 'CLIENT', 'CO_EDITOR')
+            UNION
+            SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
+            UNION
+            SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
+        )"#,
+    )
+    .bind(protocol_id)
+    .bind(current_user.id)
+    .fetch_one(pool)
+    .await?;
+
+    if has_access {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("You don't have permission to view this protocol".into()))
     }
-    Err(AppError::Forbidden("You don't have permission to view this protocol".into()))
 }
 
 /// 檢查計畫查看權限（不查 pi_user_id，用於不知道 PI 的情境）

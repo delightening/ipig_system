@@ -314,6 +314,7 @@ impl AuthService {
         .await?
         .ok_or_else(|| AppError::Validation("Invalid or expired reset token".to_string()))?;
 
+        Self::validate_password_strength(new_password)?;
         let new_password_hash = Self::hash_password(new_password)?;
         Self::update_password_in_db(pool, token_record.user_id, &new_password_hash, false).await?;
 

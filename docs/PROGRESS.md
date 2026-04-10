@@ -185,6 +185,24 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-10 深度 Code Review 修復（15 項安全/效能/品質問題）
+
+- ✅ **CRIT-01 帳號鎖定競態修復**：失敗事件在 advisory lock 事務內原子性寫入（`services/auth/login.rs`），防止並發請求繞過鎖定計數
+- ✅ **MED-02 tx.commit 順序修正**：移至 `verify_password` 之後，advisory lock 持續保持至密碼驗證完成
+- ✅ **CRIT-02 CSRF/JWT 密鑰隔離**：新增 `csrf_secret` Config 欄位，讀取 `CSRF_SECRET` 環境變數，若未設定則從 jwt_secret SHA-256 派生
+- ✅ **CRIT-03 Permission 快取**：AppState 加入 `DashMap<UserId, (permissions, Instant)>` 快取（TTL 5 分鐘），消除每請求 4-table JOIN
+- ✅ **CRIT-04 Session 建立同步化**：`create_session` + `end_excess_sessions` 改為在 token 發出前同步執行，SEC-28 並發上限得以強制執行
+- ✅ **HIGH-01 JWT Blacklist Mutex→RwLock**：`is_revoked()` 為 hot path，改用讀鎖使並發讀取不再互斥
+- ✅ **HIGH-02 Blacklist DB backfill 修正**：回填使用真實 `expires_at`，不再硬編碼 `now+3600`
+- ✅ **HIGH-03 Access check 合併查詢**：`require_protocol_view_access` 3 次串行查詢改為單一 4-way UNION EXISTS
+- ✅ **HIGH-04 Retry-After 動態化**：rate_limit_response 改用 `limiter.config.window.as_secs()`
+- ✅ **MED-01 登出清除 csrf_token**：logout handler 新增第三個 cookie 清除
+- ✅ **MED-03 模擬登入不建立 refresh token**：`impersonate()` 改為 access-only session，避免佔用目標用戶 session 配額
+- ✅ **MED-04 CSRF exempt path 清理**：移除無對應路由的舊 `/api/auth/*` 路徑
+- ✅ **LOW-01 hex::encode 替換手動迴圈**：session.rs 使用 `hex` crate
+- ✅ **LOW-02 formatEarTag 職責歸位**：從 `api/client.ts` 移至 `lib/utils.ts`，index.ts re-export 維持向後相容
+- ✅ **LOW-03 unreachable! 標記死代碼**：error.rs `DuplicateWarning` match arm 改為 `unreachable!`
+
 ### 2026-04-07 疼痛評估表單重構（TU-03-05-03B）+ 固定姿勢複選
 
 - ✅ **DB Migration 018**：`care_medication_records` 舊欄位（spirit/mobility_standing/walking）全部替換為 PDF 正確欄位（incision/attitude_behavior/appetite/feces/urine/pain_score/3個給藥 bool）

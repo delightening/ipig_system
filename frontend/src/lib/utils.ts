@@ -5,6 +5,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** LOW-02: 耳號格式化（從 api/client.ts 移入，符合單一職責原則）
+ *  若為純數字且 < 100，補零至 3 位數（e.g. "5" → "005"）
+ */
+export function formatEarTag(earTag: string): string {
+  if (!earTag) return earTag
+  if (/^\d+$/.test(earTag)) {
+    const num = parseInt(earTag, 10)
+    if (num < 100) {
+      return earTag.padStart(3, '0')
+    }
+  }
+  return earTag
+}
+
 /** 系統統一使用台灣時間 (Asia/Taipei) 顯示，可供元件內聯日期格式使用 */
 export const TAIWAN_TIMEZONE = 'Asia/Taipei'
 
