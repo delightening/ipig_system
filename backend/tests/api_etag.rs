@@ -10,7 +10,7 @@ async fn get_returns_etag_header() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/users", &token).await;
+    let res = app.auth_get("/api/v1/users", &token).await;
 
     assert_eq!(res.status(), 200);
     let etag = res.headers().get("etag");
@@ -32,7 +32,7 @@ async fn get_with_if_none_match_returns_304_when_match() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res1 = app.auth_get("/api/users", &token).await;
+    let res1 = app.auth_get("/api/v1/users", &token).await;
     assert_eq!(res1.status(), 200);
     let etag = res1
         .headers()
@@ -44,7 +44,7 @@ async fn get_with_if_none_match_returns_304_when_match() {
 
     let res2 = app
         .client
-        .get(app.url("/api/users"))
+        .get(app.url("/api/v1/users"))
         .bearer_auth(&token)
         .header("If-None-Match", etag)
         .send()
@@ -70,7 +70,7 @@ async fn post_unaffected_no_etag() {
 
     let res = app
         .client
-        .post(app.url("/api/roles"))
+        .post(app.url("/api/v1/roles"))
         .bearer_auth(&token)
         .json(&body)
         .send()

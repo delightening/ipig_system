@@ -13,7 +13,7 @@ async fn pagination_page_zero_returns_error_or_first_page() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/animals?page=0", &token).await;
+    let res = app.auth_get("/api/v1/animals?page=0", &token).await;
     // page=0 should return 400 (invalid) or fallback to page 1 (200)
     let status = res.status().as_u16();
     assert!(
@@ -29,7 +29,7 @@ async fn pagination_per_page_zero_returns_error_or_default() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/animals?per_page=0", &token).await;
+    let res = app.auth_get("/api/v1/animals?per_page=0", &token).await;
     let status = res.status().as_u16();
     assert!(
         status == 400 || status == 200,
@@ -45,7 +45,7 @@ async fn pagination_per_page_huge_is_capped_or_rejected() {
     let token = app.login_as_admin().await;
 
     let res = app
-        .auth_get("/api/animals?per_page=999999", &token)
+        .auth_get("/api/v1/animals?per_page=999999", &token)
         .await;
     let status = res.status().as_u16();
     assert!(
@@ -72,7 +72,7 @@ async fn pagination_negative_page_returns_error() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/animals?page=-1", &token).await;
+    let res = app.auth_get("/api/v1/animals?page=-1", &token).await;
     let status = res.status().as_u16();
     // Negative page: should be 400 or treated as default (200)
     assert!(
@@ -91,7 +91,7 @@ async fn search_sql_injection_single_quote() {
     let token = app.login_as_admin().await;
 
     let res = app
-        .auth_get("/api/animals?search='; DROP TABLE animals; --", &token)
+        .auth_get("/api/v1/animals?search='; DROP TABLE animals; --", &token)
         .await;
     let status = res.status().as_u16();
     assert!(
@@ -109,7 +109,7 @@ async fn search_sql_injection_union_select() {
 
     let res = app
         .auth_get(
-            "/api/animals?search=' UNION SELECT * FROM users --",
+            "/api/v1/animals?search=' UNION SELECT * FROM users --",
             &token,
         )
         .await;
@@ -129,7 +129,7 @@ async fn search_special_characters_percent_underscore() {
 
     // SQL LIKE wildcards should be escaped
     let res = app
-        .auth_get("/api/animals?search=%25%5F", &token)
+        .auth_get("/api/v1/animals?search=%25%5F", &token)
         .await;
     let status = res.status().as_u16();
     assert!(
@@ -146,7 +146,7 @@ async fn search_unicode_and_emoji() {
     let token = app.login_as_admin().await;
 
     let res = app
-        .auth_get("/api/animals?search=%E8%B1%AC%F0%9F%90%B7", &token)
+        .auth_get("/api/v1/animals?search=%E8%B1%AC%F0%9F%90%B7", &token)
         .await;
     let status = res.status().as_u16();
     assert!(
@@ -165,7 +165,7 @@ async fn invalid_uuid_in_animal_path_returns_400_or_404() {
     let token = app.login_as_admin().await;
 
     let res = app
-        .auth_get("/api/animals/not-a-valid-uuid", &token)
+        .auth_get("/api/v1/animals/not-a-valid-uuid", &token)
         .await;
     let status = res.status().as_u16();
     assert!(
@@ -182,7 +182,7 @@ async fn invalid_uuid_in_protocol_path_returns_400_or_404() {
     let token = app.login_as_admin().await;
 
     let res = app
-        .auth_get("/api/protocols/xyz-not-uuid", &token)
+        .auth_get("/api/v1/protocols/xyz-not-uuid", &token)
         .await;
     let status = res.status().as_u16();
     assert!(
@@ -198,7 +198,7 @@ async fn empty_uuid_in_path_returns_error() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/animals/", &token).await;
+    let res = app.auth_get("/api/v1/animals/", &token).await;
     let status = res.status().as_u16();
     // Empty ID: could be treated as list (200) or invalid (400/404)
     assert!(
@@ -227,7 +227,7 @@ async fn oversized_request_body_is_rejected() {
         "pen_location": "A-01"
     });
 
-    let res = app.auth_post("/api/animals", &body, &token).await;
+    let res = app.auth_post("/api/v1/animals", &body, &token).await;
     let status = res.status().as_u16();
     assert!(
         status == 400 || status == 413 || status == 422,
@@ -250,7 +250,7 @@ async fn deeply_nested_json_is_handled() {
 
     let res = app
         .client
-        .post(app.url("/api/animals"))
+        .post(app.url("/api/v1/animals"))
         .bearer_auth(&token)
         .json(&nested)
         .send()

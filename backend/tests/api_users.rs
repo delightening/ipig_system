@@ -10,7 +10,7 @@ async fn list_users_returns_paginated_result() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/users", &token).await;
+    let res = app.auth_get("/api/v1/users", &token).await;
     assert_eq!(res.status(), 200);
 
     let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
@@ -40,7 +40,7 @@ async fn create_user_and_fetch() {
         "role_id": null
     });
 
-    let create_res = app.auth_post("/api/users", &new_user, &token).await;
+    let create_res = app.auth_post("/api/v1/users", &new_user, &token).await;
 
     assert!(
         create_res.status() == 201 || create_res.status() == 200,
@@ -56,7 +56,7 @@ async fn create_user_and_fetch() {
 
     // Fetch individual user
     let get_res = app
-        .auth_get(&format!("/api/users/{}", user_id), &token)
+        .auth_get(&format!("/api/v1/users/{}", user_id), &token)
         .await;
     assert_eq!(get_res.status(), 200);
 
@@ -73,7 +73,7 @@ async fn list_roles_returns_array() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/roles", &token).await;
+    let res = app.auth_get("/api/v1/roles", &token).await;
     assert_eq!(res.status(), 200);
 
     let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
@@ -86,7 +86,7 @@ async fn list_permissions_returns_array() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/permissions", &token).await;
+    let res = app.auth_get("/api/v1/permissions", &token).await;
     assert_eq!(res.status(), 200);
 
     let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");

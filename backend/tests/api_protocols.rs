@@ -10,7 +10,7 @@ async fn list_protocols_returns_200() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/protocols", &token).await;
+    let res = app.auth_get("/api/v1/protocols", &token).await;
     assert_eq!(res.status(), 200);
 
     let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
@@ -36,7 +36,7 @@ async fn create_protocol_draft() {
         "purpose": "Integration test — verifying protocol creation flow"
     });
 
-    let res = app.auth_post("/api/protocols", &body, &token).await;
+    let res = app.auth_post("/api/v1/protocols", &body, &token).await;
 
     // Expect 201 or 200
     assert!(
@@ -60,7 +60,7 @@ async fn list_protocols_without_auth_returns_401() {
 
     let res = app
         .client
-        .get(app.url("/api/protocols"))
+        .get(app.url("/api/v1/protocols"))
         .send()
         .await
         .expect("HTTP request failed");

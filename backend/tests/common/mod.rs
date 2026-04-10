@@ -144,7 +144,7 @@ impl TestApp {
     pub async fn login(&self, email: &str, password: &str) -> Option<String> {
         let res = self
             .client
-            .post(self.url("/api/auth/login"))
+            .post(self.url("/api/v1/auth/login"))
             .json(&serde_json::json!({ "email": email, "password": password }))
             .send()
             .await

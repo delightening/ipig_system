@@ -25,7 +25,7 @@ async fn login_with_wrong_password_returns_401() {
 
     let res = app
         .client
-        .post(app.url("/api/auth/login"))
+        .post(app.url("/api/v1/auth/login"))
         .json(&serde_json::json!({
             "email": email,
             "password": "definitely_wrong_password"
@@ -44,7 +44,7 @@ async fn login_with_invalid_email_format_returns_400() {
 
     let res = app
         .client
-        .post(app.url("/api/auth/login"))
+        .post(app.url("/api/v1/auth/login"))
         .json(&serde_json::json!({
             "email": "not-an-email",
             "password": "anything"
@@ -64,7 +64,7 @@ async fn me_returns_current_user_info() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/me", &token).await;
+    let res = app.auth_get("/api/v1/me", &token).await;
     assert_eq!(res.status(), 200);
 
     let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
@@ -80,7 +80,7 @@ async fn me_without_token_returns_401() {
 
     let res = app
         .client
-        .get(app.url("/api/me"))
+        .get(app.url("/api/v1/me"))
         .send()
         .await
         .expect("HTTP request failed");
@@ -103,7 +103,7 @@ async fn refresh_with_valid_token_returns_new_tokens() {
     // Login to get refresh_token
     let login_res = app
         .client
-        .post(app.url("/api/auth/login"))
+        .post(app.url("/api/v1/auth/login"))
         .json(&serde_json::json!({ "email": email, "password": password }))
         .send()
         .await
@@ -121,7 +121,7 @@ async fn refresh_with_valid_token_returns_new_tokens() {
     // Use refresh_token to get new tokens
     let refresh_res = app
         .client
-        .post(app.url("/api/auth/refresh"))
+        .post(app.url("/api/v1/auth/refresh"))
         .json(&serde_json::json!({ "refresh_token": refresh_token }))
         .send()
         .await
@@ -145,15 +145,15 @@ async fn logout_invalidates_token() {
     let token = app.login_as_admin().await;
 
     // Verify token works
-    let me_res = app.auth_get("/api/me", &token).await;
+    let me_res = app.auth_get("/api/v1/me", &token).await;
     assert_eq!(me_res.status(), 200);
 
     // Logout
-    let logout_res = app.auth_post("/api/auth/logout", &(), &token).await;
+    let logout_res = app.auth_post("/api/v1/auth/logout", &(), &token).await;
     assert!(logout_res.status().is_success() || logout_res.status() == 200);
 
     // Token should now be blacklisted
-    let me_after = app.auth_get("/api/me", &token).await;
+    let me_after = app.auth_get("/api/v1/me", &token).await;
     assert_eq!(me_after.status(), 401);
 }
 
@@ -167,7 +167,7 @@ async fn change_password_with_wrong_current_returns_error() {
 
     let res = app
         .auth_put(
-            "/api/me/password",
+            "/api/v1/me/password",
             &serde_json::json!({
                 "current_password": "wrong_current_password",
                 "new_password": "NewPassword123!"

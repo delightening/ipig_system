@@ -10,7 +10,7 @@ async fn list_animals_returns_200() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let res = app.auth_get("/api/animals", &token).await;
+    let res = app.auth_get("/api/v1/animals", &token).await;
     assert_eq!(res.status(), 200);
 
     let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
@@ -25,7 +25,7 @@ async fn list_animals_without_auth_returns_401() {
 
     let res = app
         .client
-        .get(app.url("/api/animals"))
+        .get(app.url("/api/v1/animals"))
         .send()
         .await
         .expect("HTTP request failed");
@@ -51,7 +51,7 @@ async fn create_and_get_animal() {
     });
 
     let create_res = app
-        .auth_post("/api/animals", &create_body, &token)
+        .auth_post("/api/v1/animals", &create_body, &token)
         .await;
 
     // 201 Created or 200
@@ -69,7 +69,7 @@ async fn create_and_get_animal() {
 
     // Fetch the created animal
     let get_res = app
-        .auth_get(&format!("/api/animals/{}", animal_id), &token)
+        .auth_get(&format!("/api/v1/animals/{}", animal_id), &token)
         .await;
     assert_eq!(get_res.status(), 200);
 
@@ -95,7 +95,7 @@ async fn create_animal_with_invalid_data_returns_400() {
         "pen_location": "A-01"
     });
 
-    let res = app.auth_post("/api/animals", &bad_body, &token).await;
+    let res = app.auth_post("/api/v1/animals", &bad_body, &token).await;
     assert_eq!(res.status(), 400);
 }
 
@@ -107,7 +107,7 @@ async fn get_nonexistent_animal_returns_404() {
 
     let fake_id = "00000000-0000-0000-0000-000000000000";
     let res = app
-        .auth_get(&format!("/api/animals/{}", fake_id), &token)
+        .auth_get(&format!("/api/v1/animals/{}", fake_id), &token)
         .await;
 
     assert_eq!(res.status(), 404);
