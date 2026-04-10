@@ -14,4 +14,5 @@
 
 basic_auth_users:
   # 用戶名：prometheus（請將下方替換為實際 bcrypt 雜湊）
-  prometheus: "$2y$12$REPLACE_WITH_ACTUAL_BCRYPT_HASH_OF_YOUR_PASSWORD"
+  # 開發環境預設密碼：prometheus-dev（正式部署請替換為強密碼的 bcrypt hash）
+  prometheus: "$2b$12$GnoWu.hBkcJVolgLvDzsxe28txJ5ztKC3K7KrEeA..iEU/dMCD7rW"
