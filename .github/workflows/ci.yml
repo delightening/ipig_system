@@ -424,6 +424,8 @@ jobs:
   e2e-test:
     name: "🧪 E2E: Playwright"
     runs-on: ubuntu-latest
+    # Dependabot PR 無法取得 repository secrets，Docker 環境必然無法啟動，直接跳過
+    if: github.actor != 'dependabot[bot]'
     # 確保基本檢查通過後再跑耗時的 E2E
     needs: [backend-test, frontend-check]
     steps:
@@ -448,11 +450,17 @@ jobs:
           echo "=== Container Status ==="
           docker compose -f docker-compose.test.yml ps -a
           echo ""
-          echo "=== API Container Logs (last 200 lines) ==="
-          docker compose -f docker-compose.test.yml logs api-test --tail=200
+          echo "=== API Container Logs (last 300 lines) ==="
+          docker logs ipig-api-test --tail=300 2>&1 || docker compose -f docker-compose.test.yml logs api-test --tail=300
+          echo ""
+          echo "=== API Container Inspect (exit code / health) ==="
+          docker inspect ipig-api-test --format='ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{.State.Health.Status}}' 2>/dev/null || true
           echo ""
           echo "=== DB Container Logs (last 50 lines) ==="
           docker compose -f docker-compose.test.yml logs db-test --tail=50
+          echo ""
+          echo "=== Web Container Logs (last 50 lines) ==="
+          docker compose -f docker-compose.test.yml logs web-test --tail=50
 
       - name: 確認服務可連線 (備援檢查)
         run: |

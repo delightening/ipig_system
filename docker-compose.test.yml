@@ -75,8 +75,8 @@ services:
       # 掛載 CI 專用 nginx 設定，將 /api 代理到正確的測試服務（api-test:8080）
       - ./frontend/nginx-ci.conf:/etc/nginx/conf.d/default.conf:ro
     environment:
-      VITE_API_URL: http://api-test:8000
-      API_BACKEND_URL: http://api-test:8000
+      VITE_API_URL: http://api-test:8080
+      API_BACKEND_URL: http://api-test:8080
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ || exit 1"]
       interval: 5s
