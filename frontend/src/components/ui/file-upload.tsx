@@ -53,6 +53,18 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
     const [error, setError] = React.useState<string | null>(null)
     const inputRef = React.useRef<HTMLInputElement>(null)
 
+    // L-01: 元件卸載時清除所有 blob URL，防止記憶體洩漏
+    React.useEffect(() => {
+      return () => {
+        value.forEach((f) => {
+          if (f.preview_url?.startsWith('blob:')) {
+            URL.revokeObjectURL(f.preview_url)
+          }
+        })
+      }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
     const isImage = (fileName: string) => {
       return /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(fileName)
     }
