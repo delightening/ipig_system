@@ -10,6 +10,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
   SQLX_OFFLINE: "true"
+  # Node.js 20 actions 將於 2026-06-02 強制切換為 Node.js 24，提前 opt-in 避免破壞
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # =========================
