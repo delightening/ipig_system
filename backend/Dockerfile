@@ -50,7 +50,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -r -s /bin/false appuser && \
-    mkdir -p /app/geoip && \
+    mkdir -p /app/geoip /app/uploads && \
     chown -R appuser:appuser /app
 
 COPY --from=builder /app/target/release/erp-backend /app/erp-backend

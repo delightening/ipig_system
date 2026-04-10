@@ -153,7 +153,7 @@ impl AuthService {
         config: &Config,
         user: &User,
         roles: &[String],
-        permissions: &[String],
+        _permissions: &[String],
         impersonated_by: Option<Uuid>,
     ) -> Result<(String, i64)> {
         let now = Utc::now();
