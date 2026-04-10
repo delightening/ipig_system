@@ -123,6 +123,9 @@ pub async fn update_role(
     
     let role = RoleService::update(&state.db, id, &req).await?;
 
+    // H-01: 角色權限變更後清空全部快取（無法預知哪些使用者持有此角色）
+    state.permission_cache.clear();
+
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "SYSTEM", "ROLE_UPDATE",
         Some("role"), Some(id), Some(&role.name),
@@ -167,6 +170,8 @@ pub async fn delete_role(
     }
     
     RoleService::delete(&state.db, id).await?;
+    // H-01: 角色刪除後清空全部快取
+    state.permission_cache.clear();
     Ok(Json(serde_json::json!({ "message": "Role deleted successfully" })))
 }
 

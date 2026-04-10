@@ -99,7 +99,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                     <div className="space-y-1">
                         <h3 className="text-lg font-semibold">發生錯誤</h3>
                         <p className="text-sm text-muted-foreground max-w-md">
-                            {this.state.error?.message || '頁面發生未預期的錯誤，請重試或聯繫管理者。'}
+                            頁面發生未預期的錯誤，請重試或聯繫管理者。
                         </p>
                         {refreshCountdown > 0 && (
                             <p className="text-sm text-muted-foreground">

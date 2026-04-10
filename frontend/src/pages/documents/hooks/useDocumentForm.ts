@@ -205,7 +205,10 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     if (!raw) return
     sessionStorage.removeItem('document_copy_data')
     try {
-      const copyData = JSON.parse(raw) as DocumentFormData
+      const parsed = JSON.parse(raw)
+      // M-02: 確認 parsed 為物件且 lines 為陣列，防止 sessionStorage 被竄改後注入非預期資料
+      if (typeof parsed !== 'object' || parsed === null) return
+      const copyData = parsed as DocumentFormData
       setFormData({
         doc_type: copyData.doc_type || defaultType,
         doc_date: new Date().toISOString().split('T')[0],
@@ -217,7 +220,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         protocol_no: copyData.protocol_no || '',
         source_doc_id: '',
         remark: copyData.remark || '',
-        lines: (copyData.lines || []).map((line, idx) => ({
+        lines: (Array.isArray(copyData.lines) ? copyData.lines : []).map((line, idx) => ({
           ...line,
           id: undefined,
           line_no: idx + 1,

@@ -16,9 +16,9 @@ import { AxiosError } from 'axios'
 // 共用驗證規則
 // ============================================
 
-/** 必填字串（至少 1 字元） */
-export const requiredString = (fieldName: string) =>
-    z.string().min(1, `${fieldName} 為必填欄位`)
+/** 必填字串（至少 1 字元，預設上限 500 字元） */
+export const requiredString = (fieldName: string, max = 500) =>
+    z.string().min(1, `${fieldName} 為必填欄位`).max(max, `${fieldName} 不得超過 ${max} 字元`)
 
 /** Email 欄位 */
 export const emailField = z.string().email('請輸入有效的電子郵件')

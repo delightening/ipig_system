@@ -185,6 +185,16 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-10 第三輪 Code Review 修復（7 項）
+
+- ✅ **C-01 IDOR 動物修改/刪除**：`update_animal` / `delete_animal` 加入 `access::require_animal_access`，確保使用者只能操作自己計畫書的動物（`handlers/animal/animal_core.rs`）
+- ✅ **C-02 IDOR 計畫書狀態變更**：`change_protocol_status` 加入 `access::require_protocol_related_access`，防止跨計畫書狀態變更（`handlers/protocol/crud.rs`）
+- ✅ **H-01 權限快取未失效**：使用者角色/停用變更後立即 `remove` 對應快取；角色定義更新/刪除後 `clear` 全部快取（`handlers/user.rs`、`handlers/role.rs`）
+- ✅ **M-01 Zod 缺 maxLength**：`requiredString` 新增 `max = 500` 預設上限，防止前端接受無限長度輸入（`lib/validation.ts`）
+- ✅ **M-02 sessionStorage 反序列化無驗證**：複製單據載入前加入物件型別與 `Array.isArray` 檢查（`pages/documents/hooks/useDocumentForm.ts`）
+- ✅ **M-03 Error Boundary 顯示原始 error.message**：改為固定通用訊息，防止 IP / DB 連線細節洩漏（`components/ui/error-boundary.tsx`）
+- ✅ **M-04 容器 CPU 無限制**：`gotenberg`、`image-processor` 新增 `cpus: "1.0"` 限制，防止大型 PDF/圖片處理耗盡 CPU（`docker-compose.yml`）
+
 ### 2026-04-10 深度 Code Review 修復（15 項安全/效能/品質問題）
 
 - ✅ **CRIT-01 帳號鎖定競態修復**：失敗事件在 advisory lock 事務內原子性寫入（`services/auth/login.rs`），防止並發請求繞過鎖定計數

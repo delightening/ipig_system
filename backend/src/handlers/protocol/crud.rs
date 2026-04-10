@@ -169,6 +169,8 @@ pub async fn change_protocol_status(
         tracing::info!("[ChangeStatus] Entering Normal Status Change Check");
         require_permission!(current_user, "aup.protocol.change_status");
     }
+    // 防範 IDOR：確認使用者與此計畫書有關聯（view_all 角色直接通過）
+    access::require_protocol_related_access(&state.db, &current_user, id).await?;
     let protocol = ProtocolService::change_status(&state.db, id, &req, current_user.id).await?;
     let db = state.db.clone();
     let protocol_id = protocol.id;

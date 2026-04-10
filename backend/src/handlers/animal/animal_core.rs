@@ -241,6 +241,7 @@ pub async fn update_animal(
     Json(req): Json<UpdateAnimalRequest>,
 ) -> Result<Json<Animal>> {
     require_permission!(current_user, "animal.animal.edit");
+    access::require_animal_access(&state.db, &current_user, id).await?;
     req.validate()?;
 
     let (animal, iacuc_change) =
@@ -318,6 +319,7 @@ pub async fn delete_animal(
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.animal.edit");
+    access::require_animal_access(&state.db, &current_user, id).await?;
     req.validate()?;
 
     AnimalService::delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;

@@ -168,6 +168,13 @@ pub async fn update_user(
 
     let user = UserService::update(&state.db, id, current_user.id, &req).await?;
 
+    // H-01: 角色或帳號狀態變更後立即清除該使用者的權限快取，避免舊快取在 TTL 到期前繼續生效
+    if let Some(ref before) = before_user {
+        if before.roles != user.roles || before.is_active != user.is_active {
+            state.permission_cache.remove(&id);
+        }
+    }
+
     // 偵測角色或狀態變更，記錄二級審計
     if let Some(ref before) = before_user {
         let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
@@ -290,6 +297,8 @@ pub async fn delete_user(
     }
     
     UserService::delete(&state.db, id).await?;
+    // H-01: 使用者刪除後清除其權限快取
+    state.permission_cache.remove(&id);
     Ok(Json(serde_json::json!({ "message": "User deleted successfully" })))
 }
 
