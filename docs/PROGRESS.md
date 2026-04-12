@@ -185,6 +185,16 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-12 R20-9 階段一：Prompt 補丁套用（基於真實 IACUC 信件分析）
+
+- ✅ **真實審查資料分析**：從子瑄 Gmail 取樣 8 個 thread / 45 封信件（2025-08 ~ 2026-04），匿名化整理出 9 類退件原因 MECE 分類（最高頻：交叉引用失效、人道終點量化不足、對照組處置不完整），產出 `docs/R20_real_review_patterns.md`（316 行）
+- ✅ **重要架構釐清**：確認 R20 兩層 prompt 對應「申請人自查 (CLIENT) + Evonne 助理 pre-review (STAFF)」，**委員會層刻意不放 AI**——倫理判斷不交給 LLM；這是設計選擇不是 gap
+- ✅ **CLIENT_SYSTEM_PROMPT 重構**：原 6 點檢查擴增為三階段流程——階段一文書完整性（人員名單照抄、簽名日期、劑量單位、時程矛盾）、階段二交叉引用稽核（最高頻退件原因）、階段三內容審查（含人道終點量化、對照組處置、3R 教學/訓練挑戰）
+- ✅ **STAFF_SYSTEM_PROMPT 重構**：對應重構為三階段——階段一 pre-filter（文書完整性）、階段二交叉引用、階段三實質審查預警；每個檢查項都附真實委員質問句作為 few-shot 語料
+- ✅ **5 類退件全部 codified**：交叉引用一致性、人道終點得分門檻量化、對照組處置完整性、教學/訓練類 3R 挑戰、文書完整性 pre-filter——直接寫進 prompt const，無需 schema 變更或 migration
+- ⏳ **R20-9 後續尚未啟動**：data pipeline（Gmail Takeout 匯出 12 個月 thread 為 `.eml`）、Evonne 標 50 筆 ground truth、`backend/tests/ai_review_eval.rs` eval harness、Recall ≥ 0.7 / Precision ≥ 0.6 baseline——這些是真正讓 R20-9 從「[ ]」變成「[x]」的條件
+- ⚠️ **未動 review_type rename**：`STAFF_REVIEW` 名稱在當前設計裡正確（指 staff = Evonne 執行秘書，不是 committee），故未改 enum 值與 DB column；若未來新增第三層「委員 AI 助手」prompt 才需要 schema migration
+
 ### 2026-04-10 第三輪 Code Review 修復（7 項）
 
 - ✅ **C-01 IDOR 動物修改/刪除**：`update_animal` / `delete_animal` 加入 `access::require_animal_access`，確保使用者只能操作自己計畫書的動物（`handlers/animal/animal_core.rs`）

@@ -1203,7 +1203,7 @@ test('過期連結處理', async () => { /* 過期 token → 友善提示 */ })
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R20-9 | **System prompt 調校** | 收集真實審查意見，對比 AI 預審結果，調整 prompt 提高準確率 | [ ] |
+| R20-9 | **System prompt 調校** | 收集真實審查意見，對比 AI 預審結果，調整 prompt 提高準確率。**2026-04-12 階段一已完成**：基於 45 封真實 IACUC 信件分析，CLIENT/STAFF 兩個 system prompt 已套用 5 類補丁（交叉引用稽核、人道終點量化、對照組處置、3R 教學挑戰、文書 pre-filter）。完整報告見 `docs/R20_real_review_patterns.md`。**剩餘**：Gmail Takeout data pipeline、Evonne 標 50 筆 ground truth、`backend/tests/ai_review_eval.rs` eval harness、Recall ≥ 0.7 / Precision ≥ 0.6 baseline | 🔶 |
 | R20-10 | **退回率追蹤** | 追蹤 Pre-Review 退回次數是否下降 | [ ] |
 
 ### R20 詳細實作計畫
