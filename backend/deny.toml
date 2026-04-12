@@ -30,6 +30,9 @@ ignore = [
     "RUSTSEC-2025-0057",
     # kuchiki 不維護（printpdf 0.9 HTML 渲染依賴，無替代）
     "RUSTSEC-2023-0019",
+    # rand 0.8 unsound（僅在同時啟用 `log` + `thread_rng` feature 時觸發；
+    # 本專案未啟用 rand 的 `log` feature，實際不受影響）
+    "RUSTSEC-2026-0097",
 ]
 
 # ============================
