@@ -27,7 +27,7 @@ use crate::{
 // ============================================
 
 /// 列出所有物種
-#[utoipa::path(get, path = "/api/facilities/species", responses((status = 200, description = "物種清單", body = Vec<Species>)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/species", responses((status = 200, description = "物種清單", body = Vec<Species>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_species(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -38,7 +38,7 @@ pub async fn list_species(
 }
 
 /// 取得物種詳細
-#[utoipa::path(get, path = "/api/facilities/species/{id}", params(("id" = Uuid, Path, description = "物種 ID")), responses((status = 200, description = "物種資訊", body = Species)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/species/{id}", params(("id" = Uuid, Path, description = "物種 ID")), responses((status = 200, description = "物種資訊", body = Species)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_species(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -50,7 +50,7 @@ pub async fn get_species(
 }
 
 /// 建立物種
-#[utoipa::path(post, path = "/api/facilities/species", request_body = CreateSpeciesRequest, responses((status = 201, description = "建立成功", body = Species)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/facilities/species", request_body = CreateSpeciesRequest, responses((status = 201, description = "建立成功", body = Species)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn create_species(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -62,7 +62,7 @@ pub async fn create_species(
 }
 
 /// 更新物種
-#[utoipa::path(put, path = "/api/facilities/species/{id}", params(("id" = Uuid, Path, description = "物種 ID")), request_body = UpdateSpeciesRequest, responses((status = 200, description = "更新成功", body = Species)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/facilities/species/{id}", params(("id" = Uuid, Path, description = "物種 ID")), request_body = UpdateSpeciesRequest, responses((status = 200, description = "更新成功", body = Species)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn update_species(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -75,7 +75,7 @@ pub async fn update_species(
 }
 
 /// 刪除物種
-#[utoipa::path(delete, path = "/api/facilities/species/{id}", params(("id" = Uuid, Path, description = "物種 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/facilities/species/{id}", params(("id" = Uuid, Path, description = "物種 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
 pub async fn delete_species(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -91,7 +91,7 @@ pub async fn delete_species(
 // ============================================
 
 /// 列出所有設施
-#[utoipa::path(get, path = "/api/facilities", responses((status = 200, description = "設施清單", body = Vec<Facility>)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities", responses((status = 200, description = "設施清單", body = Vec<Facility>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_facilities(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -102,7 +102,7 @@ pub async fn list_facilities(
 }
 
 /// 取得設施詳細
-#[utoipa::path(get, path = "/api/facilities/{id}", params(("id" = Uuid, Path, description = "設施 ID")), responses((status = 200, description = "設施資訊", body = Facility)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/{id}", params(("id" = Uuid, Path, description = "設施 ID")), responses((status = 200, description = "設施資訊", body = Facility)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_facility(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -114,7 +114,7 @@ pub async fn get_facility(
 }
 
 /// 建立設施
-#[utoipa::path(post, path = "/api/facilities", request_body = CreateFacilityRequest, responses((status = 201, description = "建立成功", body = Facility)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/facilities", request_body = CreateFacilityRequest, responses((status = 201, description = "建立成功", body = Facility)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn create_facility(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -126,7 +126,7 @@ pub async fn create_facility(
 }
 
 /// 更新設施
-#[utoipa::path(put, path = "/api/facilities/{id}", params(("id" = Uuid, Path, description = "設施 ID")), request_body = UpdateFacilityRequest, responses((status = 200, description = "更新成功", body = Facility)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/facilities/{id}", params(("id" = Uuid, Path, description = "設施 ID")), request_body = UpdateFacilityRequest, responses((status = 200, description = "更新成功", body = Facility)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn update_facility(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -139,7 +139,7 @@ pub async fn update_facility(
 }
 
 /// 刪除設施
-#[utoipa::path(delete, path = "/api/facilities/{id}", params(("id" = Uuid, Path, description = "設施 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/facilities/{id}", params(("id" = Uuid, Path, description = "設施 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
 pub async fn delete_facility(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -160,7 +160,7 @@ pub struct BuildingQuery {
 }
 
 /// 列出所有棟舍
-#[utoipa::path(get, path = "/api/facilities/buildings", responses((status = 200, description = "棟舍清單", body = Vec<BuildingWithFacility>)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/buildings", responses((status = 200, description = "棟舍清單", body = Vec<BuildingWithFacility>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_buildings(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -172,7 +172,7 @@ pub async fn list_buildings(
 }
 
 /// 取得棟舍詳細
-#[utoipa::path(get, path = "/api/facilities/buildings/{id}", params(("id" = Uuid, Path, description = "棟舍 ID")), responses((status = 200, description = "棟舍資訊", body = Building)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/buildings/{id}", params(("id" = Uuid, Path, description = "棟舍 ID")), responses((status = 200, description = "棟舍資訊", body = Building)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_building(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -184,7 +184,7 @@ pub async fn get_building(
 }
 
 /// 建立棟舍
-#[utoipa::path(post, path = "/api/facilities/buildings", request_body = CreateBuildingRequest, responses((status = 201, description = "建立成功", body = Building)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/facilities/buildings", request_body = CreateBuildingRequest, responses((status = 201, description = "建立成功", body = Building)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn create_building(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -196,7 +196,7 @@ pub async fn create_building(
 }
 
 /// 更新棟舍
-#[utoipa::path(put, path = "/api/facilities/buildings/{id}", params(("id" = Uuid, Path, description = "棟舍 ID")), request_body = UpdateBuildingRequest, responses((status = 200, description = "更新成功", body = Building)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/facilities/buildings/{id}", params(("id" = Uuid, Path, description = "棟舍 ID")), request_body = UpdateBuildingRequest, responses((status = 200, description = "更新成功", body = Building)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn update_building(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -209,7 +209,7 @@ pub async fn update_building(
 }
 
 /// 刪除棟舍
-#[utoipa::path(delete, path = "/api/facilities/buildings/{id}", params(("id" = Uuid, Path, description = "棟舍 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/facilities/buildings/{id}", params(("id" = Uuid, Path, description = "棟舍 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
 pub async fn delete_building(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -230,7 +230,7 @@ pub struct ZoneQuery {
 }
 
 /// 列出所有區域
-#[utoipa::path(get, path = "/api/facilities/zones", responses((status = 200, description = "區域清單", body = Vec<ZoneWithBuilding>)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/zones", responses((status = 200, description = "區域清單", body = Vec<ZoneWithBuilding>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_zones(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -242,7 +242,7 @@ pub async fn list_zones(
 }
 
 /// 取得區域詳細
-#[utoipa::path(get, path = "/api/facilities/zones/{id}", params(("id" = Uuid, Path, description = "區域 ID")), responses((status = 200, description = "區域資訊", body = Zone)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/zones/{id}", params(("id" = Uuid, Path, description = "區域 ID")), responses((status = 200, description = "區域資訊", body = Zone)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_zone(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -254,7 +254,7 @@ pub async fn get_zone(
 }
 
 /// 建立區域
-#[utoipa::path(post, path = "/api/facilities/zones", request_body = CreateZoneRequest, responses((status = 201, description = "建立成功", body = Zone)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/facilities/zones", request_body = CreateZoneRequest, responses((status = 201, description = "建立成功", body = Zone)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn create_zone(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -266,7 +266,7 @@ pub async fn create_zone(
 }
 
 /// 更新區域
-#[utoipa::path(put, path = "/api/facilities/zones/{id}", params(("id" = Uuid, Path, description = "區域 ID")), request_body = UpdateZoneRequest, responses((status = 200, description = "更新成功", body = Zone)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/facilities/zones/{id}", params(("id" = Uuid, Path, description = "區域 ID")), request_body = UpdateZoneRequest, responses((status = 200, description = "更新成功", body = Zone)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn update_zone(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -279,7 +279,7 @@ pub async fn update_zone(
 }
 
 /// 刪除區域
-#[utoipa::path(delete, path = "/api/facilities/zones/{id}", params(("id" = Uuid, Path, description = "區域 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/facilities/zones/{id}", params(("id" = Uuid, Path, description = "區域 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
 pub async fn delete_zone(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -295,7 +295,7 @@ pub async fn delete_zone(
 // ============================================
 
 /// 列出所有欄位
-#[utoipa::path(get, path = "/api/facilities/pens", responses((status = 200, description = "欄位清單", body = Vec<PenDetails>)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/pens", responses((status = 200, description = "欄位清單", body = Vec<PenDetails>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_pens(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -307,7 +307,7 @@ pub async fn list_pens(
 }
 
 /// 取得欄位詳細
-#[utoipa::path(get, path = "/api/facilities/pens/{id}", params(("id" = Uuid, Path, description = "欄位 ID")), responses((status = 200, description = "欄位資訊", body = Pen)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/pens/{id}", params(("id" = Uuid, Path, description = "欄位 ID")), responses((status = 200, description = "欄位資訊", body = Pen)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_pen(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -319,7 +319,7 @@ pub async fn get_pen(
 }
 
 /// 建立欄位
-#[utoipa::path(post, path = "/api/facilities/pens", request_body = CreatePenRequest, responses((status = 201, description = "建立成功", body = Pen)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/facilities/pens", request_body = CreatePenRequest, responses((status = 201, description = "建立成功", body = Pen)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn create_pen(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -342,7 +342,7 @@ pub async fn batch_create_pens(
 }
 
 /// 更新欄位
-#[utoipa::path(put, path = "/api/facilities/pens/{id}", params(("id" = Uuid, Path, description = "欄位 ID")), request_body = UpdatePenRequest, responses((status = 200, description = "更新成功", body = Pen)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/facilities/pens/{id}", params(("id" = Uuid, Path, description = "欄位 ID")), request_body = UpdatePenRequest, responses((status = 200, description = "更新成功", body = Pen)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn update_pen(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -355,7 +355,7 @@ pub async fn update_pen(
 }
 
 /// 刪除欄位
-#[utoipa::path(delete, path = "/api/facilities/pens/{id}", params(("id" = Uuid, Path, description = "欄位 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/facilities/pens/{id}", params(("id" = Uuid, Path, description = "欄位 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
 pub async fn delete_pen(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -371,7 +371,7 @@ pub async fn delete_pen(
 // ============================================
 
 /// 列出所有部門
-#[utoipa::path(get, path = "/api/facilities/departments", responses((status = 200, description = "部門清單", body = Vec<DepartmentWithManager>)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/departments", responses((status = 200, description = "部門清單", body = Vec<DepartmentWithManager>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_departments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -382,7 +382,7 @@ pub async fn list_departments(
 }
 
 /// 取得部門詳細
-#[utoipa::path(get, path = "/api/facilities/departments/{id}", params(("id" = Uuid, Path, description = "部門 ID")), responses((status = 200, description = "部門資訊", body = Department)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/facilities/departments/{id}", params(("id" = Uuid, Path, description = "部門 ID")), responses((status = 200, description = "部門資訊", body = Department)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_department(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -394,7 +394,7 @@ pub async fn get_department(
 }
 
 /// 建立部門
-#[utoipa::path(post, path = "/api/facilities/departments", request_body = CreateDepartmentRequest, responses((status = 201, description = "建立成功", body = Department)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/facilities/departments", request_body = CreateDepartmentRequest, responses((status = 201, description = "建立成功", body = Department)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn create_department(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -406,7 +406,7 @@ pub async fn create_department(
 }
 
 /// 更新部門
-#[utoipa::path(put, path = "/api/facilities/departments/{id}", params(("id" = Uuid, Path, description = "部門 ID")), request_body = UpdateDepartmentRequest, responses((status = 200, description = "更新成功", body = Department)), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/facilities/departments/{id}", params(("id" = Uuid, Path, description = "部門 ID")), request_body = UpdateDepartmentRequest, responses((status = 200, description = "更新成功", body = Department)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn update_department(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -419,7 +419,7 @@ pub async fn update_department(
 }
 
 /// 刪除部門
-#[utoipa::path(delete, path = "/api/facilities/departments/{id}", params(("id" = Uuid, Path, description = "部門 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/facilities/departments/{id}", params(("id" = Uuid, Path, description = "部門 ID")), responses((status = 204, description = "刪除成功")), tag = "設施管理", security(("bearer" = [])))]
 pub async fn delete_department(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

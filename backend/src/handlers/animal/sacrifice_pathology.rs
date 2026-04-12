@@ -19,7 +19,7 @@ use crate::{
 // ============================================
 
 /// 取得動物的犧牲記錄
-#[utoipa::path(get, path = "/api/animals/{animal_id}/sacrifice", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = Option<AnimalSacrifice>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/animals/{animal_id}/sacrifice", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = Option<AnimalSacrifice>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn get_animal_sacrifice(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -30,7 +30,7 @@ pub async fn get_animal_sacrifice(
 }
 
 /// 建立或更新犧牲記錄
-#[utoipa::path(post, path = "/api/animals/{animal_id}/sacrifice", params(("animal_id" = Uuid, Path, description = "動物 ID")), request_body = CreateSacrificeRequest, responses((status = 200, body = AnimalSacrifice), (status = 400), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/animals/{animal_id}/sacrifice", params(("animal_id" = Uuid, Path, description = "動物 ID")), request_body = CreateSacrificeRequest, responses((status = 200, body = AnimalSacrifice), (status = 400), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn upsert_animal_sacrifice(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -117,7 +117,7 @@ pub async fn upsert_animal_sacrifice(
 // ============================================
 
 /// 取得動物的病理報告
-#[utoipa::path(get, path = "/api/animals/{animal_id}/pathology", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = Option<AnimalPathologyReport>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/animals/{animal_id}/pathology", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = Option<AnimalPathologyReport>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn get_animal_pathology_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -130,7 +130,7 @@ pub async fn get_animal_pathology_report(
 }
 
 /// 建立或更新病理報告
-#[utoipa::path(post, path = "/api/animals/{animal_id}/pathology", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = AnimalPathologyReport), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/animals/{animal_id}/pathology", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = AnimalPathologyReport), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn upsert_animal_pathology_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

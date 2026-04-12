@@ -17,7 +17,7 @@ use super::{sign_response, SignRecordRequest, SignRecordResponse};
 /// 為觀察記錄簽章
 #[utoipa::path(
     post,
-    path = "/api/signatures/observation/{id}",
+    path = "/api/v1/signatures/observation/{id}",
     request_body = SignRecordRequest,
     responses(
         (status = 200, description = "簽章成功", body = SignRecordResponse),

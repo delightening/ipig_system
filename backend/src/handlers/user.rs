@@ -29,7 +29,7 @@ pub struct UserQuery {
 /// 建立使用者
 #[utoipa::path(
     post,
-    path = "/api/users",
+    path = "/api/v1/users",
     request_body = CreateUserRequest,
     responses(
         (status = 200, description = "建立成功", body = UserResponse),
@@ -90,7 +90,7 @@ pub async fn create_user(
 /// 列出所有使用者
 #[utoipa::path(
     get,
-    path = "/api/users",
+    path = "/api/v1/users",
     responses(
         (status = 200, description = "使用者清單", body = Vec<UserResponse>),
     ),
@@ -112,7 +112,7 @@ pub async fn list_users(
 /// 取得單個使用者
 #[utoipa::path(
     get,
-    path = "/api/users/{id}",
+    path = "/api/v1/users/{id}",
     params(
         ("id" = Uuid, Path, description = "使用者 ID")
     ),
@@ -139,7 +139,7 @@ pub async fn get_user(
 /// 更新使用者
 #[utoipa::path(
     put,
-    path = "/api/users/{id}",
+    path = "/api/v1/users/{id}",
     params(
         ("id" = Uuid, Path, description = "使用者 ID")
     ),
@@ -240,7 +240,7 @@ pub(crate) fn require_reauth_token(
 /// 刪除使用者
 #[utoipa::path(
     delete,
-    path = "/api/users/{id}",
+    path = "/api/v1/users/{id}",
     params(
         ("id" = Uuid, Path, description = "使用者 ID")
     ),
@@ -305,7 +305,7 @@ pub async fn delete_user(
 /// Admin 重設其他使用者密碼
 #[utoipa::path(
     put,
-    path = "/api/users/{id}/password",
+    path = "/api/v1/users/{id}/password",
     params(
         ("id" = Uuid, Path, description = "使用者 ID")
     ),
@@ -376,7 +376,7 @@ pub async fn reset_user_password(
 /// 回傳 Response 含 Set-Cookie headers
 #[utoipa::path(
     post,
-    path = "/api/users/{id}/impersonate",
+    path = "/api/v1/users/{id}/impersonate",
     params(
         ("id" = Uuid, Path, description = "要模擬的使用者 ID")
     ),

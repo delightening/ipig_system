@@ -26,7 +26,7 @@ pub struct ProtocolIdQuery {
 }
 
 /// 指派審查委員
-#[utoipa::path(post, path = "/api/reviews/assignments", request_body = AssignReviewerRequest, responses((status = 200, description = "指派成功", body = ReviewAssignment)), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/reviews/assignments", request_body = AssignReviewerRequest, responses((status = 200, description = "指派成功", body = ReviewAssignment)), tag = "審查管理", security(("bearer" = [])))]
 pub async fn assign_reviewer(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -73,7 +73,7 @@ pub async fn assign_reviewer(
 }
 
 /// 列出審查委員指派清單
-#[utoipa::path(get, path = "/api/reviews/assignments", responses((status = 200, description = "指派清單", body = Vec<ReviewAssignmentResponse>)), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/reviews/assignments", responses((status = 200, description = "指派清單", body = Vec<ReviewAssignmentResponse>)), tag = "審查管理", security(("bearer" = [])))]
 pub async fn list_review_assignments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -122,7 +122,7 @@ pub async fn list_review_assignments(
 }
 
 /// 新增審查意見
-#[utoipa::path(post, path = "/api/reviews/comments", request_body = CreateCommentRequest, responses((status = 201, description = "建立成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/reviews/comments", request_body = CreateCommentRequest, responses((status = 201, description = "建立成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
 pub async fn create_review_comment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -181,7 +181,7 @@ pub async fn create_review_comment(
 }
 
 /// 列出審查意見清單
-#[utoipa::path(get, path = "/api/reviews/comments", responses((status = 200, description = "意見清單", body = Vec<ReviewCommentResponse>)), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/reviews/comments", responses((status = 200, description = "意見清單", body = Vec<ReviewCommentResponse>)), tag = "審查管理", security(("bearer" = [])))]
 pub async fn list_review_comments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -201,7 +201,7 @@ pub async fn list_review_comments(
 }
 
 /// 標記審查意見為已解決
-#[utoipa::path(post, path = "/api/reviews/comments/{id}/resolve", params(("id" = Uuid, Path, description = "意見 ID")), responses((status = 200, description = "標記成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/reviews/comments/{id}/resolve", params(("id" = Uuid, Path, description = "意見 ID")), responses((status = 200, description = "標記成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
 pub async fn resolve_review_comment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -245,7 +245,7 @@ pub async fn resolve_review_comment(
 }
 
 /// 回覆審查意見
-#[utoipa::path(post, path = "/api/reviews/comments/reply", request_body = ReplyCommentRequest, responses((status = 200, description = "回覆成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/reviews/comments/reply", request_body = ReplyCommentRequest, responses((status = 200, description = "回覆成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
 pub async fn reply_review_comment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -271,7 +271,7 @@ pub async fn reply_review_comment(
 }
 
 /// 儲存草稿回覆
-#[utoipa::path(post, path = "/api/reviews/comments/draft", request_body = SaveDraftRequest, responses((status = 200, description = "儲存成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/reviews/comments/draft", request_body = SaveDraftRequest, responses((status = 200, description = "儲存成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
 pub async fn save_reply_draft(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -297,7 +297,7 @@ pub async fn save_reply_draft(
 }
 
 /// 取得草稿回覆
-#[utoipa::path(get, path = "/api/reviews/comments/{id}/draft", params(("id" = Uuid, Path, description = "意見 ID")), responses((status = 200, description = "草稿內容")), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/reviews/comments/{id}/draft", params(("id" = Uuid, Path, description = "意見 ID")), responses((status = 200, description = "草稿內容")), tag = "審查管理", security(("bearer" = [])))]
 pub async fn get_reply_draft(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -322,7 +322,7 @@ pub async fn get_reply_draft(
 }
 
 /// 正式送出草稿回覆
-#[utoipa::path(post, path = "/api/reviews/comments/submit-draft", request_body = SubmitReplyRequest, responses((status = 200, description = "送出成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/reviews/comments/submit-draft", request_body = SubmitReplyRequest, responses((status = 200, description = "送出成功", body = ReviewComment)), tag = "審查管理", security(("bearer" = [])))]
 pub async fn submit_reply_from_draft(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

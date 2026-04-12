@@ -21,7 +21,7 @@ use super::{
 /// 為犧牲記錄簽章
 #[utoipa::path(
     post,
-    path = "/api/signatures/sacrifice/{id}",
+    path = "/api/v1/signatures/sacrifice/{id}",
     request_body = SignRecordRequest,
     responses(
         (status = 200, description = "簽章成功", body = SignRecordResponse),
@@ -63,7 +63,7 @@ pub async fn sign_sacrifice_record(
 /// 取得犧牲記錄簽章狀態
 #[utoipa::path(
     get,
-    path = "/api/signatures/sacrifice/{id}",
+    path = "/api/v1/signatures/sacrifice/{id}",
     responses(
         (status = 200, description = "簽章狀態", body = SignatureStatusResponse),
         (status = 404, description = "找不到記錄")

@@ -20,7 +20,7 @@ use super::{
 /// 為安樂死單據簽章（PI 同意 / 獸醫執行）
 #[utoipa::path(
     post,
-    path = "/api/signatures/euthanasia/{id}",
+    path = "/api/v1/signatures/euthanasia/{id}",
     request_body = SignRecordRequest,
     responses(
         (status = 200, description = "簽章成功", body = SignRecordResponse),
@@ -58,7 +58,7 @@ pub async fn sign_euthanasia_order(
 /// 取得安樂死單據簽章狀態
 #[utoipa::path(
     get,
-    path = "/api/signatures/euthanasia/{id}",
+    path = "/api/v1/signatures/euthanasia/{id}",
     responses(
         (status = 200, description = "簽章狀態", body = SignatureStatusResponse),
         (status = 404, description = "找不到記錄")

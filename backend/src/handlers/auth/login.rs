@@ -20,7 +20,7 @@ use super::cookie::{build_clear_cookie, login_response_with_cookies};
 /// 登入
 #[utoipa::path(
     post,
-    path = "/api/auth/login",
+    path = "/api/v1/auth/login",
     request_body = LoginRequest,
     responses(
         (status = 200, description = "登入成功", body = LoginResponse),
@@ -107,7 +107,7 @@ pub async fn login(
 /// 登出
 #[utoipa::path(
     post,
-    path = "/api/auth/logout",
+    path = "/api/v1/auth/logout",
     responses(
         (status = 200, description = "登出成功"),
         (status = 401, description = "未認證", body = ErrorResponse),
@@ -182,7 +182,7 @@ pub async fn logout(
 /// 取得當前使用者資訊
 #[utoipa::path(
     get,
-    path = "/api/me",
+    path = "/api/v1/me",
     responses(
         (status = 200, description = "目前使用者資訊", body = UserResponse),
         (status = 401, description = "未認證", body = ErrorResponse),
@@ -201,7 +201,7 @@ pub async fn me(
 /// 更新自己的資訊
 #[utoipa::path(
     put,
-    path = "/api/me",
+    path = "/api/v1/me",
     request_body = UpdateUserRequest,
     responses(
         (status = 200, description = "更新成功", body = UserResponse),

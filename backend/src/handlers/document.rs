@@ -21,7 +21,7 @@ use super::partner::DeleteQuery;
 /// 建立文件
 #[utoipa::path(
     post,
-    path = "/api/documents",
+    path = "/api/v1/documents",
     request_body = CreateDocumentRequest,
     responses(
         (status = 200, description = "建立成功", body = DocumentWithLines),
@@ -61,7 +61,7 @@ pub async fn create_document(
 /// 列出所有文件
 #[utoipa::path(
     get,
-    path = "/api/documents",
+    path = "/api/v1/documents",
     params(DocumentQuery),
     responses(
         (status = 200, description = "單據清單", body = Vec<DocumentListItem>),
@@ -84,7 +84,7 @@ pub async fn list_documents(
 /// 取得單個文件
 #[utoipa::path(
     get,
-    path = "/api/documents/{id}",
+    path = "/api/v1/documents/{id}",
     params(("id" = Uuid, Path, description = "單據 ID")),
     responses(
         (status = 200, description = "單據詳細", body = DocumentWithLines),
@@ -110,7 +110,7 @@ pub async fn get_document(
 /// 更新文件
 #[utoipa::path(
     put,
-    path = "/api/documents/{id}",
+    path = "/api/v1/documents/{id}",
     params(("id" = Uuid, Path, description = "單據 ID")),
     request_body = UpdateDocumentRequest,
     responses(
@@ -154,7 +154,7 @@ pub async fn update_document(
 /// 提交文件
 #[utoipa::path(
     post,
-    path = "/api/documents/{id}/submit",
+    path = "/api/v1/documents/{id}/submit",
     params(("id" = Uuid, Path, description = "單據 ID")),
     responses(
         (status = 200, description = "提交成功", body = DocumentWithLines),
@@ -210,7 +210,7 @@ pub async fn submit_document(
 /// 核准文件
 #[utoipa::path(
     post,
-    path = "/api/documents/{id}/approve",
+    path = "/api/v1/documents/{id}/approve",
     params(("id" = Uuid, Path, description = "單據 ID")),
     responses(
         (status = 200, description = "核准成功", body = DocumentWithLines),
@@ -269,7 +269,7 @@ pub async fn approve_document(
 /// ADMIN 最終核准（大金額 ADJ 調整單）
 #[utoipa::path(
     post,
-    path = "/api/documents/{id}/admin-approve",
+    path = "/api/v1/documents/{id}/admin-approve",
     params(("id" = Uuid, Path, description = "單據 ID")),
     responses(
         (status = 200, description = "ADMIN 核准成功", body = DocumentWithLines),
@@ -326,7 +326,7 @@ pub async fn admin_approve_document(
 /// ADMIN 駁回（大金額 ADJ 調整單，退回草稿）
 #[utoipa::path(
     post,
-    path = "/api/documents/{id}/admin-reject",
+    path = "/api/v1/documents/{id}/admin-reject",
     params(("id" = Uuid, Path, description = "單據 ID")),
     request_body = AdminRejectRequest,
     responses(
@@ -385,7 +385,7 @@ pub async fn admin_reject_document(
 /// 取消文件
 #[utoipa::path(
     post,
-    path = "/api/documents/{id}/cancel",
+    path = "/api/v1/documents/{id}/cancel",
     params(("id" = Uuid, Path, description = "單據 ID")),
     responses(
         (status = 200, description = "取消成功", body = DocumentWithLines),
@@ -444,7 +444,7 @@ pub async fn cancel_document(
 /// 刪除文件
 #[utoipa::path(
     delete,
-    path = "/api/documents/{id}",
+    path = "/api/v1/documents/{id}",
     params(
         ("id" = Uuid, Path, description = "單據 ID"),
         DeleteQuery
@@ -490,7 +490,7 @@ pub async fn delete_document(
 /// 取得採購單入庫狀態
 #[utoipa::path(
     get,
-    path = "/api/documents/{id}/receipt-status",
+    path = "/api/v1/documents/{id}/receipt-status",
     params(("id" = Uuid, Path, description = "採購單 ID")),
     responses(
         (status = 200, description = "入庫狀態", body = PoReceiptStatus),
@@ -514,7 +514,7 @@ pub async fn get_po_receipt_status(
 /// 重新計算所有已核准 PO 的入庫狀態
 #[utoipa::path(
     post,
-    path = "/api/documents/recalculate-receipt-status",
+    path = "/api/v1/documents/recalculate-receipt-status",
     responses(
         (status = 200, description = "重新計算完成", body = serde_json::Value),
         (status = 401, description = "未認證"),

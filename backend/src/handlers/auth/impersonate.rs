@@ -18,7 +18,7 @@ use super::cookie::login_response_with_cookies;
 /// 從 JWT 的 impersonated_by 欄位取得管理員 ID，重新簽發管理員的正常 token
 #[utoipa::path(
     post,
-    path = "/api/auth/stop-impersonate",
+    path = "/api/v1/auth/stop-impersonate",
     responses(
         (status = 200, description = "恢復管理員 session"),
         (status = 403, description = "非模擬登入狀態", body = ErrorResponse),

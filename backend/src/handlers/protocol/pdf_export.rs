@@ -44,7 +44,7 @@ async fn check_protocol_view_access(
 /// 匯出審核結果 PDF (AD-04-01-10B)
 #[utoipa::path(
     get,
-    path = "/api/protocols/{id}/export-review-result",
+    path = "/api/v1/protocols/{id}/export-review-result",
     params(("id" = Uuid, Path, description = "計畫 ID")),
     responses((status = 200, description = "PDF 檔案")),
     tag = "計畫書管理",
@@ -137,7 +137,7 @@ pub async fn export_review_result(
 /// 匯出審查意見回覆表 PDF (AD-04-01-04C)
 #[utoipa::path(
     get,
-    path = "/api/protocols/{id}/export-review-comments",
+    path = "/api/v1/protocols/{id}/export-review-comments",
     params(("id" = Uuid, Path, description = "計畫 ID")),
     responses((status = 200, description = "PDF 檔案")),
     tag = "計畫書管理",
@@ -365,7 +365,7 @@ pub async fn export_review_comments(
 /// 匯出 AUP 計畫書 PDF（Gotenberg 版）
 #[utoipa::path(
     get,
-    path = "/api/protocols/{id}/export-pdf-v2",
+    path = "/api/v1/protocols/{id}/export-pdf-v2",
     params(("id" = Uuid, Path, description = "計畫 ID")),
     responses((status = 200, description = "PDF 檔案")),
     tag = "計畫書管理",

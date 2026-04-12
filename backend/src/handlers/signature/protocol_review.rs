@@ -20,7 +20,7 @@ use super::{
 /// 為計劃審查簽章（IACUC 委員核准）
 #[utoipa::path(
     post,
-    path = "/api/signatures/protocol/{id}",
+    path = "/api/v1/signatures/protocol/{id}",
     request_body = SignRecordRequest,
     responses(
         (status = 200, description = "簽章成功", body = SignRecordResponse),
@@ -58,7 +58,7 @@ pub async fn sign_protocol_review(
 /// 取得計劃審查簽章狀態
 #[utoipa::path(
     get,
-    path = "/api/signatures/protocol/{id}",
+    path = "/api/v1/signatures/protocol/{id}",
     responses(
         (status = 200, description = "簽章狀態", body = SignatureStatusResponse),
         (status = 404, description = "找不到記錄")

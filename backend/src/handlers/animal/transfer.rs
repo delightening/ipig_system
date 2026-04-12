@@ -34,7 +34,7 @@ pub async fn get_animal_data_boundary(
 }
 
 /// 取得動物的轉讓記錄列表
-#[utoipa::path(get, path = "/api/animals/{animal_id}/transfers", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = Vec<AnimalTransfer>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/animals/{animal_id}/transfers", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = Vec<AnimalTransfer>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn list_animal_transfers(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -45,7 +45,7 @@ pub async fn list_animal_transfers(
 }
 
 /// 取得單一轉讓記錄
-#[utoipa::path(get, path = "/api/transfers/{transfer_id}", params(("transfer_id" = Uuid, Path, description = "轉讓 ID")), responses((status = 200, body = AnimalTransfer), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/transfers/{transfer_id}", params(("transfer_id" = Uuid, Path, description = "轉讓 ID")), responses((status = 200, body = AnimalTransfer), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn get_transfer(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -66,7 +66,7 @@ pub async fn get_transfer_vet_evaluation(
 }
 
 /// 步驟 1：發起轉讓
-#[utoipa::path(post, path = "/api/animals/{animal_id}/transfers", params(("animal_id" = Uuid, Path, description = "動物 ID")), request_body = CreateTransferRequest, responses((status = 200, body = AnimalTransfer), (status = 400), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/animals/{animal_id}/transfers", params(("animal_id" = Uuid, Path, description = "動物 ID")), request_body = CreateTransferRequest, responses((status = 200, body = AnimalTransfer), (status = 400), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn initiate_transfer(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -189,7 +189,7 @@ pub async fn assign_transfer_plan(
 }
 
 /// 步驟 4：PI 同意
-#[utoipa::path(post, path = "/api/transfers/{transfer_id}/approve", params(("transfer_id" = Uuid, Path, description = "轉讓 ID")), responses((status = 200, body = AnimalTransfer), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/transfers/{transfer_id}/approve", params(("transfer_id" = Uuid, Path, description = "轉讓 ID")), responses((status = 200, body = AnimalTransfer), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn approve_transfer(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -221,7 +221,7 @@ pub async fn approve_transfer(
 }
 
 /// 步驟 5：完成轉讓
-#[utoipa::path(post, path = "/api/transfers/{transfer_id}/complete", params(("transfer_id" = Uuid, Path, description = "轉讓 ID")), responses((status = 200, body = AnimalTransfer), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/transfers/{transfer_id}/complete", params(("transfer_id" = Uuid, Path, description = "轉讓 ID")), responses((status = 200, body = AnimalTransfer), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn complete_transfer(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -257,7 +257,7 @@ pub async fn complete_transfer(
 }
 
 /// 拒絕轉讓
-#[utoipa::path(post, path = "/api/transfers/{transfer_id}/reject", params(("transfer_id" = Uuid, Path, description = "轉讓 ID")), request_body = RejectTransferRequest, responses((status = 200, body = AnimalTransfer), (status = 400), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/transfers/{transfer_id}/reject", params(("transfer_id" = Uuid, Path, description = "轉讓 ID")), request_body = RejectTransferRequest, responses((status = 200, body = AnimalTransfer), (status = 400), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn reject_transfer(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

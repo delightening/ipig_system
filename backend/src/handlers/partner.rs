@@ -24,7 +24,7 @@ use crate::{
 /// 建立合作夥伴
 #[utoipa::path(
     post,
-    path = "/api/partners",
+    path = "/api/v1/partners",
     request_body = CreatePartnerRequest,
     responses(
         (status = 200, description = "建立成功", body = Partner),
@@ -63,7 +63,7 @@ pub async fn create_partner(
 /// 列出所有合作夥伴
 #[utoipa::path(
     get,
-    path = "/api/partners",
+    path = "/api/v1/partners",
     params(PartnerQuery),
     responses(
         (status = 200, description = "夥伴清單", body = Vec<Partner>),
@@ -86,7 +86,7 @@ pub async fn list_partners(
 /// 取得單個合作夥伴
 #[utoipa::path(
     get,
-    path = "/api/partners/{id}",
+    path = "/api/v1/partners/{id}",
     params(("id" = Uuid, Path, description = "夥伴 ID")),
     responses(
         (status = 200, description = "夥伴詳細", body = Partner),
@@ -110,7 +110,7 @@ pub async fn get_partner(
 /// 更新合作夥伴
 #[utoipa::path(
     put,
-    path = "/api/partners/{id}",
+    path = "/api/v1/partners/{id}",
     params(("id" = Uuid, Path, description = "夥伴 ID")),
     request_body = UpdatePartnerRequest,
     responses(
@@ -152,7 +152,7 @@ pub struct DeleteQuery {
 /// 刪除合作夥伴
 #[utoipa::path(
     delete,
-    path = "/api/partners/{id}",
+    path = "/api/v1/partners/{id}",
     params(
         ("id" = Uuid, Path, description = "夥伴 ID"),
         DeleteQuery
@@ -199,7 +199,7 @@ pub struct GenerateCodeQuery {
 /// 生成供應商代碼
 #[utoipa::path(
     get,
-    path = "/api/partners/generate-code",
+    path = "/api/v1/partners/generate-code",
     params(GenerateCodeQuery),
     responses(
         (status = 200, description = "代碼", body = GenerateCodeResponse),
@@ -242,7 +242,7 @@ pub async fn generate_partner_code(
 /// 匯入夥伴（供應商/客戶）
 #[utoipa::path(
     post,
-    path = "/api/partners/import",
+    path = "/api/v1/partners/import",
     responses(
         (status = 200, description = "匯入結果 (multipart/form-data, field file: CSV/Excel)", body = PartnerImportResult),
         (status = 400, description = "驗證失敗或檔案格式錯誤"),
@@ -296,7 +296,7 @@ pub async fn import_partners(
 /// 下載夥伴匯入模板
 #[utoipa::path(
     get,
-    path = "/api/partners/import/template",
+    path = "/api/v1/partners/import/template",
     responses(
         (status = 200, description = "Excel 模板檔案"),
         (status = 401, description = "未認證"),

@@ -20,7 +20,7 @@ use super::{AnnotationResponse, CreateAnnotationRequest};
 /// 新增附註到已鎖定的記錄
 #[utoipa::path(
     post,
-    path = "/api/annotations/{record_type}/{record_id}",
+    path = "/api/v1/annotations/{record_type}/{record_id}",
     request_body = CreateAnnotationRequest,
     responses(
         (status = 200, description = "附註建立成功", body = AnnotationResponse),
@@ -88,7 +88,7 @@ pub async fn add_record_annotation(
 /// 取得記錄的所有附註
 #[utoipa::path(
     get,
-    path = "/api/annotations/{record_type}/{record_id}",
+    path = "/api/v1/annotations/{record_type}/{record_id}",
     responses(
         (status = 200, description = "附註清單", body = [AnnotationResponse])
     ),

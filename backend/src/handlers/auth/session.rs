@@ -21,7 +21,7 @@ use super::cookie::{extract_cookie_value, login_response_with_cookies};
 /// 支援從 JSON body 或 Cookie 讀取 refresh_token
 #[utoipa::path(
     post,
-    path = "/api/auth/refresh",
+    path = "/api/v1/auth/refresh",
     request_body = RefreshTokenRequest,
     responses(
         (status = 200, description = "Token 更新成功", body = LoginResponse),
@@ -48,7 +48,7 @@ pub async fn refresh_token(
 /// SEC-33：敏感操作二級認證 — 以密碼換取短期 reauth token
 #[utoipa::path(
     post,
-    path = "/api/auth/confirm-password",
+    path = "/api/v1/auth/confirm-password",
     request_body = ConfirmPasswordRequest,
     responses(
         (status = 200, description = "驗證成功，回傳 reauth_token 供後續敏感操作使用"),
@@ -75,7 +75,7 @@ pub async fn confirm_password(
 /// Heartbeat - 更新使用者 session 的最後活動時間與 IP
 #[utoipa::path(
     post,
-    path = "/api/auth/heartbeat",
+    path = "/api/v1/auth/heartbeat",
     responses(
         (status = 200, description = "心跳更新成功"),
     ),

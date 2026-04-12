@@ -25,7 +25,7 @@ use crate::{
 /// 建立產品
 #[utoipa::path(
     post,
-    path = "/api/products",
+    path = "/api/v1/products",
     request_body = CreateProductRequest,
     responses(
         (status = 200, description = "建立成功", body = ProductWithUom),
@@ -64,7 +64,7 @@ pub async fn create_product(
 /// 列出所有產品
 #[utoipa::path(
     get,
-    path = "/api/products",
+    path = "/api/v1/products",
     params(ProductQuery),
     responses(
         (status = 200, description = "產品清單", body = Vec<Product>),
@@ -87,7 +87,7 @@ pub async fn list_products(
 /// 取得單個產品
 #[utoipa::path(
     get,
-    path = "/api/products/{id}",
+    path = "/api/v1/products/{id}",
     params(("id" = Uuid, Path, description = "產品 ID")),
     responses(
         (status = 200, description = "產品詳細", body = ProductWithUom),
@@ -111,7 +111,7 @@ pub async fn get_product(
 /// 更新產品
 #[utoipa::path(
     put,
-    path = "/api/products/{id}",
+    path = "/api/v1/products/{id}",
     params(("id" = Uuid, Path, description = "產品 ID")),
     request_body = UpdateProductRequest,
     responses(
@@ -180,7 +180,7 @@ pub async fn update_product_status(
 /// 刪除產品（軟刪除）
 #[utoipa::path(
     delete,
-    path = "/api/products/{id}",
+    path = "/api/v1/products/{id}",
     params(("id" = Uuid, Path, description = "產品 ID")),
     responses(
         (status = 200, description = "刪除成功"),
@@ -212,7 +212,7 @@ pub async fn delete_product(
 /// 硬刪除產品（僅 admin；無單據/庫存/藥物關聯時才可執行）
 #[utoipa::path(
     post,
-    path = "/api/products/{id}/hard-delete",
+    path = "/api/v1/products/{id}/hard-delete",
     params(("id" = Uuid, Path, description = "產品 ID")),
     responses(
         (status = 200, description = "硬刪除成功"),
@@ -263,7 +263,7 @@ pub async fn hard_delete_product(
 /// 列出所有產品分類
 #[utoipa::path(
     get,
-    path = "/api/categories",
+    path = "/api/v1/categories",
     responses(
         (status = 200, description = "分類清單", body = Vec<ProductCategory>),
         (status = 401, description = "未認證", body = ErrorResponse),
@@ -284,7 +284,7 @@ pub async fn list_categories(
 /// 建立產品分類
 #[utoipa::path(
     post,
-    path = "/api/categories",
+    path = "/api/v1/categories",
     request_body = CreateCategoryRequest,
     responses(
         (status = 200, description = "建立成功", body = ProductCategory),
@@ -335,7 +335,7 @@ pub async fn check_product_import_duplicates(
 /// 匯入預覽：回傳解析後的列資料，供前端「依序設定 SKU」使用
 #[utoipa::path(
     post,
-    path = "/api/products/import/preview",
+    path = "/api/v1/products/import/preview",
     responses(
         (status = 200, description = "預覽列資料", body = ProductImportPreviewResult),
         (status = 400, description = "驗證失敗或檔案格式錯誤", body = ErrorResponse),
@@ -362,7 +362,7 @@ pub async fn preview_product_import(
 /// 匯入產品（CSV 或 Excel）
 #[utoipa::path(
     post,
-    path = "/api/products/import",
+    path = "/api/v1/products/import",
     responses(
         (status = 200, description = "匯入結果 (multipart/form-data, field file: CSV/Excel)", body = ProductImportResult),
         (status = 400, description = "驗證失敗或檔案格式錯誤", body = ErrorResponse),
@@ -424,7 +424,7 @@ pub async fn import_products(
 /// 下載產品匯入模板
 #[utoipa::path(
     get,
-    path = "/api/products/import/template",
+    path = "/api/v1/products/import/template",
     responses(
         (status = 200, description = "Excel 模板檔案 (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)"),
         (status = 401, description = "未認證", body = ErrorResponse),

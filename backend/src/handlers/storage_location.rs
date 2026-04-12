@@ -21,7 +21,7 @@ use crate::{
 /// 建立儲位
 #[utoipa::path(
     post,
-    path = "/api/storage-locations",
+    path = "/api/v1/storage-locations",
     request_body = CreateStorageLocationRequest,
     responses(
         (status = 200, description = "建立成功", body = StorageLocation),
@@ -46,7 +46,7 @@ pub async fn create_storage_location(
 /// 列出儲位
 #[utoipa::path(
     get,
-    path = "/api/storage-locations",
+    path = "/api/v1/storage-locations",
     params(StorageLocationQuery),
     responses(
         (status = 200, description = "儲位清單", body = Vec<StorageLocationWithWarehouse>),
@@ -69,7 +69,7 @@ pub async fn list_storage_locations(
 /// 取得單一儲位
 #[utoipa::path(
     get,
-    path = "/api/storage-locations/{id}",
+    path = "/api/v1/storage-locations/{id}",
     params(("id" = Uuid, Path, description = "儲位 ID")),
     responses(
         (status = 200, description = "儲位詳細", body = StorageLocationWithWarehouse),
@@ -93,7 +93,7 @@ pub async fn get_storage_location(
 /// 更新儲位
 #[utoipa::path(
     put,
-    path = "/api/storage-locations/{id}",
+    path = "/api/v1/storage-locations/{id}",
     params(("id" = Uuid, Path, description = "儲位 ID")),
     request_body = UpdateStorageLocationRequest,
     responses(
@@ -121,7 +121,7 @@ pub async fn update_storage_location(
 /// 批次更新倉庫佈局
 #[utoipa::path(
     put,
-    path = "/api/warehouses/{warehouse_id}/layout",
+    path = "/api/v1/warehouses/{warehouse_id}/layout",
     params(("warehouse_id" = Uuid, Path, description = "倉庫 ID")),
     request_body = UpdateStorageLayoutRequest,
     responses(
@@ -146,7 +146,7 @@ pub async fn update_warehouse_layout(
 /// 刪除儲位
 #[utoipa::path(
     delete,
-    path = "/api/storage-locations/{id}",
+    path = "/api/v1/storage-locations/{id}",
     params(("id" = Uuid, Path, description = "儲位 ID")),
     responses(
         (status = 200, description = "刪除成功"),
@@ -172,7 +172,7 @@ pub async fn delete_storage_location(
 /// 產生儲位代碼
 #[utoipa::path(
     get,
-    path = "/api/storage-locations/generate-code/{warehouse_id}",
+    path = "/api/v1/storage-locations/generate-code/{warehouse_id}",
     params(("warehouse_id" = Uuid, Path, description = "倉庫 ID")),
     responses(
         (status = 200, description = "代碼 { code }"),
@@ -195,7 +195,7 @@ pub async fn generate_storage_location_code(
 /// 取得儲位庫存明細
 #[utoipa::path(
     get,
-    path = "/api/storage-locations/{id}/inventory",
+    path = "/api/v1/storage-locations/{id}/inventory",
     params(("id" = Uuid, Path, description = "儲位 ID")),
     responses(
         (status = 200, description = "庫存明細", body = Vec<StorageLocationInventoryItem>),
@@ -219,7 +219,7 @@ pub async fn get_storage_location_inventory(
 /// 更新儲位庫存項目數量
 #[utoipa::path(
     put,
-    path = "/api/storage-locations/inventory/{item_id}",
+    path = "/api/v1/storage-locations/inventory/{item_id}",
     params(("item_id" = Uuid, Path, description = "庫存項目 ID")),
     request_body = UpdateStorageLocationInventoryItemRequest,
     responses(
@@ -247,7 +247,7 @@ pub async fn update_storage_location_inventory_item(
 /// 新增儲位庫存項目
 #[utoipa::path(
     post,
-    path = "/api/storage-locations/{storage_location_id}/inventory",
+    path = "/api/v1/storage-locations/{storage_location_id}/inventory",
     params(("storage_location_id" = Uuid, Path, description = "儲位 ID")),
     request_body = CreateStorageLocationInventoryItemRequest,
     responses(
@@ -275,7 +275,7 @@ pub async fn create_storage_location_inventory_item(
 /// 調撥儲位庫存 (同倉庫內)
 #[utoipa::path(
     post,
-    path = "/api/storage-locations/inventory/{item_id}/transfer",
+    path = "/api/v1/storage-locations/inventory/{item_id}/transfer",
     params(("item_id" = Uuid, Path, description = "庫存項目 ID")),
     request_body = TransferStorageLocationInventoryRequest,
     responses(

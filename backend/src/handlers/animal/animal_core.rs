@@ -22,7 +22,7 @@ use crate::{
 /// 列出所有動物
 #[utoipa::path(
     get,
-    path = "/api/animals",
+    path = "/api/v1/animals",
     responses(
         (status = 200, description = "成功獲取動物列表", body = [AnimalListItem]),
         (status = 401, description = "未授權")
@@ -69,7 +69,7 @@ pub async fn list_animals(
 /// 取得動物狀態統計
 #[utoipa::path(
     get,
-    path = "/api/animals/stats",
+    path = "/api/v1/animals/stats",
     responses(
         (status = 200, description = "動物狀態統計", body = AnimalStatsResponse),
         (status = 401, description = "未授權")
@@ -99,7 +99,7 @@ pub async fn get_animal_stats(
 /// 按欄位列出所有動物
 #[utoipa::path(
     get,
-    path = "/api/animals/by-pen",
+    path = "/api/v1/animals/by-pen",
     responses(
         (status = 200, description = "成功獲取按欄位分類的動物列表", body = [AnimalsByPen]),
         (status = 401, description = "未授權")
@@ -120,7 +120,7 @@ pub async fn list_animals_by_pen(
 /// 取得單個動物的詳細資訊
 #[utoipa::path(
     get,
-    path = "/api/animals/{id}",
+    path = "/api/v1/animals/{id}",
     responses(
         (status = 200, description = "成功獲取動物詳情", body = Animal),
         (status = 404, description = "找不到動物"),
@@ -146,7 +146,7 @@ pub async fn get_animal(
 /// 建立新動物
 #[utoipa::path(
     post,
-    path = "/api/animals",
+    path = "/api/v1/animals",
     request_body = CreateAnimalRequest,
     responses(
         (status = 201, description = "建立成功", body = Animal),
@@ -220,7 +220,7 @@ pub async fn create_animal(
 /// 更新動物資訊
 #[utoipa::path(
     put,
-    path = "/api/animals/{id}",
+    path = "/api/v1/animals/{id}",
     request_body = UpdateAnimalRequest,
     responses(
         (status = 200, description = "更新成功", body = Animal),
@@ -299,7 +299,7 @@ pub async fn update_animal(
 /// 刪除動物（軟刪除 + 刪除原因）- GLP 合規
 #[utoipa::path(
     delete,
-    path = "/api/animals/{id}",
+    path = "/api/v1/animals/{id}",
     request_body = DeleteRequest,
     responses(
         (status = 200, description = "刪除成功"),
@@ -355,7 +355,7 @@ pub async fn delete_animal(
 /// 批次分配動物的耳標
 #[utoipa::path(
     post,
-    path = "/api/animals/batch/assign",
+    path = "/api/v1/animals/batch/assign",
     request_body = BatchAssignRequest,
     responses(
         (status = 200, description = "批次分配成功", body = [Animal]),
@@ -404,7 +404,7 @@ pub async fn batch_assign_animals(
 /// 標記動物為獸醫已讀
 #[utoipa::path(
     post,
-    path = "/api/animals/{id}/vet-read",
+    path = "/api/v1/animals/{id}/vet-read",
     responses(
         (status = 200, description = "標記成功"),
         (status = 404, description = "找不到動物"),
@@ -441,7 +441,7 @@ pub struct AnimalEvent {
 /// 取得動物的 IACUC 變更事件（用於時間軸顯示）
 #[utoipa::path(
     get,
-    path = "/api/animals/{id}/events",
+    path = "/api/v1/animals/{id}/events",
     responses(
         (status = 200, description = "成功獲取事件列表", body = [AnimalEvent]),
         (status = 404, description = "找不到動物"),

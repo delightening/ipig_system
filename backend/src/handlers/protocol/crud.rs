@@ -29,7 +29,7 @@ pub struct CopyProtocolRequest {
 }
 
 /// 建立專案
-#[utoipa::path(post, path = "/api/protocols", request_body = CreateProtocolRequest, responses((status = 201, description = "建立成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/protocols", request_body = CreateProtocolRequest, responses((status = 201, description = "建立成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn create_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -47,7 +47,7 @@ pub async fn create_protocol(
 }
 
 /// 列出所有專案
-#[utoipa::path(get, path = "/api/protocols", responses((status = 200, description = "專案清單", body = Vec<ProtocolListItem>)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/protocols", responses((status = 200, description = "專案清單", body = Vec<ProtocolListItem>)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn list_protocols(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -81,7 +81,7 @@ pub async fn list_protocols(
 }
 
 /// 取得單個專案
-#[utoipa::path(get, path = "/api/protocols/{id}", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "專案詳細", body = ProtocolResponse)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/protocols/{id}", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "專案詳細", body = ProtocolResponse)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn get_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -96,7 +96,7 @@ pub async fn get_protocol(
 }
 
 /// 更新專案
-#[utoipa::path(put, path = "/api/protocols/{id}", params(("id" = Uuid, Path, description = "專案 ID")), request_body = UpdateProtocolRequest, responses((status = 200, description = "更新成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/protocols/{id}", params(("id" = Uuid, Path, description = "專案 ID")), request_body = UpdateProtocolRequest, responses((status = 200, description = "更新成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn update_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -113,7 +113,7 @@ pub async fn update_protocol(
 }
 
 /// 提交專案
-#[utoipa::path(post, path = "/api/protocols/{id}/submit", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "提交成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/protocols/{id}/submit", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "提交成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn submit_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -154,7 +154,7 @@ pub async fn submit_protocol(
 }
 
 /// 變更專案狀態
-#[utoipa::path(post, path = "/api/protocols/{id}/status", params(("id" = Uuid, Path, description = "專案 ID")), request_body = ChangeStatusRequest, responses((status = 200, description = "狀態變更成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/protocols/{id}/status", params(("id" = Uuid, Path, description = "專案 ID")), request_body = ChangeStatusRequest, responses((status = 200, description = "狀態變更成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn change_protocol_status(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -247,7 +247,7 @@ pub async fn change_protocol_status(
 }
 
 /// 取得專案版本
-#[utoipa::path(get, path = "/api/protocols/{id}/versions", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "版本清單", body = Vec<ProtocolVersion>)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/protocols/{id}/versions", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "版本清單", body = Vec<ProtocolVersion>)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn get_protocol_versions(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -259,7 +259,7 @@ pub async fn get_protocol_versions(
 }
 
 /// 取得專案活動歷程
-#[utoipa::path(get, path = "/api/protocols/{id}/activities", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "活動歷程", body = Vec<ProtocolActivityResponse>)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/protocols/{id}/activities", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "活動歷程", body = Vec<ProtocolActivityResponse>)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn get_protocol_activities(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -271,7 +271,7 @@ pub async fn get_protocol_activities(
 }
 
 /// 指派 co-editor
-#[utoipa::path(post, path = "/api/protocols/{id}/co-editors", request_body = AssignCoEditorRequest, responses((status = 200, description = "指派成功", body = UserProtocol)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/protocols/{id}/co-editors", request_body = AssignCoEditorRequest, responses((status = 200, description = "指派成功", body = UserProtocol)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn assign_co_editor(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -283,7 +283,7 @@ pub async fn assign_co_editor(
 }
 
 /// 列出 co-editor 列表
-#[utoipa::path(get, path = "/api/protocols/{id}/co-editors", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "Co-Editor 清單", body = Vec<CoEditorAssignmentResponse>)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/protocols/{id}/co-editors", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "Co-Editor 清單", body = Vec<CoEditorAssignmentResponse>)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn list_co_editors(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -295,7 +295,7 @@ pub async fn list_co_editors(
 }
 
 /// 移除 co-editor
-#[utoipa::path(delete, path = "/api/protocols/{id}/co-editors/{user_id}", params(("id" = Uuid, Path, description = "專案 ID"), ("user_id" = Uuid, Path, description = "使用者 ID")), responses((status = 200, description = "移除成功")), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/protocols/{id}/co-editors/{user_id}", params(("id" = Uuid, Path, description = "專案 ID"), ("user_id" = Uuid, Path, description = "使用者 ID")), responses((status = 200, description = "移除成功")), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn remove_co_editor(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -307,7 +307,7 @@ pub async fn remove_co_editor(
 }
 
 /// 列出我的專案清單
-#[utoipa::path(get, path = "/api/my-projects", responses((status = 200, description = "我的專案清單", body = Vec<ProtocolListItem>)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/my-projects", responses((status = 200, description = "我的專案清單", body = Vec<ProtocolListItem>)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn get_my_protocols(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -317,7 +317,7 @@ pub async fn get_my_protocols(
 }
 
 /// 取得專案的動物統計（儀表板用）
-#[utoipa::path(get, path = "/api/protocols/{id}/animal-stats", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "動物統計")), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/protocols/{id}/animal-stats", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "動物統計")), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn get_protocol_animal_stats(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -351,7 +351,7 @@ pub async fn get_protocol_animal_stats(
 }
 
 /// 儲存獸醫審查表
-#[utoipa::path(post, path = "/api/reviews/vet-form", request_body = SaveVetReviewFormRequest, responses((status = 200, description = "儲存成功")), tag = "審查管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/reviews/vet-form", request_body = SaveVetReviewFormRequest, responses((status = 200, description = "儲存成功")), tag = "審查管理", security(("bearer" = [])))]
 pub async fn save_vet_review_form(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -375,7 +375,7 @@ pub async fn save_vet_review_form(
 }
 
 /// 複製既有計畫建立新草稿
-#[utoipa::path(post, path = "/api/protocols/{id}/copy", params(("id" = Uuid, Path, description = "來源計畫 ID")), responses((status = 201, description = "複製成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/protocols/{id}/copy", params(("id" = Uuid, Path, description = "來源計畫 ID")), responses((status = 201, description = "複製成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn copy_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

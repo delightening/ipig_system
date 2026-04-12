@@ -37,7 +37,7 @@ pub struct GdprExportResponse {
 /// GDPR：匯出個人資料（存取權、可攜權）
 #[utoipa::path(
     get,
-    path = "/api/me/export",
+    path = "/api/v1/me/export",
     responses(
         (status = 200, description = "個人資料 JSON", body = GdprExportResponse),
         (status = 401, description = "未認證", body = ErrorResponse),
@@ -79,7 +79,7 @@ pub async fn export_me(
 /// GDPR：刪除帳號請求（刪除權）- 軟刪除，需 X-Reauth-Token
 #[utoipa::path(
     delete,
-    path = "/api/me/account",
+    path = "/api/v1/me/account",
     responses(
         (status = 200, description = "帳號已停用"),
         (status = 401, description = "未認證", body = ErrorResponse),

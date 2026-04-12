@@ -16,7 +16,7 @@ use crate::AppState;
 /// GET /me/preferences/:key
 #[utoipa::path(
     get,
-    path = "/api/me/preferences/{key}",
+    path = "/api/v1/me/preferences/{key}",
     params(("key" = String, Path, description = "偏好鍵名")),
     responses(
         (status = 200, description = "偏好設定", body = PreferenceResponse),
@@ -52,7 +52,7 @@ pub async fn get_preference(
 /// PUT /me/preferences/:key
 #[utoipa::path(
     put,
-    path = "/api/me/preferences/{key}",
+    path = "/api/v1/me/preferences/{key}",
     params(("key" = String, Path, description = "偏好鍵名")),
     request_body = UpsertPreferenceRequest,
     responses(
@@ -79,7 +79,7 @@ pub async fn upsert_preference(
 /// GET /me/preferences
 #[utoipa::path(
     get,
-    path = "/api/me/preferences",
+    path = "/api/v1/me/preferences",
     responses(
         (status = 200, description = "所有偏好設定", body = AllPreferencesResponse),
         (status = 401, description = "未認證", body = ErrorResponse),
@@ -106,7 +106,7 @@ pub async fn get_all_preferences(
 /// DELETE /me/preferences/:key
 #[utoipa::path(
     delete,
-    path = "/api/me/preferences/{key}",
+    path = "/api/v1/me/preferences/{key}",
     params(("key" = String, Path, description = "偏好鍵名")),
     responses(
         (status = 200, description = "已刪除，回傳預設值", body = PreferenceResponse),

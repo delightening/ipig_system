@@ -135,7 +135,7 @@ fn validate_clock_location(
 
 /// 列出出勤記錄
 /// - 預設只顯示自己的紀錄；具備 hr.attendance.view_all 且傳 view_all=true 時可查看所有人
-#[utoipa::path(get, path = "/api/hr/attendance", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/hr/attendance", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn list_attendance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -159,7 +159,7 @@ pub async fn list_attendance(
 }
 
 /// 打卡上班
-#[utoipa::path(post, path = "/api/hr/attendance/clock-in", request_body = ClockInRequest, responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/hr/attendance/clock-in", request_body = ClockInRequest, responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn clock_in(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -235,7 +235,7 @@ pub async fn clock_out(
 }
 
 /// 匯出出勤記錄為 Excel
-#[utoipa::path(get, path = "/api/hr/attendance/export", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/hr/attendance/export", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn export_attendance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

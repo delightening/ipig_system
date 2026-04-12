@@ -21,7 +21,7 @@ use super::cookie::login_response_with_cookies;
 /// 變更自己的密碼
 #[utoipa::path(
     put,
-    path = "/api/me/password",
+    path = "/api/v1/me/password",
     request_body = ChangeOwnPasswordRequest,
     responses(
         (status = 200, description = "密碼變更成功"),
@@ -79,7 +79,7 @@ pub async fn change_own_password(
 /// 忘記密碼 - 發送重設連結
 #[utoipa::path(
     post,
-    path = "/api/auth/forgot-password",
+    path = "/api/v1/auth/forgot-password",
     request_body = ForgotPasswordRequest,
     responses(
         (status = 200, description = "若信箱存在則已寄出重設連結"),
@@ -136,7 +136,7 @@ pub async fn forgot_password(
 /// 使用 token 重設密碼
 #[utoipa::path(
     post,
-    path = "/api/auth/reset-password",
+    path = "/api/v1/auth/reset-password",
     request_body = ResetPasswordWithTokenRequest,
     responses(
         (status = 200, description = "密碼重設成功"),

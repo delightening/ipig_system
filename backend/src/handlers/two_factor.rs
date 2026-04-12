@@ -22,7 +22,7 @@ use crate::{
 /// POST /api/auth/2fa/setup — 產生 TOTP secret（僅限管理員）
 #[utoipa::path(
     post,
-    path = "/api/auth/2fa/setup",
+    path = "/api/v1/auth/2fa/setup",
     responses(
         (status = 200, description = "TOTP 設定資訊", body = TwoFactorSetupResponse),
         (status = 403, description = "僅管理員可啟用", body = ErrorResponse),
@@ -54,7 +54,7 @@ pub async fn setup_2fa(
 /// POST /api/auth/2fa/confirm — 驗證第一次 TOTP code 並正式啟用（僅限管理員）
 #[utoipa::path(
     post,
-    path = "/api/auth/2fa/confirm",
+    path = "/api/v1/auth/2fa/confirm",
     request_body = TwoFactorConfirmRequest,
     responses(
         (status = 200, description = "2FA 已啟用"),
@@ -91,7 +91,7 @@ pub async fn confirm_2fa_setup(
 /// POST /api/auth/2fa/disable — 停用 2FA（需密碼 + TOTP code）
 #[utoipa::path(
     post,
-    path = "/api/auth/2fa/disable",
+    path = "/api/v1/auth/2fa/disable",
     request_body = TwoFactorDisableRequest,
     responses(
         (status = 200, description = "2FA 已停用"),
@@ -125,7 +125,7 @@ pub async fn disable_2fa(
 /// POST /api/auth/2fa/verify — 使用 temp_token + TOTP code 完成登入
 #[utoipa::path(
     post,
-    path = "/api/auth/2fa/verify",
+    path = "/api/v1/auth/2fa/verify",
     request_body = TwoFactorLoginRequest,
     responses(
         (status = 200, description = "登入成功，回傳 Set-Cookie"),

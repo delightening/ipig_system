@@ -25,7 +25,7 @@ use crate::{
 /// 建立 AI API key（僅管理員）
 #[utoipa::path(
     post,
-    path = "/api/ai/admin/keys",
+    path = "/api/v1/ai/admin/keys",
     request_body = CreateAiApiKeyRequest,
     responses(
         (status = 201, description = "API key 建立成功", body = CreateAiApiKeyResponse),
@@ -60,7 +60,7 @@ pub async fn create_ai_api_key(
 /// 列出所有 AI API keys
 #[utoipa::path(
     get,
-    path = "/api/ai/admin/keys",
+    path = "/api/v1/ai/admin/keys",
     responses(
         (status = 200, description = "API key 清單", body = [AiApiKeyInfo])
     ),
@@ -79,7 +79,7 @@ pub async fn list_ai_api_keys(
 /// 停用 / 啟用 AI API key
 #[utoipa::path(
     put,
-    path = "/api/ai/admin/keys/{id}/toggle",
+    path = "/api/v1/ai/admin/keys/{id}/toggle",
     params(("id" = Uuid, Path, description = "API key ID")),
     responses(
         (status = 200, description = "狀態更新成功")
@@ -114,7 +114,7 @@ pub async fn toggle_ai_api_key(
 /// 刪除 AI API key
 #[utoipa::path(
     delete,
-    path = "/api/ai/admin/keys/{id}",
+    path = "/api/v1/ai/admin/keys/{id}",
     params(("id" = Uuid, Path, description = "API key ID")),
     responses(
         (status = 200, description = "刪除成功")
@@ -152,7 +152,7 @@ pub async fn delete_ai_api_key(
 /// 取得系統概覽（AI 進入系統的第一個端點）
 #[utoipa::path(
     get,
-    path = "/api/ai/overview",
+    path = "/api/v1/ai/overview",
     responses(
         (status = 200, description = "系統概覽", body = AiSystemOverview)
     ),
@@ -167,7 +167,7 @@ pub async fn ai_system_overview(
     let overview = AiService::get_system_overview(&state.db).await?;
     let duration = start.elapsed().as_millis() as i32;
 
-    log_ai_query(&state, &caller, "/api/ai/overview", "GET", None, 200, duration).await;
+    log_ai_query(&state, &caller, "/api/v1/ai/overview", "GET", None, 200, duration).await;
 
     Ok(Json(overview))
 }
@@ -175,7 +175,7 @@ pub async fn ai_system_overview(
 /// 取得 API schema（告訴 AI 可以查什麼）
 #[utoipa::path(
     get,
-    path = "/api/ai/schema",
+    path = "/api/v1/ai/schema",
     responses(
         (status = 200, description = "API schema", body = AiSchemaResponse)
     ),
@@ -186,14 +186,14 @@ pub async fn ai_schema(
     State(state): State<AppState>,
     Extension(caller): Extension<AiCaller>,
 ) -> Result<Json<AiSchemaResponse>> {
-    log_ai_query(&state, &caller, "/api/ai/schema", "GET", None, 200, 0).await;
+    log_ai_query(&state, &caller, "/api/v1/ai/schema", "GET", None, 200, 0).await;
     Ok(Json(AiService::get_schema()))
 }
 
 /// 執行資料查詢
 #[utoipa::path(
     post,
-    path = "/api/ai/query",
+    path = "/api/v1/ai/query",
     request_body = AiQueryRequest,
     responses(
         (status = 200, description = "查詢結果", body = AiQueryResponse),
@@ -240,7 +240,7 @@ pub async fn ai_query(
     log_ai_query(
         &state,
         &caller,
-        "/api/ai/query",
+        "/api/v1/ai/query",
         "POST",
         Some(&summary),
         status,

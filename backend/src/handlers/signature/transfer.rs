@@ -21,7 +21,7 @@ use super::{
 /// 為轉讓記錄簽章（PI 同意 / 完成轉讓）
 #[utoipa::path(
     post,
-    path = "/api/signatures/transfer/{id}",
+    path = "/api/v1/signatures/transfer/{id}",
     request_body = SignRecordRequest,
     responses(
         (status = 200, description = "簽章成功", body = SignRecordResponse),
@@ -60,7 +60,7 @@ pub async fn sign_transfer_record(
 /// 取得轉讓記錄簽章狀態
 #[utoipa::path(
     get,
-    path = "/api/signatures/transfer/{id}",
+    path = "/api/v1/signatures/transfer/{id}",
     responses(
         (status = 200, description = "簽章狀態", body = SignatureStatusResponse),
         (status = 404, description = "找不到記錄")

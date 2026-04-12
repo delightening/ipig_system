@@ -22,7 +22,7 @@ use crate::{
 /// 列出 SKU 分類清單
 #[utoipa::path(
     get,
-    path = "/api/sku/categories",
+    path = "/api/v1/sku/categories",
     responses(
         (status = 200, description = "分類清單", body = CategoriesResponse),
         (status = 401, description = "未認證"),
@@ -43,7 +43,7 @@ pub async fn get_sku_categories(
 /// 列出 SKU 子分類清單
 #[utoipa::path(
     get,
-    path = "/api/sku/categories/{code}/subcategories",
+    path = "/api/v1/sku/categories/{code}/subcategories",
     params(("code" = String, Path, description = "分類代碼")),
     responses(
         (status = 200, description = "子分類清單", body = SubcategoriesResponse),
@@ -67,7 +67,7 @@ pub async fn get_sku_subcategories(
 /// 取得完整品類樹（含停用項）供編輯分類使用
 #[utoipa::path(
     get,
-    path = "/api/sku/categories/tree",
+    path = "/api/v1/sku/categories/tree",
     responses(
         (status = 200, description = "品類樹", body = CategoriesTreeResponse),
         (status = 401, description = "未認證"),
@@ -88,7 +88,7 @@ pub async fn get_sku_categories_tree(
 /// 更新品類（名稱、排序、啟用狀態）
 #[utoipa::path(
     patch,
-    path = "/api/sku/categories/{code}",
+    path = "/api/v1/sku/categories/{code}",
     params(("code" = String, Path, description = "品類代碼")),
     request_body = UpdateSkuCategoryRequest,
     responses(
@@ -137,7 +137,7 @@ pub async fn update_sku_category(
 /// 新增子類
 #[utoipa::path(
     post,
-    path = "/api/sku/categories/{category_code}/subcategories",
+    path = "/api/v1/sku/categories/{category_code}/subcategories",
     params(("category_code" = String, Path, description = "品類代碼")),
     request_body = CreateSkuSubcategoryRequest,
     responses(
@@ -189,7 +189,7 @@ pub async fn create_sku_subcategory(
 /// 更新子類（名稱、排序、啟用狀態）
 #[utoipa::path(
     patch,
-    path = "/api/sku/categories/{category_code}/subcategories/{code}",
+    path = "/api/v1/sku/categories/{category_code}/subcategories/{code}",
     params(
         ("category_code" = String, Path, description = "品類代碼"),
         ("code" = String, Path, description = "子類代碼"),
@@ -243,7 +243,7 @@ pub async fn update_sku_subcategory(
 /// 刪除子類（僅 admin；無產品使用時才可刪除）
 #[utoipa::path(
     delete,
-    path = "/api/sku/categories/{category_code}/subcategories/{code}",
+    path = "/api/v1/sku/categories/{category_code}/subcategories/{code}",
     params(
         ("category_code" = String, Path, description = "品類代碼"),
         ("code" = String, Path, description = "子類代碼"),
@@ -291,7 +291,7 @@ pub async fn delete_sku_subcategory(
 /// 刪除品類（僅 admin；無產品使用時才可刪除）
 #[utoipa::path(
     delete,
-    path = "/api/sku/categories/{code}",
+    path = "/api/v1/sku/categories/{code}",
     params(("code" = String, Path, description = "品類代碼")),
     responses(
         (status = 204, description = "刪除成功"),
@@ -336,7 +336,7 @@ pub async fn delete_sku_category(
 /// 產生 SKU
 #[utoipa::path(
     post,
-    path = "/api/sku/generate",
+    path = "/api/v1/sku/generate",
     request_body = GenerateSkuRequest,
     responses(
         (status = 200, description = "產生成功", body = GenerateSkuResponse),
@@ -360,7 +360,7 @@ pub async fn generate_sku(
 /// 驗證 SKU
 #[utoipa::path(
     post,
-    path = "/api/sku/validate",
+    path = "/api/v1/sku/validate",
     request_body = ValidateSkuRequest,
     responses(
         (status = 200, description = "驗證結果", body = ValidateSkuResponse),
@@ -383,7 +383,7 @@ pub async fn validate_sku(
 /// 預覽 SKU
 #[utoipa::path(
     post,
-    path = "/api/skus/preview",
+    path = "/api/v1/skus/preview",
     request_body = SkuPreviewRequest,
     responses(
         (status = 200, description = "預覽結果", body = SkuPreviewResponse),
@@ -407,7 +407,7 @@ pub async fn preview_sku(
 /// 建立產品並自動產生 SKU
 #[utoipa::path(
     post,
-    path = "/api/products/with-sku",
+    path = "/api/v1/products/with-sku",
     request_body = CreateProductWithSkuRequest,
     responses(
         (status = 200, description = "建立成功", body = ProductWithUom),

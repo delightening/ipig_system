@@ -19,7 +19,7 @@ use crate::{
 /// 建立角色
 #[utoipa::path(
     post,
-    path = "/api/roles",
+    path = "/api/v1/roles",
     request_body = CreateRoleRequest,
     responses(
         (status = 200, description = "建立成功", body = RoleWithPermissions),
@@ -55,7 +55,7 @@ pub async fn create_role(
 /// 列出所有角色
 #[utoipa::path(
     get,
-    path = "/api/roles",
+    path = "/api/v1/roles",
     responses(
         (status = 200, description = "角色清單", body = Vec<RoleWithPermissions>),
     ),
@@ -75,7 +75,7 @@ pub async fn list_roles(
 /// 取得單個角色
 #[utoipa::path(
     get,
-    path = "/api/roles/{id}",
+    path = "/api/v1/roles/{id}",
     params(
         ("id" = Uuid, Path, description = "角色 ID")
     ),
@@ -100,7 +100,7 @@ pub async fn get_role(
 /// 更新角色
 #[utoipa::path(
     put,
-    path = "/api/roles/{id}",
+    path = "/api/v1/roles/{id}",
     params(
         ("id" = Uuid, Path, description = "角色 ID")
     ),
@@ -140,7 +140,7 @@ pub async fn update_role(
 /// 刪除角色
 #[utoipa::path(
     delete,
-    path = "/api/roles/{id}",
+    path = "/api/v1/roles/{id}",
     params(
         ("id" = Uuid, Path, description = "角色 ID")
     ),
@@ -178,7 +178,7 @@ pub async fn delete_role(
 /// 列出所有權限
 #[utoipa::path(
     get,
-    path = "/api/permissions",
+    path = "/api/v1/permissions",
     responses(
         (status = 200, description = "權限清單", body = Vec<Permission>),
     ),

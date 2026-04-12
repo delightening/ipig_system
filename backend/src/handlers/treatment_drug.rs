@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// 列出啟用藥物選項（一般使用者，無需特別權限）
-#[utoipa::path(get, path = "/api/treatment-drugs", responses((status = 200)), tag = "治療藥物", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/treatment-drugs", responses((status = 200)), tag = "治療藥物", security(("bearer" = [])))]
 pub async fn list_treatment_drugs(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<TreatmentDrugOption>>> {
@@ -31,7 +31,7 @@ pub async fn list_treatment_drugs(
 }
 
 /// 列出所有藥物選項（管理員，含篩選）
-#[utoipa::path(get, path = "/api/admin/treatment-drugs", params(TreatmentDrugQuery), responses((status = 200)), tag = "治療藥物", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/admin/treatment-drugs", params(TreatmentDrugQuery), responses((status = 200)), tag = "治療藥物", security(("bearer" = [])))]
 pub async fn admin_list_treatment_drugs(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -44,7 +44,7 @@ pub async fn admin_list_treatment_drugs(
 }
 
 /// 建立藥物選項（管理員）
-#[utoipa::path(post, path = "/api/admin/treatment-drugs", request_body = CreateTreatmentDrugRequest, responses((status = 201)), tag = "治療藥物", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/admin/treatment-drugs", request_body = CreateTreatmentDrugRequest, responses((status = 201)), tag = "治療藥物", security(("bearer" = [])))]
 pub async fn create_treatment_drug(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -59,7 +59,7 @@ pub async fn create_treatment_drug(
 }
 
 /// 更新藥物選項（管理員）
-#[utoipa::path(put, path = "/api/admin/treatment-drugs/{id}", params(("id" = Uuid, Path, description = "藥物選項 ID")), request_body = UpdateTreatmentDrugRequest, responses((status = 200)), tag = "治療藥物", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/admin/treatment-drugs/{id}", params(("id" = Uuid, Path, description = "藥物選項 ID")), request_body = UpdateTreatmentDrugRequest, responses((status = 200)), tag = "治療藥物", security(("bearer" = [])))]
 pub async fn update_treatment_drug(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -73,7 +73,7 @@ pub async fn update_treatment_drug(
 }
 
 /// 刪除藥物選項（管理員，軟刪除）
-#[utoipa::path(delete, path = "/api/admin/treatment-drugs/{id}", params(("id" = Uuid, Path, description = "藥物選項 ID")), responses((status = 204)), tag = "治療藥物", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/admin/treatment-drugs/{id}", params(("id" = Uuid, Path, description = "藥物選項 ID")), responses((status = 204)), tag = "治療藥物", security(("bearer" = [])))]
 pub async fn delete_treatment_drug(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -86,7 +86,7 @@ pub async fn delete_treatment_drug(
 }
 
 /// 從 ERP 匯入藥物選項（管理員）
-#[utoipa::path(post, path = "/api/admin/treatment-drugs/import-from-erp", request_body = ImportFromErpRequest, responses((status = 201)), tag = "治療藥物", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/admin/treatment-drugs/import-from-erp", request_body = ImportFromErpRequest, responses((status = 201)), tag = "治療藥物", security(("bearer" = [])))]
 pub async fn import_treatment_drugs_from_erp(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
