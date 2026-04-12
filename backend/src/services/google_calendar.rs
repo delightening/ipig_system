@@ -2,11 +2,11 @@
 // 使用 Service Account 認證與 Google Calendar 進行雙向同步
 
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use std::env;
 
-use crate::{error::AppError, models::CalendarEvent, Result};
+use crate::{constants::TAIWAN_OFFSET_SECS, error::AppError, models::CalendarEvent, Result};
 
 /// Google Calendar API 客戶端
 pub struct GoogleCalendarClient {
@@ -190,15 +190,28 @@ impl GoogleCalendarClient {
         // ... (原 fetch_events 實作)
         let access_token = self.get_access_token().await?;
 
-        let time_min = start_date
-            .and_hms_opt(0, 0, 0)
-            .ok_or_else(|| AppError::Internal("invalid time: 00:00:00".to_string()))?
-            .and_utc()
+        // 使用台灣時區（UTC+8）計算查詢範圍，避免 UTC midnight 偏移導致跨日事件顯示錯誤
+        let taiwan_tz =
+            chrono::FixedOffset::east_opt(TAIWAN_OFFSET_SECS).ok_or_else(|| {
+                AppError::Internal("invalid timezone offset UTC+8".to_string())
+            })?;
+        let time_min = taiwan_tz
+            .from_local_datetime(
+                &start_date
+                    .and_hms_opt(0, 0, 0)
+                    .ok_or_else(|| AppError::Internal("invalid time: 00:00:00".to_string()))?,
+            )
+            .single()
+            .ok_or_else(|| AppError::Internal("ambiguous or invalid local datetime".to_string()))?
             .to_rfc3339();
-        let time_max = end_date
-            .and_hms_opt(23, 59, 59)
-            .ok_or_else(|| AppError::Internal("invalid time: 23:59:59".to_string()))?
-            .and_utc()
+        let time_max = taiwan_tz
+            .from_local_datetime(
+                &end_date
+                    .and_hms_opt(23, 59, 59)
+                    .ok_or_else(|| AppError::Internal("invalid time: 23:59:59".to_string()))?,
+            )
+            .single()
+            .ok_or_else(|| AppError::Internal("ambiguous or invalid local datetime".to_string()))?
             .to_rfc3339();
 
         let url = format!(
