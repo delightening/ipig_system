@@ -141,6 +141,8 @@ pub enum ProtocolActivityType {
     // 動物管理
     AnimalAssigned,
     AnimalUnassigned,
+    // MCP 稽核
+    McpRead,
 }
 
 impl ProtocolActivityType {
@@ -172,6 +174,7 @@ impl ProtocolActivityType {
             ProtocolActivityType::AmendmentSubmitted => "AMENDMENT_SUBMITTED",
             ProtocolActivityType::AnimalAssigned => "ANIMAL_ASSIGNED",
             ProtocolActivityType::AnimalUnassigned => "ANIMAL_UNASSIGNED",
+            ProtocolActivityType::McpRead => "MCP_READ",
         }
     }
 
@@ -203,6 +206,7 @@ impl ProtocolActivityType {
             ProtocolActivityType::AmendmentSubmitted => "送審修正案",
             ProtocolActivityType::AnimalAssigned => "分配動物",
             ProtocolActivityType::AnimalUnassigned => "移除動物",
+            ProtocolActivityType::McpRead => "MCP 閱覽",
         }
     }
 }
@@ -679,7 +683,7 @@ mod tests {
 
     #[test]
     fn test_activity_type_all_variants() {
-        // 確認所有 20 個變體都有對應字串
+        // 確認所有 27 個變體都有對應字串
         let variants = vec![
             ProtocolActivityType::Created,
             ProtocolActivityType::Updated,
@@ -707,6 +711,7 @@ mod tests {
             ProtocolActivityType::AmendmentSubmitted,
             ProtocolActivityType::AnimalAssigned,
             ProtocolActivityType::AnimalUnassigned,
+            ProtocolActivityType::McpRead,
         ];
         for v in &variants {
             assert!(!v.as_str().is_empty());

@@ -19,6 +19,7 @@ mod auth;
 mod erp;
 mod hr;
 mod invitation;
+mod mcp;
 mod notification;
 mod protocol;
 mod report;
@@ -97,6 +98,9 @@ pub fn api_routes(state: AppState) -> Router {
     let ai_query_routes = ai::ai_routes(state.clone())
         .with_state(state.clone());
 
+    // MCP 路由（使用個人 MCP API Key 認證，不走 JWT / CSRF）
+    let mcp_routes = mcp::routes().with_state(state.clone());
+
     let api_middleware_stack = ServiceBuilder::new()
         .layer(middleware::from_fn(etag_middleware))
         .layer(middleware::from_fn_with_state(
@@ -108,7 +112,8 @@ pub fn api_routes(state: AppState) -> Router {
     let api_v1 = public_routes
         .merge(protected_routes)
         .merge(upload_routes)
-        .merge(ai_query_routes);
+        .merge(ai_query_routes)
+        .merge(mcp_routes);
     health_route.merge(
         Router::new()
             .nest("/api/v1", api_v1)

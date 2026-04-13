@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import api, { User, UpdateUserRequest } from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
 import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup'
+import { McpKeysSection } from '@/components/settings/McpKeysSection'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -554,6 +555,9 @@ export function ProfileSettingsPage() {
                                 onStatusChange={() => checkAuth()}
                             />
                         )}
+
+                        {/* MCP 連線金鑰（IACUC 相關角色） */}
+                        <McpKeysSection />
 
                         <Card className="bg-muted/50">
                             <CardContent className="p-8">

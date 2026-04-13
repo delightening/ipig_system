@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use sqlx::PgPool;
 use tracing::{info, error};
-use chrono::{Timelike, Datelike};
+use chrono::{Timelike, Datelike, Weekday};
 
 use crate::{
     config::Config,
@@ -31,6 +31,7 @@ impl SchedulerService {
         Self::register_monthly_report_job(&sched, &db, &mut job_count).await?;
         Self::register_invitation_expiry_job(&sched, &db, &mut job_count).await?;
         Self::register_db_analyze_job(&sched, &db, &mut job_count).await?;
+        Self::register_iacuc_submission_notify_job(&sched, &db, &config, &mut job_count).await?;
 
         sched.start().await?;
         info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
@@ -253,6 +254,30 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'invitation_expiry' registered");
+        *count += 1;
+        Ok(())
+    }
+
+    /// 每兩小時（平日 07:00–15:00 台灣時間）檢查新送審 IACUC 計畫書並通知執行秘書
+    async fn register_iacuc_submission_notify_job(
+        sched: &JobScheduler,
+        db: &PgPool,
+        config: &Arc<Config>,
+        count: &mut u32,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let db_clone = db.clone();
+        let config_clone = config.clone();
+        let job = Job::new_async("0 0 */2 * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            let config = config_clone.clone();
+            Box::pin(async move {
+                if let Err(e) = Self::check_iacuc_new_submissions(&db, &config).await {
+                    error!("[IACUC] Submission notify job failed: {}", e);
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'iacuc_submission_notify' registered (every 2h, Mon-Fri 07:00-15:00 CST)");
         *count += 1;
         Ok(())
     }
@@ -763,5 +788,109 @@ impl SchedulerService {
             count += 1;
         }
         Ok(count)
+    }
+
+    /// 檢查最近 150 分鐘內新送審的 IACUC 計畫書，發送 Email 通知
+    async fn check_iacuc_new_submissions(db: &PgPool, config: &Arc<Config>) -> SchedulerResult {
+        // 僅在台灣時間（UTC+8）平日 07:00–15:00 執行
+        let taipei = chrono::FixedOffset::east_opt(8 * 3600).expect("valid offset");
+        let now_taipei = chrono::Utc::now().with_timezone(&taipei);
+        let hour = now_taipei.hour();
+        let is_workday = matches!(now_taipei.weekday(), Weekday::Mon | Weekday::Tue | Weekday::Wed | Weekday::Thu | Weekday::Fri);
+        if !is_workday || hour < 7 || hour > 15 {
+            return Ok(());
+        }
+
+        // 從 system_settings 讀取通知信箱
+        let notify_raw: Option<serde_json::Value> = sqlx::query_scalar(
+            "SELECT value FROM system_settings WHERE key = 'iacuc_notify_emails'",
+        )
+        .fetch_optional(db)
+        .await?;
+
+        let notify_emails = notify_raw
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default();
+
+        if notify_emails.is_empty() {
+            info!("[IACUC] iacuc_notify_emails 未設定，跳過通知");
+            return Ok(());
+        }
+
+        // 查詢最近 150 分鐘內的新送審案
+        let rows: Vec<(String, String, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT p.protocol_no, p.title, u.name
+            FROM protocols p
+            LEFT JOIN users u ON u.id = p.pi_user_id
+            WHERE p.status = 'SUBMITTED'
+              AND p.updated_at >= NOW() - INTERVAL '150 minutes'
+            ORDER BY p.updated_at DESC
+            "#,
+        )
+        .fetch_all(db)
+        .await?;
+
+        if rows.is_empty() {
+            info!("[IACUC] 過去 150 分鐘無新送審案");
+            return Ok(());
+        }
+
+        let count = rows.len();
+        let case_list_html: String = rows.iter()
+            .map(|(no, title, pi)| {
+                format!(
+                    "<li><strong>{no}</strong> — {title}（申請人：{}）</li>",
+                    pi.as_deref().unwrap_or("—")
+                )
+            })
+            .collect();
+        let case_list_plain: String = rows.iter()
+            .map(|(no, title, pi)| format!("{no} — {title}（{}）", pi.as_deref().unwrap_or("—")))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let subject = format!("【iPig IACUC】新送審案件通知 - 共 {count} 件");
+        let body_html = format!(
+            r#"<html><body style="font-family:Microsoft JhengHei,sans-serif;max-width:600px;margin:0 auto">
+<h2 style="color:#1e40af">IACUC 新送審案件通知</h2>
+<p>以下計畫書已於過去 2 小時內完成送審，請至 iPig 系統進行行政預審：</p>
+<ul style="line-height:2">{case_list_html}</ul>
+<p style="margin-top:24px">
+  <a href="https://ipigsystem.asia" style="background:#2563eb;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none">
+    前往 iPig 系統
+  </a>
+</p>
+<hr style="margin-top:32px"/>
+<p style="color:#94a3b8;font-size:12px">此信由 iPig 系統自動發送，請勿直接回覆</p>
+</body></html>"#
+        );
+        let body_plain = format!(
+            "IACUC 新送審案件通知\n\n{case_list_plain}\n\n請至 https://ipigsystem.asia 進行行政預審。"
+        );
+
+        let smtp = EmailService::resolve_smtp(db, config).await;
+        let recipients: Vec<&str> = notify_emails
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        for addr in &recipients {
+            if let Err(e) = EmailService::send_email_smtp(
+                &smtp, addr, "IACUC 執行秘書", &subject, &body_plain, &body_html,
+            )
+            .await
+            {
+                error!("[IACUC] 發送通知至 {} 失敗: {}", addr, e);
+            }
+        }
+
+        info!(
+            "[IACUC] 送審通知已發送：{} 件新案 → {} 位收件人",
+            count,
+            recipients.len()
+        );
+        Ok(())
     }
 }

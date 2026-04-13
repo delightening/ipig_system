@@ -2,6 +2,7 @@
 
 pub mod access;
 mod ai;
+pub mod mcp;
 pub mod accounting;
 mod amendment;
 mod animal;

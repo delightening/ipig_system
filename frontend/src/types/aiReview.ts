@@ -64,3 +64,20 @@ export interface AiReviewResponse {
 export interface RemainingCount {
     remaining: number
 }
+
+// 批次退回補件
+export interface BatchReturnFlag {
+    section: string
+    message: string
+    suggestion: string
+}
+
+export interface BatchReturnRequest {
+    flags: BatchReturnFlag[]
+    additional_note?: string
+}
+
+export interface BatchReturnResponse {
+    created_comments: number
+    status: string
+}

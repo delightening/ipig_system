@@ -1,5 +1,8 @@
 pub mod ai;
 pub mod amendment;
+pub mod mcp;
+pub mod mcp_keys;
+pub use mcp_keys::{create_mcp_key, list_mcp_keys, revoke_mcp_key};
 pub mod data_export;
 mod animal;
 mod audit;

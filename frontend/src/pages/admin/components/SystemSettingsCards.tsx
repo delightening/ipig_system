@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Building, Database, Mail, Shield, Eye, EyeOff, Send, Loader2 } from 'lucide-react'
+import { Building, Database, Mail, Shield, Eye, EyeOff, Send, Loader2, Bell } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -212,6 +212,33 @@ export function SystemSettingsCards({
             </div>
           </div>
           <TestEmailSection formDirty={settingsForm.dirty} />
+        </CardContent>
+      </Card>
+
+      {/* IACUC notification settings */}
+      <Card className="md:col-span-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            IACUC 通知設定
+          </CardTitle>
+          <CardDescription>
+            設定排程 AI agent 自動通知的收件人，修改後下次排程即生效
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="iacucNotifyEmails">通知信箱</Label>
+            <Input
+              id="iacucNotifyEmails"
+              value={settingsForm.form.iacucNotifyEmails}
+              onChange={(e) => settingsForm.updateField('iacucNotifyEmails', e.target.value)}
+              placeholder="secretary@example.com,chair@example.com"
+            />
+            <p className="text-xs text-muted-foreground">
+              多位收件人請用逗號分隔。排程 agent 呼叫 notify_secretary 未指定收件人時，將自動發送至此清單。
+            </p>
+          </div>
         </CardContent>
       </Card>
 

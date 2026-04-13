@@ -1,6 +1,6 @@
 # iPig 系統部署與維運手冊
 
-> 版本：1.1 | 更新日期：2026-03-01
+> 版本：1.2 | 更新日期：2026-04-13
 
 本手冊說明**正式環境**的系統需求、首次部署、日常維運、監控、故障排除與容器自動更新。  
 **與其他文件的關係：**
@@ -16,14 +16,18 @@
 
 ## 1. 系統需求
 
-| 項目 | 最低需求 | 建議 |
-|------|----------|------|
-| OS | Linux (64-bit) | Ubuntu 22.04+ / Debian 12+ |
-| Docker | 24.0+ | 最新穩定版 |
-| Docker Compose | 2.20+ | 最新穩定版 |
-| 記憶體 | 2 GB | 4 GB+ |
-| 磁碟空間 | 50 GB | 250-500 GB（含照片儲存） |
-| 網路頻寬 | 10 Mbps | 100 Mbps+ |
+| 項目 | 最低需求 | 建議 | 備註 |
+|------|----------|------|------|
+| **OS** | Linux x86-64 | Ubuntu 22.04+ / Debian 12+ | DSM 7.2+（Synology）亦可 |
+| **CPU** | 2 核 x86-64 | 4 核+ | Rust 編譯多核加速；執行期輕量 |
+| **RAM（含 build）** | 8 GB | **16 GB** | Rust build 峰值約 6–7 GB；容器執行約 1–2 GB |
+| **RAM（僅執行）** | 2 GB | 4 GB | 使用預建 image，不在機器上 build |
+| **磁碟空間** | 50 GB | 250 GB+ | Docker images ~3 GB；另計 DB、logs、照片附件 |
+| **Docker** | 24.0+ | 最新穩定版 | |
+| **Docker Compose** | 2.20+ | 最新穩定版 | |
+| **網路頻寬** | 10 Mbps | 100 Mbps+ | |
+
+> **⚠ RAM 注意**：若直接在伺服器上執行 `docker compose up -d --build`（含 Rust 編譯），RAM 低於 8 GB 可能 OOM 導致 build 失敗。建議策略：在開發機 build 完 push image，伺服器僅執行 `docker compose up -d`（pull image），可將伺服器 RAM 需求降至 2 GB。
 
 ---
 

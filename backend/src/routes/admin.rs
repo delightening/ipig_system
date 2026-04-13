@@ -18,6 +18,11 @@ pub fn routes() -> Router<AppState> {
             "/admin/system-settings/test-email",
             post(handlers::send_test_email),
         )
+        // IACUC 通知測試
+        .route(
+            "/admin/iacuc/test-notification",
+            post(handlers::send_iacuc_test_notification),
+        )
         // Admin Config Warnings
         .route(
             "/admin/config-warnings",

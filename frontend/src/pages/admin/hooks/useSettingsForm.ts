@@ -13,6 +13,7 @@ export interface SystemSettingsFormData {
   emailFromEmail: string
   emailFromName: string
   sessionTimeout: string
+  iacucNotifyEmails: string
 }
 
 const unwrap = (val: unknown): string => {
@@ -33,6 +34,7 @@ const defaultForm: SystemSettingsFormData = {
   emailFromEmail: '',
   emailFromName: '',
   sessionTimeout: '360',
+  iacucNotifyEmails: '',
 }
 
 export function useSettingsForm(sysSettings: SystemSettings | undefined) {
@@ -53,6 +55,7 @@ export function useSettingsForm(sysSettings: SystemSettings | undefined) {
       emailFromEmail: unwrap(sysSettings.smtp_from_email) || '',
       emailFromName: unwrap(sysSettings.smtp_from_name) || '',
       sessionTimeout: unwrap(sysSettings.session_timeout_minutes) || '360',
+      iacucNotifyEmails: unwrap(sysSettings.iacuc_notify_emails) || '',
     })
     setPasswordEdited(false)
     setDirty(false)
@@ -82,6 +85,7 @@ export function useSettingsForm(sysSettings: SystemSettings | undefined) {
         smtp_from_email: form.emailFromEmail,
         smtp_from_name: form.emailFromName,
         session_timeout_minutes: form.sessionTimeout,
+        iacuc_notify_emails: form.iacucNotifyEmails,
       }
       if (passwordEdited && form.emailPassword !== smtpMask) {
         payload.smtp_password = form.emailPassword

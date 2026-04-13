@@ -35,4 +35,10 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/roles/:id/delete", post(handlers::delete_role))
         .route("/permissions", get(handlers::list_permissions))
+        // MCP API Keys（個人設定）
+        .route(
+            "/user/mcp-keys",
+            get(handlers::list_mcp_keys).post(handlers::create_mcp_key),
+        )
+        .route("/user/mcp-keys/:id/revoke", post(handlers::revoke_mcp_key))
 }

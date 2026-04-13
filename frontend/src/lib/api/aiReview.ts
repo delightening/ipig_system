@@ -5,6 +5,8 @@ import api from './client'
 
 import type {
     AiReviewResponse,
+    BatchReturnRequest,
+    BatchReturnResponse,
     RemainingCount,
     ValidationResult,
 } from '@/types/aiReview'
@@ -58,6 +60,18 @@ export const aiReviewApi = {
     ): Promise<AiReviewResponse | null> => {
         const res = await api.get<AiReviewResponse | null>(
             `/protocols/${protocolId}/staff-review-assist/latest`
+        )
+        return res.data
+    },
+
+    /** R20-7: 批次退回補件 */
+    batchReturn: async (
+        protocolId: string,
+        req: BatchReturnRequest
+    ): Promise<BatchReturnResponse> => {
+        const res = await api.post<BatchReturnResponse>(
+            `/protocols/${protocolId}/staff-review-assist/batch-return`,
+            req
         )
         return res.data
     },
