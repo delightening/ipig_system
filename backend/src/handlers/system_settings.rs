@@ -200,7 +200,7 @@ pub async fn send_iacuc_test_notification(
 <p style="color:#94a3b8;font-size:12px">此信由 iPig 系統管理員觸發發送</p>
 </body></html>"#
     );
-    let body_plain = format!("【iPig IACUC】測試通知信\n\n此為測試信件，請忽略。\n\n前往 https://ipigsystem.asia");
+    let body_plain = "【iPig IACUC】測試通知信\n\n此為測試信件，請忽略。\n\n前往 https://ipigsystem.asia".to_string();
 
     let smtp = EmailService::resolve_smtp(&state.db, &state.config).await;
     if !smtp.is_email_enabled() {

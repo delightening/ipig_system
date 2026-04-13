@@ -797,7 +797,7 @@ impl SchedulerService {
         let now_taipei = chrono::Utc::now().with_timezone(&taipei);
         let hour = now_taipei.hour();
         let is_workday = matches!(now_taipei.weekday(), Weekday::Mon | Weekday::Tue | Weekday::Wed | Weekday::Thu | Weekday::Fri);
-        if !is_workday || hour < 7 || hour > 15 {
+        if !is_workday || !(7..=15).contains(&hour) {
             return Ok(());
         }
 

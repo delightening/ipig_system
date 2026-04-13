@@ -39,7 +39,8 @@ pub async fn list_protocols(
     let status_filter = args.get("status").and_then(|v| v.as_str());
     let limit = args.get("limit").and_then(|v| v.as_i64()).unwrap_or(20).min(100);
 
-    let rows: Vec<(Uuid, String, Option<String>, String, String, Option<String>, DateTime<Utc>)> = if let Some(status) = status_filter {
+    type ProtocolRow = (Uuid, String, Option<String>, String, String, Option<String>, DateTime<Utc>);
+    let rows: Vec<ProtocolRow> = if let Some(status) = status_filter {
         sqlx::query_as(
             r#"
             SELECT p.id, p.protocol_no, p.iacuc_no, p.title, p.status::text,
@@ -146,9 +147,7 @@ pub async fn read_protocol(
         record_mcp_read(&state.db, protocol.id, user.id).await;
     }
 
-    let (pi_name, pi_email, pi_org) = pi_info
-        .map(|(n, e, o)| (n, e, o))
-        .unwrap_or_default();
+    let (pi_name, pi_email, pi_org) = pi_info.unwrap_or_default();
 
     Ok(serde_json::json!({
         "id": protocol.id,

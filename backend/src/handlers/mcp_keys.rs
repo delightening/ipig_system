@@ -46,7 +46,8 @@ pub async fn list_mcp_keys(
     State(state): State<AppState>,
     Extension(user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<McpKeyResponse>>> {
-    let rows: Vec<(Uuid, String, String, Option<DateTime<Utc>>, DateTime<Utc>)> =
+    type McpKeyRow = (Uuid, String, String, Option<DateTime<Utc>>, DateTime<Utc>);
+    let rows: Vec<McpKeyRow> =
         sqlx::query_as(
             r#"
             SELECT id, key_prefix, name, last_used_at, created_at
