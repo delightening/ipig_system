@@ -165,7 +165,47 @@ let signature_data = Self::compute_hash(&signature_input);  // SHA-256
 
 ---
 
-## 8. 漏洞發現來源分布
+## 8. BIZ-16 殘留風險聲明
+
+帳號停用後的存取撤銷有三層防護，但仍有一個**不可消除的架構限制**：
+
+| 層 | 機制 | 生效延遲 | 覆蓋範圍 |
+|----|------|----------|---------|
+| 1 | `update_user` 停用時撤銷 refresh tokens + 終止 sessions | **即時** | 阻止 token refresh 和新 session |
+| 2 | auth middleware 查 `is_active` / `expires_at` | **≤ 5 分鐘**（TTL 快取） | 攔截新的 API 請求 |
+| 3 | JWT access token 自然過期 | **≤ jwt_expiration_seconds** | JWT 本身的 stateless 限制 |
+
+**殘留風險**：JWT access token 是 stateless 的。伺服器端不知道使用者目前持有哪些 JWT（只有 logout 時才知道 jti）。因此：
+
+- 如果 JWT expiration = 15 分鐘，停用帳號後最多 15 分鐘內舊 JWT 可通過 Layer 3
+- Layer 2（TTL 查詢）提供了更強的防護——5 分鐘內 middleware 會查 DB 發現 `is_active = false` 並拒絕
+- **最壞情況**：帳號停用後 5 分鐘內仍可存取（非 15 分鐘，因為 Layer 2 更快生效）
+
+**GLP 影響**：在安全事件場景（帳號盜用），5 分鐘視窗是可接受的——因為實際的 data exfiltration 受限於 rate limiter（100 req/sec）。但此風險**必須在 GLP validation protocol 中記錄**為已知限制。
+
+**若需要 zero-delay**：唯一做法是在 auth middleware 中**每次請求**都查 DB（移除 TTL 快取），或改用 opaque session token 取代 JWT。這會增加每請求 ~1-3ms DB latency。
+
+---
+
+## 9. Timing Oracle vs Response Leakage — 拆分為兩個問題
+
+原始報告將這兩個問題混為一談。它們是不同的攻擊：
+
+**問題 A：Response Leakage（錯誤碼不一致）**
+- 攻擊者用 valid-but-forbidden ID 得到 403，用 invalid ID 得到 404
+- 不需要計時就能區分
+- **修法**：`services/access.rs` 中 `require_animal_access` 回傳 NotFound 取代 Forbidden
+
+**問題 B：Timing Oracle（回應時間不一致）**
+- 即使回傳碼統一為 404，valid-but-forbidden ID 仍比 invalid ID 多一次 DB query
+- 需要高精度計時（通常 <10ms 差異），在有網路延遲的環境中難以利用
+- **修法**：將 ownership check 整合進初始 fetch query（不是另開一個 query）
+
+問題 A 嚴重、易修、應立即處理。問題 B 低嚴重度、難利用、可列為 Tier 3。原始報告把兩者混在一起用一個修法解決，但其實只解決了 A 沒解決 B。
+
+---
+
+## 10. 漏洞發現來源分布
 
 | 發現方法 | 漏洞數量 | 佔比 | 代表漏洞 |
 |----------|----------|------|---------|
@@ -174,11 +214,16 @@ let signature_data = Self::compute_hash(&signature_input);  // SHA-256
 | **Threat model targeted review** | 3 | 10% | VULN-004 self-escalation, BIZ-1, BIZ-3 |
 | **權限字串比對** | 3 | 10% | VULN-001 report endpoints |
 
-**結論**：53% 的漏洞可以用一個 grep 腳本在 CI 中自動捕獲。已提供實際可執行的腳本 `scripts/ci_handler_security_scan.sh`。
+**重要限制**：53% 這個數字的**分母是「本次發現的漏洞」**，不是「所有可能存在的漏洞」。CI grep 無法捕獲的漏洞類別（狀態機跳關、自我核准、race condition、temporal attack）根本不在此統計的樣本中。因此：
+
+- ✅ 可以說：「在 IDOR 類別中，CI grep 幾乎能覆蓋 100%」
+- ❌ 不能說：「CI grep 能捕獲 53% 的未來漏洞」
+- 業務邏輯漏洞（27%）需要**人工 code review**，無法自動化
+- 腳本 `scripts/ci_handler_security_scan.sh` 的價值在於消除一個**特定漏洞類別**，不是通用防護
 
 ---
 
-## 9. Remaining Uncertainty
+## 11. Remaining Uncertainty
 
 以下項目**無法透過靜態分析確認**，需要 running instance + dynamic test：
 

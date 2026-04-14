@@ -249,7 +249,12 @@ impl AuthService {
         format!("{:x}", hasher.finalize())
     }
 
-    /// 撤銷用戶的所有有效 refresh tokens（密碼變更/重設後強制重新登入）
+    /// 撤銷用戶的所有有效 refresh tokens（密碼變更/重設/帳號停用後強制重新登入）
+    /// BIZ-16: 提升為 pub 供 handler 層帳號停用時呼叫
+    pub async fn revoke_all_user_tokens(pool: &PgPool, user_id: Uuid) -> Result<()> {
+        Self::revoke_user_refresh_tokens(pool, user_id).await
+    }
+
     pub(super) async fn revoke_user_refresh_tokens(pool: &PgPool, user_id: Uuid) -> Result<()> {
         sqlx::query(
             "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL"
