@@ -10,16 +10,18 @@ use crate::{
     middleware::CurrentUser,
     models::{AnimalSuddenDeath, CreateSuddenDeathRequest},
     require_permission,
-    services::{AnimalMedicalService, AnimalService, AuditService},
+    services::{access, AnimalMedicalService, AnimalService, AuditService},
     AppState, Result,
 };
 
 /// 取得動物的猝死記錄
 pub async fn get_animal_sudden_death(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Option<AnimalSuddenDeath>>> {
+    // SEC-IDOR: v2 審計發現原始修復遺漏此端點
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let record = AnimalMedicalService::get_sudden_death(&state.db, animal_id).await?;
     Ok(Json(record))
 }

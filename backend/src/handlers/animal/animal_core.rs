@@ -455,9 +455,11 @@ pub struct AnimalEvent {
 )]
 pub async fn get_animal_events(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<AnimalEvent>>> {
+    // SEC-IDOR: v2 審計發現 — 動物活動事件需驗證計畫歸屬
+    access::require_animal_access(&state.db, &current_user, id).await?;
     type EventRow = (
         String,
         String,

@@ -203,9 +203,12 @@ pub async fn mark_surgery_vet_read(
 /// 取得手術記錄的版本歷史
 pub async fn get_surgery_versions(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<VersionHistoryResponse>> {
+    // SEC-IDOR: v2 審計發現 — 版本歷程需驗證動物計畫歸屬
+    let surgery = AnimalSurgeryService::get_by_id(&state.db, id).await?;
+    access::require_animal_access(&state.db, &current_user, surgery.animal_id).await?;
     let versions = AnimalService::get_record_versions(&state.db, "surgery", id).await?;
     Ok(Json(versions))
 }

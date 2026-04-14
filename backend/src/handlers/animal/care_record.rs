@@ -47,9 +47,12 @@ pub async fn create_care_record(
 /// GET /observations/:id/care-records — 列出觀察紀錄的照護紀錄
 pub async fn list_observation_care_records(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(observation_id): Path<Uuid>,
 ) -> Result<Json<Vec<CareRecord>>> {
+    // SEC-IDOR: v2 審計發現 — 透過觀察紀錄所屬動物驗證計畫存取權限
+    let animal_id = access::get_observation_animal_id(&state.db, observation_id).await?;
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let records = CareRecordService::list_by_record(
         &state.db,
         CareVetRecordType::Observation,
@@ -62,9 +65,16 @@ pub async fn list_observation_care_records(
 /// GET /surgeries/:id/care-records — 列出手術紀錄的照護紀錄
 pub async fn list_surgery_care_records(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(surgery_id): Path<Uuid>,
 ) -> Result<Json<Vec<CareRecord>>> {
+    // SEC-IDOR: v2 審計發現 — 透過手術紀錄所屬動物驗證計畫存取權限
+    let surgery_animal_id: Uuid = sqlx::query_scalar("SELECT animal_id FROM animal_surgeries WHERE id = $1")
+        .bind(surgery_id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| crate::AppError::NotFound("Surgery not found".into()))?;
+    access::require_animal_access(&state.db, &current_user, surgery_animal_id).await?;
     let records = CareRecordService::list_by_record(
         &state.db,
         CareVetRecordType::Surgery,
