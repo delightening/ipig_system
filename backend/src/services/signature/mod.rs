@@ -494,6 +494,17 @@ impl SignatureService {
         }
 
         if has_handwriting {
+            // SEC-BIZ-3: 手寫簽章仍需密碼驗證，確保身分不可否認性（GLP 21 CFR 11 合規）
+            // 若同時提供密碼則驗證，否則強制要求密碼
+            let pwd = password
+                .filter(|p| !p.is_empty())
+                .ok_or_else(|| AppError::Validation(
+                    "手寫簽章仍需輸入密碼以驗證身分".into(),
+                ))?;
+            let _user = AuthService::verify_password_by_id(pool, signer_id, pwd)
+                .await
+                .map_err(|_| AppError::Unauthorized)?;
+
             let svg = handwriting_svg
                 .ok_or_else(|| AppError::Internal("missing handwriting SVG".into()))?;
             Self::sign_with_handwriting(

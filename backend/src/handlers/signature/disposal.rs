@@ -93,9 +93,12 @@ pub async fn sign_disposal_approver(
 /// 取得報廢紀錄簽章狀態
 pub async fn get_disposal_signature_status(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(disposal_id): Path<Uuid>,
 ) -> Result<Json<SignatureStatusResponse>> {
+    if !current_user.has_permission("equipment.view") && !current_user.is_admin() {
+        return Err(crate::AppError::Forbidden("Permission denied: requires equipment.view".into()));
+    }
     let entity_id = disposal_id.to_string();
     let applicant_sigs =
         SignatureService::get_signature_infos(&state.db, "disposal_applicant", &entity_id).await?;

@@ -15,7 +15,7 @@ use crate::{
         UpdateWeightRequest,
     },
     require_permission,
-    services::{AnimalMedicalService, AnimalService, AnimalWeightService, AuditService},
+    services::{access, AnimalMedicalService, AnimalService, AnimalWeightService, AuditService},
     AppState, Result,
 };
 
@@ -27,10 +27,12 @@ use crate::{
 #[utoipa::path(get, path = "/api/v1/animals/{animal_id}/weights", params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery), responses((status = 200, body = Vec<AnimalWeightResponse>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn list_animal_weights(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
     Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<AnimalWeightResponse>>> {
+    // SEC-IDOR: 驗證使用者是否有權存取該動物（透過計畫成員資格）
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let weights = AnimalWeightService::list(&state.db, animal_id, filter.after).await?;
     Ok(Json(weights))
 }
@@ -158,10 +160,12 @@ pub async fn delete_animal_weight(
 #[utoipa::path(get, path = "/api/v1/animals/{animal_id}/vaccinations", params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery), responses((status = 200, body = Vec<AnimalVaccination>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn list_animal_vaccinations(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
     Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<AnimalVaccination>>> {
+    // SEC-IDOR: 驗證使用者是否有權存取該動物（透過計畫成員資格）
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let vaccinations =
         AnimalMedicalService::list_vaccinations(&state.db, animal_id, filter.after).await?;
     Ok(Json(vaccinations))

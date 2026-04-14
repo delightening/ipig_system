@@ -6,21 +6,34 @@ use axum::{
 use crate::{config::Config, models::LoginResponse, AppError, Result};
 
 /// 建構認證 Cookie 的 Set-Cookie header 值
+/// SEC: 過濾 CRLF 與分號防止 header/cookie injection
 pub(crate) fn build_set_cookie(
     name: &str,
     value: &str,
     max_age_secs: i64,
     config: &Config,
 ) -> String {
+    // SEC: 過濾 cookie value 中可能的 CRLF 與分號（防止 header injection）
+    let safe_value: String = value
+        .chars()
+        .filter(|c| *c != '\r' && *c != '\n' && *c != ';')
+        .collect();
     let mut cookie = format!(
         "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
-        name, value, max_age_secs
+        name, safe_value, max_age_secs
     );
     if config.cookie_secure {
         cookie.push_str("; Secure");
     }
     if let Some(ref domain) = config.cookie_domain {
-        cookie.push_str(&format!("; Domain={}", domain));
+        // SEC: 過濾 domain 中可能的注入字元
+        let safe_domain: String = domain
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '.' || *c == '-')
+            .collect();
+        if !safe_domain.is_empty() {
+            cookie.push_str(&format!("; Domain={}", safe_domain));
+        }
     }
     cookie
 }

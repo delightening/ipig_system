@@ -123,6 +123,52 @@ pub async fn auth_middleware(
 
     let claims = token_data.claims;
 
+    // BIZ-16: 每請求驗證帳號狀態（is_active + expires_at）
+    // 使用與 permission_cache 相同的 TTL 快取策略，避免每請求打 DB。
+    // 場景：管理員停用帳號或帳號到期後，該使用者的 JWT 在 TTL 內被拒絕存取。
+    // 最壞情況延遲 = PERMISSION_CACHE_TTL_SECS（5 分鐘），可接受。
+    {
+        let cache_ttl = std::time::Duration::from_secs(crate::constants::PERMISSION_CACHE_TTL_SECS);
+        let user_id = claims.sub;
+
+        // 使用快取中的 last-check 時間戳判斷是否需要重新查詢
+        let needs_status_check = state.permission_cache.get(&user_id)
+            .map(|entry| entry.1.elapsed() >= cache_ttl)
+            .unwrap_or(true); // 快取未命中 = 需要查詢
+
+        if needs_status_check {
+            let status: Option<(bool, Option<chrono::DateTime<chrono::Utc>>)> = sqlx::query_as(
+                "SELECT is_active, expires_at FROM users WHERE id = $1",
+            )
+            .bind(user_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("[Auth] 無法查詢使用者 {} 狀態: {}", user_id, e);
+                AppError::Internal("無法驗證使用者狀態".to_string())
+            })?;
+
+            match status {
+                Some((is_active, expires_at)) => {
+                    if !is_active {
+                        tracing::warn!("[Auth] 使用者 {} 帳號已停用，拒絕存取", user_id);
+                        return Err(AppError::Unauthorized);
+                    }
+                    if let Some(exp) = expires_at {
+                        if exp < chrono::Utc::now() {
+                            tracing::warn!("[Auth] 使用者 {} 帳號已過期，拒絕存取", user_id);
+                            return Err(AppError::Unauthorized);
+                        }
+                    }
+                }
+                None => {
+                    tracing::warn!("[Auth] 使用者 {} 不存在，拒絕存取", user_id);
+                    return Err(AppError::Unauthorized);
+                }
+            }
+        }
+    }
+
     // JWT 中省略 permissions 以符合 4096 bytes cookie 限制。
     // 非 admin 使用者從資料庫動態載入，admin 的 has_permission() 直接回傳 true 不需載入。
     // CRIT-03: 先查記憶體快取（TTL 5 分鐘），miss 時才打 DB，減少每請求的 4-table JOIN。

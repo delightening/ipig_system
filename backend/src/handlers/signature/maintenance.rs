@@ -55,9 +55,12 @@ pub async fn sign_maintenance_reviewer(
 /// 取得維修/保養紀錄簽章狀態
 pub async fn get_maintenance_signature_status(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(record_id): Path<Uuid>,
 ) -> Result<Json<SignatureStatusResponse>> {
+    if !current_user.has_permission("equipment.view") && !current_user.is_admin() {
+        return Err(crate::AppError::Forbidden("Permission denied: requires equipment.view".into()));
+    }
     let entity_id = record_id.to_string();
     let sigs =
         SignatureService::get_signature_infos(&state.db, "maintenance_reviewer", &entity_id)

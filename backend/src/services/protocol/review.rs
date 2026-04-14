@@ -221,6 +221,29 @@ impl ProtocolService {
             return Err(AppError::NotFound("Protocol not found".to_string()));
         }
 
+        // SEC-BIZ-1: 驗證操作者是否為該計畫的 PI/CLIENT/CO_EDITOR 或具 view_all 權限
+        // 防止任何有 aup.review.assign 權限的人把自己或他人加進不屬於自己的計畫
+        let is_pi_or_member = crate::services::access::is_pi_or_coeditor(
+            pool, req.protocol_id, assigned_by,
+        ).await?;
+        let has_view_all: (bool,) = sqlx::query_as(
+            r#"SELECT EXISTS(
+                SELECT 1 FROM user_roles ur
+                INNER JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = $1
+                  AND r.code IN ('SYSTEM_ADMIN', 'admin', 'IACUC_STAFF', 'IACUC_CHAIR')
+            )"#,
+        )
+        .bind(assigned_by)
+        .fetch_one(pool)
+        .await?;
+
+        if !is_pi_or_member && !has_view_all.0 {
+            return Err(AppError::Forbidden(
+                "只有計畫 PI、共同編輯者或 IACUC 人員可以指派 co-editor".to_string(),
+            ));
+        }
+
         // 驗證用戶存在且是 EXPERIMENT_STAFF 角色
         let user_has_role: (bool,) = sqlx::query_as(
             r#"

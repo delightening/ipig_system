@@ -13,7 +13,7 @@ use crate::{
         RejectTransferRequest, TransferVetEvaluation, VetEvaluateTransferRequest,
     },
     require_permission,
-    services::{AnimalService, AnimalTransferService, AuditService},
+    services::{access, AnimalService, AnimalTransferService, AuditService},
     AppState, Result,
 };
 
@@ -37,9 +37,11 @@ pub async fn get_animal_data_boundary(
 #[utoipa::path(get, path = "/api/v1/animals/{animal_id}/transfers", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = Vec<AnimalTransfer>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn list_animal_transfers(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Vec<AnimalTransfer>>> {
+    // SEC-IDOR: 驗證使用者是否有權存取該動物（透過計畫成員資格）
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let records = AnimalTransferService::list_transfers(&state.db, animal_id).await?;
     Ok(Json(records))
 }
@@ -48,19 +50,24 @@ pub async fn list_animal_transfers(
 #[utoipa::path(get, path = "/api/v1/transfers/{transfer_id}", params(("transfer_id" = Uuid, Path, description = "轉讓 ID")), responses((status = 200, body = AnimalTransfer), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn get_transfer(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(transfer_id): Path<Uuid>,
 ) -> Result<Json<AnimalTransfer>> {
     let record = AnimalTransferService::get_transfer(&state.db, transfer_id).await?;
+    // SEC-IDOR: 透過轉讓記錄所屬動物驗證計畫存取權限
+    access::require_animal_access(&state.db, &current_user, record.animal_id).await?;
     Ok(Json(record))
 }
 
 /// 取得轉讓的獸醫評估
 pub async fn get_transfer_vet_evaluation(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(transfer_id): Path<Uuid>,
 ) -> Result<Json<Option<TransferVetEvaluation>>> {
+    // SEC-IDOR: 先查轉讓記錄以取得 animal_id，驗證存取權限
+    let transfer = AnimalTransferService::get_transfer(&state.db, transfer_id).await?;
+    access::require_animal_access(&state.db, &current_user, transfer.animal_id).await?;
     let record = AnimalTransferService::get_transfer_vet_evaluation(&state.db, transfer_id).await?;
     Ok(Json(record))
 }

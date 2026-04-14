@@ -13,7 +13,7 @@ use crate::{
     middleware::{CurrentUser, extract_real_ip_with_trust},
     models::{AuditAction, CreateUserRequest, PaginationParams, ResetPasswordRequest, UpdateUserRequest, UserResponse},
     require_permission,
-    services::{AuthService, AuditService, UserService, EmailService},
+    services::{AuthService, AuditService, SessionManager, UserService, EmailService},
     AppError, AppState, Result,
 };
 
@@ -172,6 +172,20 @@ pub async fn update_user(
     if let Some(ref before) = before_user {
         if before.roles != user.roles || before.is_active != user.is_active {
             state.permission_cache.remove(&id);
+        }
+
+        // BIZ-16: 帳號停用時立即撤銷所有 session 和 refresh token，不等 TTL
+        // 場景：人員異動或安全事件下，5 分鐘視窗不可接受
+        if before.is_active && !user.is_active {
+            // 撤銷 refresh tokens — 阻止 token refresh
+            if let Err(e) = AuthService::revoke_all_user_tokens(&state.db, id).await {
+                tracing::error!("[Security] 停用帳號 {} 時撤銷 refresh tokens 失敗: {}", id, e);
+            }
+            // 終止所有 sessions
+            if let Err(e) = SessionManager::end_all_sessions(&state.db, id, "account_deactivated").await {
+                tracing::error!("[Security] 停用帳號 {} 時終止 sessions 失敗: {}", id, e);
+            }
+            tracing::warn!("[Security] 帳號 {} 已停用，所有 session/refresh token 已撤銷", id);
         }
     }
 

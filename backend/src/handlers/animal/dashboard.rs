@@ -8,15 +8,19 @@ use uuid::Uuid;
 
 use crate::{
     middleware::CurrentUser,
+    require_permission,
     AppState, Result,
 };
 
 /// 取得最近的獸醫師評論（儀表板用）
 pub async fn get_vet_comments(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>> {
+    // SEC-IDOR: v2 審計發現 — 儀表板獸醫評論需要 animal.record.view 權限
+    // 此端點返回跨計畫聚合資料，需限制為有權查看動物記錄的使用者
+    require_permission!(current_user, "animal.record.view");
     let limit: i64 = params
         .get("per_page")
         .and_then(|s| s.parse().ok())

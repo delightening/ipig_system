@@ -185,6 +185,20 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-14 資安審計：加密方式 + 權限隔離漏洞修復
+
+- ✅ **報表端點權限修復**：`handlers/report.rs` 9 個端點原本無權限檢查，任何已認證使用者可存取全部財務報表；已全部加入 `require_permission!(current_user, "erp.report.view")`
+- ✅ **動物醫療記錄 IDOR 修復**：blood_test、surgery、weight_vaccination、vet_recommendation、vet_advice、transfer 共 6 個 handler 檔案的 GET 端點未驗證計畫成員資格，已全部加入 `access::require_animal_access()` 防範跨計畫資料洩漏
+- ✅ **獸醫巡場報告權限修復**：`handlers/animal/vet_patrol.rs` 全部 5 個端點無任何權限檢查，已加入 `animal.record.view`（讀取）及 `animal.vet.recommend`（寫入）
+- ✅ **加密方式審計**：確認 ES256 非對稱簽章、Argon2id 密碼雜湊、HMAC-SHA256 CSRF、CSPRNG Token 等均符合 OWASP 最佳實踐
+- ✅ **CRITICAL 自我提權修復**：`PUT /me` 未遮蔽 `role_ids`，任何使用者可把自己提升為 SYSTEM_ADMIN；已遮蔽 `role_ids`/`is_internal`/`expires_at`
+- ✅ **Admin 模擬保護**：禁止管理員模擬登入為其他管理員，防止橫向提權
+- ✅ **角色指派驗證**：`UserService::update` 加入角色 ID 存在性檢查 + SYSTEM_ADMIN 指派僅限 SYSTEM_ADMIN 操作
+- ✅ **Cookie CRLF 注入防護**：`build_set_cookie()` 加入值與 domain 的字元過濾
+- ✅ **分頁整數溢位防護**：`PaginationParams::sql_suffix()` 改用 `saturating_mul`
+- ✅ **檔案上傳 text/plain 驗證**：`validate_magic_number()` 加入二進位控制字元檢查
+- ✅ **完整審計報告**：詳見 `docs/walkthrough_security_audit_2026_04_14.md`
+
 ### 2026-04-14 JWT 升級：HS256 → ES256（ECDSA P-256）
 
 - ✅ **演算法升級**：所有 JWT 簽發/驗證（Access Token、Reauth Token、2FA Temp Token）從對稱式 HS256 升級為非對稱式 ES256（ECDSA P-256），防止對稱金鑰暴力破解

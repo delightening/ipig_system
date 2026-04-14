@@ -10,7 +10,7 @@ use crate::{
     middleware::CurrentUser,
     models::{AnimalPathologyReport, AnimalSacrifice, CreateSacrificeRequest},
     require_permission,
-    services::{AnimalMedicalService, AnimalService, AuditService},
+    services::{access, AnimalMedicalService, AnimalService, AuditService},
     AppState, Result,
 };
 
@@ -22,9 +22,11 @@ use crate::{
 #[utoipa::path(get, path = "/api/v1/animals/{animal_id}/sacrifice", params(("animal_id" = Uuid, Path, description = "動物 ID")), responses((status = 200, body = Option<AnimalSacrifice>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn get_animal_sacrifice(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Option<AnimalSacrifice>>> {
+    // SEC-IDOR: v2 審計發現原始修復遺漏此端點
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let sacrifice = AnimalMedicalService::get_sacrifice(&state.db, animal_id).await?;
     Ok(Json(sacrifice))
 }
@@ -124,6 +126,8 @@ pub async fn get_animal_pathology_report(
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Option<crate::models::AnimalPathologyReport>>> {
     require_permission!(current_user, "animal.pathology.view");
+    // SEC-IDOR: v2 審計追加 — 權限檢查外需同時驗證計畫歸屬
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
 
     let report = AnimalMedicalService::get_pathology_report(&state.db, animal_id).await?;
     Ok(Json(report))

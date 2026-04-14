@@ -14,7 +14,7 @@ use crate::{
         VetRecommendation, VetRecordType,
     },
     require_permission,
-    services::{AnimalMedicalService, AuditService},
+    services::{access, AnimalMedicalService, AuditService},
     AppState, Result,
 };
 
@@ -247,9 +247,11 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
 /// 取得動物的所有獸醫建議（彙整觀察 + 手術）
 pub async fn get_animal_vet_recommendations(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Vec<VetRecommendation>>> {
+    // SEC-IDOR: 驗證使用者是否有權存取該動物（透過計畫成員資格）
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let recommendations =
         AnimalMedicalService::get_vet_recommendations_by_animal(&state.db, animal_id).await?;
     Ok(Json(recommendations))
@@ -257,9 +259,12 @@ pub async fn get_animal_vet_recommendations(
 
 pub async fn get_observation_vet_recommendations(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<VetRecommendation>>> {
+    // SEC-IDOR: 透過觀察記錄所屬動物驗證計畫存取權限
+    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let recommendations =
         AnimalMedicalService::get_vet_recommendations(&state.db, VetRecordType::Observation, id)
             .await?;
@@ -269,9 +274,16 @@ pub async fn get_observation_vet_recommendations(
 /// 取得手術記錄的所有獸醫建議
 pub async fn get_surgery_vet_recommendations(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<VetRecommendation>>> {
+    // SEC-IDOR: 透過手術記錄所屬動物驗證計畫存取權限
+    let surgery_animal_id: Uuid = sqlx::query_scalar("SELECT animal_id FROM animal_surgeries WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| crate::AppError::NotFound("Surgery not found".into()))?;
+    access::require_animal_access(&state.db, &current_user, surgery_animal_id).await?;
     let recommendations =
         AnimalMedicalService::get_vet_recommendations(&state.db, VetRecordType::Surgery, id)
             .await?;

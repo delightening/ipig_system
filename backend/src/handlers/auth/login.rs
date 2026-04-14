@@ -215,8 +215,11 @@ pub async fn update_me(
     Extension(current_user): Extension<CurrentUser>,
     Json(mut req): Json<UpdateUserRequest>,
 ) -> Result<Json<UserResponse>> {
-    // 一般使用者不能修改自己的 active/internal 狀態
+    // SEC-PRIV: 一般使用者不能修改自己的權限相關欄位，防止自我提權
     req.is_active = None;
+    req.is_internal = None;
+    req.role_ids = None;
+    req.expires_at = None;
     let user = UserService::update(&state.db, current_user.id, current_user.id, &req).await?;
     Ok(Json(user))
 }

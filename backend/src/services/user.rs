@@ -271,6 +271,52 @@ impl UserService {
 
         // 如果要更新角色
         if let Some(ref role_ids) = req.role_ids {
+            // SEC-PRIV: 驗證指派的角色 ID 確實存在且為有效角色，防止靜默失敗
+            if !role_ids.is_empty() {
+                let valid_count: i64 = sqlx::query_scalar(
+                    "SELECT COUNT(*) FROM roles WHERE id = ANY($1) AND is_active = true",
+                )
+                .bind(role_ids)
+                .fetch_one(pool)
+                .await?;
+
+                if valid_count != role_ids.len() as i64 {
+                    return Err(AppError::Validation(
+                        "部分角色 ID 無效或已停用".to_string(),
+                    ));
+                }
+
+                // SEC-PRIV: 檢查是否包含 SYSTEM_ADMIN 角色 — 僅允許現有 SYSTEM_ADMIN 指派
+                let has_system_admin: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM roles WHERE id = ANY($1) AND code = $2)",
+                )
+                .bind(role_ids)
+                .bind(crate::constants::ROLE_SYSTEM_ADMIN)
+                .fetch_one(pool)
+                .await?;
+
+                if has_system_admin {
+                    // 檢查操作者是否為 SYSTEM_ADMIN（而非 legacy admin）
+                    let actor_is_system_admin: bool = sqlx::query_scalar(
+                        r#"SELECT EXISTS(
+                            SELECT 1 FROM user_roles ur
+                            INNER JOIN roles r ON ur.role_id = r.id
+                            WHERE ur.user_id = $1 AND r.code = $2
+                        )"#,
+                    )
+                    .bind(actor_user_id)
+                    .bind(crate::constants::ROLE_SYSTEM_ADMIN)
+                    .fetch_one(pool)
+                    .await?;
+
+                    if !actor_is_system_admin {
+                        return Err(AppError::Forbidden(
+                            "僅 SYSTEM_ADMIN 可指派 SYSTEM_ADMIN 角色".to_string(),
+                        ));
+                    }
+                }
+            }
+
             // 刪除現有角色
             sqlx::query("DELETE FROM user_roles WHERE user_id = $1")
                 .bind(id)

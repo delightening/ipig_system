@@ -17,7 +17,7 @@ use crate::{
         UpdateBloodTestPresetRequest, UpdateBloodTestRequest, UpdateBloodTestTemplateRequest,
     },
     require_permission,
-    services::{AnimalBloodTestService, AuditService},
+    services::{access, AnimalBloodTestService, AuditService},
     AppState, Result,
 };
 
@@ -28,10 +28,12 @@ use crate::{
 /// 列出動物的所有血液檢查紀錄
 pub async fn list_animal_blood_tests(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
     Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<BloodTestListItem>>> {
+    // SEC-IDOR: 驗證使用者是否有權存取該動物（透過計畫成員資格）
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let tests =
         AnimalBloodTestService::list_blood_tests(&state.db, animal_id, filter.after).await?;
     Ok(Json(tests))
@@ -40,10 +42,12 @@ pub async fn list_animal_blood_tests(
 /// 取得單筆血液檢查（含明細）
 pub async fn get_animal_blood_test(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<AnimalBloodTestWithItems>> {
     let test = AnimalBloodTestService::get_blood_test_by_id(&state.db, id).await?;
+    // SEC-IDOR: 透過血液檢查所屬動物驗證計畫存取權限
+    access::require_animal_access(&state.db, &current_user, test.blood_test.animal_id).await?;
     Ok(Json(test))
 }
 

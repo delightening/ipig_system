@@ -349,18 +349,27 @@ impl HrService {
             None
         };
 
-        sqlx::query(
+        // SEC-BIZ-5: 使用 WHERE status 條件防止 race condition（TOCTOU）
+        // 若另一個請求已先修改狀態，此 UPDATE 不會匹配任何行 → 回傳衝突錯誤
+        let update_result = sqlx::query(
             r#"
             UPDATE leave_requests
             SET status = $2::leave_status, approved_at = $3, current_approver_id = NULL, updated_at = NOW()
-            WHERE id = $1
+            WHERE id = $1 AND status = $4::leave_status
             "#,
         )
         .bind(id)
         .bind(next_status)
         .bind(approved_at)
+        .bind(&current.status)
         .execute(pool)
         .await?;
+
+        if update_result.rows_affected() == 0 {
+            return Err(AppError::Conflict(
+                "此請假狀態已被其他操作變更，請重新整理後再試".to_string(),
+            ));
+        }
 
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"

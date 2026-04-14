@@ -81,7 +81,8 @@ impl PaginationParams {
         match (self.page, self.per_page) {
             (Some(page), Some(per_page)) => {
                 let per_page = per_page.clamp(1, 100);
-                let offset = (page.max(1) - 1) * per_page;
+                // SEC: 使用 saturating_mul 防止極端 page 值溢位
+                let offset = (page.max(1) - 1).saturating_mul(per_page);
                 format!(" LIMIT {} OFFSET {}", per_page, offset)
             }
             _ => String::new(),

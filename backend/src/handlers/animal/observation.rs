@@ -321,9 +321,12 @@ pub async fn mark_observation_vet_read(
 /// 取得觀察記錄的版本歷史
 pub async fn get_observation_versions(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<VersionHistoryResponse>> {
+    // SEC-IDOR: v2 審計發現 — 版本歷程需驗證動物計畫歸屬
+    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let versions = AnimalService::get_record_versions(&state.db, "observation", id).await?;
     Ok(Json(versions))
 }
