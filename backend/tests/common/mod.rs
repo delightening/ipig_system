@@ -52,11 +52,22 @@ impl TestApp {
         std::env::set_var("COOKIE_SECURE", "false");
         std::env::set_var("SEED_DEV_USERS", "false");
         std::env::set_var("DISABLE_CSRF_FOR_TESTS", "true");
-        if std::env::var("JWT_SECRET").is_err() {
-            std::env::set_var(
-                "JWT_SECRET",
-                "integration_test_secret_key_minimum_32_chars!!",
-            );
+        if std::env::var("JWT_EC_PRIVATE_KEY").is_err() {
+            use p256::{
+                pkcs8::{EncodePrivateKey, LineEnding},
+                SecretKey,
+            };
+            use p256::pkcs8::spki::EncodePublicKey;
+            let secret_key = SecretKey::random(&mut rand::thread_rng());
+            let private_pem = secret_key
+                .to_pkcs8_pem(LineEnding::LF)
+                .expect("Failed to encode test EC private key");
+            let public_pem = secret_key
+                .public_key()
+                .to_public_key_pem(LineEnding::LF)
+                .expect("Failed to encode test EC public key");
+            std::env::set_var("JWT_EC_PRIVATE_KEY", private_pem.as_str());
+            std::env::set_var("JWT_EC_PUBLIC_KEY", &public_pem);
         }
         // 確保測試用 admin 密碼與 login_as_admin() 回退值一致
         if std::env::var("ADMIN_INITIAL_PASSWORD")

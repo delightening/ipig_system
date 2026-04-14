@@ -1,5 +1,5 @@
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{encode, Algorithm, Header};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -192,9 +192,9 @@ impl AuthService {
         };
 
         let token = encode(
-            &Header::default(),
+            &Header::new(Algorithm::ES256),
             &claims,
-            &EncodingKey::from_secret(config.jwt_secret.as_bytes()),
+            &config.jwt_keys.encoding,
         )
         .map_err(|e| AppError::Internal(format!("Failed to create token: {}", e)))?;
 

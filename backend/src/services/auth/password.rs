@@ -3,7 +3,7 @@ use argon2::{
     Argon2,
 };
 use chrono::{Duration, Utc};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{decode, encode, Algorithm, Header, Validation};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -186,9 +186,9 @@ impl AuthService {
             purpose: "reauth".to_string(),
         };
         let token = encode(
-            &Header::default(),
+            &Header::new(Algorithm::ES256),
             &claims,
-            &EncodingKey::from_secret(config.jwt_secret.as_bytes()),
+            &config.jwt_keys.encoding,
         )
         .map_err(|e| AppError::Internal(format!("Failed to create reauth token: {}", e)))?;
         Ok((token, REAUTH_EXPIRES_SECS))
@@ -196,15 +196,16 @@ impl AuthService {
 
     /// SEC-33：驗證 reauth token 是否有效且屬於當前使用者
     pub fn verify_reauth_token(config: &Config, token: &str, expected_user_id: Uuid) -> Result<()> {
-        // SEC-AUDIT-003: 明確指定 HS256 演算法，防止 algorithm substitution 攻擊
-        let mut validation = Validation::new(jsonwebtoken::Algorithm::HS256);
+        // SEC-AUDIT-003: 明確指定 ES256 演算法，防止 algorithm substitution 攻擊
+        // SEC-UPG: 升級至 ES256（ECDSA P-256）非對稱簽章
+        let mut validation = Validation::new(Algorithm::ES256);
         validation.validate_exp = true;
         // reauth token 不含 aud/iss，跳過這些驗證
         validation.validate_aud = false;
         validation.set_required_spec_claims(&["exp", "sub"]);
         let token_data = decode::<ReauthClaims>(
             token,
-            &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
+            &config.jwt_keys.decoding,
             &validation,
         )
         .map_err(|_| AppError::Forbidden("請重新輸入密碼以確認敏感操作".to_string()))?;

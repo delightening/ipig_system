@@ -1,8 +1,28 @@
 use anyhow::Context;
+use jsonwebtoken::{DecodingKey, EncodingKey};
 
 use crate::constants::{
     ACCOUNT_LOCKOUT_DURATION_MINUTES, ACCOUNT_LOCKOUT_MAX_ATTEMPTS, MAX_SESSIONS_PER_USER,
 };
+
+/// ES256（ECDSA P-256）金鑰對，預解析以避免每次請求重新 parse PEM。
+/// EncodingKey / DecodingKey 不實作 Debug，故手動實作。
+#[derive(Clone)]
+pub struct JwtKeys {
+    /// 私鑰，用於簽發 JWT（signing）
+    pub encoding: EncodingKey,
+    /// 公鑰，用於驗證 JWT（verification）
+    pub decoding: DecodingKey,
+}
+
+impl std::fmt::Debug for JwtKeys {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JwtKeys")
+            .field("encoding", &"[EC P-256 private key]")
+            .field("decoding", &"[EC P-256 public key]")
+            .finish()
+    }
+}
 
 /// 解析 boolean 環境變數，接受 "true" / "1"（大小寫不限），預設 false
 fn parse_bool_env(key: &str) -> bool {
@@ -40,9 +60,11 @@ pub struct Config {
     pub database_acquire_timeout_seconds: u64,
     pub database_retry_attempts: u32,
     pub database_retry_delay_seconds: u64,
-    pub jwt_secret: String,
-    /// CSRF HMAC 密鑰（應與 jwt_secret 不同，防止單一金鑰洩漏同時破壞 JWT 與 CSRF 保護）
-    /// 讀取 CSRF_SECRET 環境變數；若未設定，從 jwt_secret 派生（向後相容）
+    /// ES256 金鑰對（私鑰簽發、公鑰驗證）
+    /// 讀取 JWT_EC_PRIVATE_KEY / JWT_EC_PUBLIC_KEY 環境變數（或 _FILE 後綴版本）
+    pub jwt_keys: JwtKeys,
+    /// CSRF HMAC 密鑰（應與 JWT 金鑰隔離，防止單一金鑰洩漏同時破壞兩種保護機制）
+    /// 讀取 CSRF_SECRET 環境變數；若未設定，從私鑰 PEM 派生（向後相容）
     pub csrf_secret: String,
     pub jwt_expiration_seconds: i64,
     pub jwt_refresh_expiration_days: i64,
@@ -144,29 +166,34 @@ impl Config {
                 .unwrap_or_else(|_| "5".to_string())
                 .parse()
                 .context("DATABASE_RETRY_DELAY_SECONDS must be a number")?,
-            jwt_secret: {
-                let secret = require_secret("JWT_SECRET")?;
-                if secret.len() < 32 {
-                    anyhow::bail!(
-                        "JWT_SECRET 長度不足：目前 {} 字元，至少需要 32 字元。\n\
-                         建議使用 `openssl rand -base64 48` 產生安全金鑰。",
-                        secret.len()
-                    );
-                }
-                secret
+            // CRIT-02: 使用非對稱式 ES256（ECDSA P-256）取代對稱式 HS256
+            // 金鑰材料從環境變數（或 _FILE Docker Secrets）讀取，啟動時預解析
+            jwt_keys: {
+                let private_pem = require_secret("JWT_EC_PRIVATE_KEY")
+                    .context("JWT_EC_PRIVATE_KEY（或 JWT_EC_PRIVATE_KEY_FILE）必須設定\n\
+                              產生方式：openssl ecparam -name prime256v1 -genkey -noout | \\\n\
+                                         openssl pkcs8 -topk8 -nocrypt")?;
+                let public_pem = require_secret("JWT_EC_PUBLIC_KEY")
+                    .context("JWT_EC_PUBLIC_KEY（或 JWT_EC_PUBLIC_KEY_FILE）必須設定\n\
+                              產生方式：openssl ec -in private.pem -pubout")?;
+                let encoding = EncodingKey::from_ec_pem(private_pem.as_bytes())
+                    .context("JWT_EC_PRIVATE_KEY 格式錯誤：需為 EC PEM 私鑰（SEC1 或 PKCS8 格式）")?;
+                let decoding = DecodingKey::from_ec_pem(public_pem.as_bytes())
+                    .context("JWT_EC_PUBLIC_KEY 格式錯誤：需為 EC PEM 公鑰（SPKI 格式）")?;
+                JwtKeys { encoding, decoding }
             },
-            // CRIT-02: CSRF 密鑰與 JWT 密鑰隔離，防止單一金鑰洩漏同時破壞兩種保護機制
+            // CRIT-02: CSRF 密鑰與 JWT 金鑰隔離，防止單一金鑰洩漏同時破壞兩種保護機制
             csrf_secret: {
                 if let Some(s) = read_secret("CSRF_SECRET") {
                     s
                 } else {
-                    // 向後相容：從 jwt_secret 派生（透過 HMAC-SHA256 產生獨立派生金鑰）
+                    // 向後相容：從 EC 私鑰 PEM 派生（透過 HMAC-SHA256 產生獨立派生金鑰）
                     // 建議在正式環境設定獨立的 CSRF_SECRET 環境變數
                     use sha2::{Digest, Sha256};
-                    let jwt_raw = require_secret("JWT_SECRET")?;
+                    let private_pem = require_secret("JWT_EC_PRIVATE_KEY")?;
                     let mut hasher = Sha256::new();
-                    hasher.update(jwt_raw.as_bytes());
-                    hasher.update(b":csrf-derived");
+                    hasher.update(private_pem.as_bytes());
+                    hasher.update(b":csrf-derived-v2");
                     format!("{:x}", hasher.finalize())
                 }
             },
@@ -296,6 +323,33 @@ impl Config {
 }
 
 #[cfg(test)]
+impl JwtKeys {
+    /// 產生測試用 ES256 金鑰對（每次呼叫產生新的隨機金鑰）
+    pub fn for_testing() -> Self {
+        use p256::{
+            pkcs8::{EncodePrivateKey, LineEnding},
+            SecretKey,
+        };
+        use p256::pkcs8::spki::EncodePublicKey;
+
+        let secret_key = SecretKey::random(&mut rand::thread_rng());
+        let private_pem = secret_key
+            .to_pkcs8_pem(LineEnding::LF)
+            .expect("Failed to encode test EC private key");
+        let public_pem = secret_key
+            .public_key()
+            .to_public_key_pem(LineEnding::LF)
+            .expect("Failed to encode test EC public key");
+        JwtKeys {
+            encoding: EncodingKey::from_ec_pem(private_pem.as_bytes())
+                .expect("Valid test EC private key"),
+            decoding: DecodingKey::from_ec_pem(public_pem.as_bytes())
+                .expect("Valid test EC public key"),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -310,7 +364,7 @@ mod tests {
             database_acquire_timeout_seconds: 30,
             database_retry_attempts: 5,
             database_retry_delay_seconds: 5,
-            jwt_secret: "a".repeat(32),
+            jwt_keys: JwtKeys::for_testing(),
             csrf_secret: "b".repeat(64),
             jwt_expiration_seconds: 21600,
             jwt_refresh_expiration_days: 7,
@@ -373,9 +427,26 @@ mod tests {
     }
 
     #[test]
-    fn test_jwt_secret_min_length() {
-        let config = minimal_config();
-        assert!(config.jwt_secret.len() >= 32);
+    fn test_jwt_keys_for_testing_is_valid() {
+        let keys = JwtKeys::for_testing();
+        // 驗證簽發/驗證互通：簽一個 token 然後驗證
+        use jsonwebtoken::{decode, encode, Algorithm, Header, Validation};
+        use serde::{Deserialize, Serialize};
+        #[derive(Serialize, Deserialize)]
+        struct TestClaims {
+            sub: String,
+            exp: i64,
+        }
+        let claims = TestClaims {
+            sub: "test".to_string(),
+            exp: chrono::Utc::now().timestamp() + 3600,
+        };
+        let token = encode(&Header::new(Algorithm::ES256), &claims, &keys.encoding)
+            .expect("sign should succeed");
+        let mut validation = Validation::new(Algorithm::ES256);
+        validation.validate_exp = false;
+        decode::<TestClaims>(&token, &keys.decoding, &validation)
+            .expect("verify should succeed");
     }
 
     #[test]

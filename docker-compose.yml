@@ -52,7 +52,8 @@ services:
       - .env
     secrets:
       - google_service_account
-      - jwt_secret
+      - jwt_ec_private_key
+      - jwt_ec_public_key
       - db_url
       - smtp_password
     environment:
@@ -61,7 +62,8 @@ services:
 
       # Production: 密碼由 Docker Secrets 提供
       DATABASE_URL_FILE: /run/secrets/db_url
-      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      JWT_EC_PRIVATE_KEY_FILE: /run/secrets/jwt_ec_private_key
+      JWT_EC_PUBLIC_KEY_FILE: /run/secrets/jwt_ec_public_key
       SMTP_PASSWORD_FILE: /run/secrets/smtp_password
 
       DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
@@ -429,8 +431,10 @@ networks:
 secrets:
   google_service_account:
     file: ./secrets/google-service-account.json
-  jwt_secret:
-    file: ./secrets/jwt_secret.txt
+  jwt_ec_private_key:
+    file: ./secrets/jwt_ec_private_key.pem
+  jwt_ec_public_key:
+    file: ./secrets/jwt_ec_public_key.pem
   db_url:
     file: ./secrets/db_url.txt
   db_password:

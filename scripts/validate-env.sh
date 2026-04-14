@@ -31,8 +31,10 @@ echo ""
 # Database (required)
 check_required "DATABASE_URL" "PostgreSQL connection string"
 
-# JWT (required)
-check_required "JWT_SECRET" "JWT signing secret"
+# JWT ES256 金鑰（required）
+# 可直接設定 PEM 內容，或使用 _FILE 指向檔案路徑（Docker Secrets 推薦）
+check_required "JWT_EC_PRIVATE_KEY" "ES256 EC P-256 private key PEM (or JWT_EC_PRIVATE_KEY_FILE)"
+check_required "JWT_EC_PUBLIC_KEY"  "ES256 EC P-256 public key PEM (or JWT_EC_PUBLIC_KEY_FILE)"
 
 # Application
 check_optional "RUST_LOG" "Logging level (default: info)"

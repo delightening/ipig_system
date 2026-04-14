@@ -200,7 +200,7 @@ async fn login_validation_error_does_not_leak_field_names() {
 #[serial]
 async fn two_factor_verify_locks_after_5_failures() {
     use chrono::{Duration, Utc};
-    use jsonwebtoken::{encode, EncodingKey, Header};
+    use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
     let app = common::TestApp::spawn().await;
 
@@ -212,9 +212,12 @@ async fn two_factor_verify_locks_after_5_failures() {
     .await
     .expect("Failed to fetch test user");
 
-    // Build a valid 2FA temp token using the same secret as the running server
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "integration_test_secret_key_minimum_32_chars!!".to_string());
+    // Build a valid 2FA temp token using the same ES256 private key as the running server
+    // (common::TestApp::spawn() sets JWT_EC_PRIVATE_KEY in env)
+    let private_pem = std::env::var("JWT_EC_PRIVATE_KEY")
+        .expect("JWT_EC_PRIVATE_KEY must be set (done by TestApp::spawn)");
+    let encoding_key = EncodingKey::from_ec_pem(private_pem.as_bytes())
+        .expect("Failed to parse test EC private key");
 
     let now = Utc::now();
     let exp = (now + Duration::seconds(300)).timestamp() as usize;
@@ -226,9 +229,9 @@ async fn two_factor_verify_locks_after_5_failures() {
     });
 
     let temp_token = encode(
-        &Header::default(),
+        &Header::new(Algorithm::ES256),
         &claims,
-        &EncodingKey::from_secret(jwt_secret.as_bytes()),
+        &encoding_key,
     )
     .expect("Failed to sign temp token");
 

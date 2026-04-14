@@ -20,11 +20,13 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
     # P0-S3: 生產環境使用 Docker Secrets 取代環境變數中的明文機密
     secrets:
-      - jwt_secret
+      - jwt_ec_private_key
+      - jwt_ec_public_key
       - db_url
       - smtp_password
     environment:
-      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      JWT_EC_PRIVATE_KEY_FILE: /run/secrets/jwt_ec_private_key
+      JWT_EC_PUBLIC_KEY_FILE: /run/secrets/jwt_ec_public_key
       DATABASE_URL_FILE: /run/secrets/db_url
       SMTP_PASSWORD_FILE: /run/secrets/smtp_password
     deploy:
@@ -149,10 +151,14 @@ services:
     restart: unless-stopped
 
 # P0-S3: Docker Secrets for production
-# 建立方式: echo "your-secret" > secrets/jwt_secret.txt (每個檔案一行，不含換行)
+# 建立方式（先在 Host 執行一次）:
+#   openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt > secrets/jwt_ec_private_key.pem
+#   openssl ec -in secrets/jwt_ec_private_key.pem -pubout > secrets/jwt_ec_public_key.pem
 secrets:
-  jwt_secret:
-    file: ./secrets/jwt_secret.txt
+  jwt_ec_private_key:
+    file: ./secrets/jwt_ec_private_key.pem
+  jwt_ec_public_key:
+    file: ./secrets/jwt_ec_public_key.pem
   db_url:
     file: ./secrets/db_url.txt
   db_password:

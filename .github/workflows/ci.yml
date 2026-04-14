@@ -434,9 +434,16 @@ jobs:
       - name: 設定專案環境變數
         run: cp .env.example .env
 
+      - name: 產生 E2E 測試用 EC JWT 金鑰
+        run: |
+          mkdir -p secrets
+          openssl ecparam -name prime256v1 -genkey -noout | \
+            openssl pkcs8 -topk8 -nocrypt -out secrets/jwt_ec_private_key_test.pem
+          openssl ec -in secrets/jwt_ec_private_key_test.pem -pubout \
+            -out secrets/jwt_ec_public_key_test.pem
+
       - name: 啟動 Docker 測試環境
         env:
-          CI_JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
           CI_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
           CI_DEV_PASSWORD: ${{ secrets.CI_DEV_PASSWORD }}
         run: |

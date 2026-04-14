@@ -2,7 +2,7 @@
 //
 // 使用 Signed Double Submit Cookie 模式：
 // 1. 對每個回應設定 csrf_token Cookie（非 HttpOnly，讓前端可讀取）
-//    token 格式為 `{nonce}.{hmac_hex}`，其中 HMAC 以 JWT_SECRET 為 key，
+//    token 格式為 `{nonce}.{hmac_hex}`，其中 HMAC 以 CSRF_SECRET 為 key，
 //    將 nonce + 使用者 ID（來自 access_token cookie）混合簽署，
 //    使 token 綁定至當前 session。
 // 2. 對 POST/PUT/DELETE/PATCH 請求驗證 X-CSRF-Token header 與 Cookie 是否匹配，

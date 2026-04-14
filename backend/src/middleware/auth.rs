@@ -4,7 +4,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use jsonwebtoken::{decode, Algorithm, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -101,12 +101,13 @@ pub async fn auth_middleware(
         .ok_or(AppError::Unauthorized)?;
 
     // H3: 明確指定演算法並驗證 audience/issuer，防止跨環境 token 重放
-    let mut validation = Validation::new(Algorithm::HS256);
+    // SEC-UPG: 使用 ES256（ECDSA P-256）取代 HS256，防止對稱金鑰暴力破解
+    let mut validation = Validation::new(Algorithm::ES256);
     validation.set_audience(&["ipig-system"]);
     validation.set_issuer(&["ipig-backend"]);
     let token_data = decode::<Claims>(
         &token,
-        &DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
+        &state.config.jwt_keys.decoding,
         &validation,
     )
     .map_err(|_| AppError::Unauthorized)?;

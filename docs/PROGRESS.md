@@ -185,6 +185,16 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-14 JWT 升級：HS256 → ES256（ECDSA P-256）
+
+- ✅ **演算法升級**：所有 JWT 簽發/驗證（Access Token、Reauth Token、2FA Temp Token）從對稱式 HS256 升級為非對稱式 ES256（ECDSA P-256），防止對稱金鑰暴力破解
+- ✅ **Config 重構**：移除 `jwt_secret: String`，新增 `JwtKeys { encoding, decoding }` 結構體，啟動時預解析 PEM 避免每請求重新 parse
+- ✅ **環境變數更新**：`JWT_SECRET` → `JWT_EC_PRIVATE_KEY` + `JWT_EC_PUBLIC_KEY`（支援 `_FILE` Docker Secrets 掛載）
+- ✅ **Docker 設定更新**：`docker-compose.yml`、`docker-compose.prod.yml`、`docker-compose.test.yml` 全部改用新金鑰 secrets
+- ✅ **CI 更新**：`ci.yml` 移除 `CI_JWT_SECRET`，改為在啟動前自動 `openssl` 產生測試金鑰對
+- ✅ **測試更新**：`tests/common/mod.rs` 以 p256 crate 在測試啟動時動態生成金鑰；`api_auth.rs` 改用 ES256 簽發 2FA token
+- ⚠️ **注意**：升級後所有現有 HS256 token 立即失效，所有使用者需重新登入。本機開發請執行 `openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt > secrets/jwt_ec_private_key.pem && openssl ec -in secrets/jwt_ec_private_key.pem -pubout > secrets/jwt_ec_public_key.pem`
+
 ### 2026-04-13 MCP Review Server 架構設計與文件
 
 - ✅ **架構決策**：確立「模式 B — MCP Server」為執行秘書/主委 AI 審查的主要路線，費用走使用者 claude.ai 月費訂閱，iPig 不需要自有 Anthropic API Key
