@@ -121,7 +121,23 @@ C. 手動觸發（Level 2）
 
 ## 四、技術架構
 
-### 4.1 系統架構
+### 4.0 兩種 AI 接入模式
+
+iPig 支援兩種 AI 接入方式，定位互補：
+
+| | **模式 A：後端 API 呼叫**（現有） | **模式 B：MCP Server**（新增） |
+|--|----------------------------------|-------------------------------|
+| **費用** | iPig 帳單（Anthropic API 按 token 計費） | 使用者 claude.ai 月費 |
+| **適用角色** | PI（提交前自查）、STAFF（自動觸發） | STAFF、CHAIR、REVIEWER（閱讀）、VET |
+| **AI 視野** | 一次性推送計畫書內容 | 多輪查詢（計畫書 + 歷史 + 意見） |
+| **寫入能力** | 無 | 有（標註、退回補件、VET 表） |
+| **觸發方式** | 按鈕觸發、狀態自動觸發 | Claude 對話主動呼叫 |
+
+> 詳細 MCP 規格見 [docs/MCP_Review_Server.md](./MCP_Review_Server.md)
+
+---
+
+### 4.1 系統架構（模式 A）
 
 ```
 Frontend (React)
@@ -203,18 +219,23 @@ Backend API: POST /api/protocols/{id}/ai-review
 
 ### 4.3 成本控制
 
+#### 模式 A（後端 API 呼叫）
+
 | 措施 | 說明 |
 |------|------|
 | Level 1 先行 | 規則檢查不通過就不呼叫 AI，節省 API 費用 |
-| 快取機制 | 同一版本計劃書 24 小時內只呼叫一次 AI |
-| 模型選擇 | 預審用 Claude Haiku（快速、低成本），深度審查用 Sonnet |
-| Token 限制 | 限制單次輸入 ≤ 8K tokens，輸出 ≤ 2K tokens |
+| 快取機制 | 同一版本計劃書只呼叫一次 AI（快取於 `protocol_ai_reviews`） |
+| Token 限制 | 限制單次輸入 ≤ 32K chars，輸出 ≤ 2K tokens |
 | 每日額度 | 每位使用者每日最多 10 次 AI 預審 |
 
-**預估成本**：
-- Haiku：~$0.01/次 × 10 次/天 × 20 天/月 = ~$2/月
-- Sonnet（深度）：~$0.05/次 × 偶爾使用 = ~$5/月
-- **總計：< $10/月**
+**預估成本（模式 A）**：
+- claude-sonnet：~$0.05/次 × 每日數次 × 20 天/月 ≈ $5-15/月
+
+#### 模式 B（MCP Server）
+
+費用轉移至使用者個人 claude.ai 月費訂閱，**iPig 系統本身無 AI 費用**。
+- 使用者 claude.ai Pro：~$20 USD/月（含所有對話與 MCP 工具呼叫）
+- 適合：STAFF、CHAIR、VET 等需要深度審查操作的角色
 
 ---
 

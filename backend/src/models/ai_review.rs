@@ -77,6 +77,29 @@ pub struct StaffAiResult {
     pub flags: Vec<StaffReviewFlag>,
 }
 
+// ── Batch Return Request ──
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct BatchReturnFlag {
+    pub flag_type: String,
+    pub section: String,
+    pub message: String,
+    pub suggestion: String,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct BatchReturnRequest {
+    pub ai_review_id: Uuid,
+    pub flags: Vec<BatchReturnFlag>,
+    pub additional_note: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct BatchReturnResponse {
+    pub created_comments: usize,
+    pub status: String,
+}
+
 // ── API Response ──
 
 #[derive(Debug, Clone, Serialize, ToSchema)]

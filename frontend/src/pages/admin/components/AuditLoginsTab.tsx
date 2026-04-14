@@ -34,6 +34,8 @@ interface AuditLoginsTabProps {
     isLoading: boolean
     currentPage: number
     onPageChange: (page: number) => void
+    eventTypeFilter: string
+    onEventTypeChange: (val: string) => void
 }
 
 export function AuditLoginsTab({
@@ -45,6 +47,8 @@ export function AuditLoginsTab({
     isLoading,
     currentPage,
     onPageChange,
+    eventTypeFilter,
+    onEventTypeChange,
 }: AuditLoginsTabProps) {
     const { sortedData, sort, toggleSort } = useTableSort(loginEvents?.data)
 
@@ -63,7 +67,7 @@ export function AuditLoginsTab({
                     onChange={(e) => onDateToChange(e.target.value)}
                     className="max-w-[150px]"
                 />
-                <Select defaultValue="all">
+                <Select value={eventTypeFilter} onValueChange={onEventTypeChange}>
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="事件類型" />
                     </SelectTrigger>
@@ -71,6 +75,7 @@ export function AuditLoginsTab({
                         <SelectItem value="all">全部</SelectItem>
                         <SelectItem value="login_success">登入成功</SelectItem>
                         <SelectItem value="login_failure">登入失敗</SelectItem>
+                        <SelectItem value="2fa_failure">2FA 失敗</SelectItem>
                         <SelectItem value="logout">登出</SelectItem>
                     </SelectContent>
                 </Select>
@@ -125,8 +130,10 @@ function LoginEventRow({ event }: { event: LoginEventWithUser }) {
                     {event.event_type === 'login_success'
                         ? '成功'
                         : event.event_type === 'login_failure'
-                            ? '失敗'
-                            : '登出'}
+                            ? '登入失敗'
+                            : event.event_type === '2fa_failure'
+                                ? '2FA 失敗'
+                                : '登出'}
                 </Badge>
             </TableCell>
             <TableCell>{event.device_type || '-'}</TableCell>

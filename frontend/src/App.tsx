@@ -430,7 +430,11 @@ function App() {
                             <HrAnnualLeavePage />
                         </RequirePermission>
                     } />
-                    <Route path="/hr/calendar" element={<CalendarSyncSettingsPage />} />
+                    <Route path="/hr/calendar" element={
+                        hasRole('GUEST')
+                            ? <Navigate to="/dashboard" replace />
+                            : <CalendarSyncSettingsPage />
+                    } />
 
                     {/* AUP 計畫書管理 */}
                     <Route path="/protocols" element={<ProtocolsPage />} />

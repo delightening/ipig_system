@@ -4,6 +4,25 @@
 
 iPig System 提供 AI 資料查詢接口，允許外部 AI 系統（如 Claude、ChatGPT、自建 Agent）透過 API Key 認證，以唯讀方式查詢系統資料。
 
+---
+
+> ## ⚠️ 兩種 AI 接入的定位區分
+>
+> iPig 有兩個不同的 AI 接入機制，用途不同，請勿混淆：
+>
+> | | **AI 資料查詢接口**（本文件） | **MCP Review Server** |
+> |--|------------------------------|----------------------|
+> | **路徑** | `POST /api/v1/ai/query` | `POST /api/v1/mcp` |
+> | **金鑰格式** | `ipig_ai_xxxxxxxx` | `mcp_xxxx_xxxxxxxx` |
+> | **金鑰管理** | 系統管理 → AI API Key | 個人設定 → MCP 連線金鑰 |
+> | **用途** | 外部 Agent/程式 **唯讀查詢**系統資料（動物、計畫、設施等） | 審查人員（STAFF/CHAIR/VET）透過 claude.ai **操作審查流程** |
+> | **寫入能力** | ❌ 無（唯讀） | ✅ 有（建立意見、退回補件） |
+> | **認證對象** | 系統級（程式使用） | 個人級（人員使用） |
+>
+> 👉 若要設定 Claude 審查計畫書的工作流，請參考 [MCP_Review_Server.md](./MCP_Review_Server.md)。
+
+---
+
 ## 1. 管理 API Key
 
 ### 在系統中建立金鑰

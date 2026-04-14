@@ -67,6 +67,14 @@ export function useAuditData() {
         initialTo: getDefaultDateTo,
     })
 
+    // 登入事件篩選狀態
+    const [loginEventType, setLoginEventType] = useState<string>('all')
+
+    const handleLoginEventTypeChange = (val: string) => {
+        setLoginEventType(val)
+        setLoginsPage(1)
+    }
+
     // 安全警報篩選狀態
     const [alertSearch, setAlertSearch] = useState('')
     const [alertStatusFilter, setAlertStatusFilter] = useState<string>('all')
@@ -120,11 +128,12 @@ export function useAuditData() {
 
     // Login Events
     const { data: loginEvents, isLoading: loadingLogins } = useQuery({
-        queryKey: ['audit-logins', dateFrom, dateTo, loginsPage],
+        queryKey: ['audit-logins', dateFrom, dateTo, loginsPage, loginEventType],
         queryFn: async () => {
             const params = new URLSearchParams()
             if (dateFrom) params.set('from', dateFrom)
             if (dateTo) params.set('to', dateTo)
+            if (loginEventType !== 'all') params.set('event_type', loginEventType)
             params.set('page', String(loginsPage))
             params.set('per_page', String(PER_PAGE))
             const res = await api.get<PaginatedResponse<LoginEventWithUser>>(`/admin/audit/logins?${params}`)
@@ -262,6 +271,8 @@ export function useAuditData() {
         loadingLogins,
         loginsPage,
         setLoginsPage,
+        loginEventType,
+        handleLoginEventTypeChange,
 
         // Sessions
         sessions,

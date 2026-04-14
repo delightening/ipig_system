@@ -185,6 +185,16 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-13 MCP Review Server 架構設計與文件
+
+- ✅ **架構決策**：確立「模式 B — MCP Server」為執行秘書/主委 AI 審查的主要路線，費用走使用者 claude.ai 月費訂閱，iPig 不需要自有 Anthropic API Key
+- ✅ **權限矩陣定案**：STAFF/CHAIR 有完整寫入工具；REVIEWER 僅限閱讀（倫理限制，不允許 AI 代替委員撰寫審查意見）；VET 有 submit_vet_review tool；所有角色可讀取全部計畫書
+- ✅ **個人 MCP Key 設計**：新增 `user_mcp_keys` 資料表規格，格式 `mcp_xxxx_xxxxxxxxxxxxxxxx`，argon2 hash 儲存，個人設定頁管理
+- ✅ **6 個 MCP Tools 規格定案**：`list_protocols`, `read_protocol`（含稽核日誌）, `create_review_flag`, `batch_return_to_pi`, `get_review_history`, `submit_vet_review`
+- ✅ **稽核機制**：REVIEWER/VET 呼叫 `read_protocol` 自動寫入 `protocol_activities`（McpRead），作為法律佐證
+- ✅ **文件更新**：新增 `docs/MCP_Review_Server.md`（完整規格含 pros/cons、部署分析）；更新 `docs/AIReview.md`（加入兩種模式對比）；更新 `docs/walkthrough_ai_api.md`（釐清 AI query API vs MCP review 定位）
+- ⏳ **暫緩三項**：SSE 推播（POST-only 先行）、StaffReviewAssistPanel checkbox UI（MCP 路線下退為降級方案）、submit_vet_review 查檢項清單（待 VET 流程確認）
+
 ### 2026-04-12 R20-9 階段一：Prompt 補丁套用（基於真實 IACUC 信件分析）
 
 - ✅ **真實審查資料分析**：從子瑄 Gmail 取樣 8 個 thread / 45 封信件（2025-08 ~ 2026-04），匿名化整理出 9 類退件原因 MECE 分類（最高頻：交叉引用失效、人道終點量化不足、對照組處置不完整），產出 `docs/R20_real_review_patterns.md`（316 行）

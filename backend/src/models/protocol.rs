@@ -717,7 +717,7 @@ mod tests {
             assert!(!v.as_str().is_empty());
             assert!(!v.display_name().is_empty());
         }
-        assert_eq!(variants.len(), 26);
+        assert_eq!(variants.len(), 27);
     }
 
     #[test]

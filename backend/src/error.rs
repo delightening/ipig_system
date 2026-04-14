@@ -191,6 +191,7 @@ impl From<JsonRejection> for AppError {
 // 處理 validator 驗證錯誤
 impl From<validator::ValidationErrors> for AppError {
     fn from(errors: validator::ValidationErrors) -> Self {
-        AppError::Validation(format!("Validation failed: {}", errors))
+        tracing::warn!("Validation failed: {}", errors);
+        AppError::Validation("輸入資料驗證失敗，請確認各欄位格式是否正確".to_string())
     }
 }

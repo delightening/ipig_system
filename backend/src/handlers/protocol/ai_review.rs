@@ -7,8 +7,9 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
+    constants::{ROLE_IACUC_CHAIR, ROLE_IACUC_STAFF, ROLE_SYSTEM_ADMIN},
     middleware::CurrentUser,
-    models::ai_review::{AiReviewResponse, ValidationResult},
+    models::ai_review::{AiReviewResponse, BatchReturnRequest, BatchReturnResponse, ValidationResult},
     services::{access, validate_protocol_content, AiReviewService},
     AppError, AppState, Result,
 };
@@ -138,6 +139,25 @@ pub async fn get_latest_staff_review(
     }
 
     let result = AiReviewService::get_latest(&state.db, id, "staff_pre_review").await?;
+    Ok(Json(result))
+}
+
+/// POST /api/v1/protocols/{id}/staff-review-assist/batch-return
+/// 原子操作：AI 標註轉補件（建立 review_comments + 狀態變更為 PRE_REVIEW_REVISION_REQUIRED）
+pub async fn staff_batch_return(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(protocol_id): Path<Uuid>,
+    Json(req): Json<BatchReturnRequest>,
+) -> Result<Json<BatchReturnResponse>> {
+    let is_staff = current_user.roles.iter().any(|r| {
+        [ROLE_IACUC_STAFF, ROLE_IACUC_CHAIR, ROLE_SYSTEM_ADMIN].contains(&r.as_str())
+    });
+    if !is_staff {
+        return Err(AppError::Forbidden("僅限 IACUC 執行秘書或主委使用".to_string()));
+    }
+
+    let result = AiReviewService::batch_return(&state.db, protocol_id, &req, current_user.id).await?;
     Ok(Json(result))
 }
 
