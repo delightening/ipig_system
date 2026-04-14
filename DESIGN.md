@@ -344,10 +344,48 @@ ListPage → DetailPage → EditPage
 User → Roles → Permissions
 ```
 
+### 13.1 Permission Naming Convention
+
+**Standardized naming pattern for all permissions:**
+
+| Operation Type | Pattern | Example | Semantics |
+|---|---|---|---|
+| **Create** | `animal.{resource}.create` | `animal.vet_advice.create` | 新增/建立資源 |
+| **Read** | `animal.{resource}.read` | `animal.vet_advice.read` | 查看/讀取資源 |
+| **Update** | `animal.{resource}.update` | `animal.vet_advice.update` | 修改/編輯資源 |
+| **Delete** | `animal.{resource}.delete` | `animal.vet_advice.delete` | 刪除資源（最高權限） |
+| **Custom Action** | `animal.{resource}.{action}` | `animal.vet.recommend` | 特定業務行為 |
+
+**Key Constraints:**
+- ✅ Delete operations MUST use `{resource}.delete` or `{resource}.{subaction}.delete` permission
+- ❌ Never reuse create/write permissions for delete operations (semantic safety)
+- ✅ All new handlers MUST follow this pattern
+- 🔄 Legacy permissions planned for gradual migration per sprint
+
+**Example: Veterinary Advice Deletion**
+```rust
+pub async fn delete_vet_advice(current_user: &CurrentUser) -> Result<()> {
+    // ✅ Correct: Use delete-specific permission
+    require_permission!(current_user, "animal.vet_advice.delete");
+    // ... proceed with deletion
+}
+
+// ❌ Anti-pattern: Reusing create permission for delete
+// require_permission!(current_user, "animal.vet.recommend"); // WRONG
+```
+
+### 13.2 Frontend Permission Guards
+
 - 路由級守衛：`<ProtectedRoute>`、`<AdminRoute>`、`<DashboardRoute>`
 - 組件級守衛：`<RequirePermission permission="..." />`
 - 混合條件：`<RequirePermission anyOf={[{role:'admin'}, {permission:'training.view'}]}>`
 - 前端 Store：`useAuthStore` 提供 `hasRole()`, `hasPermission()`
+
+### 13.3 Backend Permission Enforcement
+
+- **Macro:** `require_permission!(user, "{permission_string}")` in handler layer
+- **Middleware:** `Permission` cache (5-min TTL DashMap) + DB fallback for stale window mitigation
+- **Coverage:** Target >95% for sensitive operations (create/update/delete); audit via CI grep
 
 ---
 

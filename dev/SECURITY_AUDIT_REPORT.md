@@ -149,11 +149,35 @@
 - **Description:** Refresh token expiry hardcoded to 7 days instead of configurable via environment variable.
 - **Remediation:** Read from `config.jwt_refresh_expiration_days`.
 
-#### SEC-AUDIT-017: Permission Cache 5-Minute Stale Window
-- **Location:** `backend/src/middleware/auth.rs:127-166`
+#### SEC-AUDIT-017: JWT & Permission Cache Residual Risk Window
+- **Location:** `backend/src/middleware/auth.rs:127-166`; `backend/src/config.rs:201-210`
 - **Category:** Authorization
-- **Description:** After admin revokes a permission, the user retains access for up to 5 minutes (cache TTL). Acceptable trade-off for performance.
-- **Remediation:** Optional: add cache invalidation on permission changes, or reduce TTL for sensitive permissions.
+- **Description:** 
+  
+  When a user account is deactivated or permissions are revoked, the following time windows remain during which stale credentials may still be valid:
+  
+  **Access Token TTL:** 6 hours (env: `JWT_EXPIRATION_MINUTES=360`)
+  **Permission Cache TTL:** 5 minutes (in-memory DashMap)
+  **Session Idle Timeout:** 30 minutes
+  **Session Absolute Timeout:** 8 hours
+  **Refresh Token TTL:** 7 days (with automatic rotation on each use)
+  
+  **Residual Risk Calculation:**
+  - **Best case (normal workflow):** `min(6h, 5m, 8h) = 5 minutes`  
+    Requires: JWT blacklist + permission cache invalidation both execute on user deactivation
+  - **Degraded case (incomplete revocation):** `min(6h, 8h) = 6 hours`  
+    Impact: Compromised or revoked user could retain access via stale JWT
+  
+  **Mitigating Factors:**
+  - Refresh token rotation: Each refresh operation revokes the prior token in DB (`revoked_at` timestamp)
+  - JWT blacklist (dual-layer): Memory + PostgreSQL records, with 5-minute background cleanup
+  - Session forced termination: `SessionManager::end_all_sessions()` invalidates all active sessions
+  
+- **Assessment:** Acceptable security trade-off for performance (5-min cache vs. per-request DB lookup for 4-table permission join). Risk level escalates to HIGH if revocation flow lacks completeness.
+- **Remediation:** 
+  1. **Mandatory:** Ensure all deactivation flows (self-deletion, admin deletion) call JWT blacklist + session termination
+  2. **Optional:** Reduce TTL for sensitive permissions (e.g., 1 minute for admin actions)
+  3. **Monitor:** Track permission cache hit/miss ratio; alert if invalidation calls are missed
 
 #### SEC-AUDIT-018: Default `APP_URL` is `localhost`
 - **Location:** `backend/src/config.rs:202`
@@ -166,6 +190,41 @@
 - **Category:** Rate Limiting
 - **Description:** AI API key rate limits are per-process. In multi-instance deployments, limits can be bypassed. Acceptable for single-instance but risky at scale.
 - **Remediation:** Use Redis-backed rate limiting for multi-instance deployments.
+
+#### SEC-AUDIT-020: Permission Check Semantics and Naming Convention
+- **Location:** `backend/src/startup/permissions.rs`; Handler layer (108+ permissions, 52% coverage)
+- **Category:** Authorization / Code Maintainability
+- **Description:**
+  
+  Permission naming and deletion operation semantics lack consistency:
+  
+  **Current State:**
+  - Permission names follow no strict pattern (mix of `animal.{resource}.{action}` and legacy names)
+  - Delete operations show inconsistent coverage (301/580 handlers with `require_permission!`)
+  - Permission strings are runtime checks; no compile-time verification possible
+  
+  **Naming Convention Recommendation:**
+  | Operation Type | Pattern | Example |
+  |---|---|---|
+  | Create | `animal.{resource}.create` | `animal.vet_advice.create` |
+  | Read | `animal.{resource}.read` | `animal.vet_advice.read` |
+  | Update | `animal.{resource}.update` | `animal.vet_advice.update` |
+  | Delete | `animal.{resource}.delete` | `animal.vet_advice.delete` |
+  | Custom Action | `animal.{resource}.{action}` | `animal.vet.recommend` |
+  
+  **Semantic Constraint:**
+  - Delete operations MUST use `{resource}.delete` permission (or finer `{resource}.{subaction}.delete`)
+  - Never reuse create/write permissions for delete operations
+  - All new handlers should follow the above pattern; legacy handlers planned for gradual migration
+  
+  **Coverage Gap:**
+  - Permission cache TTL affects both read and delete operations; ensure deletion semantics are explicit
+  
+- **Assessment:** Medium-risk maintainability issue. Permission checks are functionally sound but naming inconsistency increases likelihood of misuse.
+- **Remediation:**
+  1. **Define:** Add permission naming convention to `docs/DESIGN.md` (§ Permissions & RBAC)
+  2. **Audit:** Identify all delete operations lacking explicit permission check via CI grep rule
+  3. **Plan:** Gradual rename of permissions to match new convention (breaking change for role seeds)
 
 ---
 
@@ -252,3 +311,60 @@ The iPig system demonstrates mature security engineering:
 |------|-------------|
 | `dev/CYBERSECURITY_AI_TEST_PLAN.md` | Full test plan with 6 scenarios |
 | `dev/SECURITY_AUDIT_REPORT.md` | This report |
+
+---
+
+## Test Skeleton Quality Standards
+
+When audit findings require environment-specific tests (e.g., e2e, integration, or resource-intensive scenarios), test skeletons must follow these standards to avoid false positives during CI:
+
+### Required Attributes
+
+1. **Skip/Ignore Mark:** Use language-native skip marker
+   - **Rust:** `#[ignore = "Requires {environment} - {description}"]`
+   - **Python:** `@pytest.mark.skip(reason="Requires {environment} - {description}")`
+   - **TypeScript/Jest:** `.skip()` or `describe.skip()`
+
+2. **Failing Assertion:** Include a deliberately failing assertion with descriptive message
+   - This ensures skeleton is not silently skipped or passing without verification
+   - Example: `assert!(condition, "Explicit assertion message describing what should pass")`
+
+3. **Environment Note:** Document what environment the test requires
+   - Example: "Requires e2e environment with real database and message queue"
+
+### Example (Rust)
+
+```rust
+#[tokio::test]
+#[ignore = "Requires e2e environment - Permission revocation timing"]
+async fn test_permission_cache_invalidation_on_user_deactivation() {
+    // Setup (ready to run)
+    let user_id = create_test_user(&db).await.expect("Failed to create test user");
+    let initial_perms = user_permissions(&db, user_id).await;
+    assert!(!initial_perms.is_empty(), "Test setup: user should have permissions initially");
+    
+    // Deactivate user
+    deactivate_user(&db, user_id).await.expect("Failed to deactivate");
+    
+    // Failing assertion (waiting for environment/feature)
+    assert!(
+        wait_for_permission_denial(
+            &db,
+            user_id,
+            "animal.vet.recommend",
+            Duration::from_secs(5)
+        )
+        .await,
+        "User should lose vet.recommend permission within 5 minutes of deactivation (SEC-AUDIT-017)"
+    );
+}
+```
+
+### Review Checklist
+
+When adding test skeletons:
+- ✅ Has skip/ignore marker with reason
+- ✅ Has one or more failing assertions (not empty or just `todo!()`)
+- ✅ Documents required environment
+- ✅ Includes setup code (not just assertions)
+- ✅ References related audit finding (e.g., SEC-AUDIT-017)
