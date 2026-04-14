@@ -394,3 +394,35 @@
 | `docs/COMPLIANCE_GAP_ANALYSIS.md` | GLP / ISO 17025 / ISO 9001 三大法規逐條差距分析 (P0-P3 共 28 項) |
 | `docs/AUP_HR_COMPLIANCE_ANALYSIS.md` | AUP 模組 GLP 合規 + HR 模組台灣勞基法合規分析 (13 項差距) |
 | `docs/COMPLIANCE_DELIVERY_SUMMARY.md` | 本文件：完整交付摘要 |
+
+---
+
+## 10. 安全審計改進項目追蹤
+
+本章節追蹤安全審計 (2026-04-14 report) 後續改進工作的優先級、責任人與進度。
+
+### Security Remediation Items
+
+| 項目編號 | 描述 | 優先級 | 預期交付 | 狀態 | 相關審計 |
+|---------|------|--------|---------|------|---------|
+| **SEC-REM-01** | 強化帳號刪除流程的撤銷機制（JWT 黑名單 + Session 終止） | **P0** | 2026-04-28 | Backlog | SEC-AUDIT-017 |
+| **SEC-REM-02** | Permission check 命名規範化與 CI 掃描規則 | **P1** | 2026-04-28 | Backlog | SEC-AUDIT-020 |
+| **SEC-REM-03** | 編譯時 access check 可行性評估（3 大方案對比） | **P1** | 2026-05-12 | Backlog | SEC-AUDIT-020 |
+| **SEC-REM-04** | Permission 檢查覆蓋率改進（301/580 → >95%） | **P2** | 2026-05-26 | Backlog | SEC-AUDIT-020 |
+| **SEC-REM-05** | Test skeleton 品質標準實施（#[ignore] + failing assertion） | **P2** | 2026-05-12 | Backlog | Test Artifacts |
+
+### Implementation Workflow
+
+1. **Issue Creation** — 每個 SEC-REM-XX 應建立 GitHub Issue，含詳細描述與驗收標準
+2. **Assignment** — Tech Lead / PM 在 backlog planning 中指派 owner
+3. **PR Review** — 所有改進應透過 PR 進行代碼審查，參考 `DESIGN.md` 的 Permission 命名規範
+4. **Verification** — 使用 `dev/COMPILE_TIME_ACCESS_CHECK_EVALUATION.md` 報告驗收編譯時檢查方案
+5. **Progress Update** — 每週 standup / sprint review 中更新狀態
+
+### Expected Outcomes
+
+- ✅ JWT 殘留風險窗口從「不清楚」→「明確定義 (5 min vs 6 hour)」
+- ✅ Permission 命名規範文件化於 `DESIGN.md` § 13
+- ✅ CI 自動掃描規則新增，檢測缺失的 permission check
+- ✅ 編譯時驗證方案評估報告，為下階段架構決策輸入
+- ✅ Test skeleton 品質標準應用於新測試用例，避免假陰性
