@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::{
     middleware::CurrentUser,
     services::{
-        AnimalVetAdviceService, AnimalVetAdvice, UpsertVetAdviceRequest,
+        access, AnimalVetAdviceService, AnimalVetAdvice, UpsertVetAdviceRequest,
         VetAdviceRecord, VetAdviceRecordService,
         CreateVetAdviceRecordRequest, UpdateVetAdviceRecordRequest,
     },
@@ -23,9 +23,11 @@ use crate::{
 /// 取得動物的獸醫師建議（結構化）
 pub async fn get_animal_vet_advice(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Option<AnimalVetAdvice>>> {
+    // SEC-IDOR: 驗證使用者是否有權存取該動物（透過計畫成員資格）
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let advice = AnimalVetAdviceService::get_by_animal(&state.db, animal_id).await?;
     Ok(Json(advice))
 }
@@ -47,9 +49,11 @@ pub async fn upsert_animal_vet_advice(
 /// 列出動物的獸醫師建議紀錄
 pub async fn list_vet_advice_records(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Vec<VetAdviceRecord>>> {
+    // SEC-IDOR: 驗證使用者是否有權存取該動物（透過計畫成員資格）
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let records = VetAdviceRecordService::list(&state.db, animal_id).await?;
     Ok(Json(records))
 }

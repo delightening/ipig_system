@@ -14,7 +14,7 @@ use crate::{
         SurgeryListItem, UpdateSurgeryRequest, VersionHistoryResponse,
     },
     require_permission,
-    services::{AnimalService, AnimalSurgeryService, AuditService},
+    services::{access, AnimalService, AnimalSurgeryService, AuditService},
     AppState, Result,
 };
 
@@ -22,20 +22,24 @@ use crate::{
 #[utoipa::path(get, path = "/api/v1/animals/{animal_id}/surgeries", params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery), responses((status = 200, body = Vec<AnimalSurgery>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn list_animal_surgeries(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
     Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<AnimalSurgery>>> {
+    // SEC-IDOR: 驗證使用者是否有權存取該動物（透過計畫成員資格）
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let surgeries = AnimalSurgeryService::list(&state.db, animal_id, filter.after).await?;
     Ok(Json(surgeries))
 }
 /// 列出動物的手術記錄（包含獸醫建議）
 pub async fn list_animal_surgeries_with_recommendations(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
     Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<SurgeryListItem>>> {
+    // SEC-IDOR: 驗證使用者是否有權存取該動物（透過計畫成員資格）
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let surgeries =
         AnimalSurgeryService::list_with_recommendations(&state.db, animal_id, filter.after).await?;
     Ok(Json(surgeries))
@@ -45,10 +49,12 @@ pub async fn list_animal_surgeries_with_recommendations(
 #[utoipa::path(get, path = "/api/v1/surgeries/{id}", params(("id" = Uuid, Path, description = "手術記錄 ID")), responses((status = 200, body = AnimalSurgery), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn get_animal_surgery(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<AnimalSurgery>> {
     let surgery = AnimalSurgeryService::get_by_id(&state.db, id).await?;
+    // SEC-IDOR: 透過手術記錄所屬動物驗證計畫存取權限
+    access::require_animal_access(&state.db, &current_user, surgery.animal_id).await?;
     Ok(Json(surgery))
 }
 

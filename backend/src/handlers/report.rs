@@ -5,6 +5,7 @@ use axum::{
 
 use crate::{
     middleware::CurrentUser,
+    require_permission,
     services::report::{
         BloodTestAnalysisQuery, BloodTestAnalysisRow,
         BloodTestCostReport, CostSummaryReport, PurchaseLinesReport,
@@ -19,9 +20,10 @@ use crate::{
 #[utoipa::path(get, path = "/api/v1/reports/stock-on-hand", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_stock_on_hand_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<StockOnHandReport>>> {
+    require_permission!(current_user, "erp.report.view");
     let report = ReportService::stock_on_hand(&state.db, &query).await?;
     Ok(Json(report))
 }
@@ -30,9 +32,10 @@ pub async fn get_stock_on_hand_report(
 #[utoipa::path(get, path = "/api/v1/reports/stock-ledger", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_stock_ledger_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<StockLedgerReport>>> {
+    require_permission!(current_user, "erp.report.view");
     let report = ReportService::stock_ledger(&state.db, &query).await?;
     Ok(Json(report))
 }
@@ -41,9 +44,10 @@ pub async fn get_stock_ledger_report(
 #[utoipa::path(get, path = "/api/v1/reports/purchase-lines", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_purchase_lines_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<PurchaseLinesReport>>> {
+    require_permission!(current_user, "erp.report.view");
     let report = ReportService::purchase_lines(&state.db, &query).await?;
     Ok(Json(report))
 }
@@ -52,9 +56,10 @@ pub async fn get_purchase_lines_report(
 #[utoipa::path(get, path = "/api/v1/reports/sales-lines", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_sales_lines_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<SalesLinesReport>>> {
+    require_permission!(current_user, "erp.report.view");
     let report = ReportService::sales_lines(&state.db, &query).await?;
     Ok(Json(report))
 }
@@ -63,9 +68,10 @@ pub async fn get_sales_lines_report(
 #[utoipa::path(get, path = "/api/v1/reports/cost-summary", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_cost_summary_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<CostSummaryReport>>> {
+    require_permission!(current_user, "erp.report.view");
     let report = ReportService::cost_summary(&state.db, &query).await?;
     Ok(Json(report))
 }
@@ -74,9 +80,10 @@ pub async fn get_cost_summary_report(
 #[utoipa::path(get, path = "/api/v1/reports/blood-test-cost", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_blood_test_cost_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<BloodTestCostReport>>> {
+    require_permission!(current_user, "erp.report.view");
     let report = ReportService::blood_test_cost(&state.db, &query).await?;
     Ok(Json(report))
 }
@@ -104,9 +111,10 @@ pub async fn get_blood_test_analysis(
 #[utoipa::path(get, path = "/api/v1/reports/purchase-sales-monthly", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_purchase_sales_monthly(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<PurchaseSalesMonthlySummary>>> {
+    require_permission!(current_user, "erp.report.view");
     let report = ReportService::purchase_sales_monthly(&state.db, &query).await?;
     Ok(Json(report))
 }
@@ -115,9 +123,10 @@ pub async fn get_purchase_sales_monthly(
 #[utoipa::path(get, path = "/api/v1/reports/purchase-sales-by-partner", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_purchase_sales_by_partner(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<PurchaseSalesPartnerSummary>>> {
+    require_permission!(current_user, "erp.report.view");
     let report = ReportService::purchase_sales_by_partner(&state.db, &query).await?;
     Ok(Json(report))
 }
@@ -126,9 +135,10 @@ pub async fn get_purchase_sales_by_partner(
 #[utoipa::path(get, path = "/api/v1/reports/purchase-sales-by-category", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_purchase_sales_by_category(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<PurchaseSalesCategorySummary>>> {
+    require_permission!(current_user, "erp.report.view");
     let report = ReportService::purchase_sales_by_category(&state.db, &query).await?;
     Ok(Json(report))
 }
