@@ -1705,6 +1705,40 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🌡️ R21 — 環境監控子系統（MES-Lite）（2026-04）
+
+> 冰箱溫度 + 動物房溫濕度感測器資料收集、即時監控、超限告警。整合進現有 ERP 作為新子系統，不建立獨立 MES。
+> 技術棧：TimescaleDB（PostgreSQL extension）+ HTTP/MQTT + Recharts。
+
+### 21-A 後端基礎建設（P1）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R21-1 | **DB Migration：感測器設備表** | `sensor_devices`（id, name, location, type enum: temperature/humidity/combo, calibration_due_at）+ `sensor_readings`（device_id, metric_type, value, unit, recorded_at）；TimescaleDB hypertable on `sensor_readings` | [ ] |
+| R21-2 | **DB Migration：告警規則表** | `alert_rules`（device_id, metric_type, min_value, max_value, notify_emails, is_active）+ `alert_events`（rule_id, value, triggered_at, resolved_at, acknowledged_by）| [ ] |
+| R21-3 | **感測器資料接收 API** | `POST /api/v1/sensors/readings`（API key 認證，Bearer token，複用 `config.rs` 模式）；handler → service → repository 分層 | [ ] |
+| R21-4 | **歷史查詢 API** | `GET /api/v1/sensors/readings?device_id&from&to&interval=5m`（TimescaleDB `time_bucket` 降採樣）；`GET /api/v1/sensors/devices`（設備列表）| [ ] |
+| R21-5 | **告警規則 CRUD API** | `GET/POST/PUT/DELETE /api/v1/sensors/alert-rules`（需 `sensor.config` 權限）| [ ] |
+| R21-6 | **告警觸發邏輯** | `services/sensor/alert.rs`：每次寫入後檢查規則；超限時呼叫 `services/notification/` + email；自動 resolve（恢復正常後更新 `resolved_at`）| [ ] |
+
+### 21-B 前端（P2）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R21-7 | **Dashboard 即時面板** | `DashboardPage` 新增「環境監控」區塊；各設備目前溫濕度數值卡片；超限高亮紅色 CSS variable token | [ ] |
+| R21-8 | **歷史趨勢圖頁面** | `pages/sensors/SensorHistoryPage.tsx`；Recharts LineChart；時間範圍選擇（1h/6h/24h/7d）；設備切換 | [ ] |
+| R21-9 | **告警管理頁面** | `pages/sensors/AlertRulesPage.tsx`；規則 CRUD（RHF + Zod）；告警事件列表（已觸發/已解除/待確認）| [ ] |
+| R21-10 | **Subsystem 導覽整合** | Sidebar 新增「環境監控」子系統入口；色相：`--subsystem-sensor: cyan`（DESIGN.md 登記）| [ ] |
+
+### 21-C 硬體整合文件（P3）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R21-11 | **感測器端設定文件** | `docs/sensor-setup/SETUP.md`：ESP32/Raspberry Pi 範例程式碼（Python/Arduino）；HTTP POST payload 格式；API key 申請流程 | [ ] |
+| R21-12 | **MQTT Broker 評估** | 評估 Mosquitto 整合（替代 HTTP polling）；適合感測器數量 > 20 個時啟用；短期不需要 | ⏸️ |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -1731,7 +1765,8 @@ ORDER BY 1 DESC;
 | 🫀 R18 Heartbeat 自動化維護 | 0 (4 完成) |
 | 🎫 R19 客戶邀請制入口 | 0 (14 完成) |
 | 🤖 R20 AI 預審與執行秘書標註 | 2 (8 完成, R20-9/10 持續性) |
-| **合計（未完成）** | **2** |
+| 🌡️ R21 環境監控子系統（MES-Lite） | 11 (1 暫緩) |
+| **合計（未完成）** | **13** |
 
 ---
 

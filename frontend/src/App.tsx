@@ -1,4 +1,4 @@
-import { useEffect, lazy } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
@@ -9,6 +9,7 @@ import { CookieConsent } from '@/components/CookieConsent'
 // Layouts — 保持靜態 import（每個受保護路由都需要）
 import { MainLayout } from '@/layouts/MainLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
+import { LoadingOverlay } from '@/components/ui/loading-overlay'
 
 // ============================================
 // 路由層級 Code-Splitting：所有頁面元件以 React.lazy 動態載入
@@ -240,6 +241,7 @@ function App() {
 
     return (
         <>
+            <Suspense fallback={<LoadingOverlay fullScreen message="頁面載入中..." />}>
             <Routes>
                 {/* Public Auth Routes */}
                 <Route element={<AuthLayout />}>
@@ -467,6 +469,7 @@ function App() {
                 {/* 404 */}
                 <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            </Suspense>
             <Toaster />
             <SessionTimeoutWarning />
             <CookieConsent />
