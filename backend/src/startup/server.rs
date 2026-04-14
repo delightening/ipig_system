@@ -64,12 +64,25 @@ pub fn build_app(state: AppState, config: &Config) -> Router {
         HeaderValue::from_static("no-store"),
     );
 
+    // SEC-AUDIT-011: Content-Security-Policy 防禦 XSS 與資料注入攻擊
+    let csp = SetResponseHeaderLayer::overriding(
+        header::HeaderName::from_static("content-security-policy"),
+        HeaderValue::from_static("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"),
+    );
+    // SEC-AUDIT-015: 移除 Server header 防止洩漏框架資訊
+    let referrer_policy = SetResponseHeaderLayer::overriding(
+        header::HeaderName::from_static("referrer-policy"),
+        HeaderValue::from_static("strict-origin-when-cross-origin"),
+    );
+
     let mut app = crate::routes::api_routes(state)
         .layer(cors)
         .layer(trace_layer)
         .layer(nosniff)
         .layer(frame_deny)
         .layer(no_cache_api)
+        .layer(csp)
+        .layer(referrer_policy)
         .layer(DefaultBodyLimit::max(30 * 1024 * 1024)) // SEC-36: 全域 30MB 請求大小限制
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         .layer(PropagateRequestIdLayer::x_request_id());

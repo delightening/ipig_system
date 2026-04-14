@@ -40,24 +40,18 @@ impl AiRepository {
     }
 
     pub async fn list_api_keys(pool: &PgPool) -> Result<Vec<AiApiKey>, AppError> {
-        let rows = sqlx::query_as::<_, AiApiKey>(
-            "SELECT * FROM ai_api_keys ORDER BY created_at DESC",
-        )
-        .fetch_all(pool)
-        .await?;
+        let rows =
+            sqlx::query_as::<_, AiApiKey>("SELECT * FROM ai_api_keys ORDER BY created_at DESC")
+                .fetch_all(pool)
+                .await?;
         Ok(rows)
     }
 
-    pub async fn find_api_key_by_id(
-        pool: &PgPool,
-        id: Uuid,
-    ) -> Result<Option<AiApiKey>, AppError> {
-        let row = sqlx::query_as::<_, AiApiKey>(
-            "SELECT * FROM ai_api_keys WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?;
+    pub async fn find_api_key_by_id(pool: &PgPool, id: Uuid) -> Result<Option<AiApiKey>, AppError> {
+        let row = sqlx::query_as::<_, AiApiKey>("SELECT * FROM ai_api_keys WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?;
         Ok(row)
     }
 
@@ -168,23 +162,57 @@ impl AiRepository {
         .fetch_one(pool)
         .await?;
 
-        let query_str = format!(
-            r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text,
-                      birth_date, entry_date, pen_location, iacuc_no, created_at
-               FROM animals
-               WHERE is_deleted = false
-                 AND ($1::text IS NULL OR status::text = $1)
-                 AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%')
-               ORDER BY {} {}
-               LIMIT $3 OFFSET $4"#,
-            sort_col, order
-        );
+        // SEC-AUDIT-007: 使用靜態 SQL 查詢取代 format!() 動態建構，
+        // 透過 match 分派到預定義的 ORDER BY 子句，消除 SQL injection 風險
+        let query_str = match (sort_col, order) {
+            ("ear_tag", "ASC") => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY ear_tag ASC LIMIT $3 OFFSET $4"#
+            }
+            ("ear_tag", _) => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY ear_tag DESC LIMIT $3 OFFSET $4"#
+            }
+            ("status", "ASC") => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY status ASC LIMIT $3 OFFSET $4"#
+            }
+            ("status", _) => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY status DESC LIMIT $3 OFFSET $4"#
+            }
+            ("gender", "ASC") => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY gender ASC LIMIT $3 OFFSET $4"#
+            }
+            ("gender", _) => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY gender DESC LIMIT $3 OFFSET $4"#
+            }
+            ("entry_date", "ASC") => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY entry_date ASC LIMIT $3 OFFSET $4"#
+            }
+            ("entry_date", _) => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY entry_date DESC LIMIT $3 OFFSET $4"#
+            }
+            (_, "ASC") => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY created_at ASC LIMIT $3 OFFSET $4"#
+            }
+            _ => {
+                r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text, birth_date, entry_date, pen_location, iacuc_no, created_at FROM animals WHERE is_deleted = false AND ($1::text IS NULL OR status::text = $1) AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%') ORDER BY created_at DESC LIMIT $3 OFFSET $4"#
+            }
+        };
 
-        let rows = sqlx::query_as::<_, (
-            uuid::Uuid, String, Option<String>, Option<String>,
-            Option<String>, Option<String>, Option<chrono::NaiveDate>,
-            chrono::NaiveDate, Option<String>, Option<String>, DateTime<Utc>,
-        )>(&query_str)
+        let rows = sqlx::query_as::<
+            _,
+            (
+                uuid::Uuid,
+                String,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                Option<chrono::NaiveDate>,
+                chrono::NaiveDate,
+                Option<String>,
+                Option<String>,
+                DateTime<Utc>,
+            ),
+        >(query_str)
         .bind(status)
         .bind(keyword)
         .bind(per_page)
@@ -231,7 +259,17 @@ impl AiRepository {
         .fetch_one(pool)
         .await?;
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, chrono::NaiveDate, Option<String>, DateTime<Utc>)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                uuid::Uuid,
+                uuid::Uuid,
+                String,
+                chrono::NaiveDate,
+                Option<String>,
+                DateTime<Utc>,
+            ),
+        >(
             r#"SELECT o.id, o.animal_id, o.record_type::text, o.event_date, o.content, o.created_at
                FROM animal_observations o
                WHERE ($1::uuid IS NULL OR o.animal_id = $1)
@@ -276,7 +314,17 @@ impl AiRepository {
         .fetch_one(pool)
         .await?;
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, Option<String>, String, DateTime<Utc>)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                uuid::Uuid,
+                String,
+                String,
+                Option<String>,
+                String,
+                DateTime<Utc>,
+            ),
+        >(
             r#"SELECT id, iacuc_no, title, pi_name, status::text, created_at
                FROM protocols
                WHERE ($1::text IS NULL OR status::text = $1)
@@ -318,7 +366,17 @@ impl AiRepository {
             .fetch_one(pool)
             .await?;
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, Option<String>, bool, DateTime<Utc>)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                uuid::Uuid,
+                String,
+                String,
+                Option<String>,
+                bool,
+                DateTime<Utc>,
+            ),
+        >(
             r#"SELECT id, code, name, address, is_active, created_at
                FROM facilities
                ORDER BY code ASC
@@ -362,7 +420,16 @@ impl AiRepository {
         .fetch_one(pool)
         .await?;
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, rust_decimal::Decimal, chrono::NaiveDate, DateTime<Utc>)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                uuid::Uuid,
+                uuid::Uuid,
+                rust_decimal::Decimal,
+                chrono::NaiveDate,
+                DateTime<Utc>,
+            ),
+        >(
             r#"SELECT id, animal_id, weight, measure_date, created_at
                FROM animal_weights
                WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR animal_id = $1)
@@ -411,7 +478,17 @@ impl AiRepository {
         .fetch_one(pool)
         .await?;
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, chrono::NaiveDate, String, Option<String>, DateTime<Utc>)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                uuid::Uuid,
+                uuid::Uuid,
+                chrono::NaiveDate,
+                String,
+                Option<String>,
+                DateTime<Utc>,
+            ),
+        >(
             r#"SELECT id, animal_id, surgery_date, surgery_site, positioning, created_at
                FROM animal_surgeries
                WHERE ($1::uuid IS NULL OR animal_id = $1)
@@ -443,7 +520,11 @@ impl AiRepository {
 /// 驗證排序欄位（防止 SQL injection），僅允許白名單欄位
 fn validate_sort_field<'a>(input: &str, allowed: &[&'a str], default: &'a str) -> &'a str {
     if allowed.contains(&input) {
-        allowed.iter().find(|&&f| f == input).copied().unwrap_or(default)
+        allowed
+            .iter()
+            .find(|&&f| f == input)
+            .copied()
+            .unwrap_or(default)
     } else {
         default
     }
@@ -455,7 +536,8 @@ mod tests {
 
     #[test]
     fn test_validate_sort_field_allowed() {
-        let result = validate_sort_field("ear_tag", &["ear_tag", "name", "created_at"], "created_at");
+        let result =
+            validate_sort_field("ear_tag", &["ear_tag", "name", "created_at"], "created_at");
         assert_eq!(result, "ear_tag");
     }
 
