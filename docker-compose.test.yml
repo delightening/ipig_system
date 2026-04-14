@@ -33,17 +33,12 @@ services:
     container_name: ipig-api-test
     ports:
       - "8000:8080"   # host:container（API 在容器內聽 8080，CI 用 localhost:8000）
-    secrets:
-      - source: jwt_ec_private_key_test
-        mode: 0444
-      - source: jwt_ec_public_key_test
-        mode: 0444
     environment:
       HOST: 0.0.0.0
       PORT: 8080
       DATABASE_URL: postgres://postgres:password@db-test:5432/ipig_db_test
-      JWT_EC_PRIVATE_KEY_FILE: /run/secrets/jwt_ec_private_key_test
-      JWT_EC_PUBLIC_KEY_FILE: /run/secrets/jwt_ec_public_key_test
+      JWT_EC_PRIVATE_KEY: "${JWT_EC_PRIVATE_KEY}"
+      JWT_EC_PUBLIC_KEY: "${JWT_EC_PUBLIC_KEY}"
       JWT_EXPIRATION_MINUTES: 60
       SEED_DEV_USERS: "true"                              # 重要：CI 測試需要預設帳號
       DEV_USER_PASSWORD: "${CI_DEV_PASSWORD:-ci_test_dev_password_for_local}"        # E2E 測試需要已知密碼
@@ -93,10 +88,3 @@ services:
       api-test:
         condition: service_healthy
 
-# CI/E2E 測試用 EC 金鑰 Docker Secrets
-# 金鑰由 CI 流程（ci.yml）在 docker-compose up 前自動產生，存於 ./secrets/
-secrets:
-  jwt_ec_private_key_test:
-    file: ./secrets/jwt_ec_private_key_test.pem
-  jwt_ec_public_key_test:
-    file: ./secrets/jwt_ec_public_key_test.pem

@@ -441,6 +441,16 @@ jobs:
             openssl pkcs8 -topk8 -nocrypt -out secrets/jwt_ec_private_key_test.pem
           openssl ec -in secrets/jwt_ec_private_key_test.pem -pubout \
             -out secrets/jwt_ec_public_key_test.pem
+          # 將金鑰內容匯出為環境變數，供 docker-compose.test.yml 直接使用
+          # （Docker Compose file-based secrets 不支援設定 mode，非 root 容器無法讀取）
+          {
+            echo "JWT_EC_PRIVATE_KEY<<ECEOF"
+            cat secrets/jwt_ec_private_key_test.pem
+            echo "ECEOF"
+            echo "JWT_EC_PUBLIC_KEY<<ECEOF"
+            cat secrets/jwt_ec_public_key_test.pem
+            echo "ECEOF"
+          } >> "$GITHUB_ENV"
 
       - name: 啟動 Docker 測試環境
         env:
