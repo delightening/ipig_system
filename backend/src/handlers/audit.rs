@@ -224,10 +224,11 @@ pub async fn export_audit_logs(
 /// 取得使用者活動時間線
 pub async fn get_user_activity_timeline(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(user_id): Path<Uuid>,
     Query(query): Query<ActivityLogQuery>,
 ) -> Result<Json<PaginatedResponse<UserActivityLog>>> {
+    require_permission!(current_user, "audit.logs.view");
     let mut q = query;
     q.user_id = Some(user_id);
     let result = AuditService::list_activities(&state.db, &q).await?;

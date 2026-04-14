@@ -229,9 +229,11 @@ pub async fn list_report_history(
 /// 下載報表檔案
 pub async fn download_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<ReportHistory>, AppError> {
+    // SEC-IDOR: 報表下載需要 IDOR 保護（建立者或 admin 可存取）
+    check_scheduled_report_access(&state.db, id, &current_user).await?;
     let service = NotificationService::new(state.db.clone());
     let report = service.get_report_history(id).await?;
     Ok(Json(report))

@@ -309,9 +309,12 @@ pub async fn review_maintenance_record(
 
 pub async fn get_maintenance_history(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<PaginatedResponse<UserActivityLog>>> {
+    if !current_user.has_permission("equipment.view") && !current_user.is_admin() {
+        return Err(crate::AppError::Forbidden("Permission denied: requires equipment.view".into()));
+    }
     let query = ActivityLogQuery {
         user_id: None,
         event_category: Some("EQUIPMENT".to_string()),

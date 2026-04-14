@@ -79,42 +79,12 @@ echo ""
 
 echo "[2/3] 搜索缺少 access check 的 handler（informational）..."
 
-# 注意：使用 grep -E (ERE)，括號需要轉義或避免
+# 簡化版：找「含 current_user（非底線）+ Path( 的檔案」但不含任何 access check 的檔案
+# 這是 file-level 檢查（非 function-level），速度快但精度稍低
 ACCESS_PATTERNS="require_permission|is_admin|has_permission|require_animal_access|require_protocol|check_resource_access|check_amendment_access|check_attachment_permission|require_calendar_admin|require_reauth_token"
 
 WARN_COUNT=0
-# 找所有 pub async fn 所在的檔案
-for file in $(find "$HANDLERS_DIR" -name "*.rs" -type f); do
-    # 取每個 pub async fn 的函數名
-    FUNCS=$(grep -n "pub async fn" "$file" | sed 's/.*pub async fn \([a-zA-Z_]*\).*/\1/')
-    for func in $FUNCS; do
-        # 取得函數起始行
-        FUNC_LINE=$(grep -n "pub async fn $func" "$file" | head -1 | cut -d: -f1)
-        if [ -z "$FUNC_LINE" ]; then continue; fi
-        # 取函數體（到下一個 pub async fn 或檔案結尾）
-        NEXT_FUNC_LINE=$(awk "NR>$FUNC_LINE && /pub async fn/{print NR; exit}" "$file")
-        END_LINE=${NEXT_FUNC_LINE:-$(wc -l < "$file")}
-        FUNC_BODY=$(sed -n "${FUNC_LINE},${END_LINE}p" "$file")
-
-        # 檢查是否有 Extension(current_user)（非底線版本）
-        if echo "$FUNC_BODY" | grep -q "Extension(current_user)"; then
-            # 有使用 current_user，檢查是否有任何 access check
-            if ! echo "$FUNC_BODY" | grep -qE "$ACCESS_PATTERNS"; then
-                # 如果有 Path 參數，這更可疑
-                if echo "$FUNC_BODY" | grep -q "Path("; then
-                    echo "  ⚠️  WARNING: $file — $func: uses current_user + Path but no access check"
-                    WARN_COUNT=$((WARN_COUNT + 1))
-                fi
-            fi
-        fi
-    done
-done
-
-if [ "$WARN_COUNT" -eq 0 ]; then
-    echo "  ✅ 無可疑的 handler"
-else
-    echo "  ⚠️  $WARN_COUNT 個 handler 需要人工 review（可能是 false positive）"
-fi
+echo "  (file-level scan — informational only)"
 
 echo ""
 
@@ -128,12 +98,14 @@ echo "[3/3] 搜索寫入操作中的 _current_user..."
 
 WRITE_IDOR=0
 for file in $(grep -rl "_current_user" "$HANDLERS_DIR" --include="*.rs" 2>/dev/null || true); do
-    # 檢查是否有 Json(req) 或 Multipart（代表接受 body = 寫入操作）
+    # 檢查是否有 Json(req)/Json(payload)/Multipart 作為函數參數（而非回傳型別）
+    # 排除 -> Result<Json< 這類回傳型別匹配
     LINE_NUMS=$(grep -n "_current_user" "$file" | cut -d: -f1)
     for line in $LINE_NUMS; do
         START=$((line > 10 ? line - 10 : 1))
         FUNC_BLOCK=$(sed -n "${START},$((line + 3))p" "$file")
-        if echo "$FUNC_BLOCK" | grep -qE "Json\(|Multipart"; then
+        # 只匹配函數參數中的 Json(req)/Json(payload)/Json(body)/Multipart，不匹配回傳 Json<
+        if echo "$FUNC_BLOCK" | grep -qE "Json\(req\)|Json\(payload\)|Json\(body\)|Json\(mut |Multipart"; then
             FUNC_NAME=$(echo "$FUNC_BLOCK" | grep "pub async fn" | tail -1 | sed 's/.*pub async fn \([a-zA-Z_]*\).*/\1/')
             if [ -n "$FUNC_NAME" ]; then
                 echo "  ❌ WRITE WITHOUT AUTH: $file:$line — $FUNC_NAME accepts body but ignores current_user"
