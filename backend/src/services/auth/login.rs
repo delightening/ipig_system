@@ -48,44 +48,64 @@ impl AuthService {
                 tx.commit().await.ok();
                 tracing::warn!(
                     "[Auth] 帳號 {} 因連續失敗 {} 次被暫時鎖定",
-                    req.email, fail_count
+                    req.email,
+                    fail_count
                 );
-                return Err(AppError::Validation(
-                    format!("帳號已暫時鎖定，請 {} 分鐘後再試", config.account_lockout_duration_minutes),
-                ));
+                return Err(AppError::Validation(format!(
+                    "帳號已暫時鎖定，請 {} 分鐘後再試",
+                    config.account_lockout_duration_minutes
+                )));
             }
         }
 
-        let user_opt = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE email = $1 AND is_active = true",
-        )
-        .bind(&req.email)
-        .fetch_optional(&mut *tx)
-        .await?;
+        let user_opt =
+            sqlx::query_as::<_, User>("SELECT * FROM users WHERE email = $1 AND is_active = true")
+                .bind(&req.email)
+                .fetch_optional(&mut *tx)
+                .await?;
 
         let user = match user_opt {
             Some(u) => u,
             None => {
+                // SEC-AUDIT-002: 執行虛擬 Argon2 驗證，確保「使用者不存在」與「密碼錯誤」
+                // 的回應時間一致，防止透過 timing side-channel 枚舉有效 email
+                let dummy_hash = "$argon2id$v=19$m=19456,t=2,p=1$dGhpc2lzYWR1bW15c2FsdA$ZKhM8GZ8MJD3E5VNrp0MWuVIL+rCBjKNHdXMaGW4+A8";
+                use argon2::{
+                    password_hash::PasswordHash, password_hash::PasswordVerifier, Argon2,
+                };
+                if let Ok(parsed) = PasswordHash::new(dummy_hash) {
+                    let _ = Argon2::default().verify_password(req.password.as_bytes(), &parsed);
+                }
+
                 // CRIT-01: 原子性記錄失敗（使用者不存在），確保與 fail_count 讀取在同一事務
-                Self::insert_failure_event_in_tx(&mut tx, None, &req.email, ip).await.ok();
+                Self::insert_failure_event_in_tx(&mut tx, None, &req.email, ip)
+                    .await
+                    .ok();
                 tx.commit().await.ok();
-                return Err(AppError::InvalidCredentials("Invalid email or password".to_string()));
+                return Err(AppError::InvalidCredentials(
+                    "Invalid email or password".to_string(),
+                ));
             }
         };
 
-        use argon2::{password_hash::PasswordHash, Argon2, password_hash::PasswordVerifier};
+        use argon2::{password_hash::PasswordHash, password_hash::PasswordVerifier, Argon2};
 
         let parsed_hash = PasswordHash::new(&user.password_hash)
             .map_err(|_| AppError::Internal("Invalid password hash".to_string()))?;
 
         // MED-02: 密碼驗證完成前 advisory lock 持續保持（tx 尚未 commit）
-        let verify_result = Argon2::default().verify_password(req.password.as_bytes(), &parsed_hash);
+        let verify_result =
+            Argon2::default().verify_password(req.password.as_bytes(), &parsed_hash);
 
         if verify_result.is_err() {
             // CRIT-01: 原子性記錄失敗（密碼錯誤），與 fail_count 讀取在同一 advisory lock 範圍內
-            Self::insert_failure_event_in_tx(&mut tx, Some(user.id), &req.email, ip).await.ok();
+            Self::insert_failure_event_in_tx(&mut tx, Some(user.id), &req.email, ip)
+                .await
+                .ok();
             tx.commit().await?;
-            return Err(AppError::InvalidCredentials("Invalid email or password".to_string()));
+            return Err(AppError::InvalidCredentials(
+                "Invalid email or password".to_string(),
+            ));
         }
 
         tx.commit().await?;
@@ -136,7 +156,8 @@ impl AuthService {
             .await?;
 
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
-        let (access_token, expires_in) = Self::generate_access_token(config, user, &roles, &permissions, None)?;
+        let (access_token, expires_in) =
+            Self::generate_access_token(config, user, &roles, &permissions, None)?;
         let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
 
         Ok(LoginResponse {
@@ -178,7 +199,7 @@ impl AuthService {
             SELECT r.code FROM roles r
             INNER JOIN user_roles ur ON r.id = ur.role_id
             WHERE ur.user_id = $1 AND r.is_active = true
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_all(pool)
@@ -191,7 +212,7 @@ impl AuthService {
             INNER JOIN user_roles ur ON rp.role_id = ur.role_id
             INNER JOIN roles r ON r.id = ur.role_id
             WHERE ur.user_id = $1 AND r.is_active = true
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_all(pool)

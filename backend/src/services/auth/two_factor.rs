@@ -23,8 +23,13 @@ impl AuthService {
 
         let secret = Secret::generate_secret();
         let totp = TOTP::new(
-            Algorithm::SHA1, 6, 1, 30,
-            secret.to_bytes().map_err(|e| AppError::Internal(format!("TOTP secret error: {e}")))?,
+            Algorithm::SHA1,
+            6,
+            1,
+            30,
+            secret
+                .to_bytes()
+                .map_err(|e| AppError::Internal(format!("TOTP secret error: {e}")))?,
             Some("iPig System".to_string()),
             email.to_string(),
         )
@@ -69,7 +74,9 @@ impl AuthService {
             .fetch_one(pool)
             .await?;
 
-        let secret = user.totp_secret_encrypted.as_deref()
+        let secret = user
+            .totp_secret_encrypted
+            .as_deref()
             .ok_or_else(|| AppError::BusinessRule("尚未產生 2FA secret，請先呼叫 setup".into()))?;
 
         Self::verify_totp_code(secret, code)?;
@@ -94,7 +101,9 @@ impl AuthService {
             return Err(AppError::BusinessRule("2FA 未啟用".into()));
         }
 
-        let secret = user.totp_secret_encrypted.as_deref()
+        let secret = user
+            .totp_secret_encrypted
+            .as_deref()
             .ok_or_else(|| AppError::Internal("2FA enabled but no secret".into()))?;
 
         // 驗證 TOTP 或備用碼
@@ -135,9 +144,12 @@ impl AuthService {
 
     /// 解析 2FA temp token 取得 user_id
     fn decode_2fa_temp_token(config: &Config, token: &str) -> Result<Uuid> {
-        let mut validation = Validation::default();
+        // SEC-AUDIT-003: 明確指定 HS256 演算法，防止 algorithm substitution 攻擊
+        let mut validation = Validation::new(jsonwebtoken::Algorithm::HS256);
         validation.validate_exp = true;
-        validation.required_spec_claims.clear();
+        // 2FA temp token 不含標準 aud/iss，跳過這些驗證
+        validation.validate_aud = false;
+        validation.set_required_spec_claims(&["exp"]);
 
         let data = decode::<serde_json::Value>(
             token,
@@ -151,11 +163,13 @@ impl AuthService {
             return Err(AppError::Validation("無效的 2FA token".into()));
         }
 
-        let sub = data.claims.get("sub").and_then(|v| v.as_str())
+        let sub = data
+            .claims
+            .get("sub")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| AppError::Validation("Token 缺少 sub".into()))?;
 
-        Uuid::parse_str(sub)
-            .map_err(|_| AppError::Validation("Token sub 無效".into()))
+        Uuid::parse_str(sub).map_err(|_| AppError::Validation("Token sub 無效".into()))
     }
 
     /// 使用 temp_token + TOTP code 完成 2FA 登入，回傳正式 LoginResponse
@@ -168,11 +182,12 @@ impl AuthService {
     ) -> Result<LoginResponse> {
         let user_id = Self::decode_2fa_temp_token(config, temp_token)?;
 
-        let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 AND is_active = true")
-            .bind(user_id)
-            .fetch_optional(pool)
-            .await?
-            .ok_or_else(|| AppError::Validation("使用者不存在或已停用".into()))?;
+        let user =
+            sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 AND is_active = true")
+                .bind(user_id)
+                .fetch_optional(pool)
+                .await?
+                .ok_or_else(|| AppError::Validation("使用者不存在或已停用".into()))?;
 
         // 應用層 2FA 嘗試次數限制：5 分鐘內失敗 >= 5 次即拒絕
         let fail_count: i64 = sqlx::query_scalar(
@@ -191,7 +206,9 @@ impl AuthService {
             ));
         }
 
-        let secret = user.totp_secret_encrypted.as_deref()
+        let secret = user
+            .totp_secret_encrypted
+            .as_deref()
             .ok_or_else(|| AppError::Internal("2FA enabled but no secret".into()))?;
 
         // 嘗試 TOTP code；若失敗則嘗試 backup code
@@ -222,7 +239,8 @@ impl AuthService {
             .await?;
 
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
-        let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions, None)?;
+        let (access_token, expires_in) =
+            Self::generate_access_token(config, &user, &roles, &permissions, None)?;
         let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
 
         Ok(LoginResponse {
@@ -241,14 +259,22 @@ impl AuthService {
 
         let secret = Secret::Encoded(secret_b32.to_string());
         let totp = TOTP::new(
-            Algorithm::SHA1, 6, 1, 30,
-            secret.to_bytes().map_err(|e| AppError::Internal(format!("TOTP secret decode: {e}")))?,
+            Algorithm::SHA1,
+            6,
+            1,
+            30,
+            secret
+                .to_bytes()
+                .map_err(|e| AppError::Internal(format!("TOTP secret decode: {e}")))?,
             None,
             String::new(),
         )
         .map_err(|e| AppError::Internal(format!("TOTP init: {e}")))?;
 
-        if totp.check_current(code).map_err(|e| AppError::Internal(format!("TOTP check: {e}")))? {
+        if totp
+            .check_current(code)
+            .map_err(|e| AppError::Internal(format!("TOTP check: {e}")))?
+        {
             Ok(())
         } else {
             Err(AppError::Validation("驗證碼錯誤或已過期".into()))
@@ -262,14 +288,18 @@ impl AuthService {
         stored_codes: &Option<Vec<String>>,
         code: &str,
     ) -> Result<()> {
-        let codes = stored_codes.as_ref()
+        let codes = stored_codes
+            .as_ref()
             .ok_or_else(|| AppError::Validation("驗證碼錯誤".into()))?;
 
         // M5: 支援新（Argon2）與舊（SHA-256 hex）格式，逐一比對
         let idx = codes.iter().position(|stored| {
             if stored.starts_with("$argon2") {
                 // Argon2 格式
-                use argon2::{Argon2, password_hash::{PasswordHash, PasswordVerifier}};
+                use argon2::{
+                    password_hash::{PasswordHash, PasswordVerifier},
+                    Argon2,
+                };
                 PasswordHash::new(stored)
                     .ok()
                     .and_then(|h| Argon2::default().verify_password(code.as_bytes(), &h).ok())
@@ -293,7 +323,11 @@ impl AuthService {
                     .bind(user_id)
                     .execute(pool)
                     .await?;
-                tracing::info!("[2FA] User {} used backup code (remaining: {})", user_id, remaining.len());
+                tracing::info!(
+                    "[2FA] User {} used backup code (remaining: {})",
+                    user_id,
+                    remaining.len()
+                );
                 Ok(())
             }
             None => Err(AppError::Validation("驗證碼錯誤".into())),

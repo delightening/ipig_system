@@ -77,9 +77,7 @@ impl AuthService {
             ));
         }
         if !password.chars().any(|c| c.is_ascii_digit()) {
-            return Err(AppError::Validation(
-                "密碼需包含至少一個數字".to_string(),
-            ));
+            return Err(AppError::Validation("密碼需包含至少一個數字".to_string()));
         }
         if is_common_weak_password(password) {
             return Err(AppError::Validation(
@@ -119,16 +117,17 @@ impl AuthService {
         current_password: &str,
         new_password: &str,
     ) -> Result<LoginResponse> {
-        let user = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE id = $1 AND is_active = true"
-        )
-        .bind(user_id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+        let user =
+            sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 AND is_active = true")
+                .bind(user_id)
+                .fetch_optional(pool)
+                .await?
+                .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
         if !Self::verify_password(current_password, &user.password_hash)? {
-            return Err(AppError::Validation("Current password is incorrect".to_string()));
+            return Err(AppError::Validation(
+                "Current password is incorrect".to_string(),
+            ));
         }
 
         Self::validate_password_strength(new_password)?;
@@ -138,7 +137,8 @@ impl AuthService {
 
         // 重新簽發 tokens（保持登入狀態）
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
-        let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions, None)?;
+        let (access_token, expires_in) =
+            Self::generate_access_token(config, &user, &roles, &permissions, None)?;
         let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
 
         Ok(LoginResponse {
@@ -161,13 +161,12 @@ impl AuthService {
         user_id: Uuid,
         password: &str,
     ) -> Result<User> {
-        let user = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE id = $1 AND is_active = true"
-        )
-        .bind(user_id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+        let user =
+            sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 AND is_active = true")
+                .bind(user_id)
+                .fetch_optional(pool)
+                .await?
+                .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
         if !Self::verify_password(password, &user.password_hash)? {
             return Err(AppError::Unauthorized);
@@ -196,13 +195,13 @@ impl AuthService {
     }
 
     /// SEC-33：驗證 reauth token 是否有效且屬於當前使用者
-    pub fn verify_reauth_token(
-        config: &Config,
-        token: &str,
-        expected_user_id: Uuid,
-    ) -> Result<()> {
-        let mut validation = Validation::default();
+    pub fn verify_reauth_token(config: &Config, token: &str, expected_user_id: Uuid) -> Result<()> {
+        // SEC-AUDIT-003: 明確指定 HS256 演算法，防止 algorithm substitution 攻擊
+        let mut validation = Validation::new(jsonwebtoken::Algorithm::HS256);
         validation.validate_exp = true;
+        // reauth token 不含 aud/iss，跳過這些驗證
+        validation.validate_aud = false;
+        validation.set_required_spec_claims(&["exp", "sub"]);
         let token_data = decode::<ReauthClaims>(
             token,
             &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
@@ -210,7 +209,9 @@ impl AuthService {
         )
         .map_err(|_| AppError::Forbidden("請重新輸入密碼以確認敏感操作".to_string()))?;
         if token_data.claims.purpose != "reauth" || token_data.claims.sub != expected_user_id {
-            return Err(AppError::Forbidden("請重新輸入密碼以確認敏感操作".to_string()));
+            return Err(AppError::Forbidden(
+                "請重新輸入密碼以確認敏感操作".to_string(),
+            ));
         }
         Ok(())
     }
@@ -221,12 +222,10 @@ impl AuthService {
         target_user_id: Uuid,
         new_password: &str,
     ) -> Result<()> {
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)"
-        )
-        .bind(target_user_id)
-        .fetch_one(pool)
-        .await?;
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)")
+            .bind(target_user_id)
+            .fetch_one(pool)
+            .await?;
         if !exists {
             return Err(AppError::NotFound("User not found".to_string()));
         }
@@ -239,17 +238,13 @@ impl AuthService {
     }
 
     /// 忘記密碼 - 產生重設 token
-    pub async fn forgot_password(
-        pool: &PgPool,
-        email: &str,
-    ) -> Result<Option<(Uuid, String)>> {
+    pub async fn forgot_password(pool: &PgPool, email: &str) -> Result<Option<(Uuid, String)>> {
         // 查詢用戶
-        let user = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE email = $1 AND is_active = true"
-        )
-        .bind(email)
-        .fetch_optional(pool)
-        .await?;
+        let user =
+            sqlx::query_as::<_, User>("SELECT * FROM users WHERE email = $1 AND is_active = true")
+                .bind(email)
+                .fetch_optional(pool)
+                .await?;
 
         // 即使用戶不存在也回傳成功（防止帳號枚舉攻擊）
         let user = match user {
@@ -280,7 +275,7 @@ impl AuthService {
             r#"
             INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at)
             VALUES ($1, $2, $3, $4, NOW())
-            "#
+            "#,
         )
         .bind(Uuid::new_v4())
         .bind(user.id)
@@ -307,7 +302,7 @@ impl AuthService {
             WHERE token_hash = $1
               AND used_at IS NULL
               AND expires_at > NOW()
-            "#
+            "#,
         )
         .bind(&token_hash)
         .fetch_optional(pool)

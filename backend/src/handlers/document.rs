@@ -39,7 +39,7 @@ pub async fn create_document(
     // 統一使用 erp.document.create 權限（所有單據類型共用）
     require_permission!(current_user, "erp.document.create");
     req.validate()?;
-    
+
     let document = DocumentService::create(&state.db, &req, current_user.id).await?;
 
     // 審計日誌
@@ -51,7 +51,9 @@ pub async fn create_document(
         &document.document.doc_no,
         Some(&format!("{:?}", document.document.doc_type)),
         None,
-    ).await {
+    )
+    .await
+    {
         tracing::error!("寫入審計日誌失敗 (DOC_CREATE): {}", e);
     }
 
@@ -76,7 +78,7 @@ pub async fn list_documents(
     Query(query): Query<DocumentQuery>,
 ) -> Result<Json<Vec<DocumentListItem>>> {
     require_permission!(current_user, "erp.document.view");
-    
+
     let documents = DocumentService::list(&state.db, &query).await?;
     Ok(Json(documents))
 }
@@ -103,7 +105,7 @@ pub async fn get_document(
     require_permission!(current_user, "erp.document.view");
 
     let document = DocumentService::get_by_id(&state.db, id).await?;
-    DocumentService::check_access(&current_user,document.document.created_by)?;
+    DocumentService::check_access(&current_user, document.document.created_by)?;
     Ok(Json(document))
 }
 
@@ -133,7 +135,7 @@ pub async fn update_document(
     req.validate()?;
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
-    DocumentService::check_access(&current_user,existing.document.created_by)?;
+    DocumentService::check_access(&current_user, existing.document.created_by)?;
     let document = DocumentService::update(&state.db, id, &req).await?;
 
     if let Err(e) = AuditService::audit_document(
@@ -144,7 +146,9 @@ pub async fn update_document(
         &document.document.doc_no,
         Some(&format!("{:?}", document.document.doc_type)),
         None,
-    ).await {
+    )
+    .await
+    {
         tracing::error!("寫入審計日誌失敗 (DOC_UPDATE): {}", e);
     }
 
@@ -173,7 +177,7 @@ pub async fn submit_document(
     require_permission!(current_user, "erp.document.submit");
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
-    DocumentService::check_access(&current_user,existing.document.created_by)?;
+    DocumentService::check_access(&current_user, existing.document.created_by)?;
     let document = DocumentService::submit(&state.db, id).await?;
 
     if let Err(e) = AuditService::audit_document(
@@ -184,7 +188,9 @@ pub async fn submit_document(
         &document.document.doc_no,
         Some(&format!("{:?}", document.document.doc_type)),
         Some(serde_json::json!({ "status": "submitted" })),
-    ).await {
+    )
+    .await
+    {
         tracing::error!("寫入審計日誌失敗 (DOC_SUBMIT): {}", e);
     }
 
@@ -196,12 +202,12 @@ pub async fn submit_document(
     let creator_name = document.created_by_name.clone();
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        if let Err(e) = svc.notify_document_submitted(
-            doc_id, &doc_no, &doc_type, &creator_name,
-        ).await {
+        if let Err(e) = svc
+            .notify_document_submitted(doc_id, &doc_no, &doc_type, &creator_name)
+            .await
+        {
             tracing::warn!("發送單據提交通知失敗: {e}");
         }
-
     });
 
     Ok(Json(document))
@@ -227,12 +233,15 @@ pub async fn approve_document(
     Path(id): Path<Uuid>,
 ) -> Result<Json<DocumentWithLines>> {
     require_permission!(current_user, "erp.document.approve");
-    
+
     // 僅 WAREHOUSE_MANAGER (倉庫管理員) 可核准單據
-    if !current_user.roles.contains(&crate::constants::ROLE_WAREHOUSE_MANAGER.to_string()) {
+    if !current_user
+        .roles
+        .contains(&crate::constants::ROLE_WAREHOUSE_MANAGER.to_string())
+    {
         return Err(AppError::Forbidden("僅倉庫管理員可核准單據".to_string()));
     }
-    
+
     let document = DocumentService::approve(&state.db, id, current_user.id).await?;
 
     if let Err(e) = AuditService::audit_document(
@@ -243,7 +252,9 @@ pub async fn approve_document(
         &document.document.doc_no,
         Some(&format!("{:?}", document.document.doc_type)),
         Some(serde_json::json!({ "status": "approved" })),
-    ).await {
+    )
+    .await
+    {
         tracing::error!("寫入審計日誌失敗 (DOC_APPROVE): {}", e);
     }
 
@@ -255,12 +266,12 @@ pub async fn approve_document(
     let creator_id = document.document.created_by;
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        if let Err(e) = svc.notify_document_decided(
-            doc_id, &doc_no, &doc_type, true, creator_id,
-        ).await {
+        if let Err(e) = svc
+            .notify_document_decided(doc_id, &doc_no, &doc_type, true, creator_id)
+            .await
+        {
             tracing::warn!("發送單據決定通知失敗: {e}");
         }
-
     });
 
     Ok(Json(document))
@@ -301,7 +312,9 @@ pub async fn admin_approve_document(
         &document.document.doc_no,
         Some(&format!("{:?}", document.document.doc_type)),
         Some(serde_json::json!({ "status": "approved", "level": "admin" })),
-    ).await {
+    )
+    .await
+    {
         tracing::error!("寫入審計日誌失敗 (DOC_ADMIN_APPROVE): {}", e);
     }
 
@@ -313,9 +326,10 @@ pub async fn admin_approve_document(
     let creator_id = document.document.created_by;
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        if let Err(e) = svc.notify_document_decided(
-            doc_id, &doc_no, &doc_type, true, creator_id,
-        ).await {
+        if let Err(e) = svc
+            .notify_document_decided(doc_id, &doc_no, &doc_type, true, creator_id)
+            .await
+        {
             tracing::warn!("發送單據決定通知失敗: {e}");
         }
     });
@@ -350,7 +364,8 @@ pub async fn admin_reject_document(
         return Err(AppError::Forbidden("僅管理員可駁回單據".to_string()));
     }
 
-    let document = DocumentService::admin_reject(&state.db, id, current_user.id, &req.reason).await?;
+    let document =
+        DocumentService::admin_reject(&state.db, id, current_user.id, &req.reason).await?;
 
     if let Err(e) = AuditService::audit_document(
         &state.db,
@@ -360,7 +375,9 @@ pub async fn admin_reject_document(
         &document.document.doc_no,
         Some(&format!("{:?}", document.document.doc_type)),
         Some(serde_json::json!({ "status": "rejected", "reason": req.reason })),
-    ).await {
+    )
+    .await
+    {
         tracing::error!("寫入審計日誌失敗 (DOC_ADMIN_REJECT): {}", e);
     }
 
@@ -372,9 +389,10 @@ pub async fn admin_reject_document(
     let creator_id = document.document.created_by;
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        if let Err(e) = svc.notify_document_decided(
-            doc_id, &doc_no, &doc_type, false, creator_id,
-        ).await {
+        if let Err(e) = svc
+            .notify_document_decided(doc_id, &doc_no, &doc_type, false, creator_id)
+            .await
+        {
             tracing::warn!("發送單據決定通知失敗: {e}");
         }
     });
@@ -402,12 +420,15 @@ pub async fn cancel_document(
     Path(id): Path<Uuid>,
 ) -> Result<Json<DocumentWithLines>> {
     require_permission!(current_user, "erp.document.cancel");
-    
+
     // 僅 WAREHOUSE_MANAGER (倉庫管理員) 可取消/駁回單據
-    if !current_user.roles.contains(&crate::constants::ROLE_WAREHOUSE_MANAGER.to_string()) {
+    if !current_user
+        .roles
+        .contains(&crate::constants::ROLE_WAREHOUSE_MANAGER.to_string())
+    {
         return Err(AppError::Forbidden("僅倉庫管理員可取消單據".to_string()));
     }
-    
+
     let document = DocumentService::cancel(&state.db, id).await?;
 
     if let Err(e) = AuditService::audit_document(
@@ -418,7 +439,9 @@ pub async fn cancel_document(
         &document.document.doc_no,
         Some(&format!("{:?}", document.document.doc_type)),
         Some(serde_json::json!({ "status": "cancelled" })),
-    ).await {
+    )
+    .await
+    {
         tracing::error!("寫入審計日誌失敗 (DOC_CANCEL): {}", e);
     }
 
@@ -430,12 +453,12 @@ pub async fn cancel_document(
     let creator_id = document.document.created_by;
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        if let Err(e) = svc.notify_document_decided(
-            doc_id, &doc_no, &doc_type, false, creator_id,
-        ).await {
+        if let Err(e) = svc
+            .notify_document_decided(doc_id, &doc_no, &doc_type, false, creator_id)
+            .await
+        {
             tracing::warn!("發送單據決定通知失敗: {e}");
         }
-
     });
 
     Ok(Json(document))
@@ -469,20 +492,26 @@ pub async fn delete_document(
     let is_hard = params.hard.unwrap_or(false) && current_user.is_admin();
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
-    DocumentService::check_access(&current_user,existing.document.created_by)?;
+    DocumentService::check_access(&current_user, existing.document.created_by)?;
 
     if let Err(e) = AuditService::audit_document(
         &state.db,
         current_user.id,
-        if is_hard { "DOC_HARD_DELETE" } else { "DOC_DELETE" },
+        if is_hard {
+            "DOC_HARD_DELETE"
+        } else {
+            "DOC_DELETE"
+        },
         id,
         &existing.document.doc_no,
         Some(&format!("{:?}", existing.document.doc_type)),
         None,
-    ).await {
+    )
+    .await
+    {
         tracing::error!("寫入審計日誌失敗 (DOC_DELETE): {}", e);
     }
-    
+
     DocumentService::delete(&state.db, id, is_hard).await?;
     Ok(Json(()))
 }
@@ -506,7 +535,11 @@ pub async fn get_po_receipt_status(
     Path(id): Path<Uuid>,
 ) -> Result<Json<PoReceiptStatus>> {
     require_permission!(current_user, "erp.document.view");
-    
+
+    // SEC-AUDIT-006: 加入 ownership check，防止跨使用者查詢
+    let existing = DocumentService::get_by_id(&state.db, id).await?;
+    DocumentService::check_access(&current_user, existing.document.created_by)?;
+
     let status = DocumentService::get_po_receipt_status(&state.db, id).await?;
     Ok(Json(status))
 }
