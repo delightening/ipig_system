@@ -9,10 +9,13 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::models::ai_review::{AiReviewResponse, ProtocolAiReview, ValidationResult};
+use crate::models::ai_review::{
+    AiReviewResponse, BatchReturnRequest, BatchReturnResponse, ProtocolAiReview, ValidationResult,
+};
+use crate::models::{ChangeStatusRequest, CreateCommentRequest, Protocol, ProtocolStatus};
 use crate::{AppError, Result};
 
-use super::validation::validate_protocol;
+use super::{validation::validate_protocol, ProtocolService};
 
 /// 每日每位使用者 AI 預審上限
 const DAILY_AI_REVIEW_LIMIT: i64 = 10;
@@ -210,6 +213,96 @@ impl AiReviewService {
         .await?;
 
         Ok((DAILY_AI_REVIEW_LIMIT - used).max(0))
+    }
+
+    /// 原子操作：AI 標註轉補件
+    ///
+    /// 1. 驗證 `ai_review_id` 屬於本 protocol 且為 `staff_pre_review` 類型（審計追蹤）
+    /// 2. 確認 protocol 狀態為 `PRE_REVIEW`
+    /// 3. 為每個 flag 建立 `review_comment`
+    /// 4. 將狀態轉移至 `PRE_REVIEW_REVISION_REQUIRED`
+    pub async fn batch_return(
+        db: &PgPool,
+        protocol_id: Uuid,
+        req: &BatchReturnRequest,
+        operator_id: Uuid,
+    ) -> Result<BatchReturnResponse> {
+        // 1. 驗證 ai_review_id：必須屬於本 protocol 且為 staff_pre_review
+        let _ai_review: ProtocolAiReview = sqlx::query_as(
+            "SELECT * FROM protocol_ai_reviews WHERE id = $1 AND protocol_id = $2 AND review_type = 'staff_pre_review'",
+        )
+        .bind(req.ai_review_id)
+        .bind(protocol_id)
+        .fetch_optional(db)
+        .await?
+        .ok_or_else(|| {
+            AppError::NotFound(
+                "找不到對應的 AI 標註記錄，請確認 ai_review_id 正確".to_string(),
+            )
+        })?;
+
+        // 2. 確認 protocol 存在且狀態為 PRE_REVIEW
+        let protocol = sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1")
+            .bind(protocol_id)
+            .fetch_optional(db)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
+
+        if protocol.status != ProtocolStatus::PreReview {
+            return Err(AppError::BusinessRule(
+                "僅可在行政預審（PRE_REVIEW）狀態下退回補件".to_string(),
+            ));
+        }
+
+        // 3. 取得最新 version_id
+        let version_id: Uuid = sqlx::query_scalar(
+            "SELECT id FROM protocol_versions WHERE protocol_id = $1 ORDER BY version_no DESC LIMIT 1",
+        )
+        .bind(protocol_id)
+        .fetch_optional(db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Protocol version not found".to_string()))?;
+
+        // 4. 為每個 flag 建立 review_comment
+        let mut created = 0usize;
+        for flag in &req.flags {
+            let content = format!(
+                "【行政預審補件】[{}] {}\n\n建議：{}",
+                flag.section, flag.message, flag.suggestion
+            );
+            let comment_req = CreateCommentRequest {
+                protocol_version_id: version_id,
+                content,
+                review_stage: Some("PRE_REVIEW".to_string()),
+            };
+            ProtocolService::add_comment(db, &comment_req, operator_id).await?;
+            created += 1;
+        }
+
+        // 5. 若有補充說明，另建一筆
+        if let Some(note) = req.additional_note.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            let comment_req = CreateCommentRequest {
+                protocol_version_id: version_id,
+                content: note.to_string(),
+                review_stage: Some("PRE_REVIEW".to_string()),
+            };
+            ProtocolService::add_comment(db, &comment_req, operator_id).await?;
+            created += 1;
+        }
+
+        // 6. 變更狀態
+        let status_req = ChangeStatusRequest {
+            to_status: ProtocolStatus::PreReviewRevisionRequired,
+            remark: req.additional_note.clone(),
+            reviewer_ids: None,
+            vet_id: None,
+        };
+        ProtocolService::change_status(db, protocol_id, &status_req, operator_id).await?;
+
+        Ok(BatchReturnResponse {
+            created_comments: created,
+            status: "pre_review_revision_required".to_string(),
+        })
     }
 }
 

@@ -119,6 +119,10 @@ pub fn routes() -> Router<AppState> {
             "/protocols/:id/staff-review-assist/latest",
             get(handlers::get_latest_staff_review),
         )
+        .route(
+            "/protocols/:id/staff-review-assist/batch-return",
+            post(handlers::staff_batch_return),
+        )
         // My Projects
         .route("/my-projects", get(handlers::get_my_protocols))
         // Animal Sources

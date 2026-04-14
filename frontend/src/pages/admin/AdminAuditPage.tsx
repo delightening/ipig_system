@@ -72,6 +72,8 @@ export function AdminAuditPage() {
                         isLoading={audit.loadingLogins}
                         currentPage={audit.loginsPage}
                         onPageChange={audit.setLoginsPage}
+                        eventTypeFilter={audit.loginEventType}
+                        onEventTypeChange={audit.handleLoginEventTypeChange}
                     />
                 </PageTabContent>
 

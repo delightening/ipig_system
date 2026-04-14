@@ -148,7 +148,7 @@ pub async fn verify_2fa_login(
         .map(|s| s.to_string());
 
     let response = AuthService::complete_2fa_login(
-        &state.db, &state.config, &req.temp_token, &req.code,
+        &state.db, &state.config, &req.temp_token, &req.code, Some(&ip),
     ).await?;
 
     // 登入成功事件

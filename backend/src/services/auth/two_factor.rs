@@ -164,6 +164,7 @@ impl AuthService {
         config: &Config,
         temp_token: &str,
         code: &str,
+        ip: Option<&str>,
     ) -> Result<LoginResponse> {
         let user_id = Self::decode_2fa_temp_token(config, temp_token)?;
 
@@ -173,12 +174,45 @@ impl AuthService {
             .await?
             .ok_or_else(|| AppError::Validation("使用者不存在或已停用".into()))?;
 
+        // 應用層 2FA 嘗試次數限制：5 分鐘內失敗 >= 5 次即拒絕
+        let fail_count: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*) FROM login_events
+               WHERE email = $1
+                 AND event_type = '2fa_failure'
+                 AND created_at > NOW() - INTERVAL '5 minutes'"#,
+        )
+        .bind(&user.email)
+        .fetch_one(pool)
+        .await?;
+
+        if fail_count >= 5 {
+            return Err(AppError::TooManyRequests(
+                "2FA 驗證失敗次數過多，請重新登入後再試".to_string(),
+            ));
+        }
+
         let secret = user.totp_secret_encrypted.as_deref()
             .ok_or_else(|| AppError::Internal("2FA enabled but no secret".into()))?;
 
         // 嘗試 TOTP code；若失敗則嘗試 backup code
-        if Self::verify_totp_code(secret, code).is_err() {
-            Self::verify_backup_code(pool, user_id, &user.totp_backup_codes, code).await?;
+        let verify_result = if Self::verify_totp_code(secret, code).is_ok() {
+            Ok(())
+        } else {
+            Self::verify_backup_code(pool, user_id, &user.totp_backup_codes, code).await
+        };
+
+        if verify_result.is_err() {
+            let _ = sqlx::query(
+                r#"INSERT INTO login_events (id, user_id, email, event_type, ip_address, created_at)
+                   VALUES ($1, $2, $3, '2fa_failure', $4::INET, NOW())"#,
+            )
+            .bind(Uuid::new_v4())
+            .bind(user.id)
+            .bind(&user.email)
+            .bind(ip)
+            .execute(pool)
+            .await;
+            return Err(AppError::Validation("驗證碼錯誤或已過期".into()));
         }
 
         // 更新最後登入時間
