@@ -70,9 +70,9 @@ impl CurrentUser {
     }
 
     pub fn has_permission(&self, permission: &str) -> bool {
-        // Guest 全通行（寫入由 guest_guard middleware 攔截）
+        // Guest 無任何權限（前端以靜態 demo data 展示，後端 guest_guard 攔截讀取）
         if self.is_guest() {
-            return true;
+            return false;
         }
         if self.permissions.contains(&permission.to_string()) {
             return true;

@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore, SESSION_TIMEOUT_MS } from '@/stores/auth'
 import { toast } from '@/components/ui/use-toast'
+import { getGuestDemoData } from '@/lib/guest-demo/routes'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -32,6 +33,30 @@ export function deleteResource(
 ) {
   return api.delete(url, { data: options?.data, headers: options?.headers })
 }
+
+// ============================================
+// Guest Demo Mode：攔截 API 請求，回傳靜態 demo data
+// 必須在 CSRF interceptor 之前註冊（先執行）
+// ============================================
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const isGuest = useAuthStore.getState().isGuest()
+  if (isGuest) {
+    const method = (config.method || 'GET').toUpperCase()
+    const demoData = getGuestDemoData(config.url || '', method)
+    if (demoData !== undefined) {
+      // 用 adapter 短路，不發 HTTP 請求
+      config.adapter = () =>
+        Promise.resolve({
+          data: demoData,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        })
+    }
+  }
+  return config
+})
 
 // Request interceptor：自動將 csrf_token Cookie 值加到 X-CSRF-Token header
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {

@@ -46,8 +46,10 @@ pub struct AuditLogQueryParams {
 /// 列出審計日誌（原有功能）
 pub async fn list_audit_logs(
     State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<AuditLogQueryParams>,
 ) -> Result<Json<PaginatedResponse<AuditLogWithActor>>> {
+    require_permission!(current_user, "audit.logs.view");
     let query = AuditLogQuery {
         entity_type: params.entity_type,
         action: params.action,
@@ -64,8 +66,10 @@ pub async fn list_audit_logs(
 /// 取得實體的變更歷史
 pub async fn get_entity_history(
     State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
     Path((entity_type, entity_id)): Path<(String, Uuid)>,
 ) -> Result<Json<Vec<AuditLogWithActor>>> {
+    require_permission!(current_user, "audit.logs.view");
     let result = AuditService::get_entity_history(&state.db, &entity_type, entity_id).await?;
     Ok(Json(result))
 }
