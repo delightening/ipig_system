@@ -87,6 +87,16 @@ impl AuthService {
         // 獲取角色和權限
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
 
+        // SEC-PRIV: 禁止模擬登入為其他管理員，防止管理員間的橫向提權
+        let is_target_admin = roles.iter().any(|r| {
+            r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY
+        });
+        if is_target_admin {
+            return Err(AppError::BusinessRule(
+                "Cannot impersonate other administrators".to_string(),
+            ));
+        }
+
         // 生成 JWT（包含 impersonated_by 資訊，有效期受限為 30 分鐘）
         let (access_token, expires_in) = Self::generate_access_token(
             config, &user, &roles, &permissions, Some(admin_user_id)

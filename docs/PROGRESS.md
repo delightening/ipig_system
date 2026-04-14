@@ -191,6 +191,9 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **動物醫療記錄 IDOR 修復**：blood_test、surgery、weight_vaccination、vet_recommendation、vet_advice、transfer 共 6 個 handler 檔案的 GET 端點未驗證計畫成員資格，已全部加入 `access::require_animal_access()` 防範跨計畫資料洩漏
 - ✅ **獸醫巡場報告權限修復**：`handlers/animal/vet_patrol.rs` 全部 5 個端點無任何權限檢查，已加入 `animal.record.view`（讀取）及 `animal.vet.recommend`（寫入）
 - ✅ **加密方式審計**：確認 ES256 非對稱簽章、Argon2id 密碼雜湊、HMAC-SHA256 CSRF、CSPRNG Token 等均符合 OWASP 最佳實踐
+- ✅ **CRITICAL 自我提權修復**：`PUT /me` 未遮蔽 `role_ids`，任何使用者可把自己提升為 SYSTEM_ADMIN；已遮蔽 `role_ids`/`is_internal`/`expires_at`
+- ✅ **Admin 模擬保護**：禁止管理員模擬登入為其他管理員，防止橫向提權
+- ✅ **角色指派驗證**：`UserService::update` 加入角色 ID 存在性檢查 + SYSTEM_ADMIN 指派僅限 SYSTEM_ADMIN 操作
 - ✅ **完整審計報告**：詳見 `docs/walkthrough_security_audit_2026_04_14.md`
 
 ### 2026-04-14 JWT 升級：HS256 → ES256（ECDSA P-256）

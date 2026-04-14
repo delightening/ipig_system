@@ -151,6 +151,59 @@
 
 ---
 
+## 二-B、身分偽造與權限提升審計結果
+
+### 2B.1 已修復的漏洞
+
+#### 🔴 VULN-004: PUT /me 自我提權（CRITICAL）
+
+**嚴重度**: CRITICAL  
+**檔案**: `handlers/auth/login.rs:213-222`  
+**問題**: `update_me` handler 只遮蔽了 `is_active`，但未遮蔽 `role_ids`、`is_internal`、`expires_at`。任何已認證使用者可以呼叫 `PUT /api/v1/me` 並在 body 中指定 `role_ids: [<SYSTEM_ADMIN UUID>]`，將自己提升為系統管理員。  
+**修復**: 遮蔽所有權限相關欄位 `role_ids = None; is_internal = None; expires_at = None;`
+
+**攻擊場景（修復前）**:
+```bash
+# 任何已登入使用者可以執行
+curl -X PUT /api/v1/me \
+  -H "Cookie: access_token=..." \
+  -d '{"role_ids": ["<SYSTEM_ADMIN角色的UUID>"]}'
+# 結果：使用者立即成為 SYSTEM_ADMIN，擁有全系統最高權限
+```
+
+#### 🟡 VULN-005: Admin 可模擬其他 Admin（HIGH）
+
+**嚴重度**: HIGH  
+**檔案**: `services/auth/session.rs:72-117`  
+**問題**: 模擬登入（impersonate）未檢查目標使用者是否為 admin，允許 admin 之間橫向模擬。  
+**修復**: 加入 `is_target_admin` 檢查，禁止模擬登入為其他管理員。
+
+#### 🟡 VULN-006: 角色指派缺少驗證（HIGH）
+
+**嚴重度**: HIGH  
+**檔案**: `services/user.rs:272-289`  
+**問題**: `UserService::update` 直接接受 `role_ids` 並用 `ON CONFLICT DO NOTHING` 插入，無效 UUID 靜默失敗且無任何審計紀錄。且任何有 `admin.user.edit` 權限的人可以將其他使用者提升為 SYSTEM_ADMIN。  
+**修復**:
+1. 驗證 `role_ids` 中的角色是否存在且有效
+2. 包含 SYSTEM_ADMIN 角色時，驗證操作者本身也是 SYSTEM_ADMIN
+
+### 2B.2 已確認安全的攻擊向量
+
+| 攻擊向量 | 狀態 | 說明 |
+|----------|------|------|
+| JWT 偽造 | ✅ 安全 | ES256 非對稱簽章，無法偽造 |
+| JWT Algorithm Substitution | ✅ 安全 | 明確綁定 ES256，不接受 HS256/none |
+| 使用者自行註冊為 admin | ✅ 安全 | 無公開註冊端點，邀請制僅給 PI 角色 |
+| Refresh Token 提權 | ✅ 安全 | Token 為 opaque 值，綁定 user_id，無法互換 |
+| Cookie 注入 | ✅ 安全 | HttpOnly + SameSite=Lax + Bearer 優先 |
+| Guest 提權 | ✅ 安全 | `has_permission()` 對 guest 直接回傳 false + 寫入全擋 |
+| 2FA 繞過 | ✅ 安全 | 未完成 2FA 不發放任何 token，rate limit 5次/5分鐘 |
+| API Key 存取 admin | ✅ 安全 | AI/MCP Key 使用獨立認證層，不走 JWT 路由 |
+| Impersonation Token 延長 | ✅ 安全 | 30 分鐘限制，無 refresh token |
+| Permission Cache 繞過 | ✅ 安全（低風險） | 角色變更時立即清除快取 |
+
+---
+
 ## 三、建議改善事項（非漏洞）
 
 | # | 建議 | 優先級 | 說明 |
@@ -163,6 +216,8 @@
 
 ## 四、修改檔案清單
 
+### 第一輪：權限隔離與 IDOR 修復
+
 | 檔案 | 變更說明 |
 |------|---------|
 | `handlers/report.rs` | 9 個端點加入 `require_permission!(current_user, "erp.report.view")` |
@@ -173,3 +228,11 @@
 | `handlers/animal/vet_advice.rs` | get/list 加入 `access::require_animal_access` |
 | `handlers/animal/vet_patrol.rs` | 全部 5 個端點加入 `require_permission!` |
 | `handlers/animal/transfer.rs` | list/get/vet_evaluation 加入 `access::require_animal_access` |
+
+### 第二輪：身分偽造與權限提升修復
+
+| 檔案 | 變更說明 |
+|------|---------|
+| `handlers/auth/login.rs` | `update_me` 遮蔽 `role_ids`/`is_internal`/`expires_at` 防止自我提權 |
+| `services/auth/session.rs` | `impersonate()` 禁止模擬登入為其他管理員 |
+| `services/user.rs` | `update()` 加入角色 ID 存在性驗證 + SYSTEM_ADMIN 指派保護 |
