@@ -26,8 +26,9 @@ FROM georgjung/nginx-brotli:1.29.5-alpine
 # - zlib: CVE-2026-22184
 # - libexpat: CVE-2026-32767 (2.7.4 -> 2.7.5)
 # - libpng: CVE-2026-33416, CVE-2026-33636 (1.6.55-r0 -> 1.6.56-r0)
+# - musl/musl-utils: CVE-2026-40200 (1.2.5-r21 -> 1.2.5-r23, stack-based buffer overflow)
 # 其他安全更新透過升級基底映像版號處理，見 docs/security.md。
-RUN apk update && apk upgrade zlib libexpat libpng && rm -rf /var/cache/apk/*
+RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
