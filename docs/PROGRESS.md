@@ -194,6 +194,9 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **CRITICAL 自我提權修復**：`PUT /me` 未遮蔽 `role_ids`，任何使用者可把自己提升為 SYSTEM_ADMIN；已遮蔽 `role_ids`/`is_internal`/`expires_at`
 - ✅ **Admin 模擬保護**：禁止管理員模擬登入為其他管理員，防止橫向提權
 - ✅ **角色指派驗證**：`UserService::update` 加入角色 ID 存在性檢查 + SYSTEM_ADMIN 指派僅限 SYSTEM_ADMIN 操作
+- ✅ **Cookie CRLF 注入防護**：`build_set_cookie()` 加入值與 domain 的字元過濾
+- ✅ **分頁整數溢位防護**：`PaginationParams::sql_suffix()` 改用 `saturating_mul`
+- ✅ **檔案上傳 text/plain 驗證**：`validate_magic_number()` 加入二進位控制字元檢查
 - ✅ **完整審計報告**：詳見 `docs/walkthrough_security_audit_2026_04_14.md`
 
 ### 2026-04-14 JWT 升級：HS256 → ES256（ECDSA P-256）

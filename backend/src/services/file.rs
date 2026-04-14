@@ -163,6 +163,11 @@ impl FileService {
                 data.starts_with(&[0xD0, 0xCF, 0x11, 0xE0])
             }
 
+            // text/plain: 檢查不含二進位控制字元（NUL、BEL 等），防止偽裝二進位檔案
+            "text/plain" => {
+                !data.iter().any(|&b| b < 0x09 || (b > 0x0D && b < 0x20 && b != 0x1B))
+            }
+
             // 其他未知格式，不驗證（允許通過）
             _ => true,
         };
