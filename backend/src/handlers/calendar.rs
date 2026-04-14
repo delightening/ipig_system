@@ -8,7 +8,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    constants::{ROLE_ADMIN_STAFF, ROLE_SYSTEM_ADMIN},
+    constants::ROLE_ADMIN_STAFF,
     middleware::CurrentUser,
     models::{
         CalendarSyncConflict, CalendarSyncHistory, CalendarSyncStatus, ConflictQuery,
@@ -21,11 +21,8 @@ use crate::{
 
 /// 確認呼叫者為系統管理員或人事管理員
 fn require_calendar_admin(user: &CurrentUser) -> Result<()> {
-    if user
-        .roles
-        .iter()
-        .any(|r| r == ROLE_SYSTEM_ADMIN || r == ROLE_ADMIN_STAFF)
-    {
+    // is_admin() 涵蓋 ROLE_SYSTEM_ADMIN 與 ROLE_ADMIN_LEGACY（"admin"）
+    if user.is_admin() || user.roles.iter().any(|r| r == ROLE_ADMIN_STAFF) {
         Ok(())
     } else {
         Err(AppError::Forbidden(
