@@ -53,21 +53,22 @@ impl TestApp {
         std::env::set_var("SEED_DEV_USERS", "false");
         std::env::set_var("DISABLE_CSRF_FOR_TESTS", "true");
         if std::env::var("JWT_EC_PRIVATE_KEY").is_err() {
-            use p256::{
-                pkcs8::{EncodePrivateKey, LineEnding},
-                SecretKey,
-            };
-            use p256::pkcs8::spki::EncodePublicKey;
-            let secret_key = SecretKey::random(&mut rand::thread_rng());
-            let private_pem = secret_key
-                .to_pkcs8_pem(LineEnding::LF)
-                .expect("Failed to encode test EC private key");
-            let public_pem = secret_key
-                .public_key()
-                .to_public_key_pem(LineEnding::LF)
-                .expect("Failed to encode test EC public key");
-            std::env::set_var("JWT_EC_PRIVATE_KEY", private_pem.as_str());
-            std::env::set_var("JWT_EC_PUBLIC_KEY", &public_pem);
+            // 固定測試用 EC P-256 金鑰（來自 jsonwebtoken crate 官方測試金鑰，非機密）
+            std::env::set_var(
+                "JWT_EC_PRIVATE_KEY",
+                "-----BEGIN PRIVATE KEY-----\n\
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgWTFfCGljY6aw3Hrt\n\
+kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
+950IxEzvw/x5BMEINRMrXLBJhqzO9Bm+d6JbqA21YQmd1Kt4RzLJR1W+\n\
+-----END PRIVATE KEY-----\n",
+            );
+            std::env::set_var(
+                "JWT_EC_PUBLIC_KEY",
+                "-----BEGIN PUBLIC KEY-----\n\
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEw7JAoU/gJbZJvV+zCOvU9yFJq0FN\n\
+C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
+-----END PUBLIC KEY-----\n",
+            );
         }
         // 確保測試用 admin 密碼與 login_as_admin() 回退值一致
         if std::env::var("ADMIN_INITIAL_PASSWORD")

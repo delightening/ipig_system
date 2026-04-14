@@ -324,26 +324,25 @@ impl Config {
 
 #[cfg(test)]
 impl JwtKeys {
-    /// 產生測試用 ES256 金鑰對（每次呼叫產生新的隨機金鑰）
-    pub fn for_testing() -> Self {
-        use p256::{
-            pkcs8::{EncodePrivateKey, LineEnding},
-            SecretKey,
-        };
-        use p256::pkcs8::spki::EncodePublicKey;
+    /// 測試用 EC P-256 私鑰（PKCS8 PEM，來自 jsonwebtoken crate 官方測試金鑰）
+    pub const TEST_PRIVATE_KEY_PEM: &'static str = "-----BEGIN PRIVATE KEY-----\n\
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgWTFfCGljY6aw3Hrt\n\
+kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
+950IxEzvw/x5BMEINRMrXLBJhqzO9Bm+d6JbqA21YQmd1Kt4RzLJR1W+\n\
+-----END PRIVATE KEY-----\n";
 
-        let secret_key = SecretKey::random(&mut rand::thread_rng());
-        let private_pem = secret_key
-            .to_pkcs8_pem(LineEnding::LF)
-            .expect("Failed to encode test EC private key");
-        let public_pem = secret_key
-            .public_key()
-            .to_public_key_pem(LineEnding::LF)
-            .expect("Failed to encode test EC public key");
+    /// 測試用 EC P-256 公鑰（SPKI PEM，來自 jsonwebtoken crate 官方測試金鑰）
+    pub const TEST_PUBLIC_KEY_PEM: &'static str = "-----BEGIN PUBLIC KEY-----\n\
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEw7JAoU/gJbZJvV+zCOvU9yFJq0FN\n\
+C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
+-----END PUBLIC KEY-----\n";
+
+    /// 建立測試用 JwtKeys（固定金鑰，不隨機，確保跨測試一致性）
+    pub fn for_testing() -> Self {
         JwtKeys {
-            encoding: EncodingKey::from_ec_pem(private_pem.as_bytes())
+            encoding: EncodingKey::from_ec_pem(Self::TEST_PRIVATE_KEY_PEM.as_bytes())
                 .expect("Valid test EC private key"),
-            decoding: DecodingKey::from_ec_pem(public_pem.as_bytes())
+            decoding: DecodingKey::from_ec_pem(Self::TEST_PUBLIC_KEY_PEM.as_bytes())
                 .expect("Valid test EC public key"),
         }
     }

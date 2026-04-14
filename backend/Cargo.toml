@@ -96,7 +96,6 @@ reqwest = { version = "0.12", features = ["json", "cookies"] }
 serial_test = "3"
 jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto", "use_pem"] }
 chrono = { version = "0.4" }
-p256 = { version = "0.13", features = ["pkcs8", "pem", "rand_core"] }
 
 [[bin]]
 name = "create_admin"
