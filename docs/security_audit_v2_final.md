@@ -110,23 +110,79 @@ access::require_animal_access(...).await?;              // 再 check
 
 ---
 
-## 6. Architectural Recommendations（按風險降低 ROI 排序）
+## 6. 待修復項目（按風險排序，附 deadline 建議）
 
-| 優先級 | 方案 | 風險降低 | 成本 |
-|--------|------|----------|------|
-| 1 | **CI `_current_user` 掃描** — 任何 handler 中出現 `_current_user` + `Path` 參數 = CI fail | 消除全部同類 IDOR | 極低（一個 grep 腳本） |
-| 2 | **auth middleware 加 `is_active` 檢查** — 每次請求驗證帳號狀態 | 消除 BIZ-16 | 低（加一個 DB query，可快取） |
-| 3 | **狀態機 enum 化** — Protocol/Amendment/Leave/Document 狀態轉換用 match arm 而非字串比較 | 消除 BIZ-14/17/18 全部狀態跳關 | 中（需重構 status 相關邏輯） |
-| 4 | **self-approval guard** — 全域 utility `assert_not_self_approval(submitter_id, approver_id)` | 消除 BIZ-10/11 | 低 |
+### Tier 1 — 下一個 sprint 必修（合規阻斷）
+
+| ID | 問題 | 風險 | 具體修法 |
+|----|------|------|---------|
+| BIZ-14 | Amendment `change_status()` 無 WHERE 狀態驗證 | GLP 審核完整性 | 加 `WHERE status = $current_status` |
+| BIZ-10/11 | Leave/Overtime 自我核准 | HR 合規 + 利益衝突 | 加 `if current.user_id == approver_id { return Err }` |
+| BIZ-17 | Leave 拒絕無 WHERE status 條件 | 資料一致性 | 同 BIZ-5 修法 |
+
+### Tier 2 — 本季度修復（安全強化）
+
+**Timing Oracle**：目前的 IDOR 修復用 fetch-first-then-check，導致 invalid ID 回 404（快）而 valid-but-forbidden 回 403（慢）。
+
+正確做法**不是**「把 ownership check 整合進 SQL WHERE」（SQLx 抽象讓這在多 JOIN 場景下不實際）。正確做法是**統一回傳 404**：
+
+```rust
+// 修改 services/access.rs 中的 require_animal_access 錯誤型別
+// 改前：Err(AppError::Forbidden("..."))
+// 改後：Err(AppError::NotFound("Animal not found"))
+// 讓 forbidden 和 not-found 不可區分
+```
+
+只需改 `services/access.rs` 一處，所有 IDOR 修復自動受益。
+
+### Tier 3 — 記錄並追蹤
+
+| ID | 問題 | 為什麼不急 |
+|----|------|-----------|
+| BIZ-13 | Approved protocol content 可修改 | 需確認編輯 handler 是否已有狀態檢查 |
+| BIZ-15 | Audit log HMAC 是 INSERT 後 UPDATE | 需 DB access 才能利用，風險低 |
 
 ---
 
-## 7. Remaining Uncertainty
+## 7. 21 CFR Part 11 §11.50 — 簽章問題詳解
+
+**現狀**（`services/signature/mod.rs:188-196`）：
+
+```rust
+let hash_input = password_hash.unwrap_or("handwriting");  // 手寫簽章 = 常數字串
+let signature_input = format!("{}:{}:{}:{}",
+    signer_id, content_hash, timestamp.timestamp(), hash_input);
+let signature_data = Self::compute_hash(&signature_input);  // SHA-256
+```
+
+**問題**：手寫簽章的 `signature_data` 使用常數 `"handwriting"` 而非使用者密碼 hash。已知 `signer_id`（UUID，JWT 可見）+ `content_hash`（可計算）+ `timestamp`（response 可觀察）+ 常數 = 第三方可重算 `signature_data`。
+
+**§11.50 要求**：電子簽章必須包含簽署者唯一識別且不可偽造。當 `signature_data` 可被第三方重算時不具不可否認性。
+
+**已修復**：BIZ-3 fix 讓手寫簽章要求密碼。但 `signature_data` 計算邏輯仍用常數。
+
+**建議**：`sign_with_handwriting()` 呼叫時，改為傳入 `password_hash`（密碼驗證步驟已取得）。
+
+---
+
+## 8. 漏洞發現來源分布
+
+| 發現方法 | 漏洞數量 | 佔比 | 代表漏洞 |
+|----------|----------|------|---------|
+| **CI `_current_user` grep** | 16 | **53%** | sacrifice, sudden_death, versions, care_records, events, delete |
+| **業務邏輯 code review** | 8 | 27% | BIZ-10/11/14/16/17, self-approval, status skip |
+| **Threat model targeted review** | 3 | 10% | VULN-004 self-escalation, BIZ-1, BIZ-3 |
+| **權限字串比對** | 3 | 10% | VULN-001 report endpoints |
+
+**結論**：53% 的漏洞可以用一個 grep 腳本在 CI 中自動捕獲。已提供實際可執行的腳本 `scripts/ci_handler_security_scan.sh`。
+
+---
+
+## 9. Remaining Uncertainty
 
 以下項目**無法透過靜態分析確認**，需要 running instance + dynamic test：
 
-1. **Timing oracle 實際可利用性** — 理論上 fetch-first-then-check 有 timing 差異，但在網路延遲下是否可靠區分需要實測
-2. **Permission cache race condition** — v1 說 <1 秒 window，但併發壓力測試下可能更大
-3. **HMAC chain 斷裂恢復** — 如果 HMAC 計算在 INSERT 和 UPDATE 之間系統崩潰，鏈是否可恢復
-4. **Rate limiter 繞過** — 使用多 IP 是否可繞過 per-IP rate limit（依賴部署架構）
-5. **Regression test 完整覆蓋** — 需要 running instance 才能驗證所有 PoC
+1. **Timing oracle 實際可利用性** — 需要實測網路延遲下的區分度
+2. **Permission cache race condition** — 需要併發壓力測試
+3. **HMAC chain 斷裂恢復** — 需要模擬系統崩潰場景
+4. **Regression test 完整覆蓋** — 需要 running instance

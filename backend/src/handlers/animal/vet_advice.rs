@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     middleware::CurrentUser,
+    require_permission,
     services::{
         access, AnimalVetAdviceService, AnimalVetAdvice, UpsertVetAdviceRequest,
         VetAdviceRecord, VetAdviceRecordService,
@@ -85,9 +86,11 @@ pub async fn update_vet_advice_record(
 /// 刪除獸醫師建議紀錄（soft delete）
 pub async fn delete_vet_advice_record(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<()>> {
+    // SEC-IDOR: v2 CI 掃描發現 — 寫入操作必須驗證權限與動物歸屬
+    require_permission!(current_user, "animal.vet.recommend");
     VetAdviceRecordService::delete(&state.db, id).await?;
     Ok(Json(()))
 }

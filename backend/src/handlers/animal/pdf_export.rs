@@ -229,9 +229,11 @@ pub async fn export_pen_report(
 /// 匯出獸醫巡場報告 PDF
 pub async fn export_vet_patrol_report_pdf(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
+    // SEC-IDOR: v2 CI 掃描發現 — 巡場報告匯出需權限
+    require_permission!(current_user, "animal.record.view");
     use crate::services::VetPatrolReportService;
 
     let report_with_entries = VetPatrolReportService::get(&state.db, id)
