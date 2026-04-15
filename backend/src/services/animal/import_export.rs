@@ -946,3 +946,133 @@ impl AnimalImportExportService {
         Ok(rows)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── parse_import_breed ──
+
+    #[test]
+    fn test_breed_minipig_variants() {
+        assert_eq!(parse_import_breed("minipig").0, AnimalBreed::Minipig);
+        assert_eq!(parse_import_breed("Mini").0, AnimalBreed::Minipig);
+        assert_eq!(parse_import_breed("迷你豬").0, AnimalBreed::Minipig);
+        assert_eq!(parse_import_breed("M").0, AnimalBreed::Minipig);
+    }
+
+    #[test]
+    fn test_breed_white_variants() {
+        assert_eq!(parse_import_breed("white").0, AnimalBreed::White);
+        assert_eq!(parse_import_breed("W").0, AnimalBreed::White);
+        assert_eq!(parse_import_breed("白豬").0, AnimalBreed::White);
+        assert_eq!(parse_import_breed("大白豬").0, AnimalBreed::White);
+    }
+
+    #[test]
+    fn test_breed_unknown_returns_other_with_name() {
+        let (breed, other) = parse_import_breed("Duroc");
+        assert_eq!(breed, AnimalBreed::Other);
+        assert_eq!(other, Some("Duroc".to_string()));
+    }
+
+    #[test]
+    fn test_breed_empty_returns_other_none() {
+        let (breed, other) = parse_import_breed("");
+        assert_eq!(breed, AnimalBreed::Other);
+        assert_eq!(other, None);
+    }
+
+    // ── parse_import_gender ──
+
+    #[test]
+    fn test_gender_male_variants() {
+        assert_eq!(parse_import_gender("male"), Some(AnimalGender::Male));
+        assert_eq!(parse_import_gender("M"), Some(AnimalGender::Male));
+        assert_eq!(parse_import_gender("公"), Some(AnimalGender::Male));
+        assert_eq!(parse_import_gender("公豬"), Some(AnimalGender::Male));
+    }
+
+    #[test]
+    fn test_gender_female_variants() {
+        assert_eq!(parse_import_gender("female"), Some(AnimalGender::Female));
+        assert_eq!(parse_import_gender("F"), Some(AnimalGender::Female));
+        assert_eq!(parse_import_gender("母"), Some(AnimalGender::Female));
+        assert_eq!(parse_import_gender("母豬"), Some(AnimalGender::Female));
+    }
+
+    #[test]
+    fn test_gender_unknown_returns_none() {
+        assert_eq!(parse_import_gender("other"), None);
+        assert_eq!(parse_import_gender(""), None);
+    }
+
+    // ── parse_date_field ──
+
+    #[test]
+    fn test_date_dash_format() {
+        let d = parse_date_field("2025-03-15");
+        assert_eq!(d, Some(chrono::NaiveDate::from_ymd_opt(2025, 3, 15).expect("valid date")));
+    }
+
+    #[test]
+    fn test_date_slash_format() {
+        let d = parse_date_field("2025/03/15");
+        assert_eq!(d, Some(chrono::NaiveDate::from_ymd_opt(2025, 3, 15).expect("valid date")));
+    }
+
+    #[test]
+    fn test_date_invalid_returns_none() {
+        assert_eq!(parse_date_field("not-a-date"), None);
+        assert_eq!(parse_date_field(""), None);
+        assert_eq!(parse_date_field("2025-13-01"), None);
+    }
+
+    // ── parse_weight_value ──
+
+    #[test]
+    fn test_weight_plain_number() {
+        assert_eq!(parse_weight_value("25.5"), Some(25.5));
+    }
+
+    #[test]
+    fn test_weight_with_kg_suffix() {
+        assert_eq!(parse_weight_value("30kg"), Some(30.0));
+    }
+
+    #[test]
+    fn test_weight_with_chinese_suffix() {
+        assert_eq!(parse_weight_value("45.2公斤"), Some(45.2));
+    }
+
+    #[test]
+    fn test_weight_zero_returns_none() {
+        assert_eq!(parse_weight_value("0"), None);
+    }
+
+    #[test]
+    fn test_weight_negative_returns_none() {
+        assert_eq!(parse_weight_value("-5"), None);
+    }
+
+    #[test]
+    fn test_weight_invalid_returns_none() {
+        assert_eq!(parse_weight_value("abc"), None);
+        assert_eq!(parse_weight_value(""), None);
+    }
+
+    // ── format_ear_tag (local version) ──
+
+    #[test]
+    fn test_local_ear_tag_pads_all_numbers() {
+        // 與 AnimalUtils::format_ear_tag 不同：這裡所有數字都補零
+        assert_eq!(format_ear_tag("5"), "005");
+        assert_eq!(format_ear_tag("100"), "100");
+        assert_eq!(format_ear_tag("999"), "999");
+    }
+
+    #[test]
+    fn test_local_ear_tag_non_numeric() {
+        assert_eq!(format_ear_tag("abc"), "abc");
+    }
+}

@@ -287,3 +287,110 @@ impl AnimalFieldCorrectionService {
         Ok(rows)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── validate_new_value: ear_tag ──
+
+    #[test]
+    fn test_ear_tag_valid_three_digits() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "001").is_ok());
+    }
+
+    #[test]
+    fn test_ear_tag_valid_single_digit_padded() {
+        // "5" → format_ear_tag → "005" → 3 digits OK
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "5").is_ok());
+    }
+
+    #[test]
+    fn test_ear_tag_valid_99() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "99").is_ok());
+    }
+
+    #[test]
+    fn test_ear_tag_three_digit_100() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "100").is_ok());
+    }
+
+    #[test]
+    fn test_ear_tag_rejects_non_numeric() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "abc").is_err());
+    }
+
+    #[test]
+    fn test_ear_tag_rejects_four_digits() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "1000").is_err());
+    }
+
+    // ── validate_new_value: birth_date ──
+
+    #[test]
+    fn test_birth_date_valid() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("birth_date", "2025-01-15").is_ok());
+    }
+
+    #[test]
+    fn test_birth_date_invalid_format() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("birth_date", "01/15/2025").is_err());
+    }
+
+    #[test]
+    fn test_birth_date_invalid_date() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("birth_date", "2025-13-01").is_err());
+    }
+
+    // ── validate_new_value: gender ──
+
+    #[test]
+    fn test_gender_valid_male() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("gender", "male").is_ok());
+    }
+
+    #[test]
+    fn test_gender_valid_female() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("gender", "female").is_ok());
+    }
+
+    #[test]
+    fn test_gender_rejects_other() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("gender", "other").is_err());
+    }
+
+    #[test]
+    fn test_gender_rejects_uppercase() {
+        // 嚴格比對，不接受大寫
+        assert!(AnimalFieldCorrectionService::validate_new_value("gender", "Male").is_err());
+    }
+
+    // ── validate_new_value: breed ──
+
+    #[test]
+    fn test_breed_valid_miniature() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("breed", "miniature").is_ok());
+    }
+
+    #[test]
+    fn test_breed_valid_lyd_uppercase() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("breed", "LYD").is_ok());
+    }
+
+    #[test]
+    fn test_breed_valid_lyd_lowercase() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("breed", "lyd").is_ok());
+    }
+
+    #[test]
+    fn test_breed_rejects_unknown() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("breed", "Duroc").is_err());
+    }
+
+    // ── validate_new_value: unknown field passes ──
+
+    #[test]
+    fn test_unknown_field_always_ok() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("remark", "anything").is_ok());
+    }
+}
