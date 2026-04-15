@@ -542,9 +542,10 @@ mod tests {
 
     #[test]
     fn test_parse_product_csv_general_format() {
-        // 不含「品名/名稱」+「規格」的組合 → 使用一般格式解析
-        // 一般格式使用位置索引：col0=名稱, col1=規格, ..., col5=追蹤批號, col6=追蹤效期
-        let csv = "product_name,spec,category,subcat,unit,batch,expiry,stock,remark\n\
+        // 使用與 resolve_general_indices 一致的中文表頭，驗證表頭名稱匹配邏輯。
+        // 「產品規格」≠「規格」→ 不觸發庫存清表偵測，但名稱/品類代碼/單位/追蹤批號/追蹤效期/備註
+        // 等欄位均透過 csv_header_index 匹配。
+        let csv = "名稱,產品規格,品類代碼,子類代碼,單位,追蹤批號,追蹤效期,安全庫存,備註\n\
                    酒精,75%,CON,,瓶,true,false,10,消毒用\n\
                    棉花,,MED,,包,false,false,,";
         let (rows, has_sku) = parse_product_csv(csv.as_bytes()).expect("parse should succeed");
@@ -553,13 +554,18 @@ mod tests {
 
         assert_eq!(rows[0].name, "酒精");
         assert_eq!(rows[0].spec.as_deref(), Some("75%"));
+        assert_eq!(rows[0].category_code.as_deref(), Some("CON"));
         assert_eq!(rows[0].base_uom, "瓶");
         assert!(rows[0].track_batch);
         assert!(!rows[0].track_expiry);
+        assert_eq!(rows[0].safety_stock, rust_decimal::Decimal::from_f64_retain(10.0));
         assert_eq!(rows[0].remark.as_deref(), Some("消毒用"));
 
         assert_eq!(rows[1].name, "棉花");
+        assert_eq!(rows[1].category_code.as_deref(), Some("MED"));
         assert_eq!(rows[1].base_uom, "包");
+        assert!(!rows[1].track_batch);
+        assert!(!rows[1].track_expiry);
     }
 
     #[test]

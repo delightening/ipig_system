@@ -62,9 +62,13 @@ describe('useDateRangeFilter', () => {
     const { result } = renderHook(() =>
       useDateRangeFilter({ initialFrom: lazyFrom, initialTo: '2024-12-31' })
     )
+    // lazy initializer 於 useState 初始化時被呼叫一次
+    expect(callCount).toBe(1)
 
     act(() => { result.current.setFrom('2025-06-01') })
     act(() => { result.current.reset() })
     expect(result.current.from).toBe('2024-01-01')
+    // reset 時再次呼叫 lazy initializer
+    expect(callCount).toBe(2)
   })
 })
