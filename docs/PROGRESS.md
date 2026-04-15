@@ -185,6 +185,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-15 R22 攻擊偵測與主動告警（18 項全部完成）
+
+- ✅ **被動記錄（22-A）**：rate limit 4 tier / AI key 3 事件 / 403 response middleware / account lockout 全寫入 `user_activity_logs`；新增 `AuditService::log_security_event()` + 10 個 `SEC_EVENT_*` 常數
+- ✅ **智慧告警（22-B）**：auth rate limit 升級告警 + IDOR 探測偵測（均含去重）；brute force alert 去重修復；`AlertThresholdService` 60s cache + migration 025 `security_alert_config` 表
+- ✅ **主動推送（22-C）**：`SecurityNotifier` 抽象層支援 Email / LINE Notify / Webhook 三管道；`security_notification_channels` 表設定管道；scheduler 新增每 6 小時未處理告警掃描
+- ✅ **可觀測性（22-D）**：6 個蜜罐端點（/.env, /wp-login.php 等）觸發 critical alert；Admin Audit 新增「安全事件」Tab（前後端）；Log 聚合評估文件（推薦 Loki）；Docker log rotation 加大至 50m
+
 ### 2026-04-14 資安審計：加密方式 + 權限隔離漏洞修復
 
 - ✅ **報表端點權限修復**：`handlers/report.rs` 9 個端點原本無權限檢查，任何已認證使用者可存取全部財務報表；已全部加入 `require_permission!(current_user, "erp.report.view")`

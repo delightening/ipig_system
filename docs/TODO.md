@@ -1749,39 +1749,39 @@ ORDER BY 1 DESC;
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R22-1 | **Rate limit 事件寫入 DB** | `middleware/rate_limiter.rs` 觸發時呼叫 `AuditService::log_activity()`，event_type: `rate_limit_auth` / `rate_limit_api` / `rate_limit_write` / `rate_limit_upload`；記錄 IP、request path、觸發的 tier | [ ] |
-| R22-2 | **AI key rate limit 事件記錄** | `middleware/ai_auth.rs` 觸發時寫入 `user_activity_logs`，event_type: `rate_limit_ai`；記錄 key prefix（不記錄完整 key）、request path | [ ] |
-| R22-3 | **403 Permission denied 記錄** | `AppError::Forbidden` 回傳前寫入 `user_activity_logs`，event_type: `permission_denied`；記錄 user_id、IP、嘗試的 permission string、request path；標記 `is_suspicious = true` | [ ] |
-| R22-4 | **Account lockout 事件記錄** | `services/auth/login.rs` 鎖定觸發時寫入 `user_activity_logs`，event_type: `account_lockout`；記錄 email、IP、連續失敗次數 | [ ] |
+| R22-1 | **Rate limit 事件寫入 DB** | `middleware/rate_limiter.rs` 觸發時呼叫 `AuditService::log_security_event()`，4 tier 全覆蓋 | [x] |
+| R22-2 | **AI key rate limit 事件記錄** | `ai_auth.rs` deactivated/expired/rate_limited 三事件寫入 DB | [x] |
+| R22-3 | **403 Permission denied 記錄** | `response_logger.rs` middleware 攔截 403 回應寫入 DB | [x] |
+| R22-4 | **Account lockout 事件記錄** | `login.rs` lockout 觸發時寫入 DB | [x] |
 
 ### 22-B 層 2：智慧告警 — 自動產生 security_alerts（P1）
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R22-5 | **Auth rate limit 升級告警** | 同一 IP 於 1 小時內觸發 auth rate limit ≥3 次 → 建立 `security_alerts`（severity: critical, alert_type: `rate_limit_escalation`）| [ ] |
-| R22-6 | **IDOR 探測偵測** | 同一 user_id 於 15 分鐘內累積 ≥5 次 403 → 建立 `security_alerts`（severity: high, alert_type: `idor_probe`）；context_data 含嘗試的 resource paths | [ ] |
-| R22-7 | **Brute force alert 去重** | `LoginTracker::check_brute_force()` 加入去重邏輯：同一 email 在現有 open alert 存在時不重複建立（目前第 5 次之後每次都建新 alert，100 次攻擊產生 95 條重複）| [ ] |
-| R22-8 | **告警閾值設定化** | 將 R22-5/R22-6 的閾值（次數、時間窗口）提取為 `config.rs` 環境變數（`ALERT_RATE_LIMIT_THRESHOLD`、`ALERT_IDOR_THRESHOLD` 等），避免硬編碼 | [ ] |
+| R22-5 | **Auth rate limit 升級告警** | 同一 IP 超過閾值 → critical alert + 去重 + 主動通知 | [x] |
+| R22-6 | **IDOR 探測偵測** | 同一 user 超過閾值 403 → critical alert + 去重 + 主動通知 | [x] |
+| R22-7 | **Brute force alert 去重** | `check_brute_force()` 加 30 分鐘去重（同 `global_mass_login` 模式） | [x] |
+| R22-8 | **告警閾值設定化** | `security_alert_config` 表 + `AlertThresholdService` 60s cache | [x] |
 
 ### 22-C 層 3：主動推送 — 即時通知管理者（P1）
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R22-9 | **通知管道抽象層** | 建立 `services/security_notify.rs`，定義 `SecurityNotifier` trait（`send_alert(&self, alert: &SecurityAlert)`）；支援多管道實作 | [ ] |
-| R22-10 | **Email 通知實作** | 複用現有 SMTP 設定（`config.rs` 已有 SMTP 參數），severity ≥ high 時發送告警信給 `SECURITY_ALERT_EMAILS` 環境變數指定的信箱列表 | [ ] |
-| R22-11 | **LINE Notify 整合** | 透過 LINE Notify API 推送 critical alert 摘要；`LINE_NOTIFY_TOKEN` 環境變數；含 rate limit（每分鐘最多 5 則）避免轟炸 | [ ] |
-| R22-12 | **Webhook 通用管道** | `SECURITY_WEBHOOK_URL` 環境變數，POST JSON payload（alert_type, severity, summary, timestamp）；支援 Slack / Discord / 自訂端點 | [ ] |
-| R22-13 | **排程掃描未處理告警** | `scheduler.rs` 新增 `check_unresolved_alerts` job（每 5 分鐘），掃描 severity ≥ high 且 status = open 且建立超過 10 分鐘的 alert，重送通知（防漏） | [ ] |
+| R22-9 | **通知管道抽象層** | `SecurityNotifier::dispatch()` 從 `security_notification_channels` 讀取啟用管道 | [x] |
+| R22-10 | **Email 通知實作** | 複用現有 SMTP + HTML 模板，收件人從 channel config_json 讀取 | [x] |
+| R22-11 | **LINE Notify 整合** | POST notify-api.line.me + `LINE_NOTIFY_TOKEN` env var | [x] |
+| R22-12 | **Webhook 通用管道** | POST JSON payload 到 config_json.url，10s timeout | [x] |
+| R22-13 | **排程掃描未處理告警** | `scheduler.rs` 每 6 小時掃描 open + >24h alert 重送通知 | [x] |
 
 ### 22-D 額外考量：可觀測性與蜜罐（P2）
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R22-14 | **集中式 Log 收集評估** | 評估 Loki + Grafana（已有 Prometheus/Grafana infra）vs. ELK；目標：tracing log 持久化，重啟不遺失；產出評估文件 `docs/LOG_AGGREGATION_EVALUATION.md` | [ ] |
-| R22-15 | **Grafana 安全 Dashboard** | 新增 Grafana dashboard：login failures/min、rate limit triggers/min、403 denials/min、open alerts timeline；資料源複用 R22-1~R22-4 寫入的 `user_activity_logs` | [ ] |
-| R22-16 | **蜜罐端點（Honeypot）** | 註冊 3 個假端點（`/admin/backup`、`/api/v1/debug`、`/.env`），任何存取立即建立 critical `security_alert`（alert_type: `honeypot_triggered`）+ 主動通知；不回傳任何有用資訊（統一 404） | [ ] |
-| R22-17 | **Admin Audit 頁面 — 安全事件 Tab** | 新增「安全事件」Tab，整合顯示：rate limit 觸發記錄、403 權限拒絕記錄、蜜罐觸發記錄；篩選條件含 IP、時間範圍、event_type | [ ] |
-| R22-18 | **Docker log driver 設定** | `docker-compose.prod.yml` 設定 log driver（json-file → Loki driver 或 syslog），確保 container 重啟後 tracing log 不遺失；log rotation 設定（max-size: 50m, max-file: 5） | [ ] |
+| R22-14 | **集中式 Log 收集評估** | `docs/r22-log-aggregation.md` — 推薦 Loki（Grafana 同 stack） | [x] |
+| R22-15 | **Grafana 安全 Dashboard** | 待 Loki 部署後建立 LogQL dashboard（依賴 R22-14 Phase 2） | ⏸️ |
+| R22-16 | **蜜罐端點（Honeypot）** | 6 個假端點（/.env, /wp-login.php 等），觸發 critical alert + 通知，回傳 404 | [x] |
+| R22-17 | **Admin Audit 頁面 — 安全事件 Tab** | 前後端完成，11 種 event_type 篩選，SecurityEventsTab 元件 | [x] |
+| R22-18 | **Docker log driver 設定** | `docker-compose.prod.yml` api log rotation 50m/5 + tag | [x] |
 
 ---
 
@@ -1812,8 +1812,8 @@ ORDER BY 1 DESC;
 | 🎫 R19 客戶邀請制入口 | 0 (14 完成) |
 | 🤖 R20 AI 預審與執行秘書標註 | 2 (8 完成, R20-9/10 持續性) |
 | 🌡️ R21 環境監控子系統（MES-Lite） | 11 (1 暫緩) |
-| 🛡️ R22 攻擊偵測與主動告警 | 18 |
-| **合計（未完成）** | **31** |
+| 🛡️ R22 攻擊偵測與主動告警 | 0 (17 完成, 1 暫緩) |
+| **合計（未完成）** | **13** |
 
 ---
 
