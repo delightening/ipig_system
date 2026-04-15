@@ -37,11 +37,13 @@ services:
         reservations:
           cpus: "0.5"
           memory: 512M
+    # R22-18: 加大 log rotation（安全事件 tracing log 需保留更長時間）
     logging:
       driver: json-file
       options:
-        max-size: "20m"
+        max-size: "50m"
         max-file: "5"
+        tag: "ipig-api"
 
   # Override web to use GHCR image（Critical 3：生產綁定 localhost，對外由反向代理提供）
   web:
