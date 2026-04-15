@@ -210,3 +210,124 @@ pub struct VetRecommendation {
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- AnimalStatus::can_transition_to ---
+
+    #[test]
+    fn test_unassigned_valid_transitions() {
+        let s = AnimalStatus::Unassigned;
+        assert!(s.can_transition_to(AnimalStatus::InExperiment));
+        assert!(s.can_transition_to(AnimalStatus::Euthanized));
+        assert!(s.can_transition_to(AnimalStatus::SuddenDeath));
+    }
+
+    #[test]
+    fn test_unassigned_invalid_transitions() {
+        let s = AnimalStatus::Unassigned;
+        assert!(!s.can_transition_to(AnimalStatus::Completed));
+        assert!(!s.can_transition_to(AnimalStatus::Transferred));
+        assert!(!s.can_transition_to(AnimalStatus::Unassigned));
+    }
+
+    #[test]
+    fn test_in_experiment_valid_transitions() {
+        let s = AnimalStatus::InExperiment;
+        assert!(s.can_transition_to(AnimalStatus::Completed));
+        assert!(s.can_transition_to(AnimalStatus::Euthanized));
+        assert!(s.can_transition_to(AnimalStatus::SuddenDeath));
+    }
+
+    #[test]
+    fn test_in_experiment_invalid_transitions() {
+        let s = AnimalStatus::InExperiment;
+        assert!(!s.can_transition_to(AnimalStatus::Unassigned));
+        assert!(!s.can_transition_to(AnimalStatus::Transferred));
+    }
+
+    #[test]
+    fn test_completed_valid_transitions() {
+        let s = AnimalStatus::Completed;
+        assert!(s.can_transition_to(AnimalStatus::Transferred));
+        assert!(s.can_transition_to(AnimalStatus::Euthanized));
+    }
+
+    #[test]
+    fn test_completed_invalid_transitions() {
+        let s = AnimalStatus::Completed;
+        assert!(!s.can_transition_to(AnimalStatus::InExperiment));
+        assert!(!s.can_transition_to(AnimalStatus::SuddenDeath));
+    }
+
+    #[test]
+    fn test_transferred_valid_transitions() {
+        let s = AnimalStatus::Transferred;
+        assert!(s.can_transition_to(AnimalStatus::InExperiment));
+    }
+
+    #[test]
+    fn test_terminal_states_cannot_transition() {
+        assert!(!AnimalStatus::Euthanized.can_transition_to(AnimalStatus::InExperiment));
+        assert!(!AnimalStatus::SuddenDeath.can_transition_to(AnimalStatus::InExperiment));
+        assert!(!AnimalStatus::Euthanized.can_transition_to(AnimalStatus::Unassigned));
+    }
+
+    // --- AnimalStatus::is_terminal ---
+
+    #[test]
+    fn test_terminal_states() {
+        assert!(AnimalStatus::Euthanized.is_terminal());
+        assert!(AnimalStatus::SuddenDeath.is_terminal());
+    }
+
+    #[test]
+    fn test_non_terminal_states() {
+        assert!(!AnimalStatus::Unassigned.is_terminal());
+        assert!(!AnimalStatus::InExperiment.is_terminal());
+        assert!(!AnimalStatus::Completed.is_terminal());
+        assert!(!AnimalStatus::Transferred.is_terminal());
+    }
+
+    // --- display_name ---
+
+    #[test]
+    fn test_animal_status_display_names() {
+        assert_eq!(AnimalStatus::Unassigned.display_name(), "未分配");
+        assert_eq!(AnimalStatus::InExperiment.display_name(), "實驗中");
+        assert_eq!(AnimalStatus::Completed.display_name(), "實驗完成");
+        assert_eq!(AnimalStatus::Euthanized.display_name(), "安樂死");
+        assert_eq!(AnimalStatus::SuddenDeath.display_name(), "猝死");
+        assert_eq!(AnimalStatus::Transferred.display_name(), "已轉讓");
+    }
+
+    #[test]
+    fn test_animal_gender_display_names() {
+        assert_eq!(AnimalGender::Male.display_name(), "公");
+        assert_eq!(AnimalGender::Female.display_name(), "母");
+    }
+
+    #[test]
+    fn test_animal_breed_display_names() {
+        assert_eq!(AnimalBreed::Minipig.display_name(), "迷你豬");
+        assert_eq!(AnimalBreed::White.display_name(), "白豬");
+        assert_eq!(AnimalBreed::LYD.display_name(), "LYD");
+        assert_eq!(AnimalBreed::Other.display_name(), "其他");
+    }
+
+    #[test]
+    fn test_record_type_display_names() {
+        assert_eq!(RecordType::Abnormal.display_name(), "異常紀錄");
+        assert_eq!(RecordType::Experiment.display_name(), "試驗紀錄");
+        assert_eq!(RecordType::Observation.display_name(), "觀察紀錄");
+    }
+
+    #[test]
+    fn test_transfer_status_display_names() {
+        assert_eq!(AnimalTransferStatus::Pending.display_name(), "待審");
+        assert_eq!(AnimalTransferStatus::Completed.display_name(), "轉讓完成");
+        assert_eq!(AnimalTransferStatus::Rejected.display_name(), "已拒絕");
+    }
+}

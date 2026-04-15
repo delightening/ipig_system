@@ -35,3 +35,37 @@ pub fn transform_row(source_schema_version: &str, table: &str, row: &mut serde_j
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_transform_row_no_mappings() {
+        let mut row = json!({"name": "test", "age": 30});
+        transform_row("001", "users", &mut row);
+        assert_eq!(row, json!({"name": "test", "age": 30}));
+    }
+
+    #[test]
+    fn test_transform_row_non_object() {
+        let mut row = json!("just a string");
+        transform_row("001", "users", &mut row);
+        assert_eq!(row, json!("just a string"));
+    }
+
+    #[test]
+    fn test_transform_row_null() {
+        let mut row = json!(null);
+        transform_row("001", "users", &mut row);
+        assert_eq!(row, json!(null));
+    }
+
+    #[test]
+    fn test_transform_row_unknown_version() {
+        let mut row = json!({"foo": "bar"});
+        transform_row("999", "users", &mut row);
+        assert_eq!(row, json!({"foo": "bar"}));
+    }
+}

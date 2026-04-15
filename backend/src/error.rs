@@ -186,3 +186,124 @@ impl From<validator::ValidationErrors> for AppError {
         AppError::Validation(format!("Validation failed: {}", errors))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+    use axum::response::IntoResponse;
+
+    fn extract_status(error: AppError) -> StatusCode {
+        error.into_response().status()
+    }
+
+    fn extract_body_json(error: AppError) -> serde_json::Value {
+        let response = error.into_response();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX);
+        let bytes = tokio_test::block_on(body).expect("read body");
+        serde_json::from_slice(&bytes).expect("parse JSON")
+    }
+
+    #[test]
+    fn test_unauthorized_returns_401() {
+        assert_eq!(extract_status(AppError::Unauthorized), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn test_invalid_credentials_returns_401() {
+        assert_eq!(
+            extract_status(AppError::InvalidCredentials("bad password".into())),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    #[test]
+    fn test_forbidden_returns_403() {
+        assert_eq!(
+            extract_status(AppError::Forbidden("no access".into())),
+            StatusCode::FORBIDDEN
+        );
+    }
+
+    #[test]
+    fn test_not_found_returns_404() {
+        assert_eq!(
+            extract_status(AppError::NotFound("missing".into())),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[test]
+    fn test_validation_returns_400() {
+        assert_eq!(
+            extract_status(AppError::Validation("invalid".into())),
+            StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[test]
+    fn test_bad_request_returns_400() {
+        assert_eq!(
+            extract_status(AppError::BadRequest("bad".into())),
+            StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[test]
+    fn test_conflict_returns_409() {
+        assert_eq!(
+            extract_status(AppError::Conflict("dup".into())),
+            StatusCode::CONFLICT
+        );
+    }
+
+    #[test]
+    fn test_business_rule_returns_422() {
+        assert_eq!(
+            extract_status(AppError::BusinessRule("rule".into())),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+
+    #[test]
+    fn test_internal_returns_500() {
+        assert_eq!(
+            extract_status(AppError::Internal("oops".into())),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[test]
+    fn test_duplicate_warning_returns_409_with_metadata() {
+        let error = AppError::DuplicateWarning {
+            message: "duplicate found".into(),
+            existing_animals: vec![serde_json::json!({"id": "123"})],
+        };
+        let response = error.into_response();
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+    }
+
+    #[test]
+    fn test_error_body_structure() {
+        let body = extract_body_json(AppError::NotFound("item not found".into()));
+        assert_eq!(body["error"]["message"], "item not found");
+        assert_eq!(body["error"]["code"], 404);
+        assert_eq!(body["error"]["blocking"], true);
+    }
+
+    #[test]
+    fn test_error_display() {
+        assert_eq!(
+            AppError::Unauthorized.to_string(),
+            "Authentication required"
+        );
+        assert_eq!(
+            AppError::NotFound("user".into()).to_string(),
+            "Resource not found: user"
+        );
+        assert_eq!(
+            AppError::Validation("bad input".into()).to_string(),
+            "Validation error: bad input"
+        );
+    }
+}

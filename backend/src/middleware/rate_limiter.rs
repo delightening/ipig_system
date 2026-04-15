@@ -177,6 +177,83 @@ pub async fn write_rate_limit_middleware(
     apply_rate_limit(limiter, &ip, "寫入端點", request, next).await
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_limiter(max_requests: u32) -> RateLimiterState {
+        // Create without spawning the cleanup task for tests
+        RateLimiterState {
+            records: Arc::new(DashMap::new()),
+            config: RateLimiterConfig {
+                max_requests,
+                window: Duration::from_secs(60),
+            },
+        }
+    }
+
+    #[test]
+    fn test_check_rate_allows_under_limit() {
+        let limiter = test_limiter(5);
+        let (allowed, remaining) = limiter.check_rate("192.168.1.1");
+        assert!(allowed);
+        assert_eq!(remaining, 4);
+    }
+
+    #[test]
+    fn test_check_rate_decrements_remaining() {
+        let limiter = test_limiter(3);
+        let (_, remaining) = limiter.check_rate("10.0.0.1");
+        assert_eq!(remaining, 2);
+
+        let (_, remaining) = limiter.check_rate("10.0.0.1");
+        assert_eq!(remaining, 1);
+
+        let (_, remaining) = limiter.check_rate("10.0.0.1");
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn test_check_rate_blocks_at_limit() {
+        let limiter = test_limiter(2);
+        limiter.check_rate("10.0.0.1");
+        limiter.check_rate("10.0.0.1");
+
+        let (allowed, remaining) = limiter.check_rate("10.0.0.1");
+        assert!(!allowed);
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn test_check_rate_isolates_ips() {
+        let limiter = test_limiter(1);
+        let (allowed1, _) = limiter.check_rate("1.1.1.1");
+        assert!(allowed1);
+
+        let (allowed2, _) = limiter.check_rate("2.2.2.2");
+        assert!(allowed2);
+
+        // First IP is now blocked
+        let (blocked, _) = limiter.check_rate("1.1.1.1");
+        assert!(!blocked);
+
+        // Second IP is also blocked
+        let (blocked2, _) = limiter.check_rate("2.2.2.2");
+        assert!(!blocked2);
+    }
+
+    #[test]
+    fn test_check_rate_single_request_limit() {
+        let limiter = test_limiter(1);
+        let (allowed, remaining) = limiter.check_rate("ip");
+        assert!(allowed);
+        assert_eq!(remaining, 0);
+
+        let (blocked, _) = limiter.check_rate("ip");
+        assert!(!blocked);
+    }
+}
+
 /// 檔案上傳端點速率限制（每分鐘 30 次）
 pub async fn upload_rate_limit_middleware(
     State(state): State<AppState>,
