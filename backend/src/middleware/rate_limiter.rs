@@ -11,6 +11,8 @@ use std::time::{Duration, Instant};
 
 use sqlx::PgPool;
 
+use uuid::Uuid;
+
 use crate::constants::{
     AUTH_RATE_LIMIT_PER_MINUTE, API_RATE_LIMIT_PER_MINUTE, RATE_LIMIT_CLEANUP_INTERVAL_SECS,
     RATE_LIMIT_WINDOW_SECS, UPLOAD_RATE_LIMIT_PER_MINUTE, WRITE_RATE_LIMIT_PER_MINUTE,
@@ -18,7 +20,7 @@ use crate::constants::{
     SEC_EVENT_RATE_LIMIT_UPLOAD,
 };
 use crate::middleware::real_ip::extract_real_ip_with_trust;
-use crate::services::AuditService;
+use crate::services::{AlertThresholdService, AuditService};
 use crate::AppState;
 
 /// 速率限制器配置
@@ -180,6 +182,13 @@ async fn apply_rate_limit(
                 {
                     tracing::error!("[R22] Failed to log rate limit event: {e}");
                 }
+
+                // R22-5: Auth rate limit → escalation alert
+                if event_type_owned == SEC_EVENT_RATE_LIMIT_AUTH {
+                    if let Err(e) = check_auth_rate_limit_escalation(&db, &ip_owned).await {
+                        tracing::error!("[R22] Auth rate limit escalation check failed: {e}");
+                    }
+                }
             });
         }
 
@@ -248,4 +257,73 @@ pub async fn upload_rate_limit_middleware(
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
     apply_rate_limit(limiter, &ip, "檔案上傳", SEC_EVENT_RATE_LIMIT_UPLOAD, Some(state.db.clone()), request, next).await
+}
+
+/// R22-5: 檢查 auth rate limit 是否需要升級為 security_alert
+async fn check_auth_rate_limit_escalation(
+    pool: &PgPool,
+    ip: &str,
+) -> std::result::Result<(), sqlx::Error> {
+    let threshold = AlertThresholdService::auth_rate_limit_threshold(pool).await;
+    let window_mins = AlertThresholdService::auth_rate_limit_window_mins(pool).await;
+    let dedup_mins = AlertThresholdService::alert_escalation_dedup_mins(pool).await;
+
+    let (count,): (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM user_activity_logs
+        WHERE event_type = 'RATE_LIMIT_AUTH'
+          AND ip_address = $1::inet
+          AND created_at > NOW() - make_interval(mins => $2::integer)
+        "#,
+    )
+    .bind(ip)
+    .bind(window_mins as i32)
+    .fetch_one(pool)
+    .await?;
+
+    if count < threshold {
+        return Ok(());
+    }
+
+    // Dedup: skip if recent open alert exists for this IP
+    let (existing,): (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM security_alerts
+        WHERE alert_type = 'rate_limit_escalation'
+          AND context_data->>'ip' = $1
+          AND created_at > NOW() - make_interval(mins => $2::integer)
+          AND status = 'open'
+        "#,
+    )
+    .bind(ip)
+    .bind(dedup_mins as i32)
+    .fetch_one(pool)
+    .await?;
+
+    if existing > 0 {
+        return Ok(());
+    }
+
+    sqlx::query(
+        r#"
+        INSERT INTO security_alerts (
+            id, alert_type, severity, title, description,
+            context_data, created_at, updated_at, status
+        ) VALUES (
+            $1, 'rate_limit_escalation', 'critical',
+            '認證端點遭持續速率限制攻擊',
+            $2, $3, NOW(), NOW(), 'open'
+        )
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(format!(
+        "IP {ip} 在過去 {window_mins} 分鐘內觸發認證速率限制 {count} 次"
+    ))
+    .bind(serde_json::json!({ "ip": ip, "count": count, "window_mins": window_mins }))
+    .execute(pool)
+    .await?;
+
+    tracing::warn!("[R22-5] Auth rate limit escalation alert created for IP {ip}");
+    Ok(())
 }

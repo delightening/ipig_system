@@ -1,7 +1,7 @@
 //! R22-3: 安全回應記錄 middleware
 //!
 //! 攔截 403 Forbidden 回應，將 permission denied 事件寫入 user_activity_logs。
-//! 放在 auth middleware 外層，確保能讀取 CurrentUser extension。
+//! R22-6: 同一 IP 短時間內累積多次 403 → 產生 IDOR probe alert。
 
 use axum::{
     body::Body,
@@ -10,10 +10,12 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::constants::SEC_EVENT_PERMISSION_DENIED;
 use crate::middleware::CurrentUser;
-use crate::services::AuditService;
+use crate::services::{AlertThresholdService, AuditService};
 use crate::AppState;
 
 pub async fn security_response_logger(
@@ -47,8 +49,88 @@ pub async fn security_response_logger(
                 }),
             )
             .await;
+
+            // R22-6: IDOR probe detection (by user_id)
+            if let Some(uid) = user_id {
+                if let Err(e) = check_idor_probe(&db, &uid.to_string()).await {
+                    tracing::error!("[R22-6] IDOR probe check failed: {e}");
+                }
+            }
         });
     }
 
     response
+}
+
+/// R22-6: 檢查同一使用者短時間內是否累積過多 403，產生 IDOR probe alert
+async fn check_idor_probe(
+    pool: &PgPool,
+    user_id_str: &str,
+) -> std::result::Result<(), sqlx::Error> {
+    let threshold = AlertThresholdService::idor_403_threshold(pool).await;
+    let window_mins = AlertThresholdService::idor_403_window_mins(pool).await;
+    let dedup_mins = AlertThresholdService::alert_escalation_dedup_mins(pool).await;
+
+    let (count,): (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM user_activity_logs
+        WHERE event_type = 'PERMISSION_DENIED'
+          AND after_data->>'user_id' = $1
+          AND created_at > NOW() - make_interval(mins => $2::integer)
+        "#,
+    )
+    .bind(user_id_str)
+    .bind(window_mins as i32)
+    .fetch_one(pool)
+    .await?;
+
+    if count < threshold {
+        return Ok(());
+    }
+
+    // Dedup
+    let (existing,): (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM security_alerts
+        WHERE alert_type = 'idor_probe'
+          AND context_data->>'user_id' = $1
+          AND created_at > NOW() - make_interval(mins => $2::integer)
+          AND status = 'open'
+        "#,
+    )
+    .bind(user_id_str)
+    .bind(dedup_mins as i32)
+    .fetch_one(pool)
+    .await?;
+
+    if existing > 0 {
+        return Ok(());
+    }
+
+    sqlx::query(
+        r#"
+        INSERT INTO security_alerts (
+            id, alert_type, severity, title, description,
+            context_data, created_at, updated_at, status
+        ) VALUES (
+            $1, 'idor_probe', 'critical',
+            '偵測到可能的 IDOR 探測攻擊',
+            $2, $3, NOW(), NOW(), 'open'
+        )
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(format!(
+        "使用者 {user_id_str} 在過去 {window_mins} 分鐘內累積 {count} 次權限拒絕"
+    ))
+    .bind(serde_json::json!({
+        "user_id": user_id_str,
+        "count": count,
+        "window_mins": window_mins,
+    }))
+    .execute(pool)
+    .await?;
+
+    tracing::warn!("[R22-6] IDOR probe alert created for user {user_id_str}");
+    Ok(())
 }

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 pub mod access;
+pub mod alert_threshold;
 mod ai;
 pub mod mcp;
 pub mod accounting;
@@ -66,6 +67,7 @@ pub use animal::vet_patrol::{
     VetPatrolReport, VetPatrolReportWithEntries,
     CreateVetPatrolReportRequest, UpdateVetPatrolReportRequest,
 };
+pub use alert_threshold::AlertThresholdService;
 pub use audit::AuditService;
 pub use auth::AuthService;
 pub use calendar::CalendarService;
