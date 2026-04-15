@@ -407,3 +407,219 @@ pub fn to_preview_row(index: usize, row: ProductImportRow) -> ProductImportPrevi
         remark: row.remark,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- parse_bool ---
+
+    #[test]
+    fn test_parse_bool_truthy_values() {
+        assert!(parse_bool("true"));
+        assert!(parse_bool("1"));
+        assert!(parse_bool("yes"));
+        assert!(parse_bool("是"));
+        assert!(parse_bool("y"));
+        assert!(parse_bool("  True  "));
+        assert!(parse_bool("YES"));
+        assert!(parse_bool("Y"));
+    }
+
+    #[test]
+    fn test_parse_bool_falsy_values() {
+        assert!(!parse_bool("false"));
+        assert!(!parse_bool("0"));
+        assert!(!parse_bool("no"));
+        assert!(!parse_bool("否"));
+        assert!(!parse_bool(""));
+        assert!(!parse_bool("   "));
+        assert!(!parse_bool("random"));
+    }
+
+    // --- map_category_display_to_code ---
+
+    #[test]
+    fn test_map_category_code_passthrough() {
+        assert_eq!(map_category_display_to_code("CON"), Some("CON".to_string()));
+        assert_eq!(map_category_display_to_code("DRG"), Some("DRG".to_string()));
+        assert_eq!(map_category_display_to_code("med"), Some("MED".to_string()));
+    }
+
+    #[test]
+    fn test_map_category_display_name() {
+        assert_eq!(map_category_display_to_code("耗材"), Some("CON".to_string()));
+        assert_eq!(map_category_display_to_code("藥品"), Some("DRG".to_string()));
+        assert_eq!(map_category_display_to_code("醫材"), Some("MED".to_string()));
+        assert_eq!(map_category_display_to_code("化學品"), Some("CHM".to_string()));
+        assert_eq!(map_category_display_to_code("設備"), Some("EQP".to_string()));
+    }
+
+    #[test]
+    fn test_map_category_empty_returns_none() {
+        assert_eq!(map_category_display_to_code(""), None);
+        assert_eq!(map_category_display_to_code("   "), None);
+    }
+
+    #[test]
+    fn test_map_category_unknown_returns_as_is() {
+        assert_eq!(map_category_display_to_code("未知分類"), Some("未知分類".to_string()));
+    }
+
+    // --- csv_header_index ---
+
+    #[test]
+    fn test_csv_header_index_found() {
+        let headers = csv::StringRecord::from(vec!["名稱", "規格", "單位"]);
+        assert_eq!(csv_header_index(&headers, "名稱"), Some(0));
+        assert_eq!(csv_header_index(&headers, "規格"), Some(1));
+        assert_eq!(csv_header_index(&headers, "單位"), Some(2));
+    }
+
+    #[test]
+    fn test_csv_header_index_case_insensitive() {
+        let headers = csv::StringRecord::from(vec!["Name", "SPEC"]);
+        assert_eq!(csv_header_index(&headers, "name"), Some(0));
+        assert_eq!(csv_header_index(&headers, "spec"), Some(1));
+    }
+
+    #[test]
+    fn test_csv_header_index_not_found() {
+        let headers = csv::StringRecord::from(vec!["名稱", "規格"]);
+        assert_eq!(csv_header_index(&headers, "單位"), None);
+    }
+
+    #[test]
+    fn test_csv_header_index_empty_name() {
+        let headers = csv::StringRecord::from(vec!["名稱"]);
+        assert_eq!(csv_header_index(&headers, ""), None);
+        assert_eq!(csv_header_index(&headers, "  "), None);
+    }
+
+    // --- is_stocklist_format ---
+
+    #[test]
+    fn test_is_stocklist_format_true() {
+        let headers = csv::StringRecord::from(vec!["品名", "規格", "單位"]);
+        assert!(is_stocklist_format(&headers));
+
+        let headers = csv::StringRecord::from(vec!["名稱", "規格", "備註"]);
+        assert!(is_stocklist_format(&headers));
+    }
+
+    #[test]
+    fn test_is_stocklist_format_false() {
+        let headers = csv::StringRecord::from(vec!["品名", "單位"]);
+        assert!(!is_stocklist_format(&headers));
+
+        let headers = csv::StringRecord::from(vec!["SKU", "規格"]);
+        assert!(!is_stocklist_format(&headers));
+    }
+
+    // --- parse_product_csv ---
+
+    #[test]
+    fn test_parse_product_csv_stocklist_format() {
+        // 含「名稱」+「規格」表頭 → 被偵測為庫存清表格式
+        // 庫存清表模式下 track_batch / track_expiry 預設為 true
+        let csv = "名稱,規格,品類代碼,子類代碼,單位\n\
+                   酒精,75%,CON,,瓶\n\
+                   棉花,,MED,,包";
+        let (rows, has_sku) = parse_product_csv(csv.as_bytes()).expect("parse should succeed");
+        assert!(!has_sku);
+        assert_eq!(rows.len(), 2);
+
+        assert_eq!(rows[0].name, "酒精");
+        assert_eq!(rows[0].spec.as_deref(), Some("75%"));
+        assert_eq!(rows[0].category_code.as_deref(), Some("CON"));
+        assert_eq!(rows[0].base_uom, "瓶");
+        assert!(rows[0].track_batch);  // stocklist default
+        assert!(rows[0].track_expiry); // stocklist default
+
+        assert_eq!(rows[1].name, "棉花");
+        assert_eq!(rows[1].base_uom, "包");
+    }
+
+    #[test]
+    fn test_parse_product_csv_general_format() {
+        // 不含「品名/名稱」+「規格」的組合 → 使用一般格式解析
+        // 一般格式使用位置索引：col0=名稱, col1=規格, ..., col5=追蹤批號, col6=追蹤效期
+        let csv = "product_name,spec,category,subcat,unit,batch,expiry,stock,remark\n\
+                   酒精,75%,CON,,瓶,true,false,10,消毒用\n\
+                   棉花,,MED,,包,false,false,,";
+        let (rows, has_sku) = parse_product_csv(csv.as_bytes()).expect("parse should succeed");
+        assert!(!has_sku);
+        assert_eq!(rows.len(), 2);
+
+        assert_eq!(rows[0].name, "酒精");
+        assert_eq!(rows[0].spec.as_deref(), Some("75%"));
+        assert_eq!(rows[0].base_uom, "瓶");
+        assert!(rows[0].track_batch);
+        assert!(!rows[0].track_expiry);
+        assert_eq!(rows[0].remark.as_deref(), Some("消毒用"));
+
+        assert_eq!(rows[1].name, "棉花");
+        assert_eq!(rows[1].base_uom, "包");
+    }
+
+    #[test]
+    fn test_parse_product_csv_skips_empty_names() {
+        let csv = "名稱,規格\n\
+                   有名字,規格A\n\
+                   ,規格B\n\
+                   另一個,規格C";
+        let (rows, _) = parse_product_csv(csv.as_bytes()).expect("parse should succeed");
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].name, "有名字");
+        assert_eq!(rows[1].name, "另一個");
+    }
+
+    // --- to_preview_row ---
+
+    #[test]
+    fn test_to_preview_row_index_mapping() {
+        let row = ProductImportRow {
+            name: "測試產品".to_string(),
+            base_uom: "PCS".to_string(),
+            track_batch: true,
+            track_expiry: false,
+            ..Default::default()
+        };
+        let preview = to_preview_row(0, row);
+        assert_eq!(preview.row, 2); // index 0 → row 2 (header is row 1)
+        assert_eq!(preview.name, "測試產品");
+
+        let row2 = ProductImportRow {
+            name: "產品二".to_string(),
+            base_uom: "BOX".to_string(),
+            ..Default::default()
+        };
+        let preview2 = to_preview_row(5, row2);
+        assert_eq!(preview2.row, 7);
+    }
+
+    #[test]
+    fn test_to_preview_row_preserves_fields() {
+        let row = ProductImportRow {
+            sku: Some("SKU-001".to_string()),
+            name: "Test".to_string(),
+            spec: Some("100ml".to_string()),
+            category_code: Some("DRG".to_string()),
+            subcategory_code: Some("ANT".to_string()),
+            base_uom: "BTL".to_string(),
+            track_batch: true,
+            track_expiry: true,
+            safety_stock: rust_decimal::Decimal::from_f64_retain(50.0),
+            remark: Some("備註".to_string()),
+        };
+        let preview = to_preview_row(0, row);
+        assert_eq!(preview.name, "Test");
+        assert_eq!(preview.spec.as_deref(), Some("100ml"));
+        assert_eq!(preview.category_code.as_deref(), Some("DRG"));
+        assert_eq!(preview.base_uom, "BTL");
+        assert!(preview.track_batch);
+        assert!(preview.track_expiry);
+        assert_eq!(preview.safety_stock, Some(50.0));
+        assert_eq!(preview.remark.as_deref(), Some("備註"));
+    }
+}
