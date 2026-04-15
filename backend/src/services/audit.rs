@@ -217,6 +217,51 @@ impl AuditService {
         Ok(log_id)
     }
 
+    /// R22: 記錄安全事件（rate limit / 403 / lockout 等）
+    ///
+    /// 直接 INSERT user_activity_logs（繞過 log_activity stored proc），
+    /// 因為安全事件可能無 actor_user_id（匿名），且不需 HMAC chain。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn log_security_event(
+        pool: &PgPool,
+        event_type: &str,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+        request_path: Option<&str>,
+        request_method: Option<&str>,
+        context: serde_json::Value,
+    ) -> Result<Uuid> {
+        let id = Uuid::new_v4();
+        let partition_date = chrono::Utc::now().date_naive();
+
+        sqlx::query(
+            r#"
+            INSERT INTO user_activity_logs (
+                id, partition_date, event_category, event_type, event_severity,
+                ip_address, user_agent, request_path, request_method,
+                after_data, is_suspicious, suspicious_reason, created_at
+            ) VALUES (
+                $1, $2, 'SECURITY', $3, 'warning',
+                $4::inet, $5, $6, $7,
+                $8, true, $9, NOW()
+            )
+            "#,
+        )
+        .bind(id)
+        .bind(partition_date)
+        .bind(event_type)
+        .bind(ip_address)
+        .bind(user_agent)
+        .bind(request_path)
+        .bind(request_method)
+        .bind(&context)
+        .bind(format!("Security event: {event_type}"))
+        .execute(pool)
+        .await?;
+
+        Ok(id)
+    }
+
     /// 單據審計專用函式（減少重複程式碼）
     pub async fn audit_document(
         pool: &PgPool,

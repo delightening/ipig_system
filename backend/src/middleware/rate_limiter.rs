@@ -9,11 +9,16 @@ use std::net::SocketAddr;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
+use sqlx::PgPool;
+
 use crate::constants::{
     AUTH_RATE_LIMIT_PER_MINUTE, API_RATE_LIMIT_PER_MINUTE, RATE_LIMIT_CLEANUP_INTERVAL_SECS,
     RATE_LIMIT_WINDOW_SECS, UPLOAD_RATE_LIMIT_PER_MINUTE, WRITE_RATE_LIMIT_PER_MINUTE,
+    SEC_EVENT_RATE_LIMIT_AUTH, SEC_EVENT_RATE_LIMIT_API, SEC_EVENT_RATE_LIMIT_WRITE,
+    SEC_EVENT_RATE_LIMIT_UPLOAD,
 };
 use crate::middleware::real_ip::extract_real_ip_with_trust;
+use crate::services::AuditService;
 use crate::AppState;
 
 /// 速率限制器配置
@@ -105,7 +110,7 @@ pub async fn auth_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "認證端點", request, next).await
+    apply_rate_limit(limiter, &ip, "認證端點", SEC_EVENT_RATE_LIMIT_AUTH, Some(state.db.clone()), request, next).await
 }
 
 fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
@@ -133,10 +138,13 @@ fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
 }
 
 /// 共用速率限制執行邏輯（check → warn → response or next）
+/// R22-1: 觸發時同步寫入 user_activity_logs（fire-and-forget）
 async fn apply_rate_limit(
     limiter: &RateLimiterState,
     ip: &str,
     label: &str,
+    event_type: &str,
+    db: Option<PgPool>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
@@ -148,6 +156,33 @@ async fn apply_rate_limit(
             ip,
             limiter.config.max_requests
         );
+
+        // R22-1: 記錄 rate limit 事件到 DB
+        if let Some(db) = db {
+            let ip_owned = ip.to_string();
+            let event_type_owned = event_type.to_string();
+            let path = request.uri().path().to_string();
+            let method = request.method().to_string();
+            tokio::spawn(async move {
+                if let Err(e) = AuditService::log_security_event(
+                    &db,
+                    &event_type_owned,
+                    Some(&ip_owned),
+                    None,
+                    Some(&path),
+                    Some(&method),
+                    serde_json::json!({
+                        "ip": ip_owned,
+                        "tier": event_type_owned,
+                    }),
+                )
+                .await
+                {
+                    tracing::error!("[R22] Failed to log rate limit event: {e}");
+                }
+            });
+        }
+
         return Ok(rate_limit_response(limiter));
     }
     let mut response = next.run(request).await;
@@ -172,7 +207,7 @@ pub async fn api_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "API", request, next).await
+    apply_rate_limit(limiter, &ip, "API", SEC_EVENT_RATE_LIMIT_API, Some(state.db.clone()), request, next).await
 }
 
 /// 寫入端點速率限制（POST/PUT/PATCH/DELETE：每分鐘 120 次）
@@ -194,7 +229,7 @@ pub async fn write_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "寫入端點", request, next).await
+    apply_rate_limit(limiter, &ip, "寫入端點", SEC_EVENT_RATE_LIMIT_WRITE, Some(state.db.clone()), request, next).await
 }
 
 /// 檔案上傳端點速率限制（每分鐘 30 次）
@@ -212,5 +247,5 @@ pub async fn upload_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "檔案上傳", request, next).await
+    apply_rate_limit(limiter, &ip, "檔案上傳", SEC_EVENT_RATE_LIMIT_UPLOAD, Some(state.db.clone()), request, next).await
 }

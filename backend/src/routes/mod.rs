@@ -8,7 +8,7 @@ use crate::middleware::rate_limiter::{
 };
 use crate::{
     handlers,
-    middleware::{auth_middleware, csrf_middleware, guest_guard_middleware},
+    middleware::{auth_middleware, csrf_middleware, guest_guard_middleware, security_response_logger},
     AppState,
 };
 
@@ -36,7 +36,12 @@ pub fn api_routes(state: AppState) -> Router {
         .with_state(state.clone());
 
     // 使用 ServiceBuilder 合併 middleware 層（避免 .route_layer 逐路由包裝導致記憶體暴漲）
+    // R22-3: security_response_logger 放最外層，攔截 403 回應寫入 DB
     let auth_middleware_stack = ServiceBuilder::new()
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            security_response_logger,
+        ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             write_rate_limit_middleware,

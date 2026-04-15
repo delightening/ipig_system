@@ -3,7 +3,9 @@ use uuid::Uuid;
 
 use crate::{
     config::Config,
+    constants::SEC_EVENT_ACCOUNT_LOCKOUT,
     models::{LoginRequest, LoginResponse, User, UserResponse},
+    services::AuditService,
     AppError, Result,
 };
 
@@ -51,6 +53,29 @@ impl AuthService {
                     req.email,
                     fail_count
                 );
+
+                // R22-4: 記錄帳號鎖定事件到 DB
+                let db = pool.clone();
+                let email = req.email.clone();
+                let ip_owned = ip.map(|s| s.to_string());
+                let lockout_mins = config.account_lockout_duration_minutes;
+                tokio::spawn(async move {
+                    let _ = AuditService::log_security_event(
+                        &db,
+                        SEC_EVENT_ACCOUNT_LOCKOUT,
+                        ip_owned.as_deref(),
+                        None,
+                        None,
+                        None,
+                        serde_json::json!({
+                            "email": email,
+                            "fail_count": fail_count,
+                            "lockout_duration_minutes": lockout_mins,
+                        }),
+                    )
+                    .await;
+                });
+
                 return Err(AppError::Validation(format!(
                     "帳號已暫時鎖定，請 {} 分鐘後再試",
                     config.account_lockout_duration_minutes
