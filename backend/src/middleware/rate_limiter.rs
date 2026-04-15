@@ -13,6 +13,7 @@ use sqlx::PgPool;
 
 use uuid::Uuid;
 
+use crate::config::Config;
 use crate::constants::{
     AUTH_RATE_LIMIT_PER_MINUTE, API_RATE_LIMIT_PER_MINUTE, RATE_LIMIT_CLEANUP_INTERVAL_SECS,
     RATE_LIMIT_WINDOW_SECS, UPLOAD_RATE_LIMIT_PER_MINUTE, WRITE_RATE_LIMIT_PER_MINUTE,
@@ -20,7 +21,7 @@ use crate::constants::{
     SEC_EVENT_RATE_LIMIT_UPLOAD,
 };
 use crate::middleware::real_ip::extract_real_ip_with_trust;
-use crate::services::{AlertThresholdService, AuditService};
+use crate::services::{AlertThresholdService, AuditService, SecurityNotifier, SecurityNotification};
 use crate::AppState;
 
 /// 速率限制器配置
@@ -112,7 +113,7 @@ pub async fn auth_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "認證端點", SEC_EVENT_RATE_LIMIT_AUTH, Some(state.db.clone()), request, next).await
+    apply_rate_limit(limiter, &ip, "認證端點", SEC_EVENT_RATE_LIMIT_AUTH, Some(state.db.clone()), Some(state.config.clone()), request, next).await
 }
 
 fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
@@ -147,6 +148,7 @@ async fn apply_rate_limit(
     label: &str,
     event_type: &str,
     db: Option<PgPool>,
+    config: Option<Arc<Config>>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
@@ -183,9 +185,9 @@ async fn apply_rate_limit(
                     tracing::error!("[R22] Failed to log rate limit event: {e}");
                 }
 
-                // R22-5: Auth rate limit → escalation alert
+                // R22-5: Auth rate limit → escalation alert + dispatch notification
                 if event_type_owned == SEC_EVENT_RATE_LIMIT_AUTH {
-                    if let Err(e) = check_auth_rate_limit_escalation(&db, &ip_owned).await {
+                    if let Err(e) = check_auth_rate_limit_escalation(&db, &ip_owned, config.as_deref()).await {
                         tracing::error!("[R22] Auth rate limit escalation check failed: {e}");
                     }
                 }
@@ -216,7 +218,7 @@ pub async fn api_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "API", SEC_EVENT_RATE_LIMIT_API, Some(state.db.clone()), request, next).await
+    apply_rate_limit(limiter, &ip, "API", SEC_EVENT_RATE_LIMIT_API, Some(state.db.clone()), None, request, next).await
 }
 
 /// 寫入端點速率限制（POST/PUT/PATCH/DELETE：每分鐘 120 次）
@@ -238,7 +240,7 @@ pub async fn write_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "寫入端點", SEC_EVENT_RATE_LIMIT_WRITE, Some(state.db.clone()), request, next).await
+    apply_rate_limit(limiter, &ip, "寫入端點", SEC_EVENT_RATE_LIMIT_WRITE, Some(state.db.clone()), None, request, next).await
 }
 
 /// 檔案上傳端點速率限制（每分鐘 30 次）
@@ -256,13 +258,14 @@ pub async fn upload_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "檔案上傳", SEC_EVENT_RATE_LIMIT_UPLOAD, Some(state.db.clone()), request, next).await
+    apply_rate_limit(limiter, &ip, "檔案上傳", SEC_EVENT_RATE_LIMIT_UPLOAD, Some(state.db.clone()), None, request, next).await
 }
 
 /// R22-5: 檢查 auth rate limit 是否需要升級為 security_alert
 async fn check_auth_rate_limit_escalation(
     pool: &PgPool,
     ip: &str,
+    config: Option<&Config>,
 ) -> std::result::Result<(), sqlx::Error> {
     let threshold = AlertThresholdService::auth_rate_limit_threshold(pool).await;
     let window_mins = AlertThresholdService::auth_rate_limit_window_mins(pool).await;
@@ -304,6 +307,7 @@ async fn check_auth_rate_limit_escalation(
         return Ok(());
     }
 
+    let alert_id = Uuid::new_v4();
     sqlx::query(
         r#"
         INSERT INTO security_alerts (
@@ -316,7 +320,7 @@ async fn check_auth_rate_limit_escalation(
         )
         "#,
     )
-    .bind(Uuid::new_v4())
+    .bind(alert_id)
     .bind(format!(
         "IP {ip} 在過去 {window_mins} 分鐘內觸發認證速率限制 {count} 次"
     ))
@@ -325,5 +329,22 @@ async fn check_auth_rate_limit_escalation(
     .await?;
 
     tracing::warn!("[R22-5] Auth rate limit escalation alert created for IP {ip}");
+
+    // Dispatch notification
+    if let Some(cfg) = config {
+        let notification = SecurityNotification {
+            alert_id,
+            alert_type: "rate_limit_escalation".to_string(),
+            severity: "critical".to_string(),
+            title: "認證端點遭持續速率限制攻擊".to_string(),
+            description: Some(format!(
+                "IP {ip} 在過去 {window_mins} 分鐘內觸發認證速率限制 {count} 次"
+            )),
+            context_data: Some(serde_json::json!({ "ip": ip, "count": count })),
+            created_at: chrono::Utc::now(),
+        };
+        SecurityNotifier::dispatch(pool, cfg, &notification).await;
+    }
+
     Ok(())
 }

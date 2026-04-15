@@ -6,7 +6,7 @@ use chrono::{Timelike, Datelike, Weekday};
 
 use crate::{
     config::Config,
-    services::{EmailService, InvitationService, NotificationService, BalanceExpirationJob, CalendarService, PartitionMaintenanceJob, EuthanasiaService},
+    services::{EmailService, InvitationService, NotificationService, BalanceExpirationJob, CalendarService, PartitionMaintenanceJob, EuthanasiaService, SecurityNotifier, SecurityNotification},
 };
 
 type SchedulerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -32,6 +32,7 @@ impl SchedulerService {
         Self::register_invitation_expiry_job(&sched, &db, &mut job_count).await?;
         Self::register_db_analyze_job(&sched, &db, &mut job_count).await?;
         Self::register_iacuc_submission_notify_job(&sched, &db, &config, &mut job_count).await?;
+        Self::register_unresolved_alert_sweep_job(&sched, &db, &config, &mut job_count).await?;
 
         sched.start().await?;
         info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
@@ -300,6 +301,81 @@ impl SchedulerService {
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'db_maintenance_analyze' registered");
         *count += 1;
+        Ok(())
+    }
+
+    /// R22-13: 每 6 小時掃描未處理的 security_alerts，重送通知
+    async fn register_unresolved_alert_sweep_job(
+        sched: &JobScheduler,
+        db: &PgPool,
+        config: &Arc<Config>,
+        count: &mut u32,
+    ) -> SchedulerResult {
+        let db_clone = db.clone();
+        let config_clone = config.clone();
+        let job = Job::new_async("0 0 */6 * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            let config = config_clone.clone();
+            Box::pin(async move {
+                if let Err(e) = Self::sweep_unresolved_alerts(&db, &config).await {
+                    error!("[R22-13] Unresolved alert sweep failed: {}", e);
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'unresolved_alert_sweep' registered");
+        *count += 1;
+        Ok(())
+    }
+
+    async fn sweep_unresolved_alerts(db: &PgPool, config: &Config) -> SchedulerResult {
+        #[derive(sqlx::FromRow)]
+        struct AlertRow {
+            id: uuid::Uuid,
+            alert_type: String,
+            severity: String,
+            title: String,
+            description: Option<String>,
+            context_data: Option<serde_json::Value>,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+
+        let alerts: Vec<AlertRow> = sqlx::query_as(
+            r#"
+            SELECT id, alert_type, severity, title, description, context_data, created_at
+            FROM security_alerts
+            WHERE status = 'open'
+              AND severity IN ('critical', 'warning')
+              AND created_at < NOW() - INTERVAL '24 hours'
+            ORDER BY created_at ASC
+            LIMIT 20
+            "#,
+        )
+        .fetch_all(db)
+        .await?;
+
+        if alerts.is_empty() {
+            return Ok(());
+        }
+
+        info!(
+            "[R22-13] Found {} unresolved alerts older than 24h, re-sending notifications",
+            alerts.len()
+        );
+
+        for row in alerts {
+            let notification = SecurityNotification {
+                alert_id: row.id,
+                alert_type: row.alert_type,
+                severity: row.severity,
+                title: format!("[Reminder] {}", row.title),
+                description: row.description,
+                context_data: row.context_data,
+                created_at: row.created_at,
+            };
+            SecurityNotifier::dispatch(db, config, &notification).await;
+        }
+
         Ok(())
     }
 

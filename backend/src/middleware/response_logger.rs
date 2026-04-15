@@ -13,9 +13,10 @@ use axum::{
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::config::Config;
 use crate::constants::SEC_EVENT_PERMISSION_DENIED;
 use crate::middleware::CurrentUser;
-use crate::services::{AlertThresholdService, AuditService};
+use crate::services::{AlertThresholdService, AuditService, SecurityNotifier, SecurityNotification};
 use crate::AppState;
 
 pub async fn security_response_logger(
@@ -34,6 +35,7 @@ pub async fn security_response_logger(
 
     if response.status() == StatusCode::FORBIDDEN {
         let db = state.db.clone();
+        let config = state.config.clone();
         tokio::spawn(async move {
             let _ = AuditService::log_security_event(
                 &db,
@@ -52,7 +54,7 @@ pub async fn security_response_logger(
 
             // R22-6: IDOR probe detection (by user_id)
             if let Some(uid) = user_id {
-                if let Err(e) = check_idor_probe(&db, &uid.to_string()).await {
+                if let Err(e) = check_idor_probe(&db, &config, &uid.to_string()).await {
                     tracing::error!("[R22-6] IDOR probe check failed: {e}");
                 }
             }
@@ -65,6 +67,7 @@ pub async fn security_response_logger(
 /// R22-6: 檢查同一使用者短時間內是否累積過多 403，產生 IDOR probe alert
 async fn check_idor_probe(
     pool: &PgPool,
+    config: &Config,
     user_id_str: &str,
 ) -> std::result::Result<(), sqlx::Error> {
     let threshold = AlertThresholdService::idor_403_threshold(pool).await;
@@ -107,6 +110,10 @@ async fn check_idor_probe(
         return Ok(());
     }
 
+    let alert_id = Uuid::new_v4();
+    let description = format!(
+        "使用者 {user_id_str} 在過去 {window_mins} 分鐘內累積 {count} 次權限拒絕"
+    );
     sqlx::query(
         r#"
         INSERT INTO security_alerts (
@@ -119,10 +126,8 @@ async fn check_idor_probe(
         )
         "#,
     )
-    .bind(Uuid::new_v4())
-    .bind(format!(
-        "使用者 {user_id_str} 在過去 {window_mins} 分鐘內累積 {count} 次權限拒絕"
-    ))
+    .bind(alert_id)
+    .bind(&description)
     .bind(serde_json::json!({
         "user_id": user_id_str,
         "count": count,
@@ -132,5 +137,17 @@ async fn check_idor_probe(
     .await?;
 
     tracing::warn!("[R22-6] IDOR probe alert created for user {user_id_str}");
+
+    let notification = SecurityNotification {
+        alert_id,
+        alert_type: "idor_probe".to_string(),
+        severity: "critical".to_string(),
+        title: "偵測到可能的 IDOR 探測攻擊".to_string(),
+        description: Some(description),
+        context_data: Some(serde_json::json!({ "user_id": user_id_str, "count": count })),
+        created_at: chrono::Utc::now(),
+    };
+    SecurityNotifier::dispatch(pool, config, &notification).await;
+
     Ok(())
 }
