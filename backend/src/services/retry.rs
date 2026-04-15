@@ -105,7 +105,7 @@ mod tests {
         };
         let result: std::result::Result<i32, String> =
             with_retry(&config, "test_op", || async { Ok(42) }).await;
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result.expect("should succeed on first try"), 42);
     }
 
     #[tokio::test]
@@ -133,7 +133,7 @@ mod tests {
             })
             .await;
 
-        assert_eq!(result.unwrap(), "success");
+        assert_eq!(result.expect("should succeed after retries"), "success");
         assert_eq!(attempt.load(std::sync::atomic::Ordering::SeqCst), 3);
     }
 
@@ -158,7 +158,7 @@ mod tests {
             })
             .await;
 
-        assert_eq!(result.unwrap_err(), "permanent failure");
+        assert_eq!(result.expect_err("should fail after exhausting retries"), "permanent failure");
         // max_retries=2 → 1 initial + 2 retries = 3 attempts
         assert_eq!(attempt.load(std::sync::atomic::Ordering::SeqCst), 3);
     }
@@ -178,6 +178,6 @@ mod tests {
             })
             .await;
 
-        assert_eq!(result.unwrap_err(), "fail");
+        assert_eq!(result.expect_err("should fail with zero retries"), "fail");
     }
 }
