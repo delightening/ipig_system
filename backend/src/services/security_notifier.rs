@@ -249,3 +249,35 @@ async fn send_security_email(
     EmailService::send_email_smtp(smtp, to_email, "Admin", &subject, &plain_body, &html_body)
         .await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_severity_meets_minimum_critical_passes_all() {
+        assert!(severity_meets_minimum("critical", "info"));
+        assert!(severity_meets_minimum("critical", "warning"));
+        assert!(severity_meets_minimum("critical", "critical"));
+    }
+
+    #[test]
+    fn test_severity_meets_minimum_warning_blocks_critical() {
+        assert!(severity_meets_minimum("warning", "info"));
+        assert!(severity_meets_minimum("warning", "warning"));
+        assert!(!severity_meets_minimum("warning", "critical"));
+    }
+
+    #[test]
+    fn test_severity_meets_minimum_info_blocks_higher() {
+        assert!(severity_meets_minimum("info", "info"));
+        assert!(!severity_meets_minimum("info", "warning"));
+        assert!(!severity_meets_minimum("info", "critical"));
+    }
+
+    #[test]
+    fn test_severity_unknown_defaults_to_zero() {
+        assert!(!severity_meets_minimum("unknown", "info"));
+        assert!(severity_meets_minimum("critical", "unknown"));
+    }
+}

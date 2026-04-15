@@ -80,11 +80,6 @@ pub fn routes() -> Router<AppState> {
             "/admin/audit/security-events",
             get(handlers::list_security_events),
         )
-        // 最近告警（輪詢用）
-        .route(
-            "/admin/audit/alerts/recent",
-            get(handlers::list_security_alerts),
-        )
         // QAU Dashboard
         .route("/qau/dashboard", get(handlers::get_qau_dashboard))
         // QA 稽查報告
