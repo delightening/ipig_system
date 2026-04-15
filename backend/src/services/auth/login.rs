@@ -63,6 +63,7 @@ impl AuthService {
                     let _ = AuditService::log_security_event(
                         &db,
                         SEC_EVENT_ACCOUNT_LOCKOUT,
+                        None,
                         ip_owned.as_deref(),
                         None,
                         None,

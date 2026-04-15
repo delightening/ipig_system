@@ -118,7 +118,7 @@ pub async fn ai_auth_middleware(
         let method_c = req_method.clone();
         tokio::spawn(async move {
             let _ = AuditService::log_security_event(
-                &db, SEC_EVENT_AI_KEY_DEACTIVATED, None, None,
+                &db, SEC_EVENT_AI_KEY_DEACTIVATED, None, None, None,
                 Some(&path_c), Some(&method_c),
                 serde_json::json!({ "key_id": id, "key_name": name_c, "reason": "deactivated" }),
             ).await;
@@ -135,7 +135,7 @@ pub async fn ai_auth_middleware(
             let method_c = req_method.clone();
             tokio::spawn(async move {
                 let _ = AuditService::log_security_event(
-                    &db, SEC_EVENT_AI_KEY_EXPIRED, None, None,
+                    &db, SEC_EVENT_AI_KEY_EXPIRED, None, None, None,
                     Some(&path_c), Some(&method_c),
                     serde_json::json!({ "key_id": id, "key_name": name_c, "reason": "expired", "expired_at": exp }),
                 ).await;
@@ -153,7 +153,7 @@ pub async fn ai_auth_middleware(
         let method_c = req_method;
         tokio::spawn(async move {
             let _ = AuditService::log_security_event(
-                &db, SEC_EVENT_RATE_LIMIT_AI_KEY, None, None,
+                &db, SEC_EVENT_RATE_LIMIT_AI_KEY, None, None, None,
                 Some(&path_c), Some(&method_c),
                 serde_json::json!({ "key_id": id, "key_name": name_c, "reason": "rate_limited", "limit": rate_limit }),
             ).await;

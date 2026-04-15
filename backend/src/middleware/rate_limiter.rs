@@ -24,6 +24,35 @@ use crate::middleware::real_ip::extract_real_ip_with_trust;
 use crate::services::{AlertThresholdService, AuditService, SecurityNotifier, SecurityNotification};
 use crate::AppState;
 
+/// Gemini #1: 安全事件記錄的 per-IP 頻率限制（同一 IP 每 60 秒最多記錄 1 次）
+/// 避免大規模攻擊時 spawn 太多 DB 寫入導致資源耗盡
+static SEC_LOG_THROTTLE: std::sync::LazyLock<DashMap<String, Instant>> =
+    std::sync::LazyLock::new(DashMap::new);
+
+fn should_log_security_event(ip: &str) -> bool {
+    let now = Instant::now();
+    let throttle_window = Duration::from_secs(60);
+    if let Some(last) = SEC_LOG_THROTTLE.get(ip) {
+        if now.duration_since(*last) < throttle_window {
+            return false;
+        }
+    }
+    SEC_LOG_THROTTLE.insert(ip.to_string(), now);
+    // 防止 throttle map 無限成長
+    if SEC_LOG_THROTTLE.len() > 10_000 {
+        let keys: Vec<String> = SEC_LOG_THROTTLE
+            .iter()
+            .filter(|e| now.duration_since(*e.value()) > throttle_window)
+            .take(1000)
+            .map(|e| e.key().clone())
+            .collect();
+        for k in keys {
+            SEC_LOG_THROTTLE.remove(&k);
+        }
+    }
+    true
+}
+
 /// 速率限制器配置
 #[derive(Clone)]
 pub struct RateLimiterConfig {
@@ -161,8 +190,11 @@ async fn apply_rate_limit(
             limiter.config.max_requests
         );
 
-        // R22-1: 記錄 rate limit 事件到 DB
+        // R22-1: 記錄 rate limit 事件到 DB（Gemini #1: per-IP 頻率限制）
         if let Some(db) = db {
+            if !should_log_security_event(ip) {
+                return Ok(rate_limit_response(limiter));
+            }
             let ip_owned = ip.to_string();
             let event_type_owned = event_type.to_string();
             let path = request.uri().path().to_string();
@@ -171,6 +203,7 @@ async fn apply_rate_limit(
                 if let Err(e) = AuditService::log_security_event(
                     &db,
                     &event_type_owned,
+                    None, // no actor for rate limit events
                     Some(&ip_owned),
                     None,
                     Some(&path),
@@ -271,11 +304,13 @@ async fn check_auth_rate_limit_escalation(
     let window_mins = AlertThresholdService::auth_rate_limit_window_mins(pool).await;
     let dedup_mins = AlertThresholdService::alert_escalation_dedup_mins(pool).await;
 
+    // Gemini #4: 加 partition_date 條件啟用 partition pruning
     let (count,): (i64,) = sqlx::query_as(
         r#"
         SELECT COUNT(*) FROM user_activity_logs
         WHERE event_type = 'RATE_LIMIT_AUTH'
           AND ip_address = $1::inet
+          AND partition_date >= (NOW() - make_interval(mins => $2::integer))::date
           AND created_at > NOW() - make_interval(mins => $2::integer)
         "#,
     )

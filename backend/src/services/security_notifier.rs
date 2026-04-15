@@ -5,11 +5,31 @@
 
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 use crate::config::Config;
 use crate::services::system_settings::SmtpConfig;
 use crate::services::EmailService;
+
+/// Gemini #7: 共用 reqwest::Client（複用 TCP 連線池）
+static HTTP_CLIENT: std::sync::LazyLock<reqwest::Client> =
+    std::sync::LazyLock::new(reqwest::Client::new);
+
+/// Gemini #6: notification channels 60 秒 cache，避免每次 dispatch 都查 DB
+type ChannelCache = Option<(Vec<CachedChannel>, Instant)>;
+static CHANNEL_CACHE: std::sync::LazyLock<Mutex<ChannelCache>> =
+    std::sync::LazyLock::new(|| Mutex::new(None));
+
+const CHANNEL_CACHE_TTL: Duration = Duration::from_secs(60);
+
+#[derive(Debug, Clone)]
+struct CachedChannel {
+    channel: String,
+    config_json: serde_json::Value,
+    min_severity: String,
+}
 
 /// Payload passed to all notification channels
 #[derive(Debug, Clone)]
@@ -35,19 +55,9 @@ pub struct SecurityNotifier;
 
 impl SecurityNotifier {
     /// Dispatch notification to all enabled channels. Fire-and-forget safe.
+    /// Gemini #6: channels 設定有 60 秒 cache
     pub async fn dispatch(pool: &PgPool, config: &Config, notification: &SecurityNotification) {
-        let channels: Vec<ChannelRow> = match sqlx::query_as(
-            "SELECT channel, config_json, min_severity FROM security_notification_channels WHERE is_enabled = true",
-        )
-        .fetch_all(pool)
-        .await
-        {
-            Ok(rows) => rows,
-            Err(e) => {
-                tracing::error!("[R22-9] Failed to load notification channels: {e}");
-                return;
-            }
-        };
+        let channels = Self::load_channels(pool).await;
 
         for ch in &channels {
             if !severity_meets_minimum(&notification.severity, &ch.min_severity) {
@@ -61,6 +71,45 @@ impl SecurityNotifier {
                 other => tracing::warn!("[R22-9] Unknown channel: {other}"),
             }
         }
+    }
+
+    /// Gemini #6: 從 cache 或 DB 載入 channels
+    async fn load_channels(pool: &PgPool) -> Vec<CachedChannel> {
+        if let Ok(guard) = CHANNEL_CACHE.lock() {
+            if let Some((cached, ts)) = guard.as_ref() {
+                if ts.elapsed() < CHANNEL_CACHE_TTL {
+                    return cached.clone();
+                }
+            }
+        }
+
+        let rows: Vec<ChannelRow> = match sqlx::query_as(
+            "SELECT channel, config_json, min_severity FROM security_notification_channels WHERE is_enabled = true",
+        )
+        .fetch_all(pool)
+        .await
+        {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::error!("[R22-9] Failed to load notification channels: {e}");
+                return vec![];
+            }
+        };
+
+        let cached: Vec<CachedChannel> = rows
+            .into_iter()
+            .map(|r| CachedChannel {
+                channel: r.channel,
+                config_json: r.config_json,
+                min_severity: r.min_severity,
+            })
+            .collect();
+
+        if let Ok(mut guard) = CHANNEL_CACHE.lock() {
+            *guard = Some((cached.clone(), Instant::now()));
+        }
+
+        cached
     }
 
     // ── Email ──────────────────────────────────────────────────
@@ -118,7 +167,7 @@ impl SecurityNotifier {
                 .unwrap_or("(no description)")
         );
 
-        let client = reqwest::Client::new();
+        let client = &*HTTP_CLIENT;
         let result = client
             .post("https://notify-api.line.me/api/notify")
             .bearer_auth(&token)
@@ -161,7 +210,7 @@ impl SecurityNotifier {
             "timestamp": notification.created_at.to_rfc3339(),
         });
 
-        let client = reqwest::Client::new();
+        let client = &*HTTP_CLIENT;
         let result = client
             .post(url)
             .json(&payload)

@@ -37,15 +37,16 @@ pub async fn security_response_logger(
         let db = state.db.clone();
         let config = state.config.clone();
         tokio::spawn(async move {
+            // Gemini #5: 使用 actor_user_id 欄位（有索引）而非 JSONB after_data
             let _ = AuditService::log_security_event(
                 &db,
                 SEC_EVENT_PERMISSION_DENIED,
+                user_id,
                 None,
                 None,
                 Some(&path),
                 Some(&method),
                 serde_json::json!({
-                    "user_id": user_id,
                     "path": path,
                     "method": method,
                 }),
@@ -74,11 +75,13 @@ async fn check_idor_probe(
     let window_mins = AlertThresholdService::idor_403_window_mins(pool).await;
     let dedup_mins = AlertThresholdService::alert_escalation_dedup_mins(pool).await;
 
+    // Gemini #4+5: 使用 actor_user_id（有索引）+ partition_date（partition pruning）
     let (count,): (i64,) = sqlx::query_as(
         r#"
         SELECT COUNT(*) FROM user_activity_logs
         WHERE event_type = 'PERMISSION_DENIED'
-          AND after_data->>'user_id' = $1
+          AND actor_user_id = $1::uuid
+          AND partition_date >= (NOW() - make_interval(mins => $2::integer))::date
           AND created_at > NOW() - make_interval(mins => $2::integer)
         "#,
     )
