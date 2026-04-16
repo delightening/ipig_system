@@ -220,8 +220,10 @@ export function usePermissionCategories(permissions: Permission[] | undefined) {
     const moduleCounts = new Map<string, number>()
 
     uniquePermissions.forEach(perm => {
-      const module = getPermissionModule(perm)
-      moduleCounts.set(module, (moduleCounts.get(module) || 0) + 1)
+      const moduleCode = getPermissionModule(perm)
+      const moduleConfig = MODULE_CONFIG[moduleCode] || MODULE_CONFIG.other
+      const moduleName = moduleConfig.name
+      moduleCounts.set(moduleName, (moduleCounts.get(moduleName) || 0) + 1)
     })
 
     return { total, moduleCounts: Object.fromEntries(moduleCounts) }
