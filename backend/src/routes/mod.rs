@@ -8,7 +8,7 @@ use crate::middleware::rate_limiter::{
 };
 use crate::{
     handlers,
-    middleware::{auth_middleware, csrf_middleware, guest_guard_middleware, security_response_logger},
+    middleware::{auth_middleware, csrf_middleware, security_response_logger},
     AppState,
 };
 
@@ -40,12 +40,12 @@ pub fn api_routes(state: AppState) -> Router {
     // R22-3: security_response_logger 必須放在 auth_middleware 內層（最後一個 .layer()），
     // 確保 auth_middleware 先執行並設定 CurrentUser，logger 才能讀取到 user_id。
     // ServiceBuilder 中第一個 .layer() 是最外層（最先執行），最後一個是最內層（最後執行）。
+    // guest_guard_middleware 必須在 auth_middleware 之後執行，才能從 extensions 讀到 CurrentUser。
     let auth_middleware_stack = ServiceBuilder::new()
         .layer(middleware::from_fn_with_state(
             state.clone(),
             write_rate_limit_middleware,
         ))
-        .layer(middleware::from_fn(guest_guard_middleware))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             csrf_middleware,
@@ -78,7 +78,6 @@ pub fn api_routes(state: AppState) -> Router {
             state.clone(),
             upload_rate_limit_middleware,
         ))
-        .layer(middleware::from_fn(guest_guard_middleware))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             csrf_middleware,

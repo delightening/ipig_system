@@ -105,7 +105,9 @@
     - `pre_market_testing`（上市前試驗）
     - `teaching_training`（教學訓練）
     - `biologics_manufacturing`（生物製劑製造）
-  - UI：顯示原表單選項 1 至 5
+    - `other`（其他）
+  - UI：顯示原表單選項 1 至 6
+- `section1.project_type_other` (string, required if `project_type = other`)
 
 **計畫種類**
 - `section1.project_category` (enum, required)
@@ -190,6 +192,24 @@
 
 ## 3. 章節 2：研究目的 Study Purpose
 
+### 3.0 計畫摘要 Abstract
+
+**欄位定義**
+- `section2.abstract` (text, required on submit)
+
+**字數限制**
+- 中文：500–1000 字
+- 英文：250–500 字
+- 不超過一個 A4 頁面
+
+**撰寫規則**
+- 禁止使用醫學專用字彙或艱深科學概念（或需說明清楚）
+- 勿透露與專利相關事宜
+- 定義所有縮寫字詞
+- 需闡述計畫意義及基本理由（以 IACUC 社會公正人士觀點撰寫）
+
+---
+
 ### 3.1 研究之目的及重要性
 
 **欄位定義**
@@ -222,9 +242,13 @@
 **欄位定義**
 - `section2.alt_search.platforms` (array of enum, required, min 1)
   - 可選值：
-    - `altbib`
-    - `db_alm`
-    - `re_place`
+    - `altbib`（ALTBIB - https://ntp.niehs.nih.gov/whatwestudy/niceatm/altbib）
+    - `db_alm`（DB-ALM 動物試驗替代方法資料庫）
+    - `re_place`（歐洲動物替代試驗資源平台 - https://www.re-place.be/）
+    - `johns_hopkins`（Johns Hopkins 動物試驗替代中心 - http://altweb.jhsph.edu）
+    - `taat`（臺灣非動物性替代方法資訊網 TAAT - https://taat.nhri.edu.tw/）
+    - `nc3rs_eda`（實驗設計助理 NC3Rs EDA - https://nc3rs.org.uk/）
+    - `nc3rs_refinement`（NC3Rs 精緻化技術與策略資料庫 - https://refinementdatabase.org/）
     - `other`
 - `section2.alt_search.other_name` (string, required if `other` selected)
 - `section2.alt_search.keywords` (string, required on submit, max 200)
@@ -239,8 +263,20 @@
 ### 3.4 是否重複他人試驗
 
 **欄位定義**
-- `section2.duplicate_experiment` (boolean, required)
-- `section2.duplicate_justification` (text, required if `duplicate_experiment = true`)
+- `section2.duplicate.status` (enum, required)
+  - 可選值：
+    - `no`（否）
+    - `not_applicable`（不適用 — 本案件為委託試驗）
+    - `yes_continuation`（是 — 本申請人延續性實驗）
+    - `yes_duplicate`（是 — 重複他人試驗）
+
+**條件欄位**
+- 若 `status = not_applicable`：
+  - `section2.duplicate.regulation_basis` (text, required)（法規依據）
+- 若 `status = yes_continuation`：
+  - `section2.duplicate.previous_iacuc_no` (string, required)（前次核准 IACUC 編號）
+- 若 `status = yes_duplicate`：
+  - `section2.duplicate.justification` (text, required)（重複之必要性說明）
 
 ---
 
@@ -276,6 +312,80 @@
 
 **驗證規則**
 - 所有 `group.n` 加總需等於 `section7.total_animals`（若有定義）
+
+---
+
+### 3.5.1 特殊照護 Special Care
+
+> 歸屬於 **2.3 Reduction** 的子項目（對應表單 2.3.1）
+
+**欄位定義**
+- `section2.special_care.needed` (boolean, required)
+- `section2.special_care.description` (text, required if `needed = true`)
+
+---
+
+### 3.5.2 單獨飼養 Single Housing
+
+> 歸屬於 **2.3 Reduction** 的子項目（對應表單 2.3.2）
+
+**欄位定義**
+- `section2.single_housing.required` (boolean, required)
+
+**條件欄位**（若 `required = true`）：
+- `section2.single_housing.reasons` (array of enum, required, min 1)
+  - 可選值：
+    - `b1_pregnant_female`（繁殖需求 - 懷孕雌性）
+    - `b1_breeding_male`（繁殖需求 - 繁殖雄性）
+    - `b1_post_wean`（繁殖需求 - 斷奶後單獨飼養）
+    - `b2_post_surgery`（實驗需求 - 術後護理直至康復）
+    - `b2_single_in_group`（實驗需求 - 同組僅單隻個體）
+    - `b2_metabolic_cage`（實驗需求 - 使用代謝籠 ≤7 天）
+    - `b3_aggressive`（PI 意見 - 攻擊性行為）
+    - `b3_temporary`（PI 意見 - 暫時使用）
+    - `b4_other`（其他）
+- `section2.single_housing.metabolic_cage_duration` (string, required if `b2_metabolic_cage` selected)
+- `section2.single_housing.monitoring_method` (text, required)（結束單獨飼養評估的監控方式）
+- `section2.single_housing.estimated_duration` (string, required)（預計單獨飼養時間）
+
+---
+
+### 3.5.3 試驗後動物再應用 Animal Reuse
+
+> 歸屬於 **2.3 Reduction** 的子項目（對應表單 2.3.3）
+
+**欄位定義**
+- `section2.animal_reuse.considered` (boolean, required)
+- `section2.animal_reuse.plan` (enum, required if `considered = true`)
+  - 可選值：
+    - `no_further_procedure`（無進一步操作，後續回歸群養或持續觀察）
+    - `partial_procedure_euthanasia`（僅部分操作，後續安樂死）
+    - `teaching_purpose`（作為教學或教育訓練用途）
+    - `other`（其他，請說明）
+- `section2.animal_reuse.plan_other` (text, required if `plan = other`)
+
+---
+
+### 3.6 精緻化原則說明 Refinement
+
+**欄位定義**
+- `section2.refinement_description` (text, required on submit)
+
+**內容要求**
+需包含：
+- 降低動物疼痛、緊迫及不適的具體措施
+- 麻醉與止痛措施
+- 飼養環境豐富化（如玩具球、鍊條等環境豐富化物件）
+- 定期健康觀察方式
+- 異常處置流程（包括通報獸醫師的條件）
+
+**系統支援**
+- 可提供預設範例文字（可供編輯使用）：
+  > 本計畫於動物實驗設計與執行過程中，已充分考量實驗動物福利與精緻化原則（Refinement），以降低動物之疼痛、緊迫及不適情形。實驗操作前將由具相關訓練經驗之人員執行動物處置與監測，並依實驗需求採適當之麻醉與止痛措施，以減輕動物於實驗過程中的不適感。
+  >
+  > 於飼養管理方面，動物飼養環境依據機構實驗動物照護標準辦理，提供適當空間、通風、溫濕度控制及定期健康觀察，以維持動物良好生理狀態。同時配合機構環境豐富化政策，於飼養欄位內提供玩具球及鍊條等環境豐富化物件，使豬隻可進行探索及互動行為，以降低心理緊迫並促進其自然行為表現。
+  >
+  > 此外，實驗期間將持續觀察動物之行為與健康狀況，如發現異常或疼痛跡象，將立即通報獸醫師並依建議採取適當處置措施。
 
 ---
 
@@ -411,21 +521,63 @@
 
 ---
 
-### 5.4 疼痛緊迫等級
+### 5.4 疼痛緊迫等級評估（對應表單 4.1.3）
+
+> **互動模式**：先單選 Category B–E，再依所選等級展開對應的細項複選清單。
 
 **欄位定義**
-- `section4.pain_category` (enum, required)
+- `section4.pain.category` (enum, required)
   - 可選值：`B`, `C`, `D`, `E`
+- `section4.pain.category_items` (array of string, required, min 1)
+  - 根據所選 `category` 動態顯示對應細項 checkbox：
 
-**驗證規則**
-- 若選擇 `D` 或 `E`，則必須描述疼痛處置策略：
-  - `section4.pain_management_plan` (text, required)
-- 若選擇 `E`，需提供不給止痛、麻醉、鎮定之科學理由：
-  - `section4.no_analgesia_justification` (text, required)
+**Category B** — 不引起疼痛與不適 (No Pain/Distress)
+- `b_breeding_no_procedure`（飼養與繁殖，無實驗操作）
+- `b_other`（其他，請說明）
+
+**Category C** — 極小的不適，不需用藥緩解
+- `c_handling_weighing_transport`（抓取、稱重或運輸動物）
+- `c_injection_oral_non_irritant`（注射（肌肉）及口服無刺激性物質）
+- `c_animal_marking`（動物標示如刺青或齧齒類動物的耳朵打孔）
+- `c_routine_farming`（常規農牧業程序）
+- `c_general_anesthesia`（完整的全身麻醉）
+- `c_avma_euthanasia`（AVMA 認可的人道安樂死程序）
+- `c_other`（其他，請說明）
+
+**Category D** — 有疼痛或不適，須給予適當的藥物緩解
+- `d_stress_transport_sedation`（存在潛在壓力運輸，該動物需給予鎮靜劑）
+- `d_intubation_under_anesthesia`（麻醉中插管）
+- `d_survival_surgery_under_anesthesia`（在全身麻醉下進行存活性手術）
+- `d_non_survival_surgery`（全身麻醉下進行非存活性手術）
+- `d_non_lethal_drug_exposure`（暴露於不致命性的藥物或化學物下，未對動物造成顯著的身體變化）
+- `d_catheter_implantation`（在血管暴露狀況下植入導管）
+- `d_blood_draw_perfusion`（在麻醉下放血或進行灌流）
+- `d_non_preop_food_water_restrict`（非手術前必要的限食及限水）
+- `d_pain_with_analgesia`（任何流程導致明顯的疼痛或不適，但可施以止痛藥物緩解，如減少食慾/活動、觸摸引起不良反應、開放性皮膚病變、膿腫、跛行、結膜炎、角膜浮腫或畏光）
+- `d_induced_anatomical_physiological`（誘導解剖學或生理學異常造成的疼痛或緊迫輻射性病痛）
+- `d_drug_physiological_damage`（藥物或化學物損害動物體的生理系統）
+- `d_eye_skin_irritation_relievable`（眼睛和皮膚刺激性測試所引起的疼痛，該疼痛可以被緩解）
+- `d_other`（其他，請說明）
+
+**Category E** — 劇烈疼痛且無法以藥物緩解（需 IACUC + 獸醫師謹慎監督）
+- `e_severe_drug_damage_death`（使用藥物或化學物嚴重損害動物生理系統而造成動物死亡、劇烈疼痛或極度緊迫）
+- `e_paralytic_without_anesthesia`（未麻醉情形下使用麻痺或肌肉鬆弛劑）
+- `e_burn_large_skin_wound`（燒燙傷或大規模皮膚創傷）
+- `e_induced_disease`（實驗性誘發疾病，包括代謝干擾和營養性疾病或接觸會引起疾病有毒物質）
+- `e_pain_threshold_procedure`（任何會造成接近疼痛閥值且無法以止痛劑解除的操作步驟，如關節炎模式、眼睛/皮膚刺激性試驗、強烈炎症反應模式、視覺剝奪、電擊/加熱試驗等）
+- `e_chronic_pain_unrelievable`（突變或患有慢性疼痛的疾病，且無法用止痛藥或適當處置緩解）
+- `e_excessive_food_water_restrict`（超出常規術前必要的限食及限水且對動物產生壓力）
+- `e_extreme_environment`（暴露於異常或極端環境中情況）
+- `e_procedure_may_cause_death`（實驗操作可能會導致動物死亡）
+- `e_pain_distress_study`（允許測試項目為疼痛或緊迫的研究，如未經治療就戒斷成癮的藥物或疼痛研究）
+- `e_non_avma_euthanasia`（未經 AVMA 認可的安樂死方法）
+- `e_other`（其他，請說明）
+
+- `section4.pain.category_item_other_text` (string, required if 對應 `*_other` selected)
 
 ---
 
-### 5.5 飲食飲水限制
+### 5.5 飲食飲水限制（對應表單 4.1.4）
 
 **欄位定義**
 - `section4.restrictions.is_restricted` (boolean, required)
@@ -442,14 +594,63 @@
 
 ---
 
-### 5.6 實驗終點與人道終點
+### 5.6 疼痛或痛苦症狀勾選（對應表單 4.1.5）
+
+> 「請勾選此試驗可能會對動物造成的疼痛或痛苦（可複選，請勾選所有適用者）」
+
+**欄位定義**
+- `section4.pain.distress_signs` (array of string, required on submit, min 1)
+  - 可選值（複選）：
+    - `weight_loss`（體重減輕）
+    - `reduced_food_water`（食物與水攝取量減少）
+    - `dehydration`（脫水／皮膚無彈性／眼眶下陷）
+    - `unkempt_fur`（毛髮蓬亂、打結或失去光澤）
+    - `isolation_hiding`（自行隔離或躲藏）
+    - `self_mutilation`（自殘，如咬肢體）
+    - `abnormal_posture`（姿勢或體位異常，如頂頭、背拱）
+    - `abnormal_breathing`（呼吸異常，如急促呼吸、張口呼吸、腹式呼吸）
+    - `abnormal_activity`（活動量異常，增加或減少）
+    - `aggression`（咬人、咆哮或具攻擊性行為）
+    - `lacrimation_no_blink`（流淚（包括紅色淚液）、無眨眼反射）
+    - `muscle_rigidity_weakness`（肌肉僵硬或無力）
+    - `tremor_convulsion`（顫抖、顫動或抽搐）
+    - `vocalization`（發出叫聲（哀鳴））
+    - `surgical_site_inflammation`（手術部位紅腫或發炎）
+    - `teeth_grinding`（磨牙）
+    - `other`（其他，請註明）
+- `section4.pain.distress_signs_other_text` (string, required if `other` selected)
+
+---
+
+### 5.7 疼痛緩解措施（對應表單 4.1.6）
+
+> 「請說明將採取何種措施以緩解或減輕超過輕微的疼痛或痛苦，或說明為何未採取緩解措施（可複選，請勾選所有適用者）」
+
+**欄位定義**
+- `section4.pain.relief_measures` (array of string, required on submit, min 1)
+  - 可選值（複選）：
+    - `alternative_painless_procedure`（改用不造成疼痛／痛苦的替代程序）
+    - `anesthesia_analgesia`（投予麻醉或止痛藥）
+    - `humane_euthanasia`（執行人道安樂死）
+    - `no_relief_with_justification`（未採取麻醉、止痛或鎮靜劑等緩解措施，但有合理科學依據）
+
+**條件欄位**
+- 若選擇 `anesthesia_analgesia`：
+  - `section4.pain.relief_drug_name` (string, required)（藥品名稱）
+- 若選擇 `no_relief_with_justification`：
+  - `section4.pain.no_relief_justification` (text, required)（科學依據說明）
+
+---
+
+### 5.8 實驗終點與人道終點（對應表單 4.1.7）
 
 **欄位定義**
 - `section4.endpoints.experimental_endpoint` (text, required)
 - `section4.endpoints.humane_endpoint` (text, required)
 
-**規則**
-- 系統內建預設文字可引用，但不可完全空白
+**系統支援**
+- 人道終點可提供預設範例文字（可供編輯使用）：
+  > 實驗過程中如果動物體重下降超過原體重的 20%、食慾不振（無法進食）、身體虛弱、感染，持續治療或傷口清創後無改善，或其他經獸醫師評估不宜持續實驗之情形，則提早結束實驗，以符合動物福祉。
 
 **驗證規則**
 - `humane_endpoint` 必須包含可操作的觸發條件
@@ -457,15 +658,17 @@
 
 ---
 
-### 5.7 動物最終處置
+### 5.9 動物最終處置（對應表單 4.1.8）
 
 **欄位定義**
 - `section4.final_handling.method` (enum, required)
   - 可選值：
-    - `euthanasia_kcl_exsanguination`（安樂死：KCl + 放血）
-    - `euthanasia_electrocution_exsanguination`（安樂死：電擊 + 放血）
+    - `euthanasia_kcl_exsanguination`（安樂死：麻醉下 Zoletil®-50 4.4 mg/kg + KCl 注射後放血，依 AD-04-03-00）
+    - `euthanasia_electrocution_exsanguination`（安樂死：麻醉下 Zoletil®-50 4.4 mg/kg + 220V 電擊後放血，依 AD-04-03-00）
     - `transfer`（轉移）
     - `other`（其他）
+
+> **SOP 參照**：安樂死程序依「AD-04-03-00 試驗豬隻安樂死規範標準作業程序書」執行。
 
 **條件欄位**
 - 若 `method = transfer`：
@@ -477,17 +680,19 @@
 
 ---
 
-### 5.8 屍體處理
+### 5.10 屍體處理
 
 **欄位定義**
 - `section4.carcass_disposal.method` (text, required)
-  - 可提供預設值：「委由合格化製廠商處理」
+  - 可提供預設值：「委由簽約之合格化製廠商進行化製處理」
 - `section4.carcass_disposal.vendor_name` (string, optional)
+  - 預設廠商：**金海龍生物科技股份有限公司**
 - `section4.carcass_disposal.vendor_id` (string, optional)
+  - 預設化製廠管編：**P6001213**
 
 ---
 
-### 5.9 非醫藥級化學品使用
+### 5.11 非醫藥級化學品使用
 
 **欄位定義**
 - `section4.non_pharma_grade.used` (boolean, required)
@@ -502,7 +707,7 @@
 
 ---
 
-### 5.10 危害性物質
+### 5.12 危害性物質
 
 **欄位定義**
 - `section4.hazards.used` (boolean, required)
@@ -524,7 +729,7 @@
 
 ---
 
-### 5.11 管制藥品
+### 5.13 管制藥品
 
 **欄位定義**
 - `section4.controlled_substances.used` (boolean, required)
@@ -591,13 +796,14 @@
 - `section6.preop_preparation` (text, required if surgery)
 
 **系統支援**
-- 可提供預設範例文字：
-  - 禁食禁水
-  - 鎮靜誘導
-  - 插管
-  - 麻醉維持
-  - 術前抗生素止痛
-  - 引用 SOP
+- 可提供預設範例文字（參考 `TU-03-09-00 試驗豬隻外科手術標準作業程序書`）：
+  > 1. 實驗動物術前禁食至少 12 小時，不禁水。
+  > 2. 試驗豬隻清洗擦乾後，以畜舒坦（Azeperonum 40 mg/mL）3–5 mg/kg 和 0.03–0.05 mg/kg 阿托平（Atropine® 1 mg/mL）肌肉注射鎮靜，仔細觀察豬隻呼吸頻率。
+  > 3. 經 20–30 分鐘後，以 4.4 mg/kg 舒泰-50（Zoletil®-50）肌肉注射誘導麻醉。
+  > 4. 經 5–10 分鐘後，將豬隻移至手術檯，以趴姿進行氣管插管，接上氣體麻醉機，以 2–3 L/min 流速氧氣混合 0.5–2% 異氟烷（Isoflurane）維持麻醉。
+  > 5. 術前肌肉注射抗生素 Cefazolin 15 mg/kg 及止痛劑 Meloxicam 0.4 mg/kg，並以電剪於術部剃毛。
+  > 6. 手術部位消毒：碘酒由中心向外畫圓擦拭，再以 70–75% 酒精同法擦拭，重複三次，最後一次酒精不須擦掉。
+  > 依「TU-03-09-00 試驗豬隻外科手術標準作業程序書」進行。
 
 ---
 
@@ -648,9 +854,10 @@
 需包含：
 - 心跳、呼吸、體溫監視器
 - 保溫
-- 麻醉深度評估
+- 麻醉深度評估（依麻醉深度、呼吸頻率調整氧氣流速與麻醉氣體濃度）
 - 必要時輸液
-- 引用 SOP
+- 記錄頻率：**每 30 分鐘**記錄一次心跳、呼吸及體溫
+- 引用 SOP：`TU-03-09-00 試驗豬隻外科手術標準作業程序書`
 
 ---
 
@@ -681,10 +888,11 @@
 **內容要求**
 需包含：
 - 每日健康評估
-- 傷口護理
-- 疼痛評估頻率與量表
-- 止痛與抗生素方案
+- 傷口護理（依術後狀況）
+- 疼痛評估：術後 7 日內每日進行
+- 止痛與抗生素方案（依豬隻狀況給予）
 - 異常處置與獸醫介入
+- 引用 SOP：`TU-03-09-00 試驗豬隻外科手術標準作業程序書`
 
 **表格式用藥**
 - `section6.drugs` (array of object, required if surgery, min 1)
@@ -695,6 +903,24 @@
     - `frequency` (string, required)
     - `purpose` (string, required)
   - UI：可新增多列
+
+**標準手術用藥參考表**（來源：AD-04-01-01F 動物試驗研究計畫書範例）
+
+| 藥品名稱 | 劑量 | 途徑 | 頻率 | 用途 |
+|---------|------|------|------|------|
+| Atropine（阿托品） | 1 mg/mL；0.03–0.05 mg/kg | IM | 術前 1 次 | 麻醉誘導前導 |
+| 畜舒坦（Azaperonum / Azeperonum 40 mg/mL） | 3–5 mg/kg | IM | 術前 1 次 | 麻醉誘導鎮靜 |
+| 舒泰-50（Zoletil®-50） | 3–5 mg/kg（安樂死：4.4 mg/kg） | IM | 術前 1 次 | 麻醉誘導 |
+| Cefazolin | 15–30 mg/kg | IM | 術前 1 次 / 術後 SID | 術前術後抗生素 |
+| Meloxicam | 0.1–0.4 mg/kg | IM | 術前 1 次 / 術後 SID | 術前術後止痛 |
+| Isoflurane（異氟烷） | 0.5–2%（O₂ 2–3 L/min） | 吸入 | 術中持續 | 麻醉維持 |
+| Ketoprofen | 1–3 mg/kg | IM | SID | 術後止痛 |
+| Penicillin（青黴素） | 0.1–1 mL/kg | IM | SID | 術後抗生素 |
+| Cephalexin（頭孢力新） | 30–60 mg/kg | PO | BID | 術後抗生素 |
+| Amoxicillin（阿莫西林） | 20–40 mg/kg | PO | BID | 術後抗生素 |
+| Meloxicam | 0.1–0.4 mg/kg | PO | SID | 術後止痛 |
+
+> 以上為參考預設值，實際用藥依計畫書內容填寫。
 
 **驗證規則**
 - 若 `section4.pain_category` 為 `D` 或 `E`，則 `drugs` 需包含至少一個止痛、鎮定或麻醉相關項目
@@ -870,3 +1096,25 @@ AUP 狀態與 `protocols` 表狀態同步：
 - `animal_sources`：動物來源資料
 
 詳細資料庫結構請參考主規格文件。
+
+---
+
+## 14. 相關 SOP 文件參照
+
+以下 SOP 文件在 AUP 表單中被引用，系統應在對應欄位提供連結或參照說明：
+
+| SOP 編號 | 名稱 | 相關章節 |
+|---------|------|---------|
+| `TU-03-09-00` | 試驗豬隻外科手術標準作業程序書 | 術前準備（7.3）、術中監控（7.6）、術後照護（7.9） |
+| `AD-04-03-00` | 試驗豬隻安樂死規範標準作業程序書 | 動物最終處置（5.7） |
+
+---
+
+## 15. 表單來源與版本
+
+| 欄位 | 內容 |
+|------|------|
+| 表單編號 | `AD-04-01-01F` |
+| 表單名稱 | 動物試驗研究計畫書（Animal Use Protocol） |
+| 現行版本 | F 版 |
+| 管理機構 | IACUC（實驗動物照護及使用委員會） |

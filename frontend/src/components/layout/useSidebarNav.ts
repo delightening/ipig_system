@@ -9,7 +9,7 @@ import { STALE_TIME, shouldPoll } from '@/lib/query'
 import api, { deleteResource } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 
-import { DEFAULT_NAV_ORDER, navItemsConfig, CLIENT_ONLY_NAV_TITLES } from './sidebarNavConfig'
+import { DEFAULT_NAV_ORDER, GUEST_NAV_ORDER, navItemsConfig, CLIENT_ONLY_NAV_TITLES } from './sidebarNavConfig'
 import type { NavItem } from './sidebarNavConfig'
 
 export function useSidebarNav() {
@@ -51,14 +51,16 @@ export function useSidebarNav() {
     },
   })
 
+  const isGuest = user?.roles?.includes('GUEST')
+
   const sortedNavItems = useMemo(() => {
-    const order = navOrderData || DEFAULT_NAV_ORDER
+    const order = isGuest ? GUEST_NAV_ORDER : (navOrderData || DEFAULT_NAV_ORDER)
     return [...navItemsConfig].sort((a, b) => {
       const posA = order.indexOf(a.title)
       const posB = order.indexOf(b.title)
       return (posA === -1 ? 999 : posA) - (posB === -1 ? 999 : posB)
     })
-  }, [navOrderData])
+  }, [navOrderData, isGuest])
 
   const { data: pendingAmendmentsCount } = useQuery({
     queryKey: ['amendments-pending-count'],
@@ -72,16 +74,21 @@ export function useSidebarNav() {
   })
 
   const filteredNavItems = useMemo(() => {
-    // Guest：隱藏指定項目（修正審核、使用者管理、角色權限、系統設定）
-    const isGuestUser = user?.roles?.includes('GUEST')
-    if (isGuestUser) {
-      const guestHiddenTitles = new Set([
-        '修正審核', '使用者管理', '角色權限', '系統設定',
+    // Guest：只顯示與 demo 體驗相關的項目，隱藏所有管理功能
+    if (isGuest) {
+      // 整個父層隱藏（不顯示給訪客）
+      const guestHiddenParents = new Set(['系統管理'])
+      // 子項目隱藏
+      const guestHiddenChildren = new Set([
+        '修正審核',   // 動物管理 — 需要 admin
+        '報表中心',   // ERP — 需要 admin
+        'newProtocol', // AUP — 新增計畫書（寫入操作，訪客不開放）
       ])
       return sortedNavItems
+        .filter(item => !guestHiddenParents.has(item.title))
         .map(item => {
           if (!item.children) return item
-          const filtered = item.children.filter(c => !guestHiddenTitles.has(c.title))
+          const filtered = item.children.filter(c => !guestHiddenChildren.has(c.title))
           return filtered.length > 0 ? { ...item, children: filtered } : null
         })
         .filter(Boolean) as NavItem[]

@@ -185,6 +185,49 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-16 AUP 表單前端實作（更新計劃 v2）
+
+- ✅ **types/protocol.ts 擴充**：purpose.duplicate 改為 4 選項 enum、pain 加入 category_items/distress_signs/relief_measures、purpose 加入 abstract/refinement_description/reduction 子項
+- ✅ **constants.ts 擴充**：defaultFormData 新增所有新欄位預設值 + carcass_disposal 預設廠商
+- ✅ **i18n 新增 ~120 key**：zh-TW + en 雙語，含 34 個 pain 細項、17 個 distress 症狀、4 個 relief 措施、duplicate 4 選項、single housing 9 原因、animal reuse 5 選項
+- ✅ **PainCategorySection.tsx 新增**：4.1.3 單選→展開細項複選 + 4.1.5 疼痛症狀 + 4.1.6 緩解措施（獨立子元件）
+- ✅ **SectionDesign.tsx 重構**：引入 PainCategorySection、重新編號 4.1.7/4.1.8
+- ✅ **EndpointsSection.tsx 更新**：新增「插入標準預設文字」按鈕（人道終點官方預設文字）
+- ✅ **SectionPurpose.tsx 全面重寫**：2.0 Abstract + 2.2.2 補 4 平台 + 2.2.3 duplicate 改 4 選項 + 2.3.1-2.3.3 特殊照護/單獨飼養/動物再應用 + 2.4 Refinement（含「插入預設文字」按鈕）
+- ✅ **validation.ts 全面重寫**：新增 abstract/refinement/duplicate enum/pain category_items/distress_signs/relief_measures 驗證
+- ✅ **DesignSection/PurposeSection/MyProjectDetailPage 修正**：對齊新型別欄位名稱（management_plan→relief_measures, experiment→status）
+
+### 2026-04-16 AUP 規格書對齊 AD-04-01-01F 表單
+
+- ✅ **計畫摘要欄位新增**：`section2.abstract` 補入 AUP.md（表單有但規格書缺漏）
+- ✅ **替代方案平台補齊**：新增 `johns_hopkins`、`taat`、`nc3rs_eda`、`nc3rs_refinement` 四個搜尋平台選項
+- ✅ **精緻化原則章節新增**：補入 `section2.refinement_description`（3.7 節），含預設範例文字
+- ✅ **特殊管理需求三欄位新增**：`special_care`、`single_housing`（含 B1-B4 原因 enum）、`animal_reuse`（3.6 節）
+- ✅ **計畫類型補 `other`**：`project_type` 新增第 6 選項「其他」
+- ✅ **術前準備補完整預設文字**：含 Azeperonum/Atropine/Zoletil/Cefazolin/Meloxicam/Isoflurane 標準步驟及 TU-03-09-00 SOP 引用
+- ✅ **術中監控補記錄頻率**：明確標注每 30 分鐘記錄心跳、呼吸、體溫
+- ✅ **標準手術用藥參考表新增**：11 種藥品完整劑量/途徑/頻率/用途（AD-04-01-01F 來源）
+- ✅ **屍體處理廠商補預設值**：金海龍生物科技股份有限公司，化製廠管編 P6001213
+- ✅ **SOP 文件參照章節新增**：補入 §14 TU-03-09-00、AD-04-03-00 對應章節對照表
+- ✅ **表單來源版本章節新增**：補入 §15 表單編號 AD-04-01-01F 版本 F
+
+### 2026-04-16 Guest Mode 重寫：純前端隔離架構
+
+- ✅ **入口改為 `/demo` 頁面**：新增 `DemoPage.tsx`，只接受 `guest@guest.com`，點擊「進入試用」即啟動 guest mode，完全不打後端
+- ✅ **`enterGuestMode()` action**：`auth.ts` 新增純前端 guest 初始化，`checkAuth()` 偵測已是 guest 則 early return，`logout()` guest 不呼叫後端
+- ✅ **完全 HTTP 隔離**：`routes.ts` 移除 `/me` passthrough，改由 exactRoutes 攔截；非 GET 方法回傳 `{ success: true }` 不觸碰後端
+- ✅ **Sidebar 優化**：guestHiddenChildren 新增 `'newProtocol'`（AUP 隱藏新增計畫書）
+- ✅ **Guest Banner 升級**：新增「離開試用」按鈕，文字改為「訪客試用模式 — 資料為展示用途」
+- ✅ **廢棄後端 GUEST role**：刪除 `guest_guard.rs`，從 `middleware/mod.rs` 與 `routes/mod.rs` 移除相關引用
+
+### 2026-04-16 訪客模式（Guest Mode）完善
+
+- ✅ **首頁重導向修正**：`getHomeRedirect()` 偵測 GUEST 角色，直接導向 `/dashboard` 而非 `/my-projects`
+- ✅ **側邊欄精簡**：Guest 分支隱藏整個 `系統管理` 父項，移除 `修正審核`、`報表中心` 子項；Dashboard 與 ERP 明確保留
+- ✅ **文件頁預設分類**：`useDocumentCategory` 為訪客預設 `purchasing` 分類（不呼叫後端偏好），避免 `shouldFetch=false` 導致空頁面
+- ✅ **攔截器修正**：`/documents` 改為回傳平陣列 `DEMO_DOCUMENTS.data`（符合後端 `Vec<DocumentListItem>` 回傳格式），避免 UI 錯誤讀取 paginated 物件
+- ✅ **前期工作（上一 session）**：`useGuestQuery` 改用 `queryFn` 替換（修正 `initialData` 被 stale cache 覆蓋的 bug）、欄位頁 Facility 資料（DEMO_BUILDINGS/ZONES/PENS）、訪客欄位移動模擬、後端 guest_guard 白名單精簡
+
 ### 2026-04-16 權限系統審查：模組交叉驗證（Problem 5）
 
 - ✅ **`animal.info.assign` 遺漏**：`batch_assign_animals` handler 使用此權限但 startup 無任何角色擁有；決策由 IACUC_STAFF 執行批次分配，補入 IACUC_STAFF 清單

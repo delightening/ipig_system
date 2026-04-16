@@ -499,7 +499,7 @@ export function MyProjectDetailPage() {
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">止痛管理</h4>
                 <p className="text-sm whitespace-pre-wrap">
-                  {workingContent?.design?.pain?.management_plan ||
+                  {workingContent?.design?.pain?.relief_measures ||
                     (workingContent?.design?.pain?.category ? `疼痛類別: ${workingContent.design.pain.category}` : '未填寫')}
                 </p>
               </div>

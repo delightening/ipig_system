@@ -59,8 +59,8 @@ export function PurposeSection({ purpose }: PurposeSectionProps) {
           {purpose.duplicate && (
             <div className="mb-3">
               <h4 className="text-base font-medium mb-1">{t('protocols.content.sections.duplicate')}</h4>
-              <p className="text-sm mb-2">{purpose.duplicate.experiment ? t('protocols.content.sections.duplicateYes') : t('protocols.content.sections.duplicateNo')}</p>
-              {purpose.duplicate.experiment && purpose.duplicate.justification && (
+              <p className="text-sm mb-2">{purpose.duplicate.status !== 'no' ? t('protocols.content.sections.duplicateYes') : t('protocols.content.sections.duplicateNo')}</p>
+              {purpose.duplicate.status !== 'no' && purpose.duplicate.justification && (
                 <div>
                   <p className="text-sm font-medium mb-1">{t('protocols.content.sections.duplicateJustification')}</p>
                   <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{purpose.duplicate.justification}</p>

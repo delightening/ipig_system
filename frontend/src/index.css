@@ -524,6 +524,13 @@
 /* 手機端 Dialog 適配 (Mobile Dialog) */
 /* ==================== */
 
+/* 手機端字體放大 1.5 倍（base 16px → 24px） */
+@media (max-width: 640px) {
+  html {
+    font-size: 24px;
+  }
+}
+
 /* 防止 iOS Safari 在 input focus 時自動縮放 */
 @media (max-width: 640px) {
   .dialog-scroll-container input,

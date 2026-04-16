@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
 
 import api from '@/lib/api'
 import { STALE_TIME } from '@/lib/query'
@@ -64,7 +63,7 @@ export function useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, pa
     },
   )
 
-  const { data: sourcesData } = useQuery({
+  const { data: sourcesData } = useGuestQuery([] as AnimalSource[], {
     queryKey: ['animal-sources'],
     queryFn: async () => {
       const res = await api.get<AnimalSource[]>('/animal-sources')

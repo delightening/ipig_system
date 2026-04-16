@@ -106,8 +106,18 @@ export function MainLayout() {
         )}
       >
         {isGuest() && (
-          <div className="bg-[var(--color-status-warning-bg)] border-b border-[var(--color-status-warning-border)] px-4 py-2 text-sm text-[var(--color-status-warning-text)] text-center sticky top-0 z-[60]">
-            訪客模式 — 僅供瀏覽系統架構，無法查看實際資料
+          <div className="bg-[var(--color-status-warning-bg)] border-b border-[var(--color-status-warning-border)] px-4 py-2 text-sm text-[var(--color-status-warning-text)] sticky top-0 z-[60] flex items-center justify-between gap-4">
+            <span className="flex-1 text-center">
+              訪客試用模式 — 資料為展示用途，操作不會實際儲存
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-7 text-xs border-[var(--color-status-warning-border)] text-[var(--color-status-warning-text)] hover:bg-[var(--color-status-warning-border)]/20"
+              onClick={() => useAuthStore.getState().logout().then(() => { window.location.href = '/login' })}
+            >
+              離開試用
+            </Button>
           </div>
         )}
 

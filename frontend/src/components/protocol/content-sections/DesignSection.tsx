@@ -37,10 +37,16 @@ export function DesignSection({ design }: DesignSectionProps) {
         <div className="mb-4">
           <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.painCategory')}</h3>
           <p className="text-sm">{design.pain.category}</p>
-          {design.pain.management_plan && (
+          {design.pain.relief_measures && (
             <div className="mt-2">
               <p className="text-sm font-medium mb-1">{t('protocols.content.sections.painManagement')}</p>
-              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{design.pain.management_plan}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{design.pain.relief_measures}</p>
+              {design.pain.relief_drug_name && (
+                <p className="text-sm mt-1">{design.pain.relief_drug_name}</p>
+              )}
+              {design.pain.no_relief_justification && (
+                <p className="text-sm mt-1">{design.pain.no_relief_justification}</p>
+              )}
             </div>
           )}
         </div>

@@ -4,10 +4,11 @@ import { useAuthStore } from '@/stores/auth'
 import { useHeartbeat } from '@/hooks/useHeartbeat'
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, isInitialized, user } = useAuthStore()
+    const { isAuthenticated, isInitialized, user, isGuest } = useAuthStore()
 
     // 啟動 heartbeat 監聽使用者活動（須等 checkAuth 完成，避免 stale token 觸發 401）
-    useHeartbeat(isAuthenticated && isInitialized)
+    // 訪客模式無後端 session，跳過 heartbeat 避免觸發 401 → clearAuth 流程
+    useHeartbeat(isAuthenticated && isInitialized && !isGuest())
 
     // SEC-24: 等待初始驗證完成，防止 stale localStorage state
     if (!isInitialized) {

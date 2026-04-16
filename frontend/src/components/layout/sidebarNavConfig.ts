@@ -46,6 +46,16 @@ export const DEFAULT_NAV_ORDER = [
   '系統管理',
 ]
 
+export const GUEST_NAV_ORDER = [
+  'dashboard',
+  'myProjects',
+  'aupReview',
+  'animalManagement',
+  '人員管理',
+  'ERP',
+  'QAU 品質保證',
+]
+
 export const navItemsConfig: NavItem[] = [
   {
     title: 'dashboard',

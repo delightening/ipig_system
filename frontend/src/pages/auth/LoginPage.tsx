@@ -6,6 +6,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/types/error'
+
+const GUEST_EMAIL = 'guest@guest.com'
+const GUEST_PASSWORD = 'guest'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,7 +37,7 @@ function isTwoFAError(err: unknown): err is { is2FA: true; tempToken: string } {
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { login, verify2FA, isLoading } = useAuthStore()
+  const { login, verify2FA, isLoading, enterGuestMode } = useAuthStore()
   const [showPassword, togglePassword] = useToggle()
   const [twoFAState, setTwoFAState] = useState<{ tempToken: string } | null>(null)
   const [totpCode, setTotpCode] = useState('')
@@ -57,6 +60,13 @@ export function LoginPage() {
   }, [twoFAState])
 
   const onSubmit = async (data: LoginForm) => {
+    // 訪客試用模式：純前端，不呼叫後端
+    if (data.email.trim().toLowerCase() === GUEST_EMAIL && data.password === GUEST_PASSWORD) {
+      enterGuestMode()
+      navigate('/demo')
+      return
+    }
+
     try {
       await login(data.email, data.password)
       toast({ title: '登入成功', description: '歡迎回來！' })

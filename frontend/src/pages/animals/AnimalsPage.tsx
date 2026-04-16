@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
@@ -8,6 +8,9 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Upload, Download, FileSpreadsheet, Stethoscope } from 'lucide-react'
 
 import { GuestHide } from '@/components/ui/guest-hide'
+import { toast } from '@/components/ui/use-toast'
+import { DEMO_ANIMALS_BY_PEN } from '@/lib/guest-demo'
+import type { AnimalListItem } from '@/types/animal'
 import { ExportDialog } from '@/components/animal/ExportDialog'
 import { VetPatrolReportDialog } from '@/components/animal/VetPatrolReportDialog'
 import { ImportDialog } from '@/components/animal/ImportDialog'
@@ -36,7 +39,8 @@ const ADMIN_ONLY_STATUSES = ['euthanized', 'sudden_death', 'transferred']
 
 export function AnimalsPage() {
   const queryClient = useQueryClient()
-  const { hasRole } = useAuthStore()
+  const { hasRole, isGuest: isGuestFn } = useAuthStore()
+  const isGuest = isGuestFn()
   const { t } = useTranslation()
 
   const isPIOrClient = hasRole('PI') || hasRole('CLIENT')
@@ -128,6 +132,38 @@ export function AnimalsPage() {
   } = useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, page, perPage })
 
   const hasPenSearch = statusFilter === 'pen' && (!!(appliedSearch ?? '').trim() || (breedFilter && breedFilter !== 'all'))
+
+  // ─── Guest 本地欄位狀態（訪客模式下模擬欄位移動，不呼叫 API）─────────────
+  type PenGroup = { pen_location: string; animals: AnimalListItem[] }
+  const [guestPenData, setGuestPenData] = useState<PenGroup[]>(
+    () => isGuest ? (DEMO_ANIMALS_BY_PEN as unknown as PenGroup[]) : []
+  )
+
+  const handleGuestQuickMove = useCallback((earTag: string, target: string) => {
+    const tag = /^\d+$/.test(earTag.trim()) ? earTag.trim().padStart(3, '0') : earTag.trim()
+    setGuestPenData(prev => {
+      const all = prev.flatMap(g => g.animals)
+      const animal = all.find(a => a.ear_tag === tag || a.ear_tag === earTag.trim())
+      if (!animal) {
+        toast({ title: '找不到動物', description: `耳號 ${earTag} 不存在`, variant: 'destructive' })
+        return prev
+      }
+      if (animal.pen_location === target) {
+        toast({ title: '提示', description: `動物 ${animal.ear_tag} 已在 ${target}` })
+        return prev
+      }
+      const updated = prev.map(g => ({ ...g, animals: g.animals.filter(a => a.ear_tag !== animal.ear_tag) }))
+      const existing = updated.find(g => g.pen_location === target)
+      const moved = { ...animal, pen_location: target }
+      if (existing) {
+        existing.animals = [...existing.animals, moved]
+      } else {
+        updated.push({ pen_location: target, animals: [moved] })
+      }
+      toast({ title: '移動成功', description: `${animal.ear_tag} → ${target}（訪客模式，重整後還原）` })
+      return updated
+    })
+  }, [])
 
   // ─── Mutations ─────────────────────────────────────────────────────────────
   const { createAnimalMutation, batchAssignMutation, quickMoveMutation, quickAddMutation, forceCreateMutation } = useAnimalsMutations({
@@ -252,10 +288,10 @@ export function AnimalsPage() {
       {/* Pen View：無搜尋時顯示欄位格線圖（圖一）；有搜尋時改由上方表格顯示（圖二） */}
       {statusFilter === 'pen' && !hasPenSearch && (
         <AnimalPenView
-          groupedData={penViewGroupedData}
+          groupedData={isGuest ? guestPenData : penViewGroupedData}
           isLoading={groupedLoading}
-          onQuickMove={(earTag, target) => quickMoveMutation.mutate({ earTag, targetPenLocation: target })}
-          isQuickMovePending={quickMoveMutation.isPending}
+          onQuickMove={isGuest ? handleGuestQuickMove : (earTag, target) => quickMoveMutation.mutate({ earTag, targetPenLocation: target })}
+          isQuickMovePending={isGuest ? false : quickMoveMutation.isPending}
         />
       )}
 

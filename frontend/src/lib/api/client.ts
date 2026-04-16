@@ -127,7 +127,8 @@ api.interceptors.response.use(
     }
 
     // If 401 and not already retrying, try to refresh token
-    if (error.response?.status === 401 && !originalRequest?._retry) {
+    // 訪客模式無後端 session，直接略過 refresh 流程，不清除 auth
+    if (error.response?.status === 401 && !originalRequest?._retry && !useAuthStore.getState().isGuest()) {
       originalRequest._retry = true
 
       // SEC-25: Promise-based singleton — 所有並行 401 共用同一個 refresh Promise

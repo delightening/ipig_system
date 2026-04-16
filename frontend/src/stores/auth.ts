@@ -19,6 +19,8 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>
   verify2FA: (tempToken: string, code: string) => Promise<void>
   logout: () => Promise<void>
+  /** 純前端訪客模式：建立本地假用戶，完全不呼叫後端 */
+  enterGuestMode: () => void
   /** 僅清除前端 auth 狀態（不呼叫後端），供 interceptor 在 token 失效時使用 */
   clearAuth: () => void
   isImpersonating: boolean
@@ -91,7 +93,28 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      enterGuestMode: () => {
+        set({
+          user: {
+            id: 'guest',
+            display_name: '訪客',
+            email: 'guest@guest.com',
+            roles: ['GUEST'],
+            permissions: [],
+            is_active: true,
+          } as User,
+          isAuthenticated: true,
+          isInitialized: true,
+          isLoading: false,
+          sessionExpiresAt: null,
+        })
+      },
+
       logout: async () => {
+        if (get().isGuest()) {
+          get().clearAuth()
+          return
+        }
         try {
           await api.post('/auth/logout')
         } catch {
@@ -160,6 +183,11 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
+        // 訪客模式：不呼叫後端，直接標記為已初始化
+        if (get().isGuest()) {
+          set({ isInitialized: true })
+          return
+        }
         try {
           const response = await api.get<User>('/me')
           const currentExpiry = get().sessionExpiresAt
@@ -249,5 +277,6 @@ export const useAuthActions = () =>
       impersonate: s.impersonate,
       stopImpersonating: s.stopImpersonating,
       clearAuth: s.clearAuth,
+      enterGuestMode: s.enterGuestMode,
     })),
   )

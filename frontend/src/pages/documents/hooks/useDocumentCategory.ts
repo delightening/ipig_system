@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { STALE_TIME } from '@/lib/query'
+import { useAuthStore } from '@/stores/auth'
 
 export type DocCategory = 'purchasing' | 'sales' | 'warehouse'
 
@@ -16,8 +17,14 @@ interface UseDocumentCategory {
 
 export function useDocumentCategory(): UseDocumentCategory {
   const queryClient = useQueryClient()
-  const [activeCategory, setActiveCategoryState] = useState<DocCategory | null>(null)
-  const [prefLoaded, setPrefLoaded] = useState(false)
+  const isGuestFn = useAuthStore((s) => s.isGuest)
+  const isGuest = isGuestFn()
+
+  // 訪客模式：預設顯示採購類，不讀後端偏好設定
+  const [activeCategory, setActiveCategoryState] = useState<DocCategory | null>(
+    isGuest ? 'purchasing' : null
+  )
+  const [prefLoaded, setPrefLoaded] = useState(isGuest)
 
   const { data: prefData, isLoading: isLoadingPref } = useQuery({
     queryKey: queryKeys.users.preferences(PREF_KEY),
@@ -28,6 +35,7 @@ export function useDocumentCategory(): UseDocumentCategory {
       return res.data?.value ?? null
     },
     staleTime: STALE_TIME.SETTINGS,
+    enabled: !isGuest,
   })
 
   useEffect(() => {

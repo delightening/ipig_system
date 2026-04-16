@@ -21,7 +21,6 @@ const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 const ForceChangePasswordPage = lazy(() => import('@/pages/auth/ForceChangePasswordPage').then(m => ({ default: m.ForceChangePasswordPage })))
 const InvitationAcceptPage = lazy(() => import('@/pages/auth/InvitationAcceptPage').then(m => ({ default: m.InvitationAcceptPage })))
-
 // Dashboard & Profile
 const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })))
 const ProfileSettingsPage = lazy(() => import('@/pages/ProfileSettingsPage').then(m => ({ default: m.ProfileSettingsPage })))
@@ -120,7 +119,7 @@ const TermsOfServicePage = lazy(() => import('@/pages/TermsOfServicePage').then(
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 
 function App() {
-    const { checkAuth, isAuthenticated, user, hasRole } = useAuthStore()
+    const { checkAuth, isAuthenticated, user, hasRole, isGuest: isGuestFn } = useAuthStore()
     const location = useLocation()
 
     // 公開路由不需要檢查認證狀態
@@ -230,6 +229,9 @@ function App() {
 
     // 判斷首頁導向
     const getHomeRedirect = () => {
+        // 訪客模式：導向 /demo 作為試用首頁
+        if (isGuestFn()) return '/demo'
+
         const hasDashboardAccess = hasRole('admin') ||
             user?.roles.some(r => DASHBOARD_ROLES.includes(r)) ||
             user?.permissions.some(p => p.startsWith('erp.'))
@@ -282,6 +284,8 @@ function App() {
                     {/* Dashboard 與 ERP 模組路由 */}
                     <Route element={<DashboardRoute />}>
                         <Route path="/dashboard" element={<DashboardPage />} />
+                        {/* 訪客試用模式入口 URL（登入後導向，與 /dashboard 內容相同） */}
+                        <Route path="/demo" element={<DashboardPage />} />
                         <Route path="/erp" element={<Navigate to="/products" replace />} />
                         <Route path="/erp/reports" element={<AdminRoute><ErpReportsPage /></AdminRoute>} />
                         <Route path="/equipment" element={<RequirePermission permission="equipment.view"><EquipmentPage /></RequirePermission>} />

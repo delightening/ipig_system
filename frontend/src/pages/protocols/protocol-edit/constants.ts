@@ -53,16 +53,27 @@ export const defaultFormData: FormData = {
             housing_location: ''
         },
         purpose: {
+            abstract: '',
             significance: '',
             replacement: {
                 rationale: '',
                 alt_search: { platforms: [], keywords: '', conclusion: '' }
             },
+            duplicate: { status: '', regulation_basis: '', previous_iacuc_no: '', justification: '' },
             reduction: {
                 design: '',
-                grouping_plan: []
+                grouping_plan: [],
+                special_care: { needed: null, description: '' },
+                single_housing: {
+                    required: null,
+                    reasons: [],
+                    metabolic_cage_duration: '',
+                    monitoring_method: '',
+                    estimated_duration: ''
+                },
+                animal_reuse: { considered: null, plan: '', plan_other: '' }
             },
-            duplicate: { experiment: false, justification: '' }
+            refinement_description: ''
         },
         items: {
             use_test_item: null,
@@ -76,7 +87,16 @@ export const defaultFormData: FormData = {
             blood_withdrawals: [],
             imaging: [],
             restraint: [],
-            pain: { category: '' },
+            pain: {
+                category: '',
+                category_items: [],
+                category_item_other_text: '',
+                distress_signs: [],
+                distress_signs_other_text: '',
+                relief_measures: [],
+                relief_drug_name: '',
+                no_relief_justification: ''
+            },
             restrictions: { is_restricted: null, types: [] },
             endpoints: {
                 experimental_endpoint: '',
@@ -84,7 +104,9 @@ export const defaultFormData: FormData = {
             },
             final_handling: { method: '', transfer: { recipient_name: '', recipient_org: '', project_name: '' } },
             carcass_disposal: {
-                method: ''
+                method: '委由簽約之合格化製廠商進行化製處理',
+                vendor_name: '金海龍生物科技股份有限公司',
+                vendor_id: 'P6001213'
             },
             non_pharma_grade: { used: null, description: '' },
             hazards: {

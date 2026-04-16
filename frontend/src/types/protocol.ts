@@ -84,6 +84,7 @@ export interface ProtocolWorkingContent {
         housing_location: string
     }
     purpose: { // Section 2
+        abstract: string // 2.0 計畫摘要
         significance: string
         replacement: {
             rationale: string
@@ -93,6 +94,12 @@ export interface ProtocolWorkingContent {
                 keywords: string
                 conclusion: string
             }
+        }
+        duplicate: { // 2.2.3 重複試驗（4 選項）
+            status: string // 'no' | 'not_applicable' | 'yes_continuation' | 'yes_duplicate'
+            regulation_basis: string
+            previous_iacuc_no: string
+            justification: string
         }
         reduction: {
             design: string
@@ -104,11 +111,27 @@ export interface ProtocolWorkingContent {
                 treatment: string
                 timepoints: string
             }>
+            // 2.3.1 特殊照護
+            special_care: {
+                needed: boolean | null
+                description: string
+            }
+            // 2.3.2 單獨飼養
+            single_housing: {
+                required: boolean | null
+                reasons: string[]
+                metabolic_cage_duration: string
+                monitoring_method: string
+                estimated_duration: string
+            }
+            // 2.3.3 動物再應用
+            animal_reuse: {
+                considered: boolean | null
+                plan: string
+                plan_other: string
+            }
         }
-        duplicate: {
-            experiment: boolean
-            justification: string
-        }
+        refinement_description: string // 2.4 精緻化原則
     }
     items: { // Section 3
         use_test_item: boolean | null // null means not selected, true/false for yes/no
@@ -176,9 +199,14 @@ export interface ProtocolWorkingContent {
             welfare_notes: string
         }>
         pain: {
-            category: string
-            management_plan?: string
-            no_analgesia_justification?: string
+            category: string // 4.1.3 單選 B/C/D/E
+            category_items: string[] // 4.1.3 依 category 展開的複選細項
+            category_item_other_text: string // *_other 說明
+            distress_signs: string[] // 4.1.5 疼痛症狀複選
+            distress_signs_other_text: string
+            relief_measures: string[] // 4.1.6 緩解措施複選
+            relief_drug_name: string // if 'anesthesia_analgesia'
+            no_relief_justification: string // if 'no_relief_with_justification'
         }
         restrictions: {
             is_restricted: boolean | null // null means not selected

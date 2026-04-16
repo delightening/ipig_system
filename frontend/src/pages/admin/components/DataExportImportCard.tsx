@@ -14,8 +14,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
-import api from '@/lib/api'
+import api, { confirmPassword } from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
+import { ConfirmPasswordModal } from '@/components/auth/ConfirmPasswordModal'
 
 interface DataExportImportCardProps {
   canExport: boolean
@@ -35,12 +36,14 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
   const [exportAsZip, setExportAsZip] = useState(false)
   const [importResultOpen, setImportResultOpen] = useState(false)
   const [lastImportResult, setLastImportResult] = useState<ImportResult | null>(null)
+  const [reauthOpen, setReauthOpen] = useState(false)
 
   const exportMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (reauthToken: string) => {
       const res = await api.get<Blob>('/admin/data-export', {
         params: { include_audit: includeAudit, format: exportAsZip ? 'zip' : 'json' },
         responseType: 'blob',
+        headers: { 'X-Reauth-Token': reauthToken },
       })
       const blob = new Blob([res.data], {
         type: exportAsZip ? 'application/zip' : 'application/json;charset=utf-8',
@@ -66,7 +69,12 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
 
   const handleFullExport = () => {
     if (!canExport) return
-    exportMutation.mutate()
+    setReauthOpen(true)
+  }
+
+  const handleReauthSubmit = async (password: string) => {
+    const { reauth_token } = await confirmPassword(password)
+    exportMutation.mutate(reauth_token)
   }
 
   const importMutation = useMutation({
@@ -176,6 +184,15 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
           )}
         </CardContent>
       </Card>
+
+      {/* SEC-33: 敏感操作二級認證 */}
+      <ConfirmPasswordModal
+        open={reauthOpen}
+        onOpenChange={setReauthOpen}
+        title="確認身份"
+        description="全庫資料匯出屬高度敏感操作，請重新輸入您的登入密碼以確認。"
+        onSubmit={handleReauthSubmit}
+      />
 
       {/* Import result dialog */}
       <Dialog open={importResultOpen} onOpenChange={setImportResultOpen}>

@@ -4,9 +4,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { SectionProps } from './types'
 import { AnesthesiaSection } from './components/AnesthesiaSection'
+import { PainCategorySection } from './components/PainCategorySection'
 import { RestrictionsSection } from './components/RestrictionsSection'
 import { EndpointsSection } from './components/EndpointsSection'
 import { FinalHandlingSection } from './components/FinalHandlingSection'
@@ -52,24 +52,8 @@ export function SectionDesign({ formData, updateWorkingContent, setFormData: _se
 
         <Divider />
 
-        {/* 4.1.3 實驗動物等級評估 */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>{t('aup.design.painCategoryLabel')}</Label>
-            <Select
-              value={design.pain.category}
-              onValueChange={(val) => updateWorkingContent('design', 'pain.category', val)}
-            >
-              <SelectTrigger><SelectValue placeholder={t('common.pleaseSelect')} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="B">{t('aup.design.painCategories.B')}</SelectItem>
-                <SelectItem value="C">{t('aup.design.painCategories.C')}</SelectItem>
-                <SelectItem value="D">{t('aup.design.painCategories.D')}</SelectItem>
-                <SelectItem value="E">{t('aup.design.painCategories.E')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        {/* 4.1.3 實驗動物疼痛等級評估（含細項複選） + 4.1.5 疼痛症狀 + 4.1.6 緩解措施 */}
+        <PainCategorySection {...sharedProps} />
 
         <Divider />
 
@@ -78,12 +62,12 @@ export function SectionDesign({ formData, updateWorkingContent, setFormData: _se
 
         <Divider />
 
-        {/* 4.1.5 預期實驗完成時機 */}
+        {/* 4.1.7 預期實驗完成時機（原 4.1.5） */}
         <EndpointsSection {...sharedProps} />
 
         <Divider />
 
-        {/* 4.1.6 動物安樂死或最終處置方式 */}
+        {/* 4.1.8 動物安樂死或最終處置方式（原 4.1.6） */}
         <FinalHandlingSection {...sharedProps} />
 
         <Divider />
