@@ -105,10 +105,8 @@ impl AnimalFieldCorrectionService {
                 NaiveDate::parse_from_str(new_value, "%Y-%m-%d")
                     .map_err(|_| AppError::Validation("出生日期格式須為 YYYY-MM-DD".to_string()))?;
             }
-            "gender" => {
-                if new_value != "male" && new_value != "female" {
-                    return Err(AppError::Validation("性別須為 male 或 female".to_string()));
-                }
+            "gender" if new_value != "male" && new_value != "female" => {
+                return Err(AppError::Validation("性別須為 male 或 female".to_string()));
             }
             "breed" => {
                 let valid = ["miniature", "minipig", "white", "LYD", "lyd", "other"];
