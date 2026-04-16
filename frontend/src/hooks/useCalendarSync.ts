@@ -22,8 +22,10 @@ export function useCalendarSync(activeTab: string) {
     const [historyPage, setHistoryPage] = useState(1)
     const [conflictsPage, setConflictsPage] = useState(1)
     const queryClient = useQueryClient()
-    const { user, hasRole } = useAuthStore()
+    const { user, hasRole, hasPermission } = useAuthStore()
     const isAdmin = hasRole('admin')
+    const canViewCalendarConfig = hasPermission('hr.calendar.config')
+    const canViewCalendar = hasPermission('hr.calendar.view')
 
     // 當打開連接對話框時，預設授權 Email 為當前用戶的 Email
     useEffect(() => {
@@ -67,13 +69,14 @@ export function useCalendarSync(activeTab: string) {
         },
     })
 
-    // 同步狀態
+    // 同步狀態（僅限有 hr.calendar.config 權限的使用者）
     const { data: syncStatus, isLoading: loadingStatus } = useQuery({
         queryKey: ['calendar-status'],
         queryFn: async () => {
             const res = await api.get<CalendarSyncStatus>('/hr/calendar/status')
             return res.data
         },
+        enabled: canViewCalendarConfig,
     })
 
     // 同步歷史（支援分頁）
@@ -195,6 +198,8 @@ export function useCalendarSync(activeTab: string) {
         conflicts,
         loadingConflicts,
         isAdmin,
+        canViewCalendarConfig,
+        canViewCalendar,
 
         // 分頁
         historyPage,

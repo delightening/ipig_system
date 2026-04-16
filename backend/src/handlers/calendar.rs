@@ -8,28 +8,16 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    constants::ROLE_ADMIN_STAFF,
     middleware::CurrentUser,
+    require_permission,
     models::{
         CalendarSyncConflict, CalendarSyncHistory, CalendarSyncStatus, ConflictQuery,
         ConflictWithDetails, ConnectCalendarRequest, EventSyncWithLeave, GoogleCalendarConfig,
         PaginatedResponse, ResolveConflictRequest, SyncHistoryQuery, UpdateCalendarConfigRequest,
     },
     services::CalendarService,
-    AppError, AppState, Result,
+    AppState, Result,
 };
-
-/// 確認呼叫者為系統管理員或人事管理員
-fn require_calendar_admin(user: &CurrentUser) -> Result<()> {
-    // is_admin() 涵蓋 ROLE_SYSTEM_ADMIN 與 ROLE_ADMIN_LEGACY（"admin"）
-    if user.is_admin() || user.roles.iter().any(|r| r == ROLE_ADMIN_STAFF) {
-        Ok(())
-    } else {
-        Err(AppError::Forbidden(
-            "僅限系統管理員或人事管理員使用".to_string(),
-        ))
-    }
-}
 
 // ============================================
 // Config Handlers
@@ -40,7 +28,7 @@ pub async fn get_calendar_status(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<CalendarSyncStatus>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.config");
     let status = CalendarService::get_sync_status(&state.db).await?;
     Ok(Json(status))
 }
@@ -50,7 +38,7 @@ pub async fn get_calendar_config(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<GoogleCalendarConfig>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.config");
     let config = CalendarService::get_config(&state.db).await?;
     Ok(Json(config))
 }
@@ -61,7 +49,7 @@ pub async fn connect_calendar(
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<ConnectCalendarRequest>,
 ) -> Result<Json<GoogleCalendarConfig>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.config");
     let config = CalendarService::connect(&state.db, &payload).await?;
     Ok(Json(config))
 }
@@ -71,7 +59,7 @@ pub async fn disconnect_calendar(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<StatusCode> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.config");
     CalendarService::disconnect(&state.db).await?;
     Ok(StatusCode::OK)
 }
@@ -82,7 +70,7 @@ pub async fn update_calendar_config(
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<UpdateCalendarConfigRequest>,
 ) -> Result<Json<GoogleCalendarConfig>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.config");
     let config = CalendarService::update_config(&state.db, &payload).await?;
     Ok(Json(config))
 }
@@ -96,7 +84,7 @@ pub async fn trigger_sync(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<CalendarSyncHistory>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.sync");
     let history = CalendarService::trigger_sync(&state.db, Some(current_user.id)).await?;
     Ok(Json(history))
 }
@@ -107,7 +95,7 @@ pub async fn list_sync_history(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<SyncHistoryQuery>,
 ) -> Result<Json<PaginatedResponse<CalendarSyncHistory>>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.sync");
     let result = CalendarService::list_sync_history(&state.db, &params).await?;
     Ok(Json(result))
 }
@@ -117,7 +105,7 @@ pub async fn list_pending_syncs(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<EventSyncWithLeave>>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.sync");
     let events = CalendarService::list_pending_syncs(&state.db).await?;
     Ok(Json(events))
 }
@@ -132,7 +120,7 @@ pub async fn list_conflicts(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<ConflictQuery>,
 ) -> Result<Json<PaginatedResponse<ConflictWithDetails>>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.conflicts");
     let result = CalendarService::list_conflicts(&state.db, &params).await?;
     Ok(Json(result))
 }
@@ -143,7 +131,7 @@ pub async fn get_conflict(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<CalendarSyncConflict>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.conflicts");
     let conflict = CalendarService::get_conflict(&state.db, id).await?;
     Ok(Json(conflict))
 }
@@ -155,7 +143,7 @@ pub async fn resolve_conflict(
     Path(id): Path<Uuid>,
     Json(payload): Json<ResolveConflictRequest>,
 ) -> Result<Json<CalendarSyncConflict>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.conflicts");
     let conflict = CalendarService::resolve_conflict(
         &state.db,
         id,
@@ -180,7 +168,7 @@ pub async fn list_calendar_events(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<CalendarEventsQuery>,
 ) -> Result<Json<Vec<CalendarEvent>>> {
-    require_calendar_admin(&current_user)?;
+    require_permission!(current_user, "hr.calendar.view");
     // 取得 calendar config，未配置時回傳空陣列
     let config = match CalendarService::get_config(&state.db).await {
         Ok(c) => c,

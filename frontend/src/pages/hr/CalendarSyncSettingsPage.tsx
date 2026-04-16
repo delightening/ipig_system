@@ -46,6 +46,8 @@ export function CalendarSyncSettingsPage() {
         conflicts,
         loadingConflicts,
         isAdmin,
+        canViewCalendarConfig,
+        canViewCalendar,
         historyPage,
         setHistoryPage,
         conflictsPage,
@@ -65,13 +67,18 @@ export function CalendarSyncSettingsPage() {
         updateConfigMutation,
     } = useCalendarSync(activeTab)
 
+    // admin 依 syncStatus 判斷是否已連接；non-admin 無法取得 status，直接嘗試撈事件（backend 未設定時回傳空陣列）
+    const isConfigured = canViewCalendarConfig
+        ? (syncStatus?.is_configured === true)
+        : canViewCalendar
+
     const {
         fullCalendarEvents,
         isLoading: loadingEvents,
         isFetching: fetchingEvents,
         handleDatesSet,
     } = useCalendarEvents(
-        syncStatus?.is_configured === true,
+        isConfigured,
         activeTab === 'calendar',
     )
 
@@ -80,7 +87,7 @@ export function CalendarSyncSettingsPage() {
             <PageHeader
                 title="Google Calendar"
                 description="設定與管理請假日曆"
-                actions={syncStatus?.is_configured ? (
+                actions={isConfigured && canViewCalendarConfig ? (
                     <Button
                         size="sm"
                         onClick={() => syncMutation.mutate()}
@@ -137,7 +144,7 @@ export function CalendarSyncSettingsPage() {
                         </CardHeader>
                         <CardContent>
                             <CalendarEventsTab
-                                isConfigured={syncStatus?.is_configured === true}
+                                isConfigured={isConfigured}
                                 isAdmin={isAdmin}
                                 loadingStatus={loadingStatus}
                                 isLoading={loadingEvents}

@@ -41,6 +41,11 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("erp.document.delete", "刪除單據", "erp", "可刪除單據"),
         // HR 加班全部紀錄查看
         ("hr.overtime.view_all", "查看所有加班紀錄", "hr", "可查看所有員工的加班紀錄"),
+        // HR Google Calendar 同步
+        ("hr.calendar.view", "查看行事曆事件", "hr", "可查看 Google Calendar 公司行事曆事件"),
+        ("hr.calendar.config", "設定行事曆同步", "hr", "可設定 Google Calendar 同步連線"),
+        ("hr.calendar.sync", "執行行事曆同步", "hr", "可手動觸發 Google Calendar 同步"),
+        ("hr.calendar.conflicts", "處理行事曆衝突", "hr", "可查看並解決行事曆同步衝突"),
         // 人員訓練紀錄 (GLP 合規)
         ("training.view", "查看訓練紀錄", "training", "可查看人員訓練紀錄"),
         ("training.manage", "管理訓練紀錄", "training", "可新增、編輯、刪除訓練紀錄"),
@@ -364,6 +369,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "hr.leave.view", "hr.leave.create",
             "hr.overtime.view", "hr.overtime.create",
             "hr.balance.view",
+            "hr.calendar.view",
             // 人員訓練紀錄（僅管理自己的）
             "training.view", "training.manage_own",
             // Dashboard 權限
@@ -415,6 +421,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "hr.leave.view", "hr.leave.create",
             "hr.overtime.view", "hr.overtime.create",
             "hr.balance.view",
+            "hr.calendar.view",
             // 人員訓練紀錄（僅管理自己的）
             "training.view", "training.manage_own",
             // Dashboard 權限
