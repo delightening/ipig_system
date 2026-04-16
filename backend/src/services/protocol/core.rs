@@ -80,36 +80,37 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
-        // 記錄狀態歷程
-        Self::record_status_change(pool, protocol.id, None, ProtocolStatus::Draft, created_by, None).await?;
-
-        // 關聯 PI 使用者
-        sqlx::query(
-            r#"
-            INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
-            VALUES ($1, $2, $3, NOW(), $4)
-            ON CONFLICT (user_id, protocol_id) DO NOTHING
-            "#
-        )
-        .bind(pi_user_id)
-        .bind(protocol.id)
-        .bind(ProtocolRole::Pi)
-        .bind(created_by)
-        .execute(pool)
-        .await?;
-
-        // 記錄活動紀錄
-        Self::record_activity(
-            pool,
-            protocol.id,
-            ProtocolActivityType::Created,
-            created_by,
-            None,
-            Some(protocol.status.as_str().to_string()),
-            None,
-            None,
-            None,
-        ).await?;
+        // 三個獨立操作並行執行
+        tokio::try_join!(
+            Self::record_status_change(pool, protocol.id, None, ProtocolStatus::Draft, created_by, None),
+            async {
+                sqlx::query(
+                    r#"
+                    INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
+                    VALUES ($1, $2, $3, NOW(), $4)
+                    ON CONFLICT (user_id, protocol_id) DO NOTHING
+                    "#
+                )
+                .bind(pi_user_id)
+                .bind(protocol.id)
+                .bind(ProtocolRole::Pi)
+                .bind(created_by)
+                .execute(pool)
+                .await
+                .map_err(AppError::from)
+            },
+            Self::record_activity(
+                pool,
+                protocol.id,
+                ProtocolActivityType::Created,
+                created_by,
+                None,
+                Some(protocol.status.as_str().to_string()),
+                None,
+                None,
+                None,
+            ),
+        )?;
 
         Ok(protocol)
     }
@@ -149,33 +150,38 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
-        Self::record_status_change(pool, protocol.id, None, ProtocolStatus::Draft, copied_by, None).await?;
-
-        sqlx::query(
-            r#"
-            INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
-            VALUES ($1, $2, $3, NOW(), $4)
-            ON CONFLICT (user_id, protocol_id) DO NOTHING
-            "#
-        )
-        .bind(pi_user_id)
-        .bind(protocol.id)
-        .bind(ProtocolRole::Pi)
-        .bind(copied_by)
-        .execute(pool)
-        .await?;
-
-        Self::record_activity(
-            pool,
-            protocol.id,
-            ProtocolActivityType::Created,
-            copied_by,
-            None,
-            Some(protocol.status.as_str().to_string()),
-            None,
-            Some(format!("複製自計畫 {}", source.protocol_no)),
-            None,
-        ).await?;
+        // 三個獨立操作並行執行
+        let (status_res, _pi_res, _activity_res) = tokio::try_join!(
+            Self::record_status_change(pool, protocol.id, None, ProtocolStatus::Draft, copied_by, None),
+            async {
+                sqlx::query(
+                    r#"
+                    INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
+                    VALUES ($1, $2, $3, NOW(), $4)
+                    ON CONFLICT (user_id, protocol_id) DO NOTHING
+                    "#
+                )
+                .bind(pi_user_id)
+                .bind(protocol.id)
+                .bind(ProtocolRole::Pi)
+                .bind(copied_by)
+                .execute(pool)
+                .await
+                .map_err(AppError::from)
+            },
+            Self::record_activity(
+                pool,
+                protocol.id,
+                ProtocolActivityType::Created,
+                copied_by,
+                None,
+                Some(protocol.status.as_str().to_string()),
+                None,
+                Some(format!("複製自計畫 {}", source.protocol_no)),
+                None,
+            ),
+        )?;
+        let _ = status_res;
 
         Ok(protocol)
     }
@@ -240,35 +246,37 @@ impl ProtocolService {
             .unwrap_or_default();
 
         // 批量修復缺少 APIG 編號的 Submitted 或 PreReview 狀態計畫書
-        // 根據規則：在計劃被提交審查與核准前，應為 APIG-{ROC}{03}
-        let mut updated_protocols = Vec::new();
-        for protocol in &protocols {
-            if protocol.status == ProtocolStatus::Submitted || protocol.status == ProtocolStatus::PreReview {
-                let needs_apig = protocol.iacuc_no.as_ref()
-                    .map(|no| !no.starts_with("APIG-"))
-                    .unwrap_or(true);
-                
-                if needs_apig {
-                    // 生成並更新 APIG 編號
-                    let apig_no = Self::generate_apig_no(pool).await?;
-                    sqlx::query(
-                        "UPDATE protocols SET iacuc_no = $2, updated_at = NOW() WHERE id = $1"
-                    )
-                    .bind(protocol.id)
-                    .bind(&apig_no)
-                    .execute(pool)
-                    .await?;
-                    
-                    // 更新列表中的編號
-                    updated_protocols.push((protocol.id, apig_no));
-                }
-            }
-        }
+        let needs_apig_ids: Vec<Uuid> = protocols
+            .iter()
+            .filter(|p| {
+                (p.status == ProtocolStatus::Submitted || p.status == ProtocolStatus::PreReview)
+                    && p.iacuc_no.as_ref().map(|no| !no.starts_with("APIG-")).unwrap_or(true)
+            })
+            .map(|p| p.id)
+            .collect();
 
-        // 更新列表中的編號（避免重新查詢）
-        for (id, apig_no) in updated_protocols {
-            if let Some(protocol) = protocols.iter_mut().find(|p| p.id == id) {
-                protocol.iacuc_no = Some(apig_no);
+        if !needs_apig_ids.is_empty() {
+            // 批量生成：一次查詢 max seq，然後在記憶體中分配 N 個連續編號
+            let apig_nos = Self::generate_apig_nos_batch(pool, needs_apig_ids.len()).await?;
+
+            // 批量 UPDATE：使用 UNNEST 一次更新所有
+            sqlx::query(
+                r#"
+                UPDATE protocols SET iacuc_no = d.apig_no, updated_at = NOW()
+                FROM UNNEST($1::uuid[], $2::text[]) AS d(id, apig_no)
+                WHERE protocols.id = d.id
+                "#,
+            )
+            .bind(&needs_apig_ids)
+            .bind(&apig_nos)
+            .execute(pool)
+            .await?;
+
+            // 更新列表中的編號（避免重新查詢）
+            for (id, apig_no) in needs_apig_ids.iter().zip(apig_nos.iter()) {
+                if let Some(protocol) = protocols.iter_mut().find(|p| &p.id == id) {
+                    protocol.iacuc_no = Some(apig_no.clone());
+                }
             }
         }
 

@@ -70,39 +70,49 @@ impl SkuService {
     }
 
     /// 取得完整品類樹（含停用項）供編輯分類使用
+    /// 使用單一查詢 + 應用層分組，避免 N+1
     pub async fn get_categories_tree(pool: &PgPool) -> Result<CategoriesTreeResponse> {
-        let categories: Vec<SkuCategory> = sqlx::query_as(
-            "SELECT code, name, sort_order, is_active, created_at FROM sku_categories ORDER BY sort_order, code",
-        )
-        .fetch_all(pool)
-        .await?;
-
-        let mut result = Vec::with_capacity(categories.len());
-        for cat in categories {
-            let subcategories: Vec<SkuSubcategory> = sqlx::query_as(
-                "SELECT id, category_code, code, name, sort_order, is_active, created_at FROM sku_subcategories WHERE category_code = $1 ORDER BY sort_order, code",
+        // 兩次查詢改為批量取回，再在應用層組裝
+        let (categories, all_subcategories) = tokio::try_join!(
+            sqlx::query_as::<_, SkuCategory>(
+                "SELECT code, name, sort_order, is_active, created_at FROM sku_categories ORDER BY sort_order, code"
             )
-            .bind(&cat.code)
-            .fetch_all(pool)
-            .await?;
+            .fetch_all(pool),
+            sqlx::query_as::<_, SkuSubcategory>(
+                "SELECT id, category_code, code, name, sort_order, is_active, created_at FROM sku_subcategories ORDER BY sort_order, code"
+            )
+            .fetch_all(pool),
+        )?;
 
-            result.push(CategoryForEdit {
-                code: cat.code,
-                name: cat.name,
-                sort_order: cat.sort_order,
-                is_active: cat.is_active,
-                subcategories: subcategories
-                    .into_iter()
-                    .map(|s| SubcategoryForEdit {
-                        id: s.id,
-                        code: s.code,
-                        name: s.name,
-                        sort_order: s.sort_order,
-                        is_active: s.is_active,
-                    })
-                    .collect(),
-            });
+        // 以 category_code 分組子類別
+        let mut sub_map: std::collections::HashMap<String, Vec<SubcategoryForEdit>> =
+            std::collections::HashMap::new();
+        for s in all_subcategories {
+            sub_map
+                .entry(s.category_code.clone())
+                .or_default()
+                .push(SubcategoryForEdit {
+                    id: s.id,
+                    code: s.code,
+                    name: s.name,
+                    sort_order: s.sort_order,
+                    is_active: s.is_active,
+                });
         }
+
+        let result = categories
+            .into_iter()
+            .map(|cat| {
+                let subcategories = sub_map.remove(&cat.code).unwrap_or_default();
+                CategoryForEdit {
+                    code: cat.code,
+                    name: cat.name,
+                    sort_order: cat.sort_order,
+                    is_active: cat.is_active,
+                    subcategories,
+                }
+            })
+            .collect();
 
         Ok(CategoriesTreeResponse {
             categories: result,

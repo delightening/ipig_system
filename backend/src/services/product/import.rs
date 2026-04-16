@@ -121,34 +121,65 @@ impl ProductService {
         })
     }
 
-    /// 逐列檢查匯入資料的重複情況。
+    /// 批量檢查匯入資料的重複情況（單一查詢取代 N 次查詢）。
     async fn find_all_duplicates(
         pool: &PgPool,
         rows: &[crate::models::ProductImportRow],
     ) -> Result<Vec<ProductImportDuplicateItem>> {
-        let mut duplicates = Vec::new();
+        // 收集所有非空名稱與正規化後的 spec
+        let mut names: Vec<String> = Vec::with_capacity(rows.len());
+        let mut specs: Vec<String> = Vec::with_capacity(rows.len());
+        let mut row_numbers: Vec<i32> = Vec::with_capacity(rows.len());
+        let mut original_specs: Vec<Option<String>> = Vec::with_capacity(rows.len());
+
         for (index, row) in rows.iter().enumerate() {
-            let row_number = (index + 2) as i32;
             if row.name.trim().is_empty() {
                 continue;
             }
             let (name_trim, spec_normalized) = normalize_name_spec(&row.name, row.spec.as_deref());
-            let existing = repositories::product::find_product_by_name_spec(
-                pool,
-                &name_trim,
-                spec_normalized.as_deref(),
-            )
-            .await?;
-            if let Some(existing) = existing {
-                duplicates.push(ProductImportDuplicateItem {
-                    row: row_number,
-                    name: name_trim,
-                    spec: row.spec.clone().filter(|s| !s.trim().is_empty()),
-                    existing_sku: existing.sku,
-                    existing_id: existing.id,
-                });
-            }
+            names.push(name_trim);
+            specs.push(spec_normalized.unwrap_or_default());
+            row_numbers.push((index + 2) as i32);
+            original_specs.push(row.spec.clone().filter(|s| !s.trim().is_empty()));
         }
+
+        if names.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // 單一查詢：用 UNNEST 建立臨時列，再 JOIN products 找重複
+        let matched: Vec<(i32, String, String, String, uuid::Uuid)> = sqlx::query_as(
+            r#"
+            SELECT d.row_number, d.name, p.sku, d.spec, p.id
+            FROM UNNEST($1::int[], $2::text[], $3::text[]) AS d(row_number, name, spec)
+            INNER JOIN products p
+              ON LOWER(TRIM(p.name)) = LOWER(TRIM(d.name))
+              AND (
+                  (d.spec = '' AND (p.spec IS NULL OR TRIM(COALESCE(p.spec, '')) = ''))
+                  OR LOWER(TRIM(COALESCE(p.spec, ''))) = LOWER(TRIM(d.spec))
+              )
+            "#,
+        )
+        .bind(&row_numbers)
+        .bind(&names)
+        .bind(&specs)
+        .fetch_all(pool)
+        .await?;
+
+        let duplicates = matched
+            .into_iter()
+            .map(|(row_number, name, sku, _spec, id)| {
+                let idx = row_numbers.iter().position(|r| *r == row_number).unwrap_or(0);
+                ProductImportDuplicateItem {
+                    row: row_number,
+                    name,
+                    spec: original_specs.get(idx).cloned().flatten(),
+                    existing_sku: sku,
+                    existing_id: id,
+                }
+            })
+            .collect();
+
         Ok(duplicates)
     }
 

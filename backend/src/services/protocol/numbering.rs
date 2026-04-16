@@ -87,6 +87,54 @@ impl ProtocolService {
         Ok(format_protocol_no(&apig_prefix, seq))
     }
 
+    /// 批量生成 N 個 APIG 編號（一次 DB 查詢，避免 N+1）
+    pub(super) async fn generate_apig_nos_batch(pool: &PgPool, count: usize) -> Result<Vec<String>> {
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+
+        let now = Utc::now();
+        use chrono::Datelike;
+        let roc_year = now.year() - 1911;
+
+        let apig_prefix = format!("APIG-{}", roc_year);
+        let iacuc_prefix = format!("PIG-{}", roc_year);
+
+        // 一次查詢取得所有已使用的流水號
+        let (apig_nos, iacuc_nos) = tokio::try_join!(
+            sqlx::query_scalar::<_, String>(
+                "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
+            )
+            .bind(format!("{}%", apig_prefix))
+            .fetch_all(pool),
+            sqlx::query_scalar::<_, String>(
+                "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
+            )
+            .bind(format!("{}%", iacuc_prefix))
+            .fetch_all(pool),
+        )?;
+
+        let mut all_used: Vec<i32> = apig_nos
+            .iter()
+            .filter_map(|no| parse_no_sequence(no, &apig_prefix))
+            .chain(iacuc_nos.iter().filter_map(|no| parse_no_sequence(no, &iacuc_prefix)))
+            .collect();
+        all_used.sort_unstable();
+
+        let max_seq = all_used.last().copied().unwrap_or(0);
+        let start = max_seq + 1;
+
+        if start + count as i32 - 1 > 999 {
+            return Err(AppError::Internal(
+                "APIG 編號流水號將超過上限（999）".to_string(),
+            ));
+        }
+
+        Ok((start..start + count as i32)
+            .map(|seq| format_protocol_no(&apig_prefix, seq))
+            .collect())
+    }
+
     /// 生成 IACUC 編號
     /// 格式：PIG-{ROC}{03}
     /// {ROC} 為民國年（西元年 - 1911）

@@ -153,45 +153,30 @@ impl AmendmentService {
         Ok(amendment)
     }
 
-    /// 從原計畫複製審查委員
+    /// 從原計畫複製審查委員（批量 INSERT，避免 N+1）
     pub async fn assign_reviewers_from_protocol(
         pool: &PgPool,
         amendment_id: Uuid,
         protocol_id: Uuid,
         assigned_by: Uuid,
     ) -> Result<Vec<AmendmentReviewAssignment>> {
-        // 取得原計畫的審查委員
-        let reviewers = sqlx::query!(
-            r#"SELECT reviewer_id FROM review_assignments WHERE protocol_id = $1"#,
-            protocol_id
+        let assignments = sqlx::query_as::<_, AmendmentReviewAssignment>(
+            r#"
+            INSERT INTO amendment_review_assignments (amendment_id, reviewer_id, assigned_by)
+            SELECT $1, ra.reviewer_id, $3
+            FROM review_assignments ra
+            WHERE ra.protocol_id = $2
+            ON CONFLICT (amendment_id, reviewer_id) DO NOTHING
+            RETURNING
+                id, amendment_id, reviewer_id, assigned_by, assigned_at,
+                decision, decided_at, comment
+            "#,
         )
+        .bind(amendment_id)
+        .bind(protocol_id)
+        .bind(assigned_by)
         .fetch_all(pool)
         .await?;
-
-        let mut assignments = Vec::new();
-
-        for reviewer in reviewers {
-            let assignment = sqlx::query_as!(
-                AmendmentReviewAssignment,
-                r#"
-                INSERT INTO amendment_review_assignments (amendment_id, reviewer_id, assigned_by)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (amendment_id, reviewer_id) DO NOTHING
-                RETURNING 
-                    id, amendment_id, reviewer_id, assigned_by, assigned_at,
-                    decision, decided_at, comment
-                "#,
-                amendment_id,
-                reviewer.reviewer_id,
-                assigned_by
-            )
-            .fetch_optional(pool)
-            .await?;
-
-            if let Some(a) = assignment {
-                assignments.push(a);
-            }
-        }
 
         Ok(assignments)
     }
