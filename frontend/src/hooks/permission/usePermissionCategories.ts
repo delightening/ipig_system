@@ -39,6 +39,19 @@ export interface PermissionGroup {
 }
 
 /**
+ * 解析權限的模組元資料（moduleCode → MODULE_CONFIG 查找 + fallback）
+ */
+function resolveModuleMeta(perm: Permission): { moduleCode: string; moduleName: string; moduleOrder: number } {
+  const moduleCode = getPermissionModule(perm)
+  const moduleConfig = MODULE_CONFIG[moduleCode] || MODULE_CONFIG.other
+  return {
+    moduleCode,
+    moduleName: moduleConfig.name,
+    moduleOrder: moduleConfig.order,
+  }
+}
+
+/**
  * 去重權限列表
  */
 function deduplicatePermissions(perms: Permission[]): Permission[] {
@@ -176,10 +189,7 @@ export function usePermissionCategories(permissions: Permission[] | undefined) {
     }>()
 
     uniquePermissions.forEach(perm => {
-      const moduleCode = getPermissionModule(perm)
-      const moduleConfig = MODULE_CONFIG[moduleCode] || MODULE_CONFIG.other
-      const moduleName = moduleConfig.name
-      const moduleOrder = moduleConfig.order
+      const { moduleCode, moduleName, moduleOrder } = resolveModuleMeta(perm)
 
       let rawCategory = getPermissionCategory(perm.code)
       if (moduleCode === 'qau') {
@@ -220,9 +230,7 @@ export function usePermissionCategories(permissions: Permission[] | undefined) {
     const moduleCounts = new Map<string, number>()
 
     uniquePermissions.forEach(perm => {
-      const moduleCode = getPermissionModule(perm)
-      const moduleConfig = MODULE_CONFIG[moduleCode] || MODULE_CONFIG.other
-      const moduleName = moduleConfig.name
+      const { moduleName } = resolveModuleMeta(perm)
       moduleCounts.set(moduleName, (moduleCounts.get(moduleName) || 0) + 1)
     })
 
@@ -239,10 +247,8 @@ export function usePermissionCategories(permissions: Permission[] | undefined) {
 export function groupPermissionsByModule(permissions: Permission[]): { moduleName: string; count: number }[] {
   const counts = new Map<string, number>()
   for (const perm of permissions) {
-    const moduleCode = getPermissionModule(perm)
-    const config = MODULE_CONFIG[moduleCode] || MODULE_CONFIG.other
-    const name = config.name
-    counts.set(name, (counts.get(name) || 0) + 1)
+    const { moduleName } = resolveModuleMeta(perm)
+    counts.set(moduleName, (counts.get(moduleName) || 0) + 1)
   }
   return Array.from(counts.entries())
     .map(([moduleName, count]) => ({ moduleName, count }))
