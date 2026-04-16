@@ -1,9 +1,14 @@
+use std::sync::OnceLock;
+
 use crate::models::{ProtocolResponse, WarehouseReportData};
 use crate::time;
 use crate::{AppError, Result};
 use printpdf::*;
 
 use super::context::*;
+
+/// 字型快取：只讀一次磁碟，後續重複使用
+static FONT_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
 
 /// 建築結構類型（佈局圖中不繪製庫存的元素）
 const STRUCTURE_TYPES: &[&str] = &["wall", "door", "window"];
@@ -63,22 +68,19 @@ impl PdfService {
     }
 
     /// 初始化 PDF 文件並載入字型 (printpdf 0.9)
+    /// 字型檔透過 OnceLock 快取，只在第一次呼叫時讀取磁碟
     fn init_pdf_context(title: &str) -> Result<PdfContext> {
         let mut doc = PdfDocument::new(title);
 
-        let font_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("resources/fonts/NotoSansSC-Regular.ttf");
-        if !font_path.exists() {
-            return Err(AppError::Internal(
-                format!("Font file not found: {}", font_path.display()),
-            ));
-        }
-
-        let font_bytes = std::fs::read(&font_path)
-            .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
+        let font_bytes = FONT_CACHE.get_or_init(|| {
+            let font_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("resources/fonts/NotoSansSC-Regular.ttf");
+            std::fs::read(&font_path)
+                .unwrap_or_else(|e| panic!("Failed to read font file {}: {}", font_path.display(), e))
+        });
 
         let mut warnings = Vec::new();
-        let parsed_font = ParsedFont::from_bytes(&font_bytes, 0, &mut warnings)
+        let parsed_font = ParsedFont::from_bytes(font_bytes, 0, &mut warnings)
             .ok_or_else(|| AppError::Internal("Failed to parse font".to_string()))?;
 
         let font_id = doc.add_font(&parsed_font);

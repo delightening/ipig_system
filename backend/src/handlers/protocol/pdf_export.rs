@@ -8,6 +8,8 @@ use axum::{
 };
 use uuid::Uuid;
 
+use std::collections::HashMap;
+
 use crate::{
     middleware::CurrentUser,
     require_permission,
@@ -313,34 +315,62 @@ pub async fn export_review_comments(
         })
         .collect();
 
-    let mut reviewer_ids: Vec<Uuid> = Vec::new();
-    for c in &under_review_comments {
-        if !reviewer_ids.contains(&c.reviewer_id) {
-            reviewer_ids.push(c.reviewer_id);
+    // 預建 reply 索引：parent_comment_id → 回覆內容（O(n) 建立）
+    let mut reply_map: HashMap<Uuid, Vec<String>> = HashMap::new();
+    for c in &comments {
+        if let Some(parent_id) = c.parent_comment_id {
+            reply_map
+                .entry(parent_id)
+                .or_default()
+                .push(c.content.clone());
         }
     }
 
-    let reviewer_groups: Vec<serde_json::Value> = reviewer_ids
+    // 預建 reviewer 分組索引（O(n) 建立，保留插入順序）
+    let mut reviewer_order: Vec<Uuid> = Vec::new();
+    let mut comments_by_reviewer: HashMap<Uuid, Vec<&CommentWithStage>> = HashMap::new();
+    for c in &under_review_comments {
+        comments_by_reviewer
+            .entry(c.reviewer_id)
+            .or_default()
+            .push(c);
+        if !comments_by_reviewer[&c.reviewer_id].len() > 1 {
+            // first insert for this reviewer
+        }
+    }
+    // 保留原始順序（第一次出現的 reviewer 在前）
+    {
+        let mut seen = std::collections::HashSet::new();
+        for c in &under_review_comments {
+            if seen.insert(c.reviewer_id) {
+                reviewer_order.push(c.reviewer_id);
+            }
+        }
+    }
+
+    // O(n) 查找組裝（取代原本 O(n²×m) 的巢狀 filter）
+    let reviewer_groups: Vec<serde_json::Value> = reviewer_order
         .iter()
         .map(|rid| {
-            let group_comments: Vec<serde_json::Value> = under_review_comments
-                .iter()
-                .filter(|c| c.reviewer_id == *rid)
-                .map(|c| {
-                    let replies: String = comments
-                        .iter()
-                        .filter(|r| r.parent_comment_id == Some(c.id))
-                        .map(|r| r.content.clone())
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    serde_json::json!({
-                        "first_review": c.content,
-                        "first_reply": replies,
-                        "second_review": "",
-                        "second_reply": "",
-                    })
+            let group_comments: Vec<serde_json::Value> = comments_by_reviewer
+                .get(rid)
+                .map(|cmts| {
+                    cmts.iter()
+                        .map(|c| {
+                            let replies = reply_map
+                                .get(&c.id)
+                                .map(|r| r.join("\n"))
+                                .unwrap_or_default();
+                            serde_json::json!({
+                                "first_review": c.content,
+                                "first_reply": replies,
+                                "second_review": "",
+                                "second_reply": "",
+                            })
+                        })
+                        .collect()
                 })
-                .collect();
+                .unwrap_or_default();
             serde_json::json!({ "comments": group_comments })
         })
         .collect();

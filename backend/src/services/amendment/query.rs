@@ -53,6 +53,47 @@ impl AmendmentService {
         Ok(amendments)
     }
 
+    /// 列出使用者可見的變更申請（SQL 層過濾，避免取全部再客端 filter）
+    pub async fn list_for_user(
+        pool: &PgPool,
+        query: &AmendmentQuery,
+        user_id: Uuid,
+    ) -> Result<Vec<AmendmentListItem>> {
+        let amendments = sqlx::query_as::<_, AmendmentListItem>(
+            r#"
+            SELECT
+                a.id, a.protocol_id, a.amendment_no, a.revision_number,
+                a.amendment_type as "amendment_type: AmendmentType",
+                a.status as "status: AmendmentStatus",
+                a.title, a.description, a.change_items,
+                a.submitted_at, a.classified_at,
+                a.created_at, a.updated_at,
+                p.iacuc_no as protocol_iacuc_no,
+                p.title as protocol_title,
+                u.display_name as submitted_by_name,
+                c.display_name as classified_by_name
+            FROM amendments a
+            JOIN protocols p ON a.protocol_id = p.id
+            LEFT JOIN users u ON a.submitted_by = u.id
+            LEFT JOIN users c ON a.classified_by = c.id
+            WHERE
+                a.protocol_id IN (SELECT protocol_id FROM user_protocols WHERE user_id = $1)
+                AND ($2::uuid IS NULL OR a.protocol_id = $2)
+                AND ($3::text IS NULL OR a.status::text = $3)
+                AND ($4::text IS NULL OR a.amendment_type::text = $4)
+            ORDER BY a.created_at DESC
+            "#,
+        )
+        .bind(user_id)
+        .bind(query.protocol_id)
+        .bind(query.status.map(|s| s.as_str().to_string()))
+        .bind(query.amendment_type.map(|t| t.as_str().to_string()))
+        .fetch_all(pool)
+        .await?;
+
+        Ok(amendments)
+    }
+
     /// 列出計畫的所有變更申請
     pub async fn list_by_protocol(pool: &PgPool, protocol_id: Uuid) -> Result<Vec<AmendmentListItem>> {
         Self::list(pool, &AmendmentQuery {

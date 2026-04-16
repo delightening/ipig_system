@@ -61,19 +61,8 @@ pub async fn list_amendments(
     let amendments = if is_staff {
         AmendmentService::list(&state.db, &query).await?
     } else {
-        // 查詢使用者相關的計畫
-        let my_protocols: Vec<Uuid> = sqlx::query_scalar!(
-            r#"SELECT protocol_id FROM user_protocols WHERE user_id = $1"#,
-            current_user.id
-        )
-        .fetch_all(&state.db)
-        .await?;
-
-        // 只返回使用者相關計畫的變更申請
-        let all = AmendmentService::list(&state.db, &query).await?;
-        all.into_iter()
-            .filter(|a| my_protocols.contains(&a.protocol_id))
-            .collect()
+        // SQL 層直接過濾使用者可見的計畫（避免取全部再客端 filter）
+        AmendmentService::list_for_user(&state.db, &query, current_user.id).await?
     };
 
     Ok(Json(amendments))

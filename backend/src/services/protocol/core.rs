@@ -151,7 +151,7 @@ impl ProtocolService {
         .await?;
 
         // 三個獨立操作並行執行
-        let (status_res, _pi_res, _activity_res) = tokio::try_join!(
+        let (_, _pi_res, _activity_res) = tokio::try_join!(
             Self::record_status_change(pool, protocol.id, None, ProtocolStatus::Draft, copied_by, None),
             async {
                 sqlx::query(
@@ -181,7 +181,6 @@ impl ProtocolService {
                 None,
             ),
         )?;
-        let _ = status_res;
 
         Ok(protocol)
     }

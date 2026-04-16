@@ -216,14 +216,27 @@ pub async fn change_protocol_status(
                 .await
                 .unwrap_or_else(|_| "Unknown".to_string());
 
-                let svc = NotificationService::new(db);
-                for rid in reviewer_ids {
-                    if let Err(e) = svc
-                        .notify_review_assignment(pid, &pno, &ptitle, &pi_name, rid, None)
-                        .await
-                    {
-                        tracing::warn!("發送審查委員指派通知失敗 (reviewer={}): {e}", rid);
-                    }
+                // 並行發送所有審查委員通知（取代逐個順序發送）
+                let handles: Vec<_> = reviewer_ids
+                    .into_iter()
+                    .map(|rid| {
+                        let db = db.clone();
+                        let pno = pno.clone();
+                        let ptitle = ptitle.clone();
+                        let pi_name = pi_name.clone();
+                        tokio::spawn(async move {
+                            let svc = NotificationService::new(db);
+                            if let Err(e) = svc
+                                .notify_review_assignment(pid, &pno, &ptitle, &pi_name, rid, None)
+                                .await
+                            {
+                                tracing::warn!("發送審查委員指派通知失敗 (reviewer={}): {e}", rid);
+                            }
+                        })
+                    })
+                    .collect();
+                for h in handles {
+                    let _ = h.await;
                 }
             });
         }
