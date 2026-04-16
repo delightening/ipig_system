@@ -1008,7 +1008,7 @@
         "e_other": "其他"
       },
       "painCategoryItemOtherPlaceholder": "請說明其他操作項目",
-      "distressSignsLabel": "4.1.5 請勾選此試驗可能會對動物造成的疼痛或痛苦（可複選，請勾選所有適用者）",
+      "distressSignsLabel": "4.1.4 請勾選此試驗可能會對動物造成的疼痛或痛苦（可複選，請勾選所有適用者）",
       "distressSigns": {
         "weight_loss": "體重減輕",
         "reduced_food_water": "食物與水攝取量減少",
@@ -1029,7 +1029,7 @@
         "other": "其他，請註明"
       },
       "distressSignsOtherPlaceholder": "請註明其他疼痛或痛苦症狀",
-      "reliefMeasuresLabel": "4.1.6 請說明將採取何種措施以緩解或減輕超過輕微的疼痛或痛苦，或說明為何未採取緩解措施（可複選）",
+      "reliefMeasuresLabel": "4.1.5 請說明將採取何種措施以緩解或減輕超過輕微的疼痛或痛苦，或說明為何未採取緩解措施（可複選）",
       "reliefMeasures": {
         "alternative_painless_procedure": "改用不造成疼痛／痛苦的替代程序",
         "anesthesia_analgesia": "投予麻醉或止痛藥",
@@ -1042,7 +1042,7 @@
       "noReliefJustificationPlaceholder": "請提供合理科學依據說明",
       "endpointsTitle": "4.1.7 實驗預期結束之時機，以及動物出現何種異常與痛苦症狀時，應提前終止試驗",
       "insertDefaultHumaneEndpoint": "插入標準預設文字",
-      "restrictionsLabel": "4.1.4 是否限制實驗動物飲食或飲水",
+      "restrictionsLabel": "4.1.6 是否限制實驗動物飲食或飲水",
       "selectRestrictionType": "請選擇限制類型 *",
       "restrictionTypes": {
         "fasting": "麻醉前禁食",
@@ -1050,7 +1050,6 @@
       },
       "explainRestrictionOther": "請說明 *",
       "explainRestrictionOtherPlaceholder": "請說明其他限制方式",
-      "endpointsTitle": "4.1.5 實驗預期結束之時機，以及動物出現何種異常與痛苦症狀時，應提前終止試驗",
       "experimentalEndpoint": "實驗終點：",
       "experimentalEndpointPlaceholder": "請說明實驗預期結束之時機",
       "humaneEndpoint": "人道終點：",

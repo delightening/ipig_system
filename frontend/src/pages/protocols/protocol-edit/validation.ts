@@ -34,7 +34,6 @@ export function findNextEmptyField(formData: FormData, t: TFunction): EmptyField
     if (!basic.housing_location?.trim()) return { section: 'basic', label: t('aup.basic.housingLocation') }
 
     // Section 2 - 研究目的
-    if (!purpose.abstract?.trim()) return { section: 'purpose', label: t('aup.purpose.abstractLabel') }
     if (!purpose.significance?.trim()) return { section: 'purpose', label: t('aup.purpose.significance') }
     if (!purpose.replacement.rationale?.trim()) return { section: 'purpose', label: t('aup.purpose.liveAnimalNecessity') }
     if (!purpose.replacement.alt_search.platforms?.length) return { section: 'purpose', label: t('aup.purpose.altSearchLabel') }
@@ -155,11 +154,6 @@ export function validateRequiredFields(formData: FormData, t: TFunction): string
     }
 
     // ===================== Section 2 - 研究目的 =====================
-
-    // 2.0 計畫摘要
-    if (!purpose.abstract?.trim()) {
-        return t('aup.purpose.validation.abstractRequired')
-    }
 
     // 2.1 研究之目的及重要性
     if (!purpose.significance?.trim()) {

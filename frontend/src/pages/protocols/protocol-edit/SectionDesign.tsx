@@ -52,22 +52,22 @@ export function SectionDesign({ formData, updateWorkingContent, setFormData: _se
 
         <Divider />
 
-        {/* 4.1.3 實驗動物疼痛等級評估（含細項複選） + 4.1.5 疼痛症狀 + 4.1.6 緩解措施 */}
+        {/* 4.1.3 疼痛等級 + 4.1.4 疼痛症狀 + 4.1.5 緩解措施 */}
         <PainCategorySection {...sharedProps} />
 
         <Divider />
 
-        {/* 4.1.4 是否限制實驗動物飲食或飲水 */}
+        {/* 4.1.6 是否限制實驗動物飲食或飲水 */}
         <RestrictionsSection {...sharedProps} />
 
         <Divider />
 
-        {/* 4.1.7 預期實驗完成時機（原 4.1.5） */}
+        {/* 4.1.7 預期實驗完成時機 */}
         <EndpointsSection {...sharedProps} />
 
         <Divider />
 
-        {/* 4.1.8 動物安樂死或最終處置方式（原 4.1.6） */}
+        {/* 4.1.8 動物安樂死或最終處置方式 */}
         <FinalHandlingSection {...sharedProps} />
 
         <Divider />

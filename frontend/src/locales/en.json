@@ -1012,7 +1012,7 @@
                 "e_other": "Other"
             },
             "painCategoryItemOtherPlaceholder": "Please specify other procedures",
-            "distressSignsLabel": "4.1.5 Check all pain/distress signs that may be caused by this study (multiple selection)",
+            "distressSignsLabel": "4.1.4 Check all pain/distress signs that may be caused by this study (multiple selection)",
             "distressSigns": {
                 "weight_loss": "Weight loss",
                 "reduced_food_water": "Reduced food and water intake",
@@ -1033,7 +1033,7 @@
                 "other": "Other, please specify"
             },
             "distressSignsOtherPlaceholder": "Please specify other pain/distress signs",
-            "reliefMeasuresLabel": "4.1.6 Describe measures to relieve pain/distress exceeding mild levels, or explain why no relief was provided (multiple selection)",
+            "reliefMeasuresLabel": "4.1.5 Describe measures to relieve pain/distress exceeding mild levels, or explain why no relief was provided (multiple selection)",
             "reliefMeasures": {
                 "alternative_painless_procedure": "Use alternative procedure that does not cause pain/distress",
                 "anesthesia_analgesia": "Administer anesthesia or analgesics",
@@ -1046,14 +1046,13 @@
             "noReliefJustificationPlaceholder": "Please provide scientific justification",
             "endpointsTitle": "4.1.7 Timing of expected experimental endpoint and humane endpoint",
             "insertDefaultHumaneEndpoint": "Insert standard default text",
-            "restrictionsLabel": "4.1.4 Food or water restrictions?",
+            "restrictionsLabel": "4.1.6 Food or water restrictions?",
             "selectRestrictionType": "Please select restriction type *",
             "restrictionTypes": {
                 "fasting": "Fasting before anesthesia",
                 "other": "Other"
             },
             "explainRestrictionOther": "Please explain *",
-            "endpointsTitle": "4.1.5 Timing of expected experimental endpoint and humane endpoint",
             "experimentalEndpoint": "Experimental Endpoint:",
             "humaneEndpoint": "Humane Endpoint:",
             "finalHandlingTitle": "4.1.8 Euthanasia or final disposition of animals",

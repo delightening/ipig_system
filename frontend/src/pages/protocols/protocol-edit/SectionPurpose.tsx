@@ -64,28 +64,15 @@ export function SectionPurpose({ formData, updateWorkingContent, setFormData: _s
             </CardHeader>
             <CardContent className="space-y-6">
 
-                {/* ========== 2.0 Abstract ========== */}
-                <div className="space-y-2">
-                    <h3 className="font-semibold">{t('aup.purpose.abstractLabel')}</h3>
-                    <p className="text-sm text-muted-foreground">{t('aup.purpose.abstractSubtitle')}</p>
-                    <Textarea
-                        value={purpose.abstract}
-                        onChange={(e) => updateWorkingContent('purpose', 'abstract', e.target.value)}
-                        placeholder={t('aup.purpose.abstractPlaceholder')}
-                        rows={6}
-                    />
-                </div>
-
-                <div className="h-px bg-border my-4" />
-
                 {/* ========== 2.1 Purpose and Significance ========== */}
                 <div className="space-y-2">
                     <h3 className="font-semibold">{t('aup.purpose.significance')}</h3>
+                    <p className="text-sm text-muted-foreground">{t('aup.purpose.abstractSubtitle')}</p>
                     <Textarea
                         value={purpose.significance}
                         onChange={(e) => updateWorkingContent('purpose', 'significance', e.target.value)}
-                        placeholder={t('aup.purpose.significancePlaceholder')}
-                        rows={5}
+                        placeholder={t('aup.purpose.abstractPlaceholder')}
+                        rows={8}
                     />
                 </div>
 
