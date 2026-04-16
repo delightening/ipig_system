@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Activity, AlertTriangle, LogIn, RefreshCw, Shield, Users } from 'lucide-react'
+import { Activity, AlertTriangle, LogIn, RefreshCw, Shield, ShieldAlert, Users } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -12,6 +12,7 @@ import { AuditActivitiesTab } from './components/AuditActivitiesTab'
 import { AuditLoginsTab } from './components/AuditLoginsTab'
 import { AuditSessionsTab } from './components/AuditSessionsTab'
 import { AuditAlertsTab } from './components/AuditAlertsTab'
+import { SecurityEventsTab } from './components/SecurityEventsTab'
 import { AuditLogDetailDialog } from './components/AuditLogDetailDialog'
 import { AuditAlertDetailDialog } from './components/AuditAlertDetailDialog'
 
@@ -41,6 +42,7 @@ export function AdminAuditPage() {
                     { value: 'logins', label: '登入事件', icon: LogIn },
                     { value: 'sessions', label: '活躍 Sessions', icon: Users },
                     { value: 'alerts', label: '安全警報', icon: AlertTriangle, badge: audit.dashboardStats?.open_alerts },
+                    { value: 'security-events', label: '安全事件', icon: ShieldAlert },
                 ]}
                 defaultTab="dashboard"
             >
@@ -102,6 +104,21 @@ export function AdminAuditPage() {
                         onSearchChange={audit.handleAlertSearchChange}
                         statusFilter={audit.alertStatusFilter}
                         onStatusFilterChange={audit.handleAlertStatusFilterChange}
+                    />
+                </PageTabContent>
+
+                <PageTabContent value="security-events" className="space-y-4">
+                    <SecurityEventsTab
+                        dateFrom={audit.dateFrom}
+                        dateTo={audit.dateTo}
+                        onDateFromChange={audit.handleDateFromChange}
+                        onDateToChange={audit.handleDateToChange}
+                        securityEvents={audit.securityEvents}
+                        isLoading={audit.loadingSecurityEvents}
+                        currentPage={audit.securityEventsPage}
+                        onPageChange={audit.setSecurityEventsPage}
+                        eventTypeFilter={audit.securityEventType}
+                        onEventTypeChange={audit.handleSecurityEventTypeChange}
                     />
                 </PageTabContent>
             </PageTabs>

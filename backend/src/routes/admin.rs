@@ -75,6 +75,11 @@ pub fn routes() -> Router<AppState> {
             "/admin/audit/dashboard",
             get(handlers::get_audit_dashboard),
         )
+        // R22-17: Security Events (SECURITY category only)
+        .route(
+            "/admin/audit/security-events",
+            get(handlers::list_security_events),
+        )
         // QAU Dashboard
         .route("/qau/dashboard", get(handlers::get_qau_dashboard))
         // QA 稽查報告

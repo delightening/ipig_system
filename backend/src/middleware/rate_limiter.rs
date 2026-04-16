@@ -9,12 +9,49 @@ use std::net::SocketAddr;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
+use sqlx::PgPool;
+
+use uuid::Uuid;
+
+use crate::config::Config;
 use crate::constants::{
     AUTH_RATE_LIMIT_PER_MINUTE, API_RATE_LIMIT_PER_MINUTE, RATE_LIMIT_CLEANUP_INTERVAL_SECS,
     RATE_LIMIT_WINDOW_SECS, UPLOAD_RATE_LIMIT_PER_MINUTE, WRITE_RATE_LIMIT_PER_MINUTE,
+    SEC_EVENT_RATE_LIMIT_AUTH, SEC_EVENT_RATE_LIMIT_API, SEC_EVENT_RATE_LIMIT_WRITE,
+    SEC_EVENT_RATE_LIMIT_UPLOAD,
 };
 use crate::middleware::real_ip::extract_real_ip_with_trust;
+use crate::services::{AlertThresholdService, AuditService, SecurityNotifier, SecurityNotification};
 use crate::AppState;
+
+/// Gemini #1: 安全事件記錄的 per-IP 頻率限制（同一 IP 每 60 秒最多記錄 1 次）
+/// 避免大規模攻擊時 spawn 太多 DB 寫入導致資源耗盡
+static SEC_LOG_THROTTLE: std::sync::LazyLock<DashMap<String, Instant>> =
+    std::sync::LazyLock::new(DashMap::new);
+
+fn should_log_security_event(ip: &str) -> bool {
+    let now = Instant::now();
+    let throttle_window = Duration::from_secs(60);
+    if let Some(last) = SEC_LOG_THROTTLE.get(ip) {
+        if now.duration_since(*last) < throttle_window {
+            return false;
+        }
+    }
+    SEC_LOG_THROTTLE.insert(ip.to_string(), now);
+    // 防止 throttle map 無限成長
+    if SEC_LOG_THROTTLE.len() > 10_000 {
+        let keys: Vec<String> = SEC_LOG_THROTTLE
+            .iter()
+            .filter(|e| now.duration_since(*e.value()) > throttle_window)
+            .take(1000)
+            .map(|e| e.key().clone())
+            .collect();
+        for k in keys {
+            SEC_LOG_THROTTLE.remove(&k);
+        }
+    }
+    true
+}
 
 /// 速率限制器配置
 #[derive(Clone)]
@@ -105,7 +142,7 @@ pub async fn auth_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "認證端點", request, next).await
+    apply_rate_limit(limiter, &ip, "認證端點", SEC_EVENT_RATE_LIMIT_AUTH, Some(state.db.clone()), Some(state.config.clone()), request, next).await
 }
 
 fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
@@ -133,10 +170,14 @@ fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
 }
 
 /// 共用速率限制執行邏輯（check → warn → response or next）
+/// R22-1: 觸發時同步寫入 user_activity_logs（fire-and-forget）
 async fn apply_rate_limit(
     limiter: &RateLimiterState,
     ip: &str,
     label: &str,
+    event_type: &str,
+    db: Option<PgPool>,
+    config: Option<Arc<Config>>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
@@ -148,6 +189,44 @@ async fn apply_rate_limit(
             ip,
             limiter.config.max_requests
         );
+
+        // R22-1: 記錄 rate limit 事件到 DB（Gemini #1: per-IP 頻率限制）
+        if let Some(db) = db {
+            if !should_log_security_event(ip) {
+                return Ok(rate_limit_response(limiter));
+            }
+            let ip_owned = ip.to_string();
+            let event_type_owned = event_type.to_string();
+            let path = request.uri().path().to_string();
+            let method = request.method().to_string();
+            tokio::spawn(async move {
+                if let Err(e) = AuditService::log_security_event(
+                    &db,
+                    &event_type_owned,
+                    None, // no actor for rate limit events
+                    Some(&ip_owned),
+                    None,
+                    Some(&path),
+                    Some(&method),
+                    serde_json::json!({
+                        "ip": ip_owned,
+                        "tier": event_type_owned,
+                    }),
+                )
+                .await
+                {
+                    tracing::error!("[R22] Failed to log rate limit event: {e}");
+                }
+
+                // R22-5: Auth rate limit → escalation alert + dispatch notification
+                if event_type_owned == SEC_EVENT_RATE_LIMIT_AUTH {
+                    if let Err(e) = check_auth_rate_limit_escalation(&db, &ip_owned, config.as_deref()).await {
+                        tracing::error!("[R22] Auth rate limit escalation check failed: {e}");
+                    }
+                }
+            });
+        }
+
         return Ok(rate_limit_response(limiter));
     }
     let mut response = next.run(request).await;
@@ -172,7 +251,7 @@ pub async fn api_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "API", request, next).await
+    apply_rate_limit(limiter, &ip, "API", SEC_EVENT_RATE_LIMIT_API, Some(state.db.clone()), None, request, next).await
 }
 
 /// 寫入端點速率限制（POST/PUT/PATCH/DELETE：每分鐘 120 次）
@@ -194,7 +273,7 @@ pub async fn write_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "寫入端點", request, next).await
+    apply_rate_limit(limiter, &ip, "寫入端點", SEC_EVENT_RATE_LIMIT_WRITE, Some(state.db.clone()), None, request, next).await
 }
 
 /// 檔案上傳端點速率限制（每分鐘 30 次）
@@ -212,5 +291,170 @@ pub async fn upload_rate_limit_middleware(
         })
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    apply_rate_limit(limiter, &ip, "檔案上傳", request, next).await
+    apply_rate_limit(limiter, &ip, "檔案上傳", SEC_EVENT_RATE_LIMIT_UPLOAD, Some(state.db.clone()), None, request, next).await
+}
+
+/// R22-5: 檢查 auth rate limit 是否需要升級為 security_alert
+async fn check_auth_rate_limit_escalation(
+    pool: &PgPool,
+    ip: &str,
+    config: Option<&Config>,
+) -> std::result::Result<(), sqlx::Error> {
+    let threshold = AlertThresholdService::auth_rate_limit_threshold(pool).await;
+    let window_mins = AlertThresholdService::auth_rate_limit_window_mins(pool).await;
+    let dedup_mins = AlertThresholdService::alert_escalation_dedup_mins(pool).await;
+
+    // Gemini #4: 加 partition_date 條件啟用 partition pruning
+    let (count,): (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM user_activity_logs
+        WHERE event_type = 'RATE_LIMIT_AUTH'
+          AND ip_address = $1::inet
+          AND partition_date >= (NOW() - make_interval(mins => $2::integer))::date
+          AND created_at > NOW() - make_interval(mins => $2::integer)
+        "#,
+    )
+    .bind(ip)
+    .bind(window_mins as i32)
+    .fetch_one(pool)
+    .await?;
+
+    if count < threshold {
+        return Ok(());
+    }
+
+    // Dedup: skip if recent open alert exists for this IP
+    let (existing,): (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM security_alerts
+        WHERE alert_type = 'rate_limit_escalation'
+          AND context_data->>'ip' = $1
+          AND created_at > NOW() - make_interval(mins => $2::integer)
+          AND status = 'open'
+        "#,
+    )
+    .bind(ip)
+    .bind(dedup_mins as i32)
+    .fetch_one(pool)
+    .await?;
+
+    if existing > 0 {
+        return Ok(());
+    }
+
+    let alert_id = Uuid::new_v4();
+    sqlx::query(
+        r#"
+        INSERT INTO security_alerts (
+            id, alert_type, severity, title, description,
+            context_data, created_at, updated_at, status
+        ) VALUES (
+            $1, 'rate_limit_escalation', 'critical',
+            '認證端點遭持續速率限制攻擊',
+            $2, $3, NOW(), NOW(), 'open'
+        )
+        "#,
+    )
+    .bind(alert_id)
+    .bind(format!(
+        "IP {ip} 在過去 {window_mins} 分鐘內觸發認證速率限制 {count} 次"
+    ))
+    .bind(serde_json::json!({ "ip": ip, "count": count, "window_mins": window_mins }))
+    .execute(pool)
+    .await?;
+
+    tracing::warn!("[R22-5] Auth rate limit escalation alert created for IP {ip}");
+
+    // Dispatch notification
+    if let Some(cfg) = config {
+        let notification = SecurityNotification {
+            alert_id,
+            alert_type: "rate_limit_escalation".to_string(),
+            severity: "critical".to_string(),
+            title: "認證端點遭持續速率限制攻擊".to_string(),
+            description: Some(format!(
+                "IP {ip} 在過去 {window_mins} 分鐘內觸發認證速率限制 {count} 次"
+            )),
+            context_data: Some(serde_json::json!({ "ip": ip, "count": count })),
+            created_at: chrono::Utc::now(),
+        };
+        SecurityNotifier::dispatch(pool, cfg, &notification).await;
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_limiter(max_requests: u32) -> RateLimiterState {
+        // Create without spawning the cleanup task for tests
+        RateLimiterState {
+            records: Arc::new(DashMap::new()),
+            config: RateLimiterConfig {
+                max_requests,
+                window: Duration::from_secs(60),
+            },
+        }
+    }
+
+    #[test]
+    fn test_check_rate_allows_under_limit() {
+        let limiter = test_limiter(5);
+        let (allowed, remaining) = limiter.check_rate("192.168.1.1");
+        assert!(allowed);
+        assert_eq!(remaining, 4);
+    }
+
+    #[test]
+    fn test_check_rate_decrements_remaining() {
+        let limiter = test_limiter(3);
+        let (_, remaining) = limiter.check_rate("10.0.0.1");
+        assert_eq!(remaining, 2);
+
+        let (_, remaining) = limiter.check_rate("10.0.0.1");
+        assert_eq!(remaining, 1);
+
+        let (_, remaining) = limiter.check_rate("10.0.0.1");
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn test_check_rate_blocks_at_limit() {
+        let limiter = test_limiter(2);
+        limiter.check_rate("10.0.0.1");
+        limiter.check_rate("10.0.0.1");
+
+        let (allowed, remaining) = limiter.check_rate("10.0.0.1");
+        assert!(!allowed);
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn test_check_rate_isolates_ips() {
+        let limiter = test_limiter(1);
+        let (allowed1, _) = limiter.check_rate("1.1.1.1");
+        assert!(allowed1);
+
+        let (allowed2, _) = limiter.check_rate("2.2.2.2");
+        assert!(allowed2);
+
+        let (blocked, _) = limiter.check_rate("1.1.1.1");
+        assert!(!blocked);
+
+        let (blocked2, _) = limiter.check_rate("2.2.2.2");
+        assert!(!blocked2);
+    }
+
+    #[test]
+    fn test_check_rate_single_request_limit() {
+        let limiter = test_limiter(1);
+        let (allowed, remaining) = limiter.check_rate("ip");
+        assert!(allowed);
+        assert_eq!(remaining, 0);
+
+        let (blocked, _) = limiter.check_rate("ip");
+        assert!(!blocked);
+    }
 }

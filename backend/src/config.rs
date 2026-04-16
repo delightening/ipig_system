@@ -77,6 +77,8 @@ pub struct Config {
     pub smtp_password: Option<String>,
     pub smtp_from_email: String,
     pub smtp_from_name: String,
+    /// R22-11: LINE Notify token for security alerts
+    pub line_notify_token: Option<String>,
     pub app_url: String,
     // Cookie settings
     pub cookie_secure: bool,
@@ -225,6 +227,7 @@ impl Config {
                 .unwrap_or_else(|_| "noreply@erp.local".to_string()),
             smtp_from_name: std::env::var("SMTP_FROM_NAME")
                 .unwrap_or_else(|_| "ERP System".to_string()),
+            line_notify_token: read_secret("LINE_NOTIFY_TOKEN"),
             app_url: std::env::var("APP_URL")
                 .unwrap_or_else(|_| "http://localhost".to_string()),
             cookie_secure: parse_bool_env("COOKIE_SECURE"),
@@ -374,6 +377,7 @@ mod tests {
             smtp_password: None,
             smtp_from_email: "noreply@test.local".to_string(),
             smtp_from_name: "Test".to_string(),
+            line_notify_token: None,
             app_url: "http://localhost".to_string(),
             cookie_secure: false,
             cookie_domain: None,

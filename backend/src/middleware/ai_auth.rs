@@ -15,6 +15,8 @@ use axum::{
 };
 use sha2::{Digest, Sha256};
 
+use crate::constants::{SEC_EVENT_AI_KEY_DEACTIVATED, SEC_EVENT_AI_KEY_EXPIRED, SEC_EVENT_RATE_LIMIT_AI_KEY};
+use crate::services::AuditService;
 use crate::{AppError, AppState, Result};
 
 /// Per-key sliding window rate limiter (in-memory)
@@ -104,14 +106,40 @@ pub async fn ai_auth_middleware(
 
     let (id, name, scopes_json, is_active, expires_at, rate_limit) = row;
 
+    // R22-2: 提取 request 資訊供安全事件記錄用
+    let req_path = request.uri().path().to_string();
+    let req_method = request.method().to_string();
+
     if !is_active {
         tracing::warn!("[AI Auth] key {} is deactivated", id);
+        let db = state.db.clone();
+        let name_c = name.clone();
+        let path_c = req_path.clone();
+        let method_c = req_method.clone();
+        tokio::spawn(async move {
+            let _ = AuditService::log_security_event(
+                &db, SEC_EVENT_AI_KEY_DEACTIVATED, None, None, None,
+                Some(&path_c), Some(&method_c),
+                serde_json::json!({ "key_id": id, "key_name": name_c, "reason": "deactivated" }),
+            ).await;
+        });
         return Err(AppError::Forbidden("API key is deactivated".to_string()));
     }
 
     if let Some(exp) = expires_at {
         if exp < chrono::Utc::now() {
             tracing::warn!("[AI Auth] key {} is expired", id);
+            let db = state.db.clone();
+            let name_c = name.clone();
+            let path_c = req_path.clone();
+            let method_c = req_method.clone();
+            tokio::spawn(async move {
+                let _ = AuditService::log_security_event(
+                    &db, SEC_EVENT_AI_KEY_EXPIRED, None, None, None,
+                    Some(&path_c), Some(&method_c),
+                    serde_json::json!({ "key_id": id, "key_name": name_c, "reason": "expired", "expired_at": exp }),
+                ).await;
+            });
             return Err(AppError::Forbidden("API key has expired".to_string()));
         }
     }
@@ -119,6 +147,17 @@ pub async fn ai_auth_middleware(
     // Per-key rate limit enforcement
     if !AI_RATE_LIMITER.check(id, rate_limit).await {
         tracing::warn!("[AI Auth] key {} rate limited ({}/min)", id, rate_limit);
+        let db = state.db.clone();
+        let name_c = name.clone();
+        let path_c = req_path;
+        let method_c = req_method;
+        tokio::spawn(async move {
+            let _ = AuditService::log_security_event(
+                &db, SEC_EVENT_RATE_LIMIT_AI_KEY, None, None, None,
+                Some(&path_c), Some(&method_c),
+                serde_json::json!({ "key_id": id, "key_name": name_c, "reason": "rate_limited", "limit": rate_limit }),
+            ).await;
+        });
         return Err(AppError::TooManyRequests(format!(
             "Rate limit exceeded: {} requests per minute",
             rate_limit

@@ -13,6 +13,7 @@ mod document;
 pub mod euthanasia;
 pub(crate) mod facility;
 pub mod health;
+pub mod honeypot;
 mod hr;
 pub mod metrics;
 mod notification;

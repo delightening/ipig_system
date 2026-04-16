@@ -360,3 +360,23 @@ pub async fn get_audit_dashboard(
     let stats = AuditService::get_dashboard_stats(&state.db).await?;
     Ok(Json(stats))
 }
+
+// ============================================
+// R22-17: Security Events
+// ============================================
+
+/// R22-17: 列出安全事件（event_category = 'SECURITY' 的 user_activity_logs）
+pub async fn list_security_events(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(query): Query<ActivityLogQuery>,
+) -> Result<Json<PaginatedResponse<UserActivityLog>>> {
+    require_permission!(current_user, "audit.logs.view");
+
+    // 強制過濾 event_category = SECURITY
+    let mut security_query = query;
+    security_query.event_category = Some("SECURITY".to_string());
+
+    let result = AuditService::list_activities(&state.db, &security_query).await?;
+    Ok(Json(result))
+}

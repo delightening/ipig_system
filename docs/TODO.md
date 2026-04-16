@@ -1739,6 +1739,52 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🛡️ R22 — 攻擊偵測與主動告警（2026-04）
+
+> 建立完整的入侵偵測管線：被動記錄 → 智慧告警 → 主動推送 → 長期可觀測性。
+> 依據 Security Audit Report (2026-04-14) 偵測盲區分析，補齊 rate limit、403 權限拒絕、主動通知三大缺口。
+> 參照：`dev/SECURITY_AUDIT_REPORT.md`、`docs/COMPLIANCE_DELIVERY_SUMMARY.md` §10
+
+### 22-A 層 1：被動記錄 — 讓事後鑑識有資料（P1）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R22-1 | **Rate limit 事件寫入 DB** | `middleware/rate_limiter.rs` 觸發時呼叫 `AuditService::log_security_event()`，4 tier 全覆蓋 | [x] |
+| R22-2 | **AI key rate limit 事件記錄** | `ai_auth.rs` deactivated/expired/rate_limited 三事件寫入 DB | [x] |
+| R22-3 | **403 Permission denied 記錄** | `response_logger.rs` middleware 攔截 403 回應寫入 DB | [x] |
+| R22-4 | **Account lockout 事件記錄** | `login.rs` lockout 觸發時寫入 DB | [x] |
+
+### 22-B 層 2：智慧告警 — 自動產生 security_alerts（P1）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R22-5 | **Auth rate limit 升級告警** | 同一 IP 超過閾值 → critical alert + 去重 + 主動通知 | [x] |
+| R22-6 | **IDOR 探測偵測** | 同一 user 超過閾值 403 → critical alert + 去重 + 主動通知 | [x] |
+| R22-7 | **Brute force alert 去重** | `check_brute_force()` 加 30 分鐘去重（同 `global_mass_login` 模式） | [x] |
+| R22-8 | **告警閾值設定化** | `security_alert_config` 表 + `AlertThresholdService` 60s cache | [x] |
+
+### 22-C 層 3：主動推送 — 即時通知管理者（P1）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R22-9 | **通知管道抽象層** | `SecurityNotifier::dispatch()` 從 `security_notification_channels` 讀取啟用管道 | [x] |
+| R22-10 | **Email 通知實作** | 複用現有 SMTP + HTML 模板，收件人從 channel config_json 讀取 | [x] |
+| R22-11 | **LINE Notify 整合** | POST notify-api.line.me + `LINE_NOTIFY_TOKEN` env var | [x] |
+| R22-12 | **Webhook 通用管道** | POST JSON payload 到 config_json.url，10s timeout | [x] |
+| R22-13 | **排程掃描未處理告警** | `scheduler.rs` 每 6 小時掃描 open + >24h alert 重送通知 | [x] |
+
+### 22-D 額外考量：可觀測性與蜜罐（P2）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R22-14 | **集中式 Log 收集評估** | `docs/r22-log-aggregation.md` — 推薦 Loki（Grafana 同 stack） | [x] |
+| R22-15 | **Grafana 安全 Dashboard** | 待 Loki 部署後建立 LogQL dashboard（依賴 R22-14 Phase 2） | ⏸️ |
+| R22-16 | **蜜罐端點（Honeypot）** | 6 個假端點（/.env, /wp-login.php 等），觸發 critical alert + 通知，回傳 404 | [x] |
+| R22-17 | **Admin Audit 頁面 — 安全事件 Tab** | 前後端完成，11 種 event_type 篩選，SecurityEventsTab 元件 | [x] |
+| R22-18 | **Docker log driver 設定** | `docker-compose.prod.yml` api log rotation 50m/5 + tag | [x] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -1766,6 +1812,7 @@ ORDER BY 1 DESC;
 | 🎫 R19 客戶邀請制入口 | 0 (14 完成) |
 | 🤖 R20 AI 預審與執行秘書標註 | 2 (8 完成, R20-9/10 持續性) |
 | 🌡️ R21 環境監控子系統（MES-Lite） | 11 (1 暫緩) |
+| 🛡️ R22 攻擊偵測與主動告警 | 0 (17 完成, 1 暫緩) |
 | **合計（未完成）** | **13** |
 
 ---

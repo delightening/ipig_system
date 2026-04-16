@@ -8,7 +8,7 @@ use crate::middleware::rate_limiter::{
 };
 use crate::{
     handlers,
-    middleware::{auth_middleware, csrf_middleware, guest_guard_middleware},
+    middleware::{auth_middleware, csrf_middleware, guest_guard_middleware, security_response_logger},
     AppState,
 };
 
@@ -17,6 +17,7 @@ mod ai;
 mod animal;
 mod auth;
 mod erp;
+mod honeypot;
 mod hr;
 mod invitation;
 mod mcp;
@@ -36,7 +37,12 @@ pub fn api_routes(state: AppState) -> Router {
         .with_state(state.clone());
 
     // 使用 ServiceBuilder 合併 middleware 層（避免 .route_layer 逐路由包裝導致記憶體暴漲）
+    // R22-3: security_response_logger 放最外層，攔截 403 回應寫入 DB
     let auth_middleware_stack = ServiceBuilder::new()
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            security_response_logger,
+        ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             write_rate_limit_middleware,
@@ -101,6 +107,9 @@ pub fn api_routes(state: AppState) -> Router {
     // MCP 路由（使用個人 MCP API Key 認證，不走 JWT / CSRF）
     let mcp_routes = mcp::routes().with_state(state.clone());
 
+    // R22-16: 蜜罐端點（/api/v1 外層，不需 auth）
+    let honeypot_routes = honeypot::routes().with_state(state.clone());
+
     let api_middleware_stack = ServiceBuilder::new()
         .layer(middleware::from_fn(etag_middleware))
         .layer(middleware::from_fn_with_state(
@@ -114,9 +123,12 @@ pub fn api_routes(state: AppState) -> Router {
         .merge(upload_routes)
         .merge(ai_query_routes)
         .merge(mcp_routes);
-    health_route.merge(
-        Router::new()
-            .nest("/api/v1", api_v1)
-            .layer(api_middleware_stack),
-    )
+
+    health_route
+        .merge(honeypot_routes)
+        .merge(
+            Router::new()
+                .nest("/api/v1", api_v1)
+                .layer(api_middleware_stack),
+        )
 }

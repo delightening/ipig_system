@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: zh-TW
+
+early_access: false
+
+reviews:
+  auto_review:
+    enabled: true
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+    # 只 review 後端 Rust 程式碼，排除其他一切
+    path_filters:
+      - "backend/src/**"
+      - "!backend/src/bin/**"
+      - "!backend/migrations/**"
+      - "!backend/.sqlx/**"
+      - "!frontend/**"
+      - "!docs/**"
+      - "!*.md"
+      - "!.github/**"
+      - "!**/*.lock"
+      - "!**/package-lock.json"
+      - "!**/*.snap"
+
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  collapse_walkthrough: false
+  sequence_diagrams: true
+  changed_files_summary: true
+
+  # assertive: 積極指出問題，適合安全性審查
+  profile: assertive
+
+  # 後端 review 指引 — 聚焦權限隔離與架構分層
+  path_instructions:
+    - path: "backend/src/handlers/**"
+      instructions: |
+        嚴格檢查：
+        1. Handler 禁止包含業務邏輯、SQL 查詢、權限判斷
+        2. 權限檢查必須委託給 services/access.rs，不可在 handler 內自行判斷
+        3. 回傳型別應為 Result<impl IntoResponse, AppError>
+        4. 禁止 unwrap()
+        5. 確認每個寫入操作（POST/PUT/DELETE）都有對應的權限守衛
+
+    - path: "backend/src/services/access.rs"
+      instructions: |
+        這是權限隔離核心檔案，重點審查：
+        1. 確認權限檢查涵蓋所有必要的 role/permission 驗證
+        2. 檢查是否有 IDOR（Insecure Direct Object Reference）漏洞
+        3. 確認資源存取時有驗證「該使用者是否有權存取此筆資料」
+        4. 檢查 admin / manager / user 角色邊界是否正確
+        5. 任何權限邏輯變更都應標記為高嚴重度
+
+    - path: "backend/src/services/**"
+      instructions: |
+        Service 層審查重點：
+        1. 禁止直接建構 HTTP response 或直接寫 SQL
+        2. 應呼叫 Repository 取得資料
+        3. 確認敏感操作（刪除、狀態變更、角色變更）有權限檢查
+        4. 檢查是否有越權存取風險
+
+    - path: "backend/src/repositories/**"
+      instructions: |
+        Repository 層審查重點：
+        1. 使用 sqlx 具名參數，禁止字串拼接 SQL（SQL injection 風險）
+        2. 檢查 WHERE 條件是否有正確限制資料範圍（防止未授權資料洩漏）
+        3. 禁止包含業務邏輯判斷
+
+    - path: "backend/src/middleware/**"
+      instructions: |
+        Middleware 審查重點：
+        1. 認證 middleware 是否正確驗證 JWT/session
+        2. CSRF 保護是否完整
+        3. Rate limiting 設定是否合理
+        4. 確認認證繞過風險
+
+    - path: "backend/src/**/*.rs"
+      instructions: |
+        通用 Rust 規範：
+        - 禁止 #[allow(dead_code)]、#[allow(unused)]
+        - 禁止裸用 unwrap()（測試除外）
+        - 錯誤處理統一使用 AppError，禁止裸 unwrap_or 靜默降級
+        - 函數長度 ≤50 行，圈複雜度 ≤10，巢狀深度 ≤3 層
+        - 依賴方向：Handler → Service → Repository → Model（禁止反向）
+        - DB 查詢禁止出現在 handlers/ 層
+
+chat:
+  auto_reply: true

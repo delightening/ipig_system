@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 pub mod access;
+pub mod alert_threshold;
 mod ai;
 pub mod mcp;
 pub mod accounting;
@@ -33,6 +34,7 @@ pub mod report;
 pub mod retry;
 mod role;
 pub mod scheduler;
+pub mod security_notifier;
 mod session_manager;
 mod signature;
 mod sku;
@@ -66,6 +68,7 @@ pub use animal::vet_patrol::{
     VetPatrolReport, VetPatrolReportWithEntries,
     CreateVetPatrolReportRequest, UpdateVetPatrolReportRequest,
 };
+pub use alert_threshold::AlertThresholdService;
 pub use audit::AuditService;
 pub use auth::AuthService;
 pub use calendar::CalendarService;
@@ -92,6 +95,7 @@ pub use protocol::ProtocolService;
 pub use qau::{QauDashboard, QauService};
 pub use qa_plan::QaPlanService;
 pub use role::RoleService;
+pub use security_notifier::{SecurityNotifier, SecurityNotification};
 pub use session_manager::SessionManager;
 pub use signature::{
     AnnotationService, AnnotationType, ElectronicSignature, SignatureInfoDto, SignatureService,

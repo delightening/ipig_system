@@ -217,6 +217,55 @@ impl AuditService {
         Ok(log_id)
     }
 
+    /// R22: 記錄安全事件（rate limit / 403 / lockout 等）
+    ///
+    /// 直接 INSERT user_activity_logs（繞過 log_activity stored proc），
+    /// 因為安全事件可能無 actor_user_id（匿名），且不需 HMAC chain。
+    /// Gemini #5: 支援可選 actor_user_id（403 事件記錄使用者，方便 IDOR 查詢用索引欄位）
+    #[allow(clippy::too_many_arguments)]
+    pub async fn log_security_event(
+        pool: &PgPool,
+        event_type: &str,
+        actor_user_id: Option<Uuid>,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+        request_path: Option<&str>,
+        request_method: Option<&str>,
+        context: serde_json::Value,
+    ) -> Result<Uuid> {
+        let id = Uuid::new_v4();
+        // Gemini #3: partition_date 統一使用台灣時間（與其他 activity logs 一致）
+        let partition_date = crate::time::today_taiwan_naive();
+
+        sqlx::query(
+            r#"
+            INSERT INTO user_activity_logs (
+                id, partition_date, actor_user_id, event_category, event_type, event_severity,
+                ip_address, user_agent, request_path, request_method,
+                after_data, is_suspicious, suspicious_reason, created_at
+            ) VALUES (
+                $1, $2, $3, 'SECURITY', $4, 'warning',
+                $5::inet, $6, $7, $8,
+                $9, true, $10, NOW()
+            )
+            "#,
+        )
+        .bind(id)
+        .bind(partition_date)
+        .bind(actor_user_id)
+        .bind(event_type)
+        .bind(ip_address)
+        .bind(user_agent)
+        .bind(request_path)
+        .bind(request_method)
+        .bind(&context)
+        .bind(format!("Security event: {event_type}"))
+        .execute(pool)
+        .await?;
+
+        Ok(id)
+    }
+
     /// 單據審計專用函式（減少重複程式碼）
     pub async fn audit_document(
         pool: &PgPool,

@@ -70,6 +70,18 @@ pub const DEFAULT_INSECURE_PASSWORD: &str = "iPig$ecure1";
 pub const AUDIT_LOG_MAX_EXPORT: i64 = 10000;
 pub const ACTIVITY_LOG_MAX_PER_PAGE: i64 = 500;
 
+/// R22: Security event types (attack detection & alerting)
+pub const SEC_EVENT_RATE_LIMIT_AUTH: &str = "RATE_LIMIT_AUTH";
+pub const SEC_EVENT_RATE_LIMIT_API: &str = "RATE_LIMIT_API";
+pub const SEC_EVENT_RATE_LIMIT_WRITE: &str = "RATE_LIMIT_WRITE";
+pub const SEC_EVENT_RATE_LIMIT_UPLOAD: &str = "RATE_LIMIT_UPLOAD";
+pub const SEC_EVENT_RATE_LIMIT_AI_KEY: &str = "RATE_LIMIT_AI_KEY";
+pub const SEC_EVENT_AI_KEY_DEACTIVATED: &str = "AI_KEY_DEACTIVATED";
+pub const SEC_EVENT_AI_KEY_EXPIRED: &str = "AI_KEY_EXPIRED";
+pub const SEC_EVENT_PERMISSION_DENIED: &str = "PERMISSION_DENIED";
+pub const SEC_EVENT_ACCOUNT_LOCKOUT: &str = "ACCOUNT_LOCKOUT";
+pub const SEC_EVENT_HONEYPOT_HIT: &str = "HONEYPOT_HIT";
+
 /// Role codes
 pub const ROLE_SYSTEM_ADMIN: &str = "SYSTEM_ADMIN";
 pub const ROLE_ADMIN_LEGACY: &str = "admin";

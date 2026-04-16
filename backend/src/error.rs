@@ -195,3 +195,122 @@ impl From<validator::ValidationErrors> for AppError {
         AppError::Validation("輸入資料驗證失敗，請確認各欄位格式是否正確".to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::to_bytes;
+
+    /// 輔助函式：從 Response 取出 status + JSON body
+    async fn extract_response(error: AppError) -> (StatusCode, serde_json::Value) {
+        let response = error.into_response();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1024 * 64)
+            .await
+            .expect("read body");
+        let json: serde_json::Value =
+            serde_json::from_slice(&body).expect("parse JSON");
+        (status, json)
+    }
+
+    #[tokio::test]
+    async fn test_unauthorized_returns_401() {
+        let (status, json) = extract_response(AppError::Unauthorized).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(json["error"]["code"], 401);
+        assert_eq!(json["error"]["blocking"], true);
+    }
+
+    #[tokio::test]
+    async fn test_forbidden_returns_403() {
+        let (status, json) = extract_response(AppError::Forbidden("no access".into())).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(json["error"]["code"], 403);
+        assert_eq!(json["error"]["message"], "no access");
+    }
+
+    #[tokio::test]
+    async fn test_not_found_returns_404() {
+        let (status, json) = extract_response(AppError::NotFound("missing".into())).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(json["error"]["code"], 404);
+    }
+
+    #[tokio::test]
+    async fn test_validation_returns_400() {
+        let (status, _) = extract_response(AppError::Validation("bad input".into())).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_conflict_returns_409() {
+        let (status, _) = extract_response(AppError::Conflict("duplicate".into())).await;
+        assert_eq!(status, StatusCode::CONFLICT);
+    }
+
+    #[tokio::test]
+    async fn test_business_rule_returns_422() {
+        let (status, json) =
+            extract_response(AppError::BusinessRule("rule violated".into())).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(json["error"]["code"], 422);
+    }
+
+    #[tokio::test]
+    async fn test_too_many_requests_returns_429() {
+        let (status, json) =
+            extract_response(AppError::TooManyRequests("slow down".into())).await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(json["error"]["code"], 429);
+    }
+
+    #[tokio::test]
+    async fn test_internal_hides_message() {
+        let (status, json) =
+            extract_response(AppError::Internal("DB connection string leaked".into())).await;
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        // 不應洩漏內部錯誤訊息
+        assert_eq!(json["error"]["message"], "Internal server error");
+    }
+
+    #[tokio::test]
+    async fn test_duplicate_warning_returns_409_with_existing_animals() {
+        let animals = vec![json!({"ear_tag": "001", "id": "abc"})];
+        let (status, json) = extract_response(AppError::DuplicateWarning {
+            message: "ear tag exists".into(),
+            existing_animals: animals,
+        })
+        .await;
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(json["error"]["blocking"], false);
+        assert_eq!(json["error"]["warning_type"], "duplicate_ear_tag");
+        assert!(json["error"]["existing_animals"].is_array());
+    }
+
+    #[tokio::test]
+    async fn test_db_pool_timeout_returns_503_with_retry_after() {
+        let error = AppError::Database(sqlx::Error::PoolTimedOut);
+        let response = error.into_response();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            response.headers().get("retry-after").and_then(|v| v.to_str().ok()),
+            Some("2")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_db_row_not_found_returns_404() {
+        let (status, json) =
+            extract_response(AppError::Database(sqlx::Error::RowNotFound)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(json["error"]["message"], "查無相關資料");
+    }
+
+    #[tokio::test]
+    async fn test_invalid_credentials_returns_401() {
+        let (status, json) =
+            extract_response(AppError::InvalidCredentials("wrong password".into())).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(json["error"]["message"], "wrong password");
+    }
+}

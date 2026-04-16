@@ -193,32 +193,46 @@ impl LoginTracker {
         .await?;
 
         if fail_count >= 5 {
-            // 建立暴力破解警報
-            sqlx::query(
+            // R22-7: 去重 — 同一 email 在 30 分鐘內已有 open alert 則跳過
+            let (recent_alert_count,): (i64,) = sqlx::query_as(
                 r#"
-                INSERT INTO security_alerts (
-                    id, alert_type, severity, title, description,
-                    context_data, created_at, updated_at, status
-                ) VALUES (
-                    $1, 'brute_force', 'critical',
-                    '偵測到可能的暴力破解攻擊',
-                    $2, $3, NOW(), NOW(), 'open'
-                )
+                SELECT COUNT(*) FROM security_alerts
+                WHERE alert_type = 'brute_force'
+                  AND context_data->>'email' = $1
+                  AND created_at > NOW() - INTERVAL '30 minutes'
+                  AND status = 'open'
                 "#,
             )
-            .bind(Uuid::new_v4())
-            .bind(format!(
-                "Email {} 在過去 15 分鐘內有 {} 次失敗登入嘗試",
-                email, fail_count
-            ))
-            .bind(serde_json::json!({
-                "email": email,
-                "ip": ip,
-                "fail_count": fail_count
-            }))
-            .execute(pool)
+            .bind(email)
+            .fetch_one(pool)
             .await?;
 
+            if recent_alert_count == 0 {
+                sqlx::query(
+                    r#"
+                    INSERT INTO security_alerts (
+                        id, alert_type, severity, title, description,
+                        context_data, created_at, updated_at, status
+                    ) VALUES (
+                        $1, 'brute_force', 'critical',
+                        '偵測到可能的暴力破解攻擊',
+                        $2, $3, NOW(), NOW(), 'open'
+                    )
+                    "#,
+                )
+                .bind(Uuid::new_v4())
+                .bind(format!(
+                    "Email {} 在過去 15 分鐘內有 {} 次失敗登入嘗試",
+                    email, fail_count
+                ))
+                .bind(serde_json::json!({
+                    "email": email,
+                    "ip": ip,
+                    "fail_count": fail_count
+                }))
+                .execute(pool)
+                .await?;
+            }
         }
 
         Ok(())

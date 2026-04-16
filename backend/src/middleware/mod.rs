@@ -6,6 +6,7 @@ pub mod guest_guard;
 pub mod jwt_blacklist;
 pub mod rate_limiter;
 pub mod real_ip;
+pub mod response_logger;
 
 pub use auth::*;
 pub use etag::etag_middleware;
@@ -13,3 +14,4 @@ pub use csrf::csrf_middleware;
 pub use guest_guard::guest_guard_middleware;
 pub use jwt_blacklist::JwtBlacklist;
 pub use real_ip::extract_real_ip_with_trust;
+pub use response_logger::security_response_logger;

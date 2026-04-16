@@ -11,11 +11,12 @@ import type {
     LoginEventWithUser,
     SecurityAlert,
     SessionWithUser,
+    UserActivityLog,
 } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 import type { AuditLog, AlertSortConfig, AlertSortField } from '../types/audit'
 
-type AuditTab = 'dashboard' | 'activities' | 'logins' | 'sessions' | 'alerts'
+type AuditTab = 'dashboard' | 'activities' | 'logins' | 'sessions' | 'alerts' | 'security-events'
 
 // 嚴重程度排序優先級（數值越小越嚴重）
 const severityOrder: Record<string, number> = {
@@ -155,6 +156,30 @@ export function useAuditData() {
         enabled: activeTab === 'sessions',
     })
 
+    // R22-17: Security Events
+    const [securityEventsPage, setSecurityEventsPage] = useState(1)
+    const [securityEventType, setSecurityEventType] = useState<string>('all')
+
+    const handleSecurityEventTypeChange = (val: string) => {
+        setSecurityEventType(val)
+        setSecurityEventsPage(1)
+    }
+
+    const { data: securityEvents, isLoading: loadingSecurityEvents } = useQuery({
+        queryKey: ['audit-security-events', dateFrom, dateTo, securityEventsPage, securityEventType],
+        queryFn: async () => {
+            const params = new URLSearchParams()
+            if (dateFrom) params.set('from', dateFrom)
+            if (dateTo) params.set('to', dateTo)
+            if (securityEventType !== 'all') params.set('event_type', securityEventType)
+            params.set('page', String(securityEventsPage))
+            params.set('per_page', String(PER_PAGE))
+            const res = await api.get<PaginatedResponse<UserActivityLog>>(`/admin/audit/security-events?${params}`)
+            return res.data
+        },
+        enabled: activeTab === 'security-events',
+    })
+
     // Security Alerts
     const { data: alerts, isLoading: loadingAlerts } = useQuery({
         queryKey: ['audit-alerts', alertsPage, alertSearch, alertStatusFilter],
@@ -245,6 +270,7 @@ export function useAuditData() {
         queryClient.invalidateQueries({ queryKey: ['audit-logins'] })
         queryClient.invalidateQueries({ queryKey: ['audit-sessions'] })
         queryClient.invalidateQueries({ queryKey: ['audit-alerts'] })
+        queryClient.invalidateQueries({ queryKey: ['audit-security-events'] })
     }
 
     return {
@@ -294,6 +320,14 @@ export function useAuditData() {
         handleAlertSearchChange,
         alertStatusFilter,
         handleAlertStatusFilterChange,
+
+        // Security Events
+        securityEvents,
+        loadingSecurityEvents,
+        securityEventsPage,
+        setSecurityEventsPage,
+        securityEventType,
+        handleSecurityEventTypeChange,
 
         // Actions
         refreshAll,
