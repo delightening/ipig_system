@@ -9,6 +9,8 @@ use crate::Result;
 pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
     // 需要確保存在的權限清單
     let required_permissions = vec![
+        // 動物管理（刪除）— admin 專屬，staff 不可刪除動物
+        ("animal.animal.delete", "刪除動物", "animal", "可永久刪除（軟刪除）動物紀錄，僅限系統管理員"),
         // 動物來源管理
         ("animal.source.manage", "管理動物來源", "animal", "可管理動物來源資料"),
         // 血檢項目管理（模板、組合、常用組合）
@@ -129,7 +131,8 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
             'admin.data.export', 'admin.data.import',
             'dev.role.create', 'dev.role.view', 'dev.role.edit', 'dev.role.delete',
             'erp.adj.approve',
-            'invitation.create', 'invitation.view', 'invitation.revoke', 'invitation.resend'
+            'invitation.create', 'invitation.view', 'invitation.revoke', 'invitation.resend',
+            'animal.animal.delete'
         )
         ON CONFLICT (role_id, permission_id) DO NOTHING
     "#)
@@ -294,7 +297,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // ============================================
         ("IACUC_STAFF", vec![
             // AUP 計畫管理（全部）
-            "aup.protocol.view_all", "aup.protocol.view_own", 
+            "aup.protocol.view_all", "aup.protocol.view_own",
             "aup.protocol.create", "aup.protocol.edit", "aup.protocol.submit",
             "aup.protocol.review", "aup.protocol.approve", "aup.protocol.change_status",
             "aup.protocol.delete",
@@ -308,6 +311,8 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.amendment.classify",   // 分類修正案（執行秘書負責判斷 Major/Minor）
             "aup.coeditor.assign",      // 指派協作編輯
             "aup.protocol.assign_co_editor", // 確保相容性
+            // 動物批次分配至計畫（IACUC 執行秘書在審查核准後執行分配）
+            "animal.info.assign",
             // 邀請管理（R19）
             "invitation.create", "invitation.view", "invitation.revoke", "invitation.resend",
             // Dashboard
@@ -323,18 +328,22 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 審查流程
             "aup.review.view", "aup.review.reply",
             // 附件管理
-            "aup.attachment.view", "aup.attachment.download", 
+            "aup.attachment.view", "aup.attachment.download",
             "aup.attachment.upload", "aup.attachment.delete",
             // 版本管理
             "aup.version.view",
-            // 物種管理
-            "species.read", "species.create", "species.update",
-            // 動物管理 - 可查看所有動物、新增、編輯、匯入
+            // 動物管理 - 可查看所有動物、新增、編輯（含設定 species_id tag）、匯入
             "animal.animal.view_all", "animal.animal.create", "animal.animal.edit", "animal.animal.import",
-            "animal.record.view", "animal.record.create", "animal.record.edit",
+            "animal.record.view", "animal.record.create", "animal.record.edit", "animal.record.delete",
             "animal.blood_test_template.manage",
-            "animal.record.observation", "animal.record.surgery", 
+            "animal.record.observation", "animal.record.surgery",
             "animal.record.weight", "animal.record.vaccine", "animal.record.sacrifice",
+            // 病理報告（需要查看與上傳）
+            "animal.pathology.view", "animal.pathology.upload",
+            // 紀錄複製與緊急觀察
+            "animal.record.copy", "animal.record.emergency",
+            // 獸醫附件上傳
+            "animal.vet.upload_attachment",
             // 動物來源管理
             "animal.source.manage",
             // 緊急處置權限
@@ -360,7 +369,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // Dashboard 權限
             "dashboard.view",
         ]),
-        
+
         // ============================================
         // INTERN (實習生) - 與 EXPERIMENT_STAFF 相同權限，帳號有到期日
         // ============================================
@@ -374,14 +383,18 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.upload", "aup.attachment.delete",
             // 版本管理
             "aup.version.view",
-            // 物種管理
-            "species.read", "species.create", "species.update",
-            // 動物管理
+            // 動物管理（含設定 species_id tag）
             "animal.animal.view_all", "animal.animal.create", "animal.animal.edit", "animal.animal.import",
-            "animal.record.view", "animal.record.create", "animal.record.edit",
+            "animal.record.view", "animal.record.create", "animal.record.edit", "animal.record.delete",
             "animal.blood_test_template.manage",
             "animal.record.observation", "animal.record.surgery",
             "animal.record.weight", "animal.record.vaccine", "animal.record.sacrifice",
+            // 病理報告（需要查看與上傳）
+            "animal.pathology.view", "animal.pathology.upload",
+            // 紀錄複製與緊急觀察
+            "animal.record.copy", "animal.record.emergency",
+            // 獸醫附件上傳
+            "animal.vet.upload_attachment",
             // 動物來源管理
             "animal.source.manage",
             // 緊急處置權限
@@ -486,28 +499,8 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "formulation.record.view", "formulation.record.manage",
         ]),
 
-        // ============================================
-        // TEST_FACILITY_MANAGEMENT (試驗機構管理階層) - GLP 管理 + 全域概覽
-        // ============================================
-        ("TEST_FACILITY_MANAGEMENT", vec![
-            // GLP 管理
-            "glp.study_director.designate", "glp.compliance.overview",
-            "glp.management_review.view", "glp.management_review.manage",
-            // 全域唯讀
-            "aup.protocol.view_all", "aup.review.view",
-            "aup.attachment.view", "aup.attachment.download", "aup.version.view",
-            "animal.animal.view_all", "animal.record.view",
-            "qau.dashboard.view", "qau.inspection.view", "qau.nc.view", "qau.sop.view", "qau.schedule.view",
-            "audit.logs.view",
-            // 管理系統模組
-            "dms.document.view", "dms.document.manage", "dms.document.approve",
-            "risk.register.view", "risk.register.manage",
-            "change.request.view", "change.request.manage", "change.request.approve",
-            "env.monitoring.view",
-            "competency.assessment.view",
-            "study.report.view",
-            "dashboard.view",
-        ]),
+        // TEST_FACILITY_MANAGEMENT 已於 migration 029 刪除（2026-04-16）
+        // 此角色定位等同 admin，有此需求的人員直接指派 admin 角色。
 
         // ============================================
         // CLIENT (委託人) - 計畫/動物查看（僅自己相關）

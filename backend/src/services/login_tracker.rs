@@ -6,6 +6,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::geoip::{GeoInfo, GeoIpService};
+use super::security_notifier::{SecurityNotification, SecurityNotifier};
+use crate::config::Config;
 use crate::Result;
 
 pub struct LoginTracker;
@@ -93,6 +95,7 @@ impl LoginTracker {
     /// 記錄失敗登入
     pub async fn log_failure(
         pool: &PgPool,
+        config: &Config,
         email: &str,
         ip: Option<&str>,
         user_agent: Option<&str>,
@@ -145,7 +148,7 @@ impl LoginTracker {
         .await?;
 
         // 檢查暴力破解
-        Self::check_brute_force(pool, email, ip).await?;
+        Self::check_brute_force(pool, config, email, ip).await?;
 
         Ok(())
     }
@@ -176,6 +179,7 @@ impl LoginTracker {
     /// 檢查暴力破解攻擊
     async fn check_brute_force(
         pool: &PgPool,
+        config: &Config,
         email: &str,
         ip: Option<&str>,
     ) -> Result<()> {
@@ -208,6 +212,11 @@ impl LoginTracker {
             .await?;
 
             if recent_alert_count == 0 {
+                let alert_id = Uuid::new_v4();
+                let description = format!(
+                    "Email {} 在過去 15 分鐘內有 {} 次失敗登入嘗試",
+                    email, fail_count
+                );
                 sqlx::query(
                     r#"
                     INSERT INTO security_alerts (
@@ -220,11 +229,8 @@ impl LoginTracker {
                     )
                     "#,
                 )
-                .bind(Uuid::new_v4())
-                .bind(format!(
-                    "Email {} 在過去 15 分鐘內有 {} 次失敗登入嘗試",
-                    email, fail_count
-                ))
+                .bind(alert_id)
+                .bind(&description)
                 .bind(serde_json::json!({
                     "email": email,
                     "ip": ip,
@@ -232,6 +238,23 @@ impl LoginTracker {
                 }))
                 .execute(pool)
                 .await?;
+
+                tracing::warn!("[R22-7] Brute force alert created for {email}");
+
+                let notification = SecurityNotification {
+                    alert_id,
+                    alert_type: "brute_force".to_string(),
+                    severity: "critical".to_string(),
+                    title: "偵測到可能的暴力破解攻擊".to_string(),
+                    description: Some(description),
+                    context_data: Some(serde_json::json!({
+                        "email": email,
+                        "ip": ip,
+                        "fail_count": fail_count,
+                    })),
+                    created_at: Utc::now(),
+                };
+                SecurityNotifier::dispatch(pool, config, &notification).await;
             }
         }
 

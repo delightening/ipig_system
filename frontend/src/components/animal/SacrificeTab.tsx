@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { AnimalSacrifice } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,22 +25,24 @@ export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps)
             <CardTitle>犧牲/採樣紀錄</CardTitle>
             <CardDescription>記錄實驗結束後的犧牲與採樣資訊</CardDescription>
           </div>
-          <Button
-            className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
-            onClick={() => setShowDialog(true)}
-          >
-            {sacrifice ? (
-              <>
-                <Edit2 className="h-4 w-4 mr-2" />
-                編輯
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4 mr-2" />
-                建立紀錄
-              </>
-            )}
-          </Button>
+          <GuestHide>
+            <Button
+              className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+              onClick={() => setShowDialog(true)}
+            >
+              {sacrifice ? (
+                <>
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  編輯
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  建立紀錄
+                </>
+              )}
+            </Button>
+          </GuestHide>
         </CardHeader>
         <CardContent>
           {!sacrifice ? (

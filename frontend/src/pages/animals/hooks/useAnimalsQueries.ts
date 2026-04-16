@@ -6,6 +6,7 @@ import { STALE_TIME } from '@/lib/query'
 import { useGuestQuery } from '@/hooks/useGuestQuery'
 import {
   DEMO_ANIMALS_PAGINATED,
+  DEMO_ANIMALS_ALL,
   DEMO_ANIMAL_STATS,
   DEMO_ANIMALS_BY_PEN,
 } from '@/lib/guest-demo'
@@ -30,8 +31,23 @@ export function useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, pa
     staleTime: STALE_TIME.REFERENCE,
   })
 
+  // guest demo: filter by statusFilter so each tab shows the correct subset
+  const demoAnimalsFiltered = useMemo((): PaginatedResponse<AnimalListItem> => {
+    if (!statusFilter || statusFilter === 'all' || statusFilter === 'pen') {
+      return DEMO_ANIMALS_PAGINATED as unknown as PaginatedResponse<AnimalListItem>
+    }
+    const filtered = DEMO_ANIMALS_ALL.filter(a => a.status === statusFilter)
+    return {
+      data: filtered as unknown as AnimalListItem[],
+      total: filtered.length,
+      page: 1,
+      per_page: 20,
+      total_pages: filtered.length > 0 ? 1 : 0,
+    }
+  }, [statusFilter])
+
   const { data: animalsResp, isLoading } = useGuestQuery(
-    DEMO_ANIMALS_PAGINATED as unknown as PaginatedResponse<AnimalListItem>,
+    demoAnimalsFiltered,
     {
       queryKey: ['animals', statusFilter, breedFilter, appliedSearch, page],
       queryFn: async () => {

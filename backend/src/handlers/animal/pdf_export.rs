@@ -171,7 +171,7 @@ pub async fn export_pen_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Response> {
-    require_permission!(current_user, "animal.animal.view");
+    require_permission!(current_user, "animal.animal.view_all");
 
     // 查詢所有動物及其欄位位置
     let animals: Vec<(String, String, String)> = sqlx::query_as(

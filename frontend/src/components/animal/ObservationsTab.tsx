@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   AnimalObservation,
@@ -104,10 +105,12 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
             <CardTitle>觀察試驗紀錄</CardTitle>
             <CardDescription>記錄日常觀察、異常狀況與試驗操作</CardDescription>
           </div>
-          <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowAddDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            新增紀錄
-          </Button>
+          <GuestHide>
+            <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              新增紀錄
+            </Button>
+          </GuestHide>
         </CardHeader>
         <CardContent>
           {!observations || observations.length === 0 ? (
@@ -171,62 +174,64 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                           <Button variant="ghost" size="icon" onClick={() => setExpandedId(obs.id)} title="檢視詳情" aria-label="檢視詳情">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditingObservation(obs)
-                              setShowAddDialog(true)
-                            }}
-                            title="編輯"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) {
-                                copyMutation.mutate(obs.id)
-                              }
-                            }}
-                            disabled={copyMutation.isPending}
-                            title="複製"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setVersionHistoryRecordId(obs.id)
-                              setShowVersionHistory(true)
-                            }}
-                            title="版本歷史"
-                          >
-                            <History className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setVetRecRecordId(obs.id)
-                              setShowVetRec(true)
-                            }}
-                            title="獸醫師建議"
-                            className="text-status-success-text hover:text-status-success-text"
-                          >
-                            <Stethoscope className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteTarget(obs.id)}
-                            title="刪除"
-                            aria-label="刪除"
-                          >
-                            <Trash2 className="h-4 w-4 text-status-error-solid" />
-                          </Button>
+                          <GuestHide>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingObservation(obs)
+                                setShowAddDialog(true)
+                              }}
+                              title="編輯"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) {
+                                  copyMutation.mutate(obs.id)
+                                }
+                              }}
+                              disabled={copyMutation.isPending}
+                              title="複製"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setVersionHistoryRecordId(obs.id)
+                                setShowVersionHistory(true)
+                              }}
+                              title="版本歷史"
+                            >
+                              <History className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setVetRecRecordId(obs.id)
+                                setShowVetRec(true)
+                              }}
+                              title="獸醫師建議"
+                              className="text-status-success-text hover:text-status-success-text"
+                            >
+                              <Stethoscope className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeleteTarget(obs.id)}
+                              title="刪除"
+                              aria-label="刪除"
+                            >
+                              <Trash2 className="h-4 w-4 text-status-error-solid" />
+                            </Button>
+                          </GuestHide>
                         </div>
                       </TableCell>
                     </TableRow>

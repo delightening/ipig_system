@@ -1,17 +1,14 @@
-# Stage 1: Chef — install cargo-chef for dependency caching
-FROM rust:1.92 AS chef
-
-RUN cargo install cargo-chef
+# Stage 1: Chef — pre-built image includes cargo-chef, no install step needed
+FROM lukemathwalker/cargo-chef:latest-rust-1.92 AS chef
 WORKDIR /app
 
-# Stage 2: Planner — analyze dependencies
+# Stage 2: Planner — cargo metadata requires src/ to resolve [[bin]] / default-run targets,
+# but the resulting recipe.json only encodes *dependency* info, so dep-cache layer is still
+# invalidated only when Cargo.toml / Cargo.lock change (not on src changes).
 FROM chef AS planner
 
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
-COPY migrations ./migrations
-COPY .sqlx ./.sqlx
-
 RUN cargo chef prepare --recipe-path recipe.json
 
 # Stage 3: Builder — compile dependencies (cached), then source

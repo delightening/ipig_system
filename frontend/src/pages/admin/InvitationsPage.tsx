@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, RotateCw, XCircle, Loader2 } from 'lucide-react'
 
@@ -72,10 +73,12 @@ export function InvitationsPage() {
                 title="邀請管理"
                 description="管理客戶邀請連結"
                 actions={
-                    <Button size="sm" onClick={() => setShowCreateDialog(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        新增邀請
-                    </Button>
+                    <GuestHide>
+                        <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            新增邀請
+                        </Button>
+                    </GuestHide>
                 }
             />
 
@@ -139,32 +142,34 @@ export function InvitationsPage() {
                                     <TableCell>{formatDate(inv.created_at)}</TableCell>
                                     <TableCell>{formatDate(inv.expires_at)}</TableCell>
                                     <TableCell>
-                                        {inv.status === 'pending' && (
-                                            <div className="flex gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => resendMutation.mutate(inv.id)}
-                                                    disabled={resendMutation.isPending}
-                                                    title="重新發送"
-                                                >
-                                                    {resendMutation.isPending ? (
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                        <RotateCw className="h-4 w-4" />
-                                                    )}
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => revokeMutation.mutate(inv.id)}
-                                                    disabled={revokeMutation.isPending}
-                                                    title="撤銷"
-                                                >
-                                                    <XCircle className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </div>
-                                        )}
+                                        <GuestHide>
+                                            {inv.status === 'pending' && (
+                                                <div className="flex gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => resendMutation.mutate(inv.id)}
+                                                        disabled={resendMutation.isPending}
+                                                        title="重新發送"
+                                                    >
+                                                        {resendMutation.isPending ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <RotateCw className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => revokeMutation.mutate(inv.id)}
+                                                        disabled={revokeMutation.isPending}
+                                                        title="撤銷"
+                                                    >
+                                                        <XCircle className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </GuestHide>
                                     </TableCell>
                                 </TableRow>
                             ))

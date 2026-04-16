@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { AnimalPathologyReport } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -80,10 +81,12 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
             <CardTitle>病理組織報告</CardTitle>
             <CardDescription>病理組織報告檔案</CardDescription>
           </div>
-          <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowUploadDialog(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            上傳檔案
-          </Button>
+          <GuestHide>
+            <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowUploadDialog(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              上傳檔案
+            </Button>
+          </GuestHide>
         </CardHeader>
         <CardContent>
           {!pathology || !pathology.attachments || pathology.attachments.length === 0 ? (

@@ -30,7 +30,7 @@ pub async fn create_animal_source(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateAnimalSourceRequest>,
 ) -> Result<Json<AnimalSource>> {
-    require_permission!(current_user, "animal.animal.create");
+    require_permission!(current_user, "animal.source.manage");
     req.validate()?;
 
     let source = AnimalSourceService::create_source(&state.db, &req).await?;
@@ -44,7 +44,7 @@ pub async fn update_animal_source(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateAnimalSourceRequest>,
 ) -> Result<Json<AnimalSource>> {
-    require_permission!(current_user, "animal.animal.edit");
+    require_permission!(current_user, "animal.source.manage");
 
     let source = AnimalSourceService::update_source(&state.db, id, &req).await?;
     Ok(Json(source))
@@ -56,7 +56,7 @@ pub async fn delete_animal_source(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "animal.animal.delete");
+    require_permission!(current_user, "animal.source.manage");
 
     AnimalSourceService::delete_source(&state.db, id).await?;
     Ok(Json(

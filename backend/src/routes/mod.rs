@@ -37,12 +37,10 @@ pub fn api_routes(state: AppState) -> Router {
         .with_state(state.clone());
 
     // 使用 ServiceBuilder 合併 middleware 層（避免 .route_layer 逐路由包裝導致記憶體暴漲）
-    // R22-3: security_response_logger 放最外層，攔截 403 回應寫入 DB
+    // R22-3: security_response_logger 必須放在 auth_middleware 內層（最後一個 .layer()），
+    // 確保 auth_middleware 先執行並設定 CurrentUser，logger 才能讀取到 user_id。
+    // ServiceBuilder 中第一個 .layer() 是最外層（最先執行），最後一個是最內層（最後執行）。
     let auth_middleware_stack = ServiceBuilder::new()
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            security_response_logger,
-        ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             write_rate_limit_middleware,
@@ -55,6 +53,10 @@ pub fn api_routes(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            security_response_logger,
         ));
 
     let protected_routes = auth::protected_routes()

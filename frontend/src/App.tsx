@@ -323,33 +323,39 @@ function App() {
 
                     {/* 系統管理 - 需要 admin 角色 */}
                     <Route element={<AdminRoute />}>
-                        <Route path="/admin/users" element={<UsersPage />} />
-                        <Route path="/admin/roles" element={<RolesPage />} />
-                        <Route path="/admin/settings" element={<SettingsPage />} />
+                        <Route path="/admin/users" element={
+                            hasRole('GUEST') ? <Navigate to="/dashboard" replace /> : <UsersPage />
+                        } />
+                        <Route path="/admin/roles" element={
+                            hasRole('GUEST') ? <Navigate to="/dashboard" replace /> : <RolesPage />
+                        } />
+                        <Route path="/admin/settings" element={
+                            hasRole('GUEST') ? <Navigate to="/dashboard" replace /> : <SettingsPage />
+                        } />
                         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
                         <Route path="/admin/audit" element={<AdminAuditPage />} />
                         <Route path="/admin/qau" element={
-                          <RequirePermission permission="qau.dashboard.view">
+                          <RequirePermission permission="qau.dashboard.view" guestBlock>
                             <QAUDashboardPage />
                           </RequirePermission>
                         } />
                         <Route path="/admin/qau/inspections" element={
-                          <RequirePermission permission="qau.inspection.view">
+                          <RequirePermission permission="qau.inspection.view" guestBlock>
                             <QAInspectionPage />
                           </RequirePermission>
                         } />
                         <Route path="/admin/qau/non-conformances" element={
-                          <RequirePermission permission="qau.nc.view">
+                          <RequirePermission permission="qau.nc.view" guestBlock>
                             <QANonConformancePage />
                           </RequirePermission>
                         } />
                         <Route path="/admin/qau/sop" element={
-                          <RequirePermission permission="qau.sop.view">
+                          <RequirePermission permission="qau.sop.view" guestBlock>
                             <QASopPage />
                           </RequirePermission>
                         } />
                         <Route path="/admin/qau/schedules" element={
-                          <RequirePermission permission="qau.schedule.view">
+                          <RequirePermission permission="qau.schedule.view" guestBlock>
                             <QASchedulePage />
                           </RequirePermission>
                         } />
@@ -432,11 +438,7 @@ function App() {
                             <HrAnnualLeavePage />
                         </RequirePermission>
                     } />
-                    <Route path="/hr/calendar" element={
-                        hasRole('GUEST')
-                            ? <Navigate to="/dashboard" replace />
-                            : <CalendarSyncSettingsPage />
-                    } />
+                    <Route path="/hr/calendar" element={<CalendarSyncSettingsPage />} />
 
                     {/* AUP 計畫書管理 */}
                     <Route path="/protocols" element={<ProtocolsPage />} />
@@ -457,9 +459,11 @@ function App() {
                     <Route path="/animals/:id/edit" element={<AnimalEditPage />} />
                     <Route path="/animal-sources" element={<AnimalSourcesPage />} />
                     <Route path="/animals/animal-field-corrections" element={
-                        <RequirePermission role="admin">
-                            <AnimalFieldCorrectionsPage />
-                        </RequirePermission>
+                        hasRole('GUEST')
+                            ? <Navigate to="/animals" replace />
+                            : <RequirePermission role="admin">
+                                <AnimalFieldCorrectionsPage />
+                              </RequirePermission>
                     } />
 
                     {/* 個人設定 */}

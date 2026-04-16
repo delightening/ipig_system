@@ -45,7 +45,34 @@ pub async fn login(
     req.validate()?;
 
     // Phase 1: 驗證帳密（CRIT-01: ip 傳入服務層，失敗事件在 advisory lock 事務內原子性寫入）
-    let user = AuthService::validate_credentials(&state.db, &state.config, &req, Some(&ip)).await?;
+    let user = match AuthService::validate_credentials(&state.db, &state.config, &req, Some(&ip)).await {
+        Ok(u) => u,
+        Err(e) => {
+            // R22-7: 火忘式觸發暴力破解偵測（GeoIP 異常偵測 + 計數）
+            let db = state.db.clone();
+            let config = state.config.clone();
+            let email = req.email.clone();
+            let ip_clone = ip.clone();
+            let ua_clone = user_agent.clone();
+            let geoip = state.geoip.clone();
+            tokio::spawn(async move {
+                if let Err(e) = LoginTracker::log_failure(
+                    &db,
+                    &config,
+                    &email,
+                    Some(&ip_clone),
+                    ua_clone.as_deref(),
+                    "invalid_credentials",
+                    &geoip,
+                )
+                .await
+                {
+                    tracing::error!("Failed to log login failure for {}: {}", email, e);
+                }
+            });
+            return Err(e);
+        }
+    };
 
     // Phase 2: 2FA 檢查 — 若啟用，回傳 temp token 給前端進行第二步驗證
     if user.totp_enabled {

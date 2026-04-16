@@ -21,6 +21,7 @@ import { useTableSort } from '@/hooks/useTableSort'
 interface TrainingRecordsTabProps {
   canManage: boolean
   canManageAll: boolean
+  isGuestUser?: boolean
   records: TrainingRecordWithUser[]
   isLoading: boolean
   totalPages: number
@@ -54,6 +55,7 @@ export function TrainingRecordsTab({
   filteredUsers,
   onEdit,
   onDelete,
+  isGuestUser = false,
 }: TrainingRecordsTabProps) {
   const { sortedData, sort, toggleSort } = useTableSort(records)
 
@@ -151,17 +153,19 @@ export function TrainingRecordsTab({
                         {r.notes || '\u2014'}
                       </TableCell>
                       <TableCell>
-                        {canManage && (
+                        {(canManage || isGuestUser) && (
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => onEdit(r)} aria-label="編輯">
+                            <Button variant="ghost" size="icon" onClick={isGuestUser ? undefined : () => onEdit(r)} disabled={isGuestUser} aria-label="編輯" title={isGuestUser ? '訪客模式' : undefined}>
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => onDelete(r)}
+                              onClick={isGuestUser ? undefined : () => onDelete(r)}
+                              disabled={isGuestUser}
                               className="text-destructive hover:text-destructive"
                               aria-label="刪除"
+                              title={isGuestUser ? '訪客模式' : undefined}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

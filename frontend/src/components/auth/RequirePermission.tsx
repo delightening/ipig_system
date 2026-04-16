@@ -16,6 +16,8 @@ interface RequirePermissionProps {
     fallback?: 'redirect' | 'message'
     /** 自定義導向路徑 */
     redirectTo?: string
+    /** Guest 也走正常權限檢查（預設 guest 全通行） */
+    guestBlock?: boolean
 }
 
 /**
@@ -29,13 +31,14 @@ export function RequirePermission({
     anyOf,
     fallback = 'message',
     redirectTo = '/dashboard',
+    guestBlock = false,
 }: RequirePermissionProps) {
     const { hasPermission, hasRole, isGuest } = useAuthStore()
 
     // 檢查權限
     const checkAccess = (): boolean => {
-        // Guest 全通行
-        if (isGuest()) return true
+        // Guest 預設全通行；guestBlock 時走正常權限檢查
+        if (isGuest() && !guestBlock) return true
 
         // 如果指定了 anyOf，只要任一符合即可
         if (anyOf && anyOf.length > 0) {

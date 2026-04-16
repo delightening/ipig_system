@@ -328,3 +328,19 @@ lib/
 - 移除所有 `#[allow(dead_code)]`、`#[allow(unused)]` 及對應的 dead code。
 - 移除前端中被註解掉的程式碼區塊（超過 5 行的）。
 - 移除未使用的 npm/cargo 依賴。
+
+<!-- rtk-instructions v2 -->
+# RTK - Rust 指令前綴規則
+
+對所有 Rust / Git / GitHub 指令加 `rtk` 前綴：
+
+```bash
+rtk cargo build
+rtk cargo check
+rtk cargo clippy
+rtk cargo test
+rtk git status / log / diff / add / commit / push / pull
+rtk gh pr view / pr checks / run list
+rtk docker ps / images / logs
+```
+<!-- /rtk-instructions -->

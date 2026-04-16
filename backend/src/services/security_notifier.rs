@@ -200,6 +200,13 @@ impl SecurityNotifier {
             return;
         };
 
+        // SSRF guard: only allow https:// to public hosts
+        if !is_safe_webhook_url(url) {
+            let url_safe = truncate_url(url);
+            tracing::error!("[R22-12] Webhook URL rejected (SSRF guard): {url_safe}");
+            return;
+        }
+
         let payload = serde_json::json!({
             "alert_id": notification.alert_id,
             "alert_type": notification.alert_type,
@@ -218,18 +225,68 @@ impl SecurityNotifier {
             .send()
             .await;
 
+        let url_safe = truncate_url(url);
+
         match result {
             Ok(resp) if resp.status().is_success() => {
-                tracing::info!("[R22-12] Webhook sent to {url}");
+                tracing::info!("[R22-12] Webhook sent to {url_safe}");
             }
             Ok(resp) => {
-                tracing::error!("[R22-12] Webhook to {url} failed: HTTP {}", resp.status());
+                tracing::error!("[R22-12] Webhook to {url_safe} failed: HTTP {}", resp.status());
             }
             Err(e) => {
-                tracing::error!("[R22-12] Webhook to {url} request failed: {e}");
+                tracing::error!("[R22-12] Webhook to {url_safe} request failed: {e}");
             }
         }
     }
+}
+
+/// Truncate URL to 40 chars for log messages — prevents leaking tokens in Slack/Teams webhook URLs
+fn truncate_url(url: &str) -> String {
+    if url.len() > 40 {
+        format!("{}...", &url[..40])
+    } else {
+        url.to_string()
+    }
+}
+
+/// SSRF guard: reject non-https or private/loopback destinations
+fn is_safe_webhook_url(url_str: &str) -> bool {
+    let Ok(parsed) = url::Url::parse(url_str) else {
+        return false;
+    };
+    if parsed.scheme() != "https" {
+        return false;
+    }
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    // Reject bare private/loopback IP addresses
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        if ip.is_loopback() || ip.is_unspecified() {
+            return false;
+        }
+        if let std::net::IpAddr::V4(v4) = ip {
+            if v4.is_private() || v4.is_link_local() || v4.is_broadcast() {
+                return false;
+            }
+        }
+    }
+    // Reject known private hostnames
+    let h = host.to_lowercase();
+    if h == "localhost" || h.ends_with(".local") || h.ends_with(".internal") || h.ends_with(".intranet") {
+        return false;
+    }
+    true
+}
+
+/// Escape HTML special characters to prevent injection in email bodies
+fn html_escape_text(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
 }
 
 /// Check if alert severity meets the channel minimum
@@ -273,6 +330,7 @@ async fn send_security_email(
         notification.created_at,
     );
 
+    // HTML-escape user-controlled fields to prevent HTML injection in admin emails
     let html_body = format!(
         r#"<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
 <h2 style="color:#dc2626">{severity_badge}</h2>
@@ -285,12 +343,14 @@ async fn send_security_email(
 </table>
 <p style="color:#666;font-size:12px;margin-top:20px">This is an automated security alert from iPig System.</p>
 </div>"#,
-        notification.alert_type,
-        notification.title,
-        notification
-            .description
-            .as_deref()
-            .unwrap_or("(no description)"),
+        html_escape_text(&notification.alert_type),
+        html_escape_text(&notification.title),
+        html_escape_text(
+            notification
+                .description
+                .as_deref()
+                .unwrap_or("(no description)")
+        ),
         notification.alert_id,
         notification.created_at,
     );

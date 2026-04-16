@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS security_alert_config (
 );
 
 INSERT INTO security_alert_config (key, value, description) VALUES
-    ('auth_rate_limit_threshold',   '10',  'Auth rate limit triggers in window before escalation alert'),
+    -- threshold=5 matches SEC_LOG_THROTTLE (1 event/IP/60s × 5-min window = max 5 events)
+    ('auth_rate_limit_threshold',   '5',   'Auth rate limit triggers in window before escalation alert'),
     ('auth_rate_limit_window_mins', '5',   'Window (minutes) for auth rate limit escalation'),
     ('idor_403_threshold',          '20',  '403 permission denied count before IDOR probe alert'),
     ('idor_403_window_mins',        '5',   'Window (minutes) for IDOR probe detection'),
@@ -34,3 +35,18 @@ CREATE TABLE IF NOT EXISTS security_notification_channels (
     CONSTRAINT chk_channel CHECK (channel IN ('email', 'line', 'webhook')),
     CONSTRAINT chk_min_severity CHECK (min_severity IN ('info', 'warning', 'critical'))
 );
+
+-- Indexes for hot query paths
+-- security_alerts: sweep job and dedup queries filter by status + created_at
+CREATE INDEX IF NOT EXISTS idx_security_alerts_status_created
+    ON security_alerts (status, created_at)
+    WHERE status = 'open';
+
+-- IDOR dedup and brute force dedup query context_data->>'email' / context_data->>'ip'
+CREATE INDEX IF NOT EXISTS idx_security_alerts_context_data
+    ON security_alerts USING gin (context_data);
+
+-- Channel load query filters by is_enabled (60s cached but still pays on cache miss)
+CREATE INDEX IF NOT EXISTS idx_security_notification_channels_enabled
+    ON security_notification_channels (is_enabled)
+    WHERE is_enabled = true;

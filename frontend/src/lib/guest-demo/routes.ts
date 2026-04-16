@@ -33,6 +33,7 @@ import {
 
 const EMPTY_PAGINATED = { data: [], total: 0, page: 1, per_page: 20, total_pages: 0 }
 const EMPTY_ARRAY: unknown[] = []
+const EMPTY_OBJECT = {}
 
 // ============================================
 // 路由映射表（精確匹配 + 前綴匹配）
@@ -50,6 +51,8 @@ const exactRoutes: Record<string, unknown> = {
   // === 計畫書 / AUP ===
   '/protocols': { data: DEMO_PROTOCOLS, total: DEMO_PROTOCOLS.length, page: 1, per_page: 20, total_pages: 1 },
   '/my-projects': DEMO_MY_PROJECTS_WIDGET,
+  // /amendments 回傳 AmendmentListItem[]（plain array）；/my-amendments 為 sidebar badge 用
+  '/amendments': EMPTY_ARRAY,
   '/my-amendments': EMPTY_PAGINATED,
 
   // === HR ===
@@ -58,18 +61,27 @@ const exactRoutes: Record<string, unknown> = {
   '/hr/my-leaves': DEMO_LEAVES,
   '/hr/attendance': DEMO_ATTENDANCE,
   '/hr/overtime': DEMO_OVERTIME,
-  '/hr/annual-leave': EMPTY_PAGINATED,
-  '/hr/training-records': EMPTY_PAGINATED,
+  // These endpoints return plain arrays, not paginated objects
+  '/hr/internal-users': EMPTY_ARRAY,
+  '/hr/staff': EMPTY_ARRAY,
+  '/hr/balances/annual': EMPTY_ARRAY,
+  '/hr/balances/expired-compensation': EMPTY_ARRAY,
   '/hr/dashboard/calendar': DEMO_CALENDAR_EVENTS,
   '/hr/calendar/events': DEMO_CALENDAR_EVENTS,
+  '/hr/calendar/config': { is_connected: false, provider: null, calendar_id: null },
+  '/hr/calendar/status': { last_synced_at: null, is_syncing: false, error: null },
 
   // === ERP ===
   '/products': DEMO_PRODUCTS,
   '/documents': DEMO_DOCUMENTS,
   '/partners': DEMO_PARTNERS,
-  '/inventory': EMPTY_PAGINATED,
+  // /inventory/on-hand and /inventory/ledger return plain arrays
+  '/inventory/on-hand': EMPTY_ARRAY,
+  '/inventory/ledger': EMPTY_ARRAY,
   '/inventory/low-stock': DEMO_LOW_STOCK_ALERTS,
-  '/warehouses': EMPTY_PAGINATED,
+  '/inventory/unassigned': EMPTY_ARRAY,
+  // /warehouses returns plain array (not paginated)
+  '/warehouses': EMPTY_ARRAY,
   '/stock-balances': EMPTY_PAGINATED,
 
   // === 設備 ===
@@ -77,10 +89,17 @@ const exactRoutes: Record<string, unknown> = {
   '/equipment-calibrations': DEMO_CALIBRATIONS,
   '/equipment-annual-plans': DEMO_ANNUAL_PLANS,
   '/equipment-maintenance': EMPTY_PAGINATED,
+  '/equipment-suppliers/summary': EMPTY_ARRAY,
+  '/warehouses/with-shelves': EMPTY_ARRAY,
 
   // === Admin 系統管理 ===
-  '/users': DEMO_USERS,
+  // /users returns plain User[] (not paginated)
+  '/users': DEMO_USERS.data,
+  // /roles and /permissions return plain arrays
   '/roles': DEMO_ROLES,
+  '/permissions': EMPTY_ARRAY,
+  // /admin/system-settings returns Record<string, string> object
+  '/admin/system-settings': EMPTY_OBJECT,
   '/admin/audit/activities': DEMO_AUDIT_LOGS,
   '/admin/audit/login-events': EMPTY_PAGINATED,
   '/admin/audit/sessions': EMPTY_PAGINATED,
@@ -90,37 +109,64 @@ const exactRoutes: Record<string, unknown> = {
     failed_logins_24h: 0, recent_activities: [],
   },
   '/audit-logs': EMPTY_PAGINATED,
-  '/admin/settings': {},
-  '/admin/facilities': EMPTY_PAGINATED,
+  // notification-routing sub-routes return plain arrays
   '/admin/notification-routing': EMPTY_ARRAY,
+  '/admin/notification-routing/event-types': EMPTY_ARRAY,
+  '/admin/notification-routing/roles': EMPTY_ARRAY,
+  '/admin/expiry-config': EMPTY_OBJECT,
   '/admin/treatment-drugs': EMPTY_PAGINATED,
   '/admin/invitations': EMPTY_PAGINATED,
+  // /facilities (not /admin/facilities) returns plain Facility[]
+  '/facilities': EMPTY_ARRAY,
+  '/facilities/species': EMPTY_ARRAY,
+  '/facilities/buildings': EMPTY_ARRAY,
+  '/facilities/zones': EMPTY_ARRAY,
+  '/facilities/pens': EMPTY_ARRAY,
+  '/facilities/departments': EMPTY_ARRAY,
 
   // === QAU ===
-  '/admin/qau/dashboard': DEMO_QAU_DASHBOARD,
-  '/admin/qau/inspections': EMPTY_PAGINATED,
-  '/admin/qau/non-conformances': EMPTY_PAGINATED,
-  '/admin/qau/sop': EMPTY_PAGINATED,
-  '/admin/qau/schedules': EMPTY_PAGINATED,
+  // 後端路由 /qau/* (非 /admin/qau/*)；list 端點回傳 { "data": [...] }，前端取 res.data.data
+  '/qau/inspections': EMPTY_PAGINATED,
+  '/qau/non-conformances': EMPTY_PAGINATED,
+  '/qau/sop': EMPTY_PAGINATED,
+  '/qau/schedules': EMPTY_PAGINATED,
+  // QAU Dashboard 使用 useGuestQuery 自帶 fallback，不依賴此 interceptor，仍設定以防萬一
+  '/qau/dashboard': DEMO_QAU_DASHBOARD,
+  // alerts/recent 回傳 SecurityAlert[]（plain array）
+  '/admin/audit/alerts/recent': EMPTY_ARRAY,
+
+  // === Training ===
+  '/training-records': EMPTY_PAGINATED,
 
   // === Dashboard widgets ===
   '/staff-attendance': DEMO_STAFF_ATTENDANCE_TODAY,
   '/notifications/unread-count': DEMO_NOTIFICATIONS_UNREAD,
   '/amendments/pending-count': DEMO_AMENDMENTS_PENDING,
 
-  // === 報表 ===
-  '/report-stock-on-hand': EMPTY_PAGINATED,
-  '/report-stock-ledger': EMPTY_PAGINATED,
-  '/report-sales-lines': EMPTY_PAGINATED,
-  '/report-purchase-lines': EMPTY_PAGINATED,
+  // === 報表（全部回傳 plain array） ===
+  '/reports/stock-on-hand': EMPTY_ARRAY,
+  '/reports/stock-ledger': EMPTY_ARRAY,
+  '/reports/sales-lines': EMPTY_ARRAY,
+  '/reports/purchase-lines': EMPTY_ARRAY,
+  '/reports/cost-summary': EMPTY_ARRAY,
+  '/reports/blood-test-analysis': EMPTY_ARRAY,
+  '/reports/blood-test-cost': EMPTY_ARRAY,
+  '/reports/purchase-sales-monthly': EMPTY_ARRAY,
+  '/reports/purchase-sales-by-partner': EMPTY_ARRAY,
+  '/reports/purchase-sales-by-category': EMPTY_ARRAY,
   '/accounting-trial-balance': EMPTY_ARRAY,
   '/accounting-profit-loss': EMPTY_ARRAY,
   '/accounting-journal-entries': EMPTY_PAGINATED,
 
   // === 其他 ===
-  '/animal-sources': EMPTY_PAGINATED,
-  '/blood-test-templates': EMPTY_PAGINATED,
+  '/animal-sources': EMPTY_ARRAY,
+  // blood-test-templates returns plain array
+  '/blood-test-templates': EMPTY_ARRAY,
+  '/blood-test-templates/all': EMPTY_ARRAY,
   '/blood-test-panels': EMPTY_ARRAY,
+  '/blood-test-panels/all': EMPTY_ARRAY,
+  '/blood-test-presets': EMPTY_ARRAY,
+  '/blood-test-presets/all': EMPTY_ARRAY,
   '/controlled-documents': EMPTY_PAGINATED,
   '/pens': EMPTY_ARRAY,
   '/staff': EMPTY_ARRAY,
@@ -128,15 +174,22 @@ const exactRoutes: Record<string, unknown> = {
 
 /** 前綴匹配：若 path 以某前綴開頭，回傳對應 demo data */
 const prefixRoutes: [string, unknown][] = [
+  // 動物子資源（/animals/:id/weights 等）— 必須在 /animals/ catch-all 之前，避免回傳 animal object 給 array endpoint
+  ['/animals/demo-a1/', EMPTY_ARRAY],
+  ['/animals/demo-a2/', EMPTY_ARRAY],
+  ['/animals/demo-a3/', EMPTY_ARRAY],
+  ['/animals/demo-a4/', EMPTY_ARRAY],
+  ['/animals/demo-a5/', EMPTY_ARRAY],
   // 單筆查詢 — /animals/:id, /protocols/:id 等
   ['/animals/', DEMO_ANIMALS_PAGINATED.data[0]],
   ['/protocols/', DEMO_PROTOCOLS[0]],
   ['/equipment/', DEMO_EQUIPMENT_PAGINATED.data[0]],
   ['/products/', DEMO_PRODUCTS.data[0]],
   ['/documents/', DEMO_DOCUMENTS.data[0]],
-  ['/users/', DEMO_USERS.data[0]],
-  // Admin sub-routes
-  ['/admin/qau/', EMPTY_PAGINATED],
+  ['/users/', (DEMO_USERS.data as { id: string }[])[0]],
+  // QAU 單筆查詢 — /qau/non-conformances/:id, /qau/inspections/:id 等
+  ['/qau/', EMPTY_PAGINATED],
+  // Admin audit sub-routes（alerts/recent 已有 exact match，其他回傳分頁空）
   ['/admin/audit/', EMPTY_PAGINATED],
   ['/erp/reports', EMPTY_PAGINATED],
 ]

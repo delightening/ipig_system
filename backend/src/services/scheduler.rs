@@ -347,6 +347,7 @@ impl SchedulerService {
             WHERE status = 'open'
               AND severity IN ('critical', 'warning')
               AND created_at < NOW() - INTERVAL '24 hours'
+              AND (last_notified_at IS NULL OR last_notified_at < NOW() - INTERVAL '6 hours')
             ORDER BY created_at ASC
             LIMIT 20
             "#,
@@ -364,6 +365,14 @@ impl SchedulerService {
         );
 
         for row in alerts {
+            // Update last_notified_at before dispatching to prevent duplicate sends on crash/retry
+            sqlx::query(
+                "UPDATE security_alerts SET last_notified_at = NOW(), updated_at = NOW() WHERE id = $1",
+            )
+            .bind(row.id)
+            .execute(db)
+            .await?;
+
             let notification = SecurityNotification {
                 alert_id: row.id,
                 alert_type: row.alert_type,

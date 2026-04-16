@@ -3,6 +3,7 @@
  * 顯示在動物詳情頁 (AnimalDetailPage) 中
  */
 import { useState } from 'react'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
     BloodTestListItem,
@@ -228,10 +229,12 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                         <CardTitle>血液檢查紀錄</CardTitle>
                         <CardDescription>記錄實驗動物的血液檢查結果與檢驗數據</CardDescription>
                     </div>
-                    <Button className="bg-destructive hover:bg-destructive/90 shrink-0" onClick={openCreateForm}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        新增血液檢查
-                    </Button>
+                    <GuestHide>
+                        <Button className="bg-destructive hover:bg-destructive/90 shrink-0" onClick={openCreateForm}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            新增血液檢查
+                        </Button>
+                    </GuestHide>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
@@ -284,21 +287,25 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => openEditForm(test.id)}
-                                            >
-                                                <Edit2 className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-status-error-text"
-                                                onClick={() => setDeleteTarget({ id: test.id, date: test.test_date })}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            <GuestHide>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => openEditForm(test.id)}
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                            </GuestHide>
+                                            <GuestHide>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-status-error-text"
+                                                    onClick={() => setDeleteTarget({ id: test.id, date: test.test_date })}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </GuestHide>
                                         </TableCell>
                                     </TableRow>
                                 ))}

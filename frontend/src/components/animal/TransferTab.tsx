@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { useQuery } from '@tanstack/react-query'
 
 import { transferApi } from '@/lib/api'
@@ -68,13 +69,15 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
         <div className="space-y-6">
             {/* 發起轉讓按鈕 */}
             {canInitiate && !showInitiateForm && (
-                <Button
-                    className="bg-indigo-600 hover:bg-indigo-700"
-                    onClick={() => setShowInitiateForm(true)}
-                >
-                    <Plus className="h-4 w-4 mr-2" />
-                    發起轉讓
-                </Button>
+                <GuestHide>
+                    <Button
+                        className="bg-indigo-600 hover:bg-indigo-700"
+                        onClick={() => setShowInitiateForm(true)}
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        發起轉讓
+                    </Button>
+                </GuestHide>
             )}
 
             {/* 發起表單 */}

@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { Plus, User, AlertTriangle } from 'lucide-react'
 
+import { useAuthStore } from '@/stores/auth'
 import { useTrainingRecords } from './hooks/useTrainingRecords'
 import { TrainingStatsCards } from './components/TrainingStatsCards'
 import { TrainingRecordsTab } from './components/TrainingRecordsTab'
@@ -19,6 +20,7 @@ import { TrainingExpiringTab } from './components/TrainingExpiringTab'
 import { TrainingFormDialog } from './components/TrainingFormDialog'
 
 export function TrainingRecordsPage() {
+  const isGuestUser = useAuthStore((s) => s.isGuest)()
   const {
     canManage,
     canManageAll,
@@ -57,8 +59,8 @@ export function TrainingRecordsPage() {
       <PageHeader
         title="人員訓練紀錄"
         description="GLP 合規：管理人員訓練與證照有效期限"
-        actions={canManage ? (
-          <Button size="sm" onClick={openCreateDialog}>
+        actions={(canManage || isGuestUser) ? (
+          <Button size="sm" onClick={isGuestUser ? undefined : openCreateDialog} disabled={isGuestUser} title={isGuestUser ? '訪客模式' : undefined}>
             <Plus className="h-4 w-4 mr-2" />
             新增訓練紀錄
           </Button>
@@ -78,6 +80,7 @@ export function TrainingRecordsPage() {
           <TrainingRecordsTab
             canManage={canManage}
             canManageAll={canManageAll}
+            isGuestUser={isGuestUser}
             records={records}
             isLoading={isLoading}
             totalPages={totalPages}

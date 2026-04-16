@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { useTableSort } from '@/hooks/useTableSort'
 import {
@@ -159,13 +160,15 @@ export function VetRecommendationsTab({ animalId }: VetRecommendationsTabProps) 
                 <div className="flex items-center gap-2 shrink-0">
                     <span className="text-sm text-muted-foreground">共 {records?.length ?? 0} 筆</span>
                     {!showForm && (
-                        <Button
-                            onClick={() => { setShowForm(true); setEditingId(null); setFormData({ ...emptyForm }) }}
-                            className="bg-status-success-solid hover:bg-green-700"
-                        >
-                            <Plus className="h-4 w-4 mr-1" />
-                            新增
-                        </Button>
+                        <GuestHide>
+                            <Button
+                                onClick={() => { setShowForm(true); setEditingId(null); setFormData({ ...emptyForm }) }}
+                                className="bg-status-success-solid hover:bg-green-700"
+                            >
+                                <Plus className="h-4 w-4 mr-1" />
+                                新增
+                            </Button>
+                        </GuestHide>
                     )}
                 </div>
             </CardHeader>
@@ -268,28 +271,30 @@ export function VetRecommendationsTab({ animalId }: VetRecommendationsTabProps) 
                                         {r.suggested_treatment || '-'}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                type="button"
-                                                onClick={() => startEdit(r)}
-                                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                                title="編輯"
-                                            >
-                                                <Pencil className="h-3.5 w-3.5" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (confirm('確定要刪除此筆建議？')) {
-                                                        deleteMutation.mutate(r.id)
-                                                    }
-                                                }}
-                                                className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                                title="刪除"
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
-                                        </div>
+                                        <GuestHide>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => startEdit(r)}
+                                                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                                    title="編輯"
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (confirm('確定要刪除此筆建議？')) {
+                                                            deleteMutation.mutate(r.id)
+                                                        }
+                                                    }}
+                                                    className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                    title="刪除"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        </GuestHide>
                                     </TableCell>
                                 </TableRow>
                             ))

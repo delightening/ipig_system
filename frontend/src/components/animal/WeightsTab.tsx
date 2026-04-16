@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { deleteResource, AnimalWeight } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -109,10 +110,12 @@ export const WeightsTab = React.memo(function WeightsTab({
                 顯示系統號
               </label>
             )}
-            <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              新增紀錄
-            </Button>
+            <GuestHide>
+              <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowAddDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                新增紀錄
+              </Button>
+            </GuestHide>
           </div>
         </CardHeader>
         <CardContent>
@@ -144,17 +147,19 @@ export const WeightsTab = React.memo(function WeightsTab({
                     <TableCell>{new Date(weight.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" title={`系統號: ${weight.id} - 點擊編輯`}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteTarget(weight.id)}
-                          title={`系統號: ${weight.id} - 點擊刪除`}
-                        >
-                          <Trash2 className="h-4 w-4 text-status-error-solid" />
-                        </Button>
+                        <GuestHide>
+                          <Button variant="ghost" size="icon" title={`系統號: ${weight.id} - 點擊編輯`}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteTarget(weight.id)}
+                            title={`系統號: ${weight.id} - 點擊刪除`}
+                          >
+                            <Trash2 className="h-4 w-4 text-status-error-solid" />
+                          </Button>
+                        </GuestHide>
                       </div>
                     </TableCell>
                   </TableRow>

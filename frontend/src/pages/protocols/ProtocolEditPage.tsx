@@ -70,7 +70,8 @@ export function ProtocolEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { user } = useAuthStore()
+  const { user, isGuest } = useAuthStore()
+  const isGuestUser = isGuest()
   const isNew = !id
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -314,29 +315,31 @@ export function ProtocolEditPage() {
           title={isNew ? t('aup.newProtocol') : t('aup.editProtocol')}
           className="flex-1"
           actions={
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => handleSave()} disabled={createMutation.isPending || updateMutation.isPending}>
-                {createMutation.isPending || updateMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                {t('aup.saveDraft')}
-              </Button>
-              {!isNew && id && (
-                <AIReviewButton protocolId={id} />
-              )}
-              {!isNew && (
-                <Button size="sm" onClick={handleSubmit} disabled={submitMutation.isPending || isValidating}>
-                  {(submitMutation.isPending || isValidating) ? (
+            !isGuestUser && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => handleSave()} disabled={createMutation.isPending || updateMutation.isPending}>
+                  {createMutation.isPending || updateMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Send className="mr-2 h-4 w-4" />
+                    <Save className="mr-2 h-4 w-4" />
                   )}
-                  {t('aup.submitForReview')}
+                  {t('aup.saveDraft')}
                 </Button>
-              )}
-            </div>
+                {!isNew && id && (
+                  <AIReviewButton protocolId={id} />
+                )}
+                {!isNew && (
+                  <Button size="sm" onClick={handleSubmit} disabled={submitMutation.isPending || isValidating}>
+                    {(submitMutation.isPending || isValidating) ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="mr-2 h-4 w-4" />
+                    )}
+                    {t('aup.submitForReview')}
+                  </Button>
+                )}
+              </div>
+            )
           }
         />
       </div>

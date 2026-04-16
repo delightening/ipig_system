@@ -72,9 +72,20 @@ export function useSidebarNav() {
   })
 
   const filteredNavItems = useMemo(() => {
-    // Guest 全部顯示，不過濾
+    // Guest：隱藏指定項目（修正審核、使用者管理、角色權限、系統設定）
     const isGuestUser = user?.roles?.includes('GUEST')
-    if (isGuestUser) return sortedNavItems
+    if (isGuestUser) {
+      const guestHiddenTitles = new Set([
+        '修正審核', '使用者管理', '角色權限', '系統設定',
+      ])
+      return sortedNavItems
+        .map(item => {
+          if (!item.children) return item
+          const filtered = item.children.filter(c => !guestHiddenTitles.has(c.title))
+          return filtered.length > 0 ? { ...item, children: filtered } : null
+        })
+        .filter(Boolean) as NavItem[]
+    }
 
     // R19-9: 客戶（僅有 PI 角色）只顯示「我的計劃書」
     const isClientOnly = user?.roles?.length === 1 && user.roles[0] === 'PI'

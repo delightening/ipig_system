@@ -318,7 +318,7 @@ pub async fn delete_animal(
     Path(id): Path<Uuid>,
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "animal.animal.edit");
+    require_permission!(current_user, "animal.animal.delete");
     access::require_animal_access(&state.db, &current_user, id).await?;
     req.validate()?;
 

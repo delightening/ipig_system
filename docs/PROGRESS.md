@@ -185,6 +185,39 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-16 權限系統審查：模組交叉驗證（Problem 5）
+
+- ✅ **`animal.info.assign` 遺漏**：`batch_assign_animals` handler 使用此權限但 startup 無任何角色擁有；決策由 IACUC_STAFF 執行批次分配，補入 IACUC_STAFF 清單
+- ✅ **Amendment 模組澄清**：14 個 handler 均有存取控制（DB business logic + `has_permission()` + `require_permission!` 混用），系統安全；`amendment.read`/`amendment.review` 確認為反向孤兒（handler 使用 `aup.protocol.*` 作為代理），保留分配不改
+- ✅ **ERP 細粒度權限確認冗餘**：DocType enum（PO/GRN/PR/SO/DO/TR/STK/ADJ/RM/SR/RTN）全部透過 `erp.document.*` 統一處理；`erp.purchase.*`、`erp.grn.*`、`erp.stocktake.*`、`erp.stock.in/out/adjust/transfer`、`erp.report.export/download` 等均為冗餘佔位，handler 不使用，保留分配供未來細化
+- ✅ **`aup.protocol.assign_co_editor` / `aup.coeditor.assign` 確認**：handler 使用 `aup.review.assign` 作為代理，兩者為反向孤兒，保留 IACUC_STAFF 分配不改（兼容性考量）
+
+### 2026-04-16 權限系統審查：Handler 掃描與 Bug 修正（Problem 4）
+
+- ✅ **`animal.animal.view` 命名 bug**：`pdf_export.rs:174 export_pen_report` 使用不存在的 permission code `animal.animal.view`，修正為 `animal.animal.view_all`；原本所有非 admin 均被 403 擋住
+- ✅ **`animal.record.delete` 遺漏**：EXPERIMENT_STAFF / INTERN 可新增/編輯但無法刪除任何動物紀錄（血檢、觀察、手術、體重、疫苗）；補入兩角色的 startup 分配
+- ✅ **admin 專屬確認**：`admin.treatment_drug.*`（用藥清單）、`erp.partner.delete`（刪除夥伴）、GLP 合規模組（DMS / 風險 / 變更控制 / 環境監控 / 能力評鑑）確認 admin 專屬，無需對其他角色開放
+- ✅ **反向孤兒記錄**：`audit.timeline.view`、`audit.alerts.view`、`audit.alerts.manage` 分配給 ADMIN_STAFF 但無對應 handler，標記為未來功能預留，暫不處理
+
+### 2026-04-16 權限系統審查：角色清理與定位修正（Problem 3）
+
+- ✅ **TEST_FACILITY_MANAGEMENT 移除**：此角色定位等同 admin（機構管理階層需完整管理權），決策改為直接使用 admin 角色；migration 029 清除其 role_permissions 並刪除角色本體；startup/permissions.rs 同步移除
+- ✅ **STUDY_DIRECTOR 確認**：定位為「PI + GLP 簽核」— 擁有 PI 完整計畫管理權限 + `glp.study_report.sign` + 研究報告 / 配製紀錄管理；動物範圍維持 `view_project`（僅自己計畫），無需變更
+- ✅ **QAU 佔位保留**：`qau.*` 權限為未來 QAU 模組預留，角色與分配不動，待功能開發時逐一驗證
+
+### 2026-04-16 權限系統審查：動物模組修正（Problem 2）
+
+- ✅ **孤兒權限清理**：migration 028 從所有角色移除 `animal.animal.assign`（已被 `animal.info.assign` 取代）與 `animal.info.edit`（已被 `animal.animal.edit` 取代）
+- ✅ **Handler 命名 bug 修正**：`delete_animal_source` / `create_animal_source` / `update_animal_source` 改用 `animal.source.manage`；`delete_animal` 改用 `animal.animal.delete`（不再誤用 `animal.animal.edit`）
+- ✅ **admin-only 刪除**：`animal.animal.delete` 從 EXPERIMENT_STAFF / INTERN 移除（migration 028）；改為僅 admin 持有（`ensure_required_permissions` 補回）
+- ✅ **遺漏權限補齊**：EXPERIMENT_STAFF / INTERN 補入 `animal.pathology.view`、`animal.pathology.upload`、`animal.record.copy`、`animal.record.emergency`、`animal.vet.upload_attachment`（這些 handler 有使用但 startup 未分配）
+
+### 2026-04-16 Bug 修復：experiment_staff 欄位頁空白
+
+- ✅ **根本原因**：`/api/v1/facilities/*` GET 端點要求 `facility.read` 權限，但該權限從未定義或分配給任何非 admin 角色，導致 `experiment_staff` 存取棟/區/欄位資料時全部回傳 403
+- ✅ **修復策略**：移除 facility GET 端點（list/get）的 `facility.read` 限制，改為任何已登入使用者皆可讀取設施靜態配置；POST/PUT/DELETE 仍保留 `facility.manage` 管理權限
+- ✅ **影響端點**：`GET /facilities`、`GET /facilities/buildings`、`GET /facilities/zones`、`GET /facilities/pens`、`GET /facilities/species`、`GET /facilities/departments` 及各自的 `/{id}`
+
 ### 2026-04-15 R22 攻擊偵測與主動告警（18 項全部完成）
 
 - ✅ **被動記錄（22-A）**：rate limit 4 tier / AI key 3 事件 / 403 response middleware / account lockout 全寫入 `user_activity_logs`；新增 `AuditService::log_security_event()` + 10 個 `SEC_EVENT_*` 常數

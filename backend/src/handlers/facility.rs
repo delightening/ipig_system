@@ -1,5 +1,9 @@
 // Facility Handlers
 // 包含：Species, Facility, Building, Zone, Pen, Department
+//
+// 權限設計：
+//   GET（查詢）：任何已登入使用者皆可讀取設施結構（棟/區/欄位為靜態配置資料）
+//   POST/PUT/DELETE（管理）：需要 facility.manage 權限
 
 use axum::{
     extract::{Path, Query, State},
@@ -30,9 +34,7 @@ use crate::{
 #[utoipa::path(get, path = "/api/v1/facilities/species", responses((status = 200, description = "物種清單", body = Vec<Species>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_species(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<Species>>> {
-    require_permission!(current_user, "facility.read");
     let species = FacilityService::list_species(&state.db).await?;
     Ok(Json(species))
 }
@@ -41,10 +43,8 @@ pub async fn list_species(
 #[utoipa::path(get, path = "/api/v1/facilities/species/{id}", params(("id" = Uuid, Path, description = "物種 ID")), responses((status = 200, description = "物種資訊", body = Species)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_species(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Species>> {
-    require_permission!(current_user, "facility.read");
     let species = FacilityService::get_species(&state.db, id).await?;
     Ok(Json(species))
 }
@@ -94,9 +94,7 @@ pub async fn delete_species(
 #[utoipa::path(get, path = "/api/v1/facilities", responses((status = 200, description = "設施清單", body = Vec<Facility>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_facilities(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<Facility>>> {
-    require_permission!(current_user, "facility.read");
     let facilities = FacilityService::list_facilities(&state.db).await?;
     Ok(Json(facilities))
 }
@@ -105,10 +103,8 @@ pub async fn list_facilities(
 #[utoipa::path(get, path = "/api/v1/facilities/{id}", params(("id" = Uuid, Path, description = "設施 ID")), responses((status = 200, description = "設施資訊", body = Facility)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_facility(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Facility>> {
-    require_permission!(current_user, "facility.read");
     let facility = FacilityService::get_facility(&state.db, id).await?;
     Ok(Json(facility))
 }
@@ -163,10 +159,8 @@ pub struct BuildingQuery {
 #[utoipa::path(get, path = "/api/v1/facilities/buildings", responses((status = 200, description = "棟舍清單", body = Vec<BuildingWithFacility>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_buildings(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<BuildingQuery>,
 ) -> Result<Json<Vec<BuildingWithFacility>>> {
-    require_permission!(current_user, "facility.read");
     let buildings = FacilityService::list_buildings(&state.db, params.facility_id).await?;
     Ok(Json(buildings))
 }
@@ -175,10 +169,8 @@ pub async fn list_buildings(
 #[utoipa::path(get, path = "/api/v1/facilities/buildings/{id}", params(("id" = Uuid, Path, description = "棟舍 ID")), responses((status = 200, description = "棟舍資訊", body = Building)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_building(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Building>> {
-    require_permission!(current_user, "facility.read");
     let building = FacilityService::get_building(&state.db, id).await?;
     Ok(Json(building))
 }
@@ -233,10 +225,8 @@ pub struct ZoneQuery {
 #[utoipa::path(get, path = "/api/v1/facilities/zones", responses((status = 200, description = "區域清單", body = Vec<ZoneWithBuilding>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_zones(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<ZoneQuery>,
 ) -> Result<Json<Vec<ZoneWithBuilding>>> {
-    require_permission!(current_user, "facility.read");
     let zones = FacilityService::list_zones(&state.db, params.building_id).await?;
     Ok(Json(zones))
 }
@@ -245,10 +235,8 @@ pub async fn list_zones(
 #[utoipa::path(get, path = "/api/v1/facilities/zones/{id}", params(("id" = Uuid, Path, description = "區域 ID")), responses((status = 200, description = "區域資訊", body = Zone)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_zone(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Zone>> {
-    require_permission!(current_user, "facility.read");
     let zone = FacilityService::get_zone(&state.db, id).await?;
     Ok(Json(zone))
 }
@@ -298,10 +286,8 @@ pub async fn delete_zone(
 #[utoipa::path(get, path = "/api/v1/facilities/pens", responses((status = 200, description = "欄位清單", body = Vec<PenDetails>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_pens(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<PenQuery>,
 ) -> Result<Json<Vec<PenDetails>>> {
-    require_permission!(current_user, "facility.read");
     let pens = FacilityService::list_pens(&state.db, &params).await?;
     Ok(Json(pens))
 }
@@ -310,10 +296,8 @@ pub async fn list_pens(
 #[utoipa::path(get, path = "/api/v1/facilities/pens/{id}", params(("id" = Uuid, Path, description = "欄位 ID")), responses((status = 200, description = "欄位資訊", body = Pen)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_pen(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Pen>> {
-    require_permission!(current_user, "facility.read");
     let pen = FacilityService::get_pen(&state.db, id).await?;
     Ok(Json(pen))
 }
@@ -374,9 +358,7 @@ pub async fn delete_pen(
 #[utoipa::path(get, path = "/api/v1/facilities/departments", responses((status = 200, description = "部門清單", body = Vec<DepartmentWithManager>)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn list_departments(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<DepartmentWithManager>>> {
-    require_permission!(current_user, "facility.read");
     let departments = FacilityService::list_departments(&state.db).await?;
     Ok(Json(departments))
 }
@@ -385,10 +367,8 @@ pub async fn list_departments(
 #[utoipa::path(get, path = "/api/v1/facilities/departments/{id}", params(("id" = Uuid, Path, description = "部門 ID")), responses((status = 200, description = "部門資訊", body = Department)), tag = "設施管理", security(("bearer" = [])))]
 pub async fn get_department(
     State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Department>> {
-    require_permission!(current_user, "facility.read");
     let department = FacilityService::get_department(&state.db, id).await?;
     Ok(Json(department))
 }

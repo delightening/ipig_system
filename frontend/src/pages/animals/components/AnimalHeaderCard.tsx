@@ -16,6 +16,7 @@ import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 
 import { detailStatusColors, getPenLocationDisplay } from '../constants'
+import { GuestHide } from '@/components/ui/guest-hide'
 
 interface AnimalHeaderCardProps {
   animalId: string
@@ -110,14 +111,16 @@ function PenLocationField({ animal, animalId, penLocation }: { animal: Animal; a
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => setEditing(true)}
-      className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-500 text-white text-sm font-medium hover:bg-gray-600 transition-colors"
-      title="點擊編輯欄號"
-    >
-      {penLocation}
-    </button>
+    <GuestHide>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-500 text-white text-sm font-medium hover:bg-gray-600 transition-colors"
+        title="點擊編輯欄號"
+      >
+        {penLocation}
+      </button>
+    </GuestHide>
   )
 }
 
@@ -291,14 +294,16 @@ function StatusBadge({
 
   if (animal.status === 'unassigned') {
     return (
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-500 text-white text-sm font-medium hover:bg-gray-600 transition-colors"
-        title={'\u9EDE\u64CA\u5206\u914D\u8A66\u9A57'}
-      >
-        {statusName}
-      </button>
+      <GuestHide>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-500 text-white text-sm font-medium hover:bg-gray-600 transition-colors"
+          title={'\u9EDE\u64CA\u5206\u914D\u8A66\u9A57'}
+        >
+          {statusName}
+        </button>
+      </GuestHide>
     )
   }
 

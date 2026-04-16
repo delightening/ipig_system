@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { deleteResource, AnimalVaccination } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -88,10 +89,12 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
             <CardTitle>疫苗/驅蟲紀錄</CardTitle>
             <CardDescription>記錄疫苗接種與驅蟲紀錄</CardDescription>
           </div>
-          <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowAddDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            新增紀錄
-          </Button>
+          <GuestHide>
+            <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              新增紀錄
+            </Button>
+          </GuestHide>
         </CardHeader>
         <CardContent>
           {!vaccinations || vaccinations.length === 0 ? (
@@ -122,17 +125,19 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
                     <TableCell>{new Date(vac.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" aria-label="編輯">
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteTarget(vac.id)}
-                          aria-label="刪除"
-                        >
-                          <Trash2 className="h-4 w-4 text-status-error-solid" />
-                        </Button>
+                        <GuestHide>
+                          <Button variant="ghost" size="icon" aria-label="編輯">
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteTarget(vac.id)}
+                            aria-label="刪除"
+                          >
+                            <Trash2 className="h-4 w-4 text-status-error-solid" />
+                          </Button>
+                        </GuestHide>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -43,7 +43,6 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
-        tag: "ipig-api"
 
   # Override web to use GHCR image（Critical 3：生產綁定 localhost，對外由反向代理提供）
   web:

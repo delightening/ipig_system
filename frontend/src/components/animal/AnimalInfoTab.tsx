@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { Edit2, FileEdit } from 'lucide-react'
+import { GuestHide } from '@/components/ui/guest-hide'
 import { RequestCorrectionDialog } from './RequestCorrectionDialog'
 
 const getPenLocationDisplay = (animal: { status: AnimalStatus; pen_location?: string | null }) => {
@@ -31,22 +32,24 @@ export function AnimalInfoTab({ animal }: AnimalInfoTabProps) {
           <CardTitle>動物資料</CardTitle>
           <CardDescription>動物基本資料</CardDescription>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setCorrectionDialogOpen(true)}
-            className="text-status-warning-text border-status-warning-border hover:bg-status-warning-bg"
-          >
-            <FileEdit className="h-4 w-4 mr-2" />
-            申請修正
-          </Button>
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white" asChild>
-            <Link to={`/animals/${animal.id}/edit`}>
-              <Edit2 className="h-4 w-4 mr-2" />
-              編輯
-            </Link>
-          </Button>
-        </div>
+        <GuestHide>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCorrectionDialogOpen(true)}
+              className="text-status-warning-text border-status-warning-border hover:bg-status-warning-bg"
+            >
+              <FileEdit className="h-4 w-4 mr-2" />
+              申請修正
+            </Button>
+            <Button className="bg-purple-600 hover:bg-purple-700 text-white" asChild>
+              <Link to={`/animals/${animal.id}/edit`}>
+                <Edit2 className="h-4 w-4 mr-2" />
+                編輯
+              </Link>
+            </Button>
+          </div>
+        </GuestHide>
       </CardHeader>
 
       <RequestCorrectionDialog
