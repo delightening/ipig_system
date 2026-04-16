@@ -4,6 +4,70 @@
 import type { FormData } from './constants'
 import type { TFunction } from 'i18next'
 
+export interface EmptyFieldResult {
+    section: string  // sectionKey e.g. 'basic', 'purpose', 'design'
+    label: string    // 翻譯後的欄位名稱
+}
+
+/**
+ * 找出下一個未填寫的必填欄位
+ * @returns { section, label } 或 null（全部已填）
+ */
+export function findNextEmptyField(formData: FormData, t: TFunction): EmptyFieldResult | null {
+    const { basic, purpose, items } = formData.working_content
+    const { design } = formData.working_content
+
+    // Section 1 - 基本資料
+    if (!formData.title.trim()) return { section: 'basic', label: t('aup.basic.studyTitle') }
+    if (!formData.start_date || !formData.end_date) return { section: 'basic', label: t('aup.basic.expectedPeriod') }
+    if (!basic.project_type?.trim()) return { section: 'basic', label: t('aup.basic.projectType') }
+    if (!basic.project_category?.trim()) return { section: 'basic', label: t('aup.basic.projectCategory') }
+    if (!basic.pi.name?.trim()) return { section: 'basic', label: t('aup.basic.pi') + ' - ' + t('aup.basic.name') }
+    if (!basic.pi.email?.trim()) return { section: 'basic', label: t('aup.basic.pi') + ' - ' + t('aup.basic.email') }
+    if (!basic.pi.phone?.trim()) return { section: 'basic', label: t('aup.basic.pi') + ' - ' + t('aup.basic.phone') }
+    if (!basic.pi.address?.trim()) return { section: 'basic', label: t('aup.basic.pi') + ' - ' + t('aup.basic.address') }
+    if (!basic.sponsor.name?.trim()) return { section: 'basic', label: t('aup.basic.sponsor') + ' - ' + t('aup.basic.organizationName') }
+    if (!basic.sponsor.contact_person?.trim()) return { section: 'basic', label: t('aup.basic.sponsor') + ' - ' + t('aup.basic.contactPerson') }
+    if (!basic.sponsor.contact_phone?.trim()) return { section: 'basic', label: t('aup.basic.sponsor') + ' - ' + t('aup.basic.contactPhone') }
+    if (!basic.sponsor.contact_email?.trim()) return { section: 'basic', label: t('aup.basic.sponsor') + ' - ' + t('aup.basic.contactEmail') }
+    if (!basic.facility.title?.trim()) return { section: 'basic', label: t('aup.basic.facilityName') }
+    if (!basic.housing_location?.trim()) return { section: 'basic', label: t('aup.basic.housingLocation') }
+
+    // Section 2 - 研究目的
+    if (!purpose.abstract?.trim()) return { section: 'purpose', label: t('aup.purpose.abstractLabel') }
+    if (!purpose.significance?.trim()) return { section: 'purpose', label: t('aup.purpose.significance') }
+    if (!purpose.replacement.rationale?.trim()) return { section: 'purpose', label: t('aup.purpose.liveAnimalNecessity') }
+    if (!purpose.replacement.alt_search.platforms?.length) return { section: 'purpose', label: t('aup.purpose.altSearchLabel') }
+    if (!purpose.replacement.alt_search.keywords?.trim()) return { section: 'purpose', label: t('aup.purpose.searchKeywords') }
+    if (!purpose.replacement.alt_search.conclusion?.trim()) return { section: 'purpose', label: t('aup.purpose.searchConclusion') }
+    if (!purpose.duplicate.status) return { section: 'purpose', label: t('aup.purpose.duplicateExperiment') }
+    if (!purpose.reduction.design?.trim()) return { section: 'purpose', label: t('aup.purpose.reductionDesign') }
+    if (!purpose.refinement_description?.trim()) return { section: 'purpose', label: t('aup.purpose.refinementLabel') }
+
+    // Section 3 - 試驗物質
+    if (items.use_test_item === null) return { section: 'items', label: t('aup.items.useTestItemLabel') }
+
+    // Section 4 - 研究設計
+    if (!design.procedures?.trim()) return { section: 'design', label: t('aup.design.proceduresLabel') }
+    if (!design.pain.category?.trim()) return { section: 'design', label: t('aup.design.painCategoryLabel') }
+    if (!design.pain.category_items?.length) return { section: 'design', label: t('aup.design.painCategoryLabel') }
+    if (!design.pain.distress_signs?.length) return { section: 'design', label: t('aup.design.distressSignsLabel') }
+    if (!design.pain.relief_measures?.length) return { section: 'design', label: t('aup.design.reliefMeasuresLabel') }
+    if (!design.endpoints.experimental_endpoint?.trim()) return { section: 'design', label: t('aup.design.experimentalEndpoint') }
+    if (!design.endpoints.humane_endpoint?.trim()) return { section: 'design', label: t('aup.design.humaneEndpoint') }
+
+    // Section 7 - 動物資料
+    const { animals } = formData.working_content
+    if (!animals.animals?.length) return { section: 'animals', label: t('aup.animals.validation.animalsRequired') }
+    for (const animal of animals.animals) {
+        if (!animal.species?.trim()) return { section: 'animals', label: t('aup.section7') }
+        if (!animal.sex?.trim()) return { section: 'animals', label: t('aup.section7') }
+        if (!animal.number || animal.number <= 0) return { section: 'animals', label: t('aup.section7') }
+    }
+
+    return null
+}
+
 /**
  * 驗證必填字段
  * @returns 錯誤訊息字串，若通過則回傳 null

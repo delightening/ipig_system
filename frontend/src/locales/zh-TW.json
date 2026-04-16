@@ -696,6 +696,8 @@
     "editProtocol": "編輯計畫書",
     "saveDraft": "儲存草稿",
     "submitForReview": "送出審查",
+    "nextEmptyField": "下一個必填空白欄位",
+    "allFieldsFilled": "所有必填欄位已填寫",
     "saving": "儲存中...",
     "submitting": "送出中...",
     "sections": "章節",

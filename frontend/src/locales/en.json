@@ -695,6 +695,8 @@
         "editProtocol": "Edit Protocol",
         "saveDraft": "Save Draft",
         "submitForReview": "Submit for Review",
+        "nextEmptyField": "Next required empty field",
+        "allFieldsFilled": "All required fields filled",
         "saving": "Saving...",
         "submitting": "Submitting...",
         "sections": "Sections",

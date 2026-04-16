@@ -14,6 +14,7 @@ import { toast } from '@/components/ui/use-toast'
 import { useAuthStore } from '@/stores/auth'
 import {
   ArrowLeft,
+  ArrowRight,
   Save,
   Send,
   Loader2,
@@ -27,7 +28,7 @@ import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import { ProtocolFormData } from '@/types/protocol'
 import type { ValidationResult } from '@/types/aiReview'
 import { defaultFormData, sectionKeys } from './protocol-edit/constants'
-import { validateRequiredFields } from './protocol-edit/validation'
+import { validateRequiredFields, findNextEmptyField } from './protocol-edit/validation'
 import { mergeProtocolData } from './protocol-edit/mergeProtocolData'
 import { AddPersonnelDialog } from './protocol-edit/AddPersonnelDialog'
 import { ValidationPanel } from '@/components/protocol/ValidationPanel'
@@ -380,6 +381,24 @@ export function ProtocolEditPage() {
                 </button>
               ))}
             </nav>
+            {(() => {
+              const next = findNextEmptyField(formData, t)
+              if (!next) return null
+              return (
+                <div className="mt-3 px-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-between text-left"
+                    onClick={() => setActiveSection(next.section)}
+                  >
+                    <span className="truncate text-xs">{t('aup.nextEmptyField')}</span>
+                    <ArrowRight className="h-3.5 w-3.5 flex-shrink-0 ml-1" />
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground mt-1 px-1 truncate">{next.label}</p>
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
 
