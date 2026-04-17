@@ -12,10 +12,13 @@ import {
   UserResetPasswordDialog,
 } from './components/UserFormDialogs'
 import { ConfirmPasswordModal } from '@/components/auth/ConfirmPasswordModal'
-import { confirmPassword } from '@/lib/api'
+import { confirmPassword, isAxiosError } from '@/lib/api'
+import { useToast } from '@/components/ui/use-toast'
+import type { ApiErrorPayload } from '@/types/error'
 
 export function UsersPage() {
   const mgmt = useUserManagement()
+  const { toast } = useToast()
 
   return (
     <div className="space-y-6">
@@ -117,11 +120,23 @@ export function UsersPage() {
         }}
         onConfirmDelete={() => mgmt.setShowReauthForDelete(true)}
         onReauthSubmit={async (password) => {
+          // 密碼驗證失敗（401）→ 讓錯誤冒泡到 ConfirmPasswordModal 顯示「密碼錯誤」
           const { reauth_token } = await confirmPassword(password)
           if (!mgmt.userToDelete) return
-          await mgmt.deleteUserWithReauth(mgmt.userToDelete.id, reauth_token)
-          mgmt.setShowDeleteDialog(false)
-          mgmt.setUserToDelete(null)
+          const targetId = mgmt.userToDelete.id
+          try {
+            await mgmt.deleteUserWithReauth(targetId, reauth_token)
+            mgmt.setShowDeleteDialog(false)
+            mgmt.setUserToDelete(null)
+          } catch (err) {
+            // 刪除失敗（非密碼問題），關閉刪除對話框並 toast 實際錯誤
+            mgmt.setShowDeleteDialog(false)
+            const message = isAxiosError(err)
+              ? (err.response?.data as ApiErrorPayload | undefined)?.error?.message ?? '刪除使用者失敗'
+              : '刪除使用者失敗'
+            toast({ title: '刪除失敗', description: message, variant: 'destructive' })
+            // 不 re-throw：密碼已確認，讓 ConfirmPasswordModal 正常關閉
+          }
         }}
       />
 
