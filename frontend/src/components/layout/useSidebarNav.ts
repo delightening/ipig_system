@@ -143,7 +143,7 @@ export function useSidebarNav() {
         }
         return item
       })
-  }, [sortedNavItems, hasRole, hasPermission, user, pendingAmendmentsCount])
+  }, [sortedNavItems, hasRole, hasPermission, user, pendingAmendmentsCount, isGuest])
 
   const isActive = (href: string) => {
     if (href.includes('?')) {
