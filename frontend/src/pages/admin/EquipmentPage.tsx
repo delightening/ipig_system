@@ -345,12 +345,17 @@ export function EquipmentPage() {
 
   const createMaintMutation = useMutation({
     mutationFn: (data: MaintenanceFormData) => {
-      const { status: _, completed_at, repair_content, repair_partner_id, ...rest } = data
       return api.post('/equipment-maintenance', {
-        ...rest,
-        completed_at: completed_at || null,
-        repair_content: repair_content || null,
-        repair_partner_id: repair_partner_id || null,
+        equipment_id: data.equipment_id,
+        maintenance_type: data.maintenance_type,
+        reported_at: data.reported_at,
+        problem_description: data.problem_description,
+        maintenance_items: data.maintenance_items,
+        performed_by: data.performed_by,
+        notes: data.notes,
+        completed_at: data.completed_at || null,
+        repair_content: data.repair_content || null,
+        repair_partner_id: data.repair_partner_id || null,
       })
     },
     onSuccess: () => {

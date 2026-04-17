@@ -15,7 +15,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 
-import { detailStatusColors, getPenLocationDisplay } from '../constants'
+import { getPenLocationDisplay } from '../constants'
 import { GuestHide } from '@/components/ui/guest-hide'
 
 interface AnimalHeaderCardProps {

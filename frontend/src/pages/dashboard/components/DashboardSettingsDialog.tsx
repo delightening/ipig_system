@@ -50,7 +50,7 @@ export function DashboardSettingsDialog({
     if (open) {
       setTempLayout([...currentLayout])
     }
-  }, [open])
+  }, [open, currentLayout])
 
   const toggleWidgetVisibility = (widgetId: string) => {
     setTempLayout((prev) =>

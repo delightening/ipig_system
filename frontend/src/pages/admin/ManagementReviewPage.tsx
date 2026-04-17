@@ -19,7 +19,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -41,7 +40,6 @@ const STATUS_COLORS: Record<string, string> = {
 const INITIAL_FORM = { title: '', review_date: '', agenda: '' }
 
 export function ManagementReviewPage() {
-  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('glp.management_review.manage')
