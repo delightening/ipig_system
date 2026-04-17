@@ -152,10 +152,10 @@ export function InventoryPage() {
                 )}
                 <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">現有量</SortableTableHead>
                 <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">單位</SortableTableHead>
-                <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">平均成本</SortableTableHead>
-                <TableHead className="text-right font-semibold">庫存價值</TableHead>
-                <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">安全庫存</SortableTableHead>
-                <SortableTableHead sortKey="last_updated_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">最後異動時間</SortableTableHead>
+                <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold hidden md:table-cell">平均成本</SortableTableHead>
+                <TableHead className="text-right font-semibold hidden md:table-cell">庫存價值</TableHead>
+                <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold hidden md:table-cell">安全庫存</SortableTableHead>
+                <SortableTableHead sortKey="last_updated_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold hidden lg:table-cell">最後異動時間</SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -524,24 +524,44 @@
 /* 手機端 Dialog 適配 (Mobile Dialog) */
 /* ==================== */
 
-/* 手機端字體放大：≤768px 統一 20px */
+/* ── 字體大小 (Font Size Preference) ── */
+
+/* 標準（預設）：桌面 16px，行動 20px */
 @media (max-width: 768px) {
   html {
     font-size: 20px;
   }
 }
 
-/* 防止 iOS Safari 在 input focus 時自動縮放 */
-@media (max-width: 640px) {
-  .dialog-scroll-container input,
-  .dialog-scroll-container textarea,
-  .dialog-scroll-container select {
-    font-size: 16px !important;
-  }
+/* 大：桌面 17px，行動 22px */
+html.font-size-large {
+  font-size: 17px;
+}
 
-  /* Dialog 手機端減少 padding */
-  .dialog-scroll-container {
-    padding: 1rem;
+@media (max-width: 768px) {
+  html.font-size-large {
+    font-size: 22px;
+  }
+}
+
+/* 特大：桌面 18px，行動 24px */
+html.font-size-xl {
+  font-size: 18px;
+}
+
+@media (max-width: 768px) {
+  html.font-size-xl {
+    font-size: 24px;
+  }
+}
+
+/* 防止 iOS Safari 在 input focus 時自動縮放（行動端根字體已 ≥20px，input 亦為 1rem≥20px，無需額外覆蓋）
+   保留 16px 最低值以確保即使未套用行動端規則也不觸發 iOS 縮放 */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1rem);
   }
 }
 

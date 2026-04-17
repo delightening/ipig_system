@@ -1,4 +1,4 @@
-import { useState, useCallback, startTransition } from 'react'
+import { useState, useCallback, startTransition, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -45,6 +45,18 @@ export function Sidebar({
 
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const [isEditMode, setIsEditMode] = useState(false)
+  const touchStartX = useRef<number>(0)
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }, [])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const delta = e.changedTouches[0].clientX - touchStartX.current
+    if (delta < -48 && window.innerWidth < 768) {
+      setMobileSidebarOpen(false)
+    }
+  }, [setMobileSidebarOpen])
 
   const {
     filteredNavItems,
@@ -101,6 +113,8 @@ export function Sidebar({
 
       <aside
         style={{ contain: 'layout style' }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-[width,transform] duration-300 ease-in-out overflow-hidden',
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',

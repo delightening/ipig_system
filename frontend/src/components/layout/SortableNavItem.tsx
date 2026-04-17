@@ -74,7 +74,7 @@ const ChildrenList = memo(function ChildrenList({
             <Link
               to={child.href!}
               className={cn(
-                'block rounded-lg px-3 py-2 text-sm transition-colors',
+                'flex items-center min-h-[44px] rounded-lg px-3 py-2 text-sm transition-colors',
                 isActive(child.href!)
                   ? activeClass
                   : 'text-muted-foreground hover:bg-slate-800 hover:text-white'
@@ -108,7 +108,7 @@ function NestedGroup({
       <button
         onClick={() => setExpanded(prev => !prev)}
         className={cn(
-          'flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors',
+          'flex w-full items-center justify-between min-h-[44px] rounded-lg px-3 py-2 text-sm transition-colors',
           hasActiveChild
             ? 'text-white'
             : 'text-muted-foreground hover:bg-slate-800 hover:text-white'
@@ -129,7 +129,7 @@ function NestedGroup({
               <Link
                 to={sub.href!}
                 className={cn(
-                  'block rounded-lg px-3 py-1.5 text-xs transition-colors',
+                  'flex items-center min-h-[44px] rounded-lg px-3 py-1.5 text-xs transition-colors',
                   isActive(sub.href!)
                     ? activeClass
                     : 'text-muted-foreground hover:bg-slate-800 hover:text-white'

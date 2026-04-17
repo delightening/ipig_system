@@ -112,7 +112,12 @@
         "showWelcomeGuide": "Show welcome guide on login",
         "showWelcomeGuideDescription": "Display role-specific guidance and quick links at the top of the page each time you log in.",
         "welcomeGuideEnabled": "Welcome guide enabled",
-        "welcomeGuideDisabled": "Welcome guide disabled"
+        "welcomeGuideDisabled": "Welcome guide disabled",
+        "fontSize": "Font Size",
+        "fontSizeDescription": "Increase interface text for easier reading on mobile devices.",
+        "fontSizeDefault": "Standard",
+        "fontSizeLarge": "Large",
+        "fontSizeXl": "Extra Large"
     },
     "nav": {
         "dashboard": "Dashboard",

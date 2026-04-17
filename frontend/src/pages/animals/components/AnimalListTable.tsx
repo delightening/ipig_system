@@ -83,9 +83,9 @@ export function AnimalListTable({
     })
   }, [animals, sortColumn, sortDirection])
 
-  const SortableHeader = ({ column, label }: { column: string; label: string }) => (
+  const SortableHeader = ({ column, label, className }: { column: string; label: string; className?: string }) => (
     <TableHead
-      className="cursor-pointer hover:bg-muted select-none"
+      className={`cursor-pointer hover:bg-muted select-none${className ? ` ${className}` : ''}`}
       onClick={() => onSort(column)}
     >
       <div className="flex items-center gap-1">
@@ -124,12 +124,12 @@ export function AnimalListTable({
                   <SortableHeader column="pen_location" label={t('animals.pen')} />
                   <SortableHeader column="iacuc_no" label={t('animals.iacucNo')} />
                   <TableHead>{t('animals.status')}</TableHead>
-                  <TableHead>{t('animals.breed')}</TableHead>
-                  <TableHead>{t('animals.gender')}</TableHead>
-                  <TableHead>{t('animals.onMedicationShort')}</TableHead>
-                  <TableHead>{t('animals.vetRecommendation')}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t('animals.breed')}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t('animals.gender')}</TableHead>
+                  <TableHead className="hidden lg:table-cell">{t('animals.onMedicationShort')}</TableHead>
+                  <TableHead className="hidden lg:table-cell">{t('animals.vetRecommendation')}</TableHead>
                   <SortableHeader column="entry_date" label={t('animals.entryDate')} />
-                  <SortableHeader column="latest_weight" label={t('animals.currentWeight')} />
+                  <SortableHeader column="latest_weight" label={t('animals.currentWeight')} className="hidden md:table-cell" />
                   <TableHead className="text-right">{t('animals.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -168,20 +168,20 @@ export function AnimalListTable({
                         {t(`animals.statusLabels.${animal.status}`)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {animal.breed === 'other'
                         ? (animal.breed_other || t('animals.breedLabels.other'))
                         : t(`animals.breedLabels.${animal.breed}`)}
                     </TableCell>
-                    <TableCell>{t(`animals.genderLabels.${animal.gender}`)}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">{t(`animals.genderLabels.${animal.gender}`)}</TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {animal.is_on_medication ? (
                         <Badge variant="destructive" className="text-xs">{t('animals.onMedication')}</Badge>
                       ) : (
                         <span className="text-muted-foreground">{t('animals.notOnMedication')}</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {animal.vet_recommendation_date ? (
                         <span className="text-sm text-muted-foreground">
                           {new Date(animal.vet_recommendation_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}
@@ -205,7 +205,7 @@ export function AnimalListTable({
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {animal.latest_weight ? (
                         <span
                           className="text-sm text-foreground font-medium"

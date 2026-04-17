@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { RequirePermission, ProtectedRoute, ForcePasswordRoute, DashboardRoute, AdminRoute, DASHBOARD_ROLES } from '@/components/auth'
 import { SessionTimeoutWarning } from '@/components/SessionTimeoutWarning'
 import { CookieConsent } from '@/components/CookieConsent'
+import { useUIPreferences } from '@/stores/uiPreferences'
 
 // Layouts — 保持靜態 import（每個受保護路由都需要）
 import { MainLayout } from '@/layouts/MainLayout'
@@ -121,6 +122,14 @@ const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ defa
 function App() {
     const { checkAuth, isAuthenticated, user, hasRole, isGuest: isGuestFn } = useAuthStore()
     const location = useLocation()
+    const { fontSize } = useUIPreferences()
+
+    useEffect(() => {
+        const root = document.documentElement
+        root.classList.remove('font-size-large', 'font-size-xl')
+        if (fontSize === 'large') root.classList.add('font-size-large')
+        else if (fontSize === 'xl') root.classList.add('font-size-xl')
+    }, [fontSize])
 
     // 公開路由不需要檢查認證狀態
     const publicPaths = ['/login', '/forgot-password', '/reset-password', '/privacy', '/terms', '/invite']

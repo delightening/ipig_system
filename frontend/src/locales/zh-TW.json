@@ -112,7 +112,12 @@
     "showWelcomeGuide": "登入時顯示歡迎指引",
     "showWelcomeGuideDescription": "每次登入時在頁面頂端顯示角色專屬的操作指引與快速連結。",
     "welcomeGuideEnabled": "歡迎指引已開啟",
-    "welcomeGuideDisabled": "歡迎指引已關閉"
+    "welcomeGuideDisabled": "歡迎指引已關閉",
+    "fontSize": "字體大小",
+    "fontSizeDescription": "放大介面文字，在行動裝置上更易閱讀。",
+    "fontSizeDefault": "標準",
+    "fontSizeLarge": "大",
+    "fontSizeXl": "特大"
   },
   "nav": {
     "dashboard": "儀表板",

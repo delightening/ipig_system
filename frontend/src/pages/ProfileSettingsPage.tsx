@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
+import { useUIPreferences, type FontSizePreference } from '@/stores/uiPreferences'
 import api, { User, UpdateUserRequest } from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
 import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup'
@@ -47,6 +48,7 @@ const AUP_ROLE_OPTIONS = [
 export function ProfileSettingsPage() {
     const { t } = useTranslation()
     const { user: currentUser, checkAuth, hasRole } = useAuthStore()
+    const { fontSize, setFontSize } = useUIPreferences()
     const { toast } = useToast()
     const queryClient = useQueryClient()
 
@@ -323,7 +325,7 @@ export function ProfileSettingsPage() {
                                 {t('profile.displayPreferences')}
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="pt-4">
+                        <CardContent className="pt-4 space-y-5">
                             <div
                                 className={cn(
                                     "flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer",
@@ -352,6 +354,35 @@ export function ProfileSettingsPage() {
                             <p className="text-xs text-muted-foreground mt-2 ml-1">
                                 {t('profile.showWelcomeGuideDescription')}
                             </p>
+
+                            {/* 字體大小 */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">{t('profile.fontSize')}</label>
+                                <div className="flex gap-2">
+                                    {(
+                                        [
+                                            { value: 'default', label: t('profile.fontSizeDefault') },
+                                            { value: 'large', label: t('profile.fontSizeLarge') },
+                                            { value: 'xl', label: t('profile.fontSizeXl') },
+                                        ] as { value: FontSizePreference; label: string }[]
+                                    ).map(({ value, label }) => (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            onClick={() => setFontSize(value)}
+                                            className={cn(
+                                                "flex-1 py-2 rounded-lg border text-sm font-medium transition-all",
+                                                fontSize === value
+                                                    ? "bg-primary text-primary-foreground border-primary"
+                                                    : "border-border hover:bg-muted"
+                                            )}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-muted-foreground">{t('profile.fontSizeDescription')}</p>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

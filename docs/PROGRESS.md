@@ -185,6 +185,17 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-17 手機版 UI 全面 RWD 改善
+
+- ✅ **字體大小偏好設定**：`uiPreferences` store 新增 `fontSize`（標準/大/特大），套用 CSS class 至 `<html>`，ProfileSettingsPage 顯示偏好卡片新增三段切換鈕
+- ✅ **iOS 字體縮放修正**：移除 dialog input `16px !important` 衝突，改用 `max(16px, 1rem)` 全域套用，與行動端 20px 根字體正確銜接
+- ✅ **Sidebar 滑動關閉**：行動端向左滑動 >48px 自動關閉 overlay sidebar（`touchstart`/`touchend` handler）
+- ✅ **觸控目標放大**：Sidebar 子選單及巢狀選單項目加 `min-h-[44px]`，Hamburger 按鈕改為 `h-11 w-11`（44px）
+- ✅ **Dialog 底部滑入**：行動端 dialog 從底部滑入（bottom sheet），圓角上方、附拖曳把手；桌面端維持置中顯示
+- ✅ **FilterBar 可收合**：行動端搜尋框常駐，額外篩選器收合於「篩選」toggle 按鈕後，有啟用篩選時自動展開並顯示藍點
+- ✅ **動物表格欄位精簡**：`<768px` 隱藏品種/性別，`<1024px` 隱藏用藥/獸醫建議，`<768px` 隱藏最新體重
+- ✅ **庫存表格欄位精簡**：`<768px` 隱藏平均成本/庫存價值/安全庫存，`<1024px` 隱藏最後異動時間（含展開批號行）
+
 ### 2026-04-16 AUP 表單前端實作（更新計劃 v2）
 
 - ✅ **types/protocol.ts 擴充**：purpose.duplicate 改為 4 選項 enum、pain 加入 category_items/distress_signs/relief_measures、purpose 加入 abstract/refinement_description/reduction 子項

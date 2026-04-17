@@ -114,10 +114,10 @@ function BatchDetailRows({
               {formatUom(d.base_uom)}
             </span>
           </TableCell>
-          <TableCell className="text-right text-muted-foreground">—</TableCell>
-          <TableCell className="text-right text-muted-foreground">—</TableCell>
-          <TableCell className="text-right text-muted-foreground">—</TableCell>
-          <TableCell className="text-sm text-muted-foreground/60 italic">
+          <TableCell className="text-right text-muted-foreground hidden md:table-cell">—</TableCell>
+          <TableCell className="text-right text-muted-foreground hidden md:table-cell">—</TableCell>
+          <TableCell className="text-right text-muted-foreground hidden md:table-cell">—</TableCell>
+          <TableCell className="text-sm text-muted-foreground/60 italic hidden lg:table-cell">
             {d.last_updated_at ? formatDate(d.last_updated_at) : '-'}
           </TableCell>
         </TableRow>
@@ -224,15 +224,15 @@ export function InventoryRow({
             {formatUom(item.base_uom)}
           </span>
         </TableCell>
-        <TableCell className="text-right text-muted-foreground">
+        <TableCell className="text-right text-muted-foreground hidden md:table-cell">
           {item.avg_cost ? formatCurrency(item.avg_cost) : '-'}
         </TableCell>
-        <TableCell className="text-right font-medium">
+        <TableCell className="text-right font-medium hidden md:table-cell">
           {item.avg_cost
             ? formatCurrency(parseFloat(item.qty_on_hand) * parseFloat(item.avg_cost))
             : '-'}
         </TableCell>
-        <TableCell className="text-right">
+        <TableCell className="text-right hidden md:table-cell">
           {item.safety_stock ? (
             <span className={cn(
               "px-2 py-0.5 rounded text-xs",
@@ -244,7 +244,7 @@ export function InventoryRow({
             </span>
           ) : '-'}
         </TableCell>
-        <TableCell className="text-sm text-muted-foreground/60 italic">
+        <TableCell className="text-sm text-muted-foreground/60 italic hidden lg:table-cell">
           {item.last_updated_at ? formatDate(item.last_updated_at) : '-'}
         </TableCell>
       </TableRow>
