@@ -5,8 +5,6 @@ import { useAuthStore } from '@/stores/auth'
 import {
   listManagementReviews,
   createManagementReview,
-  updateManagementReview,
-  type ManagementReview,
 } from '@/lib/api/glpCompliance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

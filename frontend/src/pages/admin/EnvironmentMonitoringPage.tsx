@@ -7,8 +7,6 @@ import {
   createMonitoringPoint,
   listReadings,
   createReading,
-  type MonitoringPoint,
-  type EnvironmentReading,
 } from '@/lib/api/glpCompliance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +21,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { useTranslation } from 'react-i18next'
 import { Plus, Thermometer } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -45,7 +42,6 @@ const INITIAL_POINT_FORM = { name: '', location_type: 'animal_room', monitoring_
 const INITIAL_READING_FORM = { monitoring_point_id: '', reading_time: '', notes: '', readings: [{ key: '', value: '' }] }
 
 export function EnvironmentMonitoringPage() {
-  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('env.monitoring.manage')

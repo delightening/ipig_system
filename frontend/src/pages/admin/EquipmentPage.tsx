@@ -345,7 +345,7 @@ export function EquipmentPage() {
 
   const createMaintMutation = useMutation({
     mutationFn: (data: MaintenanceFormData) => {
-      const { status: _s, completed_at, repair_content, repair_partner_id, ...rest } = data
+      const { status: _, completed_at, repair_content, repair_partner_id, ...rest } = data
       return api.post('/equipment-maintenance', {
         ...rest,
         completed_at: completed_at || null,
