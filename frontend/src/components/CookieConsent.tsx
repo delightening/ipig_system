@@ -83,7 +83,7 @@ export function CookieConsent() {
             size="sm"
             variant="outline"
             onClick={() => handleAccept('essential')}
-            className="flex-1 sm:flex-none border-background/30 text-background hover:bg-background/10"
+            className="flex-1 sm:flex-none border-background/40 bg-background text-foreground hover:bg-background/90"
           >
             僅必要 Cookie
           </Button>

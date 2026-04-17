@@ -7,15 +7,15 @@ import type { BuildingWithFacility, ZoneWithBuilding, PenDetails } from '@/types
 
 /** 色系映射：zone.color → Tailwind class 組合 */
 const COLOR_SCHEMES: Record<string, ZoneColorSet> = {
-  blue:   { bg: 'bg-status-info-bg',   border: 'border-blue-300',   header: 'bg-status-info-bg0',   text: 'text-status-info-text' },
-  orange: { bg: 'bg-orange-50', border: 'border-orange-300', header: 'bg-orange-500', text: 'text-orange-700' },
-  yellow: { bg: 'bg-yellow-50', border: 'border-yellow-300', header: 'bg-yellow-500', text: 'text-yellow-700' },
-  cyan:   { bg: 'bg-cyan-50',   border: 'border-cyan-300',   header: 'bg-cyan-500',   text: 'text-cyan-700' },
-  purple: { bg: 'bg-purple-50', border: 'border-purple-300', header: 'bg-purple-500', text: 'text-purple-700' },
-  amber:  { bg: 'bg-status-warning-bg',  border: 'border-amber-300',  header: 'bg-status-warning-bg0',  text: 'text-status-warning-text' },
-  green:  { bg: 'bg-status-success-bg',  border: 'border-green-300',  header: 'bg-status-success-bg0',  text: 'text-status-success-text' },
-  red:    { bg: 'bg-status-error-bg',    border: 'border-red-300',    header: 'bg-status-error-bg0',    text: 'text-status-error-text' },
-  gray:   { bg: 'bg-muted',   border: 'border-border',   header: 'bg-muted0',   text: 'text-foreground' },
+  blue:   { bg: 'bg-blue-100',   border: 'border-blue-300',   header: 'bg-status-info-solid',     text: 'text-status-info-text' },
+  orange: { bg: 'bg-orange-50',  border: 'border-orange-300', header: 'bg-orange-500',            text: 'text-orange-700' },
+  yellow: { bg: 'bg-yellow-50',  border: 'border-yellow-300', header: 'bg-yellow-500',            text: 'text-yellow-700' },
+  cyan:   { bg: 'bg-cyan-50',    border: 'border-cyan-300',   header: 'bg-cyan-500',              text: 'text-cyan-700' },
+  purple: { bg: 'bg-purple-50',  border: 'border-purple-300', header: 'bg-purple-500',            text: 'text-purple-700' },
+  amber:  { bg: 'bg-amber-100',  border: 'border-amber-300',  header: 'bg-status-warning-solid',  text: 'text-status-warning-text' },
+  green:  { bg: 'bg-green-100',  border: 'border-green-300',  header: 'bg-status-success-solid',  text: 'text-status-success-text' },
+  red:    { bg: 'bg-red-100',    border: 'border-red-300',    header: 'bg-status-error-solid',    text: 'text-status-error-text' },
+  gray:   { bg: 'bg-muted',      border: 'border-border',     header: 'bg-muted-foreground',      text: 'text-foreground' },
 }
 
 const DEFAULT_COLORS: ZoneColorSet = COLOR_SCHEMES.gray

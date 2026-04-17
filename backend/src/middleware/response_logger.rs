@@ -14,7 +14,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::constants::SEC_EVENT_PERMISSION_DENIED;
+use crate::constants::{SEC_EVENT_AUTO_SUSPENDED, SEC_EVENT_PERMISSION_DENIED};
 use crate::middleware::CurrentUser;
 use crate::services::{AlertThresholdService, AuditService, SecurityNotifier, SecurityNotification};
 use crate::AppState;
@@ -94,6 +94,15 @@ async fn check_idor_probe(
         return Ok(());
     }
 
+    let user_label: String = sqlx::query_as(
+        "SELECT email FROM users WHERE id = $1::uuid",
+    )
+    .bind(user_id_str)
+    .fetch_optional(pool)
+    .await?
+    .map(|(s,): (String,)| s)
+    .unwrap_or_else(|| user_id_str.to_string());
+
     // Dedup
     let (existing,): (i64,) = sqlx::query_as(
         r#"
@@ -115,7 +124,7 @@ async fn check_idor_probe(
 
     let alert_id = Uuid::new_v4();
     let description = format!(
-        "使用者 {user_id_str} 在過去 {window_mins} 分鐘內累積 {count} 次權限拒絕"
+        "使用者 {user_label} 在過去 {window_mins} 分鐘內累積 {count} 次權限拒絕"
     );
     sqlx::query(
         r#"
@@ -141,16 +150,59 @@ async fn check_idor_probe(
 
     tracing::warn!("[R22-6] IDOR probe alert created for user {user_id_str}");
 
+    // R22-6: 自動封鎖探測使用者（可透過 security_alert_config.idor_auto_block_enabled=0 關閉）
+    if AlertThresholdService::idor_auto_block_enabled(pool).await {
+        auto_block_user(pool, user_id_str, alert_id).await;
+    }
+
     let notification = SecurityNotification {
         alert_id,
         alert_type: "idor_probe".to_string(),
         severity: "critical".to_string(),
         title: "偵測到可能的 IDOR 探測攻擊".to_string(),
         description: Some(description),
-        context_data: Some(serde_json::json!({ "user_id": user_id_str, "count": count })),
+        context_data: Some(serde_json::json!({ "user_id": user_id_str, "email": user_label, "count": count })),
         created_at: chrono::Utc::now(),
     };
     SecurityNotifier::dispatch(pool, config, &notification).await;
 
     Ok(())
+}
+
+/// R22-6: 封鎖 IDOR 探測使用者，設 is_active=false 並寫入稽核紀錄
+async fn auto_block_user(pool: &PgPool, user_id_str: &str, alert_id: Uuid) {
+    let result = sqlx::query(
+        "UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1::uuid AND is_active = true",
+    )
+    .bind(user_id_str)
+    .execute(pool)
+    .await;
+
+    match result {
+        Ok(r) if r.rows_affected() == 1 => {
+            tracing::warn!("[R22-6] User {user_id_str} auto-suspended (alert {alert_id})");
+            let user_id_uuid = uuid::Uuid::parse_str(user_id_str).ok();
+            let _ = AuditService::log_security_event(
+                pool,
+                SEC_EVENT_AUTO_SUSPENDED,
+                user_id_uuid,
+                None,
+                None,
+                None,
+                None,
+                serde_json::json!({
+                    "user_id": user_id_str,
+                    "reason": "idor_probe",
+                    "alert_id": alert_id,
+                }),
+            )
+            .await;
+        }
+        Ok(_) => {
+            tracing::debug!("[R22-6] User {user_id_str} already inactive, skip auto-suspend");
+        }
+        Err(e) => {
+            tracing::error!("[R22-6] Failed to auto-suspend user {user_id_str}: {e}");
+        }
+    }
 }

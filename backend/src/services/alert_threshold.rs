@@ -75,4 +75,9 @@ impl AlertThresholdService {
     pub async fn alert_escalation_dedup_mins(pool: &PgPool) -> i64 {
         Self::get(pool, "alert_escalation_dedup_mins", 30).await
     }
+
+    /// R22-6: IDOR 探測自動封鎖開關（預設啟用）。設為 0 可關閉自動封鎖。
+    pub async fn idor_auto_block_enabled(pool: &PgPool) -> bool {
+        Self::get(pool, "idor_auto_block_enabled", 1).await != 0
+    }
 }
