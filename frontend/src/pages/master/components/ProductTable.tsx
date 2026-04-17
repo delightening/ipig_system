@@ -80,8 +80,8 @@ export function ProductTable({
   const hasFilters = !!listState.filters.search || listState.activeFilterCount > 0
 
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <Table>
+    <div className="rounded-lg border bg-card overflow-hidden [&>div]:overflow-x-hidden">
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead className="w-[40px]">
@@ -93,29 +93,29 @@ export function ProductTable({
                 aria-label="全選產品"
               />
             </TableHead>
-            <SortableTableHead sortKey="sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[180px]">
+            <SortableTableHead sortKey="sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px]">
               SKU
             </SortableTableHead>
             <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
               名稱
             </SortableTableHead>
-            <TableHead className="w-[150px]">規格</TableHead>
+            <TableHead className="w-[60px] hidden lg:table-cell">規格</TableHead>
             <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[60px]">
               單位
             </SortableTableHead>
-            <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[100px] text-right">
+            <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-right hidden lg:table-cell">
               安全庫存
             </SortableTableHead>
-            <SortableTableHead sortKey="track_batch" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[60px] text-center">
+            <SortableTableHead sortKey="track_batch" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[60px] text-center hidden lg:table-cell">
               批號
             </SortableTableHead>
-            <SortableTableHead sortKey="track_expiry" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[60px] text-center">
+            <SortableTableHead sortKey="track_expiry" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[60px] text-center hidden lg:table-cell">
               效期
             </SortableTableHead>
             <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px]">
               狀態
             </SortableTableHead>
-            <TableHead className="w-[200px] text-right">操作</TableHead>
+            <TableHead className="w-[120px] text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -211,21 +211,22 @@ function ProductRow({
       <TableCell>
         <SkuCell sku={product.sku} onCopy={onCopySku} />
       </TableCell>
-      <TableCell>
+      <TableCell className="max-w-0">
         <button
-          className="font-medium text-left hover:text-primary hover:underline transition-colors"
+          className="font-medium text-left hover:text-primary hover:underline transition-colors block w-full truncate"
+          title={product.name}
           onClick={() => navigate(`/products/${product.id}`)}
         >
           {product.name}
         </button>
       </TableCell>
-      <TableCell className="text-muted-foreground">{product.spec || '-'}</TableCell>
+      <TableCell className="text-muted-foreground hidden lg:table-cell">{product.spec || '-'}</TableCell>
       <TableCell>
         <span className="text-xs px-1.5 py-0.5 bg-muted rounded">
           {UOM_MAP[product.base_uom] || product.base_uom}
         </span>
       </TableCell>
-      <TableCell className="text-right tabular-nums">
+      <TableCell className="text-right tabular-nums hidden lg:table-cell">
         {product.safety_stock ? (
           <span>
             {formatNumber(product.safety_stock, 0)}
@@ -237,12 +238,12 @@ function ProductRow({
           <span className="text-muted-foreground">-</span>
         )}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center hidden lg:table-cell">
         {product.track_batch
           ? <Badge variant="secondary" className="text-[10px] px-1.5">啟用</Badge>
           : <span className="text-muted-foreground">-</span>}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="text-center hidden lg:table-cell">
         {product.track_expiry
           ? <Badge variant="secondary" className="text-[10px] px-1.5">啟用</Badge>
           : <span className="text-muted-foreground">-</span>}
@@ -299,40 +300,44 @@ function ProductActions({
   navigate: ReturnType<typeof useNavigate>
 }) {
   return (
-    <div className="flex items-center justify-end gap-0.5" aria-label={`產品 ${product.sku} 操作`}>
-      <Button variant="ghost" size="icon" className="h-8 w-8" title="檢視" aria-label="檢視" onClick={() => navigate(`/products/${product.id}`)}>
-        <Eye className="h-4 w-4" />
-      </Button>
-      <Button variant="ghost" size="icon" className="h-8 w-8" title="編輯" aria-label="編輯" onClick={() => navigate(`/products/${product.id}/edit`)}>
-        <Pencil className="h-4 w-4" />
-      </Button>
-      <Button variant="ghost" size="icon" className="h-8 w-8" title="複製" aria-label="複製" onClick={() => navigate(`/products/new?copy=${product.id}`)}>
-        <Copy className="h-4 w-4" />
-      </Button>
-      {product.is_active ? (
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="停用" aria-label="停用" onClick={() => onStatusChange(product, 'deactivate')}>
-          <PowerOff className="h-4 w-4 text-destructive" />
+    <div className="flex flex-col items-end gap-0.5" aria-label={`產品 ${product.sku} 操作`}>
+      <div className="flex items-center gap-0.5">
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="檢視" aria-label="檢視" onClick={() => navigate(`/products/${product.id}`)}>
+          <Eye className="h-4 w-4" />
         </Button>
-      ) : (
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="啟用" aria-label="啟用" onClick={() => onStatusChange(product, 'activate')}>
-          <Power className="h-4 w-4 text-status-success-text" />
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="編輯" aria-label="編輯" onClick={() => navigate(`/products/${product.id}/edit`)}>
+          <Pencil className="h-4 w-4" />
         </Button>
-      )}
-      <Button variant="ghost" size="icon" className="h-8 w-8" title="標記停產" aria-label="標記停產" onClick={() => onStatusChange(product, 'discontinue')}>
-        <Ban className="h-4 w-4 text-muted-foreground" />
-      </Button>
-      {isAdmin && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-destructive hover:text-destructive"
-          title="硬刪除（僅管理員）"
-          aria-label="硬刪除（僅管理員）"
-          onClick={() => onHardDelete(product)}
-        >
-          <Trash2 className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="複製" aria-label="複製" onClick={() => navigate(`/products/new?copy=${product.id}`)}>
+          <Copy className="h-4 w-4" />
         </Button>
-      )}
+      </div>
+      <div className="flex items-center gap-0.5">
+        {product.is_active ? (
+          <Button variant="ghost" size="icon" className="h-8 w-8" title="停用" aria-label="停用" onClick={() => onStatusChange(product, 'deactivate')}>
+            <PowerOff className="h-4 w-4 text-destructive" />
+          </Button>
+        ) : (
+          <Button variant="ghost" size="icon" className="h-8 w-8" title="啟用" aria-label="啟用" onClick={() => onStatusChange(product, 'activate')}>
+            <Power className="h-4 w-4 text-status-success-text" />
+          </Button>
+        )}
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="標記停產" aria-label="標記停產" onClick={() => onStatusChange(product, 'discontinue')}>
+          <Ban className="h-4 w-4 text-muted-foreground" />
+        </Button>
+        {isAdmin && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            title="硬刪除（僅管理員）"
+            aria-label="硬刪除（僅管理員）"
+            onClick={() => onHardDelete(product)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

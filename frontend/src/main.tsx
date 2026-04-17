@@ -58,6 +58,12 @@ useAuthStore.subscribe(
   },
 )
 
+// 部署後舊 HTML 指向已移除的 JS chunk 時自動刷新
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault()
+  window.location.reload()
+})
+
 // Throttle focus events: at most one focus refetch every 10 seconds
 let lastFocusTime = 0
 focusManager.setEventListener((handleFocus) => {
