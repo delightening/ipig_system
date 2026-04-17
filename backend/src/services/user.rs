@@ -98,7 +98,7 @@ impl UserService {
         let users = if let Some(kw) = keyword {
             let pattern = user_search_pattern(kw);
             let sql = [
-                "SELECT * FROM users WHERE email ILIKE $1 OR display_name ILIKE $1 ORDER BY created_at DESC",
+                "SELECT * FROM users WHERE is_active = true AND (email ILIKE $1 OR display_name ILIKE $1) ORDER BY created_at DESC",
                 suffix.as_str(),
             ]
             .concat();
@@ -108,7 +108,7 @@ impl UserService {
                 .await?
         } else {
             let sql = [
-                "SELECT * FROM users ORDER BY created_at DESC",
+                "SELECT * FROM users WHERE is_active = true ORDER BY created_at DESC",
                 suffix.as_str(),
             ]
             .concat();
