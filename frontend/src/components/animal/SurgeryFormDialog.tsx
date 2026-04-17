@@ -61,7 +61,7 @@ export function SurgeryFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[90vw] max-w-[1100px]">
+      <DialogContent className="w-[90vw] max-w-[1200px]">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
