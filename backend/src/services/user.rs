@@ -364,20 +364,20 @@ impl UserService {
             .execute(pool)
             .await?;
 
-        // Soft delete: 停用帳號 + 匿名化個人資料
+        // Soft delete: 停用帳號 + 匿名化個人資料（允許對已停用帳號執行）
         let result = sqlx::query(
             r#"UPDATE users SET
                 is_active = false,
                 email = 'deleted_' || id::text || '@deleted.local',
                 updated_at = NOW()
-            WHERE id = $1 AND is_active = true"#,
+            WHERE id = $1"#,
         )
         .bind(id)
         .execute(pool)
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(AppError::NotFound("User not found or already deleted".to_string()));
+            return Err(AppError::NotFound("User not found".to_string()));
         }
 
         Ok(())
