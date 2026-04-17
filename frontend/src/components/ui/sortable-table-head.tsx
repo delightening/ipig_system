@@ -41,7 +41,7 @@ export function SortableTableHead({
       {...props}
     >
       <div className="flex items-center gap-1">
-        {children}
+        <span className="line-clamp-2 break-words leading-tight">{children}</span>
         <Icon className={cn('h-3 w-3 flex-shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/50')} />
       </div>
     </TableHead>

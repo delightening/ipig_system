@@ -185,6 +185,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-18 ProductTable RWD 修正「操作」欄被裁切
+
+- ✅ **次要欄最小寬度 70 → 65**：`frontend/src/pages/master/components/ProductTable.tsx` 的 `computeWidths` 策略 B，規格 / 單位 / 批號 / 效期最小值降為 65，最小表格總和由 740 降到 720
+- ✅ **不可裁剪保險**：Desktop 容器用 `useLayoutEffect` 量 `clientWidth`，`< MIN_TABLE_WIDTH (720)` 時改 render 卡片（抽出 `ProductCardList` 共用元件）；外層維持 `overflow-x-hidden`，永不出現橫向卷軸也永不裁切
+- ✅ **DESIGN.md §9 新增 Table RWD 規則**：明列「不可裁剪 / 不可隱藏 / 不可橫向捲動」三選一原則與唯一解法（切卡片），含六個斷點 QA checklist
+- ✅ **DESIGN.md §21 Decisions Log**：新增 2026-04-18 決策，說明取代 2026-04-17「斷點隱藏次要欄」策略的理由
+
 ### 2026-04-17 手機版 UI 全面 RWD 改善
 
 - ✅ **字體大小偏好設定**：`uiPreferences` store 新增 `fontSize`（標準/大/特大），套用 CSS class 至 `<html>`，ProfileSettingsPage 顯示偏好卡片新增三段切換鈕

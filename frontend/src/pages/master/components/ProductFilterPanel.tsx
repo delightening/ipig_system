@@ -29,7 +29,7 @@ export function ProductFilterPanel({
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3 items-center">
         {/* 關鍵字搜尋 */}
-        <div className="relative flex-1 min-w-[240px] max-w-md">
+        <div className="relative w-full sm:w-[280px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="搜尋 SKU、名稱、規格、標籤..."
@@ -48,39 +48,42 @@ export function ProductFilterPanel({
           )}
         </div>
 
-        {/* 品類篩選 */}
-        <Select value={listState.filters.categoryFilter} onValueChange={listState.handleCategoryChange}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="品類" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部品類</SelectItem>
-            {categoriesForFilter.map(cat => (
-              <SelectItem key={cat.code} value={cat.code}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* 品類 + 子類（綁定為一組，一起換行） */}
+        <div className="flex gap-3 items-center">
+          {/* 品類篩選 */}
+          <Select value={listState.filters.categoryFilter} onValueChange={listState.handleCategoryChange}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="品類" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部品類</SelectItem>
+              {categoriesForFilter.map(cat => (
+                <SelectItem key={cat.code} value={cat.code}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* 子類篩選 */}
-        <Select
-          value={listState.filters.subcategoryFilter}
-          onValueChange={(v) => listState.setFilter('subcategoryFilter', v)}
-          disabled={listState.filters.categoryFilter === 'all'}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="子類" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部子類</SelectItem>
-            {listState.subcategories.map(sub => (
-              <SelectItem key={sub.code} value={sub.code}>
-                {sub.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {/* 子類篩選 */}
+          <Select
+            value={listState.filters.subcategoryFilter}
+            onValueChange={(v) => listState.setFilter('subcategoryFilter', v)}
+            disabled={listState.filters.categoryFilter === 'all'}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="子類" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部子類</SelectItem>
+              {listState.subcategories.map(sub => (
+                <SelectItem key={sub.code} value={sub.code}>
+                  {sub.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* 狀態篩選 */}
         <Select value={listState.filters.statusFilter} onValueChange={(v) => listState.setFilter('statusFilter', v)}>

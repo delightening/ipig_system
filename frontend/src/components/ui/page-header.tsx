@@ -15,8 +15,8 @@ interface PageHeaderProps {
  */
 export function PageHeader({ title, description, actions, className, children }: PageHeaderProps) {
   return (
-    <div className={cn('flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between', className)}>
-      <div>
+    <div className={cn('flex flex-col gap-x-4 gap-y-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between', className)}>
+      <div className="sm:min-w-max">
         <h1 className="page-title">{title}</h1>
         {description && (
           <p className="text-sm text-muted-foreground mt-1">{description}</p>

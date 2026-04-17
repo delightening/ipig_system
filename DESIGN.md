@@ -269,11 +269,45 @@ Slider, Switch, Table, TableSkeleton, Tabs, Toast, Toaster, Tooltip, etc.
 
 ### Patterns
 
-- **表格**：行動端 `overflow-x-auto` 可橫向捲動（`.table-responsive`）
+- **表格**：詳見下方「Table RWD 規則」
 - **篩選列**：行動端堆疊 `flex-col`，桌面端並排 `flex-row`（`.filter-row`）
 - **Sidebar**：桌面端收摺，行動端 overlay
 - **Dialog**：行動端 `font-size: 16px !important` 防止 iOS 縮放，padding 減少
 - **Dashboard**：12 / 9 / 6 / 4 / 2 欄 responsive grid
+
+### Table RWD 規則（重要）
+
+> 產品表格 RWD 曾因 `table-fixed` + `overflow-x-hidden` + 最小欄寬總和 > 容器寬度，造成「操作」欄被裁切。以下為永久守則。
+
+**三選一原則**：當容器寬度不足以容納表格所有欄位時，以下三條必須至少放棄一條——不得全部堅持。
+
+| 原則 | 說明 |
+|------|------|
+| ❶ 不可裁剪 | 重要欄位（操作、狀態）任何斷點都必須完整顯示 |
+| ❷ 不可隱藏 | 禁止用 `hidden xl:table-cell` 之類讓欄位消失 |
+| ❸ 不可橫向卷動 | 禁用外層 `overflow-x-auto`，保持 `overflow-x-hidden` |
+
+**唯一解法**：當容器寬度 `< 表格最小總和` 時，**整張表格切換為卡片列表**。
+參考實作：`frontend/src/pages/master/components/ProductTable.tsx` 的 `MIN_TABLE_WIDTH` + `canRenderTable` + `ProductCardList`。
+
+**設計時必算的數字**：
+- 策略 B 最小欄寬：次要欄（規格 / 單位 / 批號 / 效期）= 65px，其餘維持原設計
+- 計算「最小表格總和」寫死為常數，作為切卡片的臨界點
+- Desktop 切 mobile 用 `containerRef.clientWidth`，**不是** viewport 寬（側邊欄會扣）
+
+### Table RWD QA Checklist
+
+PR 含表格修改時，必須在以下寬度驗證：
+
+- [ ] **320px**（手機）：卡片模式，無橫向卷軸
+- [ ] **768px**（md 斷點，側邊欄展開）：容器真實寬約 500–600px，應走卡片模式
+- [ ] **768px**（側邊欄收起）：容器約 720px，表格剛好可 render
+- [ ] **1024px**（lg）：表格策略 B，所有欄位顯示完整
+- [ ] **1280px**（xl）：表格策略 B 或切到策略 A
+- [ ] **1536px+**：表格策略 A，名稱欄自動吸收剩餘空間
+- [ ] 「操作」欄在所有斷點都可見（檢查表頭 + 按鈕群組皆不被裁）
+- [ ] 無水平卷軸（`document.body.scrollWidth <= window.innerWidth`）
+- [ ] 切換側邊欄展開 / 收起時，表格↔卡片切換流暢、不出現裁切 flash
 
 ---
 
@@ -563,6 +597,7 @@ interface EmptyStateProps {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-04-18 | 表格 RWD 改為「容器寬度切卡片」，不再隱藏欄位 | 先前「依斷點隱藏次要欄」造成「操作」欄在 md 斷點被 overflow-x-hidden 裁切。新規：不裁剪 / 不隱藏 / 不橫向捲動三選一時，唯一解為整張表切卡片；minTableWidth 設為 720px（次要欄最小 65px） |
 | 2026-04-17 | Dialog 行動端改為 bottom sheet | 手機操作拇指觸及區在下方，底部滑入比置中彈窗更易操作；桌面端維持置中 |
 | 2026-04-17 | 字體大小偏好只提供放大方向 | 行動端主要問題為文字太小，故偏好選項為標準/大/特大，不提供縮小 |
 | 2026-04-17 | 表格欄位依斷點精簡 | md(<768px) 隱藏次要欄，lg(<1024px) 隱藏輔助欄；保留主要識別欄+操作欄供行動使用 |

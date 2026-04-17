@@ -19,7 +19,7 @@ const defaultFilters: ProductListFilters = {
   search: '',
   categoryFilter: 'all',
   subcategoryFilter: 'all',
-  statusFilter: 'all',
+  statusFilter: 'active',
   trackBatchFilter: 'all',
   trackExpiryFilter: 'all',
 }
@@ -97,7 +97,7 @@ export function useProductListState(categories: CategoryOption[]) {
   const activeFilterCount = [
     filters.categoryFilter !== 'all' ? filters.categoryFilter : '',
     filters.subcategoryFilter !== 'all' ? filters.subcategoryFilter : '',
-    filters.statusFilter !== 'all' ? filters.statusFilter : '',
+    filters.statusFilter !== defaultFilters.statusFilter ? filters.statusFilter : '',
     filters.trackBatchFilter !== 'all' ? filters.trackBatchFilter : '',
     filters.trackExpiryFilter !== 'all' ? filters.trackExpiryFilter : '',
   ].filter(Boolean).length
