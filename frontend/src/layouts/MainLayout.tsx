@@ -160,10 +160,11 @@ export function MainLayout() {
 
             <Select value={i18n.language} onValueChange={handleLanguageChange}>
               <SelectTrigger className="w-[60px] md:w-[120px] h-9" data-testid="language-selector">
-                <Globe className="h-4 w-4 mr-2 shrink-0" />
-                <span className="md:hidden">{i18n.language === 'zh-TW' ? '繁' : 'En'}</span>
-                <span className="hidden md:inline truncate">
-                  {i18n.language === 'zh-TW' ? t('language.zhTW') : t('language.en')}
+                <Globe className="h-4 w-4 md:mr-2 shrink-0" />
+                <span>
+                  <span className="hidden md:inline">
+                    {i18n.language === 'zh-TW' ? t('language.zhTW') : t('language.en')}
+                  </span>
                 </span>
               </SelectTrigger>
               <SelectContent>
