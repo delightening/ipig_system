@@ -258,6 +258,21 @@ lib/
 - Custom Hook 提取時機：state + effect 邏輯超過 15 行，或在 ≥2 個元件重複時。
 - 內聯常數（≥10 行）禁止放在頁面內，移至 `lib/constants/` 或同層 `constants.ts`。
 - 未使用的 import / 變數禁止殘留，ESLint 零警告。
+- **禁止將 custom hook 回傳的整個物件放入 `useEffect`/`useCallback`/`useMemo` deps 陣列**。Custom hook return value 是 plain object，每次 render 都是新 reference，放入 deps 會導致 effect 在每次渲染觸發（可能造成無限迴圈或覆蓋使用者輸入）。應解構取出具體的穩定值（`useRef` 物件、`useState` setter、`useCallback` 函式）再放入 deps。
+
+### useEffect deps 穩定性速查表
+
+寫 `useEffect`/`useCallback`/`useMemo` 時，放入 deps 前逐一確認：
+
+| 值的來源 | Reference 穩定? | 正確做法 |
+|---|---|---|
+| `useRef(...)` 回傳值 | ✅ 穩定 | 可直接放入 deps |
+| `useState` setter（`setX`） | ✅ 穩定 | 可直接放入 deps |
+| `useCallback(fn, [...])` | ✅ 穩定（deps 不變時） | 可直接放入 deps |
+| `useMemo(() => val, [...])` | ✅ 穩定（deps 不變時） | 可直接放入 deps |
+| **custom hook 回傳的 `{}` 物件** | ❌ 每次 render 都新 | 解構取出上方穩定值再放入 |
+| 元件 props 裡的 callback | ⚠️ 視上層是否用 `useCallback` | 確認後再放 |
+| 陣列/物件 literal（`[]`, `{}`） | ❌ 每次 render 都新 | 移出 component 或用 `useMemo` |
 
 ## 6. 檔案命名規範
 

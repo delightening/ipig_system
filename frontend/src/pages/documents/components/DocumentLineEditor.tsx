@@ -339,7 +339,6 @@ function LineRow({
               value={line.storage_location_from_id ? `loc:${line.storage_location_from_id}` : ''}
               onValueChange={(v: WarehouseShelfValue) => {
                 const id = v.startsWith('loc:') ? v.slice(4) : ''
-                onBatchChange(lineId, batchNoDefault, expiryDateDefault)
                 updateStorageLocation(lineId, 'storage_location_from_id', id)
               }}
               selectLevel="shelf"

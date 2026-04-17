@@ -196,7 +196,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
       })
       lines.setLineAmounts(initialAmounts)
     }
-  }, [document, isEdit, lines])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [document, isEdit, lines.inputRefs, lines.setLineAmounts])
 
   // 複製單據：從 sessionStorage 載入資料
   useEffect(() => {

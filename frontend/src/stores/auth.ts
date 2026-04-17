@@ -94,6 +94,10 @@ export const useAuthStore = create<AuthState>()(
       },
 
       enterGuestMode: () => {
+        // 訪客模式不需要追蹤用途的 cookie，自動接受必要性 cookie 避免 banner 彈出
+        if (!localStorage.getItem('cookie-consent')) {
+          localStorage.setItem('cookie-consent', 'essential')
+        }
         set({
           user: {
             id: 'guest',

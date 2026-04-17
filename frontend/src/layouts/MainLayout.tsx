@@ -105,43 +105,44 @@ export function MainLayout() {
           sidebarOpen ? 'md:ml-0' : 'md:ml-0'
         )}
       >
-        {isGuest() && (
-          <div className="bg-[var(--color-status-warning-bg)] border-b border-[var(--color-status-warning-border)] px-4 py-2 text-sm text-[var(--color-status-warning-text)] sticky top-0 z-[60] flex items-center justify-between gap-4">
-            <span className="flex-1 text-center">
-              訪客試用模式 — 資料為展示用途，操作不會實際儲存
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 h-7 text-xs border-[var(--color-status-warning-border)] text-[var(--color-status-warning-text)] hover:bg-[var(--color-status-warning-border)]/20"
-              onClick={() => useAuthStore.getState().logout().then(() => { window.location.href = '/login' })}
-            >
-              離開試用
-            </Button>
-          </div>
-        )}
-
-        {isImpersonating && (
-          <div className="bg-primary text-primary-foreground px-4 py-2 flex items-center justify-between sticky top-0 z-[60] shadow-md">
-            <div className="flex items-center gap-2">
-              <UserCircle className="h-5 w-5" />
-              <span className="text-sm font-medium">
-                {t('common.impersonating')}：<span className="font-bold underline">{user?.display_name || user?.email}</span> ({user?.roles?.join(', ')})
+        <div className="sticky top-0 z-40">
+          {isGuest() && (
+            <div className="bg-[var(--color-status-warning-bg)] border-b border-[var(--color-status-warning-border)] px-4 py-2 text-sm text-[var(--color-status-warning-text)] flex items-center justify-between gap-4">
+              <span className="flex-1 text-center">
+                訪客試用模式 — 資料為展示用途，操作不會實際儲存
               </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 h-7 text-xs border-[var(--color-status-warning-border)] text-[var(--color-status-warning-text)] hover:bg-[var(--color-status-warning-border)]/20"
+                onClick={() => useAuthStore.getState().logout().then(() => { window.location.href = '/login' })}
+              >
+                離開試用
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={stopImpersonating}
-              className="bg-white/20 border-white text-white hover:bg-white hover:text-primary h-8 font-semibold transition-all"
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              {t('common.backToAdmin')}
-            </Button>
-          </div>
-        )}
+          )}
 
-        <header className="sticky top-0 z-40 flex h-14 md:h-16 items-center justify-between border-b bg-card px-3 md:px-4 shadow-sm">
+          {isImpersonating && (
+            <div className="bg-primary text-primary-foreground px-4 py-2 flex items-center justify-between shadow-md">
+              <div className="flex items-center gap-2">
+                <UserCircle className="h-5 w-5" />
+                <span className="text-sm font-medium">
+                  {t('common.impersonating')}：<span className="font-bold underline">{user?.display_name || user?.email}</span> ({user?.roles?.join(', ')})
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={stopImpersonating}
+                className="bg-white/20 border-white text-white hover:bg-white hover:text-primary h-8 font-semibold transition-all"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                {t('common.backToAdmin')}
+              </Button>
+            </div>
+          )}
+
+          <header className="flex h-14 md:h-16 items-center justify-between border-b bg-card px-3 md:px-4 shadow-sm">
           <Button
             variant="ghost"
             size="icon"
@@ -170,6 +171,7 @@ export function MainLayout() {
             </Select>
           </div>
         </header>
+        </div>
 
         <div className="p-3 md:p-4" style={{ contain: 'layout style' }}>
           <PageErrorBoundary>

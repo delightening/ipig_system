@@ -69,25 +69,29 @@ export function CookieConsent() {
   }
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-50 bg-gray-900/95 text-white px-4 py-3 text-sm backdrop-blur-sm">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
+    <div className="fixed bottom-0 inset-x-0 z-50 bg-foreground/95 text-background px-4 py-3 text-sm backdrop-blur-sm">
+      <div className="mx-auto flex max-w-5xl flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="flex-1 min-w-0">
           本系統使用必要性 Cookie 以維持您的登入狀態與安全性。
           選擇「接受全部」將允許載入第三方字型等外部資源以提升顯示效果。
-          <Link to="/privacy" className="ml-1 underline underline-offset-2 hover:text-muted-foreground">
+          <Link to="/privacy" className="ml-1 underline underline-offset-2 opacity-70 hover:opacity-100">
             了解更多
           </Link>
         </p>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 sm:shrink-0">
           <Button
             size="sm"
             variant="outline"
             onClick={() => handleAccept('essential')}
-            className="border-gray-500 text-muted-foreground hover:bg-gray-800 hover:text-white"
+            className="flex-1 sm:flex-none border-background/30 text-background hover:bg-background/10"
           >
             僅必要 Cookie
           </Button>
-          <Button size="sm" onClick={() => handleAccept('all')}>
+          <Button
+            size="sm"
+            onClick={() => handleAccept('all')}
+            className="flex-1 sm:flex-none"
+          >
             接受全部
           </Button>
         </div>

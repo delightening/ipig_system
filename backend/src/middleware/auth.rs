@@ -74,7 +74,7 @@ impl CurrentUser {
         if self.is_guest() {
             return false;
         }
-        if self.permissions.contains(&permission.to_string()) {
+        if self.permissions.iter().any(|p| p == permission) {
             return true;
         }
         if self.is_admin() {
@@ -84,7 +84,7 @@ impl CurrentUser {
     }
 
     pub fn has_role(&self, role: &str) -> bool {
-        self.roles.contains(&role.to_string())
+        self.roles.iter().any(|r| r == role)
     }
 }
 

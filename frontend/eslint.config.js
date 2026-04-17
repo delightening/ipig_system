@@ -25,6 +25,8 @@ export default [{ ignores: ['dist', 'e2e', '*.config.ts', 'storybook-static'] },
     ...tsPlugin.configs.recommended.rules,
     // Only use the classic two react-hooks rules (v4 behavior)
     'react-hooks/rules-of-hooks': 'error',
+    // warn 模式：偵測缺少的 deps。注意：無法自動偵測「不穩定 deps」（如 custom hook 回傳的 plain object）
+    // 規則：絕不將 custom hook 回傳的整個物件放入 deps，應解構取出 ref/setter/useCallback 值
     'react-hooks/exhaustive-deps': 'warn',
     // TypeScript handles undefined variable checks
     'no-undef': 'off',

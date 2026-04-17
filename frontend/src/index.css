@@ -524,10 +524,10 @@
 /* 手機端 Dialog 適配 (Mobile Dialog) */
 /* ==================== */
 
-/* 手機端字體放大 1.5 倍（base 16px → 24px） */
-@media (max-width: 640px) {
+/* 手機端字體放大：≤768px 統一 20px */
+@media (max-width: 768px) {
   html {
-    font-size: 24px;
+    font-size: 20px;
   }
 }
 
