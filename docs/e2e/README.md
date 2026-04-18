@@ -60,8 +60,8 @@
 2. docker compose -f docker-compose.test.yml build
 3. docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 300
 4. 確認 http://localhost:8080 與 http://localhost:8000/api/health 可連
-5. cd frontend && npm ci && npx playwright install --with-deps
-6. npm run test:e2e
+5. cd frontend && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps
+6. pnpm run test:e2e
    - env: E2E_BASE_URL, E2E_USER_EMAIL, E2E_USER_PASSWORD, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD
 7. (failure) 上傳 playwright-report
 8. docker compose -f docker-compose.test.yml down
@@ -895,7 +895,7 @@ npx playwright show-report
 - [ ] 配置驗證通過
 - [ ] 所有測試通過（>= 95%）
 - [ ] 無新的 deprecation warnings
-- [ ] 更新 package.json 和 package-lock.json
+- [ ] 更新 package.json 和 pnpm-lock.yaml
 
 ---
 

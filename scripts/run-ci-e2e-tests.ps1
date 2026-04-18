@@ -60,12 +60,12 @@ Write-Host "Services ready" -ForegroundColor Green
 
 Write-Host "`n4. Install frontend deps and Playwright browsers..." -ForegroundColor Cyan
 Push-Location (Join-Path $RepoRoot "frontend")
-npm ci
+pnpm install --frozen-lockfile
 if ($LASTEXITCODE -ne 0) {
     Pop-Location
     exit 1
 }
-npx playwright install --with-deps
+pnpm exec playwright install --with-deps
 if ($LASTEXITCODE -ne 0) {
     Pop-Location
     exit 1
@@ -79,7 +79,7 @@ if (Test-Path $authDir) {
 }
 
 Write-Host "`n6. Run Playwright E2E tests..." -ForegroundColor Cyan
-npm run test:e2e
+pnpm run test:e2e
 $exitCode = $LASTEXITCODE
 Pop-Location
 

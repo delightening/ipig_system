@@ -6,9 +6,9 @@ Set-Location $rootDir
 
 $feJob = Start-Job -ScriptBlock {
     Set-Location $using:rootDir\frontend
-    npm ci
-    npm run build
-    npm run test:run
+    pnpm install --frozen-lockfile
+    pnpm run build
+    pnpm run test:run
 }
 
 $beJob = Start-Job -ScriptBlock {

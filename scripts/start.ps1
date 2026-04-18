@@ -59,8 +59,8 @@ if ($dockerAvailable) {
     Write-Host ""
     Write-Host "   Frontend:" -ForegroundColor White
     Write-Host "   cd frontend" -ForegroundColor Green
-    Write-Host "   npm install" -ForegroundColor Green
-    Write-Host "   npm run dev" -ForegroundColor Green
+    Write-Host "   pnpm install" -ForegroundColor Green
+    Write-Host "   pnpm run dev" -ForegroundColor Green
 }
 
 Write-Host ""

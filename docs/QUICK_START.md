@@ -158,14 +158,14 @@ npx tsx e2e/scripts/verify-config.ts
 
 ```powershell
 cd frontend
-npm ci
-npx playwright install
+pnpm install --frozen-lockfile
+pnpm exec playwright install
 
 # 執行 Chromium 測試（推薦）
-npx playwright test --project=chromium-login
+pnpm exec playwright test --project=chromium-login
 
 # 或執行所有瀏覽器
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 若跑全部瀏覽器：`npx playwright test`（會跑 auth-setup → chromium → chromium-login → firefox → firefox-login → webkit → webkit-login）。

@@ -20,7 +20,7 @@ reviews:
       - "!*.md"
       - "!.github/**"
       - "!**/*.lock"
-      - "!**/package-lock.json"
+      - "!**/pnpm-lock.yaml"
       - "!**/*.snap"
 
   request_changes_workflow: false

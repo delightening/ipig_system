@@ -8,9 +8,9 @@ cd "$ROOT_DIR"
 
 run_frontend() {
   cd "$ROOT_DIR/frontend"
-  npm ci
-  npm run build
-  npm run test:run
+  pnpm install --frozen-lockfile
+  pnpm run build
+  pnpm run test:run
 }
 
 run_backend() {

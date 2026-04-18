@@ -161,26 +161,26 @@ if (-not $SkipBackend) {
 if (-not $SkipFrontend) {
     $null = Invoke-Step "Frontend: tsc check" {
         Set-Location "$ProjectRoot\frontend"
-        npm ci
-        npx playwright install chromium --with-deps 2>$null
-        npx tsc --noEmit
+        pnpm install --frozen-lockfile
+        pnpm exec playwright install chromium --with-deps 2>$null
+        pnpm exec tsc --noEmit
         if ($LASTEXITCODE -ne 0) { throw "tsc exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
     }
     $null = Invoke-Step "Frontend: Vitest" {
         Set-Location "$ProjectRoot\frontend"
-        npx vitest run
+        pnpm exec vitest run
         if ($LASTEXITCODE -ne 0) { throw "vitest exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
     }
 }
 
-# ----- 9. Security: npm audit -----
+# ----- 9. Security: pnpm audit -----
 if (-not $SkipSecurity) {
-    $null = Invoke-Step "Security: npm audit" {
+    $null = Invoke-Step "Security: pnpm audit" {
         Set-Location "$ProjectRoot\frontend"
-        npm audit --audit-level=high
-        if ($LASTEXITCODE -ne 0) { throw "npm audit exited with $LASTEXITCODE" }
+        pnpm audit --audit-level=high
+        if ($LASTEXITCODE -ne 0) { throw "pnpm audit exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
     }
 }
@@ -195,8 +195,8 @@ if (-not $SkipTrivy) {
 
     $trivyFrontend = {
         Set-Location "$ProjectRoot\frontend"
-        npm ci
-        npm run build
+        pnpm install --frozen-lockfile
+        pnpm run build
         Set-Location $ProjectRoot
         docker build --no-cache --progress=plain -t ipig-web:ci "$ProjectRoot\frontend"
         docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -v "${ProjectRoot}/.trivyignore:/.trivyignore:ro" aquasec/trivy:latest image --exit-code 1 --ignore-unfixed --ignorefile /.trivyignore --severity CRITICAL,HIGH ipig-web:ci
@@ -225,14 +225,14 @@ if (-not $SkipE2E) {
         if (-not $ok) { throw 'Services did not become ready in time' }
 
         Set-Location "$ProjectRoot\frontend"
-        npm ci
-        npx playwright install --with-deps 2>$null
+        pnpm install --frozen-lockfile
+        pnpm exec playwright install --with-deps 2>$null
         $env:E2E_BASE_URL = "http://localhost:18080"
         $env:E2E_USER_EMAIL = "admin@ipigsystem.asia"
         $env:E2E_USER_PASSWORD = "ci_test_admin_password_2024"
         $env:E2E_ADMIN_EMAIL = "admin@ipigsystem.asia"
         $env:E2E_ADMIN_PASSWORD = "ci_test_admin_password_2024"
-        npm run test:e2e
+        pnpm run test:e2e
         if ($LASTEXITCODE -ne 0) { throw "Playwright E2E exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
         Write-Ok "E2E: Playwright"

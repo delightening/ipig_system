@@ -10,8 +10,8 @@
 1. 設定 .env（cp .env.example .env）
 2. 啟動測試環境：docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 300
 3. 確認服務就緒：curl http://localhost:8080 與 http://localhost:8000/api/health
-4. 安裝依賴：cd frontend && npm ci && npx playwright install --with-deps
-5. 執行測試：npm run test:e2e
+4. 安裝依賴：cd frontend && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps
+5. 執行測試：pnpm run test:e2e
 ```
 
 ### 本機

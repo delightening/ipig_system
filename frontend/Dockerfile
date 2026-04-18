@@ -1,20 +1,26 @@
 # ============================================
-# Stage 1: Build frontend
+# Stage 1: Build frontend (pnpm via corepack)
 # ============================================
 FROM node:24-alpine AS builder
 
 WORKDIR /app
 
+# 啟用 corepack 並啟用 package.json 中 "packageManager" 指定的 pnpm 版本
+# 避免 pnpm 版本漂移導致 lockfile 格式不相容
+RUN corepack enable
+
 # Copy package files first for layer caching
-COPY package.json package-lock.json ./
+COPY package.json pnpm-lock.yaml ./
 # 提高 fetch 重試與超時，應付 ECONNRESET 等短暫網路問題
-RUN npm config set fetch-retries 5 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm ci --ignore-scripts
+# --frozen-lockfile：lock 和 package.json 必須完全一致，否則 fail（等效 npm ci）
+# --ignore-scripts：略過套件 postinstall（等效 npm ci --ignore-scripts）
+RUN pnpm config set fetch-retries 5 && \
+    pnpm config set fetch-retry-maxtimeout 120000 && \
+    pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy source and build
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 # ============================================
 # Stage 2: Serve with nginx (Brotli 支援)
