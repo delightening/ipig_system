@@ -25,14 +25,15 @@ export default function PainAssessmentChart({ data }: PainAssessmentChartProps) 
                     <XAxis dataKey="name" fontSize={12} />
                     <YAxis domain={[0, 20]} ticks={[0, 5, 10, 15, 20]} fontSize={12} />
                     <Tooltip
-                        formatter={(value: number | undefined) => {
-                            if (value == null) return ['-', '總分']
+                        formatter={(value) => {
+                            const v = typeof value === 'number' ? value : null
+                            if (v == null) return ['-', '總分'] as [string, string]
                             let grade: string
-                            if (value <= 5) grade = '正常（等級1）'
-                            else if (value <= 10) grade = '輕度疼痛（等級2）'
-                            else if (value <= 15) grade = '中度疼痛（等級3）'
+                            if (v <= 5) grade = '正常（等級1）'
+                            else if (v <= 10) grade = '輕度疼痛（等級2）'
+                            else if (v <= 15) grade = '中度疼痛（等級3）'
                             else grade = '重度疼痛（等級4）'
-                            return [`${value} 分 — ${grade}`, '疼痛總分']
+                            return [`${v} 分 — ${grade}`, '疼痛總分'] as [string, string]
                         }}
                     />
                     <ReferenceLine y={5} stroke="#22c55e" strokeDasharray="4 2"
