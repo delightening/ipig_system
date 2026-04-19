@@ -1,0 +1,66 @@
+# 豬博士 iPig 系統
+
+> 整合型實驗動物管理平台。GLP (Good Laboratory Practice) 合規，採用統一入口門戶架構，
+> 涵蓋 IACUC 計畫書審查、動物醫療紀錄、進銷存、人事管理、通知與設施管理共六大子系統。
+
+豬博士 iPig 為授權後使用之內部 Web 系統。本檔案供 AI agent / LLM 認識本系統能力與整合方式。
+
+## 系統能力總覽
+
+- **AUP 審查系統** — IACUC 動物試驗計畫書撰寫、提交、審查、核准、變更申請、電子簽章
+- **iPig ERP** — 產品/SKU、倉庫/儲位、單據流程、庫存追蹤、低庫存與到期日警示
+- **實驗動物管理系統** — 動物分配、觀察/手術/血檢/體重/疫苗、安樂死、轉讓、病理報告
+- **人事管理 (HR)** — 打卡（IP+GPS 雙驗）、請假、加班、年假/補休、Google Calendar 同步
+- **通知系統** — 站內、Email、可配置路由、排程報表
+- **設施管理** — 物種、建築、區域、欄舍階層
+
+## AI Agent 整合端點
+
+- [A2A Agent Card](https://ipigsystem.asia/.well-known/agent.json) — 系統能力與端點宣告（Agent-to-Agent 協定）
+- [MCP Discovery](https://ipigsystem.asia/.well-known/mcp.json) — Model Context Protocol 端點資訊
+- [WebMCP Manifest](https://ipigsystem.asia/.well-known/webmcp.json) — 頁面層工具宣告
+- [agents.json](https://ipigsystem.asia/.well-known/agents.json) — Agent metadata 索引
+- [OpenAPI 3.0 Specification](https://ipigsystem.asia/openapi.json) — 完整 REST API 規格
+
+## 認證
+
+所有 API 端點皆需認證，提供兩種認證機制：
+
+1. **Web Session (JWT + HttpOnly Cookie)** — 經 `/api/v1/auth/login` 取得；可選 TOTP 2FA
+2. **MCP / AI API Key** — Bearer token，前綴為 `mcp_`（MCP）或 `ai_`（AI 查詢）；由系統管理員於 `user_mcp_keys` 發放
+
+## 公開端點（無需認證）
+
+- `/api/health` — 健康檢查
+- `/api/v1/auth/login`、`/api/v1/auth/refresh`、`/api/v1/auth/forgot-password`、`/api/v1/auth/reset-password`、`/api/v1/auth/2fa/verify`
+- `/api/v1/invitations/verify/:token`、`/api/v1/invitations/accept`
+
+## 公開頁面（瀏覽器端）
+
+- [/](https://ipigsystem.asia/) — 入口（自動導向登入或主頁）
+- [/login](https://ipigsystem.asia/login) — 登入頁
+- [/privacy](https://ipigsystem.asia/privacy) — 隱私權政策
+- [/terms](https://ipigsystem.asia/terms) — 服務條款
+
+## 技術棧
+
+- 後端：Rust + Axum 0.7、PostgreSQL 16、SQLx 0.8、Argon2、JWT + TOTP 2FA、utoipa OpenAPI
+- 前端：React 18、TypeScript、Vite、Tailwind CSS、shadcn/ui、TanStack Query/Table、Zustand、react-i18next（zh-TW / en）
+- 部署：Docker Compose、Cloudflare WAF + Tunnel、Prometheus + Grafana + Alertmanager
+
+## 安全與合規
+
+- TOTP 2FA、敏感操作二級認證、Argon2 密碼雜湊
+- CSRF、Rate Limiting、DOMPurify XSS 防護
+- 稽核日誌、HMAC 完整性驗證、資料保留政策
+- GLP 電子簽章、GLP 驗證文件
+
+## 文件與參考
+
+- [README](https://github.com/) — 專案總覽（內部）
+- [User Guide](https://ipigsystem.asia/) — 使用者操作手冊（登入後）
+- [Architecture](https://ipigsystem.asia/) — 架構文件（登入後）
+
+## 授權
+
+MIT License © 2026 iPig System Contributors

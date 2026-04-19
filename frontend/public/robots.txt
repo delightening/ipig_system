@@ -1,0 +1,140 @@
+# 豬博士 iPig 系統 robots.txt
+# 本系統為授權後使用之內部平台，僅公開頁面（登入、隱私權、服務條款）對外可見。
+# 對 AI agent / LLM crawler 開放 .well-known/* 與 OpenAPI 規格，以便整合。
+
+# ─── 一般搜尋引擎 ───
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Allow: /favicon.ico
+Allow: /pigmodel-logo.png
+Allow: /icons/
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /demo
+Disallow: /admin
+Disallow: /uploads/
+
+# ─── AI Crawlers / LLM Bots ───
+# 允許讀取公開頁與 agent metadata，但禁止抓取 API 與授權後內容
+User-agent: GPTBot
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+User-agent: ClaudeBot
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+User-agent: Google-Extended
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+User-agent: Amazonbot
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+User-agent: Applebot-Extended
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+User-agent: PerplexityBot
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+User-agent: CCBot
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+User-agent: Bytespider
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+# Sitemap
+Sitemap: https://ipigsystem.asia/sitemap.xml

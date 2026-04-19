@@ -1,17 +1,166 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="豬博士 iPig 系統 — 整合型實驗動物管理平台，涵蓋 IACUC 審查、動物管理、進銷存與人事管理" />
+    <meta name="author" content="豬博士 iPig 系統團隊" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://ipigsystem.asia/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="豬博士 iPig 系統" />
+    <meta property="og:title" content="豬博士 iPig — 整合型實驗動物管理平台" />
+    <meta property="og:description" content="GLP 合規的實驗動物管理平台：IACUC 審查、動物紀錄、進銷存、人事與通知一體化。" />
+    <meta property="og:url" content="https://ipigsystem.asia/" />
+    <meta property="og:image" content="https://ipigsystem.asia/pigmodel-logo.png" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta name="twitter:card" content="summary" />
+
     <link rel="icon" href="/favicon.ico" />
     <link rel="icon" href="/favicon-light.ico" media="(prefers-color-scheme: light)" />
     <link rel="icon" href="/favicon-dark.ico" media="(prefers-color-scheme: dark)" />
     <title>豬博士 iPig 系統</title>
     <!-- Google Fonts (Noto Sans TC) 由 CookieConsent 元件根據使用者偏好動態注入 -->
+
+    <!-- Schema.org Organization -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "豬博士 iPig 系統",
+        "alternateName": "iPig System",
+        "url": "https://ipigsystem.asia/",
+        "logo": "https://ipigsystem.asia/pigmodel-logo.png",
+        "description": "整合型實驗動物管理平台，提供 IACUC 計畫書審查、動物醫療紀錄、進銷存、人事管理與 GLP 合規稽核。",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "customer support",
+          "url": "https://ipigsystem.asia/login"
+        }
+      }
+    </script>
+
+    <!-- Schema.org WebSite -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "豬博士 iPig 系統",
+        "url": "https://ipigsystem.asia/",
+        "inLanguage": "zh-TW"
+      }
+    </script>
+
+    <!-- Schema.org SoftwareApplication -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "豬博士 iPig 系統",
+        "applicationCategory": "BusinessApplication",
+        "applicationSubCategory": "Laboratory Animal Management",
+        "operatingSystem": "Web",
+        "url": "https://ipigsystem.asia/",
+        "description": "GLP 合規的整合型實驗動物管理平台，包含 AUP 計畫書審查、iPig ERP 進銷存、實驗動物醫療紀錄、人事管理、通知與設施管理六大子系統，並提供 MCP (Model Context Protocol) 與 OpenAPI 介面供 AI agent 整合。",
+        "softwareVersion": "2.0",
+        "dateModified": "2026-04-19",
+        "inLanguage": "zh-TW",
+        "author": {
+          "@type": "Organization",
+          "name": "豬博士 iPig 系統團隊"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "TWD",
+          "availability": "https://schema.org/InStock"
+        }
+      }
+    </script>
+
+    <!-- Schema.org FAQPage（公開頁常見問題，提升 AI search 引用率） -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "豬博士 iPig 系統是什麼？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "豬博士 iPig 是一套整合型實驗動物管理平台，採用統一入口門戶架構，涵蓋 IACUC 計畫書審查、實驗動物醫療紀錄、進銷存、人事與通知，符合 GLP (Good Laboratory Practice) 合規要求。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "AI agent 如何整合 iPig？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "iPig 提供 MCP (Model Context Protocol) JSON-RPC 端點 (/api/v1/mcp) 與 OpenAPI 3 規格 (/openapi.json)。Agent 可從 /.well-known/agent.json 取得 A2A Agent Card，並透過 mcp_ 前綴的 bearer token 認證後呼叫工具。"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "誰是 iPig 系統的目標使用者？",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "目標使用者包括計畫主持人 (PI)、獸醫師、IACUC 審查委員與行政人員、試驗工作人員、倉庫管理員、人事主管與系統管理員。"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      靜態語意骨架：供搜尋引擎 / AI agent / 無 JS 環境讀取。
+      React 掛載前由 src/main.tsx 移除（見該檔案頂部的 removeStaticLanding 呼叫）。
+    -->
+    <div id="static-landing">
+      <header>
+        <nav aria-label="主要導覽">
+          <a href="/login">登入</a>
+          <span aria-hidden="true"> · </span>
+          <a href="/privacy">隱私權政策</a>
+          <span aria-hidden="true"> · </span>
+          <a href="/terms">服務條款</a>
+        </nav>
+      </header>
+      <main>
+        <h1>豬博士 iPig 系統 — 整合型實驗動物管理平台</h1>
+        <section aria-labelledby="overview-heading">
+          <h2 id="overview-heading">系統概覽</h2>
+          <p>
+            豬博士 iPig 為 GLP (Good Laboratory Practice) 合規的整合型實驗動物管理平台，
+            採用統一入口門戶架構，包含 AUP 計畫書審查、iPig ERP 進銷存、實驗動物醫療紀錄、
+            人事管理、通知與設施管理共六大子系統。
+          </p>
+        </section>
+        <section aria-labelledby="agent-heading">
+          <h2 id="agent-heading">AI Agent 整合</h2>
+          <p>
+            本系統提供以下機器可讀介面，供 AI agent 與自動化工具整合：
+          </p>
+          <ul>
+            <li><a href="/.well-known/agent.json">A2A Agent Card</a> — 系統能力與端點宣告</li>
+            <li><a href="/.well-known/mcp.json">MCP Discovery</a> — Model Context Protocol 端點資訊</li>
+            <li><a href="/.well-known/webmcp.json">WebMCP Manifest</a> — 頁面層工具宣告</li>
+            <li><a href="/openapi.json">OpenAPI 3.0 Specification</a> — 完整 REST API 規格</li>
+            <li><a href="/llms.txt">llms.txt</a> — LLM 友善的系統說明</li>
+          </ul>
+        </section>
+        <noscript>
+          <p>本應用為單頁式應用程式 (SPA)，需啟用 JavaScript 才能使用完整功能。請至 <a href="/login">登入頁</a>。</p>
+        </noscript>
+        <div id="root"></div>
+      </main>
+      <footer>
+        <small>© 2026 豬博士 iPig 系統團隊　·　<a href="/privacy">隱私權政策</a>　·　<a href="/terms">服務條款</a></small>
+      </footer>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

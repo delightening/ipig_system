@@ -87,7 +87,9 @@ pub fn build_app(state: AppState, config: &Config) -> Router {
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         .layer(PropagateRequestIdLayer::x_request_id());
 
-    // R16-9: Production 環境不掛載 Swagger UI
+    // R16-9: Production 環境不掛載 Swagger UI（互動 UI），但仍暴露 /api-docs/openapi.json
+    // 供 AI agent / 自動化工具讀取（IsAgentReady「OpenAPI / API documentation」+20）。
+    // OpenAPI 規格僅描述端點 schema，不含任何資料；實際存取仍由 auth middleware 防護。
     if !config.cookie_secure {
         tracing::info!("[Swagger] 開發模式：掛載 Swagger UI 於 /swagger-ui");
         app = app.merge(utoipa_swagger_ui::SwaggerUi::new("/swagger-ui").url(
@@ -95,7 +97,15 @@ pub fn build_app(state: AppState, config: &Config) -> Router {
             <crate::openapi::ApiDoc as utoipa::OpenApi>::openapi(),
         ));
     } else {
-        tracing::info!("[Swagger] Production 模式：Swagger UI 已停用");
+        tracing::info!("[OpenAPI] Production 模式：暴露 /api-docs/openapi.json（Swagger UI 停用）");
+        let spec = <crate::openapi::ApiDoc as utoipa::OpenApi>::openapi();
+        app = app.route(
+            "/api-docs/openapi.json",
+            axum::routing::get(move || {
+                let spec = spec.clone();
+                async move { axum::Json(spec) }
+            }),
+        );
     }
 
     // R16-12: Production 環境啟用 HSTS header

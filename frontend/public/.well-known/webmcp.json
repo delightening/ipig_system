@@ -1,0 +1,42 @@
+{
+  "name": "ipig-webmcp",
+  "displayName": "豬博士 iPig WebMCP",
+  "description": "iPig 系統的 WebMCP manifest，宣告頁面層級可用的 AI agent 工具與其後端 MCP 端點。",
+  "version": "1.0.0",
+  "mcpServer": {
+    "endpoint": "https://ipigsystem.asia/api/v1/mcp",
+    "transport": "http-json-rpc",
+    "discovery": "https://ipigsystem.asia/.well-known/mcp.json"
+  },
+  "tools": [
+    {
+      "name": "list-protocols",
+      "description": "列出當前使用者可見的 IACUC 計畫書（AUP）",
+      "endpoint": "/api/v1/protocols",
+      "method": "GET"
+    },
+    {
+      "name": "list-animals",
+      "description": "列出當前使用者可見的實驗動物與其健康紀錄",
+      "endpoint": "/api/v1/animals",
+      "method": "GET"
+    },
+    {
+      "name": "inventory-on-hand",
+      "description": "查詢倉儲庫存現況",
+      "endpoint": "/api/v1/inventory/on-hand",
+      "method": "GET"
+    },
+    {
+      "name": "my-projects",
+      "description": "取得當前使用者參與的計畫總覽",
+      "endpoint": "/api/v1/my-projects",
+      "method": "GET"
+    }
+  ],
+  "authentication": {
+    "type": "bearer",
+    "tokenPrefix": "mcp_",
+    "documentation": "https://ipigsystem.asia/llms.txt#認證"
+  }
+}

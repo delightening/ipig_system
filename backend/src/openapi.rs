@@ -8,10 +8,22 @@ use utoipa::OpenApi;
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "iPIG ERP 後端 API",
-        version = "0.1.0",
-        description = "iPIG 實驗動物管理系統後端 API 文件",
-        contact(name = "iPIG 開發團隊")
+        title = "豬博士 iPig 系統 API",
+        version = "2.0.0",
+        description = "\
+豬博士 iPig 系統後端 API（GLP 合規之整合型實驗動物管理平台）。\n\n\
+**AI Agent 整合**：\n\
+- A2A Agent Card：`/.well-known/agent.json`\n\
+- MCP Discovery：`/.well-known/mcp.json`，端點 `/api/v1/mcp`（JSON-RPC 2.0）\n\
+- WebMCP Manifest：`/.well-known/webmcp.json`\n\
+- LLM 友善說明：`/llms.txt`\n\n\
+**認證**：\n\
+- Web Session：經 `/api/v1/auth/login` 取得 HttpOnly Cookie JWT，可選 TOTP 2FA\n\
+- MCP API Key：Bearer token，前綴 `mcp_`，由系統管理員於 `user_mcp_keys` 發放\n\
+- AI API Key：Bearer token，前綴 `ai_`，僅可呼叫 `/api/v1/ai`\n\n\
+**速率限制**：每 IP 每分鐘 60 請求，burst 20（由 nginx 與 Cloudflare WAF 雙層防護）。\n\n\
+**回應格式**：所有錯誤統一為 `AppError`，回傳 JSON `{ \"error\": { \"code\": ..., \"message\": ... } }`。",
+        contact(name = "豬博士 iPig 系統團隊", url = "https://ipigsystem.asia/")
     ),
     paths(
         // === 監控 ===

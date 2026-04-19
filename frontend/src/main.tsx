@@ -84,7 +84,15 @@ focusManager.setEventListener((handleFocus) => {
   }
 })
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+// 將 React mount 點從靜態語意骨架中取出後丟棄骨架；骨架僅供爬蟲/AI agent/無 JS 環境讀取
+const rootElement = document.getElementById('root')!
+const staticLanding = document.getElementById('static-landing')
+if (staticLanding && staticLanding.contains(rootElement)) {
+  document.body.appendChild(rootElement)
+  staticLanding.remove()
+}
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

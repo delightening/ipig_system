@@ -1,0 +1,63 @@
+{
+  "name": "ipig-system",
+  "displayName": "豬博士 iPig 系統",
+  "description": "GLP 合規的整合型實驗動物管理平台，涵蓋 IACUC 計畫書審查、實驗動物醫療紀錄、進銷存、人事、通知與設施管理；提供 MCP 與 OpenAPI 介面供 AI agent 整合。",
+  "url": "https://ipigsystem.asia/",
+  "version": "2.0",
+  "documentationUrl": "https://ipigsystem.asia/llms.txt",
+  "provider": {
+    "organization": "豬博士 iPig 系統團隊",
+    "url": "https://ipigsystem.asia/"
+  },
+  "defaultInputModes": ["application/json"],
+  "defaultOutputModes": ["application/json"],
+  "capabilities": {
+    "streaming": true,
+    "stateTransitionHistory": true,
+    "pushNotifications": false,
+    "structuredOutput": true
+  },
+  "authentication": {
+    "schemes": [
+      {
+        "type": "bearer",
+        "description": "MCP API Key (mcp_ 前綴) 或 AI API Key (ai_ 前綴)，由系統管理員發放",
+        "bearerFormat": "mcp_<random>"
+      },
+      {
+        "type": "cookie",
+        "description": "Web session JWT (HttpOnly Cookie)，經 /api/v1/auth/login 取得，可選 TOTP 2FA"
+      }
+    ]
+  },
+  "skills": [
+    {
+      "id": "mcp-jsonrpc",
+      "name": "MCP JSON-RPC 工具呼叫",
+      "description": "Model Context Protocol JSON-RPC 2.0 端點，提供工具列舉、呼叫與資源存取",
+      "endpoint": "https://ipigsystem.asia/api/v1/mcp",
+      "tags": ["mcp", "tools", "json-rpc"]
+    },
+    {
+      "id": "ai-query",
+      "name": "AI 查詢介面",
+      "description": "結構化 AI 查詢端點，可對動物紀錄、計畫書、庫存等資料進行語意檢索",
+      "endpoint": "https://ipigsystem.asia/api/v1/ai",
+      "tags": ["ai", "query", "search"]
+    },
+    {
+      "id": "rest-api",
+      "name": "REST API",
+      "description": "完整 REST API（200+ 端點），涵蓋認證、使用者、設施、倉儲、動物、計畫書、HR、通知、稽核",
+      "endpoint": "https://ipigsystem.asia/api/v1",
+      "documentationUrl": "https://ipigsystem.asia/openapi.json",
+      "tags": ["rest", "openapi"]
+    }
+  ],
+  "endpoints": {
+    "openapi": "https://ipigsystem.asia/openapi.json",
+    "mcp": "https://ipigsystem.asia/api/v1/mcp",
+    "ai": "https://ipigsystem.asia/api/v1/ai",
+    "health": "https://ipigsystem.asia/api/health"
+  }
+}
