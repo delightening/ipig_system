@@ -152,6 +152,74 @@
             <li><a href="/llms.txt">llms.txt</a> — LLM 友善的系統說明</li>
           </ul>
         </section>
+        <section aria-labelledby="agent-tools-heading">
+          <h2 id="agent-tools-heading">Agent 可用工具</h2>
+          <p>下列為 WebMCP declarative tool 宣告，供 AI agent 直接識別與呼叫；實際執行需先取得 mcp_ 前綴的 bearer token。</p>
+
+          <form
+            tool-name="login"
+            tool-description="Authenticate to the iPig system using email and password to obtain a session JWT (HttpOnly cookie). Returns 200 on success or 401 on bad credentials. Optionally requires TOTP 2FA verification afterwards."
+            action="/api/v1/auth/login"
+            method="POST"
+            aria-label="iPig 登入"
+          >
+            <label>
+              帳號 (email)
+              <input
+                type="email"
+                name="email"
+                tool-param-description="Registered user email address used as the login identifier"
+                required
+                autocomplete="email"
+              />
+            </label>
+            <label>
+              密碼
+              <input
+                type="password"
+                name="password"
+                tool-param-description="Account password (Argon2-hashed server-side); minimum 12 characters"
+                required
+                minlength="12"
+                autocomplete="current-password"
+              />
+            </label>
+            <button type="submit" tool-action-description="Submit credentials to /api/v1/auth/login">登入</button>
+          </form>
+
+          <form
+            tool-name="search_animals"
+            tool-description="Search animals by ear-tag, species, or assigned protocol within the authenticated user's visible scope. Returns a paginated list of animal records with optional inclusion of recent health observations."
+            action="/api/v1/animals"
+            method="GET"
+            aria-label="搜尋動物"
+          >
+            <label>
+              關鍵字
+              <input
+                type="search"
+                name="keyword"
+                tool-param-description="Partial match against ear-tag or animal id (1-100 chars)"
+                minlength="1"
+                maxlength="100"
+              />
+            </label>
+            <label>
+              狀態
+              <select
+                name="status"
+                tool-param-description="Filter by animal lifecycle status"
+              >
+                <option value="">全部</option>
+                <option value="alive">存活</option>
+                <option value="deceased">死亡</option>
+                <option value="euthanized">安樂死</option>
+                <option value="transferred">轉讓</option>
+              </select>
+            </label>
+            <button type="submit" tool-action-description="Issue GET /api/v1/animals with the provided filters">搜尋</button>
+          </form>
+        </section>
         <noscript>
           <p>本應用為單頁式應用程式 (SPA)，需啟用 JavaScript 才能使用完整功能。請至 <a href="/login">登入頁</a>。</p>
         </noscript>

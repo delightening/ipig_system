@@ -32,23 +32,23 @@
   },
   "skills": [
     {
-      "id": "mcp-jsonrpc",
+      "id": "mcp_jsonrpc",
       "name": "MCP JSON-RPC 工具呼叫",
-      "description": "Model Context Protocol JSON-RPC 2.0 端點，提供工具列舉、呼叫與資源存取",
+      "description": "Model Context Protocol JSON-RPC 2.0 端點，提供工具列舉 (tools/list)、工具呼叫 (tools/call) 與資源存取 (resources/read)。",
       "endpoint": "https://ipigsystem.asia/api/v1/mcp",
       "tags": ["mcp", "tools", "json-rpc"]
     },
     {
-      "id": "ai-query",
+      "id": "ai_query",
       "name": "AI 查詢介面",
-      "description": "結構化 AI 查詢端點，可對動物紀錄、計畫書、庫存等資料進行語意檢索",
+      "description": "結構化 AI 查詢端點，可對動物紀錄、計畫書、庫存等資料進行語意檢索，回傳結構化 JSON 結果。",
       "endpoint": "https://ipigsystem.asia/api/v1/ai",
       "tags": ["ai", "query", "search"]
     },
     {
-      "id": "rest-api",
+      "id": "rest_api",
       "name": "REST API",
-      "description": "完整 REST API（200+ 端點），涵蓋認證、使用者、設施、倉儲、動物、計畫書、HR、通知、稽核",
+      "description": "完整 REST API（200+ 端點），涵蓋認證、使用者、設施、倉儲、動物、計畫書、HR、通知、稽核。詳細 schema 見 OpenAPI 規格。",
       "endpoint": "https://ipigsystem.asia/api/v1",
       "documentationUrl": "https://ipigsystem.asia/openapi.json",
       "tags": ["rest", "openapi"]

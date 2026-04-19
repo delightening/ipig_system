@@ -1,42 +1,149 @@
 {
   "name": "ipig-webmcp",
   "displayName": "豬博士 iPig WebMCP",
-  "description": "iPig 系統的 WebMCP manifest，宣告頁面層級可用的 AI agent 工具與其後端 MCP 端點。",
+  "description": "豬博士 iPig 系統的 WebMCP manifest，宣告頁面層級可用的 AI agent 工具與其後端 MCP / REST 端點。所有工具呼叫均需先以 mcp_ 前綴的 bearer token 認證。",
   "version": "1.0.0",
   "mcpServer": {
     "endpoint": "https://ipigsystem.asia/api/v1/mcp",
     "transport": "http-json-rpc",
     "discovery": "https://ipigsystem.asia/.well-known/mcp.json"
   },
-  "tools": [
-    {
-      "name": "list-protocols",
-      "description": "列出當前使用者可見的 IACUC 計畫書（AUP）",
-      "endpoint": "/api/v1/protocols",
-      "method": "GET"
-    },
-    {
-      "name": "list-animals",
-      "description": "列出當前使用者可見的實驗動物與其健康紀錄",
-      "endpoint": "/api/v1/animals",
-      "method": "GET"
-    },
-    {
-      "name": "inventory-on-hand",
-      "description": "查詢倉儲庫存現況",
-      "endpoint": "/api/v1/inventory/on-hand",
-      "method": "GET"
-    },
-    {
-      "name": "my-projects",
-      "description": "取得當前使用者參與的計畫總覽",
-      "endpoint": "/api/v1/my-projects",
-      "method": "GET"
-    }
-  ],
   "authentication": {
     "type": "bearer",
     "tokenPrefix": "mcp_",
     "documentation": "https://ipigsystem.asia/llms.txt#認證"
-  }
+  },
+  "tools": [
+    {
+      "name": "list_protocols",
+      "description": "列出當前使用者可見的 IACUC 動物試驗計畫書 (Animal Use Protocol)，可依狀態、日期區間、關鍵字過濾，回傳分頁結果。",
+      "endpoint": "/api/v1/protocols",
+      "method": "GET",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "分頁頁碼，從 1 開始",
+            "minimum": 1,
+            "default": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "每頁筆數，最大 100",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "status": {
+            "type": "string",
+            "description": "依計畫書狀態過濾",
+            "enum": ["draft", "submitted", "under_review", "approved", "rejected", "amended", "withdrawn"]
+          },
+          "keyword": {
+            "type": "string",
+            "description": "標題或編號的部分比對關鍵字",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_animals",
+      "description": "列出當前使用者可見的實驗動物清單，可依物種、計畫書 ID、欄舍、狀態過濾；可選擇展開最近健康紀錄。",
+      "endpoint": "/api/v1/animals",
+      "method": "GET",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "分頁頁碼，從 1 開始",
+            "minimum": 1,
+            "default": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "每頁筆數，最大 100",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "species_id": {
+            "type": "string",
+            "description": "物種 UUID，過濾特定物種",
+            "format": "uuid"
+          },
+          "protocol_id": {
+            "type": "string",
+            "description": "計畫書 UUID，過濾分配至特定計畫書的動物",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "description": "依動物狀態過濾",
+            "enum": ["alive", "deceased", "euthanized", "transferred", "pending"]
+          },
+          "include_recent_records": {
+            "type": "boolean",
+            "description": "是否一併回傳近 30 日的觀察、體重、血液檢查紀錄",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_inventory_on_hand",
+      "description": "查詢倉儲庫存現況，可依倉庫、產品分類、低於安全庫存等條件過濾，回傳每個 SKU 的可用數量與所在儲位。",
+      "endpoint": "/api/v1/inventory/on-hand",
+      "method": "GET",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "warehouse_id": {
+            "type": "string",
+            "description": "倉庫 UUID，過濾特定倉庫",
+            "format": "uuid"
+          },
+          "category_id": {
+            "type": "string",
+            "description": "SKU 分類 UUID，過濾特定產品分類",
+            "format": "uuid"
+          },
+          "below_safety_stock_only": {
+            "type": "boolean",
+            "description": "是否只回傳低於安全庫存的 SKU",
+            "default": false
+          },
+          "expiring_within_days": {
+            "type": "integer",
+            "description": "只回傳此天數內到期的批號（不指定則不過濾）",
+            "minimum": 1,
+            "maximum": 365
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_my_projects",
+      "description": "取得當前使用者參與的計畫總覽，包含計畫書、動物分配、近期活動摘要。適合作為 agent 對話的入口。",
+      "endpoint": "/api/v1/my-projects",
+      "method": "GET",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "include_archived": {
+            "type": "boolean",
+            "description": "是否包含已封存的計畫",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ]
 }
