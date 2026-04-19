@@ -185,6 +185,81 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-19 AI Agent Readiness 強化（IsAgentReady 35 → 預估 95+，三輪迭代）
+
+**Round 3：安全標頭 regression 修復 + AI crawler 擴充（commit `a09e7e4`）**
+
+- ✅ **根因排查**：Round 2 在 `location = /` / `location /` / `location = /llms.txt` 加了 `add_header Vary "Accept" always;` 後，觸發 nginx 繼承規則（子 location 只要有任何 `add_header` 就完全覆寫 server 層），導致 HSTS / CSP / X-Content-Type-Options / X-Frame-Options / Referrer-Policy / Permissions-Policy / X-XSS-Protection 全部不再送出，IsAgentReady Security & Trust 從 100% 掉到 40%
+- ✅ **新增 `frontend/security-headers.conf` snippet**：集中 7 條 `add_header ... always;`；`Dockerfile` 新增 `COPY security-headers.conf /etc/nginx/snippets/security-headers.conf`
+- ✅ **`nginx.conf` 全面改寫**：server 層改用 `include /etc/nginx/snippets/security-headers.conf;`，並在每個 override 了 `add_header` 的 location（`/api`、`/uploads`、`/robots.txt`、`/sitemap.xml`、`/llms.txt`、`/.well-known/`、`/openapi.json`、`/`、`/index.html` fallback、靜態資源 regex）都 include 同一份 snippet
+- ✅ **`robots.txt` 補 5 組 AI crawler**：`ChatGPT-User` / `OAI-SearchBot` / `Claude-User` / `Claude-SearchBot` / `meta-externalagent`，allow 公開頁、disallow `/api/ /dashboard /my-projects /admin`
+- ✅ **本地驗證**：`curl -I http://localhost:8080/`、`/.well-known/webmcp.json`、`-H "Accept: text/markdown" /` 三路徑皆完整帶出 7 條安全標頭 + 各自 Vary / Content-Type
+
+**Round 2：WebMCP declarative API + content negotiation + tool schema 強化（commit `8e65944`）**
+
+- ✅ **`index.html` static-landing 加 WebMCP form**：新增兩個 W3C WebMCP 宣告式 form（`tool-name="login"` / `tool-name="search_animals"`），含 `tool-description` / `tool-param-description` / `tool-action-description`，對應真實後端端點 `/api/v1/auth/login` 與 `/api/v1/animals`
+- ✅ **`nginx.conf` 加 text/markdown content negotiation**：`location = /` 與 SPA fallback 偵測 `Accept: text/markdown` 後 rewrite 到 `/llms.txt`；所有 `/` 變體加 `Vary: Accept` header 讓快取正確分流
+- ✅ **`.well-known/webmcp.json` schema 強化**：tool 名稱改 snake_case（`list_protocols` / `list_animals` / `get_inventory_on_hand` / `list_my_projects`），每支 description ≥30 字，補完整 `inputSchema`（`type=object`、properties 含 description/enum/format=uuid/min-max、`additionalProperties: false`）
+- ✅ **`.well-known/agent.json` skill id 改 snake_case**（`mcp_jsonrpc` / `ai_query` / `rest_api`）+ 長描述
+
+**Round 1：基礎 metadata 與 discovery endpoints（commit `7a2343c`）**
+
+- ✅ **`frontend/index.html` 改造**：`lang="en"` → `zh-TW`、補 OG/canonical/author meta、注入四組 JSON-LD（Organization、WebSite、SoftwareApplication、FAQPage）；`<div id="root">` 外包靜態語意骨架（`<header>`/`<nav>`/`<main>`/`<h1>`/`<h2>`/`<section>`/`<footer>` + `<noscript>` 降級訊息），React mount 前由 `main.tsx` 取出 root 後刪骨架
+- ✅ **新增 `frontend/public/` 7 檔**：`robots.txt`（覆寫 Cloudflare 預設、明確列 9 種 AI crawler 允許範圍）、`sitemap.xml`（4 公開頁）、`llms.txt`、`.well-known/agent.json`（A2A）、`agents.json`、`mcp.json`、`webmcp.json`
+- ✅ **`frontend/nginx.conf` 補 MIME 與 proxy**：`robots.txt`/`sitemap.xml`/`llms.txt`/`.well-known/*` 明確 Content-Type；`/openapi.json` 反代到 backend `/api-docs/openapi.json`
+- ✅ **Backend OpenAPI production 暴露**：`startup/server.rs` 在 `cookie_secure=true` 時仍掛 `/api-docs/openapi.json` JSON 端點（Swagger UI 維持只在 dev）；`openapi.rs` 補 `info.description`（agent 整合說明、認證機制、rate limit）
+
+**累計預估加分**：Round 1 (+51 基礎 discovery/JSON-LD/semantic) + Round 2 (+55 WebMCP declarative / content negotiation / schema quality) + Round 3 (+66 安全標頭回補 + crawler) → 35 → **95+ (A+)**
+
+### 2026-04-18 共用元件與 ProductTable 完成 @container 遷移（清單 ⏳ 歸零）
+
+- ✅ **`ui/data-table.tsx` 升級**：新增 `ColumnDef.hideClassName`（接受 Tailwind 字面量如 `'hidden @[750px]:table-cell'`，JIT 可掃到）、`mobileCard` renderer 與 `cardBreakpoint`（500/600/700/800 字面量查表）。預設仍向後相容，14 個既有消費者無需改動
+- ✅ **`ProductTable.tsx` 整個拆掉改 @container**：移除 `useLayoutEffect` + `ResizeObserver` + `containerWidth` state + `COL_WIDTHS` + `MIN_TABLE_WIDTH` + `canRenderTable` JS 邏輯，改用 `@container` 單一 wrapper：表格在 ≥ 600px 顯示，< 600px 切換卡片；欄位依 750/900/1050 漸進顯露
+- ✅ **清單狀態**：30 ✅ + 55 🔧 + 0 ⏳ = 85 個表格，所有 ⏳ 項目完成
+
+### 2026-04-18 手機場景 RWD 升級（+12 表格 ✅）
+
+- ✅ **升級範圍**：手機使用者不接觸 admin 區，將 animal blood-test / documents / HR / my-projects 共 12 個表格從 🔧 批次修復升級為 ✅ 完整 RWD（`@container` + Card layout）
+- ✅ **Animal blood-test**：`BloodTestDetailDialog` (6 欄, 500/650/750) + `BloodTestFormDialog` (7 欄, 700) 雙視圖，Card 保留檢查項目 + 異常徽章核心資訊
+- ✅ **Documents**：`DocumentDetailPage` (8 欄) + `DocumentLineEditor` (10 條件欄，新增 LineCard 元件保留所有 inputs) + `DocumentTable` (10 欄) + `ProductSearchDialog` (內嵌顯示策略)
+- ✅ **HR**：`HrAnnualLeavePage` (2 表格) + `ConflictsTab` + `AllRecordsTabContent` + `AttendanceHistoryTab` 全部 Table ≥ 600px / Card < 600px
+- ✅ **My Projects**：`MyProjectsPage` + `MyProjectDetailPage` 的動物清單，Card 以 ear_tag + status 為主軸
+- ✅ **總進度**：28 ✅ + 55 🔧 + 2 ⏳ = 85 個表格
+
+### 2026-04-18 ObservationsTab 欄寬設計簡化為 2 模式
+
+- ✅ **移除 hybrid 混合模式**：原本 762-982 區間用階段式壓縮（creator→date/rtype→content），但 date/rtype 在 90px 會觸發 SortableTableHead 的 `line-clamp-2` 產生 2-line wrap，造成「事件日」/「期」這種不一致視覺
+- ✅ **簡化為 2 模式**：containerW ≥ 762 展開版（固定欄寬）/ < 762 壓縮版（直向標題），單一切換閾值
+- ✅ **展開版固定欄寬**：expand 40 / date 110 / rtype 110 / noMed 100 / vetRead 102 / creator 90 / actions 80（固定總和 632），content flex 吸收 + min 130，minTable = 762 剛好 fit
+- ✅ **壓縮版 vetRead 補上直向標題**：原本橫向「獸醫師讀取」5 字在 85px 寬會被 line-clamp-2 wrap 成 2 行，改為 `writing-mode: vertical-rl` 與其他窄欄標題一致
+- ✅ **狀態修正**：removed unused `EXPANDED_THRESHOLD`，初始 containerW 改為 1024 (避免首幀錯誤觸發壓縮版)
+
+### 2026-04-18 ObservationsTab 階段式壓縮 + 混合版（已簡化，見上）
+
+- ✅ **新增 hybrid mode (762-982)**：移除 `COL` 常數，改為 `computeLayout(containerW)` 函數動態計算欄寬；容器 982px↓時階段壓縮：階段 1 creator 90→60（0-30px deficit）、階段 2 date/rtype 110→90（30-70 deficit）、階段 3 content 吸收剩餘到 min 200
+- ✅ **Inline 樣式取代 Tailwind 動態 class**：`<TableHead style={{ width }} />`、`<Table style={{ minWidth }} />`，避免 Tailwind JIT 無法處理連續寬度變化
+- ✅ **state 重構**：`isCompressed` boolean → `containerW` number，isCompressed 由 `computeLayout().isCompressed` 派生
+- ✅ **三段式設計**：< 762 壓縮版（直向標題、content min 200、minTable 300）/ 762-982 混合版（階段壓縮、content min 200）/ ≥ 982 展開版（content flex min 350）
+- ✅ **壓縮版 vetRead 90→85**：微調觀察試驗紀錄「獸醫師讀取」欄寬
+
+### 2026-04-18 ObservationsTab 欄寬重構 + 直向徽章
+
+- ✅ **COL 常數重寫**：`frontend/src/components/animal/ObservationsTab.tsx` 壓縮版 minTable 480→485、展開版 640→940；新增 expand / content / actions / cellPad keys；內容欄改用 `min-w-[X]` 讓 table-layout auto 吸收剩餘寬度
+- ✅ **壓縮版更緊湊**：date 72→60 / rtype 72→40 / noMed 52→40 / creator 80→40 / actions 80→60；TableCell padding 壓縮版 p-4→px-2 py-2，40px 窄欄可用空間從 8px 拉到 24px
+- ✅ **紀錄性質直向徽章**：壓縮模式下 Badge 套 `[writing-mode:vertical-rl] [text-orientation:upright]`，「觀察紀錄 / 試驗紀錄 / 異常紀錄」4 字中文正立由上而下排列，40px 寬塞得下；`rounded-full` 換 `rounded-md` 避免 pill 形多行變醜
+- ✅ **事件日期 line-clamp-2**：TableCell 內包 `-webkit-line-clamp:2` + `break-all`，壓縮版 60px 寬時日期最多 2 行，不溢出
+- ✅ **展開版自動吸收**：內容欄改 `min-w-[346px]`（無固定 max），容器 940~1804+ 任意寬度下內容欄自動撐開（1280→686px、1600→1006px、1920→1306px）
+
+### 2026-04-18 R23 全站 Table UI 一致性升級（完成）
+
+- ✅ **Batch 0 DataTable 基礎層**：`data-table.tsx` container + header 升級，cascade 覆蓋 ~17 DataTable 使用者
+- ✅ **Batch 1-2 Master / Admin 核心表格**：PartnerTable / DocumentTable / BloodTestTemplateTable / StockLedgerPage / AnimalListTable / UserTable / AuditLogTable（7 files）
+- ✅ **Batch 3 Protocol Tabs + 其他 Master**：BloodTestPanels/Presets / Warehouses / Protocols / AnimalSources + AmendmentsTab / AttachmentsTab / CoEditorsTab / ReviewersTab / VersionsTab（10 files）
+- ✅ **Batch 4 Admin Pages + Config Tabs**：InvitationsPage / ManagementReviewPage / ChangeControlPage / RiskRegisterPage / DepartmentTab / AuditActivitiesTab / AuditAlertsTab / AuditSessionsTab / AuditLoginsTab / RoutingTable（10 files）
+- ✅ **Batch 5 Reports Pages + Tabs**：BloodTestAnalysis / BloodTestCost / StockLedger / StockOnHand / SalesLines / PurchaseLines / PurchaseSalesSummary / CostSummary + JournalEntries / TrialBalance / ProfitLoss / ApAging / ArAging（13 files）
+- ✅ **Batch 6 Animal Detail Tabs + Protocol Sections**：MyProjects / MyAmendments / AnimalFieldCorrections + 8 animal tabs + PersonnelSection / CommentsTableView（13 files）
+- ✅ **JSX 語法修正**：修正 Batch 3 遺留的 4 個 protocol tab `})}` stray bracket 錯誤；修正 InvitationsPage 多餘 `</TableRow>` 標籤
+
 ### 2026-04-18 ProductTable RWD 修正「操作」欄被裁切
 
 - ✅ **次要欄最小寬度 70 → 65**：`frontend/src/pages/master/components/ProductTable.tsx` 的 `computeWidths` 策略 B，規格 / 單位 / 批號 / 效期最小值降為 65，最小表格總和由 740 降到 720
