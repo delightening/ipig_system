@@ -40,6 +40,8 @@ RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils && rm -rf /va
 COPY nginx-main.conf /etc/nginx/nginx.conf
 # Server block（含 brotli on / brotli_static 等）- 作為模板使用
 COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+# 共用安全標頭 snippet（HSTS/CSP/X-Frame-Options 等），由 nginx.conf 多處 include
+COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
 
 # Copy build output from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html

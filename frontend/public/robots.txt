@@ -136,5 +136,80 @@ Disallow: /dashboard
 Disallow: /my-projects
 Disallow: /admin
 
+# OpenAI ChatGPT 使用者即時瀏覽（非訓練用）
+User-agent: ChatGPT-User
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+# OpenAI SearchGPT 搜尋索引
+User-agent: OAI-SearchBot
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+# Anthropic Claude 使用者即時瀏覽
+User-agent: Claude-User
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+# Anthropic Claude 搜尋索引
+User-agent: Claude-SearchBot
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
+# Meta AI crawler
+User-agent: meta-externalagent
+Allow: /$
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /.well-known/
+Allow: /openapi.json
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /my-projects
+Disallow: /admin
+
 # Sitemap
 Sitemap: https://ipigsystem.asia/sitemap.xml
