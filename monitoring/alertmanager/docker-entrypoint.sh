@@ -15,6 +15,12 @@ yaml_escape() {
     printf "'%s'" "$(printf '%s' "$1" | sed "s/'/''/g")"
 }
 
+# Plan B: 若 env 未提供密碼，則從 Docker secret 檔案載入
+# (secrets/alert_smtp_password.txt → /run/secrets/alert_smtp_password)
+if [ -z "$ALERT_SMTP_PASSWORD" ] && [ -f /run/secrets/alert_smtp_password ]; then
+  ALERT_SMTP_PASSWORD=$(cat /run/secrets/alert_smtp_password)
+fi
+
 # If no webhook URL configured, use static config (receivers disabled)
 if [ -z "$ALERTMANAGER_WEBHOOK_URL" ]; then
   exec /bin/alertmanager --config.file="$STATIC_CONFIG"

@@ -185,6 +185,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-20 SMTP 憑證方案 B：4 服務獨立 app password
+
+- ✅ **明文洩漏清除**：`monitoring/alertmanager/alertmanager.yml` 內兩組 Gmail app password（`tajr azwc pmac lyxs` + `eryhtzmhsbsolroj`）與個人 email 已撤銷；該檔改寫為無秘密的 fallback-only 模板
+- ✅ **Alertmanager file-based secret**：`docker-entrypoint.sh` 新增從 `/run/secrets/alert_smtp_password` 載入邏輯；`docker-compose.yml` / `docker-compose.monitoring.yml` 新增 secret mount
+- ✅ **Grafana file-based secret**：改用 Grafana 原生 `GF_SMTP_PASSWORD__FILE`，掛載 `./secrets/grafana_smtp_password.txt`，避免 `docker inspect` 外洩
+- ✅ **4 服務對照表文件**：新增 `docs/operations/SMTP_CREDENTIALS.md`，涵蓋密碼重建流程（產生 4 組獨立 app password → 寫 4 個 secret 檔 → 更新 `.env` → 重啟 → 驗證）
+- ✅ **`.env.example` 重整**：SMTP 區塊按「服務 #1/#2/#3」分段，每段標明密碼改走 secret 檔案而非 env 明文
+
 ### 2026-04-20 CI 修復 + Grafana 面板資料修正
 
 - ✅ **CI tests.rs**：補 `test_config` 缺少的 `alertmanager_webhook_token` 欄位
