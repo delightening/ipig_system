@@ -55,3 +55,7 @@ backend/test_output.txt
 
 # R17-1: CI 日誌檔可能含明文測試密碼，不應追蹤
 logs_*/
+
+# 根目錄 templates/ 放 Word 原稿等設計素材，不追蹤
+# （注意：leading `/` 僅匹配 repo 根目錄，不影響 backend/resources/templates/）
+/templates/
