@@ -173,6 +173,7 @@ fn test_config() -> crate::config::Config {
         gotenberg_url: "http://localhost:3000".to_string(),
         image_processor_url: "http://localhost:3100".to_string(),
         metrics_token: None,
+        alertmanager_webhook_token: None,
         anthropic_api_key: None,
         ai_review_model: "claude-haiku-4-5".to_string(),
         ai_review_enabled: false,
