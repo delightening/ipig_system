@@ -43,7 +43,7 @@ pub fn validate_filename(name: &str) -> Result<(), AppError> {
     for ext in &blocked_exts {
         if lower.ends_with(ext) {
             return Err(AppError::BadRequest(
-                format!("不允許 {} 類型的檔案", ext).into(),
+                format!("不允許 {} 類型的檔案", ext),
             ));
         }
     }

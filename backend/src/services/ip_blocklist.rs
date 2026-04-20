@@ -17,8 +17,10 @@ use crate::{AppError, Result};
 
 const CACHE_TTL: Duration = Duration::from_secs(30);
 
+type BlocklistCache = RwLock<Option<(HashSet<IpAddr>, Instant)>>;
+
 /// 全域 active blocklist cache — middleware 每 request 查一次，30s 過期後重讀 DB
-static CACHE: std::sync::LazyLock<RwLock<Option<(HashSet<IpAddr>, Instant)>>> =
+static CACHE: std::sync::LazyLock<BlocklistCache> =
     std::sync::LazyLock::new(|| RwLock::new(None));
 
 pub struct IpBlocklistService;
