@@ -63,11 +63,14 @@ def main(path):
     for font, cnt in global_font_counter.most_common():
         print(f"  {font:30s} {cnt}")
     print(f"\nFont sizes used (chars total):")
-    for sz, cnt in sorted(global_size_counter.most_common(), key=lambda x: -x[1]):
+    for sz, cnt in global_size_counter.most_common():
         print(f"  {sz}pt   {cnt}")
 
     doc.close()
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(f"Usage: python {sys.argv[0]} <path_to_pdf>", file=sys.stderr)
+        sys.exit(1)
     main(sys.argv[1])

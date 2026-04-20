@@ -1,18 +1,17 @@
 """抽取 .docx 完整格式資訊：字體、字級、間距、頁邊距、表格。"""
 import sys
 from docx import Document
-from docx.shared import Emu, Pt
 
 EMU_PER_PT = 12700
 EMU_PER_CM = 360000
 
 
 def emu_to_cm(emu):
-    return round(emu / EMU_PER_CM, 2) if emu else None
+    return round(emu / EMU_PER_CM, 2) if emu is not None else None
 
 
 def emu_to_pt(emu):
-    return round(emu / EMU_PER_PT, 1) if emu else None
+    return round(emu / EMU_PER_PT, 1) if emu is not None else None
 
 
 def fmt_para(p, idx):
@@ -22,7 +21,7 @@ def fmt_para(p, idx):
         if not r.text.strip():
             continue
         font = r.font
-        sz = font.size.pt if font.size else None
+        sz = font.size.pt if font.size is not None else None
         runs_info.append({
             "text": r.text[:40] + ("..." if len(r.text) > 40 else ""),
             "font": font.name,
@@ -32,14 +31,14 @@ def fmt_para(p, idx):
         })
     return {
         "idx": idx,
-        "style": p.style.name if p.style else None,
+        "style": p.style.name if p.style is not None else None,
         "text_preview": p.text[:60].replace("\n", " "),
-        "alignment": str(pf.alignment).split(".")[-1] if pf.alignment else None,
+        "alignment": str(pf.alignment).split(".")[-1] if pf.alignment is not None else None,
         "line_spacing": pf.line_spacing,
-        "space_before_pt": pf.space_before.pt if pf.space_before else None,
-        "space_after_pt": pf.space_after.pt if pf.space_after else None,
-        "first_line_indent_pt": pf.first_line_indent.pt if pf.first_line_indent else None,
-        "left_indent_pt": pf.left_indent.pt if pf.left_indent else None,
+        "space_before_pt": pf.space_before.pt if pf.space_before is not None else None,
+        "space_after_pt": pf.space_after.pt if pf.space_after is not None else None,
+        "first_line_indent_pt": pf.first_line_indent.pt if pf.first_line_indent is not None else None,
+        "left_indent_pt": pf.left_indent.pt if pf.left_indent is not None else None,
         "runs": runs_info,
     }
 
@@ -72,9 +71,9 @@ def main(path):
         if not hasattr(style, "font"):
             continue
         font = style.font
-        if not (font.name or font.size):
+        if font.name is None and font.size is None:
             continue
-        sz = font.size.pt if font.size else None
+        sz = font.size.pt if font.size is not None else None
         print(f"  [{style.type}] {style.name:30s} font={font.name!s:20s} size={sz}pt bold={font.bold}")
 
     # Paragraphs
@@ -94,9 +93,9 @@ def main(path):
             spacing_bits.append(f"after={info['space_after_pt']}pt")
         if info["line_spacing"] is not None:
             spacing_bits.append(f"line={info['line_spacing']}")
-        if info["first_line_indent_pt"]:
+        if info["first_line_indent_pt"] is not None:
             spacing_bits.append(f"indent={info['first_line_indent_pt']}pt")
-        if info["left_indent_pt"]:
+        if info["left_indent_pt"] is not None:
             spacing_bits.append(f"left={info['left_indent_pt']}pt")
         if spacing_bits:
             print(f"    SPACING: {', '.join(spacing_bits)}")
@@ -104,7 +103,7 @@ def main(path):
             font_bits = []
             if r["font"]:
                 font_bits.append(f"font={r['font']}")
-            if r["size_pt"]:
+            if r["size_pt"] is not None:
                 font_bits.append(f"size={r['size_pt']}pt")
             if r["bold"]:
                 font_bits.append("bold")
@@ -118,7 +117,8 @@ def main(path):
     print(f"TABLES (共 {len(doc.tables)} 個)")
     print("=" * 70)
     for ti, table in enumerate(doc.tables):
-        print(f"\n[Table {ti}]  rows={len(table.rows)}  cols={len(table.columns)}  style={table.style.name if table.style else None}")
+        style_name = table.style.name if table.style is not None else None
+        print(f"\n[Table {ti}]  rows={len(table.rows)}  cols={len(table.columns)}  style={style_name}")
         for ri, row in enumerate(table.rows):
             for ci, cell in enumerate(row.cells):
                 text = cell.text.replace("\n", " | ")[:50]
@@ -127,5 +127,7 @@ def main(path):
 
 
 if __name__ == "__main__":
-    path = sys.argv[1]
-    main(path)
+    if len(sys.argv) < 2:
+        print(f"Usage: python {sys.argv[0]} <path_to_docx>", file=sys.stderr)
+        sys.exit(1)
+    main(sys.argv[1])
