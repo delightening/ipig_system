@@ -106,6 +106,7 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
 
         let gotenberg = erp_backend::GotenbergClient::new("http://localhost:3000");
         let image_processor = erp_backend::ImageProcessorClient::new("http://localhost:3100");
+        let pdf_service = erp_backend::PdfServiceClient::new("http://localhost:3200", "test-token");
         let templates = erp_backend::TemplateService::new()
             .unwrap_or_else(|_| {
                 // 測試環境中模板目錄可能不存在，使用空模板
@@ -120,6 +121,7 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
             metrics_handle: None,
             gotenberg,
             image_processor,
+            pdf_service,
             templates,
             permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
         };
