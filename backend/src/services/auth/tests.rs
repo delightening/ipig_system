@@ -136,6 +136,7 @@ fn test_config() -> crate::config::Config {
         database_acquire_timeout_seconds: 30,
         database_retry_attempts: 5,
         database_retry_delay_seconds: 5,
+        database_statement_timeout_ms: 30000,
         jwt_keys: JwtKeys::for_testing(),
         csrf_secret: "b".repeat(64),
         jwt_expiration_seconds: 21600,
