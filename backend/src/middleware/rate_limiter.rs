@@ -17,8 +17,9 @@ use crate::config::Config;
 use crate::constants::{
     AUTH_RATE_LIMIT_PER_MINUTE, API_RATE_LIMIT_PER_MINUTE, RATE_LIMIT_CLEANUP_INTERVAL_SECS,
     RATE_LIMIT_WINDOW_SECS, UPLOAD_RATE_LIMIT_PER_MINUTE, WRITE_RATE_LIMIT_PER_MINUTE,
+    FORGOT_PASSWORD_RATE_LIMIT, FORGOT_PASSWORD_RATE_WINDOW_SECS,
     SEC_EVENT_RATE_LIMIT_AUTH, SEC_EVENT_RATE_LIMIT_API, SEC_EVENT_RATE_LIMIT_WRITE,
-    SEC_EVENT_RATE_LIMIT_UPLOAD,
+    SEC_EVENT_RATE_LIMIT_UPLOAD, SEC_EVENT_RATE_LIMIT_FORGOT_PW,
 };
 use crate::middleware::real_ip::extract_real_ip_with_trust;
 use crate::services::{AlertThresholdService, AuditService, IpBlocklistService, SecurityNotifier, SecurityNotification};
@@ -143,6 +144,26 @@ pub async fn auth_rate_limit_middleware(
     });
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
     apply_rate_limit(limiter, &ip, "認證端點", SEC_EVENT_RATE_LIMIT_AUTH, Some(state.db.clone()), Some(state.config.clone()), request, next).await
+}
+
+/// E-5: 忘記密碼端點專屬速率限制（嚴格：5 次 / 10 分鐘，防 email flooding）
+/// 不觸發 IP 封鎖升級（threat model 與暴力登入不同）
+pub async fn forgot_password_rate_limit_middleware(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response<Body>, StatusCode> {
+    static FORGOT_PW_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
+    let limiter = FORGOT_PW_LIMITER.get_or_init(|| {
+        RateLimiterState::new(RateLimiterConfig {
+            max_requests: FORGOT_PASSWORD_RATE_LIMIT,
+            window: Duration::from_secs(FORGOT_PASSWORD_RATE_WINDOW_SECS),
+        })
+    });
+    let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
+    apply_rate_limit(limiter, &ip, "忘記密碼端點", SEC_EVENT_RATE_LIMIT_FORGOT_PW,
+        Some(state.db.clone()), None, request, next).await
 }
 
 fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {

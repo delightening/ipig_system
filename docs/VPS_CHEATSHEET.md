@@ -231,6 +231,34 @@ docker logs ipig-db-backup --tail 30
 **保留天數：** `BACKUP_RETENTION_DAYS`（預設 30 天）
 **異地備份：** `RSYNC_TARGET`（空值則不啟用）
 
+### GPG 加密備份設定（E-3）
+
+備份啟用 GPG 加密時，容器啟動時即會驗證 key，避免凌晨備份靜默失敗。
+
+```bash
+# 1. 生成 GPG key（在 VPS 上）
+gpg --full-generate-key
+# 選 RSA 4096，設定 email（例如 backup@example.com）
+
+# 2. 匯出公鑰（只需公鑰做加密）
+gpg --export --armor backup@example.com > backup_public.asc
+
+# 3. 將公鑰複製到 VPS 備份容器掛載目錄後匯入
+docker compose cp backup_public.asc db-backup:/tmp/backup_public.asc
+docker compose exec db-backup gpg --import /tmp/backup_public.asc
+
+# 4. 設定 .env
+BACKUP_REQUIRE_ENCRYPTION=true
+BACKUP_GPG_RECIPIENT=backup@example.com
+
+# 5. 重啟容器驗證（啟動時立即報錯或顯示 ✅）
+docker compose up -d db-backup
+docker compose logs db-backup
+
+# 還原：解密備份檔案
+gpg --decrypt backup_20260420_020000.sql.gz.gpg | gunzip > restore.sql
+```
+
 ---
 
 ## Secrets 管理

@@ -3,8 +3,8 @@ use tower::ServiceBuilder;
 
 use crate::middleware::etag::etag_middleware;
 use crate::middleware::rate_limiter::{
-    api_rate_limit_middleware, auth_rate_limit_middleware, upload_rate_limit_middleware,
-    write_rate_limit_middleware,
+    api_rate_limit_middleware, auth_rate_limit_middleware, forgot_password_rate_limit_middleware,
+    upload_rate_limit_middleware, write_rate_limit_middleware,
 };
 use crate::{
     handlers,
@@ -33,6 +33,14 @@ pub fn api_routes(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_rate_limit_middleware,
+        ))
+        .with_state(state.clone());
+
+    // E-5: forgot/reset-password 套用較嚴格的獨立限制（5/10min，不觸發 IP 封鎖）
+    let pw_reset_routes = auth::password_reset_routes()
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            forgot_password_rate_limit_middleware,
         ))
         .with_state(state.clone());
 
@@ -134,6 +142,7 @@ pub fn api_routes(state: AppState) -> Router {
 
     // P1-M1: API 版本路徑 — /api/v1 為唯一前綴
     let api_v1 = public_routes
+        .merge(pw_reset_routes)
         .merge(protected_routes)
         .merge(upload_routes)
         .merge(ai_query_routes)

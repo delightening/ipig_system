@@ -5,17 +5,22 @@ use axum::{
 
 use crate::{handlers, AppState};
 
-/// 公開認證路由（不需登入）
+/// 公開認證路由（不需登入，auth_rate_limit: 30/min）
 pub fn public_routes() -> Router<AppState> {
     Router::new()
         .route("/auth/login", post(handlers::login))
         .route("/auth/refresh", post(handlers::refresh_token))
+        .route("/auth/2fa/verify", post(handlers::verify_2fa_login))
+}
+
+/// E-5: 密碼重設路由（forgot_password_rate_limit: 5/10min，防 email flooding）
+pub fn password_reset_routes() -> Router<AppState> {
+    Router::new()
         .route("/auth/forgot-password", post(handlers::forgot_password))
         .route(
             "/auth/reset-password",
             post(handlers::reset_password_with_token),
         )
-        .route("/auth/2fa/verify", post(handlers::verify_2fa_login))
 }
 
 /// 受保護認證路由 + /me 個人設定

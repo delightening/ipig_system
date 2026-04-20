@@ -10,9 +10,14 @@ pub struct GotenbergClient {
 
 impl GotenbergClient {
     pub fn new(base_url: &str) -> Self {
+        let client = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .expect("Failed to build Gotenberg HTTP client");
         Self {
             base_url: base_url.trim_end_matches('/').to_string(),
-            client: reqwest::Client::new(),
+            client,
         }
     }
 

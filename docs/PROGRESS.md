@@ -218,6 +218,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **前端 Checkbox**：警報表格每列加勾選框，表頭加全選（僅選 open 狀態）
 - ✅ **批次操作按鈕**：選取後 CardHeader 出現「標記解決（N）」按鈕，操作完自動清除選取並刷新資料
 
+### 2026-04-20 資安修復 E-2 / E-3 / E-5（Gotenberg timeout + GPG 啟動驗證 + 忘記密碼速率限制）
+
+- ✅ **E-2 Gotenberg HTTP Timeout**：`reqwest::Client::builder()` 加 `connect_timeout(5s)` + `timeout(60s)`，防止 PDF 渲染永久 hang
+- ✅ **E-3 GPG 啟動驗證**：`scripts/backup/entrypoint.sh` 於容器啟動時檢查 `BACKUP_REQUIRE_ENCRYPTION` + key 存在，設定錯誤立即 exit 1
+- ✅ **E-3 文件**：`.env.example` 補充 `BACKUP_GPG_RECIPIENT` 必填說明；`docs/VPS_CHEATSHEET.md` 新增 GPG 設定完整流程（生成→匯出→容器匯入→還原）
+- ✅ **E-5 忘記密碼獨立限速**：`FORGOT_PASSWORD_RATE_LIMIT = 5/10min`，拆出 `password_reset_routes()` 套用 `forgot_password_rate_limit_middleware`，不觸發 IP 封鎖升級
+
 ### 2026-04-19 R24 Observability & IP-level Safety Gate（4/4 完成）
 
 - ✅ **R24-1 IP blocklist + 自動封鎖 middleware**：`migrations/031_ip_blocklist.sql`（UUID/INET/partial unique index）；`services/ip_blocklist.rs`（30s TTL `HashSet<IpAddr>` cache + auto_block/manual_add/unblock/list）；`middleware/ip_blocklist.rs` 掛於 `api_middleware_stack` 最外層（涵蓋 /api/v1 全子路由，/metrics、/api/health、honeypot 在 /api/v1 外層自然 bypass）；來源 IP 復用既有 `middleware/real_ip.rs::extract_real_ip_with_trust`；R22-6 IDOR probe / R22-5 auth escalation / R22-16 honeypot 三處觸發自動封 IP（分別 24h / 1h / 永久）；`/admin/audit/ip-blocklist` handler + `AdminAuditPage` 新 Tab（列表、手動新增、解除封鎖 Dialog）
