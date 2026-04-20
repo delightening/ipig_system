@@ -78,15 +78,15 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "http_request_duration_seconds{quantile=\"0.5\"}",
           "legendFormat": "P50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "http_request_duration_seconds{quantile=\"0.95\"}",
           "legendFormat": "P95"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "http_request_duration_seconds{quantile=\"0.99\"}",
           "legendFormat": "P99"
         }
       ],
@@ -146,21 +146,23 @@
       }
     },
     {
-      "title": "Request Duration Heatmap",
-      "description": "Distribution of request durations over time",
-      "type": "heatmap",
+      "title": "Avg Latency by Path",
+      "description": "Average request duration per endpoint (top paths)",
+      "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 5 }
+        },
+        "overrides": []
+      },
       "targets": [
         {
-          "expr": "sum(increase(http_request_duration_seconds_bucket[5m])) by (le)",
-          "legendFormat": "{{le}}",
-          "format": "heatmap"
+          "expr": "topk(5, rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m]))",
+          "legendFormat": "{{path}}"
         }
-      ],
-      "options": {
-        "color": { "scheme": "Oranges" },
-        "yAxis": { "unit": "s" }
-      }
+      ]
     },
     {
       "title": "Database",
