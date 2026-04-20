@@ -35,7 +35,6 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { RoleWelcomeGuide } from '@/components/dashboard'
 import { GuestHide } from '@/components/ui/guest-hide'
-import { useAuthStore } from '@/stores/auth'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -58,7 +57,6 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
 
 export function MyProjectsPage() {
   const { t } = useTranslation()
-  const isGuest = useAuthStore((s) => s.isGuest)()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { dialogState, confirm } = useConfirmDialog()

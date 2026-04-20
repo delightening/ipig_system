@@ -25,7 +25,6 @@ import { Eye, History } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
-import { TableEmptyRow } from '@/components/ui/empty-state'
 import { ProtocolContentView } from '@/components/protocol/ProtocolContentView'
 import { ProtocolComparisonDialog } from '@/components/protocols/ProtocolComparisonDialog'
 
