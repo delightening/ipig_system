@@ -185,6 +185,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-20 CI 修復 + Grafana 面板資料修正
+
+- ✅ **CI tests.rs**：補 `test_config` 缺少的 `alertmanager_webhook_token` 欄位
+- ✅ **CI clippy**：`validation.rs` 移除多餘 `.into()`；`ip_blocklist.rs` 提取 `BlocklistCache` type alias
+- ✅ **CI migration 032**：`GRANT CONNECT ON DATABASE` 硬編名改 `current_database()`
+- ✅ **Grafana dashboard 查詢修正**：P50/P95/P99 從 histogram `_bucket` 改為 summary `{quantile="0.x"}`；Heatmap 改為 top5 路徑平均延遲
+- ✅ **TypeScript 清理**：`MyProjectsPage` 移除未使用 `isGuest` + `useAuthStore` import；`VersionsTab` 移除未使用 `TableEmptyRow` import
+
 ### 2026-04-20 資安強化 4 項補齊
 
 - ✅ **X-Permitted-Cross-Domain-Policies**：`server.rs` 新增 `none` 標頭，補齊資安 header 完整性
