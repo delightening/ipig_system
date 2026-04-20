@@ -334,6 +334,23 @@ docker compose up -d prometheus grafana
 
 ---
 
+## 搬家 / 換網域 Checklist
+
+> ⚠️ 換網域時以下兩處必須同步更新，否則連結失效：
+
+| 檔案 | 欄位 | 目前值 |
+|------|------|--------|
+| `frontend/public/.well-known/security.txt` | `Canonical:` | `https://ipigsystem.asia/.well-known/security.txt` |
+| `.env` | `APP_URL` | `https://ipigsystem.asia` |
+
+```bash
+# 更新後重新 build 前端 image
+docker compose build web
+docker compose up -d web
+```
+
+---
+
 ## 常見問題
 
 ### env var 改了沒生效

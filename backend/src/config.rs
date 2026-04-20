@@ -60,6 +60,8 @@ pub struct Config {
     pub database_acquire_timeout_seconds: u64,
     pub database_retry_attempts: u32,
     pub database_retry_delay_seconds: u64,
+    /// R25-5: PostgreSQL 個別查詢執行上限（毫秒）；0 = 停用
+    pub database_statement_timeout_ms: u64,
     /// ES256 金鑰對（私鑰簽發、公鑰驗證）
     /// 讀取 JWT_EC_PRIVATE_KEY / JWT_EC_PUBLIC_KEY 環境變數（或 _FILE 後綴版本）
     pub jwt_keys: JwtKeys,
@@ -127,6 +129,10 @@ pub struct Config {
     pub gotenberg_url: String,
     /// Image Processor 微服務 URL（方案 D）
     pub image_processor_url: String,
+    /// PDF Service (FastAPI) URL
+    pub pdf_service_url: String,
+    /// PDF Service 內部服務認證 token（X-Internal-Token header）
+    pub pdf_service_token: String,
     /// R17-4: Prometheus /metrics 端點 Bearer Token（未設定則無認證）
     pub metrics_token: Option<String>,
     /// R20-5: Anthropic API Key（AI 預審用）
@@ -170,6 +176,10 @@ impl Config {
                 .unwrap_or_else(|_| "5".to_string())
                 .parse()
                 .context("DATABASE_RETRY_DELAY_SECONDS must be a number")?,
+            database_statement_timeout_ms: std::env::var("DATABASE_STATEMENT_TIMEOUT_MS")
+                .unwrap_or_else(|_| "30000".to_string())
+                .parse()
+                .context("DATABASE_STATEMENT_TIMEOUT_MS must be a number")?,
             // CRIT-02: 使用非對稱式 ES256（ECDSA P-256）取代對稱式 HS256
             // 金鑰材料從環境變數（或 _FILE Docker Secrets）讀取，啟動時預解析
             jwt_keys: {
@@ -285,6 +295,9 @@ impl Config {
                 .unwrap_or_else(|_| "http://localhost:3000".to_string()),
             image_processor_url: std::env::var("IMAGE_PROCESSOR_URL")
                 .unwrap_or_else(|_| "http://image-processor:3100".to_string()),
+            pdf_service_url: std::env::var("PDF_SERVICE_URL")
+                .unwrap_or_else(|_| "http://pdf-service:3200".to_string()),
+            pdf_service_token: read_secret("PDF_SERVICE_TOKEN").unwrap_or_default(),
             metrics_token: std::env::var("METRICS_TOKEN").ok().filter(|s| !s.is_empty()),
             anthropic_api_key: read_secret("ANTHROPIC_API_KEY"),
             ai_review_model: std::env::var("AI_REVIEW_MODEL")
@@ -369,6 +382,7 @@ mod tests {
             database_acquire_timeout_seconds: 30,
             database_retry_attempts: 5,
             database_retry_delay_seconds: 5,
+            database_statement_timeout_ms: 30000,
             jwt_keys: JwtKeys::for_testing(),
             csrf_secret: "b".repeat(64),
             jwt_expiration_seconds: 21600,
@@ -405,6 +419,8 @@ mod tests {
             is_ci: false,
             gotenberg_url: "http://localhost:3000".to_string(),
             image_processor_url: "http://localhost:3100".to_string(),
+            pdf_service_url: "http://localhost:3200".to_string(),
+            pdf_service_token: "test-token".to_string(),
             metrics_token: None,
             anthropic_api_key: None,
             ai_review_model: "claude-haiku-4-5".to_string(),

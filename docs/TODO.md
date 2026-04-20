@@ -1876,6 +1876,21 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🔒 R25 — 安全基礎設施補強（2026-04-20）
+
+> 延伸 E-系列安全審計：補齊 5 項 CI / infra / 監控層面的 gap。
+> 來源：安全審計後續建議（N-1 ~ N-5）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R25-1 | **Trivy 容器掃描加入 CI** | 每次 build 掃 image CVE；現在只有 `cargo audit` 管 Rust 依賴，缺少 OS/base image 層級掃描；加入 `.github/workflows/` trivy-scan job，critical/high 自動 fail | [x] 已存在於 ci.yml:382-432 |
+| R25-2 | **security.txt（RFC 9116）** | `/.well-known/security.txt` 提供漏洞回報聯絡管道；AI agent 與安全研究員標準查找點；可由 nginx 靜態服務或後端路由回傳 | [x] |
+| R25-3 | **CSP report-uri 端點** | 目前 CSP 只攔截不回報；新增 `POST /api/v1/csp-report` 端點收集真實 XSS 嘗試，寫入 `security_alerts` 或獨立 log table | [x] |
+| R25-4 | **Secret scanning in CI** | 加入 `git-secrets` 或 `truffleHog` 掃 commit，防止 API key / token 意外進版控；整合至 GitHub Actions pre-push 或 PR check | [x] gitleaks-action |
+| R25-5 | **DB 查詢 statement timeout** | sqlx pool 有 `acquire_timeout`，但個別 query 沒有 statement timeout；長查詢可能打滿 pool；於 `DATABASE_URL` 加 `options=--statement_timeout%3D30000` 或在 pool 建立後執行 `SET statement_timeout` | [x] after_connect hook |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -1906,6 +1921,7 @@ ORDER BY 1 DESC;
 | 🛡️ R22 攻擊偵測與主動告警 | 0 (17 完成, 1 暫緩) |
 | 🎨 R23 全站 Table UI 升級 | 0 (20 完成) |
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
+| 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
 | **合計（未完成）** | **13** |
 
 ---

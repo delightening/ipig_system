@@ -51,6 +51,17 @@ jobs:
   # =========================
   # 🛡️ 供應鏈檢查 (授權/漏洞/來源)
   # =========================
+  secret-scan:
+    name: "🔑 Security: secret scanning (gitleaks)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   cargo-deny:
     name: "🛡️ Security: cargo deny"
     runs-on: ubuntu-latest

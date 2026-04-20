@@ -44,6 +44,8 @@ pub mod user_preferences;
 pub(crate) mod warehouse;
 mod invitation;
 pub mod ip_blocklist;
+pub mod csp_report;
+pub use csp_report::*;
 
 pub use animal::*;
 pub use invitation::*;

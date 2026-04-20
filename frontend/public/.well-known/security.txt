@@ -1,0 +1,4 @@
+Contact: mailto:jason@ipigsystem.asia
+Expires: 2027-04-20T00:00:00.000Z
+Preferred-Languages: zh-TW, en
+Canonical: https://ipigsystem.asia/.well-known/security.txt

@@ -89,10 +89,23 @@ pub async fn create_database_pool_with_retry(
             max_attempts
         );
 
+        let statement_timeout_ms = config.database_statement_timeout_ms;
         match PgPoolOptions::new()
             .max_connections(config.database_max_connections)
             .min_connections(config.database_min_connections)
             .acquire_timeout(Duration::from_secs(config.database_acquire_timeout_seconds))
+            .after_connect(move |conn, _meta| {
+                Box::pin(async move {
+                    if statement_timeout_ms > 0 {
+                        sqlx::query(&format!(
+                            "SET statement_timeout = {statement_timeout_ms}"
+                        ))
+                        .execute(conn)
+                        .await?;
+                    }
+                    Ok(())
+                })
+            })
             .connect(&config.database_url)
             .await
         {

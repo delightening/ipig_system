@@ -127,6 +127,14 @@ pub fn api_routes(state: AppState) -> Router {
         )
         .with_state(state.clone());
 
+    // R25-3: CSP violation report（/api/v1 內，無 auth / 無 CSRF，瀏覽器匿名送出）
+    let csp_report_route = Router::new()
+        .route(
+            "/csp-report",
+            axum::routing::post(handlers::csp_report_handler),
+        )
+        .with_state(state.clone());
+
     // R24-1: ip_blocklist 掛於 /api/v1 最外層，涵蓋 public/protected/upload/ai/mcp 所有 API。
     // 不影響 health_route（/metrics、/api/health）與 honeypot_routes — 它們位於 /api/v1 之外。
     let api_middleware_stack = ServiceBuilder::new()
@@ -146,7 +154,8 @@ pub fn api_routes(state: AppState) -> Router {
         .merge(protected_routes)
         .merge(upload_routes)
         .merge(ai_query_routes)
-        .merge(mcp_routes);
+        .merge(mcp_routes)
+        .merge(csp_report_route);
 
     health_route
         .merge(honeypot_routes)
