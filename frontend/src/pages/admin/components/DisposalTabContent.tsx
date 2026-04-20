@@ -2,7 +2,6 @@
  * 報廢紀錄分頁內容：表格、分頁、核准/駁回操作、申請報廢
  */
 import { useMemo } from 'react'
-import { truncateText } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -60,7 +59,7 @@ export function DisposalTabContent({
       key: 'date', header: '報廢日期',
       cell: (r) => r.disposal_date ? format(new Date(r.disposal_date), 'yyyy/MM/dd', { locale: zhTW }) : '—',
     },
-    { key: 'reason', header: '原因', cell: (r) => <span title={r.reason}>{truncateText(r.reason, 20)}</span> },
+    { key: 'reason', header: '原因', className: 'max-w-[240px] whitespace-normal break-words', cell: (r) => r.reason },
     { key: 'applicant', header: '申請人', cell: (r) => r.applicant_name },
     {
       key: 'appliedAt', header: '申請時間',

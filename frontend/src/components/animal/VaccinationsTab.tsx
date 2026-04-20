@@ -25,6 +25,7 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Edit2, Trash2, Syringe, Loader2 } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
@@ -83,7 +84,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
 
   return (
     <>
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>疫苗/驅蟲紀錄</CardTitle>
@@ -97,54 +98,93 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
           </GuestHide>
         </CardHeader>
         <CardContent>
-          {!vaccinations || vaccinations.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Syringe className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p>尚無疫苗/驅蟲紀錄</p>
-              <p className="text-sm mt-1">點擊上方按鈕新增</p>
+          <div className="@container">
+
+            {/* ── Table view: container ≥ 600px ── */}
+            <div className="hidden @[600px]:block overflow-x-auto">
+              <Table className="w-full" style={{ minWidth: 530 }}>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <SortableTableHead style={{ width: 100 }} sortKey="administered_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>施打日期</SortableTableHead>
+                    <SortableTableHead style={{ minWidth: 120 }} sortKey="vaccine" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>疫苗</SortableTableHead>
+                    <TableHead style={{ minWidth: 120 }}>驅蟲劑量</TableHead>
+                    <TableHead style={{ width: 100 }}>記錄者</TableHead>
+                    <SortableTableHead style={{ width: 160 }} sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="hidden @[690px]:table-cell">建立時間</SortableTableHead>
+                    <TableHead style={{ width: 90 }} className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!vaccinations || vaccinations.length === 0 ? (
+                    <TableEmptyRow colSpan={6} icon={Syringe} title="尚無疫苗/驅蟲紀錄" />
+                  ) : (
+                    sortedData?.map((vac) => (
+                      <TableRow key={vac.id}>
+                        <TableCell style={{ width: 100 }} className="whitespace-nowrap">{new Date(vac.administered_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
+                        <TableCell style={{ minWidth: 120 }} className="whitespace-normal break-words">{vac.vaccine || '-'}</TableCell>
+                        <TableCell style={{ minWidth: 120 }} className="whitespace-normal break-words">{vac.deworming_dose || '-'}</TableCell>
+                        <TableCell style={{ width: 100 }} className="whitespace-normal break-words">{vac.created_by_name || '-'}</TableCell>
+                        <TableCell style={{ width: 160 }} className="text-xs text-muted-foreground hidden @[690px]:table-cell">{new Date(vac.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
+                        <TableCell style={{ width: 90 }} className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <GuestHide>
+                              <Button variant="ghost" size="icon" aria-label="編輯">
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(vac.id)} aria-label="刪除">
+                                <Trash2 className="h-4 w-4 text-status-error-solid" />
+                              </Button>
+                            </GuestHide>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortableTableHead sortKey="administered_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>施打日期</SortableTableHead>
-                  <SortableTableHead sortKey="vaccine" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>疫苗</SortableTableHead>
-                  <TableHead>驅蟲劑量</TableHead>
-                  <TableHead>記錄者</TableHead>
-                  <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立時間</SortableTableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedData?.map((vac) => (
-                  <TableRow key={vac.id}>
-                    <TableCell>{new Date(vac.administered_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
-                    <TableCell>{vac.vaccine || '-'}</TableCell>
-                    <TableCell>{vac.deworming_dose || '-'}</TableCell>
-                    <TableCell>{vac.created_by_name || '-'}</TableCell>
-                    <TableCell>{new Date(vac.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
+
+            {/* ── Card view: container < 600px ── */}
+            <div className="@[600px]:hidden space-y-3 py-1">
+              {!vaccinations || vaccinations.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                  <Syringe className="h-8 w-8" />
+                  <p className="text-sm">尚無疫苗/驅蟲紀錄</p>
+                </div>
+              ) : (
+                sortedData?.map((vac) => (
+                  <div key={vac.id} className="rounded-lg border bg-card p-3 space-y-2">
+                    <div className="text-sm font-medium text-foreground">
+                      {new Date(vac.administered_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}
+                    </div>
+                    {vac.vaccine && (
+                      <div className="text-sm text-muted-foreground">
+                        💉 疫苗：{vac.vaccine}
+                      </div>
+                    )}
+                    {vac.deworming_dose && (
+                      <div className="text-sm text-muted-foreground">
+                        💊 驅蟲：{vac.deworming_dose}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                      <span className="text-xs text-muted-foreground">{vac.created_by_name || '-'}</span>
+                      <div className="flex gap-0.5">
                         <GuestHide>
                           <Button variant="ghost" size="icon" aria-label="編輯">
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteTarget(vac.id)}
-                            aria-label="刪除"
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(vac.id)} aria-label="刪除">
                             <Trash2 className="h-4 w-4 text-status-error-solid" />
                           </Button>
                         </GuestHide>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
         </CardContent>
       </Card>
 

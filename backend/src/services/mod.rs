@@ -34,6 +34,7 @@ pub mod report;
 pub mod retry;
 mod role;
 pub mod scheduler;
+pub mod ip_blocklist;
 pub mod security_notifier;
 mod session_manager;
 mod signature;
@@ -95,6 +96,7 @@ pub use protocol::ProtocolService;
 pub use qau::{QauDashboard, QauService};
 pub use qa_plan::QaPlanService;
 pub use role::RoleService;
+pub use ip_blocklist::{IpBlocklistEntry, IpBlocklistService};
 pub use security_notifier::{SecurityNotifier, SecurityNotification};
 pub use session_manager::SessionManager;
 pub use signature::{

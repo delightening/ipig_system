@@ -9,7 +9,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
-import { Loader2, History, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { History, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useTableSort } from '@/hooks/useTableSort'
 import type { UserActivityLog } from '@/types/hr'
@@ -58,10 +59,10 @@ export function AuditLogTable({
   const { sortedData, sort, toggleSort } = useTableSort(activityLogs?.data)
 
   return (
-    <div className="rounded-md border bg-white overflow-x-auto">
+    <div className="rounded-lg border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow className="bg-muted/50 hover:bg-muted/50">
             <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
             <SortableTableHead sortKey="actor_display_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>操作者</SortableTableHead>
             <SortableTableHead sortKey="event_category" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類別</SortableTableHead>
@@ -74,8 +75,8 @@ export function AuditLogTable({
         <TableBody>
           {isLoading ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+              <TableCell colSpan={7} className="p-0">
+                <TableSkeleton rows={8} cols={7} />
               </TableCell>
             </TableRow>
           ) : sortedData && sortedData.length > 0 ? (

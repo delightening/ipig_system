@@ -9,7 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, Power, PowerOff, Loader2, Droplets, ArrowUpDown, ChevronDown, ChevronRight } from 'lucide-react'
+import { Edit, Power, PowerOff, Droplets, ArrowUpDown, ChevronDown, ChevronRight } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import type { BloodTestTemplate, BloodTestPanel } from '@/lib/api'
@@ -108,10 +110,10 @@ export function BloodTestTemplateTable({
   )
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-lg border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead className="w-[120px] cursor-pointer" onClick={() => onSort('code')}>
               代碼 <SortIndicator field="code" />
             </TableHead>
@@ -135,8 +137,8 @@ export function BloodTestTemplateTable({
         <TableBody>
           {isLoading ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+              <TableCell colSpan={7} className="p-0">
+                <TableSkeleton rows={5} cols={7} />
               </TableCell>
             </TableRow>
           ) : flatFiltered.length > 0 ? (
@@ -186,14 +188,11 @@ export function BloodTestTemplateTable({
               )
             })
           ) : (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
-                <Droplets className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-muted-foreground">
-                  {search ? '找不到符合的檢查項目' : '尚無檢查項目資料'}
-                </p>
-              </TableCell>
-            </TableRow>
+            <TableEmptyRow
+              colSpan={7}
+              icon={Droplets}
+              title={search ? '找不到符合的檢查項目' : '尚無檢查項目資料'}
+            />
           )}
         </TableBody>
       </Table>

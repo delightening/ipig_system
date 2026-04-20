@@ -8,8 +8,8 @@ set -e
 CONFIG_FILE="/tmp/alertmanager.yml"
 STATIC_CONFIG="/etc/alertmanager/alertmanager.yml"
 
-# H7: YAML-safe escape — wraps value in YAML single quotes and escapes embedded
-# single quotes as '' per YAML spec §7.3.3. Prevents YAML injection when passwords
+# H7: YAML-safe escape ??wraps value in YAML single quotes and escapes embedded
+# single quotes as '' per YAML spec 禮7.3.3. Prevents YAML injection when passwords
 # or URLs contain special characters (: # " ' { } [ ]).
 yaml_escape() {
     printf "'%s'" "$(printf '%s' "$1" | sed "s/'/''/g")"

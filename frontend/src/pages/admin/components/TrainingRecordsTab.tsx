@@ -149,7 +149,7 @@ export function TrainingRecordsTab({
                           ? format(new Date(r.expires_at), 'yyyy/MM/dd', { locale: zhTW })
                           : '\u2014'}
                       </TableCell>
-                      <TableCell className="max-w-[200px] truncate">
+                      <TableCell className="max-w-[200px] whitespace-normal break-words">
                         {r.notes || '\u2014'}
                       </TableCell>
                       <TableCell>

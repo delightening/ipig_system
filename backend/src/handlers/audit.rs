@@ -16,9 +16,9 @@ use crate::{
     middleware::CurrentUser,
     models::{
         ActivityLogQuery, AuditDashboardStats, AuditLogQuery, AuditLogWithActor,
-        ForceLogoutRequest, LoginEventQuery, LoginEventWithUser, PaginatedResponse,
-        ResolveAlertRequest, SecurityAlert, SecurityAlertQuery, SessionQuery, SessionWithUser,
-        UserActivityLog,
+        BulkResolveAlertsRequest, ForceLogoutRequest, LoginEventQuery, LoginEventWithUser,
+        PaginatedResponse, ResolveAlertRequest, SecurityAlert, SecurityAlertQuery, SessionQuery,
+        SessionWithUser, UserActivityLog,
     },
     require_permission,
     services::AuditService,
@@ -345,6 +345,26 @@ pub async fn resolve_security_alert(
     .await?;
 
     Ok(Json(alert))
+}
+
+/// 批次解決安全警報
+pub async fn bulk_resolve_security_alerts(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(payload): Json<BulkResolveAlertsRequest>,
+) -> Result<Json<serde_json::Value>> {
+    if payload.ids.is_empty() {
+        return Err(AppError::BadRequest("ids 不可為空".to_string()));
+    }
+    let count = AuditService::bulk_resolve_alerts(
+        &state.db,
+        &payload.ids,
+        current_user.id,
+        payload.resolution_notes.as_deref(),
+    )
+    .await?;
+
+    Ok(Json(serde_json::json!({ "resolved_count": count })))
 }
 
 // ============================================

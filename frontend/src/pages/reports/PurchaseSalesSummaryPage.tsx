@@ -25,7 +25,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Loader2, Download, BarChart3 } from 'lucide-react'
+import { Download, BarChart3 } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 function buildQs(from: string, to: string) {
   const params = new URLSearchParams()
@@ -129,13 +130,10 @@ export function PurchaseSalesSummaryPage() {
               <Download className="mr-2 h-4 w-4" />匯出 CSV
             </Button>
           </div>
-          {loadingMonthly ? (
-            <LoadingState />
-          ) : (
-            <div className="rounded-md border">
+          <div className="rounded-lg border bg-card overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <SortableTableHead sortKey="year_month" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort}>月份</SortableTableHead>
                     <SortableTableHead sortKey="purchase_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">採購總額</SortableTableHead>
                     <SortableTableHead sortKey="purchase_return" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">採購退貨</SortableTableHead>
@@ -148,7 +146,13 @@ export function PurchaseSalesSummaryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedMonthly && sortedMonthly.length > 0 ? (
+                  {loadingMonthly ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="p-0">
+                        <TableSkeleton rows={8} cols={9} />
+                      </TableCell>
+                    </TableRow>
+                  ) : sortedMonthly && sortedMonthly.length > 0 ? (
                     sortedMonthly.map(row => (
                       <TableRow key={row.year_month}>
                         <TableCell className="font-medium">{row.year_month}</TableCell>
@@ -170,7 +174,6 @@ export function PurchaseSalesSummaryPage() {
                 </TableBody>
               </Table>
             </div>
-          )}
         </PageTabContent>
 
         <PageTabContent value="partner" className="space-y-4">
@@ -179,13 +182,10 @@ export function PurchaseSalesSummaryPage() {
               <Download className="mr-2 h-4 w-4" />匯出 CSV
             </Button>
           </div>
-          {loadingPartner ? (
-            <LoadingState />
-          ) : (
-            <div className="rounded-md border">
+          <div className="rounded-lg border bg-card overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <SortableTableHead sortKey="partner_code" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>代碼</SortableTableHead>
                     <SortableTableHead sortKey="partner_name" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>名稱</SortableTableHead>
                     <SortableTableHead sortKey="partner_type" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>類型</SortableTableHead>
@@ -196,7 +196,13 @@ export function PurchaseSalesSummaryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedPartner && sortedPartner.length > 0 ? (
+                  {loadingPartner ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="p-0">
+                        <TableSkeleton rows={8} cols={7} />
+                      </TableCell>
+                    </TableRow>
+                  ) : sortedPartner && sortedPartner.length > 0 ? (
                     sortedPartner.map(row => (
                       <TableRow key={row.partner_id}>
                         <TableCell className="font-mono text-sm">{row.partner_code}</TableCell>
@@ -218,7 +224,6 @@ export function PurchaseSalesSummaryPage() {
                 </TableBody>
               </Table>
             </div>
-          )}
         </PageTabContent>
 
         <PageTabContent value="category" className="space-y-4">
@@ -227,13 +232,10 @@ export function PurchaseSalesSummaryPage() {
               <Download className="mr-2 h-4 w-4" />匯出 CSV
             </Button>
           </div>
-          {loadingCategory ? (
-            <LoadingState />
-          ) : (
-            <div className="rounded-md border">
+          <div className="rounded-lg border bg-card overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <SortableTableHead sortKey="category_name" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort}>產品類別</SortableTableHead>
                     <SortableTableHead sortKey="purchase_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">採購金額</SortableTableHead>
                     <SortableTableHead sortKey="sales_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">銷貨金額</SortableTableHead>
@@ -242,7 +244,13 @@ export function PurchaseSalesSummaryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedCategory && sortedCategory.length > 0 ? (
+                  {loadingCategory ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="p-0">
+                        <TableSkeleton rows={8} cols={5} />
+                      </TableCell>
+                    </TableRow>
+                  ) : sortedCategory && sortedCategory.length > 0 ? (
                     sortedCategory.map(row => (
                       <TableRow key={row.category_name}>
                         <TableCell className="font-medium">{row.category_name}</TableCell>
@@ -260,17 +268,8 @@ export function PurchaseSalesSummaryPage() {
                 </TableBody>
               </Table>
             </div>
-          )}
         </PageTabContent>
       </PageTabs>
-    </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <div className="flex items-center justify-center py-8">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
     </div>
   )
 }

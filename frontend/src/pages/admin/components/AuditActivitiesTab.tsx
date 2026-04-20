@@ -1,5 +1,6 @@
 import { Eye, FileText } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -142,10 +143,10 @@ export function AuditActivitiesTab({
                     className="max-w-[150px]"
                 />
             </div>
-            <Card>
+            <Card className="overflow-hidden">
                 <Table>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
                             <SortableTableHead sortKey="actor_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>操作者</SortableTableHead>
                             <SortableTableHead sortKey="action" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>操作</SortableTableHead>
@@ -156,9 +157,7 @@ export function AuditActivitiesTab({
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8">載入中...</TableCell>
-                            </TableRow>
+                            <TableRow><TableCell colSpan={6} className="p-0"><TableSkeleton rows={8} cols={6} /></TableCell></TableRow>
                         ) : !sortedData || sortedData.length === 0 ? (
                             <TableEmptyRow colSpan={6} icon={FileText} title="沒有使用者管理活動記錄" />
                         ) : (

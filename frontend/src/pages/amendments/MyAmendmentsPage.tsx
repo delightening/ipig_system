@@ -26,7 +26,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import { Loader2, FileEdit, Eye } from 'lucide-react'
+import { FileEdit, Eye } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { formatDateTime } from '@/lib/utils'
 
 export function MyAmendmentsPage() {
@@ -98,10 +100,10 @@ export function MyAmendmentsPage() {
                 </div>
             </div>
 
-            <div className="rounded-md border">
+            <div className="rounded-lg border bg-card overflow-hidden">
                 <Table>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <SortableTableHead sortKey="amendment_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
                                 {t('amendments.columns.amendmentNo')}
                             </SortableTableHead>
@@ -126,11 +128,7 @@ export function MyAmendmentsPage() {
                     </TableHeader>
                     <TableBody>
                                 {isLoading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="text-center py-8">
-                                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                        </TableCell>
-                                    </TableRow>
+                                    <TableRow><TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} /></TableCell></TableRow>
                                 ) : sortedAmendments && sortedAmendments.length > 0 ? (
                                     sortedAmendments.map((amendment) => (
                                         <TableRow key={amendment.id}>
@@ -140,7 +138,7 @@ export function MyAmendmentsPage() {
                                             <TableCell>
                                                 <div>
                                                     <div className="font-medium">{amendment.protocol_iacuc_no || '-'}</div>
-                                                    <div className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                                    <div className="text-sm text-muted-foreground max-w-[200px] whitespace-normal break-words">
                                                         {amendment.protocol_title}
                                                     </div>
                                                 </div>
@@ -179,19 +177,12 @@ export function MyAmendmentsPage() {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="text-center py-8">
-                                            <FileEdit className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                                            <p className="text-muted-foreground font-medium">
-                                                {statusFilter === 'ALL' ? t('amendments.noData') : t('amendments.noDataFiltered')}
-                                            </p>
-                                            <p className="text-sm text-muted-foreground mt-1">
-                                                {statusFilter === 'ALL'
-                                                    ? t('amendments.emptyHint')
-                                                    : t('amendments.filterHint')}
-                                            </p>
-                                        </TableCell>
-                                    </TableRow>
+                                    <TableEmptyRow
+                                        colSpan={8}
+                                        icon={FileEdit}
+                                        title={statusFilter === 'ALL' ? t('amendments.noData') : t('amendments.noDataFiltered')}
+                                        description={statusFilter === 'ALL' ? t('amendments.emptyHint') : t('amendments.filterHint')}
+                                    />
                                 )}
                     </TableBody>
                 </Table>

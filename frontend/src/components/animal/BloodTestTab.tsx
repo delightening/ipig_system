@@ -26,7 +26,9 @@ import {
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
-import { Loader2, Plus, Eye, Edit2, Trash2, AlertCircle, FileText } from 'lucide-react'
+import { Plus, Eye, Edit2, Trash2, AlertCircle, FileText } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 
@@ -223,7 +225,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
 
     return (
         <>
-            <Card>
+            <Card className="overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>血液檢查紀錄</CardTitle>
@@ -237,81 +239,132 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                     </GuestHide>
                 </CardHeader>
                 <CardContent>
-                    {isLoading ? (
-                        <div className="flex justify-center py-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <div className="@container">
+
+                        {/* ── Table view: container ≥ 600px ── */}
+                        <div className="hidden @[600px]:block overflow-x-auto">
+                            <Table className="w-full" style={{ minWidth: 595 }}>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                        <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 100 }}>檢查日期</SortableTableHead>
+                                        <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 130 }}>檢驗機構</SortableTableHead>
+                                        <TableHead style={{ width: 70 }} className="text-center">項目數</TableHead>
+                                        <TableHead style={{ width: 85 }} className="text-center">異常項目</TableHead>
+                                        <TableHead style={{ width: 100 }}>建立者</TableHead>
+                                        <TableHead style={{ width: 110 }} className="text-right">操作</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoading ? (
+                                        <TableRow><TableCell colSpan={6} className="p-0"><TableSkeleton rows={5} cols={6} /></TableCell></TableRow>
+                                    ) : bloodTests.length === 0 ? (
+                                        <TableEmptyRow colSpan={6} icon={FileText} title="尚無血液檢查紀錄" />
+                                    ) : (
+                                        (sortedBloodTests ?? bloodTests).map((test) => (
+                                            <TableRow key={test.id}>
+                                                <TableCell style={{ width: 100 }} className="font-medium whitespace-nowrap">{test.test_date}</TableCell>
+                                                <TableCell style={{ width: 130 }} className="whitespace-normal break-words">{test.lab_name || '-'}</TableCell>
+                                                <TableCell style={{ width: 70 }} className="text-center">{test.item_count}</TableCell>
+                                                <TableCell style={{ width: 85 }} className="text-center">
+                                                    {test.abnormal_count > 0 ? (
+                                                        <Badge variant="destructive" className="gap-1">
+                                                            <AlertCircle className="h-3 w-3" />
+                                                            {test.abnormal_count}
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-status-success-text">0</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell style={{ width: 100 }} className="whitespace-normal break-words">{test.created_by_name || '-'}</TableCell>
+                                                <TableCell style={{ width: 110 }} className="text-right space-x-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => {
+                                                            setViewingId(test.id)
+                                                            setShowDetailDialog(true)
+                                                        }}
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                    <GuestHide>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => openEditForm(test.id)}
+                                                        >
+                                                            <Edit2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </GuestHide>
+                                                    <GuestHide>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="text-status-error-text"
+                                                            onClick={() => setDeleteTarget({ id: test.id, date: test.test_date })}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </GuestHide>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
                         </div>
-                    ) : bloodTests.length === 0 ? (
-                        <div className="text-center py-12 text-muted-foreground">
-                            <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-                            <p>尚無血液檢查紀錄</p>
-                            <p className="text-sm mt-1">點擊上方按鈕新增</p>
-                        </div>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>檢查日期</SortableTableHead>
-                                    <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>檢驗機構</SortableTableHead>
-                                    <TableHead className="text-center">項目數</TableHead>
-                                    <TableHead className="text-center">異常項目</TableHead>
-                                    <TableHead>建立者</TableHead>
-                                    <TableHead className="text-right">操作</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {(sortedBloodTests ?? bloodTests).map((test) => (
-                                    <TableRow key={test.id}>
-                                        <TableCell className="font-medium">{test.test_date}</TableCell>
-                                        <TableCell>{test.lab_name || '-'}</TableCell>
-                                        <TableCell className="text-center">{test.item_count}</TableCell>
-                                        <TableCell className="text-center">
+
+                        {/* ── Card view: container < 600px ── */}
+                        <div className="@[600px]:hidden space-y-3 py-1">
+                            {isLoading ? (
+                                <TableSkeleton rows={3} cols={1} />
+                            ) : bloodTests.length === 0 ? (
+                                <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                                    <FileText className="h-8 w-8" />
+                                    <p className="text-sm">尚無血液檢查紀錄</p>
+                                </div>
+                            ) : (
+                                (sortedBloodTests ?? bloodTests).map((test) => (
+                                    <div key={test.id} className="rounded-lg border bg-card p-3 space-y-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-sm font-medium text-foreground">{test.test_date}</span>
+                                            <span className="text-xs text-muted-foreground">{test.lab_name || '-'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                            <span>{test.item_count} 項目</span>
                                             {test.abnormal_count > 0 ? (
                                                 <Badge variant="destructive" className="gap-1">
                                                     <AlertCircle className="h-3 w-3" />
-                                                    {test.abnormal_count}
+                                                    {test.abnormal_count} 異常
                                                 </Badge>
                                             ) : (
-                                                <span className="text-status-success-text">0</span>
+                                                <span className="text-status-success-text">全部正常</span>
                                             )}
-                                        </TableCell>
-                                        <TableCell>{test.created_by_name || '-'}</TableCell>
-                                        <TableCell className="text-right space-x-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => {
-                                                    setViewingId(test.id)
-                                                    setShowDetailDialog(true)
-                                                }}
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                            <GuestHide>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => openEditForm(test.id)}
-                                                >
-                                                    <Edit2 className="h-4 w-4" />
+                                        </div>
+                                        <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                                            <span className="text-xs text-muted-foreground">{test.created_by_name || '-'}</span>
+                                            <div className="flex gap-0.5">
+                                                <Button variant="ghost" size="icon" onClick={() => { setViewingId(test.id); setShowDetailDialog(true) }}>
+                                                    <Eye className="h-4 w-4" />
                                                 </Button>
-                                            </GuestHide>
-                                            <GuestHide>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="text-status-error-text"
-                                                    onClick={() => setDeleteTarget({ id: test.id, date: test.test_date })}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </GuestHide>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
+                                                <GuestHide>
+                                                    <Button variant="ghost" size="icon" onClick={() => openEditForm(test.id)}>
+                                                        <Edit2 className="h-4 w-4" />
+                                                    </Button>
+                                                </GuestHide>
+                                                <GuestHide>
+                                                    <Button variant="ghost" size="icon" className="text-status-error-text" onClick={() => setDeleteTarget({ id: test.id, date: test.test_date })}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </GuestHide>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                    </div>
                 </CardContent>
             </Card>
 

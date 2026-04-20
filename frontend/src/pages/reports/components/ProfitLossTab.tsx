@@ -11,7 +11,9 @@ import {
 } from '@/components/ui/table'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { useTableSort } from '@/hooks/useTableSort'
-import { Loader2 } from 'lucide-react'
+import { TrendingUp } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { ProfitLossSummary } from '@/types/report'
@@ -44,14 +46,6 @@ export function ProfitLossTab({
   const { sortedData: sortedRevenue, sort: revSort, toggleSort: toggleRevSort } = useTableSort(revenueRows)
   const { sortedData: sortedExpense, sort: expSort, toggleSort: toggleExpSort } = useTableSort(expenseRows)
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-end gap-4 flex-wrap">
@@ -74,14 +68,33 @@ export function ProfitLossTab({
           />
         </div>
       </div>
-      {profitLoss ? (
+      {isLoading ? (
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <SortableTableHead sortKey="account_code" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort}>科目代碼</SortableTableHead>
+                <SortableTableHead sortKey="account_name" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort}>科目名稱</SortableTableHead>
+                <SortableTableHead sortKey="amount" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort} className="text-right">金額</SortableTableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={3} className="p-0">
+                  <TableSkeleton rows={8} cols={3} />
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      ) : profitLoss ? (
         <div className="space-y-6">
           <div>
             <h3 className="text-lg font-semibold mb-2">收入</h3>
-            <div className="rounded-md border">
+            <div className="rounded-lg border bg-card overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <SortableTableHead sortKey="account_code" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort}>科目代碼</SortableTableHead>
                     <SortableTableHead sortKey="account_name" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort}>科目名稱</SortableTableHead>
                     <SortableTableHead sortKey="amount" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort} className="text-right">金額</SortableTableHead>
@@ -110,10 +123,10 @@ export function ProfitLossTab({
 
           <div>
             <h3 className="text-lg font-semibold mb-2">費用</h3>
-            <div className="rounded-md border">
+            <div className="rounded-lg border bg-card overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <SortableTableHead sortKey="account_code" currentSort={expSort.column} currentDirection={expSort.direction} onSort={toggleExpSort}>科目代碼</SortableTableHead>
                     <SortableTableHead sortKey="account_name" currentSort={expSort.column} currentDirection={expSort.direction} onSort={toggleExpSort}>科目名稱</SortableTableHead>
                     <SortableTableHead sortKey="amount" currentSort={expSort.column} currentDirection={expSort.direction} onSort={toggleExpSort} className="text-right">金額</SortableTableHead>
@@ -150,8 +163,19 @@ export function ProfitLossTab({
           </div>
         </div>
       ) : (
-        <div className="rounded-md border py-12 text-center text-muted-foreground">
-          尚無損益資料
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <SortableTableHead sortKey="account_code" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort}>科目代碼</SortableTableHead>
+                <SortableTableHead sortKey="account_name" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort}>科目名稱</SortableTableHead>
+                <SortableTableHead sortKey="amount" currentSort={revSort.column} currentDirection={revSort.direction} onSort={toggleRevSort} className="text-right">金額</SortableTableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableEmptyRow colSpan={3} icon={TrendingUp} title="尚無損益資料" />
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

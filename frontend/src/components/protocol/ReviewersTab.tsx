@@ -49,6 +49,8 @@ import { formatDateTime } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import VetReviewForm from '@/components/protocol/VetReviewForm'
 import type { VetReviewAssignment } from '@/types/aup'
 
@@ -172,77 +174,125 @@ export function ReviewersTab({
             </div>
           )}
 
-          {reviewersLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="@container">
+            <div className="hidden @[600px]:block overflow-x-auto">
+              <Table className="w-full" style={{ minWidth: 470 }}>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <SortableTableHead style={{ minWidth: 180 }} sortKey="reviewer_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.reviewer')}</SortableTableHead>
+                    <SortableTableHead style={{ width: 160 }} sortKey="assigned_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="hidden @[780px]:table-cell">{t('protocols.detail.tables.assignedTime')}</SortableTableHead>
+                    <TableHead style={{ width: 100 }} className="hidden @[780px]:table-cell">{t('protocols.detail.tables.assignedBy')}</TableHead>
+                    <TableHead style={{ width: 110 }}>{t('protocols.detail.tables.commentStatus') || '意見狀態'}</TableHead>
+                    <SortableTableHead style={{ width: 180 }} sortKey="completed_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="hidden @[780px]:table-cell">{t('protocols.detail.tables.completedTime')}</SortableTableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reviewersLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="p-0">
+                        <TableSkeleton rows={3} cols={5} />
+                      </TableCell>
+                    </TableRow>
+                  ) : sortedReviewers && sortedReviewers.length > 0 ? (
+                    sortedReviewers.map((reviewer) => {
+                      const hasComment = comments?.some(
+                        c => c.reviewer_id === reviewer.reviewer_id && !c.parent_comment_id
+                      ) || false
+
+                      return (
+                        <TableRow key={reviewer.id}>
+                          <TableCell style={{ minWidth: 180 }}>
+                            <div>
+                              <p className="font-medium">{reviewer.reviewer_name || '-'}</p>
+                              <p className="text-sm text-muted-foreground break-all">{reviewer.reviewer_email}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell style={{ width: 160 }} className="text-xs text-muted-foreground hidden @[780px]:table-cell">{formatDateTime(reviewer.assigned_at)}</TableCell>
+                          <TableCell style={{ width: 100 }} className="whitespace-normal break-words hidden @[780px]:table-cell">{reviewer.assigned_by_name || '-'}</TableCell>
+                          <TableCell style={{ width: 110 }}>
+                            {hasComment ? (
+                              <Badge variant="success" className="flex items-center gap-1 w-fit">
+                                <CheckCircle className="h-3 w-3" />
+                                {t('protocols.detail.tables.commented') || '已發表'}
+                              </Badge>
+                            ) : reviewer.is_primary_reviewer ? (
+                              <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                                <AlertTriangle className="h-3 w-3" />
+                                {t('protocols.detail.tables.pendingComment') || '待發表'}
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="w-fit">
+                                {t('protocols.detail.tables.optional') || '選填'}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell style={{ width: 180 }} className="hidden @[780px]:table-cell">
+                            {reviewer.completed_at ? (
+                              <Badge variant="success">{formatDateTime(reviewer.completed_at)}</Badge>
+                            ) : (
+                              <Badge variant="secondary">{t('protocols.detail.tables.reviewing')}</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  ) : (
+                    <TableEmptyRow colSpan={5} icon={Users} title={t('protocols.detail.tables.noReviewers')} />
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          ) : sortedReviewers && sortedReviewers.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortableTableHead sortKey="reviewer_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.reviewer')}</SortableTableHead>
-                  <SortableTableHead sortKey="assigned_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.assignedTime')}</SortableTableHead>
-                  <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
-                  <TableHead>{t('protocols.detail.tables.commentStatus') || '意見狀態'}</TableHead>
-                  <SortableTableHead sortKey="completed_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.completedTime')}</SortableTableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedReviewers.map((reviewer) => {
+
+            <div className="@[600px]:hidden space-y-3 py-1">
+              {reviewersLoading ? (
+                <TableSkeleton rows={3} cols={1} />
+              ) : sortedReviewers && sortedReviewers.length > 0 ? (
+                sortedReviewers.map((reviewer) => {
                   const hasComment = comments?.some(
                     c => c.reviewer_id === reviewer.reviewer_id && !c.parent_comment_id
                   ) || false
-
                   return (
-                    <TableRow key={reviewer.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{reviewer.reviewer_name || '-'}</p>
-                          <p className="text-sm text-muted-foreground">{reviewer.reviewer_email}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDateTime(reviewer.assigned_at)}</TableCell>
-                      <TableCell>{reviewer.assigned_by_name || '-'}</TableCell>
-                      <TableCell>
+                    <div key={reviewer.id} className="rounded-lg border bg-card p-3 space-y-2">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{reviewer.reviewer_name || '-'}</p>
+                        <p className="text-xs text-muted-foreground break-all">{reviewer.reviewer_email}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t">
                         {hasComment ? (
-                          <Badge variant="success" className="flex items-center gap-1 w-fit">
+                          <Badge variant="success" className="flex items-center gap-1">
                             <CheckCircle className="h-3 w-3" />
                             {t('protocols.detail.tables.commented') || '已發表'}
                           </Badge>
                         ) : reviewer.is_primary_reviewer ? (
-                          <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                          <Badge variant="destructive" className="flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" />
                             {t('protocols.detail.tables.pendingComment') || '待發表'}
                           </Badge>
                         ) : (
-                          <Badge variant="secondary" className="w-fit">
-                            {t('protocols.detail.tables.optional') || '選填'}
-                          </Badge>
+                          <Badge variant="secondary">{t('protocols.detail.tables.optional') || '選填'}</Badge>
                         )}
-                      </TableCell>
-                      <TableCell>
                         {reviewer.completed_at ? (
                           <Badge variant="success">{formatDateTime(reviewer.completed_at)}</Badge>
                         ) : (
                           <Badge variant="secondary">{t('protocols.detail.tables.reviewing')}</Badge>
                         )}
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        指派：{formatDateTime(reviewer.assigned_at)}
+                        {reviewer.assigned_by_name && <> · {reviewer.assigned_by_name}</>}
+                      </div>
+                    </div>
                   )
-                })}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-2" />
-              <p>{t('protocols.detail.tables.noReviewers')}</p>
-              {canAssignReviewer && protocolStatus !== 'DRAFT' && (
-                <Button variant="link" onClick={() => dialogs.open('assign')} className="mt-2">
-                  {t('protocols.detail.tables.assignFirst')}
-                </Button>
+                })
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                  <Users className="h-8 w-8" />
+                  <p className="text-sm">{t('protocols.detail.tables.noReviewers')}</p>
+                </div>
               )}
             </div>
-          )}
+
+          </div>
         </CardContent>
       </Card>
 

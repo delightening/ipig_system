@@ -60,17 +60,18 @@ export function formatCurrency(num: number | string) {
   })
 }
 
-export function truncateText(text: string | null, maxLength: number): string {
-  if (!text) return ''
-  return text.length <= maxLength ? text : `${text.slice(0, maxLength)}...`
-}
-
 export function formatFileSize(bytes: number) {
   if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  if (bytes < 1024) return `${bytes} Bytes`
+
+  const kb = bytes / 1024
+  if (kb < 1000) return `${Math.round(kb)} KB`
+
+  const mb = kb / 1024
+  if (mb < 1000) return `${parseFloat(mb.toFixed(1))} MB`
+
+  const gb = mb / 1024
+  return `${parseFloat(gb.toFixed(1))} GB`
 }
 
 /**

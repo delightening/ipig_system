@@ -29,8 +29,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { GuestHide } from '@/components/ui/guest-hide'
-import { Plus, Eye, Edit, Loader2, FileText, Trash2, Copy } from 'lucide-react'
+import { Plus, Eye, Edit, FileText, Trash2, Copy } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { useNavigate } from 'react-router-dom'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
@@ -177,10 +178,10 @@ export function ProtocolsPage() {
         </Select>
       </FilterBar>
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
                 {t('protocols.columns.iacucNo')}
               </SortableTableHead>
@@ -208,8 +209,8 @@ export function ProtocolsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                <TableCell colSpan={8} className="p-0">
+                  <TableSkeleton rows={8} cols={8} />
                 </TableCell>
               </TableRow>
             ) : sortedProtocols && sortedProtocols.length > 0 ? (
@@ -225,7 +226,7 @@ export function ProtocolsPage() {
                       </Link>
                     ) : '-'}
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate">
+                  <TableCell className="max-w-[200px] whitespace-normal break-words">
                     <Link
                       to={`/protocols/${protocol.id}`}
                       className="text-primary hover:text-primary/80 hover:underline cursor-pointer"

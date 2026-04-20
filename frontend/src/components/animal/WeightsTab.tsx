@@ -25,6 +25,7 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Edit2, Trash2, Scale, Loader2 } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
@@ -92,7 +93,7 @@ export const WeightsTab = React.memo(function WeightsTab({
 
   return (
     <>
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>體重紀錄</CardTitle>
@@ -119,54 +120,91 @@ export const WeightsTab = React.memo(function WeightsTab({
           </div>
         </CardHeader>
         <CardContent>
-          {!weights || weights.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Scale className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p>尚無體重紀錄</p>
-              <p className="text-sm mt-1">點擊上方按鈕新增</p>
+          <div className="@container">
+
+            {/* Table view: container ≥ 600px */}
+            <div className="hidden @[600px]:block overflow-x-auto">
+              <Table className="w-full" style={{ minWidth: 380 }}>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    {developerMode && <TableHead style={{ width: 80 }} className="hidden @[620px]:table-cell">系統號</TableHead>}
+                    <SortableTableHead style={{ width: 100 }} sortKey="measure_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>測量日期</SortableTableHead>
+                    <SortableTableHead style={{ width: 90 }} sortKey="weight" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>體重 (kg)</SortableTableHead>
+                    <TableHead style={{ width: 100 }}>記錄者</TableHead>
+                    <SortableTableHead style={{ width: 160 }} sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="hidden @[620px]:table-cell">建立時間</SortableTableHead>
+                    <TableHead style={{ width: 90 }} className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!weights || weights.length === 0 ? (
+                    <TableEmptyRow colSpan={developerMode ? 6 : 5} icon={Scale} title="尚無體重紀錄" />
+                  ) : (
+                    sortedData?.map((weight) => (
+                      <TableRow key={weight.id} data-record-id={weight.id}>
+                        {developerMode && <TableCell style={{ width: 80 }} className="font-mono text-xs text-muted-foreground hidden @[620px]:table-cell">{weight.id}</TableCell>}
+                        <TableCell style={{ width: 100 }} className="whitespace-nowrap">{new Date(weight.measure_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
+                        <TableCell style={{ width: 90 }} className="font-medium">{weight.weight}</TableCell>
+                        <TableCell style={{ width: 100 }} className="whitespace-normal break-words">{weight.created_by_name || '-'}</TableCell>
+                        <TableCell style={{ width: 160 }} className="text-xs text-muted-foreground hidden @[620px]:table-cell">{new Date(weight.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
+                        <TableCell style={{ width: 90 }} className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <GuestHide>
+                              <Button variant="ghost" size="icon" title={`系統號: ${weight.id} - 點擊編輯`}>
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeleteTarget(weight.id)}
+                                title={`系統號: ${weight.id} - 點擊刪除`}
+                              >
+                                <Trash2 className="h-4 w-4 text-status-error-solid" />
+                              </Button>
+                            </GuestHide>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {developerMode && <TableHead>系統號</TableHead>}
-                  <SortableTableHead sortKey="measure_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>測量日期</SortableTableHead>
-                  <SortableTableHead sortKey="weight" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>體重 (kg)</SortableTableHead>
-                  <TableHead>記錄者</TableHead>
-                  <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立時間</SortableTableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedData?.map((weight) => (
-                  <TableRow key={weight.id} data-record-id={weight.id}>
-                    {developerMode && <TableCell>{weight.id}</TableCell>}
-                    <TableCell>{new Date(weight.measure_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
-                    <TableCell className="font-medium">{weight.weight}</TableCell>
-                    <TableCell>{weight.created_by_name || '-'}</TableCell>
-                    <TableCell>{new Date(weight.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
+
+            {/* Card view: container < 600px */}
+            <div className="@[600px]:hidden space-y-3 py-1">
+              {!weights || weights.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                  <Scale className="h-8 w-8" />
+                  <p className="text-sm">尚無體重紀錄</p>
+                </div>
+              ) : (
+                sortedData?.map((weight) => (
+                  <div key={weight.id} data-record-id={weight.id} className="rounded-lg border bg-card p-3">
+                    <div className="text-xs text-muted-foreground mb-0.5">
+                      {new Date(weight.measure_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}
+                    </div>
+                    <div className="text-lg font-bold text-foreground mb-2">
+                      ⚖️ {weight.weight} kg
+                    </div>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                      <span className="text-xs text-muted-foreground">{weight.created_by_name || '-'}</span>
+                      <div className="flex gap-0.5">
                         <GuestHide>
-                          <Button variant="ghost" size="icon" title={`系統號: ${weight.id} - 點擊編輯`}>
+                          <Button variant="ghost" size="icon" title="編輯">
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteTarget(weight.id)}
-                            title={`系統號: ${weight.id} - 點擊刪除`}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(weight.id)} title="刪除">
                             <Trash2 className="h-4 w-4 text-status-error-solid" />
                           </Button>
                         </GuestHide>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
         </CardContent>
       </Card>
 

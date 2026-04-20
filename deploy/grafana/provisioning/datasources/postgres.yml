@@ -1,0 +1,20 @@
+apiVersion: 1
+
+datasources:
+  - name: Postgres (ipig readonly)
+    type: postgres
+    access: proxy
+    url: db:5432
+    user: grafana_readonly
+    database: ipig_db
+    isDefault: false
+    editable: false
+    secureJsonData:
+      # R24-4: 密碼由 Docker Secret 供應 — docker-compose 掛載 /run/secrets/grafana_pg_password
+      #   並於 env var GRAFANA_PG_PASSWORD 讀取；此處 ${} 由 Grafana 於啟動時展開
+      password: "$__file{/run/secrets/grafana_pg_password}"
+    jsonData:
+      database: ipig_db
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false

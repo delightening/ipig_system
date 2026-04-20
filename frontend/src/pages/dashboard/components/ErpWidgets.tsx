@@ -355,7 +355,7 @@ export const RecentMaintenanceWidget = memo(function RecentMaintenanceWidget({
                   <TableCell>{getMaintenanceTypeBadge(rec.maintenance_type)}</TableCell>
                   <TableCell>{getMaintenanceStatusBadge(rec.status)}</TableCell>
                   <TableCell>{formatDate(rec.reported_at)}</TableCell>
-                  <TableCell className="max-w-[150px] truncate">
+                  <TableCell className="max-w-[150px] whitespace-normal break-words">
                     {rec.problem_description || rec.maintenance_items || '—'}
                   </TableCell>
                 </TableRow>

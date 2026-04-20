@@ -30,6 +30,8 @@ import {
     Save,
     X,
 } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 
 interface VetAdviceRecord {
     id: string
@@ -148,7 +150,7 @@ export function VetRecommendationsTab({ animalId }: VetRecommendationsTabProps) 
     const isSaving = createMutation.isPending || updateMutation.isPending
 
     return (
-        <Card>
+        <Card className="overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Stethoscope className="h-5 w-5 text-status-success-solid" />
@@ -233,74 +235,111 @@ export function VetRecommendationsTab({ animalId }: VetRecommendationsTabProps) 
                 )}
 
                 {/* 紀錄列表 */}
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <SortableTableHead className="w-[120px]" sortKey="advice_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                                日期
-                            </SortableTableHead>
-                            <TableHead>觀察</TableHead>
-                            <TableHead>建議處置</TableHead>
-                            <TableHead className="w-[80px]">操作</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                <div className="@container">
+
+                    {/* Table view: container ≥ 600px */}
+                    <div className="hidden @[600px]:block overflow-x-auto">
+                        <Table className="w-full" style={{ minWidth: 440 }}>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                    <SortableTableHead style={{ width: 120 }} sortKey="advice_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                                        日期
+                                    </SortableTableHead>
+                                    <TableHead style={{ minWidth: 120 }}>觀察</TableHead>
+                                    <TableHead style={{ minWidth: 120 }}>建議處置</TableHead>
+                                    <TableHead style={{ width: 80 }}>操作</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? (
+                                    <TableRow><TableCell colSpan={4} className="p-0"><TableSkeleton rows={5} cols={4} /></TableCell></TableRow>
+                                ) : !records || records.length === 0 ? (
+                                    <TableEmptyRow colSpan={4} icon={Stethoscope} title="尚無獸醫師建議紀錄" description="點擊「新增」開始記錄" />
+                                ) : (
+                                    (sortedData ?? records).map((r) => (
+                                        <TableRow key={r.id}>
+                                            <TableCell style={{ width: 120 }} className="whitespace-nowrap font-medium">
+                                                {r.advice_date}
+                                            </TableCell>
+                                            <TableCell style={{ minWidth: 120 }} className="whitespace-pre-wrap text-sm">
+                                                {r.observation || '-'}
+                                            </TableCell>
+                                            <TableCell style={{ minWidth: 120 }} className="whitespace-pre-wrap text-sm">
+                                                {r.suggested_treatment || '-'}
+                                            </TableCell>
+                                            <TableCell style={{ width: 80 }}>
+                                                <GuestHide>
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => startEdit(r)}
+                                                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                                            title="編輯"
+                                                        >
+                                                            <Pencil className="h-3.5 w-3.5" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (confirm('確定要刪除此筆建議？')) {
+                                                                    deleteMutation.mutate(r.id)
+                                                                }
+                                                            }}
+                                                            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                            title="刪除"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </div>
+                                                </GuestHide>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Card view: container < 600px */}
+                    <div className="@[600px]:hidden space-y-3 py-1">
                         {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={4} className="text-center py-8">
-                                    <Loader2 className="h-5 w-5 animate-spin inline-block mr-2" />載入中...
-                                </TableCell>
-                            </TableRow>
+                            <TableSkeleton rows={3} cols={1} />
                         ) : !records || records.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                    <div>尚無獸醫師建議紀錄</div>
-                                    <div className="text-sm mt-1">點擊「新增」開始記錄</div>
-                                </TableCell>
-                            </TableRow>
+                            <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                                <Stethoscope className="h-8 w-8" />
+                                <p className="text-sm">尚無獸醫師建議紀錄</p>
+                                <p className="text-xs">點擊「新增」開始記錄</p>
+                            </div>
                         ) : (
                             (sortedData ?? records).map((r) => (
-                                <TableRow key={r.id}>
-                                    <TableCell className="whitespace-nowrap font-medium">
-                                        {r.advice_date}
-                                    </TableCell>
-                                    <TableCell className="whitespace-pre-wrap text-sm">
-                                        {r.observation || '-'}
-                                    </TableCell>
-                                    <TableCell className="whitespace-pre-wrap text-sm">
-                                        {r.suggested_treatment || '-'}
-                                    </TableCell>
-                                    <TableCell>
+                                <div key={r.id} className="rounded-lg border bg-card p-3 space-y-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm font-medium text-foreground">{r.advice_date}</span>
                                         <GuestHide>
                                             <div className="flex items-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => startEdit(r)}
-                                                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                                    title="編輯"
-                                                >
+                                                <button type="button" onClick={() => startEdit(r)} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted" title="編輯">
                                                     <Pencil className="h-3.5 w-3.5" />
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (confirm('確定要刪除此筆建議？')) {
-                                                            deleteMutation.mutate(r.id)
-                                                        }
-                                                    }}
-                                                    className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                                    title="刪除"
-                                                >
+                                                <button type="button" onClick={() => { if (confirm('確定要刪除此筆建議？')) deleteMutation.mutate(r.id) }} className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="刪除">
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                 </button>
                                             </div>
                                         </GuestHide>
-                                    </TableCell>
-                                </TableRow>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">觀察</div>
+                                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-snug">{r.observation || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">建議處置</div>
+                                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-snug">{r.suggested_treatment || '-'}</p>
+                                    </div>
+                                </div>
                             ))
                         )}
-                    </TableBody>
-                </Table>
+                    </div>
+
+                </div>
             </CardContent>
         </Card>
     )

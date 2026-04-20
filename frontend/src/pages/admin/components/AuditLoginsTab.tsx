@@ -23,6 +23,7 @@ import type { LoginEventWithUser } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 import { AuditPagination } from './AuditPagination'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { LogIn } from 'lucide-react'
 
 interface AuditLoginsTabProps {
@@ -80,10 +81,10 @@ export function AuditLoginsTab({
                     </SelectContent>
                 </Select>
             </div>
-            <Card>
+            <Card className="overflow-hidden">
                 <Table>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
                             <SortableTableHead sortKey="email" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>Email</SortableTableHead>
                             <SortableTableHead sortKey="event_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>事件</SortableTableHead>
@@ -95,9 +96,7 @@ export function AuditLoginsTab({
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8">載入中...</TableCell>
-                            </TableRow>
+                            <TableRow><TableCell colSpan={7} className="p-0"><TableSkeleton rows={8} cols={7} /></TableCell></TableRow>
                         ) : sortedData?.length === 0 ? (
                             <TableEmptyRow colSpan={7} icon={LogIn} title="沒有登入事件" />
                         ) : (

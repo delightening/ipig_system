@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, Plus, FileText } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -202,14 +203,6 @@ export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
 
   const { sortedData, sort, toggleSort } = useTableSort(apAging)
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-end gap-4 flex-wrap">
@@ -224,10 +217,10 @@ export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
         </div>
         <CreateApPaymentDialog asOfDate={asOfDate} onSuccess={() => {}} />
       </div>
-      <div className="rounded-md border">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="partner_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>供應商代碼</SortableTableHead>
               <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>供應商名稱</SortableTableHead>
               <SortableTableHead sortKey="total_payable" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">應付總額</SortableTableHead>
@@ -236,7 +229,13 @@ export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedData && sortedData.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="p-0">
+                  <TableSkeleton rows={8} cols={5} />
+                </TableCell>
+              </TableRow>
+            ) : sortedData && sortedData.length > 0 ? (
               sortedData.map((r) => (
                 <TableRow key={r.partner_id}>
                   <TableCell className="font-mono">{r.partner_code}</TableCell>

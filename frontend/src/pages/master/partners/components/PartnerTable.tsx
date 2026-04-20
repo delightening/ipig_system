@@ -15,6 +15,7 @@ import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { Edit, Trash2, Users } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { cn } from '@/lib/utils'
 
 interface PartnerTableProps {
   partners: Partner[] | undefined
@@ -54,10 +55,10 @@ export function PartnerTable({
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-lg border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow className="bg-muted/50 hover:bg-muted/50">
             <SortableTableHead sortKey="partner_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
             <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>代碼</SortableTableHead>
             <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
@@ -71,7 +72,7 @@ export function PartnerTable({
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={7} className="p-0">
-                <TableSkeleton rows={8} cols={5} />
+                <TableSkeleton rows={8} cols={7} />
               </TableCell>
             </TableRow>
           ) : sortedData && sortedData.length > 0 ? (
@@ -102,7 +103,7 @@ function PartnerRow({
   onDelete: (p: Partner) => void
 }) {
   return (
-    <TableRow>
+    <TableRow className={cn(!partner.is_active && 'bg-muted/40')}>
       <TableCell>
         <Badge variant={partner.partner_type === 'supplier' ? 'default' : 'secondary'}>
           {partner.partner_type === 'supplier' ? '供應商' : '客戶'}

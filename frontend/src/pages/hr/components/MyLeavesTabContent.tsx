@@ -50,7 +50,7 @@ export function MyLeavesTabContent({
         {
             key: 'reason',
             header: '事由',
-            className: 'max-w-[200px] truncate',
+            className: 'max-w-[200px] whitespace-normal break-words',
             cell: (leave) => leave.reason,
         },
         {

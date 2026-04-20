@@ -17,15 +17,29 @@ scrape_configs:
           job: docker
           __path__: /var/lib/docker/containers/**/*.log
     pipeline_stages:
-      - docker: {}
-      - match:
-          selector: '{job="docker"}'
-          stages:
-            - json:
-                expressions:
-                  stream: stream
-                  attrs: attrs
-            - labels:
-                stream:
-      - labeldrop:
-          - filename
+      # 1) 解 docker json-file 外層
+      - json:
+          expressions:
+            log: log
+            stream: stream
+            time: time
+            attrs: attrs
+      # 2) attrs 內再解一層，抓 tag → container_name
+      - json:
+          expressions:
+            container_name: tag
+          source: attrs
+      # 3) 設 label
+      - labels:
+          container_name:
+          stream:
+      # 4) 把實際 log 內容當 entry（去掉 docker json 外殼）
+      - output:
+          source: log
+      # 5) 用 docker 原始 timestamp
+      - timestamp:
+          source: time
+          format: RFC3339Nano
+      # 6) 全域標 environment
+      - static_labels:
+          environment: dev

@@ -108,8 +108,15 @@ describe('formatFileSize', () => {
     expect(formatFileSize(1073741824)).toBe('1 GB')
   })
 
-  it('formats fractional sizes', () => {
-    expect(formatFileSize(1536)).toBe('1.5 KB')
+  it('rounds KB to integer (no decimals)', () => {
+    expect(formatFileSize(1536)).toBe('2 KB')
+    expect(formatFileSize(1280)).toBe('1 KB')
+  })
+
+  it('switches to MB when KB >= 1000', () => {
+    expect(formatFileSize(1024 * 999)).toBe('999 KB')
+    expect(formatFileSize(1024 * 1000)).toBe('1 MB')
+    expect(formatFileSize(1024 * 1500)).toBe('1.5 MB')
   })
 })
 

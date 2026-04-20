@@ -18,6 +18,8 @@ import { formatDateTime, formatFileSize } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
@@ -140,84 +142,123 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
           )}
         </CardHeader>
         <CardContent>
-          {attachmentsLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="@container">
+            <div className="hidden @[600px]:block overflow-x-auto">
+              <Table className="w-full" style={{ minWidth: 570 }}>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <SortableTableHead style={{ minWidth: 150 }} sortKey="file_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.fileName')}</SortableTableHead>
+                    <SortableTableHead style={{ width: 80 }} sortKey="file_size" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.size')}</SortableTableHead>
+                    <TableHead style={{ width: 100 }}>{t('protocols.detail.tables.uploadedBy')}</TableHead>
+                    <SortableTableHead style={{ width: 160 }} sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.uploadTime')}</SortableTableHead>
+                    <TableHead style={{ width: 80 }} className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {attachmentsLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="p-0">
+                        <TableSkeleton rows={3} cols={5} />
+                      </TableCell>
+                    </TableRow>
+                  ) : sortedAttachments && sortedAttachments.length > 0 ? (
+                    sortedAttachments.map((attachment) => (
+                      <TableRow key={attachment.id}>
+                        <TableCell style={{ minWidth: 150 }}>
+                          <div className="flex items-center gap-2">
+                            <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="font-medium break-all">{attachment.file_name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell style={{ width: 80 }}>{formatFileSize(attachment.file_size)}</TableCell>
+                        <TableCell style={{ width: 100 }} className="whitespace-normal break-words">{attachment.uploaded_by_name || '-'}</TableCell>
+                        <TableCell style={{ width: 160 }} className="text-xs text-muted-foreground">{formatDateTime(attachment.created_at)}</TableCell>
+                        <TableCell style={{ width: 80 }}>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => downloadAttachmentMutation.mutate(attachment)} disabled={downloadAttachmentMutation.isPending} title="下載">
+                              {downloadAttachmentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                            </Button>
+                            {canManageAttachments && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={async () => {
+                                  const ok = await confirm({
+                                    title: '刪除附件',
+                                    description: t('protocols.detail.actions.deleteConfirm'),
+                                    variant: 'destructive',
+                                    confirmLabel: '確認刪除',
+                                  })
+                                  if (ok) deleteAttachmentMutation.mutate(attachment.id)
+                                }}
+                                disabled={deleteAttachmentMutation.isPending}
+                                title="刪除"
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableEmptyRow colSpan={5} icon={Paperclip} title={t('protocols.detail.tables.noAttachments')} />
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          ) : sortedAttachments && sortedAttachments.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortableTableHead sortKey="file_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.fileName')}</SortableTableHead>
-                  <SortableTableHead sortKey="file_size" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.size')}</SortableTableHead>
-                  <TableHead>{t('protocols.detail.tables.uploadedBy')}</TableHead>
-                  <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.uploadTime')}</SortableTableHead>
-                  <TableHead className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedAttachments.map((attachment) => (
-                  <TableRow key={attachment.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Paperclip className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{attachment.file_name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatFileSize(attachment.file_size)}</TableCell>
-                    <TableCell>{attachment.uploaded_by_name || '-'}</TableCell>
-                    <TableCell>{formatDateTime(attachment.created_at)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
+
+            <div className="@[600px]:hidden space-y-3 py-1">
+              {attachmentsLoading ? (
+                <TableSkeleton rows={3} cols={1} />
+              ) : sortedAttachments && sortedAttachments.length > 0 ? (
+                sortedAttachments.map((attachment) => (
+                  <div key={attachment.id} className="rounded-lg border bg-card p-3 space-y-2">
+                    <div className="flex items-start gap-2 text-sm font-medium text-foreground break-all">
+                      <Paperclip className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+                      <span>{attachment.file_name}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatDateTime(attachment.created_at)}
+                      <span className="mx-1.5">·</span>
+                      {formatFileSize(attachment.file_size)}
+                      {attachment.uploaded_by_name && <><span className="mx-1.5">·</span>{attachment.uploaded_by_name}</>}
+                    </div>
+                    <div className="flex justify-end gap-1 pt-1 border-t">
+                      <Button variant="ghost" size="icon" onClick={() => downloadAttachmentMutation.mutate(attachment)} disabled={downloadAttachmentMutation.isPending} title="下載">
+                        {downloadAttachmentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      </Button>
+                      {canManageAttachments && (
                         <Button
                           variant="ghost"
-                          size="sm"
-                          onClick={() => downloadAttachmentMutation.mutate(attachment)}
-                          disabled={downloadAttachmentMutation.isPending}
+                          size="icon"
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: '刪除附件',
+                              description: t('protocols.detail.actions.deleteConfirm'),
+                              variant: 'destructive',
+                              confirmLabel: '確認刪除',
+                            })
+                            if (ok) deleteAttachmentMutation.mutate(attachment.id)
+                          }}
+                          disabled={deleteAttachmentMutation.isPending}
+                          title="刪除"
                         >
-                          {downloadAttachmentMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Download className="h-4 w-4" />
-                          )}
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
-                        {canManageAttachments && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={async () => {
-                              const ok = await confirm({
-                                title: '刪除附件',
-                                description: t('protocols.detail.actions.deleteConfirm'),
-                                variant: 'destructive',
-                                confirmLabel: '確認刪除',
-                              })
-                              if (ok) {
-                                deleteAttachmentMutation.mutate(attachment.id)
-                              }
-                            }}
-                            disabled={deleteAttachmentMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Paperclip className="h-12 w-12 mx-auto mb-2" />
-              <p>{t('protocols.detail.tables.noAttachments')}</p>
-              {canManageAttachments && (
-                <Button variant="link" onClick={() => fileInputRef.current?.click()} className="mt-2">
-                  {t('protocols.detail.tables.uploadFirst')}
-                </Button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                  <Paperclip className="h-8 w-8" />
+                  <p className="text-sm">{t('protocols.detail.tables.noAttachments')}</p>
+                </div>
               )}
             </div>
-          )}
+
+          </div>
         </CardContent>
       </Card>
 

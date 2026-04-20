@@ -69,10 +69,13 @@ pub fn build_app(state: AppState, config: &Config) -> Router {
         header::HeaderName::from_static("content-security-policy"),
         HeaderValue::from_static("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"),
     );
-    // SEC-AUDIT-015: 移除 Server header 防止洩漏框架資訊
     let referrer_policy = SetResponseHeaderLayer::overriding(
         header::HeaderName::from_static("referrer-policy"),
         HeaderValue::from_static("strict-origin-when-cross-origin"),
+    );
+    let cross_domain = SetResponseHeaderLayer::overriding(
+        header::HeaderName::from_static("x-permitted-cross-domain-policies"),
+        HeaderValue::from_static("none"),
     );
 
     let mut app = crate::routes::api_routes(state)
@@ -83,6 +86,7 @@ pub fn build_app(state: AppState, config: &Config) -> Router {
         .layer(no_cache_api)
         .layer(csp)
         .layer(referrer_policy)
+        .layer(cross_domain)
         .layer(DefaultBodyLimit::max(30 * 1024 * 1024)) // SEC-36: 全域 30MB 請求大小限制
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         .layer(PropagateRequestIdLayer::x_request_id());

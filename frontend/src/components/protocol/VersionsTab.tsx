@@ -25,6 +25,7 @@ import { Eye, History } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { ProtocolContentView } from '@/components/protocol/ProtocolContentView'
 import { ProtocolComparisonDialog } from '@/components/protocols/ProtocolComparisonDialog'
 
@@ -103,61 +104,92 @@ export const VersionsTab = React.memo(function VersionsTab({ protocolId, protoco
                   </Button>
                 </div>
               )}
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {compareMode && <TableHead className="w-[50px]"></TableHead>}
-                    <SortableTableHead sortKey="version_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.versionNo')}</SortableTableHead>
-                    <SortableTableHead sortKey="submitted_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.submitTime')}</SortableTableHead>
-                    <TableHead className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <div className="@container">
+                <div className="hidden @[600px]:block overflow-x-auto">
+                  <Table className="w-full" style={{ minWidth: 360 }}>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        {compareMode && <TableHead style={{ width: 50 }}></TableHead>}
+                        <SortableTableHead style={{ width: 80 }} sortKey="version_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.versionNo')}</SortableTableHead>
+                        <SortableTableHead style={{ minWidth: 160 }} sortKey="submitted_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.submitTime')}</SortableTableHead>
+                        <TableHead style={{ width: 120 }} className="text-right">{t('protocols.detail.tables.actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedVersions.map((version) => (
+                        <TableRow key={version.id}>
+                          {compareMode && (
+                            <TableCell style={{ width: 50 }}>
+                              <Checkbox
+                                checked={selectedCompareIds.includes(version.id)}
+                                onCheckedChange={(checked: boolean) => {
+                                  if (checked) {
+                                    if (selectedCompareIds.length < 2) setSelectedCompareIds([...selectedCompareIds, version.id])
+                                  } else {
+                                    setSelectedCompareIds(selectedCompareIds.filter(id => id !== version.id))
+                                  }
+                                }}
+                                disabled={!selectedCompareIds.includes(version.id) && selectedCompareIds.length >= 2}
+                              />
+                            </TableCell>
+                          )}
+                          <TableCell style={{ width: 80 }} className="font-medium whitespace-nowrap">v{version.version_no}</TableCell>
+                          <TableCell style={{ minWidth: 160 }} className="text-xs text-muted-foreground">{formatDateTime(version.submitted_at)}</TableCell>
+                          <TableCell style={{ width: 120 }}>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => { setSelectedVersion(version); setShowVersionDialog(true) }}
+                              >
+                                <Eye className="mr-1 h-4 w-4" />
+                                {t('protocols.detail.tables.viewContent')}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="@[600px]:hidden space-y-3 py-1">
                   {sortedVersions.map((version) => (
-                    <TableRow key={version.id}>
+                    <div key={version.id} className="rounded-lg border bg-card p-3 flex items-center justify-between gap-2">
                       {compareMode && (
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedCompareIds.includes(version.id)}
-                            onCheckedChange={(checked: boolean) => {
-                              if (checked) {
-                                if (selectedCompareIds.length < 2) {
-                                  setSelectedCompareIds([...selectedCompareIds, version.id])
-                                }
-                              } else {
-                                setSelectedCompareIds(selectedCompareIds.filter(id => id !== version.id))
-                              }
-                            }}
-                            disabled={!selectedCompareIds.includes(version.id) && selectedCompareIds.length >= 2}
-                          />
-                        </TableCell>
+                        <Checkbox
+                          checked={selectedCompareIds.includes(version.id)}
+                          onCheckedChange={(checked: boolean) => {
+                            if (checked) {
+                              if (selectedCompareIds.length < 2) setSelectedCompareIds([...selectedCompareIds, version.id])
+                            } else {
+                              setSelectedCompareIds(selectedCompareIds.filter(id => id !== version.id))
+                            }
+                          }}
+                          disabled={!selectedCompareIds.includes(version.id) && selectedCompareIds.length >= 2}
+                        />
                       )}
-                      <TableCell className="font-medium">v{version.version_no}</TableCell>
-                      <TableCell>{formatDateTime(version.submitted_at)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedVersion(version)
-                              setShowVersionDialog(true)
-                            }}
-                          >
-                            <Eye className="mr-1 h-4 w-4" />
-                            {t('protocols.detail.tables.viewContent')}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-foreground">v{version.version_no}</div>
+                        <div className="text-xs text-muted-foreground">{formatDateTime(version.submitted_at)}</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setSelectedVersion(version); setShowVersionDialog(true) }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+
+              </div>
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <History className="h-12 w-12 mx-auto mb-2" />
-              <p>{t('protocols.detail.tables.noVersions')}</p>
+            <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+              <History className="h-8 w-8" />
+              <p className="text-sm">{t('protocols.detail.tables.noVersions')}</p>
             </div>
           )}
         </CardContent>

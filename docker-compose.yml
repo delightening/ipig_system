@@ -27,6 +27,8 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -128,6 +130,11 @@ services:
     volumes:
       - ${UPLOAD_VOLUME:-./uploads}:/app/uploads
       - ./geoip:/app/geoip:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: [ "CMD", "/app/healthcheck" ]
       interval: 10s
@@ -144,6 +151,8 @@ services:
       options:
         max-size: "20m"
         max-file: "5"
+        # R24-2: 把容器名注入 log attrs.tag，供 Promtail 抽 label 用
+        tag: "{{.Name}}"
     networks:
       - backend
       - database
@@ -185,6 +194,13 @@ services:
     environment:
       # nginx 運行時使用的 API 後端地址
       API_BACKEND_URL: http://api:8000
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ || exit 1" ]
       interval: 10s
@@ -201,6 +217,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        # R24-2: 把容器名注入 log attrs.tag，供 Promtail 抽 label 用
+        tag: "{{.Name}}"
     networks:
       - frontend
       - backend
@@ -284,12 +302,39 @@ services:
   # =========================
   # Prometheus (系統監控)
   # =========================
+  # =========================
+  # Node Exporter (主機指標: CPU / Memory / Disk)
+  # =========================
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    container_name: ipig-node-exporter
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 64M
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:v2.51.0@sha256:5ccad477d0057e62a7cd1981ffcc43785ac10c5a35522dc207466ff7e7ec845f
     container_name: ipig-prometheus
     volumes:
       - ./monitoring/prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
+      - ./secrets/metrics_token.txt:/run/secrets/metrics_token:ro
+      - ./secrets/prometheus_password.txt:/run/secrets/prometheus_password.txt:ro
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=30d"
@@ -318,8 +363,7 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.27.0@sha256:e13b6ed5cb929eeaee733479dce55e10eb3bc2e9c4586c705a4e8da41e5eacf5
     container_name: ipig-alertmanager
-    command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
+    entrypoint: ["/bin/sh", "/etc/alertmanager/docker-entrypoint.sh"]
     environment:
       ALERTMANAGER_WEBHOOK_URL: ${ALERTMANAGER_WEBHOOK_URL:-}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
@@ -349,19 +393,39 @@ services:
   # Grafana (監控儀表板)
   # =========================
   grafana:
-    image: grafana/grafana:10.4.0@sha256:f9811e4e687ffecf1a43adb9b64096c50bc0d7a782f8608530f478b6542de7d5
+    # 升級至 13.x 以支援繁體中文 UI（zh-Hant，11.x 僅有 zh-Hans 簡體）
+    image: grafana/grafana:13.0.1
     container_name: ipig-grafana
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
+      # 繁體中文 UI（13.x 起支援 zh-Hant）
+      GF_USERS_DEFAULT_LANGUAGE: zh-Hant
+      # 關掉外連（避免本機/防火牆環境下 grafana.com 401 觸發瀏覽器密碼框）
+      GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: ${GRAFANA_SMTP_HOST:-smtp.gmail.com:587}
+      GF_SMTP_USER: ${GRAFANA_SMTP_USER:-}
+      GF_SMTP_PASSWORD: ${GRAFANA_SMTP_PASSWORD:-}
+      GF_SMTP_FROM_ADDRESS: ${GRAFANA_SMTP_USER:-}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./deploy/grafana_dashboard.json:/var/lib/grafana/dashboards/ipig-overview.json:ro
+      # R24-4: Security dashboard + Postgres datasource 密碼檔
+      - ./deploy/grafana_security_dashboard.json:/var/lib/grafana/dashboards/ipig-security.json:ro
+      - ./secrets/grafana_pg_password.txt:/run/secrets/grafana_pg_password:ro
+      - ./secrets/prometheus_password.txt:/run/secrets/prometheus_password:ro
     ports:
       - "127.0.0.1:3001:3000"
+    # R24-4: Grafana 需 database 網路才能連 Postgres datasource
     networks:
       - backend
+      - database
     deploy:
       resources:
         limits:
@@ -414,6 +478,59 @@ services:
           memory: 512M
     restart: unless-stopped
 
+  # =========================
+  # Loki (集中式 Log 收集)
+  # =========================
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: ipig-loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - loki_data:/loki
+      - ./monitoring/loki/config.yml:/etc/loki/config.yml:ro
+    command: -config.file=/etc/loki/config.yml
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # =========================
+  # Promtail (Log 採集器)
+  # =========================
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: ipig-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./monitoring/promtail/config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    restart: unless-stopped
+
 # =========================
 # Networks (P0-S1: 最小權限網路隔離)
 # =========================
@@ -450,3 +567,4 @@ volumes:
   db_backups:
   prometheus_data:
   grafana_data:
+  loki_data:

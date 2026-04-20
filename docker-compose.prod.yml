@@ -29,6 +29,8 @@ services:
       JWT_EC_PUBLIC_KEY_FILE: /run/secrets/jwt_ec_public_key
       DATABASE_URL_FILE: /run/secrets/db_url
       SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      # R24-3: Alertmanager webhook token（從 .env 注入；值需與 ./secrets/alertmanager_webhook_token.txt 一致）
+      ALERTMANAGER_WEBHOOK_TOKEN: ${ALERTMANAGER_WEBHOOK_TOKEN:-}
     deploy:
       resources:
         limits:
@@ -109,6 +111,58 @@ services:
         max-file: "3"
 
   # =========================
+  # R24-2: Loki + Promtail（生產環境集中式日誌收集）
+  # =========================
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: ipig-loki
+    # localhost-only：僅 Grafana 與 Promtail 於同網段存取
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: ipig-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./monitoring/promtail/config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    restart: unless-stopped
+
+  # =========================
   # Watchtower: auto-update containers（High 1/2: API token 與 SMTP 密碼改由 Docker Secrets）
   # =========================
   watchtower:
@@ -155,6 +209,9 @@ services:
 # 建立方式（先在 Host 執行一次）:
 #   openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt > secrets/jwt_ec_private_key.pem
 #   openssl ec -in secrets/jwt_ec_private_key.pem -pubout > secrets/jwt_ec_public_key.pem
+volumes:
+  loki_data:
+
 secrets:
   jwt_ec_private_key:
     file: ./secrets/jwt_ec_private_key.pem

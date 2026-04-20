@@ -531,40 +531,70 @@ export function MyProjectDetailPage() {
                     下載手術紀錄
                   </Button>
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <SortableTableHead sortKey="animal_no" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>系統號</SortableTableHead>
-                      <SortableTableHead sortKey="ear_tag" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>耳號</SortableTableHead>
-                      <SortableTableHead sortKey="pen_location" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>欄位</SortableTableHead>
-                      <SortableTableHead sortKey="status" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>動物狀態</SortableTableHead>
-                      <SortableTableHead sortKey="breed" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>品種</SortableTableHead>
-                      <SortableTableHead sortKey="gender" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>性別</SortableTableHead>
-                      <SortableTableHead sortKey="entry_date" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>進場日期</SortableTableHead>
-                      <TableHead className="text-right">動作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <div className="@container">
+                  <div className="hidden @[600px]:block overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <SortableTableHead className="hidden @[800px]:table-cell" sortKey="animal_no" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>系統號</SortableTableHead>
+                          <SortableTableHead sortKey="ear_tag" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>耳號</SortableTableHead>
+                          <SortableTableHead sortKey="pen_location" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>欄位</SortableTableHead>
+                          <SortableTableHead sortKey="status" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>動物狀態</SortableTableHead>
+                          <SortableTableHead className="hidden @[900px]:table-cell" sortKey="breed" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>品種</SortableTableHead>
+                          <SortableTableHead className="hidden @[900px]:table-cell" sortKey="gender" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>性別</SortableTableHead>
+                          <SortableTableHead className="hidden @[1050px]:table-cell" sortKey="entry_date" currentSort={animalSort.column} currentDirection={animalSort.direction} onSort={toggleAnimalSort}>進場日期</SortableTableHead>
+                          <TableHead className="text-right">動作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(sortedAnimals ?? animals).map((animal) => (
+                          <TableRow key={animal.id}>
+                            <TableCell className="hidden @[800px]:table-cell">{animal.animal_no ?? animal.id.slice(0, 8)}</TableCell>
+                            <TableCell className="text-status-warning-text font-medium">{animal.ear_tag}</TableCell>
+                            <TableCell>{getPenLocationDisplay(animal)}</TableCell>
+                            <TableCell>
+                              <Badge variant="warning">{animalStatusNames[animal.status] ?? animal.status}</Badge>
+                            </TableCell>
+                            <TableCell className="hidden @[900px]:table-cell">{animalBreedNames[animal.breed] ?? animal.breed}</TableCell>
+                            <TableCell className="hidden @[900px]:table-cell">{animalGenderNames[animal.gender] ?? animal.gender}</TableCell>
+                            <TableCell className="hidden @[1050px]:table-cell">{formatDate(animal.entry_date)}</TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link to={`/animals/${animal.id}`}>檢視</Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div className="@[600px]:hidden divide-y rounded-lg border">
                     {(sortedAnimals ?? animals).map((animal) => (
-                      <TableRow key={animal.id}>
-                        <TableCell>{animal.animal_no ?? animal.id.slice(0, 8)}</TableCell>
-                        <TableCell className="text-status-warning-text font-medium">{animal.ear_tag}</TableCell>
-                        <TableCell>{getPenLocationDisplay(animal)}</TableCell>
-                        <TableCell>
-                          <Badge variant="warning">{animalStatusNames[animal.status] ?? animal.status}</Badge>
-                        </TableCell>
-                        <TableCell>{animalBreedNames[animal.breed] ?? animal.breed}</TableCell>
-                        <TableCell>{animalGenderNames[animal.gender] ?? animal.gender}</TableCell>
-                        <TableCell>{formatDate(animal.entry_date)}</TableCell>
-                        <TableCell className="text-right">
+                      <div key={animal.id} className="p-3 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-status-warning-text font-semibold">{animal.ear_tag}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {animal.animal_no ?? animal.id.slice(0, 8)} · {getPenLocationDisplay(animal)}
+                            </div>
+                          </div>
+                          <Badge variant="warning" className="shrink-0">{animalStatusNames[animal.status] ?? animal.status}</Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
+                          <span>{animalBreedNames[animal.breed] ?? animal.breed}</span>
+                          <span>{animalGenderNames[animal.gender] ?? animal.gender}</span>
+                          <span>進場 {formatDate(animal.entry_date)}</span>
+                        </div>
+                        <div className="flex justify-end pt-1 border-t">
                           <Button variant="ghost" size="sm" asChild>
                             <Link to={`/animals/${animal.id}`}>檢視</Link>
                           </Button>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                </div>
               </>
             ) : (
               <EmptyState

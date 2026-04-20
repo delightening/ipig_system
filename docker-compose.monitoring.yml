@@ -28,6 +28,8 @@ services:
       ALERT_SMTP_PASSWORD: ${ALERT_SMTP_PASSWORD:-}
     volumes:
       - ./monitoring/alertmanager:/etc/alertmanager:ro
+      # R24-3: webhook 共享 token（Bearer），路徑避開 /etc/alertmanager（已 ro 掛載衝突）
+      - ./secrets/alertmanager_webhook_token.txt:/run/secrets/webhook_token:ro
     ports:
       - "127.0.0.1:9093:9093"
     networks:
@@ -36,11 +38,16 @@ services:
 
   # Critical 4：GRAFANA_ADMIN_PASSWORD 必須在 .env 設定，無預設值
   grafana:
-    image: grafana/grafana:10.4.0@sha256:f9811e4e687ffecf1a43adb9b64096c50bc0d7a782f8608530f478b6542de7d5
+    image: grafana/grafana:13.0.1
     container_name: ipig-grafana
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: ${GRAFANA_SMTP_HOST:-smtp.gmail.com:587}
+      GF_SMTP_USER: ${GRAFANA_SMTP_USER:-}
+      GF_SMTP_PASSWORD: ${GRAFANA_SMTP_PASSWORD:-}
+      GF_SMTP_FROM_ADDRESS: ${GRAFANA_SMTP_USER:-}
     volumes:
       - grafana_data:/var/lib/grafana
     ports:

@@ -5,22 +5,25 @@
 
 use axum::{
     body::Body,
-    extract::State,
+    extract::{ConnectInfo, State},
     http::{Request, StatusCode},
     middleware::Next,
     response::Response,
 };
 use sqlx::PgPool;
+use std::net::SocketAddr;
 use uuid::Uuid;
 
 use crate::config::Config;
 use crate::constants::{SEC_EVENT_AUTO_SUSPENDED, SEC_EVENT_PERMISSION_DENIED};
+use crate::middleware::real_ip::extract_real_ip_with_trust;
 use crate::middleware::CurrentUser;
-use crate::services::{AlertThresholdService, AuditService, SecurityNotifier, SecurityNotification};
+use crate::services::{AlertThresholdService, AuditService, IpBlocklistService, SecurityNotifier, SecurityNotification};
 use crate::AppState;
 
 pub async fn security_response_logger(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request<Body>,
     next: Next,
 ) -> Response {
@@ -30,32 +33,42 @@ pub async fn security_response_logger(
         .extensions()
         .get::<CurrentUser>()
         .map(|u| u.id);
+    // R24-1: 取來源 IP 以供 403 稽核與 IDOR probe 自動封 IP 使用
+    let ip = extract_real_ip_with_trust(
+        request.headers(),
+        &addr,
+        state.config.trust_proxy_headers,
+    );
 
     let response = next.run(request).await;
 
     if response.status() == StatusCode::FORBIDDEN {
         let db = state.db.clone();
         let config = state.config.clone();
+        let ip_owned = ip.clone();
         tokio::spawn(async move {
             // Gemini #5: 使用 actor_user_id 欄位（有索引）而非 JSONB after_data
             let _ = AuditService::log_security_event(
                 &db,
                 SEC_EVENT_PERMISSION_DENIED,
                 user_id,
-                None,
+                Some(&ip_owned),
                 None,
                 Some(&path),
                 Some(&method),
                 serde_json::json!({
                     "path": path,
                     "method": method,
+                    "ip": ip_owned,
                 }),
             )
             .await;
 
             // R22-6: IDOR probe detection (by user_id)
             if let Some(uid) = user_id {
-                if let Err(e) = check_idor_probe(&db, &config, &uid.to_string()).await {
+                if let Err(e) =
+                    check_idor_probe(&db, &config, &uid.to_string(), &ip_owned).await
+                {
                     tracing::error!("[R22-6] IDOR probe check failed: {e}");
                 }
             }
@@ -66,10 +79,12 @@ pub async fn security_response_logger(
 }
 
 /// R22-6: 檢查同一使用者短時間內是否累積過多 403，產生 IDOR probe alert
+/// R24-1: 新增 ip 參數以支援同步封 IP
 async fn check_idor_probe(
     pool: &PgPool,
     config: &Config,
     user_id_str: &str,
+    ip: &str,
 ) -> std::result::Result<(), sqlx::Error> {
     let threshold = AlertThresholdService::idor_403_threshold(pool).await;
     let window_mins = AlertThresholdService::idor_403_window_mins(pool).await;
@@ -153,6 +168,18 @@ async fn check_idor_probe(
     // R22-6: 自動封鎖探測使用者（可透過 security_alert_config.idor_auto_block_enabled=0 關閉）
     if AlertThresholdService::idor_auto_block_enabled(pool).await {
         auto_block_user(pool, user_id_str, alert_id).await;
+        // R24-1: 同步封鎖來源 IP 24h（防止攻擊者切換 user 繼續探測）
+        IpBlocklistService::auto_block(
+            pool,
+            ip,
+            "R22-6_idor",
+            Some(alert_id),
+            &format!(
+                "IDOR 探測：使用者 {user_label} 在 {window_mins} 分內累積 {count} 次 403"
+            ),
+            Some(24),
+        )
+        .await;
     }
 
     let notification = SecurityNotification {

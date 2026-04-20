@@ -20,7 +20,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Plus, CheckCircle } from 'lucide-react'
+import { Plus, CheckCircle, RefreshCw } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 
@@ -145,7 +147,7 @@ export function ChangeControlPage() {
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead>變更編號</TableHead>
                 <TableHead>標題</TableHead>
                 <TableHead>類型</TableHead>
@@ -157,9 +159,9 @@ export function ChangeControlPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8">載入中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="p-0"><TableSkeleton rows={5} cols={7} /></TableCell></TableRow>
               ) : requests.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">尚無變更申請</TableCell></TableRow>
+                <TableEmptyRow colSpan={7} icon={RefreshCw} title="尚無變更申請" />
               ) : (
                 requests.map((cr) => (
                   <TableRow key={cr.id}>

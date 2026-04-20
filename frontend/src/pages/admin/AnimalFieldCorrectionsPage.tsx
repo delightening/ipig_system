@@ -23,8 +23,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, Check, X, FileEdit, CheckCircle2 } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
-import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/use-toast'
 import { useState } from 'react'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -126,7 +127,7 @@ export function AnimalFieldCorrectionsPage() {
         description="耳號、出生日期、性別、品種等欄位建立後不可直接修改，需經管理員批准後才能套用修正。"
       />
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileEdit className="h-5 w-5" />
@@ -137,28 +138,26 @@ export function AnimalFieldCorrectionsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : !pending?.length ? (
-            <EmptyState icon={CheckCircle2} title="目前沒有待審核的修正申請" description="所有修正申請皆已處理完畢" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortableTableHead sortKey="animal_ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>耳號</SortableTableHead>
-                  <SortableTableHead sortKey="field_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>欄位</SortableTableHead>
-                  <TableHead>原值</TableHead>
-                  <TableHead>新值</TableHead>
-                  <TableHead>原因</TableHead>
-                  <SortableTableHead sortKey="requested_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請人</SortableTableHead>
-                  <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請時間</SortableTableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(sortedPending ?? pending)?.map((r) => (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <SortableTableHead sortKey="animal_ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>耳號</SortableTableHead>
+                <SortableTableHead sortKey="field_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>欄位</SortableTableHead>
+                <TableHead>原值</TableHead>
+                <TableHead>新值</TableHead>
+                <TableHead>原因</TableHead>
+                <SortableTableHead sortKey="requested_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請人</SortableTableHead>
+                <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請時間</SortableTableHead>
+                <TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} /></TableCell></TableRow>
+              ) : !pending?.length ? (
+                <TableEmptyRow colSpan={8} icon={CheckCircle2} title="目前沒有待審核的修正申請" description="所有修正申請皆已處理完畢" />
+              ) : (
+                (sortedPending ?? pending)?.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell>
                       <Link
@@ -171,7 +170,7 @@ export function AnimalFieldCorrectionsPage() {
                     <TableCell>{FIELD_LABELS[r.field_name] || r.field_name}</TableCell>
                     <TableCell>{formatValue(r.field_name, r.old_value)}</TableCell>
                     <TableCell className="font-medium">{formatValue(r.field_name, r.new_value)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={r.reason}>
+                    <TableCell className="max-w-[200px] whitespace-normal break-words" title={r.reason}>
                       {r.reason}
                     </TableCell>
                     <TableCell>{r.requested_by_name || '-'}</TableCell>
@@ -205,10 +204,10 @@ export function AnimalFieldCorrectionsPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 

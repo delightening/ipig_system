@@ -14,14 +14,31 @@ route:
       receiver: "critical"
       repeat_interval: 1h
 
-# 預設：通知功能停用。啟用方式見 monitoring/README.md 或使用 alertmanager.example.yml
+# R24-3: 啟用 webhook 轉發至 ipig_system 內部 API，複用 R22 SecurityNotifier
+# 共享 token 請於 api 服務的 ALERTMANAGER_WEBHOOK_TOKEN 環境變數設定。
 receivers:
   - name: "default"
-    # webhook_configs:
-    #   - url: "http://api:3000/api/webhooks/alertmanager"
+    webhook_configs:
+      - url: "http://api:8000/api/webhooks/alertmanager"
+        send_resolved: false
+        http_config:
+          # send X-Webhook-Token; value must match api env ALERTMANAGER_WEBHOOK_TOKEN
+          authorization:
+            type: Bearer
+            credentials_file: /run/secrets/webhook_token
 
   - name: "critical"
-    # email_configs:
-    #   - to: "admin@example.com"
-    #     from: "alertmanager@ipig.system"
-    #     smarthost: "smtp.example.com:587"
+    webhook_configs:
+      - url: "http://api:8000/api/webhooks/alertmanager"
+        send_resolved: false
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /run/secrets/webhook_token
+    email_configs:
+      - to: "jason4617987@gmail.com"
+        from: "alertmanager@ipig.system"
+        smarthost: "smtp.gmail.com:587"
+        auth_username: "jason4617987@gmail.com"
+        auth_password: "tajr azwc pmac lyxs"
+        require_tls: true

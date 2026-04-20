@@ -33,8 +33,8 @@ const columns: ColumnDef<TrainingRecordWithUser>[] = [
     ),
   },
   {
-    key: 'notes', header: '備註', className: 'max-w-[200px]',
-    cell: (r) => <span className="truncate block">{r.notes || '\u2014'}</span>,
+    key: 'notes', header: '備註', className: 'max-w-[200px] whitespace-normal break-words',
+    cell: (r) => <span className="block">{r.notes || '\u2014'}</span>,
   },
 ]
 

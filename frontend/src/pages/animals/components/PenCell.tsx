@@ -1,9 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import type { AnimalListItem } from '@/lib/api'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Eye } from 'lucide-react'
 import type { getZoneColors } from '../hooks/useFacilityLayout'
 
 interface PenCellProps {
@@ -38,7 +36,7 @@ export const PenCell = React.memo(function PenCell({
   if (penAnimals.length === 0) {
     return (
       <div
-        className="grid grid-cols-5 gap-1 px-3 py-2 items-center text-sm group"
+        className="grid grid-cols-2 @[600px]:grid-cols-4 gap-1 px-3 py-2 items-center text-sm group"
         onMouseEnter={onMouseEnter}
       >
         <div className={`font-semibold ${colors.text}`}>{penCode}</div>
@@ -72,35 +70,30 @@ export const PenCell = React.memo(function PenCell({
         ) : (
           <div className="text-muted-foreground italic group-hover:text-foreground transition-colors cursor-text">空</div>
         )}
-        <div className="text-muted-foreground">-</div>
-        <div className="text-muted-foreground">-</div>
-        <div></div>
+        <div className="hidden @[600px]:block text-muted-foreground">-</div>
+        <div className="hidden @[600px]:block text-muted-foreground">-</div>
       </div>
     )
   }
 
   return penAnimals.map((animal, animalIdx) => (
-    <div key={animal.id} className={`grid grid-cols-5 gap-1 px-3 py-2 items-center text-sm ${animalIdx > 0 ? 'border-t border-dashed border-border' : ''}`}>
+    <div
+      key={animal.id}
+      className={`grid grid-cols-2 @[600px]:grid-cols-4 gap-1 px-3 py-2 items-center text-sm ${animalIdx > 0 ? 'border-t border-dashed border-border' : ''}`}
+    >
       <div className={`font-semibold ${colors.text}`}>{animalIdx === 0 ? penCode : ''}</div>
       <Link
         to={`/animals/${animal.id}`}
-        className="font-medium truncate text-primary hover:text-primary/80 hover:underline cursor-pointer"
-        title={`點擊進入動物詳情 · ${animal.ear_tag}`}
+        className={`font-medium break-words hover:underline cursor-pointer ${animal.has_abnormal_record ? 'text-status-error-text hover:text-status-error-text/80' : 'text-primary hover:text-primary/80'}`}
+        title={animal.has_abnormal_record ? `有異常 · ${animal.ear_tag}` : `點擊進入動物詳情 · ${animal.ear_tag}`}
       >
         {animal.ear_tag}
       </Link>
-      <div className="text-xs text-muted-foreground truncate" title={animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}>
+      <div className="hidden @[600px]:block text-xs text-muted-foreground break-words" title={animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}>
         {animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}
       </div>
-      <div className={`text-xs truncate ${animal.has_abnormal_record ? 'text-status-error-text font-medium' : 'text-muted-foreground'}`}>
+      <div className={`hidden @[600px]:block text-xs break-words ${animal.has_abnormal_record ? 'text-status-error-text font-medium' : 'text-muted-foreground'}`}>
         {animal.has_abnormal_record ? '有異常' : '-'}
-      </div>
-      <div className="flex items-center justify-center gap-1">
-        <Button variant="ghost" size="icon" className="h-6 w-6" asChild title="檢視" aria-label="檢視">
-          <Link to={`/animals/${animal.id}`}>
-            <Eye className="h-3 w-3" />
-          </Link>
-        </Button>
       </div>
     </div>
   ))

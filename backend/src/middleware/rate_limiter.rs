@@ -21,7 +21,7 @@ use crate::constants::{
     SEC_EVENT_RATE_LIMIT_UPLOAD,
 };
 use crate::middleware::real_ip::extract_real_ip_with_trust;
-use crate::services::{AlertThresholdService, AuditService, SecurityNotifier, SecurityNotification};
+use crate::services::{AlertThresholdService, AuditService, IpBlocklistService, SecurityNotifier, SecurityNotification};
 use crate::AppState;
 
 /// Gemini #1: 安全事件記錄的 per-IP 頻率限制（同一 IP 每 60 秒最多記錄 1 次）
@@ -364,6 +364,17 @@ async fn check_auth_rate_limit_escalation(
     .await?;
 
     tracing::warn!("[R22-5] Auth rate limit escalation alert created for IP {ip}");
+
+    // R24-1: 封 IP 1 小時（auth ratelimit 升級 = 持續攻擊）
+    IpBlocklistService::auto_block(
+        pool,
+        ip,
+        "R22-1_ratelimit",
+        Some(alert_id),
+        &format!("Auth rate limit 升級：IP {ip} 在 {window_mins} 分內觸發 {count} 次"),
+        Some(1),
+    )
+    .await;
 
     // Dispatch notification
     if let Some(cfg) = config {

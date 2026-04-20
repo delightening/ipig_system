@@ -28,6 +28,7 @@ import {
   Copy,
   Stethoscope,
 } from 'lucide-react'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { SurgeryFormDialog } from './SurgeryFormDialog'
@@ -94,7 +95,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
 
   return (
     <>
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>手術紀錄</CardTitle>
@@ -108,130 +109,93 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
           </GuestHide>
         </CardHeader>
         <CardContent>
-          {!surgeries || surgeries.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Scissors className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p>尚無手術紀錄</p>
-              <p className="text-sm mt-1">點擊上方按鈕新增</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10"></TableHead>
-                  <TableHead>是否首次</TableHead>
-                  <SortableTableHead sortKey="surgery_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>手術日期</SortableTableHead>
-                  <SortableTableHead sortKey="surgery_site" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>手術部位</SortableTableHead>
-                  <TableHead>停止用藥</TableHead>
-                  <TableHead>獸醫師讀取</TableHead>
-                  <TableHead>記錄者</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedData?.map((surgery) => (
-                  <>
-                    <TableRow key={surgery.id} className="cursor-pointer hover:bg-muted">
-                      <TableCell>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedId(expandedId === surgery.id ? null : surgery.id)}
-                          className="p-1 hover:bg-muted rounded"
-                          title="展開詳細資料"
-                          aria-label="展開詳細資料"
-                        >
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${expandedId === surgery.id ? 'rotate-180' : ''}`}
-                          />
-                        </button>
-                      </TableCell>
-                      <TableCell>{surgery.is_first_experiment ? '是' : '否'}</TableCell>
-                      <TableCell>{new Date(surgery.surgery_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
-                      <TableCell className="max-w-xs truncate">{surgery.surgery_site}</TableCell>
-                      <TableCell>
-                        {surgery.no_medication_needed ? (
-                          <CheckCircle2 className="h-4 w-4 text-status-success-solid" />
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {surgery.vet_read ? (
-                          <Badge className="bg-status-success-bg text-status-success-text">已讀</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-muted-foreground">未讀</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{surgery.created_by_name || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => setExpandedId(surgery.id)} title="檢視詳情" aria-label="檢視詳情">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <GuestHide>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setEditingSurgery(surgery)
-                                setShowAddDialog(true)
-                              }}
-                              title="編輯"
+          <div className="@container">
+
+            {/* ── Table view: container ≥ 600px ── */}
+            <div className="hidden @[600px]:block overflow-x-auto">
+              <Table className="w-full" style={{ minWidth: 540 }}>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead style={{ width: 40 }}></TableHead>
+                    <TableHead style={{ width: 70 }} className="text-center">是否首次</TableHead>
+                    <SortableTableHead style={{ width: 100 }} sortKey="surgery_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>手術日期</SortableTableHead>
+                    <SortableTableHead style={{ minWidth: 150 }} sortKey="surgery_site" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>手術部位</SortableTableHead>
+                    <TableHead style={{ width: 60 }} className="text-center hidden @[690px]:table-cell">停止用藥</TableHead>
+                    <TableHead style={{ width: 100 }} className="text-center">獸醫師讀取</TableHead>
+                    <TableHead style={{ width: 90 }} className="hidden @[690px]:table-cell">記錄者</TableHead>
+                    <TableHead style={{ width: 80, minWidth: 80 }} className="sticky right-0 bg-card border-l text-center px-1 py-2">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!surgeries || surgeries.length === 0 ? (
+                    <TableEmptyRow colSpan={8} icon={Scissors} title="尚無手術紀錄" />
+                  ) : (
+                    sortedData?.map((surgery) => (
+                      <React.Fragment key={surgery.id}>
+                        <TableRow className="group cursor-pointer hover:bg-muted">
+                          <TableCell style={{ width: 40 }}>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedId(expandedId === surgery.id ? null : surgery.id)}
+                              className="p-1 hover:bg-muted rounded"
+                              title="展開詳細資料"
+                              aria-label="展開詳細資料"
                             >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) {
-                                  copyMutation.mutate(surgery.id)
-                                }
-                              }}
-                              disabled={copyMutation.isPending}
-                              title="複製"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setVersionHistoryRecordId(surgery.id)
-                                setShowVersionHistory(true)
-                              }}
-                              title="版本歷史"
-                            >
-                              <History className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setVetRecRecordId(surgery.id)
-                                setShowVetRec(true)
-                              }}
-                              title="獸醫師建議"
-                              className="text-status-success-text hover:text-status-success-text"
-                            >
-                              <Stethoscope className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeleteTarget(surgery.id)}
-                              title="刪除"
-                              aria-label="刪除"
-                            >
-                              <Trash2 className="h-4 w-4 text-status-error-solid" />
-                            </Button>
-                          </GuestHide>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {expandedId === surgery.id && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="bg-muted p-4">
+                              <ChevronDown
+                                className={`h-4 w-4 transition-transform ${expandedId === surgery.id ? 'rotate-180' : ''}`}
+                              />
+                            </button>
+                          </TableCell>
+                          <TableCell style={{ width: 70 }} className="text-center">
+                            {surgery.is_first_experiment
+                              ? <Badge className="bg-status-warning-bg text-status-warning-text">首次</Badge>
+                              : <span className="text-muted-foreground text-sm">否</span>}
+                          </TableCell>
+                          <TableCell style={{ width: 100 }} className="whitespace-nowrap">{new Date(surgery.surgery_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
+                          <TableCell style={{ minWidth: 150 }} className="whitespace-normal break-words">{surgery.surgery_site}</TableCell>
+                          <TableCell style={{ width: 60 }} className="text-center hidden @[690px]:table-cell">
+                            {surgery.no_medication_needed ? (
+                              <CheckCircle2 className="h-4 w-4 text-status-success-solid inline-block" />
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell style={{ width: 100 }} className="text-center">
+                            {surgery.vet_read ? (
+                              <Badge className="bg-status-success-bg text-status-success-text">已讀</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground">未讀</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell style={{ width: 90 }} className="whitespace-normal break-words hidden @[690px]:table-cell">{surgery.created_by_name || '-'}</TableCell>
+                          <TableCell style={{ width: 80, minWidth: 80 }} className="px-1 py-1 sticky right-0 bg-card group-hover:bg-muted border-l">
+                            <div className="grid grid-cols-3 gap-0.5 justify-items-center">
+                              <Button variant="ghost" size="icon" onClick={() => setExpandedId(surgery.id)} title="檢視詳情" aria-label="檢視詳情">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <GuestHide>
+                                <Button variant="ghost" size="icon" onClick={() => { setEditingSurgery(surgery); setShowAddDialog(true) }} title="編輯">
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => { if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) copyMutation.mutate(surgery.id) }} disabled={copyMutation.isPending} title="複製">
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => { setVersionHistoryRecordId(surgery.id); setShowVersionHistory(true) }} title="版本歷史">
+                                  <History className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => { setVetRecRecordId(surgery.id); setShowVetRec(true) }} title="獸醫師建議" className="text-status-success-text hover:text-status-success-text">
+                                  <Stethoscope className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(surgery.id)} title="刪除" aria-label="刪除">
+                                  <Trash2 className="h-4 w-4 text-status-error-solid" />
+                                </Button>
+                              </GuestHide>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {expandedId === surgery.id && (
+                          <TableRow>
+                            <TableCell colSpan={8} className="bg-muted p-4">
                           <div className="grid grid-cols-3 gap-4">
                             <div>
                               <Label className="text-muted-foreground">誘導麻醉</Label>
@@ -310,11 +274,72 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                  </React.Fragment>
+                ))
+              )}
+            </TableBody>
+          </Table>
+            </div>
+
+            {/* ── Card view: container < 600px ── */}
+            <div className="@[600px]:hidden space-y-3 py-1">
+              {!surgeries || surgeries.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                  <Scissors className="h-8 w-8" />
+                  <p className="text-sm">尚無手術紀錄</p>
+                </div>
+              ) : (
+                sortedData?.map((surgery) => (
+                  <div key={surgery.id} className="rounded-lg border bg-card p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium text-foreground">
+                        {new Date(surgery.surgery_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}
+                      </span>
+                      {surgery.is_first_experiment && (
+                        <Badge className="bg-status-warning-bg text-status-warning-text">首次</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-snug break-words">{surgery.surgery_site}</p>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                      <div className="flex items-center gap-2">
+                        {surgery.vet_read
+                          ? <Badge className="bg-status-success-bg text-status-success-text text-xs">獸醫已讀</Badge>
+                          : <Badge variant="outline" className="text-muted-foreground text-xs">獸醫未讀</Badge>}
+                        {surgery.no_medication_needed && (
+                          <span title="停止用藥">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-status-success-solid" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-0.5">
+                        <Button variant="ghost" size="icon" onClick={() => setExpandedId(surgery.id)} title="檢視詳情">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <GuestHide>
+                          <Button variant="ghost" size="icon" onClick={() => { setEditingSurgery(surgery); setShowAddDialog(true) }} title="編輯">
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => { if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) copyMutation.mutate(surgery.id) }} disabled={copyMutation.isPending} title="複製">
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => { setVersionHistoryRecordId(surgery.id); setShowVersionHistory(true) }} title="版本歷史">
+                            <History className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => { setVetRecRecordId(surgery.id); setShowVetRec(true) }} title="獸醫師建議" className="text-status-success-text hover:text-status-success-text">
+                            <Stethoscope className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(surgery.id)} title="刪除">
+                            <Trash2 className="h-4 w-4 text-status-error-solid" />
+                          </Button>
+                        </GuestHide>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
         </CardContent>
       </Card>
 

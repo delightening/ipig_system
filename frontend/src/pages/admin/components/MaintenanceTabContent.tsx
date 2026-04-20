@@ -2,7 +2,6 @@
  * 維修/保養紀錄分頁內容：表格、分頁、新增/編輯/刪除
  */
 import { useMemo } from 'react'
-import { truncateText } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -88,8 +87,8 @@ export function MaintenanceTabContent({
         cell: (r) => r.completed_at ? format(new Date(r.completed_at), 'yyyy/MM/dd', { locale: zhTW }) : '—',
       },
       {
-        key: 'description', header: '問題描述/保養項目', className: 'max-w-[200px]',
-        cell: (r) => r.maintenance_type === 'repair' ? truncateText(r.problem_description, 30) : truncateText(r.maintenance_items, 30),
+        key: 'description', header: '問題描述/保養項目', className: 'max-w-[200px] whitespace-normal break-words',
+        cell: (r) => r.maintenance_type === 'repair' ? r.problem_description : r.maintenance_items,
       },
     ]
     if (canManage || canReview || onViewHistory) {

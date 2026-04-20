@@ -751,6 +751,34 @@ impl AuditService {
         Ok(alert)
     }
 
+    /// 批次解決安全警報，回傳實際更新筆數
+    pub async fn bulk_resolve_alerts(
+        pool: &PgPool,
+        ids: &[Uuid],
+        resolver_id: Uuid,
+        notes: Option<&str>,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            UPDATE security_alerts
+            SET status = 'resolved',
+                resolved_by = $2,
+                resolved_at = NOW(),
+                resolution_notes = $3,
+                updated_at = NOW()
+            WHERE id = ANY($1)
+              AND status != 'resolved'
+            "#,
+        )
+        .bind(ids)
+        .bind(resolver_id)
+        .bind(notes)
+        .execute(pool)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
+
     // ============================================
     // Dashboard
     // ============================================

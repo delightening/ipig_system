@@ -320,81 +320,86 @@ export function BloodTestFormDialog({
                 <p className="text-sm mt-1">從上方模板選取或新增自訂項目</p>
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[180px]">項目名稱</TableHead>
-                      <TableHead className="w-[120px]">結果值</TableHead>
-                      <TableHead className="w-[80px]">單位</TableHead>
-                      <TableHead className="w-[120px]">參考範圍</TableHead>
-                      <TableHead className="w-[80px] text-center">異常</TableHead>
-                      <TableHead>備註</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {formData.items.map((item, index) => (
-                      <TableRow key={item.template_id || `item-${item.sort_order}`}>
-                        <TableCell>
-                          <Input
-                            value={item.item_name}
-                            onChange={(e) => updateItem(index, 'item_name', e.target.value)}
-                            placeholder="項目名稱"
-                            className="h-8"
-                            readOnly={!!item.template_id}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={item.result_value || ''}
-                            onChange={(e) => updateItem(index, 'result_value', e.target.value)}
-                            placeholder="結果"
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={item.result_unit || ''}
-                            onChange={(e) => updateItem(index, 'result_unit', e.target.value)}
-                            placeholder="單位"
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={item.reference_range || ''}
-                            onChange={(e) => updateItem(index, 'reference_range', e.target.value)}
-                            placeholder="參考範圍"
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <input
-                            type="checkbox"
-                            checked={item.is_abnormal}
-                            onChange={(e) => updateItem(index, 'is_abnormal', e.target.checked)}
-                            className="h-4 w-4 rounded border-border text-status-error-text focus:ring-destructive"
-                            aria-label={`項目 ${index + 1} 異常`}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={item.remark || ''}
-                            onChange={(e) => updateItem(index, 'remark', e.target.value)}
-                            placeholder="備註"
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-status-error-solid" onClick={() => removeItem(index)} aria-label="移除">
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
+              <div className="border rounded-lg overflow-hidden @container">
+                <div className="hidden @[700px]:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[180px]">項目名稱</TableHead>
+                        <TableHead className="w-[120px]">結果值</TableHead>
+                        <TableHead className="w-[80px]">單位</TableHead>
+                        <TableHead className="w-[120px]">參考範圍</TableHead>
+                        <TableHead className="w-[80px] text-center">異常</TableHead>
+                        <TableHead>備註</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {formData.items.map((item, index) => (
+                        <TableRow key={item.template_id || `item-${item.sort_order}`}>
+                          <TableCell>
+                            <Input value={item.item_name} onChange={(e) => updateItem(index, 'item_name', e.target.value)} placeholder="項目名稱" className="h-8" readOnly={!!item.template_id} />
+                          </TableCell>
+                          <TableCell>
+                            <Input value={item.result_value || ''} onChange={(e) => updateItem(index, 'result_value', e.target.value)} placeholder="結果" className="h-8" />
+                          </TableCell>
+                          <TableCell>
+                            <Input value={item.result_unit || ''} onChange={(e) => updateItem(index, 'result_unit', e.target.value)} placeholder="單位" className="h-8" />
+                          </TableCell>
+                          <TableCell>
+                            <Input value={item.reference_range || ''} onChange={(e) => updateItem(index, 'reference_range', e.target.value)} placeholder="參考範圍" className="h-8" />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <input type="checkbox" checked={item.is_abnormal} onChange={(e) => updateItem(index, 'is_abnormal', e.target.checked)} className="h-4 w-4 rounded border-border text-status-error-text focus:ring-destructive" aria-label={`項目 ${index + 1} 異常`} />
+                          </TableCell>
+                          <TableCell>
+                            <Input value={item.remark || ''} onChange={(e) => updateItem(index, 'remark', e.target.value)} placeholder="備註" className="h-8" />
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-status-error-solid" onClick={() => removeItem(index)} aria-label="移除">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="@[700px]:hidden divide-y">
+                  {formData.items.map((item, index) => (
+                    <div key={item.template_id || `item-${item.sort_order}`} className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <Input value={item.item_name} onChange={(e) => updateItem(index, 'item_name', e.target.value)} placeholder="項目名稱" className="h-8 font-medium" readOnly={!!item.template_id} />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-status-error-solid" onClick={() => removeItem(index)} aria-label="移除">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">結果值</Label>
+                          <Input value={item.result_value || ''} onChange={(e) => updateItem(index, 'result_value', e.target.value)} placeholder="結果" className="h-8" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">單位</Label>
+                          <Input value={item.result_unit || ''} onChange={(e) => updateItem(index, 'result_unit', e.target.value)} placeholder="單位" className="h-8" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">參考範圍</Label>
+                        <Input value={item.reference_range || ''} onChange={(e) => updateItem(index, 'reference_range', e.target.value)} placeholder="參考範圍" className="h-8" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">備註</Label>
+                        <Input value={item.remark || ''} onChange={(e) => updateItem(index, 'remark', e.target.value)} placeholder="備註" className="h-8" />
+                      </div>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={item.is_abnormal} onChange={(e) => updateItem(index, 'is_abnormal', e.target.checked)} className="h-4 w-4 rounded border-border text-status-error-text focus:ring-destructive" />
+                        標記為異常
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

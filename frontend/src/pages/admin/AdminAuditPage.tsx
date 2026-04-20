@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Activity, AlertTriangle, LogIn, RefreshCw, Shield, ShieldAlert, Users } from 'lucide-react'
+import { Activity, AlertTriangle, Ban, LogIn, RefreshCw, Shield, ShieldAlert, Users } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -12,6 +12,7 @@ import { AuditActivitiesTab } from './components/AuditActivitiesTab'
 import { AuditLoginsTab } from './components/AuditLoginsTab'
 import { AuditSessionsTab } from './components/AuditSessionsTab'
 import { AuditAlertsTab } from './components/AuditAlertsTab'
+import { IpBlocklistTab } from './components/IpBlocklistTab'
 import { SecurityEventsTab } from './components/SecurityEventsTab'
 import { AuditLogDetailDialog } from './components/AuditLogDetailDialog'
 import { AuditAlertDetailDialog } from './components/AuditAlertDetailDialog'
@@ -43,6 +44,7 @@ export function AdminAuditPage() {
                     { value: 'sessions', label: '活躍 Sessions', icon: Users },
                     { value: 'alerts', label: '安全警報', icon: AlertTriangle, badge: audit.dashboardStats?.open_alerts },
                     { value: 'security-events', label: '安全事件', icon: ShieldAlert },
+                    { value: 'ip-blocklist', label: 'IP 黑名單', icon: Ban },
                 ]}
                 defaultTab="dashboard"
             >
@@ -100,6 +102,10 @@ export function AdminAuditPage() {
                         onSort={audit.handleAlertSort}
                         onSelectAlert={setSelectedAlert}
                         resolveAlertMutation={audit.resolveAlertMutation}
+                        bulkResolveAlertsMutation={audit.bulkResolveAlertsMutation}
+                        selectedAlertIds={audit.selectedAlertIds}
+                        onAlertSelect={audit.handleAlertSelect}
+                        onSelectAllAlerts={audit.handleSelectAllAlerts}
                         search={audit.alertSearch}
                         onSearchChange={audit.handleAlertSearchChange}
                         statusFilter={audit.alertStatusFilter}
@@ -120,6 +126,10 @@ export function AdminAuditPage() {
                         eventTypeFilter={audit.securityEventType}
                         onEventTypeChange={audit.handleSecurityEventTypeChange}
                     />
+                </PageTabContent>
+
+                <PageTabContent value="ip-blocklist" className="space-y-4">
+                    <IpBlocklistTab />
                 </PageTabContent>
             </PageTabs>
 

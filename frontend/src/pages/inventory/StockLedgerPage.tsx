@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/table'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { PageHeader } from '@/components/ui/page-header'
-import { Loader2, FileText, Download, ExternalLink } from 'lucide-react'
+import { FileText, Download, ExternalLink } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { formatDateTime, formatNumber, formatCurrency } from '@/lib/utils'
 
@@ -94,10 +95,10 @@ export function StockLedgerPage() {
         }
       />
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="trx_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
               <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
               <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>品項</SortableTableHead>
@@ -111,8 +112,8 @@ export function StockLedgerPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                <TableCell colSpan={8} className="p-0">
+                  <TableSkeleton rows={8} cols={8} />
                 </TableCell>
               </TableRow>
             ) : sortedLedger && sortedLedger.length > 0 ? (

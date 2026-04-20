@@ -27,7 +27,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
-import { Loader2, Download, Truck } from 'lucide-react'
+import { Download, Truck } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import type { Partner, Warehouse } from '@/types/erp'
 
 const ALL_VALUE = '__all__'
@@ -142,14 +143,6 @@ export function PurchaseLinesReportPage() {
 
   const { sortedData: sortedReport, sort, toggleSort } = useTableSort(report)
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -220,10 +213,10 @@ export function PurchaseLinesReportPage() {
         </div>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="doc_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據日期</SortableTableHead>
               <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據編號</SortableTableHead>
               <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
@@ -237,7 +230,13 @@ export function PurchaseLinesReportPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedReport && sortedReport.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={10} className="p-0">
+                  <TableSkeleton rows={8} cols={10} />
+                </TableCell>
+              </TableRow>
+            ) : sortedReport && sortedReport.length > 0 ? (
               sortedReport.map((row, idx) => (
                 <TableRow key={`${row.doc_no}-${idx}`}>
                   <TableCell>{formatDate(row.doc_date)}</TableCell>

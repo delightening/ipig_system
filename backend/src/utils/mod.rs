@@ -4,3 +4,4 @@
 pub mod http;
 pub mod jsonb_validation;
 pub mod pdf_pages;
+pub mod validation;

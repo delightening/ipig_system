@@ -3,6 +3,7 @@ import { Product, DocType, PoReceiptStatus } from '@/lib/api'
 import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components/inventory/WarehouseShelfTreeSelect'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { DateTextInput } from '@/components/ui/DateTextInput'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -141,46 +142,68 @@ export function DocumentLineEditor({
             新增明細
           </Button>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[60px]">項次</TableHead>
-                <TableHead className="w-[300px]">品項</TableHead>
-                <TableHead className="w-[100px] text-right">數量</TableHead>
-                <TableHead className="w-[80px]">單位</TableHead>
-                {showPriceColumns && (
-                  <>
-                    <TableHead className="w-[100px] text-right">單價</TableHead>
-                    <TableHead className="w-[100px] text-right">金額</TableHead>
-                  </>
-                )}
-                {formData.doc_type === 'TR' ? (
-                  <>
-                    <TableHead className="w-[180px]">來源儲位</TableHead>
-                    <TableHead className="w-[180px]">目標儲位</TableHead>
-                  </>
-                ) : needsShelf ? (
-                  <TableHead className="w-[180px]">儲位</TableHead>
-                ) : null}
-                <TableHead className="w-[120px]">效期</TableHead>
-                <TableHead className="w-[120px]">批號</TableHead>
-                <TableHead className="w-[50px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {formData.lines.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={showPriceColumns ? (needsShelf ? 10 : 9) : (needsShelf ? 8 : 7)}
-                    className="text-center py-8"
-                  >
-                    <p className="text-muted-foreground">尚無明細，請點擊「新增明細」</p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                formData.lines.map((line, index) => (
-                  <LineRow
+        <CardContent className="@container">
+          {formData.lines.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">尚無明細，請點擊「新增明細」</p>
+            </div>
+          ) : (
+            <>
+              <div className="hidden @[900px]:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[60px]">項次</TableHead>
+                      <TableHead className="w-[300px]">品項</TableHead>
+                      <TableHead className="w-[100px] text-right">數量</TableHead>
+                      <TableHead className="w-[80px]">單位</TableHead>
+                      {showPriceColumns && (
+                        <>
+                          <TableHead className="w-[100px] text-right">單價</TableHead>
+                          <TableHead className="w-[100px] text-right">金額</TableHead>
+                        </>
+                      )}
+                      {formData.doc_type === 'TR' ? (
+                        <>
+                          <TableHead className="w-[180px]">來源儲位</TableHead>
+                          <TableHead className="w-[180px]">目標儲位</TableHead>
+                        </>
+                      ) : needsShelf ? (
+                        <TableHead className="w-[180px]">儲位</TableHead>
+                      ) : null}
+                      <TableHead className="w-[120px]">效期</TableHead>
+                      <TableHead className="w-[120px]">批號</TableHead>
+                      <TableHead className="w-[50px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {formData.lines.map((line, index) => (
+                      <LineRow
+                        key={line.id || `temp-${index}`}
+                        line={line}
+                        index={index}
+                        docType={formData.doc_type}
+                        warehouseId={formData.warehouse_id}
+                        showPriceColumns={showPriceColumns}
+                        needsShelf={needsShelf}
+                        lineAmounts={lineAmounts}
+                        inputRefs={inputRefs}
+                        onOpenSearch={handleOpenSearch}
+                        onBatchChange={handleBatchChange}
+                        onLineBlur={handleLineBlur}
+                        onUpdateLineAmount={updateLineAmount}
+                        onRemoveLine={removeLine}
+                        setFormData={setFormData}
+                        products={products}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="@[900px]:hidden space-y-3">
+                {formData.lines.map((line, index) => (
+                  <LineCard
                     key={line.id || `temp-${index}`}
                     line={line}
                     index={index}
@@ -198,10 +221,10 @@ export function DocumentLineEditor({
                     setFormData={setFormData}
                     products={products}
                   />
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -418,5 +441,196 @@ function LineRow({
         </Button>
       </TableCell>
     </TableRow>
+  )
+}
+
+// --- 單行 Card 版本（mobile） ---
+
+function LineCard({
+  line,
+  index,
+  docType,
+  warehouseId,
+  showPriceColumns,
+  needsShelf,
+  lineAmounts,
+  inputRefs,
+  onOpenSearch,
+  onBatchChange,
+  onLineBlur,
+  onUpdateLineAmount,
+  onRemoveLine,
+  setFormData,
+  products,
+}: LineRowProps) {
+  const lineId = line.id || `temp-${index}`
+  if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}
+
+  const product = products?.find((p) => p.id === line.product_id)
+  const showExpiry = !product || product.track_expiry
+  const showBatch = !product || product.track_batch
+
+  const qtyDefault = String(line.qty || '')
+  const unitPriceDefault = String(line.unit_price || '')
+  const expiryDateDefault = String(line.expiry_date || '')
+  const batchNoDefault = String(line.batch_no || '')
+
+  const lineBatchChange = (batchNo: string, expiryDate?: string, sourceIacuc?: string) =>
+    onBatchChange(lineId, batchNo, expiryDate, sourceIacuc)
+
+  const updateStorageLocation = (lineId: string, field: keyof DocumentLine, id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      lines: prev.lines.map((l) => l.id === lineId ? { ...l, [field]: id } : l),
+    }))
+  }
+
+  return (
+    <div className="rounded-lg border bg-card p-3 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="text-xs text-muted-foreground">項次 #{index + 1}</div>
+          {line.product_id ? (
+            <div className="mt-1">
+              <div className="font-medium break-words">{line.product_name}</div>
+              <div className="text-xs text-muted-foreground">{line.product_sku}</div>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => onOpenSearch(lineId)} className="w-full justify-start mt-1">
+              <Search className="mr-2 h-4 w-4" />
+              選擇品項
+            </Button>
+          )}
+        </div>
+        <Button variant="ghost" size="icon" onClick={() => onRemoveLine(lineId)} className="shrink-0 text-destructive hover:text-destructive/80" aria-label="刪除">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs text-muted-foreground">數量</Label>
+          <Input
+            type="number"
+            defaultValue={qtyDefault}
+            ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].qty = el } }}
+            className="text-right"
+            min="0"
+            onChange={() => { if (showPriceColumns) onUpdateLineAmount(lineId) }}
+            onBlur={() => onLineBlur(lineId)}
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">單位</Label>
+          <div className="h-9 flex items-center text-sm">{formatUom(line.uom) || '-'}</div>
+        </div>
+      </div>
+
+      {showPriceColumns && (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">單價</Label>
+            <Input
+              type="number"
+              defaultValue={unitPriceDefault}
+              ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].unit_price = el } }}
+              className="text-right"
+              min="0"
+              step="0.01"
+              onChange={() => onUpdateLineAmount(lineId)}
+              onBlur={() => onLineBlur(lineId)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">金額</Label>
+            <div className="h-9 flex items-center text-sm font-medium">${formatNumber(lineAmounts[lineId] || 0, 2)}</div>
+          </div>
+        </div>
+      )}
+
+      {docType === 'TR' ? (
+        <div className="space-y-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">來源儲位</Label>
+            <WarehouseShelfTreeSelect
+              value={line.storage_location_from_id ? `loc:${line.storage_location_from_id}` : ''}
+              onValueChange={(v: WarehouseShelfValue) => {
+                const id = v.startsWith('loc:') ? v.slice(4) : ''
+                updateStorageLocation(lineId, 'storage_location_from_id', id)
+              }}
+              selectLevel="shelf"
+              allowAll={false}
+              className="w-full text-xs"
+              placeholder="選擇來源儲位"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">目標儲位</Label>
+            <WarehouseShelfTreeSelect
+              value={line.storage_location_to_id ? `loc:${line.storage_location_to_id}` : ''}
+              onValueChange={(v: WarehouseShelfValue) => {
+                const id = v.startsWith('loc:') ? v.slice(4) : ''
+                updateStorageLocation(lineId, 'storage_location_to_id', id)
+              }}
+              selectLevel="shelf"
+              allowAll={false}
+              className="w-full text-xs"
+              placeholder="選擇目標儲位"
+            />
+          </div>
+        </div>
+      ) : needsShelf ? (
+        <div>
+          <Label className="text-xs text-muted-foreground">儲位</Label>
+          <WarehouseShelfTreeSelect
+            value={line.storage_location_id ? `loc:${line.storage_location_id}` : ''}
+            onValueChange={(v: WarehouseShelfValue) => {
+              const id = v.startsWith('loc:') ? v.slice(4) : ''
+              updateStorageLocation(lineId, 'storage_location_id', id)
+            }}
+            selectLevel="shelf"
+            allowAll={false}
+            className="w-full text-xs"
+            placeholder="選擇儲位"
+          />
+        </div>
+      ) : null}
+
+      {showExpiry && (
+        <div>
+          <Label className="text-xs text-muted-foreground">效期</Label>
+          {['SO', 'DO'].includes(docType) ? (
+            <DateTextInput
+              defaultValue={expiryDateDefault}
+              ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].expiry_date = el } }}
+              readOnly
+              disabled
+              className="bg-muted cursor-not-allowed"
+            />
+          ) : (
+            <DateTextInput
+              defaultValue={expiryDateDefault}
+              ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].expiry_date = el } }}
+              onBlur={() => onLineBlur(lineId)}
+            />
+          )}
+        </div>
+      )}
+
+      {showBatch && (
+        <div>
+          <Label className="text-xs text-muted-foreground">批號</Label>
+          <BatchNumberSelect
+            productId={line.product_id}
+            warehouseId={warehouseId}
+            batchNo={batchNoDefault}
+            docType={docType}
+            onBatchChange={lineBatchChange}
+            onBlur={() => onLineBlur(lineId)}
+            inputRef={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].batch_no = el } }}
+          />
+        </div>
+      )}
+    </div>
   )
 }

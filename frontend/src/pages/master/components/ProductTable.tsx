@@ -1,4 +1,3 @@
-import { useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,70 +42,6 @@ interface ProductTableProps {
   isAdmin: boolean
 }
 
-/** 欄寬計算 — 依優先順序分配，雙向觸發 300 名稱臨界值 */
-type WidthMap = {
-  select: number
-  sku: number
-  name: number
-  spec: number
-  base_uom: number
-  safety_stock: number
-  track_batch: number
-  track_expiry: number
-  actions: number
-}
-
-const NAME_SWITCH_THRESHOLD = 300
-export const MIN_TABLE_WIDTH = 720
-
-function computeWidths(W: number): WidthMap {
-  // 9 欄全顯示
-  // 最大非 name 總和 = 40 + 120 + 100*4 + 120 + 200 = 880
-  // 名稱=300 時 W = 880 + 300 = 1180（策略 A/B 切換點）
-  const sumNonNameMax = 880
-  if (W >= sumNonNameMax + NAME_SWITCH_THRESHOLD) {
-    // 策略 A：所有非 name 吃到 max，name 吸收剩下
-    return {
-      select: 40, sku: 120, name: Math.max(NAME_SWITCH_THRESHOLD, W - sumNonNameMax),
-      spec: 100, base_uom: 100, safety_stock: 120,
-      track_batch: 100, track_expiry: 100, actions: 200,
-    }
-  }
-  // 策略 B：name 最多 300；依序 actions → group → SKU → safety → name 分配 excess
-  // 最小總和 = 40 + 80 + 140 + 65*4 + 80 + 120 = 720
-  const w: WidthMap = {
-    select: 40, sku: 80, name: 140, spec: 65, base_uom: 65,
-    safety_stock: 80, track_batch: 65, track_expiry: 65, actions: 120,
-  }
-  let excess = W - MIN_TABLE_WIDTH
-  if (excess <= 0) return w
-  // 1. actions 120 → 200 (+80)
-  const toActions = Math.min(excess, 200 - w.actions)
-  w.actions += toActions; excess -= toActions
-  if (excess <= 0) return w
-  // 2. group（4 欄）同步 +Δ，每欄 65 → 100 (+35)
-  const toGroup = Math.min(excess, 4 * 35)
-  const per = toGroup / 4
-  w.spec += per; w.base_uom += per; w.track_batch += per; w.track_expiry += per
-  excess -= toGroup
-  if (excess <= 0) return w
-  // 3. SKU 二選一（80 or 120），有 40 的空間才 snap
-  if (excess >= 40) { w.sku = 120; excess -= 40 }
-  if (excess <= 0) return w
-  // 4. safety 二選一
-  if (excess >= 40) { w.safety_stock = 120; excess -= 40 }
-  if (excess <= 0) return w
-  // 5. 剩下給 name（一般到這裡 excess 幾乎為 0）
-  w.name += excess
-  return w
-}
-
-const DEFAULT_WIDTHS: WidthMap = {
-  select: 40, sku: 80, name: 240, spec: 65, base_uom: 65,
-  safety_stock: 80, track_batch: 65, track_expiry: 65, actions: 120,
-}
-
-/** 取得狀態 Badge */
 function getStatusBadge(product: ExtendedProduct) {
   const status = product.status || (product.is_active ? 'active' : 'inactive')
   switch (status) {
@@ -136,140 +71,99 @@ export function ProductTable({
   const navigate = useNavigate()
   const { sortedData, sort, toggleSort } = useTableSort(products)
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState<number | null>(null)
-
-  useLayoutEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const update = () => {
-      const W = el.clientWidth
-      if (W === 0) return
-      setContainerWidth(W)
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  // 不可裁剪保險：容器寬度不足以容納表格最小總和時，改 render 卡片
-  const canRenderTable = containerWidth === null || containerWidth >= MIN_TABLE_WIDTH
-  const widths = containerWidth !== null && canRenderTable
-    ? computeWidths(containerWidth)
-    : DEFAULT_WIDTHS
-
   const handleCopySku = async (sku: string) => {
     await navigator.clipboard.writeText(sku)
     toast({ title: '已複製', description: `SKU: ${sku}` })
   }
 
   const hasFilters = !!listState.filters.search || listState.activeFilterCount > 0
-
   const isEmpty = !sortedData || sortedData.length === 0
 
-  const cardListProps = {
-    products,
-    sortedData: sortedData ?? [],
-    isLoading,
-    isEmpty,
-    hasFilters,
-    selectionHas,
-    selectionSize,
-    onSelectAll,
-    onSelect,
-    onCopySku: handleCopySku,
-    onStatusChange,
-    onHardDelete,
-    isAdmin,
-    navigate,
-  }
-
   return (
-    <>
-      {/* Desktop / Tablet 容器：依實際寬度切換表格 / 卡片（避免 overflow 裁切） */}
-      <div
-        ref={containerRef}
-        className={cn(
-          "hidden md:block",
-          canRenderTable && "rounded-lg border bg-card overflow-hidden [&>div]:overflow-x-hidden",
-        )}
-      >
-        {canRenderTable ? (
-          <Table className="table-fixed">
-            <TableHeader>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead style={{ width: widths.select }}>
-                  <input
-                    type="checkbox"
-                    checked={products.length > 0 && selectionSize === products.length}
-                    onChange={onSelectAll}
-                    className="h-4 w-4 rounded border-input"
-                    aria-label="全選產品"
-                  />
-                </TableHead>
-                <SortableTableHead sortKey="sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: widths.sku }}>
-                  SKU
-                </SortableTableHead>
-                <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: widths.name }}>
-                  名稱
-                </SortableTableHead>
-                <TableHead style={{ width: widths.spec }}>
-                  <span className="line-clamp-2 leading-tight">規格</span>
-                </TableHead>
-                <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: widths.base_uom }}>
-                  單位
-                </SortableTableHead>
-                <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right" style={{ width: widths.safety_stock }}>
-                  安全庫存
-                </SortableTableHead>
-                <SortableTableHead sortKey="track_batch" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center" style={{ width: widths.track_batch }}>
-                  批號
-                </SortableTableHead>
-                <SortableTableHead sortKey="track_expiry" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center" style={{ width: widths.track_expiry }}>
-                  效期
-                </SortableTableHead>
-                <TableHead className="text-right" style={{ width: widths.actions }}>
-                  <span className="line-clamp-2 leading-tight">操作</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <LoadingRow />
-              ) : isEmpty ? (
-                <EmptyRow hasFilters={hasFilters} />
-              ) : (
-                sortedData.map((product) => (
-                  <ProductRow
-                    key={product.id}
-                    product={product}
-                    isSelected={selectionHas(product.id)}
-                    onSelect={onSelect}
-                    onCopySku={handleCopySku}
-                    onStatusChange={onStatusChange}
-                    onHardDelete={onHardDelete}
-                    isAdmin={isAdmin}
-                    navigate={navigate}
-                  />
-                ))
-              )}
-            </TableBody>
-          </Table>
-        ) : (
-          <ProductCardList {...cardListProps} />
-        )}
+    <div className="@container">
+      {/* ≥ 600px：表格視圖；欄位依容器寬度漸進顯露 */}
+      <div className="hidden @[600px]:block rounded-lg border bg-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  checked={products.length > 0 && selectionSize === products.length}
+                  onChange={onSelectAll}
+                  className="h-4 w-4 rounded border-input"
+                  aria-label="全選產品"
+                />
+              </TableHead>
+              <SortableTableHead sortKey="sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                SKU
+              </SortableTableHead>
+              <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                名稱
+              </SortableTableHead>
+              <TableHead className="hidden @[900px]:table-cell">規格</TableHead>
+              <SortableTableHead className="hidden @[750px]:table-cell" sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                單位
+              </SortableTableHead>
+              <SortableTableHead className="hidden @[900px]:table-cell text-right" sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                安全庫存
+              </SortableTableHead>
+              <SortableTableHead className="hidden @[1050px]:table-cell text-center" sortKey="track_batch" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                批號
+              </SortableTableHead>
+              <SortableTableHead className="hidden @[1050px]:table-cell text-center" sortKey="track_expiry" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                效期
+              </SortableTableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <LoadingRow />
+            ) : isEmpty ? (
+              <EmptyRow hasFilters={hasFilters} />
+            ) : (
+              sortedData.map((product) => (
+                <ProductRow
+                  key={product.id}
+                  product={product}
+                  isSelected={selectionHas(product.id)}
+                  onSelect={onSelect}
+                  onCopySku={handleCopySku}
+                  onStatusChange={onStatusChange}
+                  onHardDelete={onHardDelete}
+                  isAdmin={isAdmin}
+                  navigate={navigate}
+                />
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
 
-      {/* Mobile：卡片（< md） */}
-      <div className="md:hidden">
-        <ProductCardList {...cardListProps} />
+      {/* < 600px：卡片視圖 */}
+      <div className="@[600px]:hidden">
+        <ProductCardList
+          products={products}
+          sortedData={sortedData ?? []}
+          isLoading={isLoading}
+          isEmpty={isEmpty}
+          hasFilters={hasFilters}
+          selectionHas={selectionHas}
+          selectionSize={selectionSize}
+          onSelectAll={onSelectAll}
+          onSelect={onSelect}
+          onCopySku={handleCopySku}
+          onStatusChange={onStatusChange}
+          onHardDelete={onHardDelete}
+          isAdmin={isAdmin}
+          navigate={navigate}
+        />
       </div>
-    </>
+    </div>
   )
 }
 
-/** 共用卡片列表（mobile 與 desktop 容器過窄時 fallback） */
 function ProductCardList({
   products,
   sortedData,
@@ -334,7 +228,6 @@ function ProductCardList({
   )
 }
 
-/** 載入中列 */
 function LoadingRow() {
   return (
     <TableRow>
@@ -346,7 +239,6 @@ function LoadingRow() {
   )
 }
 
-/** 空資料列 */
 function EmptyRow({ hasFilters }: { hasFilters: boolean }) {
   const navigate = useNavigate()
   return (
@@ -367,7 +259,6 @@ function EmptyRow({ hasFilters }: { hasFilters: boolean }) {
   )
 }
 
-/** 單筆產品列 */
 function ProductRow({
   product,
   isSelected,
@@ -399,7 +290,7 @@ function ProductRow({
 
   return (
     <TableRow
-      className={cn("group", isSelected ? "bg-primary/5" : statusRowClass)}
+      className={cn('group', isSelected ? 'bg-primary/5' : statusRowClass)}
       title={statusTitle}
       aria-label={statusTitle}
     >
@@ -415,11 +306,11 @@ function ProductRow({
       <TableCell>
         <SkuCell sku={product.sku} onCopy={onCopySku} />
       </TableCell>
-      <TableCell className="max-w-0 align-middle">
+      <TableCell className="align-middle">
         <button
           className={cn(
-            "font-medium text-left hover:text-primary hover:underline transition-colors w-full line-clamp-2 leading-tight break-words",
-            status === 'discontinued' && "line-through decoration-destructive/40"
+            'font-medium text-left hover:text-primary hover:underline transition-colors w-full line-clamp-2 leading-tight break-words',
+            status === 'discontinued' && 'line-through decoration-destructive/40'
           )}
           title={product.name}
           onClick={() => navigate(`/products/${product.id}`)}
@@ -427,15 +318,15 @@ function ProductRow({
           {product.name}
         </button>
       </TableCell>
-      <TableCell className="text-muted-foreground align-middle">
+      <TableCell className="hidden @[900px]:table-cell text-muted-foreground align-middle">
         <span className="line-clamp-2 leading-tight break-words">{product.spec || '-'}</span>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden @[750px]:table-cell">
         <span className="text-xs px-1.5 py-0.5 bg-muted rounded">
           {UOM_MAP[product.base_uom] || product.base_uom}
         </span>
       </TableCell>
-      <TableCell className="text-right tabular-nums">
+      <TableCell className="hidden @[900px]:table-cell text-right tabular-nums">
         {product.safety_stock ? (
           <span>
             {formatNumber(product.safety_stock, 0)}
@@ -447,10 +338,10 @@ function ProductRow({
           <span className="text-muted-foreground">-</span>
         )}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="hidden @[1050px]:table-cell text-center">
         <BoolIcon value={!!product.track_batch} label="批號" />
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="hidden @[1050px]:table-cell text-center">
         <BoolIcon value={!!product.track_expiry} label="效期" />
       </TableCell>
       <TableCell className="text-right">
@@ -466,7 +357,6 @@ function ProductRow({
   )
 }
 
-/** SKU 欄位（點擊即複製） */
 function SkuCell({ sku, onCopy }: { sku: string; onCopy: (sku: string) => void }) {
   return (
     <code
@@ -479,7 +369,6 @@ function SkuCell({ sku, onCopy }: { sku: string; onCopy: (sku: string) => void }
   )
 }
 
-/** Bool 圖示：true = 綠圓、false = 紅叉 */
 function BoolIcon({ value, label }: { value: boolean; label: string }) {
   return value ? (
     <span
@@ -492,7 +381,6 @@ function BoolIcon({ value, label }: { value: boolean; label: string }) {
   )
 }
 
-/** 載入中卡片（手機） */
 function LoadingCard() {
   return (
     <div className="rounded-lg border bg-card py-12 text-center">
@@ -502,7 +390,6 @@ function LoadingCard() {
   )
 }
 
-/** 空資料卡片（手機） */
 function EmptyCard({ hasFilters }: { hasFilters: boolean }) {
   const navigate = useNavigate()
   return (
@@ -521,7 +408,6 @@ function EmptyCard({ hasFilters }: { hasFilters: boolean }) {
   )
 }
 
-/** 單筆產品卡片（手機） */
 function ProductCard({
   product,
   isSelected,
@@ -543,7 +429,7 @@ function ProductCard({
 }) {
   const uom = UOM_MAP[product.base_uom] || product.base_uom
   return (
-    <div className={cn("rounded-lg border bg-card p-3 space-y-2", isSelected && "bg-primary/5 border-primary/30")}>
+    <div className={cn('rounded-lg border bg-card p-3 space-y-2', isSelected && 'bg-primary/5 border-primary/30')}>
       <div className="flex items-start gap-2">
         <input
           type="checkbox"
@@ -558,14 +444,14 @@ function ProductCard({
             {getStatusBadge(product)}
           </div>
           <button
-            className="font-medium text-left hover:text-primary hover:underline transition-colors block w-full truncate"
+            className="font-medium text-left hover:text-primary hover:underline transition-colors block w-full break-words"
             title={product.name}
             onClick={() => navigate(`/products/${product.id}`)}
           >
             {product.name}
           </button>
           {product.spec && (
-            <div className="text-xs text-muted-foreground truncate">規格：{product.spec}</div>
+            <div className="text-xs text-muted-foreground break-words">規格：{product.spec}</div>
           )}
         </div>
       </div>
@@ -621,7 +507,6 @@ function ProductCard({
   )
 }
 
-/** 操作按鈕群組 */
 function ProductActions({
   product,
   onStatusChange,

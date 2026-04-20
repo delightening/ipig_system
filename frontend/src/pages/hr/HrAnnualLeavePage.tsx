@@ -294,32 +294,53 @@ export function HrAnnualLeavePage() {
                                             <RefreshCw className="h-6 w-6 animate-spin" />
                                         </div>
                                     ) : userBalances && userBalances.length > 0 ? (
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <SortableTableHead sortKey="entitlement_year" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>年度</SortableTableHead>
-                                                    <SortableTableHead sortKey="entitled_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>總天數</SortableTableHead>
-                                                    <SortableTableHead sortKey="used_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>已使用</SortableTableHead>
-                                                    <SortableTableHead sortKey="remaining_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>剩餘</SortableTableHead>
-                                                    <SortableTableHead sortKey="expires_at" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>到期日</SortableTableHead>
-                                                    <SortableTableHead sortKey="is_expired" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>狀態</SortableTableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
+                                        <div className="@container">
+                                            <div className="hidden @[500px]:block">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <SortableTableHead sortKey="entitlement_year" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>年度</SortableTableHead>
+                                                            <SortableTableHead sortKey="entitled_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>總天數</SortableTableHead>
+                                                            <SortableTableHead sortKey="used_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>已使用</SortableTableHead>
+                                                            <SortableTableHead sortKey="remaining_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>剩餘</SortableTableHead>
+                                                            <SortableTableHead className="hidden @[650px]:table-cell" sortKey="expires_at" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>到期日</SortableTableHead>
+                                                            <SortableTableHead sortKey="is_expired" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>狀態</SortableTableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {sortedBalances?.map((balance) => (
+                                                            <TableRow key={balance.entitlement_year}>
+                                                                <TableCell className="font-medium">{balance.entitlement_year}</TableCell>
+                                                                <TableCell>{balance.entitled_days}</TableCell>
+                                                                <TableCell>{balance.used_days}</TableCell>
+                                                                <TableCell className="font-semibold">{balance.remaining_days}</TableCell>
+                                                                <TableCell className="hidden @[650px]:table-cell">
+                                                                    {format(new Date(balance.expires_at), 'yyyy/MM/dd', { locale: zhTW })}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    {balance.is_expired ? (
+                                                                        <Badge variant="destructive">已過期</Badge>
+                                                                    ) : balance.days_until_expiry <= 30 ? (
+                                                                        <StatusBadge variant="warning">
+                                                                            即將到期 ({balance.days_until_expiry}天)
+                                                                        </StatusBadge>
+                                                                    ) : (
+                                                                        <Badge variant="secondary">
+                                                                            <CheckCircle className="h-3 w-3 mr-1" />
+                                                                            有效
+                                                                        </Badge>
+                                                                    )}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                            <div className="@[500px]:hidden space-y-2">
                                                 {sortedBalances?.map((balance) => (
-                                                    <TableRow key={balance.entitlement_year}>
-                                                        <TableCell className="font-medium">
-                                                            {balance.entitlement_year}
-                                                        </TableCell>
-                                                        <TableCell>{balance.entitled_days}</TableCell>
-                                                        <TableCell>{balance.used_days}</TableCell>
-                                                        <TableCell className="font-semibold">
-                                                            {balance.remaining_days}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {format(new Date(balance.expires_at), 'yyyy/MM/dd', { locale: zhTW })}
-                                                        </TableCell>
-                                                        <TableCell>
+                                                    <div key={balance.entitlement_year} className="rounded-lg border bg-card p-3 space-y-1">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <div className="font-semibold">{balance.entitlement_year} 年</div>
                                                             {balance.is_expired ? (
                                                                 <Badge variant="destructive">已過期</Badge>
                                                             ) : balance.days_until_expiry <= 30 ? (
@@ -328,15 +349,22 @@ export function HrAnnualLeavePage() {
                                                                 </StatusBadge>
                                                             ) : (
                                                                 <Badge variant="secondary">
-                                                                    <CheckCircle className="h-3 w-3 mr-1" />
-                                                                    有效
+                                                                    <CheckCircle className="h-3 w-3 mr-1" />有效
                                                                 </Badge>
                                                             )}
-                                                        </TableCell>
-                                                    </TableRow>
+                                                        </div>
+                                                        <div className="text-sm">
+                                                            剩餘 <span className="font-bold">{balance.remaining_days}</span>
+                                                            <span className="text-muted-foreground"> / {balance.entitled_days} 天</span>
+                                                            <span className="text-xs text-muted-foreground ml-2">（已用 {balance.used_days}）</span>
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            到期：{format(new Date(balance.expires_at), 'yyyy/MM/dd', { locale: zhTW })}
+                                                        </div>
+                                                    </div>
                                                 ))}
-                                            </TableBody>
-                                        </Table>
+                                            </div>
+                                        </div>
                                     ) : (
                                         <p className="text-muted-foreground text-center py-4">
                                             該員工尚無特休額度記錄
@@ -369,40 +397,65 @@ export function HrAnnualLeavePage() {
                                     <RefreshCw className="h-6 w-6 animate-spin" />
                                 </div>
                             ) : expiredLeaves && expiredLeaves.length > 0 ? (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <SortableTableHead sortKey="user_name" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>員工姓名</SortableTableHead>
-                                            <SortableTableHead sortKey="user_email" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>Email</SortableTableHead>
-                                            <SortableTableHead sortKey="entitlement_year" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>年度</SortableTableHead>
-                                            <SortableTableHead sortKey="entitled_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>總天數</SortableTableHead>
-                                            <SortableTableHead sortKey="used_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>已使用</SortableTableHead>
-                                            <SortableTableHead sortKey="remaining_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort} className="text-status-warning-text">待補償天數</SortableTableHead>
-                                            <SortableTableHead sortKey="expires_at" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>到期日</SortableTableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
+                                <div className="@container">
+                                    <div className="hidden @[600px]:block">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <SortableTableHead sortKey="user_name" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>員工姓名</SortableTableHead>
+                                                    <SortableTableHead className="hidden @[900px]:table-cell" sortKey="user_email" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>Email</SortableTableHead>
+                                                    <SortableTableHead sortKey="entitlement_year" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>年度</SortableTableHead>
+                                                    <SortableTableHead className="hidden @[800px]:table-cell" sortKey="entitled_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>總天數</SortableTableHead>
+                                                    <SortableTableHead className="hidden @[800px]:table-cell" sortKey="used_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>已使用</SortableTableHead>
+                                                    <SortableTableHead sortKey="remaining_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort} className="text-status-warning-text">待補償天數</SortableTableHead>
+                                                    <SortableTableHead sortKey="expires_at" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>到期日</SortableTableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {sortedExpired?.map((item) => (
+                                                    <TableRow key={`${item.user_id}-${item.entitlement_year}`}>
+                                                        <TableCell className="font-medium">
+                                                            {item.user_name}
+                                                        </TableCell>
+                                                        <TableCell className="hidden @[900px]:table-cell text-muted-foreground">
+                                                            {item.user_email}
+                                                        </TableCell>
+                                                        <TableCell>{item.entitlement_year}</TableCell>
+                                                        <TableCell className="hidden @[800px]:table-cell">{item.entitled_days}</TableCell>
+                                                        <TableCell className="hidden @[800px]:table-cell">{item.used_days}</TableCell>
+                                                        <TableCell className="font-bold text-status-warning-text">
+                                                            {item.remaining_days}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {format(new Date(item.expires_at), 'yyyy/MM/dd', { locale: zhTW })}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    <div className="@[600px]:hidden space-y-2">
                                         {sortedExpired?.map((item) => (
-                                            <TableRow key={`${item.user_id}-${item.entitlement_year}`}>
-                                                <TableCell className="font-medium">
-                                                    {item.user_name}
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {item.user_email}
-                                                </TableCell>
-                                                <TableCell>{item.entitlement_year}</TableCell>
-                                                <TableCell>{item.entitled_days}</TableCell>
-                                                <TableCell>{item.used_days}</TableCell>
-                                                <TableCell className="font-bold text-status-warning-text">
-                                                    {item.remaining_days}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {format(new Date(item.expires_at), 'yyyy/MM/dd', { locale: zhTW })}
-                                                </TableCell>
-                                            </TableRow>
+                                            <div key={`${item.user_id}-${item.entitlement_year}`} className="rounded-lg border bg-card p-3 space-y-1">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <div className="font-semibold break-words">{item.user_name}</div>
+                                                        <div className="text-xs text-muted-foreground break-words">{item.user_email}</div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="font-bold text-status-warning-text">{item.remaining_days} 天</div>
+                                                        <div className="text-xs text-muted-foreground">待補償</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
+                                                    <span>年度：{item.entitlement_year}</span>
+                                                    <span>總 {item.entitled_days} / 用 {item.used_days}</span>
+                                                    <span>到期：{format(new Date(item.expires_at), 'yyyy/MM/dd', { locale: zhTW })}</span>
+                                                </div>
+                                            </div>
                                         ))}
-                                    </TableBody>
-                                </Table>
+                                    </div>
+                                </div>
                             ) : (
                                 <EmptyState icon={CheckCircle} title="目前沒有過期待補償的特休假" />
                             )}

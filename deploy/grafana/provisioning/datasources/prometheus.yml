@@ -7,3 +7,8 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: false
+    # H6: Prometheus 啟用了 basic_auth_users（見 monitoring/prometheus/web.yml）
+    basicAuth: true
+    basicAuthUser: prometheus
+    secureJsonData:
+      basicAuthPassword: "$__file{/run/secrets/prometheus_password}"

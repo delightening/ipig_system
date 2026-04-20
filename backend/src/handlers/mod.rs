@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod alertmanager_webhook;
 pub mod amendment;
 pub mod mcp;
 pub mod mcp_keys;
@@ -42,6 +43,7 @@ mod system_settings;
 pub mod user_preferences;
 pub(crate) mod warehouse;
 mod invitation;
+pub mod ip_blocklist;
 
 pub use animal::*;
 pub use invitation::*;

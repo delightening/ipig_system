@@ -64,10 +64,10 @@ export function UserTable({
   const { sortRole, sortStatus, onToggleSortRole, onToggleSortStatus } = sorting
   const { currentPage, totalPages, sortedUsersLength, onPrevPage, onNextPage } = pagination
   return (
-    <div className="rounded-md border bg-white">
+    <div className="rounded-lg border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead>Email</TableHead>
             <TableHead>名稱</TableHead>
             <TableHead>

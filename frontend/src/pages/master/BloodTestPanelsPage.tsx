@@ -42,6 +42,7 @@ import {
     Loader2,
     ArrowLeft,
     Settings,
+    Droplets,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
@@ -50,6 +51,7 @@ import { getApiErrorMessage, bloodTestPanelFormSchema, type BloodTestPanelFormDa
 import { PanelIcon } from '@/components/ui/panel-icon'
 import { useNavigate } from 'react-router-dom'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 // 顯示篩選
 type ShowFilter = 'all' | 'active' | 'inactive'
@@ -332,10 +334,10 @@ export function BloodTestPanelsPage() {
             </div>
 
             {/* 表格 */}
-            <div className="rounded-md border">
+            <div className="rounded-lg border bg-card overflow-hidden">
                 <Table>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <TableHead className="w-[60px]">圖示</TableHead>
                             <SortableTableHead sortKey="key" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[120px]">代碼</SortableTableHead>
                             <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
@@ -348,16 +350,12 @@ export function BloodTestPanelsPage() {
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center py-12">
-                                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                                <TableCell colSpan={7} className="p-0">
+                                    <TableSkeleton rows={5} cols={7} />
                                 </TableCell>
                             </TableRow>
                         ) : filteredPanels.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                                    沒有符合條件的分類
-                                </TableCell>
-                            </TableRow>
+                            <TableEmptyRow colSpan={7} icon={Droplets} title="沒有符合條件的分類" />
                         ) : (
                             (sortedData ?? filteredPanels).map((panel) => (
                                 <TableRow

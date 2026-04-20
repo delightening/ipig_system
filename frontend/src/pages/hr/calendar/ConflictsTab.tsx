@@ -33,90 +33,120 @@ export function ConflictsTab({ conflicts, loadingConflicts, onResolve, resolvePe
     const totalPages = conflicts?.total_pages ?? 1
     const { sortedData, sort, toggleSort } = useTableSort(conflicts?.data)
 
+    const renderActions = (c: ConflictWithDetails) => (
+        <>
+            <Button
+                variant="default"
+                size="sm"
+                onClick={() => onResolve({ id: c.id, resolution: 'keep_ipig' })}
+                disabled={resolvePending}
+            >
+                保留 iPig
+            </Button>
+            <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onResolve({ id: c.id, resolution: 'accept_google' })}
+                disabled={resolvePending}
+            >
+                接受 Google
+            </Button>
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onResolve({ id: c.id, resolution: 'dismiss' })}
+                disabled={resolvePending}
+            >
+                忽略
+            </Button>
+        </>
+    )
+
+    const rows = (sortedData ?? conflicts?.data) ?? []
+
     return (
         <div className="space-y-4">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <SortableTableHead sortKey="detected_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>偵測時間</SortableTableHead>
-                        <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>員工</SortableTableHead>
-                        <SortableTableHead sortKey="leave_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>假別</SortableTableHead>
-                        <SortableTableHead sortKey="conflict_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>衝突類型</SortableTableHead>
-                        <TableHead>差異</TableHead>
-                        <TableHead className="text-right">操作</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {loadingConflicts ? (
-                        <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8">
-                                載入中...
-                            </TableCell>
-                        </TableRow>
-                    ) : conflicts?.data?.length === 0 ? (
-                        <TableEmptyRow colSpan={6} icon={FileText} title="沒有待處理的衝突" />
-                    ) : (
-                        (sortedData ?? conflicts?.data)?.map((c) => (
-                            <TableRow key={c.id}>
-                                <TableCell className="whitespace-nowrap">
-                                    {formatDateTime(c.detected_at)}
-                                </TableCell>
-                                <TableCell>{c.user_name || '-'}</TableCell>
-                                <TableCell>{c.leave_type || '-'}</TableCell>
-                                <TableCell>
-                                    <Badge variant="outline">{c.conflict_type}</Badge>
-                                </TableCell>
-                                <TableCell className="max-w-[200px] truncate">
-                                    {c.difference_summary || '-'}
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center justify-end gap-1">
-                                        <Button
-                                            variant="default"
-                                            size="sm"
-                                            onClick={() =>
-                                                onResolve({
-                                                    id: c.id,
-                                                    resolution: 'keep_ipig',
-                                                })
-                                            }
-                                            disabled={resolvePending}
-                                        >
-                                            保留 iPig
-                                        </Button>
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() =>
-                                                onResolve({
-                                                    id: c.id,
-                                                    resolution: 'accept_google',
-                                                })
-                                            }
-                                            disabled={resolvePending}
-                                        >
-                                            接受 Google
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                                onResolve({
-                                                    id: c.id,
-                                                    resolution: 'dismiss',
-                                                })
-                                            }
-                                            disabled={resolvePending}
-                                        >
-                                            忽略
-                                        </Button>
-                                    </div>
-                                </TableCell>
+            <div className="@container">
+                <div className="hidden @[700px]:block">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <SortableTableHead className="hidden @[900px]:table-cell" sortKey="detected_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>偵測時間</SortableTableHead>
+                                <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>員工</SortableTableHead>
+                                <SortableTableHead sortKey="leave_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>假別</SortableTableHead>
+                                <SortableTableHead sortKey="conflict_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>衝突類型</SortableTableHead>
+                                <TableHead className="hidden @[1000px]:table-cell">差異</TableHead>
+                                <TableHead className="text-right">操作</TableHead>
                             </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loadingConflicts ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="text-center py-8">
+                                        載入中...
+                                    </TableCell>
+                                </TableRow>
+                            ) : conflicts?.data?.length === 0 ? (
+                                <TableEmptyRow colSpan={6} icon={FileText} title="沒有待處理的衝突" />
+                            ) : (
+                                rows.map((c) => (
+                                    <TableRow key={c.id}>
+                                        <TableCell className="hidden @[900px]:table-cell whitespace-nowrap">
+                                            {formatDateTime(c.detected_at)}
+                                        </TableCell>
+                                        <TableCell>{c.user_name || '-'}</TableCell>
+                                        <TableCell>{c.leave_type || '-'}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{c.conflict_type}</Badge>
+                                        </TableCell>
+                                        <TableCell className="hidden @[1000px]:table-cell max-w-[200px] whitespace-normal break-words">
+                                            {c.difference_summary || '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center justify-end gap-1">
+                                                {renderActions(c)}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+
+                <div className="@[700px]:hidden divide-y rounded-lg border">
+                    {loadingConflicts ? (
+                        <div className="p-6 text-center text-muted-foreground">載入中...</div>
+                    ) : rows.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                            <FileText className="h-8 w-8" />
+                            <p className="text-sm">沒有待處理的衝突</p>
+                        </div>
+                    ) : (
+                        rows.map((c) => (
+                            <div key={c.id} className="p-3 space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="font-semibold break-words">{c.user_name || '-'}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {c.leave_type || '-'} · {formatDateTime(c.detected_at)}
+                                        </div>
+                                    </div>
+                                    <Badge variant="outline" className="shrink-0">{c.conflict_type}</Badge>
+                                </div>
+                                {c.difference_summary && (
+                                    <div className="text-xs text-muted-foreground">
+                                        差異：{c.difference_summary}
+                                    </div>
+                                )}
+                                <div className="flex flex-wrap justify-end gap-1 pt-1 border-t">
+                                    {renderActions(c)}
+                                </div>
+                            </div>
                         ))
                     )}
-                </TableBody>
-            </Table>
+                </div>
+            </div>
 
             {/* 分頁控制 */}
             {totalPages > 1 && (

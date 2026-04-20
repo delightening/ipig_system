@@ -137,46 +137,85 @@ export function AttendanceHistoryTab() {
                 </GuestHide>
             </div>
 
-            <Card>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <SortableTableHead sortKey="work_date" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>日期</SortableTableHead>
-                            <SortableTableHead sortKey="user_name" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>人員名稱</SortableTableHead>
-                            <SortableTableHead sortKey="clock_in_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>上班</SortableTableHead>
-                            <SortableTableHead sortKey="clock_out_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>下班</SortableTableHead>
-                            <SortableTableHead sortKey="regular_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>工作時數</SortableTableHead>
-                            <SortableTableHead sortKey="overtime_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>加班時數</SortableTableHead>
-                            <SortableTableHead sortKey="status" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>狀態</SortableTableHead>
-                            <TableHead>備註</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loadingHistory ? (
+            <Card className="@container overflow-hidden">
+                <div className="hidden @[600px]:block">
+                    <Table>
+                        <TableHeader>
                             <TableRow>
-                                <TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} /></TableCell>
+                                <SortableTableHead sortKey="work_date" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>日期</SortableTableHead>
+                                <SortableTableHead sortKey="user_name" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>人員名稱</SortableTableHead>
+                                <SortableTableHead className="hidden @[750px]:table-cell" sortKey="clock_in_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>上班</SortableTableHead>
+                                <SortableTableHead className="hidden @[750px]:table-cell" sortKey="clock_out_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>下班</SortableTableHead>
+                                <SortableTableHead className="hidden @[900px]:table-cell" sortKey="regular_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>工作時數</SortableTableHead>
+                                <SortableTableHead className="hidden @[900px]:table-cell" sortKey="overtime_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>加班時數</SortableTableHead>
+                                <SortableTableHead sortKey="status" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>狀態</SortableTableHead>
+                                <TableHead className="hidden @[1050px]:table-cell">備註</TableHead>
                             </TableRow>
-                        ) : sortedHistory?.length === 0 ? (
-                            <TableEmptyRow colSpan={8} icon={Clock} title="沒有出勤記錄" />
-                        ) : (
-                            sortedHistory?.map((record) => (
-                                <TableRow key={record.id}>
-                                    <TableCell className="whitespace-nowrap">{formatDate(record.work_date, { weekday: true })}</TableCell>
-                                    <TableCell className="font-medium">{record.user_name}</TableCell>
-                                    <TableCell>{formatTime(record.clock_in_time)}</TableCell>
-                                    <TableCell>{formatTime(record.clock_out_time)}</TableCell>
-                                    <TableCell>{formatHours(record.regular_hours)}</TableCell>
-                                    <TableCell>{formatHours(record.overtime_hours)}</TableCell>
-                                    <TableCell>{getStatusBadge(record.status)}</TableCell>
-                                    <TableCell>
-                                        {record.is_corrected && <Badge variant="outline">已更正</Badge>}
-                                        {record.remark && <span className="text-muted-foreground text-sm">{record.remark}</span>}
-                                    </TableCell>
+                        </TableHeader>
+                        <TableBody>
+                            {loadingHistory ? (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} /></TableCell>
                                 </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
+                            ) : sortedHistory?.length === 0 ? (
+                                <TableEmptyRow colSpan={8} icon={Clock} title="沒有出勤記錄" />
+                            ) : (
+                                sortedHistory?.map((record) => (
+                                    <TableRow key={record.id}>
+                                        <TableCell className="whitespace-nowrap">{formatDate(record.work_date, { weekday: true })}</TableCell>
+                                        <TableCell className="font-medium">{record.user_name}</TableCell>
+                                        <TableCell className="hidden @[750px]:table-cell">{formatTime(record.clock_in_time)}</TableCell>
+                                        <TableCell className="hidden @[750px]:table-cell">{formatTime(record.clock_out_time)}</TableCell>
+                                        <TableCell className="hidden @[900px]:table-cell">{formatHours(record.regular_hours)}</TableCell>
+                                        <TableCell className="hidden @[900px]:table-cell">{formatHours(record.overtime_hours)}</TableCell>
+                                        <TableCell>{getStatusBadge(record.status)}</TableCell>
+                                        <TableCell className="hidden @[1050px]:table-cell">
+                                            {record.is_corrected && <Badge variant="outline">已更正</Badge>}
+                                            {record.remark && <span className="text-muted-foreground text-sm">{record.remark}</span>}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+
+                <div className="@[600px]:hidden divide-y">
+                    {loadingHistory ? (
+                        <div className="p-3"><TableSkeleton rows={3} cols={1} /></div>
+                    ) : sortedHistory?.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                            <Clock className="h-8 w-8" />
+                            <p className="text-sm">沒有出勤記錄</p>
+                        </div>
+                    ) : (
+                        sortedHistory?.map((record) => (
+                            <div key={record.id} className="p-3 space-y-1">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="font-medium break-words">{record.user_name}</div>
+                                        <div className="text-xs text-muted-foreground">{formatDate(record.work_date, { weekday: true })}</div>
+                                    </div>
+                                    {getStatusBadge(record.status)}
+                                </div>
+                                <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
+                                    <span>上 {formatTime(record.clock_in_time)}</span>
+                                    <span>下 {formatTime(record.clock_out_time)}</span>
+                                    <span>工時 {formatHours(record.regular_hours)}</span>
+                                    {record.overtime_hours && Number(record.overtime_hours) > 0 && (
+                                        <span>加班 {formatHours(record.overtime_hours)}</span>
+                                    )}
+                                </div>
+                                {(record.is_corrected || record.remark) && (
+                                    <div className="flex items-center gap-2 text-xs">
+                                        {record.is_corrected && <Badge variant="outline">已更正</Badge>}
+                                        {record.remark && <span className="text-muted-foreground break-words">{record.remark}</span>}
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    )}
+                </div>
             </Card>
         </div>
     )

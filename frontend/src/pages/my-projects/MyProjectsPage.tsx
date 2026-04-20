@@ -5,7 +5,6 @@ import api, { ProtocolListItem, ProtocolStatus } from '@/lib/api'
 import { useTableSort } from '@/hooks/useTableSort'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
-import { EmptyState } from '@/components/ui/empty-state'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -27,6 +26,8 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { Eye, Loader2, FileText, Calendar, X } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { formatDate } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { useTranslation } from 'react-i18next'
@@ -233,127 +234,179 @@ export function MyProjectsPage() {
       </div>
 
       {/* 計劃列表 */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>{t('dashboard.widgets.names.my_projects')}</CardTitle>
           <CardDescription>{t('dashboard.widgets.projects.description')}</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : sortedProjects && sortedProjects.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                    {t('protocols.columns.iacucNo')}
-                  </SortableTableHead>
-                  <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                    {t('protocols.columns.status')}
-                  </SortableTableHead>
-                  <SortableTableHead sortKey="pi_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                    {t('aup.basic.contactPerson')}
-                  </SortableTableHead>
-                  <SortableTableHead sortKey="pi_organization" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                    {t('aup.basic.organizationName')}
-                  </SortableTableHead>
-                  <TableHead>{t('protocols.columns.status')}</TableHead>
-                  <SortableTableHead sortKey="title" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                    {t('protocols.columns.protocolTitle')}
-                  </SortableTableHead>
-                  <SortableTableHead sortKey="start_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                    {t('protocols.columns.period')}
-                  </SortableTableHead>
-                  <TableHead className="text-right">{t('protocols.columns.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedProjects.map((project) => {
-                  const projectStatus = getProjectStatus(project.status)
+          {(() => {
+            const renderActions = (project: ProtocolListItem) => (
+              <>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to={`/my-projects/${project.id}`}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    {t('common.view')}
+                  </Link>
+                </Button>
+                <GuestHide>
+                  {['DRAFT', 'REVISION_REQUIRED'].includes(project.status) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteClick(project.id)}
+                      disabled={deleteProtocolMutation.isPending}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      {t('common.delete')}
+                    </Button>
+                  )}
+                  {(project.status === 'APPROVED' || project.status === 'APPROVED_WITH_CONDITIONS') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCloseClick(project.id)}
+                      disabled={closeProtocolMutation.isPending}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      {t('common.close')}
+                    </Button>
+                  )}
+                </GuestHide>
+              </>
+            )
 
-                  return (
-                    <TableRow key={project.id}>
-                      <TableCell className="font-mono text-status-warning-text font-semibold">
-                        {project.iacuc_no || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={projectStatus.color}>
-                          {projectStatus.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{project.pi_name}</TableCell>
-                      <TableCell>{project.pi_organization || '-'}</TableCell>
-                      <TableCell>{getStatusBadge(project.status)}</TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <div className="truncate" title={project.title}>
-                          {project.title}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {project.start_date && project.end_date ? (
-                          <div className="flex items-center gap-1 text-sm">
-                            <Calendar className="h-3 w-3" />
-                            {formatDate(project.start_date)} ~ {formatDate(project.end_date)}
+            return (
+              <div className="@container">
+                <div className="hidden @[600px]:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                          {t('protocols.columns.iacucNo')}
+                        </SortableTableHead>
+                        <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                          {t('protocols.columns.status')}
+                        </SortableTableHead>
+                        <SortableTableHead className="hidden @[800px]:table-cell" sortKey="pi_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                          {t('aup.basic.contactPerson')}
+                        </SortableTableHead>
+                        <SortableTableHead className="hidden @[1100px]:table-cell" sortKey="pi_organization" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                          {t('aup.basic.organizationName')}
+                        </SortableTableHead>
+                        <TableHead className="hidden @[950px]:table-cell">{t('protocols.columns.status')}</TableHead>
+                        <SortableTableHead sortKey="title" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                          {t('protocols.columns.protocolTitle')}
+                        </SortableTableHead>
+                        <SortableTableHead className="hidden @[1100px]:table-cell" sortKey="start_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
+                          {t('protocols.columns.period')}
+                        </SortableTableHead>
+                        <TableHead className="text-right">{t('protocols.columns.actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoading ? (
+                        <TableRow><TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} /></TableCell></TableRow>
+                      ) : sortedProjects && sortedProjects.length > 0 ? (
+                        sortedProjects.map((project) => {
+                          const projectStatus = getProjectStatus(project.status)
+
+                          return (
+                            <TableRow key={project.id}>
+                              <TableCell className="font-mono text-status-warning-text font-semibold">
+                                {project.iacuc_no || '-'}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={projectStatus.color}>
+                                  {projectStatus.label}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="hidden @[800px]:table-cell">{project.pi_name}</TableCell>
+                              <TableCell className="hidden @[1100px]:table-cell">{project.pi_organization || '-'}</TableCell>
+                              <TableCell className="hidden @[950px]:table-cell">{getStatusBadge(project.status)}</TableCell>
+                              <TableCell className="max-w-[200px] whitespace-normal break-words">
+                                <div title={project.title}>
+                                  {project.title}
+                                </div>
+                              </TableCell>
+                              <TableCell className="hidden @[1100px]:table-cell">
+                                {project.start_date && project.end_date ? (
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <Calendar className="h-3 w-3" />
+                                    {formatDate(project.start_date)} ~ {formatDate(project.end_date)}
+                                  </div>
+                                ) : (
+                                  '-'
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {renderActions(project)}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      ) : (
+                        <TableEmptyRow
+                          colSpan={8}
+                          icon={FileText}
+                          title={t('myProjects.welcome.title', '歡迎使用計畫管理')}
+                          description={t('myProjects.welcome.description', '您目前尚無任何計畫書，建立第一個動物使用計畫書以開始使用。')}
+                        />
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="@[600px]:hidden divide-y rounded-lg border">
+                  {isLoading ? (
+                    <div className="p-3"><TableSkeleton rows={3} cols={1} /></div>
+                  ) : sortedProjects && sortedProjects.length > 0 ? (
+                    sortedProjects.map((project) => {
+                      const projectStatus = getProjectStatus(project.status)
+                      return (
+                        <div key={project.id} className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-mono text-sm text-status-warning-text font-semibold">
+                                {project.iacuc_no || '-'}
+                              </div>
+                              <div className="font-medium line-clamp-2" title={project.title}>
+                                {project.title}
+                              </div>
+                            </div>
+                            <Badge variant={projectStatus.color} className="shrink-0">{projectStatus.label}</Badge>
                           </div>
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/my-projects/${project.id}`}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              {t('common.view')}
-                            </Link>
-                          </Button>
-                          {/* 結案按鈕: 審查委員不應有結案功能 */}
-                          <GuestHide>
-                            {/* 只有草稿或需修訂狀態可刪除 */}
-                            {['DRAFT', 'REVISION_REQUIRED'].includes(project.status) && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDeleteClick(project.id)}
-                                disabled={deleteProtocolMutation.isPending}
-                              >
-                                <X className="mr-2 h-4 w-4" />
-                                {t('common.delete')}
-                              </Button>
+                          <div className="text-xs text-muted-foreground space-y-0.5">
+                            <div>{project.pi_name}{project.pi_organization && ` · ${project.pi_organization}`}</div>
+                            <div className="flex items-center gap-1">
+                              狀態：{getStatusBadge(project.status)}
+                            </div>
+                            {project.start_date && project.end_date && (
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {formatDate(project.start_date)} ~ {formatDate(project.end_date)}
+                              </div>
                             )}
-                            {/* 只有核准狀態可結案 */}
-                            {(project.status === 'APPROVED' || project.status === 'APPROVED_WITH_CONDITIONS') && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleCloseClick(project.id)}
-                                disabled={closeProtocolMutation.isPending}
-                              >
-                                <X className="mr-2 h-4 w-4" />
-                                {t('common.close')}
-                              </Button>
-                            )}
-                          </GuestHide>
+                          </div>
+                          <div className="flex flex-wrap justify-end gap-2 pt-1 border-t">
+                            {renderActions(project)}
+                          </div>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          ) : (
-            <EmptyState
-              icon={FileText}
-              title={t('myProjects.welcome.title', '歡迎使用計畫管理')}
-              description={t('myProjects.welcome.description', '您目前尚無任何計畫書，建立第一個動物使用計畫書以開始使用。')}
-              action={isGuest ? undefined : {
-                label: t('myProjects.welcome.createFirst', '建立計畫書'),
-                onClick: () => window.location.href = '/protocols/new',
-              }}
-            />
-          )}
+                      )
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                      <FileText className="h-8 w-8" />
+                      <p className="text-sm font-medium">{t('myProjects.welcome.title', '歡迎使用計畫管理')}</p>
+                      <p className="text-xs">{t('myProjects.welcome.description', '您目前尚無任何計畫書，建立第一個動物使用計畫書以開始使用。')}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
         </CardContent>
       </Card>
 

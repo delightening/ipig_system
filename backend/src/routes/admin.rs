@@ -68,6 +68,10 @@ pub fn routes() -> Router<AppState> {
             get(handlers::list_security_alerts),
         )
         .route(
+            "/admin/audit/alerts/bulk-resolve",
+            post(handlers::bulk_resolve_security_alerts),
+        )
+        .route(
             "/admin/audit/alerts/:id/resolve",
             post(handlers::resolve_security_alert),
         )
@@ -79,6 +83,16 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/admin/audit/security-events",
             get(handlers::list_security_events),
+        )
+        // R24-1: IP 黑名單管理
+        .route(
+            "/admin/audit/ip-blocklist",
+            get(handlers::ip_blocklist::list_ip_blocklist)
+                .post(handlers::ip_blocklist::add_ip_blocklist),
+        )
+        .route(
+            "/admin/audit/ip-blocklist/:id/unblock",
+            post(handlers::ip_blocklist::unblock_ip),
         )
         // QAU Dashboard
         .route("/qau/dashboard", get(handlers::get_qau_dashboard))

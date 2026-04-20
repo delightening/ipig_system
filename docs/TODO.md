@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-04-17 (v28)
+> **最後更新：** 2026-04-19 (v31)
 > **維護慣例：** 完成項目標 [x] + 更新待辦統計 + 在 `docs/PROGRESS.md` §9 新增變更紀錄。詳見 `CLAUDE.md`「文件記錄規則」。
 > **章節排列：** 禁止事項 → P0~P5（優先級）→ 歷史改善計畫 → R6~R13+（輪次嚴格遞增）→ 待辦統計 → 變更紀錄（封存）
 
@@ -1786,6 +1786,96 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🎨 R23 — 全站 Table UI 一致性升級（2026-04）
+
+> 以 ProductTable 為黃金標準，將全站 ~100 個 Table 元件統一至相同容器樣式、header 色彩、row 狀態、
+> loading/empty 元件，以及 Tier A 頁面的 mobile card fallback。
+> 所有顏色均使用 CSS Variable token，禁止硬編碼色彩。
+
+### Batch 0 — DataTable 共用元件修正（P1）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R23-0 | **DataTable 基礎樣式升級** | `data-table.tsx` container→`rounded-lg bg-card overflow-hidden [&>div]:overflow-x-hidden`；header→`bg-muted/50 hover:bg-muted/50` | [x] |
+
+### Batch 1 — Master & Inventory Tables（P1）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R23-1a | **PartnerTable 樣式升級** | container / header / row-states / mobile card | [x] |
+| R23-1b | **DocumentTable 樣式升級** | container / table-fixed / header / 取消 doc→`bg-destructive/5` / mobile card | [x] |
+| R23-1c | **BloodTestTemplateTable 升級** | container / 替換自製 SortIndicator→`SortableTableHead` / skeleton | [x] |
+| R23-1d | **StockLedgerPage 升級** | container / header / skeleton | [x] |
+
+### Batch 2 — Animals & Admin Core Tables（P1）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R23-2a | **AnimalListTable 全面升級** | 移除 Card wrapper；containerRef / computeWidths（11 欄）；SortableTableHead；mobile AnimalCard | [x] |
+| R23-2b | **UserTable 升級** | container / 替換 getSortIcon+button→SortableTableHead / 移除 bg-white | [x] |
+| R23-2c | **AuditLogTable 升級** | container / header / skeleton | [x] |
+
+### Batch 3 — Master Pages + Protocol Tabs（P2）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R23-3a | **BloodTest Pages 升級** | BloodTestPanelsPage / BloodTestPresetsPage | [x] |
+| R23-3b | **WarehousesPage / ProtocolsPage / AnimalSourcesPage 升級** | Tier A full treatment | [x] |
+| R23-3c | **Protocol Tabs 升級（5 files）** | AmendmentsTab / AttachmentsTab / CoEditorsTab / ReviewersTab / VersionsTab | [x] |
+
+### Batch 4 — Admin Pages & Config Tabs（P2）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R23-4a | **Admin Tier A 頁面升級（4 files）** | InvitationsPage / ManagementReviewPage / ChangeControlPage / RiskRegisterPage | [x] |
+| R23-4b | **Admin Config Tabs 升級（~8 files）** | DepartmentTab + AuditActivitiesTab + AuditAlertsTab + AuditSessionsTab + RoutingTable + QA 相關頁 | [x] |
+
+### Batch 5 — Reports + HR Tables（P3）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R23-5a | **Reports 頁面 Table 升級（9 files）** | container / header / token-only row colors | [x] |
+| R23-5b | **Reports Tab 元件升級（5 files）** | JournalEntries / TrialBalance / ProfitLoss / ApAging / ArAging | [x] |
+| R23-5c | **HR Tables 升級（non-DataTable files）** | ConflictsTab / AttendanceHistoryTab 等 | [x] |
+
+### Batch 6 — Animal Detail Tabs + 剩餘（P3）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R23-6a | **MyProjects / MyAmendments 升級** | Tier A full treatment | [x] |
+| R23-6b | **Animal Detail Tabs 升級（8 tabs）** | BloodTestTab / ObservationsTab / WeightsTab / VaccinationsTab / SurgeriesTab / PathologyTab / PainAssessmentTab / VetRecommendationsTab | [x] |
+| R23-6c | **Protocol content-section Tables** | PersonnelSection / CommentsTableView | [x] |
+
+---
+
+## 🛡️ R24 — Observability 補強與 IP-level Safety Gate（2026-04）
+
+> 延伸 R22 攻擊偵測管線：補齊 4 項 gap（IP 自動封鎖 / 生產 Loki / Alertmanager infra 通知 / Grafana 安全 dashboard）。
+> 盤點後確認 ipig_system 已有 80% observability 基礎（R22 完整攻擊偵測 + 4 種通知管道），本輪僅補剩餘缺口。
+> 詳細計畫與決策紀錄：`docs/OBSERVABILITY_PLAN.md`
+> 已作廢方案：獨立 dash 服務（`C:\System Coding\ipig-dashboard\DASH_SPEC.md`，保留作決策紀錄）
+
+### 24-A IP-level Safety Gate（P0）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R24-1 | **IP blocklist + 自動封鎖 middleware** | `migrations/031_ip_blocklist.sql`（UUID+INET+partial unique index）；`middleware/ip_blocklist.rs` 掛於 `api_middleware_stack` 最外層（涵蓋 /api/v1 所有子路由；`/metrics`、`/api/health`、honeypot 於 /api/v1 外層 bypass）；來源 IP 復用 `middleware/real_ip.rs::extract_real_ip_with_trust`；整合 R22-6 IDOR probe（`response_logger.rs`）/ R22-5 auth ratelimit 升級（`rate_limiter.rs`）/ R22-16 honeypot → 自動封 IP；`/admin/audit/ip-blocklist` 路由 + AdminAuditPage 「IP 黑名單」Tab | [x] |
+
+### 24-B 生產環境可觀測性（P1）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R24-2 | **Loki + Promtail 生產部署** | `docker-compose.prod.yml` 新增 Loki + Promtail services（複用 `monitoring/promtail/config.yml`，加 relabel 只收 `ipig-(api\|web)`、加 `environment=prod` 靜態 label）；Loki 30d 保留（`storage.tsdb.retention.time` 需於 Loki config 設定，此輪用預設）；解鎖 R22-15 | [x] |
+
+### 24-C 告警與儀表板（P2）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R24-3 | **Alertmanager infra 通知啟用** | `alertmanager.yml` default/critical receiver 改為 webhook → `http://api:3000/api/webhooks/alertmanager`（Bearer token 防護）；新增平檔 `handlers/alertmanager_webhook.rs`，轉 payload 為 `SecurityNotification` 呼叫 R22 `SecurityNotifier::dispatch()`；`Config::alertmanager_webhook_token` 從 env 讀取 | [x] |
+| R24-4 | **Grafana security dashboard** | 新增 `deploy/grafana_security_dashboard.json`（6 panel：Alerts 時間線 / Active Blocklist / Top IPs / Login Anomaly / Honeypot Hits / 403 Rate via Loki）；`provisioning/datasources/loki.yml` + `postgres.yml` 新增；`migrations/032_grafana_readonly.sql` 建 `grafana_readonly` role + GRANT SELECT；`docker-compose.yml` Grafana 掛載新 dashboard JSON | [x] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -1814,6 +1904,8 @@ ORDER BY 1 DESC;
 | 🤖 R20 AI 預審與執行秘書標註 | 2 (8 完成, R20-9/10 持續性) |
 | 🌡️ R21 環境監控子系統（MES-Lite） | 11 (1 暫緩) |
 | 🛡️ R22 攻擊偵測與主動告警 | 0 (17 完成, 1 暫緩) |
+| 🎨 R23 全站 Table UI 升級 | 0 (20 完成) |
+| 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | **合計（未完成）** | **13** |
 
 ---

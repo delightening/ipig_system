@@ -5,12 +5,14 @@ services:
     image: grafana/loki:3.0.0
     container_name: ipig-loki
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     volumes:
       - loki_data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
+      - ./monitoring/loki/config.yml:/etc/loki/config.yml:ro
+    command: -config.file=/etc/loki/config.yml
+    # R24-2: 掛 backend network 讓 Grafana 解析 http://loki:3100
     networks:
-      - ipig-net
+      - backend
     restart: unless-stopped
 
   promtail:
@@ -24,12 +26,13 @@ services:
     depends_on:
       - loki
     networks:
-      - ipig-net
+      - backend
     restart: unless-stopped
 
 volumes:
   loki_data:
 
 networks:
-  ipig-net:
+  backend:
     external: true
+    name: ipig_system_backend

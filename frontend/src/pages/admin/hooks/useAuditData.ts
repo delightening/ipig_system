@@ -231,6 +231,37 @@ export function useAuditData() {
         },
     })
 
+    // Bulk Resolve Mutation
+    const bulkResolveAlertsMutation = useMutation({
+        mutationFn: async (ids: string[]) => {
+            return api.post('/admin/audit/alerts/bulk-resolve', {
+                ids,
+                resolution_notes: '批次標記解決',
+            })
+        },
+        onSuccess: (_, ids) => {
+            setSelectedAlertIds([])
+            queryClient.invalidateQueries({ queryKey: ['audit-alerts'] })
+            queryClient.invalidateQueries({ queryKey: ['audit-dashboard'] })
+            toast({ title: '成功', description: `已解決 ${ids.length} 筆警報` })
+        },
+    })
+
+    // Alert selection state
+    const [selectedAlertIds, setSelectedAlertIds] = useState<string[]>([])
+
+    const handleAlertSelect = (id: string, checked: boolean) => {
+        setSelectedAlertIds(prev =>
+            checked ? [...prev, id] : prev.filter(x => x !== id)
+        )
+    }
+
+    const handleSelectAllAlerts = (checked: boolean) => {
+        setSelectedAlertIds(
+            checked ? sortedAlerts.filter(a => a.status !== 'resolved').map(a => a.id) : []
+        )
+    }
+
     // 安全警報排序邏輯
     const sortedAlerts = useMemo(() => {
         if (!alerts?.data) return []
@@ -316,6 +347,10 @@ export function useAuditData() {
         alertSortConfig,
         handleAlertSort,
         resolveAlertMutation,
+        bulkResolveAlertsMutation,
+        selectedAlertIds,
+        handleAlertSelect,
+        handleSelectAllAlerts,
         alertSearch,
         handleAlertSearchChange,
         alertStatusFilter,

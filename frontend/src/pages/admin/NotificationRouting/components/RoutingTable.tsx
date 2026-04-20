@@ -99,10 +99,10 @@ function GroupTable({
     const { sortedData, sort, toggleSort } = useTableSort(rules)
 
     return (
-        <div className="rounded-md border">
+        <div className="rounded-lg border bg-card overflow-hidden">
             <Table>
                 <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
                         <SortableTableHead sortKey="event_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[200px]">事件類型</SortableTableHead>
                         <SortableTableHead sortKey="role_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[140px]">通知角色</SortableTableHead>
                         <SortableTableHead sortKey="channel" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[160px]">通知管道</SortableTableHead>
@@ -155,7 +155,7 @@ function RoutingRow({
     onToggleActive,
 }: RoutingRowProps) {
     return (
-        <TableRow className={!rule.is_active ? 'opacity-50' : ''}>
+        <TableRow className={!rule.is_active ? 'bg-muted/40' : ''}>
             <TableCell>
                 <div className="flex items-center gap-2">
                     <Bell className="h-4 w-4 text-primary shrink-0" />

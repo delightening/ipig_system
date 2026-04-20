@@ -111,10 +111,10 @@ export function BloodTestAnalysisPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border border-destructive/30">
+                <div className="rounded-lg border bg-card overflow-hidden border-destructive/30">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
                         <SortableTableHead sortKey="ear_tag" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>耳號</SortableTableHead>
                         <SortableTableHead sortKey="iacuc_no" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>專案</SortableTableHead>
                         <SortableTableHead sortKey="test_date" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>日期</SortableTableHead>

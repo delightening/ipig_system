@@ -19,7 +19,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Plus } from 'lucide-react'
+import { Plus, ClipboardList } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 
@@ -103,7 +105,7 @@ export function ManagementReviewPage() {
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead>審查編號</TableHead>
                 <TableHead>標題</TableHead>
                 <TableHead>審查日期</TableHead>
@@ -113,9 +115,9 @@ export function ManagementReviewPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8">載入中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="p-0"><TableSkeleton rows={5} cols={5} /></TableCell></TableRow>
               ) : reviews.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">尚無審查紀錄</TableCell></TableRow>
+                <TableEmptyRow colSpan={5} icon={ClipboardList} title="尚無審查紀錄" />
               ) : (
                 reviews.map((r) => (
                   <TableRow key={r.id}>

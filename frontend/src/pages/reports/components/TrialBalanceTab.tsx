@@ -9,7 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Loader2, Download, FileText } from 'lucide-react'
+import { Download, FileText } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,14 +54,6 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
 
   const { sortedData, sort, toggleSort } = useTableSort(trialBalance)
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-end gap-4">
@@ -78,10 +71,10 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
           匯出 CSV
         </Button>
       </div>
-      <div className="rounded-md border">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="account_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>科目代碼</SortableTableHead>
               <SortableTableHead sortKey="account_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>科目名稱</SortableTableHead>
               <SortableTableHead sortKey="account_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
@@ -90,7 +83,13 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
             </TableRow>
           </TableHeader>
           <TableBody>
-            {trialBalance && trialBalance.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="p-0">
+                  <TableSkeleton rows={8} cols={5} />
+                </TableCell>
+              </TableRow>
+            ) : trialBalance && trialBalance.length > 0 ? (
               (sortedData ?? trialBalance).map((r) => (
                 <TableRow key={r.account_id}>
                   <TableCell className="font-mono">{r.account_code}</TableCell>

@@ -50,6 +50,13 @@
 - **/internal-comms**：事故報告、週報、系統異動公告、會議紀錄
 - **不使用時機**：UI 文字（用 i18n `t()` 函數）、API 文件、程式碼注解、commit message
 
+## 表格設計（強制）
+
+- **/system_table_chats**：**新增或修改任何 React 表格元件前必須執行**
+- 涵蓋：RWD 審計 → 欄位優先級討論 → ≤3 個斷點確認 → HTML 預覽 → 實作計畫
+- 實作目標：`@tailwindcss/container-queries`，禁止新增 JS ResizeObserver 斷點邏輯
+- **不使用時機**：純後端、無 UI 的資料表結構變更
+
 ## Skill 建立
 
 - **/skill-creator**：僅在使用者**明確要求**建立新 skill 時使用，不主動建議

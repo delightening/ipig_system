@@ -13,7 +13,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
-import { Loader2, Download, Package } from 'lucide-react'
+import { Download, Package } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 export function StockOnHandReportPage() {
   const { data: report, isLoading } = useQuery<StockOnHandReport[]>({
@@ -55,14 +56,6 @@ export function StockOnHandReportPage() {
 
   const { sortedData: sortedReport, sort, toggleSort } = useTableSort(report)
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -76,10 +69,10 @@ export function StockOnHandReportPage() {
         }
       />
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
               <SortableTableHead sortKey="product_sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品代碼</SortableTableHead>
               <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品名稱</SortableTableHead>
@@ -92,7 +85,13 @@ export function StockOnHandReportPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedReport && sortedReport.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={9} className="p-0">
+                  <TableSkeleton rows={8} cols={9} />
+                </TableCell>
+              </TableRow>
+            ) : sortedReport && sortedReport.length > 0 ? (
               sortedReport.map((row) => (
                 <TableRow key={`${row.warehouse_id}-${row.product_id}`}>
                   <TableCell>

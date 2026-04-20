@@ -19,7 +19,9 @@ import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Building2 } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import type { DepartmentWithManager } from '@/types/facility'
 
 const NONE_VALUE = '__none__'
@@ -118,9 +120,10 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
           </Button>
         )}
       </div>
+      <div className="rounded-lg border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow className="bg-muted/50 hover:bg-muted/50">
             <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>代碼</SortableTableHead>
             <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
             <SortableTableHead sortKey="parent_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>上層部門</SortableTableHead>
@@ -132,9 +135,9 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow><TableCell colSpan={7} className="text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
+            <TableRow><TableCell colSpan={7} className="p-0"><TableSkeleton rows={5} cols={7} /></TableCell></TableRow>
           ) : sortedDepartments?.length === 0 ? (
-            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">無資料</TableCell></TableRow>
+            <TableEmptyRow colSpan={7} icon={Building2} title="尚無部門資料" />
           ) : sortedDepartments?.map(d => (
             <TableRow key={d.id}>
               <TableCell className="font-mono">{d.code}</TableCell>
@@ -155,6 +158,7 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
           ))}
         </TableBody>
       </Table>
+      </div>
 
       {/* 新增 Dialog */}
       <Dialog open={dialogs.isOpen('create')} onOpenChange={o => !o && dialogs.close('create')}>

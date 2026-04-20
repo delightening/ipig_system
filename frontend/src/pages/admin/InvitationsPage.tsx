@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { GuestHide } from '@/components/ui/guest-hide'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, RotateCw, XCircle, Loader2 } from 'lucide-react'
+import { Plus, RotateCw, XCircle, Loader2, Mail } from 'lucide-react'
 
 import { invitationApi } from '@/lib/api/invitation'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -14,6 +14,8 @@ import { toast } from '@/components/ui/use-toast'
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { InvitationCreateDialog } from './components/InvitationCreateDialog'
 import type { InvitationStatus } from '@/types/invitation'
 import { invitationStatusNames, invitationStatusColors } from '@/types/invitation'
@@ -100,82 +102,103 @@ export function InvitationsPage() {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Email</TableHead>
-                            <TableHead>組織</TableHead>
-                            <TableHead>狀態</TableHead>
-                            <TableHead>邀請人</TableHead>
-                            <TableHead>建立時間</TableHead>
-                            <TableHead>到期時間</TableHead>
-                            <TableHead className="w-[120px]">操作</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            Array.from({ length: 5 }).map((_, i) => (
-                                <TableRow key={i}>
-                                    {Array.from({ length: 7 }).map((_, j) => (
-                                        <TableCell key={j}><div className="h-4 w-full animate-pulse rounded bg-muted" /></TableCell>
-                                    ))}
-                                </TableRow>
-                            ))
-                        ) : invitations.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                    尚無邀請紀錄
-                                </TableCell>
+            <div className="rounded-lg border bg-card overflow-hidden @container">
+                <div className="hidden @[600px]:block overflow-x-auto">
+                    <Table className="w-full" style={{ minWidth: 450 }}>
+                        <TableHeader>
+                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                <TableHead style={{ minWidth: 180 }}>Email</TableHead>
+                                <TableHead style={{ width: 100 }} className="hidden @[750px]:table-cell">組織</TableHead>
+                                <TableHead style={{ width: 90 }}>狀態</TableHead>
+                                <TableHead style={{ width: 100 }} className="hidden @[750px]:table-cell">邀請人</TableHead>
+                                <TableHead style={{ width: 100 }} className="hidden @[750px]:table-cell">建立時間</TableHead>
+                                <TableHead style={{ width: 100 }}>到期時間</TableHead>
+                                <TableHead style={{ width: 80 }}>操作</TableHead>
                             </TableRow>
-                        ) : (
-                            invitations.map(inv => (
-                                <TableRow key={inv.id}>
-                                    <TableCell className="font-medium">{inv.email}</TableCell>
-                                    <TableCell>{inv.organization || '-'}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={invitationStatusColors[inv.status]}>
-                                            {invitationStatusNames[inv.status]}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>{inv.invited_by_name}</TableCell>
-                                    <TableCell>{formatDate(inv.created_at)}</TableCell>
-                                    <TableCell>{formatDate(inv.expires_at)}</TableCell>
-                                    <TableCell>
-                                        <GuestHide>
-                                            {inv.status === 'pending' && (
-                                                <div className="flex gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => resendMutation.mutate(inv.id)}
-                                                        disabled={resendMutation.isPending}
-                                                        title="重新發送"
-                                                    >
-                                                        {resendMutation.isPending ? (
-                                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                                        ) : (
-                                                            <RotateCw className="h-4 w-4" />
-                                                        )}
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => revokeMutation.mutate(inv.id)}
-                                                        disabled={revokeMutation.isPending}
-                                                        title="撤銷"
-                                                    >
-                                                        <XCircle className="h-4 w-4 text-destructive" />
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </GuestHide>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="p-0">
+                                        <TableSkeleton rows={5} cols={7} />
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
+                            ) : invitations.length === 0 ? (
+                                <TableEmptyRow colSpan={7} icon={Mail} title="尚無邀請紀錄" />
+                            ) : (
+                                invitations.map(inv => (
+                                    <TableRow key={inv.id}>
+                                        <TableCell style={{ minWidth: 180 }} className="font-medium break-all">{inv.email}</TableCell>
+                                        <TableCell style={{ width: 100 }} className="hidden @[750px]:table-cell whitespace-normal break-words">{inv.organization || '-'}</TableCell>
+                                        <TableCell style={{ width: 90 }}>
+                                            <Badge variant={invitationStatusColors[inv.status]}>
+                                                {invitationStatusNames[inv.status]}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell style={{ width: 100 }} className="hidden @[750px]:table-cell whitespace-normal break-words">{inv.invited_by_name}</TableCell>
+                                        <TableCell style={{ width: 100 }} className="hidden @[750px]:table-cell text-xs text-muted-foreground">{formatDate(inv.created_at)}</TableCell>
+                                        <TableCell style={{ width: 100 }} className="text-xs text-muted-foreground">{formatDate(inv.expires_at)}</TableCell>
+                                        <TableCell style={{ width: 80 }}>
+                                            <GuestHide>
+                                                {inv.status === 'pending' && (
+                                                    <div className="flex gap-1">
+                                                        <Button variant="ghost" size="icon" onClick={() => resendMutation.mutate(inv.id)} disabled={resendMutation.isPending} title="重新發送">
+                                                            {resendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" onClick={() => revokeMutation.mutate(inv.id)} disabled={revokeMutation.isPending} title="撤銷">
+                                                            <XCircle className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </GuestHide>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+
+                {/* Card view: container < 600px */}
+                <div className="@[600px]:hidden divide-y">
+                    {isLoading ? (
+                        <div className="p-3"><TableSkeleton rows={3} cols={1} /></div>
+                    ) : invitations.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                            <Mail className="h-8 w-8" />
+                            <p className="text-sm">尚無邀請紀錄</p>
+                        </div>
+                    ) : (
+                        invitations.map(inv => (
+                            <div key={inv.id} className="p-3 space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="font-medium text-sm break-all">{inv.email}</div>
+                                        {inv.organization && <div className="text-xs text-muted-foreground">{inv.organization}</div>}
+                                    </div>
+                                    <Badge variant={invitationStatusColors[inv.status]}>
+                                        {invitationStatusNames[inv.status]}
+                                    </Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {inv.invited_by_name} · 建立 {formatDate(inv.created_at)} · 到期 {formatDate(inv.expires_at)}
+                                </div>
+                                <GuestHide>
+                                    {inv.status === 'pending' && (
+                                        <div className="flex justify-end gap-1 pt-1 border-t">
+                                            <Button variant="ghost" size="icon" onClick={() => resendMutation.mutate(inv.id)} disabled={resendMutation.isPending} title="重新發送">
+                                                {resendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+                                            </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => revokeMutation.mutate(inv.id)} disabled={revokeMutation.isPending} title="撤銷">
+                                                <XCircle className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </GuestHide>
+                            </div>
+                        ))
+                    )}
+                </div>
             </div>
 
             {/* Pagination */}

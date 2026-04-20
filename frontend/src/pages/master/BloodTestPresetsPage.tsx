@@ -44,6 +44,7 @@ import {
   PowerOff,
   Loader2,
   ArrowLeft,
+  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
@@ -51,6 +52,8 @@ import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { getApiErrorMessage, bloodTestPresetFormSchema, type BloodTestPresetFormData } from '@/lib/validation'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import { useNavigate } from 'react-router-dom'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 
 type ShowFilter = 'all' | 'active' | 'inactive'
 
@@ -266,10 +269,10 @@ export function BloodTestPresetsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="w-[60px]">圖示</TableHead>
               <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
               <TableHead>包含分類</TableHead>
@@ -281,19 +284,12 @@ export function BloodTestPresetsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                <TableCell colSpan={6} className="p-0">
+                  <TableSkeleton rows={5} cols={6} />
                 </TableCell>
               </TableRow>
             ) : filteredPresets.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-center py-12 text-muted-foreground"
-                >
-                  沒有符合條件的常用組合
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={6} icon={Layers} title="沒有符合條件的常用組合" />
             ) : (
               (sortedData ?? filteredPresets).map((preset) => (
                 <TableRow

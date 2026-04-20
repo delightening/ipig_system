@@ -17,8 +17,9 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
-import { Loader2, Download, Droplets, FlaskConical, DollarSign, Hash } from 'lucide-react'
+import { Download, Droplets, FlaskConical, DollarSign, Hash } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 // 血液檢查費用報表型別
 interface BloodTestCostReport {
@@ -205,19 +206,11 @@ export function BloodTestCostReportPage() {
                 </div>
             )}
 
-            {/* 載入中 */}
-            {isLoading && (
-                <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-            )}
-
             {/* 報表表格 */}
-            {!isLoading && (
-                <div className="rounded-md border">
-                    <Table>
+            <div className="rounded-lg border bg-card overflow-hidden">
+                <Table>
                         <TableHeader>
-                            <TableRow>
+                            <TableRow className="bg-muted/50 hover:bg-muted/50">
                                 <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>專案編號</SortableTableHead>
                                 <SortableTableHead sortKey="ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>耳號</SortableTableHead>
                                 <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>檢查日期</SortableTableHead>
@@ -228,7 +221,13 @@ export function BloodTestCostReportPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sortedData && sortedData.length > 0 ? (
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="p-0">
+                                        <TableSkeleton rows={8} cols={7} />
+                                    </TableCell>
+                                </TableRow>
+                            ) : sortedData && sortedData.length > 0 ? (
                                 sortedData.map((row, idx) => (
                                     <TableRow key={`${row.iacuc_no}-${row.ear_tag}-${idx}`}>
                                         <TableCell className="font-mono text-sm">
@@ -250,9 +249,8 @@ export function BloodTestCostReportPage() {
                                 <TableEmptyRow colSpan={7} icon={Droplets} title="尚無血液檢查費用資料" />
                             )}
                         </TableBody>
-                    </Table>
-                </div>
-            )}
+                </Table>
+            </div>
         </div>
     )
 }

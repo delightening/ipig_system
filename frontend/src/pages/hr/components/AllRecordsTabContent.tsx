@@ -244,52 +244,88 @@ function AllRecordsTable({ data, isLoading }: AllRecordsTableProps) {
     const { sortedData, sort, toggleSort } = useTableSort(data)
 
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請人</SortableTableHead>
-                    <SortableTableHead sortKey="overtime_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
-                    <SortableTableHead sortKey="start_time" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
-                    <SortableTableHead sortKey="overtime_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
-                    <SortableTableHead sortKey="hours" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時數</SortableTableHead>
-                    <SortableTableHead sortKey="comp_time_hours" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>補休</SortableTableHead>
-                    <TableHead>事由</TableHead>
-                    <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
+        <div className="@container">
+            <div className="hidden @[600px]:block">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請人</SortableTableHead>
+                            <SortableTableHead sortKey="overtime_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
+                            <SortableTableHead className="hidden @[850px]:table-cell" sortKey="start_time" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
+                            <SortableTableHead className="hidden @[750px]:table-cell" sortKey="overtime_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
+                            <SortableTableHead sortKey="hours" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時數</SortableTableHead>
+                            <SortableTableHead className="hidden @[900px]:table-cell" sortKey="comp_time_hours" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>補休</SortableTableHead>
+                            <TableHead className="hidden @[1000px]:table-cell">事由</TableHead>
+                            <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={8} className="text-center py-8">
+                                    載入中...
+                                </TableCell>
+                            </TableRow>
+                        ) : sortedData?.length === 0 ? (
+                            <TableEmptyRow colSpan={8} icon={Search} title="沒有符合條件的加班紀錄" />
+                        ) : (
+                            sortedData?.map((overtime) => (
+                                <TableRow key={overtime.id}>
+                                    <TableCell>
+                                        <div>
+                                            <div className="font-medium">{overtime.user_name}</div>
+                                            <div className="text-sm text-muted-foreground">{overtime.user_email}</div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap">
+                                        {formatDate(overtime.overtime_date)}
+                                    </TableCell>
+                                    <TableCell className="hidden @[850px]:table-cell whitespace-nowrap">
+                                        {format(new Date(overtime.start_time), 'HH:mm')} ~ {format(new Date(overtime.end_time), 'HH:mm')}
+                                    </TableCell>
+                                    <TableCell className="hidden @[750px]:table-cell">{OVERTIME_TYPE_NAMES[overtime.overtime_type] || overtime.overtime_type}</TableCell>
+                                    <TableCell>{parseDecimal(overtime.hours).toFixed(1)}h</TableCell>
+                                    <TableCell className="hidden @[900px]:table-cell">{parseDecimal(overtime.comp_time_hours) > 0 ? `${parseDecimal(overtime.comp_time_hours).toFixed(1)}h` : '-'}</TableCell>
+                                    <TableCell className="hidden @[1000px]:table-cell max-w-[200px] whitespace-normal break-words">{overtime.reason}</TableCell>
+                                    <TableCell><OvertimeStatusBadge status={overtime.status} /></TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div className="@[600px]:hidden divide-y rounded-lg border">
                 {isLoading ? (
-                    <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8">
-                            載入中...
-                        </TableCell>
-                    </TableRow>
+                    <div className="p-6 text-center text-muted-foreground">載入中...</div>
                 ) : sortedData?.length === 0 ? (
-                    <TableEmptyRow colSpan={8} icon={Search} title="沒有符合條件的加班紀錄" />
+                    <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                        <Search className="h-8 w-8" />
+                        <p className="text-sm">沒有符合條件的加班紀錄</p>
+                    </div>
                 ) : (
                     sortedData?.map((overtime) => (
-                        <TableRow key={overtime.id}>
-                            <TableCell>
-                                <div>
-                                    <div className="font-medium">{overtime.user_name}</div>
-                                    <div className="text-sm text-muted-foreground">{overtime.user_email}</div>
+                        <div key={overtime.id} className="p-3 space-y-1">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <div className="font-medium break-words">{overtime.user_name}</div>
+                                    <div className="text-xs text-muted-foreground break-words">{overtime.user_email}</div>
                                 </div>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                                {formatDate(overtime.overtime_date)}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                                {format(new Date(overtime.start_time), 'HH:mm')} ~ {format(new Date(overtime.end_time), 'HH:mm')}
-                            </TableCell>
-                            <TableCell>{OVERTIME_TYPE_NAMES[overtime.overtime_type] || overtime.overtime_type}</TableCell>
-                            <TableCell>{parseDecimal(overtime.hours).toFixed(1)}h</TableCell>
-                            <TableCell>{parseDecimal(overtime.comp_time_hours) > 0 ? `${parseDecimal(overtime.comp_time_hours).toFixed(1)}h` : '-'}</TableCell>
-                            <TableCell className="max-w-[200px] truncate">{overtime.reason}</TableCell>
-                            <TableCell><OvertimeStatusBadge status={overtime.status} /></TableCell>
-                        </TableRow>
+                                <OvertimeStatusBadge status={overtime.status} />
+                            </div>
+                            <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
+                                <span>{formatDate(overtime.overtime_date)}</span>
+                                <span>{format(new Date(overtime.start_time), 'HH:mm')}~{format(new Date(overtime.end_time), 'HH:mm')}</span>
+                                <span>{OVERTIME_TYPE_NAMES[overtime.overtime_type] || overtime.overtime_type}</span>
+                                <span>{parseDecimal(overtime.hours).toFixed(1)}h{parseDecimal(overtime.comp_time_hours) > 0 && ` (補 ${parseDecimal(overtime.comp_time_hours).toFixed(1)}h)`}</span>
+                            </div>
+                            {overtime.reason && (
+                                <div className="text-xs text-muted-foreground break-words">事由：{overtime.reason}</div>
+                            )}
+                        </div>
                     ))
                 )}
-            </TableBody>
-        </Table>
+            </div>
+        </div>
     )
 }

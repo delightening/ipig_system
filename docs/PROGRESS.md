@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-29 (v22)
+> **最後更新：** 2026-04-19 (v23)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -184,6 +184,40 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
+
+### 2026-04-20 資安強化 4 項補齊
+
+- ✅ **X-Permitted-Cross-Domain-Policies**：`server.rs` 新增 `none` 標頭，補齊資安 header 完整性
+- ✅ **集中式輸入驗證模組**：新增 `utils/validation.rs`（email、檔名、路徑穿越、分頁四種驗證）
+- ✅ **Docker no-new-privileges**：`db`/`api`/`web` 三服務加 `security_opt: [no-new-privileges:true]`
+- ✅ **Docker read_only**：`api` 和 `web` 容器加 `read_only: true` + 對應 tmpfs（/tmp、nginx cache/run）
+
+### 2026-04-20 Grafana + Loki + Prometheus + Alertmanager 全端整合完成
+
+- ✅ **Grafana Alert Rules A–D**：資安警報（暴力破解、IDOR、登入失敗、待處理警報累積），email 發信測試成功
+- ✅ **Loki datasource**：連線設定完成，Explore 查詢容器 log 可用（`{container_name="ipig-api"}`）
+- ✅ **Loki retention**：建立 `monitoring/loki/config.yml`，30 天自動清理
+- ✅ **node_exporter**：加入 docker-compose，Prometheus CPU/Memory/Disk 8 條警報全部接通（原本全為死警報）
+- ✅ **Prometheus 自身 basic_auth**：補齊 self-scrape job 的 `basic_auth`，修復 prometheus target 401
+- ✅ **METRICS_TOKEN**：`/metrics` 端點可選 Bearer 認證，`secrets/metrics_token.txt` 佔位檔架構建立
+- ✅ **Alertmanager email**：`alertmanager.yml` 加入 `email_configs`，critical 警報發信測試成功
+- ✅ **Alertmanager CRLF 修復**：`docker-entrypoint.sh` 換行符號 CRLF→LF 修正，容器啟動正常
+- ✅ **VPS Cheatsheet**：`docs/VPS_CHEATSHEET.md` 首次部署 checklist + Prometheus 密碼換法 + 所有服務操作指令
+
+### 2026-04-20 安全警報批次解決功能
+
+- ✅ **後端 API**：新增 `POST /admin/audit/alerts/bulk-resolve`，支援傳入 UUID 陣列批次標記 resolved
+- ✅ **前端 Checkbox**：警報表格每列加勾選框，表頭加全選（僅選 open 狀態）
+- ✅ **批次操作按鈕**：選取後 CardHeader 出現「標記解決（N）」按鈕，操作完自動清除選取並刷新資料
+
+### 2026-04-19 R24 Observability & IP-level Safety Gate（4/4 完成）
+
+- ✅ **R24-1 IP blocklist + 自動封鎖 middleware**：`migrations/031_ip_blocklist.sql`（UUID/INET/partial unique index）；`services/ip_blocklist.rs`（30s TTL `HashSet<IpAddr>` cache + auto_block/manual_add/unblock/list）；`middleware/ip_blocklist.rs` 掛於 `api_middleware_stack` 最外層（涵蓋 /api/v1 全子路由，/metrics、/api/health、honeypot 在 /api/v1 外層自然 bypass）；來源 IP 復用既有 `middleware/real_ip.rs::extract_real_ip_with_trust`；R22-6 IDOR probe / R22-5 auth escalation / R22-16 honeypot 三處觸發自動封 IP（分別 24h / 1h / 永久）；`/admin/audit/ip-blocklist` handler + `AdminAuditPage` 新 Tab（列表、手動新增、解除封鎖 Dialog）
+- ✅ **R24-2 Loki + Promtail 生產部署**：`docker-compose.prod.yml` 新增 loki + promtail services（localhost-only 3100、資源限制、log rotation、disable Watchtower）；`monitoring/promtail/config.yml` 加 relabel 只收 `ipig-(api\|web)` + `environment=prod` 靜態 label；Volume `loki_data` 宣告於 prod.yml
+- ✅ **R24-3 Alertmanager → SecurityNotifier 轉發**：`alertmanager.yml` default/critical receiver 改為 `http://api:3000/api/webhooks/alertmanager` webhook（Bearer authorization_file `/etc/alertmanager/webhook_token`）；新增 `handlers/alertmanager_webhook.rs`（接受 `Authorization: Bearer` 或 `X-Webhook-Token`，payload 轉為 `SecurityNotification` 呼叫 R22 `SecurityNotifier::dispatch`）；`Config::alertmanager_webhook_token` 從 `ALERTMANAGER_WEBHOOK_TOKEN` env 讀；route 掛於 /api/v1 外層（類似 honeypot_routes）
+- ✅ **R24-4 Grafana Security Dashboard**：`deploy/grafana_security_dashboard.json` 6 panel（Alerts 時間線 / Active Blocklist Stat / Top IPs 24h / Login Anomaly / Honeypot Hits 7d / Loki 403 Rate）；`provisioning/datasources/loki.yml` + `postgres.yml` 新增；`migrations/032_grafana_readonly.sql` 建 `grafana_readonly` role（LOGIN / NOSUPERUSER / NOINHERIT）+ GRANT SELECT 於 security_alerts/user_activity_logs/login_events/user_sessions/ip_blocklist + 預設 privileges；`docker-compose.yml` Grafana 掛載新 dashboard JSON
+- ✅ **審閱定稿 2 輪**：第一輪（§8 6 項）定核心決策；第二輪（動工前交叉驗證）修正 8 處與 codebase 不符的假設（middleware 順序、real_ip.rs 復用、整合點行號、路由命名 /admin/audit/ip-blocklist、Grafana datasources 現況、工時 2.5→2.6 天）
+- ✅ **驗證**：`rtk cargo check` 0 error / `rtk tsc --noEmit` 0 error；DB migration、docker-compose 部署驗證延後至實際 VPS 環境
 
 ### 2026-04-19 AI Agent Readiness 強化（IsAgentReady 35 → 預估 95+，三輪迭代）
 

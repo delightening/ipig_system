@@ -9,7 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Loader2 } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
@@ -45,14 +47,6 @@ export function JournalEntriesTab({
 
   const { sortedData: sortedEntries, sort, toggleSort } = useTableSort(journalEntries)
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-end gap-4 flex-wrap">
@@ -75,20 +69,40 @@ export function JournalEntriesTab({
           />
         </div>
       </div>
-      <div className="space-y-4">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>傳票號</SortableTableHead>
-              <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
-              <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>說明</SortableTableHead>
-              <TableHead className="text-right">合計借方</TableHead>
-            </TableRow>
-          </TableHeader>
-        </Table>
-        {(sortedEntries ?? journalEntries) && (sortedEntries ?? journalEntries)!.length > 0 ? (
-          (sortedEntries ?? journalEntries)!.map(({ entry, lines }) => (
-            <div key={entry.id} className="rounded-md border p-4 space-y-3">
+      {isLoading ? (
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>傳票號</SortableTableHead>
+                <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
+                <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>說明</SortableTableHead>
+                <TableHead className="text-right">合計借方</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={4} className="p-0">
+                  <TableSkeleton rows={8} cols={4} />
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      ) : (sortedEntries ?? journalEntries) && (sortedEntries ?? journalEntries)!.length > 0 ? (
+        <div className="space-y-4">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>傳票號</SortableTableHead>
+                <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
+                <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>說明</SortableTableHead>
+                <TableHead className="text-right">合計借方</TableHead>
+              </TableRow>
+            </TableHeader>
+          </Table>
+          {(sortedEntries ?? journalEntries)!.map(({ entry, lines }) => (
+            <div key={entry.id} className="rounded-lg border bg-card overflow-hidden p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-mono font-medium">{entry.entry_no}</span>
@@ -101,7 +115,7 @@ export function JournalEntriesTab({
               </div>
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead className="w-16">行號</TableHead>
                     <TableHead>科目</TableHead>
                     <TableHead>說明</TableHead>
@@ -128,13 +142,25 @@ export function JournalEntriesTab({
                 </TableBody>
               </Table>
             </div>
-          ))
-        ) : (
-          <div className="rounded-md border py-12 text-center text-muted-foreground">
-            尚無傳票資料
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>傳票號</SortableTableHead>
+                <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
+                <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>說明</SortableTableHead>
+                <TableHead className="text-right">合計借方</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableEmptyRow colSpan={4} icon={BookOpen} title="尚無傳票資料" />
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,7 +8,7 @@ use crate::middleware::rate_limiter::{
 };
 use crate::{
     handlers,
-    middleware::{auth_middleware, csrf_middleware, security_response_logger},
+    middleware::{auth_middleware, csrf_middleware, http_metrics_middleware, ip_blocklist_middleware, security_response_logger},
     AppState,
 };
 
@@ -111,7 +111,21 @@ pub fn api_routes(state: AppState) -> Router {
     // R22-16: 蜜罐端點（/api/v1 外層，不需 auth）
     let honeypot_routes = honeypot::routes().with_state(state.clone());
 
+    // R24-3: Alertmanager webhook（/api/v1 外層，由 X-Webhook-Token 防護）
+    let webhook_routes = Router::new()
+        .route(
+            "/api/webhooks/alertmanager",
+            axum::routing::post(handlers::alertmanager_webhook::alertmanager_webhook),
+        )
+        .with_state(state.clone());
+
+    // R24-1: ip_blocklist 掛於 /api/v1 最外層，涵蓋 public/protected/upload/ai/mcp 所有 API。
+    // 不影響 health_route（/metrics、/api/health）與 honeypot_routes — 它們位於 /api/v1 之外。
     let api_middleware_stack = ServiceBuilder::new()
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ip_blocklist_middleware,
+        ))
         .layer(middleware::from_fn(etag_middleware))
         .layer(middleware::from_fn_with_state(
             state,
@@ -127,9 +141,11 @@ pub fn api_routes(state: AppState) -> Router {
 
     health_route
         .merge(honeypot_routes)
+        .merge(webhook_routes)
         .merge(
             Router::new()
                 .nest("/api/v1", api_v1)
                 .layer(api_middleware_stack),
         )
+        .layer(middleware::from_fn(http_metrics_middleware))
 }

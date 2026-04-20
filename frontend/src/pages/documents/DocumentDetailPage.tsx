@@ -481,45 +481,80 @@ export function DocumentDetailPage() {
           <CardTitle>單據明細</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SortableTableHead className="w-16" sortKey="line_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>項次</SortableTableHead>
-                <SortableTableHead sortKey="product_name" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>品項</SortableTableHead>
-                <SortableTableHead className="text-right" sortKey="qty" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>數量</SortableTableHead>
-                <SortableTableHead sortKey="uom" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>單位</SortableTableHead>
-                <SortableTableHead className="text-right" sortKey="unit_price" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>單價</SortableTableHead>
-                <TableHead className="text-right">金額</TableHead>
-                <SortableTableHead sortKey="batch_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>批號</SortableTableHead>
-                <SortableTableHead sortKey="expiry_date" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>效期</SortableTableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <div className="@container">
+            <div className="hidden @[600px]:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableTableHead className="w-16" sortKey="line_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>項次</SortableTableHead>
+                    <SortableTableHead sortKey="product_name" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>品項</SortableTableHead>
+                    <SortableTableHead className="text-right" sortKey="qty" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>數量</SortableTableHead>
+                    <SortableTableHead sortKey="uom" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>單位</SortableTableHead>
+                    <SortableTableHead className="text-right hidden @[750px]:table-cell" sortKey="unit_price" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>單價</SortableTableHead>
+                    <TableHead className="text-right hidden @[750px]:table-cell">金額</TableHead>
+                    <SortableTableHead className="hidden @[900px]:table-cell" sortKey="batch_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>批號</SortableTableHead>
+                    <SortableTableHead className="hidden @[900px]:table-cell" sortKey="expiry_date" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>效期</SortableTableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(sortedLines ?? document.lines).map((line) => (
+                    <TableRow key={line.id}>
+                      <TableCell>{line.line_no}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{line.product_name}</div>
+                          <div className="text-xs text-muted-foreground">{line.product_sku}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">{formatNumber(line.qty, 0)}</TableCell>
+                      <TableCell>{formatUom(line.uom)}</TableCell>
+                      <TableCell className="text-right hidden @[750px]:table-cell">
+                        {line.unit_price ? formatCurrency(line.unit_price) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right hidden @[750px]:table-cell">
+                        {line.unit_price
+                          ? formatCurrency(parseFloat(line.qty) * parseFloat(line.unit_price))
+                          : '-'}
+                      </TableCell>
+                      <TableCell className="hidden @[900px]:table-cell">{line.batch_no || '-'}</TableCell>
+                      <TableCell className="hidden @[900px]:table-cell">{line.expiry_date ? formatDate(line.expiry_date) : '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="@[600px]:hidden divide-y">
               {(sortedLines ?? document.lines).map((line) => (
-                <TableRow key={line.id}>
-                  <TableCell>{line.line_no}</TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{line.product_name}</div>
+                <div key={line.id} className="p-3 space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xs text-muted-foreground">#{line.line_no}</span>
+                        <span className="font-medium break-words">{line.product_name}</span>
+                      </div>
                       <div className="text-xs text-muted-foreground">{line.product_sku}</div>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-right">{formatNumber(line.qty, 0)}</TableCell>
-                  <TableCell>{formatUom(line.uom)}</TableCell>
-                  <TableCell className="text-right">
-                    {line.unit_price ? formatCurrency(line.unit_price) : '-'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {line.unit_price
-                      ? formatCurrency(parseFloat(line.qty) * parseFloat(line.unit_price))
-                      : '-'}
-                  </TableCell>
-                  <TableCell>{line.batch_no || '-'}</TableCell>
-                  <TableCell>{line.expiry_date ? formatDate(line.expiry_date) : '-'}</TableCell>
-                </TableRow>
+                    <div className="text-right shrink-0">
+                      <div className="font-medium">{formatNumber(line.qty, 0)} {formatUom(line.uom)}</div>
+                      {line.unit_price && (
+                        <div className="text-xs text-muted-foreground">
+                          {formatCurrency(parseFloat(line.qty) * parseFloat(line.unit_price))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {(line.batch_no || line.expiry_date) && (
+                    <div className="text-xs text-muted-foreground">
+                      {line.batch_no && `批號: ${line.batch_no}`}
+                      {line.batch_no && line.expiry_date && ' · '}
+                      {line.expiry_date && `效期: ${formatDate(line.expiry_date)}`}
+                    </div>
+                  )}
+                </div>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

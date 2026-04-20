@@ -14,7 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Loader2, Download, DollarSign } from 'lucide-react'
+import { Download, DollarSign } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 export function CostSummaryReportPage() {
   const { data: report, isLoading } = useQuery<CostSummaryReport[]>({
@@ -54,14 +55,6 @@ export function CostSummaryReportPage() {
     link.href = URL.createObjectURL(blob)
     link.download = `cost_summary_${new Date().toISOString().split('T')[0]}.csv`
     link.click()
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
   }
 
   return (
@@ -108,10 +101,10 @@ export function CostSummaryReportPage() {
         </Card>
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
               <SortableTableHead sortKey="product_sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品代碼</SortableTableHead>
               <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品名稱</SortableTableHead>
@@ -122,7 +115,13 @@ export function CostSummaryReportPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedData && sortedData.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="p-0">
+                  <TableSkeleton rows={8} cols={7} />
+                </TableCell>
+              </TableRow>
+            ) : sortedData && sortedData.length > 0 ? (
               sortedData.map((row) => (
                 <TableRow key={`${row.warehouse_id}-${row.product_id}`}>
                   <TableCell>

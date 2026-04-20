@@ -7,6 +7,7 @@ import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -192,10 +193,10 @@ export function AnimalSourcesPage() {
         }
       />
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
                 排序
               </SortableTableHead>
@@ -223,8 +224,8 @@ export function AnimalSourcesPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                <TableCell colSpan={8} className="p-0">
+                  <TableSkeleton rows={8} cols={8} />
                 </TableCell>
               </TableRow>
             ) : sortedSources && sortedSources.length > 0 ? (

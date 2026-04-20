@@ -140,24 +140,24 @@ export function ProductSearchDialog({
             </Tabs>
           )}
 
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[400px] overflow-y-auto @container">
             <Table>
               <TableHeader>
                 <TableRow>
                   {isPoLinkedGrn ? (
                     <>
                       <TableHead>品項</TableHead>
-                      <TableHead>單位</TableHead>
-                      <TableHead className="text-right">單價</TableHead>
+                      <TableHead className="hidden @[500px]:table-cell">單位</TableHead>
+                      <TableHead className="text-right hidden @[400px]:table-cell">單價</TableHead>
                       <TableHead className="text-right">數量</TableHead>
                       <TableHead />
                     </>
                   ) : (
                     <>
-                      <SortableTableHead sortKey="sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>SKU</SortableTableHead>
+                      <SortableTableHead className="hidden @[500px]:table-cell" sortKey="sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>SKU</SortableTableHead>
                       <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>品項名稱</SortableTableHead>
-                      <SortableTableHead sortKey="spec" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>規格</SortableTableHead>
-                      <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單位</SortableTableHead>
+                      <SortableTableHead className="hidden @[600px]:table-cell" sortKey="spec" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>規格</SortableTableHead>
+                      <SortableTableHead className="hidden @[450px]:table-cell" sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單位</SortableTableHead>
                       <TableHead />
                     </>
                   )}
@@ -221,9 +221,13 @@ function PoItemRows({
           <TableCell>
             <div className="font-mono text-xs">{item.product_sku}</div>
             <div className="font-medium">{item.product_name}</div>
+            <div className="@[400px]:hidden text-xs text-muted-foreground">
+              {formatUom(item.uom || item.base_uom)}
+              {item.unit_price != null && ` · $${formatNumber(item.unit_price, 2)}`}
+            </div>
           </TableCell>
-          <TableCell className="text-sm">{formatUom(item.uom || item.base_uom)}</TableCell>
-          <TableCell className="text-right text-sm">
+          <TableCell className="text-sm hidden @[500px]:table-cell">{formatUom(item.uom || item.base_uom)}</TableCell>
+          <TableCell className="text-right text-sm hidden @[400px]:table-cell">
             {item.unit_price != null ? `$${formatNumber(item.unit_price, 2)}` : '-'}
           </TableCell>
           <TableCell className="text-right">
@@ -311,10 +315,17 @@ function ProductItemRows({
           className="cursor-pointer hover:bg-muted"
           onClick={() => onSelect(product)}
         >
-          <TableCell className="font-mono text-xs">{product.sku}</TableCell>
-          <TableCell className="font-medium">{product.name}</TableCell>
-          <TableCell>{product.spec || '-'}</TableCell>
-          <TableCell>{formatUom(product.base_uom)}</TableCell>
+          <TableCell className="font-mono text-xs hidden @[500px]:table-cell">{product.sku}</TableCell>
+          <TableCell className="font-medium">
+            <div className="@[500px]:hidden font-mono text-[10px] text-muted-foreground">{product.sku}</div>
+            {product.name}
+            <div className="@[450px]:hidden text-xs text-muted-foreground">
+              {product.spec && `${product.spec} · `}
+              {formatUom(product.base_uom)}
+            </div>
+          </TableCell>
+          <TableCell className="hidden @[600px]:table-cell">{product.spec || '-'}</TableCell>
+          <TableCell className="hidden @[450px]:table-cell">{formatUom(product.base_uom)}</TableCell>
           <TableCell>
             <Button size="sm" variant="outline">選擇</Button>
           </TableCell>

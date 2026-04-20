@@ -2,7 +2,6 @@
  * 設備閒置申請分頁內容：表格、分頁、核准/駁回操作
  */
 import { useMemo } from 'react'
-import { truncateText } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -76,7 +75,7 @@ export function IdleTabContent({
         </StatusBadge>
       ),
     },
-    { key: 'reason', header: '原因', cell: (r) => <span title={r.reason}>{truncateText(r.reason, 20)}</span> },
+    { key: 'reason', header: '原因', className: 'max-w-[240px] whitespace-normal break-words', cell: (r) => r.reason },
     { key: 'applicant', header: '申請人', cell: (r) => r.applicant_name },
     {
       key: 'appliedAt', header: '申請時間',

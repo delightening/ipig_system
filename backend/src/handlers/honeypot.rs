@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::constants::SEC_EVENT_HONEYPOT_HIT;
 use crate::middleware::real_ip::extract_real_ip_with_trust;
-use crate::services::{AuditService, SecurityNotification, SecurityNotifier};
+use crate::services::{AuditService, IpBlocklistService, SecurityNotification, SecurityNotifier};
 use crate::AppState;
 
 /// Gemini #2: 蜜罐 per-IP 頻率限制（同一 IP 每 5 分鐘只處理一次）
@@ -115,6 +115,17 @@ pub async fn honeypot_handler(
             "user_agent": user_agent,
         }))
         .execute(&db)
+        .await;
+
+        // R24-1: 永久封鎖來源 IP（honeypot 命中 = 明確惡意掃描）
+        IpBlocklistService::auto_block(
+            &db,
+            &ip,
+            "honeypot",
+            Some(alert_id),
+            &format!("蜜罐端點觸發: {path}"),
+            None,
+        )
         .await;
 
         let notification = SecurityNotification {

@@ -58,7 +58,7 @@ export function MyOvertimeTabContent({
         {
             key: 'reason',
             header: '事由',
-            className: 'max-w-[150px] truncate',
+            className: 'max-w-[150px] whitespace-normal break-words',
             cell: (ot) => ot.reason,
         },
         {

@@ -270,6 +270,13 @@ pub struct ResolveAlertRequest {
     pub resolution_notes: Option<String>,
 }
 
+/// 批次解析安全警報的請求
+#[derive(Debug, Deserialize)]
+pub struct BulkResolveAlertsRequest {
+    pub ids: Vec<uuid::Uuid>,
+    pub resolution_notes: Option<String>,
+}
+
 /// 強制登出請求
 #[derive(Debug, Deserialize)]
 pub struct ForceLogoutRequest {

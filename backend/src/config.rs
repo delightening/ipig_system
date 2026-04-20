@@ -137,6 +137,8 @@ pub struct Config {
     pub ai_review_enabled: bool,
     /// R20-5: AI 預審 API 呼叫逾時秒數，預設 30
     pub ai_review_timeout_secs: u64,
+    /// R24-3: Alertmanager webhook 共享 token（未設定 = 不啟用驗證，允許所有）
+    pub alertmanager_webhook_token: Option<String>,
 }
 
 impl Config {
@@ -294,6 +296,7 @@ impl Config {
                 .unwrap_or_else(|_| "30".to_string())
                 .parse()
                 .unwrap_or(30),
+            alertmanager_webhook_token: std::env::var("ALERTMANAGER_WEBHOOK_TOKEN").ok(),
         });
 
         // R16-11: Production 模式下禁止關閉 CSRF
@@ -407,6 +410,7 @@ mod tests {
             ai_review_model: "claude-haiku-4-5".to_string(),
             ai_review_enabled: true,
             ai_review_timeout_secs: 30,
+            alertmanager_webhook_token: None,
         }
     }
 

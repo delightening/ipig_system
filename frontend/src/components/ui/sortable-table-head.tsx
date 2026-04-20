@@ -17,6 +17,10 @@ interface SortableTableHeadProps extends React.ThHTMLAttributes<HTMLTableCellEle
   currentDirection: SortDirection
   /** 切換排序的 callback */
   onSort: (key: string) => void
+  /** 直向標題（中文字正立由上而下），適用窄欄 */
+  vertical?: boolean
+  /** 內容對齊方式（預設 left） */
+  align?: 'left' | 'center'
 }
 
 export function SortableTableHead({
@@ -26,6 +30,8 @@ export function SortableTableHead({
   onSort,
   children,
   className,
+  vertical,
+  align = 'left',
   ...props
 }: SortableTableHeadProps) {
   const isActive = currentSort === sortKey
@@ -40,10 +46,17 @@ export function SortableTableHead({
       onClick={() => onSort(sortKey)}
       {...props}
     >
-      <div className="flex items-center gap-1">
-        <span className="line-clamp-2 break-words leading-tight">{children}</span>
-        <Icon className={cn('h-3 w-3 flex-shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/50')} />
-      </div>
+      {vertical ? (
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="[writing-mode:vertical-rl] [text-orientation:upright] tracking-wider leading-tight">{children}</span>
+          <Icon className={cn('h-3 w-3 flex-shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/50')} />
+        </div>
+      ) : (
+        <div className={cn('flex items-center gap-1', align === 'center' && 'justify-center')}>
+          <span className="line-clamp-2 break-words leading-tight">{children}</span>
+          <Icon className={cn('h-3 w-3 flex-shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/50')} />
+        </div>
+      )}
     </TableHead>
   )
 }

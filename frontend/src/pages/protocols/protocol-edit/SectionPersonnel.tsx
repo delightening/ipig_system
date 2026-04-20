@@ -50,12 +50,12 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                         </div>
                       </td>
                       <td className="border p-2 w-24">
-                        <div className="px-2 py-1 text-center truncate">
+                        <div className="px-2 py-1 text-center break-words">
                           {person.name || '-'}
                         </div>
                       </td>
                       <td className="border p-2 w-24">
-                        <div className="px-2 py-1 truncate">
+                        <div className="px-2 py-1 break-words">
                           {t('aup.personnel.defaults.researcher')}
                         </div>
                       </td>
@@ -72,7 +72,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                             )}
                           </div>
                           {(person.roles || []).includes('i') && person.roles_other_text && (
-                            <div className="text-xs text-muted-foreground mt-1 truncate">
+                            <div className="text-xs text-muted-foreground mt-1 break-words">
                               {t('aup.personnel.roles.otherLabel')}{person.roles_other_text}
                             </div>
                           )}
@@ -98,8 +98,8 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                           {/* Show explanation for F. Other */}
                           {(person.trainings || []).includes('F') && person.trainings_other_text && (
                             <div className="space-y-1 pl-4 border-l-2 border-border">
-                              <div className="text-xs font-semibold truncate">F:</div>
-                              <div className="text-xs text-muted-foreground truncate">
+                              <div className="text-xs font-semibold break-words">F:</div>
+                              <div className="text-xs text-muted-foreground break-words">
                                 {person.trainings_other_text}
                               </div>
                             </div>
@@ -110,9 +110,9 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                             if (certificates.length === 0) return null
                             return (
                               <div key={trainingCode} className="space-y-1 pl-4 border-l-2 border-border">
-                                <div className="text-xs font-semibold whitespace-nowrap truncate">{trainingCode}:</div>
+                                <div className="text-xs font-semibold break-words">{trainingCode}:</div>
                                 {certificates.map((cert: { training_code: string; certificate_no: string }, certIndex: number) => (
-                                  <div key={certIndex} className="text-xs text-muted-foreground whitespace-nowrap truncate">
+                                  <div key={certIndex} className="text-xs text-muted-foreground break-words">
                                     {cert.certificate_no || '-'}
                                   </div>
                                 ))}

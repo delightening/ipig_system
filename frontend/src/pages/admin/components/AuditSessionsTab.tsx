@@ -1,5 +1,6 @@
 import { LogOut, Monitor } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { AxiosResponse } from 'axios'
 
@@ -14,7 +15,7 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
-import { formatDateTime } from '@/lib/utils'
+import { formatDate, formatTime } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
 import type { SessionWithUser } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
@@ -39,7 +40,7 @@ export function AuditSessionsTab({
     const { sortedData, sort, toggleSort } = useTableSort(activeSessions)
 
     return (
-        <Card>
+        <Card className="overflow-hidden">
             <CardHeader>
                 <CardTitle>活躍 Sessions</CardTitle>
                 <CardDescription>目前線上的使用者 Session</CardDescription>
@@ -47,7 +48,7 @@ export function AuditSessionsTab({
             <CardContent>
                 <Table>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <SortableTableHead sortKey="user_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>使用者</SortableTableHead>
                             <SortableTableHead sortKey="started_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>開始時間</SortableTableHead>
                             <SortableTableHead sortKey="last_activity_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>最後活動</SortableTableHead>
@@ -59,9 +60,7 @@ export function AuditSessionsTab({
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8">載入中...</TableCell>
-                            </TableRow>
+                            <TableRow><TableCell colSpan={7} className="p-0"><TableSkeleton rows={8} cols={7} /></TableCell></TableRow>
                         ) : sortedData === undefined || sortedData.length === 0 ? (
                             <TableEmptyRow colSpan={7} icon={Monitor} title="沒有活躍的 Session" />
                         ) : (
@@ -104,8 +103,14 @@ function SessionRow({ session, onForceLogout, isPending }: SessionRowProps) {
                     <div className="text-sm text-muted-foreground">{session.user_email}</div>
                 </div>
             </TableCell>
-            <TableCell className="whitespace-nowrap">{formatDateTime(session.started_at)}</TableCell>
-            <TableCell className="whitespace-nowrap">{formatDateTime(session.last_activity_at)}</TableCell>
+            <TableCell className="whitespace-nowrap">
+                <div>{formatDate(session.started_at)}</div>
+                <div className="text-muted-foreground text-sm">{formatTime(session.started_at)}</div>
+            </TableCell>
+            <TableCell className="whitespace-nowrap">
+                <div>{formatDate(session.last_activity_at)}</div>
+                <div className="text-muted-foreground text-sm">{formatTime(session.last_activity_at)}</div>
+            </TableCell>
             <TableCell className="text-muted-foreground text-sm">{session.ip_address || '-'}</TableCell>
             <TableCell>{session.page_view_count}</TableCell>
             <TableCell>{session.action_count}</TableCell>

@@ -19,7 +19,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Plus, AlertTriangle } from 'lucide-react'
+import { Plus, AlertTriangle, ShieldAlert } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 
@@ -130,7 +132,7 @@ export function RiskRegisterPage() {
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead>風險編號</TableHead>
                 <TableHead>標題</TableHead>
                 <TableHead>類別</TableHead>
@@ -143,9 +145,9 @@ export function RiskRegisterPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8">載入中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} /></TableCell></TableRow>
               ) : risks.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">尚無風險紀錄</TableCell></TableRow>
+                <TableEmptyRow colSpan={8} icon={ShieldAlert} title="尚無風險紀錄" />
               ) : (
                 risks.map((r) => {
                   const score = r.risk_score ?? r.severity * r.likelihood

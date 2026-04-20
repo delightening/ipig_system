@@ -12,8 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Card, CardContent } from '@/components/ui/card'
-import { Eye, Edit2, AlertCircle, ArrowUpDown } from 'lucide-react'
+import { Edit2, AlertCircle, ArrowUpDown } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { statusColors, getPenLocationDisplay } from '../constants'
@@ -96,21 +95,20 @@ export function AnimalListTable({
   )
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        {isLoading ? (
-          <TableSkeleton rows={10} cols={8} />
-        ) : animals.length === 0 ? (
-          <EmptyState
-            icon={AlertCircle}
-            title={t('animals.noAnimalsFound')}
-            description={t('animals.noAnimalsFoundDescription', '嘗試調整篩選條件，或新增第一筆動物紀錄')}
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
+    <div className="rounded-lg border bg-card overflow-hidden">
+      {isLoading ? (
+        <TableSkeleton rows={10} cols={8} />
+      ) : animals.length === 0 ? (
+        <EmptyState
+          icon={AlertCircle}
+          title={t('animals.noAnimalsFound')}
+          description={t('animals.noAnimalsFoundDescription', '嘗試調整篩選條件，或新增第一筆動物紀錄')}
+        />
+      ) : (
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead className="w-12">
                     <input
                       type="checkbox"
@@ -191,19 +189,7 @@ export function AnimalListTable({
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span>{new Date(animal.entry_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => onQuickEdit(animal.id)}
-                          title="快速編輯"
-                          aria-label="快速編輯"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      {new Date(animal.entry_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {animal.latest_weight ? (
@@ -219,10 +205,14 @@ export function AnimalListTable({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" asChild title={t('common.view')} aria-label={t('common.view')}>
-                          <Link to={`/animals/${animal.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onQuickEdit(animal.id)}
+                          title="快速編輯"
+                          aria-label="快速編輯"
+                        >
+                          <Edit2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -230,12 +220,12 @@ export function AnimalListTable({
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </>
         )}
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between pt-4">
+          <div className="flex items-center justify-between border-t px-4 py-3">
             <p className="text-sm text-muted-foreground">
               {t('common.showingOf', '顯示第 {{from}}–{{to}} 筆，共 {{total}} 筆', {
                 from: (page - 1) * perPage + 1,
@@ -286,7 +276,6 @@ export function AnimalListTable({
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
   )
 }

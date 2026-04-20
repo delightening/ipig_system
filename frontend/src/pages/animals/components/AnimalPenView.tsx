@@ -110,7 +110,7 @@ export function AnimalPenView({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="bg-background rounded-lg shadow-sm overflow-hidden">
+          <div className="@container bg-background rounded-lg shadow-sm overflow-hidden">
             <div className="grid grid-cols-2 gap-0 border-b">
               <PenGridHeader colors={colors} />
               <PenGridHeader colors={colors} borderLeft />
@@ -194,7 +194,7 @@ export function AnimalPenView({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="bg-background rounded-lg shadow-sm overflow-hidden">
+          <div className="@container bg-background rounded-lg shadow-sm overflow-hidden">
             <div className="grid grid-cols-2 gap-0 border-b">
               <PenGridHeader colors={leftColors} />
               <PenGridHeader colors={leftColors} borderLeft style={rightHeaderStyle} />
