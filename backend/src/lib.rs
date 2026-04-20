@@ -16,7 +16,7 @@ pub use error::{AppError, Result};
 
 pub use middleware::JwtBlacklist;
 pub use services::GeoIpService;
-pub use services::{GotenbergClient, ImageProcessorClient, TemplateService};
+pub use services::{GotenbergClient, ImageProcessorClient, PdfServiceClient, TemplateService};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -27,6 +27,7 @@ pub struct AppState {
     pub metrics_handle: Option<metrics_exporter_prometheus::PrometheusHandle>,
     pub gotenberg: GotenbergClient,
     pub image_processor: ImageProcessorClient,
+    pub pdf_service: PdfServiceClient,
     pub templates: TemplateService,
     /// CRIT-03: 使用者權限快取，減少每次 API 請求對 DB 的 4-table JOIN。
     /// Key: user_id, Value: (permission_codes, cached_at)

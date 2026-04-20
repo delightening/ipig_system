@@ -339,6 +339,10 @@ pub fn routes() -> Router<AppState> {
             "/animals/export-pen-report",
             get(handlers::export_pen_report),
         )
+        .route(
+            "/animals/:id/export-blood-test-pdf",
+            get(handlers::export_blood_test_pdf),
+        )
         // Import Batches
         .route(
             "/animals/import/batches",

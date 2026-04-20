@@ -125,6 +125,10 @@ services:
       # Image Processor 微服務（方案 D）
       IMAGE_PROCESSOR_URL: ${IMAGE_PROCESSOR_URL:-http://image-processor:3100}
       IMAGE_PROCESSOR_TOKEN: ${IMAGE_PROCESSOR_TOKEN}
+
+      # PDF Service 微服務（Phase 1：血液檢查 PDF）
+      PDF_SERVICE_URL: ${PDF_SERVICE_URL:-http://pdf-service:3200}
+      PDF_SERVICE_TOKEN: ${PDF_SERVICE_TOKEN}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     volumes:
@@ -265,6 +269,35 @@ services:
     networks:
       - backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  # =========================
+  # PDF Service (FastAPI PDF 渲染微服務)
+  # =========================
+  pdf-service:
+    build:
+      context: ./pdf-service
+      dockerfile: Dockerfile
+    container_name: ipig-pdf-service
+    environment:
+      PORT: "3200"
+      PDF_SERVICE_TOKEN: ${PDF_SERVICE_TOKEN}
+      GOTENBERG_URL: http://gotenberg:3000
+    networks:
+      - backend
+    depends_on:
+      - gotenberg
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:3200/health').status==200 else 1)\" || exit 1" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:

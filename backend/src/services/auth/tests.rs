@@ -172,6 +172,8 @@ fn test_config() -> crate::config::Config {
         is_ci: false,
         gotenberg_url: "http://localhost:3000".to_string(),
         image_processor_url: "http://localhost:3100".to_string(),
+        pdf_service_url: "http://localhost:3200".to_string(),
+        pdf_service_token: "test-token".to_string(),
         metrics_token: None,
         alertmanager_webhook_token: None,
         anthropic_api_key: None,

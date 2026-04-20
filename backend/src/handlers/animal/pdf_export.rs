@@ -15,7 +15,7 @@ use crate::{
     middleware::CurrentUser,
     models::ExportRequest,
     require_permission,
-    services::{access, AnimalMedicalService, AnimalService, AuditService},
+    services::{access, AnimalBloodTestService, AnimalMedicalService, AnimalService, AuditService},
     AppError, AppState, Result,
 };
 
@@ -313,6 +313,69 @@ pub async fn export_vet_patrol_report_pdf(
         "試驗豬場巡場報告_{}.pdf",
         report.patrol_date.format("%Y%m%d")
     );
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/pdf")
+        .header(
+            header::CONTENT_DISPOSITION,
+            crate::utils::http::content_disposition_header(&filename),
+        )
+        .body(Body::from(pdf_bytes))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
+}
+
+/// 匯出單隻動物血液檢查紀錄 PDF（透過 FastAPI pdf-service）
+///
+/// 流程：Rust → pdf-service (Jinja2 render) → Gotenberg → PDF bytes
+pub async fn export_blood_test_pdf(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(animal_id): Path<Uuid>,
+) -> Result<Response> {
+    require_permission!(current_user, "animal.export.medical");
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
+
+    let animal = AnimalService::get_by_id(&state.db, animal_id).await?;
+    let tests = AnimalBloodTestService::list_blood_tests(&state.db, animal_id, None).await?;
+
+    let today = crate::time::now_taiwan().format("%Y-%m-%d").to_string();
+    let payload = serde_json::json!({
+        "animal_ear_tag": animal.ear_tag,
+        "animal_iacuc_no": animal.iacuc_no,
+        "export_date": today,
+        "tests": tests.iter().map(|t| serde_json::json!({
+            "test_date": t.test_date.to_string(),
+            "lab_name": t.lab_name,
+            "item_count": t.item_count,
+            "abnormal_count": t.abnormal_count,
+            "status": t.status,
+            "created_by_name": t.created_by_name,
+        })).collect::<Vec<_>>(),
+    });
+
+    let pdf_bytes = state.pdf_service.render("blood_test", &payload).await?;
+
+    let iacuc = animal.iacuc_no.as_deref().unwrap_or("unassigned");
+    let export_display = format!("[{}] {}", iacuc, animal.ear_tag);
+    if let Err(e) = AuditService::log_activity(
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "EXPORT_BLOOD_TEST",
+        Some("animal"),
+        Some(animal_id),
+        Some(&export_display),
+        None,
+        Some(serde_json::json!({ "engine": "pdf-service", "doc_type": "blood_test" })),
+        None,
+        None,
+    )
+    .await
+    {
+        tracing::error!("寫入 user_activity_logs 失敗 (EXPORT_BLOOD_TEST): {}", e);
+    }
+
+    let filename = format!("blood_test_{}_{}.pdf", iacuc, animal.ear_tag);
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/pdf")

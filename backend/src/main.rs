@@ -3,7 +3,7 @@ use std::sync::Arc;
 use erp_backend::config;
 use erp_backend::middleware::JwtBlacklist;
 use erp_backend::services::scheduler::SchedulerService;
-use erp_backend::services::{AuditService, FileService, GeoIpService, GotenbergClient, ImageProcessorClient, TemplateService};
+use erp_backend::services::{AuditService, FileService, GeoIpService, GotenbergClient, ImageProcessorClient, PdfServiceClient, TemplateService};
 use erp_backend::startup::{
     create_database_pool_with_retry, ensure_admin_user, ensure_all_role_permissions,
     ensure_required_permissions, ensure_schema, init_tracing, log_startup_config_check,
@@ -143,6 +143,9 @@ async fn main() -> anyhow::Result<()> {
     // 初始化 Image Processor 微服務（方案 D）
     let image_processor = ImageProcessorClient::new(&config.image_processor_url);
 
+    // 初始化 PDF Service 微服務（FastAPI + Jinja2 + Gotenberg）
+    let pdf_service = PdfServiceClient::new(&config.pdf_service_url, &config.pdf_service_token);
+
     let state = AppState {
         db: pool,
         config: config.clone(),
@@ -151,6 +154,7 @@ async fn main() -> anyhow::Result<()> {
         metrics_handle,
         gotenberg,
         image_processor,
+        pdf_service,
         templates,
         permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
     };
