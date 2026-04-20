@@ -403,7 +403,8 @@ services:
       ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
       ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-}
       ALERT_SMTP_USER: ${ALERT_SMTP_USER:-}
-      ALERT_SMTP_PASSWORD: ${ALERT_SMTP_PASSWORD:-}
+      # Plan B: ALERT_SMTP_PASSWORD 從 /run/secrets/alert_smtp_password 讀取（見 docker-entrypoint.sh）
+      # 不透過 env 傳遞，避免 `docker inspect` 外洩密碼
     volumes:
       - ./monitoring/alertmanager:/etc/alertmanager:ro
       # Plan B: 服務獨立 app password（file-based secret）
