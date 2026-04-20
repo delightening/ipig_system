@@ -140,7 +140,7 @@
 | **deploy/** | 部署與儀表板 | [deploy/README.md](deploy/README.md) Grafana、Prometheus、cloudflared、WAF 排除規則 |
 | **.github/** | CI/CD | GitHub Actions 工作流程 |
 
-**依角色閱讀**：開發者 → docs/README.md → development/、QUICK_START；維運 → operations/OPERATIONS.md、DEPLOYMENT、runbooks/；測試 → tests/README、docs/e2e/。
+**依角色閱讀**：開發者 → docs/README.md → docs/dev/、docs/user/QUICK_START；維運 → docs/ops/OPERATIONS.md、docs/deploy/DEPLOYMENT、docs/runbooks/；測試 → tests/README、docs/dev/e2e/。
 
 ---
 
@@ -149,24 +149,24 @@
 | 文件 | 說明 |
 |------|------|
 | [文件索引 (docs/)](docs/README.md) | 依主題分類之完整文件目錄 |
-| [QUICK_START.md](docs/QUICK_START.md) | 快速啟動（Docker / 本地開發 / E2E 測試） |
-| [OPERATIONS.md](docs/operations/OPERATIONS.md) | 維運手冊（服務擁有者、on-call、故障排除） |
-| [COMPOSE.md](docs/operations/COMPOSE.md) | Docker Compose 總覽（各 compose 檔用途、情境指令、依賴關係） |
-| [USER_GUIDE.md](docs/USER_GUIDE.md) | 使用者操作手冊（9 章節完整指南） |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署與維運手冊（系統需求、備份、監控、故障排除） |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架構文件（部署圖、資料流、模組、認證流程） |
-| [security.md](docs/security-compliance/security.md) | 安全性紀錄（CVE 評估與處置） |
-| [Profiling_Spec/](docs/Profiling_Spec/) | 技術規格（架構、API、權限、資料庫） |
+| [QUICK_START.md](docs/user/QUICK_START.md) | 快速啟動（Docker / 本地開發 / E2E 測試） |
+| [OPERATIONS.md](docs/ops/OPERATIONS.md) | 維運手冊（服務擁有者、on-call、故障排除） |
+| [COMPOSE.md](docs/ops/COMPOSE.md) | Docker Compose 總覽（各 compose 檔用途、情境指令、依賴關係） |
+| [USER_GUIDE.md](docs/user/USER_GUIDE.md) | 使用者操作手冊（9 章節完整指南） |
+| [DEPLOYMENT.md](docs/deploy/DEPLOYMENT.md) | 部署與維運手冊（系統需求、備份、監控、故障排除） |
+| [ARCHITECTURE.md](docs/spec/architecture/ARCHITECTURE.md) | 架構文件（部署圖、資料流、模組、認證流程） |
+| [security.md](docs/security/security.md) | 安全性紀錄（CVE 評估與處置） |
+| [spec/](docs/spec/) | 技術規格（架構、API、權限、資料庫） |
 
 ---
 
 ## 快速開始
 
-本地或測試環境可依 [QUICK_START.md](docs/QUICK_START.md) 操作；**正式環境或伺服器首次部署**請依 [DEPLOYMENT.md](docs/DEPLOYMENT.md) 進行。
+本地或測試環境可依 [QUICK_START.md](docs/user/QUICK_START.md) 操作；**正式環境或伺服器首次部署**請依 [DEPLOYMENT.md](docs/deploy/DEPLOYMENT.md) 進行。
 
 ### 使用 Docker Compose（推薦）
 
-各 compose 檔用途與生產／WAF／CI 組合指令詳見 [COMPOSE.md](docs/operations/COMPOSE.md)。
+各 compose 檔用途與生產／WAF／CI 組合指令詳見 [COMPOSE.md](docs/ops/COMPOSE.md)。
 
 ```bash
 # 1. 設定環境變數（專案根目錄）
@@ -187,7 +187,7 @@ docker compose logs -f
 後端：`cd backend` → `cp env.sample .env` → `sqlx database create` → `sqlx migrate run` → `cargo run`  
 前端：`cd frontend` → `npm install` → `npm run dev`
 
-詳見 [QUICK_START.md](docs/QUICK_START.md)。
+詳見 [QUICK_START.md](docs/user/QUICK_START.md)。
 
 ---
 

@@ -1,6 +1,6 @@
 # 快速啟動指南
 
-> 本指南適用於**本地或測試環境**。正式環境、備份還原、監控與維運請見 [DEPLOYMENT.md](DEPLOYMENT.md)。專案總覽與架構見 [README.md](../README.md)。  
+> 本指南適用於**本地或測試環境**。正式環境、備份還原、監控與維運請見 [../deploy/DEPLOYMENT.md](../deploy/DEPLOYMENT.md)。專案總覽與架構見 [README.md](../../README.md)。  
 > **JWT 預設過期**：6 小時（360 分鐘），可於 .env 設定 `JWT_EXPIRATION_MINUTES`。
 
 ## 方式 1: Docker Compose（推薦）
@@ -64,7 +64,7 @@ cargo run
 cd backend
 cargo run
 ```
-或使用 `.\scripts\build-backend.ps1` 一鍵編譯。詳見 [WINDOWS_BUILD.md](operations/WINDOWS_BUILD.md)。
+或使用 `.\scripts\build-backend.ps1` 一鍵編譯。詳見 [WINDOWS_BUILD.md](../ops/WINDOWS_BUILD.md)。
 
 後端預設：http://localhost:3000（或依 .env 的 PORT）
 
@@ -99,7 +99,7 @@ npm run dev
 | `JWT_EXPIRATION_MINUTES` | JWT 過期時間（分鐘）| `360` |
 | `SESSION_TIMEOUT_MINUTES` | Session 逾時（分鐘）| DB 設定優先 |
 
-完整列表請參考 `.env.example` 及 [ENV_AND_DB.md](operations/ENV_AND_DB.md)。
+完整列表請參考 `.env.example` 及 [ENV_AND_DB.md](../ops/ENV_AND_DB.md)。
 
 生成 JWT_SECRET（PowerShell）：
 ```powershell
@@ -115,13 +115,13 @@ Write-Output $jwt
 |------|------|
 | admin@ipig.local | admin123 |
 
-（正式環境請於 .env 設定 `ADMIN_INITIAL_PASSWORD` 並關閉 `SEED_DEV_USERS`，見 [DEPLOYMENT.md](DEPLOYMENT.md)。）
+（正式環境請於 .env 設定 `ADMIN_INITIAL_PASSWORD` 並關閉 `SEED_DEV_USERS`，見 [../deploy/DEPLOYMENT.md](../deploy/DEPLOYMENT.md)。）
 
 ---
 
 ## 本機跑 Playwright E2E
 
-> **流程參照**：詳見 [docs/e2e/FLOW.md](e2e/FLOW.md)（CI 與本機流程）、[docs/e2e/README.md](e2e/README.md)（完整指南）。  
+> **流程參照**：詳見 [dev/e2e/FLOW.md](../dev/e2e/FLOW.md)（CI 與本機流程）、[dev/e2e/README.md](../dev/e2e/README.md)（完整指南）。  
 > 本機 admin 首次登入會強制變更密碼，auth setup 會自動完成此流程（變更為 `E2eTest123!`）。
 
 ### 前置條件
@@ -146,7 +146,7 @@ npx tsx e2e/scripts/verify-config.ts
 ✅ 配置驗證完全通過
 ```
 
-如有 ❌ 或 ⚠️，請參考 [docs/e2e/README.md](e2e/README.md) 修正。
+如有 ❌ 或 ⚠️，請參考 [dev/e2e/README.md](../dev/e2e/README.md) 修正。
 
 ### 執行測試
 
@@ -206,4 +206,4 @@ npx playwright test --project=chromium-login
 ## 下一步
 
 - **使用系統**：請參考 [USER_GUIDE.md](USER_GUIDE.md)（登入、AUP、動物管理、ERP）。
-- **正式部署與維運**：請參考 [DEPLOYMENT.md](DEPLOYMENT.md)（系統需求、備份、監控、故障排除、容器自動更新）。
+- **正式部署與維運**：請參考 [../deploy/DEPLOYMENT.md](../deploy/DEPLOYMENT.md)（系統需求、備份、監控、故障排除、容器自動更新）。
