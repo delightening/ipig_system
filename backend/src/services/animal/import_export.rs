@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use super::{utils::AnimalUtils, AnimalMedicalService, AnimalService, AnimalWeightService};
 use crate::{
+    middleware::ActorContext,
     models::{
         AnimalBreed, AnimalGender, AnimalImportRow, AnimalSource, CreateAnimalRequest,
         CreateWeightRequest, ImportErrorDetail, ImportResult, ImportType, UpdateAnimalRequest,
@@ -505,7 +506,13 @@ async fn process_weight_row(
         weight: validated.weight,
     };
 
-    AnimalWeightService::create(pool, animal_id, &create_req, created_by)
+    // 批次匯入視為系統自動執行：audit actor = System + reason 標記，真正
+    // 觸發的使用者（created_by）記錄於 changed/created_by 欄位（由 INSERT 語句處理）。
+    let _ = created_by; // 本 PR 暫不把 actor 串到 import 全鏈路；歸 PR #4d 批次處理
+    let actor = ActorContext::System {
+        reason: "weight_batch_import",
+    };
+    AnimalWeightService::create(pool, &actor, animal_id, &create_req)
         .await
         .map_err(|e| {
             import_err(row_number, Some(original_ear_tag.to_string()), format!("建立失敗: {}", e))

@@ -61,13 +61,17 @@ impl AnimalWeightService {
     }
 
     /// 新增體重紀錄（Service-driven audit）
+    ///
+    /// 接受 User / System actor：
+    /// - User：handler 直接呼叫
+    /// - System：動物建立時自動寫入初始體重（見 core/write.rs）、批次匯入
     pub async fn create(
         pool: &PgPool,
         actor: &ActorContext,
         animal_id: Uuid,
         req: &CreateWeightRequest,
     ) -> Result<AnimalWeight> {
-        let user = actor.require_user()?;
+        let created_by = actor.actor_user_id().unwrap_or(crate::middleware::SYSTEM_USER_ID);
         let mut tx = pool.begin().await?;
 
         let weight = sqlx::query_as::<_, AnimalWeight>(
@@ -80,7 +84,7 @@ impl AnimalWeightService {
         .bind(animal_id)
         .bind(req.measure_date)
         .bind(req.weight)
-        .bind(user.id)
+        .bind(created_by)
         .fetch_one(&mut *tx)
         .await?;
 

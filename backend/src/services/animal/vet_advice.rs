@@ -7,7 +7,15 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use crate::Result;
+use crate::{
+    middleware::ActorContext,
+    models::audit_diff::DataDiff,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
+    AppError, Result,
+};
 
 /// 獸醫師建議（DB 結構）
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -45,32 +53,93 @@ impl AnimalVetAdviceService {
         Ok(advice)
     }
 
-    /// 新增或更新獸醫師建議（upsert）
-    pub async fn upsert(
+    /// 新增或更新獸醫師建議（create_or_update — 取代原 upsert 以獲完整 audit trail）
+    ///
+    /// 原 `upsert` 用 `INSERT ... ON CONFLICT DO UPDATE` 無法取得 before state。
+    /// 此版先 SELECT 判斷存在與否：
+    /// - 不存在 → INSERT → log_activity_tx::create
+    /// - 存在   → UPDATE → log_activity_tx::update（完整 before/after diff）
+    pub async fn create_or_update(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
         req: &UpsertVetAdviceRequest,
-        user_id: Uuid,
     ) -> Result<AnimalVetAdvice> {
-        let advice = sqlx::query_as::<_, AnimalVetAdvice>(
-            r#"
-            INSERT INTO animal_vet_advices (animal_id, sections, created_by, updated_by)
-            VALUES ($1, $2, $3, $3)
-            ON CONFLICT (animal_id)
-            DO UPDATE SET
-                sections = $2,
-                updated_by = $3,
-                updated_at = NOW()
-            RETURNING *
-            "#,
+        let user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let existing = sqlx::query_as::<_, AnimalVetAdvice>(
+            "SELECT * FROM animal_vet_advices WHERE animal_id = $1 FOR UPDATE",
         )
         .bind(animal_id)
-        .bind(&req.sections)
-        .bind(user_id)
-        .fetch_one(pool)
+        .fetch_optional(&mut *tx)
         .await?;
 
-        Ok(advice)
+        match existing {
+            Some(before) => {
+                let after = sqlx::query_as::<_, AnimalVetAdvice>(
+                    r#"
+                    UPDATE animal_vet_advices SET
+                        sections = $2,
+                        updated_by = $3,
+                        updated_at = NOW()
+                    WHERE animal_id = $1
+                    RETURNING *
+                    "#,
+                )
+                .bind(animal_id)
+                .bind(&req.sections)
+                .bind(user.id)
+                .fetch_one(&mut *tx)
+                .await?;
+
+                let display = format!("獸醫建議 (animal: {})", animal_id);
+                AuditService::log_activity_tx(
+                    &mut tx,
+                    actor,
+                    ActivityLogEntry::update(
+                        "ANIMAL",
+                        "VET_ADVICE_UPDATE",
+                        AuditEntity::new("animal_vet_advice", after.id, &display),
+                        DataDiff::compute(Some(&before), Some(&after)),
+                    ),
+                )
+                .await?;
+
+                tx.commit().await?;
+                Ok(after)
+            }
+            None => {
+                let created = sqlx::query_as::<_, AnimalVetAdvice>(
+                    r#"
+                    INSERT INTO animal_vet_advices (animal_id, sections, created_by, updated_by)
+                    VALUES ($1, $2, $3, $3)
+                    RETURNING *
+                    "#,
+                )
+                .bind(animal_id)
+                .bind(&req.sections)
+                .bind(user.id)
+                .fetch_one(&mut *tx)
+                .await?;
+
+                let display = format!("獸醫建議 (animal: {})", animal_id);
+                AuditService::log_activity_tx(
+                    &mut tx,
+                    actor,
+                    ActivityLogEntry::create(
+                        "ANIMAL",
+                        "VET_ADVICE_CREATE",
+                        AuditEntity::new("animal_vet_advice", created.id, &display),
+                        &created,
+                    ),
+                )
+                .await?;
+
+                tx.commit().await?;
+                Ok(created)
+            }
+        }
     }
 }
 
@@ -125,10 +194,13 @@ impl VetAdviceRecordService {
 
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
         req: &CreateVetAdviceRecordRequest,
-        user_id: Uuid,
     ) -> Result<VetAdviceRecord> {
+        let user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
         let record = sqlx::query_as::<_, VetAdviceRecord>(
             r#"INSERT INTO animal_vet_advice_records
                    (animal_id, advice_date, observation, suggested_treatment, created_by, updated_by)
@@ -140,19 +212,49 @@ impl VetAdviceRecordService {
         .bind(req.advice_date)
         .bind(&req.observation)
         .bind(&req.suggested_treatment)
-        .bind(user_id)
-        .fetch_one(pool)
+        .bind(user.id)
+        .fetch_one(&mut *tx)
         .await?;
+
+        let display = format!("獸醫建議紀錄 {}", record.advice_date);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry::create(
+                "ANIMAL",
+                "VET_ADVICE_RECORD_CREATE",
+                AuditEntity::new("vet_advice_record", record.id, &display),
+                &record,
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(record)
     }
 
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateVetAdviceRecordRequest,
-        user_id: Uuid,
     ) -> Result<VetAdviceRecord> {
-        let record = sqlx::query_as::<_, VetAdviceRecord>(
+        let user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, VetAdviceRecord>(
+            r#"SELECT id, animal_id, advice_date, observation, suggested_treatment,
+                      created_by, updated_by, created_at, updated_at
+               FROM animal_vet_advice_records
+               WHERE id = $1 AND deleted_at IS NULL
+               FOR UPDATE"#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Vet advice record not found".to_string()))?;
+
+        let after = sqlx::query_as::<_, VetAdviceRecord>(
             r#"UPDATE animal_vet_advice_records SET
                    advice_date         = COALESCE($2, advice_date),
                    observation         = COALESCE($3, observation),
@@ -167,19 +269,64 @@ impl VetAdviceRecordService {
         .bind(req.advice_date)
         .bind(&req.observation)
         .bind(&req.suggested_treatment)
-        .bind(user_id)
-        .fetch_one(pool)
+        .bind(user.id)
+        .fetch_one(&mut *tx)
         .await?;
-        Ok(record)
+
+        let display = format!("獸醫建議紀錄 {}", after.advice_date);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry::update(
+                "ANIMAL",
+                "VET_ADVICE_RECORD_UPDATE",
+                AuditEntity::new("vet_advice_record", after.id, &display),
+                DataDiff::compute(Some(&before), Some(&after)),
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(after)
     }
 
-    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
+    pub async fn delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, VetAdviceRecord>(
+            r#"SELECT id, animal_id, advice_date, observation, suggested_treatment,
+                      created_by, updated_by, created_at, updated_at
+               FROM animal_vet_advice_records
+               WHERE id = $1 AND deleted_at IS NULL
+               FOR UPDATE"#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Vet advice record not found or already deleted".to_string()))?;
+
         sqlx::query(
             "UPDATE animal_vet_advice_records SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
         .bind(id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
+
+        let display = format!("獸醫建議紀錄 {}", before.advice_date);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry::delete(
+                "ANIMAL",
+                "VET_ADVICE_RECORD_DELETE",
+                AuditEntity::new("vet_advice_record", before.id, &display),
+                &before,
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }

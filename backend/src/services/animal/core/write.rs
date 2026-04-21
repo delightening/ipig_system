@@ -4,6 +4,7 @@ use uuid::Uuid;
 use super::super::utils::AnimalUtils;
 use super::super::AnimalService;
 use crate::{
+    middleware::ActorContext,
     models::{Animal, AnimalStatus, BatchAssignRequest, CreateAnimalRequest, CreateWeightRequest},
     AppError, Result,
 };
@@ -141,12 +142,23 @@ impl AnimalService {
             measure_date: req.entry_date,
             weight: req.entry_weight,
         };
-        if let Err(e) =
-            super::super::weight::AnimalWeightService::create(pool, animal.id, &weight_req, created_by)
-                .await
+        // 動物建立時順帶寫入初始體重：由於此為自動衍生寫入（非直接由使用者觸發
+        // 「新增體重紀錄」動作），audit 以 System actor 記錄（reason 標記來源）；
+        // 真正的使用者仍透過 `AnimalService::create` 外層的 audit row 追蹤。
+        let system_actor = ActorContext::System {
+            reason: "animal_create_initial_weight",
+        };
+        if let Err(e) = super::super::weight::AnimalWeightService::create(
+            pool,
+            &system_actor,
+            animal.id,
+            &weight_req,
+        )
+        .await
         {
             tracing::warn!("建立初始體重紀錄失敗: {e}");
         }
+        let _ = created_by; // 保留參數以配合外層 AnimalService::create 簽章
 
         Ok(animal)
     }

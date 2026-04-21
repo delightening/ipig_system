@@ -9,7 +9,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     require_permission,
     services::{
         access, AnimalVetAdviceService, AnimalVetAdvice, UpsertVetAdviceRequest,
@@ -40,8 +40,9 @@ pub async fn upsert_animal_vet_advice(
     Path(animal_id): Path<Uuid>,
     Json(req): Json<UpsertVetAdviceRequest>,
 ) -> Result<Json<AnimalVetAdvice>> {
+    let actor = ActorContext::User(current_user.clone());
     let advice =
-        AnimalVetAdviceService::upsert(&state.db, animal_id, &req, current_user.id).await?;
+        AnimalVetAdviceService::create_or_update(&state.db, &actor, animal_id, &req).await?;
     Ok(Json(advice))
 }
 
@@ -66,8 +67,8 @@ pub async fn create_vet_advice_record(
     Path(animal_id): Path<Uuid>,
     Json(req): Json<CreateVetAdviceRecordRequest>,
 ) -> Result<Json<VetAdviceRecord>> {
-    let record =
-        VetAdviceRecordService::create(&state.db, animal_id, &req, current_user.id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = VetAdviceRecordService::create(&state.db, &actor, animal_id, &req).await?;
     Ok(Json(record))
 }
 
@@ -78,8 +79,8 @@ pub async fn update_vet_advice_record(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateVetAdviceRecordRequest>,
 ) -> Result<Json<VetAdviceRecord>> {
-    let record =
-        VetAdviceRecordService::update(&state.db, id, &req, current_user.id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = VetAdviceRecordService::update(&state.db, &actor, id, &req).await?;
     Ok(Json(record))
 }
 
@@ -91,6 +92,7 @@ pub async fn delete_vet_advice_record(
 ) -> Result<Json<()>> {
     // SEC-IDOR: v2 CI 掃描發現 — 寫入操作必須驗證權限與動物歸屬
     require_permission!(current_user, "animal.vet.recommend");
-    VetAdviceRecordService::delete(&state.db, id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    VetAdviceRecordService::delete(&state.db, &actor, id).await?;
     Ok(Json(()))
 }
