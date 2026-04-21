@@ -7,6 +7,29 @@
 
 ---
 
+## R26 修復進度（2026-04-21 更新）
+
+本報告在同日啟動 **R26 Service-driven Audit 重構**，透過 3 個 PR 落地於長期整合分支 `integration/r26`（尚未合併回 main）：
+
+| PR | 範圍 | 對應審查項目 | 狀態 |
+|---|---|---|---|
+| [#153](https://github.com/tanntwl/ipig_system/pull/153) | INFRA：`ActorContext` / `DataDiff`+`AuditRedact` / `log_activity_tx` / `CancellationToken` / Argon2 `spawn_blocking` / migrations 033-035 | CRIT-01(基礎) / CRIT-02(基礎) / CRIT-03(基礎) / CRIT-04 / WARN-02(Argon2) / WARN-04 | ✅ Merged |
+| [#154](https://github.com/tanntwl/ipig_system/pull/154) | Review feedback：`HmacInput` struct、migration 036 `changed_fields` UNION 修正、HMAC error tracing、`ci.yml` 加 integration/**、Python shlex hook | 強化 CRIT-02 / CRIT-03 的正確性 | ✅ Merged |
+| [#155](https://github.com/tanntwl/ipig_system/pull/155) | Pattern demo：`ProtocolService::submit` 完整 Service-driven 改寫、`generate_apig_no(&mut tx)` 加鎖 | CRIT-01(APIG) / CRIT-02(submit) / CRIT-03(submit) | 🟡 Open（CI pass 後合併） |
+
+**R26 尚未落地的項目**（詳見 [docs/TODO.md](docs/TODO.md#r26)）：
+- R26-1：長 scheduler job 升級 `tokio::select!` 接 cancellation（對應 WARN-04 延伸）
+- R26-2：HMAC chain 每日驗證 cron（對應 SUGG-03）
+- R26-3：~20 handler 遷移至 `log_activity_tx`（對應 CRIT-02 / WARN-06 收尾）
+- R26-4：舊 `log_activity` 最終移除（Argon2 與 deprecated 下架）
+- R26-6：HMAC 版本化 + 儲存後雜湊（Gemini G2 + CodeRabbit audit.rs:82）
+- R26-7：services/mod.rs 11 處逐項 `#[allow(dead_code)]` cleanup
+- R26-8：`change_status` 完整 Service-driven（submit pattern 複製到 animals/users/document 等）
+
+**未啟動的審查項目**（WARN-01 / WARN-03 / WARN-05 / WARN-07 / WARN-08 / SUGG-01..05）維持在原建議優先級；下節內文於對應項目處加註 ✅ Landed / 🟡 Partial / ⏳ Pending 標記。
+
+---
+
 ## 1. 架構總覽
 
 ### Workspace 結構
@@ -51,7 +74,9 @@ Handler 規範良好（抽查 `handlers/animal/animal_core.rs`）：純解析 / 
 
 ## 2. 🔴 Critical Issues
 
-### CRIT-01｜IACUC 編號產生存在 race condition
+### CRIT-01｜IACUC 編號產生存在 race condition ✅ Partially Landed
+
+> **PR #153 + PR #155**：已改為 advisory lock + tx 版本。`generate_apig_no(&mut tx)` 落地於 PR #155（key `protocol_iacuc_number_gen`）、`generate_iacuc_no` 與 `generate_apig_nos_batch` 已有對應 pool/tx 雙層 API。**剩餘**：現仍殘留的 `generate_iacuc_no_pool` 呼叫端遷移至 tx 版本歸 R26-8（`change_status` Service-driven）追蹤。
 
 **位置**：[backend/src/services/protocol/numbering.rs:142-180](backend/src/services/protocol/numbering.rs:142)（`generate_iacuc_no`），相同模式亦見於 [numbering.rs:30](backend/src/services/protocol/numbering.rs:30)（`generate_apig_no`）與 [numbering.rs:91](backend/src/services/protocol/numbering.rs:91)（`generate_apig_nos_batch`）。
 
@@ -89,7 +114,9 @@ pub(super) async fn generate_iacuc_no(tx: &mut Transaction<'_, Postgres>) -> Res
 
 ---
 
-### CRIT-02｜多表變更未包 transaction，GLP 合規風險
+### CRIT-02｜多表變更未包 transaction，GLP 合規風險 🟡 Pattern Landed
+
+> **PR #153 + PR #155**：`AuditService::log_activity_tx(tx, actor, entry)` 已提供 tx 版本（4 參數），內含 `pg_advisory_xact_lock('audit_log_chain')` 確保 HMAC chain 串行化。**Pattern demo**：`ProtocolService::submit` 已完整改寫為 Service-driven（`begin() → SELECT FOR UPDATE → INSERT/UPDATE → log_activity_tx → commit`）於 PR #155。**剩餘**：~20 個 handler 仍用舊 `log_activity`（已標記 `#[deprecated]`），遷移追蹤於 R26-3；`change_status` 完整改寫歸 R26-8。
 
 **位置**：
 - [backend/src/services/protocol/status.rs:104-176](backend/src/services/protocol/status.rs:104)（`submit`：INSERT protocol_versions → UPDATE protocols → record_status_change → log_activity）
@@ -129,7 +156,9 @@ pub async fn submit(pool: &PgPool, id: Uuid, submitted_by: Uuid) -> Result<Proto
 
 ---
 
-### CRIT-03｜UPDATE 類稽核日誌無 before/after snapshot
+### CRIT-03｜UPDATE 類稽核日誌無 before/after snapshot 🟡 Infrastructure Landed
+
+> **PR #153 + PR #154**：`DataDiff` struct + `AuditRedact` trait 已落地（`backend/src/models/audit_diff.rs`），支援 length-prefix canonical encoding、JSON Pointer redact（如 `/password_hash`、`/sessions/0/token`）、自動計算 `changed_fields`。migration 035/036 擴充 `log_activity` stored proc 為 12 參數（`impersonated_by` + `changed_fields`）。**Pattern demo**：`ProtocolService::submit` 已示範 `DataDiff::compute(Some(&before), Some(&after))` 寫入前後快照於 PR #155。**剩餘**：`animals` / `users` / `document` 等核心 mutation 改用 `DataDiff` 歸 R26-3（隨 handler 遷移一併完成）。
 
 **位置**：[backend/src/handlers/animal/animal_core.rs:278-294](backend/src/handlers/animal/animal_core.rs:278)（`update_animal` 的一般更新）以及 [animal_core.rs:195-215](backend/src/handlers/animal/animal_core.rs:195)（`create_animal` 的 before 為 None，after 僅部分欄位）。
 
@@ -161,7 +190,9 @@ if let Err(e) = AuditService::log_activity(
 
 ---
 
-### CRIT-04｜services/mod.rs 違反 CLAUDE.md 規則
+### CRIT-04｜services/mod.rs 違反 CLAUDE.md 規則 🟡 Crate-wide Landed
+
+> **PR #153**：crate-wide `#![allow(dead_code)]` 已移除。為避免一次性破壞太多模組，暫保留 11 處 per-item `#[allow(dead_code)]` 並加註釋指向 R26-7。**剩餘**：11 處逐一 review 真偽、刪除或改 `pub use` 歸 R26-7。
 
 **位置**：[backend/src/services/mod.rs:1](backend/src/services/mod.rs:1)
 
@@ -203,7 +234,9 @@ if let Err(e) = AuditService::log_activity(
 
 ---
 
-### WARN-02｜CPU 密集/同步 I/O 未包 spawn_blocking，阻塞 tokio worker
+### WARN-02｜CPU 密集/同步 I/O 未包 spawn_blocking，阻塞 tokio worker 🟡 Partial (Argon2)
+
+> **PR #153**：Argon2 hash/verify 已改用 `tokio::task::spawn_blocking`（`services/auth/password.rs` + `auth/login.rs` + `auth/two_factor.rs`）。**剩餘**：calamine / rust_xlsxwriter / google_calendar credential 檔讀取，待匯入匯出或月報表出現阻塞實測後分批處理（維持 P1-3 優先級）。
 
 **位置與類型**：
 
@@ -256,7 +289,9 @@ cognitive-complexity-threshold = 30     # CLAUDE.md 規定 圈複雜度 ≤10
 
 ---
 
-### WARN-04｜背景任務缺少 graceful shutdown 協調
+### WARN-04｜背景任務缺少 graceful shutdown 協調 🟡 Partial
+
+> **PR #153**：`AppState` 加入 `shutdown_token: CancellationToken`，`main.rs` 關機流程改為 `cancel → join(jwt_cleanup, timeout=10s) → axum graceful shutdown`；`SchedulerService` 14 jobs 全面插入 `is_cancelled()` 檢查。**剩餘**：長跑 scheduler job 升級至 `tokio::select!` 精準中斷歸 R26-1；fire-and-forget `tokio::spawn(audit)` 的全量修正歸 R26-3（見 WARN-06）。
 
 **位置**：
 - [backend/src/main.rs:93](backend/src/main.rs:93)（`let _scheduler = ...`，無 shutdown 信號路徑）
@@ -303,7 +338,9 @@ async fn load() -> Vec<_> {
 
 ---
 
-### WARN-06｜audit 使用 `tokio::spawn` fire-and-forget，可能遺失日誌
+### WARN-06｜audit 使用 `tokio::spawn` fire-and-forget，可能遺失日誌 🟡 Pattern Available
+
+> **PR #153 + PR #155**：`log_activity_tx` 提供「同 tx 內同步寫入 audit」的正確模式，Protocol submit 已採用。**剩餘**：~20 個 handler 的 `tokio::spawn(async { log_activity })` 改為同步 `log_activity_tx` 歸 R26-3（隨 mutation Service-driven 遷移）。
 
 **位置**：散見於 handlers，例如：
 - [backend/src/handlers/auth/login.rs:58](backend/src/handlers/auth/login.rs:58)、[:114](backend/src/handlers/auth/login.rs:114)
@@ -456,35 +493,36 @@ sqlx::query("SET statement_timeout = $1::int").bind(statement_timeout_ms as i64)
 
 ## 6. 優先修復順序
 
-### P0（本月內）
+### P0（本月內）— 狀態更新於 2026-04-21
 
-| # | 項目 | 對照 | 工時估計 |
-|---|---|---|---|
-| P0-1 | IACUC / APIG 編號產生加鎖 + transaction | CRIT-01 | 0.5 day |
-| P0-2 | 移除 `services/mod.rs:1` 的 `#![allow(dead_code)]` 並清乾淨 | CRIT-04 | 0.5 day |
-| P0-3 | Protocol submit / change_status 包 transaction（含 audit） | CRIT-02 | 1 day |
-| P0-4 | Argon2 hash/verify 包 spawn_blocking | WARN-02 局部 | 0.5 day |
+| # | 項目 | 對照 | 工時估計 | 狀態 |
+|---|---|---|---|---|
+| P0-1 | IACUC / APIG 編號產生加鎖 + transaction | CRIT-01 | 0.5 day | ✅ PR #153/155（剩 change_status 呼叫端 → R26-8） |
+| P0-2 | 移除 `services/mod.rs:1` 的 `#![allow(dead_code)]` 並清乾淨 | CRIT-04 | 0.5 day | 🟡 crate 指令已移除（PR #153），剩 11 處 per-item → R26-7 |
+| P0-3 | Protocol submit / change_status 包 transaction（含 audit） | CRIT-02 | 1 day | 🟡 submit 完成（PR #155）；change_status → R26-8 |
+| P0-4 | Argon2 hash/verify 包 spawn_blocking | WARN-02 局部 | 0.5 day | ✅ PR #153 |
 
-### P1（本季內）
+### P1（本季內）— 狀態更新於 2026-04-21
 
-| # | 項目 | 對照 | 工時估計 |
-|---|---|---|---|
-| P1-1 | UPDATE 類操作補 before/after snapshot（從 animal + protocol 先開始） | CRIT-03 | 2-3 days |
-| P1-2 | 背景任務接 CancellationToken，保證 shutdown 不遺失 audit | WARN-04 + WARN-06 | 1-2 days |
-| P1-3 | Excel / calamine / PDF 同步呼叫包 spawn_blocking | WARN-02 | 1-2 days |
-| P1-4 | 動物 / 計畫等核心 mutation 類 API 全面檢視 transaction 邊界 | CRIT-02 延伸 | 3-5 days |
-| P1-5 | clippy.toml 閾值對齊 CLAUDE.md，補 allow 標註個案 | WARN-03 | 1-2 days |
+| # | 項目 | 對照 | 工時估計 | 狀態 |
+|---|---|---|---|---|
+| P1-1 | UPDATE 類操作補 before/after snapshot（從 animal + protocol 先開始） | CRIT-03 | 2-3 days | 🟡 基礎設施完成，遷移歸 R26-3 |
+| P1-2 | 背景任務接 CancellationToken，保證 shutdown 不遺失 audit | WARN-04 + WARN-06 | 1-2 days | 🟡 CancellationToken 落地（PR #153），audit 同步化歸 R26-3 |
+| P1-3 | Excel / calamine / PDF 同步呼叫包 spawn_blocking | WARN-02 | 1-2 days | ⏳ Pending |
+| P1-4 | 動物 / 計畫等核心 mutation 類 API 全面檢視 transaction 邊界 | CRIT-02 延伸 | 3-5 days | 🟡 Pattern 就緒，R26-3（animals/users/document）陸續遷移 |
+| P1-5 | clippy.toml 閾值對齊 CLAUDE.md，補 allow 標註個案 | WARN-03 | 1-2 days | ⏳ Pending |
 
-### P2（半年內）
+### P2（半年內）— 狀態更新於 2026-04-21
 
-| # | 項目 | 對照 | 工時估計 |
-|---|---|---|---|
-| P2-1 | 拆 scheduler.rs 為子目錄（每 job 一檔） | WARN-07 | 0.5 day |
-| P2-2 | 拆 equipment.rs / sku.rs / partner.rs 大檔 | WARN-07 | 2-3 days |
-| P2-3 | 權限字串改 constants 或 enum | WARN-08 | 1 day |
-| P2-4 | 新程式碼一律寫 repositories/，既有 SQL 漸進遷移 | WARN-01 | 持續 |
-| P2-5 | HMAC chain 每日驗證 job | SUGG-03 | 0.5 day |
-| P2-6 | 快取改 singleflight | WARN-05 | 1 day |
+| # | 項目 | 對照 | 工時估計 | 狀態 |
+|---|---|---|---|---|
+| P2-1 | 拆 scheduler.rs 為子目錄（每 job 一檔） | WARN-07 | 0.5 day | ⏳ Pending |
+| P2-2 | 拆 equipment.rs / sku.rs / partner.rs 大檔 | WARN-07 | 2-3 days | ⏳ Pending |
+| P2-3 | 權限字串改 constants 或 enum | WARN-08 | 1 day | ⏳ Pending |
+| P2-4 | 新程式碼一律寫 repositories/，既有 SQL 漸進遷移 | WARN-01 | 持續 | 🟢 On-going policy |
+| P2-5 | HMAC chain 每日驗證 job | SUGG-03 | 0.5 day | ⏳ R26-2 |
+| P2-6 | 快取改 singleflight | WARN-05 | 1 day | ⏳ Pending |
+| P2-7 | HMAC 版本化 + 儲存後雜湊 | SUGG-03 延伸 / Gemini G2 | 1-2 days | ⏳ R26-6 |
 
 ### P3（視需要）
 
