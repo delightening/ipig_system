@@ -8,7 +8,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         AnimalVaccination, AnimalWeight, AnimalWeightResponse, CreateVaccinationRequest,
         CreateWeightRequest, DeleteRequest, RecordFilterQuery, UpdateVaccinationRequest,
@@ -47,35 +47,8 @@ pub async fn create_animal_weight(
 ) -> Result<Json<AnimalWeight>> {
     require_permission!(current_user, "animal.record.create");
 
-    let weight = AnimalWeightService::create(&state.db, animal_id, &req, current_user.id).await?;
-
-    // 取得動物資訊用於日誌顯示
-    let weight_display = match AnimalService::get_by_id(&state.db, animal_id).await {
-        Ok(animal) => {
-            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {} - {} kg", iacuc, animal.ear_tag, req.weight)
-        }
-        _ => format!("體重紀錄 (animal: {})", animal_id),
-    };
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "WEIGHT_CREATE",
-        Some("animal_weight"),
-        Some(animal_id),
-        Some(&weight_display),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_CREATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let weight = AnimalWeightService::create(&state.db, &actor, animal_id, &req).await?;
 
     Ok(Json(weight))
 }
@@ -90,26 +63,8 @@ pub async fn update_animal_weight(
 ) -> Result<Json<AnimalWeight>> {
     require_permission!(current_user, "animal.record.edit");
 
-    let weight = AnimalWeightService::update(&state.db, id, &req).await?;
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "WEIGHT_UPDATE",
-        Some("animal_weight"),
-        None,
-        Some(&format!("體重紀錄 #{}", id)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_UPDATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let weight = AnimalWeightService::update(&state.db, &actor, id, &req).await?;
 
     Ok(Json(weight))
 }
@@ -125,27 +80,8 @@ pub async fn delete_animal_weight(
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
 
-    AnimalWeightService::soft_delete_with_reason(&state.db, id, &req.reason, current_user.id)
-        .await?;
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "WEIGHT_DELETE",
-        Some("animal_weight"),
-        None,
-        Some(&format!("體重紀錄 #{} (原因: {})", id, req.reason)),
-        None,
-        Some(serde_json::json!({ "reason": req.reason })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_DELETE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    AnimalWeightService::soft_delete_with_reason(&state.db, &actor, id, &req.reason).await?;
 
     Ok(Json(
         serde_json::json!({ "message": "Weight record deleted successfully" }),
