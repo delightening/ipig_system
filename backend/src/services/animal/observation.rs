@@ -78,11 +78,12 @@ impl AnimalObservationService {
         Ok(observation)
     }
 
+    /// 新增觀察紀錄（Service-driven audit）
     pub async fn create(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         animal_id: Uuid,
         req: &CreateObservationRequest,
-        created_by: Uuid,
     ) -> Result<AnimalObservation> {
         // 驗證 JSONB 欄位結構
         if let Some(ref eq) = req.equipment_used {
@@ -92,12 +93,16 @@ impl AnimalObservationService {
             validate_treatments(tr)?;
         }
 
+        let created_by = actor.actor_user_id().unwrap_or(crate::middleware::SYSTEM_USER_ID);
+
         // 如果是緊急給藥，設定狀態為 pending_review
         let emergency_status = if req.is_emergency {
             Some("pending_review".to_string())
         } else {
             None
         };
+
+        let mut tx = pool.begin().await?;
 
         let observation = sqlx::query_as::<_, AnimalObservation>(
             r#"
@@ -125,9 +130,23 @@ impl AnimalObservationService {
         .bind(&emergency_status)
         .bind(&req.emergency_reason)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!("觀察 {}", observation.event_date);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry::create(
+                "ANIMAL",
+                "OBSERVATION_CREATE",
+                crate::services::audit::AuditEntity::new("animal_observation", observation.id, &display),
+                &observation,
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(observation)
     }
 

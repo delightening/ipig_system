@@ -69,35 +69,8 @@ pub async fn create_animal_surgery(
     require_permission!(current_user, "animal.record.create");
     req.validate()?;
 
-    let surgery = AnimalSurgeryService::create(&state.db, animal_id, &req, current_user.id).await?;
-
-    // 取得動物資訊用於日誌顯示
-    let surg_display = match AnimalService::get_by_id(&state.db, animal_id).await {
-        Ok(animal) => {
-            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {} - {}", iacuc, animal.ear_tag, req.surgery_site)
-        }
-        _ => format!("手術紀錄 #{} (animal: {})", surgery.id, animal_id),
-    };
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "SURGERY_CREATE",
-        Some("animal_surgery"),
-        Some(animal_id),
-        Some(&surg_display),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (SURGERY_CREATE): {}", e);
-    }
+    let actor = crate::middleware::ActorContext::User(current_user.clone());
+    let surgery = AnimalSurgeryService::create(&state.db, &actor, animal_id, &req).await?;
 
     Ok(Json(surgery))
 }

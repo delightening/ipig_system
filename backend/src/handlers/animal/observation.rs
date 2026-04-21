@@ -99,8 +99,9 @@ pub async fn create_animal_observation(
         require_permission!(current_user, "animal.record.emergency");
     }
 
+    let actor = crate::middleware::ActorContext::User(current_user.clone());
     let observation =
-        AnimalObservationService::create(&state.db, animal_id, &req, current_user.id).await?;
+        AnimalObservationService::create(&state.db, &actor, animal_id, &req).await?;
 
     if req.is_emergency {
         // 取得動物資訊

@@ -101,11 +101,12 @@ impl AnimalSurgeryService {
         Ok(surgery)
     }
 
+    /// 新增手術紀錄（Service-driven audit）
     pub async fn create(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         animal_id: Uuid,
         req: &CreateSurgeryRequest,
-        created_by: Uuid,
     ) -> Result<AnimalSurgery> {
         // 驗證 JSONB 欄位結構
         validate_surgery_jsonb_fields(
@@ -115,6 +116,9 @@ impl AnimalSurgeryService {
             &req.vital_signs,
             &req.post_surgery_medication,
         )?;
+
+        let created_by = actor.actor_user_id().unwrap_or(crate::middleware::SYSTEM_USER_ID);
+        let mut tx = pool.begin().await?;
 
         let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
@@ -145,9 +149,23 @@ impl AnimalSurgeryService {
         .bind(&req.remark)
         .bind(req.no_medication_needed)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!("手術 {}", surgery.surgery_date);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry::create(
+                "ANIMAL",
+                "SURGERY_CREATE",
+                crate::services::audit::AuditEntity::new("animal_surgery", surgery.id, &display),
+                &surgery,
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(surgery)
     }
 
