@@ -153,6 +153,7 @@ docs/
 | [security/DATA_RETENTION_POLICY.md](./security/DATA_RETENTION_POLICY.md) | 資料保留政策 |
 | [security/SOC2_READINESS.md](./security/SOC2_READINESS.md) | SOC2 準備度 |
 | [security/SLA.md](./security/SLA.md) | 服務水準協議 |
+| [security/SECURITY_COMPLETED.md](./security/SECURITY_COMPLETED.md) | 安全工作完成清單 |
 
 ---
 
