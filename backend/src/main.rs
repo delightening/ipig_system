@@ -194,8 +194,28 @@ async fn main() -> anyhow::Result<()> {
     .await?;
 
     // 等背景任務收尾（timeout 保底避免永久卡死）
-    tracing::info!("Waiting for background tasks to finish (up to 30s)...");
-    let _ = tokio::time::timeout(Duration::from_secs(10), jwt_cleanup_handle).await;
+    //
+    // 目前只等 jwt_blacklist cleanup join handle。Scheduler 的 cron job 在
+    // shutdown_token.cancel() 後跳過下一輪觸發，正在執行中的 job 會跑完當輪
+    // 才結束（`is_cancelled()` 在 job body 開頭檢查）。執行中 job 的 join 留給
+    // tokio runtime 自動 drop 處理。
+    //
+    // 長 job 的明確 shutdown 協調（select! 中斷 + scheduler grace period）留待
+    // R26-1 升級，屆時此處會加 `scheduler.shutdown().await` 等 in-flight
+    // cron runtime 結束。
+    const JWT_CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
+    tracing::info!(
+        "Waiting for jwt_blacklist cleanup to finish (up to {}s)...",
+        JWT_CLEANUP_TIMEOUT.as_secs()
+    );
+    match tokio::time::timeout(JWT_CLEANUP_TIMEOUT, jwt_cleanup_handle).await {
+        Ok(Ok(())) => tracing::info!("jwt_blacklist cleanup joined cleanly"),
+        Ok(Err(e)) => tracing::warn!("jwt_blacklist cleanup task panicked: {}", e),
+        Err(_) => tracing::warn!(
+            "jwt_blacklist cleanup did not finish within {}s — forcing shutdown",
+            JWT_CLEANUP_TIMEOUT.as_secs()
+        ),
+    }
 
     tracing::info!("Server shut down gracefully");
     Ok(())
