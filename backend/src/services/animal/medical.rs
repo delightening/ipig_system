@@ -39,12 +39,16 @@ impl AnimalMedicalService {
         Ok(vaccinations)
     }
 
+    /// 新增疫苗紀錄（Service-driven audit）
     pub async fn create_vaccination(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         animal_id: Uuid,
         req: &CreateVaccinationRequest,
-        created_by: Uuid,
     ) -> Result<AnimalVaccination> {
+        let created_by = actor.actor_user_id().unwrap_or(crate::middleware::SYSTEM_USER_ID);
+        let mut tx = pool.begin().await?;
+
         let vaccination = sqlx::query_as::<_, AnimalVaccination>(
             r#"
             INSERT INTO animal_vaccinations (animal_id, administered_date, vaccine, deworming_dose, created_by, created_at)
@@ -57,19 +61,45 @@ impl AnimalMedicalService {
         .bind(&req.vaccine)
         .bind(&req.deworming_dose)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!("疫苗: {:?}", vaccination.vaccine);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry::create(
+                "ANIMAL",
+                "VACCINATION_CREATE",
+                crate::services::audit::AuditEntity::new("animal_vaccination", vaccination.id, &display),
+                &vaccination,
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(vaccination)
     }
 
-    /// 更新疫苗紀錄
+    /// 更新疫苗紀錄（Service-driven audit）
     pub async fn update_vaccination(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         id: Uuid,
         req: &UpdateVaccinationRequest,
     ) -> Result<AnimalVaccination> {
-        let vaccination = sqlx::query_as::<_, AnimalVaccination>(
+        let _ = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AnimalVaccination>(
+            "SELECT * FROM animal_vaccinations WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| crate::AppError::NotFound("疫苗紀錄不存在".into()))?;
+
+        let after = sqlx::query_as::<_, AnimalVaccination>(
             r#"
             UPDATE animal_vaccinations SET
                 administered_date = COALESCE($2, administered_date),
@@ -83,13 +113,27 @@ impl AnimalMedicalService {
         .bind(req.administered_date)
         .bind(&req.vaccine)
         .bind(&req.deworming_dose)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Ok(vaccination)
+        let display = format!("疫苗: {:?}", after.vaccine);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry::update(
+                "ANIMAL",
+                "VACCINATION_UPDATE",
+                crate::services::audit::AuditEntity::new("animal_vaccination", after.id, &display),
+                crate::models::audit_diff::DataDiff::compute(Some(&before), Some(&after)),
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(after)
     }
 
-    /// 刪除疫苗紀錄
+    /// 刪除疫苗紀錄（hard delete，無 audit — 內部維運用）
     pub async fn soft_delete_vaccination(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query("DELETE FROM animal_vaccinations WHERE id = $1")
             .bind(id)
@@ -99,13 +143,24 @@ impl AnimalMedicalService {
         Ok(())
     }
 
-    /// 軟刪除疫苗紀錄（含刪除原因）- GLP 合規
+    /// 軟刪除疫苗紀錄（含刪除原因）- GLP 合規 + Service-driven audit
     pub async fn soft_delete_vaccination_with_reason(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
+        let user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AnimalVaccination>(
+            "SELECT * FROM animal_vaccinations WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| crate::AppError::NotFound("疫苗紀錄不存在或已刪除".into()))?;
+
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
@@ -114,14 +169,14 @@ impl AnimalMedicalService {
         )
         .bind(id.to_string())
         .bind(reason)
-        .bind(deleted_by)
-        .execute(pool)
+        .bind(user.id)
+        .execute(&mut *tx)
         .await?;
 
         sqlx::query(
             r#"
-            UPDATE animal_vaccinations SET 
-                deleted_at = NOW(), 
+            UPDATE animal_vaccinations SET
+                deleted_at = NOW(),
                 deletion_reason = $2,
                 deleted_by = $3
             WHERE id = $1 AND deleted_at IS NULL
@@ -129,10 +184,24 @@ impl AnimalMedicalService {
         )
         .bind(id)
         .bind(reason)
-        .bind(deleted_by)
-        .execute(pool)
+        .bind(user.id)
+        .execute(&mut *tx)
         .await?;
 
+        let display = format!("疫苗: {:?} ({})", before.vaccine, reason);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry::delete(
+                "ANIMAL",
+                "VACCINATION_DELETE",
+                crate::services::audit::AuditEntity::new("animal_vaccination", before.id, &display),
+                &before,
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 
