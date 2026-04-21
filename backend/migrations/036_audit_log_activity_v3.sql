@@ -54,15 +54,20 @@ BEGIN
     IF p_changed_fields IS NOT NULL THEN
         v_changed_fields := p_changed_fields;
     ELSIF p_before_data IS NOT NULL AND p_after_data IS NOT NULL THEN
-        -- 聯集 before/after 的所有 key，過濾掉值相同的 → 得到真正變動的 key 集合
-        SELECT array_agg(DISTINCT key ORDER BY key)
-        INTO   v_changed_fields
-        FROM (
-            SELECT jsonb_object_keys(p_before_data) AS key
-            UNION
-            SELECT jsonb_object_keys(p_after_data) AS key
-        ) all_keys
-        WHERE  (p_before_data->key) IS DISTINCT FROM (p_after_data->key);
+        -- jsonb_object_keys 只能用於 JSON object；scalar/array 會 runtime error。
+        -- 實務上所有 entity 都序列化為 object，但加 typeof guard 防呆 —
+        -- 非 object 型別跳過 fallback 計算（v_changed_fields 保持 NULL）。
+        IF jsonb_typeof(p_before_data) = 'object' AND jsonb_typeof(p_after_data) = 'object' THEN
+            -- 聯集 before/after 的所有 key，過濾掉值相同的 → 得到真正變動的 key 集合
+            SELECT array_agg(DISTINCT key ORDER BY key)
+            INTO   v_changed_fields
+            FROM (
+                SELECT jsonb_object_keys(p_before_data) AS key
+                UNION
+                SELECT jsonb_object_keys(p_after_data) AS key
+            ) all_keys
+            WHERE  (p_before_data->key) IS DISTINCT FROM (p_after_data->key);
+        END IF;
     END IF;
 
     INSERT INTO user_activity_logs (

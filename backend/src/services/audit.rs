@@ -473,9 +473,12 @@ impl AuditService {
 
         let log_id = result.0;
 
-        // SEC-34: HMAC 雜湊鏈（有 key 時才啟用）
+        // SEC-34: HMAC 雜湊鏈（有 key 時才啟用）。
+        // 錯誤不再靜默吞（let _ = ...），改記 tracing::error! 讓 Prometheus
+        // 可 alert；但仍不中斷回傳 — audit 已寫入、HMAC 失敗只影響鏈結
+        // 完整性，呼叫端已拿到 log_id。R26-4 移除舊版時此區塊一併刪除。
         if let Some(Some(hmac_key)) = AUDIT_HMAC_KEY.get() {
-            let _ = Self::compute_and_store_hmac(
+            if let Err(e) = Self::compute_and_store_hmac(
                 pool,
                 log_id,
                 hmac_key,
@@ -485,7 +488,14 @@ impl AuditService {
                 &before_data,
                 &after_data,
             )
-            .await;
+            .await
+            {
+                tracing::error!(
+                    log_id = %log_id,
+                    error = %e,
+                    "[audit] HMAC chain write failed for deprecated log_activity; chain integrity degraded"
+                );
+            }
         }
 
         Ok(log_id)
