@@ -172,8 +172,15 @@ impl CareRecordService {
         Ok(records)
     }
 
-    /// 建立照護紀錄
-    pub async fn create(pool: &PgPool, req: &CreateCareRecordRequest) -> Result<CareRecord> {
+    /// 建立照護紀錄（Service-driven audit）
+    pub async fn create(
+        pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
+        req: &CreateCareRecordRequest,
+    ) -> Result<CareRecord> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
         let record = sqlx::query_as::<_, CareRecord>(
             r#"
             INSERT INTO care_medication_records
@@ -202,19 +209,49 @@ impl CareRecordService {
         .bind(req.injection_meloxicam)
         .bind(req.oral_meloxicam)
         .bind(&req.post_medications)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!("照護紀錄 {:?}", record.record_type);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry::create(
+                "ANIMAL",
+                "CARE_RECORD_CREATE",
+                crate::services::audit::AuditEntity::new("care_record", record.id, &display),
+                &record,
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(record)
     }
 
-    /// 更新照護紀錄
+    /// 更新照護紀錄（Service-driven audit）
     pub async fn update(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         id: Uuid,
         req: &UpdateCareRecordRequest,
     ) -> Result<CareRecord> {
-        let record = sqlx::query_as::<_, CareRecord>(
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, CareRecord>(
+            r#"SELECT id, record_type, record_id, record_mode, post_op_days, time_period,
+                      incision, attitude_behavior, appetite, feces, urine, pain_score,
+                      injection_ketorolac, injection_meloxicam, oral_meloxicam,
+                      post_medications, vet_read, created_at
+               FROM care_medication_records WHERE id = $1 FOR UPDATE"#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| crate::AppError::NotFound("照護紀錄不存在".into()))?;
+
+        let after = sqlx::query_as::<_, CareRecord>(
             r#"
             UPDATE care_medication_records
             SET post_op_days        = $2,
@@ -249,20 +286,51 @@ impl CareRecordService {
         .bind(req.injection_meloxicam)
         .bind(req.oral_meloxicam)
         .bind(&req.post_medications)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Ok(record)
+        let display = format!("照護紀錄 {:?}", after.record_type);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry::update(
+                "ANIMAL",
+                "CARE_RECORD_UPDATE",
+                crate::services::audit::AuditEntity::new("care_record", after.id, &display),
+                crate::models::audit_diff::DataDiff::compute(Some(&before), Some(&after)),
+            ),
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(after)
     }
 
-    /// 軟刪除照護紀錄（含刪除原因）- GLP 合規
+    /// 軟刪除照護紀錄（含刪除原因）- GLP 合規 + Service-driven audit
     pub async fn soft_delete_with_reason(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
-        let result = sqlx::query(
+        let user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, CareRecord>(
+            r#"SELECT id, record_type, record_id, record_mode, post_op_days, time_period,
+                      incision, attitude_behavior, appetite, feces, urine, pain_score,
+                      injection_ketorolac, injection_meloxicam, oral_meloxicam,
+                      post_medications, vet_read, created_at
+               FROM care_medication_records
+               WHERE id = $1 AND deleted_at IS NULL
+               FOR UPDATE"#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| crate::AppError::NotFound("照護紀錄不存在或已刪除".into()))?;
+
+        sqlx::query(
             r#"
             UPDATE care_medication_records SET
                 deleted_at = NOW(),
@@ -273,14 +341,24 @@ impl CareRecordService {
         )
         .bind(id)
         .bind(reason)
-        .bind(deleted_by)
-        .execute(pool)
+        .bind(user.id)
+        .execute(&mut *tx)
         .await?;
 
-        if result.rows_affected() == 0 {
-            return Err(crate::AppError::NotFound("照護紀錄不存在或已刪除".into()));
-        }
+        let display = format!("照護紀錄 {:?} ({})", before.record_type, reason);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry::delete(
+                "ANIMAL",
+                "CARE_RECORD_DELETE",
+                crate::services::audit::AuditEntity::new("care_record", before.id, &display),
+                &before,
+            ),
+        )
+        .await?;
 
+        tx.commit().await?;
         Ok(())
     }
 }
