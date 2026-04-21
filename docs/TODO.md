@@ -1902,6 +1902,8 @@ ORDER BY 1 DESC;
 | R26-2 | **HMAC chain 每日驗證 cron** | 對應審查報告 SUGG-03；新增 `services/scheduler/audit_chain_verify.rs`，每日 02:00 驗證昨日 `user_activity_logs` HMAC 鏈完整性，斷鏈時 `SecurityNotifier::dispatch`；R26-3 的 audit migration（035）擴充 HMAC 涵蓋 impersonated_by + changed_fields，此 job 需驗證對齊 | [ ] |
 | R26-3 | **現有 handler 遷移至 `log_activity_tx`** | PR #1 保留舊版 `log_activity(&pool, ...)` 為 `#[deprecated]`；~20 處 handler 仍在用舊版（`cargo build 2>&1 \| grep "use of deprecated" \| wc -l` 可量化進度）；Service-driven 模組重構時（PR #3 protocol、PR #4 animals、PR #5 hr 等）順手遷移；最後一個 PR 移除舊版 | [ ] |
 | R26-4 | **舊 `log_activity(&pool, ...)` 最終移除** | 所有 handler 遷移完成後，刪除 `AuditService::log_activity` 舊版 + 相關 `compute_and_store_hmac` 舊版；同步更新 `#[deprecated]` 標記移除；CI 加 `cargo build` 檢查 `use of deprecated` = 0 | [ ] |
+| R26-5 | **(已完成) migration 036 changed_fields 聯集修正** | 對應 PR #154：stored proc fallback 由 JSONB EXCEPT 改為 UNION + `IS DISTINCT FROM`，正確偵測「被刪除的 key」。 | [x] |
+| R26-6 | **HMAC chain 版本化機制** | PR #154 將 HMAC 訊息編碼從「字串串接」改為「length-prefix canonical」以防碰撞；但**既有 log rows 用舊格式算的 HMAC** 在 chain verifier 中需能區分新舊。**做法**：新增 `user_activity_logs.hmac_version`（`SMALLINT`，`1`=string-concat legacy、`2`=length-prefix canonical）column；寫入時 `log_activity_tx` 填 `2`、`log_activity`（deprecated）填 `1`；R26-2 HMAC chain 驗證 cron 依此 version 選對應解碼器走。R26-4 舊版移除後 column 仍保留（歷史資料需要）。**來源**：PR #154 Gemini SECURITY-MEDIUM 意見（audit.rs:414） | [ ] |
 
 ---
 
@@ -1936,8 +1938,8 @@ ORDER BY 1 DESC;
 | 🎨 R23 全站 Table UI 升級 | 0 (20 完成) |
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
-| 🔄 R26 Service-driven Audit 重構延伸 | 4 |
-| **合計（未完成）** | **17** |
+| 🔄 R26 Service-driven Audit 重構延伸 | 5 (1 已完成) |
+| **合計（未完成）** | **18** |
 
 ---
 
