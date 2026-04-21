@@ -258,7 +258,12 @@ jobs:
       - name: cargo clippy
         # -D warnings: 所有 clippy 警告視為錯誤
         # -W clippy::unwrap_used: unwrap() 產生警告（不阻擋，漸進式修復）
-        run: cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used
+        # -A deprecated: R26 Service-driven audit 重構過渡期容忍舊版
+        #     AuditService::log_activity 的 #[deprecated] 警告
+        #     （約 91 處 handler 呼叫點），由 R26-3 分批遷移至 log_activity_tx。
+        #     R26-4 完成後（舊版移除）請**立即刪除** -A deprecated 恢復嚴格檢查。
+        #     對應計畫：docs/TODO.md §R26、CLAUDE.md 執行紀律 > Clippy 過關標準。
+        run: cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used -A deprecated
 
   # =========================
   # 📊 後端：cargo-tarpaulin 行覆蓋率量測
