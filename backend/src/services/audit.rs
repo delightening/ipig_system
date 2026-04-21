@@ -67,6 +67,66 @@ pub struct RequestContext<'a> {
     pub user_agent: Option<&'a str>,
 }
 
+/// HMAC 雜湊鏈的結構化輸入（length-prefixed canonical encoding）。
+///
+/// 取代 `compute_and_store_hmac_tx` 的 10 個散落參數；同時讓編碼免於
+/// 字串串接碰撞（見 `canonical_bytes` 說明）。
+struct HmacInput<'a> {
+    event_category: &'a str,
+    event_type: &'a str,
+    actor_user_id: Uuid,
+    before_data: &'a Option<serde_json::Value>,
+    after_data: &'a Option<serde_json::Value>,
+    impersonated_by: Option<Uuid>,
+    changed_fields: &'a [String],
+}
+
+impl HmacInput<'_> {
+    /// 將所有欄位以 length-prefix canonical form 寫入 buffer。
+    ///
+    /// 每個欄位：`8-byte BE length` + `UTF-8 bytes`
+    /// changed_fields 以 `array length (u64 BE)` 開頭，再逐欄位 length-prefix。
+    ///
+    /// prev_hash 由呼叫端（從 DB 讀出）提供；這設計讓 struct 只承載「內容」，
+    /// chain 連結資料由 DB 提供。
+    fn canonical_bytes(&self, prev_hash: Option<&str>) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(512);
+        write_field(&mut buf, prev_hash.unwrap_or("").as_bytes());
+        write_field(&mut buf, self.event_category.as_bytes());
+        write_field(&mut buf, self.event_type.as_bytes());
+        // Uuid::to_string 永遠 36 char（hyphenated），長度穩定
+        write_field(&mut buf, self.actor_user_id.to_string().as_bytes());
+        let before_str = self
+            .before_data
+            .as_ref()
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+        write_field(&mut buf, before_str.as_bytes());
+        let after_str = self
+            .after_data
+            .as_ref()
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+        write_field(&mut buf, after_str.as_bytes());
+        let imp = self
+            .impersonated_by
+            .map(|u| u.to_string())
+            .unwrap_or_default();
+        write_field(&mut buf, imp.as_bytes());
+        buf.extend_from_slice(&(self.changed_fields.len() as u64).to_be_bytes());
+        for f in self.changed_fields {
+            write_field(&mut buf, f.as_bytes());
+        }
+        buf
+    }
+}
+
+/// 寫入單一欄位：8-byte big-endian 長度 + bytes
+fn write_field(buf: &mut Vec<u8>, bytes: &[u8]) {
+    buf.extend_from_slice(&(bytes.len() as u64).to_be_bytes());
+    buf.extend_from_slice(bytes);
+}
+
 /// HMAC 密鑰（由 Config 初始化一次，避免每次讀取 env var）
 static AUDIT_HMAC_KEY: OnceLock<Option<String>> = OnceLock::new();
 
@@ -295,46 +355,40 @@ impl AuditService {
             let hash_actor = actor
                 .actor_user_id()
                 .unwrap_or(crate::middleware::SYSTEM_USER_ID);
-            Self::compute_and_store_hmac_tx(
-                tx,
-                log_id,
-                hmac_key,
-                entry.event_category,
-                entry.event_type,
-                hash_actor,
-                &before_data,
-                &after_data,
+            let hmac_input = HmacInput {
+                event_category: entry.event_category,
+                event_type: entry.event_type,
+                actor_user_id: hash_actor,
+                before_data: &before_data,
+                after_data: &after_data,
                 impersonated_by,
-                &changed_fields,
-            )
-            .await?;
+                changed_fields: &changed_fields,
+            };
+            Self::compute_and_store_hmac_tx(tx, log_id, hmac_key, hmac_input).await?;
         }
 
         Ok(log_id)
     }
 
-    /// Transaction 版本的 HMAC 計算（對應 `compute_and_store_hmac`）。
+    /// Transaction 版本的 HMAC 計算。
     ///
-    /// HMAC 訊息組合：
-    ///   prev_hash + event_category + event_type + actor_user_id
-    ///   + before_data + after_data
-    ///   + impersonated_by_user_id（Option；None 當空字串）
-    ///   + changed_fields（排序+連接；空則空字串）
+    /// HMAC 輸入編碼（length-prefixed canonical form）：
+    ///   每個欄位以「8-byte big-endian 長度 + UTF-8 bytes」寫入 HMAC buffer。
+    ///   欄位順序固定：prev_hash → event_category → event_type → actor_user_id
+    ///                → before_data → after_data → impersonated_by → changed_fields
+    ///   changed_fields 先寫 array 長度（u64 BE），再逐欄位 length-prefix。
+    ///
+    /// 為何用 length-prefix 而非字串串接：
+    ///   `"ab" + "cd"` 和 `"abc" + "d"` 的 byte stream 相同，字串串接會碰撞。
+    ///   加 length prefix 後 `(2)"ab"(2)"cd"` vs `(3)"abc"(1)"d"` 不同。
     ///
     /// 納入 impersonated_by 與 changed_fields 的目的：
     ///   若 DB 被竄改（例如清空這兩欄），HMAC 驗證會失敗。
-    #[allow(clippy::too_many_arguments)]
     async fn compute_and_store_hmac_tx(
         tx: &mut Transaction<'_, Postgres>,
         log_id: Uuid,
         hmac_key: &str,
-        event_category: &str,
-        event_type: &str,
-        actor_user_id: Uuid,
-        before_data: &Option<serde_json::Value>,
-        after_data: &Option<serde_json::Value>,
-        impersonated_by: Option<Uuid>,
-        changed_fields: &[String],
+        input: HmacInput<'_>,
     ) -> Result<()> {
         use hmac::{Hmac, Mac};
         use sha2::Sha256;
@@ -355,36 +409,13 @@ impl AuditService {
         )
         .bind(log_id)
         .fetch_optional(&mut **tx)
-        .await
-        .unwrap_or(None);
+        .await?;
 
-        let mut message = String::new();
-        if let Some(ref ph) = prev_hash {
-            message.push_str(ph);
-        }
-        message.push_str(event_category);
-        message.push_str(event_type);
-        message.push_str(&actor_user_id.to_string());
-        if let Some(ref bd) = before_data {
-            message.push_str(&bd.to_string());
-        }
-        if let Some(ref ad) = after_data {
-            message.push_str(&ad.to_string());
-        }
-        // R26-3: impersonated_by 納入 HMAC，防止事後被清空而無感
-        if let Some(admin_id) = impersonated_by {
-            message.push_str(&admin_id.to_string());
-        }
-        // R26-3: changed_fields 也納入 HMAC（已是 app 層排序的結果）
-        // 用 | 分隔避免 "aa" + "b" vs "a" + "ab" 造成相同 message
-        for cf in changed_fields {
-            message.push('|');
-            message.push_str(cf);
-        }
+        let message = input.canonical_bytes(prev_hash.as_deref());
 
         let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes())
             .map_err(|e| crate::error::AppError::Internal(format!("HMAC key error: {}", e)))?;
-        mac.update(message.as_bytes());
+        mac.update(&message);
         let hash_bytes = mac.finalize().into_bytes();
         let hash_result: String = hash_bytes.iter().map(|b| format!("{:02x}", b)).collect();
 
@@ -442,9 +473,12 @@ impl AuditService {
 
         let log_id = result.0;
 
-        // SEC-34: HMAC 雜湊鏈（有 key 時才啟用）
+        // SEC-34: HMAC 雜湊鏈（有 key 時才啟用）。
+        // 錯誤不再靜默吞（let _ = ...），改記 tracing::error! 讓 Prometheus
+        // 可 alert；但仍不中斷回傳 — audit 已寫入、HMAC 失敗只影響鏈結
+        // 完整性，呼叫端已拿到 log_id。R26-4 移除舊版時此區塊一併刪除。
         if let Some(Some(hmac_key)) = AUDIT_HMAC_KEY.get() {
-            let _ = Self::compute_and_store_hmac(
+            if let Err(e) = Self::compute_and_store_hmac(
                 pool,
                 log_id,
                 hmac_key,
@@ -454,7 +488,14 @@ impl AuditService {
                 &before_data,
                 &after_data,
             )
-            .await;
+            .await
+            {
+                tracing::error!(
+                    log_id = %log_id,
+                    error = %e,
+                    "[audit] HMAC chain write failed for deprecated log_activity; chain integrity degraded"
+                );
+            }
         }
 
         Ok(log_id)
@@ -577,8 +618,7 @@ impl AuditService {
         )
         .bind(log_id)
         .fetch_optional(pool)
-        .await
-        .unwrap_or(None);
+        .await?;
 
         // 組合雜湊內容: prev_hash + event_category + event_type + actor_id + data
         let mut message = String::new();
