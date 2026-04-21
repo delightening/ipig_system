@@ -4,11 +4,15 @@ use uuid::Uuid;
 
 use super::ProtocolService;
 use crate::{
+    middleware::ActorContext,
     models::{
-        ChangeStatusRequest, CreatePartnerRequest, PartnerType, Protocol, ProtocolActivityType,
-        ProtocolStatus,
+        audit_diff::DataDiff, ChangeStatusRequest, CreatePartnerRequest, PartnerType, Protocol,
+        ProtocolActivityType, ProtocolStatus,
     },
-    services::{AuditService, PartnerService},
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService, PartnerService,
+    },
     AppError, Result,
 };
 use validator::Validate;
@@ -72,110 +76,129 @@ impl ProtocolService {
         Ok(())
     }
 
-    /// 提交計畫
-    pub async fn submit(pool: &PgPool, id: Uuid, submitted_by: Uuid) -> Result<Protocol> {
-        let protocol = sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1")
+    /// 提交計畫 — Service-driven：所有 DB 操作（版本快照、UPDATE、狀態歷程、
+    /// audit log、HMAC chain）在單一 transaction 內原子完成；失敗時整體 rollback。
+    ///
+    /// 這是 PR #3 的 **pattern demonstration**：後續 R26 模組（animals / hr / equipment）
+    /// 依此模式改造。
+    ///
+    /// **變更自舊版**：
+    /// - 簽名：`(pool, id, submitted_by)` → `(pool, actor, id)`
+    ///   actor_user_id 從 `actor.actor_user_id()` 取得；透過 `actor.require_user()`
+    ///   確保只有真實登入使用者可送出計畫
+    /// - 所有 DB 操作綁同一 tx（`pool.begin()` → 各步 `&mut *tx` → `tx.commit()`）
+    /// - IACUC numbering 走 tx 版本（`generate_apig_no(&mut tx)`），advisory lock
+    ///   與本次 UPDATE 同 tx 提交，完整修復 CRIT-01 race condition
+    /// - Audit 走 `log_activity_tx` + 含 before/after DataDiff，GLP 稽核軌跡完整
+    /// - Handler 不再需要額外 `tokio::spawn(audit)` fire-and-forget
+    pub async fn submit(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<Protocol> {
+        // 送出計畫必須由真實登入使用者觸發（不可 System / Anonymous）
+        let _user = actor.require_user()?;
+
+        let mut tx = pool.begin().await?;
+
+        // 讀取 before 狀態（含權限/狀態轉移檢查）
+        let before = sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1 FOR UPDATE")
             .bind(id)
-            .fetch_optional(pool)
+            .fetch_optional(&mut *tx)
             .await?
             .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
 
-        // 檢查狀態轉移是否合法
-        if protocol.status != ProtocolStatus::Draft
-            && protocol.status != ProtocolStatus::RevisionRequired
-            && protocol.status != ProtocolStatus::PreReviewRevisionRequired
-            && protocol.status != ProtocolStatus::VetRevisionRequired
+        if before.status != ProtocolStatus::Draft
+            && before.status != ProtocolStatus::RevisionRequired
+            && before.status != ProtocolStatus::PreReviewRevisionRequired
+            && before.status != ProtocolStatus::VetRevisionRequired
         {
             return Err(AppError::BusinessRule(format!(
                 "Cannot submit protocol in {} status",
-                protocol.status.as_str()
+                before.status.as_str()
             )));
         }
 
-        // 驗證內容
-        Self::validate_protocol_content(&protocol.working_content)?;
+        Self::validate_protocol_content(&before.working_content)?;
 
-        let new_status = if protocol.status == ProtocolStatus::Draft {
+        let new_status = if before.status == ProtocolStatus::Draft {
             ProtocolStatus::Submitted
         } else {
             ProtocolStatus::Resubmitted
         };
 
         // 建立版本快照
-        let version_no = Self::get_next_version_no(pool, id).await?;
+        let version_no = Self::get_next_version_no_tx(&mut tx, id).await?;
         sqlx::query(
             r#"
             INSERT INTO protocol_versions (id, protocol_id, version_no, content_snapshot, submitted_at, submitted_by)
             VALUES ($1, $2, $3, $4, NOW(), $5)
-            "#
+            "#,
         )
         .bind(Uuid::new_v4())
         .bind(id)
         .bind(version_no)
-        .bind(&protocol.working_content)
-        .bind(submitted_by)
-        .execute(pool)
+        .bind(&before.working_content)
+        .bind(actor.actor_user_id())
+        .execute(&mut *tx)
         .await?;
 
-        // 如果狀態變為 Submitted，生成 APIG 編號（在計劃被提交審查與核准前）
+        // 生成 APIG 編號（若需要）— 在同一 tx 內，advisory lock 保證唯一
         let new_iacuc_no = if new_status == ProtocolStatus::Submitted {
-            // 如果還沒有 APIG 編號，則生成
-            let needs_apig = protocol
+            let needs_apig = before
                 .iacuc_no
                 .as_ref()
                 .map(|no| !no.starts_with("APIG-"))
                 .unwrap_or(true);
 
             if needs_apig {
-                Some(Self::generate_apig_no(pool).await?)
+                Some(Self::generate_apig_no(&mut tx).await?)
             } else {
-                protocol.iacuc_no.clone()
+                before.iacuc_no.clone()
             }
         } else {
-            protocol.iacuc_no.clone()
+            before.iacuc_no.clone()
         };
 
-        // 更新狀態和 IACUC 編號
-        let updated = sqlx::query_as::<_, Protocol>(
-            "UPDATE protocols SET status = $2, iacuc_no = $3, updated_at = NOW() WHERE id = $1 RETURNING *"
+        // UPDATE protocols
+        let after = sqlx::query_as::<_, Protocol>(
+            "UPDATE protocols SET status = $2, iacuc_no = $3, updated_at = NOW() WHERE id = $1 RETURNING *",
         )
         .bind(id)
         .bind(new_status)
         .bind(&new_iacuc_no)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 記錄狀態變更
-        Self::record_status_change(
-            pool,
+        // 狀態變更歷程 + 全域 audit log（tx 版本，HMAC 涵蓋）
+        Self::record_status_change_tx(
+            &mut tx,
+            actor,
             id,
-            Some(protocol.status),
+            Some(before.status),
             new_status,
-            submitted_by,
             None,
         )
         .await?;
 
-        // 記錄活動日誌（送出審查）
-        if let Err(e) = AuditService::log_activity(
-            pool,
-            submitted_by,
-            "AUP",
-            "PROTOCOL_SUBMIT",
-            Some("protocol"),
-            Some(id),
-            Some(&protocol.title),
-            None,
-            None,
-            None,
-            None,
+        // Service-driven audit：before/after snapshot 進 HMAC chain
+        let diff = DataDiff::compute(Some(&before), Some(&after));
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "AUP",
+                event_type: "PROTOCOL_SUBMIT",
+                entity: Some(AuditEntity::new("protocol", id, &before.title)),
+                data_diff: Some(diff),
+                request_context: None,
+            },
         )
-        .await
-        {
-            tracing::error!("寫入 user_activity_logs 失敗 (PROTOCOL_SUBMIT): {}", e);
-        }
+        .await?;
 
-        Ok(updated)
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     /// 變更狀態
@@ -361,7 +384,7 @@ impl ProtocolService {
                 .unwrap_or(true);
 
             if needs_apig {
-                Some(Self::generate_apig_no(pool).await?)
+                Some(Self::generate_apig_no_pool(pool).await?)
             } else {
                 protocol.iacuc_no.clone()
             }
@@ -374,7 +397,7 @@ impl ProtocolService {
                 .unwrap_or(true);
 
             if needs_apig {
-                Some(Self::generate_apig_no(pool).await?)
+                Some(Self::generate_apig_no_pool(pool).await?)
             } else {
                 protocol.iacuc_no.clone()
             }
@@ -382,7 +405,7 @@ impl ProtocolService {
             || req.to_status == ProtocolStatus::ApprovedWithConditions
         {
             // 核准時生成 IACUC 編號（PIG-{ROC}{03}）
-            Some(Self::generate_iacuc_no(pool).await?)
+            Some(Self::generate_iacuc_no_pool(pool).await?)
         } else {
             protocol.iacuc_no.clone()
         };

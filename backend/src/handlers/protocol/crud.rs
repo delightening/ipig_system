@@ -123,7 +123,9 @@ pub async fn submit_protocol(
     if !has_submit_permission && !access::is_pi_or_coeditor(&state.db, id, current_user.id).await? {
         return Err(AppError::Forbidden("You don't have permission to submit this protocol".to_string()));
     }
-    let protocol = ProtocolService::submit(&state.db, id, current_user.id).await?;
+    // Service-driven: pass ActorContext; service 內含 transaction + audit + HMAC chain
+    let actor = crate::middleware::ActorContext::User(current_user.clone());
+    let protocol = ProtocolService::submit(&state.db, &actor, id).await?;
 
     // 非同步通知：計畫已提交
     let db = state.db.clone();

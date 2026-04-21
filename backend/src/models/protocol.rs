@@ -89,6 +89,10 @@ pub struct Protocol {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Protocol 無敏感欄位需脫敏（GLP 稽核需要完整內容；working_content 雖為 jsonb
+/// 可能含 PII 但 protocol 本身就是稽核標的，不 redact）。
+impl crate::models::audit_diff::AuditRedact for Protocol {}
+
 /// 計畫版本快照
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ProtocolVersion {
