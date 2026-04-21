@@ -54,6 +54,9 @@ impl AnimalUtils {
     }
 
     /// 字串轉性別 enum
+    // R26-7: 預留給 data_import 用的性別解析，目前未串接；留 util 備用 —
+    // 若 R26-7 cleanup 確認確無需求，整個刪除。
+    #[allow(dead_code)]
     pub fn parse_gender(gender_str: &str) -> Option<AnimalGender> {
         match gender_str.to_lowercase().as_str() {
             "male" => Some(AnimalGender::Male),
