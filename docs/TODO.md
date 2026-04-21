@@ -1891,6 +1891,20 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🔄 R26 — Service-driven Audit 重構延伸待辦（2026-04-21 審查報告產出）
+
+> 對應 `docs/reviews/2026-04-21-rust-backend-review.md` 與 `plan-for-the-critical-validated-pebble.md`
+> PR #1 INFRA 完成後發現的延伸優化項；主功能未壞，這些是「更穩健」升級。
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R26-1 | **長 Scheduler job 升級為 `tokio::select!` 中斷式** | PR #1 commit 5 的 14 個 cron job 目前採「開頭 `is_cancelled()` 檢查 → 進 body 後不中斷」。對 `monthly_report`（20-120s）/ `db_analyze`（30-300s）/ `calendar_sync`（5-60s）這 3 個長 job 需升級為 `tokio::select! { _ = token.cancelled() => {}, _ = work => {} }`。**理由**：短 job 現況（選 A）安全簡單；但長 job 在 shutdown 時會卡住整個關機流程（Docker 預設 10s grace period 內不完成會被 SIGKILL），且 PR #1 採 C 混合策略保留這項升級。**升級時一併**：(a) 於 `main.rs` 加入 shutdown grace period（例如 `tokio::time::sleep(30s)`）讓 in-flight job 有時間收尾；(b) 為每個長 job 設計「安全中斷點」避免半完成狀態（PDF 寫一半、email 寄一半、ANALYZE 卡中途）；(c) 考慮把外部 API 呼叫（Google Calendar、Gotenberg）的 timeout 縮短以配合 shutdown timing | [ ] |
+| R26-2 | **HMAC chain 每日驗證 cron** | 對應審查報告 SUGG-03；新增 `services/scheduler/audit_chain_verify.rs`，每日 02:00 驗證昨日 `user_activity_logs` HMAC 鏈完整性，斷鏈時 `SecurityNotifier::dispatch`；R26-3 的 audit migration（035）擴充 HMAC 涵蓋 impersonated_by + changed_fields，此 job 需驗證對齊 | [ ] |
+| R26-3 | **現有 handler 遷移至 `log_activity_tx`** | PR #1 保留舊版 `log_activity(&pool, ...)` 為 `#[deprecated]`；~20 處 handler 仍在用舊版（`cargo build 2>&1 \| grep "use of deprecated" \| wc -l` 可量化進度）；Service-driven 模組重構時（PR #3 protocol、PR #4 animals、PR #5 hr 等）順手遷移；最後一個 PR 移除舊版 | [ ] |
+| R26-4 | **舊 `log_activity(&pool, ...)` 最終移除** | 所有 handler 遷移完成後，刪除 `AuditService::log_activity` 舊版 + 相關 `compute_and_store_hmac` 舊版；同步更新 `#[deprecated]` 標記移除；CI 加 `cargo build` 檢查 `use of deprecated` = 0 | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -1922,7 +1936,8 @@ ORDER BY 1 DESC;
 | 🎨 R23 全站 Table UI 升級 | 0 (20 完成) |
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
-| **合計（未完成）** | **13** |
+| 🔄 R26 Service-driven Audit 重構延伸 | 4 |
+| **合計（未完成）** | **17** |
 
 ---
 
