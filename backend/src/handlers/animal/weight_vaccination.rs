@@ -15,7 +15,7 @@ use crate::{
         UpdateWeightRequest,
     },
     require_permission,
-    services::{access, AnimalMedicalService, AnimalService, AnimalWeightService, AuditService},
+    services::{access, AnimalMedicalService, AnimalWeightService},
     AppState, Result,
 };
 
