@@ -201,11 +201,11 @@ ipig_system/
 ├── docs/
 │   ├── ARCHITECTURE.md          # 本文件
 │   ├── TODO.md / PROGRESS.md    # 待辦與進度追蹤
-│   ├── Profiling_Spec/          # 系統規格書（API/DB/RBAC/模組）
+│   ├── spec/          # 系統規格書（API/DB/RBAC/模組）
 │   ├── development/             # 改善計劃 (R1–R7)
-│   ├── operations/              # 運維手冊
-│   ├── security-compliance/     # 安全合規文件
-│   ├── database/                # DB 匯入匯出與回滾
+│   ├── ops/              # 運維手冊
+│   ├── security/     # 安全合規文件
+│   ├── db/                # DB 匯入匯出與回滾
 │   └── runbooks/                # DR 演練與回滾流程
 ├── docker-compose.yml           # 核心服務
 ├── docker-compose.prod.yml      # 生產環境覆蓋

@@ -18,7 +18,7 @@
    例如：`backup_before_restore_YYYYMMDD_HHMMSS.dump` 或 `ipig_YYYYMMDD_HHMMSS.sql.gz`。
 
 2. **還原**  
-   - 使用專案還原腳本：見 `docs/database/RESTORE_OLD_DUMP.md`、`scripts/restore_old_dump.ps1`。  
+   - 使用專案還原腳本：見 `docs/db/RESTORE_OLD_DUMP.md`、`scripts/restore_old_dump.ps1`。  
    - 或依 `docs/scripts/backup/BACKUP.md` 的「還原」章節操作。
 
 3. **注意**  

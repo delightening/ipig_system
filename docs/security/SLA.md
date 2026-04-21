@@ -3,7 +3,7 @@
 > **版本**：1.0  
 > **建立日期**：2026-03-01  
 > **適用範圍**：正式環境服務水準定義  
-> **相關文件**：[OPERATIONS.md](../operations/OPERATIONS.md)、[DR_RUNBOOK.md](../runbooks/DR_RUNBOOK.md)、[DEPLOYMENT.md](../DEPLOYMENT.md)
+> **相關文件**：[OPERATIONS.md](../ops/OPERATIONS.md)、[DR_RUNBOOK.md](../runbooks/DR_RUNBOOK.md)、[DEPLOYMENT.md](../DEPLOYMENT.md)
 
 ---
 

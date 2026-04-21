@@ -10,16 +10,16 @@
 
 | # | 文件 | 說明 |
 |---|------|------|
-| 01 | [架構概覽](./01_ARCHITECTURE_OVERVIEW.md) | 系統目的、技術堆疊、分層架構、部署 |
-| 02 | [核心領域模型](./02_CORE_DOMAIN_MODEL.md) | 實體定義、關係、商業規則 |
-| 03 | [模組與邊界](./03_MODULES_AND_BOUNDARIES.md) | 模組拆分、API 前綴、檔案結構 |
-| 04 | [資料庫綱要](./04_DATABASE_SCHEMA.md) | 資料表定義、ENUM、遷移統計 |
-| 05 | [API 規格](./05_API_SPECIFICATION.md) | 完整端點列表、認證、回應格式 |
-| 06 | [權限與 RBAC](./06_PERMISSIONS_RBAC.md) | 角色、權限、存取控制矩陣 |
-| 07 | [安全與稽核](./07_SECURITY_AUDIT.md) | 安全中間件、2FA、WAF、GLP 合規 |
-| 08 | [出勤模組](./08_ATTENDANCE_MODULE.md) | 打卡、請假、加班、行事曆同步 |
-| 09 | [擴展性](./09_EXTENSIBILITY.md) | 已完成功能、未來規劃、擴展指南 |
-| — | [資料庫 ERD](./database_erd.md) | 完整 ER 圖（Mermaid）|
+| 01 | [架構概覽](./architecture/01_ARCHITECTURE_OVERVIEW.md) | 系統目的、技術堆疊、分層架構、部署 |
+| 02 | [核心領域模型](./architecture/02_CORE_DOMAIN_MODEL.md) | 實體定義、關係、商業規則 |
+| 03 | [模組與邊界](./architecture/03_MODULES_AND_BOUNDARIES.md) | 模組拆分、API 前綴、檔案結構 |
+| 04 | [資料庫綱要](./architecture/04_DATABASE_SCHEMA.md) | 資料表定義、ENUM、遷移統計 |
+| 05 | [API 規格](./architecture/05_API_SPECIFICATION.md) | 完整端點列表、認證、回應格式 |
+| 06 | [權限與 RBAC](./architecture/06_PERMISSIONS_RBAC.md) | 角色、權限、存取控制矩陣 |
+| 07 | [安全與稽核](./architecture/07_SECURITY_AUDIT.md) | 安全中間件、2FA、WAF、GLP 合規 |
+| 08 | [出勤模組](./modules/08_ATTENDANCE_MODULE.md) | 打卡、請假、加班、行事曆同步 |
+| 09 | [擴展性](./architecture/09_EXTENSIBILITY.md) | 已完成功能、未來規劃、擴展指南 |
+| — | [資料庫 ERD](./architecture/database_erd.md) | 完整 ER 圖（Mermaid）|
 | — | [guides/](./guides/) | 稽核日誌、命名慣例、UI/UX、儲存設定 |
 
 ---
@@ -75,9 +75,9 @@
 | 文件 | 說明 |
 |------|------|
 | [README.md](../README.md) | 專案總覽 |
-| [QUICK_START.md](../QUICK_START.md) | 快速啟動 |
-| [DEPLOYMENT.md](../DEPLOYMENT.md) | 部署與維運 |
-| [ARCHITECTURE.md](../ARCHITECTURE.md) | 架構圖與資料流 |
+| [QUICK_START.md](../user/QUICK_START.md) | 快速啟動 |
+| [DEPLOYMENT.md](../deploy/DEPLOYMENT.md) | 部署與維運 |
+| [ARCHITECTURE.md](./architecture/ARCHITECTURE.md) | 架構圖與資料流 |
 
 ---
 

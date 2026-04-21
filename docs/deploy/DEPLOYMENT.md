@@ -7,9 +7,9 @@
 
 | 文件 | 用途 |
 |------|------|
-| [README.md](../README.md) | 專案總覽、子系統、技術架構、角色權限、API 摘要 |
-| [QUICK_START.md](QUICK_START.md) | 本地/測試環境快速啟動（Docker 或本地開發） |
-| [USER_GUIDE.md](USER_GUIDE.md) | 使用者操作手冊（登入、AUP、動物管理、ERP） |
+| [README.md](../../README.md) | 專案總覽、子系統、技術架構、角色權限、API 摘要 |
+| [../user/QUICK_START.md](../user/QUICK_START.md) | 本地/測試環境快速啟動（Docker 或本地開發） |
+| [../user/USER_GUIDE.md](../user/USER_GUIDE.md) | 使用者操作手冊（登入、AUP、動物管理、ERP） |
 | **DEPLOYMENT.md**（本手冊） | 部署、備份、還原、監控、安全性維護、GHCR/Watchtower |
 
 ---

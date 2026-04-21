@@ -83,4 +83,4 @@
 - [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
 - [OWASP Testing for Logout Functionality](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/06-Testing_for_Logout_Functionality.html)
 - [CREDENTIAL_ROTATION.md](./CREDENTIAL_ROTATION.md) — 憑證輪換
-- [Profiling_Spec/07_SECURITY_AUDIT.md](../Profiling_Spec/07_SECURITY_AUDIT.md) — 安全稽核規格
+- [spec/07_SECURITY_AUDIT.md](../spec/07_SECURITY_AUDIT.md) — 安全稽核規格

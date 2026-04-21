@@ -127,5 +127,5 @@
 
 - 總體進度與上線準備度：`docs/PROGRESS.md`
 - E2E 流程與說明：`docs/e2e/FLOW.md`、`docs/e2e/README.md`
-- 安全與 CVE 說明：`docs/security-compliance/security.md`（若存在）
+- 安全與 CVE 說明：`docs/security/security.md`（若存在）
 - 備份流程：`scripts/backup/BACKUP.md`

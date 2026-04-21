@@ -96,8 +96,8 @@ sudo mkdir -p /volume1/docker/ipig/data/{postgres,uploads,backups}
 # 在本機 ipig_system 專案根目錄執行
 
 # 方法 A: 自動腳本（推薦）
-chmod +x docs/nas-migration/data-migration.sh
-./docs/nas-migration/data-migration.sh admin <NAS_IP>
+chmod +x docs/deploy/nas-migration/data-migration.sh
+./docs/deploy/nas-migration/data-migration.sh admin <NAS_IP>
 
 # 方法 B: 手動操作（見下方）
 ```
@@ -152,7 +152,7 @@ scp -r secrets/ ${NAS}:${BASE}/secrets/
 ssh ${NAS} "sudo chmod 600 ${BASE}/secrets/*"
 
 # Compose + env
-scp docs/nas-migration/docker-compose.nas.yml ${NAS}:${BASE}/docker-compose.yml
+scp docs/deploy/nas-migration/docker-compose.nas.yml ${NAS}:${BASE}/docker-compose.yml
 scp .env ${NAS}:${BASE}/.env
 ```
 

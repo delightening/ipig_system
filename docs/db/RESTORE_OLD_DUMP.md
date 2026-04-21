@@ -222,7 +222,7 @@ docker exec ipig-db rm -f /tmp/old_ipig.dump
 
 ## 相關文件
 
-- [資料庫綱要文件](Profiling_Spec/04_DATABASE_SCHEMA.md)
+- [資料庫綱要文件](spec/04_DATABASE_SCHEMA.md)
 - [Migration 管理說明](INTEGRATION_TESTS.md#常見錯誤-versionmismatch1)
 - [備份還原流程](backup/BACKUP.md)
 

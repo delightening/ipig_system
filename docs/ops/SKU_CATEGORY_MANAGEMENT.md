@@ -49,7 +49,7 @@
 - 匯入時**不填**品類/子類：系統一律用 **GEN-OTH**，不依賴品類表是否有資料。
 - 匯入時**有填**品類/子類：產品會存成該 code；若 DB 沒有對應的 `sku_categories` / `sku_subcategories`，僅「品類名稱」顯示會是空，SKU 與儲存仍正常。
 
-若你希望「由系統判定品類」（例如依名稱/規格自動推斷），需要另在匯入流程或後端邏輯中實作推斷規則（可參考 `docs/operations/PRODUCT_IMPORT_LLM_SKU_GUIDELINES.md`）。
+若你希望「由系統判定品類」（例如依名稱/規格自動推斷），需要另在匯入流程或後端邏輯中實作推斷規則（可參考 `docs/ops/PRODUCT_IMPORT_LLM_SKU_GUIDELINES.md`）。
 
 ---
 
