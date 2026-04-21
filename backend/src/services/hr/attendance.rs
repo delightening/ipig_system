@@ -304,6 +304,8 @@ impl HrService {
     }
 
     /// 將出勤狀態字串轉為中文顯示名稱
+    // R26-7: 出勤狀態中文化輔助，目前未串接；留 util 備用
+    #[allow(dead_code)]
     pub(super) fn attendance_status_display(status: &str) -> &str {
         match status {
             "normal" => "正常",

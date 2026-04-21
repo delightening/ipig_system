@@ -45,6 +45,8 @@ pub const MONTHLY_OVERTIME_LIMIT: f64 = 46.0;
 pub const MONTHLY_OVERTIME_LIMIT_EXTENDED: f64 = 54.0;
 
 /// 勞基法 §32：每三個月加班上限 138 小時（46×3）
+// R26-7: 勞基法季度上限，目前只實作月度上限；保留常數避免未來忘記法規值。
+#[allow(dead_code)]
 pub const QUARTERLY_OVERTIME_LIMIT: f64 = 138.0;
 
 /// 平日加班分段結果
