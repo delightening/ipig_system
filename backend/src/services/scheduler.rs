@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use tokio_cron_scheduler::{Job, JobScheduler};
+use tokio_util::sync::CancellationToken;
 use sqlx::PgPool;
 use tracing::{info, error};
 use chrono::{Timelike, Datelike, Weekday};
@@ -15,24 +16,35 @@ pub struct SchedulerService;
 
 impl SchedulerService {
     /// 啟動排程服務
-    pub async fn start(db: PgPool, config: Arc<Config>) -> Result<JobScheduler, Box<dyn std::error::Error + Send + Sync>> {
+    ///
+    /// `shutdown_token`：graceful shutdown 訊號；cancel 時所有 job 跳過下一次觸發。
+    /// 正在執行中的 job 會跑完目前批次才退出（commit 5 會在每個 job 內部加 select!）。
+    pub async fn start(
+        db: PgPool,
+        config: Arc<Config>,
+        shutdown_token: CancellationToken,
+    ) -> Result<JobScheduler, Box<dyn std::error::Error + Send + Sync>> {
         let sched = JobScheduler::new().await?;
         let mut job_count = 0;
 
-        Self::register_low_stock_job(&sched, &db, &config, &mut job_count).await?;
-        Self::register_expiry_job(&sched, &db, &config, &mut job_count).await?;
-        Self::register_notification_cleanup_job(&sched, &db, &mut job_count).await?;
-        Self::register_balance_expiration_job(&sched, &db, &mut job_count).await?;
-        Self::register_calendar_sync_jobs(&sched, &db, &mut job_count).await?;
-        Self::register_partition_maintenance_job(&sched, &db, &mut job_count).await?;
-        Self::register_euthanasia_timeout_job(&sched, &db, &mut job_count).await?;
-        Self::register_po_pending_receipt_job(&sched, &db, &mut job_count).await?;
-        Self::register_equipment_overdue_job(&sched, &db, &mut job_count).await?;
-        Self::register_monthly_report_job(&sched, &db, &mut job_count).await?;
-        Self::register_invitation_expiry_job(&sched, &db, &mut job_count).await?;
-        Self::register_db_analyze_job(&sched, &db, &mut job_count).await?;
-        Self::register_iacuc_submission_notify_job(&sched, &db, &config, &mut job_count).await?;
-        Self::register_unresolved_alert_sweep_job(&sched, &db, &config, &mut job_count).await?;
+        // 所有 job 接 CancellationToken：shutdown 時跳過下一輪觸發。
+        // 執行中的 job 跑完當輪才退出（避免中斷 DB 操作造成不一致狀態）。
+        let t = &shutdown_token;
+
+        Self::register_low_stock_job(&sched, &db, &config, t, &mut job_count).await?;
+        Self::register_expiry_job(&sched, &db, &config, t, &mut job_count).await?;
+        Self::register_notification_cleanup_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_balance_expiration_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_calendar_sync_jobs(&sched, &db, t, &mut job_count).await?;
+        Self::register_partition_maintenance_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_euthanasia_timeout_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_po_pending_receipt_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_equipment_overdue_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_monthly_report_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_invitation_expiry_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_db_analyze_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_iacuc_submission_notify_job(&sched, &db, &config, t, &mut job_count).await?;
+        Self::register_unresolved_alert_sweep_job(&sched, &db, &config, t, &mut job_count).await?;
 
         sched.start().await?;
         info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
@@ -43,13 +55,19 @@ impl SchedulerService {
     // ── Job 註冊 helpers ──
 
     /// 每小時整點觸發低庫存檢查（由 DB routing 設定決定實際執行時機）
-    async fn register_low_stock_job(sched: &JobScheduler, db: &PgPool, config: &Arc<Config>, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_low_stock_job(sched: &JobScheduler, db: &PgPool, config: &Arc<Config>, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let config_clone = config.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0 * * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] low_stock_check skipped during shutdown");
+                    return;
+                }
                 if let Err(e) = Self::maybe_run_low_stock_check(&db, &config).await {
                     error!("Low stock check runner failed: {}", e);
                 }
@@ -62,13 +80,19 @@ impl SchedulerService {
     }
 
     /// 每小時整點觸發效期檢查（由 DB routing 設定決定實際執行時機）
-    async fn register_expiry_job(sched: &JobScheduler, db: &PgPool, config: &Arc<Config>, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_expiry_job(sched: &JobScheduler, db: &PgPool, config: &Arc<Config>, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let config_clone = config.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0 * * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] expiry_check skipped during shutdown");
+                    return;
+                }
                 if let Err(e) = Self::maybe_run_expiry_check(&db, &config).await {
                     error!("Expiry check runner failed: {}", e);
                 }
@@ -81,11 +105,17 @@ impl SchedulerService {
     }
 
     /// 每週日 03:00 清理過期通知
-    async fn register_notification_cleanup_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_notification_cleanup_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0 3 * * Sun", move |_uuid, _l| {
             let db = db_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] notification_cleanup skipped during shutdown");
+                    return;
+                }
                 info!("Running weekly notification cleanup...");
                 if let Err(e) = Self::cleanup_notifications(&db).await {
                     error!("Notification cleanup failed: {}", e);
@@ -99,11 +129,17 @@ impl SchedulerService {
     }
 
     /// 每日 00:30 執行餘額到期檢查
-    async fn register_balance_expiration_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_balance_expiration_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 30 0 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] balance_expiration skipped during shutdown");
+                    return;
+                }
                 info!("Running daily balance expiration check...");
                 match BalanceExpirationJob::run(&db).await {
                     Ok(summary) => {
@@ -121,12 +157,18 @@ impl SchedulerService {
     }
 
     /// 每日 08:00 與 18:00 執行 Google Calendar 同步
-    async fn register_calendar_sync_jobs(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_calendar_sync_jobs(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         for (cron, label) in [("0 0 8 * * *", "morning"), ("0 0 18 * * *", "evening")] {
             let db_clone = db.clone();
+            let token_outer = token.clone();
             let job = Job::new_async(cron, move |_uuid, _l| {
                 let db = db_clone.clone();
+                let token = token_outer.clone();
                 Box::pin(async move {
+                    if token.is_cancelled() {
+                        info!("[Scheduler] calendar_sync_{} skipped during shutdown", label);
+                        return;
+                    }
                     info!("Running scheduled calendar sync ({})...", label);
                     match CalendarService::trigger_sync(&db, None).await {
                         Ok(history) => info!("Calendar sync completed: {:?}", history.status),
@@ -142,11 +184,17 @@ impl SchedulerService {
     }
 
     /// 每年 12 月 1 日 03:00 執行分區表維護
-    async fn register_partition_maintenance_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_partition_maintenance_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0 3 1 12 *", move |_uuid, _l| {
             let db = db_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] partition_maintenance skipped during shutdown");
+                    return;
+                }
                 info!("Running annual partition maintenance...");
                 match PartitionMaintenanceJob::ensure_partitions(&db).await {
                     Ok(result) => {
@@ -164,11 +212,16 @@ impl SchedulerService {
     }
 
     /// 每 5 分鐘檢查安樂死單據超時
-    async fn register_euthanasia_timeout_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_euthanasia_timeout_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0/5 * * * *", move |_uuid, _l| {
             let db = db_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    return;
+                }
                 match EuthanasiaService::check_expired_orders(&db).await {
                     Ok(c) if c > 0 => info!("Euthanasia timeout check: {} orders auto-approved", c),
                     Ok(_) => {}
@@ -183,11 +236,17 @@ impl SchedulerService {
     }
 
     /// 每日 09:00 檢查已核准但未入庫的採購單
-    async fn register_po_pending_receipt_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_po_pending_receipt_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0 9 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] po_pending_receipt_check skipped during shutdown");
+                    return;
+                }
                 info!("Running daily PO pending receipt check...");
                 if let Err(e) = Self::check_po_pending_receipt(&db).await {
                     error!("PO pending receipt check failed: {}", e);
@@ -201,11 +260,17 @@ impl SchedulerService {
     }
 
     /// 每日 08:30 檢查設備校正/確效逾期
-    async fn register_equipment_overdue_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_equipment_overdue_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 30 8 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] equipment_overdue_check skipped during shutdown");
+                    return;
+                }
                 info!("Running daily equipment overdue check...");
                 let service = NotificationService::new(db);
                 match service.send_equipment_overdue_notifications().await {
@@ -222,11 +287,17 @@ impl SchedulerService {
     }
 
     /// 每月 1 號 06:00 產出上月進銷貨+血液檢查報表
-    async fn register_monthly_report_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_monthly_report_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0 6 1 * *", move |_uuid, _l| {
             let db = db_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] monthly_report skipped during shutdown");
+                    return;
+                }
                 info!("Running monthly report generation...");
                 if let Err(e) = Self::generate_monthly_report(&db).await {
                     error!("Monthly report generation failed: {}", e);
@@ -240,11 +311,17 @@ impl SchedulerService {
     }
 
     /// 每日 04:00 清理過期邀請
-    async fn register_invitation_expiry_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_invitation_expiry_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0 4 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] invitation_expiry skipped during shutdown");
+                    return;
+                }
                 info!("Running daily invitation expiry check...");
                 match InvitationService::expire_stale(&db).await {
                     Ok(c) if c > 0 => info!("Invitation expiry check: {} invitations expired", c),
@@ -264,14 +341,21 @@ impl SchedulerService {
         sched: &JobScheduler,
         db: &PgPool,
         config: &Arc<Config>,
+        token: &CancellationToken,
         count: &mut u32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let config_clone = config.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0 */2 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] iacuc_submission_notify skipped during shutdown");
+                    return;
+                }
                 if let Err(e) = Self::check_iacuc_new_submissions(&db, &config).await {
                     error!("[IACUC] Submission notify job failed: {}", e);
                 }
@@ -284,11 +368,17 @@ impl SchedulerService {
     }
 
     /// 每天 03:30 執行 ANALYZE
-    async fn register_db_analyze_job(sched: &JobScheduler, db: &PgPool, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register_db_analyze_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 30 3 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] db_maintenance_analyze skipped during shutdown");
+                    return;
+                }
                 info!("Running scheduled ANALYZE on high-write tables...");
                 if let Err(e) = sqlx::query("SELECT maintenance_vacuum_analyze()")
                     .execute(&db)
@@ -309,14 +399,21 @@ impl SchedulerService {
         sched: &JobScheduler,
         db: &PgPool,
         config: &Arc<Config>,
+        token: &CancellationToken,
         count: &mut u32,
     ) -> SchedulerResult {
         let db_clone = db.clone();
         let config_clone = config.clone();
+        let token_outer = token.clone();
         let job = Job::new_async("0 0 */6 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
+            let token = token_outer.clone();
             Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] unresolved_alert_sweep skipped during shutdown");
+                    return;
+                }
                 if let Err(e) = Self::sweep_unresolved_alerts(&db, &config).await {
                     error!("[R22-13] Unresolved alert sweep failed: {}", e);
                 }

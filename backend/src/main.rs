@@ -1,4 +1,7 @@
 use std::sync::Arc;
+use std::time::Duration;
+
+use tokio_util::sync::CancellationToken;
 
 use erp_backend::config;
 use erp_backend::middleware::JwtBlacklist;
@@ -89,8 +92,17 @@ async fn main() -> anyhow::Result<()> {
 
     log_startup_config_check(&config);
 
+    // 全域 graceful shutdown 訊號：所有背景任務觀測此 token 優雅收尾
+    let shutdown_token = CancellationToken::new();
+
     // 背景排程服務（必須保留到 server 關閉）
-    let _scheduler = match SchedulerService::start(pool.clone(), config.clone()).await {
+    let _scheduler = match SchedulerService::start(
+        pool.clone(),
+        config.clone(),
+        shutdown_token.clone(),
+    )
+    .await
+    {
         Ok(sched) => {
             tracing::info!("Background scheduler started");
             Some(sched)
@@ -110,7 +122,9 @@ async fn main() -> anyhow::Result<()> {
     // JWT 黑名單（SEC-23 + SEC-33）
     let jwt_blacklist = JwtBlacklist::new();
     jwt_blacklist.load_from_db(&pool).await;
-    jwt_blacklist.clone().start_cleanup_task(pool.clone());
+    let jwt_cleanup_handle = jwt_blacklist
+        .clone()
+        .start_cleanup_task(pool.clone(), shutdown_token.clone());
 
     // SEC-30
     if config.trust_proxy_headers {
@@ -157,6 +171,7 @@ async fn main() -> anyhow::Result<()> {
         pdf_service,
         templates,
         permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
+        shutdown_token: shutdown_token.clone(),
     };
 
     let app = build_app(state, &config);
@@ -165,12 +180,22 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("Server listening on {}", addr);
 
+    // shutdown 流程：接到訊號 → cancel token → axum 停收新連線 → 等背景任務收尾
+    let shutdown_token_for_signal = shutdown_token.clone();
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-    .with_graceful_shutdown(shutdown_signal())
+    .with_graceful_shutdown(async move {
+        shutdown_signal().await;
+        tracing::info!("Shutdown signal received — cancelling background tasks");
+        shutdown_token_for_signal.cancel();
+    })
     .await?;
+
+    // 等背景任務收尾（timeout 保底避免永久卡死）
+    tracing::info!("Waiting for background tasks to finish (up to 30s)...");
+    let _ = tokio::time::timeout(Duration::from_secs(10), jwt_cleanup_handle).await;
 
     tracing::info!("Server shut down gracefully");
     Ok(())

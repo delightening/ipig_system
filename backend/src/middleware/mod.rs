@@ -1,3 +1,4 @@
+pub mod actor;
 pub mod ai_auth;
 mod auth;
 pub mod csrf;
@@ -9,6 +10,7 @@ pub mod rate_limiter;
 pub mod real_ip;
 pub mod response_logger;
 
+pub use actor::{ActorContext, SYSTEM_USER_ID};
 pub use auth::*;
 pub use etag::etag_middleware;
 pub use csrf::csrf_middleware;

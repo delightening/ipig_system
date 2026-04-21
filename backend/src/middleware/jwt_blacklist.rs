@@ -12,6 +12,8 @@ use chrono::Utc;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
 
 #[derive(Clone)]
 pub struct JwtBlacklist {
@@ -154,15 +156,27 @@ impl JwtBlacklist {
         }
     }
 
-    /// 啟動背景清理任務（同時清理記憶體和 DB）
-    pub fn start_cleanup_task(self, pool: PgPool) {
+    /// 啟動背景清理任務（同時清理記憶體和 DB）。
+    /// 觀測 `token.cancelled()` 以便 graceful shutdown 時安全收尾。
+    pub fn start_cleanup_task(
+        self,
+        pool: PgPool,
+        token: CancellationToken,
+    ) -> JoinHandle<()> {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300));
             loop {
-                interval.tick().await;
-                self.cleanup();
-                self.cleanup_db(&pool).await;
+                tokio::select! {
+                    _ = token.cancelled() => {
+                        tracing::info!("[JwtBlacklist] 收到 shutdown 訊號，結束清理任務");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        self.cleanup();
+                        self.cleanup_db(&pool).await;
+                    }
+                }
             }
-        });
+        })
     }
 }
