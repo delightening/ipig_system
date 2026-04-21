@@ -1,44 +1,23 @@
+# ============================================================
+# Alertmanager 靜態 fallback 設定（無密碼、無秘密）
+# ============================================================
+# 此檔案只在 ALERTMANAGER_WEBHOOK_URL 未設定時被 docker-entrypoint.sh 使用。
+# 一旦 .env 有設定 ALERTMANAGER_WEBHOOK_URL / ALERT_SMTP_* 等變數，
+# docker-entrypoint.sh 會改從環境變數動態產生 /tmp/alertmanager.yml，
+# 本檔不會被讀取。
+#
+# ⚠️ 禁止將任何 email、密碼、token 寫入此檔，所有機敏值一律放 .env 或 secrets/。
+# ============================================================
+
 global:
   resolve_timeout: 5m
 
 route:
-  group_by: ["alertname", "severity"]
+  group_by: ["alertname"]
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
-  receiver: "default"
+  receiver: "null"
 
-  routes:
-    - match:
-        severity: critical
-      receiver: "critical"
-      repeat_interval: 1h
-
-# R24-3: 啟用 webhook 轉發至 ipig_system 內部 API，複用 R22 SecurityNotifier
-# 共享 token 請於 api 服務的 ALERTMANAGER_WEBHOOK_TOKEN 環境變數設定。
 receivers:
-  - name: "default"
-    webhook_configs:
-      - url: "http://api:8000/api/webhooks/alertmanager"
-        send_resolved: false
-        http_config:
-          # send X-Webhook-Token; value must match api env ALERTMANAGER_WEBHOOK_TOKEN
-          authorization:
-            type: Bearer
-            credentials_file: /run/secrets/webhook_token
-
-  - name: "critical"
-    webhook_configs:
-      - url: "http://api:8000/api/webhooks/alertmanager"
-        send_resolved: false
-        http_config:
-          authorization:
-            type: Bearer
-            credentials_file: /run/secrets/webhook_token
-    email_configs:
-      - to: "jason4617987@gmail.com"
-        from: "alertmanager@ipig.system"
-        smarthost: "smtp.gmail.com:587"
-        auth_username: "jason4617987@gmail.com"
-        auth_password: "tajr azwc pmac lyxs"
-        require_tls: true
+  - name: "null"

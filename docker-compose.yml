@@ -403,9 +403,12 @@ services:
       ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
       ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-}
       ALERT_SMTP_USER: ${ALERT_SMTP_USER:-}
-      ALERT_SMTP_PASSWORD: ${ALERT_SMTP_PASSWORD:-}
+      # Plan B: ALERT_SMTP_PASSWORD 從 /run/secrets/alert_smtp_password 讀取（見 docker-entrypoint.sh）
+      # 不透過 env 傳遞，避免 `docker inspect` 外洩密碼
     volumes:
       - ./monitoring/alertmanager:/etc/alertmanager:ro
+      # Plan B: 服務獨立 app password（file-based secret）
+      - ./secrets/alert_smtp_password.txt:/run/secrets/alert_smtp_password:ro
     ports:
       - "127.0.0.1:9093:9093"
     networks:
@@ -443,7 +446,8 @@ services:
       GF_SMTP_ENABLED: "true"
       GF_SMTP_HOST: ${GRAFANA_SMTP_HOST:-smtp.gmail.com:587}
       GF_SMTP_USER: ${GRAFANA_SMTP_USER:-}
-      GF_SMTP_PASSWORD: ${GRAFANA_SMTP_PASSWORD:-}
+      # Plan B: Grafana 原生支援 __FILE 從檔案讀取密碼（避免 docker inspect 外洩）
+      GF_SMTP_PASSWORD__FILE: /run/secrets/grafana_smtp_password
       GF_SMTP_FROM_ADDRESS: ${GRAFANA_SMTP_USER:-}
     volumes:
       - grafana_data:/var/lib/grafana
@@ -453,6 +457,8 @@ services:
       - ./deploy/grafana_security_dashboard.json:/var/lib/grafana/dashboards/ipig-security.json:ro
       - ./secrets/grafana_pg_password.txt:/run/secrets/grafana_pg_password:ro
       - ./secrets/prometheus_password.txt:/run/secrets/prometheus_password:ro
+      # Plan B: 服務獨立 app password（file-based secret）
+      - ./secrets/grafana_smtp_password.txt:/run/secrets/grafana_smtp_password:ro
     ports:
       - "127.0.0.1:3001:3000"
     # R24-4: Grafana 需 database 網路才能連 Postgres datasource
