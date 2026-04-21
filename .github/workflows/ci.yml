@@ -2,9 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # main: 正式釋出
+    # integration/**: long-lived 重構 integration branches（例如 integration/r26
+    #   收集 Service-driven audit 重構所有 PR，合 main 前需完整 CI 驗證）
+    branches:
+      - main
+      - 'integration/**'
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - 'integration/**'
   workflow_dispatch:
 
 env:
