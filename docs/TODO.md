@@ -1904,6 +1904,8 @@ ORDER BY 1 DESC;
 | R26-4 | **舊 `log_activity(&pool, ...)` 最終移除** | 所有 handler 遷移完成後，刪除 `AuditService::log_activity` 舊版 + 相關 `compute_and_store_hmac` 舊版；同步更新 `#[deprecated]` 標記移除；CI 加 `cargo build` 檢查 `use of deprecated` = 0 | [ ] |
 | R26-5 | **(已完成) migration 036 changed_fields 聯集修正** | 對應 PR #154：stored proc fallback 由 JSONB EXCEPT 改為 UNION + `IS DISTINCT FROM`，正確偵測「被刪除的 key」。 | [x] |
 | R26-6 | **HMAC chain 版本化 + 儲存後雜湊** | 兩個相關的 HMAC 正確性議題合併處理：**(1) 版本化**：PR #154 將 HMAC 編碼從字串串接改為 length-prefix canonical；既有 rows 用舊格式，驗證時需區分。新增 `user_activity_logs.hmac_version SMALLINT`（`1`=string-concat legacy、`2`=length-prefix canonical），寫入時 `log_activity_tx` 填 `2`、`log_activity`（deprecated）填 `1`；R26-2 驗證 cron 依 version 分流。**(2) 儲存後雜湊**：目前 `HmacInput` 在 INSERT **前**建構，若呼叫者沒提供 changed_fields，stored proc 的 jsonb UNION fallback 會產生不同於 HmacInput 的 changed_fields → HMAC 沒涵蓋最終存入值。修法：`log_activity` 返回 id + final_changed_fields，HMAC 用持久化後的值計算（或 stored proc 內一次完成 INSERT + HMAC）。**實務影響**：新 `log_activity_tx` 呼叫者 (DataDiff 產出) 一定提供非空 changed_fields，不走 fallback；但 defensive 仍建議修。**來源**：PR #154 Gemini SECURITY-MEDIUM (audit.rs:414) + CodeRabbit Major (audit.rs:82) | [ ] |
+| R26-7 | **Dead code 11 處逐一 review & 清理** | PR #3 拿掉 `services/mod.rs` 的 `#![allow(dead_code)]`（CRIT-04）後，暴露 11 處零星死碼（`parse_gender` / `VetPatrolEntry` / `attendance_status_display` / `QUARTERLY_OVERTIME_LIMIT` / `SignRequest` / `SignResponse` / `CreateAnnotationRequest` / `calculate_check_digit` / `get_next_sequence` / `IdxfMeta.format_version` / `ManifestTable.columns`）。為讓 PR #3 scope 聚焦 Service-driven 示範，這 11 處暫以 per-item `#[allow(dead_code)]` + 理由標記。R26-7 逐一判斷：(a) API DTO（SignRequest 等）→ 確認 handler/openapi 引用；(b) 預留 utility（parse_gender 等）→ 若確無需求則刪除；(c) serde 被動欄位（format_version / columns）→ 確認解析需求。目標：此 PR 後零 `#[allow(dead_code)]`。 | [ ] |
+| R26-8 | **完整 `ProtocolService::change_status` Service-driven 重構** | PR #3 已示範 `submit()` 的 Service-driven pattern，但 `change_status` 因涉及 PartnerService::create 交叉服務、4 個內部 helper fn（assign_primary_reviewer / assign_vet_reviewer / record_activity / PartnerService::update）、10+ DB 操作，完整 tx 化估計 1-2 人日，超出 PR #3 demo 範圍。目前以 mini-tx wrapper 包 numbering（`generate_apig_no_pool` / `generate_iacuc_no_pool`），解 CRIT-01 80% 但不完整。R26-8 執行：把 change_status 全部 DB 操作納入同一 tx，併 PartnerService 介接（需 `PartnerService::create_tx`）。 | [ ] |
 
 ---
 
@@ -1938,8 +1940,8 @@ ORDER BY 1 DESC;
 | 🎨 R23 全站 Table UI 升級 | 0 (20 完成) |
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
-| 🔄 R26 Service-driven Audit 重構延伸 | 5 (1 已完成) |
-| **合計（未完成）** | **18** |
+| 🔄 R26 Service-driven Audit 重構延伸 | 7 (1 已完成) |
+| **合計（未完成）** | **20** |
 
 ---
 
