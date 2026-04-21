@@ -42,6 +42,35 @@ pub struct DataDiff {
 /// 脫敏後該欄位的值變為字串 `"[REDACTED]"`，**欄位名保留在 JSON 與
 /// changed_fields 中**，方便稽核查詢「誰改過密碼」而不洩漏密碼值。
 ///
+/// # ⚠️ 安全警告：空 impl 代表**零脫敏**
+///
+/// `impl AuditRedact for T {}`（未覆寫 `redacted_fields`）會 fallback 到空 slice，
+/// **意即該 entity 的所有欄位都會明文寫入 `user_activity_logs`**。這對單純的
+/// 業務 entity（無敏感欄位）是正確的，但**任何含密碼雜湊 / token / MFA 備援
+/// 碼 / 第三方 API key / session 資訊的型別都必須明確覆寫 `redacted_fields`**。
+///
+/// **以下型別 MUST 明確實作 redacted_fields（即使尚未有 Service-driven audit 呼叫）**：
+/// - `User`（password_hash / session_token）
+/// - `UserSession` / `JwtBlacklist`
+/// - `AuthCredential` / `TwoFactorSecret`
+/// - `McpKey`（api_key）
+/// - `Partner`（若含 contact_password 或第三方 API 憑證）
+/// - `OAuthCredential` / `GoogleCalendarToken`
+///
+/// 無敏感欄位的 entity（如 `Animal` / `Protocol` / 各式 record）可直接用空 impl。
+/// **新增 entity 時 reviewer 必須確認**；未來可考慮加 compile-time 強制機制
+/// （例如 `proc-macro` 或 `trait sealed`），目前靠 code review 把關。
+///
+/// # Serde 互動注意事項
+///
+/// `redacted_fields` 回傳的**欄位名**會比對 **JSON 序列化後的 key**，因此：
+/// - `#[serde(rename = "passwordHash")]` → redact 路徑要寫 `"passwordHash"`，**不是** `"password_hash"`
+/// - `#[serde(skip)]` 的欄位不會出現在 JSON → 自然不需要 redact（但稽核也看不到變化）
+/// - `#[serde(flatten)]` 的巢狀結構 → redact 路徑用 top-level 名稱
+///
+/// 覆寫 redacted_fields 後請跑一次 `cargo test models::audit_diff`（該模組的
+/// 測試會驗證 redact 正確性）。
+///
 /// # Example
 /// ```ignore
 /// impl AuditRedact for User {
@@ -51,6 +80,9 @@ pub struct DataDiff {
 /// }
 /// ```
 pub trait AuditRedact {
+    /// 回傳此 entity 需脫敏的欄位路徑清單。空 slice（預設）代表**零脫敏**。
+    ///
+    /// 見 trait 層 doc 警告：含敏感欄位的型別必須覆寫此方法。
     fn redacted_fields() -> &'static [&'static str] {
         &[]
     }

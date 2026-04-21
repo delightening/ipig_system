@@ -21,16 +21,57 @@ use crate::{
 
 /// audit log 的參數封裝（取代原本 11 個位置參數）。
 ///
-/// # Example
+/// # 建構方式
+///
+/// 三種常見情境對應三個 constructor，避免手動填 `request_context: None` 等
+/// 冗詞；需自訂時也可直接用 struct literal + `..Default::default()`。
+///
+/// ## UPDATE（最常見，有 before + after）
 /// ```ignore
-/// AuditService::log_activity_tx(&mut tx, &actor, ActivityLogEntry {
-///     event_category: "ANIMAL",
-///     event_type: "UPDATE",
-///     entity: Some(AuditEntity::new("animal", animal.id, &animal.ear_tag)),
-///     data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
-///     request_context: None,
-/// }).await?;
+/// let entry = ActivityLogEntry::update(
+///     "ANIMAL", "UPDATE",
+///     AuditEntity::new("animal", animal.id, &animal.ear_tag),
+///     DataDiff::compute(Some(&before), Some(&after)),
+/// );
 /// ```
+///
+/// ## CREATE（無 before）
+/// ```ignore
+/// let entry = ActivityLogEntry::create(
+///     "ANIMAL", "CREATE",
+///     AuditEntity::new("animal", animal.id, &animal.ear_tag),
+///     &after,  // 會自動包成 DataDiff::compute(None, Some(...))
+/// );
+/// ```
+///
+/// ## DELETE（有 before，after = None）
+/// ```ignore
+/// let entry = ActivityLogEntry::delete(
+///     "ANIMAL", "DELETE",
+///     AuditEntity::new("animal", before.id, &before.ear_tag),
+///     &before,
+/// );
+/// ```
+///
+/// ## Simple（無 data diff，例如 SUBMIT / APPROVE 類狀態事件）
+/// ```ignore
+/// let entry = ActivityLogEntry::simple(
+///     "AUP", "PROTOCOL_SUBMIT",
+///     AuditEntity::new("protocol", id, &title),
+/// );
+/// ```
+///
+/// ## 自訂（需 request_context 或其他組合）
+/// ```ignore
+/// let entry = ActivityLogEntry {
+///     event_category: "SECURITY",
+///     event_type: "LOGIN_FAIL",
+///     entity: None,
+///     data_diff: None,
+///     request_context: Some(RequestContext { ip_address: Some(ip), user_agent: None }),
+/// };
+/// ```
+#[derive(Default)]
 pub struct ActivityLogEntry<'a> {
     /// 事件大類：ANIMAL / AUP / HR / ERP / SECURITY 等
     pub event_category: &'a str,
@@ -42,6 +83,71 @@ pub struct ActivityLogEntry<'a> {
     pub data_diff: Option<DataDiff>,
     /// HTTP 請求脈絡（IP / UA）；scheduler / bin 觸發時為 None
     pub request_context: Option<RequestContext<'a>>,
+}
+
+impl<'a> ActivityLogEntry<'a> {
+    /// UPDATE 類事件：含完整 before/after diff。
+    pub fn update(
+        event_category: &'a str,
+        event_type: &'a str,
+        entity: AuditEntity<'a>,
+        data_diff: DataDiff,
+    ) -> Self {
+        Self {
+            event_category,
+            event_type,
+            entity: Some(entity),
+            data_diff: Some(data_diff),
+            request_context: None,
+        }
+    }
+
+    /// CREATE 類事件：無 before，after 為新建 entity。
+    pub fn create<T: serde::Serialize + crate::models::audit_diff::AuditRedact>(
+        event_category: &'a str,
+        event_type: &'a str,
+        entity: AuditEntity<'a>,
+        after: &T,
+    ) -> Self {
+        Self {
+            event_category,
+            event_type,
+            entity: Some(entity),
+            data_diff: Some(DataDiff::create_only(after)),
+            request_context: None,
+        }
+    }
+
+    /// DELETE 類事件：含 before，after 為 None。
+    pub fn delete<T: serde::Serialize + crate::models::audit_diff::AuditRedact>(
+        event_category: &'a str,
+        event_type: &'a str,
+        entity: AuditEntity<'a>,
+        before: &T,
+    ) -> Self {
+        Self {
+            event_category,
+            event_type,
+            entity: Some(entity),
+            data_diff: Some(DataDiff::delete_only(before)),
+            request_context: None,
+        }
+    }
+
+    /// 狀態類事件（SUBMIT / APPROVE / REJECT 等）：有 entity 但無 data diff。
+    pub fn simple(
+        event_category: &'a str,
+        event_type: &'a str,
+        entity: AuditEntity<'a>,
+    ) -> Self {
+        Self {
+            event_category,
+            event_type,
+            entity: Some(entity),
+            data_diff: None,
+            request_context: None,
+        }
+    }
 }
 
 /// 變更對象的描述（供 user_activity_logs 的 entity_* 欄位）

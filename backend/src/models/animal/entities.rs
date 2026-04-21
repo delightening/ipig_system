@@ -335,3 +335,22 @@ pub struct AnimalStatsResponse {
     /// 全部動物總數
     pub total: i64,
 }
+
+// ========================================================================
+// AuditRedact impls — 空 impl 代表無敏感欄位需脫敏。
+// 見 `crate::models::audit_diff::AuditRedact` trait doc 的安全警告。
+// 下列 animal 實體均為業務資料（無密碼 / token / 第三方憑證）。
+// ========================================================================
+
+impl crate::models::audit_diff::AuditRedact for Animal {}
+impl crate::models::audit_diff::AuditRedact for AnimalSource {}
+impl crate::models::audit_diff::AuditRedact for AnimalObservation {}
+impl crate::models::audit_diff::AuditRedact for AnimalSurgery {}
+impl crate::models::audit_diff::AuditRedact for AnimalWeight {}
+impl crate::models::audit_diff::AuditRedact for AnimalVaccination {}
+impl crate::models::audit_diff::AuditRedact for AnimalSacrifice {}
+impl crate::models::audit_diff::AuditRedact for AnimalSuddenDeath {}
+impl crate::models::audit_diff::AuditRedact for AnimalTransfer {}
+impl crate::models::audit_diff::AuditRedact for AnimalPathologyReport {}
+impl crate::models::audit_diff::AuditRedact for AnimalBloodTest {}
+impl crate::models::audit_diff::AuditRedact for AnimalBloodTestItem {}

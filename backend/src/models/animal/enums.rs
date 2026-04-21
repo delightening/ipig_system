@@ -211,6 +211,9 @@ pub struct VetRecommendation {
     pub created_at: DateTime<Utc>,
 }
 
+// 無敏感欄位，空 impl 即可（見 AuditRedact trait doc 警告）
+impl crate::models::audit_diff::AuditRedact for VetRecommendation {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -21,6 +21,9 @@ pub struct AnimalVetAdvice {
     pub updated_at: DateTime<Utc>,
 }
 
+// 無敏感欄位，空 impl 即可（見 AuditRedact trait doc 警告）
+impl crate::models::audit_diff::AuditRedact for AnimalVetAdvice {}
+
 /// Upsert 請求
 #[derive(Debug, Deserialize)]
 pub struct UpsertVetAdviceRequest {
@@ -85,6 +88,9 @@ pub struct VetAdviceRecord {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// 無敏感欄位，空 impl 即可（見 AuditRedact trait doc 警告）
+impl crate::models::audit_diff::AuditRedact for VetAdviceRecord {}
 
 #[derive(Debug, Deserialize)]
 pub struct CreateVetAdviceRecordRequest {
