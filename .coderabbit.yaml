@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
-language: zh-TW
+# CodeRabbit 只支援標準 IETF 語言 tag；zh-TW 不在其 enum 中，退而用 "zh"（中文通用）。
+# Comment 內容本身仍會用繁中呈現（靠 path_instructions 中的繁中指引）。
+language: zh
 
 early_access: false
 
