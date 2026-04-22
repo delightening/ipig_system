@@ -186,6 +186,34 @@ pub async fn mutate(pool: &PgPool, actor: &ActorContext, /* args */) -> Result<E
 | D-13 | PR #159 用 struct literal 不用 constructor | 避免 PR #156 rebase 衝突 |
 | D-14 | 4/22 同日開 4 個並行 PR | pattern 已 proven、模組獨立 |
 
+### 7.3 兩個不同度量單位的澄清（PR #165 review follow-up）
+
+本文件**同時出現**兩個不同的計量單位，讀者容易誤以為可以加總，特此澄清：
+
+- **97 call sites**（handler-level）= `grep -rn "AuditService::log_activity\|AuditService::log" backend/src/handlers/ | wc -l`，統計 handler 中每一次「呼叫 audit 的位置」。一個 handler function 可能有 2-3 個 call site（create / update 各一次）。
+- **mutations** = service 層實際需要 audit 的資料變更函式（`pub async fn create / update / delete / approve ...`）。一個 mutation 可能對應 0-3 個 handler call sites。
+
+兩者**不能直接加總或比對**。下方 §8 表格的「17 mutations 已遷」與 §1 標頭「97 call sites」是不同度量，這是刻意保留兩個數字：一個看程式碼改動量（mutations），一個看 reviewer 可 grep 驗證的數字（call sites）。
+
+進度摘要表（以 merged-into-integration/r26 為準，隨 PR merge 動態更新）：
+
+| 模組 | mutations (planned) | mutations (merged) | handler call sites (planned) | handler call sites (cleared) |
+|---|---|---|---|---|
+| protocol | 1 | 1 (PR #155) | 1 | 1 |
+| animals | 49 | 0 ⚠️ PR #156 closed | 49 | 0 |
+| document | 10 | 0 ⚠️ PR #159 closed | 8 | 0 |
+| HR (leave/overtime/balance/attendance) | 21 | 21 (PR #160 + #161) | ~8 | ~8 |
+| user | 4 | 4 (PR #162) | 6 | 6 |
+| partner/warehouse/equipment | 13 | 13 (PR #166) | 12 | 12 |
+| product/sku | 13 | 0 (PR #164 open) | 12 | 0 |
+| role/ai/auth/two_factor | ~12 | 0 | ~12 | 0 |
+| **合計** | **~123** | **39 已 merged** | **~108** | **27 已清** |
+
+注意：
+- 合計「~123 mutations」 > 原估「97 call sites」，是因 mutations 單位更細（一個 service method 即使對應 1 個 handler call site，也算獨立 mutation 需改）。
+- PR #156 / #159 狀態為 **closed（非 merged）**，對應的 animals / document 需另案重開，不列入已落地數字。
+- 本表為估計值與現況快照，隨 PR 進度每週同步（見 §16 維護規則）。
+
 ### 8. 具體要改什麼
 
 | 類型 | 位置 | 改動 |
