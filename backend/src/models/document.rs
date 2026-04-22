@@ -151,6 +151,10 @@ pub struct DocumentLine {
     pub storage_location_id: Option<Uuid>,
 }
 
+// 無敏感欄位，空 impl 即可（見 AuditRedact trait doc 警告）
+impl crate::models::audit_diff::AuditRedact for Document {}
+impl crate::models::audit_diff::AuditRedact for DocumentLine {}
+
 /// 建立單據請求
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateDocumentRequest {
@@ -286,6 +290,9 @@ pub struct PoReceiptStatus {
     pub status: String,
     pub items: Vec<PoReceiptItem>,
 }
+
+// 無敏感欄位，空 impl 即可（見 AuditRedact trait doc 警告）
+impl crate::models::audit_diff::AuditRedact for PoReceiptStatus {}
 
 /// 採購單入庫項目
 #[derive(Debug, Serialize, ToSchema)]
