@@ -185,18 +185,34 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
-### 2026-04-22 R26 PR #4a — Animals simple mutations Service-driven audit
+### 2026-04-22 R26 Service-driven Audit — PR #4a animals + 後續四 PR（document / HR / user）
+
+本日 R26 epic 合計推進 **5 個 PR**（#156 animals 系列先完成；#159/#160/#161/#162 後續四 PR 平行開出）。
+
+#### PR #4a（#156）animals simple mutations Service-driven audit（8 commits / 17 mutations）
 
 - ✅ **Codex 審閱通過**（CONDITIONAL GO）：pattern 可複製前的獨立審閱完成 — 10 findings 分類 1 🔴 Blocker / 4 🟡 Warning / 5 🟢 Note；🔴 #2（AuditRedact 空 impl 風險）在 PR #4a 第一個 commit 修掉；🟡 #10（UPDATE-after-INSERT HMAC）歸 R26-6
-- ✅ **PR #156（opened → integration/r26）PR #4a animals simple mutations**（8 commits）：
+- ✅ **PR #156（opened → integration/r26）**：
   - C1：AuditRedact trait 強化安全警告 doc（User/Session/MCP key 類必須覆寫 redacted_fields）+ `ActivityLogEntry` 加 `Default` + 4 constructors（update / create / delete / simple，減少 ~45 call sites 填 `request_context: None`）+ 16 個 animal entity AuditRedact 空 impl
   - C2-C7：source.rs / weight.rs / vet_advice.rs / care_record.rs / medical.rs 疫苗 / observation+surgery create 共 **17 個 simple mutations** 改寫為 tx + ActorContext + DataDiff
   - C8：clippy 零警告調整（移除 handler 不再用的 AnimalService/AuditService import）
 - ✅ **決策採納**：upsert → `create_or_update` 拆分（獲完整 before/after diff）；soft_delete 歸 simple（change_reasons 視為 audit trail 伴生）；actor 分層策略（submit/approve 用 require_user；CRUD 用 `actor_user_id().unwrap_or(SYSTEM_USER_ID)` 允許 System，支援 batch 匯入）
 - ✅ **內部 caller 調整**：`AnimalService::create` 初始體重改 `ActorContext::System { reason: "animal_create_initial_weight" }`；`import_export.rs` 批次匯入體重改 `ActorContext::System { reason: "weight_batch_import" }`（actor 鏈路完整化歸 PR #4d）
-- ✅ **驗證綠燈**：`cargo check` / `cargo clippy --all-targets -- -D warnings -A deprecated` / `cargo test --lib` 423/423 全數通過；CI 14 個 check 中 7 已過，5 IN_PROGRESS
+- ✅ **驗證綠燈**：`cargo check` / `cargo clippy --all-targets -- -D warnings -A deprecated` / `cargo test --lib` 423/423 全數通過
 - ✅ **R26-3 範圍訂正**：原 TODO 估「~20 處 handler」經 `AuditService::log_activity / ::log` 跨 27 handler 檔的實測為 **97 call sites**（animals 49 + user 8 + product 7 + sku 5 + 其他 28），估 ~465 person-hours；拆分成 PR #4a~4e（animals 系列 ~200h）+ PR #5a/b/c（hr/document ~185h）+ PR #6（其他模組 ~80h）
 - ✅ **計畫文件**：`docs/plans/pr4a-animals-simple-mutations.md`（已在 PR #155 一併提交，10.2K 可執行粒度）+ `docs/plans/pr5-hr-document-roadmap.md`（6.6K 路線圖層級）
+
+#### 後續四 PR（document / HR / user）消化 R26-3 的 35 個 service mutations
+
+延續 PR #4a，開出 **4 個平行子 PR**（全部 base 於 `integration/r26`，可獨立 review）：
+
+- ✅ **PR #5a（#159）document 模組 Service-driven audit**（5 commits / 10 mutations）：`Document` / `DocumentLine` / `PoReceiptStatus` 3 個 AuditRedact 空 impl；`crud.rs` 3 個（create / update / delete）+ `workflow.rs` 5 個（submit / approve / admin_approve / admin_reject / cancel）+ `grn.rs` 2 個（create_additional_grn / recalculate_all_po_receipt_status）；approve 跨 service tx 串接（`StockService::process_document` + `AccountingService::post_document`）維持不變；`recalculate` 採 batch summary audit 粒度；**移除 `AuditService::audit_document` helper**（handler 8 處呼叫點全清）；423 tests / 0 clippy
+- ✅ **PR #5b（#160）HR leave 模組 Service-driven audit + balance helper tx 化**（3 commits / 7 mutations + 7 helpers）：`LeaveRequest` / `LeaveApproval` / `AnnualLeaveEntitlement` / `CompTimeBalance` 4 個 AuditRedact；7 個 leave mutation（create / update / delete / submit / approve / reject / cancel）**全部從 0 tx 狀態**加 `pool.begin()`；approve_leave / cancel_leave 的 balance 扣除/還原也改 tx（7 個 balance helper 由 `&PgPool` 改 `&mut Transaction`，`FOR UPDATE` 加行鎖避免併發超扣）；event_type 分 INTERIM / FINAL / RETROACTIVE 粒度；GLP 合規重點：leave 狀態變更與 balance 異動原子化
+- ✅ **PR #5c（#161）HR overtime / balance / attendance Service-driven audit**（4 commits / 14 mutations）：`OvertimeRecord` / `AttendanceRecord` AuditRedact；`overtime.rs` 6 個 mutation + **`approve_overtime` 多步流程收進同一 tx**（SELECT FOR UPDATE → UPDATE RETURNING → INSERT overtime_approvals → is_final 時 INSERT comp_time_balances → audit，補休授予原子化）；`balance.rs` 5 個 mutation + `batch_auto_calculate` 採 **N+1 summary audit** 粒度；`attendance.rs` clock_in / clock_out / correct_attendance 也 tx 化（before/after IP/GPS diff 供稽核異常行為偵測）；完成 HR epic 21 個 mutation 全部遷移
+- ✅ **PR #6a（#162）user 模組 Service-driven audit + 6 audit 呼叫點整合**（3 commits / 4 mutations）：`User` 覆寫 `AuditRedact::redacted_fields()`（`password_hash` / `totp_secret_encrypted` / `totp_backup_codes` 作為 defence-in-depth）；`create` / `deactivate_self` / `delete` / `update` tx 化；**consolidate 原本散落的 6 個 audit 呼叫**（handler `log(Create)` ×1 / `log(Delete)` ×1 / update_user tokio::spawn `log_activity(SECURITY)` ×2 / delete_me_account `log_activity(GDPR)` ×1 / service 內部 `log(Update)` ×1 = 6）→ service 層 1-3 筆 event_type 分類（USER_UPDATE ADMIN + conditional USER_STATUS_CHANGE / USER_ROLE_CHANGE SECURITY）；`RoleAssignmentSnapshot` helper struct 捕捉 role-change diff；deprecated warnings 89 → 86
+- ✅ **事件粒度與設計決策**：ActivityLogEntry 使用 struct literal 形式（為避免與 PR #156 的 constructor 定義衝突，rebase-friendly）；approve 類區分 INTERIM / FINAL（FINAL 才授予 comp_time）；batch 審計粒度分兩類 — **per-row mutation 類**（例：`batch_auto_calculate_annual_leave` 每位員工各自 create）採 **N+1 summary + per-row**；**純 summary 類**（例：`recalculate_all_po_receipt_status` 無 per-row mutation，僅重算 status）採 **單筆 summary**；`AuditRedact::redacted_fields()` 作為 `#[serde(skip_serializing)]` 的 defence-in-depth
+- ✅ **Gemini 歷史回饋持續套用**：單次 mutation 單筆 audit（不重複）；`?` 傳播吞錯改正；FOR UPDATE 鎖序一致化；tx 內避免 `.execute(pool)` 這類跳脫 tx 的呼叫
+- ✅ **驗證綠燈**：4 個 PR 各自 `cargo test --lib` 423/423、`cargo clippy --all-targets -- -D warnings -A deprecated` 0 issues；clock_out 原本只 UPDATE 無 SELECT 的路徑也補 SELECT FOR UPDATE；PR #158（audit chain verify cron）另 base 於 integration/r26 同批審閱
 
 ### 2026-04-21 R26 Service-driven Audit 重構啟動（3 PRs）
 
