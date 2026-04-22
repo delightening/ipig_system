@@ -8,7 +8,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         ApproveLeaveRequest, AuditAction, CancelLeaveRequest, CreateLeaveRequest, LeaveQuery,
         LeaveRequest, LeaveRequestWithUser, PaginatedResponse, RejectLeaveRequest,
@@ -63,7 +63,8 @@ pub async fn create_leave(
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<CreateLeaveRequest>,
 ) -> Result<(StatusCode, Json<LeaveRequest>)> {
-    let record = HrService::create_leave(&state.db, current_user.id, &payload).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::create_leave(&state.db, &actor, &payload).await?;
     Ok((StatusCode::CREATED, Json(record)))
 }
 
@@ -74,7 +75,8 @@ pub async fn update_leave(
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateLeaveRequest>,
 ) -> Result<Json<LeaveRequest>> {
-    let record = HrService::update_leave(&state.db, id, &current_user, &payload).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::update_leave(&state.db, &actor, id, &payload).await?;
     Ok(Json(record))
 }
 
@@ -84,7 +86,8 @@ pub async fn delete_leave(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    HrService::delete_leave(&state.db, id, &current_user).await?;
+    let actor = ActorContext::User(current_user.clone());
+    HrService::delete_leave(&state.db, &actor, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -94,7 +97,8 @@ pub async fn submit_leave(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<LeaveRequest>> {
-    let record = HrService::submit_leave(&state.db, id, &current_user).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::submit_leave(&state.db, &actor, id).await?;
     let db = state.db.clone();
     let leave_id = record.id;
     let leave_type = record.leave_type.clone();

@@ -7,10 +7,14 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
-        CreateLeaveRequest, LeaveQuery, LeaveRequest,
-        LeaveRequestWithUser, PaginatedResponse, UpdateLeaveRequest,
+        audit_diff::DataDiff, CreateLeaveRequest, LeaveQuery, LeaveRequest, LeaveRequestWithUser,
+        PaginatedResponse, UpdateLeaveRequest,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
     },
     Result,
 };
@@ -129,9 +133,12 @@ impl HrService {
 
     pub async fn create_leave(
         pool: &PgPool,
-        user_id: Uuid,
+        actor: &ActorContext,
         payload: &CreateLeaveRequest,
     ) -> Result<LeaveRequest> {
+        let user = actor.require_user()?;
+        let user_id = user.id;
+
         let effective_hours = payload.total_hours.unwrap_or(payload.total_days * 8.0);
         if !Self::is_half_hour_multiple(effective_hours) {
             return Err(AppError::BadRequest(
@@ -142,21 +149,32 @@ impl HrService {
         let total_hours = Some(payload.total_hours.unwrap_or(payload.total_days * 8.0));
 
         let id = Uuid::new_v4();
-        
+
         // 處理 supporting_documents 轉為 JSON
-        let supporting_docs = payload.supporting_documents.as_ref()
+        let supporting_docs = payload
+            .supporting_documents
+            .as_ref()
             .map(|docs| serde_json::json!(docs))
             .unwrap_or_else(|| serde_json::json!([]));
-        
+
         // 理由處理：特休假可以為空，其他假別需要檢查
         let reason = payload.reason.clone().unwrap_or_default();
-        
-        sqlx::query(
+
+        let mut tx = pool.begin().await?;
+
+        let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
             INSERT INTO leave_requests (
                 id, user_id, proxy_user_id, leave_type, start_date, end_date, start_time, end_time,
                 total_days, total_hours, reason, supporting_documents, is_urgent, is_retroactive, status
             ) VALUES ($1, $2, $3, $4::leave_type, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'DRAFT'::leave_status)
+            RETURNING
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
+                start_time, end_time, total_days, total_hours, reason, supporting_documents,
+                annual_leave_source_id, is_urgent, is_retroactive,
+                status::text as status, current_approver_id, submitted_at, approved_at,
+                rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
+                created_at, updated_at
             "#,
         )
         .bind(id)
@@ -173,35 +191,64 @@ impl HrService {
         .bind(&supporting_docs)
         .bind(payload.is_urgent.unwrap_or(false))
         .bind(payload.is_retroactive.unwrap_or(false))
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        let record = sqlx::query_as::<_, LeaveRequest>(
-            r#"
-            SELECT 
-                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
-                start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                annual_leave_source_id, is_urgent, is_retroactive,
-                status::text as status, current_approver_id, submitted_at, approved_at,
-                rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
-                created_at, updated_at
-            FROM leave_requests WHERE id = $1
-            "#,
+        let display = format!(
+            "{} {}~{}",
+            record.leave_type, record.start_date, record.end_date
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "LEAVE_CREATE",
+                entity: Some(AuditEntity::new("leave_request", record.id, &display)),
+                data_diff: Some(DataDiff::create_only(&record)),
+                request_context: None,
+            },
         )
-        .bind(id)
-        .fetch_one(pool)
         .await?;
+
+        tx.commit().await?;
 
         Ok(record)
     }
 
     pub async fn update_leave(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        _current_user: &CurrentUser,
         payload: &UpdateLeaveRequest,
     ) -> Result<LeaveRequest> {
-        sqlx::query(
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, LeaveRequest>(
+            r#"
+            SELECT
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
+                start_time, end_time, total_days, total_hours, reason, supporting_documents,
+                annual_leave_source_id, is_urgent, is_retroactive,
+                status::text as status, current_approver_id, submitted_at, approved_at,
+                rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
+                created_at, updated_at
+            FROM leave_requests WHERE id = $1 FOR UPDATE
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("請假申請不存在".into()))?;
+
+        if before.status != "DRAFT" {
+            return Err(AppError::BusinessRule(
+                "僅草稿狀態的請假可更新".into(),
+            ));
+        }
+
+        let after = sqlx::query_as::<_, LeaveRequest>(
             r#"
             UPDATE leave_requests
             SET start_date = COALESCE($2, start_date),
@@ -214,6 +261,13 @@ impl HrService {
                 proxy_user_id = COALESCE($9, proxy_user_id),
                 updated_at = NOW()
             WHERE id = $1 AND status = 'DRAFT'::leave_status
+            RETURNING
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
+                start_time, end_time, total_days, total_hours, reason, supporting_documents,
+                annual_leave_source_id, is_urgent, is_retroactive,
+                status::text as status, current_approver_id, submitted_at, approved_at,
+                rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
+                created_at, updated_at
             "#,
         )
         .bind(id)
@@ -225,69 +279,149 @@ impl HrService {
         .bind(payload.total_hours)
         .bind(&payload.reason)
         .bind(payload.proxy_user_id)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        let record = sqlx::query_as::<_, LeaveRequest>(
+        let display = format!("{} {}~{}", after.leave_type, after.start_date, after.end_date);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "LEAVE_UPDATE",
+                entity: Some(AuditEntity::new("leave_request", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
+    }
+
+    pub async fn delete_leave(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<()> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, LeaveRequest>(
             r#"
-            SELECT 
+            SELECT
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
-            FROM leave_requests WHERE id = $1
+            FROM leave_requests WHERE id = $1 AND status = 'DRAFT'::leave_status FOR UPDATE
             "#,
         )
         .bind(id)
-        .fetch_one(pool)
-        .await?;
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("請假申請不存在或非草稿狀態".into()))?;
 
-        Ok(record)
-    }
-
-    pub async fn delete_leave(pool: &PgPool, id: Uuid, _current_user: &CurrentUser) -> Result<()> {
         sqlx::query("DELETE FROM leave_requests WHERE id = $1 AND status = 'DRAFT'::leave_status")
             .bind(id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
+
+        let display = format!(
+            "{} {}~{}",
+            before.leave_type, before.start_date, before.end_date
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "LEAVE_DELETE",
+                entity: Some(AuditEntity::new("leave_request", before.id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
         Ok(())
     }
 
     pub async fn submit_leave(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        _current_user: &CurrentUser,
     ) -> Result<LeaveRequest> {
-        sqlx::query(
-            r#"
-            UPDATE leave_requests
-            SET status = 'PENDING_L1'::leave_status, submitted_at = NOW(), updated_at = NOW()
-            WHERE id = $1 AND status = 'DRAFT'::leave_status
-            "#,
-        )
-        .bind(id)
-        .execute(pool)
-        .await?;
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
 
-        let record = sqlx::query_as::<_, LeaveRequest>(
+        let before = sqlx::query_as::<_, LeaveRequest>(
             r#"
-            SELECT 
+            SELECT
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
-            FROM leave_requests WHERE id = $1
+            FROM leave_requests WHERE id = $1 FOR UPDATE
             "#,
         )
         .bind(id)
-        .fetch_one(pool)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("請假申請不存在".into()))?;
+
+        if before.status != "DRAFT" {
+            return Err(AppError::BusinessRule(
+                "僅草稿狀態的請假可送審".into(),
+            ));
+        }
+
+        let after = sqlx::query_as::<_, LeaveRequest>(
+            r#"
+            UPDATE leave_requests
+            SET status = 'PENDING_L1'::leave_status, submitted_at = NOW(), updated_at = NOW()
+            WHERE id = $1 AND status = 'DRAFT'::leave_status
+            RETURNING
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
+                start_time, end_time, total_days, total_hours, reason, supporting_documents,
+                annual_leave_source_id, is_urgent, is_retroactive,
+                status::text as status, current_approver_id, submitted_at, approved_at,
+                rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
+                created_at, updated_at
+            "#,
+        )
+        .bind(id)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Ok(record)
+        let display = format!(
+            "{} {}~{}",
+            after.leave_type, after.start_date, after.end_date
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "LEAVE_SUBMIT",
+                entity: Some(AuditEntity::new("leave_request", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     pub async fn approve_leave(
