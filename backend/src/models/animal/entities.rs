@@ -107,6 +107,13 @@ pub struct AnimalObservation {
     pub version: Option<i32>,
 }
 
+/// ⚠️ **R26-9 警告**：`AnimalObservation.content` / `equipment_used` / `treatments` /
+/// `remark` / `emergency_reason` 為自由文字 / JSON，含醫療細節。**目前**採空 impl
+/// 允許 audit diff 記錄完整內容（對稽核員為必要），但 R26-9（CodeRabbit PR #156 Major）
+/// 建議改為 allowlist 或 summary log，避免醫療資料過度暴露在 audit UI。
+/// 在 R26-9 完成前，此實作與其他 animal entity（source/weight）一致採最簡模式。
+impl crate::models::audit_diff::AuditRedact for AnimalObservation {}
+
 /// 手術紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalSurgery {

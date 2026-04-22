@@ -4,8 +4,14 @@ use uuid::Uuid;
 
 use super::AnimalMedicalService;
 use crate::{
+    middleware::ActorContext,
     models::{
-        AnimalObservation, CreateObservationRequest, ObservationListItem, UpdateObservationRequest,
+        audit_diff::DataDiff, AnimalObservation, CreateObservationRequest, ObservationListItem,
+        UpdateObservationRequest,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
     },
     utils::jsonb_validation::{validate_equipment_used, validate_treatments},
     AppError, Result,
@@ -78,12 +84,16 @@ impl AnimalObservationService {
         Ok(observation)
     }
 
+    /// 建立觀察紀錄 — Service-driven audit
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
         req: &CreateObservationRequest,
-        created_by: Uuid,
     ) -> Result<AnimalObservation> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
         // 驗證 JSONB 欄位結構
         if let Some(ref eq) = req.equipment_used {
             validate_equipment_used(eq)?;
@@ -98,6 +108,8 @@ impl AnimalObservationService {
         } else {
             None
         };
+
+        let mut tx = pool.begin().await?;
 
         let observation = sqlx::query_as::<_, AnimalObservation>(
             r#"
@@ -125,19 +137,49 @@ impl AnimalObservationService {
         .bind(&emergency_status)
         .bind(&req.emergency_reason)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!(
+            "animal {} @ {}: {:?}",
+            observation.animal_id, observation.event_date, observation.record_type
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "OBSERVATION_CREATE",
+                entity: Some(AuditEntity::new(
+                    "animal_observation",
+                    observation.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::create_only(&observation)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(observation)
     }
 
-    /// 更新觀察紀錄
+    /// 更新觀察紀錄 — Service-driven audit
+    ///
+    /// 注意：`save_record_version` 目前接 `&PgPool`（GLP 強制版本歷史）。若改 tx 版
+    /// 需調整 `AnimalMedicalService`；本 PR 暫以 pool 版本使用，接受版本歷史寫入
+    /// 不在 tx 內的輕微風險（失敗僅丟失該版本歷史，主流程繼續 — 與 R26-8 同類
+    /// 待進一步 tx 化）。audit log 仍在 tx 內，符合 R26 DoD-1。
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateObservationRequest,
-        updated_by: Uuid,
     ) -> Result<AnimalObservation> {
+        let user = actor.require_user()?;
+        let updated_by = user.id;
+
         // 驗證 JSONB 欄位結構
         if let Some(ref eq) = req.equipment_used {
             validate_equipment_used(eq)?;
@@ -146,14 +188,16 @@ impl AnimalObservationService {
             validate_treatments(tr)?;
         }
 
-        // 先取得原始紀錄用於版本歷史
-        let original = Self::get_by_id(pool, id).await?;
+        // 先取得原始紀錄用於版本歷史（在 tx 外查詢，pool read OK）
+        let before = Self::get_by_id(pool, id).await?;
 
-        // 保存版本歷史
-        AnimalMedicalService::save_record_version(pool, "observation", id, &original, updated_by)
-            .await?; // Changed AnimalService to AnimalMedicalService
+        // 保存版本歷史（目前 pool-based；tx 化歸 R26-8）
+        AnimalMedicalService::save_record_version(pool, "observation", id, &before, updated_by)
+            .await?;
 
-        let observation = sqlx::query_as::<_, AnimalObservation>(
+        let mut tx = pool.begin().await?;
+
+        let after = sqlx::query_as::<_, AnimalObservation>(
             r#"
             UPDATE animal_observations SET
                 event_date = COALESCE($2, event_date),
@@ -166,7 +210,7 @@ impl AnimalObservationService {
                 treatments = COALESCE($9, treatments),
                 remark = COALESCE($10, remark),
                 updated_at = NOW()
-            WHERE id = $1
+            WHERE id = $1 AND deleted_at IS NULL
             RETURNING *
             "#,
         )
@@ -180,10 +224,28 @@ impl AnimalObservationService {
         .bind(req.no_medication_needed)
         .bind(&req.treatments)
         .bind(&req.remark)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Ok(observation)
+        let display = format!(
+            "animal {} @ {}: {:?}",
+            after.animal_id, after.event_date, after.record_type
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "OBSERVATION_UPDATE",
+                entity: Some(AuditEntity::new("animal_observation", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(after)
     }
 
     /// 刪除觀察紀錄
@@ -196,13 +258,27 @@ impl AnimalObservationService {
         Ok(())
     }
 
-    /// 軟刪除觀察紀錄（含刪除原因）- GLP 合規
+    /// 軟刪除觀察紀錄（含刪除原因）— Service-driven audit (GLP 合規)
     pub async fn soft_delete_with_reason(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
+        let user = actor.require_user()?;
+        let deleted_by = user.id;
+
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE 取 before；同時守門防止重複刪除
+        let before = sqlx::query_as::<_, AnimalObservation>(
+            "SELECT * FROM animal_observations WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("觀察紀錄不存在或已刪除".into()))?;
+
         // 記錄到 change_reasons 表
         sqlx::query(
             r#"
@@ -213,25 +289,45 @@ impl AnimalObservationService {
         .bind(id.to_string())
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
         // 軟刪除（更新 deleted_at 而非硬刪除）
-        sqlx::query(
+        let after = sqlx::query_as::<_, AnimalObservation>(
             r#"
-            UPDATE animal_observations SET 
-                deleted_at = NOW(), 
+            UPDATE animal_observations SET
+                deleted_at = NOW(),
                 deletion_reason = $2,
-                deleted_by = $3
+                deleted_by = $3,
+                updated_at = NOW()
             WHERE id = $1 AND deleted_at IS NULL
+            RETURNING *
             "#,
         )
         .bind(id)
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!(
+            "animal {} @ {}: {:?} — {}",
+            before.animal_id, before.event_date, before.record_type, reason
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "OBSERVATION_SOFT_DELETE",
+                entity: Some(AuditEntity::new("animal_observation", before.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 
