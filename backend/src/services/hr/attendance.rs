@@ -366,19 +366,6 @@ impl HrService {
         Ok(after)
     }
 
-    /// 將出勤狀態字串轉為中文顯示名稱
-    // R26-7: 出勤狀態中文化輔助，目前未串接；留 util 備用
-    #[allow(dead_code)]
-    pub(super) fn attendance_status_display(status: &str) -> &str {
-        match status {
-            "normal" => "正常",
-            "late" => "遲到",
-            "early_leave" => "早退",
-            "absent" => "缺勤",
-            _ => status,
-        }
-    }
-
     pub async fn correct_attendance(
         pool: &PgPool,
         actor: &ActorContext,
@@ -507,18 +494,4 @@ mod tests {
         assert!(!HrService::is_ip_in_ranges("not-an-ip", &ranges));
     }
 
-    // --- attendance_status_display ---
-
-    #[test]
-    fn test_attendance_status_display_known() {
-        assert_eq!(HrService::attendance_status_display("normal"), "正常");
-        assert_eq!(HrService::attendance_status_display("late"), "遲到");
-        assert_eq!(HrService::attendance_status_display("early_leave"), "早退");
-        assert_eq!(HrService::attendance_status_display("absent"), "缺勤");
-    }
-
-    #[test]
-    fn test_attendance_status_display_unknown_passthrough() {
-        assert_eq!(HrService::attendance_status_display("other"), "other");
-    }
 }
