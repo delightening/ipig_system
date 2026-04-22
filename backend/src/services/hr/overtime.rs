@@ -465,8 +465,9 @@ impl HrService {
             "SELECT * FROM overtime_records WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_one(&mut *tx)
-        .await?;
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("加班紀錄不存在".into()))?;
 
         // Determine next status based on current status and approval level
         let (expected_status, next_status, is_final) = match approval_level {
@@ -734,8 +735,9 @@ impl HrService {
             "SELECT * FROM overtime_records WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_one(&mut *tx)
-        .await?;
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("加班紀錄不存在".into()))?;
 
         let after = sqlx::query_as::<_, OvertimeRecord>(
             r#"
