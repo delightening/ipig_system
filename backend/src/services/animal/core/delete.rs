@@ -35,16 +35,16 @@ impl AnimalService {
         let user = actor.require_user()?;
         let deleted_by = user.id;
 
-        // before snapshot
+        let mut tx = pool.begin().await?;
+
+        // Gemini PR #184 MED：before snapshot 移進 tx + FOR UPDATE 鎖行
         let before: Animal = sqlx::query_as(
-            "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL",
+            "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("動物不存在或已刪除".into()))?;
-
-        let mut tx = pool.begin().await?;
 
         // Gemini PR #178 pattern：先 UPDATE 且檢查 rows_affected，防假刪除審計
         let rows = sqlx::query(
@@ -66,6 +66,17 @@ impl AnimalService {
 
         if rows == 0 {
             return Err(AppError::NotFound("動物不存在或已刪除".into()));
+        }
+
+        // Gemini PR #184 HIGH：CRIT-02 同步修補 — 更新 pen.current_count
+        // （deleted_at 的動物不應計入）
+        if let Some(pid) = before.pen_id {
+            sqlx::query(
+                "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
+            )
+            .bind(pid)
+            .execute(&mut *tx)
+            .await?;
         }
 
         sqlx::query(

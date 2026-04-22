@@ -202,8 +202,10 @@ impl AnimalService {
 
         for animal_id in &req.animal_ids {
             // before snapshot（尚未 update 前）
+            // Gemini PR #184 MED：加 FOR UPDATE 鎖行，避免快照 → UPDATE 之間
+            // 動物被其他並發 tx 修改，DataDiff 計算失準
             let before = sqlx::query_as::<_, Animal>(
-                "SELECT * FROM animals WHERE id = $1 AND status = $2",
+                "SELECT * FROM animals WHERE id = $1 AND status = $2 FOR UPDATE",
             )
             .bind(animal_id)
             .bind(AnimalStatus::Unassigned)

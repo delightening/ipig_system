@@ -29,12 +29,21 @@ impl AnimalService {
         let user = actor.require_user()?;
         let updated_by = user.id;
 
-        // 完整 before snapshot（GLP diff 用）
+        // 驗證新 pen_id 對應的欄位是否可收容動物（tx 外預先驗，失敗即早退出）
+        if let Some(new_pen_id) = req.pen_id {
+            Self::validate_pen_for_assignment(pool, new_pen_id).await?;
+        }
+
+        let mut tx = pool.begin().await?;
+
+        // Gemini PR #184 MED：完整 before snapshot 在 tx 內 + FOR UPDATE 鎖行
+        // （與 optimistic lock 互補；FOR UPDATE 保證 diff 計算時的 before 與
+        // commit 時的 animal 狀態一致）
         let before: Animal = sqlx::query_as(
-            "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL",
+            "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
 
@@ -117,14 +126,7 @@ impl AnimalService {
                 .map(|s| AnimalUtils::format_pen_location(s))
         };
 
-        // 驗證新 pen_id 對應的欄位是否可收容動物
-        if let Some(new_pen_id) = req.pen_id {
-            Self::validate_pen_for_assignment(pool, new_pen_id).await?;
-        }
-
         let old_pen_id = before.pen_id;
-
-        let mut tx = pool.begin().await?;
 
         let animal = sqlx::query_as::<_, Animal>(
             r#"
