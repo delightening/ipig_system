@@ -6,11 +6,16 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
+    middleware::ActorContext,
     models::{
-        AdjustBalanceRequest, AnnualLeaveBalanceView, AnnualLeaveEntitlement, BalanceSummary,
-        CompTimeBalanceView, CreateAnnualLeaveRequest, ExpiredLeaveReport,
+        audit_diff::DataDiff, AdjustBalanceRequest, AnnualLeaveBalanceView, AnnualLeaveEntitlement,
+        BalanceSummary, CompTimeBalanceView, CreateAnnualLeaveRequest, ExpiredLeaveReport,
     },
     repositories,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
     Result,
 };
 
@@ -197,13 +202,18 @@ impl HrService {
 
     pub async fn create_annual_leave_entitlement(
         pool: &PgPool,
-        creator_id: Uuid,
+        actor: &ActorContext,
         payload: &CreateAnnualLeaveRequest,
     ) -> Result<AnnualLeaveEntitlement> {
+        let user = actor.require_user()?;
+        let creator_id = user.id;
+
         let id = Uuid::new_v4();
         let yr = payload.entitlement_year + 2;
         let expires_at = compute_leave_expiry(payload.entitlement_year, payload.hire_date)
             .ok_or_else(|| AppError::Internal(format!("invalid expiry date for year {yr}")))?;
+
+        let mut tx = pool.begin().await?;
 
         let record = sqlx::query_as::<_, AnnualLeaveEntitlement>(
             r#"INSERT INTO annual_leave_entitlements (
@@ -213,23 +223,86 @@ impl HrService {
         .bind(id).bind(payload.user_id).bind(payload.entitlement_year)
         .bind(payload.entitled_days).bind(expires_at)
         .bind(&payload.calculation_basis).bind(&payload.notes).bind(creator_id)
-        .fetch_one(pool).await?;
+        .fetch_one(&mut *tx).await?;
+
+        let display = format!(
+            "{}年度特休 {} 天",
+            record.entitlement_year, record.entitled_days
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "ANNUAL_LEAVE_CREATE",
+                entity: Some(AuditEntity::new(
+                    "annual_leave_entitlement",
+                    record.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::create_only(&record)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
         Ok(record)
     }
 
     pub async fn adjust_annual_leave(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        _adjuster_id: Uuid,
         payload: &AdjustBalanceRequest,
     ) -> Result<AnnualLeaveEntitlement> {
-        let record = sqlx::query_as::<_, AnnualLeaveEntitlement>(
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AnnualLeaveEntitlement>(
+            "SELECT * FROM annual_leave_entitlements WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("特休額度不存在".into()))?;
+
+        let after = sqlx::query_as::<_, AnnualLeaveEntitlement>(
             r#"UPDATE annual_leave_entitlements
             SET entitled_days = entitled_days + $2, notes = COALESCE(notes || E'\n', '') || $3, updated_at = NOW()
             WHERE id = $1 RETURNING *"#,
-        ).bind(id).bind(payload.adjustment_days).bind(&payload.reason)
-        .fetch_one(pool).await?;
-        Ok(record)
+        )
+        .bind(id)
+        .bind(payload.adjustment_days)
+        .bind(&payload.reason)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let display = format!(
+            "{}年度特休 {:+} 天",
+            after.entitlement_year, payload.adjustment_days
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "ANNUAL_LEAVE_ADJUST",
+                entity: Some(AuditEntity::new(
+                    "annual_leave_entitlement",
+                    after.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     pub async fn get_expired_leave_compensation_report(
@@ -267,9 +340,9 @@ impl HrService {
     /// 根據 hire_date 計算年資，自動推算天數。
     pub async fn auto_calculate_annual_leave(
         pool: &PgPool,
+        actor: &ActorContext,
         user_id: Uuid,
         entitlement_year: i32,
-        creator_id: Uuid,
     ) -> Result<Option<AnnualLeaveEntitlement>> {
         // 查詢是否已存在
         let existing: Option<(Uuid,)> = sqlx::query_as(
@@ -321,17 +394,20 @@ impl HrService {
             )),
         };
 
-        let record = Self::create_annual_leave_entitlement(pool, creator_id, &payload).await?;
+        let record = Self::create_annual_leave_entitlement(pool, actor, &payload).await?;
         Ok(Some(record))
     }
 
     /// 批次為所有在職員工自動計算指定年度的特休假。
-    /// 回傳成功建立的筆數。
+    /// 回傳成功建立的筆數。每個使用者的建立會各自產生 ANNUAL_LEAVE_CREATE
+    /// 稽核紀錄；額外再寫 1 筆 batch summary 稽核以方便查「誰在何時跑了批次」。
     pub async fn batch_auto_calculate_annual_leave(
         pool: &PgPool,
+        actor: &ActorContext,
         entitlement_year: i32,
-        creator_id: Uuid,
     ) -> Result<i32> {
+        let _user = actor.require_user()?;
+
         let active_users: Vec<(Uuid,)> = sqlx::query_as(
             "SELECT id FROM users WHERE is_active = true AND hire_date IS NOT NULL",
         )
@@ -340,22 +416,51 @@ impl HrService {
 
         let mut count = 0;
         for (uid,) in active_users {
-            if let Ok(Some(_)) = Self::auto_calculate_annual_leave(
-                pool, uid, entitlement_year, creator_id,
-            ).await {
+            if let Ok(Some(_)) =
+                Self::auto_calculate_annual_leave(pool, actor, uid, entitlement_year).await
+            {
                 count += 1;
             }
         }
+
+        // 批次作業 summary audit（per-user 細節可從各筆 ANNUAL_LEAVE_CREATE
+        // 查，這裡只記「誰在何時跑了批次、處理 N 人、建立 K 筆」）
+        let summary_id = Uuid::new_v4();
+        let display = format!(
+            "batch_auto_calc_annual_leave year={} created={}",
+            entitlement_year, count
+        );
+        let mut tx = pool.begin().await?;
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "ANNUAL_LEAVE_BATCH_AUTO_CALC",
+                entity: Some(AuditEntity::new(
+                    "annual_leave_batch_job",
+                    summary_id,
+                    &display,
+                )),
+                data_diff: None,
+                request_context: None,
+            },
+        )
+        .await?;
+        tx.commit().await?;
+
         Ok(count)
     }
 
     pub async fn copy_previous_year_entitlement(
         pool: &PgPool,
+        actor: &ActorContext,
         user_id: Uuid,
         new_year: i32,
-        creator_id: Uuid,
         hire_date: Option<NaiveDate>,
     ) -> Result<Option<AnnualLeaveEntitlement>> {
+        let _user = actor.require_user()?;
+
         let existing: Option<(Uuid,)> = sqlx::query_as(
             "SELECT id FROM annual_leave_entitlements WHERE user_id = $1 AND entitlement_year = $2",
         )
@@ -385,7 +490,7 @@ impl HrService {
                     notes.unwrap_or_default()
                 )),
             };
-            let record = Self::create_annual_leave_entitlement(pool, creator_id, &payload).await?;
+            let record = Self::create_annual_leave_entitlement(pool, actor, &payload).await?;
             Ok(Some(record))
         } else {
             Ok(None)

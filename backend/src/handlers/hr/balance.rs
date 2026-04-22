@@ -8,7 +8,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         AdjustBalanceRequest, AnnualLeaveBalanceView, AnnualLeaveEntitlement, BalanceQuery,
         BalanceSummary, CompTimeBalanceView, CreateAnnualLeaveRequest, ExpiredLeaveReport,
@@ -71,7 +71,8 @@ pub async fn create_annual_leave_entitlement(
     {
         return Err(crate::error::AppError::Forbidden("僅管理員或行政可新增特休額度".to_string()));
     }
-    let entitlement = HrService::create_annual_leave_entitlement(&state.db, current_user.id, &payload).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let entitlement = HrService::create_annual_leave_entitlement(&state.db, &actor, &payload).await?;
     Ok((StatusCode::CREATED, Json(entitlement)))
 }
 
@@ -82,7 +83,8 @@ pub async fn adjust_balance(
     Path(id): Path<Uuid>,
     Json(payload): Json<AdjustBalanceRequest>,
 ) -> Result<Json<AnnualLeaveEntitlement>> {
-    let entitlement = HrService::adjust_annual_leave(&state.db, id, current_user.id, &payload).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let entitlement = HrService::adjust_annual_leave(&state.db, &actor, id, &payload).await?;
     Ok(Json(entitlement))
 }
 
@@ -103,8 +105,9 @@ pub async fn auto_calculate_annual_leave(
     {
         return Err(crate::error::AppError::Forbidden("僅管理員可執行自動計算".to_string()));
     }
+    let actor = ActorContext::User(current_user.clone());
     let result = HrService::auto_calculate_annual_leave(
-        &state.db, payload.user_id, payload.entitlement_year, current_user.id,
+        &state.db, &actor, payload.user_id, payload.entitlement_year,
     ).await?;
     match result {
         Some(ent) => Ok(Json(serde_json::json!({ "created": true, "entitlement": ent }))),
@@ -128,8 +131,9 @@ pub async fn batch_auto_calculate_annual_leave(
     {
         return Err(crate::error::AppError::Forbidden("僅管理員可執行批次計算".to_string()));
     }
+    let actor = ActorContext::User(current_user.clone());
     let count = HrService::batch_auto_calculate_annual_leave(
-        &state.db, payload.entitlement_year, current_user.id,
+        &state.db, &actor, payload.entitlement_year,
     ).await?;
     Ok(Json(serde_json::json!({ "created_count": count })))
 }

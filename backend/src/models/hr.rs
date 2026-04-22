@@ -392,6 +392,9 @@ pub struct LeaveApproval {
 // Balances (餘額)
 // ============================================
 
+// 年度特休餘額快照，無敏感欄位（天數 / 到期日 / 工作年資等皆稽核項目）
+impl crate::models::audit_diff::AuditRedact for AnnualLeaveEntitlement {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AnnualLeaveEntitlement {
     pub id: Uuid,
@@ -410,6 +413,9 @@ pub struct AnnualLeaveEntitlement {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// 補休餘額快照，無敏感欄位
+impl crate::models::audit_diff::AuditRedact for CompTimeBalance {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct CompTimeBalance {
