@@ -60,6 +60,12 @@ pub struct CareRecord {
     pub created_at: DateTime<Utc>,
 }
 
+// R26-9: 異種器官移植研究 + GLP 情境下，照護紀錄數值（疼痛分數、給藥情形）
+// 是研究資料本身，必須完整保留於 audit log（21 CFR Part 11 §11.10 稽核軌跡）。
+// 空 `redacted_fields()` 是**主動決策**而非遺漏；未來若判斷某欄位屬員工
+// PII（例如自由註記含他人姓名），於此覆寫即可。
+impl crate::models::audit_diff::AuditRedact for CareRecord {}
+
 /// 建立照護紀錄請求
 #[derive(Debug, Deserialize)]
 pub struct CreateCareRecordRequest {

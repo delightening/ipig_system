@@ -169,6 +169,10 @@ pub struct VetAdviceRecord {
     pub updated_at: DateTime<Utc>,
 }
 
+// R26-9: `observation` / `suggested_treatment` 為醫療診斷內容，為 GLP 研究資料
+// 本身，需完整保留於 audit log。空 `redacted_fields()` 是主動決策。
+impl crate::models::audit_diff::AuditRedact for VetAdviceRecord {}
+
 #[derive(Debug, Deserialize)]
 pub struct CreateVetAdviceRecordRequest {
     pub advice_date: NaiveDate,

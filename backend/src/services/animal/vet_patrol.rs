@@ -22,6 +22,10 @@ pub struct VetPatrolReport {
     pub updated_at: DateTime<Utc>,
 }
 
+// R26-9: 巡場報告含觀察、建議、後續追蹤等醫療紀錄內容，為 GLP 研究資料本身，
+// 需完整保留於 audit log。空 `redacted_fields()` 是主動決策。
+impl crate::models::audit_diff::AuditRedact for VetPatrolReport {}
+
 // ── 含耳號的條目（join animals） ──────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
