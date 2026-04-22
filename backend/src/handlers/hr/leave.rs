@@ -8,13 +8,12 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
-        ApproveLeaveRequest, AuditAction, CancelLeaveRequest, CreateLeaveRequest, LeaveQuery,
-        LeaveRequest, LeaveRequestWithUser, PaginatedResponse, RejectLeaveRequest,
-        UpdateLeaveRequest,
+        ApproveLeaveRequest, CancelLeaveRequest, CreateLeaveRequest, LeaveQuery, LeaveRequest,
+        LeaveRequestWithUser, PaginatedResponse, RejectLeaveRequest, UpdateLeaveRequest,
     },
-    services::{AuditService, HrService, NotificationService},
+    services::{HrService, NotificationService},
     AppState, Result,
 };
 
@@ -63,7 +62,8 @@ pub async fn create_leave(
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<CreateLeaveRequest>,
 ) -> Result<(StatusCode, Json<LeaveRequest>)> {
-    let record = HrService::create_leave(&state.db, current_user.id, &payload).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::create_leave(&state.db, &actor, &payload).await?;
     Ok((StatusCode::CREATED, Json(record)))
 }
 
@@ -74,7 +74,8 @@ pub async fn update_leave(
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateLeaveRequest>,
 ) -> Result<Json<LeaveRequest>> {
-    let record = HrService::update_leave(&state.db, id, &current_user, &payload).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::update_leave(&state.db, &actor, id, &payload).await?;
     Ok(Json(record))
 }
 
@@ -84,7 +85,8 @@ pub async fn delete_leave(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    HrService::delete_leave(&state.db, id, &current_user).await?;
+    let actor = ActorContext::User(current_user.clone());
+    HrService::delete_leave(&state.db, &actor, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -94,7 +96,8 @@ pub async fn submit_leave(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<LeaveRequest>> {
-    let record = HrService::submit_leave(&state.db, id, &current_user).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::submit_leave(&state.db, &actor, id).await?;
     let db = state.db.clone();
     let leave_id = record.id;
     let leave_type = record.leave_type.clone();
@@ -168,19 +171,10 @@ pub async fn approve_leave(
             )));
         }
     }
+    let actor = ActorContext::User(current_user.clone());
     let record =
-        HrService::approve_leave(&state.db, id, current_user.id, payload.comments.as_deref())
+        HrService::approve_leave(&state.db, &actor, id, payload.comments.as_deref())
             .await?;
-    if let Err(e) = AuditService::log(
-        &state.db,
-        current_user.id,
-        AuditAction::Approve,
-        "leave_request",
-        id,
-        None,
-        Some(serde_json::json!({ "status": &record.status })),
-    )
-    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
     Ok(Json(record))
 }
 
@@ -220,17 +214,8 @@ pub async fn reject_leave(
             ));
         }
     }
-    let record = HrService::reject_leave(&state.db, id, current_user.id, &payload.reason).await?;
-    if let Err(e) = AuditService::log(
-        &state.db,
-        current_user.id,
-        AuditAction::Reject,
-        "leave_request",
-        id,
-        None,
-        Some(serde_json::json!({ "reason": &payload.reason })),
-    )
-    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::reject_leave(&state.db, &actor, id, &payload.reason).await?;
     Ok(Json(record))
 }
 
@@ -252,8 +237,9 @@ pub async fn cancel_leave(
         .map(|(s,)| s == "APPROVED")
         .unwrap_or(false);
 
+    let actor = ActorContext::User(current_user.clone());
     let record =
-        HrService::cancel_leave(&state.db, id, &current_user, payload.reason.as_deref()).await?;
+        HrService::cancel_leave(&state.db, &actor, id, payload.reason.as_deref()).await?;
 
     // 若原本是已核准的假單，通知所有核准經手人
     if was_approved && record.status == "CANCELLED" {
