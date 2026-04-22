@@ -34,6 +34,9 @@ pub enum StorageCondition {
     Dry, // 乾燥
 }
 
+// 產品主檔，無敏感欄位（SKU / 規格 / 庫存設定皆稽核項目）
+impl crate::models::audit_diff::AuditRedact for Product {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Product {
     pub id: Uuid,
@@ -67,6 +70,9 @@ pub struct Product {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// 產品類別，無敏感欄位
+impl crate::models::audit_diff::AuditRedact for ProductCategory {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ProductCategory {
