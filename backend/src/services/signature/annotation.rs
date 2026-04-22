@@ -39,15 +39,6 @@ pub struct RecordAnnotation {
     pub signature_id: Option<Uuid>,
 }
 
-/// 建立附註請求
-// R26-7: API DTO（見 handlers/signature/annotation.rs）。
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-pub struct CreateAnnotationRequest {
-    pub content: String,
-    pub annotation_type: String,
-}
-
 pub struct AnnotationService;
 
 impl AnnotationService {

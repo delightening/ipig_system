@@ -58,26 +58,6 @@ pub struct ElectronicSignature {
     pub signature_method: Option<String>,
 }
 
-/// 簽章請求
-// R26-7: API DTO；handler 內以 serde + utoipa derive 使用（see openapi.rs），
-// Rust 程式碼未直接建構 → clippy 誤判為 dead。R26-7 全面 cleanup 時驗證是否仍需。
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-pub struct SignRequest {
-    pub password: String,
-    pub signature_type: String,
-}
-
-/// 簽章回應
-// R26-7: 同 SignRequest，API DTO。
-#[allow(dead_code)]
-#[derive(Debug, Serialize)]
-pub struct SignResponse {
-    pub signature_id: Uuid,
-    pub signed_at: DateTime<Utc>,
-    pub content_hash: String,
-}
-
 /// 簽章驗證結果
 #[derive(Debug, Serialize)]
 pub struct VerifyResult {
