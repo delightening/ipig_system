@@ -108,15 +108,20 @@ impl AuthService {
             .is_ok())
     }
 
-    /// 修改自己的密碼（需驗證舊密碼）
-    /// 密碼更新後重新簽發 tokens，讓用戶不需要重新登入
+    /// 修改自己的密碼（需驗證舊密碼）— Service-driven audit (SECURITY)
+    /// 密碼更新後重新簽發 tokens，讓用戶不需要重新登入。
+    ///
+    /// Audit 語意：actor 即 target user（自行變更），`AuditRedact` 會遮蔽
+    /// password_hash / totp_secret / backup_codes 等敏感欄位。
     pub async fn change_own_password(
         pool: &PgPool,
         config: &Config,
+        actor: &crate::middleware::ActorContext,
         user_id: Uuid,
         current_password: &str,
         new_password: &str,
     ) -> Result<LoginResponse> {
+        let _actor_user = actor.require_user()?;
         let user =
             sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 AND is_active = true")
                 .bind(user_id)
@@ -132,8 +137,33 @@ impl AuthService {
 
         Self::validate_password_strength(new_password)?;
         let new_password_hash = Self::hash_password(new_password)?;
-        Self::update_password_in_db(pool, user_id, &new_password_hash, false).await?;
-        Self::revoke_user_refresh_tokens(pool, user_id).await?;
+
+        // password hash 更新 + refresh token 撤銷 + SECURITY audit 全部同 tx
+        let mut tx = pool.begin().await?;
+        Self::update_password_in_db_tx(&mut tx, user_id, &new_password_hash, false).await?;
+        Self::revoke_user_refresh_tokens_tx(&mut tx, user_id).await?;
+
+        let after = sqlx::query_as::<_, User>(
+            "SELECT * FROM users WHERE id = $1",
+        )
+        .bind(user_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let display = format!("{} <{}>", after.display_name, after.email);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "PASSWORD_SELF_CHANGE",
+                entity: Some(crate::services::audit::AuditEntity::new("user", after.id, &display)),
+                data_diff: Some(crate::models::audit_diff::DataDiff::compute(Some(&user), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+        tx.commit().await?;
 
         // 重新簽發 tokens（保持登入狀態）
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
@@ -217,24 +247,52 @@ impl AuthService {
         Ok(())
     }
 
-    /// Admin 重設他人密碼（不需驗證舊密碼）
+    /// Admin 重設他人密碼（不需驗證舊密碼）— Service-driven audit (SECURITY)
+    ///
+    /// Audit 關鍵：actor = 管理員，target = 被重設者；AuditRedact 會遮蔽 password_hash。
     pub async fn reset_user_password(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         target_user_id: Uuid,
         new_password: &str,
     ) -> Result<()> {
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)")
-            .bind(target_user_id)
-            .fetch_one(pool)
-            .await?;
-        if !exists {
-            return Err(AppError::NotFound("User not found".to_string()));
-        }
+        let _actor_user = actor.require_user()?;
+
+        let mut tx = pool.begin().await?;
+        let before = sqlx::query_as::<_, User>(
+            "SELECT * FROM users WHERE id = $1 FOR UPDATE",
+        )
+        .bind(target_user_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
         Self::validate_password_strength(new_password)?;
         let new_password_hash = Self::hash_password(new_password)?;
-        Self::update_password_in_db(pool, target_user_id, &new_password_hash, true).await?;
-        Self::revoke_user_refresh_tokens(pool, target_user_id).await?;
+        Self::update_password_in_db_tx(&mut tx, target_user_id, &new_password_hash, true).await?;
+        Self::revoke_user_refresh_tokens_tx(&mut tx, target_user_id).await?;
+
+        let after = sqlx::query_as::<_, User>(
+            "SELECT * FROM users WHERE id = $1",
+        )
+        .bind(target_user_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let display = format!("{} <{}>", after.display_name, after.email);
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "PASSWORD_ADMIN_RESET",
+                entity: Some(crate::services::audit::AuditEntity::new("user", after.id, &display)),
+                data_diff: Some(crate::models::audit_diff::DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+        tx.commit().await?;
         Ok(())
     }
 

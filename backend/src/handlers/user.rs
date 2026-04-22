@@ -280,11 +280,12 @@ pub async fn reset_user_password(
     }
     
     req.validate()?;
-    
-    // 重設密碼
-    AuthService::reset_user_password(&state.db, id, &req.new_password).await?;
-    
-    // 原有稽核日誌
+
+    // 重設密碼（SECURITY audit 已收進 service 層：PASSWORD_ADMIN_RESET，tx 內）
+    let actor = crate::middleware::ActorContext::User(current_user.clone());
+    AuthService::reset_user_password(&state.db, &actor, id, &req.new_password).await?;
+
+    // 保留 legacy audit_logs 寫入（與 user_activity_logs 不同表，供既有 dashboard 使用）
     AuditService::log(
         &state.db,
         current_user.id,
@@ -298,20 +299,7 @@ pub async fn reset_user_password(
         })),
     ).await?;
 
-    // SEC: 敏感操作二級審計 — 管理員重設密碼
-    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
-    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
-    let db = state.db.clone();
-    let actor = current_user.id;
-    tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, actor, "SECURITY", "PASSWORD_ADMIN_RESET",
-            Some("user"), Some(id), None,
-            None, Some(serde_json::json!({ "target_user_id": id })),
-            Some(&ip), ua.as_deref(),
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-    });
-    
+    let _ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
 }
 
