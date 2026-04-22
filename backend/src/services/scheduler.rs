@@ -12,6 +12,9 @@ use crate::{
 
 type SchedulerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
+/// R26-2 audit HMAC chain 每日驗證 cron schedule（每日 02:00:00 UTC）。
+const AUDIT_CHAIN_VERIFY_CRON: &str = "0 0 2 * * *";
+
 pub struct SchedulerService;
 
 impl SchedulerService {
@@ -440,8 +443,7 @@ impl SchedulerService {
         let db_clone = db.clone();
         let config_clone = config.clone();
         let token_outer = token.clone();
-        // 每日 02:00:00 UTC 觸發
-        let job = Job::new_async("0 0 2 * * *", move |_uuid, _l| {
+        let job = Job::new_async(AUDIT_CHAIN_VERIFY_CRON, move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
             let token = token_outer.clone();
