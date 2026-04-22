@@ -33,6 +33,9 @@ pub enum CustomerCategory {
     Other,    // 其他
 }
 
+// 合作夥伴主檔（供應商/客戶），無敏感欄位（tax_id / phone / email 皆稽核必要）
+impl crate::models::audit_diff::AuditRedact for Partner {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Partner {
     pub id: Uuid,

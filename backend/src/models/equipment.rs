@@ -354,6 +354,9 @@ pub struct EquipmentStatusLog {
 
 // ========== Maintenance Records (維修/保養紀錄) ==========
 
+// 維修保養紀錄，無敏感欄位（all fields 皆稽核項目）
+impl crate::models::audit_diff::AuditRedact for EquipmentMaintenanceRecord {}
+
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct EquipmentMaintenanceRecord {
     pub id: Uuid,
