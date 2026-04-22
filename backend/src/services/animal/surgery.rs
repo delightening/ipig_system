@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalMedicalService;
+use super::{AnimalMedicalService, AnimalService};
 use crate::{
     middleware::ActorContext,
     models::{
@@ -128,6 +128,9 @@ impl AnimalSurgeryService {
             &req.post_surgery_medication,
         )?;
 
+        // 取得動物資訊用於 audit 顯示（Gemini PR #178：顯示 IACUC + 耳號 而非 UUID）
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+
         let mut tx = pool.begin().await?;
 
         let surgery = sqlx::query_as::<_, AnimalSurgery>(
@@ -162,10 +165,8 @@ impl AnimalSurgeryService {
         .fetch_one(&mut *tx)
         .await?;
 
-        let display = format!(
-            "animal {} @ {}: {}",
-            surgery.animal_id, surgery.surgery_date, surgery.surgery_site
-        );
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let display = format!("[{}] {} - {}", iacuc, animal.ear_tag, surgery.surgery_site);
         AuditService::log_activity_tx(
             &mut tx,
             actor,
@@ -213,12 +214,17 @@ impl AnimalSurgeryService {
         // 先取得原始紀錄用於版本歷史 + audit before snapshot（tx 外 pool read OK）
         let before = Self::get_by_id(pool, id).await?;
 
+        // 取得動物資訊用於 audit 顯示（Gemini PR #178：顯示 IACUC + 耳號 而非 UUID）
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
+
         // 保存版本歷史（目前 pool-based；tx 化歸 R26-8）
         AnimalMedicalService::save_record_version(pool, "surgery", id, &before, updated_by)
             .await?;
 
         let mut tx = pool.begin().await?;
 
+        // Gemini PR #178：加 `AND deleted_at IS NULL` 避免更新已軟刪除紀錄；
+        // 若不存在或已刪除，`fetch_one` 會回 `RowNotFound` 自動映射為 NotFound。
         let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
             UPDATE animal_surgeries SET
@@ -237,7 +243,7 @@ impl AnimalSurgeryService {
                 remark = COALESCE($14, remark),
                 no_medication_needed = COALESCE($15, no_medication_needed),
                 updated_at = NOW()
-            WHERE id = $1
+            WHERE id = $1 AND deleted_at IS NULL
             RETURNING *
             "#,
         )
@@ -259,10 +265,8 @@ impl AnimalSurgeryService {
         .fetch_one(&mut *tx)
         .await?;
 
-        let display = format!(
-            "animal {} @ {}: {}",
-            surgery.animal_id, surgery.surgery_date, surgery.surgery_site
-        );
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let display = format!("[{}] {} - {}", iacuc, animal.ear_tag, surgery.surgery_site);
         AuditService::log_activity_tx(
             &mut tx,
             actor,
@@ -307,7 +311,35 @@ impl AnimalSurgeryService {
         // before snapshot for audit（tx 外 pool read OK）
         let before = Self::get_by_id(pool, id).await?;
 
+        // 取得動物資訊用於 audit 顯示（Gemini PR #178：顯示 IACUC + 耳號 而非 UUID）
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
+
         let mut tx = pool.begin().await?;
+
+        // Gemini PR #178：先 UPDATE 並檢查 rows_affected；若 0 回 NotFound 並
+        // rollback（不會寫入 change_reasons 或 audit log）— 防止 race 下產生
+        // 假刪除的審計紀錄。
+        let rows = sqlx::query(
+            r#"
+            UPDATE animal_surgeries SET
+                deleted_at = NOW(),
+                deletion_reason = $2,
+                deleted_by = $3
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+
+        if rows == 0 {
+            return Err(AppError::NotFound(
+                "手術紀錄不存在或已被刪除".to_string(),
+            ));
+        }
 
         sqlx::query(
             r#"
@@ -321,24 +353,10 @@ impl AnimalSurgeryService {
         .execute(&mut *tx)
         .await?;
 
-        sqlx::query(
-            r#"
-            UPDATE animal_surgeries SET
-                deleted_at = NOW(),
-                deletion_reason = $2,
-                deleted_by = $3
-            WHERE id = $1 AND deleted_at IS NULL
-            "#,
-        )
-        .bind(id)
-        .bind(reason)
-        .bind(deleted_by)
-        .execute(&mut *tx)
-        .await?;
-
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
         let display = format!(
-            "animal {} @ {}: {} (原因: {})",
-            before.animal_id, before.surgery_date, before.surgery_site, reason
+            "[{}] {} - {} (原因: {})",
+            iacuc, animal.ear_tag, before.surgery_site, reason
         );
         AuditService::log_activity_tx(
             &mut tx,
