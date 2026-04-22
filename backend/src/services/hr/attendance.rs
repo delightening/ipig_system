@@ -6,9 +6,14 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
+    middleware::ActorContext,
     models::{
-        AttendanceCorrectionRequest, AttendanceQuery, AttendanceRecord,
+        audit_diff::DataDiff, AttendanceCorrectionRequest, AttendanceQuery, AttendanceRecord,
         AttendanceWithUser, PaginatedResponse,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
     },
     Result,
 };
@@ -191,19 +196,25 @@ impl HrService {
 
     pub async fn clock_in(
         pool: &PgPool,
-        user_id: Uuid,
+        actor: &ActorContext,
         source: Option<&str>,
         ip: Option<&str>,
         latitude: Option<f64>,
         longitude: Option<f64>,
     ) -> Result<AttendanceRecord> {
+        let user = actor.require_user()?;
+        let user_id = user.id;
+
         // 使用台灣時區 (UTC+8) 的日期，而不是 UTC 日期
         // 這樣當使用者在凌晨打卡時，work_date 會是正確的本地日期
         let taipei_offset = chrono::FixedOffset::east_opt(8 * 3600)
             .ok_or_else(|| AppError::Internal("invalid timezone offset UTC+8".to_string()))?;
         let today = Utc::now().with_timezone(&taipei_offset).date_naive();
 
-        let existing: Option<AttendanceRecord> = sqlx::query_as(
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE：行鎖 + before 快照（若當日已有 attendance row）
+        let before: Option<AttendanceRecord> = sqlx::query_as(
             r#"SELECT id, user_id, work_date, clock_in_time, clock_out_time,
                     regular_hours, overtime_hours, status, clock_in_source,
                     clock_in_ip::TEXT, clock_out_source, clock_out_ip::TEXT,
@@ -211,20 +222,20 @@ impl HrService {
                     clock_out_latitude, clock_out_longitude,
                     remark, is_corrected, corrected_by, corrected_at,
                     correction_reason, created_at, updated_at
-               FROM attendance_records WHERE user_id = $1 AND work_date = $2"#,
+               FROM attendance_records WHERE user_id = $1 AND work_date = $2 FOR UPDATE"#,
         )
         .bind(user_id)
         .bind(today)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?;
 
-        if let Some(record) = existing {
+        if let Some(ref record) = before {
             if record.clock_in_time.is_some() {
                 return Err(AppError::Validation("今天已經打卡上班".to_string()));
             }
         }
 
-        let record = sqlx::query_as::<_, AttendanceRecord>(
+        let after = sqlx::query_as::<_, AttendanceRecord>(
             r#"
             INSERT INTO attendance_records (id, user_id, work_date, clock_in_time, clock_in_source, clock_in_ip, clock_in_latitude, clock_in_longitude, status)
             VALUES ($1, $2, $3, NOW(), $4, $5::inet, $6, $7, 'normal')
@@ -251,26 +262,63 @@ impl HrService {
         .bind(ip)
         .bind(latitude)
         .bind(longitude)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Ok(record)
+        let display = format!("{} {}", after.work_date, user.email);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "ATTENDANCE_CLOCK_IN",
+                entity: Some(AuditEntity::new("attendance_record", after.id, &display)),
+                data_diff: Some(DataDiff::compute(before.as_ref(), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     pub async fn clock_out(
         pool: &PgPool,
-        user_id: Uuid,
+        actor: &ActorContext,
         source: Option<&str>,
         ip: Option<&str>,
         latitude: Option<f64>,
         longitude: Option<f64>,
     ) -> Result<AttendanceRecord> {
+        let user = actor.require_user()?;
+        let user_id = user.id;
+
         // 使用台灣時區 (UTC+8) 的日期，與 clock_in 保持一致
         let taipei_offset = chrono::FixedOffset::east_opt(8 * 3600)
             .ok_or_else(|| AppError::Internal("invalid timezone offset UTC+8".to_string()))?;
         let today = Utc::now().with_timezone(&taipei_offset).date_naive();
 
-        let record = sqlx::query_as::<_, AttendanceRecord>(
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AttendanceRecord>(
+            r#"SELECT id, user_id, work_date, clock_in_time, clock_out_time,
+                    regular_hours, overtime_hours, status, clock_in_source,
+                    clock_in_ip::TEXT, clock_out_source, clock_out_ip::TEXT,
+                    clock_in_latitude, clock_in_longitude,
+                    clock_out_latitude, clock_out_longitude,
+                    remark, is_corrected, corrected_by, corrected_at,
+                    correction_reason, created_at, updated_at
+               FROM attendance_records WHERE user_id = $1 AND work_date = $2 FOR UPDATE"#,
+        )
+        .bind(user_id)
+        .bind(today)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::Validation("請先打卡上班".to_string()))?;
+
+        let after = sqlx::query_as::<_, AttendanceRecord>(
             r#"
             UPDATE attendance_records
             SET clock_out_time = NOW(),
@@ -296,11 +344,26 @@ impl HrService {
         .bind(ip)
         .bind(latitude)
         .bind(longitude)
-        .fetch_one(pool)
-        .await
-        .map_err(|_| AppError::Validation("請先打卡上班".to_string()))?;
+        .fetch_one(&mut *tx)
+        .await?;
 
-        Ok(record)
+        let display = format!("{} {}", after.work_date, user.email);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "ATTENDANCE_CLOCK_OUT",
+                entity: Some(AuditEntity::new("attendance_record", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     /// 將出勤狀態字串轉為中文顯示名稱
@@ -318,11 +381,30 @@ impl HrService {
 
     pub async fn correct_attendance(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        corrector_id: Uuid,
         payload: &AttendanceCorrectionRequest,
     ) -> Result<()> {
-        sqlx::query(
+        let user = actor.require_user()?;
+        let corrector_id = user.id;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AttendanceRecord>(
+            r#"SELECT id, user_id, work_date, clock_in_time, clock_out_time,
+                    regular_hours, overtime_hours, status, clock_in_source,
+                    clock_in_ip::TEXT, clock_out_source, clock_out_ip::TEXT,
+                    clock_in_latitude, clock_in_longitude,
+                    clock_out_latitude, clock_out_longitude,
+                    remark, is_corrected, corrected_by, corrected_at,
+                    correction_reason, created_at, updated_at
+               FROM attendance_records WHERE id = $1 FOR UPDATE"#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("出勤紀錄不存在".into()))?;
+
+        let after = sqlx::query_as::<_, AttendanceRecord>(
             r#"
             UPDATE attendance_records
             SET original_clock_in = clock_in_time,
@@ -335,6 +417,13 @@ impl HrService {
                 correction_reason = $5,
                 updated_at = NOW()
             WHERE id = $1
+            RETURNING id, user_id, work_date, clock_in_time, clock_out_time,
+                    regular_hours, overtime_hours, status, clock_in_source,
+                    clock_in_ip::TEXT, clock_out_source, clock_out_ip::TEXT,
+                    clock_in_latitude, clock_in_longitude,
+                    clock_out_latitude, clock_out_longitude,
+                    remark, is_corrected, corrected_by, corrected_at,
+                    correction_reason, created_at, updated_at
             "#,
         )
         .bind(id)
@@ -342,8 +431,27 @@ impl HrService {
         .bind(payload.clock_out_time)
         .bind(corrector_id)
         .bind(&payload.reason)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
+
+        let display = format!(
+            "correct {} reason={}",
+            after.work_date, payload.reason
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "ATTENDANCE_CORRECT",
+                entity: Some(AuditEntity::new("attendance_record", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Ok(())
     }
