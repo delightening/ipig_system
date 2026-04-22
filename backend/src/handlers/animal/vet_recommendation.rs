@@ -8,13 +8,13 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         CreateVetRecommendationRequest, CreateVetRecommendationWithAttachmentsRequest,
         VetRecommendation, VetRecordType,
     },
     require_permission,
-    services::{access, AnimalMedicalService, AuditService},
+    services::{access, AnimalMedicalService},
     AppState, Result,
 };
 
@@ -30,12 +30,14 @@ pub async fn add_observation_vet_recommendation(
     require_permission!(current_user, "animal.vet.recommend");
     req.validate()?;
 
+    // Audit 已收進 service 層（VET_RECOMMENDATION_ADD，tx 內）
+    let actor = ActorContext::User(current_user.clone());
     let recommendation = AnimalMedicalService::add_vet_recommendation(
         &state.db,
+        &actor,
         VetRecordType::Observation,
         id,
         &req,
-        current_user.id,
     )
     .await?;
 
@@ -59,18 +61,6 @@ pub async fn add_observation_vet_recommendation(
         {
             tracing::warn!("發送獸醫建議通知失敗: {e}");
         }
-    }
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "VET_RECOMMENDATION_ADD",
-        Some("vet_recommendation"), None,
-        Some(&format!("觀察紀錄 #{} 獸醫建議", id)),
-        None,
-        Some(serde_json::json!({ "record_type": "observation", "record_id": id, "is_urgent": req.is_urgent })),
-        None, None,
-    ).await {
-        tracing::error!("寫入 user_activity_logs 失敗 (VET_RECOMMENDATION_ADD): {}", e);
     }
 
     Ok(Json(recommendation))
@@ -86,12 +76,14 @@ pub async fn add_surgery_vet_recommendation(
     require_permission!(current_user, "animal.vet.recommend");
     req.validate()?;
 
+    // Audit 已收進 service 層（VET_RECOMMENDATION_ADD，tx 內）
+    let actor = ActorContext::User(current_user.clone());
     let recommendation = AnimalMedicalService::add_vet_recommendation(
         &state.db,
+        &actor,
         VetRecordType::Surgery,
         id,
         &req,
-        current_user.id,
     )
     .await?;
 
@@ -117,18 +109,6 @@ pub async fn add_surgery_vet_recommendation(
         }
     }
 
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "VET_RECOMMENDATION_ADD",
-        Some("vet_recommendation"), None,
-        Some(&format!("手術紀錄 #{} 獸醫建議", id)),
-        None,
-        Some(serde_json::json!({ "record_type": "surgery", "record_id": id, "is_urgent": req.is_urgent })),
-        None, None,
-    ).await {
-        tracing::error!("寫入 user_activity_logs 失敗 (VET_RECOMMENDATION_ADD): {}", e);
-    }
-
     Ok(Json(recommendation))
 }
 
@@ -142,12 +122,14 @@ pub async fn add_observation_vet_recommendation_with_attachments(
     require_permission!(current_user, "animal.vet.upload_attachment");
     req.validate()?;
 
+    // Audit 已收進 service 層（VET_RECOMMENDATION_ADD with attachments，tx 內）
+    let actor = ActorContext::User(current_user.clone());
     let recommendation = AnimalMedicalService::add_vet_recommendation_with_attachments(
         &state.db,
+        &actor,
         VetRecordType::Observation,
         id,
         &req,
-        current_user.id,
     )
     .await?;
 
@@ -173,18 +155,6 @@ pub async fn add_observation_vet_recommendation_with_attachments(
         }
     }
 
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "VET_RECOMMENDATION_ADD",
-        Some("vet_recommendation"), None,
-        Some(&format!("觀察紀錄 #{} 獸醫建議 (含附件)", id)),
-        None,
-        Some(serde_json::json!({ "record_type": "observation", "record_id": id, "is_urgent": req.is_urgent, "has_attachments": true })),
-        None, None,
-    ).await {
-        tracing::error!("寫入 user_activity_logs 失敗 (VET_RECOMMENDATION_ADD): {}", e);
-    }
-
     Ok(Json(recommendation))
 }
 
@@ -198,12 +168,14 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
     require_permission!(current_user, "animal.vet.upload_attachment");
     req.validate()?;
 
+    // Audit 已收進 service 層（VET_RECOMMENDATION_ADD with attachments，tx 內）
+    let actor = ActorContext::User(current_user.clone());
     let recommendation = AnimalMedicalService::add_vet_recommendation_with_attachments(
         &state.db,
+        &actor,
         VetRecordType::Surgery,
         id,
         &req,
-        current_user.id,
     )
     .await?;
 
@@ -227,18 +199,6 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
         {
             tracing::warn!("發送獸醫建議通知失敗: {e}");
         }
-    }
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "VET_RECOMMENDATION_ADD",
-        Some("vet_recommendation"), None,
-        Some(&format!("手術紀錄 #{} 獸醫建議 (含附件)", id)),
-        None,
-        Some(serde_json::json!({ "record_type": "surgery", "record_id": id, "is_urgent": req.is_urgent, "has_attachments": true })),
-        None, None,
-    ).await {
-        tracing::error!("寫入 user_activity_logs 失敗 (VET_RECOMMENDATION_ADD): {}", e);
     }
 
     Ok(Json(recommendation))

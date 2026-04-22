@@ -4,13 +4,18 @@ use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
+    middleware::ActorContext,
     models::{
-        Animal, AnimalExportRecord, AnimalImportBatch, AnimalSacrifice, AnimalStatus,
-        AnimalSuddenDeath, AnimalVaccination, CreateSacrificeRequest, CreateSuddenDeathRequest,
-        CreateVaccinationRequest, CreateVetRecommendationRequest,
+        audit_diff::DataDiff, Animal, AnimalExportRecord, AnimalImportBatch, AnimalSacrifice,
+        AnimalStatus, AnimalSuddenDeath, AnimalVaccination, CreateSacrificeRequest,
+        CreateSuddenDeathRequest, CreateVaccinationRequest, CreateVetRecommendationRequest,
         CreateVetRecommendationWithAttachmentsRequest, ExportFormat, ExportType, ImportStatus,
         ImportType, UpdateVaccinationRequest, VersionDiff, VersionHistoryResponse,
         VetRecommendation, VetRecordType,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
     },
     AppError, Result,
 };
@@ -151,12 +156,25 @@ impl AnimalMedicalService {
         Ok(sacrifice)
     }
 
+    /// 建立或更新犧牲紀錄 — Service-driven audit
+    ///
+    /// CRIT-02 修補：當 `confirmed_sacrifice = true` 且動物狀態可轉換時，
+    /// 動物狀態 UPDATE 與 sacrifice upsert + audit 收歸同 tx，避免原本
+    /// handler 層分兩次 pool 呼叫造成「sacrifice 已寫但 animal 未 euthanized」。
     pub async fn upsert_sacrifice(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
         req: &CreateSacrificeRequest,
-        created_by: Uuid,
     ) -> Result<AnimalSacrifice> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+        let before = Self::get_sacrifice(pool, animal_id).await?;
+
+        let mut tx = pool.begin().await?;
+
         let sacrifice = sqlx::query_as::<_, AnimalSacrifice>(
             r#"
             INSERT INTO animal_sacrifices (
@@ -190,9 +208,57 @@ impl AnimalMedicalService {
         .bind(req.blood_volume_ml)
         .bind(req.confirmed_sacrifice)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        // 犧牲確認時自動將動物狀態設為 euthanized（原於 handler 層，CRIT-02 提起）
+        if req.confirmed_sacrifice
+            && !animal.status.is_terminal()
+            && animal.status.can_transition_to(AnimalStatus::Euthanized)
+        {
+            sqlx::query(
+                "UPDATE animals SET status = 'euthanized', pen_location = NULL, updated_at = NOW() WHERE id = $1",
+            )
+            .bind(animal_id)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let mut methods: Vec<&str> = Vec::new();
+        if req.method_electrocution {
+            methods.push("電擊");
+        }
+        if req.method_bloodletting {
+            methods.push("放血");
+        }
+        if let Some(ref m) = req.method_other {
+            methods.push(m);
+        }
+        let method_str = if methods.is_empty() {
+            "未指定方式".to_string()
+        } else {
+            methods.join("+")
+        };
+        let display = format!("[{}] {} - {}", iacuc, animal.ear_tag, method_str);
+        let data_diff = match &before {
+            Some(b) => DataDiff::compute(Some(b), Some(&sacrifice)),
+            None => DataDiff::create_only(&sacrifice),
+        };
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "SACRIFICE_UPSERT",
+                entity: Some(AuditEntity::new("animal_sacrifice", sacrifice.id, &display)),
+                data_diff: Some(data_diff),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(sacrifice)
     }
 
@@ -215,13 +281,16 @@ impl AnimalMedicalService {
         Ok(record)
     }
 
-    /// 登記猝死
+    /// 登記猝死 — Service-driven audit（CRIT-02 兩表變更合併為同 tx）
     pub async fn create_sudden_death(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
         req: &CreateSuddenDeathRequest,
-        created_by: Uuid,
     ) -> Result<AnimalSuddenDeath> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
         // 驗證動物狀態可轉換到 SuddenDeath
         let animal = AnimalService::get_by_id(pool, animal_id).await?;
         if !animal.status.can_transition_to(AnimalStatus::SuddenDeath) {
@@ -230,6 +299,8 @@ impl AnimalMedicalService {
                 animal.status.display_name()
             )));
         }
+
+        let mut tx = pool.begin().await?;
 
         // 建立猝死記錄
         let record = sqlx::query_as::<_, AnimalSuddenDeath>(
@@ -250,15 +321,31 @@ impl AnimalMedicalService {
         .bind(&req.location)
         .bind(&req.remark)
         .bind(req.requires_pathology)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 自動更新動物狀態為 sudden_death
+        // 自動更新動物狀態為 sudden_death（同 tx，CRIT-02 修補）
         sqlx::query("UPDATE animals SET status = 'sudden_death', updated_at = NOW() WHERE id = $1")
             .bind(animal_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let display = format!("[{}] {} - 猝死", iacuc, animal.ear_tag);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "SUDDEN_DEATH",
+                entity: Some(AuditEntity::new("animal_sudden_deaths", record.id, &display)),
+                data_diff: Some(DataDiff::create_only(&record)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(record)
     }
 
@@ -283,14 +370,19 @@ impl AnimalMedicalService {
         Ok(())
     }
 
-    /// 新增獸醫師建議
+    /// 新增獸醫師建議 — Service-driven audit
     pub async fn add_vet_recommendation(
         pool: &PgPool,
+        actor: &ActorContext,
         record_type: VetRecordType,
         record_id: Uuid,
         req: &CreateVetRecommendationRequest,
-        created_by: Uuid,
     ) -> Result<VetRecommendation> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
+        let mut tx = pool.begin().await?;
+
         let recommendation = sqlx::query_as::<_, VetRecommendation>(
             r#"
             INSERT INTO vet_recommendations (record_type, record_id, content, is_urgent, created_by, created_at)
@@ -303,24 +395,58 @@ impl AnimalMedicalService {
         .bind(&req.content)
         .bind(req.is_urgent)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
+
+        let record_type_str = match record_type {
+            VetRecordType::Observation => "觀察紀錄",
+            VetRecordType::Surgery => "手術紀錄",
+        };
+        let display = format!(
+            "{} #{} 獸醫建議{}",
+            record_type_str,
+            record_id,
+            if req.is_urgent { " (緊急)" } else { "" }
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "VET_RECOMMENDATION_ADD",
+                entity: Some(AuditEntity::new(
+                    "vet_recommendation",
+                    recommendation.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::create_only(&recommendation)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Ok(recommendation)
     }
 
-    /// 新增獸醫師建議（含附件）
+    /// 新增獸醫師建議（含附件）— Service-driven audit
     pub async fn add_vet_recommendation_with_attachments(
         pool: &PgPool,
+        actor: &ActorContext,
         record_type: VetRecordType,
         record_id: Uuid,
         req: &CreateVetRecommendationWithAttachmentsRequest,
-        created_by: Uuid,
     ) -> Result<VetRecommendation> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
         // 驗證 attachments JSONB 結構
         if let Some(ref att) = req.attachments {
             crate::utils::jsonb_validation::validate_attachments(att)?;
         }
+
+        let mut tx = pool.begin().await?;
 
         let recommendation = sqlx::query_as::<_, VetRecommendation>(
             r#"
@@ -335,9 +461,37 @@ impl AnimalMedicalService {
         .bind(&req.attachments)
         .bind(req.is_urgent)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let record_type_str = match record_type {
+            VetRecordType::Observation => "觀察紀錄",
+            VetRecordType::Surgery => "手術紀錄",
+        };
+        let display = format!(
+            "{} #{} 獸醫建議 (含附件){}",
+            record_type_str,
+            record_id,
+            if req.is_urgent { " (緊急)" } else { "" }
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "VET_RECOMMENDATION_ADD",
+                entity: Some(AuditEntity::new(
+                    "vet_recommendation",
+                    recommendation.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::create_only(&recommendation)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(recommendation)
     }
 
@@ -654,12 +808,20 @@ impl AnimalMedicalService {
         Ok(report)
     }
 
-    /// 建立或更新病理報告
+    /// 建立或更新病理報告 — Service-driven audit
     pub async fn upsert_pathology_report(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
-        created_by: Uuid,
     ) -> Result<crate::models::AnimalPathologyReport> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+        let before = Self::get_pathology_report(pool, animal_id).await?;
+
+        let mut tx = pool.begin().await?;
+
         let report = sqlx::query_as::<_, crate::models::AnimalPathologyReport>(
             r#"
             INSERT INTO animal_pathology_reports (animal_id, created_by, created_at, updated_at)
@@ -670,9 +832,29 @@ impl AnimalMedicalService {
         )
         .bind(animal_id)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let display = format!("[{}] {}", iacuc, animal.ear_tag);
+        let data_diff = match &before {
+            Some(b) => DataDiff::compute(Some(b), Some(&report)),
+            None => DataDiff::create_only(&report),
+        };
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "PATHOLOGY_UPSERT",
+                entity: Some(AuditEntity::new("animal_pathology", report.id, &display)),
+                data_diff: Some(data_diff),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(report)
     }
     // ============================================

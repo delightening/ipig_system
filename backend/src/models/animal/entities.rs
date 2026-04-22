@@ -202,6 +202,10 @@ pub struct AnimalSacrifice {
     pub updated_at: DateTime<Utc>,
 }
 
+// R26-9 方針同 AnimalObservation：method_other / sampling_other 為自由文字
+// 醫療內容；GLP 研究資料本身，空 allowlist。
+impl crate::models::audit_diff::AuditRedact for AnimalSacrifice {}
+
 /// 猝死記錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AnimalSuddenDeath {
@@ -216,6 +220,10 @@ pub struct AnimalSuddenDeath {
     pub requires_pathology: bool,
     pub created_at: DateTime<Utc>,
 }
+
+// R26-9 方針同 AnimalObservation：probable_cause / remark 為自由文字醫療
+// 判斷內容；GLP 需完整軌跡，空 allowlist。
+impl crate::models::audit_diff::AuditRedact for AnimalSuddenDeath {}
 
 /// 動物轉讓記錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
@@ -263,6 +271,9 @@ pub struct AnimalPathologyReport {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// 無敏感欄位（僅時間戳 + 建立者）；空 impl 即可。
+impl crate::models::audit_diff::AuditRedact for AnimalPathologyReport {}
 
 /// 血液檢查項目模板
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
