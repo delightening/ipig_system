@@ -266,6 +266,20 @@ pub async fn get_care_record_animal_id(pool: &PgPool, care_record_id: Uuid) -> R
     animal_id.ok_or_else(|| AppError::NotFound("Care record not found".into()))
 }
 
+/// 透過獸醫建議紀錄 ID 取得 animal_id（R26-11 service-layer authz 必備）
+pub async fn get_vet_advice_record_animal_id(
+    pool: &PgPool,
+    vet_advice_record_id: Uuid,
+) -> Result<Uuid> {
+    sqlx::query_scalar(
+        "SELECT animal_id FROM animal_vet_advice_records WHERE id = $1 AND deleted_at IS NULL",
+    )
+    .bind(vet_advice_record_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Vet advice record not found".into()))
+}
+
 /// 檢查使用者是否有權限存取特定計畫（透過 IACUC 編號），用於 PDF 匯出等。
 /// admin permission `animal.export.medical` 加上計畫成員才可通過。
 pub async fn require_iacuc_protocol_access(

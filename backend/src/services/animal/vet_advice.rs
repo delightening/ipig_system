@@ -254,13 +254,25 @@ impl VetAdviceRecordService {
         Ok(record)
     }
 
-    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query(
-            "UPDATE animal_vet_advice_records SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
+    /// 刪除獸醫建議紀錄（R26-11：要求呼叫端傳入已驗權的 animal_id，
+    /// service 層 UPDATE 以 (id, animal_id) 雙重作用域防 IDOR）。
+    pub async fn delete(pool: &PgPool, id: Uuid, animal_id: Uuid) -> Result<()> {
+        let rows = sqlx::query(
+            "UPDATE animal_vet_advice_records
+             SET deleted_at = NOW()
+             WHERE id = $1 AND animal_id = $2 AND deleted_at IS NULL",
         )
         .bind(id)
+        .bind(animal_id)
         .execute(pool)
-        .await?;
+        .await?
+        .rows_affected();
+
+        if rows == 0 {
+            return Err(crate::AppError::NotFound(
+                "Vet advice record not found".into(),
+            ));
+        }
         Ok(())
     }
 }
