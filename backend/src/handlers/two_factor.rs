@@ -10,12 +10,12 @@ use validator::Validate;
 use crate::error::ErrorResponse;
 use crate::{
     handlers::auth::build_set_cookie,
-    middleware::{extract_real_ip_with_trust, CurrentUser},
+    middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
     models::{
         TwoFactorConfirmRequest, TwoFactorDisableRequest,
         TwoFactorLoginRequest, TwoFactorSetupResponse,
     },
-    services::{AuthService, AuditService, LoginTracker, SessionManager, UserService},
+    services::{AuthService, LoginTracker, SessionManager, UserService},
     AppError, AppState, Result,
 };
 
@@ -74,16 +74,8 @@ pub async fn confirm_2fa_setup(
     }
     req.validate()?;
 
-    AuthService::confirm_totp_setup(&state.db, current_user.id, &req.code).await?;
-
-    let db = state.db.clone();
-    let user_id = current_user.id;
-    tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, user_id, "SECURITY", "2FA_ENABLED",
-            Some("user"), Some(user_id), None, None, None, None, None,
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-    });
+    let actor = ActorContext::User(current_user.clone());
+    AuthService::confirm_totp_setup(&state.db, &actor, current_user.id, &req.code).await?;
 
     Ok(Json(serde_json::json!({ "message": "2FA 已成功啟用" })))
 }
@@ -108,16 +100,8 @@ pub async fn disable_2fa(
     req.validate()?;
 
     AuthService::verify_password_by_id(&state.db, current_user.id, &req.password).await?;
-    AuthService::disable_totp(&state.db, current_user.id, &req.code).await?;
-
-    let db = state.db.clone();
-    let user_id = current_user.id;
-    tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, user_id, "SECURITY", "2FA_DISABLED",
-            Some("user"), Some(user_id), None, None, None, None, None,
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-    });
+    let actor = ActorContext::User(current_user.clone());
+    AuthService::disable_totp(&state.db, &actor, current_user.id, &req.code).await?;
 
     Ok(Json(serde_json::json!({ "message": "2FA 已停用" })))
 }
