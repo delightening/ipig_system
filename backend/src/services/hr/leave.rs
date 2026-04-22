@@ -426,11 +426,15 @@ impl HrService {
 
     pub async fn approve_leave(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        approver_id: Uuid,
         comments: Option<&str>,
     ) -> Result<LeaveRequest> {
-        let current: LeaveRequest = sqlx::query_as(
+        let user = actor.require_user()?;
+        let approver_id = user.id;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
@@ -439,17 +443,17 @@ impl HrService {
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
-            FROM leave_requests WHERE id = $1
+            FROM leave_requests WHERE id = $1 FOR UPDATE
             "#,
         )
-            .bind(id)
-            .fetch_one(pool)
-            .await?;
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await?;
 
         // Determine next status based on current status
         // PENDING_L1 (部門主管) → PENDING_HR (行政) → PENDING_GM (負責人) → APPROVED
         use crate::models::LeaveStatus;
-        let next_status = match current.status.as_str() {
+        let next_status = match before.status.as_str() {
             s if s == LeaveStatus::PendingL1.as_str() => LeaveStatus::PendingHr.as_str(),
             s if s == LeaveStatus::PendingL2.as_str() => LeaveStatus::PendingHr.as_str(),
             s if s == LeaveStatus::PendingHr.as_str() => LeaveStatus::PendingGm.as_str(),
@@ -457,10 +461,10 @@ impl HrService {
             _ => return Err(AppError::Validation("無法核准此狀態的請假".to_string())),
         };
 
-        // 最終核准時，檢查並扣除假別餘額
+        // 最終核准時，檢查並扣除假別餘額（同一 tx 內，餘額異動與狀態變更原子化）
         let is_final_approval = next_status == LeaveStatus::Approved.as_str();
         if is_final_approval {
-            Self::deduct_leave_balance(pool, &current).await?;
+            Self::deduct_leave_balance(&mut tx, &before).await?;
         }
 
         sqlx::query(
@@ -472,9 +476,9 @@ impl HrService {
         .bind(Uuid::new_v4())
         .bind(id)
         .bind(approver_id)
-        .bind(&current.status)
+        .bind(&before.status)
         .bind(comments)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
         let approved_at = if is_final_approval {
@@ -485,27 +489,72 @@ impl HrService {
 
         // SEC-BIZ-5: 使用 WHERE status 條件防止 race condition（TOCTOU）
         // 若另一個請求已先修改狀態，此 UPDATE 不會匹配任何行 → 回傳衝突錯誤
-        let update_result = sqlx::query(
+        let after_opt = sqlx::query_as::<_, LeaveRequest>(
             r#"
             UPDATE leave_requests
             SET status = $2::leave_status, approved_at = $3, current_approver_id = NULL, updated_at = NOW()
             WHERE id = $1 AND status = $4::leave_status
+            RETURNING
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
+                start_time, end_time, total_days, total_hours, reason, supporting_documents,
+                annual_leave_source_id, is_urgent, is_retroactive,
+                status::text as status, current_approver_id, submitted_at, approved_at,
+                rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
+                created_at, updated_at
             "#,
         )
         .bind(id)
         .bind(next_status)
         .bind(approved_at)
-        .bind(&current.status)
-        .execute(pool)
+        .bind(&before.status)
+        .fetch_optional(&mut *tx)
         .await?;
 
-        if update_result.rows_affected() == 0 {
-            return Err(AppError::Conflict(
+        let after = after_opt.ok_or_else(|| {
+            AppError::Conflict(
                 "此請假狀態已被其他操作變更，請重新整理後再試".to_string(),
-            ));
-        }
+            )
+        })?;
 
-        let record = sqlx::query_as::<_, LeaveRequest>(
+        // event_type 區分中途核准 vs 最終核准，方便稽核查詢
+        let event_type = if is_final_approval {
+            "LEAVE_APPROVE_FINAL"
+        } else {
+            "LEAVE_APPROVE_INTERIM"
+        };
+        let display = format!(
+            "{} {}~{}",
+            after.leave_type, after.start_date, after.end_date
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type,
+                entity: Some(AuditEntity::new("leave_request", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
+    }
+
+    pub async fn reject_leave(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        reason: &str,
+    ) -> Result<LeaveRequest> {
+        let user = actor.require_user()?;
+        let rejecter_id = user.id;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
@@ -514,37 +563,12 @@ impl HrService {
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
-            FROM leave_requests WHERE id = $1
+            FROM leave_requests WHERE id = $1 FOR UPDATE
             "#,
         )
         .bind(id)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
-
-        Ok(record)
-    }
-
-    pub async fn reject_leave(
-        pool: &PgPool,
-        id: Uuid,
-        rejecter_id: Uuid,
-        reason: &str,
-    ) -> Result<LeaveRequest> {
-        let current: LeaveRequest = sqlx::query_as(
-            r#"
-            SELECT 
-                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
-                start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                annual_leave_source_id, is_urgent, is_retroactive,
-                status::text as status, current_approver_id, submitted_at, approved_at,
-                rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
-                created_at, updated_at
-            FROM leave_requests WHERE id = $1
-            "#,
-        )
-            .bind(id)
-            .fetch_one(pool)
-            .await?;
 
         sqlx::query(
             r#"
@@ -555,39 +579,49 @@ impl HrService {
         .bind(Uuid::new_v4())
         .bind(id)
         .bind(rejecter_id)
-        .bind(&current.status)
+        .bind(&before.status)
         .bind(reason)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
-        sqlx::query(
+        let after = sqlx::query_as::<_, LeaveRequest>(
             r#"
             UPDATE leave_requests
             SET status = 'REJECTED'::leave_status, rejected_at = NOW(), updated_at = NOW()
             WHERE id = $1
-            "#,
-        )
-        .bind(id)
-        .execute(pool)
-        .await?;
-
-        let record = sqlx::query_as::<_, LeaveRequest>(
-            r#"
-            SELECT 
+            RETURNING
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
-            FROM leave_requests WHERE id = $1
             "#,
         )
         .bind(id)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Ok(record)
+        let display = format!(
+            "{} {}~{}",
+            after.leave_type, after.start_date, after.end_date
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "LEAVE_REJECT",
+                entity: Some(AuditEntity::new("leave_request", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     /// 計算有效請假時數（total_hours 優先，否則換算天數 × 8）
@@ -597,12 +631,14 @@ impl HrService {
 
     pub async fn cancel_leave(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        _current_user: &CurrentUser,
         reason: Option<&str>,
     ) -> Result<LeaveRequest> {
-        // 先查詢目前狀態，判斷是否需要回復餘額
-        let current: LeaveRequest = sqlx::query_as(
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
@@ -611,50 +647,71 @@ impl HrService {
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
-            FROM leave_requests WHERE id = $1
+            FROM leave_requests WHERE id = $1 FOR UPDATE
             "#,
         )
         .bind(id)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
         use crate::models::LeaveStatus;
-        let was_approved = current.status == LeaveStatus::Approved.as_str();
+        let was_approved = before.status == LeaveStatus::Approved.as_str();
 
-        sqlx::query(
+        let after = sqlx::query_as::<_, LeaveRequest>(
             r#"
             UPDATE leave_requests
             SET status = 'CANCELLED'::leave_status, cancelled_at = NOW(), cancellation_reason = $2, updated_at = NOW()
             WHERE id = $1 AND status IN ('DRAFT'::leave_status, 'PENDING_L1'::leave_status, 'PENDING_L2'::leave_status, 'PENDING_HR'::leave_status, 'PENDING_GM'::leave_status, 'APPROVED'::leave_status)
-            "#,
-        )
-        .bind(id)
-        .bind(reason)
-        .execute(pool)
-        .await?;
-
-        // 已核准的請假取消時，回復餘額
-        if was_approved {
-            Self::restore_leave_balance(pool, &current).await?;
-        }
-
-        let record = sqlx::query_as::<_, LeaveRequest>(
-            r#"
-            SELECT
+            RETURNING
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
-            FROM leave_requests WHERE id = $1
             "#,
         )
         .bind(id)
-        .fetch_one(pool)
+        .bind(reason)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| {
+            AppError::BusinessRule(
+                "請假狀態不允許取消（可能已經是已取消 / 駁回 / 撤銷）".to_string(),
+            )
+        })?;
+
+        // 已核准的請假取消時，回復餘額（同一 tx 內，原子化）
+        if was_approved {
+            Self::restore_leave_balance(&mut tx, &before).await?;
+        }
+
+        // 已核准狀態取消要特別標記（可能牽涉薪資/考勤結算）
+        let event_type = if was_approved {
+            "LEAVE_CANCEL_RETROACTIVE"
+        } else {
+            "LEAVE_CANCEL"
+        };
+        let display = format!(
+            "{} {}~{}",
+            after.leave_type, after.start_date, after.end_date
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type,
+                entity: Some(AuditEntity::new("leave_request", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
         .await?;
 
-        Ok(record)
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     // ============================================
@@ -663,7 +720,7 @@ impl HrService {
 
     /// 扣除特休假餘額（FIFO：先到期先扣）並記錄 leave_balance_usage
     async fn deduct_annual_leave(
-        pool: &PgPool,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         leave: &LeaveRequest,
     ) -> Result<()> {
         let mut remaining = leave.total_days;
@@ -673,10 +730,11 @@ impl HrService {
             FROM annual_leave_entitlements
             WHERE user_id = $1 AND NOT is_expired AND (entitled_days - used_days) > 0
             ORDER BY expires_at ASC
+            FOR UPDATE
             "#,
         )
         .bind(leave.user_id)
-        .fetch_all(pool)
+        .fetch_all(&mut **tx)
         .await?;
 
         let total_available: Decimal = entitlements.iter().map(|e| e.1).sum();
@@ -692,7 +750,7 @@ impl HrService {
                 break;
             }
             let deduct = remaining.min(available);
-            Self::apply_annual_deduction(pool, leave.id, ent_id, deduct).await?;
+            Self::apply_annual_deduction(tx, leave.id, ent_id, deduct).await?;
             remaining -= deduct;
         }
         Ok(())
@@ -700,7 +758,7 @@ impl HrService {
 
     /// 執行單筆特休假扣除（UPDATE + INSERT usage）
     async fn apply_annual_deduction(
-        pool: &PgPool,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         leave_id: Uuid,
         entitlement_id: Uuid,
         days: Decimal,
@@ -710,7 +768,7 @@ impl HrService {
         )
         .bind(entitlement_id)
         .bind(days)
-        .execute(pool)
+        .execute(&mut **tx)
         .await?;
 
         sqlx::query(
@@ -724,7 +782,7 @@ impl HrService {
         .bind(leave_id)
         .bind(entitlement_id)
         .bind(days)
-        .execute(pool)
+        .execute(&mut **tx)
         .await?;
 
         Ok(())
@@ -732,7 +790,7 @@ impl HrService {
 
     /// 扣除補休餘額（FIFO：先到期先扣）並記錄 leave_balance_usage
     async fn deduct_comp_time(
-        pool: &PgPool,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         leave: &LeaveRequest,
     ) -> Result<()> {
         let hours = Self::effective_hours(
@@ -748,10 +806,11 @@ impl HrService {
             FROM comp_time_balances
             WHERE user_id = $1 AND NOT is_expired AND (original_hours - used_hours) > 0
             ORDER BY expires_at ASC
+            FOR UPDATE
             "#,
         )
         .bind(leave.user_id)
-        .fetch_all(pool)
+        .fetch_all(&mut **tx)
         .await?;
 
         let total_available: Decimal = balances.iter().map(|b| b.1).sum();
@@ -768,7 +827,7 @@ impl HrService {
                 break;
             }
             let deduct = remaining.min(available);
-            Self::apply_comp_deduction(pool, leave.id, bal_id, deduct).await?;
+            Self::apply_comp_deduction(tx, leave.id, bal_id, deduct).await?;
             remaining -= deduct;
         }
         Ok(())
@@ -776,7 +835,7 @@ impl HrService {
 
     /// 執行單筆補休扣除（UPDATE + INSERT usage）
     async fn apply_comp_deduction(
-        pool: &PgPool,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         leave_id: Uuid,
         balance_id: Uuid,
         hours: Decimal,
@@ -786,7 +845,7 @@ impl HrService {
         )
         .bind(balance_id)
         .bind(hours)
-        .execute(pool)
+        .execute(&mut **tx)
         .await?;
 
         sqlx::query(
@@ -800,32 +859,41 @@ impl HrService {
         .bind(leave_id)
         .bind(balance_id)
         .bind(hours)
-        .execute(pool)
+        .execute(&mut **tx)
         .await?;
 
         Ok(())
     }
 
     /// 核准時依假別檢查並扣除餘額（僅 ANNUAL / COMPENSATORY 需要）
-    async fn deduct_leave_balance(pool: &PgPool, leave: &LeaveRequest) -> Result<()> {
+    async fn deduct_leave_balance(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        leave: &LeaveRequest,
+    ) -> Result<()> {
         match leave.leave_type.as_str() {
-            "ANNUAL" => Self::deduct_annual_leave(pool, leave).await,
-            "COMPENSATORY" => Self::deduct_comp_time(pool, leave).await,
+            "ANNUAL" => Self::deduct_annual_leave(tx, leave).await,
+            "COMPENSATORY" => Self::deduct_comp_time(tx, leave).await,
             _ => Ok(()), // 其他假別無額度限制
         }
     }
 
     /// 取消/銷假時依假別回復餘額（僅 ANNUAL / COMPENSATORY 需要）
-    async fn restore_leave_balance(pool: &PgPool, leave: &LeaveRequest) -> Result<()> {
+    async fn restore_leave_balance(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        leave: &LeaveRequest,
+    ) -> Result<()> {
         match leave.leave_type.as_str() {
-            "ANNUAL" => Self::restore_annual_leave(pool, leave).await,
-            "COMPENSATORY" => Self::restore_comp_time(pool, leave).await,
+            "ANNUAL" => Self::restore_annual_leave(tx, leave).await,
+            "COMPENSATORY" => Self::restore_comp_time(tx, leave).await,
             _ => Ok(()),
         }
     }
 
     /// 回復特休假餘額：依 leave_balance_usage 的 deduct 紀錄逐筆還原
-    async fn restore_annual_leave(pool: &PgPool, leave: &LeaveRequest) -> Result<()> {
+    async fn restore_annual_leave(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        leave: &LeaveRequest,
+    ) -> Result<()> {
         let usages: Vec<(Uuid, Uuid, Decimal)> = sqlx::query_as(
             r#"
             SELECT id, annual_leave_entitlement_id, days_used
@@ -834,7 +902,7 @@ impl HrService {
             "#,
         )
         .bind(leave.id)
-        .fetch_all(pool)
+        .fetch_all(&mut **tx)
         .await?;
 
         for (usage_id, ent_id, days) in usages {
@@ -843,7 +911,7 @@ impl HrService {
             )
             .bind(ent_id)
             .bind(days)
-            .execute(pool)
+            .execute(&mut **tx)
             .await?;
 
             sqlx::query(
@@ -857,7 +925,7 @@ impl HrService {
             .bind(leave.id)
             .bind(ent_id)
             .bind(days)
-            .execute(pool)
+            .execute(&mut **tx)
             .await?;
 
             let _ = usage_id; // 僅用於未來稽核需求
@@ -866,7 +934,10 @@ impl HrService {
     }
 
     /// 回復補休餘額：依 leave_balance_usage 的 deduct 紀錄逐筆還原
-    async fn restore_comp_time(pool: &PgPool, leave: &LeaveRequest) -> Result<()> {
+    async fn restore_comp_time(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        leave: &LeaveRequest,
+    ) -> Result<()> {
         let usages: Vec<(Uuid, Uuid, Decimal)> = sqlx::query_as(
             r#"
             SELECT id, comp_time_balance_id, hours_used
@@ -875,7 +946,7 @@ impl HrService {
             "#,
         )
         .bind(leave.id)
-        .fetch_all(pool)
+        .fetch_all(&mut **tx)
         .await?;
 
         for (usage_id, bal_id, hours) in usages {
@@ -884,7 +955,7 @@ impl HrService {
             )
             .bind(bal_id)
             .bind(hours)
-            .execute(pool)
+            .execute(&mut **tx)
             .await?;
 
             sqlx::query(
@@ -898,7 +969,7 @@ impl HrService {
             .bind(leave.id)
             .bind(bal_id)
             .bind(hours)
-            .execute(pool)
+            .execute(&mut **tx)
             .await?;
 
             let _ = usage_id;
