@@ -37,7 +37,7 @@ impl AnimalSourceService {
         actor: &ActorContext,
         req: &CreateAnimalSourceRequest,
     ) -> Result<AnimalSource> {
-        let _user = actor.require_user()?;
+        actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         let source = sqlx::query_as::<_, AnimalSource>(
@@ -82,7 +82,7 @@ impl AnimalSourceService {
         id: Uuid,
         req: &UpdateAnimalSourceRequest,
     ) -> Result<AnimalSource> {
-        let _user = actor.require_user()?;
+        actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, AnimalSource>(
@@ -145,7 +145,7 @@ impl AnimalSourceService {
         actor: &ActorContext,
         id: Uuid,
     ) -> Result<()> {
-        let _user = actor.require_user()?;
+        actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, AnimalSource>(

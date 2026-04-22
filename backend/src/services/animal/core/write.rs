@@ -143,7 +143,6 @@ impl AnimalService {
         };
         // 初始體重：使用 System actor（reason 標示為 animal_create_initial_weight），
         // service 內部會用 SYSTEM_USER_ID 作 created_by。
-        let _ = created_by;
         let actor = crate::middleware::ActorContext::System {
             reason: "animal_create_initial_weight",
         };

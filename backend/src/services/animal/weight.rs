@@ -71,15 +71,11 @@ impl AnimalWeightService {
         animal_id: Uuid,
         req: &CreateWeightRequest,
     ) -> Result<AnimalWeight> {
-        let created_by = match actor {
-            ActorContext::User(user) => user.id,
-            ActorContext::System { .. } => crate::middleware::SYSTEM_USER_ID,
-            ActorContext::Anonymous => {
-                return Err(AppError::Forbidden(
-                    "建立體重紀錄須由已登入使用者或系統觸發".into(),
-                ));
-            }
-        };
+        // Gemini PR #169 建議：用 ActorContext::actor_user_id() 簡化，
+        // None 即 Anonymous（無權建立體重紀錄）。
+        let created_by = actor.actor_user_id().ok_or_else(|| {
+            AppError::Forbidden("建立體重紀錄須由已登入使用者或系統觸發".into())
+        })?;
 
         let mut tx = pool.begin().await?;
 
@@ -99,7 +95,7 @@ impl AnimalWeightService {
 
         let display = format!(
             "animal {} @ {}: {}kg",
-            animal_id, weight.measure_date, weight.weight
+            weight.animal_id, weight.measure_date, weight.weight
         );
         AuditService::log_activity_tx(
             &mut tx,
@@ -125,7 +121,7 @@ impl AnimalWeightService {
         id: Uuid,
         req: &UpdateWeightRequest,
     ) -> Result<AnimalWeight> {
-        let _user = actor.require_user()?;
+        actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, AnimalWeight>(
@@ -176,7 +172,7 @@ impl AnimalWeightService {
     ///
     /// 僅供 admin 工具使用；一般業務路徑應用 `soft_delete_with_reason`。
     pub async fn hard_delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
-        let _user = actor.require_user()?;
+        actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, AnimalWeight>(
