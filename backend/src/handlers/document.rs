@@ -6,7 +6,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         AdminRejectRequest, CreateDocumentRequest, DocumentListItem, DocumentQuery,
         DocumentWithLines, PoReceiptStatus, UpdateDocumentRequest,
@@ -40,22 +40,8 @@ pub async fn create_document(
     require_permission!(current_user, "erp.document.create");
     req.validate()?;
 
-    let document = DocumentService::create(&state.db, &req, current_user.id).await?;
-
-    // 審計日誌
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_CREATE",
-        document.document.id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_CREATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::create(&state.db, &actor, &req).await?;
 
     Ok(Json(document))
 }
@@ -136,21 +122,9 @@ pub async fn update_document(
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
     DocumentService::check_access(&current_user, existing.document.created_by)?;
-    let document = DocumentService::update(&state.db, id, &req).await?;
 
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_UPDATE",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_UPDATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::update(&state.db, &actor, id, &req).await?;
 
     Ok(Json(document))
 }
@@ -494,25 +468,8 @@ pub async fn delete_document(
     let existing = DocumentService::get_by_id(&state.db, id).await?;
     DocumentService::check_access(&current_user, existing.document.created_by)?;
 
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        if is_hard {
-            "DOC_HARD_DELETE"
-        } else {
-            "DOC_DELETE"
-        },
-        id,
-        &existing.document.doc_no,
-        Some(&format!("{:?}", existing.document.doc_type)),
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_DELETE): {}", e);
-    }
-
-    DocumentService::delete(&state.db, id, is_hard).await?;
+    let actor = ActorContext::User(current_user.clone());
+    DocumentService::delete(&state.db, &actor, id, is_hard).await?;
     Ok(Json(()))
 }
 

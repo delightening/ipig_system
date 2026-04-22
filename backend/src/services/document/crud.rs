@@ -3,24 +3,31 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
+    middleware::ActorContext,
     models::{
-        CreateDocumentRequest, DocStatus, DocType, Document, DocumentLine, DocumentLineInput,
-        DocumentLineWithProduct, DocumentListItem, DocumentQuery, DocumentWithLines,
-        ProtocolStatus, UpdateDocumentRequest,
+        audit_diff::DataDiff, CreateDocumentRequest, DocStatus, DocType, Document, DocumentLine,
+        DocumentLineInput, DocumentLineWithProduct, DocumentListItem, DocumentQuery,
+        DocumentWithLines, ProtocolStatus, UpdateDocumentRequest,
     },
     repositories,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
     time, AppError, Result,
 };
 
 use super::DocumentService;
 
 impl DocumentService {
-    /// 建立單據（草稿）
+    /// 建立單據（草稿）— Service-driven audit
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         req: &CreateDocumentRequest,
-        created_by: Uuid,
     ) -> Result<DocumentWithLines> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
         let mut tx = pool.begin().await?;
 
         // 產生單據編號
@@ -173,24 +180,48 @@ impl DocumentService {
             lines.push(doc_line);
         }
 
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOCUMENT_CREATE",
+                entity: Some(AuditEntity::new(
+                    "document",
+                    document.id,
+                    &document.doc_no,
+                )),
+                data_diff: Some(DataDiff::create_only(&document)),
+                request_context: None,
+            },
+        )
+        .await?;
+
         tx.commit().await?;
 
         Self::get_by_id(pool, document.id).await
     }
 
-    /// 更新單據（僅 Draft 狀態）
+    /// 更新單據（僅 Draft 狀態）— Service-driven audit
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateDocumentRequest,
     ) -> Result<DocumentWithLines> {
-        let existing = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
-            .bind(id)
-            .fetch_optional(pool)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
 
-        if existing.status != DocStatus::Draft {
+        // SELECT FOR UPDATE：行鎖 + 一併取得 before 快照（Service-driven audit）
+        let before = sqlx::query_as::<_, Document>(
+            "SELECT * FROM documents WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+
+        if before.status != DocStatus::Draft {
             return Err(AppError::BusinessRule(
                 "Only draft documents can be updated".to_string(),
             ));
@@ -202,7 +233,7 @@ impl DocumentService {
                 "SELECT status FROM protocols WHERE id = $1",
             )
             .bind(protocol_id)
-            .fetch_optional(pool)
+            .fetch_optional(&mut *tx)
             .await?
             .ok_or_else(|| {
                 AppError::NotFound(format!("Protocol {} not found", protocol_id))
@@ -219,10 +250,8 @@ impl DocumentService {
             }
         }
 
-        let mut tx = pool.begin().await?;
-
-        // 更新單據頭
-        sqlx::query(
+        // 更新單據頭（RETURNING 取 after 快照）
+        let after = sqlx::query_as::<_, Document>(
             r#"
             UPDATE documents SET
                 warehouse_id = COALESCE($1, warehouse_id),
@@ -235,6 +264,7 @@ impl DocumentService {
                 protocol_id = COALESCE($8, protocol_id),
                 updated_at = NOW()
             WHERE id = $9
+            RETURNING *
             "#,
         )
         .bind(req.warehouse_id)
@@ -246,7 +276,7 @@ impl DocumentService {
         .bind(&req.remark)
         .bind(req.protocol_id)
         .bind(id)
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await?;
 
         // 如果要更新明細
@@ -269,7 +299,7 @@ impl DocumentService {
                 }
 
                 // 強制檢查批號與效期 (特定單據類型結合品項設定)
-                if existing.doc_type.requires_batch_expiry() {
+                if before.doc_type.requires_batch_expiry() {
                     // 查詢品項設定
                     let product: Option<(bool, bool)> = sqlx::query_as(
                         "SELECT track_batch, track_expiry FROM products WHERE id = $1"
@@ -283,14 +313,14 @@ impl DocumentService {
                             return Err(AppError::Validation(format!(
                                 "Line {}: Batch No is required for {} when product tracks batch",
                                 idx + 1,
-                                existing.doc_type.prefix()
+                                before.doc_type.prefix()
                             )));
                         }
                         if track_expiry && line.expiry_date.is_none() {
                             return Err(AppError::Validation(format!(
                                 "Line {}: Expiry Date is required for {} when product tracks expiry",
                                 idx + 1,
-                                existing.doc_type.prefix()
+                                before.doc_type.prefix()
                             )));
                         }
                     }
@@ -321,27 +351,53 @@ impl DocumentService {
             }
         }
 
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOCUMENT_UPDATE",
+                entity: Some(AuditEntity::new(
+                    "document",
+                    after.id,
+                    &after.doc_no,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
         tx.commit().await?;
 
         Self::get_by_id(pool, id).await
     }
 
-    /// 刪除單據
-    pub async fn delete(pool: &PgPool, id: Uuid, is_hard: bool) -> Result<()> {
-        let document = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
-            .bind(id)
-            .fetch_optional(pool)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+    /// 刪除單據 — Service-driven audit
+    pub async fn delete(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        is_hard: bool,
+    ) -> Result<()> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE：行鎖 + 一併取得 before 快照
+        let before = sqlx::query_as::<_, Document>(
+            "SELECT * FROM documents WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
         // 僅當不是硬刪除時，才要求單據必須為草稿狀態
-        if !is_hard && document.status != DocStatus::Draft {
+        if !is_hard && before.status != DocStatus::Draft {
             return Err(AppError::BusinessRule(
                 "Only draft documents can be deleted".to_string(),
             ));
         }
-
-        let mut tx = pool.begin().await?;
 
         // 刪除單據明細
         sqlx::query("DELETE FROM document_lines WHERE document_id = $1")
@@ -354,6 +410,28 @@ impl DocumentService {
             .bind(id)
             .execute(&mut *tx)
             .await?;
+
+        let event_type = if is_hard {
+            "DOCUMENT_HARD_DELETE"
+        } else {
+            "DOCUMENT_DELETE"
+        };
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type,
+                entity: Some(AuditEntity::new(
+                    "document",
+                    before.id,
+                    &before.doc_no,
+                )),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
 
         tx.commit().await?;
 
