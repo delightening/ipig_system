@@ -4,13 +4,18 @@ use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
+    middleware::ActorContext,
     models::{
-        Animal, AnimalExportRecord, AnimalImportBatch, AnimalSacrifice, AnimalStatus,
-        AnimalSuddenDeath, AnimalVaccination, CreateSacrificeRequest, CreateSuddenDeathRequest,
-        CreateVaccinationRequest, CreateVetRecommendationRequest,
+        audit_diff::DataDiff, Animal, AnimalExportRecord, AnimalImportBatch, AnimalSacrifice,
+        AnimalStatus, AnimalSuddenDeath, AnimalVaccination, CreateSacrificeRequest,
+        CreateSuddenDeathRequest, CreateVaccinationRequest, CreateVetRecommendationRequest,
         CreateVetRecommendationWithAttachmentsRequest, ExportFormat, ExportType, ImportStatus,
         ImportType, UpdateVaccinationRequest, VersionDiff, VersionHistoryResponse,
         VetRecommendation, VetRecordType,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
     },
     AppError, Result,
 };
@@ -39,12 +44,32 @@ impl AnimalMedicalService {
         Ok(vaccinations)
     }
 
+    /// 取得單一疫苗紀錄（SDD before snapshot 用）
+    pub async fn get_vaccination_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalVaccination> {
+        sqlx::query_as::<_, AnimalVaccination>(
+            "SELECT * FROM animal_vaccinations WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Vaccination not found".to_string()))
+    }
+
+    /// 建立疫苗紀錄 — Service-driven audit
     pub async fn create_vaccination(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
         req: &CreateVaccinationRequest,
-        created_by: Uuid,
     ) -> Result<AnimalVaccination> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
+        // 取得動物資訊用於 audit 顯示（Gemini PR #178 pattern）
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+
+        let mut tx = pool.begin().await?;
+
         let vaccination = sqlx::query_as::<_, AnimalVaccination>(
             r#"
             INSERT INTO animal_vaccinations (animal_id, administered_date, vaccine, deworming_dose, created_by, created_at)
@@ -57,25 +82,56 @@ impl AnimalMedicalService {
         .bind(&req.vaccine)
         .bind(&req.deworming_dose)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let vaccine_name = vaccination.vaccine.as_deref().unwrap_or("未指定疫苗");
+        let display = format!("[{}] {} - {}", iacuc, animal.ear_tag, vaccine_name);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "VACCINATION_CREATE",
+                entity: Some(AuditEntity::new(
+                    "animal_vaccination",
+                    vaccination.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::create_only(&vaccination)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(vaccination)
     }
 
-    /// 更新疫苗紀錄
+    /// 更新疫苗紀錄 — Service-driven audit
     pub async fn update_vaccination(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateVaccinationRequest,
     ) -> Result<AnimalVaccination> {
+        let _ = actor.require_user()?;
+
+        // before snapshot + fetch animal for display
+        let before = Self::get_vaccination_by_id(pool, id).await?;
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
+
+        let mut tx = pool.begin().await?;
+
+        // Gemini PR #178 pattern：WHERE 加 deleted_at IS NULL 避免更新已軟刪除紀錄
         let vaccination = sqlx::query_as::<_, AnimalVaccination>(
             r#"
             UPDATE animal_vaccinations SET
                 administered_date = COALESCE($2, administered_date),
                 vaccine = COALESCE($3, vaccine),
                 deworming_dose = COALESCE($4, deworming_dose)
-            WHERE id = $1
+            WHERE id = $1 AND deleted_at IS NULL
             RETURNING *
             "#,
         )
@@ -83,9 +139,30 @@ impl AnimalMedicalService {
         .bind(req.administered_date)
         .bind(&req.vaccine)
         .bind(&req.deworming_dose)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let vaccine_name = vaccination.vaccine.as_deref().unwrap_or("未指定疫苗");
+        let display = format!("[{}] {} - {}", iacuc, animal.ear_tag, vaccine_name);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "VACCINATION_UPDATE",
+                entity: Some(AuditEntity::new(
+                    "animal_vaccination",
+                    vaccination.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&vaccination))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(vaccination)
     }
 
@@ -99,13 +176,44 @@ impl AnimalMedicalService {
         Ok(())
     }
 
-    /// 軟刪除疫苗紀錄（含刪除原因）- GLP 合規
+    /// 軟刪除疫苗紀錄（含刪除原因）- GLP 合規 — Service-driven audit
     pub async fn soft_delete_vaccination_with_reason(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
+        let user = actor.require_user()?;
+        let deleted_by = user.id;
+
+        let before = Self::get_vaccination_by_id(pool, id).await?;
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
+
+        let mut tx = pool.begin().await?;
+
+        // Gemini PR #178 pattern：先 UPDATE + 檢查 rows_affected，避免假刪除審計
+        let rows = sqlx::query(
+            r#"
+            UPDATE animal_vaccinations SET
+                deleted_at = NOW(),
+                deletion_reason = $2,
+                deleted_by = $3
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+
+        if rows == 0 {
+            return Err(AppError::NotFound(
+                "疫苗紀錄不存在或已被刪除".to_string(),
+            ));
+        }
+
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
@@ -115,24 +223,29 @@ impl AnimalMedicalService {
         .bind(id.to_string())
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
-        sqlx::query(
-            r#"
-            UPDATE animal_vaccinations SET 
-                deleted_at = NOW(), 
-                deletion_reason = $2,
-                deleted_by = $3
-            WHERE id = $1 AND deleted_at IS NULL
-            "#,
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let vaccine_name = before.vaccine.as_deref().unwrap_or("未指定疫苗");
+        let display = format!(
+            "[{}] {} - {} (原因: {})",
+            iacuc, animal.ear_tag, vaccine_name, reason
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "VACCINATION_DELETE",
+                entity: Some(AuditEntity::new("animal_vaccination", id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
         )
-        .bind(id)
-        .bind(reason)
-        .bind(deleted_by)
-        .execute(pool)
         .await?;
 
+        tx.commit().await?;
         Ok(())
     }
 
