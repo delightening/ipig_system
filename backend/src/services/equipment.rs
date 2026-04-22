@@ -1011,10 +1011,10 @@ impl EquipmentService {
             MaintenanceStatus::Pending
         };
 
-        // 驗收通過 → 設備自動恢復啟用（tx 內執行，與下方 maintenance record
-        // UPDATE + audit 同原子；Gemini #166 HIGH 修正）
+        // 驗收通過 → 設備自動恢復啟用（tx 內執行 + 寫 EQUIPMENT_AUTO_RESTORE audit；
+        // Gemini #166 HIGH 修正 tx 原子性 + Gemini #167 MEDIUM 補 audit）
         if payload.approved {
-            auto_restore_equipment(&mut tx, existing.equipment_id, current_user.id).await?;
+            auto_restore_equipment(&mut tx, actor, existing.equipment_id, current_user.id).await?;
         }
 
         let record = sqlx::query_as::<_, EquipmentMaintenanceRecord>(
@@ -2035,33 +2035,49 @@ impl EquipmentService {
 /// 維修紀錄卻沒通過驗收）。本修復將函式簽名改為接 tx，由 caller 保證同 tx。
 async fn auto_restore_equipment(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    actor: &ActorContext,
     equipment_id: Uuid,
     user_id: Uuid,
 ) -> Result<()> {
     // tx 內 SELECT FOR UPDATE：避免與其他 equipment status 變更併發衝突
-    let equipment = sqlx::query_as::<_, Equipment>(
+    let before = sqlx::query_as::<_, Equipment>(
         "SELECT * FROM equipment WHERE id = $1 FOR UPDATE",
     )
     .bind(equipment_id)
     .fetch_optional(&mut **tx)
     .await?
     .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
-    validate_status_transition(&equipment.status, &EquipmentStatus::Active)?;
+    validate_status_transition(&before.status, &EquipmentStatus::Active)?;
 
     sqlx::query(
         "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, $2, 'active', $3, '維修驗收通過，自動恢復狀態')",
     )
     .bind(equipment_id)
-    .bind(&equipment.status)
+    .bind(&before.status)
     .bind(user_id)
     .execute(&mut **tx)
     .await?;
 
-    sqlx::query(
-        "UPDATE equipment SET status = 'active', is_active = true, updated_at = NOW() WHERE id = $1",
+    let after = sqlx::query_as::<_, Equipment>(
+        "UPDATE equipment SET status = 'active', is_active = true, updated_at = NOW() WHERE id = $1 RETURNING *",
     )
     .bind(equipment_id)
-    .execute(&mut **tx)
+    .fetch_one(&mut **tx)
+    .await?;
+
+    // Gemini PR #167 MEDIUM：R26 DoD-1 要求所有 mutation（含狀態轉換）同 tx 寫 audit。
+    let display = format!("{} → active", after.name);
+    AuditService::log_activity_tx(
+        tx,
+        actor,
+        ActivityLogEntry {
+            event_category: "EQUIPMENT",
+            event_type: "EQUIPMENT_AUTO_RESTORE",
+            entity: Some(AuditEntity::new("equipment", after.id, &display)),
+            data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+            request_context: None,
+        },
+    )
     .await?;
 
     Ok(())
