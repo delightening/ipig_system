@@ -14,7 +14,7 @@ use crate::{
         ObservationListItem, RecordFilterQuery, UpdateObservationRequest, VersionHistoryResponse,
     },
     require_permission,
-    services::{access, AnimalObservationService, AnimalService, AuditService},
+    services::{access, AnimalObservationService, AnimalService},
     AppState, Result,
 };
 
@@ -223,24 +223,8 @@ pub async fn delete_animal_observation(
         tracing::warn!("清理觀察紀錄附件失敗 (non-fatal): {}", e);
     }
 
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "OBSERVATION_DELETE",
-        Some("animal_observation"),
-        None,
-        Some(&format!("觀察紀錄 #{} (原因: {})", id, req.reason)),
-        None,
-        Some(serde_json::json!({ "reason": req.reason })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_DELETE): {}", e);
-    }
+    // Audit 已由 service 層寫入（OBSERVATION_DELETE，tx 內 with before/after diff）；
+    // 先前此 handler 另外 fire-and-forget log 一次 → 重複 audit，本次移除。
 
     Ok(Json(
         serde_json::json!({ "message": "Observation deleted successfully" }),

@@ -319,7 +319,7 @@ impl AnimalObservationService {
             actor,
             ActivityLogEntry {
                 event_category: "ANIMAL",
-                event_type: "OBSERVATION_SOFT_DELETE",
+                event_type: "OBSERVATION_DELETE",
                 entity: Some(AuditEntity::new("animal_observation", before.id, &display)),
                 data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
                 request_context: None,

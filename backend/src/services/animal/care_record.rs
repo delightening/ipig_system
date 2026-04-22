@@ -6,7 +6,15 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use crate::Result;
+use crate::{
+    middleware::ActorContext,
+    models::audit_diff::DataDiff,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
+    AppError, Result,
+};
 
 /// 照護給藥紀錄模式
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
@@ -258,14 +266,57 @@ impl CareRecordService {
         Ok(record)
     }
 
-    /// 軟刪除照護紀錄（含刪除原因）- GLP 合規
+    /// 取得單一照護紀錄（SDD before snapshot 用）
+    pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<CareRecord> {
+        sqlx::query_as::<_, CareRecord>(
+            r#"
+            SELECT id, record_type, record_id, record_mode, post_op_days,
+                   time_period, incision, attitude_behavior, appetite,
+                   feces, urine, pain_score,
+                   injection_ketorolac, injection_meloxicam, oral_meloxicam,
+                   post_medications, vet_read, created_at
+            FROM care_medication_records
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("照護紀錄不存在或已刪除".into()))
+    }
+
+    /// 軟刪除照護紀錄（含刪除原因）- GLP 合規 — Service-driven audit
     pub async fn soft_delete_with_reason(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
-        let result = sqlx::query(
+        let user = actor.require_user()?;
+        let deleted_by = user.id;
+
+        let mut tx = pool.begin().await?;
+
+        // Gemini PR #182 MED：before snapshot 在 tx 內 + FOR UPDATE 鎖行
+        let before = sqlx::query_as::<_, CareRecord>(
+            r#"
+            SELECT id, record_type, record_id, record_mode, post_op_days,
+                   time_period, incision, attitude_behavior, appetite,
+                   feces, urine, pain_score,
+                   injection_ketorolac, injection_meloxicam, oral_meloxicam,
+                   post_medications, vet_read, created_at
+            FROM care_medication_records
+            WHERE id = $1 AND deleted_at IS NULL
+            FOR UPDATE
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("照護紀錄不存在或已刪除".into()))?;
+
+        // Gemini PR #178 pattern：先 UPDATE + 檢查 rows_affected
+        let rows = sqlx::query(
             r#"
             UPDATE care_medication_records SET
                 deleted_at = NOW(),
@@ -277,13 +328,45 @@ impl CareRecordService {
         .bind(id)
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
-        .await?;
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
 
-        if result.rows_affected() == 0 {
-            return Err(crate::AppError::NotFound("照護紀錄不存在或已刪除".into()));
+        if rows == 0 {
+            return Err(AppError::NotFound("照護紀錄不存在或已刪除".into()));
         }
 
+        // 寫 change_reasons（同 tx）
+        sqlx::query(
+            r#"
+            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
+            VALUES ('care_record', $1::text, 'DELETE', $2, $3)
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(&mut *tx)
+        .await?;
+
+        let display = format!(
+            "照護紀錄 {:?} #{} (原因: {})",
+            before.record_type, before.record_id, reason
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "CARE_RECORD_DELETE",
+                entity: Some(AuditEntity::new("care_medication_record", id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }
