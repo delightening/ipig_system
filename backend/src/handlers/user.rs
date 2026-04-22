@@ -10,7 +10,7 @@ use validator::Validate;
 
 use crate::error::ErrorResponse;
 use crate::{
-    middleware::{CurrentUser, extract_real_ip_with_trust},
+    middleware::{ActorContext, CurrentUser, extract_real_ip_with_trust},
     models::{AuditAction, CreateUserRequest, PaginationParams, ResetPasswordRequest, UpdateUserRequest, UserResponse},
     require_permission,
     services::{AuthService, AuditService, SessionManager, UserService, EmailService},
@@ -47,24 +47,9 @@ pub async fn create_user(
     require_permission!(current_user, "admin.user.create");
     req.validate()?;
 
-    let user = UserService::create(&state.db, &req).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let user = UserService::create(&state.db, &actor, &req).await?;
     let response = UserService::get_by_id(&state.db, user.id).await?;
-
-    // 記錄審計日誌
-    if let Err(e) = AuditService::log(
-        &state.db,
-        current_user.id,
-        AuditAction::Create,
-        "user",
-        user.id,
-        None,
-        Some(serde_json::json!({
-            "email": response.email,
-            "display_name": response.display_name,
-        })),
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (USER_CREATE): {}", e);
-    }
 
     // 生成密碼重設 token (改為發送重設連結而非明文密碼)
     let reset_result = AuthService::forgot_password(&state.db, &response.email).await?;
@@ -297,20 +282,8 @@ pub async fn delete_user(
         return Err(AppError::Validation("無法刪除最後一位管理員帳號".to_string()));
     }
 
-    // 先記錄審計日誌再刪除
-    if let Err(e) = AuditService::log(
-        &state.db,
-        current_user.id,
-        AuditAction::Delete,
-        "user",
-        id,
-        None,
-        Some(serde_json::json!({ "deleted_user_id": id })),
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (USER_DELETE): {}", e);
-    }
-    
-    UserService::delete(&state.db, id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    UserService::delete(&state.db, &actor, id).await?;
     // H-01: 使用者刪除後清除其權限快取
     state.permission_cache.remove(&id);
     Ok(Json(serde_json::json!({ "message": "User deleted successfully" })))

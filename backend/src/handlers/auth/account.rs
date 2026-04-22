@@ -9,9 +9,9 @@ use serde::Serialize;
 
 use crate::error::ErrorResponse;
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::UserResponse,
-    services::{AuditService, AuthService, SessionManager, UserService},
+    services::{AuthService, SessionManager, UserService},
     AppError, AppState, Result,
 };
 
@@ -95,24 +95,11 @@ pub async fn delete_me_account(
 ) -> Result<Response> {
     crate::handlers::user::require_reauth_token(&headers, &state, &current_user)?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "SECURITY",
-        "GDPR_ACCOUNT_DELETE",
-        Some("user"),
-        Some(current_user.id),
-        None,
-        None,
-        None,
-        None,
-        None,
-    )
-    .await {
-        tracing::error!("寫入審計日誌失敗 (GDPR_ACCOUNT_DELETE): {}", e);
-    }
-
-    UserService::deactivate_self(&state.db, current_user.id).await?;
+    // deactivate_self 內部以 log_activity_tx 寫入 USER_DEACTIVATE_SELF 事件；
+    // 原本額外的 GDPR_ACCOUNT_DELETE 事件已被整合（GDPR 語意可由 event_type
+    // + entity + actor 還原）
+    let actor = ActorContext::User(current_user.clone());
+    UserService::deactivate_self(&state.db, &actor, current_user.id).await?;
 
     // 將當前 JWT 加入黑名單
     if !current_user.jti.is_empty() {

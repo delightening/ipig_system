@@ -3,10 +3,15 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
+    middleware::ActorContext,
     models::{
-        AuditAction, CreateUserRequest, PaginationParams, UpdateUserRequest, User, UserResponse,
+        audit_diff::DataDiff, AuditAction, CreateUserRequest, PaginationParams, UpdateUserRequest,
+        User, UserResponse,
     },
-    services::{AuditService, AuthService},
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService, AuthService,
+    },
     AppError, Result,
 };
 
@@ -30,13 +35,20 @@ struct UserPermRow {
 pub struct UserService;
 
 impl UserService {
-    /// 建立用戶（私域註冊 - 只有管理員可以建立）
-    pub async fn create(pool: &PgPool, req: &CreateUserRequest) -> Result<User> {
+    /// 建立用戶（私域註冊 - 只有管理員可以建立）— Service-driven audit
+    pub async fn create(
+        pool: &PgPool,
+        actor: &ActorContext,
+        req: &CreateUserRequest,
+    ) -> Result<User> {
+        let _admin = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
         // 檢查 email 是否已存在
         let exists: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)")
                 .bind(&req.email)
-                .fetch_one(pool)
+                .fetch_one(&mut *tx)
                 .await?;
 
         if exists {
@@ -72,7 +84,7 @@ impl UserService {
         .bind(sqlx::types::Json(&req.trainings))
         .bind(req.is_internal)
         .bind(req.expires_at)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
         if !req.role_ids.is_empty() {
@@ -81,9 +93,25 @@ impl UserService {
             )
             .bind(user.id)
             .bind(&req.role_ids)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
         }
+
+        let display = format!("{} <{}>", user.display_name, user.email);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ADMIN",
+                event_type: "USER_CREATE",
+                entity: Some(AuditEntity::new("user", user.id, &display)),
+                data_diff: Some(DataDiff::create_only(&user)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Ok(user)
     }
@@ -340,45 +368,98 @@ impl UserService {
         Ok(UserResponse::from_user(&updated_user, roles, permissions))
     }
 
-    /// GDPR：自帳號停用（軟刪除，is_active=false）
-    pub async fn deactivate_self(pool: &PgPool, id: Uuid) -> Result<()> {
-        let result =
-            sqlx::query("UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1")
-                .bind(id)
-                .execute(pool)
-                .await?;
-
-        if result.rows_affected() == 0 {
-            return Err(AppError::NotFound("User not found".to_string()));
+    /// GDPR：自帳號停用（軟刪除，is_active=false）— Service-driven audit
+    pub async fn deactivate_self(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
+        let user = actor.require_user()?;
+        // 守門：此 API 僅允許使用者停用自己的帳號，actor.id 必須 == id
+        if user.id != id {
+            return Err(AppError::Forbidden(
+                "deactivate_self 僅允許停用自己的帳號".into(),
+            ));
         }
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 FOR UPDATE")
+            .bind(id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        let after = sqlx::query_as::<_, User>(
+            "UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING *",
+        )
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let display = format!("{} <{}>", after.display_name, after.email);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "USER_DEACTIVATE_SELF",
+                entity: Some(AuditEntity::new("user", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Ok(())
     }
 
     /// 刪除用戶（改為 soft delete + 停用，避免 CASCADE 級聯刪除 16+ 關聯表）
     /// H3: 原為硬刪除，會導致 HR、認證、計畫書等所有關聯資料被靜默刪除
-    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
+    /// Service-driven audit
+    pub async fn delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
+        let _admin = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE 取 before（含原 email，soft-delete 後 email 會被匿名化）
+        let before = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 FOR UPDATE")
+            .bind(id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
         // 撤銷所有 refresh tokens（登出）
         sqlx::query("DELETE FROM refresh_tokens WHERE user_id = $1")
             .bind(id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
         // Soft delete: 停用帳號 + 匿名化個人資料（允許對已停用帳號執行）
-        let result = sqlx::query(
+        let after = sqlx::query_as::<_, User>(
             r#"UPDATE users SET
                 is_active = false,
                 email = 'deleted_' || id::text || '@deleted.local',
                 updated_at = NOW()
-            WHERE id = $1"#,
+            WHERE id = $1
+            RETURNING *"#,
         )
         .bind(id)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        if result.rows_affected() == 0 {
-            return Err(AppError::NotFound("User not found".to_string()));
-        }
+        // 使用 before 的原 email 供稽核查詢「誰被刪了」
+        let display = format!("{} <{}>", before.display_name, before.email);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "USER_DELETE",
+                entity: Some(AuditEntity::new("user", before.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Ok(())
     }
