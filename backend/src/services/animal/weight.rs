@@ -1,10 +1,18 @@
-﻿use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{AnimalWeight, AnimalWeightResponse, CreateWeightRequest, UpdateWeightRequest},
-    Result,
+    middleware::ActorContext,
+    models::{
+        audit_diff::DataDiff, AnimalWeight, AnimalWeightResponse, CreateWeightRequest,
+        UpdateWeightRequest,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
+    AppError, Result,
 };
 
 pub struct AnimalWeightService;
@@ -22,8 +30,8 @@ impl AnimalWeightService {
     ) -> Result<Vec<AnimalWeightResponse>> {
         let weights = sqlx::query_as::<_, AnimalWeightResponse>(
             r#"
-            SELECT 
-                w.id, w.animal_id, w.measure_date, w.weight, 
+            SELECT
+                w.id, w.animal_id, w.measure_date, w.weight,
                 w.created_by, u.display_name as created_by_name, w.created_at
             FROM animal_weights w
             LEFT JOIN users u ON w.created_by = u.id
@@ -52,12 +60,29 @@ impl AnimalWeightService {
         Ok(weight)
     }
 
+    /// 建立體重紀錄 — Service-driven audit
+    ///
+    /// Actor 政策：接受 User（一般建立）與 System（animal create 初始體重 /
+    /// batch import）。Anonymous 拒絕。`created_by` 依 actor 取值：User → user.id；
+    /// System → SYSTEM_USER_ID 常數。
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
         req: &CreateWeightRequest,
-        created_by: Uuid,
     ) -> Result<AnimalWeight> {
+        let created_by = match actor {
+            ActorContext::User(user) => user.id,
+            ActorContext::System { .. } => crate::middleware::SYSTEM_USER_ID,
+            ActorContext::Anonymous => {
+                return Err(AppError::Forbidden(
+                    "建立體重紀錄須由已登入使用者或系統觸發".into(),
+                ));
+            }
+        };
+
+        let mut tx = pool.begin().await?;
+
         let weight = sqlx::query_as::<_, AnimalWeight>(
             r#"
             INSERT INTO animal_weights (animal_id, measure_date, weight, created_by, created_at)
@@ -69,19 +94,49 @@ impl AnimalWeightService {
         .bind(req.measure_date)
         .bind(req.weight)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!(
+            "animal {} @ {}: {}kg",
+            animal_id, weight.measure_date, weight.weight
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "WEIGHT_CREATE",
+                entity: Some(AuditEntity::new("animal_weight", weight.id, &display)),
+                data_diff: Some(DataDiff::create_only(&weight)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(weight)
     }
 
-    /// 更新體重紀錄
+    /// 更新體重紀錄 — Service-driven audit
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateWeightRequest,
     ) -> Result<AnimalWeight> {
-        let weight = sqlx::query_as::<_, AnimalWeight>(
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AnimalWeight>(
+            "SELECT * FROM animal_weights WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("體重紀錄不存在".into()))?;
+
+        let after = sqlx::query_as::<_, AnimalWeight>(
             r#"
             UPDATE animal_weights SET
                 measure_date = COALESCE($2, measure_date),
@@ -93,29 +148,93 @@ impl AnimalWeightService {
         .bind(id)
         .bind(req.measure_date)
         .bind(req.weight)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Ok(weight)
+        let display = format!(
+            "animal {} @ {}: {}kg",
+            after.animal_id, after.measure_date, after.weight
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "WEIGHT_UPDATE",
+                entity: Some(AuditEntity::new("animal_weight", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(after)
     }
 
-    /// 刪除體重紀錄
-    pub async fn hard_delete(pool: &PgPool, id: Uuid) -> Result<()> {
+    /// 硬刪除體重紀錄 — Service-driven audit
+    ///
+    /// 僅供 admin 工具使用；一般業務路徑應用 `soft_delete_with_reason`。
+    pub async fn hard_delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AnimalWeight>(
+            "SELECT * FROM animal_weights WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("體重紀錄不存在".into()))?;
+
         sqlx::query("DELETE FROM animal_weights WHERE id = $1")
             .bind(id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
+        let display = format!(
+            "animal {} @ {}: {}kg",
+            before.animal_id, before.measure_date, before.weight
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "WEIGHT_HARD_DELETE",
+                entity: Some(AuditEntity::new("animal_weight", before.id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 
-    /// 軟刪除體重紀錄（含刪除原因）- GLP 合規
+    /// 軟刪除體重紀錄（含刪除原因）— Service-driven audit
+    ///
+    /// GLP 合規：刪除原因寫入 change_reasons 與 animal_weights.deletion_reason，
+    /// 並同 tx 寫 audit（event_type 含 RETROACTIVE 尾綴表示含原因）。
     pub async fn soft_delete_with_reason(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
+        let user = actor.require_user()?;
+        let deleted_by = user.id;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AnimalWeight>(
+            "SELECT * FROM animal_weights WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("體重紀錄不存在".into()))?;
+
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
@@ -125,24 +244,43 @@ impl AnimalWeightService {
         .bind(id.to_string())
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
-        sqlx::query(
+        let after = sqlx::query_as::<_, AnimalWeight>(
             r#"
-            UPDATE animal_weights SET 
-                deleted_at = NOW(), 
+            UPDATE animal_weights SET
+                deleted_at = NOW(),
                 deletion_reason = $2,
                 deleted_by = $3
             WHERE id = $1 AND deleted_at IS NULL
+            RETURNING *
             "#,
         )
         .bind(id)
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!(
+            "animal {} @ {}: {}kg — {}",
+            before.animal_id, before.measure_date, before.weight, reason
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "WEIGHT_SOFT_DELETE",
+                entity: Some(AuditEntity::new("animal_weight", before.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }
