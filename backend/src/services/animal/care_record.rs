@@ -295,10 +295,25 @@ impl CareRecordService {
         let user = actor.require_user()?;
         let deleted_by = user.id;
 
-        // before snapshot for audit
-        let before = Self::get_by_id(pool, id).await?;
-
         let mut tx = pool.begin().await?;
+
+        // Gemini PR #182 MED：before snapshot 在 tx 內 + FOR UPDATE 鎖行
+        let before = sqlx::query_as::<_, CareRecord>(
+            r#"
+            SELECT id, record_type, record_id, record_mode, post_op_days,
+                   time_period, incision, attitude_behavior, appetite,
+                   feces, urine, pain_score,
+                   injection_ketorolac, injection_meloxicam, oral_meloxicam,
+                   post_medications, vet_read, created_at
+            FROM care_medication_records
+            WHERE id = $1 AND deleted_at IS NULL
+            FOR UPDATE
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("照護紀錄不存在或已刪除".into()))?;
 
         // Gemini PR #178 pattern：先 UPDATE + 檢查 rows_affected
         let rows = sqlx::query(

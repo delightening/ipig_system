@@ -107,6 +107,10 @@ pub async fn delete_care_record(
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
 
+    // SEC-IDOR (Gemini PR #182)：透過照護紀錄找到 animal，再驗證計畫存取權限
+    let animal_id = access::get_care_record_animal_id(&state.db, id).await?;
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
+
     // Audit 已收進 service 層（CARE_RECORD_DELETE with change_reasons，tx 內）
     let actor = ActorContext::User(current_user.clone());
     CareRecordService::soft_delete_with_reason(&state.db, &actor, id, &req.reason).await?;
