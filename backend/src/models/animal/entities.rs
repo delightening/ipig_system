@@ -145,6 +145,10 @@ pub struct AnimalSurgery {
     pub updated_at: DateTime<Utc>,
 }
 
+// R26-9 warning 同 AnimalObservation：手術紀錄含 JSONB 麻醉/藥物/vital signs
+// 等醫療內容；採空 impl 允許 audit diff 記錄完整內容。R26-9 若決定降敏再覆寫。
+impl crate::models::audit_diff::AuditRedact for AnimalSurgery {}
+
 /// 體重紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalWeight {
