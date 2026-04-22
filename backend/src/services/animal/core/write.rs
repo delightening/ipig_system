@@ -4,17 +4,28 @@ use uuid::Uuid;
 use super::super::utils::AnimalUtils;
 use super::super::AnimalService;
 use crate::{
-    models::{Animal, AnimalStatus, BatchAssignRequest, CreateAnimalRequest, CreateWeightRequest},
+    middleware::ActorContext,
+    models::{
+        audit_diff::DataDiff, Animal, AnimalStatus, BatchAssignRequest, CreateAnimalRequest,
+        CreateWeightRequest,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
     AppError, Result,
 };
 
 impl AnimalService {
-    /// 建立動物
+    /// 建立動物 — Service-driven audit
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         req: &CreateAnimalRequest,
-        created_by: Uuid,
     ) -> Result<Animal> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
         let formatted_ear_tag = if let Ok(num) = req.ear_tag.parse::<u32>() {
             format!("{:03}", num)
         } else {
@@ -84,6 +95,8 @@ impl AnimalService {
 
         let breed_str = AnimalUtils::breed_to_db_value(&req.breed);
 
+        let mut tx = pool.begin().await?;
+
         let animal = sqlx::query_as::<_, Animal>(
             r#"
             INSERT INTO animals (
@@ -110,7 +123,7 @@ impl AnimalService {
         .bind(&req.pre_experiment_code)
         .bind(&req.remark)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await
         .map_err(|e| {
             if let sqlx::Error::Database(db_err) = &e {
@@ -127,15 +140,30 @@ impl AnimalService {
             AppError::Database(e)
         })?;
 
-        // 更新 pen 的 current_count
+        // 更新 pen 的 current_count（同 tx，CRIT-02 修補）
         if let Some(pid) = animal.pen_id {
-            let _ = sqlx::query(
+            sqlx::query(
                 "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
             )
             .bind(pid)
-            .execute(pool)
-            .await;
+            .execute(&mut *tx)
+            .await?;
         }
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "ANIMAL_CREATE",
+                entity: Some(AuditEntity::new("animal", animal.id, &animal.ear_tag)),
+                data_diff: Some(DataDiff::create_only(&animal)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         let weight_req = CreateWeightRequest {
             measure_date: req.entry_date,
@@ -156,16 +184,36 @@ impl AnimalService {
         Ok(animal)
     }
 
-    /// 批次分配動物至計劃
-    /// 分配後直接進入實驗中狀態（跳過已分配狀態）
+    /// 批次分配動物至計劃 — Service-driven audit (N+1：per-row + summary, D-12)
+    ///
+    /// 分配後直接進入實驗中狀態（跳過已分配狀態）。同 tx：
+    /// - N 筆 ANIMAL_ASSIGN per-row audit（便於稽核單一動物分配軌跡）
+    /// - 1 筆 ANIMAL_BATCH_ASSIGN summary audit
     pub async fn batch_assign(
         pool: &PgPool,
+        actor: &ActorContext,
         req: &BatchAssignRequest,
-        assigned_by: Uuid,
     ) -> Result<Vec<Animal>> {
-        let mut updated_animals = Vec::new();
+        let user = actor.require_user()?;
+        let assigned_by = user.id;
+
+        let mut tx = pool.begin().await?;
+        let mut updated_animals: Vec<Animal> = Vec::new();
 
         for animal_id in &req.animal_ids {
+            // before snapshot（尚未 update 前）
+            // Gemini PR #184 MED：加 FOR UPDATE 鎖行，避免快照 → UPDATE 之間
+            // 動物被其他並發 tx 修改，DataDiff 計算失準
+            let before = sqlx::query_as::<_, Animal>(
+                "SELECT * FROM animals WHERE id = $1 AND status = $2 FOR UPDATE",
+            )
+            .bind(animal_id)
+            .bind(AnimalStatus::Unassigned)
+            .fetch_optional(&mut *tx)
+            .await?;
+
+            let Some(before) = before else { continue };
+
             let animal = sqlx::query_as::<_, Animal>(
                 r#"
                 UPDATE animals SET
@@ -183,14 +231,47 @@ impl AnimalService {
             .bind(AnimalStatus::InExperiment)
             .bind(AnimalStatus::Unassigned)
             .bind(assigned_by)
-            .fetch_optional(pool)
+            .fetch_optional(&mut *tx)
             .await?;
 
             if let Some(a) = animal {
+                let display = format!("[{}] {}", req.iacuc_no, a.ear_tag);
+                AuditService::log_activity_tx(
+                    &mut tx,
+                    actor,
+                    ActivityLogEntry {
+                        event_category: "ANIMAL",
+                        event_type: "ANIMAL_ASSIGN",
+                        entity: Some(AuditEntity::new("animal", a.id, &display)),
+                        data_diff: Some(DataDiff::compute(Some(&before), Some(&a))),
+                        request_context: None,
+                    },
+                )
+                .await?;
                 updated_animals.push(a);
             }
         }
 
+        // summary audit
+        let summary = format!(
+            "批次分配 {} 隻至 {}",
+            updated_animals.len(),
+            &req.iacuc_no
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "ANIMAL_BATCH_ASSIGN",
+                entity: Some(AuditEntity::new("animal", Uuid::nil(), &summary)),
+                data_diff: None,
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(updated_animals)
     }
 }

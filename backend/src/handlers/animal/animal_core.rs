@@ -8,14 +8,14 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         Animal, AnimalListItem, AnimalQuery, AnimalStatsResponse, AnimalsByPen,
         BatchAssignRequest, CreateAnimalRequest, DeleteRequest, PaginatedResponse,
         UpdateAnimalRequest,
     },
     require_permission,
-    services::{access, AnimalService, AuditService},
+    services::{access, AnimalService},
     AppError, AppState, Result,
 };
 
@@ -190,30 +190,9 @@ pub async fn create_animal(
         return Err(AppError::Validation(error_msg));
     }
 
-    let animal = AnimalService::create(&state.db, &req, current_user.id).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "CREATE",
-        Some("animal"),
-        Some(animal.id),
-        Some(&animal.ear_tag),
-        None,
-        Some(serde_json::json!({
-            "ear_tag": animal.ear_tag,
-            "breed": format!("{:?}", req.breed),
-            "gender": format!("{:?}", req.gender),
-        })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_CREATE): {}", e);
-    }
-
+    // Audit 已收進 service 層（ANIMAL_CREATE with create_only diff，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let animal = AnimalService::create(&state.db, &actor, &req).await?;
     Ok(Json(animal))
 }
 
@@ -244,55 +223,9 @@ pub async fn update_animal(
     access::require_animal_access(&state.db, &current_user, id).await?;
     req.validate()?;
 
-    let (animal, iacuc_change) =
-        AnimalService::update(&state.db, id, &req, current_user.id).await?;
-
-    // 記錄 IACUC No. 變更審計事件（含 before/after 資料供時間軸顯示）
-    if let Some(change) = &iacuc_change {
-        let before_data = serde_json::json!({
-            "iacuc_no": change.old_iacuc_no,
-        });
-        let after_data = serde_json::json!({
-            "iacuc_no": change.new_iacuc_no,
-        });
-        if let Err(e) = AuditService::log_activity(
-            &state.db,
-            current_user.id,
-            "ANIMAL",
-            "IACUC_CHANGE",
-            Some("animal"),
-            Some(id),
-            Some(&animal.ear_tag),
-            Some(before_data),
-            Some(after_data),
-            None,
-            None,
-        )
-        .await
-        {
-            tracing::error!("寫入 user_activity_logs 失敗 (IACUC_CHANGE): {}", e);
-        }
-    }
-
-    // 記錄一般更新活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "UPDATE",
-        Some("animal"),
-        Some(id),
-        Some(&animal.ear_tag),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_UPDATE): {}", e);
-    }
-
+    // Audit 已收進 service 層（IACUC_CHANGE + ANIMAL_UPDATE 皆在 tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let (animal, _iacuc_change) = AnimalService::update(&state.db, &actor, id, &req).await?;
     Ok(Json(animal))
 }
 
@@ -322,29 +255,13 @@ pub async fn delete_animal(
     access::require_animal_access(&state.db, &current_user, id).await?;
     req.validate()?;
 
-    AnimalService::delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;
+    // Audit 已收進 service 層（ANIMAL_DELETE with delete_only diff，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    AnimalService::delete_with_reason(&state.db, &actor, id, &req.reason).await?;
 
     // 清理相關附件檔案
     if let Err(e) = crate::services::FileService::delete_by_entity(&state.db, "animal", &id).await {
         tracing::warn!("清理動物附件失敗 (non-fatal): {}", e);
-    }
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "ANIMAL_DELETE",
-        Some("animal"),
-        Some(id),
-        Some(&format!("動物 {} (原因: {})", id, req.reason)),
-        None,
-        Some(serde_json::json!({ "reason": req.reason })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_DELETE): {}", e);
     }
 
     Ok(Json(
@@ -371,33 +288,9 @@ pub async fn batch_assign_animals(
 ) -> Result<Json<Vec<Animal>>> {
     require_permission!(current_user, "animal.info.assign");
 
-    let animals = AnimalService::batch_assign(&state.db, &req, current_user.id).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "ANIMAL_BATCH_ASSIGN",
-        Some("animal"),
-        None,
-        Some(&format!(
-            "批次分配 {} 隻至 {}",
-            animals.len(),
-            &req.iacuc_no
-        )),
-        None,
-        Some(serde_json::json!({
-            "count": animals.len(),
-            "iacuc_no": &req.iacuc_no,
-        })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_BATCH_ASSIGN): {}", e);
-    }
-
+    // Audit 已收進 service 層（N+1：per-row ANIMAL_ASSIGN + summary ANIMAL_BATCH_ASSIGN，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let animals = AnimalService::batch_assign(&state.db, &actor, &req).await?;
     Ok(Json(animals))
 }
 
