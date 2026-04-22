@@ -22,6 +22,9 @@ pub struct AnimalSource {
     pub updated_at: DateTime<Utc>,
 }
 
+// 無敏感欄位，空 impl 即可（see AuditRedact trait doc）
+impl crate::models::audit_diff::AuditRedact for AnimalSource {}
+
 /// 動物主表
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Animal {
@@ -145,6 +148,9 @@ pub struct AnimalWeight {
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }
+
+// 無敏感欄位（體重數值、測量日期）；空 impl 即可。
+impl crate::models::audit_diff::AuditRedact for AnimalWeight {}
 
 /// 體重紀錄回應（含建立者名稱）
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
