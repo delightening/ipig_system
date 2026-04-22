@@ -20,6 +20,10 @@
 
 - [§1 Executive Summary](#1-executive-summary)
 - [§2 Motivation（為什麼要做）](#2-motivation為什麼要做)
+  - §2.1 真正起點：釐清 GLP 合規門檻（2026-04-20）
+  - §2.2 觸發事件：2026-04-21 Rust 後端架構審查
+  - §2.3 為什麼選 Service-driven pattern
+  - §2.4 單人長期維護的視角
 - [§3 Decision Log（決策過程，時間序）](#3-decision-log決策過程時間序)
 - [§4 PR Catalog（實際產出）](#4-pr-catalog實際產出)
 - [§5 Code Review Journey（review 建議與回饋）](#5-code-review-journey)
@@ -32,29 +36,116 @@
 
 ## §1 Executive Summary
 
-- **What**：把 audit log 的寫入邏輯從 handler 層（fire-and-forget `tokio::spawn`）移到 service 層（與資料變更同一 transaction）。稱為 **Service-driven audit pattern**。
-- **Why**：2026-04-21 後端架構審查（[docs/reviews/2026-04-21-rust-backend-review.md](../reviews/2026-04-21-rust-backend-review.md)）發現 4 個 Critical 問題，其中 CRIT-02（多表變更未包 tx，GLP 合規風險）+ CRIT-03（UPDATE 類稽核無 before/after snapshot）直接威脅 GLP 稽核通過。
+- **What**：把 audit log 的寫入邏輯從 handler 層（fire-and-forget `tokio::spawn`）移到 service 層（與資料變更同一 transaction），稱為 **Service-driven audit pattern**。
+- **Why（深層動機）**：客戶含藥廠 GLP 實驗室 / CRO，需通過 **21 CFR Part 11 §11.10 audit trail** 條款的 4 項硬要求（secure / time-stamped / independent / records create-modify-delete）。2026-04-20 完成合規盤點（[docs/R26_compliance_requirements.md](../R26_compliance_requirements.md)）→ 2026-04-21 委託 Rust backend 四階段審查（含 Phase 3 GLP 合規）→ 4 Critical 中 3 條明確 GLP 不達標（CRIT-01/02/03）+ WARN-06 + SUGG-03 也提 GLP，這 5 個 finding 共享同一技術根因 → R26 epic 啟動。
 - **Scope**：97 個 `AuditService::log_activity / ::log` call sites 橫跨 27 個 handler 檔；原估 ~20 處，訂正為 4.85× 差距；總工時估 ~465 人時。
 - **Strategy**：長期 integration branch（`integration/r26`）+ 多 PR 系列，先做 INFRA（PR #153/154）+ pattern demo（PR #155），再按模組複製到 animals / document / hr / user / 其他。Epic 完成後才 PR `integration/r26 → main`。
 - **Status as of 2026-04-22**：3 PR merged（INFRA + review-fix + pattern demo），8 PR open（animals / document / hr leave / hr overtime / user / 兩 docs / HMAC 驗證 cron），53 / 97 mutations 已落地或 open。
+
+> **⚠️ 命名警告**：本文件 R26-N 編號（R26-1 ~ R26-12）指 **Service-driven Audit refactor** 的子項。`docs/R26_compliance_requirements.md` 中的「R26」是另一個 epic（資安強化 nice-to-have：2FA / 欄位加密 / 備份演練 / pentest），請勿混淆。詳見 §2.1。
 
 ---
 
 ## §2 Motivation（為什麼要做）
 
-### 2.1 觸發事件：2026-04-21 Rust 後端架構審查
+### 2.1 真正的起點：GLP 合規多階段累積（2026-02 ~ 2026-04-21）
 
-單人長期維護的 Rust backend（`erp-backend` v0.1.0, axum 0.7 + tokio + sqlx 0.8，~230 個 `.rs` 檔）做全面的架構審查。產出 [docs/reviews/2026-04-21-rust-backend-review.md](../reviews/2026-04-21-rust-backend-review.md)，發現：
+R26 audit refactor 的起點 **不是 2026-04-21 的架構審查報告**。它是 2 個月內三波合規工作累積後，才發現底層 audit log 架構有 gap 的結果。
 
-- **4 🔴 Critical**
-  - **CRIT-01**：IACUC 編號產生 race condition（`generate_iacuc_no` 無 lock / no tx，UNIQUE 衝突可能）
-  - **CRIT-02**：多表變更未包 transaction（`pool.begin()` 僅 8/80 service 檔），GLP 合規風險（資料變更中斷時稽核軌跡不完整）
-  - **CRIT-03**：UPDATE 類稽核日誌無 before/after snapshot（稽核員無法從 `user_activity_logs` 還原變更內容）
-  - **CRIT-04**：`services/mod.rs` crate-wide `#![allow(dead_code)]` 違反 CLAUDE.md 規則
-- **8 🟡 Warning**（service 層寫 SQL、Argon2 未包 spawn_blocking、clippy 閾值寬鬆、背景任務缺 cancellation、cache stampede、fire-and-forget audit、equipment.rs 75KB、權限字串硬編碼）
-- **5 🔵 Suggestion**（DB pool 調校、workspace 拆分、HMAC chain 自動驗證、SQL format!、test fixture 併發保護）
+**業務脈絡**：本系統（`ipig_system`）的目標客戶包含**藥廠 GLP 實驗室 / CRO / 異種器官移植研究**。GLP 客戶若採購本系統作為動物試驗資料管理平台，會被美國 FDA / 歐盟 EMA 稽核員要求出示**電子紀錄與電子簽章合規證明**（21 CFR Part 11）。
 
-### 2.2 為什麼選 Service-driven pattern 而不是別的
+#### Wave 1：應用層合規（2026-02-25）
+
+完成 **P1-6 / P1-7** — 兩份正式合規文件：
+
+| 文件 | 範圍 | 結論 |
+|---|---|---|
+| [docs/security/GLP_VALIDATION.md](../security/GLP_VALIDATION.md) | IQ / OQ / PQ 驗證 | Pass — 系統部署、操作、性能均符合 GLP 驗證流程 |
+| [docs/security/ELECTRONIC_SIGNATURE_COMPLIANCE.md](../security/ELECTRONIC_SIGNATURE_COMPLIANCE.md) | 21 CFR Part 11 §11.10 / §11.50 / §11.100 — **電子簽章** | 所有條款 ✓ 已實作（簽章 + 鎖定 + 稽核軌跡 + 雙因素身分綁定） |
+
+**這是 GLP 的「面向客戶可展示的合規」**，當時的判斷是「Part 11 已通過審查」。
+
+#### Wave 2：資安完整盤點（2026-04-20）
+
+commit `e710265` 產出 [docs/security/SECURITY_COMPLETED.md](../security/SECURITY_COMPLETED.md) — **彙整 46 項已完成資安強化**（橫跨 7 大面向：認證授權 / 密碼憑證 / SQL/XSS/CSRF / Rate Limit / 稽核告警 / CI Secrets / 合規）。
+
+同日另寫 [docs/R26_compliance_requirements.md](../R26_compliance_requirements.md)（**檔案 untracked，git 中找不到**）— 對 6 大法規框架（21 CFR Part 11 / SOC 2 / ISO 27001 / GDPR / HIPAA / PCI DSS）做**適用決策樹**分析。結論：
+
+> 「本專案目前主要場景為動物試驗 / 畜牧管理，若客戶為藥廠 GLP 實驗室 → **21 CFR Part 11 優先**；若僅本地實驗 → SOC 2 Type II 作為最通用背書。」
+
+**這次盤點的真正價值不是發現新問題**，而是把 46 項打散的 audit / signature / authz work 集中起來，發現一件事：
+
+> **「Application-layer security 已飽和，但 architectural-layer audit log 還沒被深入檢視。」**
+>
+> Part 11 §11.10 雖然在電子簽章層面合規（Wave 1 ✓），但要求「audit trail 涵蓋 create / modify / delete electronic records」是**全系統範圍**。簽章只是 record 的子集；資料 CRUD 本身的 audit trail 是否同樣達標？
+
+#### Wave 3：架構層審查（2026-04-21）
+
+承接 Wave 2 的問句，於 2026-04-21 委託 Rust backend 四階段全流程審查（架構 / 並發 / **GLP 合規** / 維護）— 詳見 §2.2。
+
+#### 21 CFR Part 11 §11.10 audit trail 條款 — R26 要解什麼
+
+對 audit log 的硬要求：
+> "Use of **secure, computer-generated, time-stamped audit trails** to independently record the date and time of operator entries and actions that **create, modify, or delete electronic records**."
+>
+> "Such audit trail documentation shall be retained for a period at least as long as that required for the subject electronic records."
+
+對應 4 個關鍵能力 → R26 audit refactor 的目標：
+1. **Secure**（不可竄改）→ HMAC chain（Wave 1 已部分實作；R26-2 加每日驗證 cron 強化偵測）
+2. **Computer-generated, time-stamped**（自動產生、精確時戳）→ Wave 1 已實作
+3. **Independent**（無法被繞過、不會半成品）→ **R26 主戰場**：必須與資料變更同 tx，不能 fire-and-forget
+4. **Records create/modify/delete**（含完整 before/after）→ **R26 主戰場**：必須有 snapshot 而非僅 metadata
+
+> **⚠️ 命名碰撞警告**：
+>
+> 1. [`docs/R26_compliance_requirements.md`](../R26_compliance_requirements.md) 中的「**R26**」指**另一條 epic — 資安強化 nice-to-have**（R26-1 強制 2FA / R26-2 欄位加密 / R26-3 備份還原演練 / R26-4 外部 pentest）。與本文件的「**R26 Service-driven Audit refactor**」是兩個不同 epic。
+> 2. 本文件之後所有 R26-N 編號（R26-1 ~ R26-12）皆指 **Service-driven Audit** 的子項，**不要**和合規 doc 的 R26-1 ~ R26-4 混淆。
+> 3. 為什麼會碰撞：TODO.md 的 章節編號是按時間流水號（R20 ~ R26 ~ R27 ...），4/20 寫合規 doc 時取 R26、4/21 寫 audit refactor TODO 時也取 R26（因為前者未進入 TODO 主章節）。歷史包袱，不改動。
+
+### 2.2 觸發事件：2026-04-21 Rust 後端架構審查
+
+承接 §2.1 的合規動機，於 2026-04-21 委託對 Rust backend（`erp-backend` v0.1.0, axum 0.7 + tokio + sqlx 0.8，~230 個 `.rs` 檔）做**四階段全流程審查**，4 階段為：
+
+1. **架構盤點**（layered design / module boundaries / 依賴方向）
+2. **並發模型**（tokio worker / locking / spawn_blocking 應用 / 背景任務生命週期）
+3. **GLP 合規**（audit trail 完整性 / 資料變更可還原 / electronic signature / 21 CFR Part 11 §11.10 對齊）
+4. **長期維護**（單人視角 / 檔案大小 / clippy 規則 / 死碼）
+
+產出 [docs/reviews/2026-04-21-rust-backend-review.md](../reviews/2026-04-21-rust-backend-review.md)，**Phase 3 GLP 合規**抓出 4 個 Critical，3 個明確標記 GLP 不達標：
+
+- **CRIT-01｜IACUC 編號產生 race condition**
+  > 「GLP 情境下，編號的連續性與唯一性是稽核重點」
+  - 對應 §11.10(a)（系統驗證）+（編號產生不確定性違反「準確紀錄」）
+- **CRIT-02｜多表變更未包 transaction，GLP 合規風險**
+  > 「GLP 要求『資料變更必有完整稽核軌跡且可還原』，此設計違反此要求」
+  - 對應 §11.10(b)+(c)（紀錄完整性 + 可還原性）
+  - **這條最痛**：`pool.begin()` 僅出現於 8/80 service 檔，覆蓋率 10%
+- **CRIT-03｜UPDATE 類稽核日誌無 before/after snapshot**
+  > 「GLP 要求對資料變更保留『變更前 vs 變更後』完整快照」
+  > 「稽核員要求『能從稽核軌跡還原任一時刻的資料狀態』，目前做不到 → Critical」
+  - 對應 §11.10(c)（可產生準確、完整的紀錄副本）+ §11.10(e)（操作型 audit trail）
+- **CRIT-04**：`services/mod.rs` crate-wide `#![allow(dead_code)]` — 與 GLP 無直接關係，是 CLAUDE.md 內部規則違反
+
+**WARN 中與 GLP 相關**：
+- **WARN-06｜audit 使用 `tokio::spawn` fire-and-forget**
+  > 「3. GLP 要求稽核寫入可靠性，fire-and-forget 不符合『可靠寫入』」
+  - 對應 §11.10 對「Independent」的要求（spawn 後失敗只記 tracing::error，稽核員查不到）
+
+**SUGG 中與 GLP 相關**：
+- **SUGG-03｜HMAC chain 缺自動驗證**
+  > 「GLP 稽核時，若有人繞過 trigger 直接改 DB，HMAC chain 會斷 — 但得有人主動驗證才發現」
+  - 對應 §11.10(b) 對 audit trail 「Secure」的要求
+
+**審查報告結論**（單人維護視角下最重要的三件事）：
+> 「1. CRIT-01 / CRIT-02 — 這是 **GLP 稽核最可能被挑戰的地方**」
+>
+> 「2. CRIT-04 + WARN-01 — 把 `#[allow(dead_code)]` 移掉後，會暴露多少未用碼是個信號」
+>
+> 「3. WARN-02（Argon2）— 登入路徑效能」
+
+**這就是 R26 epic 的觸發點**：CRIT-01 + CRIT-02 + CRIT-03 + WARN-06 + SUGG-03 五個 GLP 相關 finding 必須一起解，因為它們都指向同一個技術根因 — audit log 寫入不在資料變更的 tx 內，且不能完整保留變更內容。
+
+### 2.3 為什麼選 Service-driven pattern 而不是別的
 
 考量過的替代方案：
 
@@ -65,7 +156,7 @@
 | Middleware 層 wrap handler 攔截 | 無法獲得 mutation 前後的資料 snapshot（CRIT-03 不解） |
 | **Service 層單 tx 內寫 audit**（採用） | ✅ 資料變更 + audit + HMAC chain 原子；✅ 有完整 before/after；✅ 失敗自動 rollback |
 
-### 2.3 單人長期維護的視角
+### 2.4 單人長期維護的視角
 
 所有決策都要過這個濾鏡：
 
