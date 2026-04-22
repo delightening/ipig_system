@@ -160,6 +160,7 @@ fn test_config() -> crate::config::Config {
         trust_proxy_headers: true,
         cors_allowed_origins: vec![],
         audit_hmac_key: None,
+        audit_chain_verify_active: false,
         disable_csrf_for_tests: false,
         disable_account_lockout: false,
         account_lockout_max_attempts: 5,

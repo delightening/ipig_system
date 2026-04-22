@@ -103,6 +103,17 @@ pub struct Config {
     pub cors_allowed_origins: Vec<String>,
     /// SEC-34: 稽核日誌 HMAC-SHA256 密鑰
     pub audit_hmac_key: Option<String>,
+    /// R26-2: HMAC chain 每日驗證 cron 是否實際執行驗證。
+    ///
+    /// 預設 `false`：cron 仍註冊但每輪僅 log 「skipped」，**不**呼叫
+    /// `verify_chain_range`。原因：deprecated `log_activity(&pool, ...)` 寫入
+    /// 的 row 仍存在 DB，與新 `log_activity_tx` 的 length-prefix canonical
+    /// HMAC 編碼不同；若立即啟用驗證會對 legacy row 大量 false positive
+    /// （CodeRabbit PR #158 🟠 Major）。
+    ///
+    /// 設為 `true` 的時機：R26-6（HMAC 版本化 + legacy backfill）完成後。
+    /// 環境變數：`AUDIT_CHAIN_VERIFY_ACTIVE=true`。
+    pub audit_chain_verify_active: bool,
     /// 整合測試用：停用 CSRF 檢查（僅在 TEST_DATABASE_URL/DATABASE_URL 且 DISABLE_CSRF_FOR_TESTS=true 時使用）
     pub disable_csrf_for_tests: bool,
     /// SEC-20: 帳號鎖定功能（DISABLE_ACCOUNT_LOCKOUT=true 可關閉）
@@ -272,6 +283,7 @@ impl Config {
                 .filter(|s| !s.is_empty())
                 .collect(),
             audit_hmac_key: read_secret("AUDIT_HMAC_KEY").filter(|s| s.len() >= 16),
+            audit_chain_verify_active: parse_bool_env("AUDIT_CHAIN_VERIFY_ACTIVE"),
             disable_csrf_for_tests: parse_bool_env("DISABLE_CSRF_FOR_TESTS"),
             disable_account_lockout: parse_bool_env("DISABLE_ACCOUNT_LOCKOUT"),
             account_lockout_max_attempts: std::env::var("ACCOUNT_LOCKOUT_MAX_ATTEMPTS")
@@ -406,6 +418,7 @@ mod tests {
             trust_proxy_headers: true,
             cors_allowed_origins: vec!["http://localhost:8080".to_string()],
             audit_hmac_key: None,
+            audit_chain_verify_active: false,
             disable_csrf_for_tests: false,
             disable_account_lockout: false,
             account_lockout_max_attempts: 5,

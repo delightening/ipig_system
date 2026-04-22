@@ -12,6 +12,9 @@ use crate::{
 
 type SchedulerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
+/// R26-2 audit HMAC chain 每日驗證 cron schedule（每日 02:00:00 UTC）。
+const AUDIT_CHAIN_VERIFY_CRON: &str = "0 0 2 * * *";
+
 pub struct SchedulerService;
 
 impl SchedulerService {
@@ -45,6 +48,7 @@ impl SchedulerService {
         Self::register_db_analyze_job(&sched, &db, t, &mut job_count).await?;
         Self::register_iacuc_submission_notify_job(&sched, &db, &config, t, &mut job_count).await?;
         Self::register_unresolved_alert_sweep_job(&sched, &db, &config, t, &mut job_count).await?;
+        Self::register_audit_chain_verify_job(&sched, &db, &config, t, &mut job_count).await?;
 
         sched.start().await?;
         info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
@@ -421,6 +425,42 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'unresolved_alert_sweep' registered");
+        *count += 1;
+        Ok(())
+    }
+
+    /// R26-2：每日 02:00 UTC 驗證昨日 audit HMAC chain 完整性。
+    ///
+    /// 斷鏈時寫入 `security_alerts` 並觸發 `SecurityNotifier::dispatch`；
+    /// 完整時僅 log info。正在執行時若收到 shutdown，當輪跑完才退出。
+    async fn register_audit_chain_verify_job(
+        sched: &JobScheduler,
+        db: &PgPool,
+        config: &Arc<Config>,
+        token: &CancellationToken,
+        count: &mut u32,
+    ) -> SchedulerResult {
+        let db_clone = db.clone();
+        let config_clone = config.clone();
+        let token_outer = token.clone();
+        let job = Job::new_async(AUDIT_CHAIN_VERIFY_CRON, move |_uuid, _l| {
+            let db = db_clone.clone();
+            let config = config_clone.clone();
+            let token = token_outer.clone();
+            Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] audit_chain_verify skipped during shutdown");
+                    return;
+                }
+                if let Err(e) =
+                    crate::services::audit_chain_verify::verify_yesterday_chain(&db, &config).await
+                {
+                    error!("[R26-2] Audit chain verify failed: {}", e);
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'audit_chain_verify' registered (daily 02:00 UTC)");
         *count += 1;
         Ok(())
     }
