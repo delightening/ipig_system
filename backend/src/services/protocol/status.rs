@@ -534,7 +534,11 @@ impl ProtocolService {
                         );
                     } else {
                         // 創建客戶，忽略錯誤（例如代碼衝突），因為可能已經存在
-                        if let Err(e) = PartnerService::create(pool, &create_req).await {
+                        // Actor：IACUC 核准觸發的自動建立，屬系統事件
+                        let actor = ActorContext::System {
+                            reason: "auto_create_customer_from_iacuc",
+                        };
+                        if let Err(e) = PartnerService::create(pool, &actor, &create_req).await {
                             tracing::warn!(
                                 "Failed to create customer for IACUC {}: {}",
                                 iacuc_no,
