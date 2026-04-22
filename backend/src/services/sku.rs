@@ -181,8 +181,10 @@ impl SkuService {
         .fetch_one(&mut *tx)
         .await?;
 
-        // SkuCategory.code 是 String 不是 Uuid，audit entity_id 需要 Uuid；
-        // 此表以 code 為 PK，audit 時用 name hash 產生穩定 UUID（方便稽核查詢）
+        // SkuCategory 以 `code` (String) 為 PK，非 UUID。audit 的 entity_id 欄位
+        // 需要 Uuid 型別，本 PR 採 `Uuid::nil()` + 人類可讀 `entity_display_name`
+        // 做稽核識別（例如 `"GEN 一般"`）。替代方案（uuid v5 from code）需加 v5 feature
+        // 依賴，收益有限，暫緩；若未來需以 entity_id 過濾，再評估 v5 實作。
         let display = format!("{} {}", after.code, after.name);
         AuditService::log_activity_tx(
             &mut tx,
@@ -270,7 +272,8 @@ impl SkuService {
         .fetch_one(&mut *tx)
         .await?;
 
-        // SkuSubcategory 有 i32 id，轉成穩定 UUID（以 category_code+code 為 seed）
+        // SkuSubcategory 以 (category_code, code) 複合鍵識別，audit 用 `Uuid::nil()` +
+        // `entity_display_name = "GEN:OTH 其他"` 供稽核辨識（見 update_category 說明）。
         let display = format!("{}:{} {}", after.category_code, after.code, after.name);
         AuditService::log_activity_tx(
             &mut tx,

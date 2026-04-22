@@ -111,16 +111,12 @@ impl ProductService {
         ));
         let new_sku = Self::resolve_update_sku_tx(&mut tx, &current, req).await?;
 
-        repositories::product::update_product(pool, id, new_sku.as_deref(), req)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
-
-        // 重新讀取 after 快照（update_product 是 pool-based，rollback 時資料不會回退；
-        // 這裡短暫接受此風險 — R26-8 延伸可將 update_product 也 tx 化）
-        let after = sqlx::query_as::<_, Product>("SELECT * FROM products WHERE id = $1")
-            .bind(id)
-            .fetch_one(&mut *tx)
-            .await?;
+        // update_product_tx：與本 tx 同生命週期；audit 或 uom sync 失敗會連同 product
+        // UPDATE 一併 rollback，解決 Gemini PR #164 指出的原子性風險。
+        let after =
+            repositories::product::update_product_tx(&mut tx, id, new_sku.as_deref(), req)
+                .await?
+                .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
         if let Some(ref conversions) = req.uom_conversions {
             sync_uom_conversions_tx(&mut tx, id, conversions).await?;
