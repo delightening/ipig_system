@@ -185,6 +185,19 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-22 R26 PR #4a — Animals simple mutations Service-driven audit
+
+- ✅ **Codex 審閱通過**（CONDITIONAL GO）：pattern 可複製前的獨立審閱完成 — 10 findings 分類 1 🔴 Blocker / 4 🟡 Warning / 5 🟢 Note；🔴 #2（AuditRedact 空 impl 風險）在 PR #4a 第一個 commit 修掉；🟡 #10（UPDATE-after-INSERT HMAC）歸 R26-6
+- ✅ **PR #156（opened → integration/r26）PR #4a animals simple mutations**（8 commits）：
+  - C1：AuditRedact trait 強化安全警告 doc（User/Session/MCP key 類必須覆寫 redacted_fields）+ `ActivityLogEntry` 加 `Default` + 4 constructors（update / create / delete / simple，減少 ~45 call sites 填 `request_context: None`）+ 16 個 animal entity AuditRedact 空 impl
+  - C2-C7：source.rs / weight.rs / vet_advice.rs / care_record.rs / medical.rs 疫苗 / observation+surgery create 共 **17 個 simple mutations** 改寫為 tx + ActorContext + DataDiff
+  - C8：clippy 零警告調整（移除 handler 不再用的 AnimalService/AuditService import）
+- ✅ **決策採納**：upsert → `create_or_update` 拆分（獲完整 before/after diff）；soft_delete 歸 simple（change_reasons 視為 audit trail 伴生）；actor 分層策略（submit/approve 用 require_user；CRUD 用 `actor_user_id().unwrap_or(SYSTEM_USER_ID)` 允許 System，支援 batch 匯入）
+- ✅ **內部 caller 調整**：`AnimalService::create` 初始體重改 `ActorContext::System { reason: "animal_create_initial_weight" }`；`import_export.rs` 批次匯入體重改 `ActorContext::System { reason: "weight_batch_import" }`（actor 鏈路完整化歸 PR #4d）
+- ✅ **驗證綠燈**：`cargo check` / `cargo clippy --all-targets -- -D warnings -A deprecated` / `cargo test --lib` 423/423 全數通過；CI 14 個 check 中 7 已過，5 IN_PROGRESS
+- ✅ **R26-3 範圍訂正**：原 TODO 估「~20 處 handler」經 `AuditService::log_activity / ::log` 跨 27 handler 檔的實測為 **97 call sites**（animals 49 + user 8 + product 7 + sku 5 + 其他 28），估 ~465 person-hours；拆分成 PR #4a~4e（animals 系列 ~200h）+ PR #5a/b/c（hr/document ~185h）+ PR #6（其他模組 ~80h）
+- ✅ **計畫文件**：`docs/plans/pr4a-animals-simple-mutations.md`（已在 PR #155 一併提交，10.2K 可執行粒度）+ `docs/plans/pr5-hr-document-roadmap.md`（6.6K 路線圖層級）
+
 ### 2026-04-21 R26 Service-driven Audit 重構啟動（3 PRs）
 
 - ✅ **後端架構全面審查**：[docs/reviews/2026-04-21-rust-backend-review.md](reviews/2026-04-21-rust-backend-review.md) 產出 4 Critical / 8 Warning / 5 Suggestion + 6 附錄深度調查；依此設計 `plan-for-the-critical-validated-pebble.md` 全面執行計畫
