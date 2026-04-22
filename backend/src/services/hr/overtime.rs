@@ -6,10 +6,14 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
-        CreateOvertimeRequest, OvertimeRecord, OvertimeWithUser,
-        OvertimeQuery, PaginatedResponse, UpdateOvertimeRequest,
+        audit_diff::DataDiff, CreateOvertimeRequest, OvertimeQuery, OvertimeRecord,
+        OvertimeWithUser, PaginatedResponse, UpdateOvertimeRequest,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
     },
     Result,
 };
@@ -214,9 +218,12 @@ impl HrService {
 
     pub async fn create_overtime(
         pool: &PgPool,
-        user_id: Uuid,
+        actor: &ActorContext,
         payload: &CreateOvertimeRequest,
     ) -> Result<OvertimeWithUser> {
+        let user = actor.require_user()?;
+        let user_id = user.id;
+
         // 將 NaiveTime 結合 overtime_date 轉換為 DateTime<Utc>
         let start_datetime = Utc.from_utc_datetime(
             &payload.overtime_date.and_time(payload.start_time)
@@ -224,7 +231,7 @@ impl HrService {
         let end_datetime = Utc.from_utc_datetime(
             &payload.overtime_date.and_time(payload.end_time)
         );
-        
+
         // 計算時數 (從 NaiveTime)，以 0.5 小時為單位四捨五入
         let start_minutes = payload.start_time.hour() as i64 * 60 + payload.start_time.minute() as i64;
         let end_minutes = payload.end_time.hour() as i64 * 60 + payload.end_time.minute() as i64;
@@ -235,13 +242,16 @@ impl HrService {
         let expires_at = payload.overtime_date + chrono::Duration::days(365);
 
         let id = Uuid::new_v4();
-        sqlx::query(
+        let mut tx = pool.begin().await?;
+
+        let record = sqlx::query_as::<_, OvertimeRecord>(
             r#"
             INSERT INTO overtime_records (
                 id, user_id, overtime_date, start_time, end_time, hours,
                 overtime_type, multiplier, comp_time_hours, comp_time_expires_at,
                 status, reason
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'draft', $11)
+            RETURNING *
             "#,
         )
         .bind(id)
@@ -255,35 +265,53 @@ impl HrService {
         .bind(comp_time_hours)
         .bind(expires_at)
         .bind(&payload.reason)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        let record = sqlx::query_as::<_, OvertimeWithUser>(
-            r#"
-            SELECT 
-                o.id, o.user_id, u.email as user_email, u.display_name as user_name,
-                o.overtime_date, o.start_time, o.end_time, o.hours,
-                o.overtime_type, o.multiplier, o.comp_time_hours, o.comp_time_expires_at,
-                o.status, o.reason
-            FROM overtime_records o
-            INNER JOIN users u ON o.user_id = u.id
-            WHERE o.id = $1
-            "#,
+        let display = format!(
+            "{} {} ({}h)",
+            record.overtime_date, record.overtime_type, record.hours
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "OVERTIME_CREATE",
+                entity: Some(AuditEntity::new("overtime_record", record.id, &display)),
+                data_diff: Some(DataDiff::create_only(&record)),
+                request_context: None,
+            },
         )
-        .bind(id)
-        .fetch_one(pool)
         .await?;
 
-        Ok(record)
+        tx.commit().await?;
+
+        Self::get_overtime_inner(pool, id).await
     }
 
     pub async fn update_overtime(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        _current_user: &CurrentUser,
         payload: &UpdateOvertimeRequest,
     ) -> Result<OvertimeWithUser> {
-        sqlx::query(
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, OvertimeRecord>(
+            "SELECT * FROM overtime_records WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("加班紀錄不存在".into()))?;
+
+        if before.status != "draft" {
+            return Err(AppError::BusinessRule("僅草稿狀態的加班可更新".into()));
+        }
+
+        let after = sqlx::query_as::<_, OvertimeRecord>(
             r#"
             UPDATE overtime_records
             SET start_time = COALESCE($2, start_time),
@@ -292,6 +320,7 @@ impl HrService {
                 reason = COALESCE($5, reason),
                 updated_at = NOW()
             WHERE id = $1 AND status = 'draft'
+            RETURNING *
             "#,
         )
         .bind(id)
@@ -299,51 +328,144 @@ impl HrService {
         .bind(payload.end_time)
         .bind(&payload.overtime_type)
         .bind(&payload.reason)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Self::get_overtime(pool, id, _current_user).await
+        let display = format!(
+            "{} {} ({}h)",
+            after.overtime_date, after.overtime_type, after.hours
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "OVERTIME_UPDATE",
+                entity: Some(AuditEntity::new("overtime_record", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Self::get_overtime_inner(pool, id).await
     }
 
-    pub async fn delete_overtime(pool: &PgPool, id: Uuid, _current_user: &CurrentUser) -> Result<()> {
+    pub async fn delete_overtime(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<()> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, OvertimeRecord>(
+            "SELECT * FROM overtime_records WHERE id = $1 AND status = 'draft' FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("加班紀錄不存在或非草稿狀態".into()))?;
+
         sqlx::query("DELETE FROM overtime_records WHERE id = $1 AND status = 'draft'")
             .bind(id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
+
+        let display = format!(
+            "{} {} ({}h)",
+            before.overtime_date, before.overtime_type, before.hours
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "OVERTIME_DELETE",
+                entity: Some(AuditEntity::new("overtime_record", before.id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
         Ok(())
     }
 
     pub async fn submit_overtime(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        _current_user: &CurrentUser,
     ) -> Result<OvertimeWithUser> {
-        sqlx::query(
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, OvertimeRecord>(
+            "SELECT * FROM overtime_records WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("加班紀錄不存在".into()))?;
+
+        if before.status != "draft" {
+            return Err(AppError::BusinessRule("僅草稿狀態的加班可送審".into()));
+        }
+
+        let after = sqlx::query_as::<_, OvertimeRecord>(
             r#"
             UPDATE overtime_records
             SET status = 'pending_admin_staff', submitted_at = NOW(), updated_at = NOW()
             WHERE id = $1 AND status = 'draft'
+            RETURNING *
             "#,
         )
         .bind(id)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Self::get_overtime(pool, id, _current_user).await
+        let display = format!(
+            "{} {} ({}h)",
+            after.overtime_date, after.overtime_type, after.hours
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "OVERTIME_SUBMIT",
+                entity: Some(AuditEntity::new("overtime_record", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Self::get_overtime_inner(pool, id).await
     }
 
     pub async fn approve_overtime(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        approver_id: Uuid,
         approval_level: &str, // "admin_staff" or "admin"
     ) -> Result<OvertimeWithUser> {
-        // Get current record to check status
-        let current: OvertimeRecord = sqlx::query_as(
-            "SELECT * FROM overtime_records WHERE id = $1"
+        let user = actor.require_user()?;
+        let approver_id = user.id;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE：行鎖 + before 快照
+        let before: OvertimeRecord = sqlx::query_as(
+            "SELECT * FROM overtime_records WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
         // Determine next status based on current status and approval level
@@ -354,15 +476,15 @@ impl HrService {
         };
 
         // Verify current status matches expected
-        if current.status != expected_status {
+        if before.status != expected_status {
             return Err(AppError::Validation(format!(
                 "目前狀態為 {}，無法進行 {} 層級審核",
-                current.status, approval_level
+                before.status, approval_level
             )));
         }
 
         // Update status
-        let record: OvertimeRecord = sqlx::query_as(
+        let after: OvertimeRecord = sqlx::query_as(
             r#"
             UPDATE overtime_records
             SET status = $2, approved_by = $3, approved_at = NOW(), updated_at = NOW()
@@ -373,7 +495,7 @@ impl HrService {
         .bind(id)
         .bind(next_status)
         .bind(approver_id)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
         // Record approval in overtime_approvals table
@@ -387,10 +509,12 @@ impl HrService {
         .bind(id)
         .bind(approver_id)
         .bind(approval_level)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
         // Only credit comp_time after final approval (admin level)
+        // 授予的補休餘額必須與 overtime 狀態變更在同一 tx 內（GLP 合規：
+        // 補休餘額來源可追溯到特定加班紀錄與審核動作）
         if is_final {
             sqlx::query(
                 r#"
@@ -400,18 +524,51 @@ impl HrService {
                 "#,
             )
             .bind(Uuid::new_v4())
-            .bind(record.user_id)
-            .bind(record.id)
-            .bind(record.comp_time_hours)
-            .bind(record.overtime_date)
-            .bind(record.comp_time_expires_at)
-            .execute(pool)
+            .bind(after.user_id)
+            .bind(after.id)
+            .bind(after.comp_time_hours)
+            .bind(after.overtime_date)
+            .bind(after.comp_time_expires_at)
+            .execute(&mut *tx)
             .await?;
         }
 
-        let result = sqlx::query_as::<_, OvertimeWithUser>(
+        // event_type 區分中途核准（行政）與最終核准（負責人 + 補休授予）
+        let event_type = if is_final {
+            "OVERTIME_APPROVE_FINAL"
+        } else {
+            "OVERTIME_APPROVE_INTERIM"
+        };
+        let display = format!(
+            "{} {} ({}h)",
+            after.overtime_date, after.overtime_type, after.hours
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type,
+                entity: Some(AuditEntity::new("overtime_record", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Self::get_overtime_inner(pool, id).await
+    }
+
+    /// 內部用：不做權限檢查的 overtime 查詢（callers 已在 tx 內做過授權）
+    async fn get_overtime_inner(
+        pool: &PgPool,
+        id: Uuid,
+    ) -> Result<OvertimeWithUser> {
+        let record = sqlx::query_as::<_, OvertimeWithUser>(
             r#"
-            SELECT 
+            SELECT
                 o.id, o.user_id, u.email as user_email, u.display_name as user_name,
                 o.overtime_date, o.start_time, o.end_time, o.hours,
                 o.overtime_type, o.multiplier, o.comp_time_hours, o.comp_time_expires_at,
@@ -424,8 +581,7 @@ impl HrService {
         .bind(id)
         .fetch_one(pool)
         .await?;
-
-        Ok(result)
+        Ok(record)
     }
 
     // ============================================================
@@ -566,40 +722,55 @@ impl HrService {
 
     pub async fn reject_overtime(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        rejecter_id: Uuid,
         reason: &str,
     ) -> Result<OvertimeWithUser> {
-        sqlx::query(
+        let user = actor.require_user()?;
+        let rejecter_id = user.id;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, OvertimeRecord>(
+            "SELECT * FROM overtime_records WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let after = sqlx::query_as::<_, OvertimeRecord>(
             r#"
             UPDATE overtime_records
             SET status = 'rejected', rejected_by = $2, rejected_at = NOW(), rejection_reason = $3, updated_at = NOW()
             WHERE id = $1
+            RETURNING *
             "#,
         )
         .bind(id)
         .bind(rejecter_id)
         .bind(reason)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        let result = sqlx::query_as::<_, OvertimeWithUser>(
-            r#"
-            SELECT 
-                o.id, o.user_id, u.email as user_email, u.display_name as user_name,
-                o.overtime_date, o.start_time, o.end_time, o.hours,
-                o.overtime_type, o.multiplier, o.comp_time_hours, o.comp_time_expires_at,
-                o.status, o.reason
-            FROM overtime_records o
-            INNER JOIN users u ON o.user_id = u.id
-            WHERE o.id = $1
-            "#,
+        let display = format!(
+            "{} {} ({}h)",
+            after.overtime_date, after.overtime_type, after.hours
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "OVERTIME_REJECT",
+                entity: Some(AuditEntity::new("overtime_record", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
         )
-        .bind(id)
-        .fetch_one(pool)
         .await?;
 
-        Ok(result)
+        tx.commit().await?;
+
+        Self::get_overtime_inner(pool, id).await
     }
 }
 
