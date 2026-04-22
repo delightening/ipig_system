@@ -265,6 +265,21 @@ impl AuthService {
         Ok(())
     }
 
+    /// Tx 版本：與 `revoke_user_refresh_tokens` 同邏輯，供 Service-driven 在同
+    /// tx 內同時更新 password / revoke tokens / 寫 audit。
+    pub(super) async fn revoke_user_refresh_tokens_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        user_id: Uuid,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL"
+        )
+        .bind(user_id)
+        .execute(&mut **tx)
+        .await?;
+        Ok(())
+    }
+
     /// 更新用戶密碼 hash（含 must_change_password 標記）
     pub(super) async fn update_password_in_db(
         pool: &PgPool,
@@ -279,6 +294,24 @@ impl AuthService {
         .bind(must_change_password)
         .bind(user_id)
         .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Tx 版本：與 `update_password_in_db` 同邏輯，供 Service-driven 在同 tx 內使用。
+    pub(super) async fn update_password_in_db_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        user_id: Uuid,
+        password_hash: &str,
+        must_change_password: bool,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE users SET password_hash = $1, must_change_password = $2, updated_at = NOW() WHERE id = $3"
+        )
+        .bind(password_hash)
+        .bind(must_change_password)
+        .bind(user_id)
+        .execute(&mut **tx)
         .await?;
         Ok(())
     }

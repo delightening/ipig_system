@@ -8,11 +8,11 @@ use std::net::SocketAddr;
 
 use crate::error::ErrorResponse;
 use crate::{
-    middleware::{extract_real_ip_with_trust, CurrentUser},
+    middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
     models::{
         ChangeOwnPasswordRequest, ForgotPasswordRequest, ResetPasswordWithTokenRequest,
     },
-    services::{AuditService, AuthService, EmailService, UserService},
+    services::{AuthService, EmailService, UserService},
     AppState, Result,
 };
 
@@ -38,39 +38,21 @@ pub async fn change_own_password(
     Json(req): Json<ChangeOwnPasswordRequest>,
 ) -> Result<Response> {
     let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
+    // Audit 已收進 service 層（PASSWORD_SELF_CHANGE，tx 內，含 IP/UA）
+    let actor = ActorContext::User(current_user.clone());
     let response = AuthService::change_own_password(
         &state.db,
         &state.config,
+        &actor,
         current_user.id,
         &req.current_password,
         &req.new_password,
+        Some(&ip),
+        user_agent,
     )
     .await?;
-
-    // SEC: 敏感操作二級審計 — 密碼自行變更
-    let db = state.db.clone();
-    let user_id = current_user.id;
-    let ip_clone = ip.clone();
-    let ua = headers
-        .get("user-agent")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
-    tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db,
-            user_id,
-            "SECURITY",
-            "PASSWORD_SELF_CHANGE",
-            Some("user"),
-            Some(user_id),
-            None,
-            None,
-            None,
-            Some(&ip_clone),
-            ua.as_deref(),
-        )
-        .await { tracing::error!("審計日誌寫入失敗: {e}"); }
-    });
 
     // 回傳新 tokens 的 Set-Cookie headers，保持用戶登入狀態
     login_response_with_cookies(&response, &state.config)
