@@ -414,16 +414,19 @@ impl AnimalTransferService {
             .await?;
         }
 
-        // 更新舊 pen 的 current_count（external 才清）
-        if is_external {
-            if let Some(pid) = old_pen_id {
-                sqlx::query(
-                    "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
-                )
-                .bind(pid)
-                .execute(&mut *tx)
-                .await?;
-            }
+        // 更新舊 pen 的 current_count（Gemini PR #179）
+        // External：動物離開 pen（pen_id 已清為 NULL），count 減 1
+        // Internal：動物狀態從 'transferred' → 'in_experiment'，重新計入 count（count 增 1）
+        // 兩者都需 recalc；不再以 is_external gating。
+        // 註：此為短期修補；移除 'transferred' 中間狀態的較大重構，見
+        // <https://github.com/delightening/ipig_system/issues/180>。
+        if let Some(pid) = old_pen_id {
+            sqlx::query(
+                "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
+            )
+            .bind(pid)
+            .execute(&mut *tx)
+            .await?;
         }
 
         // 更新轉讓狀態為完成
