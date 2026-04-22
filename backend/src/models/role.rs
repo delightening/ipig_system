@@ -18,6 +18,9 @@ pub struct Role {
     pub updated_at: DateTime<Utc>,
 }
 
+// 無敏感欄位，空 impl 即可（見 AuditRedact trait doc 警告）
+impl crate::models::audit_diff::AuditRedact for Role {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Permission {
     pub id: Uuid,
