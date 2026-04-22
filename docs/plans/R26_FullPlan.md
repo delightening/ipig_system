@@ -1,113 +1,152 @@
-# R26 Service-driven Audit Refactor — FullPlan
+# R26 Service-driven Audit Refactor — Full Plan (SDD)
 
-> **這份文件的目的**：R26 epic（~465 人時規模的多 PR 系列）的**單一事實來源**。
-> 回答三種問題：
-> 1. 「為什麼我們當初決定這樣做？」 → §2 Motivation + §3 Decision Log
-> 2. 「現在做到哪裡了？後面還有什麼？」 → §4 PR Catalog + §7 Current State + §8 Forward Path
-> 3. 「code review 提了什麼我們有沒有處理？」 → §5 Code Review Journey + §6 Carried Debt
->
-> **維護規則**（不維護這份文件會喪失追溯力）：
-> - 新決策：在 §3 Decision Log 時間序追加新條目，**永不刪除舊條目**（用 "Superseded by ..." 標註取代）
-> - 新 PR：在 §4 PR Catalog 新增一列；merge 後更新狀態列
-> - Review feedback：解決後更新 §5 Review Response Matrix；新增 carried debt 進 §6
-> - Epic 狀態：每完成一個階段（e.g. HR epic done、R26-3 全部 handler 遷完）在 §7 更新
->
-> 目標分支：`integration/r26`（長期整合分支，所有 R26 PR 的匯聚點，epic 完成後才 merge 回 main）。
+> **SDD Template v1.0**
+> **SDD = Service-Driven Design**：把 audit log 寫入責任從 handler 層下移到 service 層，與資料變更同 tx 原子提交。
+> 此 Full Plan 為**回溯性 + 前瞻性混合**：3 個 PR 已 merge、8 個 PR 開出 review 中、剩餘約 ~44 sites 未啟動。
+> 維護規則見文末 §16。
 
 ---
 
-## 目錄
+## 一、動機（Why）— 為什麼要 SDD
 
-- [§1 Executive Summary](#1-executive-summary)
-- [§2 Motivation（為什麼要做）](#2-motivation為什麼要做)
-  - §2.1 觸發點：2026-04-21 SDD 審查 + 21 CFR Part 11 §11.10 4 項硬要求
-  - §2.2 SDD 審查發現的 5 個 GLP 不達標 finding
-  - §2.3 為什麼選 Service-Driven Design 而不是別的
-  - §2.4 單人長期維護的視角
-- [§3 Decision Log（決策過程，時間序）](#3-decision-log決策過程時間序)
-- [§4 PR Catalog（實際產出）](#4-pr-catalog實際產出)
-- [§5 Code Review Journey（review 建議與回饋）](#5-code-review-journey)
-- [§6 Carried Debt & Known Gaps](#6-carried-debt--known-gaps)
-- [§7 Current State（截至 2026-04-22）](#7-current-state截至-2026-04-22)
-- [§8 Forward Path（合流順序與里程碑）](#8-forward-path合流順序與里程碑)
-- [§9 Document Maintenance](#9-document-maintenance)
+### 1. 發現了什麼
 
----
+**2026-04-21 委託對 Rust backend 進行四階段全流程審查**（架構 / 並發 / **Phase 3 GLP 合規** / 維護），產出 [docs/reviews/2026-04-21-rust-backend-review.md](../reviews/2026-04-21-rust-backend-review.md)。Phase 3 GLP 合規階段抓出 5 個結構性問題，**全部指向同一技術根因**：audit log 寫入不在資料變更的 transaction 內、且無法完整保留變更內容。
 
-## §1 Executive Summary
+具體證據（5 個 finding，均明確標記 GLP）：
 
-- **What**：**SDD（Service-Driven Design）** — 把 audit log 的寫入責任從 handler 層（fire-and-forget `tokio::spawn`）下移到 service 層（與資料變更同一 transaction）。
-- **Why**：客戶含藥廠 GLP 實驗室 / CRO，需通過 **21 CFR Part 11 §11.10** audit trail 4 項硬要求（secure / time-stamped / independent / records create-modify-delete）。2026-04-21 後端架構審查（含 Phase 3 GLP 合規）抓出 5 個 GLP 不達標 finding（CRIT-01/02/03 + WARN-06 + SUGG-03），全部指向同一技術根因 → SDD 重構啟動。
-- **Scope**：97 個 `AuditService::log_activity / ::log` call sites 橫跨 27 個 handler 檔；原估 ~20 處，訂正為 4.85× 差距；總工時估 ~465 人時。
-- **Strategy**：長期 integration branch（`integration/r26`）+ 多 PR 系列，先做 INFRA（PR #153/#154）+ pattern demo（PR #155）作為 SDD 模板，再按模組複製到 animals / document / hr / user / 其他。Epic 完成後才 PR `integration/r26 → main`。
-- **Status as of 2026-04-22**：3 PR merged（INFRA + review-fix + pattern demo），8 PR open（animals / document / hr leave / hr overtime / user / 兩 docs / HMAC 驗證 cron），53 / 97 mutations 已落地或 open。
+| Finding | 觀察到的症狀 | 量化證據 |
+|---|---|---|
+| **CRIT-01** IACUC 編號 race condition | `generate_iacuc_no` 查 max + 1 + UPDATE 之間無鎖；併發 `change_status` 拿到相同 max_seq → UNIQUE 衝突 | 3 個 numbering generator（`backend/src/services/protocol/numbering.rs:30 / 91 / 142`）皆無 tx |
+| **CRIT-02** 多表變更未包 transaction | service 層多步寫入沒包 tx，中途 panic 留下不一致狀態 | `pool.begin()` 僅出現於 **8 / 80 service 檔，覆蓋率 10%**（`accounting / auth/login / storage_location / system_settings / document/* / animal/vet_patrol`）|
+| **CRIT-03** UPDATE 類稽核無 before/after snapshot | handler 寫 `log_activity` 時 `before_data: None, after_data: None`，稽核員無法還原變更內容 | 僅 IACUC 編號變更（`handlers/animal/animal_core.rs:251-267`）有正確填 before/after；其餘 ~50 個 UPDATE call sites 全空 |
+| **WARN-06** audit 用 `tokio::spawn` fire-and-forget | spawn 後失敗只記 `tracing::error!`，shutdown 時 task 被丟棄 → audit 漏寫但業務變更已 commit | ~20 個 `tokio::spawn(async move { AuditService::log_activity(...) })`（`auth/login.rs:58 / amendment.rs:174 / document.rs:203 / user.rs:77 / etc.`）|
+| **SUGG-03** HMAC chain 缺自動驗證 | `compute_and_store_hmac` 寫入鏈，但無 job 定期掃描；繞過 trigger 改 DB 會斷鏈但不會被發現 | `services/audit.rs:202-215` 有 hmac 計算函式，無對應 verify job |
 
-> **⚠️ 命名警告**：本文件 R26-N 編號（R26-1 ~ R26-12）指 **SDD（Service-Driven Design audit refactor）** 的子項。`docs/R26_compliance_requirements.md` 中的「R26」是另一個 epic（資安強化 nice-to-have：2FA / 欄位加密 / 備份演練 / pentest），請勿混淆。詳見 §2.1。
-
----
-
-## §2 Motivation（為什麼要做）
-
-### 2.1 觸發點：2026-04-21 的 SDD（Service-Driven Design）審查
-
-**SDD** = **Service-Driven Design** — 把 audit log 的設計責任從 handler 層下移到 service 層的設計決策。R26 epic 的單一觸發事件就是 2026-04-21 的審查，發現現有 audit log 不符合 GLP 對「audit trail 必須與資料變更不可分離」的要求，因此啟動 SDD 重構。
-
-**業務動機**：本系統目標客戶含**藥廠 GLP 實驗室 / CRO / 異種器官移植研究**。GLP 客戶會被 FDA / EMA 稽核員依 **21 CFR Part 11 §11.10** 條款檢視 audit trail：
-
-> "Use of **secure, computer-generated, time-stamped audit trails** to **independently** record the date and time of operator entries and actions that **create, modify, or delete electronic records**."
-
-對應 4 項硬要求，每項都是 R26 SDD 要解的目標：
-
-| Part 11 §11.10 要求 | R26 對應實作 |
-|---|---|
-| **Secure**（不可竄改） | HMAC chain（INFRA PR #153 落地）+ 每日驗證 cron（R26-2 / PR #158） |
-| **Computer-generated, time-stamped** | DB `created_at` + stored proc 自動產生 |
-| **Independent**（不可被繞過、不會半成品） | **SDD 主戰場**：audit 與資料變更同 tx；不允許 fire-and-forget |
-| **Records create / modify / delete** | **SDD 主戰場**：`DataDiff` 完整 before/after snapshot |
-
-> **⚠️ 命名碰撞警告**：[`docs/R26_compliance_requirements.md`](../R26_compliance_requirements.md)（untracked 工作底稿）中的「R26」指**另一條 epic — 資安強化 nice-to-have**（R26-1 強制 2FA / R26-2 欄位加密 / R26-3 備份還原演練 / R26-4 外部 pentest）。本文件 R26-N（R26-1 ~ R26-12）皆指 **Service-driven Audit** 子項，與合規 doc 的 R26-1 ~ R26-4 完全無關。歷史包袱，不改動。
-
-### 2.2 SDD 審查發現的 5 個 GLP 不達標 finding
-
-審查報告：[docs/reviews/2026-04-21-rust-backend-review.md](../reviews/2026-04-21-rust-backend-review.md)。四階段審查（架構 / 並發 / **Phase 3 GLP 合規** / 維護）共抓出 4 Critical + 8 Warning + 5 Suggestion。
-
-**5 個 GLP 相關 finding 共享同一技術根因** — audit log 寫入不在資料變更的 tx 內、不能完整保留變更內容。這是 SDD 啟動的直接動機：
-
-| Finding | 審查報告引用 | Part 11 條款 | SDD 對應 |
-|---|---|---|---|
-| **CRIT-01**：IACUC 編號 race condition | 「GLP 情境下，編號的連續性與唯一性是稽核重點」 | §11.10(a) 系統驗證 | numbering generators 接 `&mut Transaction` + advisory lock（PR #155） |
-| **CRIT-02**：多表變更未包 tx，GLP 合規風險 | 「GLP 要求『資料變更必有完整稽核軌跡且可還原』，此設計違反此要求」**`pool.begin()` 僅 8/80 檔，覆蓋率 10%** | §11.10(b)(c) | Service 層 `pool.begin() → ... → log_activity_tx → tx.commit()` 為 SDD 模板（PR #155） |
-| **CRIT-03**：UPDATE 類稽核無 before/after snapshot | 「稽核員要求『能從稽核軌跡還原任一時刻的資料狀態』，目前做不到 → Critical」 | §11.10(c)(e) | `DataDiff::compute(Some(&before), Some(&after))` + `AuditRedact` trait（PR #153） |
-| **WARN-06**：audit 用 `tokio::spawn` fire-and-forget | 「GLP 要求稽核寫入可靠性，fire-and-forget 不符合『可靠寫入』」 | §11.10 Independent | `log_activity_tx` 取代 `tokio::spawn(log_activity)`（隨各模組 PR 漸進）|
-| **SUGG-03**：HMAC chain 缺自動驗證 | 「若有人繞過 trigger 直接改 DB，HMAC chain 會斷 — 但得有人主動驗證才發現」 | §11.10(b) Secure | 每日 02:00 cron 驗證昨日 chain 完整性（R26-2 / PR #158） |
-
-**第 4 個 Critical（CRIT-04）**：`services/mod.rs` crate-wide `#![allow(dead_code)]` — 與 GLP 無直接關係，是 CLAUDE.md 內部規則違反；順手解（PR #155）。
-
-**審查報告結論**（單人維護視角，最重要三件事的第一條）：
+審查報告結論（單人維護視角，第一條）：
 > 「CRIT-01 / CRIT-02 — 這是 **GLP 稽核最可能被挑戰的地方**」
 
-### 2.3 為什麼選 Service-Driven Design 而不是別的
+### 2. 欠缺什麼
 
-SDD 不是唯一可能的解法，但是 4 個替代方案都有致命缺陷：
+對照 **21 CFR Part 11 §11.10** audit trail 4 項硬要求，目前能力 vs 目標：
 
-| 方案 | 捨棄原因 |
-|---|---|
-| DB trigger 自動寫 audit | 和現有 HMAC chain 設計衝突（trigger 無法存取 actor context / 無 redact 能力） |
-| Handler 層加 `tokio::spawn(audit).await` | 只是把 fire-and-forget 改成 await，仍不能保證 audit 與資料變更同一 tx（CRIT-02 不解） |
-| Middleware 層 wrap handler 攔截 | 無法獲得 mutation 前後的資料 snapshot（CRIT-03 不解） |
-| **Service-Driven Design**（採用） | ✅ 資料變更 + audit + HMAC chain 原子；✅ 有完整 before/after；✅ 失敗自動 rollback；✅ 與 service 業務邏輯零距離 |
+| Part 11 要求 | 目前能力 | 欠缺 |
+|---|---|---|
+| **Secure**（不可竄改） | HMAC chain 已實作 | **缺自動驗證**：斷鏈不會被偵測（SUGG-03） |
+| **Computer-generated, time-stamped** | DB `created_at` 自動產生 | ✓ 已達標 |
+| **Independent**（不可被繞過、不會半成品） | handler 層 fire-and-forget 為主 | **核心缺口**：audit 與資料變更不在同 tx；spawn 失敗 audit 漏寫但業務 commit；shutdown 期間 spawn task 被丟棄（CRIT-02 + WARN-06） |
+| **Records create / modify / delete**（含完整 before/after） | 多數 UPDATE 無 snapshot | **核心缺口**：稽核員無法從 `user_activity_logs` 還原變更內容（CRIT-03） |
 
-SDD 的核心約定（template 落地於 PR #155 `ProtocolService::submit`）：
+**第二層缺口**（執行 SDD 過程中浮現）：
+- **缺 Service-driven 的 ergonomics**：原 `log_activity(11 個位置參數)` API 不適合在 ~45 個 call sites 重複使用
+- **缺 actor context 抽象**：原本 service 接 `Uuid` 無法區分 user / system / anonymous，audit log 的 `actor_user_id` 對 batch / scheduler 觸發都填同一個 user id
+- **缺 redact 機制**：若把 entity 整個塞進 `before_data`，密碼雜湊 / token 等敏感欄位會明文進 audit log
+
+### 3. 為什麼現在要做
+
+**時機論證 — 這個月是窗口**：
+
+1. **客戶在排隊**：本系統目標客戶含**藥廠 GLP 實驗室 / CRO / 異種器官移植研究機構**。GLP 客戶採購前會做 vendor 合規 due-diligence，21 CFR Part 11 §11.10 是基本門檻。沒過 → 直接出局。
+2. **應用層 security 已飽和，剩 architectural gap**：2026-04-20 commit `e710265` 完成 [docs/security/SECURITY_COMPLETED.md](../security/SECURITY_COMPLETED.md) 彙整 — **46 項 application-layer 強化已 done**（含 P1-7 電子簽章 §11.50/.100 合規、SQL/XSS/CSRF、Rate Limit、Audit UI 匯出）。剩下未檢視的就是 architectural-layer audit pipeline。
+3. **越拖越貴**：目前實測 **97 個 `AuditService::log_activity / ::log` call sites 跨 27 個 handler 檔**。每多一個新 handler 上線，遷移成本 +1。
+4. **基礎設施剛 ready**：`tokio_util::sync::CancellationToken` / `pg_advisory_xact_lock` / `sqlx::Transaction` 都是現有依賴，不需引入新 crate。
+5. **單人維護視角**：要 GLP 認證一次到位，不能拖到下次有 audit 案才做。
+
+**反面論證**（為什麼不再等）：審查報告 P0 排程「本月內」對 CRIT-01/02/04 + Argon2 spawn_blocking 有具體工時估計（共 ~2.5 day）。INFRA 實際做下去發現延伸到 ~465h，但**不做的代價是 GLP 失敗 = 失去整個客戶族群**。
+
+---
+
+## 二、目標與範圍（What）
+
+### 4. 預期成果（Definition of Done）
+
+每條皆可被機械式檢驗：
+
+- [ ] **DoD-1（合規）**：所有資料 mutation（CREATE / UPDATE / DELETE / 狀態轉換）在同一 transaction 內寫 audit log，**handler 層 0 個 `tokio::spawn(... log_activity ...)`**
+  - 檢驗：`grep -rn "tokio::spawn" backend/src/handlers/ | grep -v notification | wc -l == 0`
+- [ ] **DoD-2（snapshot）**：所有 UPDATE 類 audit row 含完整 before / after JSON
+  - 檢驗：SQL `SELECT count(*) FROM user_activity_logs WHERE event_type LIKE '%_UPDATE' AND (before_data IS NULL OR after_data IS NULL) == 0`（限新寫入 row）
+- [ ] **DoD-3（HMAC chain 完整性）**：每日 02:00 UTC 自動驗證昨日 chain，斷鏈時 INSERT `security_alerts` + 觸發 `SecurityNotifier::dispatch`
+  - 檢驗：`SELECT count(*) FROM security_alerts WHERE alert_type='audit_chain_broken' AND created_at >= NOW() - INTERVAL '7 day'` 可查到 cron 每日執行紀錄（即使是 0 broken 也應有 verify success log）
+- [ ] **DoD-4（API 收斂）**：舊 `AuditService::log_activity(&pool, ...)` 完全移除；`cargo build` 無 `use of deprecated` warning
+  - 檢驗：`cargo build 2>&1 | grep "use of deprecated" | wc -l == 0`
+- [ ] **DoD-5（CI 守門）**：CI 加 grep guard，未來新 PR 若引入 `tokio::spawn(async move { AuditService::log_*` 會 fail
+  - 檢驗：`.github/workflows/ci.yml` 含對應 grep step
+- [ ] **DoD-6（IACUC race 完整修復）**：`change_status` 流程內所有 numbering 寫入用 `&mut tx` + advisory lock；併發 `change_status` 不會撞 UNIQUE
+  - 檢驗：load test 模擬 10 並發 `change_status` 全成功（或測試填好的整合測試）
+- [ ] **DoD-7（敏感欄位 redact）**：`User` / `UserSession` / `JwtBlacklist` / `TwoFactorSecret` / `McpKey` / `OAuthCredential` 等含敏感欄位的型別覆寫 `AuditRedact::redacted_fields()`；`SELECT before_data, after_data FROM user_activity_logs WHERE event_type='USER_UPDATE'` 看不到 password_hash 等明文
+  - 檢驗：手動抽查 + 測試覆蓋
+- [ ] **DoD-8（合流回 main）**：`integration/r26` 透過單一 PR 合入 `main`，CI all green
+  - 檢驗：對應的 PR merged
+
+### 5. 範圍邊界
+
+**In scope**：
+- 97 個 handler 層 `AuditService::log_activity / ::log` call sites 全數遷移
+- `services/animal/`, `services/document/`, `services/hr/`, `services/user.rs`, `services/product*.rs`, `services/sku.rs`, `services/partner.rs`, `services/warehouse.rs`, `services/equipment.rs`, `services/role.rs`, `services/ai*.rs`, `services/auth/*.rs`, `services/two_factor.rs`, `services/data_export.rs` 14 個模組的 mutation 全數 SDD 化
+- `AuditService::log_activity_tx` + `ActivityLogEntry` + `ActorContext` + `DataDiff` + `AuditRedact` infrastructure
+- HMAC chain 每日驗證 cron + 版本化 + 儲存後雜湊
+- Migration 033 / 034 / 035 / 036 + 預期 037（HMAC version column）
+- `docs/PROGRESS.md` §9 + `docs/TODO.md` R26 章節 + 本 FullPlan.md 維護
+- CI workflow（`integration/**` trigger、deprecated warning 過渡期、最終的 grep guard）
+
+**Out of scope**（避免 scope creep）：
+- **WARN-01** Service 層直接寫 SQL（909 處 / 80 檔）→ ongoing policy（新 code 寫 repositories/，舊 code 不強求）
+- **WARN-02** 非 Argon2 的 spawn_blocking（calamine / rust_xlsxwriter / google_calendar credentials 讀檔）→ 待出現效能問題再處理
+- **WARN-03** clippy.toml 閾值對齊 CLAUDE.md → 獨立 PR
+- **WARN-05** Cache stampede（alert_threshold / security_notifier / ip_blocklist）→ 獨立 PR
+- **WARN-07** equipment.rs 75KB / scheduler.rs 40KB 拆分 → 獨立 PR
+- **WARN-08** 權限字串硬編碼 → 獨立 PR
+- **SUGG-01 / SUGG-02 / SUGG-04 / SUGG-05** → 獨立 PR
+- StockService / AccountingService 內部的 stock ledger / journal entry 自身 audit → R26-3 延伸（PR #6+）
+- electronic signature 改寫（已於 P1-7 完成 §11.50/.100，不重做）
+
+### 6. 假設、限制、依賴
+
+**Assumptions**（不成立就整個計畫要重來）：
+- (A1) 21 CFR Part 11 §11.10 是合規門檻 — 若客戶都不是 FDA 受管，整個動機消失
+- (A2) PostgreSQL advisory lock + sqlx Transaction 行為穩定（`pg_advisory_xact_lock` 自動隨 tx commit / rollback 釋放）
+- (A3) `tokio::task::spawn_blocking` 對 Argon2 的延遲改善有效（~50-200ms / 登入）
+- (A4) handler 全部用 axum extractor 拿到 `CurrentUser` → 可包成 `ActorContext::User(...)`；非 handler 觸發走 `ActorContext::System { reason: &'static str }`
+
+**Constraints**（硬性限制）：
+- (C1) 單人維護：所有 PR 只能由一人 review + merge；批次 review 容量有限
+- (C2) 不可 break main：integration/r26 自始至終隔離；epic 完成才合 main
+- (C3) 不可 break GLP P1-7 已合規的部分（電子簽章 / IQ-OQ-PQ）— SDD 改 audit log 路徑時不能讓簽章功能 regress
+- (C4) HMAC 演算法不換（仍 HMAC-SHA256）；hmac key 不換（仍 `AUDIT_HMAC_KEY` env / secret 檔）
+
+**Dependencies**：
+- (D1) `integration/r26` 長期分支（已建於 PR #153）
+- (D2) `.github/workflows/ci.yml` `integration/**` trigger（已加於 PR #154）
+- (D3) `tokio_util::sync::CancellationToken`（既有依賴）
+- (D4) `sqlx::Transaction<'_, Postgres>`（既有依賴）
+- (D5) AI reviewer 服務可用性：Gemini Code Assist + CodeRabbit（CodeRabbit 對非預設 base 需手動 `@coderabbitai review` 觸發）
+- (D6) 手動 hook `.claude/hooks/block-dangerous.sh`（已加於 PR #154，避免危險命令誤觸）
+
+---
+
+## 三、方案（How）
+
+### 7. 如何完善
+
+**核心方案：Service-Driven Design**。每個 service mutation 採固定模板：
 
 ```rust
 pub async fn mutate(pool: &PgPool, actor: &ActorContext, /* args */) -> Result<Entity> {
-    let _user = actor.require_user()?;        // 或 actor_user_id().unwrap_or(SYSTEM_USER_ID)
+    let _user = actor.require_user()?;          // 或 actor_user_id().unwrap_or(SYSTEM_USER_ID) — 視操作性質
     let mut tx = pool.begin().await?;
 
-    let before = SELECT * FROM ... FOR UPDATE;
-    // validation + business logic
-    let after = INSERT/UPDATE/DELETE ... RETURNING *;
+    // 1. 取 before（含 row lock 防併發）
+    let before = sqlx::query_as::<_, Entity>("SELECT * FROM ... WHERE id = $1 FOR UPDATE")
+        .bind(id).fetch_one(&mut *tx).await?;
 
+    // 2. validation + business logic
+
+    // 3. 主 mutation
+    let after = sqlx::query_as::<_, Entity>("UPDATE ... RETURNING *")
+        .fetch_one(&mut *tx).await?;
+
+    // 4. audit 同 tx 寫入（advisory lock 保證 HMAC chain 串行）
     AuditService::log_activity_tx(&mut tx, actor, ActivityLogEntry::update(
         "MODULE", "ACTION",
         AuditEntity::new("entity_type", after.id, &after.display_name),
@@ -119,544 +158,424 @@ pub async fn mutate(pool: &PgPool, actor: &ActorContext, /* args */) -> Result<E
 }
 ```
 
-每個 PR 把這個模板複製到一個模組的所有 mutation。
+**為什麼 SDD 而不是別的**（4 個替代方案的致命缺陷）：
 
-### 2.4 單人長期維護的視角
+| 方案 | 為什麼捨棄 |
+|---|---|
+| DB trigger 自動寫 audit | 和現有 HMAC chain 衝突（trigger 無法存取 actor / 無 redact） |
+| Handler 層 `tokio::spawn(audit).await` | 仍非同 tx；CRIT-02 不解 |
+| Middleware wrap handler 攔截 | 拿不到 mutation 前後的 entity snapshot；CRIT-03 不解 |
+| **SDD（採用）** | ✅ 同 tx 原子；✅ 完整 before/after；✅ 失敗自動 rollback；✅ 與業務邏輯零距離 |
 
-所有決策都要過這個濾鏡：
+**支援設計決策**（時間序，永不刪除舊條目，被推翻者標 ⚠️ Superseded）：
 
-- **不要為完美而 over-engineer**：例如 `AuditRedact` 選「doc warning + code review」而不是 compile-time macro（後者 > 1 週工時）
-- **R26-3 progressive migration**：舊 `log_activity` 標 `#[deprecated]`，允許 ~80 個 call sites 漸進遷移；不一次性改完所有 handler 以免單次 PR 失控
-- **長期 integration branch**：隔離半成品狀態，避免污染 main，也能安全放棄
+| # | 決策 | 理由 |
+|---|---|---|
+| D-01 | 長期 integration branch `integration/r26` | 多 PR 系列數週，避免污染 main；可隨時放棄 |
+| D-02 | INFRA（PR #153）先行，pattern demo（PR #155）後發 | 確定 API shape 穩定再大規模複製 |
+| D-03 ⚠️ | hybrid actor guard：CRUD 用 `unwrap_or(SYSTEM_USER_ID)` | 後被 D-09 取代（不應靜默降級 Anonymous）|
+| D-04 ⚠️ | AuditRedact 用 doc warning，不用 compile-time macro | 後被 D-10 強化（醫療/自由文字 entity 應 allowlist）|
+| D-05 | upsert 拆 `create_or_update` | 取得完整 before/after diff |
+| D-06 | 舊 `log_activity` 標 `#[deprecated]` 漸進遷移 | 一次刪 97 處不可能 review |
+| D-07 | `ActivityLogEntry::{update,create,delete,simple}` constructors | 減少 ~45 sites × 4 行樣板 |
+| D-08 | soft_delete 留在 simple PR | `change_reasons` 是 audit trail 的一部分 |
+| D-09 | Anonymous actor 必須明確拒絕 | CodeRabbit PR #156：靜默降級風險 |
+| D-10 | 醫療/自由文字 entity 走 allowlist 或 summary log | CodeRabbit PR #156：CareRecord / VetAdvice 空 impl 過寬 |
+| D-11 | document approve 跨 service tx 串接保留，內部 audit 延後 | scope 控制；StockLedger 自 audit 歸 R26-3 延伸 |
+| D-12 | Batch operation 採 N+1 audit（per-row + summary） | per-row only / summary only 都各有缺陷 |
+| D-13 | PR #159 用 struct literal 不用 constructor | 避免 PR #156 rebase 衝突 |
+| D-14 | 4/22 同日開 4 個並行 PR | pattern 已 proven、模組獨立 |
+
+### 8. 具體要改什麼
+
+| 類型 | 位置 | 改動 |
+|---|---|---|
+| **新增** | `backend/src/middleware/actor.rs` | `ActorContext` enum + `SYSTEM_USER_ID` const + 7 methods |
+| **新增** | `backend/src/models/audit_diff.rs` | `DataDiff` struct + `AuditRedact` trait + `compute / create_only / delete_only / empty` |
+| **新增** | `backend/src/services/audit_chain_verify.rs` | `verify_yesterday_chain` 函式 + `yesterday_range_utc` helper + 2 tests |
+| **新增** | `backend/migrations/033_system_user.sql` | SYSTEM user row（FK 約束有效）|
+| **新增** | `backend/migrations/034_audit_impersonation.sql` | `impersonated_by_user_id` column |
+| **新增** | `backend/migrations/035_audit_log_activity_v2.sql` | stored proc 12 參數版本 |
+| **新增** | `backend/migrations/036_audit_log_activity_v3.sql` | changed_fields fallback UNION + `IS DISTINCT FROM` + `jsonb_typeof` 守衛 |
+| **新增** | `backend/migrations/037_audit_hmac_version.sql`（待做）| `user_activity_logs.hmac_version SMALLINT` for R26-6 |
+| **新增** | `docs/plans/pr*.md`（5 份）| 各 PR 的執行計畫 |
+| **修改** | `backend/src/services/audit.rs` | + `ActivityLogEntry` struct + `log_activity_tx` + `HmacInput` + `compute_and_store_hmac_tx` + `verify_chain_range` + `compute_hmac_for_fields`；舊 `log_activity` 標 `#[deprecated]` |
+| **修改** | `backend/src/services/protocol/{numbering, history, status, core}.rs` | numbering 接 `&mut tx` + advisory lock；submit() Service-driven 完整改寫 |
+| **修改** | `backend/src/services/animal/{source, weight, vet_advice, care_record, observation, surgery, medical, blood_test, transfer, import_export, field_correction, vet_patrol, sudden_death}.rs` | 17 simple mutations 已遷（PR #156）；剩 32 moderate/complex 待遷（PR #4b-e） |
+| **修改** | `backend/src/services/document/{crud, workflow, grn}.rs` | 10 mutations 已遷（PR #159），含 cross-service approve 同 tx |
+| **修改** | `backend/src/services/hr/{leave, overtime, balance, attendance}.rs` | 21 mutations 已遷（PR #160 + #161），含 7 balance helpers tx 化 |
+| **修改** | `backend/src/services/user.rs` | 4 mutations + 7 audit sites 已遷（PR #162）；含首個非空 `redacted_fields()` |
+| **修改** | `backend/src/services/{product, sku, partner, warehouse, equipment, role, ai, auth/*, two_factor}.rs` | 待遷（PR #6b/c/d，~44 sites） |
+| **修改** | `backend/src/handlers/animal/{source, weight_vaccination, vet_advice, care_record, observation, surgery}.rs` 等 | 移除 fire-and-forget `tokio::spawn(audit)` + 改傳 `ActorContext` |
+| **修改** | `backend/src/main.rs` | `CancellationToken` 串到 `AppState` / `JwtBlacklist::start_cleanup_task` / scheduler 14 jobs |
+| **修改** | `backend/src/services/scheduler.rs` | 14 jobs 加 `is_cancelled()` 檢查；新增 `register_audit_chain_verify_job` cron |
+| **修改** | `.github/workflows/ci.yml` | + `integration/**` trigger；+ `-A deprecated` 過渡 flag；最終加 grep guard |
+| **修改** | `.coderabbit.yaml` | `language: zh-TW → zh`（schema 合法值） |
+| **修改** | `.claude/hooks/block-dangerous.sh` | Python shlex tokenize（避免 bash grep 對 commit message 誤觸） |
+| **修改** | `docs/PROGRESS.md` §9 / `docs/TODO.md` R26 / `docs/reviews/2026-04-21-rust-backend-review.md` | 進度 + 對照標記 |
+| **刪除** | `backend/src/services/audit.rs::log_activity` 舊版 | R26-4（最後一個遷移 PR 完成後）|
+| **刪除** | 11 處 `#[allow(dead_code)]` per-item allows | R26-7 |
+| **刪除** | `.github/workflows/ci.yml` `-A deprecated` flag | R26-4 同步 |
 
 ---
 
-## §3 Decision Log（決策過程，時間序）
+## 四、執行（Execute）
 
-> 規則：新決策追加到**底部**，不修改舊條目；若推翻舊決策，在舊條目下方新增「⚠️ Superseded by D-XX」。
+### 9. 為什麼要分步驟
 
-### D-01 [2026-04-21] 長期 integration branch `integration/r26`
+**4 個分步驟邏輯**：
 
-**決策**：所有 R26 相關 PR 的 base 分支為 `integration/r26`，**非 main**。Epic 完成後（所有 8 個 R26 子項均 done），才發起 `integration/r26 → main` 單一 merge PR。
+1. **INFRA 必須先行**：`ActorContext` / `DataDiff` / `log_activity_tx` 是後續所有 PR 的依賴；若 API shape 設計錯，後面 10 個 PR 全要重做。先 PR #153 + #154 把 INFRA 穩定。
+2. **Pattern demo 必須先驗證**：複製模板到 ~10 個模組前，先用 PR #155（Protocol::submit 一個函式）證明模板可行；reviewer 重點放在「pattern 好不好複製」。**這就是 SDD「先設計再實作」的精髓**。
+3. **模組 PR 必須獨立可 merge**：若 5 個模組 PR 互相依賴，任一受 review block 全卡。所以模組 PR 從 `integration/r26` HEAD 各自 fork，**不互依**；只在 docs（PROGRESS / TODO）有預期 rebase 衝突，政策先寫好。
+4. **清理 PR 最後做**：`R26-4 舊 log_activity 移除` 必須 99% 已遷完才能做（不然編譯 fail）；同理 `R26-7 dead code 11 處` 必須其他 module PR 都 merge 後才能正確判斷死碼。
 
-**理由**：
-1. R26 是多 PR 系列（估計 ~10 個 PR），持續數週；main 若每個 PR 都合入會造成半成品狀態曝光。
-2. AI reviewer（Gemini + CodeRabbit）feedback 產生 follow-up PR，不應打斷 main 穩定度。
-3. 若 epic 中途發現重大問題，可直接捨棄整個 `integration/r26` 而不污染 main。
+### 10. 步驟拆解
 
-**副作用**：
-- CI workflow 需加 `integration/**` trigger（PR #154 commit `9b72d7b`）
-- CodeRabbit 對非預設 base 分支顯示 "Review skipped"，每個 PR 需手動留言 `@coderabbitai review` 觸發
-- PR description 需註明「不直接合併到 main」
-
-### D-02 [2026-04-21] INFRA 先行（PR #153），pattern demo 後發（PR #155）
-
-**決策**：把 `ActorContext` / `DataDiff` / `AuditRedact` / `log_activity_tx` / `CancellationToken` 這些基礎設施做成 **PR #153** 先合入；再用 **PR #155** 示範一個完整 Service-driven mutation（`ProtocolService::submit`），作為後續 10 個模組 PR 的複製模板。
-
-**理由**：先確定 API shape 能穩定承載所有後續 PR，避免每個模組 PR 都來回調整 INFRA。
-
-**確認機制**：PR #155 被明確標為 "pattern demo"，reviewer 重點放在「這個模板好不好複製」，不是「這個 mutation 的業務邏輯」。
-
-### D-03 [2026-04-21] 採用「hybrid actor guard」策略
-
-**決策**：Service 層的 mutation 方法根據操作性質選擇不同的 actor 守門：
-- **強制使用者操作**（submit / approve / reject / delete 敏感資料）：`actor.require_user()?`
-- **CRUD 類**（可接受 System 觸發，例如 batch 匯入、內部自動化）：`actor.actor_user_id().unwrap_or(SYSTEM_USER_ID)` 允許 User 或 System
-
-**理由**：PR #155 初版全用 `require_user`，但 PR #156 實作時發現 `AnimalWeightService::create` 在動物建立時會被 `AnimalService::create` 自動呼叫（系統行為），若強制 User 會破壞現有流程。
-
-**Codex review #7 建議**：「按操作性質選 guard」，而非統一。被採納。
-
-**⚠️ Superseded by D-09**：CodeRabbit 在 PR #156 指出 `unwrap_or(SYSTEM_USER_ID)` 會把 Anonymous actor 靜默降級成 System — 需明確 match，拒絕 Anonymous。預計在後續 PR 修正。
-
-### D-04 [2026-04-21] AuditRedact 用「doc warning」而非 compile-time macro
-
-**決策**：`AuditRedact` trait 的預設 impl 是空的 `redacted_fields() -> &[]`；trait 層 doc 明列「以下型別 MUST 覆寫：User / Session / JwtBlacklist / TwoFactorSecret / McpKey / Partner / OAuthCredential」。透過 **code review** 而非編譯器強制。
-
-**替代方案**（未採用）：
-- `#[must_use]`-style marker — 無法表達「X 型別必須覆寫 Y 方法」的語意
-- Proc macro `#[derive(AuditRedact)]` + 自動掃 `password_hash` 等 field name — 工時 > 1 週，得失不對等
-- `trait sealed` + 手動 impl — 雜訊高、無助安全
-
-**來源**：Codex review #2（🔴 Blocker），PR #156 第一個 commit 修復。
-
-**⚠️ Superseded by D-10**：PR #156 裡 CodeRabbit 對 `CareRecord`（醫療紀錄）和 `VetAdviceRecord`（自由文字）空 impl 給 🟠 Major feedback，認為連業務資料都該用 allowlist 或至少檢視。後續 PR 會補。PR #162 的 `User` impl 是第一個非空 `redacted_fields()` override，作為未來範例。
-
-### D-05 [2026-04-21] `upsert` 拆為 `create_or_update`（取得完整 before/after）
-
-**決策**：遇到 `INSERT ... ON CONFLICT DO UPDATE` 類 upsert，改寫為「先 SELECT FOR UPDATE → 判斷 existence → INSERT 或 UPDATE」兩分支流程。
-
-**Tradeoff**：多一次 SELECT round-trip，換取 `DataDiff::compute(before, after)` 的完整性。
-
-**首次落地**：PR #156 `AnimalVetAdviceService::upsert → create_or_update`。
-
-**⚠️ CodeRabbit PR #156 Major feedback**：SELECT FOR UPDATE 在 row 不存在時不鎖任何東西，併發兩個 request 可能同時走到 None 分支 → 都 INSERT → 其中一個撞 UNIQUE。**Gap**：需改鎖父層 animal row 或改用原子 upsert。預計在遷移 upsert 類時統一處理。
-
-### D-06 [2026-04-21] 舊 API `log_activity(&pool, ...)` 用 `#[deprecated]` 漸進遷移，不一次性刪除
-
-**決策**：PR #153 保留舊 API + 加 `#[deprecated]` 標籤；CI clippy 加 `-A deprecated` flag（避免 91 個 warnings 變成 errors）；各模組 PR 漸進把 handler 從舊 API 改到 `log_activity_tx`；最後的清理 PR（R26-4）才刪除舊 API + 從 CI 移除 `-A deprecated`。
-
-**理由**：一次性刪除需改 20+ handler（實際 97 處），單一 PR 不可 review、失敗代價太高。
-
-**進度量測**：`cargo build 2>&1 | grep "use of deprecated" | wc -l`（PR #153 後 91 → 預計 R26-4 merge 後 0）。
-
-### D-07 [2026-04-21] `ActivityLogEntry` 加 `Default` + 4 constructors（`update` / `create` / `delete` / `simple`）
-
-**決策**：第 5-field struct 有 3 個 `Option`，pattern demo 寫出來發現每個 call site 都要填 `request_context: None`。加 constructors 讓常見 case 一行寫完。
-
-**落地**：PR #156 第一個 commit（基礎建設升級）。
-
-**效益量測**：~45 個 call sites × 4 行冗詞 → 節省 ~180 行樣板。
-
-**來源**：Codex review #1（🟡 Warning）。
-
-### D-08 [2026-04-21] soft_delete 留在 simple PR 而非 moderate
-
-**決策**：soft_delete（`change_reasons INSERT` + 主表 `UPDATE`）涉及 2 表，技術上是 moderate，但視為 audit trail 伴生，放進同一 PR（#4a）處理。
-
-**理由**：`change_reasons` 本身就是 audit 的一部分，與主表 mutation 強耦合；拆開 PR 反而破壞語意。
-
-### D-09 [2026-04-22] 「CodeRabbit PR #156」:「Anonymous actor 不應靜默降級成 System」
-
-**決策**：將 D-03 的 `actor.actor_user_id().unwrap_or(SYSTEM_USER_ID)` 模式改為明確 match，拒絕 Anonymous：
-
-```rust
-let created_by = match actor {
-    ActorContext::User(u) => u.id,
-    ActorContext::System { .. } => SYSTEM_USER_ID,
-    ActorContext::Anonymous => {
-        return Err(AppError::Forbidden("此操作不接受 Anonymous".into()));
-    }
-};
-```
-
-**落地**：預計在後續 animal / hr / user 模組 PR 統一套用（目前 PR #156 保留舊模式，待統一處理）。
-
-### D-10 [2026-04-22] 「CodeRabbit PR #156」:「CareRecord / VetAdviceRecord 空 impl 不夠保守」
-
-**決策**：承認空 `AuditRedact` 對醫療紀錄 + 自由文字欄位風險過高。未來遇到含大量自由文字或 JSON 欄位的 entity，需評估三個選項：
-- (A) 完整 allowlist（`data_diff` 只含特定欄位）
-- (B) 明確 redact 自由文字欄位的內容 + 保留欄位名（這是現有 `AuditRedact` 的模式）
-- (C) 在 service 層改用 summary log（只記 event + entity name，不記完整 content）
-
-**首次應用 (B)**：PR #162 `User` entity — `password_hash` / `totp_secret_encrypted` / `totp_backup_codes` 走 redact。作為未來複製範例。
-
-### D-11 [2026-04-22] document approve 跨 service tx 串接保留，內部 audit 延後
-
-**決策**：`DocumentService::approve` 會呼叫 `StockService::process_document(&mut tx)` + `AccountingService::post_document(&mut tx)`。PR #5a（#159）只 audit Document 層的狀態變更，**不** 在同個 PR 做 Stock / Accounting 的內部 audit。
-
-**理由**：擴張 scope 會讓 PR #5a 從 ~60 人時膨脹至 ~100+ 人時；Stock/Accounting 內部 audit 是獨立業務域，留給 R26-3 延伸（預計 PR #6+）。
-
-**風險標記**：`approve` 現在是全原子 —— audit / stock / accounting / document 狀態**任一**失敗會 rollback 全部。這是 GLP 要求的正確行為，但需要團隊理解「以前 audit 失敗不擋主流程，現在會擋」。
-
-### D-12 [2026-04-22] Batch operation 的 audit 粒度選 N+1（per-row + summary）
-
-**決策**：批次操作（`recalculate_all_po_receipt_status`、`batch_auto_calculate_annual_leave` 等）的 audit 採「每個 affected row 各記一筆 + 最後一筆 batch summary」，而非 per-row only 或 summary only。
-
-**理由**：
-- Per-row only：批次若 1000 筆，audit 表膨脹、難以查詢「這次 batch 做了什麼」
-- Summary only：稽核員無法回查「某隻豬為什麼在這次 batch 被 recalc」
-- **N+1**：兩邊需求都能滿足，成本可控
-
-**首次應用**：PR #5a（#159）`DOCUMENT_PO_RECEIPT_RECALC` summary + 各 PO 獨立 audit；PR #5c（#161）`ANNUAL_LEAVE_BATCH_AUTO_CALC`。
-
-**⚠️ 衝突註記**：PR #163 Gemini Medium feedback 指出 PROGRESS 描述在「batch summary」和「summary + N+1」之間不一致 — 正確是 N+1，需在 PROGRESS 統一措辭。
-
-### D-13 [2026-04-22] PR #159 改用 struct literal（避免 PR #156 rebase 衝突）
-
-**決策**：PR #159 document 遷移時**不用** `ActivityLogEntry::update(...)` constructor，改用 struct literal `ActivityLogEntry { ... }`。
-
-**理由**：PR #156 第一個 commit 新增 constructors；PR #159 fork 自 `integration/r26` 時 #156 還沒 merge。若 #159 也用 constructor，兩 PR 會在 `audit.rs` 同區塊衝突。用 struct literal 無需 import constructor，rebase 友善。
-
-**Post-merge plan**：兩 PR 都 merge 後，可以把 struct literal 的 call sites 改用 constructor 清理一致性（非 blocker）。
-
-### D-14 [2026-04-22] 2026-04-22 四個並行 PR（#5a/#5b/#5c/#6a）共用 base + 彼此獨立
-
-**決策**：同一天開出 `document` / `hr/leave` / `hr/overtime` / `user` 四個 PR，全部從 `integration/r26` HEAD 分支，**彼此模組獨立不重疊**，可並行 review + merge。
-
-**理由**：到 2026-04-22 時 pattern 已經 proven（PR #155 + #156 pattern 穩定），四個模組的 CodeRabbit 審閱量小（平均 2-4 comments / PR），並行風險低。
-
-**PROGRESS 衝突處理政策**：PR #163（記錄這四個 PR）和 PR #157（記錄 PR #156）都會在 `PROGRESS.md` §9 頂端加 2026-04-22 條目。兩者不可並存於同一版本，whichever merges 第二就要 rebase — 解決方式：反向時間序排列（later-opened PR 的條目排在 earlier-opened PR 條目之下）。
+每個步驟對應 1 個或多個 PR。**標 ✅ 已完成、🟡 開出 review、⏳ 未啟動**。
 
 ---
 
-## §4 PR Catalog（實際產出）
+#### Step 1 ✅ INFRA 落地（PR #153 + #154）
 
-### 4.1 Overview Table
-
-| PR | 類型 | Head Branch | Commits | Mutations | 狀態 |
-|----|-----|-------------|---------|-----------|------|
-| [#153](https://github.com/delightening/ipig_system/pull/153) | INFRA | `claude/lucid-maxwell-a9f861` | 10 | 0 | ✅ Merged 2026-04-21 |
-| [#154](https://github.com/delightening/ipig_system/pull/154) | INFRA fix | `fix/pr1-review-feedback` | 8 | 0 | ✅ Merged 2026-04-21 |
-| [#155](https://github.com/delightening/ipig_system/pull/155) | Pattern Demo | `feat/protocol-service-driven` | 6 | 1 (Protocol::submit) | ✅ Merged 2026-04-21 |
-| [#156](https://github.com/delightening/ipig_system/pull/156) | Module #4a animals simple | `feat/animals-simple-mutations` | 8 | 17 | 🟡 Open（CI clean） |
-| [#157](https://github.com/delightening/ipig_system/pull/157) | Docs #4a aftermath | `docs/r26-pr4a-aftermath` | 1 | - | 🟡 Open |
-| [#158](https://github.com/delightening/ipig_system/pull/158) | R26-2 Chain verify cron | `feat/audit-chain-verify-cron` | 1 | 0 | 🟡 Open（含 2 🔴 Critical reviews 待處理） |
-| [#159](https://github.com/delightening/ipig_system/pull/159) | Module #5a document | `feat/document-service-driven-audit` | 5 | 10 | 🟡 Open |
-| [#160](https://github.com/delightening/ipig_system/pull/160) | Module #5b hr/leave | `feat/hr-leave-service-driven-audit` | 3 | 7 + 7 balance helpers | 🟡 Open |
-| [#161](https://github.com/delightening/ipig_system/pull/161) | Module #5c hr/overtime | `feat/hr-overtime-service-driven-audit` | 4 | 14 | 🟡 Open |
-| [#162](https://github.com/delightening/ipig_system/pull/162) | Module #6a user | `feat/user-service-driven-audit` | 3 | 4 | 🟡 Open（CI running） |
-| [#163](https://github.com/delightening/ipig_system/pull/163) | Docs four-PR record | `docs/r26-pr5-6a-aftermath` | 1 | - | 🟡 Open |
-
-### 4.2 Per-PR Scope Detail
-
-#### PR #153 — INFRA
-- `ActorContext` enum + `SYSTEM_USER_ID` + migration 033
-- `DataDiff` + `AuditRedact` trait（length-prefix canonical encoding、JSON Pointer、11 tests）
-- `log_activity_tx` tx 版本 API + `ActivityLogEntry` struct（取代 11 位置參數）
-- Advisory lock `pg_advisory_xact_lock(hashtext('audit_log_chain'))`
-- `(created_at, id)` tuple tiebreaker for prev_hash ordering
-- Migrations 034（impersonated_by_user_id column）、035（log_activity v2 stored proc）
-- `CancellationToken` 貫穿 `AppState` / `main.rs` / `JwtBlacklist::start_cleanup_task` / 14 cron jobs
-- 建 integration branch `integration/r26`
-- Handler 尚**未**遷移（下個 PR 才做）
-
-#### PR #154 — Review feedback（Gemini + CodeRabbit）
-- `unwrap_or(None)` 吞 DB error 改 `?` 傳播
-- HMAC payload 改 `HmacInput<'_>` struct + length-prefix canonical encoding（防碰撞）
-- Migration 036 `changed_fields` fallback: EXCEPT → UNION + `IS DISTINCT FROM` + `jsonb_typeof` 守衛
-- `main.rs` jwt_cleanup timeout log/alignment + named const
-- `.coderabbit.yaml` `zh-TW` → `zh`
-- CI `-A deprecated` + `integration/**` trigger
-- `.claude/hooks/block-dangerous.sh`（Python shlex 避開 commit message 誤攔）
-
-#### PR #155 — Pattern Demo
-- `ProtocolService::submit()` 完整 Service-driven 改寫
-  - `&ActorContext` 參數 + `actor.require_user()` 守門
-  - 單 tx：SELECT FOR UPDATE / INSERT protocol_versions / generate_apig_no + advisory lock / UPDATE protocols / record_status_change_tx / log_activity_tx
-- CRIT-01 IACUC race 完整修復：3 個 numbering generator 接 `&mut Transaction` + 共用 `pg_advisory_xact_lock(hashtext('protocol_iacuc_number_gen'))`
-- CRIT-04 `#![allow(dead_code)]` crate-level 移除；10 處 per-item `#[allow(dead_code)]` + 理由（delay 到 R26-7）
-- `impl AuditRedact for Protocol`
-- Handler `submit_protocol` 改傳 `ActorContext::User(...)`
-- `change_status` 延後到 R26-8（300+ 行、涉及 PartnerService）
-- 產出 `docs/plans/pr4a-animals-simple-mutations.md` + `pr5-hr-document-roadmap.md`
-
-#### PR #156 — Animals simple mutations（17）
-- 涵蓋：`source`（3）/ `weight`（3）/ `vet_advice`（3 + create_or_update 拆分）/ `care_record`（3）/ `vaccination`（3）/ `observation`+`surgery` create（2）
-- 16 個 animal entity AuditRedact 空 impl
-- `ActivityLogEntry::{update,create,delete,simple}` constructors
-- 內部 caller 適配：`AnimalService::create` 初始體重、`import_export.rs` 批次匯入改用 `ActorContext::System { reason: "..." }`
-- Handler 13 處 audit 呼叫移除
-
-#### PR #157 — Docs aftermath
-- PROGRESS §9：2026-04-22 PR #4a 條目
-- TODO R26-3 數字訂正：~20 → 97 call sites × 27 檔
-- 新增 `docs/plans/pr5a-document-mutations.md`（document 模組執行計畫，5-commit 切分）
-
-#### PR #158 — R26-2 HMAC chain daily verify cron
-- `AuditService::verify_chain_range(pool, from, to)` 公開驗證 API
-- `ChainVerificationReport` / `BrokenChainLink` 結構
-- `AuditService::compute_hmac_for_fields()` pub(crate) 純運算
-- 新檔 `services/audit_chain_verify.rs`（`verify_yesterday_chain` + 2 單元測試）
-- `scheduler.rs` 加 `register_audit_chain_verify_job` cron（`0 0 2 * * *` 每日 02:00 UTC）
-- 斷鏈時 INSERT `security_alerts` + `SecurityNotifier::dispatch`
-
-#### PR #159 — Document（10）
-- `crud`（3：create / update / delete，8-table cascade delete）
-- `workflow`（5：submit / approve / admin_approve / admin_reject / cancel）
-  - `approve` 保留跨 service tx（StockService + AccountingService 同 tx）
-- `grn`（2：create_additional_grn / recalculate_all_po_receipt_status）
-  - Recalculate 用 N+1 audit 粒度（per-PO + summary）
-- 移除 `audit_document` helper + 8 handler fire-and-forget 呼叫
-- Deprecated warnings 97 → ~87
-
-#### PR #160 — HR leave（7 mutations + 7 balance helpers）
-- 7 leave mutations 從 0-tx baseline 改為 Service-driven
-- 7 balance helpers（deduct / apply / restore × annual_leave + comp_time）改接 `&mut Transaction`
-- Event 細分：`LEAVE_APPROVE_INTERIM` vs `LEAVE_APPROVE_FINAL` / `LEAVE_CANCEL` vs `LEAVE_CANCEL_RETROACTIVE`
-- FOR UPDATE on entitlement + balance 防併發 over-deduction
-- Lock order 紀律：leave row → entitlement（PR #5c 確認沒反向）
-
-#### PR #161 — HR overtime + balance + attendance（14）
-- Overtime（6）：`approve_overtime` 現在單 tx 包含 SELECT FOR UPDATE / UPDATE RETURNING / INSERT overtime_approvals / 條件 INSERT comp_time_balances / audit
-- Balance（5 + 1 summary）：`batch_auto_calculate_annual_leave` 用 N+1（per-user `ANNUAL_LEAVE_CREATE` + final `ANNUAL_LEAVE_BATCH_AUTO_CALC`）；batch 跨 user **非**原子
-- Attendance（3）：clock_in / clock_out / correct 改用 SELECT FOR UPDATE + RETURNING（取代 ON CONFLICT UPSERT）
-- 關閉 HR epic（#5b + #5c = 21 mutations）
-
-#### PR #162 — User（4）
-- 4 mutations + 7 handler audit 呼叫 consolidation
-- **首個 non-empty `AuditRedact::redacted_fields()` override**：`User` 型別 redact `password_hash` / `totp_secret_encrypted` / `totp_backup_codes`
-- Event 細分：`USER_UPDATE`（ADMIN 類別，always）+ 條件 `USER_STATUS_CHANGE`（is_active 切換，SECURITY 類別）+ 條件 `USER_ROLE_CHANGE`（role_ids 變更，SECURITY 類別，搭配 `RoleAssignmentSnapshot` helper）
-- 2 個 handler `tokio::spawn(log_activity(SECURITY))` 改為同 tx 原子
-- Reset_password / impersonate 延後到 PR #6d（涉及 AuthService）
-- Deprecated 89 → 86
-
-#### PR #163 — Docs four-PR record
-- PROGRESS.md §9 新增 2026-04-22 四 PR 條目（35 service mutations、HR epic closure）
-- Deprecated 89 → 86
-- 預期和 PR #157 在 §9 頂端有 rebase conflict（解決政策：反向時間序）
+- **Input**：2026-04-21 審查報告 5 個 GLP finding；4/20 SECURITY_COMPLETED 已知 application-layer 飽和
+- **Action**：建 `integration/r26` branch；落地 `ActorContext` / `DataDiff` / `AuditRedact` / `log_activity_tx` / `CancellationToken`；migrations 033/034/035/036；PR #154 處理 PR #153 的 review feedback（HmacInput length-prefix / changed_fields fallback / shutdown log / CI integration trigger）
+- **Output**：基礎 API 可被後續 service 函式使用；91 個舊 `log_activity` 仍有效（`#[deprecated]`）
+- **預估時間**：實際 ~3 day（INFRA 1.5d + review fix 1d + docs 0.5d）
+- **驗證**：見 §11 Step 1
 
 ---
 
-## §5 Code Review Journey
+#### Step 2 ✅ SDD Pattern Demo（PR #155）
 
-### 5.1 Aggregate Review Statistics
-
-跨 11 個 PR 的 reviewer feedback（Gemini + CodeRabbit）：
-
-| Severity | Count |
-|----------|-------|
-| 🔴 Critical (CodeRabbit Critical, Gemini high+) | **2**（都在 PR #158） |
-| 🟠 Major (CodeRabbit Major, Gemini high / security-medium+medium) | **23** |
-| 🟡 Medium (CodeRabbit Minor, Gemini medium) | **43** |
-| 🔵 Nit (CodeRabbit nitpick) | **1** |
-| 其他（Note） | **1** |
-| **Total** | **70** |
-
-每 PR 平均 ~6.4 comments。PR #153（初版 INFRA）和 PR #158（獨立驗證邏輯）是 comment 最多的兩個（19 + 13）；pattern 成熟後的 PR（#159-#163）平均只有 2-4 comments。
-
-### 5.2 Review Response Matrix — 已處理
-
-| PR | Reviewer | Severity | 位置 | 問題 | Response / Status |
-|----|----------|----------|------|------|-------------------|
-| #153 | Gemini | 🟠 high | `audit.rs:359` | `unwrap_or(None)` 吞 DB error | ✅ PR #154 commit `90a2419` 改 `?` |
-| #153 | CodeRabbit | 🟠 Major | `audit.rs:383` | HMAC 字串串接碰撞 | ✅ PR #154 commit `90a2419` 改 `HmacInput` struct + length-prefix |
-| #153 | Gemini | 🟠 security-medium | `audit.rs:389` | HMAC 構造洩漏風險 | ✅ PR #154 同上 |
-| #153 | Gemini | 🟡 medium | migration 035 | stored proc changed_fields 漏偵測刪除 key | ✅ PR #154 migration 036 UNION 修正 |
-| #154 | Gemini | 🟡 medium | migration 036 | `jsonb_object_keys` 對非-object 會 runtime error | ✅ PR #154 commit `761175c` 加 `jsonb_typeof` 守衛 |
-| #155 | Gemini | 🟡 medium | `status.rs:197` | submit 可能產生兩筆 audit | ✅ 確認：record_status_change_tx 和 log_activity_tx 是**不同層級** 的 audit（protocol_activities vs user_activity_logs），各自獨立合理 |
-| #155 | Gemini | 🟡 medium | `numbering.rs:207` | `generate_iacuc_no` prefix 邏輯不一致 | ⏳ 延至 R26-8（change_status 重構時統一）|
-| #156 | Codex (pre-review) | 🔴 Blocker | AuditRedact 空 impl 安全性 | Pattern demo 前預警 | ✅ PR #156 第一個 commit 加強化 doc warning（trait 層說明必須覆寫的型別清單） |
-| #156 | Codex | 🟡 Warning | ActivityLogEntry ergonomics | 45 call sites 冗詞 | ✅ PR #156 第一個 commit 加 4 constructors |
-
-### 5.3 Review Response Matrix — 延至後續 PR 處理
-
-| PR | Reviewer | Severity | 位置 | 問題 | 追蹤項目 |
-|----|----------|----------|------|------|----------|
-| #154 | Gemini | 🟠 security-medium | `audit.rs:414` | HMAC 版本化缺失 — length-prefix 格式後舊 row 驗證會失敗 | **R26-6**（本 doc §6.1） |
-| #154 | CodeRabbit | 🟠 Major | `audit.rs:82` | HMAC 用 pre-insert 欄位算，和持久化後可能分歧 | **R26-6**（合併議題） |
-| #155 | Gemini | 🟡 medium | `numbering.rs:114` | 兩次獨立 query 取 APIG + PIG 可優化 | **R26-8**（change_status 重構一併） |
-| #156 | CodeRabbit | 🟠 Major | `care_record.rs:64` | CareRecord 空 impl 對醫療內容太寬鬆 | **新追蹤 R26-9**（entity redact allowlist review）|
-| #156 | CodeRabbit | 🟠 Major | `medical.rs:49` | Anonymous actor 靜默降級 System | **D-09 applied next PR**（animals / hr 統一）|
-| #156 | CodeRabbit | 🟠 Major | `vet_advice.rs:33` | AnimalVetAdvice / VetAdviceRecord 自由文字空 impl | **R26-9** 同上 |
-| #156 | CodeRabbit | 🟠 Major | `vet_advice.rs:124` | FOR UPDATE 對不存在 row 不鎖 → 併發兩個 INSERT 撞 UNIQUE | **新追蹤 R26-10**（upsert pattern 安全化）|
-| #156 | CodeRabbit | 🟠 Refactor | `vet_advice.rs:124` | Service 層直接寫 SQL（違反 repositories/ 分層） | 延至 P2-4（審查報告 WARN-01）long-running |
-| #156 | CodeRabbit | 🟠 Major | `vet_advice.rs:330` | `delete` service 層未檢查專案/動物範圍授權 | **新追蹤 R26-11**（Service-layer 授權補強）|
-| #157 | Gemini | 🟡 medium | pr5a plan | plan 提到 `data_diff.after` meta 欄位，目前 DataDiff 未 expose | ⏳ 計畫修正，PR #159 用 struct literal 不觸發 |
-| #157 | Gemini | 🟡 medium | pr5a plan | 同 tx 內 created_at 會碰撞（NOW()） | ⏳ 計畫需改措辭，實作不受影響 |
-| #158 | CodeRabbit | 🔴 Critical | `audit.rs:517` | `ChainRow.actor_user_id: Uuid` 遇 NULL panic | **必須 PR #158 自身修**（merge 前 blocker）|
-| #158 | CodeRabbit | 🔴 Critical | `audit.rs:581` | verifier prev_hash 推進規則和寫入端不一致 | **必須 PR #158 自身修**（merge 前 blocker）|
-| #158 | Gemini | 🟠 high | `audit.rs:555` | NULL integrity_hash 略過時機 | 同上 |
-| #158 | CodeRabbit | 🟠 Major | 多處 | refactor 50+ 行 fn / Uuid::nil() / repository 層 / legacy HMAC 誤報 | **PR #158 需追加 commit 處理** |
-| #159 | Gemini | 🟡 medium | `crud.rs:197` | DOCUMENT_CREATE audit 只 capture Document header，漏 lines | **新追蹤 R26-12**（document lines audit completeness）|
-| #160 | Gemini | 🟠 high | `leave.rs:224` | `update_leave` 缺 total_hours/days 倍數驗證 | 審閱中，預計 PR #160 追加 commit |
-| #162 | Gemini | 🟡 medium | `user.rs:54/240` | `require_user()?` 阻擋系統自動化（背景停用過期帳號） | **D-03 hybrid actor** 應在 user 模組也套用（`create` / `deactivate_self` 需檢視是否該放寬）|
-| #163 | Gemini | 🟡 medium | PROGRESS.md:196 | batch summary vs N+1 措辭不一致 | 文字修正，PR #163 追加 commit |
-
-### 5.4 Reviewer 使用經驗總結
-
-| Reviewer | 特色 | 適用場景 |
-|----------|------|----------|
-| **Gemini (Google AI Code Review)** | 快、覆蓋面廣、傾向 high-level design（lock order、validation、audit 粒度） | 所有 PR 都跑；尤其能抓「描述 vs code 不符」 |
-| **CodeRabbit** | 嚴、愛標 Major、會寫 code suggestion、常指 GLP / 安全 | 非預設 base 需手動觸發；對核心 audit/safety 邏輯最有價值 |
-| **Codex (codex-rescue)** | 獨立第二意見，pre-implementation 評估 pattern | 只在 PR #155 pattern demo 和 PR #156 實作前用；shared runtime 有時回空（workaround：改用 general-purpose agent） |
-| **General-purpose agent（Claude）** | 可靠 fallback、深入 10 個 checkpoint | Codex 不可用時替代 |
+- **Input**：Step 1 的 INFRA API；Codex pre-review 給 CONDITIONAL GO
+- **Action**：把 `ProtocolService::submit` 完整改寫為 SDD（SELECT FOR UPDATE → INSERT versions → generate_apig_no(&mut tx) → UPDATE → record_status_change_tx → log_activity_tx → commit）；解 CRIT-01 IACUC race（3 numbering generators + advisory lock）；解 CRIT-04 crate-level allow_dead_code 移除；產出 `pr4a-animals-simple-mutations.md` + `pr5-hr-document-roadmap.md` 計畫文件
+- **Output**：1 個 mutation 完整 SDD；template 可被複製
+- **預估時間**：實際 ~1 day
+- **驗證**：見 §11 Step 2
 
 ---
 
-## §6 Carried Debt & Known Gaps
+#### Step 3 🟡 模組漸進遷移（PR #156-#163，並行 8 個 PR）
 
-這是需要「記得回來處理」的清單。每個 item 對應一個 TODO.md 項目或新追蹤項。
-
-### 6.1 R26-6 — HMAC chain 版本化 + 儲存後雜湊（**最重要**）
-
-**Issue**：PR #154 將 HMAC 編碼從字串串接改為 length-prefix canonical encoding。既有 rows 用舊格式，驗證時需區分；目前 PR #158 的驗證 cron 會對舊格式 row 產生 false positive。
-
-**兩個合併議題**：
-1. **版本化**：加 `user_activity_logs.hmac_version SMALLINT`（`1`=string-concat legacy / `2`=length-prefix canonical），寫入時標記版本，驗證依版本分流
-2. **儲存後雜湊**：目前 `HmacInput` 在 INSERT 前建構；若呼叫者沒提供 changed_fields，stored proc 的 UNION fallback 會產生不同於 HmacInput 的 changed_fields → HMAC 漏算最終存入值。修法：`log_activity` 返回 id + final_changed_fields，HMAC 用持久化後的值計算
-
-**Source**：PR #154 Gemini SECURITY-MEDIUM + CodeRabbit Major；PR #158 CodeRabbit 再度點名「legacy HMAC writer 產生 false positives」。
-
-**Blocks**：R26-4（舊 `log_activity` 最終移除）、PR #158 斷鏈告警的準確度。
-
-**Estimate**：~1 人日（migration + stored proc + verify_chain_range 調整 + 測試）。
-
-### 6.2 R26-4 — 舊 `log_activity(&pool, ...)` 最終移除
-
-**Blocked by**：97 個 call sites 全部遷完（53 個已落地或 open；~44 個剩餘）+ R26-6。
-
-**Estimate**：~0.5 人日（delete 舊 API + 移除 CI `-A deprecated` + 加 grep guard）。
-
-### 6.3 R26-9（新追蹤）— Entity redact allowlist review
-
-**Trigger**：CodeRabbit PR #156 對 `CareRecord` / `AnimalVetAdvice` / `VetAdviceRecord` 的 🟠 Major feedback。
-
-**Scope**：掃過所有 R26 已實作的 entity（`Animal` / `AnimalObservation` / `AnimalSurgery` / `AnimalWeight` / `AnimalSacrifice` / `AnimalSuddenDeath` / `AnimalTransfer` / `AnimalPathologyReport` / `AnimalBloodTest` / `AnimalBloodTestItem` / `VetRecommendation` / `CareRecord` / `VetAdviceRecord` / `AnimalVetAdvice` / `Document` / `DocumentLine` / `PoReceiptStatus` / `LeaveRequest` / `OvertimeRecord` / `AttendanceRecord` / etc.），決策：空 impl / 完整 allowlist / summary log。
-
-**Estimate**：~1 人日。
-
-### 6.4 R26-10（新追蹤）— Upsert pattern 併發安全化
-
-**Issue**：D-05 的 `SELECT FOR UPDATE → match → INSERT/UPDATE` 模式在 row 不存在時不鎖父層，兩個併發 request 都可走到 None 分支 → 都 INSERT → UNIQUE 衝突。
-
-**Fix options**：
-- 鎖父層 animal row（需 animal_id available）
-- 改 `INSERT ... ON CONFLICT DO UPDATE RETURNING *, xmax = 0 AS was_inserted`（原子 upsert + 得知是 insert 還是 update）
-
-**Scope**：PR #156 `AnimalVetAdviceService::create_or_update` 目前採此模式；其他類似 service 若有 upsert 也該統一。
-
-**Estimate**：~0.5 人日（pattern 一次定型、多處套用）。
-
-### 6.5 R26-11（新追蹤）— Service-layer 授權補強
-
-**Issue**：CodeRabbit PR #156 `vet_advice.rs:330` 指出 `delete` 服務只確認登入使用者、未確認該使用者可刪該動物/專案的 record。目前依靠 handler 層 `access::require_animal_access`，但 service 層可能被其他 service 呼叫而繞過。
-
-**Scope**：所有 R26 遷移的 service mutation，特別是 `delete` / `soft_delete_with_reason` / `change_status` 類。
-
-**Estimate**：~1 人日（設計決策：在 service 層接 `&Access` object vs handler 負責 → 影響 pattern 本身）。
-
-### 6.6 R26-12（新追蹤）— Document lines audit completeness
-
-**Issue**：Gemini PR #159 `crud.rs:197` 指出 `DOCUMENT_CREATE` / `DOCUMENT_UPDATE` 的 audit 只 capture Document header，漏掉 `document_lines` 子表變動。
-
-**Fix**：擴充 `Document` struct（或 `DocumentWithLines` wrapper）讓 `DataDiff::compute` 能含 lines；或在 service 層額外記 `DOCUMENT_LINE_CHANGE` event。
-
-**Estimate**：~0.5 人日。
-
-### 6.7 R26-1 — 長 Scheduler job 升級 `tokio::select!`
-
-**Status**：原審查 WARN-04 延伸。目前 14 cron 只接 `is_cancelled()` 開頭檢查；對 monthly_report（20-120s）/ db_analyze（30-300s）/ calendar_sync（5-60s）3 個長 job 升級。
-
-**Estimate**：~1 人日（含 shutdown grace period + 長 job 安全中斷點設計）。
-
-### 6.8 R26-7 — Dead code 11 處 cleanup
-
-**Source**：PR #155 A3 移除 crate-level allow 後暴露 11 處 per-item allow；每處需個別判斷（真死 / API DTO 待 openapi / serde 被動欄位）。
-
-**Estimate**：~0.5 人日。
-
-### 6.9 R26-8 — ProtocolService::change_status 完整 Service-driven
-
-**Why deferred**：change_status 涉及 `PartnerService::create` 跨 service（需 `PartnerService::create_tx`）、4 個內部 helper fn、10+ DB 操作；PR #155 只做 submit 作為 pattern demo，change_status 需 1-2 人日。
-
-**Unblocks**：IACUC numbering race 的剩餘 20%、Gemini PR #155 對 `numbering.rs:207` 的 prefix 邏輯統一。
-
-### 6.10 審查報告其他未處理項（優先級低）
-
-- **WARN-01**：Service 層直接寫 SQL（909 處 / 80 檔），ongoing policy（新 code 寫 repositories/，舊 code 不強求）
-- **WARN-02**（延伸）：calamine / rust_xlsxwriter / google_calendar credentials 未包 spawn_blocking，Pending 到出現效能問題再處理
-- **WARN-03**：clippy.toml 閾值寬鬆於 CLAUDE.md 規範，Pending
-- **WARN-05**：cache stampede（alert_threshold / security_notifier / ip_blocklist），Pending
-- **WARN-07**：equipment.rs 75KB / scheduler.rs 40KB 拆分，Pending
-- **WARN-08**：權限字串硬編碼，Pending
+- **Input**：Step 2 的 SDD template
+- **Action**：
+  - PR #156 animals simple（17 mutations + 16 AuditRedact stubs + ActivityLogEntry constructors）
+  - PR #157 docs aftermath + R26-3 數字訂正（~20 → 97）+ pr5a 計畫
+  - PR #158 R26-2 HMAC chain daily verify cron
+  - PR #159 document（10 mutations，含 cross-service approve）
+  - PR #160 hr/leave（7 mutations + 7 balance helpers tx 化）
+  - PR #161 hr/overtime + balance + attendance（14 mutations）
+  - PR #162 user（4 mutations + 7 audit sites + 首個非空 `redacted_fields()`）
+  - PR #163 docs 4-PR 紀錄
+- **Output**：53 / 97 mutations migrated；deprecated warnings 91 → ~50；HR epic closure
+- **預估時間**：實際 ~2 day（含 4/22 同日 4 PR 並行）；剩 review + merge ~1-2 day
+- **驗證**：見 §11 Step 3
 
 ---
 
-## §7 Current State（截至 2026-04-22）
+#### Step 4 ⏳ animals moderate/complex 完成（PR #4b → #4e）
 
-### 7.1 Numbers
-
-| 指標 | 值 |
-|------|----|
-| 已 merge PR | 3（#153 / #154 / #155） |
-| Open PR | 8（#156 / #157 / #158 / #159 / #160 / #161 / #162 / #163） |
-| 總 commits on `integration/r26` | ~27（合入後 + open PR 約 44+） |
-| Mutations 遷移完成或 open | **53 / 97**（54.6%） |
-| Deprecated warnings 進度 | 91（PR #153）→ 預計合入所有 open PR 後 ~50 |
-| R26 TODO 項目 | 7 個未完成 + 1 個已完成（R26-5） |
-| Review comments 總計 | 70（2🔴 / 23🟠 / 43🟡 / 1🔵 / 1 note） |
-| CI 狀況 | 9 PR all green；#162/#163 CI 進行中 |
-
-### 7.2 Mutation 遷移進度
-
-| 模組 | 總 call sites | 已落地 | 對應 PR | 剩餘 |
-|------|--------------|--------|---------|------|
-| protocol | - | submit 1 | #155 | change_status（R26-8）|
-| animals | 49 | 17 (simple) | #156 | 32 (moderate/complex：observation/surgery update + record_versions / blood_test / transfer state machine / import_export / field_correction / vet_patrol / sudden_death) → PR #4b~4e |
-| document | 10 | 10 | #159 | 0 |
-| hr/leave | 7 | 7 | #160 | 0 |
-| hr/overtime+balance+attendance | 14 | 14 | #161 | 0 |
-| user | 4 (of ~8) | 4 | #162 | ~4 (reset_password / impersonate → #6d 需 AuthService) |
-| 其他 handlers | 48 (user 已數) | 7 (user via #162) | - | ~44 (product 7 / sku 5 / partner 4 / warehouse 4 / equipment 4 / role 3 / ai 3 / auth 3 / hr 3 / two_factor 2 / data_export 2 / audit 1) → PR #6b / #6c / #6d |
-| **Total** | **97** | **53** | - | **~44** |
-
-### 7.3 CI / Review 就緒度（merge 前檢查）
-
-| PR | CI | CodeRabbit | Gemini | 待處理 blocker | 可 merge？ |
-|----|----|-----------|--------|----------------|-----------|
-| #156 | ✅ Clean | 6 🟠 Major | 6 ![medium] | D-09 / D-10 跨 PR 處理；R26-9/-10/-11 追蹤；PR 自身不 block | ⚠️ 可 merge 但標記延後事項 |
-| #157 | ✅ Clean | - | 3 ![medium] | 純 docs，medium 為措辭；不 block | ✅ |
-| #158 | ✅ Clean | **2 🔴 Critical + 6 🟠** | 1 ![high] + 3 ![medium] | 🔴 verifier/writer 分歧 **必須本 PR 修** | ❌ 需追加 commit |
-| #159 | ✅ Clean | - | 4 ![medium] | R26-12 追蹤；本 PR 不 block | ✅ |
-| #160 | ✅ Clean | - | 1 ![high] + 1 ![medium] | ![high] validation 缺失，建議本 PR 追加修正 | ⚠️ 建議修後 merge |
-| #161 | ✅ Clean | - | 2 ![medium] | 一致性建議，不 block | ✅ |
-| #162 | ⏳ CI running | - | 4 ![medium] | D-03/D-09 統一策略建議，不 block | ⏳ 等 CI |
-| #163 | ⏳ CI running | - | 2 ![medium] | 措辭不一致，本 PR 追加修正 | ⏳ 等 CI |
+- **Input**：Step 3 的 PR #156 已 merge
+- **Action**：
+  - PR #4b：observation/surgery update（含 `record_versions` 巢狀表）
+  - PR #4c：transfer state machine（initiate / vet_evaluate / approve / complete / reject）
+  - PR #4d：import_export 批次（per-row + summary audit）
+  - PR #4e：field_correction + vet_patrol + medical sudden_death + blood_test
+- **Output**：animals 49 sites 全完成；deprecated warnings ~50 → ~20
+- **預估時間**：~7 day（4 個 PR × 1-3 day each）
+- **驗證**：見 §11 Step 4
 
 ---
 
-## §8 Forward Path（合流順序與里程碑）
+#### Step 5 ⏳ R26-6 HMAC 版本化 + 儲存後雜湊
 
-### 8.1 建議 merge order（2026-04-22 快照）
-
-1. **Block PR #158 直到 2 🔴 Critical 修完**
-2. Merge 獨立模組 PR（無互相依賴）：**#156 → #159 → #160 → #161 → #162**
-3. Merge 文件 PR（等 1 所有 code PR merged 後解 §9 conflict）：**#157 → #163**（#163 rebase 到 #157 之下）
-4. Merge 修完的 PR #158
-5. 啟動 **PR #4b**（animals moderate：observation/surgery update with record_versions）
-6. 啟動 **PR #4c**（animals transfer state machine）
-7. 啟動 **PR #4d**（animals import_export 批次）
-8. 啟動 **PR #4e**（animals complex 殘留：field_correction / vet_patrol / sudden_death）
-9. 啟動 **R26-6**（HMAC 版本化 + 儲存後雜湊）— PR #158 merged 後愈早做愈好
-10. 啟動 **PR #6b**（product + sku 12 sites）
-11. 啟動 **PR #6c**（partner + warehouse + equipment 12 sites）
-12. 啟動 **PR #6d**（role + ai + auth + two_factor 11 sites，含 reset_password / impersonate）
-13. 啟動 **R26-9 / R26-10 / R26-11 / R26-12**（entity allowlist / upsert 安全 / service 授權 / document lines）
-14. 啟動 **R26-8**（change_status 完整 Service-driven）
-15. 啟動 **R26-1**（scheduler 長 job select!）
-16. 啟動 **R26-7**（dead code 11 處）
-17. 啟動 **R26-4**（舊 `log_activity` 移除 + CI guard）
-18. **R26 epic 完成** → 發起 **PR `integration/r26` → main** 單一 merge PR
-
-### 8.2 里程碑
-
-| 里程碑 | 條件 | 預計工時 |
-|--------|------|---------|
-| **M1：INFRA + Pattern 定型**（已達成 2026-04-21） | PR #153/154/155 merged | ✅ Done |
-| **M2：核心模組遷移完成**（單 PR 批次） | PR #156+#159+#160+#161+#162 merged（+ 2 docs PR） | 剩餘 1-2 天 review+merge |
-| **M3：R26-3 全面完成** | Deprecated warnings = 0，R26-6 可進行 | +~2 週（PR #4b-e + #6b-d） |
-| **M4：HMAC 安全底線強化** | R26-6 merged；驗證 cron 無 false positives | +~3 天 |
-| **M5：Service-driven 語意統一** | R26-9/-10/-11/-12 處理；change_status 重構（R26-8）；scheduler 長 job（R26-1）；dead code 清理（R26-7） | +~1 週 |
-| **M6：epic 結束** | 審查報告 P0 全綠、P1 80%+；`integration/r26 → main` | Target 2026-05-15 |
-
-### 8.3 「我需要先決策什麼」checkpoint
-
-在啟動下一個階段前需要使用者決策：
-
-1. **PR #158 的 2 🔴 怎麼修**：要等我追加 commit 還是先 block merge 等 R26-6 一起？（建議：本 PR 修 Critical + Major；R26-6 另案）
-2. **PR #160 Gemini 🟠 high 的 validation**：要在 PR #160 追加還是另 PR？（建議：本 PR 追加，因為是 HR leave 合規性）
-3. **D-09 / D-10 統一化時機**：在下個 PR 一起做（delay all merges）還是先讓 PR 進 integration/r26 再另案統一？（建議：後者）
-4. **R26-9 ~ R26-12 四個新追蹤項的執行順序**：依審查報告優先級排（R26-10 > R26-11 > R26-9 > R26-12）還是依發現時序？
+- **Input**：PR #158 merged（HMAC verify cron 已上線，但對 legacy row 會 false positive）
+- **Action**：
+  - 新增 migration 037：`user_activity_logs.hmac_version SMALLINT` column（`1`=string-concat legacy / `2`=length-prefix canonical）
+  - `log_activity` 寫 v=1，`log_activity_tx` 寫 v=2
+  - `verify_chain_range` 依 version 分流計算 expected hash
+  - `log_activity_tx` 改為「stored proc 內 INSERT + 計算 final changed_fields → 後計算 HMAC → UPDATE row」（CodeRabbit PR #154 Major 議題）
+- **Output**：HMAC verify cron 對所有 row 都能正確驗證；INSERT-then-UPDATE HMAC pattern 收斂為一次 round-trip
+- **預估時間**：~1.5 day
+- **驗證**：見 §11 Step 5
 
 ---
 
-## §9 Document Maintenance
+#### Step 6 ⏳ 其他模組遷移（PR #6b → #6d）
 
-### 9.1 何時更新這份文件
-
-- **新 PR 開出**：§4 PR Catalog 新增一列 + §7 Numbers 更新
-- **PR merged**：§4 狀態欄改 ✅；§7 mutation 進度更新；§5.2 Review Response Matrix 把延後項改「✅ merged in PR #xxx」
-- **新決策**：§3 Decision Log 底部追加（D-NN 編號，絕不重用；絕不刪除舊條目）
-- **Review 指出新 issue**：§5.3 追加一列 + §6 若需追蹤則加 R26-N 新項
-- **發現新 blocker 或 scope 變動**：§2.3 / §8.2 里程碑更新
-
-### 9.2 格式約定
-
-- 決策編號：`D-01 ~ D-NN`（epic-wide，連續遞增）
-- TODO 編號：對應 TODO.md 的 R26-N（與 TODO.md 同步）
-- PR 連結：全部使用完整 GitHub URL `https://github.com/delightening/ipig_system/pull/NNN`
-- 日期：全部 GMT+8（台北時區），格式 `YYYY-MM-DD`
-- 時間估計：人時（person-hour），粗略到 0.5 day 粒度
-
-### 9.3 這份文件不該做什麼
-
-- **不放程式碼**：code review suggestions 請留在 PR comments，本文件只引用結論
-- **不記錄過程性細節**（例如「cargo test 跑了 3 分鐘」）：放 PROGRESS.md §9 即可
-- **不重複 PROGRESS.md / TODO.md 的內容**：§4 / §6 分別是 PR Catalog 和 TODO 的延伸**解讀**，不是複製
-- **不預測未來的 review**：§5 只記已發生的 review；預測性的風險分析放 §6
+- **Input**：Step 4 完成
+- **Action**：
+  - PR #6b：product + sku（12 sites）
+  - PR #6c：partner + warehouse + equipment（12 sites）
+  - PR #6d：role + ai + auth + two_factor（11 sites，含 reset_password / impersonate 涉及 AuthService）
+- **Output**：non-animal 48 sites 全完成；deprecated warnings ~20 → 0
+- **預估時間**：~5 day
+- **驗證**：見 §11 Step 6
 
 ---
 
-**版本**：v1.0（2026-04-22 初版）
+#### Step 7 ⏳ 邊角清理（R26-9/-10/-11/-12）
+
+- **Input**：Step 6 完成
+- **Action**：
+  - R26-9：CareRecord / VetAdviceRecord 等敏感 entity 走 redact allowlist 或 summary log
+  - R26-10：upsert pattern 併發安全化（鎖父層 / 用 `INSERT ON CONFLICT` 原子 upsert + `xmax = 0 AS was_inserted` 判斷）
+  - R26-11：service-layer 授權補強（delete / status_change 類）
+  - R26-12：document_lines audit completeness（DOCUMENT_CREATE/UPDATE 含子表）
+- **Output**：CodeRabbit PR #156 + Gemini PR #159 的 Major review 全 close
+- **預估時間**：~3 day
+- **驗證**：見 §11 Step 7
+
+---
+
+#### Step 8 ⏳ 結構性清理（R26-1, R26-7, R26-8）
+
+- **Input**：Step 7 完成
+- **Action**：
+  - R26-8：`ProtocolService::change_status` 完整 SDD（300+ 行、跨 PartnerService、需 `PartnerService::create_tx`）
+  - R26-1：scheduler 長 job（monthly_report / db_analyze / calendar_sync）升級 `tokio::select!` + shutdown grace period
+  - R26-7：11 處 per-item `#[allow(dead_code)]` 逐項判斷（API DTO / 預留 utility / serde 被動欄位）
+- **Output**：審查報告 P0/P1 全綠；無 dead code 標籤
+- **預估時間**：~3 day
+- **驗證**：見 §11 Step 8
+
+---
+
+#### Step 9 ⏳ 舊 API 最終移除（R26-4）
+
+- **Input**：所有 mutation 都已遷移（Step 6 完成）
+- **Action**：
+  - 刪除 `AuditService::log_activity(&pool, ...)` 舊版 + 對應 `compute_and_store_hmac` 舊版
+  - 移除 `.github/workflows/ci.yml` 的 `-A deprecated` flag
+  - 加 CI grep guard：`grep -rn "tokio::spawn" backend/src/handlers/ | grep "AuditService::log"` 必須 0 match
+- **Output**：deprecated warning 0；CI 防迴歸
+- **預估時間**：~0.5 day
+- **驗證**：見 §11 Step 9
+
+---
+
+#### Step 10 ⏳ Epic 收尾：integration/r26 → main
+
+- **Input**：Step 9 完成；DoD §4 全綠
+- **Action**：
+  - 開單一 PR `integration/r26 → main`
+  - PR description 引本 FullPlan + 列出所有合入的 sub PR + 量化指標
+  - rebase / merge 衝突解決
+  - main 上 CI 全綠
+- **Output**：R26 epic 結束；audit log 完整 GLP §11.10 合規可展示
+- **預估時間**：~0.5-1 day（看 main 累積的非-R26 變動量）
+- **驗證**：見 §11 Step 10
+
+### 11. 每步驟驗證標準（Acceptance Criteria）
+
+#### Step 1 驗證 ✅
+- [x] 1.1 `cargo check` / `cargo clippy --all-targets -- -D warnings -A deprecated`：0 errors
+- [x] 1.2 `cargo test --lib`：423/423 pass（PR #153/#154 各自）
+- [x] 1.3 `ActorContext` enum 含 User / System / Anonymous 三變體 + 7 methods + 8 tests
+- [x] 1.4 `DataDiff::compute` 對 redact 欄位實際把值替換為 `"[REDACTED]"`、欄位名保留（11 tests）
+- [x] 1.5 `log_activity_tx` 開頭呼叫 `pg_advisory_xact_lock(hashtext('audit_log_chain'))`
+- [x] 1.6 prev_hash 查詢用 `(created_at, id) < ($1, $2)` tuple 比較 + 雙欄 DESC（避免同微秒併發碰撞）
+- [x] 1.7 migrations 033/034/035/036 全部可正向 + 反向（spot check）
+- [x] 1.8 `CancellationToken` 在 `AppState` 內可被 14 個 cron job 觀察 `is_cancelled()`
+
+#### Step 2 驗證 ✅
+- [x] 2.1 `ProtocolService::submit` 改用 `(pool, &ActorContext, id)` 簽名
+- [x] 2.2 submit 函式內所有 DB 操作綁同一 `tx`（`begin → ... → commit`）
+- [x] 2.3 IACUC `generate_apig_no(&mut tx)` 內呼叫 `pg_advisory_xact_lock(hashtext('protocol_iacuc_number_gen'))`
+- [x] 2.4 `submit` 寫入 `user_activity_logs` 含完整 before / after JSON（手動執行測試確認）
+- [x] 2.5 `services/mod.rs` 不再有 crate-level `#![allow(dead_code)]`
+- [x] 2.6 11 處 per-item `#[allow(dead_code)]` 各自帶理由註解
+
+#### Step 3 驗證 🟡（per-PR）
+- 每個 PR 各自必須：
+  - [ ] 3.x.1 `cargo test --lib` 423/423 pass
+  - [ ] 3.x.2 `cargo clippy --all-targets -- -D warnings -A deprecated` 0 issues
+  - [ ] 3.x.3 該模組所有 mutation 簽名改 `(pool, &ActorContext, ...)`
+  - [ ] 3.x.4 該模組對應 handler 移除 `tokio::spawn(... AuditService::log_*)`
+  - [ ] 3.x.5 deprecated warning 數量單調遞減
+- 整體 Step 3：
+  - [ ] 3.0 53 / 97 mutations migrated（量測：grep `log_activity_tx` 於 services/）
+
+#### Step 4 驗證 ⏳
+- [ ] 4.1 animals 49 sites 全綠
+- [ ] 4.2 transfer state machine 任一中途失敗會 rollback animal status
+- [ ] 4.3 import_export 批次 audit 採 N+1 粒度（per-row + summary）
+- [ ] 4.4 deprecated warnings ≤ 50
+
+#### Step 5 驗證 ⏳
+- [ ] 5.1 `user_activity_logs.hmac_version` column 存在
+- [ ] 5.2 舊 row（v=1）+ 新 row（v=2）皆可被 `verify_chain_range` 正確驗證（人工注入測試）
+- [ ] 5.3 `log_activity_tx` 改為單 round-trip INSERT-with-hash（不再 INSERT-then-UPDATE）
+- [ ] 5.4 PR #158 verify cron 對 legacy row 0 false positive
+
+#### Step 6 驗證 ⏳
+- [ ] 6.1 deprecated warnings ≤ 5（reset_password / impersonate 等特殊 case 視情況）
+- [ ] 6.2 product / sku / partner / warehouse / equipment / role / ai / auth / two_factor mutation 全 SDD
+
+#### Step 7 驗證 ⏳
+- [ ] 7.1 CareRecord / VetAdviceRecord 等敏感 entity 的 audit row 經人工抽查無自由文字洩漏
+- [ ] 7.2 upsert pattern 併發測試（10 並發）無 UNIQUE 衝突
+- [ ] 7.3 delete / status_change 類 service mutation 內含 access check 或明確標 `// 由 handler 層保證`
+- [ ] 7.4 DOCUMENT_CREATE / DOCUMENT_UPDATE 的 audit 含 document_lines 變動
+
+#### Step 8 驗證 ⏳
+- [ ] 8.1 `ProtocolService::change_status` 完整單 tx；併發 10 個 change_status 全成功
+- [ ] 8.2 scheduler 長 job 收到 cancellation 後 ≤ 30s 退出
+- [ ] 8.3 `services/mod.rs` 0 個 `#[allow(dead_code)]`
+
+#### Step 9 驗證 ⏳
+- [ ] 9.1 `cargo build 2>&1 | grep "use of deprecated" | wc -l == 0`
+- [ ] 9.2 CI grep guard 已加（人工注入錯誤 PR 驗證 fail）
+- [ ] 9.3 `.github/workflows/ci.yml` 不再含 `-A deprecated`
+
+#### Step 10 驗證 ⏳
+- [ ] 10.1 `git log main --oneline | head` 含 R26 epic merge commit
+- [ ] 10.2 main CI all green（含 E2E）
+- [ ] 10.3 DoD §4 1 ~ 8 全部 ✅
+- [ ] 10.4 `docs/security/GLP_VALIDATION.md` 加 R26 後 OQ 補測 row（TC-XX：audit log 完整性）
+
+### 12. 回滾策略
+
+| 步驟 | 失敗徵兆 | 回滾動作 |
+|------|----------|----------|
+| Step 1 | INFRA API design 錯（後續 PR 才發現） | 修 INFRA → 推 follow-up PR（如 PR #154 對 PR #153）；不需 revert，因為舊 `log_activity` 仍可用 |
+| Step 2 | submit 改寫 break Protocol 流程 | revert PR #155 個別 commit；不影響 INFRA |
+| Step 3 | 某模組 PR break tests | revert 該模組 PR；其他並行 PR 不受影響（因模組獨立） |
+| Step 4 | animals moderate PR break record_versions | revert 該 PR；animals simple（PR #156）已 merged 不受影響 |
+| Step 5 | HMAC version migration 不可正向 | migration 037 down 並回滾；HMAC verify cron 暫停執行（手動 disable） |
+| Step 6 | 其他模組 PR 互相依賴失敗 | revert 該 PR；獨立模組 PR 不受影響 |
+| Step 7 | upsert pattern 修法錯 | revert R26-10 PR；舊 SELECT FOR UPDATE 模式仍能用（雖有 race） |
+| Step 8 | change_status 單 tx 化 break PartnerService 互動 | revert R26-8 PR；舊 mini-tx wrapper 仍提供 80% 解 |
+| Step 9 | 移除舊 `log_activity` 後 cargo build fail | revert R26-4 PR；恢復 `#[deprecated]` 標籤 + `-A deprecated` |
+| Step 10 | `integration/r26 → main` 衝突或 CI fail | rebase + 解衝突 → 重推；極端情況可保留 integration/r26 直到下次 main 合適時機 |
+
+**整體 nuclear option**：放棄 `integration/r26` 整個分支，main 不受影響；損失 R26 工時但系統繼續用舊 audit 模式運作（GLP 合規未升級但未 regression）。
+
+---
+
+## 五、風險與後續
+
+### 13. 已知風險與緩解
+
+來自 reviewer feedback（70 則 review comments：2🔴 / 23🟠 / 43🟡 / 1🔵 / 1 note）+ 設計層面風險：
+
+| 風險 | 可能性 | 影響 | 緩解措施 |
+|------|--------|------|----------|
+| **PR #158 verifier vs writer NULL hash 分歧** 🔴 | 高 | 高（cron 報錯告警 → 失去信任） | PR #158 自身追加 commit 修正 `ChainRow.actor_user_id: Uuid` panic + verifier prev_hash 推進規則對齊 |
+| **R26-6 不做 / 拖太久** | 中 | 高（PR #158 cron 對 legacy row false positive，告警噪音）| Step 5 排在 Step 4 之後立即執行；不允許進 Step 6 前還未做 |
+| **CodeRabbit Major：Anonymous 靜默降級為 System**（CRIT-D-09）| 已發生 | 中（audit log 失真）| D-09 採納；後續 PR 統一改明確 `match` reject Anonymous |
+| **CodeRabbit Major：CareRecord / VetAdvice 空 redact**（CRIT-D-10）| 已發生 | 中（醫療紀錄外洩）| R26-9 處理；目前已知有風險的 entity 列入 Step 7 |
+| **upsert pattern race**（CRIT-D-05）| 中 | 中（罕見併發 → UNIQUE 衝突）| R26-10 處理；目前已知 `AnimalVetAdviceService::create_or_update` 受影響 |
+| **跨 service tx 串接（document approve）失敗回滾範圍變大** | 低 | 中（以前 audit 失敗不擋業務，現在會擋） | 已於 PR #159 description 明文揭示；運維文件補對應 runbook |
+| **integration/r26 與 main 偏離過大難合併** | 中 | 高（epic 收尾痛苦） | 每 1-2 週手動 `git merge main → integration/r26` 一次；保持兩邊新 commits 數差距 ≤ 100 |
+| **AI reviewer 不可用** | 中 | 低（人工 review 仍可繼續） | Codex shared runtime 不穩 → fallback 用 general-purpose agent；CodeRabbit non-default base 需手動觸發 |
+| **R26 命名碰撞（與資安強化 epic）** | 已發生 | 低（文件混亂） | FullPlan §1 + §2.1 警告；文件明寫 R26-N 在不同 epic 不可換算 |
+| **scope 又被低估** | 低 | 中（再多一輪 4.85× ?）| 已從 ~20 訂為 97，含 buffer；新發現的 R26-9 ~ R26-12 已記入；後續若再發現新 site，先補 §10 步驟再做 |
+| **單人 review capacity 不足** | 中 | 中（PR backlog） | 同日最多開 4 個並行 PR（D-14）；docs PR 與 code PR 分流 |
+| **HMAC key 輪替時 chain 斷** | 低 | 高 | R26-6 加 hmac_version 後可分流計算；key 輪替前先建 R26 runbook |
+
+### 14. 後續追蹤事項（Out-of-scope but Remember）
+
+R26 範圍**之外**的延伸工作（不要在本 epic 內做，但記下來避免遺忘）：
+
+- **WARN-01 服務層 SQL 散落**（909 處）：ongoing policy 新 code 寫 repositories/，舊 code 不強求；R26 後可做專項 epic
+- **WARN-02 spawn_blocking 全面化**（calamine / xlsx / google_calendar credentials）：等出現效能問題再做
+- **WARN-03 clippy.toml 對齊 CLAUDE.md**：獨立 PR
+- **WARN-05 cache stampede 修法**：alert_threshold / security_notifier / ip_blocklist 改 singleflight；獨立 PR
+- **WARN-07 大檔拆分**：equipment.rs 75KB / scheduler.rs 40KB；獨立 epic
+- **WARN-08 權限字串 const 化**：`const PERM_ANIMAL_VIEW_ALL: &str = "..."`；獨立 PR
+- **SUGG-01 DB pool tuning runbook**：`docs/runbook/database-tuning.md`
+- **SUGG-02 backend workspace 拆分**：等編譯時間 > 2h 才考慮
+- **SUGG-04 SQL format! 註解**：startup/database.rs `SET statement_timeout` 改用 const + 註解
+- **SUGG-05 test fixture parallel 保護**：integration tests 加 `#[serial]` 或 testcontainers
+- **StockService / AccountingService 內部 audit**：本 R26 只做 DocumentService 層；StockLedger / JournalEntry 自身的 audit 留 R26 後處理
+- **電子簽章與 R26 audit 整合**：簽章已是 §11.50/.100 合規（P1-7）；R26 完成後可考慮把簽章事件也走 `log_activity_tx` 統一
+- **GLP_VALIDATION.md 更新**：R26 完成後在 OQ 表加 row（TC-XX：audit log 完整性 / TC-XX：HMAC chain 自動驗證）
+
+### 15. 結語
+
+R26 epic 完成後，世界長這樣：
+
+- **GLP 客戶 due-diligence 通過**：21 CFR Part 11 §11.10 4 項硬要求皆可從程式碼 + audit log + cron 紀錄展示
+- **任意資料變更可被稽核員從 audit log 完整還原**（before / after JSON + changed_fields + integrity_hash chain）
+- **任意 audit 寫入失敗會 rollback 業務變更**（不再有「資料已變但 audit 沒寫」的 case）
+- **HMAC chain 每天自動驗證**，斷鏈 24h 內告警
+- **未來新增 mutation 自動沿用 SDD pattern**：CI grep guard 阻擋 fire-and-forget audit 寫法重新出現
+- **單一 FullPlan.md 維持事實來源**：新人 / 半年後的我可以從本文件還原所有決策脈絡
+
+如果回頭看 R26，最重要的學到：**SDD 的本質是「設計責任歸屬權」的搬移** — 不是寫法問題，是 audit 屬於 service 還是 handler 的歸屬問題。寫法跟著歸屬走，就自然單 tx + 完整 snapshot。
+
+---
+
+## 六、附錄：執行追蹤資料
+
+### 16. 維護規則
+
+- 新 PR 開出 → §10 步驟拆解新增 Step；§13 風險視需要新增；§14 後續若有新發現則加
+- PR merged → 對應 Step 標 ✅；§11 驗證標準勾選對應項目
+- 新決策 → §7 表格底部追加 D-NN（編號連續遞增、絕不重用、絕不刪除舊條目）
+- Reviewer 新意見 → §13 風險表加列；若需獨立追蹤項則加 §14
+- 進度數字（mutations migrated / deprecated warnings count）每週手動同步一次
+- 本文件路徑固定 `docs/plans/R26_FullPlan.md`，不要分裂為多檔
+
+### 17. PR Catalog（11 個 PR 概覽）
+
+| PR | 對應 Step | 類型 | Mutations | 狀態 |
+|----|-----------|------|-----------|------|
+| [#153](https://github.com/delightening/ipig_system/pull/153) | Step 1 | INFRA | 0 | ✅ Merged |
+| [#154](https://github.com/delightening/ipig_system/pull/154) | Step 1 | INFRA fix | 0 | ✅ Merged |
+| [#155](https://github.com/delightening/ipig_system/pull/155) | Step 2 | Pattern Demo | 1 | ✅ Merged |
+| [#156](https://github.com/delightening/ipig_system/pull/156) | Step 3 | animals simple | 17 | 🟡 Open |
+| [#157](https://github.com/delightening/ipig_system/pull/157) | Step 3 | docs aftermath | - | 🟡 Open |
+| [#158](https://github.com/delightening/ipig_system/pull/158) | Step 3 | HMAC verify cron | 0 | 🟡 Open（含 2 🔴 Critical 待修） |
+| [#159](https://github.com/delightening/ipig_system/pull/159) | Step 3 | document | 10 | 🟡 Open |
+| [#160](https://github.com/delightening/ipig_system/pull/160) | Step 3 | hr/leave | 7 + 7 helpers | 🟡 Open |
+| [#161](https://github.com/delightening/ipig_system/pull/161) | Step 3 | hr/overtime+balance+attendance | 14 | 🟡 Open |
+| [#162](https://github.com/delightening/ipig_system/pull/162) | Step 3 | user | 4 | 🟡 Open |
+| [#163](https://github.com/delightening/ipig_system/pull/163) | Step 3 | docs 4-PR record | - | 🟡 Open |
+| #165（本 PR）| 維護 | docs FullPlan | - | 🟡 Open |
+
+### 18. Review feedback 響應矩陣
+
+詳細的 review response（2🔴 / 23🟠 / 43🟡 / 1🔵）對應原 FullPlan.md v1.0 §5.2 / §5.3 表格內容；本版簡化僅以下 5 個 critical 風險入 §13。完整矩陣由 PR description + GitHub PR comments 互相對照即可重建，不重複維護於本文件。
+
+---
+
+## Pre-Execute Checklist
+
+開始執行**下一個 Step**前逐項確認：
+
+- [ ] 只看 §4 預期成果，能判斷整個 epic 成功與否？
+  - ✅ DoD-1 ~ DoD-8 全部可機械式檢驗
+- [ ] 執行到任一步驟失敗，能從前一步乾淨接回去？
+  - ✅ §12 回滾策略對 Step 1-10 各有對策；nuclear option = 放棄 integration/r26
+- [ ] §11 所有驗證項目加總，能覆蓋 §4 的所有成功標準？
+  - ✅ Step 9 驗證 9.1/9.2 = DoD-1+DoD-4+DoD-5；Step 5 驗證 5.x = DoD-3 補強；其他類推
+- [ ] §5 In scope / Out of scope 明確到不會爭議？
+  - ✅ Out of scope 明列 8 個 WARN/SUGG + cross-service audit 延伸
+- [ ] §6 Assumptions 若有一條不成立，知道要停下來重新評估？
+  - ✅ A1（GLP 客戶存在）若不成立 → epic 動機消失，整個停做
+
+---
+
+## Post-Execute Review
+
+epic 結束後（Step 10 完成）回填，作為下次 SDD 的經驗參考：
+
+- **實際耗時 vs 預估**：（待填）原估 ~465h / 實際 ___h
+- **哪些步驟比預期順利**：（待填）
+- **哪些步驟比預期卡**：（待填）
+- **Spec 有哪些漏洞是執行時才發現的**：（已知部分）
+  - R26-3 scope 從 ~20 訂為 97（4.85×）— 初版 spec 沒有實測 grep
+  - PR #156 R26-9/-10/-11 三個新追蹤項在 review 時才發現（CodeRabbit 抓到）
+  - PR #158 verifier 與 writer NULL hash 分歧 — INFRA 階段沒驗證 verifier 路徑
+- **下次類似任務的改進**：（待填）
+  - 啟動前先做 grep-based scope inventory（不要相信原估）
+  - 對於有「獨立 reimplementation」的設計（如 verifier 之於 writer），spec 要明列「兩端必須對等」的 invariant 並寫對等測試
+  - 預期 4 個並行 PR 同日 review 的 capacity 上限（單人 ~4-6 PR/day）
+
+---
+
+**版本**：v2.0（2026-04-22 — SDD Template v1.0 重寫；前版 v1.0 為自由格式）
 **維護者**：單人（Jason Wang）+ AI 協作（Claude Code + Gemini + CodeRabbit + Codex）
