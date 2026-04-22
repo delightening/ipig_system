@@ -5,9 +5,14 @@ use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::{
+    middleware::ActorContext,
     models::{
-        DocStatus, DocType, Document, DocumentLine, DocumentWithLines,
-        PoReceiptStatus, PoReceiptItem,
+        audit_diff::DataDiff, DocStatus, DocType, Document, DocumentLine, DocumentWithLines,
+        PoReceiptItem, PoReceiptStatus,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
     },
     AppError, Result,
 };
@@ -132,12 +137,14 @@ impl DocumentService {
         Ok(grn_id)
     }
 
-    /// 從採購單建立額外入庫單（部分入庫用）
+    /// 從採購單建立額外入庫單（部分入庫用）— Service-driven audit
     pub async fn create_additional_grn(
         pool: &PgPool,
+        actor: &ActorContext,
         po_id: Uuid,
-        created_by: Uuid,
     ) -> Result<DocumentWithLines> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
         // 檢查採購單狀態
         let po = sqlx::query_as::<_, Document>(
             "SELECT * FROM documents WHERE id = $1 AND doc_type = 'PO'"
@@ -201,16 +208,17 @@ impl DocumentService {
         // 產生入庫單編號 (統一格式：YYMMDD-{02})
         let doc_no = Self::generate_doc_no(&mut tx, DocType::GRN).await?;
 
-        // 建立入庫單
+        // 建立入庫單（RETURNING * 取完整 Document 供 audit）
         let grn_id = Uuid::new_v4();
-        sqlx::query(
+        let grn_doc = sqlx::query_as::<_, Document>(
             r#"
             INSERT INTO documents (
                 id, doc_type, doc_no, status, warehouse_id, partner_id, doc_date,
                 source_doc_id, remark, created_by, created_at, updated_at
             )
             VALUES ($1, 'GRN', $2, 'draft', $3, $4, $5, $6, $7, $8, NOW(), NOW())
-            "#
+            RETURNING *
+            "#,
         )
         .bind(grn_id)
         .bind(&doc_no)
@@ -220,7 +228,7 @@ impl DocumentService {
         .bind(po.id)
         .bind(format!("追加入庫 - 採購單 {}", po.doc_no))
         .bind(created_by)
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await?;
 
         // 建立入庫單明細（只含剩餘數量）
@@ -247,6 +255,19 @@ impl DocumentService {
             .execute(&mut *tx)
             .await?;
         }
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOCUMENT_GRN_ADDITIONAL_CREATE",
+                entity: Some(AuditEntity::new("document", grn_doc.id, &grn_doc.doc_no)),
+                data_diff: Some(DataDiff::create_only(&grn_doc)),
+                request_context: None,
+            },
+        )
+        .await?;
 
         tx.commit().await?;
 
@@ -365,25 +386,52 @@ impl DocumentService {
         })
     }
 
-    /// 重新計算所有已核准 PO 的入庫狀態
-    pub async fn recalculate_all_po_receipt_status(pool: &PgPool) -> Result<i64> {
+    /// 重新計算所有已核准 PO 的入庫狀態 — Service-driven audit（batch summary）
+    pub async fn recalculate_all_po_receipt_status(
+        pool: &PgPool,
+        actor: &ActorContext,
+    ) -> Result<i64> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
         // 取得所有已核准的 PO
         let pos: Vec<(Uuid,)> = sqlx::query_as(
-            "SELECT id FROM documents WHERE doc_type = 'PO' AND status = 'approved'"
+            "SELECT id FROM documents WHERE doc_type = 'PO' AND status = 'approved' FOR UPDATE",
         )
-        .fetch_all(pool)
+        .fetch_all(&mut *tx)
         .await?;
 
-        let mut tx = pool.begin().await?;
         let mut count = 0i64;
         for (po_id,) in &pos {
-            Self::update_po_receipt_status(&mut tx, *po_id).await
+            Self::update_po_receipt_status(&mut tx, *po_id)
+                .await
                 .map_err(|e| {
                     tracing::error!("Failed recalculating PO {po_id}: {e}");
                     e
                 })?;
             count += 1;
         }
+
+        // 批次 reconciliation job，整體只寫一筆 summary audit（per-PO
+        // 明細可由 PO 自身的 audit trail 查）
+        let summary_id = Uuid::new_v4();
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOCUMENT_PO_RECEIPT_RECALC",
+                entity: Some(AuditEntity::new(
+                    "po_receipt_recalc_job",
+                    summary_id,
+                    "recalculate_all_po_receipt_status",
+                )),
+                data_diff: None,
+                request_context: None,
+            },
+        )
+        .await?;
+
         tx.commit().await?;
 
         tracing::info!("Recalculated receipt_status for {} POs", count);

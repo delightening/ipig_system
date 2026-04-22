@@ -550,46 +550,6 @@ impl AuditService {
         Ok(id)
     }
 
-    /// 單據審計專用函式（減少重複程式碼）
-    pub async fn audit_document(
-        pool: &PgPool,
-        user_id: Uuid,
-        event_type: &str, // DOC_CREATE, DOC_SUBMIT, etc.
-        doc_id: Uuid,
-        doc_no: &str,
-        doc_type: Option<&str>,
-        extra_data: Option<serde_json::Value>,
-    ) -> Result<()> {
-        let mut after_data = serde_json::json!({
-            "doc_no": doc_no,
-        });
-
-        if let Some(dt) = doc_type {
-            after_data["doc_type"] = serde_json::Value::String(dt.to_string());
-        }
-
-        if let Some(extra) = extra_data {
-            after_data["extra"] = extra;
-        }
-
-        Self::log_activity(
-            pool,
-            user_id,
-            "ERP",
-            event_type,
-            Some("document"),
-            Some(doc_id),
-            Some(doc_no),
-            None,
-            Some(after_data),
-            None,
-            None,
-        )
-        .await?;
-
-        Ok(())
-    }
-
     /// SEC-34: 計算 HMAC-SHA256 並更新日誌記錄
     #[allow(clippy::too_many_arguments)]
     async fn compute_and_store_hmac(

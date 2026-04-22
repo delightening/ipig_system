@@ -457,6 +457,7 @@ pub async fn recalculate_receipt_status(
         return Err(AppError::Forbidden("僅系統管理員可執行批次重算".into()));
     }
 
-    let count = DocumentService::recalculate_all_po_receipt_status(&state.db).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let count = DocumentService::recalculate_all_po_receipt_status(&state.db, &actor).await?;
     Ok(Json(serde_json::json!({ "updated": count })))
 }
