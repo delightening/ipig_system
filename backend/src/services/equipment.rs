@@ -713,12 +713,17 @@ impl EquipmentService {
         }
         payload.validate()?;
 
-        // 驗證設備存在（tx 外讀取，讀完再進 tx 寫入）
-        let equipment = repositories::equipment::find_equipment_by_id(pool, payload.equipment_id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
-
         let mut tx = pool.begin().await?;
+
+        // 驗證設備存在（tx 內 SELECT ... FOR UPDATE，避免 TOCTOU：
+        // 原先 tx 外讀 status 再進 tx 寫入，期間可能被其他請求修改 → Gemini #166 MEDIUM）
+        let equipment = sqlx::query_as::<_, Equipment>(
+            "SELECT * FROM equipment WHERE id = $1 FOR UPDATE",
+        )
+        .bind(payload.equipment_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
 
         // 維修類型自動變更設備狀態為「待修」
         if payload.maintenance_type == MaintenanceType::Repair
@@ -1006,10 +1011,10 @@ impl EquipmentService {
             MaintenanceStatus::Pending
         };
 
-        // 驗收通過 → 設備自動恢復啟用（auto_restore_equipment 是 pool-based，
-        // 後續 R26-8 可一併 tx 化；短期接受此 tx 邊界）
+        // 驗收通過 → 設備自動恢復啟用（tx 內執行，與下方 maintenance record
+        // UPDATE + audit 同原子；Gemini #166 HIGH 修正）
         if payload.approved {
-            auto_restore_equipment(pool, existing.equipment_id, current_user.id).await?;
+            auto_restore_equipment(&mut tx, existing.equipment_id, current_user.id).await?;
         }
 
         let record = sqlx::query_as::<_, EquipmentMaintenanceRecord>(
@@ -2019,25 +2024,44 @@ impl EquipmentService {
     }
 }
 
-async fn auto_restore_equipment(pool: &PgPool, equipment_id: Uuid, user_id: Uuid) -> Result<()> {
-    let equipment = repositories::equipment::find_equipment_by_id(pool, equipment_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
+/// 設備自動恢復啟用（維修驗收通過時呼叫）。
+///
+/// 接受 `&mut Transaction`，讓 caller（`review_maintenance_record`）能將本函式
+/// 的 status_log INSERT + equipment UPDATE **與同 tx 的 maintenance record 狀態
+/// 更新 + audit** 一起原子落地。
+///
+/// Gemini PR #166 HIGH 指出：原 `pool`-based 版本在後續 maintenance record UPDATE
+/// 失敗時，equipment status 已獨立 commit，產生資料不一致（設備已「恢復」但
+/// 維修紀錄卻沒通過驗收）。本修復將函式簽名改為接 tx，由 caller 保證同 tx。
+async fn auto_restore_equipment(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    equipment_id: Uuid,
+    user_id: Uuid,
+) -> Result<()> {
+    // tx 內 SELECT FOR UPDATE：避免與其他 equipment status 變更併發衝突
+    let equipment = sqlx::query_as::<_, Equipment>(
+        "SELECT * FROM equipment WHERE id = $1 FOR UPDATE",
+    )
+    .bind(equipment_id)
+    .fetch_optional(&mut **tx)
+    .await?
+    .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
     validate_status_transition(&equipment.status, &EquipmentStatus::Active)?;
 
     sqlx::query(
-        "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, (SELECT status FROM equipment WHERE id = $1), 'active', $2, '維修驗收通過，自動恢復狀態')",
+        "INSERT INTO equipment_status_logs (equipment_id, old_status, new_status, changed_by, reason) VALUES ($1, $2, 'active', $3, '維修驗收通過，自動恢復狀態')",
     )
     .bind(equipment_id)
+    .bind(&equipment.status)
     .bind(user_id)
-    .execute(pool)
+    .execute(&mut **tx)
     .await?;
 
     sqlx::query(
         "UPDATE equipment SET status = 'active', is_active = true, updated_at = NOW() WHERE id = $1",
     )
     .bind(equipment_id)
-    .execute(pool)
+    .execute(&mut **tx)
     .await?;
 
     Ok(())
