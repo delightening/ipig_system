@@ -44,13 +44,23 @@ struct UserPermRow {
 pub struct UserService;
 
 impl UserService {
-    /// 建立用戶（私域註冊 - 只有管理員可以建立）— Service-driven audit
+    /// 建立用戶（私域註冊 - 管理員 / 系統自動化初始化）— Service-driven audit
+    ///
+    /// Actor 政策：User（管理員操作）與 System（seed / 自動化 provisioning）均允許；
+    /// Anonymous 拒絕。
     pub async fn create(
         pool: &PgPool,
         actor: &ActorContext,
         req: &CreateUserRequest,
     ) -> Result<User> {
-        let _admin = actor.require_user()?;
+        match actor {
+            ActorContext::User(_) | ActorContext::System { .. } => {}
+            ActorContext::Anonymous => {
+                return Err(AppError::Forbidden(
+                    "建立使用者須由已登入管理員或系統觸發".into(),
+                ));
+            }
+        }
         let mut tx = pool.begin().await?;
 
         // 檢查 email 是否已存在
@@ -235,8 +245,17 @@ impl UserService {
         id: Uuid,
         req: &UpdateUserRequest,
     ) -> Result<UserResponse> {
-        let actor_user = actor.require_user()?;
-        let actor_user_id = actor_user.id;
+        // Actor 政策：User 或 System 均可；Anonymous 拒絕。
+        // actor_user_id = Some(uid) 表示是真實 User（需角色檢查）；None 表示 System（受信任，略過）。
+        let actor_user_id: Option<Uuid> = match actor {
+            ActorContext::User(user) => Some(user.id),
+            ActorContext::System { .. } => None,
+            ActorContext::Anonymous => {
+                return Err(AppError::Forbidden(
+                    "更新使用者須由已登入管理員或系統觸發".into(),
+                ));
+            }
+        };
         let mut tx = pool.begin().await?;
 
         // SELECT FOR UPDATE 取 before（同時檢查使用者存在）
@@ -245,17 +264,6 @@ impl UserService {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
-
-        // 取得 before 角色清單（用於 role change diff）
-        let before_roles: Vec<String> = sqlx::query_scalar(
-            r#"SELECT r.code FROM user_roles ur
-               INNER JOIN roles r ON ur.role_id = r.id
-               WHERE ur.user_id = $1
-               ORDER BY r.code"#,
-        )
-        .bind(id)
-        .fetch_all(&mut *tx)
-        .await?;
 
         // 如果要更新 email，檢查是否已被使用
         if let Some(ref new_email) = req.email {
@@ -345,6 +353,17 @@ impl UserService {
 
         // 如果要更新角色
         if let Some(ref role_ids) = req.role_ids {
+            // before 角色清單只在實際要變更角色時才查（避免一般欄位更新的冗餘 DB round-trip）
+            let before_roles: Vec<String> = sqlx::query_scalar(
+                r#"SELECT r.code FROM user_roles ur
+                   INNER JOIN roles r ON ur.role_id = r.id
+                   WHERE ur.user_id = $1
+                   ORDER BY r.code"#,
+            )
+            .bind(id)
+            .fetch_all(&mut *tx)
+            .await?;
+
             // SEC-PRIV: 驗證指派的角色 ID 確實存在且為有效角色，防止靜默失敗
             if !role_ids.is_empty() {
                 let valid_count: i64 = sqlx::query_scalar(
@@ -370,24 +389,28 @@ impl UserService {
                 .await?;
 
                 if has_system_admin {
-                    // 檢查操作者是否為 SYSTEM_ADMIN（而非 legacy admin）
-                    let actor_is_system_admin: bool = sqlx::query_scalar(
-                        r#"SELECT EXISTS(
-                            SELECT 1 FROM user_roles ur
-                            INNER JOIN roles r ON ur.role_id = r.id
-                            WHERE ur.user_id = $1 AND r.code = $2
-                        )"#,
-                    )
-                    .bind(actor_user_id)
-                    .bind(crate::constants::ROLE_SYSTEM_ADMIN)
-                    .fetch_one(&mut *tx)
-                    .await?;
+                    // System actor 受信任（seed / 自動化 provisioning）直接放行；
+                    // User actor 必須擁有 SYSTEM_ADMIN 角色才能指派 SYSTEM_ADMIN 給他人。
+                    if let Some(uid) = actor_user_id {
+                        let actor_is_system_admin: bool = sqlx::query_scalar(
+                            r#"SELECT EXISTS(
+                                SELECT 1 FROM user_roles ur
+                                INNER JOIN roles r ON ur.role_id = r.id
+                                WHERE ur.user_id = $1 AND r.code = $2
+                            )"#,
+                        )
+                        .bind(uid)
+                        .bind(crate::constants::ROLE_SYSTEM_ADMIN)
+                        .fetch_one(&mut *tx)
+                        .await?;
 
-                    if !actor_is_system_admin {
-                        return Err(AppError::Forbidden(
-                            "僅 SYSTEM_ADMIN 可指派 SYSTEM_ADMIN 角色".to_string(),
-                        ));
+                        if !actor_is_system_admin {
+                            return Err(AppError::Forbidden(
+                                "僅 SYSTEM_ADMIN 可指派 SYSTEM_ADMIN 角色".to_string(),
+                            ));
+                        }
                     }
+                    // None = System actor：略過角色檢查
                 }
             }
 
@@ -494,8 +517,17 @@ impl UserService {
     /// 刪除用戶（改為 soft delete + 停用，避免 CASCADE 級聯刪除 16+ 關聯表）
     /// H3: 原為硬刪除，會導致 HR、認證、計畫書等所有關聯資料被靜默刪除
     /// Service-driven audit
+    ///
+    /// Actor 政策：User（管理員）與 System（過期帳號自動清理）均允許；Anonymous 拒絕。
     pub async fn delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
-        let _admin = actor.require_user()?;
+        match actor {
+            ActorContext::User(_) | ActorContext::System { .. } => {}
+            ActorContext::Anonymous => {
+                return Err(AppError::Forbidden(
+                    "刪除使用者須由已登入管理員或系統觸發".into(),
+                ));
+            }
+        }
         let mut tx = pool.begin().await?;
 
         // SELECT FOR UPDATE 取 before（含原 email，soft-delete 後 email 會被匿名化）
