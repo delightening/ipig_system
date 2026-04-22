@@ -223,6 +223,23 @@ impl HrService {
         payload: &UpdateLeaveRequest,
     ) -> Result<LeaveRequest> {
         let _user = actor.require_user()?;
+
+        // 同 create_leave：時數須為 0.5 的倍數。優先檢查 total_hours；
+        // 若僅提供 total_days，換算為時數再檢查（避免 0.3 天 = 2.4 小時 的偷渡）
+        if let Some(hours) = payload.total_hours {
+            if !Self::is_half_hour_multiple(hours) {
+                return Err(AppError::BadRequest(
+                    "請假時數須為 0.5 小時的倍數（如 0.5、1、1.5、2...）".into(),
+                ));
+            }
+        } else if let Some(days) = payload.total_days {
+            if !Self::is_half_hour_multiple(days * 8.0) {
+                return Err(AppError::BadRequest(
+                    "請假天數換算為時數後須為 0.5 小時的倍數".into(),
+                ));
+            }
+        }
+
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, LeaveRequest>(
