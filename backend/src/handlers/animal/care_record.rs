@@ -8,14 +8,13 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::DeleteRequest,
     require_permission,
     services::{
         access, CareRecord, CareRecordService, CareVetRecordType, CreateCareRecordRequest,
         UpdateCareRecordRequest,
     },
-    services::AuditService,
     AppState, Result,
 };
 
@@ -107,25 +106,10 @@ pub async fn delete_care_record(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
-    CareRecordService::soft_delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "CARE_RECORD_DELETE",
-        Some("care_medication_record"),
-        None,
-        Some(&format!("照護紀錄 #{} (原因: {})", id, req.reason)),
-        None,
-        Some(serde_json::json!({ "reason": req.reason })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (CARE_RECORD_DELETE): {}", e);
-    }
+    // Audit 已收進 service 層（CARE_RECORD_DELETE with change_reasons，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    CareRecordService::soft_delete_with_reason(&state.db, &actor, id, &req.reason).await?;
 
     Ok(Json(serde_json::json!({ "message": "Care record deleted" })))
 }
