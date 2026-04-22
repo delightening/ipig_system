@@ -9,7 +9,7 @@ use validator::Validate;
 
 use crate::error::ErrorResponse;
 use crate::{
-    middleware::{extract_real_ip_with_trust, CurrentUser},
+    middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
     models::{LoginRequest, LoginResponse, TwoFactorRequiredResponse, UpdateUserRequest, UserResponse},
     services::{AuthService, LoginTracker, SessionManager, UserService},
     AppError, AppState, Result,
@@ -247,6 +247,7 @@ pub async fn update_me(
     req.is_internal = None;
     req.role_ids = None;
     req.expires_at = None;
-    let user = UserService::update(&state.db, current_user.id, current_user.id, &req).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let user = UserService::update(&state.db, &actor, current_user.id, &req).await?;
     Ok(Json(user))
 }
