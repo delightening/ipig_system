@@ -7,8 +7,9 @@
 //!
 //! 每日 02:00 UTC（由 `SchedulerService::register_audit_chain_verify_job` 排程）：
 //! 1. 檢查 `config.audit_chain_verify_active`；若 false 則 log + 早退
-//!    （預設 false，等 R26-6 HMAC 版本化 + legacy backfill 完成後才設 true，
-//!    避免對 deprecated `log_activity` 寫入的 legacy row 產生大量 false positive）
+//!    （預設 false — R26-6 已完成 HMAC 版本化，verifier 可分流處理 legacy /
+//!    canonical 兩種編碼，但生產環境啟用前仍需 Ops 確認 migration 037 已上線
+//!    並於測試環境驗證 cron 無 false positive 後，設環境變數 `AUDIT_CHAIN_VERIFY_ACTIVE=true`）
 //! 2. 計算昨日時間範圍（UTC `[00:00, 24:00)`）
 //! 3. 呼叫 [`AuditService::verify_chain_range`] 比對每筆 row 的 HMAC
 //! 4. 若有 broken_links：
@@ -27,8 +28,10 @@
 //!
 //! ## 維護記事
 //!
-//! - 待 R26-6 完成後將 `audit_chain_verify_active` 預設改為 `true`，並移除本檔關於
-//!   「legacy 路徑可能導致 false positive」的條件式
+//! - R26-6（HMAC 版本化）已完成：migration 037 + `hmac_version` column + verifier
+//!   依版本分流。legacy backfill（UPDATE 舊 row 設 hmac_version=1）非必要，
+//!   因 verifier 對 NULL 預設為 legacy 編碼
+//! - Ops 在測試環境驗證 cron 無 false positive 後可設 `AUDIT_CHAIN_VERIFY_ACTIVE=true`
 //! - 待 R26-4（舊 `log_activity` 移除）完成後可移除 active 旗標機制（無 legacy
 //!   row 再產生）
 
@@ -59,7 +62,8 @@ pub async fn verify_yesterday_chain(pool: &PgPool, config: &Config) -> Result<()
     if !config.audit_chain_verify_active {
         info!(
             "[audit_chain_verify] cron 已排程但 audit_chain_verify_active=false；\
-             本輪不執行（待 R26-6 HMAC 版本化 + legacy backfill 完成後啟用）"
+             本輪不執行。R26-6 已完成（verifier 支援 legacy/canonical 分流），\
+             Ops 可設環境變數 AUDIT_CHAIN_VERIFY_ACTIVE=true 啟用"
         );
         return Ok(());
     }
