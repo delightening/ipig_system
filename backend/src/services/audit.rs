@@ -1568,7 +1568,8 @@ mod hmac_versioning_tests {
 
     #[test]
     fn legacy_and_canonical_encodings_produce_different_hashes() {
-        let actor = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+        let actor = Uuid::parse_str("00000000-0000-0000-0000-000000000001")
+            .expect("hard-coded test UUID must parse");
         let before = Some(serde_json::json!({"a": 1}));
         let after = Some(serde_json::json!({"a": 2}));
         let fields = vec!["a".to_string()];
