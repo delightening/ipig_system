@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 // ── DB Entities ──
 
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, FromRow, Serialize)]
 pub struct AiApiKey {
     pub id: Uuid,
     pub name: String,
@@ -21,6 +21,15 @@ pub struct AiApiKey {
     pub rate_limit_per_minute: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+// `key_hash` 是 SHA-256(raw_key)，雖非 raw key 但仍屬敏感（掃描 DB 就能
+// 試出是哪個 key）。audit log 絕不該出現；其他欄位（name / prefix / scopes）
+// 安全可直接寫入。
+impl crate::models::audit_diff::AuditRedact for AiApiKey {
+    fn redacted_fields() -> &'static [&'static str] {
+        &["key_hash"]
+    }
 }
 
 #[derive(Debug, Clone, FromRow)]
