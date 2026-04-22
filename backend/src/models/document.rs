@@ -151,6 +151,22 @@ pub struct DocumentLine {
     pub storage_location_id: Option<Uuid>,
 }
 
+// R26-12：單據頭 + 明細作為同一 audit 事件的 snapshot。headline 無敏感欄位
+// （remark 為研究/會計備註，需完整留）；lines.unit_price 為會計資料，GLP
+// 審計需要完整保留。空 allowlist。
+impl crate::models::audit_diff::AuditRedact for Document {}
+impl crate::models::audit_diff::AuditRedact for DocumentLine {}
+
+/// Audit snapshot：單據頭 + 明細組合，用於 DataDiff::compute。
+/// 內部用；不作為 API response（DocumentWithLines 才是 API 格式）。
+#[derive(Debug, Serialize)]
+pub struct DocumentAuditSnapshot<'a> {
+    pub document: &'a Document,
+    pub lines: &'a [DocumentLine],
+}
+
+impl crate::models::audit_diff::AuditRedact for DocumentAuditSnapshot<'_> {}
+
 /// 建立單據請求
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateDocumentRequest {
