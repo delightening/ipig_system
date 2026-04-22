@@ -10,7 +10,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{AnimalImportBatch, ExportRequest, ImportResult},
     require_permission,
     services::{
@@ -213,11 +213,12 @@ pub async fn import_basic_data(
 ) -> Result<Json<ImportResult>> {
     require_permission!(current_user, "animal.animal.import");
     let (file_data, file_name) = parse_import_file(&mut multipart).await?;
+    let actor = ActorContext::User(current_user.clone());
     let result = AnimalImportExportService::import_basic_data(
         &state.db,
+        &actor,
         &file_data,
         &file_name,
-        current_user.id,
     )
     .await?;
     if let Err(e) = AuditService::log_activity(
@@ -240,11 +241,12 @@ pub async fn import_weight_data(
 ) -> Result<Json<ImportResult>> {
     require_permission!(current_user, "animal.animal.import");
     let (file_data, file_name) = parse_import_file(&mut multipart).await?;
+    let actor = ActorContext::User(current_user.clone());
     let result = AnimalImportExportService::import_weight_data(
         &state.db,
+        &actor,
         &file_data,
         &file_name,
-        current_user.id,
     )
     .await?;
     if let Err(e) = AuditService::log_activity(

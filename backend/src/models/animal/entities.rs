@@ -65,6 +65,9 @@ pub struct Animal {
     pub experiment_assigned_by_name: Option<String>, // 分配者名稱（JOIN 查詢時填入）
 }
 
+// R26-9 方針：remark / deletion_reason 為自由文字，GLP 需完整軌跡；空 allowlist。
+impl crate::models::audit_diff::AuditRedact for Animal {}
+
 /// 觀察試驗紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalObservation {

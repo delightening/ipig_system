@@ -5,29 +5,41 @@ use super::super::utils::AnimalUtils;
 use super::super::AnimalService;
 use super::IacucChangeInfo;
 use crate::{
-    models::{Animal, AnimalStatus, UpdateAnimalRequest},
+    middleware::ActorContext,
+    models::{audit_diff::DataDiff, Animal, AnimalStatus, UpdateAnimalRequest},
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
     AppError, Result,
 };
 
 impl AnimalService {
-    /// 更新動物
-    /// 回傳 (Animal, Option<IacucChangeInfo>)，第二個元素不為 None 時表示 IACUC No. 有變更
+    /// 更新動物 — Service-driven audit
+    ///
+    /// 回傳 (Animal, Option<IacucChangeInfo>)；IACUC 變更時 service 內先寫一筆
+    /// IACUC_CHANGE（含 before/after），再寫 ANIMAL_UPDATE（含完整 before/after
+    /// diff）。同 tx：UPDATE animal + UPDATE pens.current_count + audit(es)。
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateAnimalRequest,
-        updated_by: Uuid,
     ) -> Result<(Animal, Option<IacucChangeInfo>)> {
-        let current: (AnimalStatus, Option<String>) = sqlx::query_as(
-            "SELECT status as \"status: AnimalStatus\", iacuc_no FROM animals WHERE id = $1 AND deleted_at IS NULL",
+        let user = actor.require_user()?;
+        let updated_by = user.id;
+
+        // 完整 before snapshot（GLP diff 用）
+        let before: Animal = sqlx::query_as(
+            "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL",
         )
         .bind(id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
 
-        let current_status = current.0;
-        let existing_iacuc = current.1;
+        let current_status = before.status;
+        let existing_iacuc = before.iacuc_no.clone();
 
         if let Some(new_status) = req.status {
             if current_status != new_status && !current_status.can_transition_to(new_status) {
@@ -110,14 +122,9 @@ impl AnimalService {
             Self::validate_pen_for_assignment(pool, new_pen_id).await?;
         }
 
-        // 取得更新前的 pen_id，用於更新 current_count
-        let old_pen_id: Option<Uuid> = sqlx::query_scalar(
-            "SELECT pen_id FROM animals WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .flatten();
+        let old_pen_id = before.pen_id;
+
+        let mut tx = pool.begin().await?;
 
         let animal = sqlx::query_as::<_, Animal>(
             r#"
@@ -149,13 +156,13 @@ impl AnimalService {
         .bind(req.version)
         .bind(req.pen_id)
         .bind(req.species_id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| {
             AppError::Conflict("此記錄已被其他人修改，請重新載入後再試。".to_string())
         })?;
 
-        // 更新 pen current_count（舊 pen 和新 pen）
+        // 更新 pen current_count（同 tx；舊 pen 和新 pen）
         let new_pen_id = animal.pen_id;
         let pen_ids_to_update: Vec<Uuid> = [old_pen_id, new_pen_id]
             .iter()
@@ -164,14 +171,48 @@ impl AnimalService {
             .into_iter()
             .collect();
         for pid in pen_ids_to_update {
-            let _ = sqlx::query(
+            sqlx::query(
                 "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
             )
             .bind(pid)
-            .execute(pool)
-            .await;
+            .execute(&mut *tx)
+            .await?;
         }
 
+        // IACUC_CHANGE 先寫入（時間軸上可獨立查詢）
+        // 完整 before/after diff 在 ANIMAL_UPDATE 事件內；此事件重點在顯示轉換軌跡
+        if let Some(ref change) = iacuc_change {
+            let old = change.old_iacuc_no.as_deref().unwrap_or("(無)");
+            let display = format!("[{} → {}] {}", old, change.new_iacuc_no, animal.ear_tag);
+            AuditService::log_activity_tx(
+                &mut tx,
+                actor,
+                ActivityLogEntry {
+                    event_category: "ANIMAL",
+                    event_type: "IACUC_CHANGE",
+                    entity: Some(AuditEntity::new("animal", id, &display)),
+                    data_diff: None,
+                    request_context: None,
+                },
+            )
+            .await?;
+        }
+
+        // 一般 ANIMAL_UPDATE（包含完整 before/after diff）
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "ANIMAL_UPDATE",
+                entity: Some(AuditEntity::new("animal", id, &animal.ear_tag)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&animal))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok((animal, iacuc_change))
     }
 }
