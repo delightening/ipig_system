@@ -281,9 +281,20 @@ pub async fn reset_user_password(
     
     req.validate()?;
 
-    // 重設密碼（SECURITY audit 已收進 service 層：PASSWORD_ADMIN_RESET，tx 內）
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
+    // 重設密碼（SECURITY audit 已收進 service 層：PASSWORD_ADMIN_RESET，tx 內，含 IP/UA）
     let actor = crate::middleware::ActorContext::User(current_user.clone());
-    AuthService::reset_user_password(&state.db, &actor, id, &req.new_password).await?;
+    AuthService::reset_user_password(
+        &state.db,
+        &actor,
+        id,
+        &req.new_password,
+        Some(&ip),
+        user_agent,
+    )
+    .await?;
 
     // 保留 legacy audit_logs 寫入（與 user_activity_logs 不同表，供既有 dashboard 使用）
     AuditService::log(
@@ -299,7 +310,6 @@ pub async fn reset_user_password(
         })),
     ).await?;
 
-    let _ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
 }
 

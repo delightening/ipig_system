@@ -120,8 +120,10 @@ impl AuthService {
         user_id: Uuid,
         current_password: &str,
         new_password: &str,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
     ) -> Result<LoginResponse> {
-        let _actor_user = actor.require_user()?;
+        actor.require_user()?;
         let user =
             sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 AND is_active = true")
                 .bind(user_id)
@@ -159,7 +161,10 @@ impl AuthService {
                 event_type: "PASSWORD_SELF_CHANGE",
                 entity: Some(crate::services::audit::AuditEntity::new("user", after.id, &display)),
                 data_diff: Some(crate::models::audit_diff::DataDiff::compute(Some(&user), Some(&after))),
-                request_context: None,
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
             },
         )
         .await?;
@@ -255,8 +260,16 @@ impl AuthService {
         actor: &crate::middleware::ActorContext,
         target_user_id: Uuid,
         new_password: &str,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
     ) -> Result<()> {
-        let _actor_user = actor.require_user()?;
+        actor.require_user()?;
+
+        // Gemini PR #168 HIGH：Argon2 hash 移到 tx 之外。
+        // Argon2 刻意設計為 CPU-intensive（幾百 ms），若在 tx 內（且 FOR UPDATE
+        // 持鎖狀態）執行，會拉長鎖持有時間 × 並發請求數，造成嚴重 throughput 問題。
+        Self::validate_password_strength(new_password)?;
+        let new_password_hash = Self::hash_password(new_password)?;
 
         let mut tx = pool.begin().await?;
         let before = sqlx::query_as::<_, User>(
@@ -267,8 +280,6 @@ impl AuthService {
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
-        Self::validate_password_strength(new_password)?;
-        let new_password_hash = Self::hash_password(new_password)?;
         Self::update_password_in_db_tx(&mut tx, target_user_id, &new_password_hash, true).await?;
         Self::revoke_user_refresh_tokens_tx(&mut tx, target_user_id).await?;
 
@@ -288,7 +299,10 @@ impl AuthService {
                 event_type: "PASSWORD_ADMIN_RESET",
                 entity: Some(crate::services::audit::AuditEntity::new("user", after.id, &display)),
                 data_diff: Some(crate::models::audit_diff::DataDiff::compute(Some(&before), Some(&after))),
-                request_context: None,
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
             },
         )
         .await?;

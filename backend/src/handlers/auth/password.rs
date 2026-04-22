@@ -37,9 +37,10 @@ pub async fn change_own_password(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<ChangeOwnPasswordRequest>,
 ) -> Result<Response> {
-    let _ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
 
-    // Audit 已收進 service 層（PASSWORD_SELF_CHANGE，tx 內）
+    // Audit 已收進 service 層（PASSWORD_SELF_CHANGE，tx 內，含 IP/UA）
     let actor = ActorContext::User(current_user.clone());
     let response = AuthService::change_own_password(
         &state.db,
@@ -48,6 +49,8 @@ pub async fn change_own_password(
         current_user.id,
         &req.current_password,
         &req.new_password,
+        Some(&ip),
+        user_agent,
     )
     .await?;
 

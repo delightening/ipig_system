@@ -66,6 +66,8 @@ pub async fn setup_2fa(
 )]
 pub async fn confirm_2fa_setup(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<TwoFactorConfirmRequest>,
 ) -> Result<Json<serde_json::Value>> {
@@ -74,8 +76,19 @@ pub async fn confirm_2fa_setup(
     }
     req.validate()?;
 
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
     let actor = ActorContext::User(current_user.clone());
-    AuthService::confirm_totp_setup(&state.db, &actor, current_user.id, &req.code).await?;
+    AuthService::confirm_totp_setup(
+        &state.db,
+        &actor,
+        current_user.id,
+        &req.code,
+        Some(&ip),
+        user_agent,
+    )
+    .await?;
 
     Ok(Json(serde_json::json!({ "message": "2FA 已成功啟用" })))
 }
@@ -94,14 +107,28 @@ pub async fn confirm_2fa_setup(
 )]
 pub async fn disable_2fa(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<TwoFactorDisableRequest>,
 ) -> Result<Json<serde_json::Value>> {
     req.validate()?;
 
     AuthService::verify_password_by_id(&state.db, current_user.id, &req.password).await?;
+
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
     let actor = ActorContext::User(current_user.clone());
-    AuthService::disable_totp(&state.db, &actor, current_user.id, &req.code).await?;
+    AuthService::disable_totp(
+        &state.db,
+        &actor,
+        current_user.id,
+        &req.code,
+        Some(&ip),
+        user_agent,
+    )
+    .await?;
 
     Ok(Json(serde_json::json!({ "message": "2FA 已停用" })))
 }

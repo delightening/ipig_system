@@ -78,8 +78,10 @@ impl AuthService {
         actor: &ActorContext,
         user_id: Uuid,
         code: &str,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
     ) -> Result<()> {
-        let _actor_user = actor.require_user()?;
+        actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 FOR UPDATE")
@@ -112,7 +114,10 @@ impl AuthService {
                 event_type: "TWO_FACTOR_ENABLED",
                 entity: Some(AuditEntity::new("user", after.id, &display)),
                 data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
-                request_context: None,
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
             },
         )
         .await?;
@@ -128,8 +133,10 @@ impl AuthService {
         actor: &ActorContext,
         user_id: Uuid,
         code: &str,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
     ) -> Result<()> {
-        let _actor_user = actor.require_user()?;
+        actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 FOR UPDATE")
@@ -147,10 +154,16 @@ impl AuthService {
             .as_deref()
             .ok_or_else(|| AppError::Internal("2FA enabled but no secret".into()))?;
 
-        // 驗證 TOTP 或備用碼（verify_backup_code 接 pool，但只做 SELECT 與原子 UPDATE
-        // 無關，此處仍在 tx 外驗證可接受；後續 R26-X 若要全 tx 化再處理）
-        if Self::verify_totp_code(secret, code).is_err() {
-            Self::verify_backup_code(pool, user_id, &before.totp_backup_codes, code).await?;
+        // 驗證 TOTP 或備用碼。
+        //
+        // Gemini PR #168 critical 指出：外層 tx 已持 users row FOR UPDATE，呼叫
+        // `verify_backup_code(pool, ...)` 會 deadlock（helper 用 pool 新連線 UPDATE
+        // 同一 row）。disable 流程下方 UPDATE 即將把 `totp_backup_codes` 設為 NULL，
+        // 無需額外消耗單一備用碼；改用純 in-memory 比對。
+        if Self::verify_totp_code(secret, code).is_err()
+            && Self::find_matching_backup_code(&before.totp_backup_codes, code).is_none()
+        {
+            return Err(AppError::Validation("驗證碼錯誤".into()));
         }
 
         let after = sqlx::query_as::<_, User>(
@@ -169,7 +182,10 @@ impl AuthService {
                 event_type: "TWO_FACTOR_DISABLED",
                 entity: Some(AuditEntity::new("user", after.id, &display)),
                 data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
-                request_context: None,
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
             },
         )
         .await?;
@@ -339,21 +355,16 @@ impl AuthService {
         }
     }
 
-    /// 驗證並消耗一次性備用碼
-    async fn verify_backup_code(
-        pool: &PgPool,
-        user_id: Uuid,
-        stored_codes: &Option<Vec<String>>,
-        code: &str,
-    ) -> Result<()> {
-        let codes = stored_codes
-            .as_ref()
-            .ok_or_else(|| AppError::Validation("驗證碼錯誤".into()))?;
-
-        // M5: 支援新（Argon2）與舊（SHA-256 hex）格式，逐一比對
-        let idx = codes.iter().position(|stored| {
+    /// 純 in-memory 驗證一次性備用碼，回傳匹配位置（若符合）。
+    /// 不 touch DB，供 Service-driven tx 內避免死鎖使用。
+    ///
+    /// Gemini PR #168 指出：`verify_backup_code` 在 tx 內被呼叫時會 deadlock
+    /// （外層 tx 已持 users row FOR UPDATE，該 helper 用 pool 新連線 UPDATE
+    /// 同一 row → 永久等待）。本 helper 僅做密碼比對，不寫 DB。
+    fn find_matching_backup_code(stored_codes: &Option<Vec<String>>, code: &str) -> Option<usize> {
+        let codes = stored_codes.as_ref()?;
+        codes.iter().position(|stored| {
             if stored.starts_with("$argon2") {
-                // Argon2 格式
                 use argon2::{
                     password_hash::{PasswordHash, PasswordVerifier},
                     Argon2,
@@ -363,14 +374,32 @@ impl AuthService {
                     .and_then(|h| Argon2::default().verify_password(code.as_bytes(), &h).ok())
                     .is_some()
             } else {
-                // 舊 SHA-256 格式（向後相容，下次重設 2FA 會自動升級）
                 use sha2::{Digest, Sha256};
                 let mut hasher = Sha256::new();
                 hasher.update(code.as_bytes());
                 let legacy_hash = format!("{:x}", hasher.finalize());
                 stored == &legacy_hash
             }
-        });
+        })
+    }
+
+    /// 驗證並消耗一次性備用碼（pool-based：供 2FA login 路徑使用）
+    ///
+    /// 呼叫端必須在 tx 外使用；disable_totp 路徑改用 `find_matching_backup_code`
+    /// 純驗證 + 同 tx 內把 `totp_backup_codes` 設為 NULL（見 `disable_totp`）。
+    async fn verify_backup_code(
+        pool: &PgPool,
+        user_id: Uuid,
+        stored_codes: &Option<Vec<String>>,
+        code: &str,
+    ) -> Result<()> {
+        if stored_codes.as_ref().is_none() {
+            return Err(AppError::Validation("驗證碼錯誤".into()));
+        }
+        let idx = Self::find_matching_backup_code(stored_codes, code);
+        let codes = stored_codes
+            .as_ref()
+            .ok_or_else(|| AppError::Validation("驗證碼錯誤".into()))?;
 
         match idx {
             Some(i) => {

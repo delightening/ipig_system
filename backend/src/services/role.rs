@@ -51,8 +51,10 @@ impl RoleService {
         pool: &PgPool,
         actor: &ActorContext,
         req: &CreateRoleRequest,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
     ) -> Result<Role> {
-        let _user = actor.require_user()?;
+        actor.require_user()?;
         if !is_valid_role_code(&req.code) {
             return Err(AppError::Validation(
                 "Role code must be 1-50 characters and only contain letters, numbers, and underscore".to_string(),
@@ -109,7 +111,10 @@ impl RoleService {
                 event_type: "ROLE_CREATE",
                 entity: Some(AuditEntity::new("role", role.id, &display)),
                 data_diff: Some(DataDiff::create_only(&role)),
-                request_context: None,
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
             },
         )
         .await?;
@@ -209,8 +214,10 @@ impl RoleService {
         actor: &ActorContext,
         id: Uuid,
         req: &UpdateRoleRequest,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
     ) -> Result<RoleWithPermissions> {
-        let _user = actor.require_user()?;
+        actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         // SELECT FOR UPDATE 取 before
@@ -251,7 +258,10 @@ impl RoleService {
                 event_type: "ROLE_UPDATE",
                 entity: Some(AuditEntity::new("role", after.id, &display)),
                 data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
-                request_context: None,
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
             },
         )
         .await?;
@@ -304,7 +314,10 @@ impl RoleService {
                         event_type: "ROLE_PERMISSION_CHANGE",
                         entity: Some(AuditEntity::new("role", after.id, &display)),
                         data_diff: Some(DataDiff::compute(Some(&before_snap), Some(&after_snap))),
-                        request_context: None,
+                        request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
                     },
                 )
                 .await?;
@@ -318,8 +331,14 @@ impl RoleService {
     /// 刪除角色 — Service-driven audit
     ///
     /// system role 改軟刪除（is_active=false）；非 system role 硬刪除含關聯清理。
-    pub async fn delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
-        let _user = actor.require_user()?;
+    pub async fn delete(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> Result<()> {
+        actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         // SELECT FOR UPDATE 取 before（含 is_active 濾掉已軟刪的）
@@ -350,7 +369,10 @@ impl RoleService {
                     event_type: "ROLE_DEACTIVATE",
                     entity: Some(AuditEntity::new("role", before.id, &display)),
                     data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
-                    request_context: None,
+                    request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
                 },
             )
             .await?;
@@ -383,7 +405,10 @@ impl RoleService {
                     event_type: "ROLE_DELETE",
                     entity: Some(AuditEntity::new("role", before.id, &display)),
                     data_diff: Some(DataDiff::delete_only(&before)),
-                    request_context: None,
+                    request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
                 },
             )
             .await?;
