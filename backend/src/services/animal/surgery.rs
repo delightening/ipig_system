@@ -4,7 +4,15 @@ use uuid::Uuid;
 
 use super::AnimalMedicalService;
 use crate::{
-    models::{AnimalSurgery, CreateSurgeryRequest, SurgeryListItem, UpdateSurgeryRequest},
+    middleware::ActorContext,
+    models::{
+        audit_diff::DataDiff, AnimalSurgery, CreateSurgeryRequest, SurgeryListItem,
+        UpdateSurgeryRequest,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
     utils::jsonb_validation::{validate_medication_jsonb, validate_vital_signs},
     AppError, Result,
 };
@@ -101,12 +109,16 @@ impl AnimalSurgeryService {
         Ok(surgery)
     }
 
+    /// 建立手術紀錄 — Service-driven audit
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
         req: &CreateSurgeryRequest,
-        created_by: Uuid,
     ) -> Result<AnimalSurgery> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
         // 驗證 JSONB 欄位結構
         validate_surgery_jsonb_fields(
             &req.induction_anesthesia,
@@ -115,6 +127,8 @@ impl AnimalSurgeryService {
             &req.vital_signs,
             &req.post_surgery_medication,
         )?;
+
+        let mut tx = pool.begin().await?;
 
         let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
@@ -145,19 +159,48 @@ impl AnimalSurgeryService {
         .bind(&req.remark)
         .bind(req.no_medication_needed)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!(
+            "animal {} @ {}: {}",
+            surgery.animal_id, surgery.surgery_date, surgery.surgery_site
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "SURGERY_CREATE",
+                entity: Some(AuditEntity::new(
+                    "animal_surgery",
+                    surgery.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::create_only(&surgery)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(surgery)
     }
 
-    /// 更新手術紀錄
+    /// 更新手術紀錄 — Service-driven audit
+    ///
+    /// 注意：`save_record_version` 目前接 `&PgPool`（GLP 強制版本歷史）。與
+    /// `AnimalObservation::update` 同屬 R26-8 待 tx 化範圍 — 失敗僅丟失該版本
+    /// 歷史，主流程繼續。audit log 仍在 tx 內，符合 R26 DoD-1。
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateSurgeryRequest,
-        updated_by: Uuid,
     ) -> Result<AnimalSurgery> {
+        let user = actor.require_user()?;
+        let updated_by = user.id;
+
         // 驗證 JSONB 欄位結構
         validate_surgery_jsonb_fields(
             &req.induction_anesthesia,
@@ -167,12 +210,14 @@ impl AnimalSurgeryService {
             &req.post_surgery_medication,
         )?;
 
-        // 先取得原始紀錄用於版本歷史
-        let original = Self::get_by_id(pool, id).await?;
+        // 先取得原始紀錄用於版本歷史 + audit before snapshot（tx 外 pool read OK）
+        let before = Self::get_by_id(pool, id).await?;
 
-        // 保存版本歷史
-        AnimalMedicalService::save_record_version(pool, "surgery", id, &original, updated_by)
+        // 保存版本歷史（目前 pool-based；tx 化歸 R26-8）
+        AnimalMedicalService::save_record_version(pool, "surgery", id, &before, updated_by)
             .await?;
+
+        let mut tx = pool.begin().await?;
 
         let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
@@ -211,9 +256,31 @@ impl AnimalSurgeryService {
         .bind(&req.post_surgery_medication)
         .bind(&req.remark)
         .bind(req.no_medication_needed)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!(
+            "animal {} @ {}: {}",
+            surgery.animal_id, surgery.surgery_date, surgery.surgery_site
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "SURGERY_UPDATE",
+                entity: Some(AuditEntity::new(
+                    "animal_surgery",
+                    surgery.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&surgery))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(surgery)
     }
 
@@ -227,13 +294,21 @@ impl AnimalSurgeryService {
         Ok(())
     }
 
-    /// 軟刪除手術紀錄（含刪除原因）- GLP 合規
+    /// 軟刪除手術紀錄（含刪除原因）- GLP 合規 — Service-driven audit
     pub async fn soft_delete_with_reason(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
+        let user = actor.require_user()?;
+        let deleted_by = user.id;
+
+        // before snapshot for audit（tx 外 pool read OK）
+        let before = Self::get_by_id(pool, id).await?;
+
+        let mut tx = pool.begin().await?;
+
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
@@ -243,13 +318,13 @@ impl AnimalSurgeryService {
         .bind(id.to_string())
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
         sqlx::query(
             r#"
-            UPDATE animal_surgeries SET 
-                deleted_at = NOW(), 
+            UPDATE animal_surgeries SET
+                deleted_at = NOW(),
                 deletion_reason = $2,
                 deleted_by = $3
             WHERE id = $1 AND deleted_at IS NULL
@@ -258,9 +333,27 @@ impl AnimalSurgeryService {
         .bind(id)
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
+        let display = format!(
+            "animal {} @ {}: {} (原因: {})",
+            before.animal_id, before.surgery_date, before.surgery_site, reason
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "SURGERY_DELETE",
+                entity: Some(AuditEntity::new("animal_surgery", id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 
