@@ -309,14 +309,23 @@ impl DocumentService {
         Self::get_by_id(pool, id).await
     }
 
-    /// ADMIN 最終核准（大金額 ADJ 調整單）
+    /// ADMIN 最終核准（大金額 ADJ 調整單）— Service-driven audit
     /// 前置條件：requires_manager_approval = true 且 manager_approval_status = 'wm_approved'
-    pub async fn admin_approve(pool: &PgPool, id: Uuid, admin_id: Uuid) -> Result<DocumentWithLines> {
+    pub async fn admin_approve(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<DocumentWithLines> {
+        let user = actor.require_user()?;
+        let admin_id = user.id;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE：行鎖 + before 快照
         let document = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE id = $1"
+            "SELECT * FROM documents WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
@@ -332,14 +341,14 @@ impl DocumentService {
             ));
         }
 
+        let before = document.clone();
+
         let lines = sqlx::query_as::<_, DocumentLine>(
-            "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no"
+            "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no",
         )
         .bind(id)
-        .fetch_all(pool)
+        .fetch_all(&mut *tx)
         .await?;
-
-        let mut tx = pool.begin().await?;
 
         // 寫入庫存流水
         if document.doc_type.affects_stock() {
@@ -351,8 +360,8 @@ impl DocumentService {
             tracing::warn!("會計過帳跳過或失敗 (document {}): {}", document.id, e);
         }
 
-        // 更新單據為最終核准
-        sqlx::query(
+        // 更新單據為最終核准（RETURNING * 取 after 快照）
+        let after = sqlx::query_as::<_, Document>(
             r#"
             UPDATE documents SET
                 status = $1,
@@ -361,12 +370,29 @@ impl DocumentService {
                 manager_approved_at = NOW(),
                 updated_at = NOW()
             WHERE id = $3
-            "#
+            RETURNING *
+            "#,
         )
         .bind(DocStatus::Approved)
         .bind(admin_id)
         .bind(id)
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOCUMENT_ADMIN_APPROVE",
+                entity: Some(AuditEntity::new("document", after.id, &after.doc_no)),
+                data_diff: Some(crate::models::audit_diff::DataDiff::compute(
+                    Some(&before),
+                    Some(&after),
+                )),
+                request_context: None,
+            },
+        )
         .await?;
 
         tx.commit().await?;
@@ -376,14 +402,24 @@ impl DocumentService {
         Self::get_by_id(pool, id).await
     }
 
-    /// ADMIN 駁回（大金額 ADJ 調整單）
+    /// ADMIN 駁回（大金額 ADJ 調整單）— Service-driven audit
     /// 單據退回草稿狀態，建立者可修改後重新提交
-    pub async fn admin_reject(pool: &PgPool, id: Uuid, admin_id: Uuid, reason: &str) -> Result<DocumentWithLines> {
+    pub async fn admin_reject(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        reason: &str,
+    ) -> Result<DocumentWithLines> {
+        let user = actor.require_user()?;
+        let admin_id = user.id;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE：行鎖 + before 快照（原本沒有 tx）
         let document = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE id = $1"
+            "SELECT * FROM documents WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
@@ -399,8 +435,10 @@ impl DocumentService {
             ));
         }
 
-        // 退回草稿狀態，清除倉庫核准資訊
-        sqlx::query(
+        let before = document.clone();
+
+        // 退回草稿狀態，清除倉庫核准資訊（RETURNING * 取 after）
+        let after = sqlx::query_as::<_, Document>(
             r#"
             UPDATE documents SET
                 status = $1,
@@ -412,14 +450,33 @@ impl DocumentService {
                 approved_at = NULL,
                 updated_at = NOW()
             WHERE id = $4
-            "#
+            RETURNING *
+            "#,
         )
         .bind(DocStatus::Draft)
         .bind(admin_id)
         .bind(reason)
         .bind(id)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOCUMENT_ADMIN_REJECT",
+                entity: Some(AuditEntity::new("document", after.id, &after.doc_no)),
+                data_diff: Some(crate::models::audit_diff::DataDiff::compute(
+                    Some(&before),
+                    Some(&after),
+                )),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         tracing::info!(
             "[ADJ Admin Reject] Document {} rejected by admin {}. Reason: {}",
@@ -429,13 +486,21 @@ impl DocumentService {
         Self::get_by_id(pool, id).await
     }
 
-    /// 作廢
-    pub async fn cancel(pool: &PgPool, id: Uuid) -> Result<DocumentWithLines> {
+    /// 作廢 — Service-driven audit
+    pub async fn cancel(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<DocumentWithLines> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE：行鎖 + before 快照（原本沒有 tx）
         let document = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE id = $1"
+            "SELECT * FROM documents WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
@@ -443,13 +508,33 @@ impl DocumentService {
             return Err(AppError::BusinessRule("Cannot cancel approved documents. Use reversal instead.".to_string()));
         }
 
-        sqlx::query(
-            "UPDATE documents SET status = $1, updated_at = NOW() WHERE id = $2"
+        let before = document.clone();
+
+        let after = sqlx::query_as::<_, Document>(
+            "UPDATE documents SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
         )
         .bind(DocStatus::Cancelled)
         .bind(id)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOCUMENT_CANCEL",
+                entity: Some(AuditEntity::new("document", after.id, &after.doc_no)),
+                data_diff: Some(crate::models::audit_diff::DataDiff::compute(
+                    Some(&before),
+                    Some(&after),
+                )),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Self::get_by_id(pool, id).await
     }

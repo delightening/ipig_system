@@ -12,7 +12,7 @@ use crate::{
         DocumentWithLines, PoReceiptStatus, UpdateDocumentRequest,
     },
     require_permission,
-    services::{AuditService, DocumentService, NotificationService},
+    services::{DocumentService, NotificationService},
     AppError, AppState, Result,
 };
 
@@ -251,21 +251,8 @@ pub async fn admin_approve_document(
         return Err(AppError::Forbidden("僅管理員可執行最終核准".to_string()));
     }
 
-    let document = DocumentService::admin_approve(&state.db, id, current_user.id).await?;
-
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_ADMIN_APPROVE",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "approved", "level": "admin" })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_ADMIN_APPROVE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::admin_approve(&state.db, &actor, id).await?;
 
     // 非同步通知建立者（已核准）
     let db = state.db.clone();
@@ -313,22 +300,9 @@ pub async fn admin_reject_document(
         return Err(AppError::Forbidden("僅管理員可駁回單據".to_string()));
     }
 
+    let actor = ActorContext::User(current_user.clone());
     let document =
-        DocumentService::admin_reject(&state.db, id, current_user.id, &req.reason).await?;
-
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_ADMIN_REJECT",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "rejected", "reason": req.reason })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_ADMIN_REJECT): {}", e);
-    }
+        DocumentService::admin_reject(&state.db, &actor, id, &req.reason).await?;
 
     // 非同步通知建立者（已駁回）
     let db = state.db.clone();
@@ -378,21 +352,8 @@ pub async fn cancel_document(
         return Err(AppError::Forbidden("僅倉庫管理員可取消單據".to_string()));
     }
 
-    let document = DocumentService::cancel(&state.db, id).await?;
-
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_CANCEL",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "cancelled" })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_CANCEL): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::cancel(&state.db, &actor, id).await?;
 
     // 非同步通知建立者（已駁回）
     let db = state.db.clone();
