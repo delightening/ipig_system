@@ -1,3 +1,4 @@
+use serde::Serialize;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -5,8 +6,8 @@ use uuid::Uuid;
 use crate::{
     middleware::ActorContext,
     models::{
-        audit_diff::DataDiff, AuditAction, CreateUserRequest, PaginationParams, UpdateUserRequest,
-        User, UserResponse,
+        audit_diff::{AuditRedact, DataDiff},
+        CreateUserRequest, PaginationParams, UpdateUserRequest, User, UserResponse,
     },
     services::{
         audit::{ActivityLogEntry, AuditEntity},
@@ -14,6 +15,14 @@ use crate::{
     },
     AppError, Result,
 };
+
+/// Audit-only 輔助型別：記錄角色指派的 before/after（用於 USER_ROLE_CHANGE 事件）。
+/// 角色清單無敏感欄位，空 AuditRedact impl 即可。
+#[derive(Serialize)]
+struct RoleAssignmentSnapshot {
+    roles: Vec<String>,
+}
+impl AuditRedact for RoleAssignmentSnapshot {}
 
 /// 產生使用者列表搜尋用的 ILIKE pattern（前後加 %、trim），供 list 與單元測試使用。
 pub fn user_search_pattern(keyword: &str) -> String {
@@ -216,19 +225,37 @@ impl UserService {
         Ok(UserResponse::from_user(&user, roles, permissions))
     }
 
-    /// 更新用戶
+    /// 更新用戶 — Service-driven audit
+    ///
+    /// 完整流程在同一 tx 內：欄位更新 + 角色重指派 + audit（包括 SECURITY 類
+    /// ROLE_CHANGE / ACCOUNT_STATUS_CHANGE 事件）。
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
-        actor_user_id: Uuid,
         req: &UpdateUserRequest,
     ) -> Result<UserResponse> {
-        // 檢查用戶是否存在
-        let before_user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+        let actor_user = actor.require_user()?;
+        let actor_user_id = actor_user.id;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE 取 before（同時檢查使用者存在）
+        let before_user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 FOR UPDATE")
             .bind(id)
-            .fetch_optional(pool)
+            .fetch_optional(&mut *tx)
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        // 取得 before 角色清單（用於 role change diff）
+        let before_roles: Vec<String> = sqlx::query_scalar(
+            r#"SELECT r.code FROM user_roles ur
+               INNER JOIN roles r ON ur.role_id = r.id
+               WHERE ur.user_id = $1
+               ORDER BY r.code"#,
+        )
+        .bind(id)
+        .fetch_all(&mut *tx)
+        .await?;
 
         // 如果要更新 email，檢查是否已被使用
         if let Some(ref new_email) = req.email {
@@ -237,7 +264,7 @@ impl UserService {
             )
             .bind(new_email)
             .bind(id)
-            .fetch_one(pool)
+            .fetch_one(&mut *tx)
             .await?;
 
             if exists {
@@ -282,20 +309,39 @@ impl UserService {
         .bind(req.is_active)
         .bind(req.expires_at)
         .bind(id)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 記錄稽核日誌
-        AuditService::log(
-            pool,
-            actor_user_id,
-            AuditAction::Update,
-            "user",
-            id,
-            Some(serde_json::to_value(&before_user).unwrap_or(serde_json::Value::Null)),
-            Some(serde_json::to_value(&updated_user).unwrap_or(serde_json::Value::Null)),
+        // 基本 USER_UPDATE 事件（before/after diff 自動 redact password_hash 等）
+        let display = format!("{} <{}>", updated_user.display_name, updated_user.email);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ADMIN",
+                event_type: "USER_UPDATE",
+                entity: Some(AuditEntity::new("user", updated_user.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before_user), Some(&updated_user))),
+                request_context: None,
+            },
         )
         .await?;
+
+        // SECURITY：帳號狀態變更另寫一筆（供監控系統快速篩選）
+        if before_user.is_active != updated_user.is_active {
+            AuditService::log_activity_tx(
+                &mut tx,
+                actor,
+                ActivityLogEntry {
+                    event_category: "SECURITY",
+                    event_type: "USER_STATUS_CHANGE",
+                    entity: Some(AuditEntity::new("user", updated_user.id, &display)),
+                    data_diff: Some(DataDiff::compute(Some(&before_user), Some(&updated_user))),
+                    request_context: None,
+                },
+            )
+            .await?;
+        }
 
         // 如果要更新角色
         if let Some(ref role_ids) = req.role_ids {
@@ -305,7 +351,7 @@ impl UserService {
                     "SELECT COUNT(*) FROM roles WHERE id = ANY($1) AND is_active = true",
                 )
                 .bind(role_ids)
-                .fetch_one(pool)
+                .fetch_one(&mut *tx)
                 .await?;
 
                 if valid_count != role_ids.len() as i64 {
@@ -320,7 +366,7 @@ impl UserService {
                 )
                 .bind(role_ids)
                 .bind(crate::constants::ROLE_SYSTEM_ADMIN)
-                .fetch_one(pool)
+                .fetch_one(&mut *tx)
                 .await?;
 
                 if has_system_admin {
@@ -334,7 +380,7 @@ impl UserService {
                     )
                     .bind(actor_user_id)
                     .bind(crate::constants::ROLE_SYSTEM_ADMIN)
-                    .fetch_one(pool)
+                    .fetch_one(&mut *tx)
                     .await?;
 
                     if !actor_is_system_admin {
@@ -348,7 +394,7 @@ impl UserService {
             // 刪除現有角色
             sqlx::query("DELETE FROM user_roles WHERE user_id = $1")
                 .bind(id)
-                .execute(pool)
+                .execute(&mut *tx)
                 .await?;
 
             if !role_ids.is_empty() {
@@ -357,10 +403,44 @@ impl UserService {
                 )
                 .bind(id)
                 .bind(role_ids)
-                .execute(pool)
+                .execute(&mut *tx)
+                .await?;
+            }
+
+            // 取 after 角色清單，若有變動則寫 SECURITY 類 ROLE_CHANGE 事件
+            let after_roles: Vec<String> = sqlx::query_scalar(
+                r#"SELECT r.code FROM user_roles ur
+                   INNER JOIN roles r ON ur.role_id = r.id
+                   WHERE ur.user_id = $1
+                   ORDER BY r.code"#,
+            )
+            .bind(id)
+            .fetch_all(&mut *tx)
+            .await?;
+
+            if before_roles != after_roles {
+                let before_snap = RoleAssignmentSnapshot {
+                    roles: before_roles,
+                };
+                let after_snap = RoleAssignmentSnapshot {
+                    roles: after_roles,
+                };
+                AuditService::log_activity_tx(
+                    &mut tx,
+                    actor,
+                    ActivityLogEntry {
+                        event_category: "SECURITY",
+                        event_type: "USER_ROLE_CHANGE",
+                        entity: Some(AuditEntity::new("user", updated_user.id, &display)),
+                        data_diff: Some(DataDiff::compute(Some(&before_snap), Some(&after_snap))),
+                        request_context: None,
+                    },
+                )
                 .await?;
             }
         }
+
+        tx.commit().await?;
 
         let (roles, permissions) =
             AuthService::get_user_roles_permissions(pool, updated_user.id).await?;

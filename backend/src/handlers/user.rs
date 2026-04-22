@@ -139,8 +139,8 @@ pub async fn get_user(
 )]
 pub async fn update_user(
     State(state): State<AppState>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
+    ConnectInfo(_addr): ConnectInfo<SocketAddr>,
+    _headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateUserRequest>,
@@ -148,10 +148,11 @@ pub async fn update_user(
     require_permission!(current_user, "admin.user.edit");
     req.validate()?;
 
-    // SEC: 偵測角色/帳號狀態變更，記錄審計
+    // 取 before 快照供 post-update session 撤銷判斷；audit 由 service 層處理
     let before_user = UserService::get_by_id(&state.db, id).await.ok();
 
-    let user = UserService::update(&state.db, id, current_user.id, &req).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let user = UserService::update(&state.db, &actor, id, &req).await?;
 
     // H-01: 角色或帳號狀態變更後立即清除該使用者的權限快取，避免舊快取在 TTL 到期前繼續生效
     if let Some(ref before) = before_user {
@@ -171,51 +172,6 @@ pub async fn update_user(
                 tracing::error!("[Security] 停用帳號 {} 時終止 sessions 失敗: {}", id, e);
             }
             tracing::warn!("[Security] 帳號 {} 已停用，所有 session/refresh token 已撤銷", id);
-        }
-    }
-
-    // 偵測角色或狀態變更，記錄二級審計
-    if let Some(ref before) = before_user {
-        let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
-        let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
-        let roles_changed = before.roles != user.roles;
-        let status_changed = before.is_active != user.is_active;
-
-        if roles_changed {
-            let db = state.db.clone();
-            let actor = current_user.id;
-            let before_roles = before.roles.clone();
-            let after_roles = user.roles.clone();
-            let target_name = user.display_name.clone();
-            let ip_c = ip.clone();
-            let ua_c = ua.clone();
-            tokio::spawn(async move {
-                if let Err(e) = AuditService::log_activity(
-                    &db, actor, "SECURITY", "ROLE_CHANGE",
-                    Some("user"), Some(id), Some(&target_name),
-                    Some(serde_json::json!({ "roles": before_roles })),
-                    Some(serde_json::json!({ "roles": after_roles })),
-                    Some(&ip_c), ua_c.as_deref(),
-                ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-            });
-        }
-        if status_changed {
-            let db = state.db.clone();
-            let actor = current_user.id;
-            let target_name = user.display_name.clone();
-            let ip_c = ip.clone();
-            let ua_c = ua.clone();
-            let was_active = before.is_active;
-            let now_active = user.is_active;
-            tokio::spawn(async move {
-                if let Err(e) = AuditService::log_activity(
-                    &db, actor, "SECURITY", "ACCOUNT_STATUS_CHANGE",
-                    Some("user"), Some(id), Some(&target_name),
-                    Some(serde_json::json!({ "is_active": was_active })),
-                    Some(serde_json::json!({ "is_active": now_active })),
-                    Some(&ip_c), ua_c.as_deref(),
-                ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-            });
         }
     }
 
