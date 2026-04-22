@@ -118,11 +118,19 @@ impl AnimalMedicalService {
     ) -> Result<AnimalVaccination> {
         let _ = actor.require_user()?;
 
-        // before snapshot + fetch animal for display
-        let before = Self::get_vaccination_by_id(pool, id).await?;
-        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
-
         let mut tx = pool.begin().await?;
+
+        // Gemini PR #181 HIGH：before snapshot 在 tx 內 + FOR UPDATE 鎖行，避免
+        // 讀取到更新之間記錄被其他請求修改、DataDiff 失準。
+        let before = sqlx::query_as::<_, AnimalVaccination>(
+            "SELECT * FROM animal_vaccinations WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Vaccination not found".to_string()))?;
+
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
 
         // Gemini PR #178 pattern：WHERE 加 deleted_at IS NULL 避免更新已軟刪除紀錄
         let vaccination = sqlx::query_as::<_, AnimalVaccination>(
@@ -186,10 +194,18 @@ impl AnimalMedicalService {
         let user = actor.require_user()?;
         let deleted_by = user.id;
 
-        let before = Self::get_vaccination_by_id(pool, id).await?;
-        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
-
         let mut tx = pool.begin().await?;
+
+        // Gemini PR #181 HIGH：before snapshot 在 tx 內 + FOR UPDATE
+        let before = sqlx::query_as::<_, AnimalVaccination>(
+            "SELECT * FROM animal_vaccinations WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Vaccination not found".to_string()))?;
+
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
 
         // Gemini PR #178 pattern：先 UPDATE + 檢查 rows_affected，避免假刪除審計
         let rows = sqlx::query(
