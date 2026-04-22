@@ -255,6 +255,10 @@ impl LeaveStatus {
     }
 }
 
+// 無敏感欄位（reason / cancellation_reason / revocation_reason 皆為使用者
+// 主動填入的文字，屬於稽核應保留的內容）
+impl crate::models::audit_diff::AuditRedact for LeaveRequest {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct LeaveRequest {
     pub id: Uuid,
@@ -368,6 +372,9 @@ pub struct CancelLeaveRequest {
 // Leave Approvals (審核記錄)
 // ============================================
 
+// 審核事件記錄，欄位全為系統/使用者填入的審核資訊，無敏感欄位
+impl crate::models::audit_diff::AuditRedact for LeaveApproval {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct LeaveApproval {
     pub id: Uuid,
@@ -382,6 +389,9 @@ pub struct LeaveApproval {
 // ============================================
 // Balances (餘額)
 // ============================================
+
+// 年度特休餘額快照，無敏感欄位（天數 / 到期日 / 工作年資等皆稽核項目）
+impl crate::models::audit_diff::AuditRedact for AnnualLeaveEntitlement {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AnnualLeaveEntitlement {
@@ -401,6 +411,9 @@ pub struct AnnualLeaveEntitlement {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// 補休餘額快照，無敏感欄位
+impl crate::models::audit_diff::AuditRedact for CompTimeBalance {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct CompTimeBalance {
