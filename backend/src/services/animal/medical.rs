@@ -170,10 +170,36 @@ impl AnimalMedicalService {
         let user = actor.require_user()?;
         let created_by = user.id;
 
-        let animal = AnimalService::get_by_id(pool, animal_id).await?;
-        let before = Self::get_sacrifice(pool, animal_id).await?;
-
         let mut tx = pool.begin().await?;
+
+        // Gemini PR #183 HIGH：animal + before 都在 tx 內讀，animal 加 FOR UPDATE
+        // 序列化狀態轉換，避免 race（兩個並發 confirmed_sacrifice 都通過檢查）
+        let animal: crate::models::Animal = sqlx::query_as(
+            "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(animal_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
+
+        // Gemini PR #183 HIGH：confirmed_sacrifice + 無法轉換時明確拒絕，避免
+        // 產生「犧牲紀錄已確認但動物狀態未變更」的不一致（比照 sudden_death）。
+        // can_transition_to 內部已處理 terminal 狀態，移除多餘 is_terminal 檢查。
+        if req.confirmed_sacrifice
+            && !animal.status.can_transition_to(AnimalStatus::Euthanized)
+        {
+            return Err(AppError::BadRequest(format!(
+                "無法將「{}」狀態的動物標為安樂死",
+                animal.status.display_name()
+            )));
+        }
+
+        let before = sqlx::query_as::<_, AnimalSacrifice>(
+            "SELECT * FROM animal_sacrifices WHERE animal_id = $1",
+        )
+        .bind(animal_id)
+        .fetch_optional(&mut *tx)
+        .await?;
 
         let sacrifice = sqlx::query_as::<_, AnimalSacrifice>(
             r#"
@@ -211,11 +237,9 @@ impl AnimalMedicalService {
         .fetch_one(&mut *tx)
         .await?;
 
-        // 犧牲確認時自動將動物狀態設為 euthanized（原於 handler 層，CRIT-02 提起）
-        if req.confirmed_sacrifice
-            && !animal.status.is_terminal()
-            && animal.status.can_transition_to(AnimalStatus::Euthanized)
-        {
+        // 犧牲確認時自動將動物狀態設為 euthanized；animal 已在 tx 內 FOR UPDATE 鎖住，
+        // 此 UPDATE 安全。上方已驗過 can_transition_to，這裡無需重複檢查。
+        if req.confirmed_sacrifice {
             sqlx::query(
                 "UPDATE animals SET status = 'euthanized', pen_location = NULL, updated_at = NOW() WHERE id = $1",
             )
@@ -291,16 +315,24 @@ impl AnimalMedicalService {
         let user = actor.require_user()?;
         let created_by = user.id;
 
+        let mut tx = pool.begin().await?;
+
+        // Gemini PR #183 HIGH：animal 在 tx 內 + FOR UPDATE 鎖住，序列化狀態轉換
+        let animal: crate::models::Animal = sqlx::query_as(
+            "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(animal_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
+
         // 驗證動物狀態可轉換到 SuddenDeath
-        let animal = AnimalService::get_by_id(pool, animal_id).await?;
         if !animal.status.can_transition_to(AnimalStatus::SuddenDeath) {
             return Err(AppError::BadRequest(format!(
                 "無法將「{}」狀態的動物登記為猝死",
                 animal.status.display_name()
             )));
         }
-
-        let mut tx = pool.begin().await?;
 
         // 建立猝死記錄
         let record = sqlx::query_as::<_, AnimalSuddenDeath>(
@@ -324,8 +356,9 @@ impl AnimalMedicalService {
         .fetch_one(&mut *tx)
         .await?;
 
-        // 自動更新動物狀態為 sudden_death（同 tx，CRIT-02 修補）
-        sqlx::query("UPDATE animals SET status = 'sudden_death', updated_at = NOW() WHERE id = $1")
+        // Gemini PR #183 HIGH：猝死比照犧牲紀錄清 pen_location（動物已移出欄位）；
+        // animal 已鎖，此處無需額外 status check。
+        sqlx::query("UPDATE animals SET status = 'sudden_death', pen_location = NULL, updated_at = NOW() WHERE id = $1")
             .bind(animal_id)
             .execute(&mut *tx)
             .await?;
