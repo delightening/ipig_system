@@ -7,7 +7,7 @@ use axum::{
 use axum::extract::Path as PathExtract;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         CategoriesResponse, CategoriesTreeResponse, CreateProductWithSkuRequest,
         CreateSkuSubcategoryRequest, GenerateSkuRequest, GenerateSkuResponse, ProductWithUom,
@@ -15,7 +15,7 @@ use crate::{
         UpdateSkuSubcategoryRequest, ValidateSkuRequest, ValidateSkuResponse,
     },
     require_permission,
-    services::{AuditService, SkuService},
+    services::SkuService,
     AppError, AppState, Result,
 };
 
@@ -107,30 +107,8 @@ pub async fn update_sku_category(
 ) -> Result<Json<crate::models::SkuCategory>> {
     require_permission!(current_user, "erp.product.edit");
 
-    let category = SkuService::update_category(&state.db, &code, &req).await?;
-    let after = serde_json::json!({
-        "code": category.code,
-        "name": category.name,
-        "sort_order": category.sort_order,
-        "is_active": category.is_active,
-    });
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "SKU_CATEGORY_UPDATE",
-        Some("sku_category"),
-        None,
-        Some(&format!("{} {}", category.code, category.name)),
-        None,
-        Some(after),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (SKU_CATEGORY_UPDATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let category = SkuService::update_category(&state.db, &actor, &code, &req).await?;
     Ok(Json(category))
 }
 
@@ -158,31 +136,8 @@ pub async fn create_sku_subcategory(
 ) -> Result<(StatusCode, Json<crate::models::SkuSubcategory>)> {
     require_permission!(current_user, "erp.product.edit");
 
-    let subcategory = SkuService::create_subcategory(&state.db, &category_code, &req).await?;
-    let after = serde_json::json!({
-        "category_code": subcategory.category_code,
-        "code": subcategory.code,
-        "name": subcategory.name,
-        "sort_order": subcategory.sort_order,
-        "is_active": subcategory.is_active,
-    });
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "SKU_SUBCATEGORY_CREATE",
-        Some("sku_subcategory"),
-        None,
-        Some(&format!("{}:{} {}", subcategory.category_code, subcategory.code, subcategory.name)),
-        None,
-        Some(after),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (SKU_SUBCATEGORY_CREATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let subcategory = SkuService::create_subcategory(&state.db, &actor, &category_code, &req).await?;
     Ok((StatusCode::CREATED, Json(subcategory)))
 }
 
@@ -211,32 +166,9 @@ pub async fn update_sku_subcategory(
 ) -> Result<Json<crate::models::SkuSubcategory>> {
     require_permission!(current_user, "erp.product.edit");
 
+    let actor = ActorContext::User(current_user.clone());
     let subcategory =
-        SkuService::update_subcategory(&state.db, &category_code, &code, &req).await?;
-    let after = serde_json::json!({
-        "category_code": subcategory.category_code,
-        "code": subcategory.code,
-        "name": subcategory.name,
-        "sort_order": subcategory.sort_order,
-        "is_active": subcategory.is_active,
-    });
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "SKU_SUBCATEGORY_UPDATE",
-        Some("sku_subcategory"),
-        None,
-        Some(&format!("{}:{} {}", subcategory.category_code, subcategory.code, subcategory.name)),
-        None,
-        Some(after),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (SKU_SUBCATEGORY_UPDATE): {}", e);
-    }
+        SkuService::update_subcategory(&state.db, &actor, &category_code, &code, &req).await?;
     Ok(Json(subcategory))
 }
 
@@ -266,25 +198,8 @@ pub async fn delete_sku_subcategory(
     if !current_user.is_admin() {
         return Err(AppError::Forbidden("僅管理員可刪除分類".into()));
     }
-    let sub = SkuService::get_subcategory_by_codes(&state.db, &category_code, &code).await?;
-    SkuService::delete_subcategory(&state.db, &category_code, &code).await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "SKU_SUBCATEGORY_DELETE",
-        Some("sku_subcategory"),
-        None,
-        Some(&format!("{}:{} {}", sub.category_code, sub.code, sub.name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (SKU_SUBCATEGORY_DELETE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    SkuService::delete_subcategory(&state.db, &actor, &category_code, &code).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -311,25 +226,8 @@ pub async fn delete_sku_category(
     if !current_user.is_admin() {
         return Err(AppError::Forbidden("僅管理員可刪除分類".into()));
     }
-    let cat = SkuService::get_category_by_code(&state.db, &code).await?;
-    SkuService::delete_category(&state.db, &code).await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "SKU_CATEGORY_DELETE",
-        Some("sku_category"),
-        None,
-        Some(&format!("{} {}", cat.code, cat.name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (SKU_CATEGORY_DELETE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    SkuService::delete_category(&state.db, &actor, &code).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -424,6 +322,7 @@ pub async fn create_product_with_sku(
 ) -> Result<Json<ProductWithUom>> {
     require_permission!(current_user, "erp.product.create");
 
-    let product = SkuService::create_product_with_sku(&state.db, &req).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let product = SkuService::create_product_with_sku(&state.db, &actor, &req).await?;
     Ok(Json(product))
 }

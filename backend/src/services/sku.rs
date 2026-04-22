@@ -3,14 +3,21 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
+    middleware::ActorContext,
     models::{
-        CategoriesResponse, CategoriesTreeResponse, CategoryForEdit, CategoryOption,
-        CreateProductWithSkuRequest, CreateSkuSubcategoryRequest, GenerateSkuRequest,
-        GenerateSkuResponse, Product, ProductWithUom, SkuCategory, SkuPreviewRequest,
-        SkuPreviewResponse, SkuSegment, SkuSubcategory, SubcategoriesResponse, SubcategoryForEdit,
-        UpdateSkuCategoryRequest, UpdateSkuSubcategoryRequest, ValidateSkuRequest, ValidateSkuResponse,
+        audit_diff::DataDiff, CategoriesResponse, CategoriesTreeResponse, CategoryForEdit,
+        CategoryOption, CreateProductWithSkuRequest, CreateSkuSubcategoryRequest,
+        GenerateSkuRequest, GenerateSkuResponse, Product, ProductWithUom, SkuCategory,
+        SkuPreviewRequest, SkuPreviewResponse, SkuSegment, SkuSubcategory, SubcategoriesResponse,
+        SubcategoryForEdit, UpdateSkuCategoryRequest, UpdateSkuSubcategoryRequest,
+        ValidateSkuRequest, ValidateSkuResponse,
     },
-    repositories, AppError, Result,
+    repositories,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
+    AppError, Result,
 };
 
 pub struct SkuService;
@@ -125,14 +132,25 @@ impl SkuService {
     const SORT_ORDER_MIN: i32 = 0;
     const SORT_ORDER_MAX: i32 = 9999;
 
-    /// 更新品類（名稱、排序、啟用狀態）
+    /// 更新品類（名稱、排序、啟用狀態）— Service-driven audit
     pub async fn update_category(
         pool: &PgPool,
+        actor: &ActorContext,
         code: &str,
         req: &UpdateSkuCategoryRequest,
     ) -> Result<SkuCategory> {
-        let current = Self::get_category_by_code(pool, code).await?;
-        let name = req.name.as_deref().unwrap_or(&current.name);
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before: SkuCategory = sqlx::query_as(
+            "SELECT code, name, sort_order, is_active, created_at FROM sku_categories WHERE code = $1 FOR UPDATE",
+        )
+        .bind(code)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
+
+        let name = req.name.as_deref().unwrap_or(&before.name);
         let name = name.trim();
         if name.is_empty() {
             return Err(AppError::Validation("品類名稱為必填".to_string()));
@@ -143,7 +161,7 @@ impl SkuService {
                 Self::NAME_MAX_LEN
             )));
         }
-        let sort_order = req.sort_order.unwrap_or(current.sort_order);
+        let sort_order = req.sort_order.unwrap_or(before.sort_order);
         if !(Self::SORT_ORDER_MIN..=Self::SORT_ORDER_MAX).contains(&sort_order) {
             return Err(AppError::Validation(format!(
                 "排序請介於 {} 與 {} 之間",
@@ -151,19 +169,43 @@ impl SkuService {
                 Self::SORT_ORDER_MAX
             )));
         }
-        let is_active = req.is_active.unwrap_or(current.is_active);
+        let is_active = req.is_active.unwrap_or(before.is_active);
 
-        let row: SkuCategory = sqlx::query_as(
+        let after: SkuCategory = sqlx::query_as(
             "UPDATE sku_categories SET name = $1, sort_order = $2, is_active = $3 WHERE code = $4 RETURNING code, name, sort_order, is_active, created_at",
         )
         .bind(name)
         .bind(sort_order)
         .bind(is_active)
         .bind(code)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
-        Ok(row)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        // SkuCategory 以 `code` (String) 為 PK，非 UUID。audit 的 entity_id 欄位
+        // 需要 Uuid 型別，本 PR 採 `Uuid::nil()` + 人類可讀 `entity_display_name`
+        // 做稽核識別（例如 `"GEN 一般"`）。替代方案（uuid v5 from code）需加 v5 feature
+        // 依賴，收益有限，暫緩；若未來需以 entity_id 過濾，再評估 v5 實作。
+        let display = format!("{} {}", after.code, after.name);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "SKU_CATEGORY_UPDATE",
+                entity: Some(AuditEntity::new(
+                    "sku_category",
+                    uuid::Uuid::nil(),
+                    &display,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     /// 取得單一品類（含停用）
@@ -178,15 +220,27 @@ impl SkuService {
         Ok(category)
     }
 
-    /// 更新子類（名稱、排序、啟用狀態）
+    /// 更新子類（名稱、排序、啟用狀態）— Service-driven audit
     pub async fn update_subcategory(
         pool: &PgPool,
+        actor: &ActorContext,
         category_code: &str,
         code: &str,
         req: &UpdateSkuSubcategoryRequest,
     ) -> Result<SkuSubcategory> {
-        let current = Self::get_subcategory_by_codes(pool, category_code, code).await?;
-        let name = req.name.as_deref().unwrap_or(&current.name);
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before: SkuSubcategory = sqlx::query_as(
+            "SELECT id, category_code, code, name, sort_order, is_active, created_at FROM sku_subcategories WHERE category_code = $1 AND code = $2 FOR UPDATE",
+        )
+        .bind(category_code)
+        .bind(code)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Subcategory not found".to_string()))?;
+
+        let name = req.name.as_deref().unwrap_or(&before.name);
         let name = name.trim();
         if name.is_empty() {
             return Err(AppError::Validation("子類名稱為必填".to_string()));
@@ -197,7 +251,7 @@ impl SkuService {
                 Self::NAME_MAX_LEN
             )));
         }
-        let sort_order = req.sort_order.unwrap_or(current.sort_order);
+        let sort_order = req.sort_order.unwrap_or(before.sort_order);
         if !(Self::SORT_ORDER_MIN..=Self::SORT_ORDER_MAX).contains(&sort_order) {
             return Err(AppError::Validation(format!(
                 "排序請介於 {} 與 {} 之間",
@@ -205,9 +259,9 @@ impl SkuService {
                 Self::SORT_ORDER_MAX
             )));
         }
-        let is_active = req.is_active.unwrap_or(current.is_active);
+        let is_active = req.is_active.unwrap_or(before.is_active);
 
-        let row: SkuSubcategory = sqlx::query_as(
+        let after: SkuSubcategory = sqlx::query_as(
             "UPDATE sku_subcategories SET name = $1, sort_order = $2, is_active = $3 WHERE category_code = $4 AND code = $5 RETURNING id, category_code, code, name, sort_order, is_active, created_at",
         )
         .bind(name)
@@ -215,10 +269,32 @@ impl SkuService {
         .bind(is_active)
         .bind(category_code)
         .bind(code)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Subcategory not found".to_string()))?;
-        Ok(row)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        // SkuSubcategory 以 (category_code, code) 複合鍵識別，audit 用 `Uuid::nil()` +
+        // `entity_display_name = "GEN:OTH 其他"` 供稽核辨識（見 update_category 說明）。
+        let display = format!("{}:{} {}", after.category_code, after.code, after.name);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "SKU_SUBCATEGORY_UPDATE",
+                entity: Some(AuditEntity::new(
+                    "sku_subcategory",
+                    uuid::Uuid::nil(),
+                    &display,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     /// 取得單一子類（含停用）
@@ -238,14 +314,14 @@ impl SkuService {
         Ok(sub)
     }
 
-    /// 新增子類
+    /// 新增子類 — Service-driven audit
     pub async fn create_subcategory(
         pool: &PgPool,
+        actor: &ActorContext,
         category_code: &str,
         req: &CreateSkuSubcategoryRequest,
     ) -> Result<SkuSubcategory> {
-        // 品類必須存在
-        Self::get_category_by_code(pool, category_code).await?;
+        let _user = actor.require_user()?;
 
         let code = req.code.trim().to_uppercase();
         if code.len() != 3 {
@@ -276,7 +352,17 @@ impl SkuService {
         }
         let is_active = req.is_active.unwrap_or(true);
 
-        let row: SkuSubcategory = sqlx::query_as(
+        let mut tx = pool.begin().await?;
+
+        // 品類必須存在（在 tx 內檢查以避免併發 race）
+        let _parent: (String,) =
+            sqlx::query_as("SELECT code FROM sku_categories WHERE code = $1")
+                .bind(category_code)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
+
+        let after: SkuSubcategory = sqlx::query_as(
             "INSERT INTO sku_subcategories (category_code, code, name, sort_order, is_active, created_at)
              VALUES ($1, $2, $3, $4, $5, NOW())
              RETURNING id, category_code, code, name, sort_order, is_active, created_at",
@@ -286,7 +372,7 @@ impl SkuService {
         .bind(name)
         .bind(sort_order)
         .bind(is_active)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await
         .map_err(|e| {
             if let Some(db_err) = e.as_database_error() {
@@ -296,7 +382,28 @@ impl SkuService {
             }
             AppError::from(e)
         })?;
-        Ok(row)
+
+        let display = format!("{}:{} {}", after.category_code, after.code, after.name);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "SKU_SUBCATEGORY_CREATE",
+                entity: Some(AuditEntity::new(
+                    "sku_subcategory",
+                    uuid::Uuid::nil(),
+                    &display,
+                )),
+                data_diff: Some(DataDiff::create_only(&after)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
     }
 
     /// 生成 SKU
@@ -675,33 +782,40 @@ impl SkuService {
         })
     }
 
-    /// 生成正式 SKU 並建立產品
+    /// 生成正式 SKU 並建立產品 — Service-driven audit
     pub async fn create_product_with_sku(
         pool: &PgPool,
+        actor: &ActorContext,
         req: &CreateProductWithSkuRequest,
     ) -> Result<ProductWithUom> {
+        let _user = actor.require_user()?;
+
         // 使用簡化的 SKU 生成（符合 skuSpec.md）
         let generate_req = GenerateSkuRequest {
             category: req.category_code.clone(),
             subcategory: req.subcategory_code.clone(),
         };
-        
+
         let sku_result = Self::generate(pool, &generate_req).await?;
         let final_sku = sku_result.sku;
-
-        // 檢查 SKU 是否已存在
-        let exists = repositories::product::exists_product_by_sku(pool, &final_sku).await?;
-
-        if exists {
-            return Err(AppError::Conflict("SKU already exists".to_string()));
-        }
 
         // 生成產品名稱（如果未提供）
         let product_name = req.name.clone().unwrap_or_else(|| {
             req.spec.clone().unwrap_or_else(|| final_sku.clone())
         });
 
-        // 建立產品
+        let mut tx = pool.begin().await?;
+
+        // 在 tx 內檢查 SKU 唯一性（防併發搶註冊；若失敗由 UNIQUE constraint 兜底）
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)")
+                .bind(&final_sku)
+                .fetch_one(&mut *tx)
+                .await?;
+        if exists {
+            return Err(AppError::Conflict("SKU already exists".to_string()));
+        }
+
         let product = sqlx::query_as::<_, Product>(
             r#"
             INSERT INTO products (
@@ -724,10 +838,26 @@ impl SkuService {
         .bind(req.track_expiry)
         .bind(req.safety_stock)
         .bind(req.reorder_point)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 查詢類別名稱
+        let display = format!("{} ({})", product.name, product.sku);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "PRODUCT_CREATE_WITH_SKU",
+                entity: Some(AuditEntity::new("product", product.id, &display)),
+                data_diff: Some(DataDiff::create_only(&product)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        // tx 外取類別/子類別顯示名稱（pool-based 讀取，rollback 時不受影響）
         let category_name =
             repositories::sku::find_category_name_by_code(pool, &req.category_code).await?;
 
@@ -748,12 +878,24 @@ impl SkuService {
     }
 
     /// 刪除子類（僅在無產品使用該子類時允許；僅 admin 可呼叫，由 handler 檢查）
+    /// Service-driven audit
     pub async fn delete_subcategory(
         pool: &PgPool,
+        actor: &ActorContext,
         category_code: &str,
         code: &str,
     ) -> Result<()> {
-        Self::get_subcategory_by_codes(pool, category_code, code).await?;
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before: SkuSubcategory = sqlx::query_as(
+            "SELECT id, category_code, code, name, sort_order, is_active, created_at FROM sku_subcategories WHERE category_code = $1 AND code = $2 FOR UPDATE",
+        )
+        .bind(category_code)
+        .bind(code)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Subcategory not found".to_string()))?;
 
         // 若有產品使用此 category_code + subcategory_code（欄位或 SKU 前綴），不允許刪除
         let by_columns: bool = sqlx::query_scalar(
@@ -761,7 +903,7 @@ impl SkuService {
         )
         .bind(category_code)
         .bind(code)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
         if by_columns {
             return Err(AppError::BusinessRule(
@@ -771,7 +913,7 @@ impl SkuService {
         let sku_prefix = format!("{}-{}-", category_code, code);
         let by_sku: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku LIKE $1)",)
             .bind(format!("{}%", sku_prefix))
-            .fetch_one(pool)
+            .fetch_one(&mut *tx)
             .await?;
         if by_sku {
             return Err(AppError::BusinessRule(
@@ -782,28 +924,59 @@ impl SkuService {
         sqlx::query("DELETE FROM sku_sequences WHERE category_code = $1 AND subcategory_code = $2")
             .bind(category_code)
             .bind(code)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
         let result = sqlx::query("DELETE FROM sku_subcategories WHERE category_code = $1 AND code = $2")
             .bind(category_code)
             .bind(code)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("Subcategory not found".to_string()));
         }
+
+        let display = format!("{}:{} {}", before.category_code, before.code, before.name);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "SKU_SUBCATEGORY_DELETE",
+                entity: Some(AuditEntity::new(
+                    "sku_subcategory",
+                    uuid::Uuid::nil(),
+                    &display,
+                )),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
         Ok(())
     }
 
     /// 刪除品類（僅在無產品使用該品類時允許；僅 admin 可呼叫，由 handler 檢查）
-    pub async fn delete_category(pool: &PgPool, code: &str) -> Result<()> {
-        Self::get_category_by_code(pool, code).await?;
+    /// Service-driven audit
+    pub async fn delete_category(pool: &PgPool, actor: &ActorContext, code: &str) -> Result<()> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before: SkuCategory = sqlx::query_as(
+            "SELECT code, name, sort_order, is_active, created_at FROM sku_categories WHERE code = $1 FOR UPDATE",
+        )
+        .bind(code)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
 
         let by_columns: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM products WHERE category_code = $1)",
         )
         .bind(code)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
         if by_columns {
             return Err(AppError::BusinessRule(
@@ -813,7 +986,7 @@ impl SkuService {
         let sku_prefix = format!("{}-", code);
         let by_sku: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku LIKE $1)")
             .bind(format!("{}%", sku_prefix))
-            .fetch_one(pool)
+            .fetch_one(&mut *tx)
             .await?;
         if by_sku {
             return Err(AppError::BusinessRule(
@@ -823,15 +996,36 @@ impl SkuService {
 
         sqlx::query("DELETE FROM sku_sequences WHERE category_code = $1")
             .bind(code)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
         let result = sqlx::query("DELETE FROM sku_categories WHERE code = $1")
             .bind(code)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("Category not found".to_string()));
         }
+
+        let display = format!("{} {}", before.code, before.name);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "SKU_CATEGORY_DELETE",
+                entity: Some(AuditEntity::new(
+                    "sku_category",
+                    uuid::Uuid::nil(),
+                    &display,
+                )),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
         Ok(())
     }
 
