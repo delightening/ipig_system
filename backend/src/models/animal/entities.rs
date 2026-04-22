@@ -242,6 +242,10 @@ fn default_transfer_type_entity() -> String {
     "internal".to_string()
 }
 
+// 轉讓流程的 reason / remark / rejected_reason 為自由文字；依 R26-9 方針暫時
+// 全保留於 audit log（GLP 需完整變更軌跡）。若後續決定降敏再覆寫。
+impl crate::models::audit_diff::AuditRedact for AnimalTransfer {}
+
 /// 轉讓獸醫評估記錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct TransferVetEvaluation {
@@ -253,6 +257,10 @@ pub struct TransferVetEvaluation {
     pub conditions: Option<String>,
     pub evaluated_at: DateTime<Utc>,
 }
+
+// 獸醫評估含 health_status / conditions 自由文字醫療判斷；同 AnimalObservation
+// R26-9 方針，空 allowlist。
+impl crate::models::audit_diff::AuditRedact for TransferVetEvaluation {}
 
 /// 病理組織報告
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
