@@ -187,6 +187,9 @@ pub struct AnimalVaccination {
     pub created_at: DateTime<Utc>,
 }
 
+// 無敏感欄位（疫苗名、驅蟲劑量、給藥日期為研究紀錄本身）；空 impl 即可。
+impl crate::models::audit_diff::AuditRedact for AnimalVaccination {}
+
 /// 犧牲/採樣紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalSacrifice {

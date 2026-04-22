@@ -15,7 +15,7 @@ use crate::{
         UpdateWeightRequest,
     },
     require_permission,
-    services::{access, AnimalMedicalService, AnimalService, AnimalWeightService, AuditService},
+    services::{access, AnimalMedicalService, AnimalWeightService},
     AppState, Result,
 };
 
@@ -122,42 +122,10 @@ pub async fn create_animal_vaccination(
     require_permission!(current_user, "animal.record.create");
     req.validate()?;
 
+    // Audit 已收進 service 層（VACCINATION_CREATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
     let vaccination =
-        AnimalMedicalService::create_vaccination(&state.db, animal_id, &req, current_user.id)
-            .await?;
-
-    // 取得動物資訊用於日誌顯示
-    let vac_display = match AnimalService::get_by_id(&state.db, animal_id).await {
-        Ok(animal) => {
-            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
-            let vaccine_name = req.vaccine.as_deref().unwrap_or("未指定疫苗");
-            format!("[{}] {} - {}", iacuc, animal.ear_tag, vaccine_name)
-        }
-        _ => format!("疫苗紀錄 (animal: {})", animal_id),
-    };
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "VACCINATION_CREATE",
-        Some("animal_vaccination"),
-        Some(animal_id),
-        Some(&vac_display),
-        None,
-        Some(serde_json::json!({
-            "vaccine": req.vaccine,
-            "deworming_dose": req.deworming_dose,
-        })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (VACCINATION_CREATE): {}", e);
-    }
-
+        AnimalMedicalService::create_vaccination(&state.db, &actor, animal_id, &req).await?;
     Ok(Json(vaccination))
 }
 
@@ -171,27 +139,9 @@ pub async fn update_animal_vaccination(
 ) -> Result<Json<AnimalVaccination>> {
     require_permission!(current_user, "animal.record.edit");
 
-    let vaccination = AnimalMedicalService::update_vaccination(&state.db, id, &req).await?;
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "VACCINATION_UPDATE",
-        Some("animal_vaccination"),
-        None,
-        Some(&format!("疫苗紀錄 #{}", id)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (VACCINATION_UPDATE): {}", e);
-    }
-
+    // Audit 已收進 service 層（VACCINATION_UPDATE with before/after diff，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let vaccination = AnimalMedicalService::update_vaccination(&state.db, &actor, id, &req).await?;
     Ok(Json(vaccination))
 }
 
@@ -206,32 +156,10 @@ pub async fn delete_animal_vaccination(
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
 
-    AnimalMedicalService::soft_delete_vaccination_with_reason(
-        &state.db,
-        id,
-        &req.reason,
-        current_user.id,
-    )
-    .await?;
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "VACCINATION_DELETE",
-        Some("animal_vaccination"),
-        None,
-        Some(&format!("疫苗紀錄 #{} (原因: {})", id, req.reason)),
-        None,
-        Some(serde_json::json!({ "reason": req.reason })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (VACCINATION_DELETE): {}", e);
-    }
+    // Audit 已收進 service 層（VACCINATION_DELETE with change_reasons，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    AnimalMedicalService::soft_delete_vaccination_with_reason(&state.db, &actor, id, &req.reason)
+        .await?;
 
     Ok(Json(
         serde_json::json!({ "message": "Vaccination record deleted successfully" }),
