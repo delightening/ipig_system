@@ -8,9 +8,9 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
-    models::{AuditAction, CreateOvertimeRequest, OvertimeQuery, OvertimeWithUser, PaginatedResponse, RejectOvertimeRequest, UpdateOvertimeRequest},
-    services::{AuditService, HrService, NotificationService, OvertimeLimitCheck, WeekdayOvertimeTiers, WorkHoursValidation},
+    middleware::{ActorContext, CurrentUser},
+    models::{CreateOvertimeRequest, OvertimeQuery, OvertimeWithUser, PaginatedResponse, RejectOvertimeRequest, UpdateOvertimeRequest},
+    services::{HrService, NotificationService, OvertimeLimitCheck, WeekdayOvertimeTiers, WorkHoursValidation},
     AppState, Result,
 };
 
@@ -63,7 +63,8 @@ pub async fn create_overtime(
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<CreateOvertimeRequest>,
 ) -> Result<(StatusCode, Json<OvertimeWithUser>)> {
-    let record = HrService::create_overtime(&state.db, current_user.id, &payload).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::create_overtime(&state.db, &actor, &payload).await?;
     Ok((StatusCode::CREATED, Json(record)))
 }
 
@@ -74,7 +75,8 @@ pub async fn update_overtime(
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateOvertimeRequest>,
 ) -> Result<Json<OvertimeWithUser>> {
-    let record = HrService::update_overtime(&state.db, id, &current_user, &payload).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::update_overtime(&state.db, &actor, id, &payload).await?;
     Ok(Json(record))
 }
 
@@ -84,7 +86,8 @@ pub async fn delete_overtime(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    HrService::delete_overtime(&state.db, id, &current_user).await?;
+    let actor = ActorContext::User(current_user.clone());
+    HrService::delete_overtime(&state.db, &actor, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -94,7 +97,8 @@ pub async fn submit_overtime(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<OvertimeWithUser>> {
-    let record = HrService::submit_overtime(&state.db, id, &current_user).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::submit_overtime(&state.db, &actor, id).await?;
     let db = state.db.clone();
     let applicant_name = record.user_name.clone();
     let overtime_date = record.overtime_date.to_string();
@@ -133,17 +137,8 @@ pub async fn approve_overtime(
         },
         _ => return Err(crate::error::AppError::Validation(format!("無法審核狀態為 {} 的加班申請", current.0))),
     };
-    let record = HrService::approve_overtime(&state.db, id, current_user.id, approval_level).await?;
-    if let Err(e) = AuditService::log(
-        &state.db,
-        current_user.id,
-        AuditAction::Approve,
-        "overtime_record",
-        id,
-        None,
-        Some(serde_json::json!({ "approval_level": approval_level, "status": &record.status })),
-    )
-    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::approve_overtime(&state.db, &actor, id, approval_level).await?;
     Ok(Json(record))
 }
 
@@ -209,6 +204,7 @@ pub async fn reject_overtime(
     if !can_reject {
         return Err(crate::error::AppError::Forbidden("僅行政或負責人可駁回加班申請".to_string()));
     }
-    let record = HrService::reject_overtime(&state.db, id, current_user.id, &payload.reason).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::reject_overtime(&state.db, &actor, id, &payload.reason).await?;
     Ok(Json(record))
 }
