@@ -130,6 +130,40 @@ fn write_field(buf: &mut Vec<u8>, bytes: &[u8]) {
 /// HMAC 密鑰（由 Config 初始化一次，避免每次讀取 env var）
 static AUDIT_HMAC_KEY: OnceLock<Option<String>> = OnceLock::new();
 
+/// R26-2：HMAC chain 範圍驗證結果。
+///
+/// 由 [`AuditService::verify_chain_range`] 產生；每日驗證 cron 根據 broken_links 是否
+/// 為空決定是否觸發 SecurityNotifier 告警。
+#[derive(Debug, Clone)]
+pub struct ChainVerificationReport {
+    pub range_from: chrono::DateTime<chrono::Utc>,
+    pub range_to: chrono::DateTime<chrono::Utc>,
+    /// 範圍內的 row 總數（含已略過的 security_event）
+    pub total_rows: usize,
+    /// 真正跑完 HMAC 比對的 row 數（= total_rows - skipped_no_hash）
+    pub verified_rows: usize,
+    /// 無 integrity_hash（security_event 等不入鏈的紀錄）
+    pub skipped_no_hash: usize,
+    /// HMAC 不一致的 row（斷鏈偵測）
+    pub broken_links: Vec<BrokenChainLink>,
+}
+
+impl ChainVerificationReport {
+    pub fn is_intact(&self) -> bool {
+        self.broken_links.is_empty()
+    }
+}
+
+/// 單一 HMAC 驗證失敗的 row 紀錄。
+#[derive(Debug, Clone)]
+pub struct BrokenChainLink {
+    pub id: Uuid,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub expected_hash: String,
+    pub stored_hash: String,
+    pub stored_previous_hash: Option<String>,
+}
+
 pub struct AuditService;
 
 impl AuditService {
@@ -384,6 +418,179 @@ impl AuditService {
     ///
     /// 納入 impersonated_by 與 changed_fields 的目的：
     ///   若 DB 被竄改（例如清空這兩欄），HMAC 驗證會失敗。
+    /// 對給定欄位集合計算 HMAC（不接觸 DB，純運算）。
+    ///
+    /// 供 [`verify_chain_range`](Self::verify_chain_range) 使用：針對每筆 audit row
+    /// 重算預期 HMAC，和儲存值比對即可判定 chain 完整性。
+    pub(crate) fn compute_hmac_for_fields(
+        hmac_key: &str,
+        prev_hash: Option<&str>,
+        event_category: &str,
+        event_type: &str,
+        actor_user_id: Uuid,
+        before_data: &Option<serde_json::Value>,
+        after_data: &Option<serde_json::Value>,
+        impersonated_by: Option<Uuid>,
+        changed_fields: &[String],
+    ) -> String {
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+        type HmacSha256 = Hmac<Sha256>;
+
+        let input = HmacInput {
+            event_category,
+            event_type,
+            actor_user_id,
+            before_data,
+            after_data,
+            impersonated_by,
+            changed_fields,
+        };
+        let message = input.canonical_bytes(prev_hash);
+
+        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes())
+            .expect("HMAC key invalid — 啟動時應已驗證"); // OnceLock 存的 key 必有效
+        mac.update(&message);
+        let hash_bytes = mac.finalize().into_bytes();
+        hash_bytes.iter().map(|b| format!("{:02x}", b)).collect()
+    }
+
+    /// 取得目前 HMAC 密鑰（未初始化或未設定則 None）。
+    ///
+    /// 主要給 `audit_chain_verify` job 用：key 缺席時應 fail loud（HMAC chain
+    /// 驗證無意義）而非靜默略過。
+    pub fn hmac_key() -> Option<&'static str> {
+        AUDIT_HMAC_KEY.get().and_then(|k| k.as_deref())
+    }
+
+    /// 驗證指定時間範圍內 `user_activity_logs` HMAC 鏈的完整性（R26-2）。
+    ///
+    /// 流程：
+    /// 1. 取範圍內所有 row，ORDER BY (created_at, id) ASC
+    /// 2. 取範圍**前一筆** row 的 integrity_hash 作為初始 prev_hash
+    /// 3. 逐行：重算 HMAC → 與 row.integrity_hash 比對
+    ///    - 不等 → 加入 broken_links
+    ///    - 推進 prev_hash = row.integrity_hash（即使 broken 也繼續，方便定位
+    ///      連鎖破壞）
+    ///
+    /// **效能考量**：此方法會把範圍內所有 row 拉進記憶體。對每日驗證（~1000-10000 rows）
+    /// 約耗時 < 1 秒；若要驗證大範圍（>100k rows）需改為 streaming 版本。
+    pub async fn verify_chain_range(
+        pool: &PgPool,
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> Result<ChainVerificationReport> {
+        let hmac_key = Self::hmac_key().ok_or_else(|| {
+            crate::error::AppError::Internal(
+                "AUDIT_HMAC_KEY 未設定 — 無法驗證 chain 完整性".into(),
+            )
+        })?;
+
+        #[derive(sqlx::FromRow)]
+        struct ChainRow {
+            id: Uuid,
+            created_at: chrono::DateTime<chrono::Utc>,
+            event_category: String,
+            event_type: String,
+            actor_user_id: Uuid,
+            before_data: Option<serde_json::Value>,
+            after_data: Option<serde_json::Value>,
+            impersonated_by_user_id: Option<Uuid>,
+            changed_fields: Option<Vec<String>>,
+            integrity_hash: Option<String>,
+            previous_hash: Option<String>,
+        }
+
+        let rows: Vec<ChainRow> = sqlx::query_as::<_, ChainRow>(
+            r#"
+            SELECT id, created_at, event_category, event_type, actor_user_id,
+                   before_data, after_data, impersonated_by_user_id,
+                   changed_fields, integrity_hash, previous_hash
+            FROM user_activity_logs
+            WHERE created_at >= $1 AND created_at < $2
+            ORDER BY created_at ASC, id ASC
+            "#,
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(pool)
+        .await?;
+
+        let total_rows = rows.len();
+        if total_rows == 0 {
+            return Ok(ChainVerificationReport {
+                range_from: from,
+                range_to: to,
+                total_rows: 0,
+                verified_rows: 0,
+                skipped_no_hash: 0,
+                broken_links: Vec::new(),
+            });
+        }
+
+        // 取範圍前一筆 row 的 hash 作為起始 prev_hash
+        let first = &rows[0];
+        let mut prev_hash: Option<String> = sqlx::query_scalar(
+            r#"
+            SELECT integrity_hash FROM user_activity_logs
+            WHERE (created_at, id) < ($1, $2) AND integrity_hash IS NOT NULL
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(first.created_at)
+        .bind(first.id)
+        .fetch_optional(pool)
+        .await?;
+
+        let mut broken_links = Vec::new();
+        let mut verified_rows = 0_usize;
+        let mut skipped_no_hash = 0_usize;
+
+        for row in &rows {
+            // 有些安全事件（log_security_event）不走 HMAC chain；這類 row 略過驗證
+            let Some(stored_hash) = row.integrity_hash.as_deref() else {
+                skipped_no_hash += 1;
+                continue;
+            };
+
+            let changed_fields = row.changed_fields.as_deref().unwrap_or(&[]);
+            let expected = Self::compute_hmac_for_fields(
+                hmac_key,
+                prev_hash.as_deref(),
+                &row.event_category,
+                &row.event_type,
+                row.actor_user_id,
+                &row.before_data,
+                &row.after_data,
+                row.impersonated_by_user_id,
+                changed_fields,
+            );
+
+            if expected != stored_hash {
+                broken_links.push(BrokenChainLink {
+                    id: row.id,
+                    created_at: row.created_at,
+                    expected_hash: expected,
+                    stored_hash: stored_hash.to_string(),
+                    stored_previous_hash: row.previous_hash.clone(),
+                });
+            }
+
+            verified_rows += 1;
+            prev_hash = Some(stored_hash.to_string());
+        }
+
+        Ok(ChainVerificationReport {
+            range_from: from,
+            range_to: to,
+            total_rows,
+            verified_rows,
+            skipped_no_hash,
+            broken_links,
+        })
+    }
+
     async fn compute_and_store_hmac_tx(
         tx: &mut Transaction<'_, Postgres>,
         log_id: Uuid,
