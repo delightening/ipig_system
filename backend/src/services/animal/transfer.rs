@@ -2,7 +2,6 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalService;
 use crate::{
     middleware::ActorContext,
     models::{
@@ -110,8 +109,23 @@ impl AnimalTransferService {
         let user = actor.require_user()?;
         let initiated_by = user.id;
 
-        // 驗證動物狀態
-        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+        let transfer_type = match req.transfer_type.as_str() {
+            "external" | "internal" => req.transfer_type.clone(),
+            _ => "internal".to_string(),
+        };
+
+        let mut tx = pool.begin().await?;
+
+        // Gemini PR #179 HIGH：狀態檢查同 tx 並鎖 animal row，避免兩個並發請求
+        // 都看到 Completed 狀態然後都進入 pending transfer。
+        let animal: crate::models::Animal = sqlx::query_as(
+            "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(animal_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
+
         if animal.status != AnimalStatus::Completed {
             return Err(AppError::BadRequest(format!(
                 "只有「存活完成」狀態的動物可以發起轉讓，當前狀態：{}",
@@ -123,14 +137,7 @@ impl AnimalTransferService {
             AppError::BadRequest("動物未指定 IACUC No.，無法發起轉讓".to_string())
         })?;
 
-        let transfer_type = match req.transfer_type.as_str() {
-            "external" | "internal" => req.transfer_type.clone(),
-            _ => "internal".to_string(),
-        };
-
-        let mut tx = pool.begin().await?;
-
-        // 檢查是否有進行中的轉讓（同 tx 可見性）
+        // 檢查是否有進行中的轉讓（同 tx 可見性；父層 animal 已鎖）
         let active = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM animal_transfers WHERE animal_id = $1 AND status NOT IN ('completed', 'rejected')"
         )
@@ -149,6 +156,18 @@ impl AnimalTransferService {
             .bind(animal_id)
             .execute(&mut *tx)
             .await?;
+
+        // Gemini PR #179 MED：current_count 排除 transferred，Completed→Transferred
+        // 須立即 recalc 避免 pen count 在 workflow 期間持續偏高
+        // （長期解法見 issue #180）
+        if let Some(pid) = animal.pen_id {
+            sqlx::query(
+                "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
+            )
+            .bind(pid)
+            .execute(&mut *tx)
+            .await?;
+        }
 
         let record = sqlx::query_as::<_, AnimalTransfer>(
             r#"
@@ -490,6 +509,24 @@ impl AnimalTransferService {
             .bind(before.animal_id)
             .execute(&mut *tx)
             .await?;
+
+        // Gemini PR #179 MED：Transferred→Completed 須 recalc pen count（completed
+        // 狀態應計入總數；initiate 已扣、reject 須加回）。長期解法見 issue #180。
+        let pen_id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT pen_id FROM animals WHERE id = $1",
+        )
+        .bind(before.animal_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .flatten();
+        if let Some(pid) = pen_id {
+            sqlx::query(
+                "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
+            )
+            .bind(pid)
+            .execute(&mut *tx)
+            .await?;
+        }
 
         let updated = sqlx::query_as::<_, AnimalTransfer>(
             "UPDATE animal_transfers SET status = 'rejected', rejected_by = $1, rejected_reason = $2, updated_at = NOW() WHERE id = $3 RETURNING *"
