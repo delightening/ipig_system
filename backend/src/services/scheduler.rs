@@ -161,6 +161,10 @@ impl SchedulerService {
     }
 
     /// 每日 08:00 與 18:00 執行 Google Calendar 同步
+    ///
+    /// R26-1：長工作改以 `tokio::select!` 與 shutdown token 並跑；shutdown 時
+    /// 立即中止目前正在進行的 HTTP 呼叫（Google API 可能分頁，單輪可能數十
+    /// 秒），不再等整輪結束。
     async fn register_calendar_sync_jobs(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         for (cron, label) in [("0 0 8 * * *", "morning"), ("0 0 18 * * *", "evening")] {
             let db_clone = db.clone();
@@ -174,9 +178,17 @@ impl SchedulerService {
                         return;
                     }
                     info!("Running scheduled calendar sync ({})...", label);
-                    match CalendarService::trigger_sync(&db, None).await {
-                        Ok(history) => info!("Calendar sync completed: {:?}", history.status),
-                        Err(e) => error!("Calendar sync failed: {}", e),
+                    tokio::select! {
+                        biased;
+                        _ = token.cancelled() => {
+                            info!("[Scheduler] calendar_sync_{} interrupted by shutdown", label);
+                        }
+                        result = CalendarService::trigger_sync(&db, None) => {
+                            match result {
+                                Ok(history) => info!("Calendar sync completed: {:?}", history.status),
+                                Err(e) => error!("Calendar sync failed: {}", e),
+                            }
+                        }
                     }
                 })
             })?;
@@ -291,6 +303,7 @@ impl SchedulerService {
     }
 
     /// 每月 1 號 06:00 產出上月進銷貨+血液檢查報表
+    /// 每月 1 日 06:00 生成月報（R26-1：長工作 + tokio::select! cancellation）
     async fn register_monthly_report_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let token_outer = token.clone();
@@ -303,8 +316,16 @@ impl SchedulerService {
                     return;
                 }
                 info!("Running monthly report generation...");
-                if let Err(e) = Self::generate_monthly_report(&db).await {
-                    error!("Monthly report generation failed: {}", e);
+                tokio::select! {
+                    biased;
+                    _ = token.cancelled() => {
+                        info!("[Scheduler] monthly_report interrupted by shutdown");
+                    }
+                    result = Self::generate_monthly_report(&db) => {
+                        if let Err(e) = result {
+                            error!("Monthly report generation failed: {}", e);
+                        }
+                    }
                 }
             })
         })?;
@@ -372,6 +393,11 @@ impl SchedulerService {
     }
 
     /// 每天 03:30 執行 ANALYZE
+    /// 每日 03:30 ANALYZE 高寫入表（R26-1：長工作 + tokio::select! cancellation）
+    ///
+    /// 注意：drop sqlx 的 in-flight future 只會關閉客戶端連線；PostgreSQL 端
+    /// 的 VACUUM ANALYZE 仍會繼續完成或由 `statement_timeout` 中止。對 shutdown
+    /// 而言足夠：服務立刻下線，DB 自行收尾。
     async fn register_db_analyze_job(sched: &JobScheduler, db: &PgPool, token: &CancellationToken, count: &mut u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let db_clone = db.clone();
         let token_outer = token.clone();
@@ -384,11 +410,16 @@ impl SchedulerService {
                     return;
                 }
                 info!("Running scheduled ANALYZE on high-write tables...");
-                if let Err(e) = sqlx::query("SELECT maintenance_vacuum_analyze()")
-                    .execute(&db)
-                    .await
-                {
-                    error!("Scheduled ANALYZE failed: {}", e);
+                tokio::select! {
+                    biased;
+                    _ = token.cancelled() => {
+                        info!("[Scheduler] db_maintenance_analyze interrupted by shutdown");
+                    }
+                    result = sqlx::query("SELECT maintenance_vacuum_analyze()").execute(&db) => {
+                        if let Err(e) = result {
+                            error!("Scheduled ANALYZE failed: {}", e);
+                        }
+                    }
                 }
             })
         })?;
