@@ -85,8 +85,20 @@ pub(crate) struct HmacInput<'a> {
     pub(crate) changed_fields: &'a [String],
 }
 
+// ============================================
+// R26-6: HMAC 編碼版本
+// ============================================
+
+/// Legacy string-concat 編碼（pre-R26-6）。
+/// 由 [`AuditService::log_activity`] / [`AuditService::compute_and_store_hmac`] 使用。
+pub(crate) const HMAC_VERSION_LEGACY: i16 = 1;
+
+/// Length-prefix canonical 編碼（R26 SDD 新版）。
+/// 由 [`AuditService::log_activity_tx`] / [`AuditService::compute_and_store_hmac_tx`] 使用。
+pub(crate) const HMAC_VERSION_CANONICAL: i16 = 2;
+
 impl HmacInput<'_> {
-    /// 將所有欄位以 length-prefix canonical form 寫入 buffer。
+    /// v2 (R26 canonical) 編碼：將所有欄位以 length-prefix 寫入 buffer。
     ///
     /// 每個欄位：`8-byte BE length` + `UTF-8 bytes`
     /// changed_fields 以 `array length (u64 BE)` 開頭，再逐欄位 length-prefix。
@@ -122,6 +134,30 @@ impl HmacInput<'_> {
             write_field(&mut buf, f.as_bytes());
         }
         buf
+    }
+
+    /// v1 (legacy) 編碼：pre-R26-6 的字串串接方式（[`AuditService::compute_and_store_hmac`] 舊版）。
+    ///
+    /// ⚠️ 此編碼有碰撞風險（`"ab"+"cd"` 與 `"abc"+"d"` 產生相同 byte stream），
+    /// 也未包含 `impersonated_by` / `changed_fields` 兩欄位。僅供 verifier 對
+    /// `hmac_version=1` 的 legacy row 重算 HMAC 使用；**新程式碼禁止使用此編碼**。
+    ///
+    /// 與舊 `compute_and_store_hmac` 保持 byte-for-byte 一致以避免 false positive。
+    pub(crate) fn legacy_concat_message(&self, prev_hash: Option<&str>) -> String {
+        let mut message = String::new();
+        if let Some(ph) = prev_hash {
+            message.push_str(ph);
+        }
+        message.push_str(self.event_category);
+        message.push_str(self.event_type);
+        message.push_str(&self.actor_user_id.to_string());
+        if let Some(bd) = self.before_data {
+            message.push_str(&bd.to_string());
+        }
+        if let Some(ad) = self.after_data {
+            message.push_str(&ad.to_string());
+        }
+        message
     }
 }
 
@@ -185,6 +221,8 @@ struct ChainRow {
     changed_fields: Option<Vec<String>>,
     integrity_hash: Option<String>,
     previous_hash: Option<String>,
+    /// R26-6：HMAC 編碼版本。NULL 視為 legacy (v=1)，與 backfill 後結果一致。
+    hmac_version: Option<i16>,
 }
 
 pub struct AuditService;
@@ -446,22 +484,33 @@ impl AuditService {
     /// 供 [`verify_chain_range`](Self::verify_chain_range) 使用：針對每筆 audit row
     /// 重算預期 HMAC，和儲存值比對即可判定 chain 完整性。
     ///
-    /// 簽名收斂為 `(hmac_key, prev_hash, input)` 3 個參數（CodeRabbit PR #158
-    /// review：避免 9 個位置參數錯位）。
-    pub(crate) fn compute_hmac_for_fields(
+    /// R26-6：依 HMAC 編碼版本分流計算 expected hash。
+    ///
+    /// - `HMAC_VERSION_LEGACY` (1) → 字串串接（`legacy_concat_message`）
+    /// - `HMAC_VERSION_CANONICAL` (2) → length-prefix canonical（`canonical_bytes`）
+    ///
+    /// 未知版本（未來擴充）fallback canonical — 這是刻意選擇：新版 writer 應
+    /// 先寫 migration 再 deploy code，若 verifier 在版本過渡期遇未知值會對
+    /// canonical 版本做比對，至少能偵測 canonical row 的竄改。
+    pub(crate) fn compute_hmac_for_fields_versioned(
         hmac_key: &str,
         prev_hash: Option<&str>,
         input: HmacInput<'_>,
+        version: i16,
     ) -> String {
         use hmac::{Hmac, Mac};
         use sha2::Sha256;
         type HmacSha256 = Hmac<Sha256>;
 
-        let message = input.canonical_bytes(prev_hash);
-
         let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes())
-            .expect("HMAC key invalid — 啟動時應已驗證"); // OnceLock 存的 key 必有效
-        mac.update(&message);
+            .expect("HMAC key invalid — 啟動時應已驗證");
+
+        if version == HMAC_VERSION_LEGACY {
+            mac.update(input.legacy_concat_message(prev_hash).as_bytes());
+        } else {
+            mac.update(&input.canonical_bytes(prev_hash));
+        }
+
         let hash_bytes = mac.finalize().into_bytes();
         hash_bytes.iter().map(|b| format!("{:02x}", b)).collect()
     }
@@ -542,7 +591,7 @@ impl AuditService {
             r#"
             SELECT id, created_at, event_category, event_type, actor_user_id,
                    before_data, after_data, impersonated_by_user_id,
-                   changed_fields, integrity_hash, previous_hash
+                   changed_fields, integrity_hash, previous_hash, hmac_version
             FROM user_activity_logs
             WHERE created_at >= $1 AND created_at < $2
               AND partition_date >= $1::date AND partition_date <= $2::date
@@ -626,23 +675,50 @@ impl AuditService {
                 }
                 Some(stored_hash) => {
                     let changed_fields = row.changed_fields.as_deref().unwrap_or(&[]);
-                    let expected = Self::compute_hmac_for_fields(
-                        hmac_key,
-                        prev_hash.as_deref(),
-                        HmacInput {
-                            event_category: &row.event_category,
-                            event_type: &row.event_type,
-                            // 匿名 actor 寫入時用 SYSTEM_USER_ID（與 ActorContext::Anonymous
-                            // 寫入端 fallback 一致）
-                            actor_user_id: row
-                                .actor_user_id
-                                .unwrap_or(crate::middleware::SYSTEM_USER_ID),
-                            before_data: &row.before_data,
-                            after_data: &row.after_data,
-                            impersonated_by: row.impersonated_by_user_id,
-                            changed_fields,
-                        },
-                    );
+                    let build_input = || HmacInput {
+                        event_category: &row.event_category,
+                        event_type: &row.event_type,
+                        // 匿名 actor 寫入時用 SYSTEM_USER_ID（與 ActorContext::Anonymous
+                        // 寫入端 fallback 一致）
+                        actor_user_id: row
+                            .actor_user_id
+                            .unwrap_or(crate::middleware::SYSTEM_USER_ID),
+                        before_data: &row.before_data,
+                        after_data: &row.after_data,
+                        impersonated_by: row.impersonated_by_user_id,
+                        changed_fields,
+                    };
+                    // R26-6：hmac_version 分流。
+                    // - Some(version) → 依版本編碼比對一次
+                    // - None（pre-R26-6 row，尚未 backfill）→ try-both 策略：先試
+                    //   canonical（因 migration 037 前 log_activity_tx 已使用 v2 編碼
+                    //   但無 column 可標記），再試 legacy；避免任一方向的 false positive。
+                    let expected = match row.hmac_version {
+                        Some(v) => Self::compute_hmac_for_fields_versioned(
+                            hmac_key,
+                            prev_hash.as_deref(),
+                            build_input(),
+                            v,
+                        ),
+                        None => {
+                            let v2 = Self::compute_hmac_for_fields_versioned(
+                                hmac_key,
+                                prev_hash.as_deref(),
+                                build_input(),
+                                HMAC_VERSION_CANONICAL,
+                            );
+                            if v2 == stored_hash {
+                                v2
+                            } else {
+                                Self::compute_hmac_for_fields_versioned(
+                                    hmac_key,
+                                    prev_hash.as_deref(),
+                                    build_input(),
+                                    HMAC_VERSION_LEGACY,
+                                )
+                            }
+                        }
+                    };
 
                     if expected != stored_hash {
                         broken_links.push(BrokenChainLink {
@@ -727,11 +803,13 @@ impl AuditService {
         let hash_bytes = mac.finalize().into_bytes();
         let hash_result: String = hash_bytes.iter().map(|b| format!("{:02x}", b)).collect();
 
+        // R26-6：寫入 hmac_version=2 標示為 length-prefix canonical 編碼。
         sqlx::query(
-            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2 WHERE id = $3",
+            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2, hmac_version = $3 WHERE id = $4",
         )
         .bind(&hash_result)
         .bind(prev_hash.as_deref())
+        .bind(HMAC_VERSION_CANONICAL)
         .bind(log_id)
         .execute(&mut **tx)
         .await?;
@@ -950,12 +1028,13 @@ impl AuditService {
         let hash_bytes = mac.finalize().into_bytes();
         let hash_result: String = hash_bytes.iter().map(|b| format!("{:02x}", b)).collect();
 
-        // 更新記錄
+        // R26-6：寫入 hmac_version=1 標示為 legacy string-concat 編碼。
         sqlx::query(
-            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2 WHERE id = $3",
+            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2, hmac_version = $3 WHERE id = $4",
         )
         .bind(&hash_result)
         .bind(prev_hash.as_deref())
+        .bind(HMAC_VERSION_LEGACY)
         .bind(log_id)
         .execute(pool)
         .await?;
@@ -1454,5 +1533,148 @@ impl AuditService {
             open_alerts: open_alerts.0,
             critical_alerts: critical_alerts.0,
         })
+    }
+}
+
+#[cfg(test)]
+mod hmac_versioning_tests {
+    //! R26-6：HMAC 編碼版本化單元測試。
+    //!
+    //! 驗證 v1（legacy string-concat）與 v2（length-prefix canonical）編碼
+    //! 產出的 HMAC **不同**，確保 verifier 分流正確（用錯版本會偵測為斷鏈）。
+    use super::{AuditService, HmacInput, HMAC_VERSION_CANONICAL, HMAC_VERSION_LEGACY};
+    use uuid::Uuid;
+
+    const TEST_KEY: &str = "test-hmac-key-for-unit-tests-only";
+
+    fn sample_input<'a>(
+        category: &'a str,
+        event_type: &'a str,
+        actor_id: Uuid,
+        before: &'a Option<serde_json::Value>,
+        after: &'a Option<serde_json::Value>,
+        changed_fields: &'a [String],
+    ) -> HmacInput<'a> {
+        HmacInput {
+            event_category: category,
+            event_type,
+            actor_user_id: actor_id,
+            before_data: before,
+            after_data: after,
+            impersonated_by: None,
+            changed_fields,
+        }
+    }
+
+    #[test]
+    fn legacy_and_canonical_encodings_produce_different_hashes() {
+        let actor = Uuid::parse_str("00000000-0000-0000-0000-000000000001")
+            .expect("hard-coded test UUID must parse");
+        let before = Some(serde_json::json!({"a": 1}));
+        let after = Some(serde_json::json!({"a": 2}));
+        let fields = vec!["a".to_string()];
+
+        let input = sample_input("ANIMAL", "UPDATE", actor, &before, &after, &fields);
+        let prev = Some("abcd1234");
+
+        let v1 = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            prev,
+            HmacInput {
+                event_category: input.event_category,
+                event_type: input.event_type,
+                actor_user_id: input.actor_user_id,
+                before_data: input.before_data,
+                after_data: input.after_data,
+                impersonated_by: input.impersonated_by,
+                changed_fields: input.changed_fields,
+            },
+            HMAC_VERSION_LEGACY,
+        );
+        let v2 = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            prev,
+            input,
+            HMAC_VERSION_CANONICAL,
+        );
+
+        assert_ne!(v1, v2, "v1 vs v2 不同編碼 HMAC 應有差異");
+        assert_eq!(v1.len(), 64, "HMAC-SHA256 hex 應為 64 字元");
+        assert_eq!(v2.len(), 64);
+    }
+
+    #[test]
+    fn canonical_encoding_detects_string_concat_collision() {
+        // 經典碰撞：("ab","cd") 與 ("abc","d") 在字串串接下產生同一 message
+        let actor = Uuid::nil();
+        let before = None::<serde_json::Value>;
+        let after = None::<serde_json::Value>;
+        let fields: Vec<String> = vec![];
+
+        let case_a = sample_input("ab", "cd", actor, &before, &after, &fields);
+        let case_b = sample_input("abc", "d", actor, &before, &after, &fields);
+
+        // v1 legacy：會碰撞（這就是為什麼需要 v2）
+        let legacy_a = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            HmacInput {
+                event_category: case_a.event_category,
+                event_type: case_a.event_type,
+                actor_user_id: case_a.actor_user_id,
+                before_data: case_a.before_data,
+                after_data: case_a.after_data,
+                impersonated_by: case_a.impersonated_by,
+                changed_fields: case_a.changed_fields,
+            },
+            HMAC_VERSION_LEGACY,
+        );
+        let legacy_b = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            case_b,
+            HMAC_VERSION_LEGACY,
+        );
+        assert_eq!(legacy_a, legacy_b, "legacy 確實會碰撞（合預期，說明為何需 v2）");
+
+        // v2 canonical：不會碰撞
+        let v2_a = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            case_a,
+            HMAC_VERSION_CANONICAL,
+        );
+        let input_b_v2 = sample_input("abc", "d", actor, &before, &after, &fields);
+        let v2_b = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            input_b_v2,
+            HMAC_VERSION_CANONICAL,
+        );
+        assert_ne!(v2_a, v2_b, "canonical v2 不應碰撞");
+    }
+
+    #[test]
+    fn unknown_version_falls_back_to_canonical() {
+        let actor = Uuid::nil();
+        let before = None::<serde_json::Value>;
+        let after = None::<serde_json::Value>;
+        let fields: Vec<String> = vec![];
+
+        let input = sample_input("X", "Y", actor, &before, &after, &fields);
+        let input2 = sample_input("X", "Y", actor, &before, &after, &fields);
+
+        let v2 = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            input,
+            HMAC_VERSION_CANONICAL,
+        );
+        let unknown = AuditService::compute_hmac_for_fields_versioned(TEST_KEY, None, input2, 99);
+
+        assert_eq!(
+            v2, unknown,
+            "未知版本應 fallback canonical，不應 panic"
+        );
     }
 }
