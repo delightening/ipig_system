@@ -489,7 +489,7 @@ async fn process_weight_row(
     validated: ValidatedWeightRow,
     row_number: i32,
     original_ear_tag: &str,
-    created_by: Uuid,
+    _created_by: Uuid,
 ) -> std::result::Result<(), ImportErrorDetail> {
     let animal_id = find_animal_id_by_ear_tag(pool, &validated.formatted_ear_tag)
         .await
@@ -505,7 +505,12 @@ async fn process_weight_row(
         weight: validated.weight,
     };
 
-    AnimalWeightService::create(pool, animal_id, &create_req, created_by)
+    // 批次匯入內部呼叫：使用 System actor（reason 標示為 batch import），
+    // `created_by` 在 service 內由 actor 推導（Anonymous → error / User → id / System → SYSTEM_USER_ID）
+    let actor = crate::middleware::ActorContext::System {
+        reason: "weight_batch_import",
+    };
+    AnimalWeightService::create(pool, &actor, animal_id, &create_req)
         .await
         .map_err(|e| {
             import_err(row_number, Some(original_ear_tag.to_string()), format!("建立失敗: {}", e))

@@ -1,9 +1,16 @@
-﻿use sqlx::PgPool;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{AnimalSource, CreateAnimalSourceRequest, UpdateAnimalSourceRequest},
-    Result,
+    middleware::ActorContext,
+    models::{
+        audit_diff::DataDiff, AnimalSource, CreateAnimalSourceRequest, UpdateAnimalSourceRequest,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
+    AppError, Result,
 };
 
 pub struct AnimalSourceService;
@@ -24,11 +31,15 @@ impl AnimalSourceService {
         Ok(sources)
     }
 
-    /// 建立動物來源
+    /// 建立動物來源 — Service-driven audit (ADMIN)
     pub async fn create_source(
         pool: &PgPool,
+        actor: &ActorContext,
         req: &CreateAnimalSourceRequest,
     ) -> Result<AnimalSource> {
+        actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
         let source = sqlx::query_as::<_, AnimalSource>(
             r#"
             INSERT INTO animal_sources (id, code, name, address, contact, phone, phone_ext, is_active, sort_order, created_at, updated_at)
@@ -43,19 +54,46 @@ impl AnimalSourceService {
         .bind(&req.contact)
         .bind(&req.phone)
         .bind(&req.phone_ext)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!("{} ({})", source.name, source.code);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ADMIN",
+                event_type: "ANIMAL_SOURCE_CREATE",
+                entity: Some(AuditEntity::new("animal_source", source.id, &display)),
+                data_diff: Some(DataDiff::create_only(&source)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(source)
     }
 
-    /// 更新動物來源
+    /// 更新動物來源 — Service-driven audit (ADMIN)
     pub async fn update_source(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateAnimalSourceRequest,
     ) -> Result<AnimalSource> {
-        let source = sqlx::query_as::<_, AnimalSource>(
+        actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AnimalSource>(
+            "SELECT * FROM animal_sources WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Animal source not found".into()))?;
+
+        let after = sqlx::query_as::<_, AnimalSource>(
             r#"
             UPDATE animal_sources SET
                 name = COALESCE($2, name),
@@ -78,21 +116,68 @@ impl AnimalSourceService {
         .bind(&req.phone_ext)
         .bind(req.is_active)
         .bind(req.sort_order)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        Ok(source)
+        let display = format!("{} ({})", after.name, after.code);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ADMIN",
+                event_type: "ANIMAL_SOURCE_UPDATE",
+                entity: Some(AuditEntity::new("animal_source", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(after)
     }
 
-    /// 刪除（停用）動物來源
-    pub async fn delete_source(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query(
-            "UPDATE animal_sources SET is_active = false, updated_at = NOW() WHERE id = $1",
+    /// 刪除（停用）動物來源 — Service-driven audit (ADMIN)
+    ///
+    /// 採軟刪除（is_active=false）；保留既有關聯資料的 FK 完整性。
+    pub async fn delete_source(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<()> {
+        actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, AnimalSource>(
+            "SELECT * FROM animal_sources WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .execute(pool)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Animal source not found".into()))?;
+
+        let after = sqlx::query_as::<_, AnimalSource>(
+            "UPDATE animal_sources SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING *",
+        )
+        .bind(id)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!("{} ({})", before.name, before.code);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ADMIN",
+                event_type: "ANIMAL_SOURCE_DEACTIVATE",
+                entity: Some(AuditEntity::new("animal_source", before.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }

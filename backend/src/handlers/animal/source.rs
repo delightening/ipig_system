@@ -8,7 +8,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{AnimalSource, CreateAnimalSourceRequest, UpdateAnimalSourceRequest},
     require_permission,
     services::AnimalSourceService,
@@ -33,7 +33,8 @@ pub async fn create_animal_source(
     require_permission!(current_user, "animal.source.manage");
     req.validate()?;
 
-    let source = AnimalSourceService::create_source(&state.db, &req).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let source = AnimalSourceService::create_source(&state.db, &actor, &req).await?;
     Ok(Json(source))
 }
 
@@ -46,7 +47,8 @@ pub async fn update_animal_source(
 ) -> Result<Json<AnimalSource>> {
     require_permission!(current_user, "animal.source.manage");
 
-    let source = AnimalSourceService::update_source(&state.db, id, &req).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let source = AnimalSourceService::update_source(&state.db, &actor, id, &req).await?;
     Ok(Json(source))
 }
 
@@ -58,7 +60,8 @@ pub async fn delete_animal_source(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.source.manage");
 
-    AnimalSourceService::delete_source(&state.db, id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    AnimalSourceService::delete_source(&state.db, &actor, id).await?;
     Ok(Json(
         serde_json::json!({ "message": "Animal source deleted successfully" }),
     ))
