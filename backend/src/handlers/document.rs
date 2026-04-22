@@ -152,21 +152,9 @@ pub async fn submit_document(
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
     DocumentService::check_access(&current_user, existing.document.created_by)?;
-    let document = DocumentService::submit(&state.db, id).await?;
 
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_SUBMIT",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "submitted" })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_SUBMIT): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::submit(&state.db, &actor, id).await?;
 
     // 非同步通知 WAREHOUSE_MANAGER
     let db = state.db.clone();
@@ -216,21 +204,8 @@ pub async fn approve_document(
         return Err(AppError::Forbidden("僅倉庫管理員可核准單據".to_string()));
     }
 
-    let document = DocumentService::approve(&state.db, id, current_user.id).await?;
-
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_APPROVE",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "approved" })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_APPROVE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::approve(&state.db, &actor, id).await?;
 
     // 非同步通知建立者（已核准）
     let db = state.db.clone();

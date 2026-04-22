@@ -3,11 +3,14 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         DocStatus, DocType, Document, DocumentLine, DocumentWithLines,
     },
-    services::{AccountingService, StockService},
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AccountingService, AuditService, StockService,
+    },
     AppError, Result,
 };
 
@@ -28,23 +31,28 @@ impl DocumentService {
         }
     }
 
-    /// 送審
+    /// 送審 — Service-driven audit
     /// 對於調整單(ADJ)，若報廢金額超過門檻，需要主管簽核
-    pub async fn submit(pool: &PgPool, id: Uuid) -> Result<DocumentWithLines> {
-        // 取得單據資訊
+    pub async fn submit(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<DocumentWithLines> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE：行鎖 + before 快照
         let document = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE id = $1"
+            "SELECT * FROM documents WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
         if document.status != DocStatus::Draft {
             return Err(AppError::BusinessRule("Document must be in draft status to submit".to_string()));
         }
-
-        let mut tx = pool.begin().await?;
 
         // 對於調整單(報廢)，計算總金額並檢查是否需要主管簽核
         let (requires_manager_approval, scrap_total_amount) = if document.doc_type == DocType::ADJ {
@@ -80,65 +88,93 @@ impl DocumentService {
             (None, None)
         };
 
-        // 更新單據狀態
-        if requires_manager_approval == Some(true) {
-            // 需要主管簽核的報廢單
-            sqlx::query(
-                r#"
-                UPDATE documents SET 
-                    status = $1, 
-                    requires_manager_approval = true,
-                    scrap_total_amount = $2,
-                    manager_approval_status = 'pending',
-                    updated_at = NOW()
-                WHERE id = $3
-                "#
-            )
-            .bind(DocStatus::Submitted)
-            .bind(scrap_total_amount)
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
+        let before = document.clone();
 
+        // 更新單據狀態（RETURNING * 取 after 快照）
+        let after = if requires_manager_approval == Some(true) {
+            // 需要主管簽核的報廢單
             tracing::info!(
                 "[Scrap Approval] Document {} requires manager approval. Total amount: {:?}",
                 id,
                 scrap_total_amount
             );
+            sqlx::query_as::<_, Document>(
+                r#"
+                UPDATE documents SET
+                    status = $1,
+                    requires_manager_approval = true,
+                    scrap_total_amount = $2,
+                    manager_approval_status = 'pending',
+                    updated_at = NOW()
+                WHERE id = $3
+                RETURNING *
+                "#,
+            )
+            .bind(DocStatus::Submitted)
+            .bind(scrap_total_amount)
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?
         } else {
             // 一般單據或金額未超過門檻
-            sqlx::query(
+            sqlx::query_as::<_, Document>(
                 r#"
-                UPDATE documents SET 
-                    status = $1, 
+                UPDATE documents SET
+                    status = $1,
                     requires_manager_approval = COALESCE($2, false),
                     scrap_total_amount = $3,
                     updated_at = NOW()
                 WHERE id = $4
-                "#
+                RETURNING *
+                "#,
             )
             .bind(DocStatus::Submitted)
             .bind(requires_manager_approval)
             .bind(scrap_total_amount)
             .bind(id)
-            .execute(&mut *tx)
-            .await?;
-        }
+            .fetch_one(&mut *tx)
+            .await?
+        };
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOCUMENT_SUBMIT",
+                entity: Some(AuditEntity::new("document", after.id, &after.doc_no)),
+                data_diff: Some(crate::models::audit_diff::DataDiff::compute(
+                    Some(&before),
+                    Some(&after),
+                )),
+                request_context: None,
+            },
+        )
+        .await?;
 
         tx.commit().await?;
 
         Self::get_by_id(pool, id).await
     }
 
-    /// 核准（寫入庫存流水）
+    /// 核准（寫入庫存流水）— Service-driven audit
     /// 採購單核准後會自動產生入庫單（草稿）
     /// 大金額 ADJ 調整單：WAREHOUSE_MANAGER 核准後進入 wm_approved 狀態，等待 ADMIN 最終核准
-    pub async fn approve(pool: &PgPool, id: Uuid, approved_by: Uuid) -> Result<DocumentWithLines> {
+    pub async fn approve(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<DocumentWithLines> {
+        let user = actor.require_user()?;
+        let approved_by = user.id;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE：行鎖 + before 快照
         let document = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE id = $1"
+            "SELECT * FROM documents WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
@@ -150,8 +186,10 @@ impl DocumentService {
         let needs_admin = document.requires_manager_approval == Some(true)
             && document.manager_approval_status.as_deref() == Some("pending");
 
+        let before = document.clone();
+
         if needs_admin {
-            sqlx::query(
+            let after = sqlx::query_as::<_, Document>(
                 r#"
                 UPDATE documents SET
                     manager_approval_status = 'wm_approved',
@@ -159,12 +197,31 @@ impl DocumentService {
                     approved_at = NOW(),
                     updated_at = NOW()
                 WHERE id = $2
-                "#
+                RETURNING *
+                "#,
             )
             .bind(approved_by)
             .bind(id)
-            .execute(pool)
+            .fetch_one(&mut *tx)
             .await?;
+
+            AuditService::log_activity_tx(
+                &mut tx,
+                actor,
+                ActivityLogEntry {
+                    event_category: "ERP",
+                    event_type: "DOCUMENT_WM_APPROVE",
+                    entity: Some(AuditEntity::new("document", after.id, &after.doc_no)),
+                    data_diff: Some(crate::models::audit_diff::DataDiff::compute(
+                        Some(&before),
+                        Some(&after),
+                    )),
+                    request_context: None,
+                },
+            )
+            .await?;
+
+            tx.commit().await?;
 
             tracing::info!(
                 "[ADJ Approval] Document {} approved by warehouse manager, awaiting admin approval",
@@ -175,13 +232,11 @@ impl DocumentService {
         }
 
         let lines = sqlx::query_as::<_, DocumentLine>(
-            "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no"
+            "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no",
         )
         .bind(id)
-        .fetch_all(pool)
+        .fetch_all(&mut *tx)
         .await?;
-
-        let mut tx = pool.begin().await?;
 
         // 檢查庫存並寫入流水
         if document.doc_type.affects_stock() {
@@ -195,7 +250,7 @@ impl DocumentService {
         }
 
         // 更新單據狀態
-        sqlx::query(
+        let after = sqlx::query_as::<_, Document>(
             r#"
             UPDATE documents SET
                 status = $1,
@@ -203,12 +258,13 @@ impl DocumentService {
                 approved_at = NOW(),
                 updated_at = NOW()
             WHERE id = $3
-            "#
+            RETURNING *
+            "#,
         )
         .bind(DocStatus::Approved)
         .bind(approved_by)
         .bind(id)
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await?;
 
         // 如果是採購單，自動產生入庫單（草稿）
@@ -230,6 +286,23 @@ impl DocumentService {
                 Self::update_po_receipt_status(&mut tx, po_id).await?;
             }
         }
+
+        // audit：DocumentService 層狀態變更（stock/accounting 子 service 的 audit 歸 R26-3 延伸）
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOCUMENT_APPROVE",
+                entity: Some(AuditEntity::new("document", after.id, &after.doc_no)),
+                data_diff: Some(crate::models::audit_diff::DataDiff::compute(
+                    Some(&before),
+                    Some(&after),
+                )),
+                request_context: None,
+            },
+        )
+        .await?;
 
         tx.commit().await?;
 
