@@ -20,9 +20,9 @@
 
 - [§1 Executive Summary](#1-executive-summary)
 - [§2 Motivation（為什麼要做）](#2-motivation為什麼要做)
-  - §2.1 真正起點：釐清 GLP 合規門檻（2026-04-20）
-  - §2.2 觸發事件：2026-04-21 Rust 後端架構審查
-  - §2.3 為什麼選 Service-driven pattern
+  - §2.1 觸發點：2026-04-21 SDD 審查 + 21 CFR Part 11 §11.10 4 項硬要求
+  - §2.2 SDD 審查發現的 5 個 GLP 不達標 finding
+  - §2.3 為什麼選 Service-Driven Design 而不是別的
   - §2.4 單人長期維護的視角
 - [§3 Decision Log（決策過程，時間序）](#3-decision-log決策過程時間序)
 - [§4 PR Catalog（實際產出）](#4-pr-catalog實際產出)
@@ -36,125 +36,90 @@
 
 ## §1 Executive Summary
 
-- **What**：把 audit log 的寫入邏輯從 handler 層（fire-and-forget `tokio::spawn`）移到 service 層（與資料變更同一 transaction），稱為 **Service-driven audit pattern**。
-- **Why（深層動機）**：客戶含藥廠 GLP 實驗室 / CRO，需通過 **21 CFR Part 11 §11.10 audit trail** 條款的 4 項硬要求（secure / time-stamped / independent / records create-modify-delete）。2026-04-20 完成合規盤點（[docs/R26_compliance_requirements.md](../R26_compliance_requirements.md)）→ 2026-04-21 委託 Rust backend 四階段審查（含 Phase 3 GLP 合規）→ 4 Critical 中 3 條明確 GLP 不達標（CRIT-01/02/03）+ WARN-06 + SUGG-03 也提 GLP，這 5 個 finding 共享同一技術根因 → R26 epic 啟動。
+- **What**：**SDD（Service-Driven Design）** — 把 audit log 的寫入責任從 handler 層（fire-and-forget `tokio::spawn`）下移到 service 層（與資料變更同一 transaction）。
+- **Why**：客戶含藥廠 GLP 實驗室 / CRO，需通過 **21 CFR Part 11 §11.10** audit trail 4 項硬要求（secure / time-stamped / independent / records create-modify-delete）。2026-04-21 後端架構審查（含 Phase 3 GLP 合規）抓出 5 個 GLP 不達標 finding（CRIT-01/02/03 + WARN-06 + SUGG-03），全部指向同一技術根因 → SDD 重構啟動。
 - **Scope**：97 個 `AuditService::log_activity / ::log` call sites 橫跨 27 個 handler 檔；原估 ~20 處，訂正為 4.85× 差距；總工時估 ~465 人時。
-- **Strategy**：長期 integration branch（`integration/r26`）+ 多 PR 系列，先做 INFRA（PR #153/154）+ pattern demo（PR #155），再按模組複製到 animals / document / hr / user / 其他。Epic 完成後才 PR `integration/r26 → main`。
+- **Strategy**：長期 integration branch（`integration/r26`）+ 多 PR 系列，先做 INFRA（PR #153/#154）+ pattern demo（PR #155）作為 SDD 模板，再按模組複製到 animals / document / hr / user / 其他。Epic 完成後才 PR `integration/r26 → main`。
 - **Status as of 2026-04-22**：3 PR merged（INFRA + review-fix + pattern demo），8 PR open（animals / document / hr leave / hr overtime / user / 兩 docs / HMAC 驗證 cron），53 / 97 mutations 已落地或 open。
 
-> **⚠️ 命名警告**：本文件 R26-N 編號（R26-1 ~ R26-12）指 **Service-driven Audit refactor** 的子項。`docs/R26_compliance_requirements.md` 中的「R26」是另一個 epic（資安強化 nice-to-have：2FA / 欄位加密 / 備份演練 / pentest），請勿混淆。詳見 §2.1。
+> **⚠️ 命名警告**：本文件 R26-N 編號（R26-1 ~ R26-12）指 **SDD（Service-Driven Design audit refactor）** 的子項。`docs/R26_compliance_requirements.md` 中的「R26」是另一個 epic（資安強化 nice-to-have：2FA / 欄位加密 / 備份演練 / pentest），請勿混淆。詳見 §2.1。
 
 ---
 
 ## §2 Motivation（為什麼要做）
 
-### 2.1 真正的起點：GLP 合規多階段累積（2026-02 ~ 2026-04-21）
+### 2.1 觸發點：2026-04-21 的 SDD（Service-Driven Design）審查
 
-R26 audit refactor 的起點 **不是 2026-04-21 的架構審查報告**。它是 2 個月內三波合規工作累積後，才發現底層 audit log 架構有 gap 的結果。
+**SDD** = **Service-Driven Design** — 把 audit log 的設計責任從 handler 層下移到 service 層的設計決策。R26 epic 的單一觸發事件就是 2026-04-21 的審查，發現現有 audit log 不符合 GLP 對「audit trail 必須與資料變更不可分離」的要求，因此啟動 SDD 重構。
 
-**業務脈絡**：本系統（`ipig_system`）的目標客戶包含**藥廠 GLP 實驗室 / CRO / 異種器官移植研究**。GLP 客戶若採購本系統作為動物試驗資料管理平台，會被美國 FDA / 歐盟 EMA 稽核員要求出示**電子紀錄與電子簽章合規證明**（21 CFR Part 11）。
+**業務動機**：本系統目標客戶含**藥廠 GLP 實驗室 / CRO / 異種器官移植研究**。GLP 客戶會被 FDA / EMA 稽核員依 **21 CFR Part 11 §11.10** 條款檢視 audit trail：
 
-#### Wave 1：應用層合規（2026-02-25）
+> "Use of **secure, computer-generated, time-stamped audit trails** to **independently** record the date and time of operator entries and actions that **create, modify, or delete electronic records**."
 
-完成 **P1-6 / P1-7** — 兩份正式合規文件：
+對應 4 項硬要求，每項都是 R26 SDD 要解的目標：
 
-| 文件 | 範圍 | 結論 |
-|---|---|---|
-| [docs/security/GLP_VALIDATION.md](../security/GLP_VALIDATION.md) | IQ / OQ / PQ 驗證 | Pass — 系統部署、操作、性能均符合 GLP 驗證流程 |
-| [docs/security/ELECTRONIC_SIGNATURE_COMPLIANCE.md](../security/ELECTRONIC_SIGNATURE_COMPLIANCE.md) | 21 CFR Part 11 §11.10 / §11.50 / §11.100 — **電子簽章** | 所有條款 ✓ 已實作（簽章 + 鎖定 + 稽核軌跡 + 雙因素身分綁定） |
+| Part 11 §11.10 要求 | R26 對應實作 |
+|---|---|
+| **Secure**（不可竄改） | HMAC chain（INFRA PR #153 落地）+ 每日驗證 cron（R26-2 / PR #158） |
+| **Computer-generated, time-stamped** | DB `created_at` + stored proc 自動產生 |
+| **Independent**（不可被繞過、不會半成品） | **SDD 主戰場**：audit 與資料變更同 tx；不允許 fire-and-forget |
+| **Records create / modify / delete** | **SDD 主戰場**：`DataDiff` 完整 before/after snapshot |
 
-**這是 GLP 的「面向客戶可展示的合規」**，當時的判斷是「Part 11 已通過審查」。
+> **⚠️ 命名碰撞警告**：[`docs/R26_compliance_requirements.md`](../R26_compliance_requirements.md)（untracked 工作底稿）中的「R26」指**另一條 epic — 資安強化 nice-to-have**（R26-1 強制 2FA / R26-2 欄位加密 / R26-3 備份還原演練 / R26-4 外部 pentest）。本文件 R26-N（R26-1 ~ R26-12）皆指 **Service-driven Audit** 子項，與合規 doc 的 R26-1 ~ R26-4 完全無關。歷史包袱，不改動。
 
-#### Wave 2：資安完整盤點（2026-04-20）
+### 2.2 SDD 審查發現的 5 個 GLP 不達標 finding
 
-commit `e710265` 產出 [docs/security/SECURITY_COMPLETED.md](../security/SECURITY_COMPLETED.md) — **彙整 46 項已完成資安強化**（橫跨 7 大面向：認證授權 / 密碼憑證 / SQL/XSS/CSRF / Rate Limit / 稽核告警 / CI Secrets / 合規）。
+審查報告：[docs/reviews/2026-04-21-rust-backend-review.md](../reviews/2026-04-21-rust-backend-review.md)。四階段審查（架構 / 並發 / **Phase 3 GLP 合規** / 維護）共抓出 4 Critical + 8 Warning + 5 Suggestion。
 
-同日另寫 [docs/R26_compliance_requirements.md](../R26_compliance_requirements.md)（**檔案 untracked，git 中找不到**）— 對 6 大法規框架（21 CFR Part 11 / SOC 2 / ISO 27001 / GDPR / HIPAA / PCI DSS）做**適用決策樹**分析。結論：
+**5 個 GLP 相關 finding 共享同一技術根因** — audit log 寫入不在資料變更的 tx 內、不能完整保留變更內容。這是 SDD 啟動的直接動機：
 
-> 「本專案目前主要場景為動物試驗 / 畜牧管理，若客戶為藥廠 GLP 實驗室 → **21 CFR Part 11 優先**；若僅本地實驗 → SOC 2 Type II 作為最通用背書。」
+| Finding | 審查報告引用 | Part 11 條款 | SDD 對應 |
+|---|---|---|---|
+| **CRIT-01**：IACUC 編號 race condition | 「GLP 情境下，編號的連續性與唯一性是稽核重點」 | §11.10(a) 系統驗證 | numbering generators 接 `&mut Transaction` + advisory lock（PR #155） |
+| **CRIT-02**：多表變更未包 tx，GLP 合規風險 | 「GLP 要求『資料變更必有完整稽核軌跡且可還原』，此設計違反此要求」**`pool.begin()` 僅 8/80 檔，覆蓋率 10%** | §11.10(b)(c) | Service 層 `pool.begin() → ... → log_activity_tx → tx.commit()` 為 SDD 模板（PR #155） |
+| **CRIT-03**：UPDATE 類稽核無 before/after snapshot | 「稽核員要求『能從稽核軌跡還原任一時刻的資料狀態』，目前做不到 → Critical」 | §11.10(c)(e) | `DataDiff::compute(Some(&before), Some(&after))` + `AuditRedact` trait（PR #153） |
+| **WARN-06**：audit 用 `tokio::spawn` fire-and-forget | 「GLP 要求稽核寫入可靠性，fire-and-forget 不符合『可靠寫入』」 | §11.10 Independent | `log_activity_tx` 取代 `tokio::spawn(log_activity)`（隨各模組 PR 漸進）|
+| **SUGG-03**：HMAC chain 缺自動驗證 | 「若有人繞過 trigger 直接改 DB，HMAC chain 會斷 — 但得有人主動驗證才發現」 | §11.10(b) Secure | 每日 02:00 cron 驗證昨日 chain 完整性（R26-2 / PR #158） |
 
-**這次盤點的真正價值不是發現新問題**，而是把 46 項打散的 audit / signature / authz work 集中起來，發現一件事：
+**第 4 個 Critical（CRIT-04）**：`services/mod.rs` crate-wide `#![allow(dead_code)]` — 與 GLP 無直接關係，是 CLAUDE.md 內部規則違反；順手解（PR #155）。
 
-> **「Application-layer security 已飽和，但 architectural-layer audit log 還沒被深入檢視。」**
->
-> Part 11 §11.10 雖然在電子簽章層面合規（Wave 1 ✓），但要求「audit trail 涵蓋 create / modify / delete electronic records」是**全系統範圍**。簽章只是 record 的子集；資料 CRUD 本身的 audit trail 是否同樣達標？
+**審查報告結論**（單人維護視角，最重要三件事的第一條）：
+> 「CRIT-01 / CRIT-02 — 這是 **GLP 稽核最可能被挑戰的地方**」
 
-#### Wave 3：架構層審查（2026-04-21）
+### 2.3 為什麼選 Service-Driven Design 而不是別的
 
-承接 Wave 2 的問句，於 2026-04-21 委託 Rust backend 四階段全流程審查（架構 / 並發 / **GLP 合規** / 維護）— 詳見 §2.2。
-
-#### 21 CFR Part 11 §11.10 audit trail 條款 — R26 要解什麼
-
-對 audit log 的硬要求：
-> "Use of **secure, computer-generated, time-stamped audit trails** to independently record the date and time of operator entries and actions that **create, modify, or delete electronic records**."
->
-> "Such audit trail documentation shall be retained for a period at least as long as that required for the subject electronic records."
-
-對應 4 個關鍵能力 → R26 audit refactor 的目標：
-1. **Secure**（不可竄改）→ HMAC chain（Wave 1 已部分實作；R26-2 加每日驗證 cron 強化偵測）
-2. **Computer-generated, time-stamped**（自動產生、精確時戳）→ Wave 1 已實作
-3. **Independent**（無法被繞過、不會半成品）→ **R26 主戰場**：必須與資料變更同 tx，不能 fire-and-forget
-4. **Records create/modify/delete**（含完整 before/after）→ **R26 主戰場**：必須有 snapshot 而非僅 metadata
-
-> **⚠️ 命名碰撞警告**：
->
-> 1. [`docs/R26_compliance_requirements.md`](../R26_compliance_requirements.md) 中的「**R26**」指**另一條 epic — 資安強化 nice-to-have**（R26-1 強制 2FA / R26-2 欄位加密 / R26-3 備份還原演練 / R26-4 外部 pentest）。與本文件的「**R26 Service-driven Audit refactor**」是兩個不同 epic。
-> 2. 本文件之後所有 R26-N 編號（R26-1 ~ R26-12）皆指 **Service-driven Audit** 的子項，**不要**和合規 doc 的 R26-1 ~ R26-4 混淆。
-> 3. 為什麼會碰撞：TODO.md 的 章節編號是按時間流水號（R20 ~ R26 ~ R27 ...），4/20 寫合規 doc 時取 R26、4/21 寫 audit refactor TODO 時也取 R26（因為前者未進入 TODO 主章節）。歷史包袱，不改動。
-
-### 2.2 觸發事件：2026-04-21 Rust 後端架構審查
-
-承接 §2.1 的合規動機，於 2026-04-21 委託對 Rust backend（`erp-backend` v0.1.0, axum 0.7 + tokio + sqlx 0.8，~230 個 `.rs` 檔）做**四階段全流程審查**，4 階段為：
-
-1. **架構盤點**（layered design / module boundaries / 依賴方向）
-2. **並發模型**（tokio worker / locking / spawn_blocking 應用 / 背景任務生命週期）
-3. **GLP 合規**（audit trail 完整性 / 資料變更可還原 / electronic signature / 21 CFR Part 11 §11.10 對齊）
-4. **長期維護**（單人視角 / 檔案大小 / clippy 規則 / 死碼）
-
-產出 [docs/reviews/2026-04-21-rust-backend-review.md](../reviews/2026-04-21-rust-backend-review.md)，**Phase 3 GLP 合規**抓出 4 個 Critical，3 個明確標記 GLP 不達標：
-
-- **CRIT-01｜IACUC 編號產生 race condition**
-  > 「GLP 情境下，編號的連續性與唯一性是稽核重點」
-  - 對應 §11.10(a)（系統驗證）+（編號產生不確定性違反「準確紀錄」）
-- **CRIT-02｜多表變更未包 transaction，GLP 合規風險**
-  > 「GLP 要求『資料變更必有完整稽核軌跡且可還原』，此設計違反此要求」
-  - 對應 §11.10(b)+(c)（紀錄完整性 + 可還原性）
-  - **這條最痛**：`pool.begin()` 僅出現於 8/80 service 檔，覆蓋率 10%
-- **CRIT-03｜UPDATE 類稽核日誌無 before/after snapshot**
-  > 「GLP 要求對資料變更保留『變更前 vs 變更後』完整快照」
-  > 「稽核員要求『能從稽核軌跡還原任一時刻的資料狀態』，目前做不到 → Critical」
-  - 對應 §11.10(c)（可產生準確、完整的紀錄副本）+ §11.10(e)（操作型 audit trail）
-- **CRIT-04**：`services/mod.rs` crate-wide `#![allow(dead_code)]` — 與 GLP 無直接關係，是 CLAUDE.md 內部規則違反
-
-**WARN 中與 GLP 相關**：
-- **WARN-06｜audit 使用 `tokio::spawn` fire-and-forget**
-  > 「3. GLP 要求稽核寫入可靠性，fire-and-forget 不符合『可靠寫入』」
-  - 對應 §11.10 對「Independent」的要求（spawn 後失敗只記 tracing::error，稽核員查不到）
-
-**SUGG 中與 GLP 相關**：
-- **SUGG-03｜HMAC chain 缺自動驗證**
-  > 「GLP 稽核時，若有人繞過 trigger 直接改 DB，HMAC chain 會斷 — 但得有人主動驗證才發現」
-  - 對應 §11.10(b) 對 audit trail 「Secure」的要求
-
-**審查報告結論**（單人維護視角下最重要的三件事）：
-> 「1. CRIT-01 / CRIT-02 — 這是 **GLP 稽核最可能被挑戰的地方**」
->
-> 「2. CRIT-04 + WARN-01 — 把 `#[allow(dead_code)]` 移掉後，會暴露多少未用碼是個信號」
->
-> 「3. WARN-02（Argon2）— 登入路徑效能」
-
-**這就是 R26 epic 的觸發點**：CRIT-01 + CRIT-02 + CRIT-03 + WARN-06 + SUGG-03 五個 GLP 相關 finding 必須一起解，因為它們都指向同一個技術根因 — audit log 寫入不在資料變更的 tx 內，且不能完整保留變更內容。
-
-### 2.3 為什麼選 Service-driven pattern 而不是別的
-
-考量過的替代方案：
+SDD 不是唯一可能的解法，但是 4 個替代方案都有致命缺陷：
 
 | 方案 | 捨棄原因 |
 |---|---|
 | DB trigger 自動寫 audit | 和現有 HMAC chain 設計衝突（trigger 無法存取 actor context / 無 redact 能力） |
-| Handler 層加 `tokio::spawn(audit).await` | 這只是把 fire-and-forget 改成 await，仍不能保證 audit 與資料變更同一 tx（CRIT-02 不解） |
+| Handler 層加 `tokio::spawn(audit).await` | 只是把 fire-and-forget 改成 await，仍不能保證 audit 與資料變更同一 tx（CRIT-02 不解） |
 | Middleware 層 wrap handler 攔截 | 無法獲得 mutation 前後的資料 snapshot（CRIT-03 不解） |
-| **Service 層單 tx 內寫 audit**（採用） | ✅ 資料變更 + audit + HMAC chain 原子；✅ 有完整 before/after；✅ 失敗自動 rollback |
+| **Service-Driven Design**（採用） | ✅ 資料變更 + audit + HMAC chain 原子；✅ 有完整 before/after；✅ 失敗自動 rollback；✅ 與 service 業務邏輯零距離 |
+
+SDD 的核心約定（template 落地於 PR #155 `ProtocolService::submit`）：
+
+```rust
+pub async fn mutate(pool: &PgPool, actor: &ActorContext, /* args */) -> Result<Entity> {
+    let _user = actor.require_user()?;        // 或 actor_user_id().unwrap_or(SYSTEM_USER_ID)
+    let mut tx = pool.begin().await?;
+
+    let before = SELECT * FROM ... FOR UPDATE;
+    // validation + business logic
+    let after = INSERT/UPDATE/DELETE ... RETURNING *;
+
+    AuditService::log_activity_tx(&mut tx, actor, ActivityLogEntry::update(
+        "MODULE", "ACTION",
+        AuditEntity::new("entity_type", after.id, &after.display_name),
+        DataDiff::compute(Some(&before), Some(&after)),
+    )).await?;
+
+    tx.commit().await?;
+    Ok(after)
+}
+```
+
+每個 PR 把這個模板複製到一個模組的所有 mutation。
 
 ### 2.4 單人長期維護的視角
 
