@@ -185,6 +185,19 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-23 R26-4 完成：舊版 log_activity() 函數刪除與deprecated 警告清零
+
+- ✅ **刪除舊版函數**：`log_activity()` + `compute_and_store_hmac()` + `audit_document()` 三個函數完全移除（audit.rs 減少 ~250 行）
+- ✅ **遷移最後 2 個 call sites**：
+  - `protocol/history.rs` record_activity()：改用 `log_activity_oneshot()` + `ActorContext::User` 構造（actor_id → CurrentUser 轉接）
+  - `protocol/status.rs` change_status()：同樣改用 `log_activity_oneshot()` 的 fire-and-forget 模式
+- ✅ **deprecated 警告狀態**：0 warnings（舊版函數全刪，遺留警告點消失）
+- ✅ **驗證結果**：
+  - `cargo check` ✓ 零錯誤
+  - `cargo clippy --all-targets -- -D warnings -A deprecated` ✓ 零新警告
+  - `cargo test --lib` ✓ 422/422 all pass
+- ✅ **Commit**: `b7aa6bc` feat(audit): R26-4 remove deprecated log_activity()...
+
 ### 2026-04-23 R26-3 後續三 PR 完成（#4b #4c #5 共 22 個 call sites）
 
 R26-3 Phase 2 全面推進：blood_test / pdf_export+import_export / user+audit+data_export 三個 PR 連續完成，遷移 22 個 handler-level `log_activity()` call sites 至 Service-driven audit pattern。
