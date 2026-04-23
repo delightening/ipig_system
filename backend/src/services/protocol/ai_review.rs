@@ -9,6 +9,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::config::Config;
+use crate::middleware::ActorContext;
 use crate::models::ai_review::{
     AiReviewResponse, BatchReturnRequest, BatchReturnResponse, ProtocolAiReview, ValidationResult,
 };
@@ -297,7 +298,10 @@ impl AiReviewService {
             reviewer_ids: None,
             vet_id: None,
         };
-        ProtocolService::change_status(db, protocol_id, &status_req, operator_id).await?;
+        let actor = ActorContext::System {
+            reason: "ai_batch_return",
+        };
+        ProtocolService::change_status(db, &actor, protocol_id, &status_req).await?;
 
         Ok(BatchReturnResponse {
             created_comments: created,

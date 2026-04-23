@@ -10,7 +10,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         AssignCoEditorRequest, ChangeStatusRequest, CoEditorAssignmentResponse,
         CreateProtocolRequest, Protocol, ProtocolActivityResponse, ProtocolListItem,
@@ -173,7 +173,8 @@ pub async fn change_protocol_status(
     }
     // 防範 IDOR：確認使用者與此計畫書有關聯（view_all 角色直接通過）
     access::require_protocol_related_access(&state.db, &current_user, id).await?;
-    let protocol = ProtocolService::change_status(&state.db, id, &req, current_user.id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let protocol = ProtocolService::change_status(&state.db, &actor, id, &req).await?;
     let db = state.db.clone();
     let protocol_id = protocol.id;
     let protocol_no = protocol.protocol_no.clone();
