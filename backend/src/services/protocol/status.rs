@@ -245,20 +245,32 @@ impl ProtocolService {
         .fetch_one(&mut **tx)
         .await?;
 
-        // 記錄狀態變更（tx 版本）
-        let status_remark = if req.to_status == ProtocolStatus::UnderReview {
-            if let Some(reviewer_ids) = &req.reviewer_ids {
-                let names: Vec<String> = sqlx::query_scalar(
-                    "SELECT COALESCE(display_name, email) FROM users WHERE id = ANY($1::uuid[])",
-                )
-                .bind(reviewer_ids)
-                .fetch_all(&mut **tx)
-                .await?;
-                let reviewer_list = names.join("、");
-                Some(format!("指派審查委員：{}", reviewer_list))
+        // UnderReview 時預先撈一次 reviewer (id, name)，同時供 status_remark 與後續活動記錄使用，避免重複查詢。
+        let reviewer_info: Option<Vec<(Uuid, String)>> =
+            if req.to_status == ProtocolStatus::UnderReview {
+                if let Some(reviewer_ids) = &req.reviewer_ids {
+                    let info: Vec<(Uuid, String)> = sqlx::query_as(
+                        "SELECT id, COALESCE(display_name, email) FROM users WHERE id = ANY($1::uuid[])",
+                    )
+                    .bind(reviewer_ids)
+                    .fetch_all(&mut **tx)
+                    .await?;
+                    Some(info)
+                } else {
+                    None
+                }
             } else {
-                req.remark.clone()
-            }
+                None
+            };
+
+        // 記錄狀態變更（tx 版本）
+        let status_remark = if let Some(info) = reviewer_info.as_ref() {
+            let reviewer_list = info
+                .iter()
+                .map(|(_, n)| n.as_str())
+                .collect::<Vec<_>>()
+                .join("、");
+            Some(format!("指派審查委員：{}", reviewer_list))
         } else {
             req.remark.clone()
         };
@@ -274,28 +286,19 @@ impl ProtocolService {
         .await?;
 
         // 當狀態變為 UNDER_REVIEW 時，自動指派選定的審查委員（tx 版本）
-        if req.to_status == ProtocolStatus::UnderReview {
+        if let Some(info) = reviewer_info {
             if let Some(reviewer_ids) = &req.reviewer_ids {
                 for reviewer_id in reviewer_ids {
                     Self::assign_primary_reviewer_tx(&mut *tx, id, *reviewer_id, changed_by).await?;
                 }
 
-                // 記錄審查委員指派詳細資訊
-                let reviewer_info: Vec<(Uuid, String)> = sqlx::query_as(
-                    "SELECT id, COALESCE(display_name, email) FROM users WHERE id = ANY($1::uuid[])"
-                )
-                .bind(reviewer_ids)
-                .fetch_all(&mut **tx)
-                .await?;
-
                 let extra = serde_json::json!({
-                    "reviewers": reviewer_info.iter().map(|(rid, name)| {
+                    "reviewers": info.iter().map(|(rid, name)| {
                         serde_json::json!({"id": rid, "name": name})
                     }).collect::<Vec<_>>()
                 });
 
-                let reviewer_names: Vec<&str> =
-                    reviewer_info.iter().map(|(_, n)| n.as_str()).collect();
+                let reviewer_names: Vec<&str> = info.iter().map(|(_, n)| n.as_str()).collect();
                 Self::record_activity_tx(
                     &mut *tx,
                     actor,
@@ -311,9 +314,9 @@ impl ProtocolService {
             }
         }
 
-        // 當狀態變為 VET_REVIEW 時，自動指派獸醫師（tx 版本）
+        // 當狀態變為 VET_REVIEW 時，自動指派獸醫師（tx 版本，含 audit 記錄）
         if req.to_status == ProtocolStatus::VetReview {
-            Self::assign_vet_reviewer_tx(&mut *tx, id, req.vet_id, changed_by).await?;
+            Self::assign_vet_reviewer_tx(&mut *tx, actor, id, req.vet_id).await?;
         }
 
         // 當計劃通過時，自動依照 IACUC No. 創建客戶（tx 版本，原子操作）

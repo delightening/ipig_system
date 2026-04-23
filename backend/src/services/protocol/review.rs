@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use super::ProtocolService;
 use crate::{
+    middleware::ActorContext,
     models::{
         AssignCoEditorRequest, AssignReviewerRequest, CoEditorAssignmentResponse, ProtocolActivityType,
         ReviewAssignment, UserProtocol,
@@ -91,13 +92,17 @@ impl ProtocolService {
         Ok(assignment)
     }
 
-    /// Transaction 版本：在既有 transaction 內指派獸醫審查員（R26-8 Phase 2 需用）
+    /// Transaction 版本：在既有 transaction 內指派獸醫審查員（R26-8 Phase 2 需用）。
+    /// 同 tx 內記錄 `VetAssigned` activity，確保 audit trail 與指派同原子性。
     pub(super) async fn assign_vet_reviewer_tx(
         tx: &mut Transaction<'_, Postgres>,
+        actor: &ActorContext,
         protocol_id: Uuid,
         vet_id: Option<Uuid>,
-        assigned_by: Uuid,
     ) -> Result<()> {
+        let assigned_by = actor
+            .actor_user_id()
+            .unwrap_or(crate::middleware::SYSTEM_USER_ID);
         // 如果未指定獸醫師，從系統設定取得預設獸醫師
         let vet_user_id = if let Some(id) = vet_id {
             id
@@ -173,6 +178,19 @@ impl ProtocolService {
         .bind(vet_user_id)
         .bind(assigned_by)
         .execute(&mut **tx)
+        .await?;
+
+        Self::record_activity_tx(
+            tx,
+            actor,
+            protocol_id,
+            ProtocolActivityType::VetAssigned,
+            None,
+            None,
+            Some(("user", vet_user_id, "Vet")),
+            Some(format!("Assigned vet reviewer {}", vet_user_id)),
+            None,
+        )
         .await?;
 
         Ok(())
