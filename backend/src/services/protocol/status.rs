@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use super::ProtocolService;
 use crate::{
-    middleware::ActorContext,
+    middleware::{ActorContext, CurrentUser},
     models::{
         audit_diff::DataDiff, ChangeStatusRequest, CreatePartnerRequest, PartnerType, Protocol,
         ProtocolActivityType, ProtocolStatus,
@@ -593,18 +593,32 @@ impl ProtocolService {
         }
 
         // 記錄活動日誌（狀態變更）
-        if let Err(e) = AuditService::log_activity(
+        // 此為補充性稽核日誌，記錄狀態變更事實；詳細 before/after 由主線 transaction 中的
+        // log_activity_tx 處理（見 handler 層）
+        let actor = ActorContext::User(CurrentUser {
+            id: changed_by,
+            email: String::new(),
+            roles: vec![],
+            permissions: vec![],
+            jti: String::new(),
+            exp: 0,
+            impersonated_by: None,
+        });
+
+        if let Err(e) = AuditService::log_activity_oneshot(
             pool,
-            changed_by,
-            "AUP",
-            "PROTOCOL_STATUS_CHANGE",
-            Some("protocol"),
-            Some(id),
-            Some(&protocol.title),
-            Some(serde_json::json!({ "status": protocol.status })),
-            Some(serde_json::json!({ "status": req.to_status, "remark": req.remark })),
-            None,
-            None,
+            &actor,
+            ActivityLogEntry {
+                event_category: "AUP",
+                event_type: "PROTOCOL_STATUS_CHANGE",
+                entity: Some(AuditEntity {
+                    entity_type: "protocol",
+                    entity_id: id,
+                    entity_display_name: &protocol.title,
+                }),
+                data_diff: None,
+                request_context: None,
+            },
         )
         .await
         {

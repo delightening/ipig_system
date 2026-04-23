@@ -185,6 +185,62 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-23 R26 Cleanup Phase 2：R26-4、R26-7、R26-6 完成 + R26-8 基礎建設
+
+#### R26-4：舊版 log_activity() 函數刪除與deprecated 警告清零
+
+- ✅ **刪除舊版函數**：`log_activity()` + `compute_and_store_hmac()` + `audit_document()` 三個函數完全移除（audit.rs 減少 ~250 行）
+- ✅ **遷移最後 2 個 call sites**：
+  - `protocol/history.rs` record_activity()：改用 `log_activity_oneshot()` + `ActorContext::User` 構造（actor_id → CurrentUser 轉接）
+  - `protocol/status.rs` change_status()：同樣改用 `log_activity_oneshot()` 的 fire-and-forget 模式
+- ✅ **deprecated 警告狀態**：0 warnings（舊版函數全刪，遺留警告點消失）
+- ✅ **驗證結果**：`cargo check` ✓、`cargo clippy -D warnings` ✓、`cargo test --lib` ✓ 422/422 all pass
+- ✅ **Commit**: `b7aa6bc` feat(audit): R26-4 remove deprecated log_activity()
+
+#### R26-7：死碼清理（2 items removed, 3 intentionally preserved）
+
+- ✅ **刪除死碼**：
+  - `CreateAnnotationRequest` 重複定義於 models/animal/requests.rs（handlers/signature 版本為 canonical）
+  - `SignRequest` 定義未使用（不在任何 handler 或 OpenAPI spec）
+- ✅ **保留意圖死碼**（含 R26-7 註解）：
+  - `IdxfMeta::format_version` — 預留格式版本相容檢查（R26-6+）
+  - `ManifestTable::columns` — 預留欄位級驗證（將來擴充）
+  - `QUARTERLY_OVERTIME_LIMIT` — 預留勞基法季度上限檢查（目前只實作月度）
+- ✅ **驗證結果**：`cargo check` ✓；`cargo test --lib` ✓ 422/422 all pass
+- ✅ **Commit**: `8609fbf` refactor(models): R26-7 remove dead code structs
+
+#### R26-6：HMAC 鏈版本化 + 儲存後雜湊（已完全實裝）
+
+- ✅ **Migration 037**：`ALTER TABLE user_activity_logs ADD COLUMN hmac_version SMALLINT`（已存在）
+- ✅ **寫入端版本化**：
+  - `compute_and_store_hmac_tx()` 已寫入 `hmac_version = HMAC_VERSION_CANONICAL (2)`
+  - 舊版被 R26-4 刪除（曾寫 `hmac_version = 1`，已 cleanup）
+- ✅ **驗證端版本化**：
+  - `verify_chain_rows()` 依 `hmac_version` 分流計算（line 714-744）
+  - 若 `hmac_version IS NULL` → try-both 策略（canonical 優先，fallback legacy）
+  - `ChainRow` struct 已包含 `hmac_version: Option<i16>` 欄位
+- ✅ **驗證結果**：`cargo test --lib` ✓ 422/422 all pass（包含 audit chain verify 相關測試）
+- ✅ **Commit**: `dcb8003` docs(progress): Record R26-7 completion
+
+#### R26-8：ProtocolService::change_status 完整 Service-driven 重構（進行中）
+
+- 🏗️ **第一階段完成：PartnerService::create_tx**
+  - 新增 `create_tx()` method，接 `&mut Transaction` 而非 `&PgPool`
+  - 支援跨服務原子操作（change_status 核准時自動建立客戶於同一 tx）
+  - 程式碼生成改為強制提供 code（tx 內省略自動編號邏輯）
+  - `log_activity_tx` 整合於 create_tx 內，確保 audit trail 原子化
+- 📋 **第二階段規劃：change_status 全面 tx 化**
+  - 轉換函數簽名：`pool: &PgPool` → `tx: &mut Transaction`
+  - 轉換所有 SQL queries：`.fetch_one(pool)` → `.fetch_one(&mut *tx)` 等
+  - 協調跨服務邊界：
+    - Status 變更 UPDATE → 同 tx 內
+    - assign_primary_reviewer / assign_vet_reviewer → tx 版本或直接內嵌
+    - record_status_change → 需 _tx 版本或內嵌邏輯
+    - PartnerService::create → 改用新的 create_tx
+    - 客戶停用邏輯 → 併入 tx
+  - 目標：CRIT-01 race condition 從事後修補（加鎖）→ 原子設計
+- 💾 **Commit**: `c22032a` feat(partner): R26-8 foundation - add create_tx...
+
 ### 2026-04-23 R26-3 後續三 PR 完成（#4b #4c #5 共 22 個 call sites）
 
 R26-3 Phase 2 全面推進：blood_test / pdf_export+import_export / user+audit+data_export 三個 PR 連續完成，遷移 22 個 handler-level `log_activity()` call sites 至 Service-driven audit pattern。
