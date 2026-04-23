@@ -203,6 +203,9 @@ services:
       - /var/cache/nginx
       - /var/run
       - /tmp
+      # envsubst 在容器啟動時把 default.conf.template 渲染到這裡；read_only:true 會鎖住整個 FS，
+      # 必須把 conf.d 掛成 tmpfs 才能寫入。uid/gid=101 對應 alpine nginx 的 nginx user。
+      - /etc/nginx/conf.d:uid=101,gid=101,mode=0755
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -499,7 +502,8 @@ services:
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
       RSYNC_TARGET: ${RSYNC_TARGET:-}
       BACKUP_ON_START: ${BACKUP_ON_START:-false}
-      BACKUP_REQUIRE_ENCRYPTION: "true"
+      # dev 預設關閉強制加密（避免未配 GPG 時啟動失敗）；prod 透過 docker-compose.prod.yml 覆蓋為 "true"
+      BACKUP_REQUIRE_ENCRYPTION: ${BACKUP_REQUIRE_ENCRYPTION:-false}
       # GPG 加密備份（設定收件者 Key ID 或 email，留空則不加密）
       BACKUP_GPG_RECIPIENT: ${BACKUP_GPG_RECIPIENT:-}
     volumes:
