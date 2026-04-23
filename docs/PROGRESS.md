@@ -185,7 +185,9 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
-### 2026-04-23 R26-4 完成：舊版 log_activity() 函數刪除與deprecated 警告清零
+### 2026-04-23 R26-4 & R26-7 完成：舊版 log_activity() 刪除 + 死碼清理
+
+#### R26-4：舊版 log_activity() 函數刪除與deprecated 警告清零
 
 - ✅ **刪除舊版函數**：`log_activity()` + `compute_and_store_hmac()` + `audit_document()` 三個函數完全移除（audit.rs 減少 ~250 行）
 - ✅ **遷移最後 2 個 call sites**：
@@ -197,6 +199,18 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
   - `cargo clippy --all-targets -- -D warnings -A deprecated` ✓ 零新警告
   - `cargo test --lib` ✓ 422/422 all pass
 - ✅ **Commit**: `b7aa6bc` feat(audit): R26-4 remove deprecated log_activity()...
+
+#### R26-7：死碼清理（2 items removed, 3 intentionally preserved）
+
+- ✅ **刪除死碼**：
+  - `CreateAnnotationRequest` 重複定義於 models/animal/requests.rs（handlers/signature 版本為 canonical）
+  - `SignRequest` 定義未使用（不在任何 handler 或 OpenAPI spec）
+- ✅ **保留意圖死碼**（含 R26-7 註解）：
+  - `IdxfMeta::format_version` — 預留格式版本相容檢查（R26-6+）
+  - `ManifestTable::columns` — 預留欄位級驗證（將來擴充）
+  - `QUARTERLY_OVERTIME_LIMIT` — 預留勞基法季度上限檢查（目前只實作月度）
+- ✅ **驗證結果**：`cargo check` ✓ 零錯誤；測試中...
+- ✅ **Commit**: `8609fbf` refactor(models): R26-7 remove dead code structs...
 
 ### 2026-04-23 R26-3 後續三 PR 完成（#4b #4c #5 共 22 個 call sites）
 
