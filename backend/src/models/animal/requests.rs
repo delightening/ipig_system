@@ -831,22 +831,6 @@ pub struct RecordAnnotation {
     pub signature_id: Option<Uuid>,
 }
 
-/// 建立附註請求
-#[derive(Debug, Deserialize, Validate)]
-pub struct CreateAnnotationRequest {
-    #[validate(length(min = 1, message = "內容為必填"))]
-    pub content: String,
-    pub annotation_type: String, // NOTE, CORRECTION, ADDENDUM
-}
-
-/// 簽章請求
-#[derive(Debug, Deserialize, Validate)]
-pub struct SignRequest {
-    #[validate(length(min = 1, message = "密碼為必填"))]
-    pub password: String,
-    pub signature_type: String, // APPROVE, CONFIRM, WITNESS
-}
-
 /// 帶變更原因的更新動物請求
 #[derive(Debug, Deserialize, Validate)]
 pub struct UpdateAnimalWithReasonRequest {
