@@ -12,7 +12,12 @@ END
 $$;
 
 -- schema 預設 public；限制 CONNECT 與 USAGE
-GRANT CONNECT ON DATABASE ipig_db TO grafana_readonly;
+-- 用 current_database() 動態取得 DB 名稱，避免硬編 ipig_db 在 CI/測試環境失敗
+DO $$
+BEGIN
+    EXECUTE 'GRANT CONNECT ON DATABASE ' || quote_ident(current_database()) || ' TO grafana_readonly';
+END
+$$;
 GRANT USAGE ON SCHEMA public TO grafana_readonly;
 
 -- 稽核相關表 SELECT
