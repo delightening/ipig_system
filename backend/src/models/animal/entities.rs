@@ -308,6 +308,8 @@ pub struct BloodTestTemplate {
     pub updated_at: DateTime<Utc>,
 }
 
+impl crate::models::audit_diff::AuditRedact for BloodTestTemplate {}
+
 /// 血液檢查主表
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AnimalBloodTest {
@@ -326,6 +328,9 @@ pub struct AnimalBloodTest {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// GLP：delete_reason / remark 為自由文字，需完整軌跡，空 allowlist。
+impl crate::models::audit_diff::AuditRedact for AnimalBloodTest {}
 
 /// 血液檢查項目明細
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

@@ -8,7 +8,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         AnimalBloodTestWithItems, BloodTestListItem, BloodTestPanelWithItems, BloodTestPreset,
         BloodTestTemplate, CreateBloodTestPanelRequest, CreateBloodTestPresetRequest,
@@ -17,7 +17,7 @@ use crate::{
         UpdateBloodTestPresetRequest, UpdateBloodTestRequest, UpdateBloodTestTemplateRequest,
     },
     require_permission,
-    services::{access, AnimalBloodTestService, AuditService},
+    services::{access, AnimalBloodTestService},
     AppState, Result,
 };
 
@@ -61,42 +61,10 @@ pub async fn create_animal_blood_test(
     require_permission!(current_user, "animal.record.create");
     req.validate()?;
 
+    // Audit 已收進 service 層（BLOOD_TEST_CREATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
     let test =
-        AnimalBloodTestService::create_blood_test(&state.db, animal_id, &req, current_user.id)
-            .await?;
-
-    let display_name = match sqlx::query_as::<_, (String, Option<String>)>(
-        "SELECT ear_tag, iacuc_no FROM animals WHERE id = $1",
-    )
-    .bind(animal_id)
-    .fetch_optional(&state.db)
-    .await
-    {
-        Ok(Some((ear_tag, iacuc_no))) => {
-            let iacuc = iacuc_no.unwrap_or_else(|| "未指派".to_string());
-            format!("[{}] {}", iacuc, ear_tag)
-        }
-        _ => format!("血液檢查紀錄 (animal: {})", animal_id),
-    };
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "BLOOD_TEST_CREATE",
-        Some("animal_blood_test"),
-        Some(animal_id),
-        Some(&display_name),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_CREATE): {}", e);
-    }
-
+        AnimalBloodTestService::create_blood_test(&state.db, &actor, animal_id, &req).await?;
     Ok(Json(test))
 }
 
@@ -110,41 +78,9 @@ pub async fn update_animal_blood_test(
     require_permission!(current_user, "animal.record.edit");
     req.validate()?;
 
-    let test = AnimalBloodTestService::update_blood_test(&state.db, id, &req).await?;
-
-    let animal_id = test.blood_test.animal_id;
-    let display_name = match sqlx::query_as::<_, (String, Option<String>)>(
-        "SELECT ear_tag, iacuc_no FROM animals WHERE id = $1",
-    )
-    .bind(animal_id)
-    .fetch_optional(&state.db)
-    .await
-    {
-        Ok(Some((ear_tag, iacuc_no))) => {
-            let iacuc = iacuc_no.unwrap_or_else(|| "未指派".to_string());
-            format!("[{}] {}", iacuc, ear_tag)
-        }
-        _ => format!("血液檢查紀錄 #{}", id),
-    };
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "BLOOD_TEST_UPDATE",
-        Some("animal_blood_test"),
-        Some(animal_id),
-        Some(&display_name),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_UPDATE): {}", e);
-    }
-
+    // Audit 已收進 service 層（BLOOD_TEST_UPDATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let test = AnimalBloodTestService::update_blood_test(&state.db, &actor, id, &req).await?;
     Ok(Json(test))
 }
 
@@ -158,41 +94,9 @@ pub async fn delete_animal_blood_test(
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
 
-    let animal_info = sqlx::query_as::<_, (Uuid, String, Option<String>)>(
-        "SELECT p.id, p.ear_tag, p.iacuc_no FROM animals p INNER JOIN animal_blood_tests bt ON bt.animal_id = p.id WHERE bt.id = $1"
-    ).bind(id).fetch_optional(&state.db).await;
-
-    AnimalBloodTestService::soft_delete_blood_test(&state.db, id, &req.reason, current_user.id)
-        .await?;
-
-    let (pid, display_name) = match animal_info {
-        Ok(Some((pid, ear_tag, iacuc_no))) => {
-            let iacuc = iacuc_no.unwrap_or_else(|| "未指派".to_string());
-            (
-                Some(pid),
-                format!("[{}] {} (原因: {})", iacuc, ear_tag, req.reason),
-            )
-        }
-        _ => (None, format!("血液檢查紀錄 #{} (原因: {})", id, req.reason)),
-    };
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "BLOOD_TEST_DELETE",
-        Some("animal_blood_test"),
-        pid,
-        Some(&display_name),
-        None,
-        Some(serde_json::json!({ "reason": req.reason })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_DELETE): {}", e);
-    }
+    // Audit 已收進 service 層（BLOOD_TEST_DELETE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    AnimalBloodTestService::soft_delete_blood_test(&state.db, &actor, id, &req.reason).await?;
 
     Ok(Json(
         serde_json::json!({ "message": "Blood test record deleted successfully" }),
@@ -230,24 +134,11 @@ pub async fn create_blood_test_template(
 ) -> Result<Json<BloodTestTemplate>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
     req.validate()?;
-    let template = AnimalBloodTestService::create_blood_test_template(&state.db, &req).await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "TEMPLATE_CREATE",
-        Some("blood_test_template"),
-        Some(template.id),
-        Some(&format!("建立血檢模板: {}", req.name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (TEMPLATE_CREATE): {}", e);
-    }
+
+    // Audit 已收進 service 層（TEMPLATE_CREATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let template =
+        AnimalBloodTestService::create_blood_test_template(&state.db, &actor, &req).await?;
     Ok(Json(template))
 }
 
@@ -259,24 +150,11 @@ pub async fn update_blood_test_template(
     Json(req): Json<UpdateBloodTestTemplateRequest>,
 ) -> Result<Json<BloodTestTemplate>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
-    let template = AnimalBloodTestService::update_blood_test_template(&state.db, id, &req).await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "TEMPLATE_UPDATE",
-        Some("blood_test_template"),
-        Some(id),
-        Some(&format!("更新血檢模板: {}", template.name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (TEMPLATE_UPDATE): {}", e);
-    }
+
+    // Audit 已收進 service 層（TEMPLATE_UPDATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let template =
+        AnimalBloodTestService::update_blood_test_template(&state.db, &actor, id, &req).await?;
     Ok(Json(template))
 }
 
@@ -287,32 +165,10 @@ pub async fn delete_blood_test_template(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
-    AnimalBloodTestService::delete_blood_test_template(&state.db, id).await?;
-    let tmpl_name =
-        sqlx::query_scalar::<_, String>("SELECT name FROM blood_test_templates WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&state.db)
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| id.to_string());
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "TEMPLATE_DELETE",
-        Some("blood_test_template"),
-        Some(id),
-        Some(&format!("停用血檢模板: {}", tmpl_name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (TEMPLATE_DELETE): {}", e);
-    }
+
+    // Audit 已收進 service 層（TEMPLATE_DELETE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    AnimalBloodTestService::delete_blood_test_template(&state.db, &actor, id).await?;
     Ok(Json(
         serde_json::json!({ "message": "Template deactivated successfully" }),
     ))
@@ -349,24 +205,10 @@ pub async fn create_blood_test_panel(
 ) -> Result<Json<BloodTestPanelWithItems>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
     req.validate()?;
-    let panel = AnimalBloodTestService::create_blood_test_panel(&state.db, &req).await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "PANEL_CREATE",
-        Some("blood_test_panel"),
-        Some(panel.panel.id),
-        Some(&format!("建立血檢組合: {}", req.name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (PANEL_CREATE): {}", e);
-    }
+
+    // Audit 已收進 service 層（PANEL_CREATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let panel = AnimalBloodTestService::create_blood_test_panel(&state.db, &actor, &req).await?;
     Ok(Json(panel))
 }
 
@@ -378,24 +220,11 @@ pub async fn update_blood_test_panel(
     Json(req): Json<UpdateBloodTestPanelRequest>,
 ) -> Result<Json<BloodTestPanelWithItems>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
-    let panel = AnimalBloodTestService::update_blood_test_panel(&state.db, id, &req).await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "PANEL_UPDATE",
-        Some("blood_test_panel"),
-        Some(id),
-        Some(&format!("更新血檢組合: {}", panel.panel.name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (PANEL_UPDATE): {}", e);
-    }
+
+    // Audit 已收進 service 層（PANEL_UPDATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let panel =
+        AnimalBloodTestService::update_blood_test_panel(&state.db, &actor, id, &req).await?;
     Ok(Json(panel))
 }
 
@@ -407,24 +236,11 @@ pub async fn update_blood_test_panel_items(
     Json(req): Json<UpdateBloodTestPanelItemsRequest>,
 ) -> Result<Json<BloodTestPanelWithItems>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
-    let panel = AnimalBloodTestService::update_blood_test_panel_items(&state.db, id, &req).await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "PANEL_UPDATE",
-        Some("blood_test_panel"),
-        Some(id),
-        Some(&format!("更新血檢組合項目: {}", panel.panel.name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (PANEL_UPDATE items): {}", e);
-    }
+
+    // Audit 已收進 service 層（PANEL_UPDATE items，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let panel =
+        AnimalBloodTestService::update_blood_test_panel_items(&state.db, &actor, id, &req).await?;
     Ok(Json(panel))
 }
 
@@ -435,32 +251,10 @@ pub async fn delete_blood_test_panel(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
-    AnimalBloodTestService::delete_blood_test_panel(&state.db, id).await?;
-    let panel_name =
-        sqlx::query_scalar::<_, String>("SELECT name FROM blood_test_panels WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&state.db)
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| id.to_string());
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "PANEL_DELETE",
-        Some("blood_test_panel"),
-        Some(id),
-        Some(&format!("停用血檢組合: {}", panel_name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (PANEL_DELETE): {}", e);
-    }
+
+    // Audit 已收進 service 層（PANEL_DELETE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    AnimalBloodTestService::delete_blood_test_panel(&state.db, &actor, id).await?;
     Ok(Json(
         serde_json::json!({ "message": "Panel deactivated successfully" }),
     ))
@@ -497,24 +291,10 @@ pub async fn create_blood_test_preset(
 ) -> Result<Json<BloodTestPreset>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
     req.validate()?;
-    let preset = AnimalBloodTestService::create_blood_test_preset(&state.db, &req).await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "PRESET_CREATE",
-        Some("blood_test_preset"),
-        Some(preset.id),
-        Some(&format!("建立常用組合: {}", req.name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (PRESET_CREATE): {}", e);
-    }
+
+    // Audit 已收進 service 層（PRESET_CREATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let preset = AnimalBloodTestService::create_blood_test_preset(&state.db, &actor, &req).await?;
     Ok(Json(preset))
 }
 
@@ -526,24 +306,11 @@ pub async fn update_blood_test_preset(
     Json(req): Json<UpdateBloodTestPresetRequest>,
 ) -> Result<Json<BloodTestPreset>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
-    let preset = AnimalBloodTestService::update_blood_test_preset(&state.db, id, &req).await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "PRESET_UPDATE",
-        Some("blood_test_preset"),
-        Some(id),
-        Some(&format!("更新常用組合: {}", preset.name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (PRESET_UPDATE): {}", e);
-    }
+
+    // Audit 已收進 service 層（PRESET_UPDATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let preset =
+        AnimalBloodTestService::update_blood_test_preset(&state.db, &actor, id, &req).await?;
     Ok(Json(preset))
 }
 
@@ -554,32 +321,10 @@ pub async fn delete_blood_test_preset(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.blood_test_template.manage");
-    AnimalBloodTestService::delete_blood_test_preset(&state.db, id).await?;
-    let preset_name =
-        sqlx::query_scalar::<_, String>("SELECT name FROM blood_test_presets WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&state.db)
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| id.to_string());
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "PRESET_DELETE",
-        Some("blood_test_preset"),
-        Some(id),
-        Some(&format!("停用常用組合: {}", preset_name)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (PRESET_DELETE): {}", e);
-    }
+
+    // Audit 已收進 service 層（PRESET_DELETE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    AnimalBloodTestService::delete_blood_test_preset(&state.db, &actor, id).await?;
     Ok(Json(
         serde_json::json!({ "message": "Preset deactivated successfully" }),
     ))
