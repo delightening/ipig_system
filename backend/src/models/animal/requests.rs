@@ -541,6 +541,8 @@ pub struct BloodTestPanel {
     pub updated_at: DateTime<Utc>,
 }
 
+impl crate::models::audit_diff::AuditRedact for BloodTestPanel {}
+
 /// 組合含模板項目（API 回應用）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BloodTestPanelWithItems {
@@ -594,6 +596,8 @@ pub struct BloodTestPreset {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+impl crate::models::audit_diff::AuditRedact for BloodTestPreset {}
 
 /// 建立常用組合請求
 #[derive(Debug, Deserialize, Validate)]

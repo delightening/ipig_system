@@ -13,7 +13,10 @@ use crate::{
     middleware::{ActorContext, CurrentUser, extract_real_ip_with_trust},
     models::{AuditAction, CreateUserRequest, PaginationParams, ResetPasswordRequest, UpdateUserRequest, UserResponse},
     require_permission,
-    services::{AuthService, AuditService, SessionManager, UserService, EmailService},
+    services::{
+        audit::{ActivityLogEntry, AuditEntity, RequestContext},
+        AuthService, AuditService, SessionManager, UserService, EmailService,
+    },
     AppError, AppState, Result,
 };
 
@@ -369,14 +372,26 @@ pub async fn impersonate_user(
     let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
     let target_name = login_response.user.display_name.clone();
     let db = state.db.clone();
-    let actor = current_user.id;
+    let spawn_actor = ActorContext::User(current_user.clone());
     tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, actor, "SECURITY", "IMPERSONATE_START",
-            Some("user"), Some(id), Some(&target_name),
-            None, Some(serde_json::json!({ "impersonated_user_id": id })),
-            Some(&ip), ua.as_deref(),
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
+        if let Err(e) = AuditService::log_activity_oneshot(
+            &db,
+            &spawn_actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "IMPERSONATE_START",
+                entity: Some(AuditEntity::new("user", id, &target_name)),
+                data_diff: None,
+                request_context: Some(RequestContext {
+                    ip_address: Some(&ip),
+                    user_agent: ua.as_deref(),
+                }),
+            },
+        )
+        .await
+        {
+            tracing::error!("審計日誌寫入失敗: {e}");
+        }
     });
     
     // 回傳 JSON + Set-Cookie headers

@@ -465,6 +465,29 @@ impl AuditService {
         Ok(log_id)
     }
 
+    /// 單次 audit log 便利函式：自行開一個 tx 寫入後 commit。
+    ///
+    /// 適用情境：
+    /// 1. **外部服務後事件**（PDF export / import 完成後記錄）— 操作本身不屬於 tx 範疇，
+    ///    audit 只是「事件發生」的紀錄。
+    /// 2. **`tokio::spawn` 中 audit**（Step 6）— 背景任務無法共用 request tx。
+    /// 3. **純 audit 事件**（無 entity 變更）— 不需與資料變更同 tx。
+    ///
+    /// 相對於舊版 `log_activity(pool, ...)` 的優點：
+    /// - 使用新版 `ActivityLogEntry` struct（支援 DataDiff、impersonated_by、
+    ///   changed_fields）
+    /// - 透過 `log_activity_tx` 統一寫入路徑，HMAC chain 保持一致
+    pub async fn log_activity_oneshot(
+        pool: &PgPool,
+        actor: &ActorContext,
+        entry: ActivityLogEntry<'_>,
+    ) -> Result<Uuid> {
+        let mut tx = pool.begin().await?;
+        let log_id = Self::log_activity_tx(&mut tx, actor, entry).await?;
+        tx.commit().await?;
+        Ok(log_id)
+    }
+
     /// Transaction 版本的 HMAC 計算。
     ///
     /// HMAC 輸入編碼（length-prefixed canonical form）：

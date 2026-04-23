@@ -13,7 +13,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         ActivityLogQuery, AuditDashboardStats, AuditLogQuery, AuditLogWithActor,
         BulkResolveAlertsRequest, ForceLogoutRequest, LoginEventQuery, LoginEventWithUser,
@@ -21,7 +21,10 @@ use crate::{
         SessionWithUser, UserActivityLog,
     },
     require_permission,
-    services::AuditService,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
     AppError, AppState, Result,
 };
 
@@ -281,15 +284,27 @@ pub async fn force_logout_session(
 
     // SEC: 敏感操作二級審計 — 強制登出
     let db = state.db.clone();
-    let actor = current_user.id;
-    let reason = payload.reason.clone();
+    let spawn_actor = ActorContext::User(current_user.clone());
+    let display = payload
+        .reason
+        .clone()
+        .unwrap_or_else(|| format!("session {}", session_id));
     tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, actor, "SECURITY", "FORCE_LOGOUT",
-            Some("session"), Some(session_id), None,
-            None, Some(serde_json::json!({ "session_id": session_id, "reason": reason })),
-            None, None,
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
+        if let Err(e) = AuditService::log_activity_oneshot(
+            &db,
+            &spawn_actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "FORCE_LOGOUT",
+                entity: Some(AuditEntity::new("session", session_id, &display)),
+                data_diff: None,
+                request_context: None,
+            },
+        )
+        .await
+        {
+            tracing::error!("審計日誌寫入失敗: {e}");
+        }
     });
 
     Ok(Json(serde_json::json!({
