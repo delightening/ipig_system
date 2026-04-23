@@ -13,10 +13,13 @@ use axum::{
 use axum::extract::Multipart;
 use serde::Deserialize;
 
+use uuid::Uuid;
+
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     require_permission,
     services::{
+        audit::{ActivityLogEntry, AuditEntity},
         export_full_database, import_idxf, AuditService, ExportFormat, ExportParams, ImportMode,
         ImportResult,
     },
@@ -60,20 +63,23 @@ pub async fn full_database_export(
 
     let bytes = export_full_database(&state.db, export_params).await?;
 
-    if let Err(e) = AuditService::log_activity(
+    let display = format!("全庫匯出 (include_audit={}, format={:?})", include_audit, format);
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
         &state.db,
-        current_user.id,
-        "ADMIN",
-        "DATA_EXPORT",
-        None,
-        None,
-        Some(&format!("全庫匯出 (include_audit={}, format={:?})", include_audit, format)),
-        None,
-        Some(serde_json::json!({ "include_audit": include_audit, "format": format!("{:?}", format), "bytes": bytes.len() })),
-        None,
-        None,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ADMIN",
+            event_type: "DATA_EXPORT",
+            entity: Some(AuditEntity::new("database", Uuid::nil(), &display)),
+            data_diff: None,
+            request_context: None,
+        },
     )
-    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
+    .await
+    {
+        tracing::error!("審計日誌寫入失敗: {e}");
+    }
 
     let (ext, content_type) = match format {
         ExportFormat::Zip => ("zip", "application/zip"),
@@ -109,29 +115,26 @@ pub async fn full_database_import(
     // 匯入後確保 admin 可登入（重設密碼為 ADMIN_INITIAL_PASSWORD）
     let _ = ensure_admin_user_after_import(&state.db, &state.config).await;
 
-    if let Err(e) = AuditService::log_activity(
+    let display = format!(
+        "全庫匯入: {} 表, {} 筆新增, {} 筆略過",
+        result.tables_processed, result.rows_inserted, result.rows_skipped
+    );
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
         &state.db,
-        current_user.id,
-        "ADMIN",
-        "DATA_IMPORT",
-        None,
-        None,
-        Some(&format!(
-            "全庫匯入: {} 表, {} 筆新增, {} 筆略過",
-            result.tables_processed, result.rows_inserted, result.rows_skipped
-        )),
-        None,
-        Some(serde_json::json!({
-            "tables_processed": result.tables_processed,
-            "rows_inserted": result.rows_inserted,
-            "rows_skipped": result.rows_skipped,
-            "errors": result.errors,
-            "skipped_details": result.skipped_details
-        })),
-        None,
-        None,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ADMIN",
+            event_type: "DATA_IMPORT",
+            entity: Some(AuditEntity::new("database", Uuid::nil(), &display)),
+            data_diff: None,
+            request_context: None,
+        },
     )
-    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
+    .await
+    {
+        tracing::error!("審計日誌寫入失敗: {e}");
+    }
 
     Ok(Json(result))
 }
