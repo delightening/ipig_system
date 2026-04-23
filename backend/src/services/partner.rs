@@ -187,7 +187,98 @@ impl PartnerService {
         Ok(partner)
     }
 
-    /// 取得夥伴列表
+    /// Transaction 版本：在既有 transaction 內建立夥伴（R26-8 ProtocolService::change_status 需用）。
+    /// 簽名與 `create` 相同，但接 `&mut Transaction` 而非 `&PgPool`；
+    /// 呼叫端負責 commit/rollback。
+    pub async fn create_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        req: &CreatePartnerRequest,
+    ) -> Result<Partner> {
+        // 如果 code 為空，則自動根據類型生成（需從 pool 取，改為簡化：要求 code 在跨服務 tx 內必須提供）
+        let code = match req
+            .code
+            .as_ref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+        {
+            Some(provided) => provided.to_string(),
+            None => {
+                return Err(AppError::Validation(
+                    "Partner code required in transaction context".to_string(),
+                ))
+            }
+        };
+
+        // 將空字串轉換為 None，並驗證 email 格式（如果提供）
+        let email = req
+            .email
+            .as_ref()
+            .map(|e| e.trim())
+            .filter(|e| !e.is_empty())
+            .map(|e| {
+                if !is_valid_email(e) {
+                    return Err(AppError::Validation("Invalid email format".to_string()));
+                }
+                Ok(e.to_string())
+            })
+            .transpose()?;
+
+        // 在 tx 內檢查 code 唯一（UNIQUE constraint 兜底）
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM partners WHERE code = $1)")
+                .bind(&code)
+                .fetch_one(&mut **tx)
+                .await?;
+
+        if exists {
+            return Err(AppError::Conflict(
+                "Partner code already exists".to_string(),
+            ));
+        }
+
+        let partner = sqlx::query_as::<_, Partner>(
+            r#"
+            INSERT INTO partners (
+                id, partner_type, code, name, supplier_category, customer_category, tax_id, phone, email, address,
+                payment_terms, is_active, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW(), NOW())
+            RETURNING *
+            "#
+        )
+        .bind(Uuid::new_v4())
+        .bind(req.partner_type)
+        .bind(&code)
+        .bind(&req.name)
+        .bind(req.supplier_category)
+        .bind(req.customer_category)
+        .bind(req.tax_id.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .bind(req.phone.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .bind(&email)
+        .bind(req.address.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .bind(req.payment_terms.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .fetch_one(&mut **tx)
+        .await?;
+
+        let display = format!("{} ({})", partner.name, partner.code);
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "PARTNER_CREATE",
+                entity: Some(AuditEntity::new("partner", partner.id, &display)),
+                data_diff: Some(DataDiff::create_only(&partner)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        // Note: tx.commit() is caller's responsibility
+
+        Ok(partner)
+    }
     pub async fn list(pool: &PgPool, query: &PartnerQuery) -> Result<Vec<Partner>> {
         let pagination = PaginationParams {
             page: query.page,
