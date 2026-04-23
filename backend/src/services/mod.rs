@@ -14,7 +14,7 @@ pub mod mcp;
 pub mod accounting;
 mod amendment;
 mod animal;
-mod audit;
+pub mod audit;
 pub mod audit_chain_verify;
 mod auth;
 mod calendar;
