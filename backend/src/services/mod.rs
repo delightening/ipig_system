@@ -1,4 +1,11 @@
-#![allow(dead_code)]
+// NOTE: 原本的 `#![allow(dead_code)]` (CRIT-04) 在 PR #3 拿掉；但仍有 11 處
+// 零星死碼（API 型別、預留常數、早期 utility 等）分散在子 module 裡，每個需要
+// 個別判斷（真死 vs API shape / OpenAPI spec 引用）。為避免 PR #3 scope 膨脹，
+// 本輪只處理「確定死碼」（見 `protocol/history.rs::get_next_version_no` 已刪除），
+// 其餘以 per-item `#[allow(dead_code)]` + 理由標記，整批清理排入 R26-7。
+//
+// **此 crate-level blanket allow 已不存在** — 代表新死碼再也進不來（未標註就
+// clippy 紅燈）。這比舊版的「整個 services/ 樹免疫死碼警告」更嚴格。
 
 pub mod access;
 pub mod alert_threshold;
@@ -8,6 +15,7 @@ pub mod accounting;
 mod amendment;
 mod animal;
 mod audit;
+pub mod audit_chain_verify;
 mod auth;
 mod calendar;
 mod document;

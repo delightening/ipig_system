@@ -40,6 +40,8 @@ pub struct RecordAnnotation {
 }
 
 /// 建立附註請求
+// R26-7: API DTO（見 handlers/signature/annotation.rs）。
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct CreateAnnotationRequest {
     pub content: String,

@@ -2,20 +2,190 @@
 
 use std::sync::OnceLock;
 
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{
+    middleware::ActorContext,
     models::{
-        ActivityLogQuery, AuditAction, AuditDashboardStats, AuditLog, AuditLogQuery,
-        AuditLogWithActor, LoginEventQuery, LoginEventWithUser, PaginatedResponse, SecurityAlert,
-        SecurityAlertQuery, SessionQuery, SessionWithUser, UserActivityLog,
+        audit_diff::DataDiff, ActivityLogQuery, AuditAction, AuditDashboardStats, AuditLog,
+        AuditLogQuery, AuditLogWithActor, LoginEventQuery, LoginEventWithUser, PaginatedResponse,
+        SecurityAlert, SecurityAlertQuery, SessionQuery, SessionWithUser, UserActivityLog,
     },
     Result,
 };
 
+// ============================================
+// Service-driven audit 重構新型別
+// ============================================
+
+/// audit log 的參數封裝（取代原本 11 個位置參數）。
+///
+/// # Example
+/// ```ignore
+/// AuditService::log_activity_tx(&mut tx, &actor, ActivityLogEntry {
+///     event_category: "ANIMAL",
+///     event_type: "UPDATE",
+///     entity: Some(AuditEntity::new("animal", animal.id, &animal.ear_tag)),
+///     data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+///     request_context: None,
+/// }).await?;
+/// ```
+pub struct ActivityLogEntry<'a> {
+    /// 事件大類：ANIMAL / AUP / HR / ERP / SECURITY 等
+    pub event_category: &'a str,
+    /// 事件類型：CREATE / UPDATE / DELETE / SUBMIT / APPROVE 等
+    pub event_type: &'a str,
+    /// 變更對象；Some 時 data_diff 通常也會 Some
+    pub entity: Option<AuditEntity<'a>>,
+    /// before/after diff；用 DataDiff::compute 產生
+    pub data_diff: Option<DataDiff>,
+    /// HTTP 請求脈絡（IP / UA）；scheduler / bin 觸發時為 None
+    pub request_context: Option<RequestContext<'a>>,
+}
+
+/// 變更對象的描述（供 user_activity_logs 的 entity_* 欄位）
+pub struct AuditEntity<'a> {
+    pub entity_type: &'a str,
+    pub entity_id: Uuid,
+    pub entity_display_name: &'a str,
+}
+
+impl<'a> AuditEntity<'a> {
+    pub fn new(entity_type: &'a str, id: Uuid, display: &'a str) -> Self {
+        Self {
+            entity_type,
+            entity_id: id,
+            entity_display_name: display,
+        }
+    }
+}
+
+/// HTTP 請求脈絡
+pub struct RequestContext<'a> {
+    pub ip_address: Option<&'a str>,
+    pub user_agent: Option<&'a str>,
+}
+
+/// HMAC 雜湊鏈的結構化輸入（length-prefixed canonical encoding）。
+///
+/// 取代 `compute_and_store_hmac_tx` 的 10 個散落參數；同時讓編碼免於
+/// 字串串接碰撞（見 `canonical_bytes` 說明）。
+///
+/// `pub(crate)` 是因 [`AuditService::compute_hmac_for_fields`] 接此型別
+/// 作為單一參數，呼叫端（`audit_chain_verify` / `verify_chain_range`）
+/// 需在 crate 內直接構造。
+pub(crate) struct HmacInput<'a> {
+    pub(crate) event_category: &'a str,
+    pub(crate) event_type: &'a str,
+    pub(crate) actor_user_id: Uuid,
+    pub(crate) before_data: &'a Option<serde_json::Value>,
+    pub(crate) after_data: &'a Option<serde_json::Value>,
+    pub(crate) impersonated_by: Option<Uuid>,
+    pub(crate) changed_fields: &'a [String],
+}
+
+impl HmacInput<'_> {
+    /// 將所有欄位以 length-prefix canonical form 寫入 buffer。
+    ///
+    /// 每個欄位：`8-byte BE length` + `UTF-8 bytes`
+    /// changed_fields 以 `array length (u64 BE)` 開頭，再逐欄位 length-prefix。
+    ///
+    /// prev_hash 由呼叫端（從 DB 讀出）提供；這設計讓 struct 只承載「內容」，
+    /// chain 連結資料由 DB 提供。
+    pub(crate) fn canonical_bytes(&self, prev_hash: Option<&str>) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(512);
+        write_field(&mut buf, prev_hash.unwrap_or("").as_bytes());
+        write_field(&mut buf, self.event_category.as_bytes());
+        write_field(&mut buf, self.event_type.as_bytes());
+        // Uuid::to_string 永遠 36 char（hyphenated），長度穩定
+        write_field(&mut buf, self.actor_user_id.to_string().as_bytes());
+        let before_str = self
+            .before_data
+            .as_ref()
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+        write_field(&mut buf, before_str.as_bytes());
+        let after_str = self
+            .after_data
+            .as_ref()
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+        write_field(&mut buf, after_str.as_bytes());
+        let imp = self
+            .impersonated_by
+            .map(|u| u.to_string())
+            .unwrap_or_default();
+        write_field(&mut buf, imp.as_bytes());
+        buf.extend_from_slice(&(self.changed_fields.len() as u64).to_be_bytes());
+        for f in self.changed_fields {
+            write_field(&mut buf, f.as_bytes());
+        }
+        buf
+    }
+}
+
+/// 寫入單一欄位：8-byte big-endian 長度 + bytes
+fn write_field(buf: &mut Vec<u8>, bytes: &[u8]) {
+    buf.extend_from_slice(&(bytes.len() as u64).to_be_bytes());
+    buf.extend_from_slice(bytes);
+}
+
 /// HMAC 密鑰（由 Config 初始化一次，避免每次讀取 env var）
 static AUDIT_HMAC_KEY: OnceLock<Option<String>> = OnceLock::new();
+
+/// R26-2：HMAC chain 範圍驗證結果。
+///
+/// 由 [`AuditService::verify_chain_range`] 產生；每日驗證 cron 根據 broken_links 是否
+/// 為空決定是否觸發 SecurityNotifier 告警。
+#[derive(Debug, Clone)]
+pub struct ChainVerificationReport {
+    pub range_from: chrono::DateTime<chrono::Utc>,
+    pub range_to: chrono::DateTime<chrono::Utc>,
+    /// 範圍內的 row 總數（含已略過的 security_event）
+    pub total_rows: usize,
+    /// 真正跑完 HMAC 比對的 row 數（= total_rows - skipped_no_hash）
+    pub verified_rows: usize,
+    /// 無 integrity_hash（security_event 等不入鏈的紀錄）
+    pub skipped_no_hash: usize,
+    /// HMAC 不一致的 row（斷鏈偵測）
+    pub broken_links: Vec<BrokenChainLink>,
+}
+
+impl ChainVerificationReport {
+    pub fn is_intact(&self) -> bool {
+        self.broken_links.is_empty()
+    }
+}
+
+/// 單一 HMAC 驗證失敗的 row 紀錄。
+#[derive(Debug, Clone)]
+pub struct BrokenChainLink {
+    pub id: Uuid,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub expected_hash: String,
+    pub stored_hash: String,
+    pub stored_previous_hash: Option<String>,
+}
+
+/// audit chain 驗證時讀取的 row（內部用，不對外公開）。
+///
+/// 注意 `actor_user_id: Option<Uuid>` — `user_activity_logs.actor_user_id`
+/// schema 允許 NULL（匿名事件）；改用 `Uuid` 會在 fetch 時 panic。
+#[derive(sqlx::FromRow)]
+struct ChainRow {
+    id: Uuid,
+    created_at: chrono::DateTime<chrono::Utc>,
+    event_category: String,
+    event_type: String,
+    actor_user_id: Option<Uuid>,
+    before_data: Option<serde_json::Value>,
+    after_data: Option<serde_json::Value>,
+    impersonated_by_user_id: Option<Uuid>,
+    changed_fields: Option<Vec<String>>,
+    integrity_hash: Option<String>,
+    previous_hash: Option<String>,
+}
 
 pub struct AuditService;
 
@@ -167,7 +337,419 @@ impl AuditService {
         Ok(logs)
     }
 
-    /// 記錄詳細活動日誌
+    // ============================================
+    // Service-driven audit 重構：transaction 版本
+    // ============================================
+
+    /// Transaction 版本的 activity log。Service-driven 重構模式使用此函式，
+    /// 保證 audit 與資料變更在同一 tx 內 commit 或 rollback。
+    ///
+    /// 取代舊版 `log_activity(pool, ...)`（已標 `#[deprecated]`）。
+    pub async fn log_activity_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        actor: &ActorContext,
+        entry: ActivityLogEntry<'_>,
+    ) -> Result<Uuid> {
+        let (before_data, after_data, changed_fields) = match entry.data_diff {
+            Some(diff) => diff.into_parts(),
+            None => (None, None, Vec::new()),
+        };
+        let (ip, ua) = match entry.request_context {
+            Some(ref r) => (r.ip_address, r.user_agent),
+            None => (None, None),
+        };
+        let (entity_type, entity_id, entity_name) = match entry.entity {
+            Some(ref e) => (
+                Some(e.entity_type),
+                Some(e.entity_id),
+                Some(e.entity_display_name),
+            ),
+            None => (None, None, None),
+        };
+        let impersonated_by = actor.impersonated_by();
+        // app 層若提供 changed_fields（Vec 非空），傳給 stored proc；
+        // 若空 Vec，傳 NULL 讓 stored proc 自己用 JSONB EXCEPT 算。
+        let changed_fields_param: Option<&[String]> = if changed_fields.is_empty() {
+            None
+        } else {
+            Some(&changed_fields)
+        };
+
+        // R26-4 疑慮 1+2: advisory lock 序列化 audit 寫入，保證 HMAC chain
+        // 不會在並發下跳 row 或指向 rollback 的死連結。
+        // Lock 綁在 tx 上，tx commit/rollback 時自動釋放。
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+            .bind("audit_log_chain")
+            .execute(&mut **tx)
+            .await?;
+
+        // R26-3: 一次 INSERT 完整寫入（含 impersonated_by + changed_fields），
+        // 不再做事後 UPDATE — 這樣 HMAC 計算能涵蓋所有欄位，tamper-resistance 完整。
+        let result: (Uuid,) = sqlx::query_as(
+            "SELECT log_activity($1, $2, $3, $4, $5, $6, $7, $8, $9::inet, $10, $11, $12)",
+        )
+        .bind(actor.actor_user_id())
+        .bind(entry.event_category)
+        .bind(entry.event_type)
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(entity_name)
+        .bind(before_data.clone())
+        .bind(after_data.clone())
+        .bind(ip)
+        .bind(ua)
+        .bind(impersonated_by)
+        .bind(changed_fields_param)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        let log_id = result.0;
+
+        // SEC-34: HMAC 雜湊鏈（在同一 tx 內；rollback 時 HMAC 也會退）
+        if let Some(Some(hmac_key)) = AUDIT_HMAC_KEY.get() {
+            // actor_user_id 若為 None（Anonymous），使用 SYSTEM UUID 參與雜湊，
+            // 避免鏈斷（匿名事件仍計入 chain，但 DB 欄位存 NULL）
+            let hash_actor = actor
+                .actor_user_id()
+                .unwrap_or(crate::middleware::SYSTEM_USER_ID);
+            let hmac_input = HmacInput {
+                event_category: entry.event_category,
+                event_type: entry.event_type,
+                actor_user_id: hash_actor,
+                before_data: &before_data,
+                after_data: &after_data,
+                impersonated_by,
+                changed_fields: &changed_fields,
+            };
+            Self::compute_and_store_hmac_tx(tx, log_id, hmac_key, hmac_input).await?;
+        }
+
+        Ok(log_id)
+    }
+
+    /// Transaction 版本的 HMAC 計算。
+    ///
+    /// HMAC 輸入編碼（length-prefixed canonical form）：
+    ///   每個欄位以「8-byte big-endian 長度 + UTF-8 bytes」寫入 HMAC buffer。
+    ///   欄位順序固定：prev_hash → event_category → event_type → actor_user_id
+    ///                → before_data → after_data → impersonated_by → changed_fields
+    ///   changed_fields 先寫 array 長度（u64 BE），再逐欄位 length-prefix。
+    ///
+    /// 為何用 length-prefix 而非字串串接：
+    ///   `"ab" + "cd"` 和 `"abc" + "d"` 的 byte stream 相同，字串串接會碰撞。
+    ///   加 length prefix 後 `(2)"ab"(2)"cd"` vs `(3)"abc"(1)"d"` 不同。
+    ///
+    /// 納入 impersonated_by 與 changed_fields 的目的：
+    ///   若 DB 被竄改（例如清空這兩欄），HMAC 驗證會失敗。
+    /// 對給定 [`HmacInput`] 計算 HMAC（不接觸 DB，純運算）。
+    ///
+    /// 供 [`verify_chain_range`](Self::verify_chain_range) 使用：針對每筆 audit row
+    /// 重算預期 HMAC，和儲存值比對即可判定 chain 完整性。
+    ///
+    /// 簽名收斂為 `(hmac_key, prev_hash, input)` 3 個參數（CodeRabbit PR #158
+    /// review：避免 9 個位置參數錯位）。
+    pub(crate) fn compute_hmac_for_fields(
+        hmac_key: &str,
+        prev_hash: Option<&str>,
+        input: HmacInput<'_>,
+    ) -> String {
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+        type HmacSha256 = Hmac<Sha256>;
+
+        let message = input.canonical_bytes(prev_hash);
+
+        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes())
+            .expect("HMAC key invalid — 啟動時應已驗證"); // OnceLock 存的 key 必有效
+        mac.update(&message);
+        let hash_bytes = mac.finalize().into_bytes();
+        hash_bytes.iter().map(|b| format!("{:02x}", b)).collect()
+    }
+
+    /// 取得目前 HMAC 密鑰（未初始化或未設定則 None）。
+    ///
+    /// 主要給 `audit_chain_verify` job 用：key 缺席時應 fail loud（HMAC chain
+    /// 驗證無意義）而非靜默略過。
+    pub fn hmac_key() -> Option<&'static str> {
+        AUDIT_HMAC_KEY.get().and_then(|k| k.as_deref())
+    }
+
+    /// 驗證指定時間範圍內 `user_activity_logs` HMAC 鏈的完整性（R26-2）。
+    ///
+    /// 流程（拆為 3 個 helper 以滿足 50-line function 上限）：
+    /// 1. [`load_chain_rows`](Self::load_chain_rows)：取範圍內所有 row（ORDER BY (created_at, id) ASC）
+    /// 2. [`load_initial_prev_hash`](Self::load_initial_prev_hash)：取範圍前一筆 row 的 integrity_hash
+    /// 3. [`verify_chain_rows`](Self::verify_chain_rows)：逐行重算 HMAC + 比對
+    ///
+    /// **prev_hash 推進規則**（與 [`compute_and_store_hmac_tx`](Self::compute_and_store_hmac_tx) 寫入端一致）：
+    /// - 寫入端取「立即前一筆 row」的 integrity_hash，**不**過濾 NULL
+    /// - 因此 verifier 也不過濾 NULL；security_event 類 row（NULL hash）會把 prev_hash 重置為 None
+    /// - 不一致會造成 false positive：security_event 後第一筆業務 row 預期 hash 對不上
+    ///
+    /// **效能考量**：把範圍內所有 row 拉進記憶體。對每日驗證（~1000-10000 rows）
+    /// 約耗時 < 1 秒；若要驗證大範圍（>100k rows）需改為 streaming 版本。
+    pub async fn verify_chain_range(
+        pool: &PgPool,
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> Result<ChainVerificationReport> {
+        let hmac_key = Self::hmac_key().ok_or_else(|| {
+            crate::error::AppError::Internal(
+                "AUDIT_HMAC_KEY 未設定 — 無法驗證 chain 完整性".into(),
+            )
+        })?;
+
+        let rows = Self::load_chain_rows(pool, from, to).await?;
+
+        if rows.is_empty() {
+            return Ok(ChainVerificationReport {
+                range_from: from,
+                range_to: to,
+                total_rows: 0,
+                verified_rows: 0,
+                skipped_no_hash: 0,
+                broken_links: Vec::new(),
+            });
+        }
+
+        let first = &rows[0];
+        let prev_hash = Self::load_initial_prev_hash(pool, first.created_at, first.id).await?;
+
+        let (verified_rows, skipped_no_hash, broken_links) =
+            Self::verify_chain_rows(hmac_key, prev_hash, &rows);
+
+        Ok(ChainVerificationReport {
+            range_from: from,
+            range_to: to,
+            total_rows: rows.len(),
+            verified_rows,
+            skipped_no_hash,
+            broken_links,
+        })
+    }
+
+    /// 載入指定時間範圍的 audit row（含 partition_date filter 啟用 PostgreSQL partition pruning）。
+    ///
+    /// `actor_user_id` 為 `Option<Uuid>` — `user_activity_logs.actor_user_id`
+    /// schema 允許 NULL（匿名事件、CSP report 等）；若 decode 為 `Uuid` 會在
+    /// `fetch_all` panic（CodeRabbit PR #158 🔴 Critical）。
+    async fn load_chain_rows(
+        pool: &PgPool,
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<ChainRow>> {
+        let rows: Vec<ChainRow> = sqlx::query_as::<_, ChainRow>(
+            r#"
+            SELECT id, created_at, event_category, event_type, actor_user_id,
+                   before_data, after_data, impersonated_by_user_id,
+                   changed_fields, integrity_hash, previous_hash
+            FROM user_activity_logs
+            WHERE created_at >= $1 AND created_at < $2
+              AND partition_date >= $1::date AND partition_date <= $2::date
+            ORDER BY created_at ASC, id ASC
+            "#,
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(pool)
+        .await?;
+        Ok(rows)
+    }
+
+    /// 取範圍前一筆 row 的 integrity_hash 作為初始 prev_hash。
+    ///
+    /// **不過濾 NULL** — 必須與寫入端 `compute_and_store_hmac_tx` 取 prev_hash
+    /// 的規則完全一致（CodeRabbit PR #158 🔴 Critical）。
+    async fn load_initial_prev_hash(
+        pool: &PgPool,
+        first_created_at: chrono::DateTime<chrono::Utc>,
+        first_id: Uuid,
+    ) -> Result<Option<String>> {
+        let prev: Option<Option<String>> = sqlx::query_scalar(
+            r#"
+            SELECT integrity_hash FROM user_activity_logs
+            WHERE (created_at, id) < ($1, $2)
+              AND partition_date <= $1::date
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(first_created_at)
+        .bind(first_id)
+        .fetch_optional(pool)
+        .await?;
+        // fetch_optional 回 Option<T>；T = Option<String>（NULL hash row）
+        // 攤平兩層 Option：無 row → None；有 row 但 hash NULL → None；有 row + hash → Some(s)
+        Ok(prev.flatten())
+    }
+
+    /// 逐行 verify chain；返回 (verified_count, skipped_count, broken_links)。
+    ///
+    /// 規則：
+    /// - SECURITY 類事件（`event_category == "SECURITY"`）：寫入時不走 HMAC chain，
+    ///   `integrity_hash` 為 NULL；verifier 略過（skipped_no_hash++）但**仍把
+    ///   prev_hash 重置為 None**（與寫入端一致）。
+    /// - 非 SECURITY 但 `integrity_hash` 為 NULL：**異常**（不應發生），
+    ///   記入 broken_links（Gemini 🟠 high：避免攻擊者 nullify hash 規避偵測）；
+    ///   prev_hash 同樣重置為 None。
+    /// - 有 `integrity_hash`：重算 HMAC 比對；不一致記入 broken_links；
+    ///   prev_hash 推進為 stored_hash（即使 broken 也推進，方便定位連鎖破壞）。
+    fn verify_chain_rows(
+        hmac_key: &str,
+        initial_prev_hash: Option<String>,
+        rows: &[ChainRow],
+    ) -> (usize, usize, Vec<BrokenChainLink>) {
+        const SECURITY_CATEGORY: &str = "SECURITY";
+
+        let mut prev_hash = initial_prev_hash;
+        let mut broken_links: Vec<BrokenChainLink> = Vec::new();
+        let mut verified_rows = 0_usize;
+        let mut skipped_no_hash = 0_usize;
+
+        for row in rows {
+            match row.integrity_hash.as_deref() {
+                None if row.event_category == SECURITY_CATEGORY => {
+                    // SECURITY 事件不入鏈：合法 NULL；prev_hash 重置與寫入端對齊
+                    skipped_no_hash += 1;
+                    prev_hash = None;
+                }
+                None => {
+                    // 非 SECURITY 卻 NULL → 視為斷鏈（防止 nullify-bypass attack）
+                    broken_links.push(BrokenChainLink {
+                        id: row.id,
+                        created_at: row.created_at,
+                        expected_hash: "<missing integrity_hash for non-SECURITY row>".into(),
+                        stored_hash: String::new(),
+                        stored_previous_hash: row.previous_hash.clone(),
+                    });
+                    prev_hash = None;
+                }
+                Some(stored_hash) => {
+                    let changed_fields = row.changed_fields.as_deref().unwrap_or(&[]);
+                    let expected = Self::compute_hmac_for_fields(
+                        hmac_key,
+                        prev_hash.as_deref(),
+                        HmacInput {
+                            event_category: &row.event_category,
+                            event_type: &row.event_type,
+                            // 匿名 actor 寫入時用 SYSTEM_USER_ID（與 ActorContext::Anonymous
+                            // 寫入端 fallback 一致）
+                            actor_user_id: row
+                                .actor_user_id
+                                .unwrap_or(crate::middleware::SYSTEM_USER_ID),
+                            before_data: &row.before_data,
+                            after_data: &row.after_data,
+                            impersonated_by: row.impersonated_by_user_id,
+                            changed_fields,
+                        },
+                    );
+
+                    if expected != stored_hash {
+                        broken_links.push(BrokenChainLink {
+                            id: row.id,
+                            created_at: row.created_at,
+                            expected_hash: expected,
+                            stored_hash: stored_hash.to_string(),
+                            stored_previous_hash: row.previous_hash.clone(),
+                        });
+                    }
+
+                    verified_rows += 1;
+                    prev_hash = Some(stored_hash.to_string());
+                }
+            }
+        }
+
+        (verified_rows, skipped_no_hash, broken_links)
+    }
+
+    /// 寫入 `security_alerts` 表（給 audit_chain_verify cron + 其他需要產生
+    /// 安全告警的 service 使用，避免 SQL 散落）。
+    ///
+    /// 移自 `audit_chain_verify.rs` 的 inline INSERT（CodeRabbit PR #158 🟠 Major）。
+    pub async fn create_security_alert(
+        pool: &PgPool,
+        alert_type: &str,
+        severity: &str,
+        title: &str,
+        description: &str,
+        context_data: &serde_json::Value,
+    ) -> Result<Uuid> {
+        let id: Uuid = sqlx::query_scalar(
+            r#"
+            INSERT INTO security_alerts (alert_type, severity, title, description, context_data, created_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
+            RETURNING id
+            "#,
+        )
+        .bind(alert_type)
+        .bind(severity)
+        .bind(title)
+        .bind(description)
+        .bind(context_data)
+        .fetch_one(pool)
+        .await?;
+        Ok(id)
+    }
+
+    async fn compute_and_store_hmac_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        log_id: Uuid,
+        hmac_key: &str,
+        input: HmacInput<'_>,
+    ) -> Result<()> {
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+
+        type HmacSha256 = Hmac<Sha256>;
+
+        // R26-4 疑慮 4：(created_at, id) tuple 比較 + 雙欄 DESC 排序
+        // 讓同微秒寫入時仍能得到穩定的 prev_hash。
+        let prev_hash: Option<String> = sqlx::query_scalar(
+            r#"
+            SELECT integrity_hash FROM user_activity_logs
+            WHERE (created_at, id) < (
+                SELECT created_at, id FROM user_activity_logs WHERE id = $1
+            )
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(log_id)
+        .fetch_optional(&mut **tx)
+        .await?;
+
+        let message = input.canonical_bytes(prev_hash.as_deref());
+
+        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes())
+            .map_err(|e| crate::error::AppError::Internal(format!("HMAC key error: {}", e)))?;
+        mac.update(&message);
+        let hash_bytes = mac.finalize().into_bytes();
+        let hash_result: String = hash_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+
+        sqlx::query(
+            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2 WHERE id = $3",
+        )
+        .bind(&hash_result)
+        .bind(prev_hash.as_deref())
+        .bind(log_id)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 記錄詳細活動日誌（舊版 API，保留向後相容）。
+    ///
+    /// ⚠️ **此函式不保證 audit 與資料變更在同一 transaction 內**。若呼叫端
+    /// 在資料寫入與本函式之間 crash，會造成資料變更已 commit 但 audit log
+    /// 未寫入（GLP 合規風險）。
+    ///
+    /// 新程式碼請改用 [`AuditService::log_activity_tx`]，搭配 `pool.begin()`。
+    #[deprecated(
+        since = "0.2.0",
+        note = "改用 log_activity_tx 保證 audit 與資料變更同一 tx；舊版在分批遷移後移除"
+    )]
     #[allow(clippy::too_many_arguments)]
     pub async fn log_activity(
         pool: &PgPool,
@@ -199,9 +781,12 @@ impl AuditService {
 
         let log_id = result.0;
 
-        // SEC-34: HMAC 雜湊鏈（有 key 時才啟用）
+        // SEC-34: HMAC 雜湊鏈（有 key 時才啟用）。
+        // 錯誤不再靜默吞（let _ = ...），改記 tracing::error! 讓 Prometheus
+        // 可 alert；但仍不中斷回傳 — audit 已寫入、HMAC 失敗只影響鏈結
+        // 完整性，呼叫端已拿到 log_id。R26-4 移除舊版時此區塊一併刪除。
         if let Some(Some(hmac_key)) = AUDIT_HMAC_KEY.get() {
-            let _ = Self::compute_and_store_hmac(
+            if let Err(e) = Self::compute_and_store_hmac(
                 pool,
                 log_id,
                 hmac_key,
@@ -211,7 +796,14 @@ impl AuditService {
                 &before_data,
                 &after_data,
             )
-            .await;
+            .await
+            {
+                tracing::error!(
+                    log_id = %log_id,
+                    error = %e,
+                    "[audit] HMAC chain write failed for deprecated log_activity; chain integrity degraded"
+                );
+            }
         }
 
         Ok(log_id)
@@ -334,8 +926,7 @@ impl AuditService {
         )
         .bind(log_id)
         .fetch_optional(pool)
-        .await
-        .unwrap_or(None);
+        .await?;
 
         // 組合雜湊內容: prev_hash + event_category + event_type + actor_id + data
         let mut message = String::new();

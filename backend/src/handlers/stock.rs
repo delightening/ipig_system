@@ -6,8 +6,8 @@ use axum::{
 use crate::{
     middleware::CurrentUser,
     models::{
-        InventoryOnHand, InventoryQuery, LowStockAlert, StockLedgerDetail, StockLedgerQuery,
-        UnassignedInventory,
+        AssignUnassignedRequest, InventoryOnHand, InventoryQuery, LowStockAlert, StockLedgerDetail,
+        StockLedgerQuery, UnassignedInventory,
     },
     require_permission,
     services::StockService,
@@ -59,4 +59,16 @@ pub async fn get_unassigned_inventory(
 
     let rows = StockService::get_unassigned_inventory(&state.db, &query).await?;
     Ok(Json(rows))
+}
+
+/// 將未分配庫存分配至儲位
+pub async fn assign_unassigned_inventory(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<AssignUnassignedRequest>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "erp.stock.adjust");
+
+    StockService::assign_unassigned(&state.db, &req).await?;
+    Ok(Json(serde_json::json!({ "status": "ok" })))
 }

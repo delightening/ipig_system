@@ -538,6 +538,8 @@ impl SkuService {
     }
 
     /// 計算檢查碼 (簡單的 Luhn 變體)
+    // R26-7: SKU 計算工具，當前版本未啟用檢查碼機制；留函式備用
+    #[allow(dead_code)]
     fn calculate_check_digit(sku_without_check: &str) -> char {
         let sum: u32 = sku_without_check
             .chars()
@@ -562,6 +564,8 @@ impl SkuService {
     }
 
     /// 獲取下一個序號（複雜版）
+    // R26-7: SKU 序號解析工具，未啟用；留 util 備用
+    #[allow(dead_code)]
     async fn get_next_sequence(pool: &PgPool, prefix: &str) -> Result<i32> {
         // 查詢當前最大序號
         let result: Option<String> = sqlx::query_scalar(

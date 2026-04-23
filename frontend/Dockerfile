@@ -39,7 +39,9 @@ RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils && rm -rf /va
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
 # Server block（含 brotli on / brotli_static 等）- 作為模板使用
-COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+# 放在 /etc/nginx/templates/ 而非 conf.d/，避免 conf.d 掛成 tmpfs 後模板被遮蔽
+RUN mkdir -p /etc/nginx/templates
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 # 共用安全標頭 snippet（HSTS/CSP/X-Frame-Options 等），由 nginx.conf 多處 include
 COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
 
@@ -60,6 +62,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 EXPOSE 8080
 
-# 使用 envsubst 在運行時替換環境變數（如果配置被 volume mount 覆蓋則跳過），然後啟動 nginx
-# 使用 || true 確保即使 envsubst 失敗（例如因為 volume mount 是只讀的）也能繼續啟動
-CMD ["/bin/sh", "-c", "(envsubst '${API_BACKEND_URL}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf 2>/dev/null || true) && exec nginx -g 'daemon off;'"]
+# 啟動流程：
+#   1) 建立 /tmp/nginx temp 目錄（/tmp 是 tmpfs，容器啟動時為空，需 runtime 建立）
+#   2) 以 envsubst 代入 ${API_BACKEND_URL}，將 template 渲染至 /etc/nginx/conf.d/default.conf
+#      （/etc/nginx/conf.d 在 compose 以 tmpfs 掛載，可寫）
+#   3) 啟動 nginx
+CMD ["/bin/sh", "-c", "mkdir -p /tmp/nginx && envsubst '${API_BACKEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]

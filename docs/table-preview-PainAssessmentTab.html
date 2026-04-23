@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>PainAssessmentTab RWD Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; }
+
+  .controls { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+              padding: 16px 20px; margin-bottom: 20px;
+              display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .controls label { font-size: 13px; font-weight: 600; color: #475569; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn { padding: 5px 11px; border: 1px solid #cbd5e1; border-radius: 6px;
+                background: #f8fafc; font-size: 12px; cursor: pointer; color: #334155; }
+  .preset-btn:hover { background: #e0f2fe; border-color: #38bdf8; }
+  .preset-btn.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+  input[type=range] { width: 220px; accent-color: #0ea5e9; }
+  .width-display { font-size: 13px; font-weight: 700; color: #0ea5e9; min-width: 55px; }
+  .mode-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .mode-pc { background: #dcfce7; color: #166534; }
+  .mode-tab { background: #fef9c3; color: #854d0e; }
+  .mode-mob { background: #fee2e2; color: #991b1b; }
+  .hidden-cols { font-size: 11px; color: #94a3b8; margin-left: 4px; }
+
+  .viewport-wrap { background: #fff; border: 2px solid #e2e8f0; border-radius: 10px;
+                   overflow: hidden; margin: 0 auto;
+                   container-type: inline-size; container-name: pa;
+                   transition: width .2s ease; }
+
+  .ruler { display: flex; height: 16px; border-radius: 4px; overflow: hidden;
+           font-size: 9px; font-weight: 600; margin-bottom: 8px; }
+
+  .pa-table-wrap { overflow-x: auto; }
+  .pa-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 510px; }
+  .pa-table th, .pa-table td { padding: 8px 6px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+  .pa-table th { background: #f8fafc; font-size: 11px; font-weight: 600; color: #64748b; white-space: nowrap; }
+  .pa-table tr:hover td { background: #f8fafc; }
+  .col-date  { width: 100px; text-align: left !important; white-space: nowrap; font-size: 11px; }
+  .col-day   { width: 60px; }
+  .col-time  { width: 60px; }
+  .col-score { width: 50px; }
+  .col-total { width: 50px; font-weight: 700; }
+  .col-grade { width: 90px; }
+  .col-meds  { width: 150px; text-align: left !important; font-size: 11px; color: #64748b; }
+
+  /* @container rules */
+  @container pa (max-width: 809px) {
+    .col-tertiary { display: none; }
+  }
+  @container pa (max-width: 599px) {
+    .pa-table-wrap { display: none; }
+    .card-list { display: flex; }
+  }
+  @container pa (min-width: 600px) {
+    .card-list { display: none; }
+  }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+  .badge-mild     { background: #dcfce7; color: #166534; }
+  .badge-moderate { background: #fef9c3; color: #854d0e; }
+  .badge-severe   { background: #fee2e2; color: #991b1b; }
+
+  /* Cards */
+  .card-list { flex-direction: column; gap: 10px; padding: 12px; }
+  .pa-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #fff; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .card-date { font-size: 13px; font-weight: 600; color: #334155; }
+  .card-day { font-size: 12px; color: #64748b; }
+  .card-summary { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+  .card-total { font-weight: 700; color: #334155; }
+  .card-scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 8px;
+                 background: #f8fafc; padding: 8px; border-radius: 6px;
+                 font-size: 12px; color: #475569; margin-bottom: 8px; }
+  .card-meds { font-size: 12px; color: #64748b; padding-top: 6px; border-top: 1px solid #f1f5f9; }
+</style>
+</head>
+<body>
+
+<h2 style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">
+  PainAssessmentTab — RWD Preview
+</h2>
+
+<div class="controls">
+  <div>
+    <label>寬度預設</label>
+    <div class="presets" style="margin-top:6px;">
+      <button class="preset-btn" data-w="375">375px<br><span style="font-size:10px;color:#94a3b8">手機</span></button>
+      <button class="preset-btn" data-w="600">600px<br><span style="font-size:10px;color:#94a3b8">斷點</span></button>
+      <button class="preset-btn" data-w="768">768px<br><span style="font-size:10px;color:#94a3b8">平板</span></button>
+      <button class="preset-btn" data-w="810">810px<br><span style="font-size:10px;color:#94a3b8">斷點</span></button>
+      <button class="preset-btn active" data-w="1024">1024px<br><span style="font-size:10px;color:#94a3b8">PC</span></button>
+      <button class="preset-btn" data-w="1280">1280px<br><span style="font-size:10px;color:#94a3b8">寬螢幕</span></button>
+    </div>
+  </div>
+  <div>
+    <label>拖拉調整</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+      <input type="range" id="slider" min="300" max="1280" value="1024">
+      <span class="width-display" id="wDisplay">1024px</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:auto;">
+    <span class="mode-badge mode-pc" id="modeBadge">PC 全 12 欄</span>
+    <span class="hidden-cols" id="hiddenCols"></span>
+  </div>
+</div>
+
+<div style="max-width:1280px;margin:0 auto 8px;padding:0 2px;">
+  <div class="ruler">
+    <div style="width:calc(600/1280*100%);background:#fee2e2;display:flex;align-items:center;justify-content:center;color:#991b1b;">Card &lt;600</div>
+    <div style="width:calc(210/1280*100%);background:#fef9c3;display:flex;align-items:center;justify-content:center;color:#854d0e;">平板 6欄 (510)</div>
+    <div style="background:#dcfce7;flex:1;display:flex;align-items:center;justify-content:center;color:#166534;">PC 全12欄 ≥810</div>
+  </div>
+</div>
+
+<div class="viewport-wrap" id="viewport" style="width:1024px;">
+
+  <div class="pa-table-wrap">
+    <table class="pa-table">
+      <thead>
+        <tr>
+          <th class="col-date" style="text-align:left">日期 ↕</th>
+          <th class="col-day">術後天 ↕</th>
+          <th class="col-time">時段</th>
+          <th class="col-score col-tertiary">傷口</th>
+          <th class="col-score col-tertiary">行為</th>
+          <th class="col-score col-tertiary">食慾</th>
+          <th class="col-score col-tertiary">排便</th>
+          <th class="col-score col-tertiary">排尿</th>
+          <th class="col-score col-tertiary">疼痛</th>
+          <th class="col-total">總分</th>
+          <th class="col-grade">疼痛分級</th>
+          <th class="col-meds" style="text-align:left">給藥</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-date">01/15 14:30</td>
+          <td class="col-day">D3</td>
+          <td class="col-time">AM</td>
+          <td class="col-score col-tertiary">1</td>
+          <td class="col-score col-tertiary">0</td>
+          <td class="col-score col-tertiary">1</td>
+          <td class="col-score col-tertiary">1</td>
+          <td class="col-score col-tertiary">0</td>
+          <td class="col-score col-tertiary">1</td>
+          <td class="col-total">4</td>
+          <td class="col-grade"><span class="badge badge-mild">輕微</span></td>
+          <td class="col-meds">Meloxicam 0.4mg/kg</td>
+        </tr>
+        <tr>
+          <td class="col-date">01/15 08:00</td>
+          <td class="col-day">D3</td>
+          <td class="col-time">AM</td>
+          <td class="col-score col-tertiary">2</td>
+          <td class="col-score col-tertiary">2</td>
+          <td class="col-score col-tertiary">1</td>
+          <td class="col-score col-tertiary">2</td>
+          <td class="col-score col-tertiary">1</td>
+          <td class="col-score col-tertiary">2</td>
+          <td class="col-total">10</td>
+          <td class="col-grade"><span class="badge badge-moderate">中度</span></td>
+          <td class="col-meds">Ketorolac(IM)</td>
+        </tr>
+        <tr>
+          <td class="col-date">01/14 20:00</td>
+          <td class="col-day">D2</td>
+          <td class="col-time">PM</td>
+          <td class="col-score col-tertiary">3</td>
+          <td class="col-score col-tertiary">3</td>
+          <td class="col-score col-tertiary">2</td>
+          <td class="col-score col-tertiary">3</td>
+          <td class="col-score col-tertiary">2</td>
+          <td class="col-score col-tertiary">3</td>
+          <td class="col-total">16</td>
+          <td class="col-grade"><span class="badge badge-severe">嚴重</span></td>
+          <td class="col-meds">Ketorolac(IM) Meloxicam(IM)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-list">
+    <div class="pa-card">
+      <div class="card-header">
+        <span class="card-date">01/15 14:30</span>
+        <span class="card-day">D3-AM</span>
+      </div>
+      <div class="card-summary">
+        <span class="badge badge-mild">輕微</span>
+        <span class="card-total">總分 4</span>
+      </div>
+      <div class="card-scores">
+        <span>傷口：1</span><span>行為：0</span><span>食慾：1</span>
+        <span>排便：1</span><span>排尿：0</span><span>疼痛：1</span>
+      </div>
+      <div class="card-meds">💊 Meloxicam 0.4mg/kg</div>
+    </div>
+    <div class="pa-card">
+      <div class="card-header">
+        <span class="card-date">01/15 08:00</span>
+        <span class="card-day">D3-AM</span>
+      </div>
+      <div class="card-summary">
+        <span class="badge badge-moderate">中度</span>
+        <span class="card-total">總分 10</span>
+      </div>
+      <div class="card-scores">
+        <span>傷口：2</span><span>行為：2</span><span>食慾：1</span>
+        <span>排便：2</span><span>排尿：1</span><span>疼痛：2</span>
+      </div>
+      <div class="card-meds">💊 Ketorolac(IM)</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const viewport = document.getElementById('viewport');
+  const slider = document.getElementById('slider');
+  const wDisplay = document.getElementById('wDisplay');
+  const modeBadge = document.getElementById('modeBadge');
+  const hiddenCols = document.getElementById('hiddenCols');
+
+  function setWidth(w) {
+    const clamped = Math.min(w, window.innerWidth - 48);
+    viewport.style.width = clamped + 'px';
+    slider.value = clamped;
+    wDisplay.textContent = clamped + 'px';
+    if (clamped < 600) {
+      modeBadge.className = 'mode-badge mode-mob';
+      modeBadge.textContent = '手機 Card';
+      hiddenCols.textContent = '切換為 Card Layout';
+    } else if (clamped < 810) {
+      modeBadge.className = 'mode-badge mode-tab';
+      modeBadge.textContent = '平板 6 欄';
+      hiddenCols.textContent = '隱藏：6 個分數細項';
+    } else {
+      modeBadge.className = 'mode-badge mode-pc';
+      modeBadge.textContent = 'PC 全 12 欄';
+      hiddenCols.textContent = '全欄顯示';
+    }
+    document.querySelectorAll('.preset-btn').forEach(btn =>
+      btn.classList.toggle('active', parseInt(btn.dataset.w) === w));
+  }
+
+  slider.addEventListener('input', () => setWidth(parseInt(slider.value)));
+  document.querySelectorAll('.preset-btn').forEach(btn =>
+    btn.addEventListener('click', () => setWidth(parseInt(btn.dataset.w))));
+
+  setWidth(1024);
+</script>
+</body>
+</html>

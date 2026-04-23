@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>SurgeriesTab RWD Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; }
+  .controls { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+              padding: 16px 20px; margin-bottom: 20px;
+              display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn { padding: 5px 11px; border: 1px solid #cbd5e1; border-radius: 6px;
+                background: #f8fafc; font-size: 12px; cursor: pointer; color: #334155; }
+  .preset-btn:hover { background: #e0f2fe; }
+  .preset-btn.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+  input[type=range] { width: 220px; accent-color: #0ea5e9; }
+  .width-display { font-size: 13px; font-weight: 700; color: #0ea5e9; min-width: 55px; }
+  .mode-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .mode-pc { background: #dcfce7; color: #166534; }
+  .mode-tab { background: #fef9c3; color: #854d0e; }
+  .mode-mob { background: #fee2e2; color: #991b1b; }
+
+  .viewport-wrap { background: #fff; border: 2px solid #e2e8f0; border-radius: 10px;
+                   overflow: hidden; margin: 0 auto;
+                   container-type: inline-size; container-name: sg;
+                   transition: width .2s ease; }
+
+  .sg-table-wrap { overflow-x: auto; }
+  .sg-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 540px; }
+  .sg-table th, .sg-table td { padding: 10px 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+  .sg-table th { background: #f8fafc; font-size: 12px; font-weight: 600; color: #64748b; }
+  .col-expand { width: 40px; text-align: center; }
+  .col-first  { width: 70px; text-align: center; }
+  .col-date   { width: 100px; white-space: nowrap; }
+  .col-site   { min-width: 150px; }
+  .col-nomed  { width: 60px; text-align: center; }
+  .col-vet    { width: 100px; text-align: center; }
+  .col-crt    { width: 90px; }
+  .col-act    { width: 80px; text-align: center;
+                position: sticky; right: 0; background: #fff; border-left: 1px solid #e2e8f0; }
+  th.col-act  { background: #f8fafc; }
+
+  @container sg (max-width: 689px) {
+    .col-tertiary { display: none; }
+  }
+  @container sg (max-width: 599px) {
+    .sg-table-wrap { display: none; }
+    .card-list { display: flex; }
+  }
+  @container sg (min-width: 600px) {
+    .card-list { display: none; }
+  }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px;
+           font-size: 11px; font-weight: 600; }
+  .b-first { background: #fef3c7; color: #92400e; }
+  .b-read  { background: #dcfce7; color: #166534; }
+  .b-unread { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
+  .action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+  .action-btn { width: 24px; height: 24px; border: none; border-radius: 4px;
+                background: transparent; cursor: pointer; font-size: 12px; }
+  .action-btn:hover { background: #f1f5f9; }
+  .action-btn.del { color: #ef4444; }
+
+  .card-list { flex-direction: column; gap: 10px; padding: 12px; }
+  .sg-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #fff; }
+  .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .card-date { font-size: 13px; font-weight: 600; color: #334155; }
+  .card-site { font-size: 13px; color: #475569; margin-bottom: 8px; }
+  .card-footer { display: flex; justify-content: space-between; align-items: center;
+                 padding-top: 6px; border-top: 1px solid #f1f5f9; }
+  .card-vet { font-size: 12px; color: #64748b; }
+  .card-actions { display: flex; gap: 2px; }
+</style>
+</head>
+<body>
+
+<h2 style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">
+  SurgeriesTab — RWD Preview
+</h2>
+
+<div class="controls">
+  <div>
+    <div style="font-size:13px;font-weight:600;color:#475569;">寬度預設</div>
+    <div class="presets" style="margin-top:6px;">
+      <button class="preset-btn" data-w="375">375</button>
+      <button class="preset-btn" data-w="600">600</button>
+      <button class="preset-btn" data-w="650">650</button>
+      <button class="preset-btn" data-w="690">690</button>
+      <button class="preset-btn active" data-w="960">960</button>
+      <button class="preset-btn" data-w="1280">1280</button>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:13px;font-weight:600;color:#475569;">拖拉</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+      <input type="range" id="slider" min="300" max="1280" value="960">
+      <span class="width-display" id="wDisplay">960px</span>
+    </div>
+  </div>
+  <span class="mode-badge mode-pc" id="modeBadge" style="margin-top:auto;">PC 全 8 欄</span>
+</div>
+
+<div style="max-width:1280px;margin:0 auto 8px;padding:0 2px;">
+  <div style="display:flex;height:16px;border-radius:4px;overflow:hidden;font-size:9px;font-weight:600;">
+    <div style="width:calc(600/1280*100%);background:#fee2e2;display:flex;align-items:center;justify-content:center;color:#991b1b;">Card &lt;600</div>
+    <div style="width:calc(90/1280*100%);background:#fef9c3;display:flex;align-items:center;justify-content:center;color:#854d0e;">平板 6欄</div>
+    <div style="background:#dcfce7;flex:1;display:flex;align-items:center;justify-content:center;color:#166534;">PC 8欄 ≥690</div>
+  </div>
+</div>
+
+<div class="viewport-wrap" id="viewport" style="width:960px;">
+
+  <div class="sg-table-wrap">
+    <table class="sg-table">
+      <thead>
+        <tr>
+          <th class="col-expand"></th>
+          <th class="col-first">是否首次</th>
+          <th class="col-date">手術日期 ↕</th>
+          <th class="col-site">手術部位 ↕</th>
+          <th class="col-nomed col-tertiary">停止用藥</th>
+          <th class="col-vet">獸醫師讀取</th>
+          <th class="col-crt col-tertiary">記錄者</th>
+          <th class="col-act">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-expand">▸</td>
+          <td class="col-first"><span class="badge b-first">首次</span></td>
+          <td class="col-date">2025/12/15</td>
+          <td class="col-site">胸腔開心手術 - 心肌切片採樣</td>
+          <td class="col-nomed col-tertiary">✅</td>
+          <td class="col-vet"><span class="badge b-unread">未讀</span></td>
+          <td class="col-crt col-tertiary">實習生-余姿儀</td>
+          <td class="col-act">
+            <div class="action-grid">
+              <button class="action-btn">👁</button>
+              <button class="action-btn">✏️</button>
+              <button class="action-btn">📋</button>
+              <button class="action-btn">🕐</button>
+              <button class="action-btn">🩺</button>
+              <button class="action-btn del">🗑</button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-expand">▸</td>
+          <td class="col-first">否</td>
+          <td class="col-date">2025/11/20</td>
+          <td class="col-site">腹腔探查手術</td>
+          <td class="col-nomed col-tertiary">—</td>
+          <td class="col-vet"><span class="badge b-read">已讀</span></td>
+          <td class="col-crt col-tertiary">林研究員</td>
+          <td class="col-act">
+            <div class="action-grid">
+              <button class="action-btn">👁</button>
+              <button class="action-btn">✏️</button>
+              <button class="action-btn">📋</button>
+              <button class="action-btn">🕐</button>
+              <button class="action-btn">🩺</button>
+              <button class="action-btn del">🗑</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-list">
+    <div class="sg-card">
+      <div class="card-header">
+        <span class="card-date">2025/12/15</span>
+        <span class="badge b-first">首次</span>
+      </div>
+      <div class="card-site">胸腔開心手術 - 心肌切片採樣</div>
+      <div class="card-footer">
+        <span class="card-vet">獸醫：未讀 · ✅停止用藥</span>
+        <div class="card-actions">
+          <button class="action-btn">👁</button>
+          <button class="action-btn">✏️</button>
+          <button class="action-btn">📋</button>
+          <button class="action-btn">🕐</button>
+          <button class="action-btn">🩺</button>
+          <button class="action-btn del">🗑</button>
+        </div>
+      </div>
+    </div>
+    <div class="sg-card">
+      <div class="card-header">
+        <span class="card-date">2025/11/20</span>
+      </div>
+      <div class="card-site">腹腔探查手術</div>
+      <div class="card-footer">
+        <span class="card-vet">獸醫：已讀</span>
+        <div class="card-actions">
+          <button class="action-btn">👁</button>
+          <button class="action-btn">✏️</button>
+          <button class="action-btn del">🗑</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const viewport = document.getElementById('viewport');
+  const slider = document.getElementById('slider');
+  const wDisplay = document.getElementById('wDisplay');
+  const modeBadge = document.getElementById('modeBadge');
+  function setWidth(w) {
+    const clamped = Math.min(w, window.innerWidth - 48);
+    viewport.style.width = clamped + 'px';
+    slider.value = clamped; wDisplay.textContent = clamped + 'px';
+    if (clamped < 600) { modeBadge.className = 'mode-badge mode-mob'; modeBadge.textContent = '手機 Card'; }
+    else if (clamped < 690) { modeBadge.className = 'mode-badge mode-tab'; modeBadge.textContent = '平板 6 欄'; }
+    else { modeBadge.className = 'mode-badge mode-pc'; modeBadge.textContent = 'PC 全 8 欄'; }
+    document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.toggle('active', parseInt(btn.dataset.w) === w));
+  }
+  slider.addEventListener('input', () => setWidth(parseInt(slider.value)));
+  document.querySelectorAll('.preset-btn').forEach(btn => btn.addEventListener('click', () => setWidth(parseInt(btn.dataset.w))));
+  setWidth(960);
+</script>
+</body>
+</html>

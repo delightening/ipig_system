@@ -7,6 +7,52 @@
 - 有疑問時自行決定最合理的做法，但須紀錄並撰寫 walkthrough.md
 - 只有在刪除重要檔案或呼叫外部付費 API 時才問我
 
+# 執行紀律（大型重構計畫期間）
+對應計畫檔：`C:/Users/admin/.claude/plans/plan-for-the-critical-validated-pebble.md`
+
+## 測試驗證標準（問題 1：依 PR 性質）
+- **PR 類別判斷**：
+  - **純 infra / models / services 層**（不改 handler）→ 最小 `cargo test --lib` 綠燈即可
+  - **動到 handlers / middleware / routes 層** → 必須 `cargo test --all-targets` 全綠（含整合測試，需本地啟動 Postgres：`docker compose -f docker-compose.test.yml up -d postgres`）
+  - **只動 CLAUDE.md / docs / migration SQL** → `cargo check` 綠燈即可，不需跑 test
+- **不確定時**：主動問使用者該 PR 屬哪類。
+
+## 停機規則
+- **跨 PR 邊界必停**：每個 PR 做完適用的測試命令綠燈 + `git commit` 後必須停下，不得自動 push、不得自動開下一個 PR、不得自動 merge。
+- **測試 / 編譯失敗必停**：`cargo check` / `cargo test` / clippy 任一紅燈立即停，回報問題，不得硬闖。
+- **pattern 驗證必停**（配合做法 β，問題 4）：
+  - PR #3 (Protocol Service-driven 示範) 完成後 **必停一次**，由使用者確認 pattern 可複製
+  - PR #4 animals + PR #5 hr/leave 可在**同 session 內合併做完再停**（因 pattern 已驗證）
+  - PR #6 起恢復「每 PR 一次停」節奏
+
+## 不可逆操作必經明確同意
+- `git push`、`git reset --hard`、`git force-push`
+- Migration 跑到 **staging / production** DB（**dev DB 自動 OK**：app 啟動自動跑 `sqlx::migrate!`，不需逐次問，問題 2）
+- Merge PR 到 main
+- 新增 / 移除 dependency（Cargo.toml / package.json）
+- 修改 `.env` / `secrets/`
+- 修改 CI 設定檔（`.github/workflows/*`）
+
+## Clippy 過關標準（問題 5）
+- **目前階段（PR #1 ~ R26-4 完成前）**：
+  ```
+  cargo clippy --all-targets -- -D warnings -A deprecated
+  ```
+  `-A deprecated` 用於容忍舊版 `AuditService::log_activity` 的過渡期警告（由 `#[deprecated]` 產生、預期出現在遷移中的 handler 呼叫點）。
+- **R26-4 完成後**（舊版 `log_activity` 移除）：恢復嚴格 `-D warnings`，不含 `-A deprecated`。
+- **新 PR 不得引入新的 deprecated 警告或其他 warning**（現有 91 處只減不增）。
+
+## Commit 粒度（問題 3：放寬）
+- **一般原則**：每個邏輯單元 + 其測試一次 commit。PR 內至少 3 個 commit、最多 15 個。
+- **INFRA 類 PR**（如 PR #1）：按元件切，例如：
+  - commit 1: migration + actor.rs (INFRA-1)
+  - commit 2: DataDiff + AuditRedact (INFRA-3)
+  - commit 3: AuditService::log_activity_tx (INFRA-2)
+  - commit 4: CancellationToken + main.rs + jwt_blacklist (INFRA-4 基礎)
+  - commit 5: scheduler.rs 各 job 接 token (INFRA-4 scheduler)
+- **Service-driven 模組重構 PR**（PR #3+）：每 service fn + 呼叫端 handler 調整 + audit + tests 算一個邏輯單元。
+- **避免**：單一 commit 改動 > 500 lines 或跨 > 3 個不相關模組。
+
 # 設計系統
 - 所有視覺和 UI 決策前，先讀 `DESIGN.md`。
 - 字體、色彩、間距、美學方向均定義於 DESIGN.md，不可擅自偏離。

@@ -24,6 +24,9 @@ pub struct VetPatrolReport {
 
 // ── 條目 ──────────────────────────────
 
+// R26-7: FromRow 型別但目前未透過 Rust code 直接建構（可能僅透過 DB 反序列化
+// 或 API 層面使用）；留待 R26-7 cleanup 確認真實用途。
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct VetPatrolEntry {
     pub id: Uuid,

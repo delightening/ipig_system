@@ -323,6 +323,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     handleLineBlur: lines.handleLineBlur,
     handleBack, handleProtocolSelect, handleIacucNoSelect,
     updateLineAmount: lines.updateLineAmount,
+    updateLineField: lines.updateLineField,
     saveMutation, submitMutation,
     showIacucWarning: lines.showIacucWarning,
     setShowIacucWarning: lines.setShowIacucWarning,

@@ -124,6 +124,7 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
             pdf_service,
             templates,
             permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
+            shutdown_token: tokio_util::sync::CancellationToken::new(),
         };
 
         let app = erp_backend::routes::api_routes(state);

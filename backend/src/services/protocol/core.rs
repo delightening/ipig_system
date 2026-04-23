@@ -256,7 +256,7 @@ impl ProtocolService {
 
         if !needs_apig_ids.is_empty() {
             // 批量生成：一次查詢 max seq，然後在記憶體中分配 N 個連續編號
-            let apig_nos = Self::generate_apig_nos_batch(pool, needs_apig_ids.len()).await?;
+            let apig_nos = Self::generate_apig_nos_batch_pool(pool, needs_apig_ids.len()).await?;
 
             // 批量 UPDATE：使用 UNNEST 一次更新所有
             sqlx::query(
@@ -300,7 +300,7 @@ impl ProtocolService {
                 .unwrap_or(true);
             
             if needs_apig {
-                let apig_no = Self::generate_apig_no(pool).await?;
+                let apig_no = Self::generate_apig_no_pool(pool).await?;
                 protocol = sqlx::query_as::<_, Protocol>(
                     "UPDATE protocols SET iacuc_no = $2, updated_at = NOW() WHERE id = $1 RETURNING *"
                 )

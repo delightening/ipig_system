@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ObservationsTab RWD Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; }
+
+  /* ── Controls ── */
+  .controls {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .controls label { font-size: 13px; font-weight: 600; color: #475569; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn {
+    padding: 5px 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #f8fafc;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+    color: #334155;
+  }
+  .preset-btn:hover { background: #e0f2fe; border-color: #38bdf8; }
+  .preset-btn.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+  input[type=range] { width: 220px; accent-color: #0ea5e9; }
+  .width-display {
+    font-size: 13px; font-weight: 700; color: #0ea5e9;
+    min-width: 55px;
+  }
+  .mode-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .mode-pc    { background: #dcfce7; color: #166534; }
+  .mode-tab   { background: #fef9c3; color: #854d0e; }
+  .mode-mob   { background: #fee2e2; color: #991b1b; }
+  .hidden-cols {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-left: 4px;
+  }
+
+  /* ── Resizable viewport ── */
+  .viewport-wrap {
+    overflow: hidden;
+    background: #fff;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    transition: width .2s ease;
+    margin: 0 auto;
+    container-type: inline-size;
+    container-name: tbl;
+  }
+
+  /* ── Table ── */
+  .obs-table-wrap { overflow-x: auto; }
+  .obs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 370px; /* Always columns min */
+  }
+  .obs-table th, .obs-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap;
+  }
+  .obs-table th {
+    background: #f8fafc;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .obs-table tr:hover td { background: #f8fafc; }
+  .col-expand  { width: 40px; }
+  .col-date    { width: 100px; }
+  .col-rtype   { width: 100px; }
+  .col-content { min-width: 150px; white-space: normal !important; }
+  .col-nomed   { width: 60px; text-align: center; }
+  .col-vet     { width: 100px; text-align: center; }
+  .col-creator { width: 90px; }
+  .col-actions { width: 80px; text-align: center; position: sticky; right: 0; background: #fff; border-left: 1px solid #e2e8f0; }
+  th.col-actions { background: #f8fafc; }
+
+  /* ── Column visibility via @container ── */
+  /* PC ≥ 720px: all visible (default) */
+  .col-tertiary { display: table-cell; }
+  .col-secondary { display: table-cell; }
+
+  /* Tablet 600–719px: hide Tertiary (停止用藥, 記錄者) */
+  @container tbl (max-width: 719px) {
+    .col-tertiary { display: none; }
+  }
+
+  /* Mobile <600px: hide table, show cards */
+  @container tbl (max-width: 599px) {
+    .obs-table-wrap { display: none; }
+    .card-list { display: flex; }
+  }
+  @container tbl (min-width: 600px) {
+    .card-list { display: none; }
+  }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-obs  { background: #dbeafe; color: #1e40af; }
+  .badge-exp  { background: #dcfce7; color: #166534; }
+  .badge-read { background: #dcfce7; color: #166534; }
+  .badge-unread { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
+  /* ── Action buttons ── */
+  .action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; justify-items: center; }
+  .action-btn {
+    width: 28px; height: 28px;
+    border: none; border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .1s;
+  }
+  .action-btn:hover { background: #f1f5f9; }
+  .action-btn.del { color: #ef4444; }
+
+  /* ── Card layout ── */
+  .card-list {
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+  .obs-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .card-date { font-size: 13px; font-weight: 600; color: #334155; }
+  .card-body { font-size: 13px; color: #475569; margin-bottom: 10px; line-height: 1.5; }
+  .card-footer { display: flex; justify-content: space-between; align-items: center; }
+  .card-vet { font-size: 12px; color: #64748b; }
+  .card-actions { display: flex; gap: 2px; }
+
+  /* ── Breakpoint ruler ── */
+  .ruler {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 20px;
+    margin-bottom: 8px;
+    font-size: 10px;
+    color: #94a3b8;
+    position: relative;
+  }
+  .ruler-segment {
+    height: 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<h2 style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">
+  ObservationsTab — RWD Preview
+</h2>
+
+<!-- Controls -->
+<div class="controls">
+  <div>
+    <label>寬度預設</label>
+    <div class="presets" style="margin-top:6px;">
+      <button class="preset-btn" data-w="375">375px<br><span style="font-size:10px;color:#94a3b8">手機</span></button>
+      <button class="preset-btn" data-w="600">600px<br><span style="font-size:10px;color:#94a3b8">斷點</span></button>
+      <button class="preset-btn" data-w="680">680px<br><span style="font-size:10px;color:#94a3b8">平板</span></button>
+      <button class="preset-btn" data-w="720">720px<br><span style="font-size:10px;color:#94a3b8">斷點</span></button>
+      <button class="preset-btn active" data-w="960">960px<br><span style="font-size:10px;color:#94a3b8">PC</span></button>
+      <button class="preset-btn" data-w="1280">1280px<br><span style="font-size:10px;color:#94a3b8">寬螢幕</span></button>
+    </div>
+  </div>
+  <div>
+    <label>拖拉調整</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+      <input type="range" id="slider" min="300" max="1280" value="960">
+      <span class="width-display" id="wDisplay">960px</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:auto;">
+    <span class="mode-badge mode-pc" id="modeBadge">PC 模式</span>
+    <span class="hidden-cols" id="hiddenCols"></span>
+  </div>
+</div>
+
+<!-- Breakpoint ruler -->
+<div style="max-width:1280px;margin:0 auto 8px;padding:0 2px;">
+  <div style="display:flex;height:16px;border-radius:4px;overflow:hidden;font-size:9px;font-weight:600;">
+    <div style="width:calc(600/1280*100%);background:#fee2e2;display:flex;align-items:center;justify-content:center;color:#991b1b;">Card &lt;600</div>
+    <div style="width:calc(120/1280*100%);background:#fef9c3;display:flex;align-items:center;justify-content:center;color:#854d0e;">平板</div>
+    <div style="background:#dcfce7;flex:1;display:flex;align-items:center;justify-content:center;color:#166534;">PC ≥720</div>
+  </div>
+</div>
+
+<!-- Viewport -->
+<div class="viewport-wrap" id="viewport" style="width:960px;">
+
+  <!-- Table view -->
+  <div class="obs-table-wrap">
+    <table class="obs-table">
+      <thead>
+        <tr>
+          <th class="col-expand"></th>
+          <th class="col-date">事件日期</th>
+          <th class="col-rtype col-secondary">紀錄性質</th>
+          <th class="col-content">內容</th>
+          <th class="col-nomed col-tertiary">停止用藥</th>
+          <th class="col-vet col-secondary">獸醫師讀取</th>
+          <th class="col-creator col-tertiary">記錄者</th>
+          <th class="col-actions">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-expand">▸</td>
+          <td class="col-date">2026/3/25</td>
+          <td class="col-rtype col-secondary"><span class="badge badge-obs">觀察紀錄</span></td>
+          <td class="col-content">15:00禁食，準備明日手術</td>
+          <td class="col-nomed col-tertiary" style="text-align:center">—</td>
+          <td class="col-vet col-secondary" style="text-align:center"><span class="badge badge-unread">未讀</span></td>
+          <td class="col-creator col-tertiary">實習生-余姿儀</td>
+          <td class="col-actions">
+            <div class="action-grid">
+              <button class="action-btn" title="檢視">👁</button>
+              <button class="action-btn" title="編輯">✏️</button>
+              <button class="action-btn" title="複製">📋</button>
+              <button class="action-btn" title="歷史">🕐</button>
+              <button class="action-btn" title="獸醫建議">🩺</button>
+              <button class="action-btn del" title="刪除">🗑</button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-expand">▸</td>
+          <td class="col-date">2025/12/16</td>
+          <td class="col-rtype col-secondary"><span class="badge badge-obs">觀察紀錄</span></td>
+          <td class="col-content">飼料中添加益生菌，觀察消化狀況</td>
+          <td class="col-nomed col-tertiary" style="text-align:center">—</td>
+          <td class="col-vet col-secondary" style="text-align:center"><span class="badge badge-unread">未讀</span></td>
+          <td class="col-creator col-tertiary">實習生-余姿儀</td>
+          <td class="col-actions">
+            <div class="action-grid">
+              <button class="action-btn">👁</button>
+              <button class="action-btn">✏️</button>
+              <button class="action-btn">📋</button>
+              <button class="action-btn">🕐</button>
+              <button class="action-btn">🩺</button>
+              <button class="action-btn del">🗑</button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-expand">▸</td>
+          <td class="col-date">2025/12/11</td>
+          <td class="col-rtype col-secondary"><span class="badge badge-exp">試驗操作</span></td>
+          <td class="col-content">新進豬隻例行給予益生菌一週 (12/11–12/17)</td>
+          <td class="col-nomed col-tertiary" style="text-align:center">✅</td>
+          <td class="col-vet col-secondary" style="text-align:center"><span class="badge badge-read">已讀</span></td>
+          <td class="col-creator col-tertiary">林研究員</td>
+          <td class="col-actions">
+            <div class="action-grid">
+              <button class="action-btn">👁</button>
+              <button class="action-btn">✏️</button>
+              <button class="action-btn">📋</button>
+              <button class="action-btn">🕐</button>
+              <button class="action-btn">🩺</button>
+              <button class="action-btn del">🗑</button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-expand">▸</td>
+          <td class="col-date">2025/11/26</td>
+          <td class="col-rtype col-secondary"><span class="badge badge-obs">觀察紀錄</span></td>
+          <td class="col-content">進豬、打耳標，施打 Penicillin 2 ml。</td>
+          <td class="col-nomed col-tertiary" style="text-align:center">—</td>
+          <td class="col-vet col-secondary" style="text-align:center"><span class="badge badge-unread">未讀</span></td>
+          <td class="col-creator col-tertiary">實習生-余姿儀</td>
+          <td class="col-actions">
+            <div class="action-grid">
+              <button class="action-btn">👁</button>
+              <button class="action-btn">✏️</button>
+              <button class="action-btn">📋</button>
+              <button class="action-btn">🕐</button>
+              <button class="action-btn">🩺</button>
+              <button class="action-btn del">🗑</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Card list (mobile <600px) -->
+  <div class="card-list">
+    <div class="obs-card">
+      <div class="card-header">
+        <span class="card-date">2026/3/25</span>
+        <span class="badge badge-obs">觀察紀錄</span>
+      </div>
+      <div class="card-body">15:00禁食，準備明日手術</div>
+      <div class="card-footer">
+        <span class="card-vet">獸醫師：未讀</span>
+        <div class="card-actions">
+          <button class="action-btn">👁</button>
+          <button class="action-btn">✏️</button>
+          <button class="action-btn">📋</button>
+          <button class="action-btn">🕐</button>
+          <button class="action-btn">🩺</button>
+          <button class="action-btn del">🗑</button>
+        </div>
+      </div>
+    </div>
+    <div class="obs-card">
+      <div class="card-header">
+        <span class="card-date">2025/12/16</span>
+        <span class="badge badge-obs">觀察紀錄</span>
+      </div>
+      <div class="card-body">飼料中添加益生菌，觀察消化狀況</div>
+      <div class="card-footer">
+        <span class="card-vet">獸醫師：未讀</span>
+        <div class="card-actions">
+          <button class="action-btn">👁</button>
+          <button class="action-btn">✏️</button>
+          <button class="action-btn">📋</button>
+          <button class="action-btn">🕐</button>
+          <button class="action-btn">🩺</button>
+          <button class="action-btn del">🗑</button>
+        </div>
+      </div>
+    </div>
+    <div class="obs-card">
+      <div class="card-header">
+        <span class="card-date">2025/12/11</span>
+        <span class="badge badge-exp">試驗操作</span>
+      </div>
+      <div class="card-body">新進豬隻例行給予益生菌一週 (12/11–12/17)</div>
+      <div class="card-footer">
+        <span class="card-vet">獸醫師：已讀 ✅</span>
+        <div class="card-actions">
+          <button class="action-btn">👁</button>
+          <button class="action-btn">✏️</button>
+          <button class="action-btn">📋</button>
+          <button class="action-btn">🕐</button>
+          <button class="action-btn">🩺</button>
+          <button class="action-btn del">🗑</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /viewport-wrap -->
+
+<script>
+  const viewport = document.getElementById('viewport');
+  const slider   = document.getElementById('slider');
+  const wDisplay = document.getElementById('wDisplay');
+  const modeBadge = document.getElementById('modeBadge');
+  const hiddenCols = document.getElementById('hiddenCols');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+
+  function setWidth(w) {
+    const maxW = window.innerWidth - 48;
+    const clamped = Math.min(w, maxW);
+    viewport.style.width = clamped + 'px';
+    slider.value = clamped;
+    wDisplay.textContent = clamped + 'px';
+
+    if (clamped < 600) {
+      modeBadge.className = 'mode-badge mode-mob';
+      modeBadge.textContent = '手機 Card';
+      hiddenCols.textContent = '— 切換為 Card Layout';
+    } else if (clamped < 720) {
+      modeBadge.className = 'mode-badge mode-tab';
+      modeBadge.textContent = '平板模式';
+      hiddenCols.textContent = '隱藏：停止用藥、記錄者';
+    } else {
+      modeBadge.className = 'mode-badge mode-pc';
+      modeBadge.textContent = 'PC 模式';
+      hiddenCols.textContent = '全欄顯示';
+    }
+
+    presetBtns.forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.w) === w);
+    });
+  }
+
+  slider.addEventListener('input', () => setWidth(parseInt(slider.value)));
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => setWidth(parseInt(btn.dataset.w)));
+  });
+
+  setWidth(960);
+</script>
+</body>
+</html>

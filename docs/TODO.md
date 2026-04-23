@@ -1891,6 +1891,24 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🔄 R26 — Service-driven Audit 重構延伸待辦（2026-04-21 審查報告產出）
+
+> 對應 `docs/reviews/2026-04-21-rust-backend-review.md` 與 `plan-for-the-critical-validated-pebble.md`
+> PR #1 INFRA 完成後發現的延伸優化項；主功能未壞，這些是「更穩健」升級。
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R26-1 | **長 Scheduler job 升級為 `tokio::select!` 中斷式** | PR #1 commit 5 的 14 個 cron job 目前採「開頭 `is_cancelled()` 檢查 → 進 body 後不中斷」。對 `monthly_report`（20-120s）/ `db_analyze`（30-300s）/ `calendar_sync`（5-60s）這 3 個長 job 需升級為 `tokio::select! { _ = token.cancelled() => {}, _ = work => {} }`。**理由**：短 job 現況（選 A）安全簡單；但長 job 在 shutdown 時會卡住整個關機流程（Docker 預設 10s grace period 內不完成會被 SIGKILL），且 PR #1 採 C 混合策略保留這項升級。**升級時一併**：(a) 於 `main.rs` 加入 shutdown grace period（例如 `tokio::time::sleep(30s)`）讓 in-flight job 有時間收尾；(b) 為每個長 job 設計「安全中斷點」避免半完成狀態（PDF 寫一半、email 寄一半、ANALYZE 卡中途）；(c) 考慮把外部 API 呼叫（Google Calendar、Gotenberg）的 timeout 縮短以配合 shutdown timing | [ ] |
+| R26-2 | **HMAC chain 每日驗證 cron** | 對應審查報告 SUGG-03；新增 `services/scheduler/audit_chain_verify.rs`，每日 02:00 驗證昨日 `user_activity_logs` HMAC 鏈完整性，斷鏈時 `SecurityNotifier::dispatch`；R26-3 的 audit migration（035）擴充 HMAC 涵蓋 impersonated_by + changed_fields，此 job 需驗證對齊 | [ ] |
+| R26-3 | **現有 handler 遷移至 `log_activity_tx`** | PR #1 保留舊版 `log_activity(&pool, ...)` 為 `#[deprecated]`；~20 處 handler 仍在用舊版（`cargo build 2>&1 \| grep "use of deprecated" \| wc -l` 可量化進度）；Service-driven 模組重構時（PR #3 protocol、PR #4 animals、PR #5 hr 等）順手遷移；最後一個 PR 移除舊版 | [ ] |
+| R26-4 | **舊 `log_activity(&pool, ...)` 最終移除** | 所有 handler 遷移完成後，刪除 `AuditService::log_activity` 舊版 + 相關 `compute_and_store_hmac` 舊版；同步更新 `#[deprecated]` 標記移除；CI 加 `cargo build` 檢查 `use of deprecated` = 0 | [ ] |
+| R26-5 | **(已完成) migration 036 changed_fields 聯集修正** | 對應 PR #154：stored proc fallback 由 JSONB EXCEPT 改為 UNION + `IS DISTINCT FROM`，正確偵測「被刪除的 key」。 | [x] |
+| R26-6 | **HMAC chain 版本化 + 儲存後雜湊** | 兩個相關的 HMAC 正確性議題合併處理：**(1) 版本化**：PR #154 將 HMAC 編碼從字串串接改為 length-prefix canonical；既有 rows 用舊格式，驗證時需區分。新增 `user_activity_logs.hmac_version SMALLINT`（`1`=string-concat legacy、`2`=length-prefix canonical），寫入時 `log_activity_tx` 填 `2`、`log_activity`（deprecated）填 `1`；R26-2 驗證 cron 依 version 分流。**(2) 儲存後雜湊**：目前 `HmacInput` 在 INSERT **前**建構，若呼叫者沒提供 changed_fields，stored proc 的 jsonb UNION fallback 會產生不同於 HmacInput 的 changed_fields → HMAC 沒涵蓋最終存入值。修法：`log_activity` 返回 id + final_changed_fields，HMAC 用持久化後的值計算（或 stored proc 內一次完成 INSERT + HMAC）。**實務影響**：新 `log_activity_tx` 呼叫者 (DataDiff 產出) 一定提供非空 changed_fields，不走 fallback；但 defensive 仍建議修。**來源**：PR #154 Gemini SECURITY-MEDIUM (audit.rs:414) + CodeRabbit Major (audit.rs:82) | [ ] |
+| R26-7 | **Dead code 11 處逐一 review & 清理** | PR #3 拿掉 `services/mod.rs` 的 `#![allow(dead_code)]`（CRIT-04）後，暴露 11 處零星死碼（`parse_gender` / `VetPatrolEntry` / `attendance_status_display` / `QUARTERLY_OVERTIME_LIMIT` / `SignRequest` / `SignResponse` / `CreateAnnotationRequest` / `calculate_check_digit` / `get_next_sequence` / `IdxfMeta.format_version` / `ManifestTable.columns`）。為讓 PR #3 scope 聚焦 Service-driven 示範，這 11 處暫以 per-item `#[allow(dead_code)]` + 理由標記。R26-7 逐一判斷：(a) API DTO（SignRequest 等）→ 確認 handler/openapi 引用；(b) 預留 utility（parse_gender 等）→ 若確無需求則刪除；(c) serde 被動欄位（format_version / columns）→ 確認解析需求。目標：此 PR 後零 `#[allow(dead_code)]`。 | [ ] |
+| R26-8 | **完整 `ProtocolService::change_status` Service-driven 重構** | PR #3 已示範 `submit()` 的 Service-driven pattern，但 `change_status` 因涉及 PartnerService::create 交叉服務、4 個內部 helper fn（assign_primary_reviewer / assign_vet_reviewer / record_activity / PartnerService::update）、10+ DB 操作，完整 tx 化估計 1-2 人日，超出 PR #3 demo 範圍。目前以 mini-tx wrapper 包 numbering（`generate_apig_no_pool` / `generate_iacuc_no_pool`），解 CRIT-01 80% 但不完整。R26-8 執行：把 change_status 全部 DB 操作納入同一 tx，併 PartnerService 介接（需 `PartnerService::create_tx`）。 | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -1922,7 +1940,8 @@ ORDER BY 1 DESC;
 | 🎨 R23 全站 Table UI 升級 | 0 (20 完成) |
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
-| **合計（未完成）** | **13** |
+| 🔄 R26 Service-driven Audit 重構延伸 | 7 (1 已完成) |
+| **合計（未完成）** | **20** |
 
 ---
 

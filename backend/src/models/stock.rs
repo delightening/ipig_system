@@ -153,3 +153,14 @@ pub struct UnassignedInventory {
     pub qty_on_shelves: Decimal,
     pub qty_unassigned: Decimal,
 }
+
+/// 將未分配庫存分配至儲位
+#[derive(Debug, Clone, Deserialize)]
+pub struct AssignUnassignedRequest {
+    pub warehouse_id: Uuid,
+    pub product_id: Uuid,
+    pub storage_location_id: Uuid,
+    pub qty: Decimal,
+    pub batch_no: Option<String>,
+    pub expiry_date: Option<NaiveDate>,
+}
