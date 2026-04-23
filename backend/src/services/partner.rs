@@ -279,6 +279,168 @@ impl PartnerService {
 
         Ok(partner)
     }
+
+    /// Transaction 版本：更新夥伴（用於跨服務原子操作）
+    pub(super) async fn update_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+        req: &UpdatePartnerRequest,
+    ) -> Result<Partner> {
+        // 處理 email：將空字串轉換為 None，並驗證格式（如果提供）
+        let email = req
+            .email
+            .as_ref()
+            .map(|e| e.trim())
+            .filter(|e| !e.is_empty())
+            .map(|e| {
+                if !is_valid_email(e) {
+                    return Err(AppError::Validation("Invalid email format".to_string()));
+                }
+                Ok(e.to_string())
+            })
+            .transpose()?;
+
+        let before = sqlx::query_as::<_, Partner>(
+            "SELECT * FROM partners WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Partner not found".to_string()))?;
+
+        let after = sqlx::query_as::<_, Partner>(
+            r#"
+            UPDATE partners SET
+                name = COALESCE($1, name),
+                tax_id = COALESCE($2, tax_id),
+                phone = COALESCE($3, phone),
+                email = COALESCE($4, email),
+                address = COALESCE($5, address),
+                payment_terms = COALESCE($6, payment_terms),
+                is_active = COALESCE($7, is_active),
+                updated_at = NOW()
+            WHERE id = $8
+            RETURNING *
+            "#,
+        )
+        .bind(req.name.as_ref())
+        .bind(
+            req.tax_id
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(
+            req.phone
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(&email)
+        .bind(
+            req.address
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(
+            req.payment_terms
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(req.is_active)
+        .bind(id)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        let display = format!("{} ({})", after.name, after.code);
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "PARTNER_UPDATE",
+                entity: Some(AuditEntity::new("partner", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        Ok(after)
+    }
+
+    /// Transaction 版本：刪除夥伴（用於跨服務原子操作）
+    pub(super) async fn delete_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+        is_hard: bool,
+    ) -> Result<()> {
+        let before = sqlx::query_as::<_, Partner>(
+            "SELECT * FROM partners WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Partner not found".to_string()))?;
+
+        // 檢查是否有未完成的採購單或進貨單
+        let open_doc_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM documents \
+             WHERE partner_id = $1 \
+             AND doc_type IN ('PO', 'GRN') \
+             AND status IN ('draft', 'submitted')",
+        )
+        .bind(id)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        if open_doc_count > 0 {
+            return Err(AppError::BusinessRule(format!(
+                "無法停用此夥伴：尚有 {} 筆未完成的採購單或進貨單",
+                open_doc_count
+            )));
+        }
+
+        let (event_type, data_diff) = if is_hard {
+            sqlx::query("DELETE FROM partners WHERE id = $1")
+                .bind(id)
+                .execute(&mut **tx)
+                .await?;
+            ("PARTNER_HARD_DELETE", DataDiff::delete_only(&before))
+        } else {
+            let after = sqlx::query_as::<_, Partner>(
+                "UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING *",
+            )
+            .bind(id)
+            .fetch_one(&mut **tx)
+            .await?;
+            (
+                "PARTNER_DELETE",
+                DataDiff::compute(Some(&before), Some(&after)),
+            )
+        };
+
+        let display = format!("{} ({})", before.name, before.code);
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type,
+                entity: Some(AuditEntity::new("partner", before.id, &display)),
+                data_diff: Some(data_diff),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn list(pool: &PgPool, query: &PartnerQuery) -> Result<Vec<Partner>> {
         let pagination = PaginationParams {
             page: query.page,
@@ -395,94 +557,10 @@ impl PartnerService {
         req: &UpdatePartnerRequest,
     ) -> Result<Partner> {
         let _user = actor.require_user()?;
-
-        // 處理 email：將空字串轉換為 None，並驗證格式（如果提供）
-        let email = req
-            .email
-            .as_ref()
-            .map(|e| e.trim())
-            .filter(|e| !e.is_empty())
-            .map(|e| {
-                if !is_valid_email(e) {
-                    return Err(AppError::Validation("Invalid email format".to_string()));
-                }
-                Ok(e.to_string())
-            })
-            .transpose()?;
-
         let mut tx = pool.begin().await?;
-
-        let before = sqlx::query_as::<_, Partner>(
-            "SELECT * FROM partners WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Partner not found".to_string()))?;
-
-        let after = sqlx::query_as::<_, Partner>(
-            r#"
-            UPDATE partners SET
-                name = COALESCE($1, name),
-                tax_id = COALESCE($2, tax_id),
-                phone = COALESCE($3, phone),
-                email = COALESCE($4, email),
-                address = COALESCE($5, address),
-                payment_terms = COALESCE($6, payment_terms),
-                is_active = COALESCE($7, is_active),
-                updated_at = NOW()
-            WHERE id = $8
-            RETURNING *
-            "#,
-        )
-        .bind(req.name.as_ref())
-        .bind(
-            req.tax_id
-                .as_ref()
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty()),
-        )
-        .bind(
-            req.phone
-                .as_ref()
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty()),
-        )
-        .bind(&email)
-        .bind(
-            req.address
-                .as_ref()
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty()),
-        )
-        .bind(
-            req.payment_terms
-                .as_ref()
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty()),
-        )
-        .bind(req.is_active)
-        .bind(id)
-        .fetch_one(&mut *tx)
-        .await?;
-
-        let display = format!("{} ({})", after.name, after.code);
-        AuditService::log_activity_tx(
-            &mut tx,
-            actor,
-            ActivityLogEntry {
-                event_category: "ERP",
-                event_type: "PARTNER_UPDATE",
-                entity: Some(AuditEntity::new("partner", after.id, &display)),
-                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
-                request_context: None,
-            },
-        )
-        .await?;
-
+        let result = Self::update_tx(&mut tx, actor, id, req).await?;
         tx.commit().await?;
-
-        Ok(after)
+        Ok(result)
     }
 
     /// 刪除夥伴 — Service-driven audit
@@ -494,68 +572,8 @@ impl PartnerService {
     ) -> Result<()> {
         let _user = actor.require_user()?;
         let mut tx = pool.begin().await?;
-
-        let before = sqlx::query_as::<_, Partner>(
-            "SELECT * FROM partners WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Partner not found".to_string()))?;
-
-        // 檢查是否有未完成的採購單或進貨單
-        let open_doc_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM documents \
-             WHERE partner_id = $1 \
-             AND doc_type IN ('PO', 'GRN') \
-             AND status IN ('draft', 'submitted')",
-        )
-        .bind(id)
-        .fetch_one(&mut *tx)
-        .await?;
-
-        if open_doc_count > 0 {
-            return Err(AppError::BusinessRule(format!(
-                "無法停用此夥伴：尚有 {} 筆未完成的採購單或進貨單",
-                open_doc_count
-            )));
-        }
-
-        let (event_type, data_diff) = if is_hard {
-            sqlx::query("DELETE FROM partners WHERE id = $1")
-                .bind(id)
-                .execute(&mut *tx)
-                .await?;
-            ("PARTNER_HARD_DELETE", DataDiff::delete_only(&before))
-        } else {
-            let after = sqlx::query_as::<_, Partner>(
-                "UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING *",
-            )
-            .bind(id)
-            .fetch_one(&mut *tx)
-            .await?;
-            (
-                "PARTNER_DELETE",
-                DataDiff::compute(Some(&before), Some(&after)),
-            )
-        };
-
-        let display = format!("{} ({})", before.name, before.code);
-        AuditService::log_activity_tx(
-            &mut tx,
-            actor,
-            ActivityLogEntry {
-                event_category: "ERP",
-                event_type,
-                entity: Some(AuditEntity::new("partner", before.id, &display)),
-                data_diff: Some(data_diff),
-                request_context: None,
-            },
-        )
-        .await?;
-
+        Self::delete_tx(&mut tx, actor, id, is_hard).await?;
         tx.commit().await?;
-
         Ok(())
     }
 
