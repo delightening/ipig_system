@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::middleware::CurrentUser;
+use crate::middleware::{ActorContext, CurrentUser};
 use crate::models::{ChangeStatusRequest, CreateCommentRequest, ProtocolStatus};
 use crate::services::{EmailService, ProtocolService};
 use crate::{AppError, AppState, Result};
@@ -312,7 +312,8 @@ pub async fn batch_return_to_pi(
         reviewer_ids: None,
         vet_id: None,
     };
-    ProtocolService::change_status(&state.db, protocol_id, &status_req, user.id).await?;
+    let actor = ActorContext::User(user.clone());
+    ProtocolService::change_status(&state.db, &actor, protocol_id, &status_req).await?;
 
     Ok(serde_json::json!({
         "created_comments": created,

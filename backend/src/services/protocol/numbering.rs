@@ -53,14 +53,6 @@ impl ProtocolService {
         Ok(no)
     }
 
-    /// Pool-based wrapper for `generate_iacuc_no`（見 `generate_apig_no_pool` 說明）。
-    pub(super) async fn generate_iacuc_no_pool(pool: &sqlx::PgPool) -> Result<String> {
-        let mut tx = pool.begin().await?;
-        let no = Self::generate_iacuc_no(&mut tx).await?;
-        tx.commit().await?;
-        Ok(no)
-    }
-
     /// Pool-based wrapper for `generate_apig_nos_batch`。
     pub(super) async fn generate_apig_nos_batch_pool(
         pool: &sqlx::PgPool,

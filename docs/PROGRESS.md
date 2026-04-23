@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-04-19 (v23)
+> **最後更新：** 2026-04-23 (v24)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -184,6 +184,55 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
+
+### 2026-04-23 R26-3 Phase 2 — PR #6b（Product + SKU）+ Gemini Review 修正 + 分支整合
+
+#### PR #6b（R26-3 Phase 2）— Product & SKU Service-driven audit（6 commits / 12 mutations）
+
+- ✅ **ProductService CRUD _tx 化**：`services/product/crud.rs` 新增 6 個 `_tx` variants
+  - `create_tx` / `update_tx` / `update_status_tx` / `delete_tx` / `hard_delete_tx` / `create_category_tx`
+  - 原有 pool-based public methods 轉為薄包裝（4–7 行），內部開啟 tx + 委派 _tx variant + commit
+  - 每個 _tx 含 `log_activity_tx` 呼叫，確保 audit trail 與 mutation 同原子性
+- ✅ **SkuService CRUD _tx 化**：`services/sku.rs` 新增 6 個 `_tx` variants
+  - `update_category_tx` / `update_subcategory_tx` / `create_subcategory_tx` / `create_product_with_sku_tx` / `delete_subcategory_tx` / `delete_category_tx`
+  - 處理字串主鍵（category/subcategory code）與 Uuid 型別不一致；`create_product_with_sku_tx` 需預先生成 SKU（無法在 tx 內呼叫 `Self::generate`）
+- ✅ **dead code cleanup（bonus）**：移除 3 個 R26-8 後成為孤立的舊版 pool wrapper
+  - `ProtocolService::assign_primary_reviewer`（被 `assign_primary_reviewer_tx` 取代）
+  - `ProtocolService::assign_vet_reviewer`（被 `assign_vet_reviewer_tx` 取代）
+  - `ProtocolService::generate_iacuc_no_pool`（無呼叫點）
+  - 消除 clippy `dead_code` 警告，重啟 `-D warnings` 嚴格編譯
+- ✅ **驗證結果**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -A deprecated` 0 warnings、`cargo test --lib` 422/422 all pass
+- ✅ **Commit**: `ae01c13` refactor(product,sku): R26-3 Phase 2 PR #6b - expose _tx variants
+- ✅ **PR #190 opened**（base: integration/r26）並 Gemini code-assist review 完成
+
+#### Gemini Review #190 修正（2 suggestions）
+
+- 🔴 **High Priority — Missing VET audit log**：
+  - Symptom：`assign_vet_reviewer_tx` 簽名改為 `(tx, actor: &ActorContext, protocol_id, vet_id)` 後，遺漏了 `record_activity_tx(..., ProtocolActivityType::VetAssigned, ...)`
+  - Fix：恢復 `record_activity_tx` 呼叫，確保 vet assignment audit trail 與 tx 同步
+  - Commit: `2ddd2f5` fix(protocol): restore vet audit log + dedupe reviewer query
+- 🟠 **Medium Priority — Duplicate reviewer SELECT**：
+  - Symptom：`change_status_tx` UnderReview 分支重複執行同樣的 `WHERE id = ANY($1::uuid[])` 查詢（一次供 status_remark，再次供 ReviewerAssigned activity）
+  - Fix：預先 fetch `(Uuid, String)` tuple 一次，同時供兩個用途（status_remark 與 activity extra data），消除冗餘
+  - Line 256 → consolidated upfront, reused in 249–312 block
+
+#### 分支整合協調
+
+- ✅ **Base branch update**：`origin/integration/r26` 於 2026-04-23 received PR #188 squash（R26-4/7/6/8 foundation 一次性合併）
+  - Conflict in `status.rs`：r26-3-phase2-handlers HEAD 有 tx-aware 薄包裝 + Gemini fixes，而 theirs 為中間態 `log_activity_oneshot`
+  - Resolution：Keep ours（HEAD），因 tx-aware pattern 為最終設計；merge commit `0560647` 推送完成
+- ✅ **編譯驗證**：merge 後 `cargo check` ✓、clippy 0 warnings、tests 422/422 pass
+- ✅ **Push 完成**：branch `r26-3-phase2-handlers` 包含 3 commits（ae01c13 + 2ddd2f5 + 0560647 merge）
+
+#### 下階段 PR 預計
+
+| PR # | 範圍 | 估算 | 狀態 |
+|------|------|------|------|
+| #6c | Partner + Warehouse + Equipment `_tx` variants | 20–28h | Pending |
+| #6d | Role + AI + Auth + Two-Factor `_tx` variants | 16–20h | Pending |
+| #6e | Document + QA_Plan + Amendment `_tx` variants | 28–36h | Pending |
+| #6f | Facility + Signature `_tx` variants | 20–24h | Pending |
+| #9 | R26-4 final cleanup（移除所有 pool wrapper）| 8–12h | Post-PR #6 |
 
 ### 2026-04-23 R26 Cleanup Phase 2：R26-4、R26-7、R26-6 完成 + R26-8 基礎建設
 

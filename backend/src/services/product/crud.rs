@@ -1,6 +1,6 @@
 // 產品 CRUD 操作
 
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{
@@ -40,16 +40,36 @@ impl ProductService {
                 .await?;
 
         let mut tx = pool.begin().await?;
-        let sku =
-            resolve_sku_tx(&mut tx, req.sku.as_deref(), &category_code, &subcategory_code).await?;
-        let product =
-            insert_product_tx(&mut tx, &sku, req, &category_code, &subcategory_code).await?;
-        let uom_conversions =
-            insert_uom_conversions_tx(&mut tx, product.id, &req.uom_conversions).await?;
+        let (product, uom_conversions) =
+            Self::create_tx(&mut tx, actor, req, &category_code, &subcategory_code).await?;
+        tx.commit().await?;
+
+        Ok(ProductWithUom {
+            product,
+            uom_conversions,
+            category_name,
+            subcategory_name,
+        })
+    }
+
+    /// Transaction 版本：建立產品 — R26-3 Phase 2。
+    /// 呼叫端負責 commit/rollback。需預先 resolve category_code / subcategory_code。
+    pub async fn create_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        actor: &ActorContext,
+        req: &CreateProductRequest,
+        category_code: &str,
+        subcategory_code: &str,
+    ) -> Result<(Product, Vec<crate::models::ProductUomConversion>)> {
+        let _user = actor.require_user()?;
+
+        let sku = resolve_sku_tx(tx, req.sku.as_deref(), category_code, subcategory_code).await?;
+        let product = insert_product_tx(tx, &sku, req, category_code, subcategory_code).await?;
+        let uom_conversions = insert_uom_conversions_tx(tx, product.id, &req.uom_conversions).await?;
 
         let display = format!("{} ({})", product.name, product.sku);
         AuditService::log_activity_tx(
-            &mut tx,
+            tx,
             actor,
             ActivityLogEntry {
                 event_category: "ERP",
@@ -61,14 +81,7 @@ impl ProductService {
         )
         .await?;
 
-        tx.commit().await?;
-
-        Ok(ProductWithUom {
-            product,
-            uom_conversions,
-            category_name,
-            subcategory_name,
-        })
+        Ok((product, uom_conversions))
     }
 
     /// 取得產品列表（支援 keyword、category_code、subcategory_code、status 篩選）。
@@ -93,15 +106,28 @@ impl ProductService {
         id: Uuid,
         req: &UpdateProductRequest,
     ) -> Result<ProductWithUom> {
-        let _user = actor.require_user()?;
         let mut tx = pool.begin().await?;
+        Self::update_tx(&mut tx, actor, id, req).await?;
+        tx.commit().await?;
+
+        Self::get_by_id(pool, id).await
+    }
+
+    /// Transaction 版本：更新產品 — R26-3 Phase 2。
+    pub async fn update_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+        req: &UpdateProductRequest,
+    ) -> Result<Product> {
+        let _user = actor.require_user()?;
 
         // SELECT FOR UPDATE 取 before
         let before = sqlx::query_as::<_, Product>(
             "SELECT * FROM products WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
@@ -109,22 +135,20 @@ impl ProductService {
             before.category_code.clone().unwrap_or_else(|| "GEN".to_string()),
             before.subcategory_code.clone().unwrap_or_else(|| "OTH".to_string()),
         ));
-        let new_sku = Self::resolve_update_sku_tx(&mut tx, &current, req).await?;
+        let new_sku = Self::resolve_update_sku_tx(tx, &current, req).await?;
 
-        // update_product_tx：與本 tx 同生命週期；audit 或 uom sync 失敗會連同 product
-        // UPDATE 一併 rollback，解決 Gemini PR #164 指出的原子性風險。
         let after =
-            repositories::product::update_product_tx(&mut tx, id, new_sku.as_deref(), req)
+            repositories::product::update_product_tx(tx, id, new_sku.as_deref(), req)
                 .await?
                 .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
         if let Some(ref conversions) = req.uom_conversions {
-            sync_uom_conversions_tx(&mut tx, id, conversions).await?;
+            sync_uom_conversions_tx(tx, id, conversions).await?;
         }
 
         let display = format!("{} ({})", after.name, after.sku);
         AuditService::log_activity_tx(
-            &mut tx,
+            tx,
             actor,
             ActivityLogEntry {
                 event_category: "ERP",
@@ -136,9 +160,7 @@ impl ProductService {
         )
         .await?;
 
-        tx.commit().await?;
-
-        Self::get_by_id(pool, id).await
+        Ok(after)
     }
 
     /// 判斷更新時是否需要重新產生 SKU（GEN-OTH → 其他品類時）（tx 版本）。
@@ -175,16 +197,29 @@ impl ProductService {
         id: Uuid,
         status: &str,
     ) -> Result<ProductWithUom> {
+        let mut tx = pool.begin().await?;
+        Self::update_status_tx(&mut tx, actor, id, status).await?;
+        tx.commit().await?;
+
+        Self::get_by_id(pool, id).await
+    }
+
+    /// Transaction 版本：更新產品狀態 — R26-3 Phase 2。
+    pub async fn update_status_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+        status: &str,
+    ) -> Result<Product> {
         let _user = actor.require_user()?;
         let status = validate_product_status(status).map_err(AppError::Validation)?;
         let is_active = status == "active";
-        let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, Product>(
             "SELECT * FROM products WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
@@ -194,12 +229,12 @@ impl ProductService {
         .bind(&status)
         .bind(is_active)
         .bind(id)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
 
         let display = format!("{} ({}) → {}", after.name, after.sku, status);
         AuditService::log_activity_tx(
-            &mut tx,
+            tx,
             actor,
             ActivityLogEntry {
                 event_category: "ERP",
@@ -211,21 +246,30 @@ impl ProductService {
         )
         .await?;
 
-        tx.commit().await?;
-
-        Self::get_by_id(pool, id).await
+        Ok(after)
     }
 
     /// 刪除產品（軟刪除）— Service-driven audit。
     pub async fn delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
-        let _user = actor.require_user()?;
         let mut tx = pool.begin().await?;
+        Self::delete_tx(&mut tx, actor, id).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Transaction 版本：軟刪除產品 — R26-3 Phase 2。
+    pub async fn delete_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<()> {
+        let _user = actor.require_user()?;
 
         let before = sqlx::query_as::<_, Product>(
             "SELECT * FROM products WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
@@ -233,12 +277,12 @@ impl ProductService {
             "UPDATE products SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING *",
         )
         .bind(id)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
 
         let display = format!("{} ({})", before.name, before.sku);
         AuditService::log_activity_tx(
-            &mut tx,
+            tx,
             actor,
             ActivityLogEntry {
                 event_category: "ERP",
@@ -250,33 +294,42 @@ impl ProductService {
         )
         .await?;
 
-        tx.commit().await?;
-
         Ok(())
     }
 
     /// 硬刪除產品（僅在無單據、庫存、藥物選單關聯時允許；僅供 admin 使用）— Service-driven audit。
     pub async fn hard_delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
-        let _user = actor.require_user()?;
         let mut tx = pool.begin().await?;
+        Self::hard_delete_tx(&mut tx, actor, id).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Transaction 版本：硬刪除產品 — R26-3 Phase 2。
+    pub async fn hard_delete_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<()> {
+        let _user = actor.require_user()?;
 
         let before = sqlx::query_as::<_, Product>(
             "SELECT * FROM products WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
-        Self::check_hard_delete_refs_tx(&mut tx, id).await?;
+        Self::check_hard_delete_refs_tx(tx, id).await?;
 
         sqlx::query("DELETE FROM product_uom_conversions WHERE product_id = $1")
             .bind(id)
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await?;
         let result = sqlx::query("DELETE FROM products WHERE id = $1")
             .bind(id)
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await?;
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("Product not found".to_string()));
@@ -284,7 +337,7 @@ impl ProductService {
 
         let display = format!("{} ({})", before.name, before.sku);
         AuditService::log_activity_tx(
-            &mut tx,
+            tx,
             actor,
             ActivityLogEntry {
                 event_category: "ERP",
@@ -295,8 +348,6 @@ impl ProductService {
             },
         )
         .await?;
-
-        tx.commit().await?;
 
         Ok(())
     }
@@ -355,8 +406,19 @@ impl ProductService {
         actor: &ActorContext,
         req: &CreateCategoryRequest,
     ) -> Result<ProductCategory> {
-        let _user = actor.require_user()?;
         let mut tx = pool.begin().await?;
+        let category = Self::create_category_tx(&mut tx, actor, req).await?;
+        tx.commit().await?;
+        Ok(category)
+    }
+
+    /// Transaction 版本：建立產品類別 — R26-3 Phase 2。
+    pub async fn create_category_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        actor: &ActorContext,
+        req: &CreateCategoryRequest,
+    ) -> Result<ProductCategory> {
+        let _user = actor.require_user()?;
 
         let category = sqlx::query_as::<_, ProductCategory>(
             r#"
@@ -369,12 +431,12 @@ impl ProductService {
         .bind(&req.code)
         .bind(&req.name)
         .bind(req.parent_id)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
 
         let display = format!("{} {}", category.code, category.name);
         AuditService::log_activity_tx(
-            &mut tx,
+            tx,
             actor,
             ActivityLogEntry {
                 event_category: "ERP",
@@ -389,8 +451,6 @@ impl ProductService {
             },
         )
         .await?;
-
-        tx.commit().await?;
 
         Ok(category)
     }
