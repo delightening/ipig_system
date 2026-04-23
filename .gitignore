@@ -66,3 +66,8 @@ logs_*/
 
 # 暫存 API 輸出
 /tmp_api*.txt
+frontend/tmp-tw-test/
+
+# 個人筆記 / 原稿素材（不追蹤）
+/925purchase.md
+/*.pdf
