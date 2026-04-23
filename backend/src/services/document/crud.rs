@@ -3,24 +3,32 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
+    middleware::ActorContext,
     models::{
-        CreateDocumentRequest, DocStatus, DocType, Document, DocumentLine, DocumentLineInput,
-        DocumentLineWithProduct, DocumentListItem, DocumentQuery, DocumentWithLines,
-        ProtocolStatus, UpdateDocumentRequest,
+        audit_diff::DataDiff, CreateDocumentRequest, DocStatus, DocType, Document,
+        DocumentAuditSnapshot, DocumentLine, DocumentLineInput, DocumentLineWithProduct,
+        DocumentListItem, DocumentQuery, DocumentWithLines, ProtocolStatus, UpdateDocumentRequest,
     },
     repositories,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
     time, AppError, Result,
 };
 
 use super::DocumentService;
 
 impl DocumentService {
-    /// 建立單據（草稿）
+    /// 建立單據（草稿）— Service-driven audit
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         req: &CreateDocumentRequest,
-        created_by: Uuid,
     ) -> Result<DocumentWithLines> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
         let mut tx = pool.begin().await?;
 
         // 產生單據編號
@@ -173,22 +181,49 @@ impl DocumentService {
             lines.push(doc_line);
         }
 
+        // R26-12：audit snapshot 包含 document + lines 同一事件內
+        let display = format!("{}: {}", document.doc_type.prefix(), document.doc_no);
+        let snapshot = DocumentAuditSnapshot {
+            document: &document,
+            lines: &lines,
+        };
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOC_CREATE",
+                entity: Some(AuditEntity::new("document", document.id, &display)),
+                data_diff: Some(DataDiff::create_only(&snapshot)),
+                request_context: None,
+            },
+        )
+        .await?;
+
         tx.commit().await?;
 
         Self::get_by_id(pool, document.id).await
     }
 
-    /// 更新單據（僅 Draft 狀態）
+    /// 更新單據（僅 Draft 狀態）— Service-driven audit
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateDocumentRequest,
     ) -> Result<DocumentWithLines> {
-        let existing = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
-            .bind(id)
-            .fetch_optional(pool)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+        let _ = actor.require_user()?;
+
+        let mut tx = pool.begin().await?;
+
+        // R26-12 / Gemini pattern：tx 內 FOR UPDATE 鎖住 document row
+        let existing = sqlx::query_as::<_, Document>(
+            "SELECT * FROM documents WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
         if existing.status != DocStatus::Draft {
             return Err(AppError::BusinessRule(
@@ -196,13 +231,21 @@ impl DocumentService {
             ));
         }
 
+        // before snapshot (document + lines) for audit diff
+        let before_lines = sqlx::query_as::<_, DocumentLine>(
+            "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no",
+        )
+        .bind(id)
+        .fetch_all(&mut *tx)
+        .await?;
+
         // 驗證 protocol_id 對應的計畫存在且為已核准狀態
         if let Some(protocol_id) = req.protocol_id {
             let status: ProtocolStatus = sqlx::query_scalar(
                 "SELECT status FROM protocols WHERE id = $1",
             )
             .bind(protocol_id)
-            .fetch_optional(pool)
+            .fetch_optional(&mut *tx)
             .await?
             .ok_or_else(|| {
                 AppError::NotFound(format!("Protocol {} not found", protocol_id))
@@ -219,10 +262,8 @@ impl DocumentService {
             }
         }
 
-        let mut tx = pool.begin().await?;
-
-        // 更新單據頭（使用 RETURNING 避免後續冗餘 SELECT）
-        let updated_document = sqlx::query_as::<_, Document>(
+        // 更新單據頭
+        sqlx::query(
             r#"
             UPDATE documents SET
                 warehouse_id = COALESCE($1, warehouse_id),
@@ -235,7 +276,6 @@ impl DocumentService {
                 protocol_id = COALESCE($8, protocol_id),
                 updated_at = NOW()
             WHERE id = $9
-            RETURNING *
             "#,
         )
         .bind(req.warehouse_id)
@@ -247,7 +287,7 @@ impl DocumentService {
         .bind(&req.remark)
         .bind(req.protocol_id)
         .bind(id)
-        .fetch_one(&mut *tx)
+        .execute(&mut *tx)
         .await?;
 
         // 如果要更新明細
@@ -322,92 +362,58 @@ impl DocumentService {
             }
         }
 
-        tx.commit().await?;
-
-        // 取得完整單據資訊（含 lines 和關聯資訊）
-        let lines = sqlx::query_as::<_, DocumentLineWithProduct>(
-            r#"
-            SELECT
-                dl.id, dl.document_id, dl.line_no, dl.product_id,
-                p.sku as product_sku, p.name as product_name,
-                dl.qty, dl.uom, dl.unit_price, dl.batch_no, dl.expiry_date, dl.remark,
-                dl.storage_location_id
-            FROM document_lines dl
-            INNER JOIN products p ON dl.product_id = p.id
-            WHERE dl.document_id = $1
-            ORDER BY dl.line_no
-            "#,
+        // 讀取 after 狀態用於 audit diff
+        let after_doc = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?;
+        let after_lines = sqlx::query_as::<_, DocumentLine>(
+            "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no",
         )
         .bind(id)
-        .fetch_all(pool)
+        .fetch_all(&mut *tx)
         .await?;
 
-        // 取得關聯名稱
-        let warehouse_name = match updated_document.warehouse_id {
-            Some(wid) => repositories::warehouse::find_warehouse_name_by_id(pool, wid).await?,
-            None => None,
+        let display = format!("{}: {}", after_doc.doc_type.prefix(), after_doc.doc_no);
+        let before_snap = DocumentAuditSnapshot {
+            document: &existing,
+            lines: &before_lines,
         };
-        let warehouse_from_name = match updated_document.warehouse_from_id {
-            Some(wid) => repositories::warehouse::find_warehouse_name_by_id(pool, wid).await?,
-            None => None,
+        let after_snap = DocumentAuditSnapshot {
+            document: &after_doc,
+            lines: &after_lines,
         };
-        let warehouse_to_name = match updated_document.warehouse_to_id {
-            Some(wid) => repositories::warehouse::find_warehouse_name_by_id(pool, wid).await?,
-            None => None,
-        };
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "DOC_UPDATE",
+                entity: Some(AuditEntity::new("document", id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before_snap), Some(&after_snap))),
+                request_context: None,
+            },
+        )
+        .await?;
 
-        let partner_name: Option<String> = if let Some(pid) = updated_document.partner_id {
-            sqlx::query_scalar("SELECT name FROM partners WHERE id = $1")
-                .bind(pid)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
-        };
+        tx.commit().await?;
 
-        let protocol_no: Option<String> = if let Some(prot_id) = updated_document.protocol_id {
-            sqlx::query_scalar("SELECT protocol_no FROM protocols WHERE id = $1")
-                .bind(prot_id)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
-        };
-
-        let created_by_name: String = sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
-            .bind(updated_document.created_by)
-            .fetch_one(pool)
-            .await?;
-
-        let approved_by_name: Option<String> = if let Some(by) = updated_document.approved_by {
-            sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
-                .bind(by)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
-        };
-
-        Ok(DocumentWithLines {
-            document: updated_document,
-            lines,
-            warehouse_name,
-            warehouse_from_name,
-            warehouse_to_name,
-            partner_name,
-            protocol_no,
-            created_by_name,
-            approved_by_name,
-        })
+        Self::get_by_id(pool, id).await
     }
 
-    /// 刪除單據
-    pub async fn delete(pool: &PgPool, id: Uuid, is_hard: bool) -> Result<()> {
-        let document = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
-            .bind(id)
-            .fetch_optional(pool)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+    /// 刪除單據 — Service-driven audit
+    pub async fn delete(pool: &PgPool, actor: &ActorContext, id: Uuid, is_hard: bool) -> Result<()> {
+        let _ = actor.require_user()?;
+
+        let mut tx = pool.begin().await?;
+
+        let document = sqlx::query_as::<_, Document>(
+            "SELECT * FROM documents WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
         // 僅當不是硬刪除時，才要求單據必須為草稿狀態
         if !is_hard && document.status != DocStatus::Draft {
@@ -416,7 +422,33 @@ impl DocumentService {
             ));
         }
 
-        let mut tx = pool.begin().await?;
+        // before snapshot 含明細（audit）
+        let before_lines = sqlx::query_as::<_, DocumentLine>(
+            "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no",
+        )
+        .bind(id)
+        .fetch_all(&mut *tx)
+        .await?;
+
+        // 寫入 audit 後才真正刪除（audit 的 FK 指向 document row — 在 DELETE
+        // 之前寫入才不會失效；整段 tx 結束一起 commit）
+        let display = format!("{}: {}", document.doc_type.prefix(), document.doc_no);
+        let before_snap = DocumentAuditSnapshot {
+            document: &document,
+            lines: &before_lines,
+        };
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: if is_hard { "DOC_HARD_DELETE" } else { "DOC_DELETE" },
+                entity: Some(AuditEntity::new("document", id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before_snap)),
+                request_context: None,
+            },
+        )
+        .await?;
 
         // 刪除單據明細
         sqlx::query("DELETE FROM document_lines WHERE document_id = $1")

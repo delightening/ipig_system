@@ -185,6 +185,39 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-23 R26-3 後續三 PR 完成（#4b #4c #5 共 22 個 call sites）
+
+R26-3 Phase 2 全面推進：blood_test / pdf_export+import_export / user+audit+data_export 三個 PR 連續完成，遷移 22 個 handler-level `log_activity()` call sites 至 Service-driven audit pattern。
+
+#### PR #4b（血液檢查）— 13 個 mutations（commit `075b732`）
+
+- ✅ **`services/animal/blood_test.rs` 全部遷移**：13 個函數簽名改為接 `pool: &PgPool` + `actor: &ActorContext`，內部開啟 tx + 執行 mutation + `AuditService::log_activity_tx` + commit
+  - create_blood_test / update_blood_test / delete_blood_test / batch_import_blood_tests (4 core CRUD)
+  - template create/update/delete + panel create/update/delete + preset create/update/delete (9 config mutations)
+- ✅ **handler 層簡化**：`handlers/animal/blood_test.rs` 移除所有池級 `log_activity()` fire-and-forget；改呼叫 service 層（actor 由 `ActorContext::User(current_user.clone())` 傳遞）
+- ✅ **deprecated 警告減少**：24 → 11（共消除 13 處）
+
+#### PR #4c（PDF + 匯入匯出）— 5 個 mutations（commit `3cbb195`）
+
+- ✅ **新增 `AuditService::log_activity_oneshot()` helper**：方便後 external-service 的 audit 事件記錄，內部用 `log_activity_tx` + auto-commit，參數型別同 `log_activity_tx`
+- ✅ **`services/mod.rs` visibility 改正**：`mod audit;` → `pub mod audit;`，使得 handler 層可直接 import `ActivityLogEntry` / `AuditEntity` / `RequestContext`
+- ✅ **`handlers/animal/pdf_export.rs` 2 個 call sites**：export_animal_medical_pdf / export_blood_test_analysis_pdf 改用 `log_activity_oneshot()`（PDF render 為外部服務，audit 於 render 後作記錄）
+- ✅ **`handlers/animal/import_export.rs` 3 個 call sites**：全部 3 個匯入/匯出 handler（import_basic_data / import_weight_data / export 各類）改用 `log_activity_oneshot()`（批次 ID = `Uuid::nil()`）
+
+#### PR #5（使用者 + 稽核 + 資料匯出）— 4 個 mutations（commit `3587151`）
+
+- ✅ **`handlers/user.rs` tokio::spawn case**：IMPERSONATE_START 事件於 spawn 閉包內呼叫 `log_activity_oneshot()`；actor 於 spawn 前建立（`let spawn_actor = ActorContext::User(current_user.clone());`），確保生命週期正確
+- ✅ **`handlers/audit.rs` tokio::spawn case**：FORCE_LOGOUT 事件同樣於 spawn 前準備 actor，於閉包內呼叫 `log_activity_oneshot()`
+- ✅ **`handlers/data_export.rs` 2 個 call sites**：full_database_export (DATA_EXPORT) + full_database_import (DATA_IMPORT) 改用 `log_activity_oneshot()`（全庫操作，entity_id = `Uuid::nil()`）
+- ✅ **deprecated 警告最終狀態**：11 → 2（僅保留 audit.rs 內部 log_activity 定義 + protocol/status.rs，已標記為 out-of-scope）
+
+#### 全體驗證 & 狀態
+
+- ✅ **編譯驗證**：`cargo check` 零錯誤；`cargo clippy --all-targets -- -D warnings -A deprecated` 零新警告
+- ✅ **測試驗證**：`cargo test --lib` 422/422 全部通過（一致性驗證）
+- ✅ **里程碑統計**：R26-3「97 個 call sites」中，已完成 22 個（animals 13 + pdf/import 5 + user/audit/data 4）= 22.7%；剩餘 75 個（product/sku/partner/warehouse/equipment/role/ai/auth/document/hr 等）預定 PR #6 ~ PR #9 分批完成
+- ✅ **決策確認**：`log_activity_oneshot()` 作為外部服務/spawn task 審計的標準模式；`log_activity_tx()` 對應服務層 transaction mutations；handler 層完全去除舊版 fire-and-forget pattern
+
 ### 2026-04-22 R26 Service-driven Audit — PR #4a animals + 後續四 PR（document / HR / user）
 
 本日 R26 epic 合計推進 **5 個 PR**（#156 animals 系列先完成；#159/#160/#161/#162 後續四 PR 平行開出）。
