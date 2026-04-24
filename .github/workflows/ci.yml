@@ -145,6 +145,68 @@ jobs:
           echo "✅ Handler 層 SDD audit pattern 守則達標"
 
   # =========================
+  # 🔐 Audit Redaction 守衛（R26-14）
+  # 對應 docs/security/AUDIT_REDACTION.md：
+  #   偵測 models/ 中新增含敏感欄位（password_hash / _secret / _token / api_key /
+  #   backup_codes）的 struct，若未在 allowlist 或無明確 `AuditRedact::redacted_fields()`
+  #   覆寫則 CI fail。目的：強制新敏感 entity 必須做 redact decision，不得默默用
+  #   default 空陣列。
+  # =========================
+  audit-redaction-guard:
+    name: "🔐 Guard: audit redaction"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查敏感欄位 DB entity 的 AuditRedact 覆寫
+        working-directory: ./backend
+        run: |
+          # 掃描含敏感欄位的 struct 名稱，**只**對 DB entity（有 FromRow derive）
+          # 檢查。DTO 類（Request/Response）不進 audit diff，跳過。
+          #
+          # 偵測邏輯：
+          #  1. 在 models/ 找所有 struct 含 password_hash / _secret / _token /
+          #     api_key / backup_codes / key_hash 欄位
+          #  2. 過濾只保留有 `#[derive(..., FromRow, ...)]` 的 struct（= DB entity）
+          #  3. 若該 entity 名不在 ALLOWED 中，CI fail 並要求登記 AUDIT_REDACTION.md
+          #
+          # ALLOWED = 已明確 redact（User / AiApiKey）+ 不進 audit diff 的 entity
+          ALLOWED='User|AiApiKey|UserSession|Invitation'
+
+          # 用 find + awk 掃描每個檔案的 struct 區塊（不依賴 shell globstar）
+          BAD=$(find src/models -name '*.rs' -type f -print0 | xargs -0 awk '
+            /^#\[derive/ {
+              is_fromrow = /FromRow/
+              next
+            }
+            /^pub struct / {
+              match($0, /pub struct [A-Z][A-Za-z0-9_]+/)
+              name = substr($0, RSTART+11, RLENGTH-11)
+              in_struct = 1
+              has_sensitive = 0
+              next
+            }
+            in_struct && /pub (password_hash|[a-z_]+_secret|[a-z_]+_token|api_key|backup_codes|key_hash) *:/ {
+              has_sensitive = 1
+            }
+            in_struct && /^}/ {
+              if (is_fromrow && has_sensitive) print name
+              in_struct = 0
+              is_fromrow = 0
+            }
+          ' 2>/dev/null | sort -u | grep -vE "^(${ALLOWED})$" || true)
+
+          if [ -n "$BAD" ]; then
+            echo "::error::新增敏感欄位 DB entity 需檢查 AuditRedact::redacted_fields() 覆寫："
+            printf '::error::  - %s\n' $BAD
+            echo "::error::處理方式："
+            echo "::error::  1) 明確覆寫 redacted_fields()，並登記於 docs/security/AUDIT_REDACTION.md §1"
+            echo "::error::  2) 若此 entity 不進 audit diff，加入 ci.yml 的 ALLOWED 清單 + §3 登記"
+            exit 1
+          fi
+          echo "✅ 敏感欄位 DB entity 的 AuditRedact 守則達標"
+
+  # =========================
   # 🚫 Unsafe 守衛
   # =========================
   unsafe-guard:
