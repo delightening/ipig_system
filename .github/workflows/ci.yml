@@ -592,32 +592,85 @@ jobs:
             echo "ECEOF"
           } >> "$GITHUB_ENV"
 
-      - name: 啟動 Docker 測試環境
+      - name: 啟動 Docker 測試環境 (build)
         env:
           CI_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
           CI_DEV_PASSWORD: ${{ secrets.CI_DEV_PASSWORD }}
         run: |
-          docker compose -f docker-compose.test.yml build --progress=plain
-          # 使用 --wait 等待所有服務 healthcheck 通過，避免 E2E 在服務未就緒時執行
-          docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 300
+          set -euo pipefail
+          echo "=== Docker 版本檢查 ==="
+          docker --version && docker compose --version
+          echo ""
+          echo "=== 開始構建鏡像 ==="
+          # --progress=plain 必須放在 compose 層級；放在 build 子命令是 deprecated warning。
+          docker compose --progress=plain -f docker-compose.test.yml build
+
+      - name: 啟動 Docker 測試環境 (up)
+        env:
+          CI_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+          CI_DEV_PASSWORD: ${{ secrets.CI_DEV_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "=== 啟動容器（不帶 --wait，手動輪詢 healthcheck） ==="
+          # 先 up -d（不 --wait），讓容器啟動；再單獨輪詢 healthcheck，這樣
+          # 單一容器啟動失敗時能在失敗當下立刻印日誌，而非 --wait-timeout 才暴露。
+          docker compose -f docker-compose.test.yml up -d
+          echo ""
+          echo "=== 初始容器狀態 ==="
+          docker compose -f docker-compose.test.yml ps -a
+          echo ""
+          echo "=== 輪詢 healthcheck（最多 3 分鐘） ==="
+          SERVICES="db-test api-test web-test"
+          for i in $(seq 1 36); do
+            ALL_HEALTHY=true
+            for svc in $SERVICES; do
+              cname="ipig-${svc}"
+              status=$(docker inspect --format='{{.State.Health.Status}}' "$cname" 2>/dev/null || echo "no-container")
+              running=$(docker inspect --format='{{.State.Status}}' "$cname" 2>/dev/null || echo "none")
+              if [ "$running" = "exited" ] || [ "$running" = "dead" ]; then
+                echo "❌ $cname 已退出 (status=$running)，即將傾印日誌並中止"
+                ALL_HEALTHY=false
+                break 2
+              fi
+              if [ "$status" != "healthy" ]; then
+                ALL_HEALTHY=false
+                if [ $((i % 6)) -eq 0 ]; then
+                  echo "  [$i/36] $cname: health=$status, state=$running"
+                fi
+              fi
+            done
+            if $ALL_HEALTHY; then
+              echo "✅ 所有服務 healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ 180s 後仍有服務未就緒"
+          exit 1
 
       - name: 傾印容器日誌 (啟動失敗時偵錯)
         if: failure()
         run: |
-          echo "=== Container Status ==="
-          docker compose -f docker-compose.test.yml ps -a
+          echo "=== 容器狀態 ==="
+          docker compose -f docker-compose.test.yml ps -a || true
           echo ""
-          echo "=== API Container Logs (last 300 lines) ==="
-          docker logs ipig-api-test --tail=300 2>&1 || docker compose -f docker-compose.test.yml logs api-test --tail=300
+          echo "=== API 容器詳細信息 ==="
+          docker inspect ipig-api-test 2>/dev/null | jq '.[] | {State, Health, Config}' || true
           echo ""
-          echo "=== API Container Inspect (exit code / health) ==="
-          docker inspect ipig-api-test --format='ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{.State.Health.Status}}' 2>/dev/null || true
+          echo "=== API 容器日誌 (最後 500 行) ==="
+          docker logs ipig-api-test --tail=500 2>&1 || docker compose -f docker-compose.test.yml logs api-test --tail=500
           echo ""
-          echo "=== DB Container Logs (last 50 lines) ==="
-          docker compose -f docker-compose.test.yml logs db-test --tail=50
+          echo "=== DB 容器日誌 (最後 100 行) ==="
+          docker compose -f docker-compose.test.yml logs db-test --tail=100 || true
           echo ""
-          echo "=== Web Container Logs (last 50 lines) ==="
-          docker compose -f docker-compose.test.yml logs web-test --tail=50
+          echo "=== Web 容器日誌 (最後 100 行) ==="
+          docker compose -f docker-compose.test.yml logs web-test --tail=100 || true
+          echo ""
+          echo "=== Docker 網絡檢查 ==="
+          docker network ls || true
+          echo ""
+          echo "=== Docker 卷檢查 ==="
+          docker volume ls | grep ipig || true
 
       - name: 確認服務可連線 (備援檢查)
         run: |
