@@ -185,6 +185,16 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-24 R26 整合測試 — DoD-3/DoD-6 機械式驗證 (PR #195)
+
+- ✅ **新增 `backend/tests/api_audit_r26.rs`**（4 個整合測試）對應 critical review 發現的「R26 整合測試完全缺失」問題。
+- ✅ **Test 1: `tx_rollback_does_not_persist_audit`** — 驗證 SDD 核心保證：tx rollback 時 audit 不落地。
+- ✅ **Test 2: `tx_commit_persists_audit_with_chain`** — 驗證 tx commit 後 audit 寫入並形成 HMAC chain（每筆有 non-empty integrity_hash）。
+- ✅ **Test 3: `hmac_chain_broken_detected_by_verify`** — 寫 3 筆 audit → 手動篡改中間一筆的 after_data → `verify_chain_range` 應在 `broken_links` 中含被篡改的 id。對應 DoD-3 audit_chain_verify cron 的偵測能力。
+- ✅ **Test 4: `concurrent_audit_writes_no_chain_race`** — 10 並發 tasks 各自開 tx 寫一筆 audit → 全部成功且每筆都有 integrity_hash（advisory lock 起效）。對應 DoD-6 同類精神（advisory lock 序列化）。
+- ✅ **測試模式**：直接用 `TestApp::spawn().db_pool` 取 connection pool，不經 HTTP layer — 測試目標為 service 層原子性。
+- ✅ **驗證**：`cargo check --tests --test api_audit_r26` ✓；`cargo test --lib` 不受影響（422/422 pass）；CI 將跑 `cargo test --all-targets` 確認 4 個整合測試在有 DB 的環境通過。
+
 ### 2026-04-24 R26 Frontend Audit Fields — UserActivityLog 補新欄位 + Detail Dialog 展示 (PR #196)
 
 - ✅ **修補前端 R26 欄位斷層**：critical review 發現 `UserActivityLog` interface 缺 4 個 R26 新欄位，導致前端無法序列化、稽核 UI 無法顯示。
@@ -200,6 +210,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
   - 可摺疊的「資料完整性 (HMAC chain)」區塊：HMAC 編碼版本標籤（v1 legacy / v2 canonical）+ Integrity Hash + Previous Hash + 「每日 02:00 UTC 自動驗證」說明
 - ✅ **`lib/guest-demo/admin.ts`** demo data 同步補新欄位（type-safe）
 - ✅ **驗證**：`pnpm tsc --noEmit` ✓；`pnpm eslint` 對 3 個變更檔零警告
+
 
 ### 2026-04-24 R26 Rollback + Env Docs — Critical Review 補強 (PR #194)
 
