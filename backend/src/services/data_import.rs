@@ -43,13 +43,11 @@ pub struct ImportResult {
     pub skipped_details: Vec<SkippedDetail>,
 }
 
-// R26-7: IDXF 匯入 metadata — format_version 由 serde 反序列化入但 Rust 端
-// 未讀取（保留給將來 format 版本相容檢查）。
 #[derive(Debug, Deserialize)]
 struct IdxfMeta {
     format: Option<String>,
-    #[allow(dead_code)]
-    format_version: Option<String>,
+    #[serde(default, rename = "format_version")]
+    _format_version: Option<String>,
     schema_version: Option<String>,
 }
 
@@ -290,15 +288,13 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
         v
     };
 
-    // R26-7: columns 由 serde 反序列化入但 Rust 端未讀取
-    // （保留給將來 column-level 驗證用）。
     #[derive(Deserialize)]
     struct ManifestTable {
         name: String,
         file: String,
         format: Option<String>,
-        #[allow(dead_code)]
-        columns: Vec<String>,
+        #[serde(rename = "columns")]
+        _columns: Vec<String>,
     }
     #[derive(Deserialize)]
     struct Manifest {
