@@ -705,7 +705,6 @@ impl EquipmentService {
     // ============================================
 
     /// Transaction 版本：建立維修紀錄
-    #[expect(dead_code)]
     pub(super) async fn create_maintenance_record_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         actor: &ActorContext,
@@ -785,7 +784,6 @@ impl EquipmentService {
     }
 
     /// Transaction 版本：更新維修紀錄
-    #[expect(dead_code)]
     pub(super) async fn update_maintenance_record_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         actor: &ActorContext,
@@ -875,7 +873,6 @@ impl EquipmentService {
     }
 
     /// Transaction 版本：刪除維修紀錄
-    #[expect(dead_code)]
     pub(super) async fn delete_maintenance_record_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         actor: &ActorContext,
