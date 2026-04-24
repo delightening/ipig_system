@@ -700,32 +700,29 @@ impl EquipmentService {
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
 
-    pub async fn create_maintenance_record(
-        pool: &PgPool,
+    // ============================================
+    // Transaction variants for cross-service atomicity (R26-3 Phase 2)
+    // ============================================
+
+    /// Transaction 版本：建立維修紀錄
+    pub(super) async fn create_maintenance_record_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         actor: &ActorContext,
         payload: &CreateMaintenanceRequest,
     ) -> Result<EquipmentMaintenanceRecord> {
-        let current_user = actor.require_user()?;
-        if !current_user.has_permission("equipment.maintenance.manage")
-            && !current_user.has_permission("equipment.manage")
-        {
-            return Err(AppError::Forbidden("無權管理維修保養紀錄".into()));
-        }
+        let actor_id = actor
+            .actor_user_id()
+            .ok_or_else(|| AppError::Forbidden("Anonymous cannot create maintenance records".into()))?;
         payload.validate()?;
 
-        let mut tx = pool.begin().await?;
-
-        // 驗證設備存在（tx 內 SELECT ... FOR UPDATE，避免 TOCTOU：
-        // 原先 tx 外讀 status 再進 tx 寫入，期間可能被其他請求修改 → Gemini #166 MEDIUM）
         let equipment = sqlx::query_as::<_, Equipment>(
             "SELECT * FROM equipment WHERE id = $1 FOR UPDATE",
         )
         .bind(payload.equipment_id)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
 
-        // 維修類型自動變更設備狀態為「待修」
         if payload.maintenance_type == MaintenanceType::Repair
             && equipment.status == EquipmentStatus::Active
         {
@@ -735,13 +732,13 @@ impl EquipmentService {
             )
             .bind(payload.equipment_id)
             .bind(&equipment.status)
-            .bind(current_user.id)
-            .execute(&mut *tx)
+            .bind(actor_id)
+            .execute(&mut **tx)
             .await?;
 
             sqlx::query("UPDATE equipment SET status = 'under_repair', is_active = false, updated_at = NOW() WHERE id = $1")
                 .bind(payload.equipment_id)
-                .execute(&mut *tx)
+                .execute(&mut **tx)
                 .await?;
         }
 
@@ -765,13 +762,13 @@ impl EquipmentService {
         .bind(&payload.maintenance_items)
         .bind(&payload.performed_by)
         .bind(&payload.notes)
-        .bind(current_user.id)
-        .fetch_one(&mut *tx)
+        .bind(actor_id)
+        .fetch_one(&mut **tx)
         .await?;
 
         let display = format!("{} {:?}", equipment.name, record.maintenance_type);
         AuditService::log_activity_tx(
-            &mut tx,
+            tx,
             actor,
             ActivityLogEntry {
                 event_category: "EQUIPMENT",
@@ -783,63 +780,33 @@ impl EquipmentService {
         )
         .await?;
 
-        tx.commit().await?;
-
-        // P2-2: 報修自動通知維修人員（tx 外 fire-and-forget，避免拖延 commit）
-        if payload.maintenance_type == MaintenanceType::Repair {
-            let notification_svc = crate::services::NotificationService::new(pool.clone());
-            if let Err(e) = notification_svc
-                .send_equipment_repair_notification(
-                    &equipment.name,
-                    &current_user.email,
-                    payload.problem_description.as_deref().unwrap_or("-"),
-                )
-                .await
-            {
-                tracing::warn!("發送報修通知失敗: {e}");
-            }
-        }
-
         Ok(record)
     }
 
-    pub async fn update_maintenance_record(
-        pool: &PgPool,
+    /// Transaction 版本：更新維修紀錄
+    pub(super) async fn update_maintenance_record_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         actor: &ActorContext,
         id: Uuid,
         payload: &UpdateMaintenanceRequest,
     ) -> Result<EquipmentMaintenanceRecord> {
-        let current_user = actor.require_user()?;
-        if !current_user.has_permission("equipment.maintenance.manage")
-            && !current_user.has_permission("equipment.manage")
-        {
-            return Err(AppError::Forbidden("無權管理維修保養紀錄".into()));
-        }
         payload.validate()?;
-
-        let mut tx = pool.begin().await?;
 
         let existing = sqlx::query_as::<_, EquipmentMaintenanceRecord>(
             "SELECT * FROM equipment_maintenance_records WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?
         .ok_or_else(|| AppError::NotFound("維修保養紀錄不存在".into()))?;
 
         let mut new_status = payload.status.clone().unwrap_or(existing.status.clone());
-
-        // 完修 → 自動轉為「待驗收」（不直接結案，需主管驗收簽核）
         if new_status == MaintenanceStatus::Completed
             && existing.status != MaintenanceStatus::Completed
             && existing.status != MaintenanceStatus::PendingReview
         {
             new_status = MaintenanceStatus::PendingReview;
         }
-
-        // 無法維修 → 後 tx 外發通知（notification 為 side effect）
-        let send_unrepairable_notification = new_status == MaintenanceStatus::Unrepairable
-            && existing.status != MaintenanceStatus::Unrepairable;
 
         let completed_at = payload.completed_at.or(existing.completed_at);
         let problem_desc = payload
@@ -885,12 +852,12 @@ impl EquipmentService {
         .bind(maint_items)
         .bind(performed)
         .bind(notes)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
 
         let display = format!("maintenance {:?}", record.maintenance_type);
         AuditService::log_activity_tx(
-            &mut tx,
+            tx,
             actor,
             ActivityLogEntry {
                 event_category: "EQUIPMENT",
@@ -902,18 +869,106 @@ impl EquipmentService {
         )
         .await?;
 
+        Ok(record)
+    }
+
+    /// Transaction 版本：刪除維修紀錄
+    pub(super) async fn delete_maintenance_record_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<()> {
+        let before = sqlx::query_as::<_, EquipmentMaintenanceRecord>(
+            "SELECT * FROM equipment_maintenance_records WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("維修保養紀錄不存在".into()))?;
+
+        sqlx::query("DELETE FROM equipment_maintenance_records WHERE id = $1")
+            .bind(id)
+            .execute(&mut **tx)
+            .await?;
+
+        let display = format!("maintenance {:?}", before.maintenance_type);
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "EQUIPMENT",
+                event_type: "MAINTENANCE_DELETE",
+                entity: Some(AuditEntity::new("maintenance_record", before.id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn create_maintenance_record(
+        pool: &PgPool,
+        actor: &ActorContext,
+        payload: &CreateMaintenanceRequest,
+    ) -> Result<EquipmentMaintenanceRecord> {
+        let current_user = actor.require_user()?;
+        if !current_user.has_permission("equipment.maintenance.manage")
+            && !current_user.has_permission("equipment.manage")
+        {
+            return Err(AppError::Forbidden("無權管理維修保養紀錄".into()));
+        }
+
+        let mut tx = pool.begin().await?;
+        let record = Self::create_maintenance_record_tx(&mut tx, actor, payload).await?;
         tx.commit().await?;
 
-        if send_unrepairable_notification {
-            let equip = repositories::equipment::find_equipment_by_id(pool, existing.equipment_id)
-                .await?;
-            if let Some(equip) = equip {
-                let notification_svc =
-                    crate::services::NotificationService::new(pool.clone());
+        // P2-2: 報修自動通知維修人員（tx 外 fire-and-forget，避免拖延 commit）
+        if payload.maintenance_type == MaintenanceType::Repair {
+            if let Ok(Some(equipment)) = repositories::equipment::find_equipment_by_id(pool, payload.equipment_id).await {
+                let notification_svc = crate::services::NotificationService::new(pool.clone());
+                if let Err(e) = notification_svc
+                    .send_equipment_repair_notification(
+                        &equipment.name,
+                        &current_user.email,
+                        payload.problem_description.as_deref().unwrap_or("-"),
+                    )
+                    .await
+                {
+                    tracing::warn!("發送報修通知失敗: {e}");
+                }
+            }
+        }
+
+        Ok(record)
+    }
+
+    pub async fn update_maintenance_record(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        payload: &UpdateMaintenanceRequest,
+    ) -> Result<EquipmentMaintenanceRecord> {
+        let current_user = actor.require_user()?;
+        if !current_user.has_permission("equipment.maintenance.manage")
+            && !current_user.has_permission("equipment.manage")
+        {
+            return Err(AppError::Forbidden("無權管理維修保養紀錄".into()));
+        }
+
+        let mut tx = pool.begin().await?;
+        let record = Self::update_maintenance_record_tx(&mut tx, actor, id, payload).await?;
+        let existing_status = record.status.clone();
+        tx.commit().await?;
+
+        // 無法維修通知（tx 外 side effect）
+        if existing_status == MaintenanceStatus::Unrepairable {
+            if let Ok(Some(equip)) = repositories::equipment::find_equipment_by_id(pool, record.equipment_id).await {
+                let notification_svc = crate::services::NotificationService::new(pool.clone());
                 let problem = payload
                     .problem_description
                     .as_deref()
-                    .or(existing.problem_description.as_deref())
                     .unwrap_or("-");
                 if let Err(e) = notification_svc
                     .send_equipment_unrepairable_notification(
@@ -944,34 +999,7 @@ impl EquipmentService {
         }
 
         let mut tx = pool.begin().await?;
-
-        let before = sqlx::query_as::<_, EquipmentMaintenanceRecord>(
-            "SELECT * FROM equipment_maintenance_records WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| AppError::NotFound("維修保養紀錄不存在".into()))?;
-
-        sqlx::query("DELETE FROM equipment_maintenance_records WHERE id = $1")
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
-
-        let display = format!("maintenance {:?}", before.maintenance_type);
-        AuditService::log_activity_tx(
-            &mut tx,
-            actor,
-            ActivityLogEntry {
-                event_category: "EQUIPMENT",
-                event_type: "MAINTENANCE_DELETE",
-                entity: Some(AuditEntity::new("maintenance_record", before.id, &display)),
-                data_diff: Some(DataDiff::delete_only(&before)),
-                request_context: None,
-            },
-        )
-        .await?;
-
+        Self::delete_maintenance_record_tx(&mut tx, actor, id).await?;
         tx.commit().await?;
 
         Ok(())

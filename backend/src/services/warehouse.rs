@@ -81,13 +81,44 @@ impl WarehouseService {
             None => Self::generate_code(pool).await?,
         };
 
+        let req_with_code = CreateWarehouseRequest {
+            code: Some(code),
+            name: req.name.clone(),
+            address: req.address.clone(),
+        };
+
         let mut tx = pool.begin().await?;
+        let result = Self::create_tx(&mut tx, actor, &req_with_code).await?;
+        tx.commit().await?;
+        Ok(result)
+    }
+
+    /// Transaction 版本：建立倉庫（用於跨服務原子操作）
+    pub(super) async fn create_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        req: &CreateWarehouseRequest,
+    ) -> Result<Warehouse> {
+        // 如果 code 為空或未提供，則自動生成（需從 pool 取，改為簡化：要求 code 在跨服務 tx 內必須提供）
+        let code = match req
+            .code
+            .as_ref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+        {
+            Some(provided_code) => provided_code.to_string(),
+            None => {
+                return Err(AppError::Validation(
+                    "Warehouse code required in transaction context".to_string(),
+                ))
+            }
+        };
 
         // tx 內檢查 code 唯一
         let exists: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM warehouses WHERE code = $1)")
                 .bind(&code)
-                .fetch_one(&mut *tx)
+                .fetch_one(&mut **tx)
                 .await?;
 
         if exists {
@@ -107,12 +138,12 @@ impl WarehouseService {
         .bind(&code)
         .bind(&req.name)
         .bind(&req.address)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
 
         let display = format!("{} ({})", warehouse.name, warehouse.code);
         AuditService::log_activity_tx(
-            &mut tx,
+            tx,
             actor,
             ActivityLogEntry {
                 event_category: "ERP",
@@ -124,9 +155,95 @@ impl WarehouseService {
         )
         .await?;
 
-        tx.commit().await?;
-
         Ok(warehouse)
+    }
+
+    /// Transaction 版本：更新倉庫（用於跨服務原子操作）
+    pub(super) async fn update_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+        req: &UpdateWarehouseRequest,
+    ) -> Result<Warehouse> {
+        let before = sqlx::query_as::<_, Warehouse>(
+            "SELECT * FROM warehouses WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Warehouse not found".to_string()))?;
+
+        let after = sqlx::query_as::<_, Warehouse>(
+            r#"
+            UPDATE warehouses SET
+                name = COALESCE($1, name),
+                address = COALESCE($2, address),
+                is_active = COALESCE($3, is_active),
+                updated_at = NOW()
+            WHERE id = $4
+            RETURNING *
+            "#,
+        )
+        .bind(&req.name)
+        .bind(&req.address)
+        .bind(req.is_active)
+        .bind(id)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        let display = format!("{} ({})", after.name, after.code);
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "WAREHOUSE_UPDATE",
+                entity: Some(AuditEntity::new("warehouse", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        Ok(after)
+    }
+
+    /// Transaction 版本：刪除倉庫（用於跨服務原子操作）
+    pub(super) async fn delete_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<()> {
+        let before = sqlx::query_as::<_, Warehouse>(
+            "SELECT * FROM warehouses WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Warehouse not found".to_string()))?;
+
+        let after = sqlx::query_as::<_, Warehouse>(
+            "UPDATE warehouses SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING *",
+        )
+        .bind(id)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        let display = format!("{} ({})", before.name, before.code);
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "WAREHOUSE_DELETE",
+                entity: Some(AuditEntity::new("warehouse", before.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        Ok(())
     }
 
     /// 取得倉庫列表
@@ -221,88 +338,17 @@ impl WarehouseService {
     ) -> Result<Warehouse> {
         let _user = actor.require_user()?;
         let mut tx = pool.begin().await?;
-
-        let before = sqlx::query_as::<_, Warehouse>(
-            "SELECT * FROM warehouses WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Warehouse not found".to_string()))?;
-
-        let after = sqlx::query_as::<_, Warehouse>(
-            r#"
-            UPDATE warehouses SET
-                name = COALESCE($1, name),
-                address = COALESCE($2, address),
-                is_active = COALESCE($3, is_active),
-                updated_at = NOW()
-            WHERE id = $4
-            RETURNING *
-            "#,
-        )
-        .bind(&req.name)
-        .bind(&req.address)
-        .bind(req.is_active)
-        .bind(id)
-        .fetch_one(&mut *tx)
-        .await?;
-
-        let display = format!("{} ({})", after.name, after.code);
-        AuditService::log_activity_tx(
-            &mut tx,
-            actor,
-            ActivityLogEntry {
-                event_category: "ERP",
-                event_type: "WAREHOUSE_UPDATE",
-                entity: Some(AuditEntity::new("warehouse", after.id, &display)),
-                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
-                request_context: None,
-            },
-        )
-        .await?;
-
+        let result = Self::update_tx(&mut tx, actor, id, req).await?;
         tx.commit().await?;
-
-        Ok(after)
+        Ok(result)
     }
 
     /// 刪除倉庫（軟刪除）— Service-driven audit
     pub async fn delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
         let _user = actor.require_user()?;
         let mut tx = pool.begin().await?;
-
-        let before = sqlx::query_as::<_, Warehouse>(
-            "SELECT * FROM warehouses WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Warehouse not found".to_string()))?;
-
-        let after = sqlx::query_as::<_, Warehouse>(
-            "UPDATE warehouses SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING *",
-        )
-        .bind(id)
-        .fetch_one(&mut *tx)
-        .await?;
-
-        let display = format!("{} ({})", before.name, before.code);
-        AuditService::log_activity_tx(
-            &mut tx,
-            actor,
-            ActivityLogEntry {
-                event_category: "ERP",
-                event_type: "WAREHOUSE_DELETE",
-                entity: Some(AuditEntity::new("warehouse", before.id, &display)),
-                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
-                request_context: None,
-            },
-        )
-        .await?;
-
+        Self::delete_tx(&mut tx, actor, id).await?;
         tx.commit().await?;
-
         Ok(())
     }
 
