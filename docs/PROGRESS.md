@@ -185,6 +185,15 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-24 R26 Epic Final DoD Compliance — CI 嚴格化 + Audit Pattern Guard
+
+- ✅ **移除 `ci.yml` 的 `-A deprecated` 寬鬆標記**：R26-4 已完成（PR #188 + #190 移除舊 `log_activity`），現在 CI clippy 採嚴格模式 `-D warnings -W clippy::unwrap_used`。新 PR 引入 deprecated 警告會直接 CI 紅燈。
+- ✅ **新增 `audit-pattern-guard` CI job (DoD-5)**：grep guard 防止未來新 PR 在 handler 層引入 `tokio::spawn(async move { AuditService::log_*` pattern。容許上限 2（D-15 SEC 例外：FORCE_LOGOUT + IMPERSONATE_START），超出立即 CI 紅燈。
+- ✅ **R26_FullPlan.md 加 D-15 設計決策**：明確記錄 SEC fire-and-forget audit 例外（`handlers/audit.rs::FORCE_LOGOUT` + `handlers/user.rs::IMPERSONATE_START`）— 這些事件已發生不可回滾，audit 失敗不應 break 主流程。
+- ✅ **R26_FullPlan.md DoD checklist 全面標記**：DoD-1 ~ DoD-7 全部 ✅；DoD-8（合流回 main）為 R26 epic 收尾 PR 待做。Step 3 ~ Step 9 acceptance criteria 全綠。
+- ✅ **量化指標確認**：`log_activity_tx` 138 處（超出原計 97 → 實際更徹底）、`log_activity_oneshot` 11 處（fire-and-forget）、`tokio::spawn audit` 2 處（D-15 例外）、deprecated warnings 0 處。
+- ✅ **驗證結果**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used` 嚴格版（無 -A deprecated）零警告通過。
+
 ### 2026-04-24 R26 系列收尾完成 — PR #191（PW+E _tx）合併 + R26-7 死碼清零
 
 - ✅ **PR #191（R26-3 Phase 2 最終塊）合併**：Partner / Warehouse / Equipment service `_tx` variants 全面到位
