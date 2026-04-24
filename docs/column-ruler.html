@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>欄寬調整工具 — 萬用版</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui,-apple-system,"Noto Sans TC",sans-serif; background:#f1f5f9; color:#1e293b; padding:24px; min-height:100vh; }
+h1  { font-size:18px; font-weight:700; margin-bottom:4px; }
+.sub { font-size:13px; color:#64748b; margin-bottom:20px; }
+.card { background:white; border-radius:10px; border:1px solid #e2e8f0; padding:16px 20px; margin-bottom:14px; }
+.card-title { font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em;
+  margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+.title-trigger { display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none; }
+.title-trigger:hover { color:#1e293b; }
+.chevron { display:inline-block; font-size:10px; color:#94a3b8; transition:transform .2s; width:10px; text-align:center; }
+.card.collapsed .chevron { transform:rotate(-90deg); }
+.card.collapsed .card-title { margin-bottom:0; }
+.card.collapsed .card-body { display:none; }
+
+/* Toolbar */
+.toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+.mode-bar { display:flex; gap:6px; }
+.mode-btn { padding:6px 16px; border-radius:6px; border:2px solid #cbd5e1; background:white; font-size:13px; font-weight:600; cursor:pointer; }
+.mode-btn.active { background:#2563eb; color:white; border-color:#2563eb; }
+.mode-note { font-size:12px; color:#94a3b8; }
+.primary-btn { padding:6px 14px; border-radius:6px; border:1.5px solid #2563eb; background:#2563eb; color:white; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.primary-btn:hover { background:#1d4ed8; border-color:#1d4ed8; }
+.primary-btn:active { transform:translateY(1px); }
+.ghost-btn { padding:6px 14px; border-radius:6px; border:1.5px solid #e2e8f0; background:white; color:#475569; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.ghost-btn:hover { background:#f8fafc; }
+
+/* Container width slider */
+.cw-row { display:flex; align-items:center; gap:10px; }
+.cw-row input[type=range] { flex:1; accent-color:#475569; }
+.cw-min, .cw-max { font-size:11px; color:#94a3b8; min-width:32px; }
+.cw-max { text-align:right; }
+.cw-val { font-size:14px; font-weight:700; min-width:60px; text-align:right; }
+.cw-hint { margin-top:8px; font-size:11px; color:#64748b; display:flex; gap:16px; flex-wrap:wrap; }
+.cw-hint b { color:#1e293b; }
+
+.mbadge { font-size:11px; font-weight:600; padding:3px 8px; border-radius:4px; white-space:nowrap; }
+.bc { background:#eff6ff; color:#2563eb; }
+.be { background:#f0fdf4; color:#15803d; }
+
+/* Ruler */
+.ruler-wrap { background:white; border-radius:10px; border:1px solid #e2e8f0; overflow:hidden; margin-bottom:14px; }
+.ruler-bar  { display:flex; height:52px; overflow:hidden; user-select:none; }
+.rseg { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-size:10px; font-weight:700; color:white; text-align:center; line-height:1.3;
+  border-right:1px solid rgba(255,255,255,.25); overflow:hidden; text-shadow:0 1px 2px rgba(0,0,0,.25); flex-shrink:0; }
+.rseg:last-child { border-right:none; }
+.handle { position:absolute; right:0; top:0; bottom:0; width:7px; cursor:ew-resize; z-index:2; }
+.handle::after { content:''; position:absolute; right:2px; top:50%; transform:translateY(-50%);
+  width:2px; height:16px; background:rgba(255,255,255,.45); border-radius:1px; transition:all .15s; }
+.handle:hover::after, .handle.active::after {
+  height:100%; top:0; transform:none;
+  background:rgba(255,255,255,.95); box-shadow:0 0 8px rgba(255,255,255,.5); }
+.rseg.fixed-col .handle { cursor:not-allowed; opacity:.4; }
+.rseg.fixed-col .handle::after { background:rgba(255,255,255,.2); }
+body.ruler-resizing, body.ruler-resizing * { cursor:ew-resize !important; user-select:none; }
+.ruler-foot { display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:space-between;
+  padding:6px 12px; font-size:11px; color:#64748b; background:#f8fafc; border-top:1px solid #e2e8f0; }
+.ruler-foot b { color:#1e293b; }
+
+/* Column config grid */
+.cols-config { display:grid; grid-template-columns:repeat(auto-fill,minmax(156px,1fr)); gap:8px; }
+.col-card { display:flex; flex-direction:column; gap:4px; padding:7px 8px; border-radius:6px; border:1px solid #e2e8f0; background:#fafafa; }
+.col-card.col-card-fixed { background:#fef3c7; border-color:#fde68a; }
+.col-head { display:flex; gap:4px; align-items:center; }
+.col-title { flex:1; border:1px solid #e2e8f0; border-radius:4px; padding:3px 6px;
+  font-size:11px; font-weight:600; color:#1e293b; background:white; outline:none; min-width:0; }
+.col-title:focus { border-color:#6366f1; }
+.col-row { display:flex; align-items:center; gap:5px; }
+.col-row.mini { font-size:10px; color:#94a3b8; gap:6px; }
+.col-row.mini label { display:flex; align-items:center; gap:2px; }
+.col-row.mini input { width:38px; padding:1px 3px; font-size:10px; border:1px solid #e2e8f0; border-radius:3px; }
+.type-sel { flex:1; padding:2px 4px; font-size:10px; border:1px solid #e2e8f0; border-radius:3px; background:white; min-width:0; }
+.type-sel:focus { outline:2px solid #6366f1; outline-offset:-1px; }
+.col-row input[type=color] { width:20px; height:20px; padding:0; border:1px solid #e2e8f0; border-radius:3px; cursor:pointer; background:white; flex-shrink:0; }
+.col-row input[type=range] { flex:1; min-width:0; }
+.spx { font-size:12px; font-weight:800; white-space:nowrap; min-width:40px; text-align:right; }
+.fix-lbl { display:flex; align-items:center; gap:5px; font-size:10px; color:#64748b; cursor:pointer; user-select:none; margin-top:1px; line-height:1.2; }
+.fix-lbl input { cursor:pointer; accent-color:#d97706; width:12px; height:12px; flex-shrink:0; }
+.col-card-fixed .fix-lbl { color:#b45309; font-weight:600; }
+.mini-btn { width:20px; height:20px; border-radius:3px; border:1px solid #e2e8f0; background:white; font-size:11px; color:#64748b; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0; flex-shrink:0; }
+.mini-btn:hover { background:#fee2e2; border-color:#fecaca; color:#dc2626; }
+
+/* Row editor */
+.rows-editor { display:flex; flex-direction:column; gap:10px; }
+.row-card { padding:10px; border-radius:8px; border:1px solid #e2e8f0; background:#fafafa; }
+.row-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px; color:#64748b; }
+.row-head b { color:#1e293b; }
+.cells-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+.cell-field { display:flex; flex-direction:column; gap:3px; }
+.cell-field > label { font-size:11px; color:#475569; font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:4px; }
+.t-tag { font-size:9px; padding:1px 5px; background:#e2e8f0; border-radius:3px; color:#64748b; font-weight:500; letter-spacing:.02em; }
+.cell-field input[type=text], .cell-field textarea {
+  border:1px solid #e2e8f0; border-radius:4px; padding:4px 7px;
+  font-size:12px; color:#1e293b; background:white; outline:none;
+  font-family:inherit; resize:vertical;
+}
+.cell-field input:focus, .cell-field textarea:focus { border-color:#6366f1; }
+.cell-muted { font-size:11px; color:#94a3b8; padding:4px 7px; border:1px dashed #e2e8f0; border-radius:4px; background:white; }
+
+/* Diff summary */
+.diff-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
+.diff-table th { padding:5px 8px; text-align:left; font-weight:600; color:#64748b; border-bottom:2px solid #e2e8f0; background:#f8fafc; }
+.diff-table td { padding:5px 8px; border-bottom:1px solid #f1f5f9; }
+.diff-table tr:last-child td { border-bottom:none; }
+.diff-same { color:#94a3b8; }
+.diff-wider { color:#15803d; font-weight:700; }
+.diff-narrower { color:#dc2626; font-weight:700; }
+
+/* Copy & code */
+.copy-btn { padding:5px 12px; border-radius:6px; border:1.5px solid #e2e8f0;
+  background:white; font-size:12px; font-weight:600; cursor:pointer; color:#475569; white-space:nowrap; }
+.copy-btn:hover { background:#f8fafc; }
+.copy-btn.ok { border-color:#10b981; color:#059669; }
+.code-box { background:#1e293b; color:#e2e8f0; border-radius:8px; padding:12px 14px;
+  font-family:"JetBrains Mono",monospace; font-size:12px; line-height:1.6; white-space:pre; overflow-x:auto; }
+
+/* Preview table */
+.preview-scroll { overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px; }
+table.preview { border-collapse:collapse; background:white; table-layout:fixed; }
+table.preview thead tr { background:#f8fafc; }
+table.preview th { padding:8px 10px; font-size:11px; font-weight:700; color:#475569;
+  white-space:normal; line-height:1.35; text-align:left;
+  border-bottom:2px solid #e2e8f0; vertical-align:bottom; }
+table.preview td { padding:8px 10px; font-size:12px; color:#334155;
+  border-bottom:1px solid #f1f5f9; vertical-align:middle; overflow:hidden; }
+table.preview tr:last-child td { border-bottom:none; }
+table.preview tr:hover td { background:#f8fafc; }
+table.preview .sth { position:sticky; right:0; background:#f8fafc; border-left:2px solid #e2e8f0 !important; text-align:right; z-index:1; }
+table.preview .std { position:sticky; right:0; background:white; border-left:2px solid #f1f5f9 !important; z-index:1; }
+table.preview tr:hover .std { background:#f8fafc; }
+
+.c-text { white-space:normal; word-break:break-word; line-height:1.5; }
+.c-nowrap { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.c-clamp2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden; line-height:1.35; word-break:break-all; }
+.c-center { text-align:center; }
+.badge { display:inline-flex; align-items:center; padding:2px 7px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap; }
+.badge.blue  { background:#dbeafe; color:#1d4ed8; }
+.badge.green { background:#dcfce7; color:#15803d; }
+.badge.amber { background:#fef3c7; color:#b45309; }
+.badge.red   { background:#fee2e2; color:#b91c1c; }
+.badge.muted { background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; }
+.badge.badge-v { writing-mode:vertical-rl; text-orientation:upright; padding:7px 3px;
+  line-height:1.1; letter-spacing:.05em; }
+
+.ag { display:grid; grid-template-columns:1fr 1fr; gap:2px; }
+.ico { width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+  border-radius:5px; border:none; background:transparent; cursor:pointer; font-size:13px; }
+.ico:hover { background:#f1f5f9; }
+.ico.red  { color:#ef4444; }
+.ico.teal { color:#0d9488; }
+
+.empty { color:#cbd5e1; font-style:italic; font-size:11px; }
+</style>
+</head>
+<body>
+
+<h1>📐 欄寬調整工具（萬用版）</h1>
+<p class="sub">自訂欄位（標題/類型/色彩/寬度）→ 填入範例資料 → 拖 slider 調寬度 → 勾選固定 + 重新計算自動分配 → 匯出</p>
+
+<!-- Toolbar card -->
+<div class="card">
+  <div class="toolbar">
+    <div class="mode-bar">
+      <button class="mode-btn active" id="btn-c" onclick="setMode('c')">壓縮版</button>
+      <button class="mode-btn" id="btn-e" onclick="setMode('e')">展開版</button>
+    </div>
+    <button class="primary-btn" onclick="recalculate()">🔁 重新計算欄寬</button>
+    <button class="ghost-btn" onclick="resetAll()">↻ 重設預設</button>
+    <span class="mode-note">兩組寬度設定獨立，類型/標題/資料共用</span>
+  </div>
+
+  <div class="cw-row">
+    <span class="cw-min">400</span>
+    <input type="range" id="cw-slider" min="400" max="1800" value="900" oninput="onCW(+this.value)">
+    <span class="cw-max">1800</span>
+    <span class="cw-val" id="cw-val">900 px</span>
+    <span id="cw-badge" class="mbadge bc">壓縮版觸發中</span>
+  </div>
+  <div class="cw-hint">
+    <span>閾值 <b>762 px</b> — 低於此值套用壓縮版</span>
+    <span id="cw-status" style="font-weight:600;color:#2563eb">目前：壓縮版</span>
+    <span>「重新計算」會保留固定欄，其餘依現有比例分配</span>
+  </div>
+</div>
+
+<!-- Ruler -->
+<div class="ruler-wrap">
+  <div class="ruler-bar" id="ruler"></div>
+  <div class="ruler-foot" id="ruler-foot"></div>
+</div>
+
+<!-- Column config -->
+<div class="card" id="card-cols">
+  <div class="card-title">
+    <span class="title-trigger" onclick="toggleCollapse('cols')">
+      <span class="chevron">▾</span>
+      ⚙ 欄位設定（<span id="col-count">0</span> 欄）
+    </span>
+    <button class="primary-btn" onclick="addCol()">+ 新增欄位</button>
+  </div>
+  <div class="card-body">
+    <div class="cols-config" id="cols-config"></div>
+  </div>
+</div>
+
+<!-- Row editor -->
+<div class="card" id="card-rows">
+  <div class="card-title">
+    <span class="title-trigger" onclick="toggleCollapse('rows')">
+      <span class="chevron">▾</span>
+      📝 範例資料（<span id="row-count">0</span> 列）
+    </span>
+    <button class="primary-btn" onclick="addRow()">+ 新增列</button>
+  </div>
+  <div class="card-body">
+    <div class="rows-editor" id="rows-editor"></div>
+  </div>
+</div>
+
+<!-- Diff -->
+<div class="card" id="card-diff">
+  <div class="card-title">
+    <span class="title-trigger" onclick="toggleCollapse('diff')">
+      <span class="chevron">▾</span>
+      壓縮版 vs 展開版 寬度差異
+    </span>
+  </div>
+  <div class="card-body">
+    <table class="diff-table" id="diff-table"></table>
+  </div>
+</div>
+
+<!-- Preview -->
+<div class="card">
+  <div class="card-title">
+    即時預覽
+    <span id="preview-badge" class="mbadge bc">壓縮版</span>
+  </div>
+  <div class="preview-scroll" id="preview-scroll">
+    <table class="preview" id="preview-table">
+      <colgroup id="colgroup"></colgroup>
+      <thead><tr id="thead-row"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Export -->
+<div class="card">
+  <div class="card-title">
+    匯出寬度設定
+    <button class="copy-btn" id="copy-btn" onclick="copyCode()">📋 複製</button>
+  </div>
+  <pre class="code-box" id="code-box"></pre>
+</div>
+
+<script>
+// ── Content types ───────────────────────────────────────────
+const TYPES = {
+  text:    { label:'文字',  hint:'自由文字，自動換行' },
+  nowrap:  { label:'單行',  hint:'單行省略，適合日期 / 數字' },
+  clamp2:  { label:'雙行',  hint:'最多 2 行，超過以省略號截斷' },
+  center:  { label:'置中',  hint:'置中單字元，例：▾ ✅ ❌' },
+  badge:   { label:'徽章',  hint:'格式 色:文字，例 blue:觀察紀錄（藍/綠/琥珀/紅/灰）' },
+  vbadge:  { label:'直向徽章', hint:'直向徽章，格式 色:文字（窄欄省空間）' },
+  actions: { label:'操作',  hint:'固定 6 icon（👁✏️📋📜🩺🗑）不需輸入' },
+}
+const BADGE_COLORS = ['blue','green','amber','red','muted']
+const THRESHOLD = 762
+const STORAGE_KEY = 'column-ruler-state-v2'
+
+// ── Defaults ────────────────────────────────────────────────
+function defaultState() {
+  return {
+    mode: 'c',
+    containerW: 900,
+    colCounter: 8,
+    cols: [
+      { key:'c1', title:'',         type:'center',  color:'#94a3b8', min:24, max:80,  fixed:true  },
+      { key:'c2', title:'事件日期', type:'clamp2',  color:'#3b82f6', min:48, max:200, fixed:false },
+      { key:'c3', title:'紀錄性質', type:'badge',   color:'#8b5cf6', min:48, max:180, fixed:false },
+      { key:'c4', title:'內容',     type:'text',    color:'#10b981', min:120,max:800, fixed:false },
+      { key:'c5', title:'停止用藥', type:'center',  color:'#f97316', min:44, max:140, fixed:false },
+      { key:'c6', title:'獸醫師讀取', type:'badge', color:'#ec4899', min:56, max:180, fixed:false },
+      { key:'c7', title:'記錄者',   type:'text',    color:'#a855f7', min:40, max:220, fixed:false },
+      { key:'c8', title:'操作',     type:'actions', color:'#64748b', min:60, max:160, fixed:true  },
+    ],
+    widths: {
+      c: { c1:40, c2:72,  c3:72,  c4:346, c5:52, c6:72,  c7:80,  c8:80 },
+      e: { c1:40, c2:100, c3:96,  c4:346, c5:80, c6:96,  c7:120, c8:80 },
+    },
+    rows: [
+      { cells:{ c1:'▾', c2:'2026/4/10', c3:'blue:觀察紀錄',  c4:'使用血壓計、體溫計進行例行檢查，動物狀態正常，食慾良好，無異常行為。',       c5:'✅', c6:'green:已讀', c7:'王大明',         c8:'' } },
+      { cells:{ c1:'▾', c2:'2026/4/8',  c3:'green:試驗紀錄', c4:'第一組注射 0.5ml 測試藥物，觀察期 24h，右耳出現輕微發紅反應。',              c5:'',   c6:'muted:未讀', c7:'李小華',         c8:'' } },
+      { cells:{ c1:'▾', c2:'2026/3/31', c3:'amber:異常紀錄', c4:'發現動物右後肢跛行，無法正常站立，緊急通報獸醫師介入處理。',                c5:'✅', c6:'green:已讀', c7:'張美麗研究員',   c8:'' } },
+    ],
+    collapsed: { cols:false, rows:false, diff:false },
+  }
+}
+
+// ── State (with localStorage) ───────────────────────────────
+let state = loadState() || defaultState()
+
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch {}
+}
+function loadState() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY)
+    if (!s) return null
+    const p = JSON.parse(s)
+    if (p && Array.isArray(p.cols) && p.widths && Array.isArray(p.rows)) return p
+  } catch {}
+  return null
+}
+function resetAll() {
+  if (!confirm('確定要重設為預設值？目前編輯將會遺失。')) return
+  state = defaultState()
+  saveState()
+  renderAll(true)
+}
+
+// ── Helpers ─────────────────────────────────────────────────
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+const totalW  = m => state.cols.reduce((s,c) => s + (state.widths[m][c.key] || 0), 0)
+const fixedSum = m => state.cols.filter(c => c.fixed).reduce((s,c) => s + (state.widths[m][c.key] || 0), 0)
+const clamp = (c, v) => Math.max(c.min, Math.min(c.max, v))
+const findCol = key => state.cols.find(c => c.key === key)
+
+function renderCell(type, value) {
+  const v = value || ''
+  switch (type) {
+    case 'text':   return `<div class="c-text">${esc(v) || '<span class="empty">—</span>'}</div>`
+    case 'nowrap': return `<div class="c-nowrap" title="${esc(v)}">${esc(v) || '<span class="empty">—</span>'}</div>`
+    case 'clamp2': return `<div class="c-clamp2" title="${esc(v)}">${esc(v) || '<span class="empty">—</span>'}</div>`
+    case 'center': return `<div class="c-center">${esc(v)}</div>`
+    case 'badge':
+    case 'vbadge': {
+      const idx = v.indexOf(':')
+      const color = idx > -1 ? v.slice(0, idx).trim() : 'muted'
+      const text  = idx > -1 ? v.slice(idx + 1).trim() : v
+      if (!text) return ''
+      const cls = BADGE_COLORS.includes(color) ? color : 'muted'
+      const v$ = type === 'vbadge' ? ' badge-v' : ''
+      return `<span class="badge${v$} ${cls}">${esc(text)}</span>`
+    }
+    case 'actions': return `<div class="ag">
+      <button class="ico">👁</button><button class="ico">✏️</button>
+      <button class="ico">📋</button><button class="ico">📜</button>
+      <button class="ico teal">🩺</button><button class="ico red">🗑</button>
+    </div>`
+    default: return esc(v)
+  }
+}
+
+// ── Renderers ───────────────────────────────────────────────
+function renderAll(rebuildEditors) {
+  updateModeUI()
+  updateContainerUI()
+  renderRuler()
+  if (rebuildEditors) {
+    renderColsConfig()
+    renderRowsEditor()
+  }
+  renderTable()
+  renderDiff()
+  renderCode()
+  applyCollapsed()
+  document.getElementById('col-count').textContent = state.cols.length
+  document.getElementById('row-count').textContent = state.rows.length
+}
+
+function applyCollapsed() {
+  const m = state.collapsed || {}
+  const colsCard = document.getElementById('card-cols')
+  const rowsCard = document.getElementById('card-rows')
+  const diffCard = document.getElementById('card-diff')
+  if (colsCard) colsCard.classList.toggle('collapsed', !!m.cols)
+  if (rowsCard) rowsCard.classList.toggle('collapsed', !!m.rows)
+  if (diffCard) diffCard.classList.toggle('collapsed', !!m.diff)
+}
+
+function toggleCollapse(key) {
+  if (!state.collapsed) state.collapsed = {}
+  state.collapsed[key] = !state.collapsed[key]
+  applyCollapsed()
+  saveState()
+}
+
+function updateModeUI() {
+  document.getElementById('btn-c').classList.toggle('active', state.mode === 'c')
+  document.getElementById('btn-e').classList.toggle('active', state.mode === 'e')
+  document.getElementById('preview-badge').textContent = state.mode === 'c' ? '壓縮版' : '展開版'
+  document.getElementById('preview-badge').className = 'mbadge ' + (state.mode === 'c' ? 'bc' : 'be')
+}
+
+function updateContainerUI() {
+  const isC = state.containerW < THRESHOLD
+  document.getElementById('cw-slider').value = state.containerW
+  document.getElementById('cw-val').textContent = state.containerW + ' px'
+  document.getElementById('cw-status').textContent = '目前：' + (isC ? '壓縮版' : '展開版')
+  document.getElementById('cw-status').style.color = isC ? '#2563eb' : '#15803d'
+  document.getElementById('cw-badge').textContent = isC ? '壓縮版觸發中' : '展開版觸發中'
+  document.getElementById('cw-badge').className = 'mbadge ' + (isC ? 'bc' : 'be')
+}
+
+function renderRuler() {
+  const m = state.mode
+  document.getElementById('ruler').innerHTML = state.cols.map(c => {
+    const w = state.widths[m][c.key] || 0
+    const narrow = w < 58
+    const txt = narrow ? `${w}` : `${esc(c.title) || '—'}<br>${w}px`
+    const fixedCls = c.fixed ? ' fixed-col' : ''
+    const title = c.fixed ? '此欄已固定，無法拖動' : `拖動調整「${esc(c.title) || c.key}」寬度`
+    return `<div class="rseg${fixedCls}" data-key="${c.key}" style="width:${w}px;background:${c.color}">${txt}<div class="handle" title="${title}" onmousedown="onHandleDown(event,'${c.key}')"></div></div>`
+  }).join('')
+
+  const tw = totalW(m)
+  const diff = state.containerW - tw
+  let txt, color
+  if (diff === 0)    { txt = '✔ 剛好吻合';        color = '#15803d' }
+  else if (diff > 0) { txt = `容器剩餘 ${diff} px`; color = '#2563eb' }
+  else               { txt = `溢出 ${-diff} px`;   color = '#dc2626' }
+
+  document.getElementById('ruler-foot').innerHTML =
+    `<span>總欄寬：<b>${tw} px</b></span>` +
+    `<span>容器寬：<b>${state.containerW} px</b></span>` +
+    `<span>固定欄合計：<b>${fixedSum(m)} px</b></span>` +
+    `<span style="color:${color};font-weight:600">${txt}</span>`
+}
+
+function renderColsConfig() {
+  const m = state.mode
+  document.getElementById('cols-config').innerHTML = state.cols.map(c => {
+    const val = state.widths[m][c.key] || 0
+    return `
+      <div class="col-card${c.fixed ? ' col-card-fixed' : ''}">
+        <div class="col-head">
+          <input class="col-title" value="${esc(c.title)}" placeholder="欄位標題"
+            oninput="updateColTitle('${c.key}',this.value)">
+          <button class="mini-btn" onclick="removeCol('${c.key}')" title="刪除欄位">✕</button>
+        </div>
+        <div class="col-row">
+          <select class="type-sel" onchange="updateColType('${c.key}',this.value)">
+            ${Object.entries(TYPES).map(([k,v]) =>
+              `<option value="${k}"${c.type === k ? ' selected' : ''}>${v.label}</option>`
+            ).join('')}
+          </select>
+          <input type="color" value="${c.color}" onchange="updateColColor('${c.key}',this.value)" title="欄位色彩">
+        </div>
+        <div class="col-row">
+          <input type="range" min="${c.min}" max="${c.max}" value="${val}"
+            style="accent-color:${c.color}"
+            oninput="updateColWidth('${c.key}',+this.value)">
+          <span class="spx" id="spx-${c.key}" style="color:${c.color}">${val}px</span>
+        </div>
+        <div class="col-row mini">
+          <label>min <input type="number" value="${c.min}" min="0" max="1000"
+            onchange="updateColMin('${c.key}',+this.value)"></label>
+          <label>max <input type="number" value="${c.max}" min="0" max="1000"
+            onchange="updateColMax('${c.key}',+this.value)"></label>
+        </div>
+        <label class="fix-lbl" title="勾選後按「重新計算」時此欄寬度不變動">
+          <input type="checkbox" ${c.fixed ? 'checked' : ''}
+            onchange="toggleFix('${c.key}',this.checked)">
+          <span>🔒 固定</span>
+        </label>
+      </div>`
+  }).join('')
+}
+
+function renderRowsEditor() {
+  document.getElementById('rows-editor').innerHTML = state.rows.map((r, i) => `
+    <div class="row-card">
+      <div class="row-head">
+        <b>第 ${i + 1} 列</b>
+        <button class="mini-btn" onclick="removeRow(${i})" title="刪除此列">✕ 刪除</button>
+      </div>
+      <div class="cells-grid">
+        ${state.cols.map(c => {
+          const meta = TYPES[c.type] || TYPES.text
+          const title = esc(c.title) || '<span class="empty">(無標題)</span>'
+          const tag = `<span class="t-tag">${meta.label}</span>`
+          if (c.type === 'actions') return `
+            <div class="cell-field">
+              <label>${title} ${tag}</label>
+              <div class="cell-muted">（固定 6 icon，無需輸入）</div>
+            </div>`
+          const val = r.cells[c.key] || ''
+          const ph = esc(meta.hint || '')
+          const field = c.type === 'text'
+            ? `<textarea rows="2" placeholder="${ph}"
+                 oninput="updateCell(${i},'${c.key}',this.value)">${esc(val)}</textarea>`
+            : `<input type="text" value="${esc(val)}" placeholder="${ph}"
+                 oninput="updateCell(${i},'${c.key}',this.value)">`
+          return `<div class="cell-field"><label>${title} ${tag}</label>${field}</div>`
+        }).join('')}
+      </div>
+    </div>
+  `).join('')
+}
+
+function renderTable() {
+  const m = state.mode, w = state.widths[m]
+  const total = totalW(m)
+  const lastIdx = state.cols.length - 1
+  const stickyLast = state.cols[lastIdx] && state.cols[lastIdx].type === 'actions'
+
+  document.getElementById('colgroup').innerHTML =
+    state.cols.map(c => `<col style="width:${w[c.key]}px">`).join('')
+
+  document.getElementById('preview-table').style.minWidth = total + 'px'
+  document.getElementById('preview-scroll').style.maxWidth = state.containerW + 'px'
+
+  document.getElementById('thead-row').innerHTML = state.cols.map((c, i) => {
+    const st = stickyLast && i === lastIdx ? ' class="sth"' : ''
+    return `<th${st} style="width:${w[c.key]}px">${esc(c.title)}</th>`
+  }).join('')
+
+  document.getElementById('tbody').innerHTML = state.rows.map(r =>
+    '<tr>' + state.cols.map((c, i) => {
+      const st = stickyLast && i === lastIdx ? ' class="std"' : ''
+      return `<td${st}>${renderCell(c.type, r.cells[c.key])}</td>`
+    }).join('') + '</tr>'
+  ).join('')
+}
+
+function renderDiff() {
+  const rows = state.cols.map(c => {
+    const cv = state.widths.c[c.key] || 0
+    const ev = state.widths.e[c.key] || 0
+    const d  = ev - cv
+    let cls = 'diff-same', arrow = '='
+    if (d > 0) { cls = 'diff-wider';    arrow = `▲ +${d}` }
+    if (d < 0) { cls = 'diff-narrower'; arrow = `▼ ${d}` }
+    const label = esc(c.title) || '(無標題)'
+    return `<tr>
+      <td style="color:${c.color};font-weight:600">${label}</td>
+      <td>${cv} px</td><td>${ev} px</td>
+      <td class="${cls}">${arrow}</td>
+    </tr>`
+  }).join('')
+
+  document.getElementById('diff-table').innerHTML = `
+    <thead><tr><th>欄位</th><th>壓縮版</th><th>展開版</th><th>差異</th></tr></thead>
+    <tbody>${rows}</tbody>`
+}
+
+function renderCode() {
+  const tc = totalW('c'), te = totalW('e')
+  const kv = m => state.cols.map(c =>
+    `    ${c.key.padEnd(7)}: ${String(state.widths[m][c.key] || 0).padStart(3)}, // ${c.title || '(無標題)'}`
+  ).join('\n')
+
+  const code = [
+    `// 欄位寬度設定（壓縮閾值 ${THRESHOLD}px）`,
+    `const COL_WIDTHS = {`,
+    `  compressed: { // 總寬 ${tc}px`,
+    kv('c'),
+    `  },`,
+    `  expanded: { // 總寬 ${te}px`,
+    kv('e'),
+    `  },`,
+    `} as const`,
+  ].join('\n')
+
+  document.getElementById('code-box').textContent = code
+}
+
+// ── Handlers ────────────────────────────────────────────────
+function setMode(m) {
+  state.mode = m
+  saveState()
+  renderAll(true)
+}
+
+function onCW(v) {
+  state.containerW = v
+  updateContainerUI()
+  renderRuler()
+  renderTable()
+  saveState()
+}
+
+function updateColTitle(key, v) {
+  const c = findCol(key); if (!c) return
+  c.title = v
+  renderRuler()
+  renderTable()
+  renderDiff()
+  saveState()
+  // row editor labels also show titles — update without re-render by targeting DOM? Skip (only shown when next re-render).
+}
+
+function updateColType(key, v) {
+  const c = findCol(key); if (!c) return
+  c.type = v
+  renderRowsEditor() // different input type
+  renderTable()
+  saveState()
+}
+
+function updateColColor(key, v) {
+  const c = findCol(key); if (!c) return
+  c.color = v
+  renderColsConfig()
+  renderRuler()
+  renderDiff()
+  saveState()
+}
+
+function updateColWidth(key, v) {
+  const c = findCol(key); if (!c) return
+  v = clamp(c, v)
+  state.widths[state.mode][key] = v
+  const el = document.getElementById('spx-' + key)
+  if (el) el.textContent = v + 'px'
+  renderRuler()
+  renderTable()
+  renderDiff()
+  renderCode()
+  saveState()
+}
+
+function updateColMin(key, v) {
+  const c = findCol(key); if (!c) return
+  c.min = Math.max(0, v)
+  ;['c','e'].forEach(m => {
+    if (state.widths[m][key] < c.min) state.widths[m][key] = c.min
+  })
+  renderColsConfig()
+  renderRuler()
+  renderTable()
+  renderDiff()
+  renderCode()
+  saveState()
+}
+
+function updateColMax(key, v) {
+  const c = findCol(key); if (!c) return
+  c.max = Math.max(c.min, v)
+  ;['c','e'].forEach(m => {
+    if (state.widths[m][key] > c.max) state.widths[m][key] = c.max
+  })
+  renderColsConfig()
+  renderRuler()
+  renderTable()
+  renderDiff()
+  renderCode()
+  saveState()
+}
+
+function toggleFix(key, checked) {
+  const c = findCol(key); if (!c) return
+  c.fixed = checked
+  renderColsConfig()
+  renderRuler()
+  saveState()
+}
+
+function addCol() {
+  const key = 'c' + (++state.colCounter)
+  const newCol = {
+    key, title:`欄位 ${state.cols.length + 1}`, type:'text',
+    color:'#64748b', min:48, max:240, fixed:false,
+  }
+  state.cols.push(newCol)
+  state.widths.c[key] = 100
+  state.widths.e[key] = 120
+  state.rows.forEach(r => r.cells[key] = '')
+  renderAll(true)
+  saveState()
+}
+
+function removeCol(key) {
+  if (state.cols.length <= 1) { alert('至少要保留 1 個欄位'); return }
+  if (!confirm('確定刪除此欄位？該欄的資料也會一併移除。')) return
+  state.cols = state.cols.filter(c => c.key !== key)
+  delete state.widths.c[key]
+  delete state.widths.e[key]
+  state.rows.forEach(r => delete r.cells[key])
+  renderAll(true)
+  saveState()
+}
+
+function addRow() {
+  const cells = {}
+  state.cols.forEach(c => cells[c.key] = '')
+  state.rows.push({ cells })
+  renderRowsEditor()
+  renderTable()
+  document.getElementById('row-count').textContent = state.rows.length
+  saveState()
+}
+
+function removeRow(i) {
+  state.rows.splice(i, 1)
+  renderRowsEditor()
+  renderTable()
+  document.getElementById('row-count').textContent = state.rows.length
+  saveState()
+}
+
+function updateCell(i, key, v) {
+  if (!state.rows[i]) return
+  state.rows[i].cells[key] = v
+  renderTable()
+  saveState()
+}
+
+// ── Drag resize on ruler ────────────────────────────────────
+function onHandleDown(e, key) {
+  e.preventDefault()
+  e.stopPropagation()
+  const col = findCol(key)
+  if (!col || col.fixed) return
+
+  const m = state.mode
+  const startX = e.clientX
+  const startW = state.widths[m][key] || 0
+  const handle = e.currentTarget
+  handle.classList.add('active')
+  document.body.classList.add('ruler-resizing')
+
+  const onMove = ev => {
+    const delta = ev.clientX - startX
+    const newW = clamp(col, startW + delta)
+    if (state.widths[m][key] === newW) return
+    state.widths[m][key] = newW
+
+    // Light updates (skip rebuilding editor cards to preserve focus)
+    renderRuler()   // rebuild ruler (handle reattaches; drag listeners are on document, so drag continues)
+    renderTable()
+    renderDiff()
+    renderCode()
+    const sliderInput = document.querySelector(`.cols-config [oninput*="updateColWidth('${key}'"]`)
+    if (sliderInput) sliderInput.value = newW
+    const spx = document.getElementById('spx-' + key)
+    if (spx) spx.textContent = newW + 'px'
+  }
+  const onUp = () => {
+    document.body.classList.remove('ruler-resizing')
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+    saveState()
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
+
+// ── Recalculate ─────────────────────────────────────────────
+function recalculate() {
+  const m = state.mode
+  const unfixed = state.cols.filter(c => !c.fixed)
+  if (unfixed.length === 0) return
+
+  const minSum = unfixed.reduce((s,c) => s + c.min, 0)
+  const target = Math.max(minSum, state.containerW - fixedSum(m))
+  const curSum = unfixed.reduce((s,c) => s + (state.widths[m][c.key] || 0), 0) || unfixed.length
+
+  unfixed.forEach(c => {
+    const ratio = ((state.widths[m][c.key] || 1)) / curSum
+    state.widths[m][c.key] = clamp(c, Math.round(target * ratio))
+  })
+
+  // Absorb rounding/clamp delta into the widest unfixed column
+  const actual = unfixed.reduce((s,c) => s + state.widths[m][c.key], 0)
+  let delta = target - actual
+  if (delta !== 0) {
+    const absorber = unfixed.slice().sort((a,b) => state.widths[m][b.key] - state.widths[m][a.key])[0]
+    const before = state.widths[m][absorber.key]
+    state.widths[m][absorber.key] = clamp(absorber, before + delta)
+    delta = (before + delta) - state.widths[m][absorber.key]
+    if (delta !== 0) {
+      for (const c of unfixed) {
+        if (c.key === absorber.key) continue
+        const nv = clamp(c, state.widths[m][c.key] + delta)
+        delta -= (nv - state.widths[m][c.key])
+        state.widths[m][c.key] = nv
+        if (delta === 0) break
+      }
+    }
+  }
+
+  renderColsConfig()
+  renderRuler()
+  renderTable()
+  renderDiff()
+  renderCode()
+  saveState()
+}
+
+// ── Copy code ───────────────────────────────────────────────
+function copyCode() {
+  const code = document.getElementById('code-box').textContent
+  navigator.clipboard?.writeText(code).then(() => {
+    const btn = document.getElementById('copy-btn')
+    const orig = btn.textContent
+    btn.textContent = '✅ 已複製'
+    btn.classList.add('ok')
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('ok') }, 1500)
+  })
+}
+
+// ── Init ────────────────────────────────────────────────────
+renderAll(true)
+</script>
+</body>
+</html>

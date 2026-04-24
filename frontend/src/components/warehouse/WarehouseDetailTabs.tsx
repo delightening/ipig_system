@@ -15,10 +15,13 @@ import {
     Package,
     Edit3,
     Check,
+    PackagePlus,
 } from 'lucide-react'
+import { useState } from 'react'
 import { formatUom } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { AssignToShelfDialog } from '@/pages/inventory/components/AssignToShelfDialog'
 
 interface WarehouseDetailTabsProps {
     warehouse: Warehouse | undefined
@@ -315,25 +318,12 @@ export function WarehouseDetailTabs({
                                             <SortableTableHead sortKey="qty_on_warehouse" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">倉庫總庫存</SortableTableHead>
                                             <SortableTableHead sortKey="qty_on_shelves" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">已在儲位</SortableTableHead>
                                             <SortableTableHead sortKey="qty_unassigned" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">未分配數量</SortableTableHead>
+                                            <TableHead className="w-[120px] text-right">操作</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {sortedUnassigned.map((item) => (
-                                            <TableRow key={`${item.warehouse_id}-${item.product_id}`}>
-                                                <TableCell>
-                                                    <div className="font-medium text-sm">{item.product_name}</div>
-                                                    <div className="text-[11px] text-muted-foreground font-mono">{item.product_sku}</div>
-                                                </TableCell>
-                                                <TableCell className="text-right text-sm">
-                                                    {parseFloat(item.qty_on_warehouse).toLocaleString()} {formatUom(item.base_uom)}
-                                                </TableCell>
-                                                <TableCell className="text-right text-sm text-muted-foreground">
-                                                    {parseFloat(item.qty_on_shelves).toLocaleString()} {formatUom(item.base_uom)}
-                                                </TableCell>
-                                                <TableCell className="text-right font-semibold text-status-warning-text text-sm">
-                                                    {parseFloat(item.qty_unassigned).toLocaleString()} {formatUom(item.base_uom)}
-                                                </TableCell>
-                                            </TableRow>
+                                            <UnassignedRow key={`${item.warehouse_id}-${item.product_id}`} item={item} />
                                         ))}
                                     </TableBody>
                                 </Table>
@@ -343,5 +333,46 @@ export function WarehouseDetailTabs({
                 </Card>
             </TabsContent>
         </Tabs>
+    )
+}
+
+function UnassignedRow({ item }: { item: UnassignedInventoryItem }) {
+    const [open, setOpen] = useState(false)
+    const unassignedQty = parseFloat(item.qty_unassigned)
+    return (
+        <>
+            <TableRow>
+                <TableCell>
+                    <div className="font-medium text-sm">{item.product_name}</div>
+                    <div className="text-[11px] text-muted-foreground font-mono">{item.product_sku}</div>
+                </TableCell>
+                <TableCell className="text-right text-sm">
+                    {parseFloat(item.qty_on_warehouse).toLocaleString()} {formatUom(item.base_uom)}
+                </TableCell>
+                <TableCell className="text-right text-sm text-muted-foreground">
+                    {parseFloat(item.qty_on_shelves).toLocaleString()} {formatUom(item.base_uom)}
+                </TableCell>
+                <TableCell className="text-right font-semibold text-status-warning-text text-sm">
+                    {unassignedQty.toLocaleString()} {formatUom(item.base_uom)}
+                </TableCell>
+                <TableCell className="text-right">
+                    <Button size="sm" variant="outline" className="h-7 gap-1.5" onClick={() => setOpen(true)}>
+                        <PackagePlus className="h-3.5 w-3.5" />
+                        分配
+                    </Button>
+                </TableCell>
+            </TableRow>
+            <AssignToShelfDialog
+                open={open}
+                onOpenChange={setOpen}
+                warehouseId={item.warehouse_id}
+                warehouseName={item.warehouse_name}
+                productId={item.product_id}
+                productName={item.product_name}
+                productSku={item.product_sku}
+                unassignedQty={unassignedQty}
+                baseUom={item.base_uom}
+            />
+        </>
     )
 }

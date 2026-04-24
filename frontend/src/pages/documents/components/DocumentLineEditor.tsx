@@ -38,6 +38,7 @@ interface DocumentLineEditorProps {
   handleBatchChange: (lineId: string, batchNo: string, expiryDate?: string, sourceIacuc?: string) => void
   handleLineBlur: (lineId: string) => void
   updateLineAmount: (lineId: string) => void
+  updateLineField: <K extends keyof DocumentLine>(lineId: string, field: K, value: DocumentLine[K]) => void
   setFormData: React.Dispatch<React.SetStateAction<DocumentFormData>>
   needsShelf: boolean
   poReceiptStatus?: PoReceiptStatus
@@ -62,6 +63,7 @@ export function DocumentLineEditor({
   handleBatchChange,
   handleLineBlur,
   updateLineAmount,
+  updateLineField,
   setFormData,
   needsShelf,
   poReceiptStatus,
@@ -113,10 +115,10 @@ export function DocumentLineEditor({
       }))
 
       // Sync uncontrolled input refs (defaultValue won't update existing DOM elements)
+      // qty 已為 controlled input，不需直接寫 DOM ref
       if (isPoLinkedGrn && extraData) {
         const refs = inputRefs.current[activeLineId]
         if (refs?.unit_price) refs.unit_price.value = extraData.unit_price ? String(extraData.unit_price) : ''
-        if (refs?.qty) refs.qty.value = extraData.remaining_qty ? String(extraData.remaining_qty) : ''
       }
       if (extraData && !isPoLinkedGrn) {
         const refs = inputRefs.current[activeLineId]
@@ -192,6 +194,7 @@ export function DocumentLineEditor({
                         onBatchChange={handleBatchChange}
                         onLineBlur={handleLineBlur}
                         onUpdateLineAmount={updateLineAmount}
+                        updateLineField={updateLineField}
                         onRemoveLine={removeLine}
                         setFormData={setFormData}
                         products={products}
@@ -217,6 +220,7 @@ export function DocumentLineEditor({
                     onBatchChange={handleBatchChange}
                     onLineBlur={handleLineBlur}
                     onUpdateLineAmount={updateLineAmount}
+                    updateLineField={updateLineField}
                     onRemoveLine={removeLine}
                     setFormData={setFormData}
                     products={products}
@@ -262,6 +266,7 @@ interface LineRowProps {
   onBatchChange: (lineId: string, batchNo: string, expiryDate?: string, sourceIacuc?: string) => void
   onLineBlur: (lineId: string) => void
   onUpdateLineAmount: (lineId: string) => void
+  updateLineField: <K extends keyof DocumentLine>(lineId: string, field: K, value: DocumentLine[K]) => void
   onRemoveLine: (lineId: string) => void
   setFormData: React.Dispatch<React.SetStateAction<DocumentFormData>>
   products: Product[] | undefined
@@ -280,6 +285,7 @@ function LineRow({
   onBatchChange,
   onLineBlur,
   onUpdateLineAmount,
+  updateLineField,
   onRemoveLine,
   setFormData,
   products,
@@ -291,7 +297,6 @@ function LineRow({
   const showExpiry = !product || product.track_expiry
   const showBatch = !product || product.track_batch
 
-  const qtyDefault = String(line.qty || '')
   const unitPriceDefault = String(line.unit_price || '')
   const expiryDateDefault = String(line.expiry_date || '')
   const batchNoDefault = String(line.batch_no || '')
@@ -325,11 +330,14 @@ function LineRow({
       <TableCell>
         <Input
           type="number"
-          defaultValue={qtyDefault}
+          value={line.qty ?? ''}
           ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].qty = el } }}
           className="text-right"
           min="0"
-          onChange={() => { if (showPriceColumns) onUpdateLineAmount(lineId) }}
+          onChange={(e) => {
+            updateLineField(lineId, 'qty', e.target.value)
+            if (showPriceColumns) onUpdateLineAmount(lineId)
+          }}
           onBlur={() => onLineBlur(lineId)}
         />
       </TableCell>
@@ -459,6 +467,7 @@ function LineCard({
   onBatchChange,
   onLineBlur,
   onUpdateLineAmount,
+  updateLineField,
   onRemoveLine,
   setFormData,
   products,
@@ -470,7 +479,6 @@ function LineCard({
   const showExpiry = !product || product.track_expiry
   const showBatch = !product || product.track_batch
 
-  const qtyDefault = String(line.qty || '')
   const unitPriceDefault = String(line.unit_price || '')
   const expiryDateDefault = String(line.expiry_date || '')
   const batchNoDefault = String(line.batch_no || '')
@@ -512,11 +520,14 @@ function LineCard({
           <Label className="text-xs text-muted-foreground">數量</Label>
           <Input
             type="number"
-            defaultValue={qtyDefault}
+            value={line.qty ?? ''}
             ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].qty = el } }}
             className="text-right"
             min="0"
-            onChange={() => { if (showPriceColumns) onUpdateLineAmount(lineId) }}
+            onChange={(e) => {
+              updateLineField(lineId, 'qty', e.target.value)
+              if (showPriceColumns) onUpdateLineAmount(lineId)
+            }}
             onBlur={() => onLineBlur(lineId)}
           />
         </div>
