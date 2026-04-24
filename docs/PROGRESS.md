@@ -185,6 +185,22 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-24 R26 Frontend Audit Fields — UserActivityLog 補新欄位 + Detail Dialog 展示 (PR #196)
+
+- ✅ **修補前端 R26 欄位斷層**：critical review 發現 `UserActivityLog` interface 缺 4 個 R26 新欄位，導致前端無法序列化、稽核 UI 無法顯示。
+- ✅ **`frontend/src/types/hr.ts`** 新增 4 個欄位：
+  - `changed_fields: string[] | null`（R26-3 stored proc 計算或 app 提供的變動欄位清單）
+  - `integrity_hash: string | null`（SEC-34 HMAC-SHA256 雜湊鏈）
+  - `previous_hash: string | null`（鏈連續性驗證用）
+  - `impersonated_by_user_id: string | null`（R26-1 / migration 034：SEC-11 模擬登入真正執行者）
+  - `hmac_version: number | null`（R26-6 / migration 037：1=legacy / 2=canonical）
+- ✅ **`AuditLogsPage` Detail Dialog 補展示**（`pages/admin/components/ActivityLogDetailDialog.tsx`）：
+  - SEC-11 impersonate 警示區塊（含 UserCog icon 與「真正執行管理員」說明）
+  - 變動欄位 Badge 清單（含 redact 後欄位名）
+  - 可摺疊的「資料完整性 (HMAC chain)」區塊：HMAC 編碼版本標籤（v1 legacy / v2 canonical）+ Integrity Hash + Previous Hash + 「每日 02:00 UTC 自動驗證」說明
+- ✅ **`lib/guest-demo/admin.ts`** demo data 同步補新欄位（type-safe）
+- ✅ **驗證**：`pnpm tsc --noEmit` ✓；`pnpm eslint` 對 3 個變更檔零警告
+
 ### 2026-04-24 R26 Rollback + Env Docs — Critical Review 補強 (PR #194)
 
 - ✅ **發現 R26 epic 收尾前的 critical gaps**（透過 critical code review）：
@@ -214,6 +230,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **R26_FullPlan.md DoD checklist 全面標記**：DoD-1 ~ DoD-7 全部 ✅；DoD-8（合流回 main）為 R26 epic 收尾 PR 待做。Step 3 ~ Step 9 acceptance criteria 全綠。
 - ✅ **量化指標確認**：`log_activity_tx` 138 處（超出原計 97 → 實際更徹底）、`log_activity_oneshot` 11 處（fire-and-forget）、`tokio::spawn audit` 2 處（D-15 例外）、deprecated warnings 0 處。
 - ✅ **驗證結果**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used` 嚴格版（無 -A deprecated）零警告通過。
+
 
 
 ### 2026-04-24 R26 系列收尾完成 — PR #191（PW+E _tx）合併 + R26-7 死碼清零

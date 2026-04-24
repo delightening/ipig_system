@@ -18,12 +18,25 @@ export interface UserActivityLog {
     entity_display_name: string | null;
     before_data: Record<string, unknown> | null;
     after_data: Record<string, unknown> | null;
+    /** R26-3 新增：app 層或 stored proc 計算的變更欄位名（含 redact 後欄位名）*/
+    changed_fields: string[] | null;
     ip_address: string | null;
     user_agent: string | null;
     request_path: string | null;
     is_suspicious: boolean;
     suspicious_reason: string | null;
     created_at: string;
+    // ============================================
+    // R26 SDD 新增欄位（migration 034 + 037 + SEC-34）
+    // ============================================
+    /** SEC-34：HMAC-SHA256 雜湊鏈 — non-empty 表示該 row 已加入鏈；NULL 為 SECURITY 事件不入鏈 */
+    integrity_hash: string | null;
+    /** SEC-34：上一筆 row 的 integrity_hash（用於 verify_chain_range 驗證鏈連續性）*/
+    previous_hash: string | null;
+    /** R26-1 (migration 034)：SEC-11 impersonate 場景下，真正執行的管理員 user_id；NULL 為直接操作 */
+    impersonated_by_user_id: string | null;
+    /** R26-6 (migration 037)：HMAC 編碼版本（1=legacy string-concat, 2=length-prefix canonical）；NULL 表 pre-R26-6 row */
+    hmac_version: number | null;
 }
 
 export interface LoginEventWithUser {
