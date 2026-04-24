@@ -804,7 +804,16 @@ impl AuditService {
 
         // R26-4 疑慮 4：(created_at, id) tuple 比較 + 雙欄 DESC 排序
         // 讓同微秒寫入時仍能得到穩定的 prev_hash。
-        let prev_hash: Option<String> = sqlx::query_scalar(
+        //
+        // Bug fix (R26-19): 使用 `Option<Option<String>>` + `.flatten()` 與
+        // `load_initial_prev_hash` 一致處理 NULL integrity_hash（例如 SECURITY
+        // 類 row 或 legacy row）。原本 `Option<String>` 直接解碼，當前一筆
+        // row 的 integrity_hash IS NULL 時會觸發 sqlx `UnexpectedNullError`，
+        // 導致 tx rollback、呼叫端（如 create_user）收到 500。
+        //
+        // 語意一致性：verifier `load_initial_prev_hash` 同樣 flatten，
+        // 有 row 但 hash NULL → None，與 write 端重算 hash 結果一致。
+        let raw: Option<Option<String>> = sqlx::query_scalar(
             r#"
             SELECT integrity_hash FROM user_activity_logs
             WHERE (created_at, id) < (
@@ -817,6 +826,8 @@ impl AuditService {
         .bind(log_id)
         .fetch_optional(&mut **tx)
         .await?;
+        // 攤平兩層 Option：無 row → None；有 row 但 hash NULL → None；有 row + hash → Some(s)
+        let prev_hash: Option<String> = raw.flatten();
 
         let message = input.canonical_bytes(prev_hash.as_deref());
 
