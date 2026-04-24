@@ -192,12 +192,27 @@ async fn hmac_chain_broken_detected_by_verify() {
     tx.commit().await.expect("commit");
 
     // Phase 2: 篡改中間那筆的 after_data（導致重算 HMAC ≠ 儲存的 integrity_hash）
+    //
+    // 需先 DISABLE `trg_user_activity_logs_immutable` trigger 才能 UPDATE。
+    // 該 trigger 是 GLP §11.10 immutability 保護（RAISE EXCEPTION on any
+    // payload modification）。測試模擬的是「攻擊者取得 superuser 後繞過
+    // trigger 直接改 DB」的威脅模型，正是 verify_chain_range 該偵測的場景。
+    sqlx::query("ALTER TABLE user_activity_logs DISABLE TRIGGER trg_user_activity_logs_immutable")
+        .execute(&app.db_pool)
+        .await
+        .expect("disable immutability trigger for tamper simulation");
+
     sqlx::query("UPDATE user_activity_logs SET after_data = $1 WHERE id = $2")
         .bind(json!({ "tampered": true }))
         .bind(ids[1])
         .execute(&app.db_pool)
         .await
         .expect("tamper row");
+
+    sqlx::query("ALTER TABLE user_activity_logs ENABLE TRIGGER trg_user_activity_logs_immutable")
+        .execute(&app.db_pool)
+        .await
+        .expect("re-enable immutability trigger");
 
     // Phase 3: 驗證 chain — 應偵測到至少 1 個 broken_link
     let to = Utc::now() + chrono::Duration::seconds(5);
