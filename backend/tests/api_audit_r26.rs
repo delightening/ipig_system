@@ -18,31 +18,22 @@
 //!    - 對應 DoD-3 (HMAC chain 完整性 + audit_chain_verify cron)。
 //!
 //! 4. **`concurrent_audit_writes_no_chain_race`**
-//!    - 10 並發 log_activity_tx 全部成功且 chain 連續（advisory lock 起效）。
-//!    - 對應 DoD-6 同類精神（advisory lock 序列化）。
+//!    - 3 並發 log_activity_tx 全部成功且每筆有 integrity_hash（advisory
+//!      lock + HMAC chain 序列化）。對應 DoD-6 同類精神。
+//!    - **並發度**：3（不是 10）— TestApp::spawn 的 PgPool `max_connections=5`，
+//!      3 < 5 避免 conn pool 飽和；advisory lock 仍會序列化，足以測試 chain
+//!      race。原規劃 10 在本地可跑，CI 環境 conn 較緊故降級。
 //!
 //! ## 測試環境
 //!
 //! 直接使用 `TestApp::spawn().db_pool` 取 connection pool。
 //! 不需要 HTTP layer — 測試目標為 service 層原子性，不關 axum routing。
 //!
-//! ## CI 啟用狀態
+//! ## HMAC key 初始化
 //!
-//! - **Test 1 (rollback)**: 預設啟用，不依賴 HMAC key，最 robust
-//! - **Test 2/3/4**: 標記 `#[ignore]` 待本地驗證後啟用。
-//!   依賴 `AUDIT_HMAC_KEY` env / `AuditService::init_hmac_key`，CI 預設環境
-//!   未設此 env，OnceLock 行為不可預期。
-//!
-//! ## 本地手動執行
-//!
-//! ```bash
-//! # 啟動測試 PostgreSQL
-//! docker compose -f docker-compose.test.yml up -d postgres
-//!
-//! # 跑全部 R26 整合測試（含 ignored）
-//! AUDIT_HMAC_KEY="local-test-key-32-bytes-base64-padding-here" \
-//!   cargo test --test api_audit_r26 -- --include-ignored --test-threads=1
-//! ```
+//! `TestApp::spawn` 於 startup 呼叫 `AuditService::init_hmac_key`，fallback
+//! 順序：`AUDIT_HMAC_KEY` env → `config.audit_hmac_key` → hardcoded 測試值。
+//! 因此 CI 即使沒設 env 也能跑 HMAC 相關測試。
 
 mod common;
 
@@ -56,14 +47,7 @@ use erp_backend::{ActorContext, SYSTEM_USER_ID};
 use chrono::Utc;
 use serde_json::json;
 use sqlx::Row;
-
-/// 為測試初始化 HMAC key（測試用固定值，不可外洩到 prod）。
-/// `init_hmac_key` 用 `OnceLock`，多次呼叫除第一次外都 no-op，所以併發安全。
-fn ensure_test_hmac_key() {
-    AuditService::init_hmac_key(Some(
-        "test-hmac-key-do-not-use-in-prod-base64-padding".into(),
-    ));
-}
+use std::time::Duration;
 
 fn system_actor() -> ActorContext {
     ActorContext::System {
@@ -92,7 +76,6 @@ fn make_entry<'a>(category: &'a str, event: &'a str, name: &'a str) -> ActivityL
 #[tokio::test]
 async fn tx_rollback_does_not_persist_audit() {
     let app = TestApp::spawn().await;
-    ensure_test_hmac_key();
 
     let unique_event = format!("R26_TEST_ROLLBACK_{}", uuid::Uuid::new_v4().simple());
     let actor = system_actor();
@@ -134,10 +117,8 @@ async fn tx_rollback_does_not_persist_audit() {
 // ============================================================
 
 #[tokio::test]
-#[ignore = "依賴 AUDIT_HMAC_KEY env；本地手動跑 cargo test -- --include-ignored"]
 async fn tx_commit_persists_audit_with_chain() {
     let app = TestApp::spawn().await;
-    ensure_test_hmac_key();
 
     let unique_prefix = format!("R26_TEST_COMMIT_{}", uuid::Uuid::new_v4().simple());
     let actor = system_actor();
@@ -179,7 +160,7 @@ async fn tx_commit_persists_audit_with_chain() {
         let hash: Option<String> = row.try_get("integrity_hash").expect("get integrity_hash");
         assert!(
             hash.is_some() && !hash.as_deref().unwrap_or("").is_empty(),
-            "audit row {id} 應有 non-empty integrity_hash"
+            "audit row {id} 應有 non-empty integrity_hash（TestApp::spawn 已 init_hmac_key）"
         );
     }
 }
@@ -189,10 +170,8 @@ async fn tx_commit_persists_audit_with_chain() {
 // ============================================================
 
 #[tokio::test]
-#[ignore = "依賴 AUDIT_HMAC_KEY env；本地手動跑 cargo test -- --include-ignored"]
 async fn hmac_chain_broken_detected_by_verify() {
     let app = TestApp::spawn().await;
-    ensure_test_hmac_key();
 
     let unique_prefix = format!("R26_TEST_BROKEN_{}", uuid::Uuid::new_v4().simple());
     let actor = system_actor();
@@ -249,21 +228,22 @@ async fn hmac_chain_broken_detected_by_verify() {
 }
 
 // ============================================================
-// Test 4: 10 並發 log_activity_tx 無 chain race
+// Test 4: 3 並發 log_activity_tx 無 chain race
 // ============================================================
 
 #[tokio::test]
-#[ignore = "依賴 AUDIT_HMAC_KEY env + max_connections>=10；本地手動跑"]
 async fn concurrent_audit_writes_no_chain_race() {
     let app = TestApp::spawn().await;
-    ensure_test_hmac_key();
 
     let unique_prefix = format!("R26_TEST_CONCURRENT_{}", uuid::Uuid::new_v4().simple());
     let pool = app.db_pool.clone();
 
-    // Spawn 10 並發 task 各自開獨立 tx 寫一筆 audit
-    let mut handles = Vec::with_capacity(10);
-    for i in 0..10 {
+    // Spawn 3 並發 task 各自開獨立 tx 寫一筆 audit。
+    // 3 < max_connections(5) 避免 conn pool 飽和導致測試 hang；
+    // advisory lock 仍會序列化，足以驗證 chain race 不發生。
+    const CONCURRENT: usize = 3;
+    let mut handles = Vec::with_capacity(CONCURRENT);
+    for i in 0..CONCURRENT {
         let pool_c = pool.clone();
         let event = format!("{}_{}", unique_prefix, i);
         let display = format!("concurrent test {}", i);
@@ -273,7 +253,11 @@ async fn concurrent_audit_writes_no_chain_race() {
             let entry = ActivityLogEntry {
                 event_category: "TEST",
                 event_type: &event,
-                entity: Some(AuditEntity::new("test_entity", uuid::Uuid::new_v4(), &display)),
+                entity: Some(AuditEntity::new(
+                    "test_entity",
+                    uuid::Uuid::new_v4(),
+                    &display,
+                )),
                 data_diff: None,
                 request_context: None,
             };
@@ -286,22 +270,32 @@ async fn concurrent_audit_writes_no_chain_race() {
         handles.push(handle);
     }
 
-    // 等待全部完成
-    let mut written_ids = Vec::with_capacity(10);
-    for handle in handles {
-        let id = handle.await.expect("task join");
-        written_ids.push(id);
-    }
-    assert_eq!(written_ids.len(), 10, "10 並發任務全部成功");
+    // 以 10 秒 timeout 包裹，避免 CI 環境若有 race 或 deadlock 時無限等。
+    let join_all = async {
+        let mut ids = Vec::with_capacity(CONCURRENT);
+        for handle in handles {
+            let id = handle.await.expect("task join");
+            ids.push(id);
+        }
+        ids
+    };
+    let written_ids = tokio::time::timeout(Duration::from_secs(10), join_all)
+        .await
+        .expect("3 並發任務應於 10 秒內完成（advisory lock 序列化 + 每 audit ~100ms）");
+    assert_eq!(
+        written_ids.len(),
+        CONCURRENT,
+        "{CONCURRENT} 並發任務全部成功"
+    );
 
-    // 驗證 10 筆都已持久化
+    // 驗證 N 筆都已持久化
     let count: (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM user_activity_logs WHERE event_type LIKE $1")
             .bind(format!("{}%", unique_prefix))
             .fetch_one(&pool)
             .await
             .expect("count concurrent rows");
-    assert_eq!(count.0, 10, "10 筆 audit row 全部持久化");
+    assert_eq!(count.0, CONCURRENT as i64, "{CONCURRENT} 筆 audit row 全部持久化");
 
     // 驗證每筆都有 integrity_hash（未因併發而漏算）
     let no_hash_count: (i64,) = sqlx::query_as(
@@ -314,6 +308,6 @@ async fn concurrent_audit_writes_no_chain_race() {
     .expect("count rows without hash");
     assert_eq!(
         no_hash_count.0, 0,
-        "advisory lock 起效時所有 row 應有 integrity_hash"
+        "advisory lock + init_hmac_key 起效時所有 row 應有 integrity_hash"
     );
 }

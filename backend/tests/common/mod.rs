@@ -96,6 +96,19 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
         let geoip = erp_backend::services::GeoIpService::new("/nonexistent");
         let jwt_blacklist = erp_backend::middleware::JwtBlacklist::new();
 
+        // R26-2: 初始化 HMAC key（audit chain 驗證測試需要）。
+        // 優先順序：AUDIT_HMAC_KEY env > config.audit_hmac_key > 測試 fallback。
+        // init_hmac_key 內部用 OnceLock::set，多次呼叫除第一次外都 no-op，
+        // 並發安全。
+        let test_hmac_key = std::env::var("AUDIT_HMAC_KEY")
+            .ok()
+            .filter(|s| s.len() >= 16)
+            .or_else(|| config.audit_hmac_key.clone())
+            .unwrap_or_else(|| {
+                "test-hmac-key-do-not-use-in-prod-base64-padding".to_string()
+            });
+        erp_backend::services::AuditService::init_hmac_key(Some(test_hmac_key));
+
         // Startup: ensure schema, admin, permissions
         // 測試環境使用 ensure_admin_user_after_import，強制將 admin 密碼重設為
         // 目前 ADMIN_INITIAL_PASSWORD 的值，避免 DB 中殘留舊密碼導致登入失敗
