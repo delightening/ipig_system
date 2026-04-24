@@ -65,6 +65,119 @@ sqlx migrate run
 
 ---
 
+## Migrations 033–037: R26 Service-driven Audit Refactor
+
+> **R26 Epic 整體 Rollback 警告**：
+> - 033–037 屬同一 epic，**強烈建議整批回滾**（依序 037 → 036 → 035 → 034 → 033）。
+> - 已部署到 production 後 **不建議 rollback**：HMAC chain 已寫入新版 row，DROP COLUMN 會永久遺失資料。
+> - 緊急 rollback 限「dev/staging 部署 < 24h 內」場景；prod 緊急狀況請先聯絡資安團隊評估。
+
+---
+
+### Migration 037: HMAC 編碼版本化
+
+**原始操作**：對 `user_activity_logs` 新增 `hmac_version SMALLINT` 欄位 + partial index，標示 HMAC 編碼版本（1=legacy string-concat, 2=length-prefix canonical）。
+
+```sql
+-- Rollback 037: 移除 HMAC 版本欄位與索引
+DROP INDEX IF EXISTS idx_user_activity_logs_hmac_version;
+ALTER TABLE user_activity_logs DROP COLUMN IF EXISTS hmac_version;
+```
+
+**Backfill runbook**（forward 部署後執行；尚未自動化）：
+```sql
+-- 將既有 row 標記為 legacy v1（idempotent，可分批執行避免長時間鎖表）
+-- 建議分批：每批 10 萬 row + sleep，避免影響線上系統
+UPDATE user_activity_logs
+SET hmac_version = 1
+WHERE hmac_version IS NULL
+  AND integrity_hash IS NOT NULL
+  AND id IN (SELECT id FROM user_activity_logs
+             WHERE hmac_version IS NULL AND integrity_hash IS NOT NULL
+             LIMIT 100000);
+-- 重複執行直到 0 row affected
+```
+
+> **注意**：未 backfill 也可運作，verifier 對 `hmac_version IS NULL AND integrity_hash IS NOT NULL` 的 row 預設視為 v=1 處理（與 backfill 後等效）。
+
+---
+
+### Migration 036: log_activity stored proc v3
+
+**原始操作**：DROP + CREATE `log_activity()` 函式（12 參數版本），修正 `changed_fields` fallback 漏偵測「被刪除的 key」。
+
+```sql
+-- Rollback 036: 還原為 035 (v2) 的 stored proc
+DROP FUNCTION IF EXISTS log_activity(
+    UUID, VARCHAR, VARCHAR, VARCHAR, UUID, VARCHAR,
+    JSONB, JSONB, INET, TEXT, UUID, TEXT[]
+);
+
+-- 重新套用 035_audit_log_activity_v2.sql（從 v3 退回 v2）
+-- 完整 SQL 見 backend/migrations/035_audit_log_activity_v2.sql
+-- 注意：v2 的 changed_fields fallback 會漏偵測被刪除的 key（這是 035 → 036 修補的 bug）
+```
+
+> **⚠️ 警告**：rollback 到 v2 後，UPDATE 類 audit row 在「app 層未提供 `changed_fields`」時會缺少被刪除的 key。對於使用 `DataDiff::compute` 的呼叫者（R26-3 後 100% 都是）無影響，但對於早期 fire-and-forget call sites 會 regress。
+
+---
+
+### Migration 035: log_activity stored proc v2
+
+**原始操作**：DROP + CREATE `log_activity()` 函式（10 參數 → 12 參數），新增 `impersonated_by_user_id` + `changed_fields` 參數，使 HMAC 計算涵蓋這兩欄。
+
+```sql
+-- Rollback 035: 還原為 v1 的 stored proc（10 參數版本）
+DROP FUNCTION IF EXISTS log_activity(
+    UUID, VARCHAR, VARCHAR, VARCHAR, UUID, VARCHAR,
+    JSONB, JSONB, INET, TEXT, UUID, TEXT[]
+);
+
+-- 重新套用 v1（migration 006 的版本）
+-- 完整 SQL 見 backend/migrations_old/006_audit_system.sql 或 git history
+```
+
+> **⚠️ 嚴重警告**：rollback 到 v1 後 `impersonated_by_user_id` 會無法寫入 audit log；攻擊者能繞過 SEC-11 impersonate 追蹤。**僅限 dev/staging 緊急情況使用**。
+
+---
+
+### Migration 034: Audit Impersonation Column
+
+**原始操作**：對 `user_activity_logs` 新增 `impersonated_by_user_id UUID REFERENCES users(id)` 欄位 + partial index，記錄 SEC-11 impersonate 操作真正執行的管理員。
+
+```sql
+-- Rollback 034: 移除 impersonation 追蹤欄位與索引
+DROP INDEX IF EXISTS idx_user_activity_logs_impersonated_by;
+ALTER TABLE user_activity_logs DROP COLUMN IF EXISTS impersonated_by_user_id;
+```
+
+> **注意**：`user_activity_logs` 為大表（hypertable），DROP COLUMN 在 prod 會鎖定每個 partition，建議在低流量時段執行。已寫入的 impersonate 追蹤資料將永久遺失，影響 GLP §11.10 合規。
+
+---
+
+### Migration 033: System User
+
+**原始操作**：INSERT 一筆 reserved UUID `00000000-0000-0000-0000-000000000001` 作為 SYSTEM actor，供 scheduler / bin / migration 等非使用者觸發的 audit 用。
+
+```sql
+-- Rollback 033: 移除 SYSTEM actor user
+-- ⚠️ 前置條件：必須先確認無 user_activity_logs 引用此 actor，否則 FK 約束會失敗
+DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000001'
+  AND NOT EXISTS (
+    SELECT 1 FROM user_activity_logs
+    WHERE actor_user_id = '00000000-0000-0000-0000-000000000001'
+       OR impersonated_by_user_id = '00000000-0000-0000-0000-000000000001'
+  );
+
+-- 若需強制刪除（會破壞既有 audit 記錄完整性，僅限 dev 環境）：
+-- DELETE FROM user_activity_logs WHERE actor_user_id = '00000000-0000-0000-0000-000000000001';
+-- DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000001';
+```
+
+> **⚠️ 嚴重警告**：rollback 033 會破壞 SCHEDULER / 系統觸發的 audit 鏈。**強烈建議只在 dev 環境執行**。Prod 一旦寫入 SYSTEM actor 的 audit row 後，此 user 應視為永久不可移除。
+
+---
+
 ## Migration 022: QAU 與財務模組（整合）
 
 **原始操作**：QAU 角色權限、會計基礎（account_type、chart_of_accounts、journal_entries、journal_entry_lines）、AP/AR 付款收款表（ap_payments、ar_receipts）。

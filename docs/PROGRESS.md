@@ -185,6 +185,27 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-24 R26 Rollback + Env Docs — Critical Review 補強 (PR #194)
+
+- ✅ **發現 R26 epic 收尾前的 critical gaps**（透過 critical code review）：
+  - 🔴 HIGH: Migration 033-037 完全無 .down.sql / DB_ROLLBACK.md 章節（fullplan §11 Step 1.7 unfulfilled）
+  - 🔴 HIGH: R26 整合測試完全缺失（DoD-3 / DoD-6 無機械式驗證）
+  - 🟠 MEDIUM: Frontend `UserActivityLog` 缺 `hmac_version` / `impersonated_by_user_id` / `integrity_hash` 欄位
+  - 🟠 MEDIUM: Migration 037 backfill 無 runbook
+  - 🟠 MEDIUM: `.env.example` 缺 `AUDIT_CHAIN_VERIFY_ACTIVE`
+  - 🟠 MEDIUM: `docker-compose.yml` 未文檔化 AUDIT env
+  - 🟠 HIGH (新發現): `services/storage_location.rs::create_inventory_item` upsert 缺 SELECT FOR UPDATE → audit 無法區分 INSERT/UPDATE（後續 PR 處理）
+  - 🟡 MEDIUM (新發現): Animal/Document/Equipment/Partner/Role 等 entity 缺 `AuditRedact` impl（後續 PR 處理）
+- ✅ **本 PR (#194) 補做**：
+  - `docs/db/DB_ROLLBACK.md` 新增 **Migrations 033-037 章節**：每個 migration 含完整 rollback SQL、嚴重警告（prod 後不建議 rollback）、Migration 037 backfill runbook（分批 UPDATE 避免長時間鎖表）
+  - `.env.example` 加入 `AUDIT_CHAIN_VERIFY_ACTIVE=false` + 啟用前置條件文檔（migration 037 上線、verifier 分流支援、staging ≥7 天無 false positive）
+  - `docker-compose.yml` API service 補 `AUDIT_CHAIN_VERIFY_ACTIVE` env 宣告
+- ✅ **後續 PR 預定（依序）**：
+  - PR #195 R26 整合測試：tx rollback / HMAC chain broken 偵測 / change_status concurrent
+  - PR #196 Frontend `UserActivityLog` 補新欄位 + `AuditLogsPage` 展示 impersonate chain
+  - 後續 PR R26-13/14（新編號）：storage_location upsert race 修復 + entity AuditRedact impl
+  - 最後 PR R26 Epic 收尾（`integration/r26 → main`, DoD-8）
+
 ### 2026-04-24 R26 Epic Final DoD Compliance — CI 嚴格化 + Audit Pattern Guard
 
 - ✅ **移除 `ci.yml` 的 `-A deprecated` 寬鬆標記**：R26-4 已完成（PR #188 + #190 移除舊 `log_activity`），現在 CI clippy 採嚴格模式 `-D warnings -W clippy::unwrap_used`。新 PR 引入 deprecated 警告會直接 CI 紅燈。
@@ -193,6 +214,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **R26_FullPlan.md DoD checklist 全面標記**：DoD-1 ~ DoD-7 全部 ✅；DoD-8（合流回 main）為 R26 epic 收尾 PR 待做。Step 3 ~ Step 9 acceptance criteria 全綠。
 - ✅ **量化指標確認**：`log_activity_tx` 138 處（超出原計 97 → 實際更徹底）、`log_activity_oneshot` 11 處（fire-and-forget）、`tokio::spawn audit` 2 處（D-15 例外）、deprecated warnings 0 處。
 - ✅ **驗證結果**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used` 嚴格版（無 -A deprecated）零警告通過。
+
 
 ### 2026-04-24 R26 系列收尾完成 — PR #191（PW+E _tx）合併 + R26-7 死碼清零
 
