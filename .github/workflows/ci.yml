@@ -102,6 +102,49 @@ jobs:
           echo "✅ 未發現 SQL 注入風險"
 
   # =========================
+  # 🔐 R26 Service-driven Audit 守衛
+  # 對應 R26_FullPlan.md DoD-5：
+  #   防止未來新 PR 在 handler 層引入 `tokio::spawn(async move { AuditService::log_*`
+  #   pattern（fire-and-forget audit），這違背 R26 SDD 原則：mutation 與 audit 必須
+  #   同 transaction 原子寫入（log_activity_tx），而非 fire-and-forget。
+  # 例外（design decision D-15）：
+  #   SEC fire-and-forget（FORCE_LOGOUT、IMPERSONATE_START）可用 log_activity_oneshot
+  #   ─ 這些事件已發生不可回滾，audit 失敗不應 break 主流程。
+  #   handlers/audit.rs::FORCE_LOGOUT、handlers/user.rs::IMPERSONATE_START 為已知例外。
+  # =========================
+  audit-pattern-guard:
+    name: "🔐 Guard: SDD audit pattern"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查 handler 層是否新增 tokio::spawn audit
+        working-directory: ./backend
+        run: |
+          # 已知 SEC fire-and-forget 例外（D-15）：FORCE_LOGOUT + IMPERSONATE_START
+          ALLOWED_EXCEPTIONS=2
+          # 用 grep -A 15 限制檢查範圍為「tokio::spawn 後 15 行內」，比 awk
+          # 的 found-flag 跨 function 持續更可靠（避免下一個函式內的同步
+          # audit 呼叫被誤算進去）。
+          MATCHES=$(grep -rn -A 15 'tokio::spawn' src/handlers/ 2>/dev/null \
+                    | grep 'AuditService::log_activity' || true)
+          if [ -z "$MATCHES" ]; then
+            ACTUAL_COUNT=0
+          else
+            ACTUAL_COUNT=$(printf '%s\n' "$MATCHES" | wc -l)
+          fi
+          echo "Handler 層 tokio::spawn(... AuditService::log_activity*) 呼叫點: ${ACTUAL_COUNT}（容許上限: ${ALLOWED_EXCEPTIONS}）"
+          if [ "$ACTUAL_COUNT" -gt "$ALLOWED_EXCEPTIONS" ]; then
+            echo "::error::發現新的 tokio::spawn(... AuditService::log_activity*) pattern！"
+            echo "::error::R26 SDD 原則: mutation 應改用 log_activity_tx 在同一 tx 寫 audit。"
+            echo "::error::SEC fire-and-forget (FORCE_LOGOUT/IMPERSONATE_START) 為已知例外 (D-15)。"
+            echo "::error::詳見 docs/plans/R26_FullPlan.md"
+            printf '%s\n' "$MATCHES"
+            exit 1
+          fi
+          echo "✅ Handler 層 SDD audit pattern 守則達標"
+
+  # =========================
   # 🚫 Unsafe 守衛
   # =========================
   unsafe-guard:
@@ -265,12 +308,9 @@ jobs:
       - name: cargo clippy
         # -D warnings: 所有 clippy 警告視為錯誤
         # -W clippy::unwrap_used: unwrap() 產生警告（不阻擋，漸進式修復）
-        # -A deprecated: R26 Service-driven audit 重構過渡期容忍舊版
-        #     AuditService::log_activity 的 #[deprecated] 警告
-        #     （約 91 處 handler 呼叫點），由 R26-3 分批遷移至 log_activity_tx。
-        #     R26-4 完成後（舊版移除）請**立即刪除** -A deprecated 恢復嚴格檢查。
-        #     對應計畫：docs/TODO.md §R26、CLAUDE.md 執行紀律 > Clippy 過關標準。
-        run: cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used -A deprecated
+        # R26-4 已完成（2026-04-23, PR #188 + #190）：舊版 AuditService::log_activity 已刪除，
+        # 不再需要 -A deprecated 容忍標記。新 PR 引入 deprecated 警告會直接 CI 紅燈。
+        run: cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used
 
   # =========================
   # 📊 後端：cargo-tarpaulin 行覆蓋率量測
