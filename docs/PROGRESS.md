@@ -185,6 +185,34 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-24 R26 系列收尾完成 — PR #191（PW+E _tx）合併 + R26-7 死碼清零
+
+- ✅ **PR #191（R26-3 Phase 2 最終塊）合併**：Partner / Warehouse / Equipment service `_tx` variants 全面到位
+  - Partner: `create_tx` / `delete_tx`；Warehouse: `create_tx` / `update_tx` / `delete_tx`；Equipment: `create_maintenance_record_tx` / `update_maintenance_record_tx` / `delete_maintenance_record_tx`
+  - 所有 mutation 含 `log_activity_tx()` 確保審計與資料變更同一 tx 原子性
+  - Equipment refactor：公開 pool-based methods 轉為薄包裝（permission check → begin tx → delegate _tx → commit → side effects），消除 ~205 行重複代碼
+  - CI 13/13 綠燈（含 E2E Playwright）
+- ✅ **R26-7 死碼清零**：services/ 模組樹從「11 處 `#[allow(dead_code)]`」降至 0
+  - PR #173 已刪除 8 處真死碼
+  - 本次處理剩餘 3 處：
+    - `data_import.rs::IdxfMeta.format_version` → `_format_version` + `#[serde(rename = "format_version")]`（serde 被動欄位）
+    - `data_import.rs::ManifestTable.columns` → `_columns` + `#[serde(rename = "columns")]`（統一 `_`-prefix 模式）
+    - `hr/overtime.rs::QUARTERLY_OVERTIME_LIMIT` → 移除（未使用的勞基法季度常數；法規值保留於 `MONTHLY_OVERTIME_LIMIT_EXTENDED` 註釋）
+  - `services/mod.rs` 頂部註釋更新：R26-7 完成聲明 + 新死碼即刻紅燈
+- ✅ **R26 全系列完成** — 8/8 項目（R26-1~R26-8 + R26-9/10/11）關閉：
+  - R26-1 Scheduler tokio::select!（PR #177）
+  - R26-2 HMAC chain 驗證 cron（已實作於 integration/r26）
+  - R26-3 Handler 遷移 log_activity_tx（PR #156/162-184/188/191，97 call sites 全部）
+  - R26-4 舊 log_activity 移除（零 deprecated 警告）
+  - R26-5 migration 036 修正（PR #154）
+  - R26-6 HMAC 版本化（PR #170）
+  - R26-7 Dead code 清零（本次收尾）
+  - R26-8 ProtocolService::change_status SDD（PR #188）
+  - R26-9 Audit redact allowlist（PR #175）
+  - R26-10 Vet advice upsert 並發安全（PR #174）
+  - R26-11 IDOR service-layer authz（PR #176）
+- ✅ **驗證結果**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -A deprecated` 0 warnings、`cargo test --lib` 422/422 all pass
+
 ### 2026-04-23 R26-3 Phase 2 — PR #6b（Product + SKU）+ Gemini Review 修正 + 分支整合
 
 #### PR #6b（R26-3 Phase 2）— Product & SKU Service-driven audit（6 commits / 12 mutations）
