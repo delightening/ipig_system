@@ -123,17 +123,23 @@ jobs:
         run: |
           # 已知 SEC fire-and-forget 例外（D-15）：FORCE_LOGOUT + IMPERSONATE_START
           ALLOWED_EXCEPTIONS=2
-          # 統計 handler 層 tokio::spawn 中含 AuditService::log_ 的呼叫點
-          ACTUAL_COUNT=$(awk '/tokio::spawn/{found=1} found && /AuditService::log_/{print FILENAME":"FNR; found=0}' \
-            $(find src/handlers -name "*.rs") 2>/dev/null | wc -l)
-          echo "Handler 層 tokio::spawn(... AuditService::log_*) 呼叫點：${ACTUAL_COUNT}（容許上限：${ALLOWED_EXCEPTIONS}）"
+          # 用 grep -A 15 限制檢查範圍為「tokio::spawn 後 15 行內」，比 awk
+          # 的 found-flag 跨 function 持續更可靠（避免下一個函式內的同步
+          # audit 呼叫被誤算進去）。
+          MATCHES=$(grep -rn -A 15 'tokio::spawn' src/handlers/ 2>/dev/null \
+                    | grep 'AuditService::log_activity' || true)
+          if [ -z "$MATCHES" ]; then
+            ACTUAL_COUNT=0
+          else
+            ACTUAL_COUNT=$(printf '%s\n' "$MATCHES" | wc -l)
+          fi
+          echo "Handler 層 tokio::spawn(... AuditService::log_activity*) 呼叫點: ${ACTUAL_COUNT}（容許上限: ${ALLOWED_EXCEPTIONS}）"
           if [ "$ACTUAL_COUNT" -gt "$ALLOWED_EXCEPTIONS" ]; then
-            echo "::error::發現新的 tokio::spawn(... AuditService::log_*) pattern！"
-            echo "::error::R26 SDD 原則：mutation 應改用 log_activity_tx 在同一 tx 寫 audit。"
-            echo "::error::SEC fire-and-forget（FORCE_LOGOUT/IMPERSONATE_START）為已知例外（D-15）。"
+            echo "::error::發現新的 tokio::spawn(... AuditService::log_activity*) pattern！"
+            echo "::error::R26 SDD 原則: mutation 應改用 log_activity_tx 在同一 tx 寫 audit。"
+            echo "::error::SEC fire-and-forget (FORCE_LOGOUT/IMPERSONATE_START) 為已知例外 (D-15)。"
             echo "::error::詳見 docs/plans/R26_FullPlan.md"
-            awk '/tokio::spawn/{found=1; line=FNR} found && /AuditService::log_/{print FILENAME":"line; found=0}' \
-              $(find src/handlers -name "*.rs")
+            printf '%s\n' "$MATCHES"
             exit 1
           fi
           echo "✅ Handler 層 SDD audit pattern 守則達標"
