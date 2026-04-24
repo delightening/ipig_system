@@ -2,10 +2,13 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
+    middleware::ActorContext,
     models::{
-        CreateStorageLocationRequest, StorageLocation, StorageLocationQuery,
-        StorageLocationWithWarehouse, UpdateStorageLayoutRequest, UpdateStorageLocationRequest,
+        audit_diff::DataDiff, CreateStorageLocationRequest, StorageLocation,
+        StorageLocationInventoryItem, StorageLocationQuery, StorageLocationWithWarehouse,
+        UpdateStorageLayoutRequest, UpdateStorageLocationRequest,
     },
+    services::audit::{ActivityLogEntry, AuditEntity, AuditService},
     AppError, Result,
 };
 
@@ -392,58 +395,161 @@ impl StorageLocationService {
     }
 
     /// 新增儲位庫存項目
+    ///
+    /// R26-13（critical review 新發現 HIGH）：改用 SELECT FOR UPDATE + 顯式
+    /// INSERT/UPDATE 分支，取代原本的 ON CONFLICT DO UPDATE upsert pattern。
+    ///
+    /// 原 upsert 問題：INSERT...ON CONFLICT DO UPDATE 無法在 app 層區分實際
+    /// 執行 INSERT 還是 UPDATE，audit 缺 before snapshot。兩並發請求同時送達
+    /// 也會互相覆蓋。
+    ///
+    /// 修補：
+    /// 1. 開 transaction
+    /// 2. SELECT FOR UPDATE 鎖定既有 row（若有）— 取得 before snapshot
+    /// 3. 依結果顯式決定 INSERT 或 UPDATE
+    /// 4. `log_activity_tx` 在同一 tx 寫 audit（CREATE 或 UPDATE 類）
+    /// 5. 更新 current_count 在同一 tx
+    /// 6. Commit
     pub async fn create_inventory_item(
         pool: &PgPool,
+        actor: &ActorContext,
         storage_location_id: Uuid,
         req: &crate::models::CreateStorageLocationInventoryItemRequest,
-    ) -> Result<crate::models::StorageLocationInventoryItem> {
-        // 驗證數量
+    ) -> Result<StorageLocationInventoryItem> {
         if req.on_hand_qty < rust_decimal::Decimal::ZERO {
-            return Err(crate::AppError::Validation(
+            return Err(AppError::Validation(
                 "Quantity must be non-negative".to_string(),
             ));
         }
 
+        let mut tx = pool.begin().await?;
+
         // 驗證儲位存在
-        let _location =
-            sqlx::query_scalar::<_, Uuid>("SELECT id FROM storage_locations WHERE id = $1")
-                .bind(storage_location_id)
-                .fetch_optional(pool)
-                .await?
-                .ok_or_else(|| {
-                    crate::AppError::NotFound("Storage location not found".to_string())
-                })?;
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM storage_locations WHERE id = $1")
+            .bind(storage_location_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Storage location not found".to_string()))?;
 
-        let item_id = Uuid::new_v4();
-
-        // 插入或更新庫存記錄
-        sqlx::query(
+        // SELECT FOR UPDATE 既有 row（若有）— 用與 ON CONFLICT 相同的 COALESCE 匹配
+        let before: Option<StorageLocationInventoryItem> = sqlx::query_as(
             r#"
-            INSERT INTO storage_location_inventory (
-                id, storage_location_id, product_id, on_hand_qty, batch_no, expiry_date, updated_at
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())
-            ON CONFLICT (storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1900-01-01'::date))
-            DO UPDATE SET 
-                on_hand_qty = storage_location_inventory.on_hand_qty + EXCLUDED.on_hand_qty,
-                updated_at = NOW()
+            SELECT
+                sli.id, sli.storage_location_id, sli.product_id,
+                p.sku AS product_sku, p.name AS product_name,
+                sli.on_hand_qty, p.base_uom, sli.batch_no, sli.expiry_date,
+                sli.updated_at
+            FROM storage_location_inventory sli
+            JOIN products p ON sli.product_id = p.id
+            WHERE sli.storage_location_id = $1
+              AND sli.product_id = $2
+              AND COALESCE(sli.batch_no, '') = COALESCE($3::VARCHAR, '')
+              AND COALESCE(sli.expiry_date, '1900-01-01'::date) = COALESCE($4::DATE, '1900-01-01'::date)
+            FOR UPDATE OF sli
             "#,
         )
-        .bind(item_id)
         .bind(storage_location_id)
         .bind(req.product_id)
-        .bind(req.on_hand_qty)
         .bind(&req.batch_no)
         .bind(req.expiry_date)
-        .execute(pool)
+        .fetch_optional(&mut *tx)
         .await?;
 
-        // 更新儲位的 current_count
+        // 依是否存在既有 row 決定 INSERT 或 UPDATE
+        let (after, event_type) = if let Some(ref existing) = before {
+            // UPDATE 路徑
+            sqlx::query(
+                r#"
+                UPDATE storage_location_inventory
+                SET on_hand_qty = on_hand_qty + $1, updated_at = NOW()
+                WHERE id = $2
+                "#,
+            )
+            .bind(req.on_hand_qty)
+            .bind(existing.id)
+            .execute(&mut *tx)
+            .await?;
+
+            let updated: StorageLocationInventoryItem = sqlx::query_as(
+                r#"
+                SELECT
+                    sli.id, sli.storage_location_id, sli.product_id,
+                    p.sku AS product_sku, p.name AS product_name,
+                    sli.on_hand_qty, p.base_uom, sli.batch_no, sli.expiry_date,
+                    sli.updated_at
+                FROM storage_location_inventory sli
+                JOIN products p ON sli.product_id = p.id
+                WHERE sli.id = $1
+                "#,
+            )
+            .bind(existing.id)
+            .fetch_one(&mut *tx)
+            .await?;
+            (updated, "STORAGE_INVENTORY_UPDATE")
+        } else {
+            // INSERT 路徑
+            let item_id = Uuid::new_v4();
+            sqlx::query(
+                r#"
+                INSERT INTO storage_location_inventory (
+                    id, storage_location_id, product_id, on_hand_qty,
+                    batch_no, expiry_date, updated_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                "#,
+            )
+            .bind(item_id)
+            .bind(storage_location_id)
+            .bind(req.product_id)
+            .bind(req.on_hand_qty)
+            .bind(&req.batch_no)
+            .bind(req.expiry_date)
+            .execute(&mut *tx)
+            .await?;
+
+            let inserted: StorageLocationInventoryItem = sqlx::query_as(
+                r#"
+                SELECT
+                    sli.id, sli.storage_location_id, sli.product_id,
+                    p.sku AS product_sku, p.name AS product_name,
+                    sli.on_hand_qty, p.base_uom, sli.batch_no, sli.expiry_date,
+                    sli.updated_at
+                FROM storage_location_inventory sli
+                JOIN products p ON sli.product_id = p.id
+                WHERE sli.id = $1
+                "#,
+            )
+            .bind(item_id)
+            .fetch_one(&mut *tx)
+            .await?;
+            (inserted, "STORAGE_INVENTORY_CREATE")
+        };
+
+        // audit log 在同一 tx
+        let display = format!("{} @ {}", after.product_sku, after.storage_location_id);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type,
+                entity: Some(AuditEntity::new(
+                    "storage_location_inventory",
+                    after.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::compute(before.as_ref(), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        // 更新儲位的 current_count（同 tx）
         sqlx::query(
             r#"
-            UPDATE storage_locations 
+            UPDATE storage_locations
             SET current_count = (
-                SELECT COUNT(*) FROM storage_location_inventory 
+                SELECT COUNT(*) FROM storage_location_inventory
                 WHERE storage_location_id = $1 AND on_hand_qty > 0
             ),
             updated_at = NOW()
@@ -451,36 +557,11 @@ impl StorageLocationService {
             "#,
         )
         .bind(storage_location_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
-        // 查詢並返回新增的項目
-        let item = sqlx::query_as::<_, crate::models::StorageLocationInventoryItem>(
-            r#"
-            SELECT 
-                sli.id,
-                sli.storage_location_id,
-                sli.product_id,
-                p.sku as product_sku,
-                p.name as product_name,
-                sli.on_hand_qty,
-                p.base_uom,
-                sli.batch_no,
-                sli.expiry_date,
-                sli.updated_at
-            FROM storage_location_inventory sli
-            JOIN products p ON sli.product_id = p.id
-            WHERE sli.storage_location_id = $1 AND sli.product_id = $2
-            ORDER BY sli.updated_at DESC
-            LIMIT 1
-            "#,
-        )
-        .bind(storage_location_id)
-        .bind(req.product_id)
-        .fetch_one(pool)
-        .await?;
-
-        Ok(item)
+        tx.commit().await?;
+        Ok(after)
     }
 
     /// 調撥儲位庫存 (同倉庫內不需單據)

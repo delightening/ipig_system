@@ -268,7 +268,11 @@ pub async fn create_storage_location_inventory_item(
     require_permission!(current_user, "erp.storage.inventory.edit");
     req.validate()?;
 
-    let item = StorageLocationService::create_inventory_item(&state.db, storage_location_id, &req).await?;
+    let actor = crate::middleware::ActorContext::User(current_user.clone());
+    let item = StorageLocationService::create_inventory_item(
+        &state.db, &actor, storage_location_id, &req,
+    )
+    .await?;
     Ok(Json(item))
 }
 

@@ -141,6 +141,10 @@ pub struct StorageLocationInventoryItem {
     pub updated_at: DateTime<Utc>,
 }
 
+/// R26-13：儲位庫存項目不含敏感欄位，default `redacted_fields()` = `&[]`
+/// （全欄位明碼可存 audit trail）。
+impl crate::models::audit_diff::AuditRedact for StorageLocationInventoryItem {}
+
 /// 更新儲位庫存項目請求
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateStorageLocationInventoryItemRequest {
