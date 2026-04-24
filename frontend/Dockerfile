@@ -66,7 +66,7 @@ EXPOSE 8080
 
 # 啟動流程：
 #   1) 建立 /tmp/nginx temp 目錄（/tmp 是 tmpfs，容器啟動時為空，需 runtime 建立）
-#   2) 以 envsubst 代入 ${API_BACKEND_URL}，將 template 渲染至 /etc/nginx/conf.d/default.conf
-#      （/etc/nginx/conf.d 在 compose 以 tmpfs 掛載，可寫）
+#   2) 如 /etc/nginx/conf.d 可寫，以 envsubst 代入 ${API_BACKEND_URL} 渲染 template；
+#      若已掛成唯讀（docker-compose.test.yml nginx-ci.conf），跳過此步驟直接使用掛載的配置
 #   3) 啟動 nginx
-CMD ["/bin/sh", "-c", "mkdir -p /tmp/nginx && envsubst '${API_BACKEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "mkdir -p /tmp/nginx && if [ -w /etc/nginx/conf.d ]; then envsubst '${API_BACKEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf; else echo '⚠️ /etc/nginx/conf.d is read-only, using pre-mounted config'; fi && exec nginx -g 'daemon off;'"]
