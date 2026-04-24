@@ -90,7 +90,9 @@ pub(crate) struct HmacInput<'a> {
 // ============================================
 
 /// Legacy string-concat 編碼（pre-R26-6）。
-/// 由 [`AuditService::log_activity`] / [`AuditService::compute_and_store_hmac`] 使用。
+/// 由 R26 前的 `AuditService::log_activity` / `compute_and_store_hmac` 舊版
+/// 寫入路徑使用；此二函式已於 R26-4 移除，verifier 為相容既有 legacy row
+/// 保留此編碼實作（見 `canonical_bytes` 的 v1 fallback 路徑）。
 pub(crate) const HMAC_VERSION_LEGACY: i16 = 1;
 
 /// Length-prefix canonical 編碼（R26 SDD 新版）。
@@ -136,7 +138,8 @@ impl HmacInput<'_> {
         buf
     }
 
-    /// v1 (legacy) 編碼：pre-R26-6 的字串串接方式（[`AuditService::compute_and_store_hmac`] 舊版）。
+    /// v1 (legacy) 編碼：pre-R26-6 的字串串接方式（已隨 R26-4 移除的
+    /// `compute_and_store_hmac` 舊版所用）。
     ///
     /// ⚠️ 此編碼有碰撞風險（`"ab"+"cd"` 與 `"abc"+"d"` 產生相同 byte stream），
     /// 也未包含 `impersonated_by` / `changed_fields` 兩欄位。僅供 verifier 對
@@ -221,7 +224,14 @@ struct ChainRow {
     changed_fields: Option<Vec<String>>,
     integrity_hash: Option<String>,
     previous_hash: Option<String>,
-    /// R26-6：HMAC 編碼版本。NULL 視為 legacy (v=1)，與 backfill 後結果一致。
+    /// R26-6：HMAC 編碼版本。
+    /// - `Some(1)` = legacy string-concat；`Some(2)` = length-prefix canonical。
+    /// - `None`（pre-R26-6 row，尚未 backfill）— verifier 採 **try-both** 策略：
+    ///   先試 canonical (v=2)，不符再 fallback legacy (v=1)。原因是 migration 037
+    ///   前的 `log_activity_tx` 已使用 v2 編碼寫入但尚無 column 可標記，單純預設
+    ///   v=1 會對這批 row 產生 false positive。Backfill 目的僅為消除 try-both
+    ///   成本並讓 SQL 報表可直接用 `hmac_version = 1` 篩選 legacy row。
+    /// - 維護警告：撰寫 backfill 腳本時**不可假設所有 NULL 都是 v=1**。
     hmac_version: Option<i16>,
 }
 
@@ -382,7 +392,7 @@ impl AuditService {
     /// Transaction 版本的 activity log。Service-driven 重構模式使用此函式，
     /// 保證 audit 與資料變更在同一 tx 內 commit 或 rollback。
     ///
-    /// 取代舊版 `log_activity(pool, ...)`（已標 `#[deprecated]`）。
+    /// 取代已於 R26-4 移除的 `log_activity(pool, ...)` 舊版 API。
     pub async fn log_activity_tx(
         tx: &mut Transaction<'_, Postgres>,
         actor: &ActorContext,
@@ -515,18 +525,24 @@ impl AuditService {
     /// 未知版本（未來擴充）fallback canonical — 這是刻意選擇：新版 writer 應
     /// 先寫 migration 再 deploy code，若 verifier 在版本過渡期遇未知值會對
     /// canonical 版本做比對，至少能偵測 canonical row 的竄改。
+    ///
+    /// 返回 `Result` 以符合 coding rules「執行期禁用 `expect()`」（見 CLAUDE.md）。
+    /// 實務上 `HmacSha256::new_from_slice` 僅在 key 長度 0 時失敗，
+    /// `config.rs` 已強制 AUDIT_HMAC_KEY 長度 ≥ 44 chars，此 error 路徑不應觸發；
+    /// 但仍保留 fallible 簽名以避免未來 key source 改動時引入 panic。
     pub(crate) fn compute_hmac_for_fields_versioned(
         hmac_key: &str,
         prev_hash: Option<&str>,
         input: HmacInput<'_>,
         version: i16,
-    ) -> String {
+    ) -> Result<String> {
         use hmac::{Hmac, Mac};
         use sha2::Sha256;
         type HmacSha256 = Hmac<Sha256>;
 
-        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes())
-            .expect("HMAC key invalid — 啟動時應已驗證");
+        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes()).map_err(|e| {
+            crate::error::AppError::Internal(format!("HMAC key invalid: {}", e))
+        })?;
 
         if version == HMAC_VERSION_LEGACY {
             mac.update(input.legacy_concat_message(prev_hash).as_bytes());
@@ -535,7 +551,7 @@ impl AuditService {
         }
 
         let hash_bytes = mac.finalize().into_bytes();
-        hash_bytes.iter().map(|b| format!("{:02x}", b)).collect()
+        Ok(hash_bytes.iter().map(|b| format!("{:02x}", b)).collect())
     }
 
     /// 取得目前 HMAC 密鑰（未初始化或未設定則 None）。
@@ -588,7 +604,7 @@ impl AuditService {
         let prev_hash = Self::load_initial_prev_hash(pool, first.created_at, first.id).await?;
 
         let (verified_rows, skipped_no_hash, broken_links) =
-            Self::verify_chain_rows(hmac_key, prev_hash, &rows);
+            Self::verify_chain_rows(hmac_key, prev_hash, &rows)?;
 
         Ok(ChainVerificationReport {
             range_from: from,
@@ -670,7 +686,7 @@ impl AuditService {
         hmac_key: &str,
         initial_prev_hash: Option<String>,
         rows: &[ChainRow],
-    ) -> (usize, usize, Vec<BrokenChainLink>) {
+    ) -> Result<(usize, usize, Vec<BrokenChainLink>)> {
         const SECURITY_CATEGORY: &str = "SECURITY";
 
         let mut prev_hash = initial_prev_hash;
@@ -722,14 +738,14 @@ impl AuditService {
                             prev_hash.as_deref(),
                             build_input(),
                             v,
-                        ),
+                        )?,
                         None => {
                             let v2 = Self::compute_hmac_for_fields_versioned(
                                 hmac_key,
                                 prev_hash.as_deref(),
                                 build_input(),
                                 HMAC_VERSION_CANONICAL,
-                            );
+                            )?;
                             if v2 == stored_hash {
                                 v2
                             } else {
@@ -738,7 +754,7 @@ impl AuditService {
                                     prev_hash.as_deref(),
                                     build_input(),
                                     HMAC_VERSION_LEGACY,
-                                )
+                                )?
                             }
                         }
                     };
@@ -759,7 +775,7 @@ impl AuditService {
             }
         }
 
-        (verified_rows, skipped_no_hash, broken_links)
+        Ok((verified_rows, skipped_no_hash, broken_links))
     }
 
     /// 寫入 `security_alerts` 表（給 audit_chain_verify cron + 其他需要產生
@@ -1448,13 +1464,13 @@ mod hmac_versioning_tests {
                 changed_fields: input.changed_fields,
             },
             HMAC_VERSION_LEGACY,
-        );
+        ).expect("test key valid");
         let v2 = AuditService::compute_hmac_for_fields_versioned(
             TEST_KEY,
             prev,
             input,
             HMAC_VERSION_CANONICAL,
-        );
+        ).expect("test key valid");
 
         assert_ne!(v1, v2, "v1 vs v2 不同編碼 HMAC 應有差異");
         assert_eq!(v1.len(), 64, "HMAC-SHA256 hex 應為 64 字元");
@@ -1486,13 +1502,13 @@ mod hmac_versioning_tests {
                 changed_fields: case_a.changed_fields,
             },
             HMAC_VERSION_LEGACY,
-        );
+        ).expect("test key valid");
         let legacy_b = AuditService::compute_hmac_for_fields_versioned(
             TEST_KEY,
             None,
             case_b,
             HMAC_VERSION_LEGACY,
-        );
+        ).expect("test key valid");
         assert_eq!(legacy_a, legacy_b, "legacy 確實會碰撞（合預期，說明為何需 v2）");
 
         // v2 canonical：不會碰撞
@@ -1501,14 +1517,14 @@ mod hmac_versioning_tests {
             None,
             case_a,
             HMAC_VERSION_CANONICAL,
-        );
+        ).expect("test key valid");
         let input_b_v2 = sample_input("abc", "d", actor, &before, &after, &fields);
         let v2_b = AuditService::compute_hmac_for_fields_versioned(
             TEST_KEY,
             None,
             input_b_v2,
             HMAC_VERSION_CANONICAL,
-        );
+        ).expect("test key valid");
         assert_ne!(v2_a, v2_b, "canonical v2 不應碰撞");
     }
 
@@ -1527,8 +1543,8 @@ mod hmac_versioning_tests {
             None,
             input,
             HMAC_VERSION_CANONICAL,
-        );
-        let unknown = AuditService::compute_hmac_for_fields_versioned(TEST_KEY, None, input2, 99);
+        ).expect("test key valid");
+        let unknown = AuditService::compute_hmac_for_fields_versioned(TEST_KEY, None, input2, 99).expect("test key valid");
 
         assert_eq!(
             v2, unknown,

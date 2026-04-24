@@ -102,7 +102,7 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
         // 並發安全。
         let test_hmac_key = std::env::var("AUDIT_HMAC_KEY")
             .ok()
-            .filter(|s| s.len() >= 16)
+            .filter(|s| s.len() >= 44) // 同步 config.rs::audit_hmac_key 最小長度
             .or_else(|| config.audit_hmac_key.clone())
             .unwrap_or_else(|| {
                 "test-hmac-key-do-not-use-in-prod-base64-padding".to_string()

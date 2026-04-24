@@ -1909,6 +1909,7 @@ ORDER BY 1 DESC;
 | R26-9 | **Audit redact allowlist for medical entities** | PR #175 完成：`CareRecord` / `VetAdviceRecord` / `AnimalObservation` 等醫療自由文字 entity 明確標記 `AuditRedact` impl（空 impl 需文檔證明無敏感欄位） | [x] |
 | R26-10 | **Vet advice upsert 並發安全 + SDD audit** | PR #174 完成：`delete_vet_advice_record` 加 FOR UPDATE 鎖定；upsert pattern 補 SELECT FOR UPDATE；完整 SDD audit | [x] |
 | R26-11 | **IDOR service-layer authz** | PR #176 完成：handler 直接 SQL 檢查身份下沉到 service 層；`services/access.rs` 集中授權 helper | [x] |
+| R26-12 | _（保留編號）_ | 規劃階段曾預留為「edge case 修補」，後續實際工作均歸入 R26-13/14；保留編號維持歷史軌跡 | [x] |
 | R26-13 | **storage_location 庫存 upsert 原子性 + audit** | PR #197 完成：原 `INSERT ... ON CONFLICT DO UPDATE` 無 before snapshot；改為 SELECT FOR UPDATE + 顯式 INSERT/UPDATE 分支 + `log_activity_tx` 在同一 tx 寫 audit | [x] |
 | R26-14 | **Audit redaction 對照文檔 + CI guard** | PR #198 完成：`docs/security/AUDIT_REDACTION.md` 對照表（明確 redact / default empty / 不進 diff / 不存在 entity 分類）+ `.github/workflows/ci.yml::audit-redaction-guard`（find + awk 掃 FromRow struct 含敏感欄位） | [x] |
 
@@ -1945,7 +1946,7 @@ ORDER BY 1 DESC;
 | 🎨 R23 全站 Table UI 升級 | 0 (20 完成) |
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
-| 🔄 R26 Service-driven Audit 重構延伸 | 0 (13 完成) |
+| 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
 | **合計（未完成）** | **13** |
 
 ---

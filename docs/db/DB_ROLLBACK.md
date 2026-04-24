@@ -1,6 +1,7 @@
 # iPIG 資料庫 Rollback 參考手冊
 
-> **用途**：本文件記錄 UP migration 的反向 SQL，供手動回退資料庫結構時參考。涵蓋 001–014、022。  
+> **用途**：本文件記錄 UP migration 的反向 SQL，供手動回退資料庫結構時參考。涵蓋 001–014、022、033–037。
+> **TODO**：Migration 015–021（HR/AUP 擴充）、023–032（QAU / R19 邀請 / R21 環境監控 / R22 攻擊偵測等）尚未補齊，列為後續文件補強。
 > **SQLx 注意**：SQLx（Rust）不原生支援 DOWN migration，因此所有回退操作需透過手動執行 SQL 完成。
 
 ---
@@ -41,7 +42,7 @@ sqlx migrate run
 ## ⚠️ 重要警告
 
 1. **資料不可逆**：大部分 rollback 會 `DROP TABLE`，表中所有資料將**永久遺失**且無法復原。
-2. **外鍵相依**：必須按照 **逆序（014 → 001）** 執行 rollback，否則會因外鍵約束而失敗。
+2. **外鍵相依**：必須按照 **逆序（037 → 001，含已文檔化之 001–014、022、033–037）** 執行 rollback，否則會因外鍵約束而失敗。
 3. **先備份**：執行任何 rollback 之前，請先使用 `pg_dump` 完整備份資料庫。
 4. **ENUM 刪除風險**：刪除自訂類型（ENUM）會影響所有引用該類型的表；需確保所有相關表已先行刪除。
 5. **分區表**：`user_activity_logs` 為分區表，必須先刪除所有分區子表，再刪除主表。
@@ -56,7 +57,7 @@ sqlx migrate run
 1. 停止所有後端服務（確保無連線寫入）
 2. 完整備份：pg_dump -Fc -f backup_$(date +%Y%m%d_%H%M%S).dump ipig_db
 3. 在 psql 或 pgAdmin 中開啟交易：BEGIN;
-4. 按逆序執行所需的 rollback SQL（從 014 到目標版本）
+4. 按逆序執行所需的 rollback SQL（從已文檔化的最新版本向下至目標版本）
 5. 確認無報錯後：COMMIT;（如有問題則 ROLLBACK;）
 6. 手動更新 SQLx 的 _sqlx_migrations 表（刪除對應的 migration 紀錄）：
    DELETE FROM _sqlx_migrations WHERE version >= <目標版本>;
@@ -118,7 +119,7 @@ SET hmac_version = 1
 WHERE hmac_version IS NULL AND integrity_hash IS NOT NULL;
 ```
 
-> **注意**：未 backfill 也可運作，verifier 對 `hmac_version IS NULL AND integrity_hash IS NOT NULL` 的 row 預設視為 v=1 處理（與 backfill 後等效）。Backfill 主要好處是讓 SQL 報表可直接用 `hmac_version = 1` 篩選 legacy row，不需特殊 NULL 處理。
+> **注意**：未 backfill 也可運作，verifier 對 `hmac_version IS NULL AND integrity_hash IS NOT NULL` 的 row 採 **try-both** 策略 — 先比對 canonical (v=2)，不符再 fallback legacy (v=1)。此設計涵蓋兩類 legacy row：migration 037 前由新版 `log_activity_tx` 寫入（實為 v=2）、以及更早期舊版 `log_activity` 寫入（v=1）。Backfill 後所有 row 都有明確 `hmac_version`，verifier 即可單一路徑比對，也讓 SQL 報表可直接用 `hmac_version = 1` 篩選 legacy row。
 
 ---
 
@@ -657,12 +658,12 @@ DROP TYPE IF EXISTS partner_type;
 
 ## 附錄：完整逆序 Rollback（全部回退）
 
-如需將資料庫恢復到空白狀態，請依序執行以上 014 → 001 的所有 rollback SQL。
+如需將資料庫恢復到空白狀態，請依序執行以上已文檔化的 rollback SQL（037 → 033 → 022 → 014 → 001）。
 
 ```sql
 BEGIN;
 
--- 依序執行每個 migration 的 rollback（014 → 001）
+-- 依序執行每個 migration 的 rollback（037 → 033 → 022 → 014 → 001）
 -- ... 貼上上方各段 SQL ...
 
 -- 最後清除 SQLx migration 追蹤表
@@ -673,5 +674,5 @@ COMMIT;
 
 ---
 
-*文件產生日期：2026-02-28*  
-*適用 migration 範圍：001_core_schema ~ 014_optimistic_locking*
+*文件最後更新：2026-04-24（R26 epic 收尾）*  
+*已文檔化 migration 範圍：001–014、022、033–037（015–021 / 023–032 為 TODO）*
