@@ -69,4 +69,4 @@ EXPOSE 8080
 #   2) 如 /etc/nginx/conf.d 可寫，以 envsubst 代入 ${API_BACKEND_URL} 渲染 template；
 #      若已掛成唯讀（docker-compose.test.yml nginx-ci.conf），跳過此步驟直接使用掛載的配置
 #   3) 啟動 nginx
-CMD ["/bin/sh", "-c", "mkdir -p /tmp/nginx && if [ -w /etc/nginx/conf.d ]; then envsubst '${API_BACKEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf; else echo '⚠️ /etc/nginx/conf.d is read-only, using pre-mounted config'; fi && exec nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "mkdir -p /tmp/nginx && if [ -w /etc/nginx/conf.d/default.conf ] || [ ! -e /etc/nginx/conf.d/default.conf ]; then envsubst '${API_BACKEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf; else echo '⚠️ /etc/nginx/conf.d/default.conf is read-only, using pre-mounted config'; fi && exec nginx -g 'daemon off;'"]
