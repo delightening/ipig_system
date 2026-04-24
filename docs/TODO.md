@@ -1906,6 +1906,11 @@ ORDER BY 1 DESC;
 | R26-6 | **HMAC chain 版本化 + 儲存後雜湊** | PR #170 完成：新增 `user_activity_logs.hmac_version SMALLINT`（`1`=legacy string-concat、`2`=length-prefix canonical）；verifier 依 version 分流；DataDiff 的 changed_fields 避免 stored proc fallback 路徑 | [x] |
 | R26-7 | **Dead code 11 處逐一 review & 清理** | 完成：PR #173 刪除 8 處真死碼；本次清理剩餘 3 處（`IdxfMeta.format_version` + `ManifestTable.columns` 改為 `_`-prefix serde rename；`QUARTERLY_OVERTIME_LIMIT` 移除未用法規常數）；services 模組樹零 `#[allow(dead_code)]` | [x] |
 | R26-8 | **完整 `ProtocolService::change_status` Service-driven 重構** | PR #188 完成：`change_status_tx` 將 10+ DB 操作、numbering、4 helper fn（assign_primary_reviewer/assign_vet_reviewer/record_activity/PartnerService::create_tx）納入單一 tx；跨服務原子性已建立 | [x] |
+| R26-9 | **Audit redact allowlist for medical entities** | PR #175 完成：`CareRecord` / `VetAdviceRecord` / `AnimalObservation` 等醫療自由文字 entity 明確標記 `AuditRedact` impl（空 impl 需文檔證明無敏感欄位） | [x] |
+| R26-10 | **Vet advice upsert 並發安全 + SDD audit** | PR #174 完成：`delete_vet_advice_record` 加 FOR UPDATE 鎖定；upsert pattern 補 SELECT FOR UPDATE；完整 SDD audit | [x] |
+| R26-11 | **IDOR service-layer authz** | PR #176 完成：handler 直接 SQL 檢查身份下沉到 service 層；`services/access.rs` 集中授權 helper | [x] |
+| R26-13 | **storage_location 庫存 upsert 原子性 + audit** | PR #197 完成：原 `INSERT ... ON CONFLICT DO UPDATE` 無 before snapshot；改為 SELECT FOR UPDATE + 顯式 INSERT/UPDATE 分支 + `log_activity_tx` 在同一 tx 寫 audit | [x] |
+| R26-14 | **Audit redaction 對照文檔 + CI guard** | PR #198 完成：`docs/security/AUDIT_REDACTION.md` 對照表（明確 redact / default empty / 不進 diff / 不存在 entity 分類）+ `.github/workflows/ci.yml::audit-redaction-guard`（find + awk 掃 FromRow struct 含敏感欄位） | [x] |
 
 ---
 
@@ -1940,7 +1945,7 @@ ORDER BY 1 DESC;
 | 🎨 R23 全站 Table UI 升級 | 0 (20 完成) |
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
-| 🔄 R26 Service-driven Audit 重構延伸 | 0 (8 完成) |
+| 🔄 R26 Service-driven Audit 重構延伸 | 0 (13 完成) |
 | **合計（未完成）** | **13** |
 
 ---

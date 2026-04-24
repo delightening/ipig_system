@@ -85,20 +85,40 @@ ALTER TABLE user_activity_logs DROP COLUMN IF EXISTS hmac_version;
 ```
 
 **Backfill runbook**（forward 部署後執行；尚未自動化）：
+
+> **⚠️ 分區表限制**：`user_activity_logs` 為 PostgreSQL 分區表，**分區表上的 `UPDATE` 語句不支援 `LIMIT` 子句**。需用子查詢 `WHERE id IN (SELECT ... LIMIT)` 迂迴。另因 `(id, partition_date)` 為複合 PK，子查詢需回傳兩者。
+
 ```sql
+-- 方式 A：psql 腳本迴圈（推薦，可監控進度）
 -- 將既有 row 標記為 legacy v1（idempotent，可分批執行避免長時間鎖表）
--- 建議分批：每批 10 萬 row + sleep，避免影響線上系統
+DO $$
+DECLARE
+  batch_size INT := 100000;
+  rows_affected INT;
+BEGIN
+  LOOP
+    UPDATE user_activity_logs
+    SET hmac_version = 1
+    WHERE (id, partition_date) IN (
+      SELECT id, partition_date
+      FROM user_activity_logs
+      WHERE hmac_version IS NULL AND integrity_hash IS NOT NULL
+      LIMIT batch_size
+    );
+    GET DIAGNOSTICS rows_affected = ROW_COUNT;
+    RAISE NOTICE 'Backfilled % rows', rows_affected;
+    EXIT WHEN rows_affected = 0;
+    PERFORM pg_sleep(2);  -- 每批 sleep 2 秒讓線上流量喘息
+  END LOOP;
+END $$;
+
+-- 方式 B：直接 UPDATE 全表（小系統 / 低流量時段）
 UPDATE user_activity_logs
 SET hmac_version = 1
-WHERE hmac_version IS NULL
-  AND integrity_hash IS NOT NULL
-  AND id IN (SELECT id FROM user_activity_logs
-             WHERE hmac_version IS NULL AND integrity_hash IS NOT NULL
-             LIMIT 100000);
--- 重複執行直到 0 row affected
+WHERE hmac_version IS NULL AND integrity_hash IS NOT NULL;
 ```
 
-> **注意**：未 backfill 也可運作，verifier 對 `hmac_version IS NULL AND integrity_hash IS NOT NULL` 的 row 預設視為 v=1 處理（與 backfill 後等效）。
+> **注意**：未 backfill 也可運作，verifier 對 `hmac_version IS NULL AND integrity_hash IS NOT NULL` 的 row 預設視為 v=1 處理（與 backfill 後等效）。Backfill 主要好處是讓 SQL 報表可直接用 `hmac_version = 1` 篩選 legacy row，不需特殊 NULL 處理。
 
 ---
 
@@ -161,17 +181,23 @@ ALTER TABLE user_activity_logs DROP COLUMN IF EXISTS impersonated_by_user_id;
 
 ```sql
 -- Rollback 033: 移除 SYSTEM actor user
--- ⚠️ 前置條件：必須先確認無 user_activity_logs 引用此 actor，否則 FK 約束會失敗
-DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000001'
-  AND NOT EXISTS (
-    SELECT 1 FROM user_activity_logs
-    WHERE actor_user_id = '00000000-0000-0000-0000-000000000001'
-       OR impersonated_by_user_id = '00000000-0000-0000-0000-000000000001'
-  );
+--
+-- ⚠️ 步驟 1：確認無引用。若以下 COUNT > 0，表示 SYSTEM actor 已寫過 audit 或
+-- 曾被 impersonate — **不應強制 rollback**（會破壞 audit 完整性）。
+SELECT COUNT(*) FROM user_activity_logs
+WHERE actor_user_id = '00000000-0000-0000-0000-000000000001'
+   OR impersonated_by_user_id = '00000000-0000-0000-0000-000000000001';
 
--- 若需強制刪除（會破壞既有 audit 記錄完整性，僅限 dev 環境）：
--- DELETE FROM user_activity_logs WHERE actor_user_id = '00000000-0000-0000-0000-000000000001';
--- DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000001';
+-- 步驟 2：若步驟 1 返回 0，執行下列 DELETE。
+-- 注意：這裡沒加 NOT EXISTS guard，讓 FK violation 以明確錯誤呈現（避免靜默
+-- 跳過讓 Ops 誤以為 rollback 成功）。
+DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000001';
+
+-- 若步驟 1 返回 > 0 且**確定要強制清理（僅限 dev/staging）**：
+-- BEGIN;
+--   DELETE FROM user_activity_logs WHERE actor_user_id = '00000000-0000-0000-0000-000000000001';
+--   DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000001';
+-- COMMIT;  -- 或 ROLLBACK 反悔
 ```
 
 > **⚠️ 嚴重警告**：rollback 033 會破壞 SCHEDULER / 系統觸發的 audit 鏈。**強烈建議只在 dev 環境執行**。Prod 一旦寫入 SYSTEM actor 的 audit row 後，此 user 應視為永久不可移除。
