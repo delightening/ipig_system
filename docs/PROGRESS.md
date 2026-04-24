@@ -185,6 +185,21 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-24 R26-13 storage_location 庫存 upsert 原子性修復 (PR #197)
+
+- ✅ **修補 critical review HIGH finding**：`storage_location.rs::create_inventory_item` 原本使用 `INSERT ... ON CONFLICT DO UPDATE` upsert pattern，無法在 app 層區分實際執行 INSERT 還是 UPDATE → audit 缺 before snapshot、兩並發請求互相覆蓋。
+- ✅ **重構為顯式 SELECT FOR UPDATE + INSERT/UPDATE 分支**：
+  - 開 transaction
+  - `SELECT ... FOR UPDATE OF sli` 鎖定既有 row（以 unique key: storage_location_id + product_id + COALESCE(batch_no, '') + COALESCE(expiry_date, '1900-01-01')）
+  - 有既有 row → UPDATE 路徑，event_type = `STORAGE_INVENTORY_UPDATE`，before/after diff 完整
+  - 無既有 row → INSERT 路徑，event_type = `STORAGE_INVENTORY_CREATE`，before=None
+  - `log_activity_tx` 在同一 tx 寫 audit
+  - 更新 storage_locations.current_count 在同一 tx
+  - Commit
+- ✅ **新增 `AuditRedact` impl for `StorageLocationInventoryItem`**（空 impl = 全欄位明碼，無敏感資料）
+- ✅ **Handler 簽名變更**：handler 現在建構 `ActorContext::User(current_user)` 並傳入 service
+- ✅ **驗證**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used` 零警告、`cargo test --lib` 422/422 pass
+
 ### 2026-04-24 R26 整合測試 — DoD-3/DoD-6 機械式驗證 (PR #195)
 
 - ✅ **新增 `backend/tests/api_audit_r26.rs`**（4 個整合測試）對應 critical review 發現的「R26 整合測試完全缺失」問題。
