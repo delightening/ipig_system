@@ -185,6 +185,18 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-24 R26-14 Audit Redaction 文檔 + CI 守衛 (PR #198)
+
+- ✅ **Critical review finding 澄清**：agent 提出「Animal/Document/Equipment/Partner/Role 等 entity 缺 AuditRedact impl」**實際誤判** — 80 處 `DataDiff::compute` 呼叫全部編譯通過，代表所有 entity 都已 impl（default empty 或明確 redact）。
+- ✅ **新增 `docs/security/AUDIT_REDACTION.md`**：完整對照表
+  - §1 明確 redact 欄位的 entity（`User`: password_hash/totp_secret/backup_codes；`AiApiKey`: key_hash）
+  - §2 default empty impl 的 entity（動物/ERP/設備/文件/HR/權限 類，經 review 確認無敏感欄位）
+  - §3 含敏感欄位但不進 audit diff 的 entity（`UserSession.refresh_token_id` 只是 UUID）
+  - §4 FullPlan DoD-7 列舉但實際不存在的 entity（`TwoFactorSecret`/`JwtBlacklist`/`OAuthCredential`/`McpKey` 在 codebase 中從未定義）
+  - §5 CI 守衛說明；§6 維護記錄與新 entity 檢查清單
+- ✅ **新增 `audit-redaction-guard` CI job**：find + awk 掃描 `models/*.rs` 含敏感欄位 pattern（password_hash / *_secret / *_token / api_key / backup_codes / key_hash）的 `FromRow` DB entity，若不在 ALLOWED 清單且 redact 未覆寫則 fail。強制新敏感 entity 必須做 redact decision。
+- ✅ **本地驗證 guard**：`✅ PASS`（所有現有 DB entity 都已 redact 或在 ALLOWED 清單）
+
 ### 2026-04-24 R26-13 storage_location 庫存 upsert 原子性修復 (PR #197)
 
 - ✅ **修補 critical review HIGH finding**：`storage_location.rs::create_inventory_item` 原本使用 `INSERT ... ON CONFLICT DO UPDATE` upsert pattern，無法在 app 層區分實際執行 INSERT 還是 UPDATE → audit 缺 before snapshot、兩並發請求互相覆蓋。
@@ -199,6 +211,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **新增 `AuditRedact` impl for `StorageLocationInventoryItem`**（空 impl = 全欄位明碼，無敏感資料）
 - ✅ **Handler 簽名變更**：handler 現在建構 `ActorContext::User(current_user)` 並傳入 service
 - ✅ **驗證**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used` 零警告、`cargo test --lib` 422/422 pass
+
 
 ### 2026-04-24 R26 整合測試 — DoD-3/DoD-6 機械式驗證 (PR #195)
 
