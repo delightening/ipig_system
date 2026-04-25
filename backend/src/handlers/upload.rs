@@ -173,7 +173,25 @@ async fn handle_upload(
         )
         .await?;
 
-        save_attachment(db, entity_type, entity_id, &upload_result, current_user_id).await?;
+        // H3 (GLP)：file 與 metadata 的 per-file atomicity。filesystem 不能參與
+        // PG tx，故 fail-fast unlink：upload 成功但 save_attachment 失敗時，
+        // 立即清掉該 orphan 檔。
+        //
+        // 已成功 commit 的前一筆檔案保持不動（per-file 原子性，非整批原子性 —
+        // 整批跨 fs+DB 原子是不可能的）。返回 Err 時，呼叫端應理解「之前批次
+        // 內的成功項已落地」，與 axum handler 的部分成功語意一致。
+        if let Err(e) =
+            save_attachment(db, entity_type, entity_id, &upload_result, current_user_id).await
+        {
+            if let Err(unlink_err) = FileService::delete(&upload_result.file_path).await {
+                tracing::warn!(
+                    "[handle_upload] H3 rollback unlink 失敗 path={} err={unlink_err}; \
+                     檔案孤兒，需後續 cron 清掃",
+                    upload_result.file_path
+                );
+            }
+            return Err(e);
+        }
         results.push(UploadResponse::from(upload_result));
     }
 
@@ -376,15 +394,24 @@ pub async fn upload_sacrifice_photo(
         )
         .await?;
 
-        // 儲存到 animal_record_attachments 表（record_id 為 UUID）
-        save_animal_record_attachment(
+        // H3 (GLP)：file 與 metadata 的 per-file atomicity，同 handle_upload。
+        if let Err(e) = save_animal_record_attachment(
             &state.db,
             "sacrifice",
             sacrifice_id,
             "photo",
             &upload_result,
         )
-        .await?;
+        .await
+        {
+            if let Err(unlink_err) = FileService::delete(&upload_result.file_path).await {
+                tracing::warn!(
+                    "[sacrifice upload] H3 rollback unlink 失敗 path={} err={unlink_err}",
+                    upload_result.file_path
+                );
+            }
+            return Err(e);
+        }
 
         results.push(UploadResponse::from(upload_result));
     }
@@ -617,12 +644,22 @@ pub async fn upload_sop_document(
     )
     .await?;
 
-    // 更新 qa_sop_documents.file_path
-    sqlx::query("UPDATE qa_sop_documents SET file_path = $1, updated_at = NOW() WHERE id = $2")
-        .bind(&upload_result.file_path)
-        .bind(sop_id)
-        .execute(&state.db)
-        .await?;
+    // H3 (GLP)：UPDATE qa_sop_documents 失敗 → unlink 上傳檔，避免孤兒
+    if let Err(e) =
+        sqlx::query("UPDATE qa_sop_documents SET file_path = $1, updated_at = NOW() WHERE id = $2")
+            .bind(&upload_result.file_path)
+            .bind(sop_id)
+            .execute(&state.db)
+            .await
+    {
+        if let Err(unlink_err) = FileService::delete(&upload_result.file_path).await {
+            tracing::warn!(
+                "[sop upload] H3 rollback unlink 失敗 path={} err={unlink_err}",
+                upload_result.file_path
+            );
+        }
+        return Err(AppError::Database(e));
+    }
 
     Ok(Json(UploadResponse::from(upload_result)))
 }
