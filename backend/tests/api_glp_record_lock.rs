@@ -30,7 +30,7 @@ use uuid::Uuid;
 
 /// 建立一隻動物，回傳 animal_id (UUID 字串)。
 async fn create_test_animal(app: &TestApp, token: &str) -> String {
-    let ear_tag = format!("L{:03}", rand::random::<u16>() % 1000);
+    let ear_tag = format!("{:03}", rand::random::<u32>() % 1000);
     let body = serde_json::json!({
         "ear_tag": ear_tag,
         "breed": "white",
@@ -41,12 +41,16 @@ async fn create_test_animal(app: &TestApp, token: &str) -> String {
         "force_create": true
     });
     let res = app.auth_post("/api/v1/animals", &body, token).await;
+    let status = res.status();
+    let body_text = res.text().await.unwrap_or_default();
     assert!(
-        res.status().is_success(),
-        "create animal failed: {}",
-        res.status()
+        status.is_success(),
+        "create animal failed: {} body={}",
+        status,
+        body_text
     );
-    let json: serde_json::Value = res.json().await.expect("parse animal json");
+    let json: serde_json::Value =
+        serde_json::from_str(&body_text).expect("parse animal json");
     json["id"]
         .as_str()
         .expect("animal id missing")
