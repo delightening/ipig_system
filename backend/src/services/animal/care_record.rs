@@ -220,13 +220,26 @@ impl CareRecordService {
     }
 
     /// 更新照護紀錄
+    ///
+    /// C1 (GLP) 雙層守衛 — 對齊 observation/surgery/blood_test::update 的 pattern：
+    /// 1. pool fail-fast（快速回應，避免空開 tx）
+    /// 2. tx 內 FOR UPDATE atomic check（防 TOCTOU race：簽章 commit 與本 UPDATE
+    ///    並發時，舊版只走 pool 檢查、UPDATE 仍直接落 pool，可在 race window 內
+    ///    改動已鎖定記錄；現包進 tx 後 atomic check 與 UPDATE 同 row lock 內完成）。
+    ///
+    /// 注意：本函式仍未寫 audit log（R26 SDD 補齊範圍，非本 C1 PR 處理 — 留 TODO）。
     pub async fn update(
         pool: &PgPool,
         id: Uuid,
         req: &UpdateCareRecordRequest,
     ) -> Result<CareRecord> {
-        // C1 (GLP)：簽章後鎖定的照護紀錄拒絕修改
+        // C1 (GLP) fail-fast：簽章後鎖定的照護紀錄拒絕修改
         SignatureService::ensure_not_locked_uuid(pool, "care_medication", id).await?;
+
+        let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證鎖定狀態
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "care_medication", id).await?;
 
         let record = sqlx::query_as::<_, CareRecord>(
             r#"
@@ -263,9 +276,10 @@ impl CareRecordService {
         .bind(req.injection_meloxicam)
         .bind(req.oral_meloxicam)
         .bind(&req.post_medications)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        tx.commit().await?;
         Ok(record)
     }
 
