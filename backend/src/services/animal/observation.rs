@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalMedicalService;
+use super::{AnimalMedicalService, AnimalService};
 use crate::{
     middleware::ActorContext,
     models::{
@@ -109,6 +109,9 @@ impl AnimalObservationService {
             None
         };
 
+        // H5：audit display 帶 IACUC + 耳號（與 surgery / blood_test 一致）
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+
         let mut tx = pool.begin().await?;
 
         let observation = sqlx::query_as::<_, AnimalObservation>(
@@ -140,9 +143,10 @@ impl AnimalObservationService {
         .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
         let display = format!(
-            "animal {} @ {}: {:?}",
-            observation.animal_id, observation.event_date, observation.record_type
+            "[{}] {} @ {}: {:?}",
+            iacuc, animal.ear_tag, observation.event_date, observation.record_type
         );
         AuditService::log_activity_tx(
             &mut tx,
@@ -194,6 +198,9 @@ impl AnimalObservationService {
         // 先取得原始紀錄用於版本歷史（在 tx 外查詢，pool read OK）
         let before = Self::get_by_id(pool, id).await?;
 
+        // H5：audit display 帶 IACUC + 耳號
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
+
         // 保存版本歷史（目前 pool-based；tx 化歸 R26-8）
         AnimalMedicalService::save_record_version(pool, "observation", id, &before, updated_by)
             .await?;
@@ -233,9 +240,10 @@ impl AnimalObservationService {
         .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
         let display = format!(
-            "animal {} @ {}: {:?}",
-            after.animal_id, after.event_date, after.record_type
+            "[{}] {} @ {}: {:?}",
+            iacuc, animal.ear_tag, after.event_date, after.record_type
         );
         AuditService::log_activity_tx(
             &mut tx,
@@ -292,6 +300,9 @@ impl AnimalObservationService {
         .await?
         .ok_or_else(|| AppError::NotFound("觀察紀錄不存在或已刪除".into()))?;
 
+        // H5：audit display 帶 IACUC + 耳號（取 before.animal_id 對應的動物）
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
+
         // 記錄到 change_reasons 表
         sqlx::query(
             r#"
@@ -323,9 +334,10 @@ impl AnimalObservationService {
         .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
         let display = format!(
-            "animal {} @ {}: {:?} — {}",
-            before.animal_id, before.event_date, before.record_type, reason
+            "[{}] {} @ {}: {:?} — {}",
+            iacuc, animal.ear_tag, before.event_date, before.record_type, reason
         );
         AuditService::log_activity_tx(
             &mut tx,
