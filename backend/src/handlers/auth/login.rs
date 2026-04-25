@@ -89,11 +89,13 @@ pub async fn login(
     }
 
     // Phase 3: 正常登入（無 2FA）
-    let response = AuthService::issue_login_tokens(&state.db, &state.config, &user).await?;
-    let user_id = response.user.id;
-
-    // CRIT-04: Session 建立必須在 token 發出前同步完成，以確保 SEC-28 併發上限被執行。
-    // 若 create_session 或 end_excess_sessions 失敗，登入中止（不發出 token）。
+    //
+    // H4 (併發審查): session 建立 + 併發上限檢查必須在 token 發出之**前**完成。
+    // 原順序為先 issue_login_tokens（INSERT refresh_tokens 列）→ 再 create_session；
+    // 若 create_session 失敗，refresh_tokens 留下孤兒列（client 雖未取得，但仍占
+    // unique 索引、需 cleanup cron 才清）。改為 session 先建好再簽 token，
+    // 失敗路徑不留 DB 副作用，並確保 SEC-28 併發 session 上限始終被執行。
+    let user_id = user.id;
     SessionManager::create_session(
         &state.db,
         user_id,
@@ -103,6 +105,8 @@ pub async fn login(
     .await?;
     SessionManager::end_excess_sessions(&state.db, user_id, state.config.max_sessions_per_user)
         .await?;
+
+    let response = AuthService::issue_login_tokens(&state.db, &state.config, &user).await?;
 
     // Fire-and-forget: GeoIP 異常偵測屬遙測，非安全強制，允許非同步執行
     {
