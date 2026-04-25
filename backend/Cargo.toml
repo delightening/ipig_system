@@ -91,6 +91,8 @@ urlencoding = "2.1"
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.18", default-features = false, features = ["http-listener"] }
 dashmap = "6.1.0"
+# H2: 權限快取 single-flight + TTL（取代 DashMap 手刻 cache）
+moka = { version = "0.12", features = ["future"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

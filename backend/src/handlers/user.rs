@@ -160,7 +160,7 @@ pub async fn update_user(
     // H-01: 角色或帳號狀態變更後立即清除該使用者的權限快取，避免舊快取在 TTL 到期前繼續生效
     if let Some(ref before) = before_user {
         if before.roles != user.roles || before.is_active != user.is_active {
-            state.permission_cache.remove(&id);
+            state.permission_cache.invalidate(&id).await;
         }
 
         // BIZ-16: 帳號停用時立即撤銷所有 session 和 refresh token，不等 TTL
@@ -244,7 +244,7 @@ pub async fn delete_user(
     let actor = ActorContext::User(current_user.clone());
     UserService::delete(&state.db, &actor, id).await?;
     // H-01: 使用者刪除後清除其權限快取
-    state.permission_cache.remove(&id);
+    state.permission_cache.invalidate(&id).await;
     Ok(Json(serde_json::json!({ "message": "User deleted successfully" })))
 }
 

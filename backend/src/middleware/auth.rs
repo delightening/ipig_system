@@ -123,96 +123,54 @@ pub async fn auth_middleware(
 
     let claims = token_data.claims;
 
-    // BIZ-16: 每請求驗證帳號狀態（is_active + expires_at）
-    // 使用與 permission_cache 相同的 TTL 快取策略，避免每請求打 DB。
-    // 場景：管理員停用帳號或帳號到期後，該使用者的 JWT 在 TTL 內被拒絕存取。
-    // 最壞情況延遲 = PERMISSION_CACHE_TTL_SECS（5 分鐘），可接受。
-    {
-        let cache_ttl = std::time::Duration::from_secs(crate::constants::PERMISSION_CACHE_TTL_SECS);
-        let user_id = claims.sub;
-
-        // 使用快取中的 last-check 時間戳判斷是否需要重新查詢
-        let needs_status_check = state.permission_cache.get(&user_id)
-            .map(|entry| entry.1.elapsed() >= cache_ttl)
-            .unwrap_or(true); // 快取未命中 = 需要查詢
-
-        if needs_status_check {
-            let status: Option<(bool, Option<chrono::DateTime<chrono::Utc>>)> = sqlx::query_as(
-                "SELECT is_active, expires_at FROM users WHERE id = $1",
-            )
-            .bind(user_id)
-            .fetch_optional(&state.db)
-            .await
-            .map_err(|e| {
-                tracing::error!("[Auth] 無法查詢使用者 {} 狀態: {}", user_id, e);
-                AppError::Internal("無法驗證使用者狀態".to_string())
-            })?;
-
-            match status {
-                Some((is_active, expires_at)) => {
-                    if !is_active {
-                        tracing::warn!("[Auth] 使用者 {} 帳號已停用，拒絕存取", user_id);
-                        return Err(AppError::Unauthorized);
-                    }
-                    if let Some(exp) = expires_at {
-                        if exp < chrono::Utc::now() {
-                            tracing::warn!("[Auth] 使用者 {} 帳號已過期，拒絕存取", user_id);
-                            return Err(AppError::Unauthorized);
-                        }
-                    }
-                }
-                None => {
-                    tracing::warn!("[Auth] 使用者 {} 不存在，拒絕存取", user_id);
-                    return Err(AppError::Unauthorized);
-                }
-            }
-        }
-    }
-
-    // JWT 中省略 permissions 以符合 4096 bytes cookie 限制。
-    // 非 admin 使用者從資料庫動態載入，admin 的 has_permission() 直接回傳 true 不需載入。
-    // CRIT-03: 先查記憶體快取（TTL 5 分鐘），miss 時才打 DB，減少每請求的 4-table JOIN。
+    // BIZ-16 + H2：每請求驗證帳號狀態 + 載入權限。
+    //
+    // H2 (CodeRabbit 併發審查)：原本 DashMap-based 快取在 cache miss 時，多執行緒
+    // 會同時跑 4-table JOIN（stampede）。改 moka::future::Cache + try_get_with
+    // 後，cache miss 由「single-flight loader」處理 — 並發請求只有一個 task
+    // 執行 DB 查詢，其餘等待同一結果。
+    //
+    // loader 同時做 user 狀態檢查（is_active + expires_at）與 perms 載入；
+    // cache hit 即代表 TTL 內狀態驗證 + 權限載入皆已完成（5 分鐘最壞延遲，
+    // 與原行為等價）。Loader 失敗（status 拒絕 / DB 錯誤）不會被快取，
+    // 下次請求會重試 — 與原本「快取拒絕值」的退化行為相反，更符合
+    // 「拒絕越快越好」直覺。
     let is_admin = claims.roles.iter().any(|r| {
         r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY
     });
-    let permissions = if !is_admin {
-        let cache_ttl = std::time::Duration::from_secs(crate::constants::PERMISSION_CACHE_TTL_SECS);
-        let user_id = claims.sub;
-
-        // 嘗試從快取取得有效的權限
-        let cached = state.permission_cache.get(&user_id).and_then(|entry| {
-            let (ref perms, cached_at) = *entry;
-            if cached_at.elapsed() < cache_ttl {
-                Some(perms.clone())
-            } else {
-                None
-            }
-        });
-
-        if let Some(perms) = cached {
-            perms
-        } else {
-            // 快取未命中或已過期：查詢 DB
-            let fresh = sqlx::query_scalar::<_, String>(
-                r#"SELECT DISTINCT p.code FROM permissions p
-                   INNER JOIN role_permissions rp ON p.id = rp.permission_id
-                   INNER JOIN user_roles ur ON rp.role_id = ur.role_id
-                   INNER JOIN roles r ON r.id = ur.role_id
-                   WHERE ur.user_id = $1 AND r.is_active = true"#,
-            )
-            .bind(user_id)
-            .fetch_all(&state.db)
-            .await
-            .map_err(|e| {
-                tracing::error!("[Auth] 無法載入使用者 {} 的權限: {}", user_id, e);
-                AppError::Internal("無法載入使用者權限".to_string())
-            })?;
-
-            state.permission_cache.insert(user_id, (fresh.clone(), std::time::Instant::now()));
-            fresh
-        }
+    let permissions = if is_admin {
+        // admin 由 has_permission() 直接放行，不需載入 perms 也不需 cache。
+        // 但仍需驗證 admin 帳號狀態（停用/過期 admin 應一樣被擋）。
+        check_user_active_status(&state.db, claims.sub).await?;
+        Vec::new()
     } else {
-        vec![]
+        let user_id = claims.sub;
+        let db = state.db.clone();
+        state
+            .permission_cache
+            .try_get_with::<_, AppError>(user_id, async move {
+                check_user_active_status(&db, user_id).await?;
+                let perms = sqlx::query_scalar::<_, String>(
+                    r#"SELECT DISTINCT p.code FROM permissions p
+                       INNER JOIN role_permissions rp ON p.id = rp.permission_id
+                       INNER JOIN user_roles ur ON rp.role_id = ur.role_id
+                       INNER JOIN roles r ON r.id = ur.role_id
+                       WHERE ur.user_id = $1 AND r.is_active = true"#,
+                )
+                .bind(user_id)
+                .fetch_all(&db)
+                .await
+                .map_err(|e| {
+                    tracing::error!("[Auth] 無法載入使用者 {} 的權限: {}", user_id, e);
+                    AppError::Internal("無法載入使用者權限".to_string())
+                })?;
+                Ok(perms)
+            })
+            .await
+            .map_err(|arc_err| match &*arc_err {
+                AppError::Unauthorized => AppError::Unauthorized,
+                e => AppError::Internal(format!("permission cache loader: {e}")),
+            })?
     };
 
     let current_user = CurrentUser {
@@ -228,6 +186,41 @@ pub async fn auth_middleware(
     request.extensions_mut().insert(current_user);
 
     Ok(next.run(request).await)
+}
+
+/// BIZ-16 helper：檢查 user 是否仍 active 且未過期，否則回 Unauthorized。
+/// 由 H2 cache loader 與 admin 路徑共用。
+async fn check_user_active_status(pool: &sqlx::PgPool, user_id: Uuid) -> Result<()> {
+    let row: Option<(bool, Option<chrono::DateTime<chrono::Utc>>)> = sqlx::query_as(
+        "SELECT is_active, expires_at FROM users WHERE id = $1",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("[Auth] 無法查詢使用者 {} 狀態: {}", user_id, e);
+        AppError::Internal("無法驗證使用者狀態".to_string())
+    })?;
+
+    match row {
+        Some((is_active, expires_at)) => {
+            if !is_active {
+                tracing::warn!("[Auth] 使用者 {} 帳號已停用，拒絕存取", user_id);
+                return Err(AppError::Unauthorized);
+            }
+            if let Some(exp) = expires_at {
+                if exp < chrono::Utc::now() {
+                    tracing::warn!("[Auth] 使用者 {} 帳號已過期，拒絕存取", user_id);
+                    return Err(AppError::Unauthorized);
+                }
+            }
+            Ok(())
+        }
+        None => {
+            tracing::warn!("[Auth] 使用者 {} 不存在，拒絕存取", user_id);
+            Err(AppError::Unauthorized)
+        }
+    }
 }
 
 /// 從 Cookie header 提取 access_token

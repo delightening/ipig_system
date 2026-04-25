@@ -136,7 +136,12 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
             image_processor,
             pdf_service,
             templates,
-            permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
+            permission_cache: moka::future::Cache::builder()
+                .time_to_live(std::time::Duration::from_secs(
+                    erp_backend::constants::PERMISSION_CACHE_TTL_SECS,
+                ))
+                .max_capacity(10_000)
+                .build(),
             shutdown_token: tokio_util::sync::CancellationToken::new(),
         };
 
