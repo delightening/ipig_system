@@ -84,6 +84,8 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
     changePasswordMutation.mutate({
       current_password: currentPassword,
       new_password: newPassword,
+      // C3：後端要求新密碼二次確認
+      new_password_confirmation: confirmPassword,
     })
   }
 

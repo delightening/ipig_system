@@ -323,6 +323,10 @@ pub struct ChangeOwnPasswordRequest {
     #[validate(length(min = 10, max = 128, message = "New password must be at least 10 characters"))]
     #[validate(custom(function = "validate_password_strength"))]
     pub new_password: String,
+    /// C3 (GLP §11.300 / NIST SP 800-63)：新密碼二次確認，避免使用者誤輸入。
+    /// 後端強制 `new_password == new_password_confirmation`，handler 層校驗。
+    #[validate(length(min = 1, message = "請再次輸入新密碼"))]
+    pub new_password_confirmation: String,
 }
 
 /// SEC-33：敏感操作二級認證 — 確認密碼請求

@@ -289,7 +289,9 @@ async fn change_password_with_wrong_current_returns_error() {
             "/api/v1/me/password",
             &serde_json::json!({
                 "current_password": "wrong_current_password",
-                "new_password": "NewPassword123!"
+                "new_password": "NewPassword123!",
+                // C3：新密碼確認；不填會被 ChangeOwnPasswordRequest 反序列化拒絕
+                "new_password_confirmation": "NewPassword123!"
             }),
             &token,
         )
