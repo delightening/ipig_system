@@ -226,6 +226,12 @@ async fn delete_locked_observation_returns_409() {
         "已鎖定 observation 的刪除應回 409 Conflict，實得 {}",
         res.status()
     );
+    let body: serde_json::Value = res.json().await.expect("parse error json");
+    let msg = body["error"]["message"].as_str().unwrap_or("");
+    assert!(
+        msg.contains("鎖定"),
+        "錯誤訊息應提及『鎖定』，實得: {msg}"
+    );
 }
 
 // ============================================================
