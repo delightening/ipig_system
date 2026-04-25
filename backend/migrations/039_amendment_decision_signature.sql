@@ -12,11 +12,15 @@
 --   - 不在本 PR 處理 per-reviewer 簽章（amendment_review_assignments.decision_signature_id）
 --     — 屬 B-full，需動 RecordAmendmentDecisionRequest 加 password 欄，前端同步調
 
+-- ON DELETE RESTRICT（CodeRabbit review #205, Major）：簽章 FK 是 21 CFR §11.10(e)
+-- 「audit trail 不得遮蔽先前記錄」的合規骨幹。SET NULL 會讓 electronic_signatures
+-- 被(誤)刪後 FK 靜默清空，update guard 失效；RESTRICT 由 DB 強制阻擋刪除，
+-- 符合非否認性語意。
 ALTER TABLE amendments
     ADD COLUMN IF NOT EXISTS approved_signature_id UUID
-        REFERENCES electronic_signatures(id) ON DELETE SET NULL,
+        REFERENCES electronic_signatures(id) ON DELETE RESTRICT,
     ADD COLUMN IF NOT EXISTS rejected_signature_id UUID
-        REFERENCES electronic_signatures(id) ON DELETE SET NULL;
+        REFERENCES electronic_signatures(id) ON DELETE RESTRICT;
 
 COMMENT ON COLUMN amendments.approved_signature_id IS
 'GLP 核准簽章 FK。NOT NULL 後表示已被簽章核准，service 層 update guard 拒絕修改（21 CFR §11.10(e)(1)）。';
