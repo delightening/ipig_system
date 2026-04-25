@@ -25,7 +25,9 @@ impl SignatureService {
     }
 
     /// 取得觀察記錄內容（用於生成簽章雜湊）
-    pub async fn fetch_observation_content(pool: &PgPool, id: i32) -> Result<String> {
+    /// C1：animal_observations.id 為 UUID，原先用 i32 binding 會在 SQL 階段失敗 →
+    /// 改正為 Uuid。
+    pub async fn fetch_observation_content(pool: &PgPool, id: Uuid) -> Result<String> {
         sqlx::query_scalar(
             r#"SELECT CONCAT(
                 'observation_id:', id::text,
