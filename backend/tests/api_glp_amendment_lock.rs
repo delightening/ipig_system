@@ -93,7 +93,14 @@ async fn fetch_amendment_signatures(
     .fetch_one(&app.db_pool)
     .await
     .expect("fetch amendment sigs");
-    (row.try_get(0).ok(), row.try_get(1).ok())
+    // CodeRabbit review #205：顯式 Option<Uuid> 區別 NULL（合法）vs decode error
+    // （schema 漂移 → 失敗時應 panic 而非靜默回 None）
+    (
+        row.try_get::<Option<Uuid>, _>(0)
+            .expect("decode approved_signature_id"),
+        row.try_get::<Option<Uuid>, _>(1)
+            .expect("decode rejected_signature_id"),
+    )
 }
 
 async fn assign_reviewer(app: &TestApp, amendment_id: Uuid, reviewer_id: Uuid, assigned_by: Uuid) {
@@ -316,6 +323,78 @@ async fn record_decision_any_reject_inserts_rejection_signature() {
     .expect("fetch sig");
     assert_eq!(sig_row.0, r2);
     assert_eq!(sig_row.1, "REJECT");
+}
+
+// ============================================================
+// Test 3b (對稱): r1=REJECT 先, r2=APPROVE 後
+// 捕捉「signer = 最後 tipping reviewer」設計決定（CodeRabbit review #205）：
+// 即使 REJECT 投票者是 r1，最終簽章 signer 仍是最後決定的 r2。
+// 簽章 type = 'REJECT'（聚合結果），但 signer_id ≠ rejecter。
+// ============================================================
+
+#[tokio::test]
+#[serial]
+async fn record_decision_reject_first_then_approve_signs_as_last_voter() {
+    let app = TestApp::spawn().await;
+
+    let (protocol_id, admin_id) = seed_protocol(&app).await;
+    let amendment_id = seed_amendment(&app, protocol_id, admin_id).await;
+    sqlx::query("UPDATE amendments SET status = 'UNDER_REVIEW' WHERE id = $1")
+        .bind(amendment_id)
+        .execute(&app.db_pool)
+        .await
+        .expect("set under review");
+
+    let r1 = seed_test_reviewer(&app, &Uuid::new_v4().to_string()[..6]).await;
+    let r2 = seed_test_reviewer(&app, &Uuid::new_v4().to_string()[..6]).await;
+    assign_reviewer(&app, amendment_id, r1, admin_id).await;
+    assign_reviewer(&app, amendment_id, r2, admin_id).await;
+
+    // r1 REJECT 先
+    erp_backend::services::AmendmentService::record_decision(
+        &app.db_pool,
+        amendment_id,
+        r1,
+        &erp_backend::models::RecordAmendmentDecisionRequest {
+            decision: "REJECT".into(),
+            comment: Some("r1 reject".into()),
+        },
+    )
+    .await
+    .expect("r1");
+
+    // r2 APPROVE 後（tipping）
+    erp_backend::services::AmendmentService::record_decision(
+        &app.db_pool,
+        amendment_id,
+        r2,
+        &erp_backend::models::RecordAmendmentDecisionRequest {
+            decision: "APPROVE".into(),
+            comment: Some("r2 approve".into()),
+        },
+    )
+    .await
+    .expect("r2");
+
+    let (approved, rejected) = fetch_amendment_signatures(&app, amendment_id).await;
+    let sig_id = rejected.expect("REJECT 多數決後應寫 rejected_signature_id");
+    assert!(approved.is_none(), "rejected 結果不應寫 approved");
+
+    let sig_row: (Uuid, String) = sqlx::query_as(
+        "SELECT signer_id, signature_type FROM electronic_signatures WHERE id = $1",
+    )
+    .bind(sig_id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("fetch sig");
+    assert_eq!(
+        sig_row.0, r2,
+        "B-min 設計：signer = 最後 tipping reviewer (r2)，即使 r2 投 APPROVE"
+    );
+    assert_eq!(
+        sig_row.1, "REJECT",
+        "signature_type = 聚合結果（REJECT，因 r1 否決），不是 tipping voter 的決定"
+    );
 }
 
 // ============================================================
