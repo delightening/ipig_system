@@ -286,12 +286,25 @@ impl AnimalObservationService {
         // soft_delete 對齊雙層守衛 pattern：避免空開 tx + 取 row lock 才被擋下）
         SignatureService::ensure_not_locked_uuid(pool, "observation", id).await?;
 
+        // H5（Gemini #209 High）：先在 tx 外查 animal info，避免在 tx 持有連線的
+        // 同時呼叫 AnimalService::get_by_id 觸發 connection pool deadlock
+        // （tx 用一條連線，get_by_id 又取另一條連線；pool 滿時互等）。
+        // 取得 preview snapshot 不必在 tx 內；FOR UPDATE 權威檢查仍在後續 tx 內做。
+        let preview = sqlx::query_as::<_, AnimalObservation>(
+            "SELECT * FROM animal_observations WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("觀察紀錄不存在或已刪除".into()))?;
+        let animal = AnimalService::get_by_id(pool, preview.animal_id).await?;
+
         let mut tx = pool.begin().await?;
 
         // C1 atomic：拒絕刪除已鎖定（已簽章）記錄
         SignatureService::ensure_not_locked_uuid_tx(&mut tx, "observation", id).await?;
 
-        // SELECT FOR UPDATE 取 before；同時守門防止重複刪除
+        // SELECT FOR UPDATE 取 before；同時守門防止重複刪除（authoritative check）
         let before = sqlx::query_as::<_, AnimalObservation>(
             "SELECT * FROM animal_observations WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
         )
@@ -299,9 +312,6 @@ impl AnimalObservationService {
         .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("觀察紀錄不存在或已刪除".into()))?;
-
-        // H5：audit display 帶 IACUC + 耳號（取 before.animal_id 對應的動物）
-        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
 
         // 記錄到 change_reasons 表
         sqlx::query(
