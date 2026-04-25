@@ -47,35 +47,32 @@ impl AuthService {
             .await?;
 
             if fail_count >= config.account_lockout_max_attempts {
+                // H8 (CodeRabbit Medium)：原 R22-4 的鎖定事件用 tokio::spawn 火忘式
+                // 寫入，進程崩潰時遺失稽核紀錄。改為同 tx 內 sync insert 保證稽核
+                // 與 fail_count 觀測一致。
+                let _ = AuditService::log_security_event_tx(
+                    &mut tx,
+                    SEC_EVENT_ACCOUNT_LOCKOUT,
+                    None,
+                    ip,
+                    None,
+                    None,
+                    None,
+                    serde_json::json!({
+                        "email": &req.email,
+                        "fail_count": fail_count,
+                        "lockout_duration_minutes": config.account_lockout_duration_minutes,
+                    }),
+                )
+                .await;
+
                 tx.commit().await.ok();
+
                 tracing::warn!(
                     "[Auth] 帳號 {} 因連續失敗 {} 次被暫時鎖定",
                     req.email,
                     fail_count
                 );
-
-                // R22-4: 記錄帳號鎖定事件到 DB
-                let db = pool.clone();
-                let email = req.email.clone();
-                let ip_owned = ip.map(|s| s.to_string());
-                let lockout_mins = config.account_lockout_duration_minutes;
-                tokio::spawn(async move {
-                    let _ = AuditService::log_security_event(
-                        &db,
-                        SEC_EVENT_ACCOUNT_LOCKOUT,
-                        None,
-                        ip_owned.as_deref(),
-                        None,
-                        None,
-                        None,
-                        serde_json::json!({
-                            "email": email,
-                            "fail_count": fail_count,
-                            "lockout_duration_minutes": lockout_mins,
-                        }),
-                    )
-                    .await;
-                });
 
                 return Err(AppError::Validation(format!(
                     "帳號已暫時鎖定，請 {} 分鐘後再試",
