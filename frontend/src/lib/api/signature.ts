@@ -34,7 +34,7 @@ export const signatureApi = {
   getSacrificeStatus: (sacrificeId: string) =>
     api.get<SignatureStatusResponse>(`/signatures/sacrifice/${sacrificeId}`),
 
-  signObservation: (observationId: number, data: SignRecordRequest) =>
+  signObservation: (observationId: string, data: SignRecordRequest) =>
     api.post<SignRecordResponse>(`/signatures/observation/${observationId}`, data),
 
   signEuthanasia: (orderId: string, data: SignRecordRequest) =>
