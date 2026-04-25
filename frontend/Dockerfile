@@ -33,8 +33,10 @@ FROM georgjung/nginx-brotli:1.29.5-alpine
 # - libexpat: CVE-2026-32767 (2.7.4 -> 2.7.5)
 # - libpng: CVE-2026-33416, CVE-2026-33636 (1.6.55-r0 -> 1.6.56-r0)
 # - musl/musl-utils: CVE-2026-40200 (1.2.5-r21 -> 1.2.5-r23, stack-based buffer overflow)
+# - libcrypto3/libssl3: CVE-2026-31789 (CRITICAL, heap buffer overflow), CVE-2026-28387/28388/28389 (HIGH,
+#   DANE TLSA use-after-free + CMS/delta NULL deref DoS) — 3.5.5-r0 → 3.5.6-r0，同主版本 ABI 相容
 # 其他安全更新透過升級基底映像版號處理，見 docs/security.md。
-RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils && rm -rf /var/cache/apk/*
+RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
@@ -64,7 +66,7 @@ EXPOSE 8080
 
 # 啟動流程：
 #   1) 建立 /tmp/nginx temp 目錄（/tmp 是 tmpfs，容器啟動時為空，需 runtime 建立）
-#   2) 以 envsubst 代入 ${API_BACKEND_URL}，將 template 渲染至 /etc/nginx/conf.d/default.conf
-#      （/etc/nginx/conf.d 在 compose 以 tmpfs 掛載，可寫）
+#   2) 如 /etc/nginx/conf.d 可寫，以 envsubst 代入 ${API_BACKEND_URL} 渲染 template；
+#      若已掛成唯讀（docker-compose.test.yml nginx-ci.conf），跳過此步驟直接使用掛載的配置
 #   3) 啟動 nginx
-CMD ["/bin/sh", "-c", "mkdir -p /tmp/nginx && envsubst '${API_BACKEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "mkdir -p /tmp/nginx && if [ -w /etc/nginx/conf.d/default.conf ] || [ ! -e /etc/nginx/conf.d/default.conf ]; then envsubst '${API_BACKEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf; else echo '⚠️ /etc/nginx/conf.d/default.conf is read-only, using pre-mounted config'; fi && exec nginx -g 'daemon off;'"]

@@ -5,10 +5,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{
-        CreateProductRequest, Product,
-        ProductUomConversion, ProductWithUom,
-    },
+    models::{CreateProductRequest, Product, ProductUomConversion, ProductWithUom},
     repositories, AppError, Result,
 };
 
@@ -46,27 +43,33 @@ fn resolve_category_codes(req: &CreateProductRequest) -> (String, String) {
 }
 
 /// 解析 SKU：若請求有提供且非空則使用（並檢查唯一），否則自動生成。
-async fn resolve_sku(
-    pool: &PgPool,
+/// tx 版本：在 tx 內執行 SELECT，避免在 tx 外讀出後 SKU 被併發搶註冊。
+async fn resolve_sku_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     req_sku: Option<&str>,
     category_code: &str,
     subcategory_code: &str,
 ) -> Result<String> {
     if let Some(s) = req_sku.map(str::trim) {
         if !s.is_empty() {
-            if repositories::product::exists_product_by_sku(pool, s).await? {
+            let exists: bool =
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)")
+                    .bind(s)
+                    .fetch_one(&mut **tx)
+                    .await?;
+            if exists {
                 return Err(AppError::Conflict("SKU already exists".to_string()));
             }
             return Ok(s.to_string());
         }
     }
-    let sequence = get_next_sequence(pool, category_code, subcategory_code).await?;
+    let sequence = get_next_sequence_tx(tx, category_code, subcategory_code).await?;
     Ok(format_product_sku(category_code, subcategory_code, sequence))
 }
 
-/// 取得下一個 SKU 流水號。
-async fn get_next_sequence(
-    pool: &PgPool,
+/// 取得下一個 SKU 流水號（tx 版本）。
+pub(super) async fn get_next_sequence_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     category_code: &str,
     subcategory_code: &str,
 ) -> Result<i32> {
@@ -79,15 +82,15 @@ async fn get_next_sequence(
         "#,
     )
     .bind(&pattern)
-    .fetch_optional(pool)
+    .fetch_optional(&mut **tx)
     .await?
     .flatten();
     Ok(max_seq.unwrap_or(0) + 1)
 }
 
-/// 插入產品記錄至 DB。
-async fn insert_product(
-    pool: &PgPool,
+/// 插入產品記錄至 DB（tx 版本）。
+async fn insert_product_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     sku: &str,
     req: &CreateProductRequest,
     category_code: &str,
@@ -128,25 +131,31 @@ async fn insert_product(
     .bind(&req.storage_condition)
     .bind(&req.tags)
     .bind(&req.remark)
-    .fetch_one(pool)
+    .fetch_one(&mut **tx)
     .await?;
     Ok(product)
 }
 
-/// 批次建立單位換算記錄。
-async fn insert_uom_conversions(
-    pool: &PgPool,
+/// 批次建立單位換算記錄（tx 版本）。
+async fn insert_uom_conversions_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     product_id: Uuid,
     conversions: &[crate::models::UomConversionInput],
 ) -> Result<Vec<ProductUomConversion>> {
     let mut result = Vec::new();
     for conv in conversions {
-        let uom = repositories::product::insert_uom_conversion(
-            pool,
-            product_id,
-            &conv.uom,
-            conv.factor_to_base,
+        let uom = sqlx::query_as::<_, ProductUomConversion>(
+            r#"
+            INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+            "#,
         )
+        .bind(Uuid::new_v4())
+        .bind(product_id)
+        .bind(&conv.uom)
+        .bind(conv.factor_to_base)
+        .fetch_one(&mut **tx)
         .await?;
         result.push(uom);
     }
@@ -179,16 +188,29 @@ async fn build_product_with_uom(
     })
 }
 
-/// 同步單位換算：刪除既有後重新建立。
-async fn sync_uom_conversions(
-    pool: &PgPool,
+/// 同步單位換算：刪除既有後重新建立（tx 版本）。
+async fn sync_uom_conversions_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     product_id: Uuid,
     conversions: &[crate::models::UomConversionInput],
 ) -> Result<()> {
-    repositories::product::delete_uom_conversions(pool, product_id).await?;
+    sqlx::query("DELETE FROM product_uom_conversions WHERE product_id = $1")
+        .bind(product_id)
+        .execute(&mut **tx)
+        .await?;
     for conv in conversions {
-        repositories::product::insert_uom_conversion(pool, product_id, &conv.uom, conv.factor_to_base)
-            .await?;
+        sqlx::query(
+            r#"
+            INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
+            VALUES ($1, $2, $3, $4)
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(product_id)
+        .bind(&conv.uom)
+        .bind(conv.factor_to_base)
+        .execute(&mut **tx)
+        .await?;
     }
     Ok(())
 }

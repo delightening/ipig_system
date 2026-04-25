@@ -107,6 +107,12 @@ services:
       # 帳號鎖定：設為 true 可關閉 SEC-20 登入失敗鎖定
       DISABLE_ACCOUNT_LOCKOUT: ${DISABLE_ACCOUNT_LOCKOUT:-false}
 
+      # R26 Audit 系統
+      # AUDIT_HMAC_KEY 由 .env 自動載入（HMAC-SHA256 防篡改雜湊鏈密鑰，必須與 JWT_SECRET 不同）
+      # AUDIT_CHAIN_VERIFY_ACTIVE 預設 false：每日 02:00 UTC HMAC chain 驗證 cron 早退
+      # 啟用前置條件見 .env.example 與 docs/plans/R26_FullPlan.md
+      AUDIT_CHAIN_VERIFY_ACTIVE: ${AUDIT_CHAIN_VERIFY_ACTIVE:-false}
+
       # Google Calendar service account
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_service_account
       GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}

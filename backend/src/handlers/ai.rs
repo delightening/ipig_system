@@ -11,10 +11,10 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::{ai_auth::AiCaller, CurrentUser},
-    models::{ai::*, AuditAction},
+    middleware::{ai_auth::AiCaller, ActorContext, CurrentUser},
+    models::ai::*,
     require_permission,
-    services::{AiService, AuditService},
+    services::AiService,
     AppError, AppState, Result,
 };
 
@@ -41,18 +41,9 @@ pub async fn create_ai_api_key(
 ) -> Result<(axum::http::StatusCode, Json<CreateAiApiKeyResponse>)> {
     require_permission!(user, "system.admin");
 
-    let resp = AiService::create_api_key(&state.db, &req, user.id).await?;
-
-    if let Err(e) = AuditService::log(
-        &state.db,
-        user.id,
-        AuditAction::Create,
-        "ai_api_key",
-        resp.id,
-        None,
-        Some(serde_json::json!({ "name": resp.name })),
-    )
-    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
+    // SECURITY audit 已收進 service 層（AI_API_KEY_CREATE，tx 內）
+    let actor = ActorContext::User(user.clone());
+    let resp = AiService::create_api_key(&state.db, &actor, &req).await?;
 
     Ok((axum::http::StatusCode::CREATED, Json(resp)))
 }
@@ -95,18 +86,9 @@ pub async fn toggle_ai_api_key(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(user, "system.admin");
 
-    AiService::toggle_api_key(&state.db, id, body.is_active).await?;
-
-    if let Err(e) = AuditService::log(
-        &state.db,
-        user.id,
-        AuditAction::Update,
-        "ai_api_key",
-        id,
-        None,
-        Some(serde_json::json!({ "is_active": body.is_active })),
-    )
-    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
+    // SECURITY audit 已收進 service 層（AI_API_KEY_ENABLE/DISABLE，tx 內）
+    let actor = ActorContext::User(user.clone());
+    AiService::toggle_api_key(&state.db, &actor, id, body.is_active).await?;
 
     Ok(Json(serde_json::json!({ "success": true })))
 }
@@ -129,18 +111,9 @@ pub async fn delete_ai_api_key(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(user, "system.admin");
 
-    AiService::delete_api_key(&state.db, id).await?;
-
-    if let Err(e) = AuditService::log(
-        &state.db,
-        user.id,
-        AuditAction::Delete,
-        "ai_api_key",
-        id,
-        None,
-        None,
-    )
-    .await { tracing::error!("審計日誌寫入失敗: {e}"); }
+    // SECURITY audit 已收進 service 層（AI_API_KEY_DELETE，tx 內）
+    let actor = ActorContext::User(user.clone());
+    AiService::delete_api_key(&state.db, &actor, id).await?;
 
     Ok(Json(serde_json::json!({ "success": true })))
 }

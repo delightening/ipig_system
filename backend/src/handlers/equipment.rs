@@ -8,7 +8,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         ActivityLogQuery, AnnualPlanExecutionSummary, AnnualPlanQuery, AnnualPlanWithEquipment,
         ApproveDisposalRequest, ApproveIdleRequestRequest, CalibrationQuery,
@@ -23,7 +23,6 @@ use crate::{
         ReviewMaintenanceRequest, UpdateAnnualPlanRequest, UpdateCalibrationRequest,
         UpdateEquipmentRequest, UpdateMaintenanceRequest, UserActivityLog,
     },
-    repositories,
     services::{AuditService, EquipmentService},
     AppState, Result,
 };
@@ -216,18 +215,9 @@ pub async fn create_maintenance_record(
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<CreateMaintenanceRequest>,
 ) -> Result<(StatusCode, Json<EquipmentMaintenanceRecord>)> {
+    let actor = ActorContext::User(current_user.clone());
     let record =
-        EquipmentService::create_maintenance_record(&state.db, &payload, &current_user).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "EQUIPMENT", "MAINTENANCE_CREATE",
-        Some("maintenance_record"), Some(record.id), None,
-        None,
-        Some(serde_json::to_value(&record).unwrap_or_default()),
-        None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (MAINTENANCE_CREATE): {e}");
-    }
+        EquipmentService::create_maintenance_record(&state.db, &actor, &payload).await?;
 
     Ok((StatusCode::CREATED, Json(record)))
 }
@@ -238,22 +228,9 @@ pub async fn update_maintenance_record(
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateMaintenanceRequest>,
 ) -> Result<Json<EquipmentMaintenanceRecord>> {
-    let before = repositories::equipment::find_maintenance_record_by_id(&state.db, id).await?;
-    let before_json = before.map(|b| serde_json::to_value(&b).unwrap_or_default());
-
+    let actor = ActorContext::User(current_user.clone());
     let record =
-        EquipmentService::update_maintenance_record(&state.db, id, &payload, &current_user)
-            .await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "EQUIPMENT", "MAINTENANCE_UPDATE",
-        Some("maintenance_record"), Some(id), None,
-        before_json,
-        Some(serde_json::to_value(&record).unwrap_or_default()),
-        None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (MAINTENANCE_UPDATE): {e}");
-    }
+        EquipmentService::update_maintenance_record(&state.db, &actor, id, &payload).await?;
 
     Ok(Json(record))
 }
@@ -263,20 +240,8 @@ pub async fn delete_maintenance_record(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    let before = repositories::equipment::find_maintenance_record_by_id(&state.db, id).await?;
-    let before_json = before.map(|b| serde_json::to_value(&b).unwrap_or_default());
-
-    EquipmentService::delete_maintenance_record(&state.db, id, &current_user).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "EQUIPMENT", "MAINTENANCE_DELETE",
-        Some("maintenance_record"), Some(id), None,
-        before_json,
-        None,
-        None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (MAINTENANCE_DELETE): {e}");
-    }
+    let actor = ActorContext::User(current_user.clone());
+    EquipmentService::delete_maintenance_record(&state.db, &actor, id).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -287,22 +252,9 @@ pub async fn review_maintenance_record(
     Path(id): Path<Uuid>,
     Json(payload): Json<ReviewMaintenanceRequest>,
 ) -> Result<Json<EquipmentMaintenanceRecord>> {
-    let before = repositories::equipment::find_maintenance_record_by_id(&state.db, id).await?;
-    let before_json = before.map(|b| serde_json::to_value(&b).unwrap_or_default());
-
+    let actor = ActorContext::User(current_user.clone());
     let record =
-        EquipmentService::review_maintenance_record(&state.db, id, &payload, &current_user)
-            .await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "EQUIPMENT", "MAINTENANCE_REVIEW",
-        Some("maintenance_record"), Some(id), None,
-        before_json,
-        Some(serde_json::to_value(&record).unwrap_or_default()),
-        None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (MAINTENANCE_REVIEW): {e}");
-    }
+        EquipmentService::review_maintenance_record(&state.db, &actor, id, &payload).await?;
 
     Ok(Json(record))
 }

@@ -7,6 +7,9 @@ use validator::Validate;
 
 use super::storage_location::StorageLocationInventoryItem;
 
+// 倉庫主檔，無敏感欄位
+impl crate::models::audit_diff::AuditRedact for Warehouse {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Warehouse {
     pub id: Uuid,

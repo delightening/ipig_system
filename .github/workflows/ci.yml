@@ -102,6 +102,111 @@ jobs:
           echo "✅ 未發現 SQL 注入風險"
 
   # =========================
+  # 🔐 R26 Service-driven Audit 守衛
+  # 對應 R26_FullPlan.md DoD-5：
+  #   防止未來新 PR 在 handler 層引入 `tokio::spawn(async move { AuditService::log_*`
+  #   pattern（fire-and-forget audit），這違背 R26 SDD 原則：mutation 與 audit 必須
+  #   同 transaction 原子寫入（log_activity_tx），而非 fire-and-forget。
+  # 例外（design decision D-15）：
+  #   SEC fire-and-forget（FORCE_LOGOUT、IMPERSONATE_START）可用 log_activity_oneshot
+  #   ─ 這些事件已發生不可回滾，audit 失敗不應 break 主流程。
+  #   handlers/audit.rs::FORCE_LOGOUT、handlers/user.rs::IMPERSONATE_START 為已知例外。
+  # =========================
+  audit-pattern-guard:
+    name: "🔐 Guard: SDD audit pattern"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查 handler 層是否新增 tokio::spawn audit
+        working-directory: ./backend
+        run: |
+          # 已知 SEC fire-and-forget 例外（D-15）：FORCE_LOGOUT + IMPERSONATE_START
+          ALLOWED_EXCEPTIONS=2
+          # 用 grep -A 15 限制檢查範圍為「tokio::spawn 後 15 行內」，比 awk
+          # 的 found-flag 跨 function 持續更可靠（避免下一個函式內的同步
+          # audit 呼叫被誤算進去）。
+          MATCHES=$(grep -rn -A 15 'tokio::spawn' src/handlers/ 2>/dev/null \
+                    | grep 'AuditService::log_activity' || true)
+          if [ -z "$MATCHES" ]; then
+            ACTUAL_COUNT=0
+          else
+            ACTUAL_COUNT=$(printf '%s\n' "$MATCHES" | wc -l)
+          fi
+          echo "Handler 層 tokio::spawn(... AuditService::log_activity*) 呼叫點: ${ACTUAL_COUNT}（容許上限: ${ALLOWED_EXCEPTIONS}）"
+          if [ "$ACTUAL_COUNT" -gt "$ALLOWED_EXCEPTIONS" ]; then
+            echo "::error::發現新的 tokio::spawn(... AuditService::log_activity*) pattern！"
+            echo "::error::R26 SDD 原則: mutation 應改用 log_activity_tx 在同一 tx 寫 audit。"
+            echo "::error::SEC fire-and-forget (FORCE_LOGOUT/IMPERSONATE_START) 為已知例外 (D-15)。"
+            echo "::error::詳見 docs/plans/R26_FullPlan.md"
+            printf '%s\n' "$MATCHES"
+            exit 1
+          fi
+          echo "✅ Handler 層 SDD audit pattern 守則達標"
+
+  # =========================
+  # 🔐 Audit Redaction 守衛（R26-14）
+  # 對應 docs/security/AUDIT_REDACTION.md：
+  #   偵測 models/ 中新增含敏感欄位（password_hash / _secret / _token / api_key /
+  #   backup_codes）的 struct，若未在 allowlist 或無明確 `AuditRedact::redacted_fields()`
+  #   覆寫則 CI fail。目的：強制新敏感 entity 必須做 redact decision，不得默默用
+  #   default 空陣列。
+  # =========================
+  audit-redaction-guard:
+    name: "🔐 Guard: audit redaction"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查敏感欄位 DB entity 的 AuditRedact 覆寫
+        working-directory: ./backend
+        run: |
+          # 掃描含敏感欄位的 struct 名稱，**只**對 DB entity（有 FromRow derive）
+          # 檢查。DTO 類（Request/Response）不進 audit diff，跳過。
+          #
+          # 偵測邏輯：
+          #  1. 在 models/ 找所有 struct 含 password_hash / _secret / _token /
+          #     api_key / backup_codes / key_hash 欄位
+          #  2. 過濾只保留有 `#[derive(..., FromRow, ...)]` 的 struct（= DB entity）
+          #  3. 若該 entity 名不在 ALLOWED 中，CI fail 並要求登記 AUDIT_REDACTION.md
+          #
+          # ALLOWED = 已明確 redact（User / AiApiKey）+ 不進 audit diff 的 entity
+          ALLOWED='User|AiApiKey|UserSession|Invitation'
+
+          # 用 find + awk 掃描每個檔案的 struct 區塊（不依賴 shell globstar）
+          BAD=$(find src/models -name '*.rs' -type f -print0 | xargs -0 awk '
+            /^#\[derive/ {
+              is_fromrow = /FromRow/
+              next
+            }
+            /^pub struct / {
+              match($0, /pub struct [A-Z][A-Za-z0-9_]+/)
+              name = substr($0, RSTART+11, RLENGTH-11)
+              in_struct = 1
+              has_sensitive = 0
+              next
+            }
+            in_struct && /pub (password_hash|[a-z_]+_secret|[a-z_]+_token|api_key|backup_codes|key_hash) *:/ {
+              has_sensitive = 1
+            }
+            in_struct && /^}/ {
+              if (is_fromrow && has_sensitive) print name
+              in_struct = 0
+              is_fromrow = 0
+            }
+          ' 2>/dev/null | sort -u | grep -vE "^(${ALLOWED})$" || true)
+
+          if [ -n "$BAD" ]; then
+            echo "::error::新增敏感欄位 DB entity 需檢查 AuditRedact::redacted_fields() 覆寫："
+            printf '::error::  - %s\n' $BAD
+            echo "::error::處理方式："
+            echo "::error::  1) 明確覆寫 redacted_fields()，並登記於 docs/security/AUDIT_REDACTION.md §1"
+            echo "::error::  2) 若此 entity 不進 audit diff，加入 ci.yml 的 ALLOWED 清單 + §3 登記"
+            exit 1
+          fi
+          echo "✅ 敏感欄位 DB entity 的 AuditRedact 守則達標"
+
+  # =========================
   # 🚫 Unsafe 守衛
   # =========================
   unsafe-guard:
@@ -265,12 +370,9 @@ jobs:
       - name: cargo clippy
         # -D warnings: 所有 clippy 警告視為錯誤
         # -W clippy::unwrap_used: unwrap() 產生警告（不阻擋，漸進式修復）
-        # -A deprecated: R26 Service-driven audit 重構過渡期容忍舊版
-        #     AuditService::log_activity 的 #[deprecated] 警告
-        #     （約 91 處 handler 呼叫點），由 R26-3 分批遷移至 log_activity_tx。
-        #     R26-4 完成後（舊版移除）請**立即刪除** -A deprecated 恢復嚴格檢查。
-        #     對應計畫：docs/TODO.md §R26、CLAUDE.md 執行紀律 > Clippy 過關標準。
-        run: cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used -A deprecated
+        # R26-4 已完成（2026-04-23, PR #188 + #190）：舊版 AuditService::log_activity 已刪除，
+        # 不再需要 -A deprecated 容忍標記。新 PR 引入 deprecated 警告會直接 CI 紅燈。
+        run: cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used
 
   # =========================
   # 📊 後端：cargo-tarpaulin 行覆蓋率量測
@@ -490,32 +592,85 @@ jobs:
             echo "ECEOF"
           } >> "$GITHUB_ENV"
 
-      - name: 啟動 Docker 測試環境
+      - name: 啟動 Docker 測試環境 (build)
         env:
           CI_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
           CI_DEV_PASSWORD: ${{ secrets.CI_DEV_PASSWORD }}
         run: |
-          docker compose -f docker-compose.test.yml build --progress=plain
-          # 使用 --wait 等待所有服務 healthcheck 通過，避免 E2E 在服務未就緒時執行
-          docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 300
+          set -euo pipefail
+          echo "=== Docker 版本檢查 ==="
+          docker --version && docker compose --version
+          echo ""
+          echo "=== 開始構建鏡像 ==="
+          # --progress=plain 必須放在 compose 層級；放在 build 子命令是 deprecated warning。
+          docker compose --progress=plain -f docker-compose.test.yml build
+
+      - name: 啟動 Docker 測試環境 (up)
+        env:
+          CI_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+          CI_DEV_PASSWORD: ${{ secrets.CI_DEV_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "=== 啟動容器（不帶 --wait，手動輪詢 healthcheck） ==="
+          # 先 up -d（不 --wait），讓容器啟動；再單獨輪詢 healthcheck，這樣
+          # 單一容器啟動失敗時能在失敗當下立刻印日誌，而非 --wait-timeout 才暴露。
+          docker compose -f docker-compose.test.yml up -d
+          echo ""
+          echo "=== 初始容器狀態 ==="
+          docker compose -f docker-compose.test.yml ps -a
+          echo ""
+          echo "=== 輪詢 healthcheck（最多 3 分鐘） ==="
+          SERVICES="db-test api-test web-test"
+          for i in $(seq 1 36); do
+            ALL_HEALTHY=true
+            for svc in $SERVICES; do
+              cname="ipig-${svc}"
+              status=$(docker inspect --format='{{.State.Health.Status}}' "$cname" 2>/dev/null || echo "no-container")
+              running=$(docker inspect --format='{{.State.Status}}' "$cname" 2>/dev/null || echo "none")
+              if [ "$running" = "exited" ] || [ "$running" = "dead" ]; then
+                echo "❌ $cname 已退出 (status=$running)，即將傾印日誌並中止"
+                ALL_HEALTHY=false
+                break 2
+              fi
+              if [ "$status" != "healthy" ]; then
+                ALL_HEALTHY=false
+                if [ $((i % 6)) -eq 0 ]; then
+                  echo "  [$i/36] $cname: health=$status, state=$running"
+                fi
+              fi
+            done
+            if $ALL_HEALTHY; then
+              echo "✅ 所有服務 healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ 180s 後仍有服務未就緒"
+          exit 1
 
       - name: 傾印容器日誌 (啟動失敗時偵錯)
         if: failure()
         run: |
-          echo "=== Container Status ==="
-          docker compose -f docker-compose.test.yml ps -a
+          echo "=== 容器狀態 ==="
+          docker compose -f docker-compose.test.yml ps -a || true
           echo ""
-          echo "=== API Container Logs (last 300 lines) ==="
-          docker logs ipig-api-test --tail=300 2>&1 || docker compose -f docker-compose.test.yml logs api-test --tail=300
+          echo "=== API 容器詳細信息 ==="
+          docker inspect ipig-api-test 2>/dev/null | jq '.[] | {State, Health, Config}' || true
           echo ""
-          echo "=== API Container Inspect (exit code / health) ==="
-          docker inspect ipig-api-test --format='ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{.State.Health.Status}}' 2>/dev/null || true
+          echo "=== API 容器日誌 (最後 500 行) ==="
+          docker logs ipig-api-test --tail=500 2>&1 || docker compose -f docker-compose.test.yml logs api-test --tail=500
           echo ""
-          echo "=== DB Container Logs (last 50 lines) ==="
-          docker compose -f docker-compose.test.yml logs db-test --tail=50
+          echo "=== DB 容器日誌 (最後 100 行) ==="
+          docker compose -f docker-compose.test.yml logs db-test --tail=100 || true
           echo ""
-          echo "=== Web Container Logs (last 50 lines) ==="
-          docker compose -f docker-compose.test.yml logs web-test --tail=50
+          echo "=== Web 容器日誌 (最後 100 行) ==="
+          docker compose -f docker-compose.test.yml logs web-test --tail=100 || true
+          echo ""
+          echo "=== Docker 網絡檢查 ==="
+          docker network ls || true
+          echo ""
+          echo "=== Docker 卷檢查 ==="
+          docker volume ls | grep ipig || true
 
       - name: 確認服務可連線 (備援檢查)
         run: |

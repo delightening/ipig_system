@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use super::ProtocolService;
 use crate::{
-    middleware::ActorContext,
+    middleware::{ActorContext, CurrentUser},
     models::{
         ProtocolActivity, ProtocolActivityResponse, ProtocolActivityType,
         ProtocolStatus, ProtocolVersion,
@@ -244,19 +244,30 @@ impl ProtocolService {
         // 同步記錄到全域審計日誌
         let event_type = event_type_for(activity_type);
 
-        #[allow(deprecated)]
-        if let Err(e) = AuditService::log_activity(
+        let actor = ActorContext::User(CurrentUser {
+            id: actor_id,
+            email: String::new(),
+            roles: vec![],
+            permissions: vec![],
+            jti: String::new(),
+            exp: 0,
+            impersonated_by: None,
+        });
+
+        if let Err(e) = AuditService::log_activity_oneshot(
             pool,
-            actor_id,
-            "AUP",
-            event_type,
-            Some("protocol"),
-            Some(protocol_id),
-            Some(&protocol_title),
-            None,
-            None,
-            None,
-            None,
+            &actor,
+            ActivityLogEntry {
+                event_category: "AUP",
+                event_type,
+                entity: Some(AuditEntity {
+                    entity_type: "protocol",
+                    entity_id: protocol_id,
+                    entity_display_name: &protocol_title,
+                }),
+                data_diff: None,
+                request_context: None,
+            },
         ).await {
             tracing::error!("寫入 user_activity_logs 失敗 ({}): {}", event_type, e);
         }

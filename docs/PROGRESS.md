@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-04-19 (v23)
+> **最後更新：** 2026-04-23 (v24)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -184,6 +184,288 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
+
+### 2026-04-24 R26-14 Audit Redaction 文檔 + CI 守衛 (PR #198)
+
+- ✅ **Critical review finding 澄清**：agent 提出「Animal/Document/Equipment/Partner/Role 等 entity 缺 AuditRedact impl」**實際誤判** — 80 處 `DataDiff::compute` 呼叫全部編譯通過，代表所有 entity 都已 impl（default empty 或明確 redact）。
+- ✅ **新增 `docs/security/AUDIT_REDACTION.md`**：完整對照表
+  - §1 明確 redact 欄位的 entity（`User`: password_hash/totp_secret/backup_codes；`AiApiKey`: key_hash）
+  - §2 default empty impl 的 entity（動物/ERP/設備/文件/HR/權限 類，經 review 確認無敏感欄位）
+  - §3 含敏感欄位但不進 audit diff 的 entity（`UserSession.refresh_token_id` 只是 UUID）
+  - §4 FullPlan DoD-7 列舉但實際不存在的 entity（`TwoFactorSecret`/`JwtBlacklist`/`OAuthCredential`/`McpKey` 在 codebase 中從未定義）
+  - §5 CI 守衛說明；§6 維護記錄與新 entity 檢查清單
+- ✅ **新增 `audit-redaction-guard` CI job**：find + awk 掃描 `models/*.rs` 含敏感欄位 pattern（password_hash / *_secret / *_token / api_key / backup_codes / key_hash）的 `FromRow` DB entity，若不在 ALLOWED 清單且 redact 未覆寫則 fail。強制新敏感 entity 必須做 redact decision。
+- ✅ **本地驗證 guard**：`✅ PASS`（所有現有 DB entity 都已 redact 或在 ALLOWED 清單）
+
+### 2026-04-24 R26-13 storage_location 庫存 upsert 原子性修復 (PR #197)
+
+- ✅ **修補 critical review HIGH finding**：`storage_location.rs::create_inventory_item` 原本使用 `INSERT ... ON CONFLICT DO UPDATE` upsert pattern，無法在 app 層區分實際執行 INSERT 還是 UPDATE → audit 缺 before snapshot、兩並發請求互相覆蓋。
+- ✅ **重構為顯式 SELECT FOR UPDATE + INSERT/UPDATE 分支**：
+  - 開 transaction
+  - `SELECT ... FOR UPDATE OF sli` 鎖定既有 row（以 unique key: storage_location_id + product_id + COALESCE(batch_no, '') + COALESCE(expiry_date, '1900-01-01')）
+  - 有既有 row → UPDATE 路徑，event_type = `STORAGE_INVENTORY_UPDATE`，before/after diff 完整
+  - 無既有 row → INSERT 路徑，event_type = `STORAGE_INVENTORY_CREATE`，before=None
+  - `log_activity_tx` 在同一 tx 寫 audit
+  - 更新 storage_locations.current_count 在同一 tx
+  - Commit
+- ✅ **新增 `AuditRedact` impl for `StorageLocationInventoryItem`**（空 impl = 全欄位明碼，無敏感資料）
+- ✅ **Handler 簽名變更**：handler 現在建構 `ActorContext::User(current_user)` 並傳入 service
+- ✅ **驗證**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used` 零警告、`cargo test --lib` 422/422 pass
+
+
+### 2026-04-24 R26 整合測試 — DoD-3/DoD-6 機械式驗證 (PR #195)
+
+- ✅ **新增 `backend/tests/api_audit_r26.rs`**（4 個整合測試）對應 critical review 發現的「R26 整合測試完全缺失」問題。
+- ✅ **Test 1: `tx_rollback_does_not_persist_audit`** — 驗證 SDD 核心保證：tx rollback 時 audit 不落地。
+- ✅ **Test 2: `tx_commit_persists_audit_with_chain`** — 驗證 tx commit 後 audit 寫入並形成 HMAC chain（每筆有 non-empty integrity_hash）。
+- ✅ **Test 3: `hmac_chain_broken_detected_by_verify`** — 寫 3 筆 audit → 手動篡改中間一筆的 after_data → `verify_chain_range` 應在 `broken_links` 中含被篡改的 id。對應 DoD-3 audit_chain_verify cron 的偵測能力。
+- ✅ **Test 4: `concurrent_audit_writes_no_chain_race`** — 10 並發 tasks 各自開 tx 寫一筆 audit → 全部成功且每筆都有 integrity_hash（advisory lock 起效）。對應 DoD-6 同類精神（advisory lock 序列化）。
+- ✅ **測試模式**：直接用 `TestApp::spawn().db_pool` 取 connection pool，不經 HTTP layer — 測試目標為 service 層原子性。
+- ✅ **驗證**：`cargo check --tests --test api_audit_r26` ✓；`cargo test --lib` 不受影響（422/422 pass）；CI 將跑 `cargo test --all-targets` 確認 4 個整合測試在有 DB 的環境通過。
+
+### 2026-04-24 R26 Frontend Audit Fields — UserActivityLog 補新欄位 + Detail Dialog 展示 (PR #196)
+
+- ✅ **修補前端 R26 欄位斷層**：critical review 發現 `UserActivityLog` interface 缺 4 個 R26 新欄位，導致前端無法序列化、稽核 UI 無法顯示。
+- ✅ **`frontend/src/types/hr.ts`** 新增 4 個欄位：
+  - `changed_fields: string[] | null`（R26-3 stored proc 計算或 app 提供的變動欄位清單）
+  - `integrity_hash: string | null`（SEC-34 HMAC-SHA256 雜湊鏈）
+  - `previous_hash: string | null`（鏈連續性驗證用）
+  - `impersonated_by_user_id: string | null`（R26-1 / migration 034：SEC-11 模擬登入真正執行者）
+  - `hmac_version: number | null`（R26-6 / migration 037：1=legacy / 2=canonical）
+- ✅ **`AuditLogsPage` Detail Dialog 補展示**（`pages/admin/components/ActivityLogDetailDialog.tsx`）：
+  - SEC-11 impersonate 警示區塊（含 UserCog icon 與「真正執行管理員」說明）
+  - 變動欄位 Badge 清單（含 redact 後欄位名）
+  - 可摺疊的「資料完整性 (HMAC chain)」區塊：HMAC 編碼版本標籤（v1 legacy / v2 canonical）+ Integrity Hash + Previous Hash + 「每日 02:00 UTC 自動驗證」說明
+- ✅ **`lib/guest-demo/admin.ts`** demo data 同步補新欄位（type-safe）
+- ✅ **驗證**：`pnpm tsc --noEmit` ✓；`pnpm eslint` 對 3 個變更檔零警告
+
+
+### 2026-04-24 R26 Rollback + Env Docs — Critical Review 補強 (PR #194)
+
+- ✅ **發現 R26 epic 收尾前的 critical gaps**（透過 critical code review）：
+  - 🔴 HIGH: Migration 033-037 完全無 .down.sql / DB_ROLLBACK.md 章節（fullplan §11 Step 1.7 unfulfilled）
+  - 🔴 HIGH: R26 整合測試完全缺失（DoD-3 / DoD-6 無機械式驗證）
+  - 🟠 MEDIUM: Frontend `UserActivityLog` 缺 `hmac_version` / `impersonated_by_user_id` / `integrity_hash` 欄位
+  - 🟠 MEDIUM: Migration 037 backfill 無 runbook
+  - 🟠 MEDIUM: `.env.example` 缺 `AUDIT_CHAIN_VERIFY_ACTIVE`
+  - 🟠 MEDIUM: `docker-compose.yml` 未文檔化 AUDIT env
+  - 🟠 HIGH (新發現): `services/storage_location.rs::create_inventory_item` upsert 缺 SELECT FOR UPDATE → audit 無法區分 INSERT/UPDATE（後續 PR 處理）
+  - 🟡 MEDIUM (新發現): Animal/Document/Equipment/Partner/Role 等 entity 缺 `AuditRedact` impl（後續 PR 處理）
+- ✅ **本 PR (#194) 補做**：
+  - `docs/db/DB_ROLLBACK.md` 新增 **Migrations 033-037 章節**：每個 migration 含完整 rollback SQL、嚴重警告（prod 後不建議 rollback）、Migration 037 backfill runbook（分批 UPDATE 避免長時間鎖表）
+  - `.env.example` 加入 `AUDIT_CHAIN_VERIFY_ACTIVE=false` + 啟用前置條件文檔（migration 037 上線、verifier 分流支援、staging ≥7 天無 false positive）
+  - `docker-compose.yml` API service 補 `AUDIT_CHAIN_VERIFY_ACTIVE` env 宣告
+- ✅ **後續 PR 預定（依序）**：
+  - PR #195 R26 整合測試：tx rollback / HMAC chain broken 偵測 / change_status concurrent
+  - PR #196 Frontend `UserActivityLog` 補新欄位 + `AuditLogsPage` 展示 impersonate chain
+  - 後續 PR R26-13/14（新編號）：storage_location upsert race 修復 + entity AuditRedact impl
+  - 最後 PR R26 Epic 收尾（`integration/r26 → main`, DoD-8）
+
+### 2026-04-24 R26 Epic Final DoD Compliance — CI 嚴格化 + Audit Pattern Guard
+
+- ✅ **移除 `ci.yml` 的 `-A deprecated` 寬鬆標記**：R26-4 已完成（PR #188 + #190 移除舊 `log_activity`），現在 CI clippy 採嚴格模式 `-D warnings -W clippy::unwrap_used`。新 PR 引入 deprecated 警告會直接 CI 紅燈。
+- ✅ **新增 `audit-pattern-guard` CI job (DoD-5)**：grep guard 防止未來新 PR 在 handler 層引入 `tokio::spawn(async move { AuditService::log_*` pattern。容許上限 2（D-15 SEC 例外：FORCE_LOGOUT + IMPERSONATE_START），超出立即 CI 紅燈。
+- ✅ **R26_FullPlan.md 加 D-15 設計決策**：明確記錄 SEC fire-and-forget audit 例外（`handlers/audit.rs::FORCE_LOGOUT` + `handlers/user.rs::IMPERSONATE_START`）— 這些事件已發生不可回滾，audit 失敗不應 break 主流程。
+- ✅ **R26_FullPlan.md DoD checklist 全面標記**：DoD-1 ~ DoD-7 全部 ✅；DoD-8（合流回 main）為 R26 epic 收尾 PR 待做。Step 3 ~ Step 9 acceptance criteria 全綠。
+- ✅ **量化指標確認**：`log_activity_tx` 138 處（超出原計 97 → 實際更徹底）、`log_activity_oneshot` 11 處（fire-and-forget）、`tokio::spawn audit` 2 處（D-15 例外）、deprecated warnings 0 處。
+- ✅ **驗證結果**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used` 嚴格版（無 -A deprecated）零警告通過。
+
+
+
+### 2026-04-24 R26 系列收尾完成 — PR #191（PW+E _tx）合併 + R26-7 死碼清零
+
+- ✅ **PR #191（R26-3 Phase 2 最終塊）合併**：Partner / Warehouse / Equipment service `_tx` variants 全面到位
+  - Partner: `create_tx` / `delete_tx`；Warehouse: `create_tx` / `update_tx` / `delete_tx`；Equipment: `create_maintenance_record_tx` / `update_maintenance_record_tx` / `delete_maintenance_record_tx`
+  - 所有 mutation 含 `log_activity_tx()` 確保審計與資料變更同一 tx 原子性
+  - Equipment refactor：公開 pool-based methods 轉為薄包裝（permission check → begin tx → delegate _tx → commit → side effects），消除 ~205 行重複代碼
+  - CI 13/13 綠燈（含 E2E Playwright）
+- ✅ **R26-7 死碼清零**：services/ 模組樹從「11 處 `#[allow(dead_code)]`」降至 0
+  - PR #173 已刪除 8 處真死碼
+  - 本次處理剩餘 3 處：
+    - `data_import.rs::IdxfMeta.format_version` → `_format_version` + `#[serde(rename = "format_version")]`（serde 被動欄位）
+    - `data_import.rs::ManifestTable.columns` → `_columns` + `#[serde(rename = "columns")]`（統一 `_`-prefix 模式）
+    - `hr/overtime.rs::QUARTERLY_OVERTIME_LIMIT` → 移除（未使用的勞基法季度常數；法規值保留於 `MONTHLY_OVERTIME_LIMIT_EXTENDED` 註釋）
+  - `services/mod.rs` 頂部註釋更新：R26-7 完成聲明 + 新死碼即刻紅燈
+- ✅ **R26 全系列完成** — 8/8 項目（R26-1~R26-8 + R26-9/10/11）關閉：
+  - R26-1 Scheduler tokio::select!（PR #177）
+  - R26-2 HMAC chain 驗證 cron（已實作於 integration/r26）
+  - R26-3 Handler 遷移 log_activity_tx（PR #156/162-184/188/191，97 call sites 全部）
+  - R26-4 舊 log_activity 移除（零 deprecated 警告）
+  - R26-5 migration 036 修正（PR #154）
+  - R26-6 HMAC 版本化（PR #170）
+  - R26-7 Dead code 清零（本次收尾）
+  - R26-8 ProtocolService::change_status SDD（PR #188）
+  - R26-9 Audit redact allowlist（PR #175）
+  - R26-10 Vet advice upsert 並發安全（PR #174）
+  - R26-11 IDOR service-layer authz（PR #176）
+- ✅ **驗證結果**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -A deprecated` 0 warnings、`cargo test --lib` 422/422 all pass
+
+### 2026-04-23 R26-3 Phase 2 — PR #6b（Product + SKU）+ Gemini Review 修正 + 分支整合
+
+#### PR #6b（R26-3 Phase 2）— Product & SKU Service-driven audit（6 commits / 12 mutations）
+
+- ✅ **ProductService CRUD _tx 化**：`services/product/crud.rs` 新增 6 個 `_tx` variants
+  - `create_tx` / `update_tx` / `update_status_tx` / `delete_tx` / `hard_delete_tx` / `create_category_tx`
+  - 原有 pool-based public methods 轉為薄包裝（4–7 行），內部開啟 tx + 委派 _tx variant + commit
+  - 每個 _tx 含 `log_activity_tx` 呼叫，確保 audit trail 與 mutation 同原子性
+- ✅ **SkuService CRUD _tx 化**：`services/sku.rs` 新增 6 個 `_tx` variants
+  - `update_category_tx` / `update_subcategory_tx` / `create_subcategory_tx` / `create_product_with_sku_tx` / `delete_subcategory_tx` / `delete_category_tx`
+  - 處理字串主鍵（category/subcategory code）與 Uuid 型別不一致；`create_product_with_sku_tx` 需預先生成 SKU（無法在 tx 內呼叫 `Self::generate`）
+- ✅ **dead code cleanup（bonus）**：移除 3 個 R26-8 後成為孤立的舊版 pool wrapper
+  - `ProtocolService::assign_primary_reviewer`（被 `assign_primary_reviewer_tx` 取代）
+  - `ProtocolService::assign_vet_reviewer`（被 `assign_vet_reviewer_tx` 取代）
+  - `ProtocolService::generate_iacuc_no_pool`（無呼叫點）
+  - 消除 clippy `dead_code` 警告，重啟 `-D warnings` 嚴格編譯
+- ✅ **驗證結果**：`cargo check` ✓、`cargo clippy --all-targets -- -D warnings -A deprecated` 0 warnings、`cargo test --lib` 422/422 all pass
+- ✅ **Commit**: `ae01c13` refactor(product,sku): R26-3 Phase 2 PR #6b - expose _tx variants
+- ✅ **PR #190 opened**（base: integration/r26）並 Gemini code-assist review 完成
+
+#### Gemini Review #190 修正（2 suggestions）
+
+- 🔴 **High Priority — Missing VET audit log**：
+  - Symptom：`assign_vet_reviewer_tx` 簽名改為 `(tx, actor: &ActorContext, protocol_id, vet_id)` 後，遺漏了 `record_activity_tx(..., ProtocolActivityType::VetAssigned, ...)`
+  - Fix：恢復 `record_activity_tx` 呼叫，確保 vet assignment audit trail 與 tx 同步
+  - Commit: `2ddd2f5` fix(protocol): restore vet audit log + dedupe reviewer query
+- 🟠 **Medium Priority — Duplicate reviewer SELECT**：
+  - Symptom：`change_status_tx` UnderReview 分支重複執行同樣的 `WHERE id = ANY($1::uuid[])` 查詢（一次供 status_remark，再次供 ReviewerAssigned activity）
+  - Fix：預先 fetch `(Uuid, String)` tuple 一次，同時供兩個用途（status_remark 與 activity extra data），消除冗餘
+  - Line 256 → consolidated upfront, reused in 249–312 block
+
+#### 分支整合協調
+
+- ✅ **Base branch update**：`origin/integration/r26` 於 2026-04-23 received PR #188 squash（R26-4/7/6/8 foundation 一次性合併）
+  - Conflict in `status.rs`：r26-3-phase2-handlers HEAD 有 tx-aware 薄包裝 + Gemini fixes，而 theirs 為中間態 `log_activity_oneshot`
+  - Resolution：Keep ours（HEAD），因 tx-aware pattern 為最終設計；merge commit `0560647` 推送完成
+- ✅ **編譯驗證**：merge 後 `cargo check` ✓、clippy 0 warnings、tests 422/422 pass
+- ✅ **Push 完成**：branch `r26-3-phase2-handlers` 包含 3 commits（ae01c13 + 2ddd2f5 + 0560647 merge）
+
+#### 下階段 PR 預計
+
+| PR # | 範圍 | 估算 | 狀態 |
+|------|------|------|------|
+| #6c | Partner + Warehouse + Equipment `_tx` variants | 20–28h | Pending |
+| #6d | Role + AI + Auth + Two-Factor `_tx` variants | 16–20h | Pending |
+| #6e | Document + QA_Plan + Amendment `_tx` variants | 28–36h | Pending |
+| #6f | Facility + Signature `_tx` variants | 20–24h | Pending |
+| #9 | R26-4 final cleanup（移除所有 pool wrapper）| 8–12h | Post-PR #6 |
+
+### 2026-04-23 R26 Cleanup Phase 2：R26-4、R26-7、R26-6 完成 + R26-8 基礎建設
+
+#### R26-4：舊版 log_activity() 函數刪除與deprecated 警告清零
+
+- ✅ **刪除舊版函數**：`log_activity()` + `compute_and_store_hmac()` + `audit_document()` 三個函數完全移除（audit.rs 減少 ~250 行）
+- ✅ **遷移最後 2 個 call sites**：
+  - `protocol/history.rs` record_activity()：改用 `log_activity_oneshot()` + `ActorContext::User` 構造（actor_id → CurrentUser 轉接）
+  - `protocol/status.rs` change_status()：同樣改用 `log_activity_oneshot()` 的 fire-and-forget 模式
+- ✅ **deprecated 警告狀態**：0 warnings（舊版函數全刪，遺留警告點消失）
+- ✅ **驗證結果**：`cargo check` ✓、`cargo clippy -D warnings` ✓、`cargo test --lib` ✓ 422/422 all pass
+- ✅ **Commit**: `b7aa6bc` feat(audit): R26-4 remove deprecated log_activity()
+
+#### R26-7：死碼清理（2 items removed, 3 intentionally preserved）
+
+- ✅ **刪除死碼**：
+  - `CreateAnnotationRequest` 重複定義於 models/animal/requests.rs（handlers/signature 版本為 canonical）
+  - `SignRequest` 定義未使用（不在任何 handler 或 OpenAPI spec）
+- ✅ **保留意圖死碼**（含 R26-7 註解）：
+  - `IdxfMeta::format_version` — 預留格式版本相容檢查（R26-6+）
+  - `ManifestTable::columns` — 預留欄位級驗證（將來擴充）
+  - `QUARTERLY_OVERTIME_LIMIT` — 預留勞基法季度上限檢查（目前只實作月度）
+- ✅ **驗證結果**：`cargo check` ✓；`cargo test --lib` ✓ 422/422 all pass
+- ✅ **Commit**: `8609fbf` refactor(models): R26-7 remove dead code structs
+
+#### R26-6：HMAC 鏈版本化 + 儲存後雜湊（已完全實裝）
+
+- ✅ **Migration 037**：`ALTER TABLE user_activity_logs ADD COLUMN hmac_version SMALLINT`（已存在）
+- ✅ **寫入端版本化**：
+  - `compute_and_store_hmac_tx()` 已寫入 `hmac_version = HMAC_VERSION_CANONICAL (2)`
+  - 舊版被 R26-4 刪除（曾寫 `hmac_version = 1`，已 cleanup）
+- ✅ **驗證端版本化**：
+  - `verify_chain_rows()` 依 `hmac_version` 分流計算（line 714-744）
+  - 若 `hmac_version IS NULL` → try-both 策略（canonical 優先，fallback legacy）
+  - `ChainRow` struct 已包含 `hmac_version: Option<i16>` 欄位
+- ✅ **驗證結果**：`cargo test --lib` ✓ 422/422 all pass（包含 audit chain verify 相關測試）
+- ✅ **Commit**: `dcb8003` docs(progress): Record R26-7 completion
+
+#### R26-8：ProtocolService::change_status 完整 Service-driven 重構（進行中）
+
+- 🏗️ **第一階段完成：PartnerService::create_tx**
+  - 新增 `create_tx()` method，接 `&mut Transaction` 而非 `&PgPool`
+  - 支援跨服務原子操作（change_status 核准時自動建立客戶於同一 tx）
+  - 程式碼生成改為強制提供 code（tx 內省略自動編號邏輯）
+  - `log_activity_tx` 整合於 create_tx 內，確保 audit trail 原子化
+- 📋 **第二階段規劃：change_status 全面 tx 化**
+  - 轉換函數簽名：`pool: &PgPool` → `tx: &mut Transaction`
+  - 轉換所有 SQL queries：`.fetch_one(pool)` → `.fetch_one(&mut *tx)` 等
+  - 協調跨服務邊界：
+    - Status 變更 UPDATE → 同 tx 內
+    - assign_primary_reviewer / assign_vet_reviewer → tx 版本或直接內嵌
+    - record_status_change → 需 _tx 版本或內嵌邏輯
+    - PartnerService::create → 改用新的 create_tx
+    - 客戶停用邏輯 → 併入 tx
+  - 目標：CRIT-01 race condition 從事後修補（加鎖）→ 原子設計
+- 💾 **Commit**: `c22032a` feat(partner): R26-8 foundation - add create_tx...
+
+### 2026-04-23 R26-3 後續三 PR 完成（#4b #4c #5 共 22 個 call sites）
+
+R26-3 Phase 2 全面推進：blood_test / pdf_export+import_export / user+audit+data_export 三個 PR 連續完成，遷移 22 個 handler-level `log_activity()` call sites 至 Service-driven audit pattern。
+
+#### PR #4b（血液檢查）— 13 個 mutations（commit `075b732`）
+
+- ✅ **`services/animal/blood_test.rs` 全部遷移**：13 個函數簽名改為接 `pool: &PgPool` + `actor: &ActorContext`，內部開啟 tx + 執行 mutation + `AuditService::log_activity_tx` + commit
+  - create_blood_test / update_blood_test / delete_blood_test / batch_import_blood_tests (4 core CRUD)
+  - template create/update/delete + panel create/update/delete + preset create/update/delete (9 config mutations)
+- ✅ **handler 層簡化**：`handlers/animal/blood_test.rs` 移除所有池級 `log_activity()` fire-and-forget；改呼叫 service 層（actor 由 `ActorContext::User(current_user.clone())` 傳遞）
+- ✅ **deprecated 警告減少**：24 → 11（共消除 13 處）
+
+#### PR #4c（PDF + 匯入匯出）— 5 個 mutations（commit `3cbb195`）
+
+- ✅ **新增 `AuditService::log_activity_oneshot()` helper**：方便後 external-service 的 audit 事件記錄，內部用 `log_activity_tx` + auto-commit，參數型別同 `log_activity_tx`
+- ✅ **`services/mod.rs` visibility 改正**：`mod audit;` → `pub mod audit;`，使得 handler 層可直接 import `ActivityLogEntry` / `AuditEntity` / `RequestContext`
+- ✅ **`handlers/animal/pdf_export.rs` 2 個 call sites**：export_animal_medical_pdf / export_blood_test_analysis_pdf 改用 `log_activity_oneshot()`（PDF render 為外部服務，audit 於 render 後作記錄）
+- ✅ **`handlers/animal/import_export.rs` 3 個 call sites**：全部 3 個匯入/匯出 handler（import_basic_data / import_weight_data / export 各類）改用 `log_activity_oneshot()`（批次 ID = `Uuid::nil()`）
+
+#### PR #5（使用者 + 稽核 + 資料匯出）— 4 個 mutations（commit `3587151`）
+
+- ✅ **`handlers/user.rs` tokio::spawn case**：IMPERSONATE_START 事件於 spawn 閉包內呼叫 `log_activity_oneshot()`；actor 於 spawn 前建立（`let spawn_actor = ActorContext::User(current_user.clone());`），確保生命週期正確
+- ✅ **`handlers/audit.rs` tokio::spawn case**：FORCE_LOGOUT 事件同樣於 spawn 前準備 actor，於閉包內呼叫 `log_activity_oneshot()`
+- ✅ **`handlers/data_export.rs` 2 個 call sites**：full_database_export (DATA_EXPORT) + full_database_import (DATA_IMPORT) 改用 `log_activity_oneshot()`（全庫操作，entity_id = `Uuid::nil()`）
+- ✅ **deprecated 警告最終狀態**：11 → 2（僅保留 audit.rs 內部 log_activity 定義 + protocol/status.rs，已標記為 out-of-scope）
+
+#### 全體驗證 & 狀態
+
+- ✅ **編譯驗證**：`cargo check` 零錯誤；`cargo clippy --all-targets -- -D warnings -A deprecated` 零新警告
+- ✅ **測試驗證**：`cargo test --lib` 422/422 全部通過（一致性驗證）
+- ✅ **里程碑統計**：R26-3「97 個 call sites」中，已完成 22 個（animals 13 + pdf/import 5 + user/audit/data 4）= 22.7%；剩餘 75 個（product/sku/partner/warehouse/equipment/role/ai/auth/document/hr 等）預定 PR #6 ~ PR #9 分批完成
+- ✅ **決策確認**：`log_activity_oneshot()` 作為外部服務/spawn task 審計的標準模式；`log_activity_tx()` 對應服務層 transaction mutations；handler 層完全去除舊版 fire-and-forget pattern
+
+### 2026-04-22 R26 Service-driven Audit — PR #4a animals + 後續四 PR（document / HR / user）
+
+本日 R26 epic 合計推進 **5 個 PR**（#156 animals 系列先完成；#159/#160/#161/#162 後續四 PR 平行開出）。
+
+#### PR #4a（#156）animals simple mutations Service-driven audit（8 commits / 17 mutations）
+
+- ✅ **Codex 審閱通過**（CONDITIONAL GO）：pattern 可複製前的獨立審閱完成 — 10 findings 分類 1 🔴 Blocker / 4 🟡 Warning / 5 🟢 Note；🔴 #2（AuditRedact 空 impl 風險）在 PR #4a 第一個 commit 修掉；🟡 #10（UPDATE-after-INSERT HMAC）歸 R26-6
+- ✅ **PR #156（opened → integration/r26）**：
+  - C1：AuditRedact trait 強化安全警告 doc（User/Session/MCP key 類必須覆寫 redacted_fields）+ `ActivityLogEntry` 加 `Default` + 4 constructors（update / create / delete / simple，減少 ~45 call sites 填 `request_context: None`）+ 16 個 animal entity AuditRedact 空 impl
+  - C2-C7：source.rs / weight.rs / vet_advice.rs / care_record.rs / medical.rs 疫苗 / observation+surgery create 共 **17 個 simple mutations** 改寫為 tx + ActorContext + DataDiff
+  - C8：clippy 零警告調整（移除 handler 不再用的 AnimalService/AuditService import）
+- ✅ **決策採納**：upsert → `create_or_update` 拆分（獲完整 before/after diff）；soft_delete 歸 simple（change_reasons 視為 audit trail 伴生）；actor 分層策略（submit/approve 用 require_user；CRUD 用 `actor_user_id().unwrap_or(SYSTEM_USER_ID)` 允許 System，支援 batch 匯入）
+- ✅ **內部 caller 調整**：`AnimalService::create` 初始體重改 `ActorContext::System { reason: "animal_create_initial_weight" }`；`import_export.rs` 批次匯入體重改 `ActorContext::System { reason: "weight_batch_import" }`（actor 鏈路完整化歸 PR #4d）
+- ✅ **驗證綠燈**：`cargo check` / `cargo clippy --all-targets -- -D warnings -A deprecated` / `cargo test --lib` 423/423 全數通過
+- ✅ **R26-3 範圍訂正**：原 TODO 估「~20 處 handler」經 `AuditService::log_activity / ::log` 跨 27 handler 檔的實測為 **97 call sites**（animals 49 + user 8 + product 7 + sku 5 + 其他 28），估 ~465 person-hours；拆分成 PR #4a~4e（animals 系列 ~200h）+ PR #5a/b/c（hr/document ~185h）+ PR #6（其他模組 ~80h）
+- ✅ **計畫文件**：`docs/plans/pr4a-animals-simple-mutations.md`（已在 PR #155 一併提交，10.2K 可執行粒度）+ `docs/plans/pr5-hr-document-roadmap.md`（6.6K 路線圖層級）
+
+#### 後續四 PR（document / HR / user）消化 R26-3 的 35 個 service mutations
+
+延續 PR #4a，開出 **4 個平行子 PR**（全部 base 於 `integration/r26`，可獨立 review）：
+
+- ✅ **PR #5a（#159）document 模組 Service-driven audit**（5 commits / 10 mutations）：`Document` / `DocumentLine` / `PoReceiptStatus` 3 個 AuditRedact 空 impl；`crud.rs` 3 個（create / update / delete）+ `workflow.rs` 5 個（submit / approve / admin_approve / admin_reject / cancel）+ `grn.rs` 2 個（create_additional_grn / recalculate_all_po_receipt_status）；approve 跨 service tx 串接（`StockService::process_document` + `AccountingService::post_document`）維持不變；`recalculate` 採 batch summary audit 粒度；**移除 `AuditService::audit_document` helper**（handler 8 處呼叫點全清）；423 tests / 0 clippy
+- ✅ **PR #5b（#160）HR leave 模組 Service-driven audit + balance helper tx 化**（3 commits / 7 mutations + 7 helpers）：`LeaveRequest` / `LeaveApproval` / `AnnualLeaveEntitlement` / `CompTimeBalance` 4 個 AuditRedact；7 個 leave mutation（create / update / delete / submit / approve / reject / cancel）**全部從 0 tx 狀態**加 `pool.begin()`；approve_leave / cancel_leave 的 balance 扣除/還原也改 tx（7 個 balance helper 由 `&PgPool` 改 `&mut Transaction`，`FOR UPDATE` 加行鎖避免併發超扣）；event_type 分 INTERIM / FINAL / RETROACTIVE 粒度；GLP 合規重點：leave 狀態變更與 balance 異動原子化
+- ✅ **PR #5c（#161）HR overtime / balance / attendance Service-driven audit**（4 commits / 14 mutations）：`OvertimeRecord` / `AttendanceRecord` AuditRedact；`overtime.rs` 6 個 mutation + **`approve_overtime` 多步流程收進同一 tx**（SELECT FOR UPDATE → UPDATE RETURNING → INSERT overtime_approvals → is_final 時 INSERT comp_time_balances → audit，補休授予原子化）；`balance.rs` 5 個 mutation + `batch_auto_calculate` 採 **N+1 summary audit** 粒度；`attendance.rs` clock_in / clock_out / correct_attendance 也 tx 化（before/after IP/GPS diff 供稽核異常行為偵測）；完成 HR epic 21 個 mutation 全部遷移
+- ✅ **PR #6a（#162）user 模組 Service-driven audit + 6 audit 呼叫點整合**（3 commits / 4 mutations）：`User` 覆寫 `AuditRedact::redacted_fields()`（`password_hash` / `totp_secret_encrypted` / `totp_backup_codes` 作為 defence-in-depth）；`create` / `deactivate_self` / `delete` / `update` tx 化；**consolidate 原本散落的 6 個 audit 呼叫**（handler `log(Create)` ×1 / `log(Delete)` ×1 / update_user tokio::spawn `log_activity(SECURITY)` ×2 / delete_me_account `log_activity(GDPR)` ×1 / service 內部 `log(Update)` ×1 = 6）→ service 層 1-3 筆 event_type 分類（USER_UPDATE ADMIN + conditional USER_STATUS_CHANGE / USER_ROLE_CHANGE SECURITY）；`RoleAssignmentSnapshot` helper struct 捕捉 role-change diff；deprecated warnings 89 → 86
+- ✅ **事件粒度與設計決策**：ActivityLogEntry 使用 struct literal 形式（為避免與 PR #156 的 constructor 定義衝突，rebase-friendly）；approve 類區分 INTERIM / FINAL（FINAL 才授予 comp_time）；batch 審計粒度分兩類 — **per-row mutation 類**（例：`batch_auto_calculate_annual_leave` 每位員工各自 create）採 **N+1 summary + per-row**；**純 summary 類**（例：`recalculate_all_po_receipt_status` 無 per-row mutation，僅重算 status）採 **單筆 summary**；`AuditRedact::redacted_fields()` 作為 `#[serde(skip_serializing)]` 的 defence-in-depth
+- ✅ **Gemini 歷史回饋持續套用**：單次 mutation 單筆 audit（不重複）；`?` 傳播吞錯改正；FOR UPDATE 鎖序一致化；tx 內避免 `.execute(pool)` 這類跳脫 tx 的呼叫
+- ✅ **驗證綠燈**：4 個 PR 各自 `cargo test --lib` 423/423、`cargo clippy --all-targets -- -D warnings -A deprecated` 0 issues；clock_out 原本只 UPDATE 無 SELECT 的路徑也補 SELECT FOR UPDATE；PR #158（audit chain verify cron）另 base 於 integration/r26 同批審閱
 
 ### 2026-04-21 R26 Service-driven Audit 重構啟動（3 PRs）
 

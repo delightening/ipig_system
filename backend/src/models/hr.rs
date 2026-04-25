@@ -12,6 +12,11 @@ use utoipa::ToSchema;
 // Attendance (出勤)
 // ============================================
 
+// 出勤紀錄。欄位含 IP / GPS 座標屬稽核必要項目（查對打卡地點是否合理），
+// 非個資敏感類型，空 impl 即可。correction_reason 為管理員填入的更正理由，
+// 同樣屬稽核項目。
+impl crate::models::audit_diff::AuditRedact for AttendanceRecord {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AttendanceRecord {
     pub id: Uuid,
@@ -96,6 +101,10 @@ pub struct AttendanceCorrectionRequest {
 // ============================================
 // Overtime (加班)
 // ============================================
+
+// 加班紀錄。欄位皆稽核項目（時數、乘數、補休時數、到期日、審核狀態），
+// 無敏感資料。rejection_reason / reason 為使用者填入的理由。
+impl crate::models::audit_diff::AuditRedact for OvertimeRecord {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct OvertimeRecord {
@@ -255,6 +264,10 @@ impl LeaveStatus {
     }
 }
 
+// 無敏感欄位（reason / cancellation_reason / revocation_reason 皆為使用者
+// 主動填入的文字，屬於稽核應保留的內容）
+impl crate::models::audit_diff::AuditRedact for LeaveRequest {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct LeaveRequest {
     pub id: Uuid,
@@ -368,6 +381,9 @@ pub struct CancelLeaveRequest {
 // Leave Approvals (審核記錄)
 // ============================================
 
+// 審核事件記錄，欄位全為系統/使用者填入的審核資訊，無敏感欄位
+impl crate::models::audit_diff::AuditRedact for LeaveApproval {}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct LeaveApproval {
     pub id: Uuid,
@@ -382,6 +398,9 @@ pub struct LeaveApproval {
 // ============================================
 // Balances (餘額)
 // ============================================
+
+// 年度特休餘額快照，無敏感欄位（天數 / 到期日 / 工作年資等皆稽核項目）
+impl crate::models::audit_diff::AuditRedact for AnnualLeaveEntitlement {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AnnualLeaveEntitlement {
@@ -401,6 +420,9 @@ pub struct AnnualLeaveEntitlement {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// 補休餘額快照，無敏感欄位
+impl crate::models::audit_diff::AuditRedact for CompTimeBalance {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct CompTimeBalance {

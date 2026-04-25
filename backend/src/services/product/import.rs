@@ -3,6 +3,7 @@
 use sqlx::PgPool;
 
 use crate::{
+    middleware::ActorContext,
     models::{
         CreateProductRequest, ProductImportCheckResult, ProductImportDuplicateItem,
         ProductImportErrorDetail, ProductImportPreviewResult, ProductImportResult,
@@ -183,14 +184,18 @@ impl ProductService {
         Ok(duplicates)
     }
 
-    /// 匯入產品（CSV 或 Excel）。
+    /// 匯入產品（CSV 或 Excel）— Service-driven audit（N+1 粒度：每筆 create
+    /// 產生 PRODUCT_CREATE，批次結束額外寫 1 筆 PRODUCT_IMPORT summary）。
     pub async fn import_products(
         pool: &PgPool,
+        actor: &ActorContext,
         file_data: &[u8],
         file_name: &str,
         skip_duplicates: bool,
         regenerate_sku_for_duplicates: bool,
     ) -> Result<ProductImportResult> {
+        let _user = actor.require_user()?;
+
         let (rows, _) = product_parser::parse_import_file(file_data, file_name)?;
         if rows.is_empty() {
             return Err(AppError::Validation("檔案中沒有資料".to_string()));
@@ -202,18 +207,49 @@ impl ProductService {
         for (index, row) in rows.iter().enumerate() {
             let row_number = (index + 2) as i32;
             match Self::import_single_row(
-                pool, row, row_number, skip_duplicates, regenerate_sku_for_duplicates,
+                pool,
+                actor,
+                row,
+                row_number,
+                skip_duplicates,
+                regenerate_sku_for_duplicates,
             )
             .await
             {
                 Ok(true) => success_count += 1,
-                Ok(false) => {}  // skipped
+                Ok(false) => {} // skipped
                 Err(e) => {
                     errors.push(e);
                     error_count += 1;
                 }
             }
         }
+
+        // 批次 summary audit（per-row 細節由個別 PRODUCT_CREATE 事件查）
+        let summary_id = uuid::Uuid::new_v4();
+        let display = format!(
+            "import {} (success={}, errors={})",
+            file_name, success_count, error_count
+        );
+        let mut tx = pool.begin().await?;
+        crate::services::AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            crate::services::audit::ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "PRODUCT_IMPORT",
+                entity: Some(crate::services::audit::AuditEntity::new(
+                    "product_import_job",
+                    summary_id,
+                    &display,
+                )),
+                data_diff: None,
+                request_context: None,
+            },
+        )
+        .await?;
+        tx.commit().await?;
+
         Ok(ProductImportResult {
             success_count,
             error_count,
@@ -224,6 +260,7 @@ impl ProductService {
     /// 處理單列匯入：回傳 Ok(true) 成功、Ok(false) 略過、Err 失敗。
     async fn import_single_row(
         pool: &PgPool,
+        actor: &ActorContext,
         row: &crate::models::ProductImportRow,
         row_number: i32,
         skip_duplicates: bool,
@@ -245,7 +282,7 @@ impl ProductService {
             return Ok(false); // skip_duplicates 略過
         };
         let create_req = build_import_create_request(row, auto);
-        Self::create(pool, &create_req).await.map(|_| true).map_err(|e| {
+        Self::create(pool, actor, &create_req).await.map(|_| true).map_err(|e| {
             ProductImportErrorDetail {
                 row: row_number, sku: None, error: format!("建立失敗: {e}"),
             }

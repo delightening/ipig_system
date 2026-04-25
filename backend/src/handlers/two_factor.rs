@@ -10,12 +10,12 @@ use validator::Validate;
 use crate::error::ErrorResponse;
 use crate::{
     handlers::auth::build_set_cookie,
-    middleware::{extract_real_ip_with_trust, CurrentUser},
+    middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
     models::{
         TwoFactorConfirmRequest, TwoFactorDisableRequest,
         TwoFactorLoginRequest, TwoFactorSetupResponse,
     },
-    services::{AuthService, AuditService, LoginTracker, SessionManager, UserService},
+    services::{AuthService, LoginTracker, SessionManager, UserService},
     AppError, AppState, Result,
 };
 
@@ -66,6 +66,8 @@ pub async fn setup_2fa(
 )]
 pub async fn confirm_2fa_setup(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<TwoFactorConfirmRequest>,
 ) -> Result<Json<serde_json::Value>> {
@@ -74,16 +76,19 @@ pub async fn confirm_2fa_setup(
     }
     req.validate()?;
 
-    AuthService::confirm_totp_setup(&state.db, current_user.id, &req.code).await?;
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
 
-    let db = state.db.clone();
-    let user_id = current_user.id;
-    tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, user_id, "SECURITY", "2FA_ENABLED",
-            Some("user"), Some(user_id), None, None, None, None, None,
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-    });
+    let actor = ActorContext::User(current_user.clone());
+    AuthService::confirm_totp_setup(
+        &state.db,
+        &actor,
+        current_user.id,
+        &req.code,
+        Some(&ip),
+        user_agent,
+    )
+    .await?;
 
     Ok(Json(serde_json::json!({ "message": "2FA 已成功啟用" })))
 }
@@ -102,22 +107,28 @@ pub async fn confirm_2fa_setup(
 )]
 pub async fn disable_2fa(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<TwoFactorDisableRequest>,
 ) -> Result<Json<serde_json::Value>> {
     req.validate()?;
 
     AuthService::verify_password_by_id(&state.db, current_user.id, &req.password).await?;
-    AuthService::disable_totp(&state.db, current_user.id, &req.code).await?;
 
-    let db = state.db.clone();
-    let user_id = current_user.id;
-    tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, user_id, "SECURITY", "2FA_DISABLED",
-            Some("user"), Some(user_id), None, None, None, None, None,
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-    });
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
+    let actor = ActorContext::User(current_user.clone());
+    AuthService::disable_totp(
+        &state.db,
+        &actor,
+        current_user.id,
+        &req.code,
+        Some(&ip),
+        user_agent,
+    )
+    .await?;
 
     Ok(Json(serde_json::json!({ "message": "2FA 已停用" })))
 }

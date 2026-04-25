@@ -8,13 +8,13 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         AnimalSurgery, CopyRecordRequest, CreateSurgeryRequest, DeleteRequest, RecordFilterQuery,
         SurgeryListItem, UpdateSurgeryRequest, VersionHistoryResponse,
     },
     require_permission,
-    services::{access, AnimalService, AnimalSurgeryService, AuditService},
+    services::{access, AnimalService, AnimalSurgeryService},
     AppState, Result,
 };
 
@@ -69,36 +69,9 @@ pub async fn create_animal_surgery(
     require_permission!(current_user, "animal.record.create");
     req.validate()?;
 
-    let surgery = AnimalSurgeryService::create(&state.db, animal_id, &req, current_user.id).await?;
-
-    // 取得動物資訊用於日誌顯示
-    let surg_display = match AnimalService::get_by_id(&state.db, animal_id).await {
-        Ok(animal) => {
-            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {} - {}", iacuc, animal.ear_tag, req.surgery_site)
-        }
-        _ => format!("手術紀錄 #{} (animal: {})", surgery.id, animal_id),
-    };
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "SURGERY_CREATE",
-        Some("animal_surgery"),
-        Some(animal_id),
-        Some(&surg_display),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (SURGERY_CREATE): {}", e);
-    }
-
+    // Audit 已收進 service 層（SURGERY_CREATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let surgery = AnimalSurgeryService::create(&state.db, &actor, animal_id, &req).await?;
     Ok(Json(surgery))
 }
 
@@ -112,27 +85,9 @@ pub async fn update_animal_surgery(
 ) -> Result<Json<AnimalSurgery>> {
     require_permission!(current_user, "animal.record.edit");
 
-    let surgery = AnimalSurgeryService::update(&state.db, id, &req, current_user.id).await?;
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "SURGERY_UPDATE",
-        Some("animal_surgery"),
-        None,
-        Some(&format!("手術紀錄 #{}", id)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (SURGERY_UPDATE): {}", e);
-    }
-
+    // Audit 已收進 service 層（SURGERY_UPDATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let surgery = AnimalSurgeryService::update(&state.db, &actor, id, &req).await?;
     Ok(Json(surgery))
 }
 
@@ -147,27 +102,9 @@ pub async fn delete_animal_surgery(
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
 
-    AnimalSurgeryService::soft_delete_with_reason(&state.db, id, &req.reason, current_user.id)
-        .await?;
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "SURGERY_DELETE",
-        Some("animal_surgery"),
-        None,
-        Some(&format!("手術紀錄 #{} (原因: {})", id, req.reason)),
-        None,
-        Some(serde_json::json!({ "reason": req.reason })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (SURGERY_DELETE): {}", e);
-    }
+    // Audit 已收進 service 層（SURGERY_DELETE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    AnimalSurgeryService::soft_delete_with_reason(&state.db, &actor, id, &req.reason).await?;
 
     Ok(Json(
         serde_json::json!({ "message": "Surgery deleted successfully" }),

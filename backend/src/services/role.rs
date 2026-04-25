@@ -1,11 +1,29 @@
 use std::collections::HashMap;
+use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{CreateRoleRequest, Permission, PermissionQuery, Role, RoleWithPermissions, UpdateRoleRequest},
-    repositories, AppError, Result,
+    middleware::ActorContext,
+    models::{
+        audit_diff::{AuditRedact, DataDiff},
+        CreateRoleRequest, Permission, PermissionQuery, Role, RoleWithPermissions, UpdateRoleRequest,
+    },
+    repositories,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
+    AppError, Result,
 };
+
+/// Audit-only 輔助型別：記錄角色權限指派的 before/after（用於 ROLE_PERMISSION_CHANGE 子事件）。
+/// 權限清單無敏感欄位，空 AuditRedact impl 即可。
+#[derive(Serialize)]
+struct RolePermissionSnapshot {
+    permissions: Vec<String>,
+}
+impl AuditRedact for RolePermissionSnapshot {}
 
 /// 驗證角色 code 格式：長度 1–50，僅允許英數字與底線。與 DB 與 CreateRoleRequest 約定一致。
 pub fn is_valid_role_code(s: &str) -> bool {
@@ -26,19 +44,31 @@ struct RolePermissionRow {
 pub struct RoleService;
 
 impl RoleService {
-    /// 建立角色
-    pub async fn create(pool: &PgPool, req: &CreateRoleRequest) -> Result<Role> {
+    /// 建立角色 — Service-driven audit
+    ///
+    /// Actor 政策：僅允許 User（dev.role.create 權限）。System 自動化不應建立角色。
+    pub async fn create(
+        pool: &PgPool,
+        actor: &ActorContext,
+        req: &CreateRoleRequest,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> Result<Role> {
+        actor.require_user()?;
         if !is_valid_role_code(&req.code) {
             return Err(AppError::Validation(
                 "Role code must be 1-50 characters and only contain letters, numbers, and underscore".to_string(),
             ));
         }
+
+        let mut tx = pool.begin().await?;
+
         // 檢查 code 是否已存在
         let exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM roles WHERE code = $1)"
         )
         .bind(&req.code)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
         if exists {
@@ -58,7 +88,7 @@ impl RoleService {
         .bind(&req.name)
         .bind(&req.description)
         .bind(req.is_internal)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
         if !req.permission_ids.is_empty() {
@@ -67,10 +97,29 @@ impl RoleService {
             )
             .bind(role.id)
             .bind(&req.permission_ids)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
         }
 
+        // SECURITY audit：角色建立屬於權限管理關鍵操作
+        let display = format!("{} ({})", role.name, role.code);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "ROLE_CREATE",
+                entity: Some(AuditEntity::new("role", role.id, &display)),
+                data_diff: Some(DataDiff::create_only(&role)),
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(role)
     }
 
@@ -159,15 +208,29 @@ impl RoleService {
         })
     }
 
-    /// 更新角色
-    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateRoleRequest) -> Result<RoleWithPermissions> {
-        // 檢查角色是否存在
-        let _existing = repositories::role::find_role_by_id_active(pool, id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Role not found".to_string()))?;
+    /// 更新角色 — Service-driven audit（含權限變更子事件）
+    pub async fn update(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        req: &UpdateRoleRequest,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> Result<RoleWithPermissions> {
+        actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        // SELECT FOR UPDATE 取 before
+        let before = sqlx::query_as::<_, Role>(
+            "SELECT * FROM roles WHERE id = $1 AND is_active = true FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Role not found".to_string()))?;
 
         // 更新角色
-        let role = sqlx::query_as::<_, Role>(
+        let after = sqlx::query_as::<_, Role>(
             r#"
             UPDATE roles SET
                 name = COALESCE($1, name),
@@ -182,15 +245,43 @@ impl RoleService {
         .bind(&req.description)
         .bind(req.is_internal)
         .bind(id)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 如果要更新權限
+        // 基本 ROLE_UPDATE 事件（SECURITY：角色基本資料變更）
+        let display = format!("{} ({})", after.name, after.code);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "ROLE_UPDATE",
+                entity: Some(AuditEntity::new("role", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
+            },
+        )
+        .await?;
+
+        // 權限變更額外寫一筆 SECURITY 事件（供稽核員篩選「誰何時改了哪個角色的權限」）
         if let Some(ref permission_ids) = req.permission_ids {
+            // before 權限
+            let before_perms: Vec<String> = sqlx::query_scalar(
+                r#"SELECT p.code FROM role_permissions rp
+                   INNER JOIN permissions p ON rp.permission_id = p.id
+                   WHERE rp.role_id = $1 ORDER BY p.code"#,
+            )
+            .bind(id)
+            .fetch_all(&mut *tx)
+            .await?;
+
             // 刪除現有權限
             sqlx::query("DELETE FROM role_permissions WHERE role_id = $1")
                 .bind(id)
-                .execute(pool)
+                .execute(&mut *tx)
                 .await?;
 
             if !permission_ids.is_empty() {
@@ -199,49 +290,131 @@ impl RoleService {
                 )
                 .bind(id)
                 .bind(permission_ids)
-                .execute(pool)
+                .execute(&mut *tx)
+                .await?;
+            }
+
+            let after_perms: Vec<String> = sqlx::query_scalar(
+                r#"SELECT p.code FROM role_permissions rp
+                   INNER JOIN permissions p ON rp.permission_id = p.id
+                   WHERE rp.role_id = $1 ORDER BY p.code"#,
+            )
+            .bind(id)
+            .fetch_all(&mut *tx)
+            .await?;
+
+            if before_perms != after_perms {
+                let before_snap = RolePermissionSnapshot { permissions: before_perms };
+                let after_snap = RolePermissionSnapshot { permissions: after_perms };
+                AuditService::log_activity_tx(
+                    &mut tx,
+                    actor,
+                    ActivityLogEntry {
+                        event_category: "SECURITY",
+                        event_type: "ROLE_PERMISSION_CHANGE",
+                        entity: Some(AuditEntity::new("role", after.id, &display)),
+                        data_diff: Some(DataDiff::compute(Some(&before_snap), Some(&after_snap))),
+                        request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
+                    },
+                )
                 .await?;
             }
         }
 
-        Self::get_by_id(pool, role.id).await
+        tx.commit().await?;
+        Self::get_by_id(pool, after.id).await
     }
 
-    /// 刪除角色
-    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        // 檢查是否為系統角色
-        let role = repositories::role::find_role_by_id_active(pool, id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Role not found".to_string()))?;
+    /// 刪除角色 — Service-driven audit
+    ///
+    /// system role 改軟刪除（is_active=false）；非 system role 硬刪除含關聯清理。
+    pub async fn delete(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> Result<()> {
+        actor.require_user()?;
+        let mut tx = pool.begin().await?;
 
-        if role.is_system {
-            sqlx::query("UPDATE roles SET is_active = false, updated_at = NOW() WHERE id = $1")
+        // SELECT FOR UPDATE 取 before（含 is_active 濾掉已軟刪的）
+        let before = sqlx::query_as::<_, Role>(
+            "SELECT * FROM roles WHERE id = $1 AND is_active = true FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Role not found".to_string()))?;
+
+        let display = format!("{} ({})", before.name, before.code);
+
+        if before.is_system {
+            // 軟刪除 system role
+            let after = sqlx::query_as::<_, Role>(
+                "UPDATE roles SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING *",
+            )
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+            AuditService::log_activity_tx(
+                &mut tx,
+                actor,
+                ActivityLogEntry {
+                    event_category: "SECURITY",
+                    event_type: "ROLE_DEACTIVATE",
+                    entity: Some(AuditEntity::new("role", before.id, &display)),
+                    data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                    request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
+                },
+            )
+            .await?;
+        } else {
+            // 非 system role：硬刪除 + 清關聯
+            sqlx::query("DELETE FROM role_permissions WHERE role_id = $1")
                 .bind(id)
-                .execute(pool)
+                .execute(&mut *tx)
                 .await?;
-            return Ok(());
+
+            sqlx::query("DELETE FROM user_roles WHERE role_id = $1")
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+
+            let result = sqlx::query("DELETE FROM roles WHERE id = $1")
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+
+            if result.rows_affected() == 0 {
+                return Err(AppError::NotFound("Role not found".to_string()));
+            }
+
+            AuditService::log_activity_tx(
+                &mut tx,
+                actor,
+                ActivityLogEntry {
+                    event_category: "SECURITY",
+                    event_type: "ROLE_DELETE",
+                    entity: Some(AuditEntity::new("role", before.id, &display)),
+                    data_diff: Some(DataDiff::delete_only(&before)),
+                    request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
+                },
+            )
+            .await?;
         }
 
-        // 先刪除關聯
-        sqlx::query("DELETE FROM role_permissions WHERE role_id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
-
-        sqlx::query("DELETE FROM user_roles WHERE role_id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
-
-        let result = sqlx::query("DELETE FROM roles WHERE id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
-
-        if result.rows_affected() == 0 {
-            return Err(AppError::NotFound("Role not found".to_string()));
-        }
-
+        tx.commit().await?;
         Ok(())
     }
 

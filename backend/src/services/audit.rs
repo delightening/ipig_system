@@ -85,8 +85,22 @@ pub(crate) struct HmacInput<'a> {
     pub(crate) changed_fields: &'a [String],
 }
 
+// ============================================
+// R26-6: HMAC 編碼版本
+// ============================================
+
+/// Legacy string-concat 編碼（pre-R26-6）。
+/// 由 R26 前的 `AuditService::log_activity` / `compute_and_store_hmac` 舊版
+/// 寫入路徑使用；此二函式已於 R26-4 移除，verifier 為相容既有 legacy row
+/// 保留此編碼實作（見 `canonical_bytes` 的 v1 fallback 路徑）。
+pub(crate) const HMAC_VERSION_LEGACY: i16 = 1;
+
+/// Length-prefix canonical 編碼（R26 SDD 新版）。
+/// 由 [`AuditService::log_activity_tx`] / [`AuditService::compute_and_store_hmac_tx`] 使用。
+pub(crate) const HMAC_VERSION_CANONICAL: i16 = 2;
+
 impl HmacInput<'_> {
-    /// 將所有欄位以 length-prefix canonical form 寫入 buffer。
+    /// v2 (R26 canonical) 編碼：將所有欄位以 length-prefix 寫入 buffer。
     ///
     /// 每個欄位：`8-byte BE length` + `UTF-8 bytes`
     /// changed_fields 以 `array length (u64 BE)` 開頭，再逐欄位 length-prefix。
@@ -122,6 +136,31 @@ impl HmacInput<'_> {
             write_field(&mut buf, f.as_bytes());
         }
         buf
+    }
+
+    /// v1 (legacy) 編碼：pre-R26-6 的字串串接方式（已隨 R26-4 移除的
+    /// `compute_and_store_hmac` 舊版所用）。
+    ///
+    /// ⚠️ 此編碼有碰撞風險（`"ab"+"cd"` 與 `"abc"+"d"` 產生相同 byte stream），
+    /// 也未包含 `impersonated_by` / `changed_fields` 兩欄位。僅供 verifier 對
+    /// `hmac_version=1` 的 legacy row 重算 HMAC 使用；**新程式碼禁止使用此編碼**。
+    ///
+    /// 與舊 `compute_and_store_hmac` 保持 byte-for-byte 一致以避免 false positive。
+    pub(crate) fn legacy_concat_message(&self, prev_hash: Option<&str>) -> String {
+        let mut message = String::new();
+        if let Some(ph) = prev_hash {
+            message.push_str(ph);
+        }
+        message.push_str(self.event_category);
+        message.push_str(self.event_type);
+        message.push_str(&self.actor_user_id.to_string());
+        if let Some(bd) = self.before_data {
+            message.push_str(&bd.to_string());
+        }
+        if let Some(ad) = self.after_data {
+            message.push_str(&ad.to_string());
+        }
+        message
     }
 }
 
@@ -185,6 +224,15 @@ struct ChainRow {
     changed_fields: Option<Vec<String>>,
     integrity_hash: Option<String>,
     previous_hash: Option<String>,
+    /// R26-6：HMAC 編碼版本。
+    /// - `Some(1)` = legacy string-concat；`Some(2)` = length-prefix canonical。
+    /// - `None`（pre-R26-6 row，尚未 backfill）— verifier 採 **try-both** 策略：
+    ///   先試 canonical (v=2)，不符再 fallback legacy (v=1)。原因是 migration 037
+    ///   前的 `log_activity_tx` 已使用 v2 編碼寫入但尚無 column 可標記，單純預設
+    ///   v=1 會對這批 row 產生 false positive。Backfill 目的僅為消除 try-both
+    ///   成本並讓 SQL 報表可直接用 `hmac_version = 1` 篩選 legacy row。
+    /// - 維護警告：撰寫 backfill 腳本時**不可假設所有 NULL 都是 v=1**。
+    hmac_version: Option<i16>,
 }
 
 pub struct AuditService;
@@ -344,7 +392,7 @@ impl AuditService {
     /// Transaction 版本的 activity log。Service-driven 重構模式使用此函式，
     /// 保證 audit 與資料變更在同一 tx 內 commit 或 rollback。
     ///
-    /// 取代舊版 `log_activity(pool, ...)`（已標 `#[deprecated]`）。
+    /// 取代已於 R26-4 移除的 `log_activity(pool, ...)` 舊版 API。
     pub async fn log_activity_tx(
         tx: &mut Transaction<'_, Postgres>,
         actor: &ActorContext,
@@ -427,6 +475,29 @@ impl AuditService {
         Ok(log_id)
     }
 
+    /// 單次 audit log 便利函式：自行開一個 tx 寫入後 commit。
+    ///
+    /// 適用情境：
+    /// 1. **外部服務後事件**（PDF export / import 完成後記錄）— 操作本身不屬於 tx 範疇，
+    ///    audit 只是「事件發生」的紀錄。
+    /// 2. **`tokio::spawn` 中 audit**（Step 6）— 背景任務無法共用 request tx。
+    /// 3. **純 audit 事件**（無 entity 變更）— 不需與資料變更同 tx。
+    ///
+    /// 相對於舊版 `log_activity(pool, ...)` 的優點：
+    /// - 使用新版 `ActivityLogEntry` struct（支援 DataDiff、impersonated_by、
+    ///   changed_fields）
+    /// - 透過 `log_activity_tx` 統一寫入路徑，HMAC chain 保持一致
+    pub async fn log_activity_oneshot(
+        pool: &PgPool,
+        actor: &ActorContext,
+        entry: ActivityLogEntry<'_>,
+    ) -> Result<Uuid> {
+        let mut tx = pool.begin().await?;
+        let log_id = Self::log_activity_tx(&mut tx, actor, entry).await?;
+        tx.commit().await?;
+        Ok(log_id)
+    }
+
     /// Transaction 版本的 HMAC 計算。
     ///
     /// HMAC 輸入編碼（length-prefixed canonical form）：
@@ -446,24 +517,41 @@ impl AuditService {
     /// 供 [`verify_chain_range`](Self::verify_chain_range) 使用：針對每筆 audit row
     /// 重算預期 HMAC，和儲存值比對即可判定 chain 完整性。
     ///
-    /// 簽名收斂為 `(hmac_key, prev_hash, input)` 3 個參數（CodeRabbit PR #158
-    /// review：避免 9 個位置參數錯位）。
-    pub(crate) fn compute_hmac_for_fields(
+    /// R26-6：依 HMAC 編碼版本分流計算 expected hash。
+    ///
+    /// - `HMAC_VERSION_LEGACY` (1) → 字串串接（`legacy_concat_message`）
+    /// - `HMAC_VERSION_CANONICAL` (2) → length-prefix canonical（`canonical_bytes`）
+    ///
+    /// 未知版本（未來擴充）fallback canonical — 這是刻意選擇：新版 writer 應
+    /// 先寫 migration 再 deploy code，若 verifier 在版本過渡期遇未知值會對
+    /// canonical 版本做比對，至少能偵測 canonical row 的竄改。
+    ///
+    /// 返回 `Result` 以符合 coding rules「執行期禁用 `expect()`」（見 CLAUDE.md）。
+    /// 實務上 `HmacSha256::new_from_slice` 僅在 key 長度 0 時失敗，
+    /// `config.rs` 已強制 AUDIT_HMAC_KEY 長度 ≥ 44 chars，此 error 路徑不應觸發；
+    /// 但仍保留 fallible 簽名以避免未來 key source 改動時引入 panic。
+    pub(crate) fn compute_hmac_for_fields_versioned(
         hmac_key: &str,
         prev_hash: Option<&str>,
         input: HmacInput<'_>,
-    ) -> String {
+        version: i16,
+    ) -> Result<String> {
         use hmac::{Hmac, Mac};
         use sha2::Sha256;
         type HmacSha256 = Hmac<Sha256>;
 
-        let message = input.canonical_bytes(prev_hash);
+        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes()).map_err(|e| {
+            crate::error::AppError::Internal(format!("HMAC key invalid: {}", e))
+        })?;
 
-        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes())
-            .expect("HMAC key invalid — 啟動時應已驗證"); // OnceLock 存的 key 必有效
-        mac.update(&message);
+        if version == HMAC_VERSION_LEGACY {
+            mac.update(input.legacy_concat_message(prev_hash).as_bytes());
+        } else {
+            mac.update(&input.canonical_bytes(prev_hash));
+        }
+
         let hash_bytes = mac.finalize().into_bytes();
-        hash_bytes.iter().map(|b| format!("{:02x}", b)).collect()
+        Ok(hash_bytes.iter().map(|b| format!("{:02x}", b)).collect())
     }
 
     /// 取得目前 HMAC 密鑰（未初始化或未設定則 None）。
@@ -516,7 +604,7 @@ impl AuditService {
         let prev_hash = Self::load_initial_prev_hash(pool, first.created_at, first.id).await?;
 
         let (verified_rows, skipped_no_hash, broken_links) =
-            Self::verify_chain_rows(hmac_key, prev_hash, &rows);
+            Self::verify_chain_rows(hmac_key, prev_hash, &rows)?;
 
         Ok(ChainVerificationReport {
             range_from: from,
@@ -542,7 +630,7 @@ impl AuditService {
             r#"
             SELECT id, created_at, event_category, event_type, actor_user_id,
                    before_data, after_data, impersonated_by_user_id,
-                   changed_fields, integrity_hash, previous_hash
+                   changed_fields, integrity_hash, previous_hash, hmac_version
             FROM user_activity_logs
             WHERE created_at >= $1 AND created_at < $2
               AND partition_date >= $1::date AND partition_date <= $2::date
@@ -598,7 +686,7 @@ impl AuditService {
         hmac_key: &str,
         initial_prev_hash: Option<String>,
         rows: &[ChainRow],
-    ) -> (usize, usize, Vec<BrokenChainLink>) {
+    ) -> Result<(usize, usize, Vec<BrokenChainLink>)> {
         const SECURITY_CATEGORY: &str = "SECURITY";
 
         let mut prev_hash = initial_prev_hash;
@@ -626,23 +714,50 @@ impl AuditService {
                 }
                 Some(stored_hash) => {
                     let changed_fields = row.changed_fields.as_deref().unwrap_or(&[]);
-                    let expected = Self::compute_hmac_for_fields(
-                        hmac_key,
-                        prev_hash.as_deref(),
-                        HmacInput {
-                            event_category: &row.event_category,
-                            event_type: &row.event_type,
-                            // 匿名 actor 寫入時用 SYSTEM_USER_ID（與 ActorContext::Anonymous
-                            // 寫入端 fallback 一致）
-                            actor_user_id: row
-                                .actor_user_id
-                                .unwrap_or(crate::middleware::SYSTEM_USER_ID),
-                            before_data: &row.before_data,
-                            after_data: &row.after_data,
-                            impersonated_by: row.impersonated_by_user_id,
-                            changed_fields,
-                        },
-                    );
+                    let build_input = || HmacInput {
+                        event_category: &row.event_category,
+                        event_type: &row.event_type,
+                        // 匿名 actor 寫入時用 SYSTEM_USER_ID（與 ActorContext::Anonymous
+                        // 寫入端 fallback 一致）
+                        actor_user_id: row
+                            .actor_user_id
+                            .unwrap_or(crate::middleware::SYSTEM_USER_ID),
+                        before_data: &row.before_data,
+                        after_data: &row.after_data,
+                        impersonated_by: row.impersonated_by_user_id,
+                        changed_fields,
+                    };
+                    // R26-6：hmac_version 分流。
+                    // - Some(version) → 依版本編碼比對一次
+                    // - None（pre-R26-6 row，尚未 backfill）→ try-both 策略：先試
+                    //   canonical（因 migration 037 前 log_activity_tx 已使用 v2 編碼
+                    //   但無 column 可標記），再試 legacy；避免任一方向的 false positive。
+                    let expected = match row.hmac_version {
+                        Some(v) => Self::compute_hmac_for_fields_versioned(
+                            hmac_key,
+                            prev_hash.as_deref(),
+                            build_input(),
+                            v,
+                        )?,
+                        None => {
+                            let v2 = Self::compute_hmac_for_fields_versioned(
+                                hmac_key,
+                                prev_hash.as_deref(),
+                                build_input(),
+                                HMAC_VERSION_CANONICAL,
+                            )?;
+                            if v2 == stored_hash {
+                                v2
+                            } else {
+                                Self::compute_hmac_for_fields_versioned(
+                                    hmac_key,
+                                    prev_hash.as_deref(),
+                                    build_input(),
+                                    HMAC_VERSION_LEGACY,
+                                )?
+                            }
+                        }
+                    };
 
                     if expected != stored_hash {
                         broken_links.push(BrokenChainLink {
@@ -660,7 +775,7 @@ impl AuditService {
             }
         }
 
-        (verified_rows, skipped_no_hash, broken_links)
+        Ok((verified_rows, skipped_no_hash, broken_links))
     }
 
     /// 寫入 `security_alerts` 表（給 audit_chain_verify cron + 其他需要產生
@@ -705,7 +820,16 @@ impl AuditService {
 
         // R26-4 疑慮 4：(created_at, id) tuple 比較 + 雙欄 DESC 排序
         // 讓同微秒寫入時仍能得到穩定的 prev_hash。
-        let prev_hash: Option<String> = sqlx::query_scalar(
+        //
+        // Bug fix (R26-19): 使用 `Option<Option<String>>` + `.flatten()` 與
+        // `load_initial_prev_hash` 一致處理 NULL integrity_hash（例如 SECURITY
+        // 類 row 或 legacy row）。原本 `Option<String>` 直接解碼，當前一筆
+        // row 的 integrity_hash IS NULL 時會觸發 sqlx `UnexpectedNullError`，
+        // 導致 tx rollback、呼叫端（如 create_user）收到 500。
+        //
+        // 語意一致性：verifier `load_initial_prev_hash` 同樣 flatten，
+        // 有 row 但 hash NULL → None，與 write 端重算 hash 結果一致。
+        let raw: Option<Option<String>> = sqlx::query_scalar(
             r#"
             SELECT integrity_hash FROM user_activity_logs
             WHERE (created_at, id) < (
@@ -718,6 +842,8 @@ impl AuditService {
         .bind(log_id)
         .fetch_optional(&mut **tx)
         .await?;
+        // 攤平兩層 Option：無 row → None；有 row 但 hash NULL → None；有 row + hash → Some(s)
+        let prev_hash: Option<String> = raw.flatten();
 
         let message = input.canonical_bytes(prev_hash.as_deref());
 
@@ -727,86 +853,18 @@ impl AuditService {
         let hash_bytes = mac.finalize().into_bytes();
         let hash_result: String = hash_bytes.iter().map(|b| format!("{:02x}", b)).collect();
 
+        // R26-6：寫入 hmac_version=2 標示為 length-prefix canonical 編碼。
         sqlx::query(
-            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2 WHERE id = $3",
+            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2, hmac_version = $3 WHERE id = $4",
         )
         .bind(&hash_result)
         .bind(prev_hash.as_deref())
+        .bind(HMAC_VERSION_CANONICAL)
         .bind(log_id)
         .execute(&mut **tx)
         .await?;
 
         Ok(())
-    }
-
-    /// 記錄詳細活動日誌（舊版 API，保留向後相容）。
-    ///
-    /// ⚠️ **此函式不保證 audit 與資料變更在同一 transaction 內**。若呼叫端
-    /// 在資料寫入與本函式之間 crash，會造成資料變更已 commit 但 audit log
-    /// 未寫入（GLP 合規風險）。
-    ///
-    /// 新程式碼請改用 [`AuditService::log_activity_tx`]，搭配 `pool.begin()`。
-    #[deprecated(
-        since = "0.2.0",
-        note = "改用 log_activity_tx 保證 audit 與資料變更同一 tx；舊版在分批遷移後移除"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    pub async fn log_activity(
-        pool: &PgPool,
-        actor_user_id: Uuid,
-        event_category: &str,
-        event_type: &str,
-        entity_type: Option<&str>,
-        entity_id: Option<Uuid>,
-        entity_display_name: Option<&str>,
-        before_data: Option<serde_json::Value>,
-        after_data: Option<serde_json::Value>,
-        ip_address: Option<&str>,
-        user_agent: Option<&str>,
-    ) -> Result<Uuid> {
-        let result: (Uuid,) =
-            sqlx::query_as("SELECT log_activity($1, $2, $3, $4, $5, $6, $7, $8, $9::inet, $10)")
-                .bind(actor_user_id)
-                .bind(event_category)
-                .bind(event_type)
-                .bind(entity_type)
-                .bind(entity_id)
-                .bind(entity_display_name)
-                .bind(before_data.clone())
-                .bind(after_data.clone())
-                .bind(ip_address)
-                .bind(user_agent)
-                .fetch_one(pool)
-                .await?;
-
-        let log_id = result.0;
-
-        // SEC-34: HMAC 雜湊鏈（有 key 時才啟用）。
-        // 錯誤不再靜默吞（let _ = ...），改記 tracing::error! 讓 Prometheus
-        // 可 alert；但仍不中斷回傳 — audit 已寫入、HMAC 失敗只影響鏈結
-        // 完整性，呼叫端已拿到 log_id。R26-4 移除舊版時此區塊一併刪除。
-        if let Some(Some(hmac_key)) = AUDIT_HMAC_KEY.get() {
-            if let Err(e) = Self::compute_and_store_hmac(
-                pool,
-                log_id,
-                hmac_key,
-                event_category,
-                event_type,
-                actor_user_id,
-                &before_data,
-                &after_data,
-            )
-            .await
-            {
-                tracing::error!(
-                    log_id = %log_id,
-                    error = %e,
-                    "[audit] HMAC chain write failed for deprecated log_activity; chain integrity degraded"
-                );
-            }
-        }
-
-        Ok(log_id)
     }
 
     /// R22: 記錄安全事件（rate limit / 403 / lockout 等）
@@ -856,111 +914,6 @@ impl AuditService {
         .await?;
 
         Ok(id)
-    }
-
-    /// 單據審計專用函式（減少重複程式碼）
-    pub async fn audit_document(
-        pool: &PgPool,
-        user_id: Uuid,
-        event_type: &str, // DOC_CREATE, DOC_SUBMIT, etc.
-        doc_id: Uuid,
-        doc_no: &str,
-        doc_type: Option<&str>,
-        extra_data: Option<serde_json::Value>,
-    ) -> Result<()> {
-        let mut after_data = serde_json::json!({
-            "doc_no": doc_no,
-        });
-
-        if let Some(dt) = doc_type {
-            after_data["doc_type"] = serde_json::Value::String(dt.to_string());
-        }
-
-        if let Some(extra) = extra_data {
-            after_data["extra"] = extra;
-        }
-
-        Self::log_activity(
-            pool,
-            user_id,
-            "ERP",
-            event_type,
-            Some("document"),
-            Some(doc_id),
-            Some(doc_no),
-            None,
-            Some(after_data),
-            None,
-            None,
-        )
-        .await?;
-
-        Ok(())
-    }
-
-    /// SEC-34: 計算 HMAC-SHA256 並更新日誌記錄
-    #[allow(clippy::too_many_arguments)]
-    async fn compute_and_store_hmac(
-        pool: &PgPool,
-        log_id: Uuid,
-        hmac_key: &str,
-        event_category: &str,
-        event_type: &str,
-        actor_user_id: Uuid,
-        before_data: &Option<serde_json::Value>,
-        after_data: &Option<serde_json::Value>,
-    ) -> Result<()> {
-        use hmac::{Hmac, Mac};
-        use sha2::Sha256;
-
-        type HmacSha256 = Hmac<Sha256>;
-
-        // 取得前一筆日誌的 integrity_hash（若有）
-        let prev_hash: Option<String> = sqlx::query_scalar(
-            r#"
-            SELECT integrity_hash FROM user_activity_logs
-            WHERE created_at < (SELECT created_at FROM user_activity_logs WHERE id = $1)
-            ORDER BY created_at DESC
-            LIMIT 1
-            "#,
-        )
-        .bind(log_id)
-        .fetch_optional(pool)
-        .await?;
-
-        // 組合雜湊內容: prev_hash + event_category + event_type + actor_id + data
-        let mut message = String::new();
-        if let Some(ref ph) = prev_hash {
-            message.push_str(ph);
-        }
-        message.push_str(event_category);
-        message.push_str(event_type);
-        message.push_str(&actor_user_id.to_string());
-        if let Some(ref bd) = before_data {
-            message.push_str(&bd.to_string());
-        }
-        if let Some(ref ad) = after_data {
-            message.push_str(&ad.to_string());
-        }
-
-        // 計算 HMAC-SHA256
-        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes())
-            .map_err(|e| crate::error::AppError::Internal(format!("HMAC key error: {}", e)))?;
-        mac.update(message.as_bytes());
-        let hash_bytes = mac.finalize().into_bytes();
-        let hash_result: String = hash_bytes.iter().map(|b| format!("{:02x}", b)).collect();
-
-        // 更新記錄
-        sqlx::query(
-            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2 WHERE id = $3",
-        )
-        .bind(&hash_result)
-        .bind(prev_hash.as_deref())
-        .bind(log_id)
-        .execute(pool)
-        .await?;
-
-        Ok(())
     }
 
     // ============================================
@@ -1454,5 +1407,148 @@ impl AuditService {
             open_alerts: open_alerts.0,
             critical_alerts: critical_alerts.0,
         })
+    }
+}
+
+#[cfg(test)]
+mod hmac_versioning_tests {
+    //! R26-6：HMAC 編碼版本化單元測試。
+    //!
+    //! 驗證 v1（legacy string-concat）與 v2（length-prefix canonical）編碼
+    //! 產出的 HMAC **不同**，確保 verifier 分流正確（用錯版本會偵測為斷鏈）。
+    use super::{AuditService, HmacInput, HMAC_VERSION_CANONICAL, HMAC_VERSION_LEGACY};
+    use uuid::Uuid;
+
+    const TEST_KEY: &str = "test-hmac-key-for-unit-tests-only";
+
+    fn sample_input<'a>(
+        category: &'a str,
+        event_type: &'a str,
+        actor_id: Uuid,
+        before: &'a Option<serde_json::Value>,
+        after: &'a Option<serde_json::Value>,
+        changed_fields: &'a [String],
+    ) -> HmacInput<'a> {
+        HmacInput {
+            event_category: category,
+            event_type,
+            actor_user_id: actor_id,
+            before_data: before,
+            after_data: after,
+            impersonated_by: None,
+            changed_fields,
+        }
+    }
+
+    #[test]
+    fn legacy_and_canonical_encodings_produce_different_hashes() {
+        let actor = Uuid::parse_str("00000000-0000-0000-0000-000000000001")
+            .expect("hard-coded test UUID must parse");
+        let before = Some(serde_json::json!({"a": 1}));
+        let after = Some(serde_json::json!({"a": 2}));
+        let fields = vec!["a".to_string()];
+
+        let input = sample_input("ANIMAL", "UPDATE", actor, &before, &after, &fields);
+        let prev = Some("abcd1234");
+
+        let v1 = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            prev,
+            HmacInput {
+                event_category: input.event_category,
+                event_type: input.event_type,
+                actor_user_id: input.actor_user_id,
+                before_data: input.before_data,
+                after_data: input.after_data,
+                impersonated_by: input.impersonated_by,
+                changed_fields: input.changed_fields,
+            },
+            HMAC_VERSION_LEGACY,
+        ).expect("test key valid");
+        let v2 = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            prev,
+            input,
+            HMAC_VERSION_CANONICAL,
+        ).expect("test key valid");
+
+        assert_ne!(v1, v2, "v1 vs v2 不同編碼 HMAC 應有差異");
+        assert_eq!(v1.len(), 64, "HMAC-SHA256 hex 應為 64 字元");
+        assert_eq!(v2.len(), 64);
+    }
+
+    #[test]
+    fn canonical_encoding_detects_string_concat_collision() {
+        // 經典碰撞：("ab","cd") 與 ("abc","d") 在字串串接下產生同一 message
+        let actor = Uuid::nil();
+        let before = None::<serde_json::Value>;
+        let after = None::<serde_json::Value>;
+        let fields: Vec<String> = vec![];
+
+        let case_a = sample_input("ab", "cd", actor, &before, &after, &fields);
+        let case_b = sample_input("abc", "d", actor, &before, &after, &fields);
+
+        // v1 legacy：會碰撞（這就是為什麼需要 v2）
+        let legacy_a = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            HmacInput {
+                event_category: case_a.event_category,
+                event_type: case_a.event_type,
+                actor_user_id: case_a.actor_user_id,
+                before_data: case_a.before_data,
+                after_data: case_a.after_data,
+                impersonated_by: case_a.impersonated_by,
+                changed_fields: case_a.changed_fields,
+            },
+            HMAC_VERSION_LEGACY,
+        ).expect("test key valid");
+        let legacy_b = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            case_b,
+            HMAC_VERSION_LEGACY,
+        ).expect("test key valid");
+        assert_eq!(legacy_a, legacy_b, "legacy 確實會碰撞（合預期，說明為何需 v2）");
+
+        // v2 canonical：不會碰撞
+        let v2_a = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            case_a,
+            HMAC_VERSION_CANONICAL,
+        ).expect("test key valid");
+        let input_b_v2 = sample_input("abc", "d", actor, &before, &after, &fields);
+        let v2_b = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            input_b_v2,
+            HMAC_VERSION_CANONICAL,
+        ).expect("test key valid");
+        assert_ne!(v2_a, v2_b, "canonical v2 不應碰撞");
+    }
+
+    #[test]
+    fn unknown_version_falls_back_to_canonical() {
+        let actor = Uuid::nil();
+        let before = None::<serde_json::Value>;
+        let after = None::<serde_json::Value>;
+        let fields: Vec<String> = vec![];
+
+        let input = sample_input("X", "Y", actor, &before, &after, &fields);
+        let input2 = sample_input("X", "Y", actor, &before, &after, &fields);
+
+        let v2 = AuditService::compute_hmac_for_fields_versioned(
+            TEST_KEY,
+            None,
+            input,
+            HMAC_VERSION_CANONICAL,
+        ).expect("test key valid");
+        let unknown = AuditService::compute_hmac_for_fields_versioned(TEST_KEY, None, input2, 99).expect("test key valid");
+
+        assert_eq!(
+            v2, unknown,
+            "未知版本應 fallback canonical，不應 panic"
+        );
     }
 }

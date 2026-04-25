@@ -43,13 +43,11 @@ pub struct ImportResult {
     pub skipped_details: Vec<SkippedDetail>,
 }
 
-// R26-7: IDXF 匯入 metadata — format_version 由 serde 反序列化入但 Rust 端
-// 未讀取（保留給將來 format 版本相容檢查）。
 #[derive(Debug, Deserialize)]
 struct IdxfMeta {
     format: Option<String>,
-    #[allow(dead_code)]
-    format_version: Option<String>,
+    #[serde(default, rename = "format_version")]
+    _format_version: Option<String>,
     schema_version: Option<String>,
 }
 
@@ -97,19 +95,12 @@ fn prepare_user_rows(rows: &[serde_json::Value]) -> Vec<serde_json::Value> {
     rows.iter()
         .map(|row| {
             let mut user_row = row.clone();
+            // 全庫匯入後不強制既有使用者變更密碼（保留來源密碼 hash）
             if let Some(o) = user_row.as_object_mut() {
-                // 全庫匯入後不強制既有使用者變更密碼（保留來源密碼 hash）
                 o.insert(
                     "must_change_password".to_string(),
                     serde_json::Value::Bool(false),
                 );
-                // 舊版 schema（R26 前）匯出的 JSON 沒有 users.version 欄位。
-                // 目標表 version NOT NULL DEFAULT 1，但 json_populate_recordset 遇缺 key
-                // 會塞 NULL 而非套用 DEFAULT，造成 NOT NULL violation。
-                // 缺 key 時補 1 以維持 optimistic locking 初始值。
-                if !o.contains_key("version") {
-                    o.insert("version".to_string(), serde_json::json!(1));
-                }
             }
             user_row
         })
@@ -197,13 +188,10 @@ async fn build_id_mappings(
             table
         );
 
-        // 部分白名單表的 conflict columns 是 UUID（role_permissions / user_roles /
-        // treatment_drug_options），postgres 不會自動把 text bind 轉為 uuid。
-        // 兩邊一律 ::text 比較，bind 也傳字串，避免 "operator does not exist: uuid = text"。
         let target_id: Option<String> = match conflict_cols.len() {
             1 => {
                 sqlx::query_scalar(&format!(
-                    r#"SELECT id::text FROM "{}" WHERE "{}"::text = $1"#,
+                    r#"SELECT id::text FROM "{}" WHERE "{}" = $1"#,
                     table, conflict_cols[0]
                 ))
                 .bind(&key_values[0])
@@ -212,7 +200,7 @@ async fn build_id_mappings(
             }
             2 => {
                 sqlx::query_scalar(&format!(
-                    r#"SELECT id::text FROM "{}" WHERE "{}"::text = $1 AND "{}"::text = $2"#,
+                    r#"SELECT id::text FROM "{}" WHERE "{}" = $1 AND "{}" = $2"#,
                     table, conflict_cols[0], conflict_cols[1]
                 ))
                 .bind(&key_values[0])
@@ -300,15 +288,13 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
         v
     };
 
-    // R26-7: columns 由 serde 反序列化入但 Rust 端未讀取
-    // （保留給將來 column-level 驗證用）。
     #[derive(Deserialize)]
     struct ManifestTable {
         name: String,
         file: String,
         format: Option<String>,
-        #[allow(dead_code)]
-        columns: Vec<String>,
+        #[serde(rename = "columns")]
+        _columns: Vec<String>,
     }
     #[derive(Deserialize)]
     struct Manifest {

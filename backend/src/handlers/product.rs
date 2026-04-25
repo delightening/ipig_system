@@ -11,14 +11,14 @@ use validator::Validate;
 
 use crate::error::ErrorResponse;
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         ChangeProductStatusRequest, CreateCategoryRequest, CreateProductRequest, Product,
         ProductCategory, ProductImportCheckResult, ProductImportPreviewResult, ProductImportResult,
         ProductQuery, ProductWithUom, UpdateProductRequest,
     },
     require_permission,
-    services::{AuditService, ProductService},
+    services::ProductService,
     AppError, AppState, Result,
 };
 
@@ -43,20 +43,8 @@ pub async fn create_product(
     require_permission!(current_user, "erp.product.create");
     req.validate()?;
     
-    let product = ProductService::create(&state.db, &req).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "PRODUCT_CREATE",
-        Some("product"), Some(product.product.id), Some(&product.product.name),
-        None,
-        Some(serde_json::json!({
-            "name": product.product.name,
-            "sku": product.product.sku,
-        })),
-        None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (PRODUCT_CREATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let product = ProductService::create(&state.db, &actor, &req).await?;
 
     Ok(Json(product))
 }
@@ -132,15 +120,8 @@ pub async fn update_product(
     require_permission!(current_user, "erp.product.edit");
     req.validate()?;
     
-    let product = ProductService::update(&state.db, id, &req).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "PRODUCT_UPDATE",
-        Some("product"), Some(id), Some(&product.product.name),
-        None, None, None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (PRODUCT_UPDATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let product = ProductService::update(&state.db, &actor, id, &req).await?;
 
     Ok(Json(product))
 }
@@ -154,25 +135,8 @@ pub async fn update_product_status(
 ) -> Result<Json<ProductWithUom>> {
     require_permission!(current_user, "erp.product.edit");
 
-    let product = ProductService::update_status(&state.db, id, &req.status).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "PRODUCT_STATUS_CHANGE",
-        Some("product"),
-        Some(id),
-        Some(&product.product.name),
-        None,
-        Some(serde_json::json!({ "status": req.status })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (PRODUCT_STATUS_CHANGE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let product = ProductService::update_status(&state.db, &actor, id, &req.status).await?;
 
     Ok(Json(product))
 }
@@ -197,15 +161,8 @@ pub async fn delete_product(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "erp.product.delete");
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "PRODUCT_DELETE",
-        Some("product"), Some(id), None,
-        None, None, None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (PRODUCT_DELETE): {}", e);
-    }
-
-    ProductService::delete(&state.db, id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    ProductService::delete(&state.db, &actor, id).await?;
     Ok(Json(serde_json::json!({ "message": "Product deleted successfully" })))
 }
 
@@ -233,30 +190,8 @@ pub async fn hard_delete_product(
         return Err(AppError::Forbidden("僅管理員可執行產品硬刪除".into()));
     }
 
-    let product_name: Option<String> = sqlx::query_scalar("SELECT name FROM products WHERE id = $1")
-        .bind(id)
-        .fetch_optional(&state.db)
-        .await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "PRODUCT_HARD_DELETE",
-        Some("product"),
-        Some(id),
-        product_name.as_deref(),
-        None,
-        Some(serde_json::json!({ "action": "hard_delete" })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (PRODUCT_HARD_DELETE): {}", e);
-    }
-
-    ProductService::hard_delete(&state.db, id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    ProductService::hard_delete(&state.db, &actor, id).await?;
     Ok(Json(serde_json::json!({ "message": "Product hard deleted successfully" })))
 }
 
@@ -302,15 +237,8 @@ pub async fn create_category(
     require_permission!(current_user, "erp.product.create");
     req.validate()?;
     
-    let category = ProductService::create_category(&state.db, &req).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "CATEGORY_CREATE",
-        Some("product_category"), Some(category.id), Some(&category.name),
-        None, None, None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (CATEGORY_CREATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let category = ProductService::create_category(&state.db, &actor, &req).await?;
 
     Ok(Json(category))
 }
@@ -384,8 +312,10 @@ pub async fn import_products(
         return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
     }
 
+    let actor = ActorContext::User(current_user.clone());
     let result = ProductService::import_products(
         &state.db,
+        &actor,
         &file_data,
         &file_name,
         skip_duplicates,
@@ -393,31 +323,8 @@ pub async fn import_products(
     )
     .await?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "PRODUCT_IMPORT",
-        Some("product"),
-        None,
-        Some(&format!(
-            "匯入產品: {} (成功: {}, 失敗: {})",
-            file_name, result.success_count, result.error_count
-        )),
-        None,
-        Some(serde_json::json!({
-            "file_name": file_name,
-            "success_count": result.success_count,
-            "error_count": result.error_count
-        })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (PRODUCT_IMPORT): {}", e);
-    }
-
+    // service 層的 N+1 audit 粒度（per-row PRODUCT_CREATE + 1 筆 PRODUCT_IMPORT
+    // summary）已完整記錄，此處無需額外 handler 層 audit
     Ok(Json(result))
 }
 

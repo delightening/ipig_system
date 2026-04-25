@@ -282,7 +282,10 @@ impl Config {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
-            audit_hmac_key: read_secret("AUDIT_HMAC_KEY").filter(|s| s.len() >= 16),
+            // SEC-34: HMAC-SHA256 密鑰最小長度 44 chars（= base64 編碼的 32 bytes = 256 bits）
+            // 對應 NIST SP 800-107 建議：HMAC 密鑰至少與 hash 輸出長度相同（SHA256=32 bytes）。
+            // `.env.example` 有對應文檔與 openssl rand -base64 32 產生指引。
+            audit_hmac_key: read_secret("AUDIT_HMAC_KEY").filter(|s| s.len() >= 44),
             audit_chain_verify_active: parse_bool_env("AUDIT_CHAIN_VERIFY_ACTIVE"),
             disable_csrf_for_tests: parse_bool_env("DISABLE_CSRF_FOR_TESTS"),
             disable_account_lockout: parse_bool_env("DISABLE_ACCOUNT_LOCKOUT"),

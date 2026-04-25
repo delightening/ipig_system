@@ -10,10 +10,11 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{AnimalImportBatch, ExportRequest, ImportResult},
     require_permission,
     services::{
+        audit::{ActivityLogEntry, AuditEntity},
         AnimalImportExportService, AnimalMedicalService, AnimalService, AuditService, PdfService,
     },
     AppError, AppState, Result,
@@ -49,12 +50,20 @@ pub async fn export_animal_medical_data(
         _ => format!("匯出醫療資料 (animal: {})", animal_id),
     };
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "EXPORT_MEDICAL",
-        Some("animal"), Some(animal_id), Some(&export_display), None,
-        Some(serde_json::json!({ "format": format!("{:?}", req.format), "export_type": format!("{:?}", req.export_type) })),
-        None, None,
-    ).await {
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
+        &state.db,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "EXPORT_MEDICAL",
+            entity: Some(AuditEntity::new("animal", animal_id, &export_display)),
+            data_diff: None,
+            request_context: None,
+        },
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (MEDICAL_EXPORT): {}", e);
     }
 
@@ -213,20 +222,31 @@ pub async fn import_basic_data(
 ) -> Result<Json<ImportResult>> {
     require_permission!(current_user, "animal.animal.import");
     let (file_data, file_name) = parse_import_file(&mut multipart).await?;
+    let actor = ActorContext::User(current_user.clone());
     let result = AnimalImportExportService::import_basic_data(
         &state.db,
+        &actor,
         &file_data,
         &file_name,
-        current_user.id,
     )
     .await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "ANIMAL_IMPORT",
-        Some("animal"), None,
-        Some(&format!("匯入動物基礎資料: {} (成功: {}, 失敗: {})", file_name, result.success_count, result.error_count)),
-        None, Some(serde_json::json!({"file_name": file_name, "success_count": result.success_count, "error_count": result.error_count})),
-        None, None,
-    ).await {
+    let display = format!(
+        "匯入動物基礎資料: {} (成功: {}, 失敗: {})",
+        file_name, result.success_count, result.error_count
+    );
+    if let Err(e) = AuditService::log_activity_oneshot(
+        &state.db,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "ANIMAL_IMPORT",
+            entity: Some(AuditEntity::new("animal", Uuid::nil(), &display)),
+            data_diff: None,
+            request_context: None,
+        },
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_IMPORT): {}", e);
     }
     Ok(Json(result))
@@ -240,20 +260,31 @@ pub async fn import_weight_data(
 ) -> Result<Json<ImportResult>> {
     require_permission!(current_user, "animal.animal.import");
     let (file_data, file_name) = parse_import_file(&mut multipart).await?;
+    let actor = ActorContext::User(current_user.clone());
     let result = AnimalImportExportService::import_weight_data(
         &state.db,
+        &actor,
         &file_data,
         &file_name,
-        current_user.id,
     )
     .await?;
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "WEIGHT_IMPORT",
-        Some("animal_weight"), None,
-        Some(&format!("匯入體重資料: {} (成功: {}, 失敗: {})", file_name, result.success_count, result.error_count)),
-        None, Some(serde_json::json!({"file_name": file_name, "success_count": result.success_count, "error_count": result.error_count})),
-        None, None,
-    ).await {
+    let display = format!(
+        "匯入體重資料: {} (成功: {}, 失敗: {})",
+        file_name, result.success_count, result.error_count
+    );
+    if let Err(e) = AuditService::log_activity_oneshot(
+        &state.db,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "WEIGHT_IMPORT",
+            entity: Some(AuditEntity::new("animal_weight", Uuid::nil(), &display)),
+            data_diff: None,
+            request_context: None,
+        },
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_IMPORT): {}", e);
     }
     Ok(Json(result))

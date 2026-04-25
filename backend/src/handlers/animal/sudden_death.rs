@@ -7,10 +7,10 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{AnimalSuddenDeath, CreateSuddenDeathRequest},
     require_permission,
-    services::{access, AnimalMedicalService, AnimalService, AuditService},
+    services::{access, AnimalMedicalService},
     AppState, Result,
 };
 
@@ -35,40 +35,9 @@ pub async fn create_animal_sudden_death(
 ) -> Result<Json<AnimalSuddenDeath>> {
     require_permission!(current_user, "animal.record.create");
 
+    // Audit 已收進 service 層（SUDDEN_DEATH，tx 內 + animal 狀態變更同 tx）
+    let actor = ActorContext::User(current_user.clone());
     let record =
-        AnimalMedicalService::create_sudden_death(&state.db, animal_id, &req, current_user.id)
-            .await?;
-
-    // 取得動物資訊用於日誌顯示
-    let display = match AnimalService::get_by_id(&state.db, animal_id).await {
-        Ok(animal) => {
-            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {} - 猝死", iacuc, animal.ear_tag)
-        }
-        _ => format!("猝死紀錄 (animal: {})", animal_id),
-    };
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "SUDDEN_DEATH",
-        Some("animal_sudden_deaths"),
-        Some(animal_id),
-        Some(&display),
-        None,
-        Some(serde_json::json!({
-            "probable_cause": req.probable_cause,
-            "requires_pathology": req.requires_pathology,
-        })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (SUDDEN_DEATH): {}", e);
-    }
-
+        AnimalMedicalService::create_sudden_death(&state.db, &actor, animal_id, &req).await?;
     Ok(Json(record))
 }

@@ -1,8 +1,9 @@
-use sqlx::PgPool;
+use sqlx::{PgPool, Transaction, Postgres};
 use uuid::Uuid;
 
 use super::ProtocolService;
 use crate::{
+    middleware::ActorContext,
     models::{
         AssignCoEditorRequest, AssignReviewerRequest, CoEditorAssignmentResponse, ProtocolActivityType,
         ReviewAssignment, UserProtocol,
@@ -63,9 +64,9 @@ impl ProtocolService {
         Ok(assignment)
     }
 
-    /// 指派正式審查委員（可撰寫意見，限 2-3 位）
-    pub(super) async fn assign_primary_reviewer(
-        pool: &PgPool,
+    /// Transaction 版本：在既有 transaction 內指派正式審查委員（R26-8 Phase 2 需用）
+    pub(super) async fn assign_primary_reviewer_tx(
+        tx: &mut Transaction<'_, Postgres>,
         protocol_id: Uuid,
         reviewer_id: Uuid,
         assigned_by: Uuid,
@@ -74,7 +75,7 @@ impl ProtocolService {
             r#"
             INSERT INTO review_assignments (id, protocol_id, reviewer_id, assigned_by, assigned_at, is_primary_reviewer, review_stage)
             VALUES ($1, $2, $3, $4, NOW(), true, 'UNDER_REVIEW')
-            ON CONFLICT (protocol_id, reviewer_id) DO UPDATE SET 
+            ON CONFLICT (protocol_id, reviewer_id) DO UPDATE SET
                 assigned_at = NOW(),
                 is_primary_reviewer = true,
                 review_stage = 'UNDER_REVIEW'
@@ -85,32 +86,23 @@ impl ProtocolService {
         .bind(protocol_id)
         .bind(reviewer_id)
         .bind(assigned_by)
-        .fetch_one(pool)
+        .fetch_one(&mut **tx)
         .await?;
-
-        Self::record_activity(
-            pool,
-            protocol_id,
-            ProtocolActivityType::ReviewerAssigned,
-            assigned_by,
-            None,
-            None,
-            Some(("user", reviewer_id, "Primary Reviewer")),
-            Some(format!("Assigned primary reviewer {}", reviewer_id)),
-            None,
-        ).await?;
 
         Ok(assignment)
     }
 
-    /// 指派獸醫審查員
-    /// 如果未指定 vet_id，則從系統設定取得預設獸醫師
-    pub(super) async fn assign_vet_reviewer(
-        pool: &PgPool,
+    /// Transaction 版本：在既有 transaction 內指派獸醫審查員（R26-8 Phase 2 需用）。
+    /// 同 tx 內記錄 `VetAssigned` activity，確保 audit trail 與指派同原子性。
+    pub(super) async fn assign_vet_reviewer_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        actor: &ActorContext,
         protocol_id: Uuid,
         vet_id: Option<Uuid>,
-        assigned_by: Uuid,
     ) -> Result<()> {
+        let assigned_by = actor
+            .actor_user_id()
+            .unwrap_or(crate::middleware::SYSTEM_USER_ID);
         // 如果未指定獸醫師，從系統設定取得預設獸醫師
         let vet_user_id = if let Some(id) = vet_id {
             id
@@ -119,7 +111,7 @@ impl ProtocolService {
             let setting: Option<serde_json::Value> = sqlx::query_scalar(
                 "SELECT value FROM system_settings WHERE key = 'default_vet_reviewer'"
             )
-            .fetch_optional(pool)
+            .fetch_optional(&mut **tx)
             .await?;
 
             let default_vet_id = setting
@@ -139,7 +131,7 @@ impl ProtocolService {
                         LIMIT 1
                         "#
                     )
-                    .fetch_optional(pool)
+                    .fetch_optional(&mut **tx)
                     .await?;
 
                     first_vet.ok_or_else(|| {
@@ -160,7 +152,7 @@ impl ProtocolService {
             "#
         )
         .bind(vet_user_id)
-        .fetch_one(pool)
+        .fetch_one(&mut **tx)
         .await?;
 
         if !is_vet.0 {
@@ -172,7 +164,7 @@ impl ProtocolService {
             r#"
             INSERT INTO vet_review_assignments (id, protocol_id, vet_id, assigned_by, assigned_at)
             VALUES ($1, $2, $3, $4, NOW())
-            ON CONFLICT (protocol_id) DO UPDATE SET 
+            ON CONFLICT (protocol_id) DO UPDATE SET
                 vet_id = $3,
                 assigned_by = $4,
                 assigned_at = NOW(),
@@ -185,20 +177,21 @@ impl ProtocolService {
         .bind(protocol_id)
         .bind(vet_user_id)
         .bind(assigned_by)
-        .execute(pool)
+        .execute(&mut **tx)
         .await?;
 
-        Self::record_activity(
-            pool,
+        Self::record_activity_tx(
+            tx,
+            actor,
             protocol_id,
             ProtocolActivityType::VetAssigned,
-            assigned_by,
             None,
             None,
             Some(("user", vet_user_id, "Vet")),
             Some(format!("Assigned vet reviewer {}", vet_user_id)),
             None,
-        ).await?;
+        )
+        .await?;
 
         Ok(())
     }

@@ -332,10 +332,10 @@ fn resolve_breed_other(
 /// 處理已驗證的基本資料行（DB 查詢 + 建立動物）
 async fn process_basic_row(
     pool: &PgPool,
+    actor: &crate::middleware::ActorContext,
     validated: ValidatedBasicRow,
     row_number: i32,
     original_ear_tag: &str,
-    created_by: Uuid,
 ) -> std::result::Result<(), ImportErrorDetail> {
     // 查找來源 ID
     let source_id = find_source_id(pool, &validated.source_code).await.map_err(|e| {
@@ -358,14 +358,14 @@ async fn process_basic_row(
 
     let create_req = build_create_request(&validated, source_id);
 
-    let animal = AnimalService::create(pool, &create_req, created_by)
+    let animal = AnimalService::create(pool, actor, &create_req)
         .await
         .map_err(|e| {
             import_err(row_number, Some(original_ear_tag.to_string()), format!("建立失敗: {}", e))
         })?;
 
     // 如有計畫編號則更新
-    update_iacuc_if_present(pool, animal.id, &validated.iacuc_no, created_by).await;
+    update_iacuc_if_present(pool, actor, animal.id, &validated.iacuc_no).await;
 
     Ok(())
 }
@@ -424,9 +424,9 @@ fn build_create_request(
 /// 如有 IACUC 編號則更新動物資料
 async fn update_iacuc_if_present(
     pool: &PgPool,
+    actor: &crate::middleware::ActorContext,
     animal_id: Uuid,
     iacuc_no: &Option<String>,
-    created_by: Uuid,
 ) {
     let Some(ref iacuc) = iacuc_no else { return };
     if iacuc.is_empty() {
@@ -434,12 +434,12 @@ async fn update_iacuc_if_present(
     }
     if let Err(e) = AnimalService::update(
         pool,
+        actor,
         animal_id,
         &UpdateAnimalRequest {
             iacuc_no: Some(iacuc.clone()),
             ..Default::default()
         },
-        created_by,
     )
     .await
     {
@@ -489,7 +489,7 @@ async fn process_weight_row(
     validated: ValidatedWeightRow,
     row_number: i32,
     original_ear_tag: &str,
-    created_by: Uuid,
+    _created_by: Uuid,
 ) -> std::result::Result<(), ImportErrorDetail> {
     let animal_id = find_animal_id_by_ear_tag(pool, &validated.formatted_ear_tag)
         .await
@@ -505,7 +505,12 @@ async fn process_weight_row(
         weight: validated.weight,
     };
 
-    AnimalWeightService::create(pool, animal_id, &create_req, created_by)
+    // 批次匯入內部呼叫：使用 System actor（reason 標示為 batch import），
+    // `created_by` 在 service 內由 actor 推導（Anonymous → error / User → id / System → SYSTEM_USER_ID）
+    let actor = crate::middleware::ActorContext::System {
+        reason: "weight_batch_import",
+    };
+    AnimalWeightService::create(pool, &actor, animal_id, &create_req)
         .await
         .map_err(|e| {
             import_err(row_number, Some(original_ear_tag.to_string()), format!("建立失敗: {}", e))
@@ -684,10 +689,12 @@ impl AnimalImportExportService {
     /// 匯入動物基本資料
     pub async fn import_basic_data(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         file_data: &[u8],
         file_name: &str,
-        created_by: Uuid,
     ) -> Result<ImportResult> {
+        let created_by = actor.require_user()?.id;
+
         let (is_excel, _) = detect_file_format(file_name)?;
 
         let rows = if is_excel {
@@ -726,7 +733,7 @@ impl AnimalImportExportService {
                 }
             };
 
-            match process_basic_row(pool, validated, row_number, &row.ear_tag, created_by).await {
+            match process_basic_row(pool, actor, validated, row_number, &row.ear_tag).await {
                 Ok(()) => success_count += 1,
                 Err(e) => {
                     errors.push(e);
@@ -742,10 +749,12 @@ impl AnimalImportExportService {
     /// 匯入體重資料
     pub async fn import_weight_data(
         pool: &PgPool,
+        actor: &crate::middleware::ActorContext,
         file_data: &[u8],
         file_name: &str,
-        created_by: Uuid,
     ) -> Result<ImportResult> {
+        let created_by = actor.require_user()?.id;
+
         let (is_excel, _) = detect_file_format(file_name)?;
 
         let rows = if is_excel {

@@ -211,6 +211,10 @@ pub struct VetRecommendation {
     pub created_at: DateTime<Utc>,
 }
 
+// R26-9 方針同 AnimalObservation：content 為獸醫自由文字建議，GLP 研究資料
+// 本身需完整保留；空 allowlist。
+impl crate::models::audit_diff::AuditRedact for VetRecommendation {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

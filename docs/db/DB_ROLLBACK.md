@@ -1,6 +1,7 @@
 # iPIG 資料庫 Rollback 參考手冊
 
-> **用途**：本文件記錄 UP migration 的反向 SQL，供手動回退資料庫結構時參考。涵蓋 001–014、022。  
+> **用途**：本文件記錄 UP migration 的反向 SQL，供手動回退資料庫結構時參考。涵蓋 001–014、022、033–037。
+> **TODO**：Migration 015–021（HR/AUP 擴充）、023–032（QAU / R19 邀請 / R21 環境監控 / R22 攻擊偵測等）尚未補齊，列為後續文件補強。
 > **SQLx 注意**：SQLx（Rust）不原生支援 DOWN migration，因此所有回退操作需透過手動執行 SQL 完成。
 
 ---
@@ -41,7 +42,7 @@ sqlx migrate run
 ## ⚠️ 重要警告
 
 1. **資料不可逆**：大部分 rollback 會 `DROP TABLE`，表中所有資料將**永久遺失**且無法復原。
-2. **外鍵相依**：必須按照 **逆序（014 → 001）** 執行 rollback，否則會因外鍵約束而失敗。
+2. **外鍵相依**：必須按照 **逆序（037 → 001，含已文檔化之 001–014、022、033–037）** 執行 rollback，否則會因外鍵約束而失敗。
 3. **先備份**：執行任何 rollback 之前，請先使用 `pg_dump` 完整備份資料庫。
 4. **ENUM 刪除風險**：刪除自訂類型（ENUM）會影響所有引用該類型的表；需確保所有相關表已先行刪除。
 5. **分區表**：`user_activity_logs` 為分區表，必須先刪除所有分區子表，再刪除主表。
@@ -56,12 +57,151 @@ sqlx migrate run
 1. 停止所有後端服務（確保無連線寫入）
 2. 完整備份：pg_dump -Fc -f backup_$(date +%Y%m%d_%H%M%S).dump ipig_db
 3. 在 psql 或 pgAdmin 中開啟交易：BEGIN;
-4. 按逆序執行所需的 rollback SQL（從 014 到目標版本）
+4. 按逆序執行所需的 rollback SQL（從已文檔化的最新版本向下至目標版本）
 5. 確認無報錯後：COMMIT;（如有問題則 ROLLBACK;）
 6. 手動更新 SQLx 的 _sqlx_migrations 表（刪除對應的 migration 紀錄）：
    DELETE FROM _sqlx_migrations WHERE version >= <目標版本>;
 7. 重啟後端服務
 ```
+
+---
+
+## Migrations 033–037: R26 Service-driven Audit Refactor
+
+> **R26 Epic 整體 Rollback 警告**：
+> - 033–037 屬同一 epic，**強烈建議整批回滾**（依序 037 → 036 → 035 → 034 → 033）。
+> - 已部署到 production 後 **不建議 rollback**：HMAC chain 已寫入新版 row，DROP COLUMN 會永久遺失資料。
+> - 緊急 rollback 限「dev/staging 部署 < 24h 內」場景；prod 緊急狀況請先聯絡資安團隊評估。
+
+---
+
+### Migration 037: HMAC 編碼版本化
+
+**原始操作**：對 `user_activity_logs` 新增 `hmac_version SMALLINT` 欄位 + partial index，標示 HMAC 編碼版本（1=legacy string-concat, 2=length-prefix canonical）。
+
+```sql
+-- Rollback 037: 移除 HMAC 版本欄位與索引
+DROP INDEX IF EXISTS idx_user_activity_logs_hmac_version;
+ALTER TABLE user_activity_logs DROP COLUMN IF EXISTS hmac_version;
+```
+
+**Backfill runbook**（forward 部署後執行；尚未自動化）：
+
+> **⚠️ 分區表限制**：`user_activity_logs` 為 PostgreSQL 分區表，**分區表上的 `UPDATE` 語句不支援 `LIMIT` 子句**。需用子查詢 `WHERE id IN (SELECT ... LIMIT)` 迂迴。另因 `(id, partition_date)` 為複合 PK，子查詢需回傳兩者。
+
+```sql
+-- 方式 A：psql 腳本迴圈（推薦，可監控進度）
+-- 將既有 row 標記為 legacy v1（idempotent，可分批執行避免長時間鎖表）
+DO $$
+DECLARE
+  batch_size INT := 100000;
+  rows_affected INT;
+BEGIN
+  LOOP
+    UPDATE user_activity_logs
+    SET hmac_version = 1
+    WHERE (id, partition_date) IN (
+      SELECT id, partition_date
+      FROM user_activity_logs
+      WHERE hmac_version IS NULL AND integrity_hash IS NOT NULL
+      LIMIT batch_size
+    );
+    GET DIAGNOSTICS rows_affected = ROW_COUNT;
+    RAISE NOTICE 'Backfilled % rows', rows_affected;
+    EXIT WHEN rows_affected = 0;
+    PERFORM pg_sleep(2);  -- 每批 sleep 2 秒讓線上流量喘息
+  END LOOP;
+END $$;
+
+-- 方式 B：直接 UPDATE 全表（小系統 / 低流量時段）
+UPDATE user_activity_logs
+SET hmac_version = 1
+WHERE hmac_version IS NULL AND integrity_hash IS NOT NULL;
+```
+
+> **注意**：未 backfill 也可運作，verifier 對 `hmac_version IS NULL AND integrity_hash IS NOT NULL` 的 row 採 **try-both** 策略 — 先比對 canonical (v=2)，不符再 fallback legacy (v=1)。此設計涵蓋兩類 legacy row：migration 037 前由新版 `log_activity_tx` 寫入（實為 v=2）、以及更早期舊版 `log_activity` 寫入（v=1）。Backfill 後所有 row 都有明確 `hmac_version`，verifier 即可單一路徑比對，也讓 SQL 報表可直接用 `hmac_version = 1` 篩選 legacy row。
+
+---
+
+### Migration 036: log_activity stored proc v3
+
+**原始操作**：DROP + CREATE `log_activity()` 函式（12 參數版本），修正 `changed_fields` fallback 漏偵測「被刪除的 key」。
+
+```sql
+-- Rollback 036: 還原為 035 (v2) 的 stored proc
+DROP FUNCTION IF EXISTS log_activity(
+    UUID, VARCHAR, VARCHAR, VARCHAR, UUID, VARCHAR,
+    JSONB, JSONB, INET, TEXT, UUID, TEXT[]
+);
+
+-- 重新套用 035_audit_log_activity_v2.sql（從 v3 退回 v2）
+-- 完整 SQL 見 backend/migrations/035_audit_log_activity_v2.sql
+-- 注意：v2 的 changed_fields fallback 會漏偵測被刪除的 key（這是 035 → 036 修補的 bug）
+```
+
+> **⚠️ 警告**：rollback 到 v2 後，UPDATE 類 audit row 在「app 層未提供 `changed_fields`」時會缺少被刪除的 key。對於使用 `DataDiff::compute` 的呼叫者（R26-3 後 100% 都是）無影響，但對於早期 fire-and-forget call sites 會 regress。
+
+---
+
+### Migration 035: log_activity stored proc v2
+
+**原始操作**：DROP + CREATE `log_activity()` 函式（10 參數 → 12 參數），新增 `impersonated_by_user_id` + `changed_fields` 參數，使 HMAC 計算涵蓋這兩欄。
+
+```sql
+-- Rollback 035: 還原為 v1 的 stored proc（10 參數版本）
+DROP FUNCTION IF EXISTS log_activity(
+    UUID, VARCHAR, VARCHAR, VARCHAR, UUID, VARCHAR,
+    JSONB, JSONB, INET, TEXT, UUID, TEXT[]
+);
+
+-- 重新套用 v1（migration 006 的版本）
+-- 完整 SQL 見 backend/migrations_old/006_audit_system.sql 或 git history
+```
+
+> **⚠️ 嚴重警告**：rollback 到 v1 後 `impersonated_by_user_id` 會無法寫入 audit log；攻擊者能繞過 SEC-11 impersonate 追蹤。**僅限 dev/staging 緊急情況使用**。
+
+---
+
+### Migration 034: Audit Impersonation Column
+
+**原始操作**：對 `user_activity_logs` 新增 `impersonated_by_user_id UUID REFERENCES users(id)` 欄位 + partial index，記錄 SEC-11 impersonate 操作真正執行的管理員。
+
+```sql
+-- Rollback 034: 移除 impersonation 追蹤欄位與索引
+DROP INDEX IF EXISTS idx_user_activity_logs_impersonated_by;
+ALTER TABLE user_activity_logs DROP COLUMN IF EXISTS impersonated_by_user_id;
+```
+
+> **注意**：`user_activity_logs` 為大表（hypertable），DROP COLUMN 在 prod 會鎖定每個 partition，建議在低流量時段執行。已寫入的 impersonate 追蹤資料將永久遺失，影響 GLP §11.10 合規。
+
+---
+
+### Migration 033: System User
+
+**原始操作**：INSERT 一筆 reserved UUID `00000000-0000-0000-0000-000000000001` 作為 SYSTEM actor，供 scheduler / bin / migration 等非使用者觸發的 audit 用。
+
+```sql
+-- Rollback 033: 移除 SYSTEM actor user
+--
+-- ⚠️ 步驟 1：確認無引用。若以下 COUNT > 0，表示 SYSTEM actor 已寫過 audit 或
+-- 曾被 impersonate — **不應強制 rollback**（會破壞 audit 完整性）。
+SELECT COUNT(*) FROM user_activity_logs
+WHERE actor_user_id = '00000000-0000-0000-0000-000000000001'
+   OR impersonated_by_user_id = '00000000-0000-0000-0000-000000000001';
+
+-- 步驟 2：若步驟 1 返回 0，執行下列 DELETE。
+-- 注意：這裡沒加 NOT EXISTS guard，讓 FK violation 以明確錯誤呈現（避免靜默
+-- 跳過讓 Ops 誤以為 rollback 成功）。
+DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000001';
+
+-- 若步驟 1 返回 > 0 且**確定要強制清理（僅限 dev/staging）**：
+-- BEGIN;
+--   DELETE FROM user_activity_logs WHERE actor_user_id = '00000000-0000-0000-0000-000000000001';
+--   DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000001';
+-- COMMIT;  -- 或 ROLLBACK 反悔
+```
+
+> **⚠️ 嚴重警告**：rollback 033 會破壞 SCHEDULER / 系統觸發的 audit 鏈。**強烈建議只在 dev 環境執行**。Prod 一旦寫入 SYSTEM actor 的 audit row 後，此 user 應視為永久不可移除。
 
 ---
 
@@ -518,12 +658,12 @@ DROP TYPE IF EXISTS partner_type;
 
 ## 附錄：完整逆序 Rollback（全部回退）
 
-如需將資料庫恢復到空白狀態，請依序執行以上 014 → 001 的所有 rollback SQL。
+如需將資料庫恢復到空白狀態，請依序執行以上已文檔化的 rollback SQL（037 → 033 → 022 → 014 → 001）。
 
 ```sql
 BEGIN;
 
--- 依序執行每個 migration 的 rollback（014 → 001）
+-- 依序執行每個 migration 的 rollback（037 → 033 → 022 → 014 → 001）
 -- ... 貼上上方各段 SQL ...
 
 -- 最後清除 SQLx migration 追蹤表
@@ -534,5 +674,5 @@ COMMIT;
 
 ---
 
-*文件產生日期：2026-02-28*  
-*適用 migration 範圍：001_core_schema ~ 014_optimistic_locking*
+*文件最後更新：2026-04-24（R26 epic 收尾）*  
+*已文檔化 migration 範圍：001–014、022、033–037（015–021 / 023–032 為 TODO）*

@@ -14,6 +14,9 @@ pub struct SkuCategory {
     pub created_at: DateTime<Utc>,
 }
 
+// 無敏感欄位
+impl crate::models::audit_diff::AuditRedact for SkuCategory {}
+
 /// SKU 子類別
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct SkuSubcategory {
@@ -25,6 +28,9 @@ pub struct SkuSubcategory {
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
 }
+
+// 無敏感欄位
+impl crate::models::audit_diff::AuditRedact for SkuSubcategory {}
 
 /// SKU 流水號
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

@@ -11,13 +11,13 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         CreatePartnerRequest, GenerateCodeResponse, Partner, PartnerImportResult, PartnerQuery,
         SupplierCategory, UpdatePartnerRequest,
     },
     require_permission,
-    services::{AuditService, PartnerService},
+    services::PartnerService,
     AppError, AppState, Result,
 };
 
@@ -42,20 +42,8 @@ pub async fn create_partner(
     require_permission!(current_user, "erp.partner.create");
     req.validate()?;
     
-    let partner = PartnerService::create(&state.db, &req).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "PARTNER_CREATE",
-        Some("partner"), Some(partner.id), Some(&partner.name),
-        None,
-        Some(serde_json::json!({
-            "name": partner.name,
-            "partner_type": format!("{:?}", partner.partner_type),
-        })),
-        None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (PARTNER_CREATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let partner = PartnerService::create(&state.db, &actor, &req).await?;
 
     Ok(Json(partner))
 }
@@ -131,15 +119,8 @@ pub async fn update_partner(
     require_permission!(current_user, "erp.partner.edit");
     req.validate()?;
     
-    let partner = PartnerService::update(&state.db, id, &req).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "PARTNER_UPDATE",
-        Some("partner"), Some(id), Some(&partner.name),
-        None, None, None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (PARTNER_UPDATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let partner = PartnerService::update(&state.db, &actor, id, &req).await?;
 
     Ok(Json(partner))
 }
@@ -176,17 +157,10 @@ pub async fn delete_partner(
     
     let is_hard = (params.hard.unwrap_or(false) || body.hard.unwrap_or(false)) && current_user.is_admin();
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", if is_hard { "PARTNER_HARD_DELETE" } else { "PARTNER_DELETE" },
-        Some("partner"), Some(id), None,
-        None, None, None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (PARTNER_DELETE): {}", e);
-    }
-
-    PartnerService::delete(&state.db, id, is_hard).await?;
-    Ok(Json(serde_json::json!({ 
-        "message": if is_hard { "Partner permanently deleted" } else { "Partner deleted successfully" } 
+    let actor = ActorContext::User(current_user.clone());
+    PartnerService::delete(&state.db, &actor, id, is_hard).await?;
+    Ok(Json(serde_json::json!({
+        "message": if is_hard { "Partner permanently deleted" } else { "Partner deleted successfully" }
     })))
 }
 
@@ -263,33 +237,10 @@ pub async fn import_partners(
         return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
     }
 
-    let result = PartnerService::import_partners(&state.db, &file_data, &file_name).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let result = PartnerService::import_partners(&state.db, &actor, &file_data, &file_name).await?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "PARTNER_IMPORT",
-        Some("partner"),
-        None,
-        Some(&format!(
-            "匯入夥伴: {} (成功: {}, 失敗: {})",
-            file_name, result.success_count, result.error_count
-        )),
-        None,
-        Some(serde_json::json!({
-            "file_name": file_name,
-            "success_count": result.success_count,
-            "error_count": result.error_count
-        })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (PARTNER_IMPORT): {}", e);
-    }
-
+    // service 層 N+1 audit（per-row PARTNER_CREATE + summary PARTNER_IMPORT）
     Ok(Json(result))
 }
 
