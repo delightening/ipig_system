@@ -11,7 +11,7 @@ use crate::{
     },
     services::{
         audit::{ActivityLogEntry, AuditEntity},
-        AuditService,
+        AuditService, SignatureService,
     },
     utils::jsonb_validation::{validate_equipment_used, validate_treatments},
     AppError, Result,
@@ -188,6 +188,9 @@ impl AnimalObservationService {
             validate_treatments(tr)?;
         }
 
+        // C1 (GLP) fail-fast：簽章後鎖定的記錄拒絕修改
+        SignatureService::ensure_not_locked_uuid(pool, "observation", id).await?;
+
         // 先取得原始紀錄用於版本歷史（在 tx 外查詢，pool read OK）
         let before = Self::get_by_id(pool, id).await?;
 
@@ -196,6 +199,9 @@ impl AnimalObservationService {
             .await?;
 
         let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證，避免 fail-fast 與 UPDATE 之間的 race
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "observation", id).await?;
 
         let after = sqlx::query_as::<_, AnimalObservation>(
             r#"
@@ -268,7 +274,14 @@ impl AnimalObservationService {
         let user = actor.require_user()?;
         let deleted_by = user.id;
 
+        // C1 (GLP) fail-fast：簽章後鎖定的觀察紀錄拒絕刪除（與 update / 其他 service
+        // soft_delete 對齊雙層守衛 pattern：避免空開 tx + 取 row lock 才被擋下）
+        SignatureService::ensure_not_locked_uuid(pool, "observation", id).await?;
+
         let mut tx = pool.begin().await?;
+
+        // C1 atomic：拒絕刪除已鎖定（已簽章）記錄
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "observation", id).await?;
 
         // SELECT FOR UPDATE 取 before；同時守門防止重複刪除
         let before = sqlx::query_as::<_, AnimalObservation>(
