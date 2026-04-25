@@ -19,6 +19,10 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("aup.version.restore", "還原版本", "aup", "可還原計畫版本"),
         // Amendment 分類
         ("aup.amendment.classify", "分類修正案", "aup", "可判斷修正案為 Major 或 Minor"),
+        // Amendment 決定（H6 / GLP §11.70 / ISO A.5.18）：
+        // record_decision handler 除既有 reviewer-assignment 檢查外，再要求此明確權限。
+        // 防禦深度：「assignment 表存在」與「明確授權」雙層守衛。
+        ("aup.amendment.approve", "決定修正案", "aup", "可對被指派的修正案投票（APPROVE/REJECT/REVISION）"),
         // Co-Editor 指派
         ("aup.coeditor.assign", "指派協作編輯", "aup", "可指派 Co-Editor"),
         // 緊急處置權限
@@ -238,8 +242,9 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download",
             // AUP 版本
             "aup.version.view",
-            // Amendment 變更申請（審查、檢視）
+            // Amendment 變更申請（審查、檢視、決定）
             "amendment.read", "amendment.review",
+            "aup.amendment.approve",       // H6：可對被指派的修正案投票
             // 動物管理（只看）
             "animal.animal.view_all", "animal.animal.view_project",
             "animal.record.view",
@@ -266,8 +271,9 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download",
             // 版本管理
             "aup.version.view",
-            // Amendment 變更申請（審查、檢視）
+            // Amendment 變更申請（審查、檢視、決定）
             "amendment.read", "amendment.review",
+            "aup.amendment.approve",       // H6：可對被指派的修正案投票
             // 動物紀錄查看（血檢分析等，與動物權限綁定）
             "animal.animal.view_all", "animal.record.view",
             // Dashboard
@@ -280,8 +286,10 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // ============================================
         ("IACUC_CHAIR", vec![
             // 計畫管理
-            "aup.protocol.view_all", "aup.protocol.view_own", "aup.protocol.review", 
+            "aup.protocol.view_all", "aup.protocol.view_own", "aup.protocol.review",
             "aup.protocol.approve", "aup.protocol.change_status",
+            // Amendment 決定（H6：CHAIR 為終決者，需有此權限）
+            "aup.amendment.approve",
             // 審查流程
             "aup.review.view", "aup.review.comment", "aup.review.assign",
             // 附件管理
