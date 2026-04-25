@@ -1915,6 +1915,18 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🔧 R27 — E2E 修復後的代碼品質改善（2026-04-24 全面代碼審查）
+
+> 對應 PR #200、#201 E2E 測試修復後的全面代碼審查結果
+> 優先級均為 LOW，無阻擋項，可後續漸進式改進
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R27-1 | **Dockerfile CMD 可讀性改善** | `frontend/Dockerfile:72` 超長 CMD（240+ 字元）可考慮提取為獨立 shell 腳本；當前功能正確但後續維護時更易理解。LOW | [ ] |
+| R27-2 | **生環境 API_BACKEND_URL 驗證** | `frontend/Dockerfile:72` envsubst 應驗證 `${API_BACKEND_URL}` 非空，避免生成無效 nginx 配置；CI 環境由 docker-compose.test.yml 保證，生環境應加額外檢查。LOW | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
