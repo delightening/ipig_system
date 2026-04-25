@@ -9,7 +9,7 @@ use validator::Validate;
 
 use crate::error::ErrorResponse;
 use crate::{
-    handlers::auth::build_set_cookie,
+    handlers::{auth::build_set_cookie, user::require_reauth_token},
     middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
     models::{
         TwoFactorConfirmRequest, TwoFactorDisableRequest,
@@ -32,11 +32,17 @@ use crate::{
 )]
 pub async fn setup_2fa(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<TwoFactorSetupResponse>> {
     if !current_user.is_admin() {
         return Err(AppError::Forbidden("僅管理員可啟用兩步驟驗證".into()));
     }
+    // C3 (GLP §11.200(a))：啟用 2FA 是 credential 異動，要求 X-Reauth-Token
+    // 確保操作者於近期重新輸入密碼確認身分（防 XSS / session hijack 後攻擊者
+    // 直接重設受害者的 2FA 設定）。
+    require_reauth_token(&headers, &state, &current_user)?;
+
     let user = UserService::get_user_raw(&state.db, current_user.id).await?;
     if user.totp_enabled {
         return Err(AppError::BusinessRule("2FA 已經啟用".into()));
