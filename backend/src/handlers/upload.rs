@@ -644,24 +644,32 @@ pub async fn upload_sop_document(
     )
     .await?;
 
-    // H3 (GLP)：UPDATE qa_sop_documents 失敗 → unlink 上傳檔，避免孤兒
-    if let Err(e) =
+    // H3 (GLP)：UPDATE qa_sop_documents 失敗 OR rows_affected=0（sop_id 在檢查
+    // 後被刪除）→ unlink 上傳檔避免孤兒。Gemini review #207：rows_affected=0
+    // 是「Ok 但無更新」的隱性洞，必須與 Err 同等處理。
+    let update_result =
         sqlx::query("UPDATE qa_sop_documents SET file_path = $1, updated_at = NOW() WHERE id = $2")
             .bind(&upload_result.file_path)
             .bind(sop_id)
             .execute(&state.db)
-            .await
-    {
-        if let Err(unlink_err) = FileService::delete(&upload_result.file_path).await {
-            tracing::warn!(
-                "[sop upload] H3 rollback unlink 失敗 path={} err={unlink_err}",
-                upload_result.file_path
-            );
-        }
-        return Err(AppError::Database(e));
-    }
+            .await;
 
-    Ok(Json(UploadResponse::from(upload_result)))
+    let (rollback_reason, return_err) = match update_result {
+        Err(e) => ("update_error", AppError::Database(e)),
+        Ok(res) if res.rows_affected() == 0 => (
+            "sop_not_found",
+            AppError::NotFound("SOP document not found".to_string()),
+        ),
+        Ok(_) => return Ok(Json(UploadResponse::from(upload_result))),
+    };
+
+    if let Err(unlink_err) = FileService::delete(&upload_result.file_path).await {
+        tracing::warn!(
+            "[sop upload] H3 rollback unlink 失敗 reason={rollback_reason} path={} err={unlink_err}",
+            upload_result.file_path
+        );
+    }
+    Err(return_err)
 }
 
 /// 下載 SOP 文件
