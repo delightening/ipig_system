@@ -20,7 +20,7 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // Amendment 分類
         ("aup.amendment.classify", "分類修正案", "aup", "可判斷修正案為 Major 或 Minor"),
         // Amendment 決定（H6 / GLP §11.70 / ISO A.5.18）：
-        // record_decision handler 除既有 reviewer-assignment 檢查外，再要求此明確權限。
+        // record_amendment_decision handler 除既有 reviewer-assignment 檢查外，再要求此明確權限。
         // 防禦深度：「assignment 表存在」與「明確授權」雙層守衛。
         ("aup.amendment.approve", "決定修正案", "aup", "可對被指派的修正案投票（APPROVE/REJECT/REVISION）"),
         // Co-Editor 指派
