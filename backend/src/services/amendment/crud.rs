@@ -178,15 +178,24 @@ impl AmendmentService {
     }
 
 
-    /// 記錄狀態變更
-    pub(crate) async fn record_status_change(
-        pool: &PgPool,
+    /// 記錄狀態變更（DRY：以 sqlx::Executor trait 統一支援 pool 與 tx）
+    ///
+    /// CodeRabbit review #205：原本 record_status_change + record_status_change_tx
+    /// 兩個函式 SQL/參數完全重複；現以 generic Executor 收斂為單一實作。
+    /// 呼叫端：
+    /// - pool: `record_status_change(pool, ...)` 直接傳 `&PgPool`
+    /// - tx: `record_status_change(&mut *tx, ...)` 傳 deref 後的 `&mut Transaction`
+    pub(crate) async fn record_status_change<'e, E>(
+        executor: E,
         amendment_id: Uuid,
         from_status: Option<AmendmentStatus>,
         to_status: AmendmentStatus,
         changed_by: Uuid,
         remark: Option<String>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+    {
         sqlx::query!(
             r#"
             INSERT INTO amendment_status_history
@@ -200,35 +209,7 @@ impl AmendmentService {
             changed_by,
             remark,
         )
-        .execute(pool)
-        .await?;
-
-        Ok(())
-    }
-
-    /// 記錄狀態變更（tx 版）— C2 用，將狀態歷程與決定簽章/UPDATE 寫入同一 tx。
-    pub(crate) async fn record_status_change_tx(
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-        amendment_id: Uuid,
-        from_status: Option<AmendmentStatus>,
-        to_status: AmendmentStatus,
-        changed_by: Uuid,
-        remark: Option<String>,
-    ) -> Result<()> {
-        sqlx::query!(
-            r#"
-            INSERT INTO amendment_status_history
-                (id, amendment_id, from_status, to_status, changed_by, remark)
-            VALUES ($1, $2, ($3::TEXT)::amendment_status, ($4::TEXT)::amendment_status, $5, $6)
-            "#,
-            Uuid::new_v4(),
-            amendment_id,
-            from_status.map(|s| s.as_str()),
-            to_status.as_str(),
-            changed_by,
-            remark,
-        )
-        .execute(&mut **tx)
+        .execute(executor)
         .await?;
 
         Ok(())
