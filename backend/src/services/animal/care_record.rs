@@ -11,7 +11,7 @@ use crate::{
     models::audit_diff::DataDiff,
     services::{
         audit::{ActivityLogEntry, AuditEntity},
-        AuditService,
+        AuditService, SignatureService,
     },
     AppError, Result,
 };
@@ -225,6 +225,9 @@ impl CareRecordService {
         id: Uuid,
         req: &UpdateCareRecordRequest,
     ) -> Result<CareRecord> {
+        // C1 (GLP)：簽章後鎖定的照護紀錄拒絕修改
+        SignatureService::ensure_not_locked_uuid(pool, "care_medication", id).await?;
+
         let record = sqlx::query_as::<_, CareRecord>(
             r#"
             UPDATE care_medication_records
@@ -295,7 +298,13 @@ impl CareRecordService {
         let user = actor.require_user()?;
         let deleted_by = user.id;
 
+        // C1 (GLP) fail-fast：簽章後鎖定的照護紀錄拒絕刪除
+        SignatureService::ensure_not_locked_uuid(pool, "care_medication", id).await?;
+
         let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "care_medication", id).await?;
 
         // Gemini PR #182 MED：before snapshot 在 tx 內 + FOR UPDATE 鎖行
         let before = sqlx::query_as::<_, CareRecord>(

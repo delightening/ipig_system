@@ -11,7 +11,7 @@ use crate::{
     },
     services::{
         audit::{ActivityLogEntry, AuditEntity},
-        AuditService,
+        AuditService, SignatureService,
     },
     utils::jsonb_validation::{validate_medication_jsonb, validate_vital_signs},
     AppError, Result,
@@ -211,6 +211,9 @@ impl AnimalSurgeryService {
             &req.post_surgery_medication,
         )?;
 
+        // C1 (GLP) fail-fast：簽章後鎖定的記錄拒絕修改
+        SignatureService::ensure_not_locked_uuid(pool, "surgery", id).await?;
+
         // 先取得原始紀錄用於版本歷史 + audit before snapshot（tx 外 pool read OK）
         let before = Self::get_by_id(pool, id).await?;
 
@@ -222,6 +225,9 @@ impl AnimalSurgeryService {
             .await?;
 
         let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證，避免 fail-fast 與 UPDATE 之間的 race
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "surgery", id).await?;
 
         // Gemini PR #178：加 `AND deleted_at IS NULL` 避免更新已軟刪除紀錄；
         // 若不存在或已刪除，`fetch_one` 會回 `RowNotFound` 自動映射為 NotFound。
@@ -308,6 +314,9 @@ impl AnimalSurgeryService {
         let user = actor.require_user()?;
         let deleted_by = user.id;
 
+        // C1 (GLP) fail-fast：簽章後鎖定的記錄拒絕刪除
+        SignatureService::ensure_not_locked_uuid(pool, "surgery", id).await?;
+
         // before snapshot for audit（tx 外 pool read OK）
         let before = Self::get_by_id(pool, id).await?;
 
@@ -315,6 +324,9 @@ impl AnimalSurgeryService {
         let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
 
         let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證鎖定狀態
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "surgery", id).await?;
 
         // Gemini PR #178：先 UPDATE 並檢查 rows_affected；若 0 回 NotFound 並
         // rollback（不會寫入 change_reasons 或 audit log）— 防止 race 下產生

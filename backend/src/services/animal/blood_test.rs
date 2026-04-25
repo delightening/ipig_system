@@ -15,7 +15,7 @@ use crate::{
     repositories,
     services::{
         audit::{ActivityLogEntry, AuditEntity},
-        AuditService,
+        AuditService, SignatureService,
     },
     AppError, Result,
 };
@@ -191,7 +191,13 @@ impl AnimalBloodTestService {
     ) -> Result<AnimalBloodTestWithItems> {
         actor.require_user()?;
 
+        // C1 (GLP) fail-fast：簽章後鎖定的血液檢查拒絕修改
+        SignatureService::ensure_not_locked_uuid(pool, "blood_test", id).await?;
+
         let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "blood_test", id).await?;
 
         // 取得 before 狀態（FOR UPDATE 鎖定）
         let before = sqlx::query_as::<_, AnimalBloodTest>(
@@ -300,7 +306,13 @@ impl AnimalBloodTestService {
         let user = actor.require_user()?;
         let deleted_by = user.id;
 
+        // C1 (GLP) fail-fast：簽章後鎖定的血液檢查拒絕刪除
+        SignatureService::ensure_not_locked_uuid(pool, "blood_test", id).await?;
+
         let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "blood_test", id).await?;
 
         // 取得 before（含 animal_id 用於 audit display）
         let before = sqlx::query_as::<_, AnimalBloodTest>(
