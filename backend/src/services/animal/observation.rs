@@ -274,6 +274,10 @@ impl AnimalObservationService {
         let user = actor.require_user()?;
         let deleted_by = user.id;
 
+        // C1 (GLP) fail-fast：簽章後鎖定的觀察紀錄拒絕刪除（與 update / 其他 service
+        // soft_delete 對齊雙層守衛 pattern：避免空開 tx + 取 row lock 才被擋下）
+        SignatureService::ensure_not_locked_uuid(pool, "observation", id).await?;
+
         let mut tx = pool.begin().await?;
 
         // C1 atomic：拒絕刪除已鎖定（已簽章）記錄
