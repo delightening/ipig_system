@@ -88,7 +88,8 @@ impl AmendmentService {
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             "#,
             id,
             req.protocol_id,
@@ -127,10 +128,19 @@ impl AmendmentService {
 
         // 檢查是否為草稿狀態
         let current = Self::get_by_id_raw(pool, id).await?;
-        if current.status != AmendmentStatus::Draft 
+        if current.status != AmendmentStatus::Draft
             && current.status != AmendmentStatus::RevisionRequired {
             return Err(AppError::BadRequest(
                 "Only draft or revision required amendments can be updated".into(),
+            ));
+        }
+
+        // C2 (GLP §11.10(e)(1)) 防呆守衛：即使 status 守衛失效（例如未來重構誤放行），
+        // 已有 approved/rejected 簽章的 amendment 一律拒絕修改。回 409 表示衝突
+        // 而非請求格式問題。
+        if current.approved_signature_id.is_some() || current.rejected_signature_id.is_some() {
+            return Err(AppError::Conflict(
+                "Amendment 已被簽章核准/否決，不可修改（GLP §11.10(e)(1)）".into(),
             ));
         }
 
@@ -152,7 +162,8 @@ impl AmendmentService {
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             "#,
             id,
             req.title,
@@ -178,7 +189,7 @@ impl AmendmentService {
     ) -> Result<()> {
         sqlx::query!(
             r#"
-            INSERT INTO amendment_status_history 
+            INSERT INTO amendment_status_history
                 (id, amendment_id, from_status, to_status, changed_by, remark)
             VALUES ($1, $2, ($3::TEXT)::amendment_status, ($4::TEXT)::amendment_status, $5, $6)
             "#,
@@ -190,6 +201,34 @@ impl AmendmentService {
             remark,
         )
         .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 記錄狀態變更（tx 版）— C2 用，將狀態歷程與決定簽章/UPDATE 寫入同一 tx。
+    pub(crate) async fn record_status_change_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        amendment_id: Uuid,
+        from_status: Option<AmendmentStatus>,
+        to_status: AmendmentStatus,
+        changed_by: Uuid,
+        remark: Option<String>,
+    ) -> Result<()> {
+        sqlx::query!(
+            r#"
+            INSERT INTO amendment_status_history
+                (id, amendment_id, from_status, to_status, changed_by, remark)
+            VALUES ($1, $2, ($3::TEXT)::amendment_status, ($4::TEXT)::amendment_status, $5, $6)
+            "#,
+            Uuid::new_v4(),
+            amendment_id,
+            from_status.map(|s| s.as_str()),
+            to_status.as_str(),
+            changed_by,
+            remark,
+        )
+        .execute(&mut **tx)
         .await?;
 
         Ok(())
@@ -252,7 +291,8 @@ impl AmendmentService {
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             FROM amendments
             WHERE id = $1
             "#,

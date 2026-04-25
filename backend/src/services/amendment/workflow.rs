@@ -1,4 +1,6 @@
-﻿use sqlx::PgPool;
+﻿use chrono::Utc;
+use sha2::{Digest, Sha256};
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{
@@ -11,6 +13,60 @@ use crate::{
 };
 
 use super::AmendmentService;
+
+/// C2 (GLP §11.50/§11.70)：插入決定簽章記錄（內部，無密碼/手寫驗證模式），
+/// 回傳新建簽章的 UUID 以供回填到 amendments.{approved,rejected}_signature_id。
+///
+/// 適用情境：
+/// - check_all_decisions 自動聚合審查委員決定 → 終態（APPROVED/REJECTED）時，
+///   由「最後一位 tipping reviewer」當簽章主體
+/// - classify(Minor) → ADMIN_APPROVED 時，由 admin 當簽章主體
+///
+/// 不適用：需要使用者主動提供密碼/手寫的簽章（用 SignatureService::sign_record）
+async fn insert_decision_signature_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    amendment_id: Uuid,
+    signer_id: Uuid,
+    is_approve: bool,
+    decision_summary: &str,
+) -> Result<Uuid> {
+    // content = canonical 描述（決定時刻的快照），可用 SignatureService::verify 驗證未被竄改
+    let entity_type = "amendment";
+    let entity_id = amendment_id.to_string();
+    let decision_word = if is_approve { "APPROVE" } else { "REJECT" };
+    let content = format!(
+        "amendment_decision:{}:{}:{}",
+        entity_id, decision_word, decision_summary
+    );
+    let content_hash = format!("{:x}", Sha256::digest(content.as_bytes()));
+    let timestamp = Utc::now();
+    let signature_input = format!(
+        "{}:{}:{}:internal",
+        signer_id, content_hash, timestamp.timestamp()
+    );
+    let signature_data = format!("{:x}", Sha256::digest(signature_input.as_bytes()));
+
+    let sig_id: Uuid = sqlx::query_scalar(
+        r#"
+        INSERT INTO electronic_signatures (
+            entity_type, entity_id, signer_id, signature_type,
+            content_hash, signature_data, signature_method
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, 'internal')
+        RETURNING id
+        "#,
+    )
+    .bind(entity_type)
+    .bind(&entity_id)
+    .bind(signer_id)
+    .bind(decision_word)
+    .bind(&content_hash)
+    .bind(&signature_data)
+    .fetch_one(&mut **tx)
+    .await?;
+
+    Ok(sig_id)
+}
 
 impl AmendmentService {
     /// 提交變更申請
@@ -46,7 +102,8 @@ impl AmendmentService {
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             "#,
             id,
             new_status.as_str(),
@@ -104,48 +161,70 @@ impl AmendmentService {
             AmendmentType::Pending => unreachable!(),
         };
 
+        let mut tx = pool.begin().await?;
+
+        // C2 (GLP)：Minor → ADMIN_APPROVED 是終態，由 classifier 當簽章主體
+        let approved_sig_id = if new_status == AmendmentStatus::AdminApproved {
+            let summary = format!("admin_approved:type=MINOR,classifier={}", classified_by);
+            Some(insert_decision_signature_tx(
+                &mut tx, id, classified_by, /*is_approve=*/ true, &summary,
+            ).await?)
+        } else {
+            None
+        };
+
         let amendment = sqlx::query_as!(
             Amendment,
             r#"
             UPDATE amendments
-            SET 
+            SET
                 amendment_type = ($2::TEXT)::amendment_type,
                 status = ($3::TEXT)::amendment_status,
                 classified_by = $4,
                 classified_at = NOW(),
                 classification_remark = $5,
+                approved_signature_id = COALESCE($6, approved_signature_id),
                 updated_at = NOW()
             WHERE id = $1
-            RETURNING 
+            RETURNING
                 id, protocol_id, amendment_no, revision_number,
                 amendment_type as "amendment_type: AmendmentType",
                 status as "status: AmendmentStatus",
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             "#,
             id,
             req.amendment_type.as_str(),
             new_status.as_str(),
             classified_by,
             req.remark,
+            approved_sig_id,
         )
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
         // 記錄狀態歷程
-        Self::record_status_change(
-            pool,
+        let history_remark = if let Some(sig_id) = approved_sig_id {
+            Some(format!("{}（行政核准簽章 {}）", req.remark.as_deref().unwrap_or(""), sig_id))
+        } else {
+            req.remark.clone()
+        };
+        Self::record_status_change_tx(
+            &mut tx,
             id,
             Some(current.status),
             new_status,
             classified_by,
-            req.remark.clone(),
+            history_remark,
         )
         .await?;
 
-        // 如果是重大變更，複製原計畫的審查委員
+        tx.commit().await?;
+
+        // 如果是重大變更，複製原計畫的審查委員（tx 外，非簽章關鍵路徑）
         if req.amendment_type == AmendmentType::Major {
             Self::assign_reviewers_from_protocol(pool, id, current.protocol_id, classified_by).await?;
         }
@@ -204,7 +283,8 @@ impl AmendmentService {
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             "#,
             id
         )
@@ -225,6 +305,9 @@ impl AmendmentService {
     }
 
     /// 記錄審查決定
+    ///
+    /// C2 (GLP)：record_decision 與聚合決定 (check_all_decisions_tx) + 終態簽章
+    /// 寫入皆於同一 tx 完成，確保 audit trail 與決定簽章不被部分寫入。
     pub async fn record_decision(
         pool: &PgPool,
         amendment_id: Uuid,
@@ -236,16 +319,18 @@ impl AmendmentService {
             return Err(AppError::BadRequest("Invalid decision value".into()));
         }
 
+        let mut tx = pool.begin().await?;
+
         let assignment = sqlx::query_as!(
             AmendmentReviewAssignment,
             r#"
             UPDATE amendment_review_assignments
-            SET 
+            SET
                 decision = $3,
                 decided_at = NOW(),
                 comment = $4
             WHERE amendment_id = $1 AND reviewer_id = $2
-            RETURNING 
+            RETURNING
                 id, amendment_id, reviewer_id, assigned_by, assigned_at,
                 decision, decided_at, comment
             "#,
@@ -254,21 +339,30 @@ impl AmendmentService {
             req.decision,
             req.comment,
         )
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Review assignment not found".into()))?;
 
-        // 檢查所有審查委員是否都已完成決定
-        Self::check_all_decisions(pool, amendment_id).await?;
+        // 檢查所有審查委員是否都已完成決定，傳入 reviewer_id 作為「最後 tipping」簽章主體
+        Self::check_all_decisions_tx(&mut tx, amendment_id, reviewer_id).await?;
 
+        tx.commit().await?;
         Ok(assignment)
     }
 
-    /// 檢查所有審查委員是否都已完成決定，並自動更新狀態
-    async fn check_all_decisions(pool: &PgPool, amendment_id: Uuid) -> Result<()> {
+    /// 檢查所有審查委員是否都已完成決定，並自動更新狀態（tx 版）
+    ///
+    /// C2 (GLP)：終態（APPROVED/REJECTED）時，於同 tx 內建立 electronic_signatures
+    /// 記錄並回填到 amendments.{approved,rejected}_signature_id（21 CFR §11.50/§11.70 非否認性）。
+    /// REVISION_REQUIRED 不簽章（非終態）。
+    async fn check_all_decisions_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        amendment_id: Uuid,
+        tipping_reviewer_id: Uuid,
+    ) -> Result<()> {
         let stats = sqlx::query!(
             r#"
-            SELECT 
+            SELECT
                 COUNT(*) as "total!",
                 COUNT(decision) as "decided!",
                 COUNT(*) FILTER (WHERE decision = 'APPROVE') as "approved!",
@@ -279,7 +373,7 @@ impl AmendmentService {
             "#,
             amendment_id
         )
-        .fetch_one(pool)
+        .fetch_one(&mut **tx)
         .await?;
 
         // 所有人都還沒決定就不處理
@@ -287,70 +381,85 @@ impl AmendmentService {
             return Ok(());
         }
 
-        let current = Self::get_by_id_raw(pool, amendment_id).await?;
+        // 取 current status（同 tx 讀，避免 race）
+        let current_status = sqlx::query_scalar!(
+            r#"SELECT status as "status: AmendmentStatus" FROM amendments WHERE id = $1"#,
+            amendment_id
+        )
+        .fetch_one(&mut **tx)
+        .await?;
 
-        // 有任何人要求修訂，狀態變為需修訂
+        let summary = format!(
+            "total={},approved={},rejected={},revision={}",
+            stats.total, stats.approved, stats.rejected, stats.revision
+        );
+
+        // 有任何人要求修訂 → 需修訂（非終態，不簽章）
         if stats.revision > 0 {
-            if let Err(e) = sqlx::query!(
+            sqlx::query!(
                 r#"UPDATE amendments SET status = 'REVISION_REQUIRED', updated_at = NOW() WHERE id = $1"#,
                 amendment_id
             )
-            .execute(pool)
-            .await {
-                tracing::warn!("更新修正案狀態失敗: {e}");
-            }
+            .execute(&mut **tx)
+            .await?;
 
-            Self::record_status_change(
-                pool,
+            Self::record_status_change_tx(
+                tx,
                 amendment_id,
-                Some(current.status),
+                Some(current_status),
                 AmendmentStatus::RevisionRequired,
-                Uuid::nil(), // system
+                Uuid::nil(), // system（非終態，無 reviewer 主體）
                 Some("審查委員要求修訂".to_string()),
             )
             .await?;
         }
-        // 有任何人否決
+        // 有任何人否決 → 終態，簽章
         else if stats.rejected > 0 {
-            if let Err(e) = sqlx::query!(
-                r#"UPDATE amendments SET status = 'REJECTED', updated_at = NOW() WHERE id = $1"#,
-                amendment_id
+            let sig_id = insert_decision_signature_tx(
+                tx, amendment_id, tipping_reviewer_id, /*is_approve=*/ false, &summary,
             )
-            .execute(pool)
-            .await {
-                tracing::warn!("更新修正案狀態失敗: {e}");
-            }
+            .await?;
 
-
-            Self::record_status_change(
-                pool,
+            sqlx::query!(
+                r#"UPDATE amendments SET status = 'REJECTED', rejected_signature_id = $2, updated_at = NOW() WHERE id = $1"#,
                 amendment_id,
-                Some(current.status),
+                sig_id
+            )
+            .execute(&mut **tx)
+            .await?;
+
+            Self::record_status_change_tx(
+                tx,
+                amendment_id,
+                Some(current_status),
                 AmendmentStatus::Rejected,
-                Uuid::nil(),
-                Some("審查委員否決".to_string()),
+                tipping_reviewer_id,
+                Some(format!("審查委員否決（簽章 {}）", sig_id)),
             )
             .await?;
         }
-        // 全部核准
+        // 全部核准 → 終態，簽章
         else if stats.approved == stats.total {
-            if let Err(e) = sqlx::query!(
-                r#"UPDATE amendments SET status = 'APPROVED', updated_at = NOW() WHERE id = $1"#,
-                amendment_id
+            let sig_id = insert_decision_signature_tx(
+                tx, amendment_id, tipping_reviewer_id, /*is_approve=*/ true, &summary,
             )
-            .execute(pool)
-            .await {
-                tracing::warn!("更新修正案狀態失敗: {e}");
-            }
+            .await?;
 
-
-            Self::record_status_change(
-                pool,
+            sqlx::query!(
+                r#"UPDATE amendments SET status = 'APPROVED', approved_signature_id = $2, updated_at = NOW() WHERE id = $1"#,
                 amendment_id,
-                Some(current.status),
+                sig_id
+            )
+            .execute(&mut **tx)
+            .await?;
+
+            Self::record_status_change_tx(
+                tx,
+                amendment_id,
+                Some(current_status),
                 AmendmentStatus::Approved,
-                Uuid::nil(),
-                Some("全體審查委員核准".to_string()),
+                tipping_reviewer_id,
+                Some(format!("全體審查委員核准（簽章 {}）", sig_id)),
             )
             .await?;
         }
@@ -380,7 +489,8 @@ impl AmendmentService {
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             "#,
             id,
             req.to_status.as_str(),
