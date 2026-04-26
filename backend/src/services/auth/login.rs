@@ -49,8 +49,9 @@ impl AuthService {
             if fail_count >= config.account_lockout_max_attempts {
                 // H8 (CodeRabbit Medium)：原 R22-4 的鎖定事件用 tokio::spawn 火忘式
                 // 寫入，進程崩潰時遺失稽核紀錄。改為同 tx 內 sync insert 保證稽核
-                // 與 fail_count 觀測一致。
-                let _ = AuditService::log_security_event_tx(
+                // 與 fail_count 觀測一致。失敗時 tracing::error 留追蹤線索（依
+                // Gemini review #211 建議；不擋使用者鎖定回應）。
+                if let Err(e) = AuditService::log_security_event_tx(
                     &mut tx,
                     SEC_EVENT_ACCOUNT_LOCKOUT,
                     None,
@@ -64,9 +65,22 @@ impl AuthService {
                         "lockout_duration_minutes": config.account_lockout_duration_minutes,
                     }),
                 )
-                .await;
+                .await
+                {
+                    tracing::error!(
+                        "[Auth] 紀錄帳號鎖定稽核事件失敗 email={} err={}",
+                        req.email,
+                        e
+                    );
+                }
 
-                tx.commit().await.ok();
+                if let Err(e) = tx.commit().await {
+                    tracing::error!(
+                        "[Auth] 鎖定稽核 tx commit 失敗 email={} err={}",
+                        req.email,
+                        e
+                    );
+                }
 
                 tracing::warn!(
                     "[Auth] 帳號 {} 因連續失敗 {} 次被暫時鎖定",
