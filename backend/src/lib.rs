@@ -49,14 +49,29 @@ pub struct AppState {
 /// 配置：
 /// - TTL：`constants::PERMISSION_CACHE_TTL_SECS`（5 分鐘）
 /// - capacity：10,000 entries
-///
-/// 未來若新增 `eviction_listener` / `weigher` 等設定，集中此處避免兩端 builder
-/// 漏更新（CodeRabbit review #210 採納）。
+/// - eviction_listener：R27-5 — 記錄被 evict 的原因（Expired / Size / Replaced /
+///   Explicit）至 Prometheus，供觀測 capacity 是否足夠 / TTL 是否合適。
 pub fn build_permission_cache() -> moka::future::Cache<uuid::Uuid, Vec<String>> {
     moka::future::Cache::builder()
         .time_to_live(std::time::Duration::from_secs(
             constants::PERMISSION_CACHE_TTL_SECS,
         ))
         .max_capacity(10_000)
+        .eviction_listener(|_k, _v, cause| {
+            // R27-5（Gemini PR #219 採納）：match enum 對 static str 避免每次
+            // eviction alloc string；小寫 label 符合 Prometheus 慣例。
+            // ─ Size 持續增長 → 提高 max_capacity；Expired 為正常 TTL 過期。
+            let cause_label = match cause {
+                moka::notification::RemovalCause::Expired => "expired",
+                moka::notification::RemovalCause::Explicit => "explicit",
+                moka::notification::RemovalCause::Size => "size",
+                moka::notification::RemovalCause::Replaced => "replaced",
+            };
+            metrics::counter!(
+                "ipig_permission_cache_evictions_total",
+                "cause" => cause_label,
+            )
+            .increment(1);
+        })
         .build()
 }
