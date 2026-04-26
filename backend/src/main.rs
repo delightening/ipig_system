@@ -172,7 +172,8 @@ async fn main() -> anyhow::Result<()> {
         image_processor,
         pdf_service,
         templates,
-        permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
+        // H2：moka::future::Cache 取代 DashMap，內建 TTL + try_get_with single-flight
+        permission_cache: erp_backend::build_permission_cache(),
         shutdown_token: shutdown_token.clone(),
     };
 

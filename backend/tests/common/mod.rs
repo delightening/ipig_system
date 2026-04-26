@@ -136,7 +136,7 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
             image_processor,
             pdf_service,
             templates,
-            permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
+            permission_cache: erp_backend::build_permission_cache(),
             shutdown_token: tokio_util::sync::CancellationToken::new(),
         };
 
