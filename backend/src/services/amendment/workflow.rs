@@ -102,6 +102,14 @@ async fn insert_decision_signature_tx(
     Ok(sig_id)
 }
 
+/// C2 helper：終態決定的簽章相關參數封裝（CodeRabbit review #205：原 6 參數
+/// 違反 ≤5 上限，抽 struct 讓呼叫端意圖更明確）。
+pub(super) struct TerminalDecisionContext<'a> {
+    pub signer_id: Uuid,
+    pub is_approve: bool,
+    pub decision_summary: &'a str,
+}
+
 /// C2 helper：將終態（APPROVED 或 REJECTED）的決定流程收斂為單一函式，
 /// 由 [`check_all_decisions_tx`] 兩個分支共用，避免邏輯重複。
 ///
@@ -110,17 +118,20 @@ async fn insert_decision_signature_tx(
 async fn apply_terminal_decision_tx(
     tx: &mut Transaction<'_, Postgres>,
     amendment_id: Uuid,
-    signer_id: Uuid,
-    is_approve: bool,
-    decision_summary: &str,
+    ctx: TerminalDecisionContext<'_>,
     current_status: AmendmentStatus,
 ) -> Result<Uuid> {
-    let sig_id =
-        insert_decision_signature_tx(tx, amendment_id, signer_id, is_approve, decision_summary)
-            .await?;
+    let sig_id = insert_decision_signature_tx(
+        tx,
+        amendment_id,
+        ctx.signer_id,
+        ctx.is_approve,
+        ctx.decision_summary,
+    )
+    .await?;
 
     // 用 conditional column 寫入避免兩條幾乎一樣的 SQL（COALESCE 對 UUID 型別 OK）
-    let (new_status, history_remark) = if is_approve {
+    let (new_status, history_remark) = if ctx.is_approve {
         sqlx::query!(
             r#"UPDATE amendments
                SET status = 'APPROVED', approved_signature_id = $2, updated_at = NOW()
@@ -155,7 +166,7 @@ async fn apply_terminal_decision_tx(
         amendment_id,
         Some(current_status),
         new_status,
-        signer_id,
+        ctx.signer_id,
         Some(history_remark),
     )
     .await?;
@@ -553,9 +564,11 @@ impl AmendmentService {
             apply_terminal_decision_tx(
                 tx,
                 amendment_id,
-                tipping_reviewer_id,
-                false,
-                &summary,
+                TerminalDecisionContext {
+                    signer_id: tipping_reviewer_id,
+                    is_approve: false,
+                    decision_summary: &summary,
+                },
                 current_status,
             )
             .await?;
@@ -563,9 +576,11 @@ impl AmendmentService {
             apply_terminal_decision_tx(
                 tx,
                 amendment_id,
-                tipping_reviewer_id,
-                true,
-                &summary,
+                TerminalDecisionContext {
+                    signer_id: tipping_reviewer_id,
+                    is_approve: true,
+                    decision_summary: &summary,
+                },
                 current_status,
             )
             .await?;
