@@ -93,103 +93,16 @@ pub async fn auth_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response> {
-    // 嘗試從多個來源取得 token（優先順序：Bearer Header > Cookie）
+    // 嘗試從多個來源取得 token（優先順序：Bearer Header > Cookie）。
     // Bearer 優先可避免 Cookie 殘留覆蓋正確的 Authorization header，
-    // 同時降低 Cookie 注入攻擊風險
+    // 同時降低 Cookie 注入攻擊風險。
     let token = extract_token_from_bearer(&request)
         .or_else(|| extract_token_from_cookie(&request))
         .ok_or(AppError::Unauthorized)?;
 
-    // H3: 明確指定演算法並驗證 audience/issuer，防止跨環境 token 重放
-    // SEC-UPG: 使用 ES256（ECDSA P-256）取代 HS256，防止對稱金鑰暴力破解
-    let mut validation = Validation::new(Algorithm::ES256);
-    validation.set_audience(&["ipig-system"]);
-    validation.set_issuer(&["ipig-backend"]);
-    let token_data = decode::<Claims>(
-        &token,
-        &state.config.jwt_keys.decoding,
-        &validation,
-    )
-    .map_err(|_| AppError::Unauthorized)?;
-
-    // SEC-23: 檢查 JWT 是否已被撤銷（黑名單）
-    if !token_data.claims.jti.is_empty() && state.jwt_blacklist.is_revoked(&token_data.claims.jti) {
-        tracing::warn!(
-            "[Auth] JWT jti={} 已被撤銷，拒絕存取",
-            token_data.claims.jti
-        );
-        return Err(AppError::Unauthorized);
-    }
-
-    let claims = token_data.claims;
-
-    // BIZ-16 + H2：每請求驗證帳號狀態 + 載入權限。
-    //
-    // H2 (CodeRabbit 併發審查)：原本 DashMap-based 快取在 cache miss 時，多執行緒
-    // 會同時跑 4-table JOIN（stampede）。改 moka::future::Cache + try_get_with
-    // 後，cache miss 由「single-flight loader」處理 — 並發請求只有一個 task
-    // 執行 DB 查詢，其餘等待同一結果。
-    //
-    // loader 同時做 user 狀態檢查（is_active + expires_at）與 perms 載入；
-    // cache hit 即代表 TTL 內狀態驗證 + 權限載入皆已完成（5 分鐘最壞延遲，
-    // 與原行為等價）。Loader 失敗（status 拒絕 / DB 錯誤）不會被快取，
-    // 下次請求會重試 — 與原本「快取拒絕值」的退化行為相反，更符合
-    // 「拒絕越快越好」直覺。
-    let is_admin = claims.roles.iter().any(|r| {
-        r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY
-    });
-    let permissions = if is_admin {
-        // admin 由 has_permission() 直接放行，不需載入 perms 也不需 cache。
-        // 但仍需驗證 admin 帳號狀態（停用/過期 admin 應一樣被擋）。
-        check_user_active_status(&state.db, claims.sub).await?;
-        Vec::new()
-    } else {
-        let user_id = claims.sub;
-        let db = state.db.clone();
-        state
-            .permission_cache
-            .try_get_with::<_, AppError>(user_id, async move {
-                check_user_active_status(&db, user_id).await?;
-                let perms = sqlx::query_scalar::<_, String>(
-                    r#"SELECT DISTINCT p.code FROM permissions p
-                       INNER JOIN role_permissions rp ON p.id = rp.permission_id
-                       INNER JOIN user_roles ur ON rp.role_id = ur.role_id
-                       INNER JOIN roles r ON r.id = ur.role_id
-                       WHERE ur.user_id = $1 AND r.is_active = true"#,
-                )
-                .bind(user_id)
-                .fetch_all(&db)
-                .await
-                .map_err(|e| {
-                    tracing::error!("[Auth] 無法載入使用者 {} 的權限: {}", user_id, e);
-                    AppError::Internal("無法載入使用者權限".to_string())
-                })?;
-                Ok(perms)
-            })
-            .await
-            .map_err(|arc_err| {
-                // CodeRabbit review #210：保留 loader 原始 AppError variant，
-                // 避免 Forbidden/NotFound 等被吞成 500。先 try_unwrap（單一 Arc
-                // 持有時可拿走），失敗則 match 可 clone 的 variant；Database/Anyhow
-                // 不可 clone → 化為 Internal（保留訊息便於追蹤）。
-                match std::sync::Arc::try_unwrap(arc_err) {
-                    Ok(e) => e,
-                    Err(arc) => match &*arc {
-                        AppError::Unauthorized => AppError::Unauthorized,
-                        AppError::InvalidCredentials(m) => AppError::InvalidCredentials(m.clone()),
-                        AppError::Forbidden(m) => AppError::Forbidden(m.clone()),
-                        AppError::NotFound(m) => AppError::NotFound(m.clone()),
-                        AppError::Validation(m) => AppError::Validation(m.clone()),
-                        AppError::BadRequest(m) => AppError::BadRequest(m.clone()),
-                        AppError::Conflict(m) => AppError::Conflict(m.clone()),
-                        AppError::BusinessRule(m) => AppError::BusinessRule(m.clone()),
-                        AppError::TooManyRequests(m) => AppError::TooManyRequests(m.clone()),
-                        AppError::Internal(m) => AppError::Internal(m.clone()),
-                        e => AppError::Internal(format!("permission cache loader: {e}")),
-                    },
-                }
-            })?
-    };
+    // R27-3：拆 validate_jwt 與 load_permissions 兩段，控制 auth_middleware 行數。
+    let claims = validate_jwt(&state, &token)?;
+    let permissions = load_permissions(&state, &claims).await?;
 
     let current_user = CurrentUser {
         id: claims.sub,
@@ -202,23 +115,97 @@ pub async fn auth_middleware(
     };
 
     request.extensions_mut().insert(current_user);
-
     Ok(next.run(request).await)
 }
 
+/// 解碼並驗證 JWT — H3 演算法 / audience / issuer + SEC-23 黑名單。
+fn validate_jwt(state: &AppState, token: &str) -> Result<Claims> {
+    // H3: 明確指定演算法並驗證 audience/issuer，防止跨環境 token 重放。
+    // SEC-UPG: 使用 ES256（ECDSA P-256）取代 HS256，防止對稱金鑰暴力破解。
+    let mut validation = Validation::new(Algorithm::ES256);
+    validation.set_audience(&["ipig-system"]);
+    validation.set_issuer(&["ipig-backend"]);
+    let token_data = decode::<Claims>(token, &state.config.jwt_keys.decoding, &validation)
+        .map_err(|_| AppError::Unauthorized)?;
+
+    // SEC-23: JWT 黑名單撤銷檢查。
+    if !token_data.claims.jti.is_empty()
+        && state.jwt_blacklist.is_revoked(&token_data.claims.jti)
+    {
+        tracing::warn!(
+            "[Auth] JWT jti={} 已被撤銷，拒絕存取",
+            token_data.claims.jti
+        );
+        return Err(AppError::Unauthorized);
+    }
+    Ok(token_data.claims)
+}
+
+/// 載入使用者權限 + 驗證帳號狀態。
+///
+/// 行為：
+/// - **Admin** (R27-6)：cache loader 仍跑 status check 但回 `Vec::new()`；
+///   admin 也走 `try_get_with` single-flight 與一般使用者共用 stampede 防護。
+///   has_permission() 由 is_admin shortcut 放行，所以空 Vec 不影響語意。
+/// - **非 Admin**：cache loader 跑 status check + 4-table JOIN 載入 perms。
+///
+/// H2：所有使用者皆走 moka try_get_with single-flight，cache miss 時並發請求
+/// 共享同一個 loader future，避免 4-table JOIN stampede。loader 失敗（status
+/// 拒絕 / DB 錯誤）不會被快取，下次請求重試。
+async fn load_permissions(state: &AppState, claims: &Claims) -> Result<Vec<String>> {
+    let user_id = claims.sub;
+    let db = state.db.clone();
+    let is_admin = claims.roles.iter().any(|r| {
+        r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY
+    });
+
+    state
+        .permission_cache
+        .try_get_with::<_, AppError>(user_id, async move {
+            check_user_active_status(&db, user_id).await?;
+            if is_admin {
+                // Admin 不需 perms（has_permission shortcut），但仍要 status 檢查。
+                Ok(Vec::new())
+            } else {
+                crate::repositories::user::list_permission_codes_by_user(&db, user_id).await
+            }
+        })
+        .await
+        .map_err(map_cache_loader_error)
+}
+
+/// CodeRabbit review #210：保留 loader 原始 AppError variant，
+/// 避免 Forbidden/NotFound 等被吞成 500。
+fn map_cache_loader_error(arc_err: std::sync::Arc<AppError>) -> AppError {
+    match std::sync::Arc::try_unwrap(arc_err) {
+        Ok(e) => e,
+        Err(arc) => match &*arc {
+            AppError::Unauthorized => AppError::Unauthorized,
+            AppError::InvalidCredentials(m) => AppError::InvalidCredentials(m.clone()),
+            AppError::Forbidden(m) => AppError::Forbidden(m.clone()),
+            AppError::NotFound(m) => AppError::NotFound(m.clone()),
+            AppError::Validation(m) => AppError::Validation(m.clone()),
+            AppError::BadRequest(m) => AppError::BadRequest(m.clone()),
+            AppError::Conflict(m) => AppError::Conflict(m.clone()),
+            AppError::BusinessRule(m) => AppError::BusinessRule(m.clone()),
+            AppError::TooManyRequests(m) => AppError::TooManyRequests(m.clone()),
+            AppError::Internal(m) => AppError::Internal(m.clone()),
+            e => AppError::Internal(format!("permission cache loader: {e}")),
+        },
+    }
+}
+
 /// BIZ-16 helper：檢查 user 是否仍 active 且未過期，否則回 Unauthorized。
-/// 由 H2 cache loader 與 admin 路徑共用。
+///
+/// R27-4：SQL 已下放至 `repositories::user::find_user_active_status_by_id`；
+/// 本函式僅做業務判斷（拒停用 / 拒過期 / 拒不存在）。
 async fn check_user_active_status(pool: &sqlx::PgPool, user_id: Uuid) -> Result<()> {
-    let row: Option<(bool, Option<chrono::DateTime<chrono::Utc>>)> = sqlx::query_as(
-        "SELECT is_active, expires_at FROM users WHERE id = $1",
-    )
-    .bind(user_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("[Auth] 無法查詢使用者 {} 狀態: {}", user_id, e);
-        AppError::Internal("無法驗證使用者狀態".to_string())
-    })?;
+    let row = crate::repositories::user::find_user_active_status_by_id(pool, user_id)
+        .await
+        .map_err(|e| {
+            tracing::error!("[Auth] 無法查詢使用者 {} 狀態: {}", user_id, e);
+            AppError::Internal("無法驗證使用者狀態".to_string())
+        })?;
 
     match row {
         Some((is_active, expires_at)) => {
