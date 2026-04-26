@@ -167,9 +167,27 @@ pub async fn auth_middleware(
                 Ok(perms)
             })
             .await
-            .map_err(|arc_err| match &*arc_err {
-                AppError::Unauthorized => AppError::Unauthorized,
-                e => AppError::Internal(format!("permission cache loader: {e}")),
+            .map_err(|arc_err| {
+                // CodeRabbit review #210：保留 loader 原始 AppError variant，
+                // 避免 Forbidden/NotFound 等被吞成 500。先 try_unwrap（單一 Arc
+                // 持有時可拿走），失敗則 match 可 clone 的 variant；Database/Anyhow
+                // 不可 clone → 化為 Internal（保留訊息便於追蹤）。
+                match std::sync::Arc::try_unwrap(arc_err) {
+                    Ok(e) => e,
+                    Err(arc) => match &*arc {
+                        AppError::Unauthorized => AppError::Unauthorized,
+                        AppError::InvalidCredentials(m) => AppError::InvalidCredentials(m.clone()),
+                        AppError::Forbidden(m) => AppError::Forbidden(m.clone()),
+                        AppError::NotFound(m) => AppError::NotFound(m.clone()),
+                        AppError::Validation(m) => AppError::Validation(m.clone()),
+                        AppError::BadRequest(m) => AppError::BadRequest(m.clone()),
+                        AppError::Conflict(m) => AppError::Conflict(m.clone()),
+                        AppError::BusinessRule(m) => AppError::BusinessRule(m.clone()),
+                        AppError::TooManyRequests(m) => AppError::TooManyRequests(m.clone()),
+                        AppError::Internal(m) => AppError::Internal(m.clone()),
+                        e => AppError::Internal(format!("permission cache loader: {e}")),
+                    },
+                }
             })?
     };
 
