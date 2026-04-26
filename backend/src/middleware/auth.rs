@@ -143,32 +143,26 @@ fn validate_jwt(state: &AppState, token: &str) -> Result<Claims> {
 
 /// 載入使用者權限 + 驗證帳號狀態。
 ///
-/// 行為：
-/// - **Admin** (R27-6)：cache loader 仍跑 status check 但回 `Vec::new()`；
-///   admin 也走 `try_get_with` single-flight 與一般使用者共用 stampede 防護。
-///   has_permission() 由 is_admin shortcut 放行，所以空 Vec 不影響語意。
-/// - **非 Admin**：cache loader 跑 status check + 4-table JOIN 載入 perms。
+/// 行為（Gemini PR #218 High 採納）：
+/// - **所有使用者**（包括 admin）皆走 `try_get_with` single-flight + 真實
+///   載入 perms（4-table JOIN），確保 cache value 對所有 user_id 語意一致。
+/// - 4-table JOIN 對 admin 是「無用 perms」但僅 cache miss 才跑（5min 一次），
+///   微小 cost；換得「cache 內容真實」的防禦性深度（未來改 has_permission
+///   行為時 cache 內容仍可信）。
+/// - 角色變更時 cache 失效由 handlers/{user,role}.rs 的 invalidate 處理。
 ///
-/// H2：所有使用者皆走 moka try_get_with single-flight，cache miss 時並發請求
-/// 共享同一個 loader future，避免 4-table JOIN stampede。loader 失敗（status
-/// 拒絕 / DB 錯誤）不會被快取，下次請求重試。
+/// H2：moka try_get_with single-flight，cache miss 時並發請求共享同一個 loader
+/// future，避免 4-table JOIN stampede。loader 失敗（status 拒絕 / DB 錯誤）
+/// 不會被快取，下次請求重試。
 async fn load_permissions(state: &AppState, claims: &Claims) -> Result<Vec<String>> {
     let user_id = claims.sub;
     let db = state.db.clone();
-    let is_admin = claims.roles.iter().any(|r| {
-        r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY
-    });
 
     state
         .permission_cache
         .try_get_with::<_, AppError>(user_id, async move {
             check_user_active_status(&db, user_id).await?;
-            if is_admin {
-                // Admin 不需 perms（has_permission shortcut），但仍要 status 檢查。
-                Ok(Vec::new())
-            } else {
-                crate::repositories::user::list_permission_codes_by_user(&db, user_id).await
-            }
+            crate::repositories::user::list_permission_codes_by_user(&db, user_id).await
         })
         .await
         .map_err(map_cache_loader_error)

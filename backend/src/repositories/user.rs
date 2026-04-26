@@ -58,8 +58,10 @@ pub async fn list_permission_codes_by_user(
     .fetch_all(pool)
     .await
     .map_err(|e| {
+        // Gemini PR #218 Medium：與 find_user_active_status_by_id 一致，
+        // 用 AppError::Database 保留具體 SQL 錯誤 context。
         tracing::error!("[repositories::user] 載入使用者 {} 權限失敗: {}", user_id, e);
-        AppError::Internal("無法載入使用者權限".to_string())
+        AppError::Database(e)
     })?;
     Ok(perms)
 }
