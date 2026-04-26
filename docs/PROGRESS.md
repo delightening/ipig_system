@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-04-23 (v24)
+> **最後更新：** 2026-04-26 (v25)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -184,6 +184,26 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
+
+### 2026-04-26 3 Critical + 8 High 全清空 — 11 個合規/安全/效能 PR 一次 merge
+
+依 2026-04-25 三軸系統審查（併發 / GLP §11 / ISO 27001）產出的 11 項 critical/high backlog，分 11 個 PR 完成並全部 merge 至 main，搭配 ClawSweeper-style review 紀律（proposal-only review 寫進 `docs/review-decisions/PR-XXX.md`，apply 階段分離）。
+
+- ✅ **C1 動物觀察記錄鎖定（PR #204，已先前 merge）**：4 張表加 `is_locked / locked_at / locked_by`；signature service UUID 化（i32→Uuid 殘留 bug 一併修）；4 個 animal service 加 update/delete guard 拒鎖定後修改；§11.10(e)(1) 合規。
+- ✅ **C2 Amendment 決定簽章 FK + 終態守衛（PR #205 `c47540c4` + PR #213 `a60842e1`）**：amendments 表加 `approved_signature_id / rejected_signature_id`（ON DELETE RESTRICT）；`record_decision` 新增 SELECT FOR UPDATE 終態守衛拒絕已 APPROVED/REJECTED/AdminApproved 後改決定，避免 status 翻轉與簽章覆寫；amendment_status_history audit trail 不再被遮蔽。
+- ✅ **C3 密碼變更 + 2FA 雙重認證（PR #212 `7840324c`）**：`ChangeOwnPasswordRequest` 加 `must_match` validator；2FA setup 強制 `X-Reauth-Token`；NIST SP 800-63 / §11.300 對齊。
+- ✅ **H1 Audit chain verify cron multi-instance lock（PR #206 `e20ba705`）**：PostgreSQL advisory lock 確保多 pod 部署時僅一 instance 跑 verify；`AuditChainVerifyLock` RAII Drop trait 兜底 panic 路徑釋放鎖。
+- ✅ **H2 Permission cache moka single-flight（PR #210 `ed8b2b05`）**：DashMap 換成 `moka::future::Cache`，內建 TTL + `try_get_with` 防止 cache miss stampede；`build_permission_cache()` helper 統一 main + tests；error variant preserve 避免 Forbidden 被吞成 Internal。
+- ✅ **H3 + H4 檔案上傳 + 登入邊界（PR #207 `b8b43eb7`）**：upload 失敗 per-file rollback unlink（含 SOP `rows_affected=0` 隱性洞）；`cleanup_orphan_upload` helper DRY 三處 unlink+warn；login `create_session` 移到 `issue_login_tokens` 之前避免孤兒 session。
+- ✅ **H5 Observation audit display 一致性（PR #209 `5c1a1c85`）**：observation audit 訊息加 IACUC + ear_tag 與 surgery / blood test 對齊；`soft_delete_with_reason` 把 `AnimalService::get_by_id` 移出 tx 避免 connection pool deadlock。
+- ✅ **H6 Amendment 決定 RBAC（PR #208 `6a6cdcfc`）**：新增 `aup.amendment.approve` permission 並指派給 VET / REVIEWER / IACUC_CHAIR；`record_amendment_decision` handler 雙層守衛（permission + reviewer assignment）。
+- ✅ **H7 + H8 JWT 金鑰 + 鎖定稽核（PR #211 `8ed2dce5`）**：Unix mode 啟動檢查 JWT 私鑰檔權限 (≤0600)；`Config::jwt_ec_private_key_file` 取代散落 env 讀取；帳號鎖定事件 `log_security_event_tx` 改同 tx sync write，失敗時 `tracing::error` 留追蹤線索。
+- ✅ **CLAUDE.md 引入 Karpathy 思考紀律（PR #215 `d2804ae6`）**：新增「思考紀律」section（Think Before Coding / Surgical Changes / Goal-Driven Execution）+ commit 前 self-check checklist；修正既有「有疑問自行決定」與新規則衝突；§10 清理規則限定當前任務範圍。
+- ✅ **R27 backlog 補充（PR #214 `a222cc7b`）**：把 #205/#210 review DEFER 的 6 項（auth_middleware 拆分、middleware SQL→repo、cache 觀測、admin status cache、amendment::classify 拆分、C2 R7 tracker）寫入 docs/TODO.md R27-3~8。
+
+**驗證**：每個 PR 都通過 `cargo check + clippy --all-targets -D warnings -A deprecated + cargo test --all-targets`（含整合測試 hit 本地 Postgres）+ E2E + Trivy + cargo audit + cargo deny + 5 個 guard checks。`#211` 推送後 CI fail（`Config` 字面量 test fixture 缺欄位），補 `jwt_ec_private_key_file: None` 後綠；`#209` rebase 解 main 帶來的 C1 lock 與本分支 H5 pre-fetch 衝突（保留兩者：lock check → tx 外取 animal → tx.begin → tx 內 FOR UPDATE 權威檢查）；`#213` rebase 解與 #205 的 `record_decision` 衝突（保留兩者：終態守衛 + tx 版 `check_all_decisions_tx`，整合後比兩 PR 各自版本更安全）。
+
+**Review process（ClawSweeper-style）**：建立 `docs/review-decisions/{README,SUMMARY,PR-205~PR-215}.md`，每條 bot review comment 評估 ADOPT/REJECT/DEFER + evidence + action；REJECT 必附反駁（如拒 4 條 Gemini 中文→English 建議因既有 amendment 模組訊息全中文一致性、拒 Gemini Critical 「moka invalidate.await」誤判附 docs.rs 證據）；DEFER 入 R27 backlog 不遺失。共 11 採納 / 7 拒絕 / 6 DEFER / 1 開新 PR (#213)。
 
 ### 2026-04-24 R26-14 Audit Redaction 文檔 + CI 守衛 (PR #198)
 

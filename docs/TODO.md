@@ -1929,7 +1929,9 @@ ORDER BY 1 DESC;
 | R27-5 | **permission_cache 觀測指標** | `backend/src/middleware/auth.rs` 的 moka cache 沒有 hit/miss/eviction 計數，無法判斷 capacity 10,000 是否足夠、TTL 5min 是否合適。建議在 `try_get_with` 包 wrapper 取 `entry_count()` / `weighted_size()` 並推到既有 `metrics_handle` (Prometheus)。來源：CodeRabbit PR #210。LOW | [ ] |
 | R27-6 | **admin 路徑帳號狀態 cache** | `backend/src/middleware/auth.rs::check_user_active_status` 對 admin 每請求查 DB（admin 不走 perm cache）。雖 admin 數量小，但屬均勻優化機會：把 admin 也納入 `try_get_with`（cache 空 Vec），或單獨 `Cache<Uuid, ()>` 快取狀態檢查結果。來源：Gemini PR #210 Medium。LOW | [ ] |
 | R27-7 | **amendment::classify 函式拆分** | `backend/src/services/amendment/workflow.rs::classify` ~111 行（>60 寬鬆上限）。Major 與 Minor 分支可拆 `classify_minor_with_signature_tx` + `classify_major_with_reviewers_tx`，主函式僅做驗證 + 分流。來源：CodeRabbit PR #205 outside-diff Major。LOW | [ ] |
-| R27-8 | **C2 R7 已獨立修補** | record_decision 終態守衛已由 PR #213 (`glp/c2-extra-decision-terminal-guard`) 處理，本項僅作紀錄追蹤；PR #213 合併後可關閉。LOW | [ ] |
+| R27-8 | **C2 R7 已獨立修補** | record_decision 終態守衛已由 PR #213 (`glp/c2-extra-decision-terminal-guard`) 處理，本項僅作紀錄追蹤；PR #213 合併後可關閉。LOW | [x] |
+| R27-9 | **amendment record_decision 重複查 status** | `backend/src/services/amendment/workflow.rs::record_decision` 終態守衛 SELECT FOR UPDATE 已取得 `current_status`；隨後呼叫的 `check_all_decisions_tx` 內部又重新查一次（`get_by_id_raw` 等）。同 tx 內可省一次往返，把 `current_status` 作為參數傳進 `check_all_decisions_tx`。來源：Gemini PR #216 Medium。LOW | [ ] |
+| R27-10 | **animal observation create handler 重複 get_by_id** | `backend/src/handlers/animal/observation.rs::create_animal_observation`（L109 + L139）對同一 animal 重複呼叫 `AnimalService::get_by_id`。可單次查詢後傳遞。來源：Gemini PR #216 Medium。LOW | [ ] |
 
 ---
 
@@ -1965,8 +1967,8 @@ ORDER BY 1 DESC;
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
 | 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
-| 🔧 R27 E2E + bot review 後續清理 | 8 |
-| **合計（未完成）** | **21** |
+| 🔧 R27 E2E + bot review 後續清理 | 9 |
+| **合計（未完成）** | **22** |
 
 ---
 
