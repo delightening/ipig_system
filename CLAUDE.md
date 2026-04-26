@@ -8,7 +8,7 @@
   - **低風險 + 可逆**（檔名選擇、變數命名、helper 抽不抽、log 措辭）→ 自行決定 + 寫 walkthrough.md
   - **高風險 / 不可逆 / 多解選錯成本高**（schema migration、API contract 改動、合規路徑、安全決策、跨模組架構選擇、新依賴）→ **停下，surface tradeoff，等使用者裁定**
   - **任務語意不清**（「優化效能」「重構 X」缺成功標準）→ 停下，命名 unclear 點，要求 success criteria
-- 只有在刪除重要檔案或呼叫外部付費 API 時才問我
+- **除上方高風險分流情境外**，只有在刪除重要檔案或呼叫外部付費 API 時才問我（避免與 L7-10 的「停下 ask」規則互相矛盾，造成 silent guess 空間）
 
 # 思考紀律（Karpathy-aligned，2026-04-26 新增）
 
@@ -444,9 +444,13 @@ lib/
 
 ## 10. 清理規則
 
-- 移除所有 `#[allow(dead_code)]`、`#[allow(unused)]` 及對應的 dead code。
-- 移除前端中被註解掉的程式碼區塊（超過 5 行的）。
-- 移除未使用的 npm/cargo 依賴。
+> **適用範圍**：僅限**當前任務涵蓋 / 受影響的程式碼**。與「思考紀律 §2 Surgical Changes」對齊 —
+> 任務無關的既存 dead code → **mention 但不刪**（除非任務本身就是清理 sprint）。
+
+- 移除**因本次任務而變成 unused** 的 `#[allow(dead_code)]`、`#[allow(unused)]` 及對應 dead code。
+- 移除**本次任務中被註解掉的**前端程式碼區塊（超過 5 行的）。
+- 移除**因本次任務而變成未使用**的 npm/cargo 依賴。
+- **任務無關的 dead code / 未用 import / 過時依賴** → 寫到 `docs/TODO.md` R27 backlog 或 PR description「Follow-up」段，不直接動。
 
 <!-- rtk-instructions v2 -->
 # RTK - Rust 指令前綴規則
