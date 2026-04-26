@@ -1924,6 +1924,12 @@ ORDER BY 1 DESC;
 |---|------|------|------|
 | R27-1 | **Dockerfile CMD 可讀性改善** | `frontend/Dockerfile:72` 超長 CMD（240+ 字元）可考慮提取為獨立 shell 腳本；當前功能正確但後續維護時更易理解。LOW | [ ] |
 | R27-2 | **生環境 API_BACKEND_URL 驗證** | `frontend/Dockerfile:72` envsubst 應驗證 `${API_BACKEND_URL}` 非空，避免生成無效 nginx 配置；CI 環境由 docker-compose.test.yml 保證，生環境應加額外檢查。LOW | [ ] |
+| R27-3 | **auth_middleware 函式拆分** | `backend/src/middleware/auth.rs` `auth_middleware` ~90+ 行（含註解），超過 ≤60 寬鬆上限。建議拆 `validate_jwt(state, token) -> Claims`（token 提取 + ES256 decode + audience/issuer + jti 黑名單）+ `load_permissions(state, claims) -> Vec<String>`（admin 旁路 + try_get_with single-flight + 錯誤映射）。來源：CodeRabbit PR #210 outside-diff Major。LOW | [ ] |
+| R27-4 | **middleware SQL 下放至 repository** | `backend/src/middleware/auth.rs` 內含 4-table JOIN（permissions JOIN role_permissions JOIN user_roles JOIN roles）+ `check_user_active_status` 的 SELECT，違反 CLAUDE.md 「Middleware 禁業務邏輯」「Repository 封裝 SQL」分層。建議移至 `repositories/user.rs`：`list_permission_codes_by_user` + `find_user_active_status_by_id`。同 SELECT 也能被 `services/access.rs` 復用。來源：CodeRabbit PR #210。LOW | [ ] |
+| R27-5 | **permission_cache 觀測指標** | `backend/src/middleware/auth.rs` 的 moka cache 沒有 hit/miss/eviction 計數，無法判斷 capacity 10,000 是否足夠、TTL 5min 是否合適。建議在 `try_get_with` 包 wrapper 取 `entry_count()` / `weighted_size()` 並推到既有 `metrics_handle` (Prometheus)。來源：CodeRabbit PR #210。LOW | [ ] |
+| R27-6 | **admin 路徑帳號狀態 cache** | `backend/src/middleware/auth.rs::check_user_active_status` 對 admin 每請求查 DB（admin 不走 perm cache）。雖 admin 數量小，但屬均勻優化機會：把 admin 也納入 `try_get_with`（cache 空 Vec），或單獨 `Cache<Uuid, ()>` 快取狀態檢查結果。來源：Gemini PR #210 Medium。LOW | [ ] |
+| R27-7 | **amendment::classify 函式拆分** | `backend/src/services/amendment/workflow.rs::classify` ~111 行（>60 寬鬆上限）。Major 與 Minor 分支可拆 `classify_minor_with_signature_tx` + `classify_major_with_reviewers_tx`，主函式僅做驗證 + 分流。來源：CodeRabbit PR #205 outside-diff Major。LOW | [ ] |
+| R27-8 | **C2 R7 已獨立修補** | record_decision 終態守衛已由 PR #213 (`glp/c2-extra-decision-terminal-guard`) 處理，本項僅作紀錄追蹤；PR #213 合併後可關閉。LOW | [ ] |
 
 ---
 
@@ -1959,7 +1965,8 @@ ORDER BY 1 DESC;
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
 | 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
-| **合計（未完成）** | **13** |
+| 🔧 R27 E2E + bot review 後續清理 | 8 |
+| **合計（未完成）** | **21** |
 
 ---
 
