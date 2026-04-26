@@ -114,6 +114,10 @@ pub struct Config {
     /// 設為 `true` 的時機：R26-6（HMAC 版本化 + legacy backfill）完成後。
     /// 環境變數：`AUDIT_CHAIN_VERIFY_ACTIVE=true`。
     pub audit_chain_verify_active: bool,
+    /// H7：JWT 私鑰檔路徑（從 `JWT_EC_PRIVATE_KEY_FILE` env 讀取，None = 用 PEM env）。
+    /// 啟動時 `check_jwt_key_file_permissions` 用此檢查 unix mode；走 Config 統一
+    /// 而非散落 std::env::var（CLAUDE.md：禁止散落讀取 env）。
+    pub jwt_ec_private_key_file: Option<String>,
     /// 整合測試用：停用 CSRF 檢查（僅在 TEST_DATABASE_URL/DATABASE_URL 且 DISABLE_CSRF_FOR_TESTS=true 時使用）
     pub disable_csrf_for_tests: bool,
     /// SEC-20: 帳號鎖定功能（DISABLE_ACCOUNT_LOCKOUT=true 可關閉）
@@ -287,6 +291,9 @@ impl Config {
             // `.env.example` 有對應文檔與 openssl rand -base64 32 產生指引。
             audit_hmac_key: read_secret("AUDIT_HMAC_KEY").filter(|s| s.len() >= 44),
             audit_chain_verify_active: parse_bool_env("AUDIT_CHAIN_VERIFY_ACTIVE"),
+            jwt_ec_private_key_file: std::env::var("JWT_EC_PRIVATE_KEY_FILE")
+                .ok()
+                .filter(|s| !s.is_empty()),
             disable_csrf_for_tests: parse_bool_env("DISABLE_CSRF_FOR_TESTS"),
             disable_account_lockout: parse_bool_env("DISABLE_ACCOUNT_LOCKOUT"),
             account_lockout_max_attempts: std::env::var("ACCOUNT_LOCKOUT_MAX_ATTEMPTS")
@@ -422,6 +429,7 @@ mod tests {
             cors_allowed_origins: vec!["http://localhost:8080".to_string()],
             audit_hmac_key: None,
             audit_chain_verify_active: false,
+            jwt_ec_private_key_file: None,
             disable_csrf_for_tests: false,
             disable_account_lockout: false,
             account_lockout_max_attempts: 5,

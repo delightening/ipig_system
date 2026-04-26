@@ -883,6 +883,61 @@ impl AuditService {
         request_method: Option<&str>,
         context: serde_json::Value,
     ) -> Result<Uuid> {
+        Self::log_security_event_with_executor(
+            pool,
+            event_type,
+            actor_user_id,
+            ip_address,
+            user_agent,
+            request_path,
+            request_method,
+            context,
+        )
+        .await
+    }
+
+    /// H8：log_security_event 的 tx 版（接受 &mut Transaction），讓帳號鎖定等
+    /// 安全事件可與業務 SQL 在同一原子事務內寫入，避免 tokio::spawn 的火忘式
+    /// 寫入在進程崩潰時遺失稽核紀錄。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn log_security_event_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        event_type: &str,
+        actor_user_id: Option<Uuid>,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+        request_path: Option<&str>,
+        request_method: Option<&str>,
+        context: serde_json::Value,
+    ) -> Result<Uuid> {
+        Self::log_security_event_with_executor(
+            &mut **tx,
+            event_type,
+            actor_user_id,
+            ip_address,
+            user_agent,
+            request_path,
+            request_method,
+            context,
+        )
+        .await
+    }
+
+    /// H8：實際 INSERT — 接受任意 sqlx Executor，pool 與 tx 共用實作（DRY）。
+    #[allow(clippy::too_many_arguments)]
+    async fn log_security_event_with_executor<'e, E>(
+        executor: E,
+        event_type: &str,
+        actor_user_id: Option<Uuid>,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+        request_path: Option<&str>,
+        request_method: Option<&str>,
+        context: serde_json::Value,
+    ) -> Result<Uuid>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+    {
         let id = Uuid::new_v4();
         // Gemini #3: partition_date 統一使用台灣時間（與其他 activity logs 一致）
         let partition_date = crate::time::today_taiwan_naive();
@@ -910,7 +965,7 @@ impl AuditService {
         .bind(request_method)
         .bind(&context)
         .bind(format!("Security event: {event_type}"))
-        .execute(pool)
+        .execute(executor)
         .await?;
 
         Ok(id)

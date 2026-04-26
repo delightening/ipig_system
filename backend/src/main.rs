@@ -8,9 +8,9 @@ use erp_backend::middleware::JwtBlacklist;
 use erp_backend::services::scheduler::SchedulerService;
 use erp_backend::services::{AuditService, FileService, GeoIpService, GotenbergClient, ImageProcessorClient, PdfServiceClient, TemplateService};
 use erp_backend::startup::{
-    create_database_pool_with_retry, ensure_admin_user, ensure_all_role_permissions,
-    ensure_required_permissions, ensure_schema, init_tracing, log_startup_config_check,
-    run_migrations, seed_dev_users,
+    check_jwt_key_file_permissions, create_database_pool_with_retry, ensure_admin_user,
+    ensure_all_role_permissions, ensure_required_permissions, ensure_schema, init_tracing,
+    log_startup_config_check, run_migrations, seed_dev_users,
 };
 use erp_backend::startup::server::{build_app, shutdown_signal};
 use erp_backend::AppState;
@@ -91,6 +91,8 @@ async fn main() -> anyhow::Result<()> {
     }
 
     log_startup_config_check(&config);
+    // H7：JWT 私鑰檔權限檢查（檔案模式提供時）
+    check_jwt_key_file_permissions(config.jwt_ec_private_key_file.as_deref());
 
     // 全域 graceful shutdown 訊號：所有背景任務觀測此 token 優雅收尾
     let shutdown_token = CancellationToken::new();

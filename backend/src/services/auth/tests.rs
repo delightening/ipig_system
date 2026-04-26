@@ -161,6 +161,7 @@ fn test_config() -> crate::config::Config {
         cors_allowed_origins: vec![],
         audit_hmac_key: None,
         audit_chain_verify_active: false,
+        jwt_ec_private_key_file: None,
         disable_csrf_for_tests: false,
         disable_account_lockout: false,
         account_lockout_max_attempts: 5,
