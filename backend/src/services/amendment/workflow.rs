@@ -452,8 +452,19 @@ impl AmendmentService {
 
     /// 記錄審查決定
     ///
-    /// C2 (GLP)：record_decision 與聚合決定 (check_all_decisions_tx) + 終態簽章
-    /// 寫入皆於同一 tx 完成，確保 audit trail 與決定簽章不被部分寫入。
+    /// C2 (GLP)：record_decision、終態守衛、assignment UPDATE、聚合決定
+    /// (check_all_decisions_tx) + 終態簽章寫入皆於同一 tx 完成，確保 audit
+    /// trail 與決定簽章不被部分寫入。
+    ///
+    /// **終態守衛（CodeRabbit review #205 R7 / PR #213）**：
+    /// 已 APPROVED / REJECTED / ADMIN_APPROVED 的 amendment 不可再被 reviewer
+    /// 改決定，避免：
+    /// 1. status 翻轉（已核准 → 強制改決定 → 跑 check_all_decisions → 變 REJECTED）
+    /// 2. approved_signature_id / rejected_signature_id 被覆寫
+    /// 3. 違反 21 CFR §11.10(e) 「audit trail 不得遮蔽先前記錄」
+    ///
+    /// 守衛用 SELECT FOR UPDATE 在 tx 內鎖定 amendment row，避免 TOCTOU
+    /// 與並發 record_decision 同時通過守衛後皆寫入。
     pub async fn record_decision(
         pool: &PgPool,
         amendment_id: Uuid,
@@ -466,6 +477,28 @@ impl AmendmentService {
         }
 
         let mut tx = pool.begin().await?;
+
+        // 終態守衛：在 tx 內 SELECT FOR UPDATE 鎖定 amendment row，避免並發
+        // record_decision 同時通過守衛後皆寫入（PR #213 R7）。
+        let current_status: AmendmentStatus = sqlx::query_scalar!(
+            r#"SELECT status as "status: AmendmentStatus"
+               FROM amendments WHERE id = $1 FOR UPDATE"#,
+            amendment_id
+        )
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Amendment not found".into()))?;
+
+        if matches!(
+            current_status,
+            AmendmentStatus::Approved
+                | AmendmentStatus::Rejected
+                | AmendmentStatus::AdminApproved
+        ) {
+            return Err(AppError::Conflict(
+                "Amendment 已進入終態，不可再記錄審查決定".into(),
+            ));
+        }
 
         let assignment = sqlx::query_as!(
             AmendmentReviewAssignment,
@@ -489,7 +522,9 @@ impl AmendmentService {
         .await?
         .ok_or_else(|| AppError::NotFound("Review assignment not found".into()))?;
 
-        // 檢查所有審查委員是否都已完成決定，傳入 reviewer_id 作為「最後 tipping」簽章主體
+        // 檢查所有審查委員是否都已完成決定，傳入 reviewer_id 作為「最後 tipping」
+        // 簽章主體（PR #205 C2）。守衛已防止已終態 amendment 走到此處，所以新
+        // 終態只會是首次寫入。
         Self::check_all_decisions_tx(&mut tx, amendment_id, reviewer_id).await?;
 
         tx.commit().await?;
