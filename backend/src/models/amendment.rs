@@ -99,6 +99,10 @@ pub struct Amendment {
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// C2 (GLP §11.50/§11.70)：核准決定的電子簽章 FK。NOT NULL 後 update 被拒。
+    pub approved_signature_id: Option<Uuid>,
+    /// C2 (GLP §11.50/§11.70)：否決決定的電子簽章 FK。
+    pub rejected_signature_id: Option<Uuid>,
 }
 
 /// 變更申請版本

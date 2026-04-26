@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE amendments\n               SET status = 'APPROVED', approved_signature_id = $2, updated_at = NOW()\n               WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e09aa247c44fcf336763c196e8b998becf7c9d101d89c1d62ccba256e2f635db"
+}
