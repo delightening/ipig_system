@@ -145,7 +145,10 @@ pub async fn create_animal_observation(
 
     // 異常紀錄通知 → 通知 VET（依路由表 animal_abnormal_record）
     if is_abnormal {
-        if let Some(animal) = animal {
+        // Gemini PR #221：與第一個 if let 一致用 ref 借用，未來若新增邏輯需要
+        // animal 不會因 ownership 已轉移而失敗（spawn 內已 clone 出 ear_tag /
+        // iacuc_no，不需要 owning animal 本身）。
+        if let Some(ref animal) = animal {
             let summary: String = if req.content.is_empty() {
                 "（未提供摘要）".to_string()
             } else {

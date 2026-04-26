@@ -1935,6 +1935,14 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🔧 R28 — bot review 發現的深層 perf 問題（2026-04-27）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R28-1 | **observation 服務層仍重複查 animal** | `AnimalObservationService::create` 內部 audit log 邏輯也呼叫 `AnimalService::get_by_id`（observation.rs L113），handler + service 全程仍有 2 次重複查詢。R27-10 (PR #221) 只解了 handler 內的 2→1，service 層的 1 次仍在。深層修法需動 service 簽名（回傳 `(Observation, Animal)` 或讓 handler pre-fetch 傳入）— breaking change 跨多 callers，獨立 PR 處理。來源：Gemini PR #221 Medium。LOW | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -1968,7 +1976,8 @@ ORDER BY 1 DESC;
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
 | 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
 | 🔧 R27 E2E + bot review 後續清理 | 9 |
-| **合計（未完成）** | **22** |
+| 🔧 R28 bot review 深層 perf | 1 |
+| **合計（未完成）** | **23** |
 
 ---
 
