@@ -39,6 +39,20 @@ impl From<UploadResult> for UploadResponse {
     }
 }
 
+/// H3 rollback：DB 寫入失敗時清掉已落地的檔案，避免孤兒。
+///
+/// 失敗只記 warn 不轉錯誤（檔案不存在是預期 idempotent 行為；其他錯誤等
+/// cron 清掃兜底，不應遮蔽原本的 DB 錯誤）。CodeRabbit review #207 採納
+/// 的 DRY helper，原本三處（handle_upload / sacrifice / sop）重複此 pattern。
+async fn cleanup_orphan_upload(file_path: &str, context: &str) {
+    if let Err(unlink_err) = FileService::delete(file_path).await {
+        tracing::warn!(
+            "[{context}] H3 rollback unlink 失敗 path={file_path} err={unlink_err}; \
+             檔案孤兒，需後續 cron 清掃"
+        );
+    }
+}
+
 /// 附件資料結構
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct Attachment {
@@ -183,13 +197,7 @@ async fn handle_upload(
         if let Err(e) =
             save_attachment(db, entity_type, entity_id, &upload_result, current_user_id).await
         {
-            if let Err(unlink_err) = FileService::delete(&upload_result.file_path).await {
-                tracing::warn!(
-                    "[handle_upload] H3 rollback unlink 失敗 path={} err={unlink_err}; \
-                     檔案孤兒，需後續 cron 清掃",
-                    upload_result.file_path
-                );
-            }
+            cleanup_orphan_upload(&upload_result.file_path, "handle_upload").await;
             return Err(e);
         }
         results.push(UploadResponse::from(upload_result));
@@ -404,12 +412,7 @@ pub async fn upload_sacrifice_photo(
         )
         .await
         {
-            if let Err(unlink_err) = FileService::delete(&upload_result.file_path).await {
-                tracing::warn!(
-                    "[sacrifice upload] H3 rollback unlink 失敗 path={} err={unlink_err}",
-                    upload_result.file_path
-                );
-            }
+            cleanup_orphan_upload(&upload_result.file_path, "sacrifice upload").await;
             return Err(e);
         }
 
@@ -663,12 +666,11 @@ pub async fn upload_sop_document(
         Ok(_) => return Ok(Json(UploadResponse::from(upload_result))),
     };
 
-    if let Err(unlink_err) = FileService::delete(&upload_result.file_path).await {
-        tracing::warn!(
-            "[sop upload] H3 rollback unlink 失敗 reason={rollback_reason} path={} err={unlink_err}",
-            upload_result.file_path
-        );
-    }
+    cleanup_orphan_upload(
+        &upload_result.file_path,
+        &format!("sop upload reason={rollback_reason}"),
+    )
+    .await;
     Err(return_err)
 }
 
