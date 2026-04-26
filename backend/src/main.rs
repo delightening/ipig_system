@@ -171,12 +171,7 @@ async fn main() -> anyhow::Result<()> {
         pdf_service,
         templates,
         // H2：moka::future::Cache 取代 DashMap，內建 TTL + try_get_with single-flight
-        permission_cache: moka::future::Cache::builder()
-            .time_to_live(std::time::Duration::from_secs(
-                erp_backend::constants::PERMISSION_CACHE_TTL_SECS,
-            ))
-            .max_capacity(10_000)
-            .build(),
+        permission_cache: erp_backend::build_permission_cache(),
         shutdown_token: shutdown_token.clone(),
     };
 

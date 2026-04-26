@@ -43,3 +43,20 @@ pub struct AppState {
     /// 所有背景任務（scheduler cron job、JwtBlacklist cleanup 等）觀測此 token 優雅收尾。
     pub shutdown_token: tokio_util::sync::CancellationToken,
 }
+
+/// 統一建構 permission cache：main.rs / tests/common 共用，避免 TTL/capacity 漂移。
+///
+/// 配置：
+/// - TTL：`constants::PERMISSION_CACHE_TTL_SECS`（5 分鐘）
+/// - capacity：10,000 entries
+///
+/// 未來若新增 `eviction_listener` / `weigher` 等設定，集中此處避免兩端 builder
+/// 漏更新（CodeRabbit review #210 採納）。
+pub fn build_permission_cache() -> moka::future::Cache<uuid::Uuid, Vec<String>> {
+    moka::future::Cache::builder()
+        .time_to_live(std::time::Duration::from_secs(
+            constants::PERMISSION_CACHE_TTL_SECS,
+        ))
+        .max_capacity(10_000)
+        .build()
+}
