@@ -243,6 +243,9 @@ impl AmendmentService {
     /// C2 (GLP)：Minor → ADMIN_APPROVED 終態於同 tx 內建立 admin 簽章 + 回填 FK。
     /// Major → CLASSIFIED 後 reviewer 指派也在同 tx 內，避免 reviewer 寫入失敗時
     /// amendment 已成 CLASSIFIED 但無 reviewer 的不一致狀態（Gemini review #205, High）。
+    ///
+    /// R27-7：原本 ~110 行（>50 規範）；現抽 minor / major 兩個 helper，
+    /// `classify` 主函式僅做驗證 + tx 邊界 + 分流。
     pub async fn classify(
         pool: &PgPool,
         id: Uuid,
@@ -267,36 +270,46 @@ impl AmendmentService {
             ));
         }
 
-        // 決定下一個狀態
-        let new_status = match req.amendment_type {
-            AmendmentType::Major => AmendmentStatus::Classified, // 需要進入審查
-            AmendmentType::Minor => AmendmentStatus::AdminApproved, // 小變更直接核准
+        let mut tx = pool.begin().await?;
+
+        let amendment = match req.amendment_type {
+            AmendmentType::Minor => {
+                Self::classify_minor_with_signature_tx(&mut tx, id, req, classified_by, &current)
+                    .await?
+            }
+            AmendmentType::Major => {
+                Self::classify_major_with_reviewers_tx(&mut tx, id, req, classified_by, &current)
+                    .await?
+            }
             AmendmentType::Pending => unreachable!(),
         };
 
-        let mut tx = pool.begin().await?;
+        tx.commit().await?;
+        Ok(amendment)
+    }
 
-        // C2 (GLP)：Minor → ADMIN_APPROVED 是終態，由 classifier 當簽章主體
-        let approved_sig_id = if new_status == AmendmentStatus::AdminApproved {
-            let summary = format!("admin_approved|type=MINOR|classifier={classified_by}");
-            Some(
-                insert_decision_signature_tx(&mut tx, id, classified_by, true, &summary).await?,
-            )
-        } else {
-            None
-        };
+    /// R27-7 helper：Minor 分類路徑 — 終態 ADMIN_APPROVED + classifier 簽章 + history。
+    async fn classify_minor_with_signature_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        id: Uuid,
+        req: &ClassifyAmendmentRequest,
+        classified_by: Uuid,
+        current: &Amendment,
+    ) -> Result<Amendment> {
+        let summary = format!("admin_approved|type=MINOR|classifier={classified_by}");
+        let sig_id = insert_decision_signature_tx(tx, id, classified_by, true, &summary).await?;
 
         let amendment = sqlx::query_as!(
             Amendment,
             r#"
             UPDATE amendments
             SET
-                amendment_type = ($2::TEXT)::amendment_type,
-                status = ($3::TEXT)::amendment_status,
-                classified_by = $4,
+                amendment_type = 'MINOR'::amendment_type,
+                status = 'ADMIN_APPROVED'::amendment_status,
+                classified_by = $2,
                 classified_at = NOW(),
-                classification_remark = $5,
-                approved_signature_id = COALESCE($6, approved_signature_id),
+                classification_remark = $3,
+                approved_signature_id = $4,
                 updated_at = NOW()
             WHERE id = $1
             RETURNING
@@ -310,47 +323,80 @@ impl AmendmentService {
                 approved_signature_id, rejected_signature_id
             "#,
             id,
-            req.amendment_type.as_str(),
-            new_status.as_str(),
             classified_by,
             req.remark,
-            approved_sig_id,
+            sig_id,
         )
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
 
-        // 記錄狀態歷程
-        let history_remark = if let Some(sig_id) = approved_sig_id {
-            Some(format!(
-                "{}（行政核准簽章 {sig_id}）",
-                req.remark.as_deref().unwrap_or("")
-            ))
-        } else {
-            req.remark.clone()
-        };
+        let history_remark = Some(format!(
+            "{}（行政核准簽章 {sig_id}）",
+            req.remark.as_deref().unwrap_or("")
+        ));
         Self::record_status_change(
-            &mut *tx,
+            &mut **tx,
             id,
             Some(current.status),
-            new_status,
+            AmendmentStatus::AdminApproved,
             classified_by,
             history_remark,
         )
         .await?;
 
-        // Gemini #205 High：Major 的 reviewer 指派也納入同 tx，避免指派失敗時 amendment
-        // 已是 Classified 但無任何 reviewer 的孤兒狀態
-        if req.amendment_type == AmendmentType::Major {
-            Self::assign_reviewers_from_protocol_tx(
-                &mut tx,
-                id,
-                current.protocol_id,
-                classified_by,
-            )
-            .await?;
-        }
+        Ok(amendment)
+    }
 
-        tx.commit().await?;
+    /// R27-7 helper：Major 分類路徑 — CLASSIFIED + reviewer 指派 + history。
+    /// Gemini #205 High：reviewer 指派與 status UPDATE 同 tx，避免孤兒狀態。
+    async fn classify_major_with_reviewers_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        id: Uuid,
+        req: &ClassifyAmendmentRequest,
+        classified_by: Uuid,
+        current: &Amendment,
+    ) -> Result<Amendment> {
+        let amendment = sqlx::query_as!(
+            Amendment,
+            r#"
+            UPDATE amendments
+            SET
+                amendment_type = 'MAJOR'::amendment_type,
+                status = 'CLASSIFIED'::amendment_status,
+                classified_by = $2,
+                classified_at = NOW(),
+                classification_remark = $3,
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING
+                id, protocol_id, amendment_no, revision_number,
+                amendment_type as "amendment_type: AmendmentType",
+                status as "status: AmendmentStatus",
+                title, description, change_items,
+                changes_content, submitted_by, submitted_at,
+                classified_by, classified_at, classification_remark,
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
+            "#,
+            id,
+            classified_by,
+            req.remark,
+        )
+        .fetch_one(&mut **tx)
+        .await?;
+
+        Self::record_status_change(
+            &mut **tx,
+            id,
+            Some(current.status),
+            AmendmentStatus::Classified,
+            classified_by,
+            req.remark.clone(),
+        )
+        .await?;
+
+        Self::assign_reviewers_from_protocol_tx(tx, id, current.protocol_id, classified_by)
+            .await?;
 
         Ok(amendment)
     }
@@ -525,7 +571,8 @@ impl AmendmentService {
         // 檢查所有審查委員是否都已完成決定，傳入 reviewer_id 作為「最後 tipping」
         // 簽章主體（PR #205 C2）。守衛已防止已終態 amendment 走到此處，所以新
         // 終態只會是首次寫入。
-        Self::check_all_decisions_tx(&mut tx, amendment_id, reviewer_id).await?;
+        // R27-9：current_status 已在守衛 SELECT FOR UPDATE 取得，傳入避免重複查詢。
+        Self::check_all_decisions_tx(&mut tx, amendment_id, reviewer_id, current_status).await?;
 
         tx.commit().await?;
         Ok(assignment)
@@ -540,10 +587,14 @@ impl AmendmentService {
     ///
     /// CodeRabbit review #205：原本 111 行（超過 ≤50 規範）+ APPROVED/REJECTED
     /// 邏輯重複；現抽 helper 後本函式僅做統計與分流。
+    ///
+    /// R27-9：`current_status` 由 caller 傳入（已在 record_decision 守衛
+    /// SELECT FOR UPDATE 取得），避免同 tx 內重複查 amendments.status。
     async fn check_all_decisions_tx(
         tx: &mut Transaction<'_, Postgres>,
         amendment_id: Uuid,
         tipping_reviewer_id: Uuid,
+        current_status: AmendmentStatus,
     ) -> Result<()> {
         let stats = sqlx::query!(
             r#"
@@ -565,14 +616,6 @@ impl AmendmentService {
         if stats.decided != stats.total {
             return Ok(());
         }
-
-        // 取 current status（同 tx 讀，避免 race）
-        let current_status = sqlx::query_scalar!(
-            r#"SELECT status as "status: AmendmentStatus" FROM amendments WHERE id = $1"#,
-            amendment_id
-        )
-        .fetch_one(&mut **tx)
-        .await?;
 
         let summary = format!(
             "total={}|approved={}|rejected={}|revision={}",
