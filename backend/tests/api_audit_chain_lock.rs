@@ -104,3 +104,60 @@ async fn verify_skips_when_inactive_does_not_touch_lock() {
         .await
         .expect("cleanup unlock");
 }
+
+/// Happy path（Gemini review #206 Medium）：active=true 時 verify_yesterday_chain
+/// 應成功 acquire → run → release，後續另一 session 可立即取得 lock。
+///
+/// 驗證 RAII Drop + 顯式 release 的全程 lock-run-unlock 流程正確性。
+#[tokio::test]
+#[serial]
+async fn verify_active_acquires_runs_and_releases_lock() {
+    // 必須在 TestApp::spawn 前設環境變數，因 Config::from_env 在 spawn 內讀取
+    std::env::set_var("AUDIT_CHAIN_VERIFY_ACTIVE", "true");
+    let app = TestApp::spawn().await;
+    let config = erp_backend::config::Config::from_env().expect("build config");
+    assert!(
+        config.audit_chain_verify_active,
+        "AUDIT_CHAIN_VERIFY_ACTIVE=true 應反映在 config"
+    );
+
+    // 驗證起始狀態：lock 未被持有
+    let mut probe = app.db_pool.acquire().await.expect("acquire probe");
+    let pre: bool = sqlx::query_scalar("SELECT pg_try_advisory_lock($1)")
+        .bind(LOCK_KEY)
+        .fetch_one(&mut *probe)
+        .await
+        .expect("pre-probe try_lock");
+    assert!(pre, "起始狀態 lock 應未被持有");
+    sqlx::query("SELECT pg_advisory_unlock($1)")
+        .bind(LOCK_KEY)
+        .execute(&mut *probe)
+        .await
+        .expect("pre-probe unlock");
+    drop(probe);
+
+    // 執行 verify — 內部會 acquire / run_verify / release
+    erp_backend::services::audit_chain_verify::verify_yesterday_chain(&app.db_pool, &config)
+        .await
+        .expect("verify should succeed (no audit rows yesterday → intact)");
+
+    // 驗證 release 後 lock 已歸還：新的 session 可立即取得
+    let mut after = app.db_pool.acquire().await.expect("acquire after");
+    let acquired_after: bool = sqlx::query_scalar("SELECT pg_try_advisory_lock($1)")
+        .bind(LOCK_KEY)
+        .fetch_one(&mut *after)
+        .await
+        .expect("post-verify try_lock");
+    assert!(
+        acquired_after,
+        "verify 完成後 lock 應已釋放，新 session 應可立即取得"
+    );
+    sqlx::query("SELECT pg_advisory_unlock($1)")
+        .bind(LOCK_KEY)
+        .execute(&mut *after)
+        .await
+        .expect("cleanup unlock");
+
+    // 還原環境變數，避免影響後續 #[serial] 測試
+    std::env::remove_var("AUDIT_CHAIN_VERIFY_ACTIVE");
+}

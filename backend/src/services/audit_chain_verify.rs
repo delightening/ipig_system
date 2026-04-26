@@ -63,19 +63,23 @@ const ALERT_SEVERITY: &str = "critical";
 /// 取值原因：crc32("audit_chain_verify_cron") 截斷為 i64，避開常見 lock 命名空間。
 const AUDIT_CHAIN_VERIFY_LOCK_KEY: i64 = 0x1A2B_3C4D_5E6F_7081_u64 as i64;
 
-/// H1 (GLP / 併發審查 §H1)：跨 instance 互斥的 advisory lock。
+/// H1 (GLP / 併發審查 §H1)：跨 instance 互斥的 advisory lock，RAII 安全。
 ///
 /// 多 pod 部署時，同一 cron schedule 會在每個 pod 觸發；本鎖確保僅一個 instance
-/// 真的執行 verify，其餘 pod 觀察到 lock 已被持有便 skip。Drop 時不自動 unlock
-/// （advisory lock 是 session-scoped，conn 還回 pool 後仍持有），故必須顯式呼叫
-/// [`AuditChainVerifyLock::release`]。
+/// 真的執行 verify，其餘 pod 觀察到 lock 已被持有便 skip。
 ///
-/// 失敗模式：若 release 之前 panic / 進程崩潰，lock 隨 session terminate 自動釋放
-/// （Postgres pg_advisory_lock spec）；conn 還回 pool 後若被其他查詢復用，sqlx
-/// 不會主動 reset session — 但下次 cron tick 時 try-acquire 仍會回 false 直到
-/// 連線被回收。最壞情況：一輪被跳過。**不會重複執行**，符合本 lock 的安全保證。
+/// **RAII 釋放保證**（Gemini review #206 High）：實作 [`Drop`] — 即使 `run_verify`
+/// panic 也會在 stack unwind 時 spawn unlock task。preferred path 是顯式呼叫
+/// [`AuditChainVerifyLock::release`]（同步 await 確保 unlock 完成才繼續），
+/// Drop 路徑作為防呆。
+///
+/// 失敗模式：若 unlock query 失敗，lock 隨 session terminate 自動釋放
+/// （Postgres pg_advisory_lock spec）。最壞情況：一輪被跳過直到連線被回收。
+/// **不會重複執行**，符合本 lock 的安全保證。
 struct AuditChainVerifyLock {
-    conn: PoolConnection<Postgres>,
+    /// `Option` 讓 [`release`] / [`Drop`] 可以 `take` 出 conn 後讓 unlock 執行；
+    /// `None` 表示 unlock 已執行（避免 Drop 重複 unlock）。
+    conn: Option<PoolConnection<Postgres>>,
 }
 
 impl AuditChainVerifyLock {
@@ -86,20 +90,45 @@ impl AuditChainVerifyLock {
             .fetch_one(&mut *conn)
             .await?;
         if acquired {
-            Ok(Some(Self { conn }))
+            Ok(Some(Self { conn: Some(conn) }))
         } else {
             Ok(None)
         }
     }
 
+    /// 顯式 release（preferred path）：同步 await 確保 unlock 完成；
+    /// 標記 `conn = None` 防止後續 Drop 重複 unlock。
     async fn release(mut self) {
-        if let Err(e) = sqlx::query("SELECT pg_advisory_unlock($1)")
-            .bind(AUDIT_CHAIN_VERIFY_LOCK_KEY)
-            .execute(&mut *self.conn)
-            .await
-        {
-            // 失敗不影響後續邏輯（session 結束後自動釋放）
-            warn!("[audit_chain_verify] 釋放 advisory lock 失敗（將靠 session terminate 自動釋放）: {e}");
+        if let Some(mut conn) = self.conn.take() {
+            if let Err(e) = sqlx::query("SELECT pg_advisory_unlock($1)")
+                .bind(AUDIT_CHAIN_VERIFY_LOCK_KEY)
+                .execute(&mut *conn)
+                .await
+            {
+                warn!(
+                    "[audit_chain_verify] 釋放 advisory lock 失敗（將靠 session terminate 自動釋放）: {e}"
+                );
+            }
+        }
+    }
+}
+
+impl Drop for AuditChainVerifyLock {
+    /// RAII 防呆：若 `run_verify` panic 導致沒走到 [`release`]，這裡 spawn unlock。
+    /// fire-and-forget — Drop 不能 await，但 spawn task 會在 tokio runtime 完成 unlock。
+    fn drop(&mut self) {
+        if let Some(mut conn) = self.conn.take() {
+            tokio::spawn(async move {
+                if let Err(e) = sqlx::query("SELECT pg_advisory_unlock($1)")
+                    .bind(AUDIT_CHAIN_VERIFY_LOCK_KEY)
+                    .execute(&mut *conn)
+                    .await
+                {
+                    warn!(
+                        "[audit_chain_verify] Drop unlock 失敗（panic 路徑；session terminate 將兜底）: {e}"
+                    );
+                }
+            });
         }
     }
 }
