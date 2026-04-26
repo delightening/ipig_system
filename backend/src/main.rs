@@ -92,7 +92,7 @@ async fn main() -> anyhow::Result<()> {
 
     log_startup_config_check(&config);
     // H7：JWT 私鑰檔權限檢查（檔案模式提供時）
-    check_jwt_key_file_permissions();
+    check_jwt_key_file_permissions(config.jwt_ec_private_key_file.as_deref());
 
     // 全域 graceful shutdown 訊號：所有背景任務觀測此 token 優雅收尾
     let shutdown_token = CancellationToken::new();

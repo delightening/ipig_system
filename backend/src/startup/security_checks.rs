@@ -9,20 +9,22 @@
 /// 行為：
 /// - Unix：檢查 mode；group/other 任一非零 → 印 warn（含建議 `chmod 600`）
 /// - Windows / 非 Unix：印 info skip（NTFS ACL 檢查不在本檢查範圍）
-/// - 環境變數未設或檔案不存在：靜默略過（key 可能由 PEM env 直接提供）
+/// - `path = None`：靜默略過（key 由 PEM env 直接提供）
 ///
 /// 不阻擋啟動 — 已部署的環境若誤設不應因檢查中斷服務；改 prod-fail 留待 Ops
 /// 共識後另一 PR。
-pub fn check_jwt_key_file_permissions() {
-    let path = match std::env::var("JWT_EC_PRIVATE_KEY_FILE") {
-        Ok(p) if !p.is_empty() => p,
-        _ => return, // 未設 → key 從 env PEM 載入，無檔案需檢查
+///
+/// 路徑由 `Config::jwt_ec_private_key_file` 提供（CLAUDE.md：禁止散落 std::env::var）。
+pub fn check_jwt_key_file_permissions(path: Option<&str>) {
+    let path = match path {
+        Some(p) if !p.is_empty() => p,
+        _ => return,
     };
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        match std::fs::metadata(&path) {
+        match std::fs::metadata(path) {
             Ok(meta) => {
                 let mode = meta.permissions().mode() & 0o777;
                 if mode & 0o077 != 0 {
@@ -57,7 +59,7 @@ pub fn check_jwt_key_file_permissions() {
     #[cfg(not(unix))]
     {
         tracing::info!(
-            "[Security/H7] JWT_EC_PRIVATE_KEY_FILE={} 已設定；非 Unix 平台，\
+            "[Security/H7] jwt_ec_private_key_file={} 已設定；非 Unix 平台，\
              權限檢查 skipped（請手動確認 ACL 限制 read 至 API 進程帳號）",
             path
         );
