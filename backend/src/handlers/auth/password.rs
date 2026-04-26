@@ -6,6 +6,8 @@ use axum::{
 };
 use std::net::SocketAddr;
 
+use validator::Validate;
+
 use crate::error::ErrorResponse;
 use crate::{
     middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
@@ -40,12 +42,8 @@ pub async fn change_own_password(
     let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
     let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
 
-    // C3 (GLP §11.300)：新密碼二次確認；handler 層即拒絕，不浪費 service tx。
-    if req.new_password != req.new_password_confirmation {
-        return Err(crate::AppError::Validation(
-            "新密碼與確認密碼不一致".to_string(),
-        ));
-    }
+    // C3 (GLP §11.300)：走 validator chain（length + 強度自定義 + must_match 二次確認）。
+    req.validate()?;
 
     // Audit 已收進 service 層（PASSWORD_SELF_CHANGE，tx 內，含 IP/UA）
     let actor = ActorContext::User(current_user.clone());
