@@ -47,8 +47,8 @@ COPY nginx.conf /etc/nginx/templates/default.conf.template
 # 共用安全標頭 snippet（HSTS/CSP/X-Frame-Options 等），由 nginx.conf 多處 include
 COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
 # 容器啟動腳本（R27-1+R27-2：原 240+ 字 CMD 拆出，含 API_BACKEND_URL 非空驗證）
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# 合併 chown + chmod 至 COPY 一步，省 1 層；明確指定 nginx 為 owner（Gemini PR #217）
+COPY --chown=nginx:nginx --chmod=755 docker-entrypoint.sh /docker-entrypoint.sh
 
 # Copy build output from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
