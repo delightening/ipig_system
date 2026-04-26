@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalMedicalService;
+use super::{AnimalMedicalService, AnimalService};
 use crate::{
     middleware::ActorContext,
     models::{
@@ -109,6 +109,9 @@ impl AnimalObservationService {
             None
         };
 
+        // H5：audit display 帶 IACUC + 耳號（與 surgery / blood_test 一致）
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+
         let mut tx = pool.begin().await?;
 
         let observation = sqlx::query_as::<_, AnimalObservation>(
@@ -140,9 +143,10 @@ impl AnimalObservationService {
         .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
         let display = format!(
-            "animal {} @ {}: {:?}",
-            observation.animal_id, observation.event_date, observation.record_type
+            "[{}] {} @ {}: {:?}",
+            iacuc, animal.ear_tag, observation.event_date, observation.record_type
         );
         AuditService::log_activity_tx(
             &mut tx,
@@ -194,6 +198,9 @@ impl AnimalObservationService {
         // 先取得原始紀錄用於版本歷史（在 tx 外查詢，pool read OK）
         let before = Self::get_by_id(pool, id).await?;
 
+        // H5：audit display 帶 IACUC + 耳號
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
+
         // 保存版本歷史（目前 pool-based；tx 化歸 R26-8）
         AnimalMedicalService::save_record_version(pool, "observation", id, &before, updated_by)
             .await?;
@@ -233,9 +240,10 @@ impl AnimalObservationService {
         .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
         let display = format!(
-            "animal {} @ {}: {:?}",
-            after.animal_id, after.event_date, after.record_type
+            "[{}] {} @ {}: {:?}",
+            iacuc, animal.ear_tag, after.event_date, after.record_type
         );
         AuditService::log_activity_tx(
             &mut tx,
@@ -278,12 +286,25 @@ impl AnimalObservationService {
         // soft_delete 對齊雙層守衛 pattern：避免空開 tx + 取 row lock 才被擋下）
         SignatureService::ensure_not_locked_uuid(pool, "observation", id).await?;
 
+        // H5（Gemini #209 High）：先在 tx 外查 animal info，避免在 tx 持有連線的
+        // 同時呼叫 AnimalService::get_by_id 觸發 connection pool deadlock
+        // （tx 用一條連線，get_by_id 又取另一條連線；pool 滿時互等）。
+        // 取得 preview snapshot 不必在 tx 內；FOR UPDATE 權威檢查仍在後續 tx 內做。
+        let preview = sqlx::query_as::<_, AnimalObservation>(
+            "SELECT * FROM animal_observations WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("觀察紀錄不存在或已刪除".into()))?;
+        let animal = AnimalService::get_by_id(pool, preview.animal_id).await?;
+
         let mut tx = pool.begin().await?;
 
         // C1 atomic：拒絕刪除已鎖定（已簽章）記錄
         SignatureService::ensure_not_locked_uuid_tx(&mut tx, "observation", id).await?;
 
-        // SELECT FOR UPDATE 取 before；同時守門防止重複刪除
+        // SELECT FOR UPDATE 取 before；同時守門防止重複刪除（authoritative check）
         let before = sqlx::query_as::<_, AnimalObservation>(
             "SELECT * FROM animal_observations WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
         )
@@ -323,9 +344,10 @@ impl AnimalObservationService {
         .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
         let display = format!(
-            "animal {} @ {}: {:?} — {}",
-            before.animal_id, before.event_date, before.record_type, reason
+            "[{}] {} @ {}: {:?} — {}",
+            iacuc, animal.ear_tag, before.event_date, before.record_type, reason
         );
         AuditService::log_activity_tx(
             &mut tx,
