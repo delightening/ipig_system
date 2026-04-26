@@ -4,8 +4,59 @@
 # 操作授權
 - 可以自行決定所有檔案讀寫操作，不需詢問
 - 允許使用 glob pattern 搜尋檔案（例如 **/*.py, src/**/*.ts）
-- 有疑問時自行決定最合理的做法，但須紀錄並撰寫 walkthrough.md
+- **有疑問時依風險分流**（與 §「思考紀律」對齊）：
+  - **低風險 + 可逆**（檔名選擇、變數命名、helper 抽不抽、log 措辭）→ 自行決定 + 寫 walkthrough.md
+  - **高風險 / 不可逆 / 多解選錯成本高**（schema migration、API contract 改動、合規路徑、安全決策、跨模組架構選擇、新依賴）→ **停下，surface tradeoff，等使用者裁定**
+  - **任務語意不清**（「優化效能」「重構 X」缺成功標準）→ 停下，命名 unclear 點，要求 success criteria
 - 只有在刪除重要檔案或呼叫外部付費 API 時才問我
+
+# 思考紀律（Karpathy-aligned，2026-04-26 新增）
+
+> 來源：[karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) 互補本專案既有規則。重點是**對抗 LLM 的 silent assumption / drive-by improvement / weak success criteria** 三大常見坑。
+
+## 1. Think Before Coding（思考優先於 coding）
+
+**不要默默猜，不要藏疑惑，要把 trade-off 攤開。**
+
+實作前自問：
+- **多個合理解釋？** 不要默默選一個 — 列出選項，標註各自代價，讓使用者裁定。
+- **任務有不清楚的地方？** 不要 silent guess — 命名「我不確定 X」並 ask。
+- **更簡單的方案存在？** 主動 push back — 即使使用者已給出方案。
+- **動到的範圍超出字面任務？** 攤開「為什麼順帶做」— 拒絕 silent scope creep。
+
+**對應「操作授權」§ 高風險分流**：兩條規則互相強化 — 高風險決策必走「停下 + surface tradeoff」。
+
+## 2. Surgical Changes（外科手術式變更）
+
+**動最少的東西。每一行變更都應 trace 回使用者請求。**
+
+- **Drive-by improvement 禁止**：注意到無關 dead code / typo / 風格不一致 → **mention 但不刪**（除非任務涵蓋）。
+- **Match existing style**：既有風格與你偏好不同時，**配合既有風格**。實例：本專案 amendment 模組 audit/error 訊息全為中文，新增程式碼**不孤立改 English**（即使 reviewer bot 建議）。
+- **Orphan 清理只清自己造成的**：你改的程式造成 import / variable 變成 unused → 刪。**既存的 dead code 不順手刪**。
+- **Test**：`git diff` 每一 hunk 都應該能對應到使用者請求中的某句話。如果有 hunk 對不到，刪掉它。
+
+## 3. Goal-Driven Execution（用 verifiable goal 取代 imperative task）
+
+**先定義「怎樣算成功」再寫 code。**
+
+| 任務類型 | workflow |
+|---|---|
+| **Bug fix** | 先寫 reproducing test → 確認紅 → 修 → 確認綠 |
+| **新功能** | 先寫 acceptance test（API contract / handler 整合測試）→ 紅 → 實作 → 綠 |
+| **Refactor** | 跑 baseline tests 記 green → refactor → 同 tests 仍 green |
+| **多步驟任務** | 開頭列「N 步 + 每步 verify 標準」，逐步推進 |
+
+**強 success criteria 才能讓 Claude 自主 loop**；弱 criteria（「make it work」）會反覆 ask。
+
+## Self-check checklist（commit 前自問）
+
+- [ ] 每一行變更都對應到使用者請求？（無 drive-by）
+- [ ] 有沒有更簡單方案被我跳過？（senior 看會說 overcomplicated 嗎？）
+- [ ] 多解擇一是否有 surface tradeoff？（還是 silent pick？）
+- [ ] 有 reproducing / acceptance test 證明任務完成？
+- [ ] 配合既有風格 / i18n 一致性？
+
+
 
 # 執行紀律（大型重構計畫期間）
 對應計畫檔：`C:/Users/admin/.claude/plans/plan-for-the-critical-validated-pebble.md`
