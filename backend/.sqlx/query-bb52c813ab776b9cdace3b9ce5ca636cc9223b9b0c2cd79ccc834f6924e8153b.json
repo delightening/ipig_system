@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO electronic_signatures (\n            entity_type, entity_id, signer_id, signature_type,\n            content_hash, signature_data, signature_method\n        )\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bb52c813ab776b9cdace3b9ce5ca636cc9223b9b0c2cd79ccc834f6924e8153b"
+}

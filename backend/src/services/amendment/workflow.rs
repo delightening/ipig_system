@@ -79,7 +79,9 @@ async fn insert_decision_signature_tx(
     );
     let signature_data = SignatureService::compute_hash(&signature_input);
 
-    let sig_id: Uuid = sqlx::query_scalar(
+    // CodeRabbit review #205：改用 query_scalar! macro 啟用 SQLX_OFFLINE 編譯期型別檢查，
+    // 與檔案內其他查詢一致，避免 schema 漂移時 CI 漏掉。
+    let sig_id: Uuid = sqlx::query_scalar!(
         r#"
         INSERT INTO electronic_signatures (
             entity_type, entity_id, signer_id, signature_type,
@@ -88,14 +90,14 @@ async fn insert_decision_signature_tx(
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id
         "#,
+        AMENDMENT_ENTITY_TYPE,
+        entity_id,
+        signer_id,
+        decision_word,
+        content_hash,
+        signature_data,
+        SIGNATURE_METHOD_INTERNAL,
     )
-    .bind(AMENDMENT_ENTITY_TYPE)
-    .bind(&entity_id)
-    .bind(signer_id)
-    .bind(decision_word)
-    .bind(&content_hash)
-    .bind(&signature_data)
-    .bind(SIGNATURE_METHOD_INTERNAL)
     .fetch_one(&mut **tx)
     .await?;
 
