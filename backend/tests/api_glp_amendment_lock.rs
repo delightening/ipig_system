@@ -136,6 +136,57 @@ async fn seed_test_reviewer(app: &TestApp, suffix: &str) -> Uuid {
     id
 }
 
+/// CodeRabbit review #205 R6：抽出 4 個 test 重複的 setup —
+/// 「建立 amendment、設為 UNDER_REVIEW、seed n 名 reviewer 並指派」。
+/// 回傳 `(amendment_id, admin_id, reviewer_ids)`。
+async fn seed_amendment_under_review(
+    app: &TestApp,
+    n: usize,
+) -> (Uuid, Uuid, Vec<Uuid>) {
+    let (protocol_id, admin_id) = seed_protocol(app).await;
+    let amendment_id = seed_amendment(app, protocol_id, admin_id).await;
+    sqlx::query("UPDATE amendments SET status = 'UNDER_REVIEW' WHERE id = $1")
+        .bind(amendment_id)
+        .execute(&app.db_pool)
+        .await
+        .expect("set under review");
+
+    let mut reviewers = Vec::with_capacity(n);
+    for _ in 0..n {
+        let r = seed_test_reviewer(app, &Uuid::new_v4().to_string()[..6]).await;
+        assign_reviewer(app, amendment_id, r, admin_id).await;
+        reviewers.push(r);
+    }
+    (amendment_id, admin_id, reviewers)
+}
+
+/// CodeRabbit review #205 R5：assert 簽章列含 entity_type/entity_id，
+/// 偵測 insert_decision_signature_tx 寫入路徑漂移（誤填 protocol_id 等）。
+async fn assert_signature_row(
+    app: &TestApp,
+    sig_id: Uuid,
+    expected_signer: Uuid,
+    expected_type: &str,
+    amendment_id: Uuid,
+) {
+    let sig: (Uuid, String, String, String) = sqlx::query_as(
+        "SELECT signer_id, signature_type, entity_type, entity_id \
+         FROM electronic_signatures WHERE id = $1",
+    )
+    .bind(sig_id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("fetch sig");
+    assert_eq!(sig.0, expected_signer, "signer_id mismatch");
+    assert_eq!(sig.1, expected_type, "signature_type mismatch");
+    assert_eq!(sig.2, "amendment", "entity_type 應為 'amendment'");
+    assert_eq!(
+        sig.3,
+        amendment_id.to_string(),
+        "entity_id 應 = amendment_id"
+    );
+}
+
 // ============================================================
 // Test 1: classify(Minor) → ADMIN_APPROVED 含簽章 + update 防呆
 // ============================================================
@@ -168,17 +219,11 @@ async fn classify_minor_inserts_admin_signature_and_blocks_update() {
         "ADMIN_APPROVED 應同步寫入 approved_signature_id"
     );
 
-    // 驗證 electronic_signatures 真有此筆
-    let sig_id = amendment.approved_signature_id.expect("approved_signature_id missing");
-    let sig_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM electronic_signatures WHERE id = $1 AND signer_id = $2 AND signature_type = 'APPROVE'",
-    )
-    .bind(sig_id)
-    .bind(admin_id)
-    .fetch_one(&app.db_pool)
-    .await
-    .expect("fetch sig count");
-    assert_eq!(sig_count.0, 1, "簽章記錄應存在且 signer = classifier");
+    // 驗證 electronic_signatures 真有此筆（含 entity_type/entity_id）
+    let sig_id = amendment
+        .approved_signature_id
+        .expect("approved_signature_id missing");
+    assert_signature_row(&app, sig_id, admin_id, "APPROVE", amendment_id).await;
 
     // 模擬狀態守衛失效：直接 SQL 把 status 改回 DRAFT，但簽章 FK 仍在
     sqlx::query("UPDATE amendments SET status = 'DRAFT' WHERE id = $1")
@@ -217,21 +262,8 @@ async fn classify_minor_inserts_admin_signature_and_blocks_update() {
 #[serial]
 async fn record_decision_unanimous_approve_inserts_signature() {
     let app = TestApp::spawn().await;
-
-    let (protocol_id, admin_id) = seed_protocol(&app).await;
-    let amendment_id = seed_amendment(&app, protocol_id, admin_id).await;
-
-    // 設為 UNDER_REVIEW
-    sqlx::query("UPDATE amendments SET status = 'UNDER_REVIEW' WHERE id = $1")
-        .bind(amendment_id)
-        .execute(&app.db_pool)
-        .await
-        .expect("set under review");
-
-    let r1 = seed_test_reviewer(&app, &Uuid::new_v4().to_string()[..6]).await;
-    let r2 = seed_test_reviewer(&app, &Uuid::new_v4().to_string()[..6]).await;
-    assign_reviewer(&app, amendment_id, r1, admin_id).await;
-    assign_reviewer(&app, amendment_id, r2, admin_id).await;
+    let (amendment_id, _admin_id, reviewers) = seed_amendment_under_review(&app, 2).await;
+    let (r1, r2) = (reviewers[0], reviewers[1]);
 
     // r1 APPROVE — 還未到終態（r2 未決）
     let req_approve = erp_backend::models::RecordAmendmentDecisionRequest {
@@ -256,16 +288,7 @@ async fn record_decision_unanimous_approve_inserts_signature() {
 
     let (sig_after_r2, _) = fetch_amendment_signatures(&app, amendment_id).await;
     let sig_id = sig_after_r2.expect("r2 後應有 approved_signature_id");
-
-    let sig_row: (Uuid, String) = sqlx::query_as(
-        "SELECT signer_id, signature_type FROM electronic_signatures WHERE id = $1",
-    )
-    .bind(sig_id)
-    .fetch_one(&app.db_pool)
-    .await
-    .expect("fetch sig");
-    assert_eq!(sig_row.0, r2, "簽章主體應為最後 tipping reviewer (r2)");
-    assert_eq!(sig_row.1, "APPROVE");
+    assert_signature_row(&app, sig_id, r2, "APPROVE", amendment_id).await;
 }
 
 // ============================================================
@@ -276,19 +299,8 @@ async fn record_decision_unanimous_approve_inserts_signature() {
 #[serial]
 async fn record_decision_any_reject_inserts_rejection_signature() {
     let app = TestApp::spawn().await;
-
-    let (protocol_id, admin_id) = seed_protocol(&app).await;
-    let amendment_id = seed_amendment(&app, protocol_id, admin_id).await;
-    sqlx::query("UPDATE amendments SET status = 'UNDER_REVIEW' WHERE id = $1")
-        .bind(amendment_id)
-        .execute(&app.db_pool)
-        .await
-        .expect("set under review");
-
-    let r1 = seed_test_reviewer(&app, &Uuid::new_v4().to_string()[..6]).await;
-    let r2 = seed_test_reviewer(&app, &Uuid::new_v4().to_string()[..6]).await;
-    assign_reviewer(&app, amendment_id, r1, admin_id).await;
-    assign_reviewer(&app, amendment_id, r2, admin_id).await;
+    let (amendment_id, _admin_id, reviewers) = seed_amendment_under_review(&app, 2).await;
+    let (r1, r2) = (reviewers[0], reviewers[1]);
 
     erp_backend::services::AmendmentService::record_decision(
         &app.db_pool, amendment_id, r1,
@@ -313,16 +325,7 @@ async fn record_decision_any_reject_inserts_rejection_signature() {
     let (approved, rejected) = fetch_amendment_signatures(&app, amendment_id).await;
     assert!(approved.is_none(), "REJECT 不應寫 approved");
     let sig_id = rejected.expect("REJECT 後應寫 rejected_signature_id");
-
-    let sig_row: (Uuid, String) = sqlx::query_as(
-        "SELECT signer_id, signature_type FROM electronic_signatures WHERE id = $1",
-    )
-    .bind(sig_id)
-    .fetch_one(&app.db_pool)
-    .await
-    .expect("fetch sig");
-    assert_eq!(sig_row.0, r2);
-    assert_eq!(sig_row.1, "REJECT");
+    assert_signature_row(&app, sig_id, r2, "REJECT", amendment_id).await;
 }
 
 // ============================================================
@@ -336,19 +339,8 @@ async fn record_decision_any_reject_inserts_rejection_signature() {
 #[serial]
 async fn record_decision_reject_first_then_approve_signs_as_last_voter() {
     let app = TestApp::spawn().await;
-
-    let (protocol_id, admin_id) = seed_protocol(&app).await;
-    let amendment_id = seed_amendment(&app, protocol_id, admin_id).await;
-    sqlx::query("UPDATE amendments SET status = 'UNDER_REVIEW' WHERE id = $1")
-        .bind(amendment_id)
-        .execute(&app.db_pool)
-        .await
-        .expect("set under review");
-
-    let r1 = seed_test_reviewer(&app, &Uuid::new_v4().to_string()[..6]).await;
-    let r2 = seed_test_reviewer(&app, &Uuid::new_v4().to_string()[..6]).await;
-    assign_reviewer(&app, amendment_id, r1, admin_id).await;
-    assign_reviewer(&app, amendment_id, r2, admin_id).await;
+    let (amendment_id, _admin_id, reviewers) = seed_amendment_under_review(&app, 2).await;
+    let (r1, r2) = (reviewers[0], reviewers[1]);
 
     // r1 REJECT 先
     erp_backend::services::AmendmentService::record_decision(
@@ -379,22 +371,9 @@ async fn record_decision_reject_first_then_approve_signs_as_last_voter() {
     let (approved, rejected) = fetch_amendment_signatures(&app, amendment_id).await;
     let sig_id = rejected.expect("REJECT 多數決後應寫 rejected_signature_id");
     assert!(approved.is_none(), "rejected 結果不應寫 approved");
-
-    let sig_row: (Uuid, String) = sqlx::query_as(
-        "SELECT signer_id, signature_type FROM electronic_signatures WHERE id = $1",
-    )
-    .bind(sig_id)
-    .fetch_one(&app.db_pool)
-    .await
-    .expect("fetch sig");
-    assert_eq!(
-        sig_row.0, r2,
-        "B-min 設計：signer = 最後 tipping reviewer (r2)，即使 r2 投 APPROVE"
-    );
-    assert_eq!(
-        sig_row.1, "REJECT",
-        "signature_type = 聚合結果（REJECT，因 r1 否決），不是 tipping voter 的決定"
-    );
+    // B-min 設計：signer = 最後 tipping reviewer (r2)，即使 r2 投 APPROVE；
+    // signature_type = 聚合結果（REJECT，因 r1 否決），不是 tipping voter 的決定。
+    assert_signature_row(&app, sig_id, r2, "REJECT", amendment_id).await;
 }
 
 // ============================================================
@@ -405,17 +384,8 @@ async fn record_decision_reject_first_then_approve_signs_as_last_voter() {
 #[serial]
 async fn record_decision_revision_no_signature() {
     let app = TestApp::spawn().await;
-
-    let (protocol_id, admin_id) = seed_protocol(&app).await;
-    let amendment_id = seed_amendment(&app, protocol_id, admin_id).await;
-    sqlx::query("UPDATE amendments SET status = 'UNDER_REVIEW' WHERE id = $1")
-        .bind(amendment_id)
-        .execute(&app.db_pool)
-        .await
-        .expect("set under review");
-
-    let r1 = seed_test_reviewer(&app, &Uuid::new_v4().to_string()[..6]).await;
-    assign_reviewer(&app, amendment_id, r1, admin_id).await;
+    let (amendment_id, _admin_id, reviewers) = seed_amendment_under_review(&app, 1).await;
+    let r1 = reviewers[0];
 
     erp_backend::services::AmendmentService::record_decision(
         &app.db_pool, amendment_id, r1,
