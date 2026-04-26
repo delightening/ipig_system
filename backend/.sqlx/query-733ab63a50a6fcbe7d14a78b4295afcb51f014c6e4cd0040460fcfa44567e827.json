@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT status as \"status: AmendmentStatus\"\n               FROM amendments WHERE id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status: AmendmentStatus",
+        "type_info": {
+          "Custom": {
+            "name": "amendment_status",
+            "kind": {
+              "Enum": [
+                "DRAFT",
+                "SUBMITTED",
+                "CLASSIFIED",
+                "UNDER_REVIEW",
+                "REVISION_REQUIRED",
+                "RESUBMITTED",
+                "APPROVED",
+                "REJECTED",
+                "ADMIN_APPROVED"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "733ab63a50a6fcbe7d14a78b4295afcb51f014c6e4cd0040460fcfa44567e827"
+}
