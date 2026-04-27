@@ -185,6 +185,24 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-27 R28 second-pass review 6 條 Medium 全清空 + R28-2/R28-3/R28-6 收尾（4 個 PR）
+
+承接 R27 全清空後對 R26 + R27 PRs 做的第二輪 code review（6 parallel sub-agent + 主審 verify，產出 13 findings 中 6 條 Medium）。tracker：`docs/reviews/2026-04-27-r26-r27-second-pass-review.md`。本輪 6 條 Medium 全部完成並 merge，同期 R28-2 / R28-3 / R28-6 三項 backlog 也補完。
+
+- ✅ **R28-M6 IDOR — `create_animal_observation` 補 `require_animal_access`（PR #237 `aedc1af5`）**：pre-existing IDOR（非 PR #221 引入），handler 兩層守衛缺第一層；補上 `require_animal_access` 與其他 observation handler 一致。
+- ✅ **R28-M5 Prometheus init failure → /api/health degraded（PR #238 `6d5ebbe6`）**：原本 init 失敗時 metrics 靜默掉（NoopRecorder）無 ops 可觀測；改為失敗時 `/api/health` 回 503 degraded + `tracing::error`，TestApp 加 `OnceLock<PrometheusHandle>` 避免 `install_recorder` 多次衝突。
+- ✅ **R28-M3 + R28-M4 advisory lock key 中央註冊 + middleware error variant 透傳（PR #239 `d3c6feda`）**：`backend/src/constants.rs` 新增 §「Advisory Lock Key 中央註冊」集中 i64 / hashtext 命名空間，加 i32 範圍外驗證 unit test；`check_user_active_status` 改 `.inspect_err` 保留 log + `?` 透傳 `AppError::Database`，不再 wrap 成 Internal 流失 variant。
+- ✅ **R28-M1 + R28-M2 Migration 037 註解修正 + HMAC residual risk 文件化（PR #240 `ace7c379`）**：migration 037 註解原稱 verifier 「視為 v=1」與實作 try-both 矛盾，修正為描述 try-both fallback；新增 `docs/security/HMAC_VERSIONING.md` 涵蓋 v1/v2 編碼差異 + verifier try-both + 三階段 backfill 計畫 + Anonymous→SYSTEM HMAC residual risk acceptance（v3 編碼擴充計畫 deferred）。
+- ✅ **R28-3 upsert pattern 掃描 + system_settings audit 補全（PR #234 `255bdd4e`）**：grep `INSERT.*ON CONFLICT DO UPDATE` 全 backend，補 `system_settings` audit log 路徑（之前漏寫）。
+- ✅ **R28-2 + R28-6 concurrent audit 並行度提升至 10 + entrypoint.sh CI 自動化測試（PR #236 `f46f762e`）**：擴 TestApp pool max_connections 後 audit concurrent test 並行度 3→10；`frontend/test-entrypoint.sh` 三組邊界 case（空 / 全空白 / 有效 URL）+ CI step。
+
+**Bot review 觀察**（持續精進素材）：
+- **PR #239 force-push 後 Gemini 補兩條 actionable Medium**（constants.rs L145 docstring bit pattern 誤稱「第 63 bit 為 1」實際是 0；auth.rs `map_cache_loader_error` catchall 在 Arc race 退化吞掉 Database variant）→ 用 ClawSweeper 紀律 ADOPT 並修；後者揭露 sqlx::Error 不可 Clone 的根本限制。
+- **second-pass review sub-agent 4 條 false positive**（SQL JOIN「Critical 邏輯錯誤」、JSON field-order「HMAC false positive」、record_decision「TOCTOU」、observation「silent skip」重複 K5）→ 主審 verify 階段全部拒絕並寫入 tracker §「拒絕」，避免 sub-agent 過度發現浪費後續修補時間。
+- **CI cargo test 跑 32min10s 為基準線**（前次 success run），#239 force-push 後新 run 也 32min 完成，未再現 stuck pattern。
+
+**ClawSweeper 紀律統計**（本輪）：6 條 Medium / 4 拒絕 / 2 actionable post-merge bot review ADOPT；R28-5 因 deploy-time backfill SQL 屬 R29 範疇，僅補 design doc 部分完成標 [ ]。
+
 ### 2026-04-27 R27 backlog 9 項全清空 — 5 個 perf / refactor / observability PR
 
 承接 2026-04-26 3C+8H 收尾後留下的 R27 backlog（PR #205/#210 review 中 DEFER 的 8 項 + #216 review 補的 R27-9/R27-10）。本輪 5 個 PR 全部完成並 merge，整個 R27 清空。
