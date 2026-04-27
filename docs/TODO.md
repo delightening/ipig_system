@@ -1964,6 +1964,16 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🔧 R29 — ClawSweeper review follow-up backlog（2026-04-27 起）
+
+> 來源：合規類 PR ClawSweeper review 中 DEFER 的條目；嚴重度 MEDIUM 以上者進此 backlog，獨立 PR 統一處理（避免合規 hotfix PR scope creep）。
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R29-1 | **Maintenance signature handler→service 重構 + tx-aware sign_record + audit log 補寫** | 來源：PR #241 ClawSweeper review (CR-1 + CR-2 + G-1)。當前 `sign_maintenance_reviewer` handler 仍違反 CLAUDE.md §4 分層（含 SQL + 業務判斷），且 `SignatureService::sign_record` 自帶獨立 tx，與 maintenance UPDATE 非原子（race window 失敗會留簽章孤兒：`signatures` row 已 persist 但 `reviewer_signature_id` 仍 NULL）。修法包含：(a) 抽 `EquipmentService::sign_maintenance_review_tx(tx, ...)` 一次處理 lock + status guard + sign_record_tx + UPDATE，(b) 擴展 `SignatureService::sign_record_tx` 介面（影響 `signature/transfer.rs` / `sacrifice.rs` / `observation.rs` / `surgery.rs` / `blood_test.rs` / `care_record.rs` 至少 5+ 處 sign handler 同模式），(c) RBAC 委託 `services/access.rs::require_equipment_review`（與 R26-11 IDOR 統一原則同方向），(d) `reviewer_signature_id` UPDATE 補 audit log（service 層 `log_activity_tx`，21 CFR §11.10 audit trail 一致性）。完整 review 紀錄於 `docs/review-decisions/PR-241.md`。MEDIUM (compliance-adjacent) | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -1998,7 +2008,8 @@ ORDER BY 1 DESC;
 | 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
 | 🔧 R27 E2E + bot review 後續清理 | 0 (9 完成) |
 | 🔧 R28 bot review + R26/R27 code review 發現 | 6 (3 完成 R28-2/3/6 + 6 second-pass M1-M6 完成；R28-1/4/5/7/8/9 待 R29) |
-| **合計（未完成）** | **19** |
+| 🔧 R29 ClawSweeper review follow-up | 1 (R29-1 PR #241 follow-up) |
+| **合計（未完成）** | **20** |
 
 ---
 
