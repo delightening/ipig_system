@@ -1935,11 +1935,19 @@ ORDER BY 1 DESC;
 
 ---
 
-## 🔧 R28 — bot review 發現的深層 perf 問題（2026-04-27）
+## 🔧 R28 — bot review + R26/R27 code review 發現（2026-04-27）
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
 | R28-1 | **observation 服務層仍重複查 animal** | `AnimalObservationService::create` 內部 audit log 邏輯也呼叫 `AnimalService::get_by_id`（observation.rs L113），handler + service 全程仍有 2 次重複查詢。R27-10 (PR #221) 只解了 handler 內的 2→1，service 層的 1 次仍在。深層修法需動 service 簽名（回傳 `(Observation, Animal)` 或讓 handler pre-fetch 傳入）— breaking change 跨多 callers，獨立 PR 處理。來源：Gemini PR #221 Medium。LOW | [ ] |
+| R28-2 | **concurrent audit write 整合測試提升至 10 並行** | `backend/tests/api_audit_r26.rs` L259 並行度為 3（pool max=5 限制保守值），規劃中為 10。需先擴 TestApp pool max_connections ≥12 再補測試。來源：R26 review。MEDIUM | [ ] |
+| R28-3 | **掃描 upsert pattern 是否還有 SELECT FOR UPDATE 遺漏** | PR #197 R26-13 修了 `storage_location.rs`，但其他 module（product / equipment / partner）的 upsert (`ON CONFLICT DO UPDATE`) 樣式可能仍有遺漏。grep `INSERT.*ON CONFLICT DO UPDATE` 全 backend，逐一驗證是否需改為顯式 SELECT FOR UPDATE + 分支以保證 audit before snapshot 正確 + 並發安全。來源：R26 review。MEDIUM (security-adjacent) | [ ] |
+| R28-4 | **ActorContext::Anonymous 適用情境文檔化** | `middleware/actor.rs` 的 Anonymous 變體目前用於 login attempt + CSP report；HMAC fallback 用 SYSTEM_USER_ID。新增 anonymous 事件（rate limit block 等）易遺漏一致性。建議在 CLAUDE.md Backend section 加 subsection 列舉已知 Anonymous 場景 + Anonymous HMAC 必用 SYSTEM_USER_ID 的規範。來源：R26 review。LOW | [ ] |
+| R28-5 | **HMAC versioning backfill 完成度監控** | `migration 037` 後新 row 帶 `hmac_version=1`，舊 row 為 NULL；verifier 採 try-both fallback。需 dashboard 監控「`hmac_version IS NULL` row 數量」（目標 → 0）+ 記載「try-both fallback 預期何時可移除」。staging migration 確認後納入移除規劃。來源：R26 review。MEDIUM (production safety) | [ ] |
+| R28-6 | **Shell script + Docker 邊界 case 自動化測試** | `frontend/docker-entrypoint.sh` 邏輯（trim、fail-fast、唯讀路徑判斷）只手動驗證，無 CI 自動測試。建議：(1) `sh -n` 語法檢查 (2) docker run with `API_BACKEND_URL=""` / `"  "` / valid 三組驗證；放 `frontend/test-entrypoint.sh` + CI step。來源：R27 review (PR #217)。MEDIUM | [ ] |
+| R28-7 | **Admin permission cache 效能基準** | PR #218 admin 改走 always-load 4-table JOIN（cache miss 才跑），commit message 宣稱「微小 cost」但缺實測。建議用 `ipig_permission_cache_requests_total{result="miss"}` filter admin 看實際 miss QPS + 平均延遲；確認 5min TTL 設計合理。來源：R27 review (PR #218)。MEDIUM | [ ] |
+| R28-8 | **Observation notification failure handling** | PR #221 `create_animal_observation` 的 emergency + abnormal 兩條通知路徑共用單次 fetch；fetch 失敗時兩條都 silent skip（只 warn log）。長期會造成通知遺漏。評估改進：(a) handler 層 pre-fetch + 失敗 return error (b) 加 structured log + 告警 metric。來源：R27 review (PR #221)。LOW | [ ] |
+| R28-9 | **permission_cache metrics 計數精度** | PR #222 用 `cache.get()` pre-check 取代 `Arc<AtomicBool>`，race（兩並發 get 都 None → 都 try_get_with）會導致 metrics 計數微誤差（兩個都記 miss）。並發 load test 驗證 hit + miss 總和 ≈ 請求數（允許 <1% 偏差）。若誤差大則改為 cache loader 內 increment misses。來源：R27 review (PR #222)。LOW | [ ] |
 
 ---
 
@@ -1976,8 +1984,8 @@ ORDER BY 1 DESC;
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
 | 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
 | 🔧 R27 E2E + bot review 後續清理 | 9 |
-| 🔧 R28 bot review 深層 perf | 1 |
-| **合計（未完成）** | **23** |
+| 🔧 R28 bot review + R26/R27 code review 發現 | 9 |
+| **合計（未完成）** | **31** |
 
 ---
 
