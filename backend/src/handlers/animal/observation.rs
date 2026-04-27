@@ -94,6 +94,12 @@ pub async fn create_animal_observation(
     require_permission!(current_user, "animal.record.create");
     req.validate()?;
 
+    // M6 (R28 review)：IDOR 防護 — 與其他 observation handler 一致用
+    // require_animal_access 驗證 user 對該 animal 所屬計畫的存取權，
+    // 避免「有 record.create 權限但無該計畫權限的 user」可任意 animal 寫紀錄。
+    // pre-existing gap：list / get / delete 都有此檢查，唯獨 create 漏。
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
+
     // 檢查是否為緊急給藥，需驗證是否有緊急給藥權限
     if req.is_emergency {
         require_permission!(current_user, "animal.record.emergency");
