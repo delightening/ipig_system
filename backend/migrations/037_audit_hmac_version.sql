@@ -21,6 +21,14 @@ WHERE integrity_hash IS NOT NULL;
 --      與「已 backfill 為 1」，必須分兩階段：先新增 column（本 migration），之後 R26-6
 --      backfill 子任務再把既有 row UPDATE 為 1（可於 deploy 後以 idempotent script 執行）。
 --   2. 一次 UPDATE 全表會鎖住大量 row，影響線上系統。
--- 驗證端（`AuditService::verify_chain_rows`）遇到 hmac_version IS NULL 時：
+--
+-- 驗證端（`AuditService::verify_chain_rows`）對 hmac_version IS NULL 行為（R28-M1 修正）：
 --   - 若 integrity_hash 也為 NULL → SECURITY 事件，合法略過
---   - 若 integrity_hash 非 NULL → 視為 legacy v=1（與 backfill 後結果相同）
+--   - 若 integrity_hash 非 NULL → **try-both 策略**：先試 canonical (v=2)，
+--     若不匹配再試 legacy (v=1)。理由：migration 037 前 `log_activity_tx`
+--     已採 v2 編碼但 column 不存在，整段時間內寫入的 row 是 v2 但 hmac_version=NULL。
+--     若 row 純粹是 legacy（pre-R26 寫入），canonical 計算會不匹配，fallback v1 後通過。
+--   - **不會**直接視為 legacy v=1（會對混合期 v2 row 產生 false positive 斷鏈告警）
+--
+-- backfill 完成後（hmac_version 全表 NOT NULL），verifier 走 explicit version 路徑，
+-- try-both fallback 可移除；詳見 `docs/security/HMAC_VERSIONING.md` Backfill Plan。

@@ -31,12 +31,12 @@
 
 | # | 編號 | 摘要 | 位置 | 驗證 | 狀態 | 修復 PR |
 |---|------|------|------|------|------|---------|
-| 1 | M1 | Migration 037 註解 vs verifier `try-both` 行為矛盾，誤導 backfill 腳本撰寫者 | `backend/migrations/037_audit_hmac_version.sql:26` ↔ `backend/src/services/audit.rs:735–759` | ✅ | ⏳ | — |
-| 2 | M2 | Anonymous→SYSTEM HMAC 替代讓 actor 類別在鏈中無法區分，理論上可被竄改 | `backend/src/services/audit.rs:722–724`（verifier）+ `460–462`（writer） | ✅ | ⏳ | — |
-| 3 | M3 | Advisory lock key 無中央註冊；i64 常數 vs `hashtext()` 派生兩種命名空間共存 | `backend/src/services/audit_chain_verify.rs:64` ↔ `audit.rs:429` ↔ `protocol/numbering.rs:20` ↔ `auth/login.rs:31` | ⚠️ | ⏳ | — |
-| 4 | M4 | middleware 把 repository 的 `AppError::Database` 包成 `AppError::Internal`，error variant 流失（與 `load_permissions` 路徑行為不一致） | `backend/src/middleware/auth.rs:220–225` | ✅ | ⏳ | — |
-| 5 | M5 | Prometheus init 失敗時 metrics 靜默掉（NoopRecorder），無 ops 可觀測 | `backend/src/main.rs:141–151` + `backend/src/lib.rs:54–77` + `auth.rs:166–191` | ✅ | ⏳ | — |
-| 6 | M6 | `create_animal_observation` 缺 IDOR `require_animal_access`（pre-existing，非 PR #221 引入；handler + service 兩層皆未檢查） | `backend/src/handlers/animal/observation.rs:88–181` + `backend/src/services/animal/observation.rs:88+` | ✅ | 🚧 | PR-D（fix branch `feat/r28-5-7-observability` commit ?）|
+| 1 | M1 | Migration 037 註解 vs verifier `try-both` 行為矛盾，誤導 backfill 腳本撰寫者 | `backend/migrations/037_audit_hmac_version.sql:26` ↔ `backend/src/services/audit.rs:735–759` | ✅ | 🚧 | PR-E `fix/r28-m1-m2-hmac-chain-cleanup` |
+| 2 | M2 | Anonymous→SYSTEM HMAC 替代讓 actor 類別在鏈中無法區分，理論上可被竄改 | `backend/src/services/audit.rs:722–724`（verifier）+ `460–462`（writer） | ✅ | 🚧 | PR-E（residual risk 文件化於 `docs/security/HMAC_VERSIONING.md`，未修 HMAC 編碼）|
+| 3 | M3 | Advisory lock key 無中央註冊；i64 常數 vs `hashtext()` 派生兩種命名空間共存 | `backend/src/services/audit_chain_verify.rs:64` ↔ `audit.rs:429` ↔ `protocol/numbering.rs:20` ↔ `auth/login.rs:31` | ⚠️ | 🚧 | PR-G `fix/r28-m3-m4-cleanup` |
+| 4 | M4 | middleware 把 repository 的 `AppError::Database` 包成 `AppError::Internal`，error variant 流失（與 `load_permissions` 路徑行為不一致） | `backend/src/middleware/auth.rs:220–225` | ✅ | 🚧 | PR-G `fix/r28-m3-m4-cleanup` |
+| 5 | M5 | Prometheus init 失敗時 metrics 靜默掉（NoopRecorder），無 ops 可觀測 | `backend/src/main.rs:141–151` + `backend/src/lib.rs:54–77` + `auth.rs:166–191` | ✅ | 🚧 | PR-F `fix/r28-m5-prometheus-init-failfast` |
+| 6 | M6 | `create_animal_observation` 缺 IDOR `require_animal_access`（pre-existing，非 PR #221 引入；handler + service 兩層皆未檢查） | `backend/src/handlers/animal/observation.rs:88–181` + `backend/src/services/animal/observation.rs:88+` | ✅ | 🚧 | PR-D `fix/r28-m6-observation-create-idor` |
 
 ### 🟨 Low
 
@@ -98,4 +98,7 @@
 | Date | Change | By |
 |------|--------|-----|
 | 2026-04-27 | Initial — 13 findings + 4 拒絕項 + 5 已知排除 | 第二輪 review |
-| 2026-04-27 | M6 IDOR — handler 加 require_animal_access（PR-D `feat/r28-5-7-observability`）| Claude |
+| 2026-04-27 | M6 IDOR — handler 加 require_animal_access（PR-D `fix/r28-m6-observation-create-idor`）| Claude |
+| 2026-04-27 | M5 Prometheus → /api/health degraded（PR-F `fix/r28-m5-prometheus-init-failfast`）| Claude |
+| 2026-04-27 | M3+M4 lock key 中央註冊 + middleware error variant 透傳（PR-G `fix/r28-m3-m4-cleanup`）| Claude |
+| 2026-04-27 | M1+M2 Migration 037 註解修正 + HMAC residual risk 文件化（PR-E `fix/r28-m1-m2-hmac-chain-cleanup`）| Claude |
