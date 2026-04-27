@@ -471,6 +471,21 @@ jobs:
         run: pnpm exec vitest run
 
   # =========================
+  # 🛡️ Frontend entrypoint script 邊界 case 測試 (R28-6)
+  # =========================
+  frontend-entrypoint-test:
+    name: "🛡️ Frontend: docker-entrypoint.sh"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 執行 docker-entrypoint.sh 邊界 case 測試
+        working-directory: ./frontend
+        run: |
+          chmod +x test-entrypoint.sh
+          ./test-entrypoint.sh
+
+  # =========================
   # 🔒 pnpm 依賴漏洞掃描
   # =========================
   npm-audit:
