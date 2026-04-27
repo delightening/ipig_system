@@ -31,12 +31,12 @@
 
 | # | 編號 | 摘要 | 位置 | 驗證 | 狀態 | 修復 PR |
 |---|------|------|------|------|------|---------|
-| 1 | M1 | Migration 037 註解 vs verifier `try-both` 行為矛盾，誤導 backfill 腳本撰寫者 | `backend/migrations/037_audit_hmac_version.sql:26` ↔ `backend/src/services/audit.rs:735–759` | ✅ | 🚧 | PR-E `fix/r28-m1-m2-hmac-chain-cleanup` |
-| 2 | M2 | Anonymous→SYSTEM HMAC 替代讓 actor 類別在鏈中無法區分，理論上可被竄改 | `backend/src/services/audit.rs:722–724`（verifier）+ `460–462`（writer） | ✅ | 🚧 | PR-E（residual risk 文件化於 `docs/security/HMAC_VERSIONING.md`，未修 HMAC 編碼）|
-| 3 | M3 | Advisory lock key 無中央註冊；i64 常數 vs `hashtext()` 派生兩種命名空間共存 | `backend/src/services/audit_chain_verify.rs:64` ↔ `audit.rs:429` ↔ `protocol/numbering.rs:20` ↔ `auth/login.rs:31` | ⚠️ | 🚧 | PR-G `fix/r28-m3-m4-cleanup` |
-| 4 | M4 | middleware 把 repository 的 `AppError::Database` 包成 `AppError::Internal`，error variant 流失（與 `load_permissions` 路徑行為不一致） | `backend/src/middleware/auth.rs:220–225` | ✅ | 🚧 | PR-G `fix/r28-m3-m4-cleanup` |
-| 5 | M5 | Prometheus init 失敗時 metrics 靜默掉（NoopRecorder），無 ops 可觀測 | `backend/src/main.rs:141–151` + `backend/src/lib.rs:54–77` + `auth.rs:166–191` | ✅ | 🚧 | PR-F `fix/r28-m5-prometheus-init-failfast` |
-| 6 | M6 | `create_animal_observation` 缺 IDOR `require_animal_access`（pre-existing，非 PR #221 引入；handler + service 兩層皆未檢查） | `backend/src/handlers/animal/observation.rs:88–181` + `backend/src/services/animal/observation.rs:88+` | ✅ | 🚧 | PR-D `fix/r28-m6-observation-create-idor` |
+| 1 | M1 | Migration 037 註解 vs verifier `try-both` 行為矛盾，誤導 backfill 腳本撰寫者 | `backend/migrations/037_audit_hmac_version.sql:26` ↔ `backend/src/services/audit.rs:735–759` | ✅ | ✅ | PR #240 `ace7c379` |
+| 2 | M2 | Anonymous→SYSTEM HMAC 替代讓 actor 類別在鏈中無法區分，理論上可被竄改 | `backend/src/services/audit.rs:722–724`（verifier）+ `460–462`（writer） | ✅ | ✅ | PR #240 `ace7c379`（residual risk 文件化於 `docs/security/HMAC_VERSIONING.md`，未修 HMAC 編碼）|
+| 3 | M3 | Advisory lock key 無中央註冊；i64 常數 vs `hashtext()` 派生兩種命名空間共存 | `backend/src/services/audit_chain_verify.rs:64` ↔ `audit.rs:429` ↔ `protocol/numbering.rs:20` ↔ `auth/login.rs:31` | ⚠️ | ✅ | PR #239 `d3c6feda` |
+| 4 | M4 | middleware 把 repository 的 `AppError::Database` 包成 `AppError::Internal`，error variant 流失（與 `load_permissions` 路徑行為不一致） | `backend/src/middleware/auth.rs:220–225` | ✅ | ✅ | PR #239 `d3c6feda` |
+| 5 | M5 | Prometheus init 失敗時 metrics 靜默掉（NoopRecorder），無 ops 可觀測 | `backend/src/main.rs:141–151` + `backend/src/lib.rs:54–77` + `auth.rs:166–191` | ✅ | ✅ | PR #238 `6d5ebbe6` |
+| 6 | M6 | `create_animal_observation` 缺 IDOR `require_animal_access`（pre-existing，非 PR #221 引入；handler + service 兩層皆未檢查） | `backend/src/handlers/animal/observation.rs:88–181` + `backend/src/services/animal/observation.rs:88+` | ✅ | ✅ | PR #237 `aedc1af5` |
 
 ### 🟨 Low
 
@@ -77,12 +77,12 @@
 
 ## 修復檢核清單（每筆完成時打勾）
 
-- [ ] M1 — Migration 037 註解修正 + 補 idempotent backfill 腳本
-- [ ] M2 — HMAC 計算納入 actor 類別 / 或補 design doc 說明 accepted residual risk
-- [ ] M3 — `backend/src/constants/lock_keys.rs` 中央註冊 + 規範文檔
-- [ ] M4 — `check_user_active_status` 改為直接 `?` 透傳或 wrap 時保留 source
-- [ ] M5 — Prometheus init 失敗 fail-fast 或 healthcheck degraded 標記
-- [x] M6 — handler 加 `require_animal_access`（與其他 observation handler 一致）— PR-D
+- [x] M1 — Migration 037 註解修正 + 補 idempotent backfill 腳本（PR #240 `ace7c379`，註解修正 + 補 backfill 文檔；獨立 backfill SQL 留 R29 deploy-time 任務）
+- [x] M2 — HMAC 計算納入 actor 類別 / 或補 design doc 說明 accepted residual risk（PR #240 `ace7c379`，採 design doc 路線：`docs/security/HMAC_VERSIONING.md`）
+- [x] M3 — `backend/src/constants/lock_keys.rs` 中央註冊 + 規範文檔（PR #239 `d3c6feda`，集中於 `backend/src/constants.rs`）
+- [x] M4 — `check_user_active_status` 改為直接 `?` 透傳或 wrap 時保留 source（PR #239 `d3c6feda`，`.inspect_err` 保留 log + 透傳 variant）
+- [x] M5 — Prometheus init 失敗 fail-fast 或 healthcheck degraded 標記（PR #238 `6d5ebbe6`，採 degraded 路線：失敗時 `/api/health` 回 503 + tracing::error）
+- [x] M6 — handler 加 `require_animal_access`（與其他 observation handler 一致）— PR #237 `aedc1af5`
 - [ ] L1 — Migration 037 補 CHECK 約束 + 測試
 - [ ] L2 — CI audit-redaction-guard 補 multi-line struct fixture test
 - [ ] L3 — Compose 變數加註解 / 或修 entrypoint 讀取該值
@@ -102,3 +102,4 @@
 | 2026-04-27 | M5 Prometheus → /api/health degraded（PR-F `fix/r28-m5-prometheus-init-failfast`）| Claude |
 | 2026-04-27 | M3+M4 lock key 中央註冊 + middleware error variant 透傳（PR-G `fix/r28-m3-m4-cleanup`）| Claude |
 | 2026-04-27 | M1+M2 Migration 037 註解修正 + HMAC residual risk 文件化（PR-E `fix/r28-m1-m2-hmac-chain-cleanup`）| Claude |
+| 2026-04-27 | **R28 6 條 Medium 全清空** — M1+M2 (#240 `ace7c379`) / M3+M4 (#239 `d3c6feda`) / M5 (#238 `6d5ebbe6`) / M6 (#237 `aedc1af5`) 全數 merge 至 main | Claude |
