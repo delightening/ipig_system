@@ -185,6 +185,21 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-27 Open PR 風險分流 — lucide ADOPT-NOW、react-router/i18next DEFER（ClawSweeper）
+
+對 9 個 open dependabot PR 中 3 個被預判為 HIGH 風險的 major bump 做 ClawSweeper-style risk assessment。
+
+- ✅ **lucide-react 0.575.0 → 1.11.0 (PR #230 `4fed2e30`)**：CI 14/15 jobs 全綠（含 tsc check + Trivy + pnpm audit），證明 type-safe；v1.0 是 marketing milestone（icon 庫長期 0.x stable，1.x 沿用 API）。ClawSweeper verdict ADOPT-NOW，merge 後依使用者授權跳過 visual smoke。
+- ⏸ **react-router-dom 6.30.3 → 7.14.2 (PR #229 → R29-2 backlog)**：CI `tsc check` FAIL，跨 71 檔 type-level breaking（v7 整合 Remix data router，type names 重整 + future flags 變 default）。DEFER 至 R29-2，預估 4-8h 適配。
+- ⏸ **i18next 25.10.10 → 26.0.8 (PR #233 → R29-3 backlog)**：CI `tsc check` FAIL，跨 94 檔；v26 含 3 條 security fixes（CWE-117 log forging / ReDoS / nesting injection）。DEFER 至 R29-3 升為 MEDIUM-HIGH（defense-in-depth），預估 2-4h 適配。
+
+**review files**：`docs/review-decisions/PR-230.md` / `PR-229.md` / `PR-233.md` 各記錄 evidence + verdict + apply checklist；`PR-229.md` / `PR-233.md` 對應 R29-2 / R29-3 backlog 條目。
+
+**ClawSweeper 紀律觀察**：
+- 「major bump = 高風險」是 heuristic，**CI tsc check 是更可靠的 type-level 證據**。3 個 PR 中 1 個翻案（lucide 全綠 → ADOPT-NOW）。
+- DEFER 條目必須附帶 backlog 編號 + 預估工時，避免變成 paper 黑洞。
+- security fix 即使本系統不直接暴露於該 CVE pattern，仍應升級保守級別（i18next R29-3 從 LOW 升 MEDIUM-HIGH）。
+
 ### 2026-04-27 R28 second-pass review 6 條 Medium 全清空 + R28-2/R28-3/R28-6 收尾（4 個 PR）
 
 承接 R27 全清空後對 R26 + R27 PRs 做的第二輪 code review（6 parallel sub-agent + 主審 verify，產出 13 findings 中 6 條 Medium）。tracker：`docs/reviews/2026-04-27-r26-r27-second-pass-review.md`。本輪 6 條 Medium 全部完成並 merge，同期 R28-2 / R28-3 / R28-6 三項 backlog 也補完。
