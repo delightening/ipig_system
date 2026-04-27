@@ -20,6 +20,11 @@ pub struct HealthChecks {
     pub database: ComponentCheck,
     // M14: 移除 db_pool（size/idle/active 暴露連線池細節）
     pub disk: DiskCheck,
+    /// R28-M5：Prometheus metrics recorder 狀態。
+    /// "up" = 正常；"down" = `install_recorder()` 失敗，所有 metrics::counter!
+    /// / gauge! / histogram! 呼叫變 NoopRecorder 靜默掉，無 ops 可觀測。
+    /// degraded 由健檢回 503，方便 Prometheus / liveness probe 立即偵測。
+    pub metrics: ComponentCheck,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -68,7 +73,13 @@ pub async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<He
         status: if uploads_exists { "ok" } else { "missing" },
     };
 
-    let all_ok = db_result.is_ok() && pool_healthy && uploads_exists;
+    // R28-M5：Prometheus metrics recorder 健檢
+    let metrics_up = state.metrics_handle.is_some();
+    let metrics = ComponentCheck {
+        status: if metrics_up { "up" } else { "down" },
+    };
+
+    let all_ok = db_result.is_ok() && pool_healthy && uploads_exists && metrics_up;
 
     if !all_ok {
         if db_result.is_err() {
@@ -80,9 +91,16 @@ pub async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<He
         if !uploads_exists {
             tracing::warn!("健康檢查警告：uploads 目錄不存在");
         }
+        if !metrics_up {
+            tracing::warn!(
+                "健康檢查警告：Prometheus metrics recorder 未啟動，所有 metrics::* 呼叫被靜默"
+            );
+        }
     }
 
-    let status_code = if db_result.is_ok() {
+    // DB down 直接 503；其他 degraded 條件（pool / disk / metrics）也回 503
+    // 讓 Prometheus / k8s liveness probe 偵測得到。
+    let status_code = if all_ok {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE
@@ -96,6 +114,7 @@ pub async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<He
             checks: HealthChecks {
                 database,
                 disk,
+                metrics,
             },
         }),
     )

@@ -138,6 +138,10 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Prometheus 指標收集器
+    // R28-M5：init 失敗時用 tracing::error（高可見度），且 health check
+    // 會回 503 degraded（見 handlers/health.rs metrics 欄位）。
+    // 不 fail-fast 是為了讓核心服務（API + DB）仍可運作；觀測能力降級
+    // 但業務功能不受影響。
     let metrics_handle =
         match metrics_exporter_prometheus::PrometheusBuilder::new().install_recorder() {
             Ok(handle) => {
@@ -145,7 +149,11 @@ async fn main() -> anyhow::Result<()> {
                 Some(handle)
             }
             Err(e) => {
-                tracing::warn!("⚠️ Prometheus 指標收集器初始化失敗: {}", e);
+                tracing::error!(
+                    "❌ Prometheus 指標收集器初始化失敗: {} \
+                     (所有 metrics::* 呼叫將靜默；/api/health 將回 503 degraded)",
+                    e
+                );
                 None
             }
         };
