@@ -187,4 +187,8 @@ pub fn routes() -> Router<AppState> {
             "/inventory/unassigned",
             get(handlers::get_unassigned_inventory),
         )
+        .route(
+            "/inventory/unassigned/assign",
+            axum::routing::post(handlers::assign_unassigned_inventory),
+        )
 }

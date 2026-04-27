@@ -39,6 +39,20 @@ impl From<UploadResult> for UploadResponse {
     }
 }
 
+/// H3 rollback：DB 寫入失敗時清掉已落地的檔案，避免孤兒。
+///
+/// 失敗只記 warn 不轉錯誤（檔案不存在是預期 idempotent 行為；其他錯誤等
+/// cron 清掃兜底，不應遮蔽原本的 DB 錯誤）。CodeRabbit review #207 採納
+/// 的 DRY helper，原本三處（handle_upload / sacrifice / sop）重複此 pattern。
+async fn cleanup_orphan_upload(file_path: &str, context: &str) {
+    if let Err(unlink_err) = FileService::delete(file_path).await {
+        tracing::warn!(
+            "[{context}] H3 rollback unlink 失敗 path={file_path} err={unlink_err}; \
+             檔案孤兒，需後續 cron 清掃"
+        );
+    }
+}
+
 /// 附件資料結構
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct Attachment {
@@ -173,7 +187,19 @@ async fn handle_upload(
         )
         .await?;
 
-        save_attachment(db, entity_type, entity_id, &upload_result, current_user_id).await?;
+        // H3 (GLP)：file 與 metadata 的 per-file atomicity。filesystem 不能參與
+        // PG tx，故 fail-fast unlink：upload 成功但 save_attachment 失敗時，
+        // 立即清掉該 orphan 檔。
+        //
+        // 已成功 commit 的前一筆檔案保持不動（per-file 原子性，非整批原子性 —
+        // 整批跨 fs+DB 原子是不可能的）。返回 Err 時，呼叫端應理解「之前批次
+        // 內的成功項已落地」，與 axum handler 的部分成功語意一致。
+        if let Err(e) =
+            save_attachment(db, entity_type, entity_id, &upload_result, current_user_id).await
+        {
+            cleanup_orphan_upload(&upload_result.file_path, "handle_upload").await;
+            return Err(e);
+        }
         results.push(UploadResponse::from(upload_result));
     }
 
@@ -376,15 +402,19 @@ pub async fn upload_sacrifice_photo(
         )
         .await?;
 
-        // 儲存到 animal_record_attachments 表（record_id 為 UUID）
-        save_animal_record_attachment(
+        // H3 (GLP)：file 與 metadata 的 per-file atomicity，同 handle_upload。
+        if let Err(e) = save_animal_record_attachment(
             &state.db,
             "sacrifice",
             sacrifice_id,
             "photo",
             &upload_result,
         )
-        .await?;
+        .await
+        {
+            cleanup_orphan_upload(&upload_result.file_path, "sacrifice upload").await;
+            return Err(e);
+        }
 
         results.push(UploadResponse::from(upload_result));
     }
@@ -617,14 +647,31 @@ pub async fn upload_sop_document(
     )
     .await?;
 
-    // 更新 qa_sop_documents.file_path
-    sqlx::query("UPDATE qa_sop_documents SET file_path = $1, updated_at = NOW() WHERE id = $2")
-        .bind(&upload_result.file_path)
-        .bind(sop_id)
-        .execute(&state.db)
-        .await?;
+    // H3 (GLP)：UPDATE qa_sop_documents 失敗 OR rows_affected=0（sop_id 在檢查
+    // 後被刪除）→ unlink 上傳檔避免孤兒。Gemini review #207：rows_affected=0
+    // 是「Ok 但無更新」的隱性洞，必須與 Err 同等處理。
+    let update_result =
+        sqlx::query("UPDATE qa_sop_documents SET file_path = $1, updated_at = NOW() WHERE id = $2")
+            .bind(&upload_result.file_path)
+            .bind(sop_id)
+            .execute(&state.db)
+            .await;
 
-    Ok(Json(UploadResponse::from(upload_result)))
+    let (rollback_reason, return_err) = match update_result {
+        Err(e) => ("update_error", AppError::Database(e)),
+        Ok(res) if res.rows_affected() == 0 => (
+            "sop_not_found",
+            AppError::NotFound("SOP document not found".to_string()),
+        ),
+        Ok(_) => return Ok(Json(UploadResponse::from(upload_result))),
+    };
+
+    cleanup_orphan_upload(
+        &upload_result.file_path,
+        &format!("sop upload reason={rollback_reason}"),
+    )
+    .await;
+    Err(return_err)
 }
 
 /// 下載 SOP 文件

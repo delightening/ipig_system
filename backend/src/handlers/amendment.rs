@@ -263,11 +263,17 @@ pub async fn record_amendment_decision(
     Path(id): Path<Uuid>,
     Json(req): Json<RecordAmendmentDecisionRequest>,
 ) -> Result<Json<AmendmentReviewAssignmentResponse>> {
+    // H6 (GLP §11.70 / ISO A.5.18) 防禦深度：reviewer 必須同時具備
+    // 1. amendment_review_assignments 的指派（DB layer）
+    // 2. aup.amendment.approve 明確權限（RBAC layer）
+    // admin 一律放行（require_permission! 已涵蓋 admin 短路）
+    require_permission!(current_user, "aup.amendment.approve");
+
     // 檢查使用者是否為指派的審查委員
     let is_reviewer = sqlx::query_scalar!(
         r#"
         SELECT EXISTS(
-            SELECT 1 FROM amendment_review_assignments 
+            SELECT 1 FROM amendment_review_assignments
             WHERE amendment_id = $1 AND reviewer_id = $2
         ) as "exists!"
         "#,

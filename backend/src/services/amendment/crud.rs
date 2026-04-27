@@ -88,7 +88,8 @@ impl AmendmentService {
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             "#,
             id,
             req.protocol_id,
@@ -127,10 +128,19 @@ impl AmendmentService {
 
         // 檢查是否為草稿狀態
         let current = Self::get_by_id_raw(pool, id).await?;
-        if current.status != AmendmentStatus::Draft 
+        if current.status != AmendmentStatus::Draft
             && current.status != AmendmentStatus::RevisionRequired {
             return Err(AppError::BadRequest(
                 "Only draft or revision required amendments can be updated".into(),
+            ));
+        }
+
+        // C2 (GLP §11.10(e)(1)) 防呆守衛：即使 status 守衛失效（例如未來重構誤放行），
+        // 已有 approved/rejected 簽章的 amendment 一律拒絕修改。回 409 表示衝突
+        // 而非請求格式問題。
+        if current.approved_signature_id.is_some() || current.rejected_signature_id.is_some() {
+            return Err(AppError::Conflict(
+                "Amendment 已被簽章核准/否決，不可修改（GLP §11.10(e)(1)）".into(),
             ));
         }
 
@@ -152,7 +162,8 @@ impl AmendmentService {
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             "#,
             id,
             req.title,
@@ -167,18 +178,27 @@ impl AmendmentService {
     }
 
 
-    /// 記錄狀態變更
-    pub(crate) async fn record_status_change(
-        pool: &PgPool,
+    /// 記錄狀態變更（DRY：以 sqlx::Executor trait 統一支援 pool 與 tx）
+    ///
+    /// CodeRabbit review #205：原本 record_status_change + record_status_change_tx
+    /// 兩個函式 SQL/參數完全重複；現以 generic Executor 收斂為單一實作。
+    /// 呼叫端：
+    /// - pool: `record_status_change(pool, ...)` 直接傳 `&PgPool`
+    /// - tx: `record_status_change(&mut *tx, ...)` 傳 deref 後的 `&mut Transaction`
+    pub(crate) async fn record_status_change<'e, E>(
+        executor: E,
         amendment_id: Uuid,
         from_status: Option<AmendmentStatus>,
         to_status: AmendmentStatus,
         changed_by: Uuid,
         remark: Option<String>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+    {
         sqlx::query!(
             r#"
-            INSERT INTO amendment_status_history 
+            INSERT INTO amendment_status_history
                 (id, amendment_id, from_status, to_status, changed_by, remark)
             VALUES ($1, $2, ($3::TEXT)::amendment_status, ($4::TEXT)::amendment_status, $5, $6)
             "#,
@@ -189,7 +209,7 @@ impl AmendmentService {
             changed_by,
             remark,
         )
-        .execute(pool)
+        .execute(executor)
         .await?;
 
         Ok(())
@@ -252,7 +272,8 @@ impl AmendmentService {
                 title, description, change_items,
                 changes_content, submitted_by, submitted_at,
                 classified_by, classified_at, classification_remark,
-                created_by, created_at, updated_at
+                created_by, created_at, updated_at,
+                approved_signature_id, rejected_signature_id
             FROM amendments
             WHERE id = $1
             "#,

@@ -33,15 +33,22 @@ FROM georgjung/nginx-brotli:1.29.5-alpine
 # - libexpat: CVE-2026-32767 (2.7.4 -> 2.7.5)
 # - libpng: CVE-2026-33416, CVE-2026-33636 (1.6.55-r0 -> 1.6.56-r0)
 # - musl/musl-utils: CVE-2026-40200 (1.2.5-r21 -> 1.2.5-r23, stack-based buffer overflow)
+# - libcrypto3/libssl3: CVE-2026-31789 (CRITICAL, heap buffer overflow), CVE-2026-28387/28388/28389 (HIGH,
+#   DANE TLSA use-after-free + CMS/delta NULL deref DoS) — 3.5.5-r0 → 3.5.6-r0，同主版本 ABI 相容
 # 其他安全更新透過升級基底映像版號處理，見 docs/security.md。
-RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils && rm -rf /var/cache/apk/*
+RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
 # Server block（含 brotli on / brotli_static 等）- 作為模板使用
-COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+# 放在 /etc/nginx/templates/ 而非 conf.d/，避免 conf.d 掛成 tmpfs 後模板被遮蔽
+RUN mkdir -p /etc/nginx/templates
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 # 共用安全標頭 snippet（HSTS/CSP/X-Frame-Options 等），由 nginx.conf 多處 include
 COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
+# 容器啟動腳本（R27-1+R27-2：原 240+ 字 CMD 拆出，含 API_BACKEND_URL 非空驗證）
+# 合併 chown + chmod 至 COPY 一步，省 1 層；明確指定 nginx 為 owner（Gemini PR #217）
+COPY --chown=nginx:nginx --chmod=755 docker-entrypoint.sh /docker-entrypoint.sh
 
 # Copy build output from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -60,6 +67,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 EXPOSE 8080
 
-# 使用 envsubst 在運行時替換環境變數（如果配置被 volume mount 覆蓋則跳過），然後啟動 nginx
-# 使用 || true 確保即使 envsubst 失敗（例如因為 volume mount 是只讀的）也能繼續啟動
-CMD ["/bin/sh", "-c", "(envsubst '${API_BACKEND_URL}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf 2>/dev/null || true) && exec nginx -g 'daemon off;'"]
+# 啟動流程交給獨立腳本（見 docker-entrypoint.sh），方便維護 + 支援 fail-fast
+# 驗證 API_BACKEND_URL（R27-1+R27-2）。
+CMD ["/docker-entrypoint.sh"]

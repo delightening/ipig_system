@@ -4,8 +4,105 @@
 # 操作授權
 - 可以自行決定所有檔案讀寫操作，不需詢問
 - 允許使用 glob pattern 搜尋檔案（例如 **/*.py, src/**/*.ts）
-- 有疑問時自行決定最合理的做法，但須紀錄並撰寫 walkthrough.md
-- 只有在刪除重要檔案或呼叫外部付費 API 時才問我
+- **有疑問時依風險分流**（與 §「思考紀律」對齊）：
+  - **低風險 + 可逆**（檔名選擇、變數命名、helper 抽不抽、log 措辭）→ 自行決定 + 寫 walkthrough.md
+  - **高風險 / 不可逆 / 多解選錯成本高**（schema migration、API contract 改動、合規路徑、安全決策、跨模組架構選擇、新依賴）→ **停下，surface tradeoff，等使用者裁定**
+  - **任務語意不清**（「優化效能」「重構 X」缺成功標準）→ 停下，命名 unclear 點，要求 success criteria
+- **除上方高風險分流情境外**，只有在刪除重要檔案或呼叫外部付費 API 時才問我（避免與 L7-10 的「停下 ask」規則互相矛盾，造成 silent guess 空間）
+
+# 思考紀律（Karpathy-aligned，2026-04-26 新增）
+
+> 來源：[karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) 互補本專案既有規則。重點是**對抗 LLM 的 silent assumption / drive-by improvement / weak success criteria** 三大常見坑。
+
+## 1. Think Before Coding（思考優先於 coding）
+
+**不要默默猜，不要藏疑惑，要把 trade-off 攤開。**
+
+實作前自問：
+- **多個合理解釋？** 不要默默選一個 — 列出選項，標註各自代價，讓使用者裁定。
+- **任務有不清楚的地方？** 不要 silent guess — 命名「我不確定 X」並 ask。
+- **更簡單的方案存在？** 主動 push back — 即使使用者已給出方案。
+- **動到的範圍超出字面任務？** 攤開「為什麼順帶做」— 拒絕 silent scope creep。
+
+**對應「操作授權」§ 高風險分流**：兩條規則互相強化 — 高風險決策必走「停下 + surface tradeoff」。
+
+## 2. Surgical Changes（外科手術式變更）
+
+**動最少的東西。每一行變更都應 trace 回使用者請求。**
+
+- **Drive-by improvement 禁止**：注意到無關 dead code / typo / 風格不一致 → **mention 但不刪**（除非任務涵蓋）。
+- **Match existing style**：既有風格與你偏好不同時，**配合既有風格**。實例：本專案 amendment 模組 audit/error 訊息全為中文，新增程式碼**不孤立改 English**（即使 reviewer bot 建議）。
+- **Orphan 清理只清自己造成的**：你改的程式造成 import / variable 變成 unused → 刪。**既存的 dead code 不順手刪**。
+- **Test**：`git diff` 每一 hunk 都應該能對應到使用者請求中的某句話。如果有 hunk 對不到，刪掉它。
+
+## 3. Goal-Driven Execution（用 verifiable goal 取代 imperative task）
+
+**先定義「怎樣算成功」再寫 code。**
+
+| 任務類型 | workflow |
+|---|---|
+| **Bug fix** | 先寫 reproducing test → 確認紅 → 修 → 確認綠 |
+| **新功能** | 先寫 acceptance test（API contract / handler 整合測試）→ 紅 → 實作 → 綠 |
+| **Refactor** | 跑 baseline tests 記 green → refactor → 同 tests 仍 green |
+| **多步驟任務** | 開頭列「N 步 + 每步 verify 標準」，逐步推進 |
+
+**強 success criteria 才能讓 Claude 自主 loop**；弱 criteria（「make it work」）會反覆 ask。
+
+## Self-check checklist（commit 前自問）
+
+- [ ] 每一行變更都對應到使用者請求？（無 drive-by）
+- [ ] 有沒有更簡單方案被我跳過？（senior 看會說 overcomplicated 嗎？）
+- [ ] 多解擇一是否有 surface tradeoff？（還是 silent pick？）
+- [ ] 有 reproducing / acceptance test 證明任務完成？
+- [ ] 配合既有風格 / i18n 一致性？
+
+
+
+# 執行紀律（大型重構計畫期間）
+對應計畫檔：`C:/Users/admin/.claude/plans/plan-for-the-critical-validated-pebble.md`
+
+## 測試驗證標準（問題 1：依 PR 性質）
+- **PR 類別判斷**：
+  - **純 infra / models / services 層**（不改 handler）→ 最小 `cargo test --lib` 綠燈即可
+  - **動到 handlers / middleware / routes 層** → 必須 `cargo test --all-targets` 全綠（含整合測試，需本地啟動 Postgres：`docker compose -f docker-compose.test.yml up -d postgres`）
+  - **只動 CLAUDE.md / docs / migration SQL** → `cargo check` 綠燈即可，不需跑 test
+- **不確定時**：主動問使用者該 PR 屬哪類。
+
+## 停機規則
+- **跨 PR 邊界必停**：每個 PR 做完適用的測試命令綠燈 + `git commit` 後必須停下，不得自動 push、不得自動開下一個 PR、不得自動 merge。
+- **測試 / 編譯失敗必停**：`cargo check` / `cargo test` / clippy 任一紅燈立即停，回報問題，不得硬闖。
+- **pattern 驗證必停**（配合做法 β，問題 4）：
+  - PR #3 (Protocol Service-driven 示範) 完成後 **必停一次**，由使用者確認 pattern 可複製
+  - PR #4 animals + PR #5 hr/leave 可在**同 session 內合併做完再停**（因 pattern 已驗證）
+  - PR #6 起恢復「每 PR 一次停」節奏
+
+## 不可逆操作必經明確同意
+- `git push`、`git reset --hard`、`git force-push`
+- Migration 跑到 **staging / production** DB（**dev DB 自動 OK**：app 啟動自動跑 `sqlx::migrate!`，不需逐次問，問題 2）
+- Merge PR 到 main
+- 新增 / 移除 dependency（Cargo.toml / package.json）
+- 修改 `.env` / `secrets/`
+- 修改 CI 設定檔（`.github/workflows/*`）
+
+## Clippy 過關標準（問題 5）
+- **目前階段（PR #1 ~ R26-4 完成前）**：
+  ```
+  cargo clippy --all-targets -- -D warnings -A deprecated
+  ```
+  `-A deprecated` 用於容忍舊版 `AuditService::log_activity` 的過渡期警告（由 `#[deprecated]` 產生、預期出現在遷移中的 handler 呼叫點）。
+- **R26-4 完成後**（舊版 `log_activity` 移除）：恢復嚴格 `-D warnings`，不含 `-A deprecated`。
+- **新 PR 不得引入新的 deprecated 警告或其他 warning**（現有 91 處只減不增）。
+
+## Commit 粒度（問題 3：放寬）
+- **一般原則**：每個邏輯單元 + 其測試一次 commit。PR 內至少 3 個 commit、最多 15 個。
+- **INFRA 類 PR**（如 PR #1）：按元件切，例如：
+  - commit 1: migration + actor.rs (INFRA-1)
+  - commit 2: DataDiff + AuditRedact (INFRA-3)
+  - commit 3: AuditService::log_activity_tx (INFRA-2)
+  - commit 4: CancellationToken + main.rs + jwt_blacklist (INFRA-4 基礎)
+  - commit 5: scheduler.rs 各 job 接 token (INFRA-4 scheduler)
+- **Service-driven 模組重構 PR**（PR #3+）：每 service fn + 呼叫端 handler 調整 + audit + tests 算一個邏輯單元。
+- **避免**：單一 commit 改動 > 500 lines 或跨 > 3 個不相關模組。
 
 # 設計系統
 - 所有視覺和 UI 決策前，先讀 `DESIGN.md`。
@@ -347,9 +444,13 @@ lib/
 
 ## 10. 清理規則
 
-- 移除所有 `#[allow(dead_code)]`、`#[allow(unused)]` 及對應的 dead code。
-- 移除前端中被註解掉的程式碼區塊（超過 5 行的）。
-- 移除未使用的 npm/cargo 依賴。
+> **適用範圍**：僅限**當前任務涵蓋 / 受影響的程式碼**。與「思考紀律 §2 Surgical Changes」對齊 —
+> 任務無關的既存 dead code → **mention 但不刪**（除非任務本身就是清理 sprint）。
+
+- 移除**因本次任務而變成 unused** 的 `#[allow(dead_code)]`、`#[allow(unused)]` 及對應 dead code。
+- 移除**本次任務中被註解掉的**前端程式碼區塊（超過 5 行的）。
+- 移除**因本次任務而變成未使用**的 npm/cargo 依賴。
+- **任務無關的 dead code / 未用 import / 過時依賴** → 寫到 `docs/TODO.md` R27 backlog 或 PR description「Follow-up」段，不直接動。
 
 <!-- rtk-instructions v2 -->
 # RTK - Rust 指令前綴規則

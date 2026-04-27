@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>PathologyTab RWD Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; }
+  .controls { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+              padding: 16px 20px; margin-bottom: 20px;
+              display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .controls label { font-size: 13px; font-weight: 600; color: #475569; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn { padding: 5px 11px; border: 1px solid #cbd5e1; border-radius: 6px;
+                background: #f8fafc; font-size: 12px; cursor: pointer; color: #334155; }
+  .preset-btn:hover { background: #e0f2fe; border-color: #38bdf8; }
+  .preset-btn.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+  input[type=range] { width: 220px; accent-color: #0ea5e9; }
+  .width-display { font-size: 13px; font-weight: 700; color: #0ea5e9; min-width: 55px; }
+  .mode-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .mode-table { background: #dcfce7; color: #166534; }
+  .mode-card  { background: #fee2e2; color: #991b1b; }
+
+  .viewport-wrap { background: #fff; border: 2px solid #e2e8f0; border-radius: 10px;
+                   overflow: hidden; margin: 0 auto;
+                   container-type: inline-size; container-name: pt;
+                   transition: width .2s ease; }
+
+  .pt-table-wrap { overflow-x: auto; }
+  .pt-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 448px; }
+  .pt-table th, .pt-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+  .pt-table th { background: #f8fafc; font-size: 12px; font-weight: 600; color: #64748b; }
+  .pt-table tr:hover td { background: #f8fafc; }
+  .col-name { min-width: 150px; font-weight: 500; }
+  .col-size { width: 90px; }
+  .col-time { width: 160px; font-size: 12px; color: #64748b; }
+  .col-act  { width: 48px; text-align: right !important; }
+
+  @container pt (max-width: 599px) {
+    .pt-table-wrap { display: none; }
+    .card-list { display: flex; }
+  }
+  @container pt (min-width: 600px) {
+    .card-list { display: none; }
+  }
+
+  .icon-btn { width: 36px; height: 36px; border: 1px solid #cbd5e1; border-radius: 6px;
+              background: #fff; cursor: pointer; font-size: 14px; color: #334155; }
+  .icon-btn:hover { background: #f1f5f9; }
+
+  .card-list { flex-direction: column; gap: 10px; padding: 12px; }
+  .pt-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #fff; }
+  .card-name { display: flex; align-items: center; gap: 6px;
+               font-size: 13px; font-weight: 500; color: #334155; margin-bottom: 6px; word-break: break-all; }
+  .card-meta { font-size: 12px; color: #64748b; margin-bottom: 8px; }
+  .card-action { display: flex; justify-content: flex-end; padding-top: 6px; border-top: 1px solid #f1f5f9; }
+</style>
+</head>
+<body>
+
+<h2 style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">
+  PathologyTab — RWD Preview
+</h2>
+
+<div class="controls">
+  <div>
+    <label>寬度預設</label>
+    <div class="presets" style="margin-top:6px;">
+      <button class="preset-btn" data-w="375">375px</button>
+      <button class="preset-btn" data-w="600">600px</button>
+      <button class="preset-btn active" data-w="768">768px</button>
+      <button class="preset-btn" data-w="1024">1024px</button>
+      <button class="preset-btn" data-w="1280">1280px</button>
+    </div>
+  </div>
+  <div>
+    <label>拖拉</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+      <input type="range" id="slider" min="300" max="1280" value="768">
+      <span class="width-display" id="wDisplay">768px</span>
+    </div>
+  </div>
+  <span class="mode-badge mode-table" id="modeBadge" style="margin-top:auto;">表格</span>
+</div>
+
+<div class="viewport-wrap" id="viewport" style="width:768px;">
+
+  <div class="pt-table-wrap">
+    <table class="pt-table">
+      <thead>
+        <tr>
+          <th class="col-name">檔案名稱 ↕</th>
+          <th class="col-size">檔案大小 ↕</th>
+          <th class="col-time">上傳時間 ↕</th>
+          <th class="col-act" style="text-align:right">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name">📄 病理組織切片-001.pdf</td>
+          <td class="col-size">256.48 KB</td>
+          <td class="col-time">2025/12/15 14:30</td>
+          <td class="col-act" style="text-align:right"><button class="icon-btn" title="下載">⬇</button></td>
+        </tr>
+        <tr>
+          <td class="col-name">📄 HE染色-心臟.jpg</td>
+          <td class="col-size">1,024.30 KB</td>
+          <td class="col-time">2025/12/14 09:15</td>
+          <td class="col-act" style="text-align:right"><button class="icon-btn" title="下載">⬇</button></td>
+        </tr>
+        <tr>
+          <td class="col-name">📄 組織病理報告-final.docx</td>
+          <td class="col-size">128.00 KB</td>
+          <td class="col-time">2025/11/28 16:42</td>
+          <td class="col-act" style="text-align:right"><button class="icon-btn" title="下載">⬇</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-list">
+    <div class="pt-card">
+      <div class="card-name">📄 病理組織切片-001.pdf</div>
+      <div class="card-meta">2025/12/15 14:30 · 256.48 KB</div>
+      <div class="card-action"><button class="icon-btn">⬇</button></div>
+    </div>
+    <div class="pt-card">
+      <div class="card-name">📄 HE染色-心臟.jpg</div>
+      <div class="card-meta">2025/12/14 09:15 · 1,024.30 KB</div>
+      <div class="card-action"><button class="icon-btn">⬇</button></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const viewport = document.getElementById('viewport');
+  const slider = document.getElementById('slider');
+  const wDisplay = document.getElementById('wDisplay');
+  const modeBadge = document.getElementById('modeBadge');
+  function setWidth(w) {
+    const clamped = Math.min(w, window.innerWidth - 48);
+    viewport.style.width = clamped + 'px';
+    slider.value = clamped; wDisplay.textContent = clamped + 'px';
+    if (clamped < 600) { modeBadge.className = 'mode-badge mode-card'; modeBadge.textContent = '手機 Card'; }
+    else { modeBadge.className = 'mode-badge mode-table'; modeBadge.textContent = '表格'; }
+    document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.toggle('active', parseInt(btn.dataset.w) === w));
+  }
+  slider.addEventListener('input', () => setWidth(parseInt(slider.value)));
+  document.querySelectorAll('.preset-btn').forEach(btn => btn.addEventListener('click', () => setWidth(parseInt(btn.dataset.w))));
+  setWidth(768);
+</script>
+</body>
+</html>

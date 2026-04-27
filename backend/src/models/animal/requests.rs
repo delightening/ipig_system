@@ -541,6 +541,8 @@ pub struct BloodTestPanel {
     pub updated_at: DateTime<Utc>,
 }
 
+impl crate::models::audit_diff::AuditRedact for BloodTestPanel {}
+
 /// 組合含模板項目（API 回應用）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BloodTestPanelWithItems {
@@ -594,6 +596,8 @@ pub struct BloodTestPreset {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+impl crate::models::audit_diff::AuditRedact for BloodTestPreset {}
 
 /// 建立常用組合請求
 #[derive(Debug, Deserialize, Validate)]
@@ -825,22 +829,6 @@ pub struct RecordAnnotation {
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub signature_id: Option<Uuid>,
-}
-
-/// 建立附註請求
-#[derive(Debug, Deserialize, Validate)]
-pub struct CreateAnnotationRequest {
-    #[validate(length(min = 1, message = "內容為必填"))]
-    pub content: String,
-    pub annotation_type: String, // NOTE, CORRECTION, ADDENDUM
-}
-
-/// 簽章請求
-#[derive(Debug, Deserialize, Validate)]
-pub struct SignRequest {
-    #[validate(length(min = 1, message = "密碼為必填"))]
-    pub password: String,
-    pub signature_type: String, // APPROVE, CONFIRM, WITNESS
 }
 
 /// 帶變更原因的更新動物請求

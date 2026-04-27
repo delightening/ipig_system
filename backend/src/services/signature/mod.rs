@@ -58,21 +58,6 @@ pub struct ElectronicSignature {
     pub signature_method: Option<String>,
 }
 
-/// 簽章請求
-#[derive(Debug, Deserialize)]
-pub struct SignRequest {
-    pub password: String,
-    pub signature_type: String,
-}
-
-/// 簽章回應
-#[derive(Debug, Serialize)]
-pub struct SignResponse {
-    pub signature_id: Uuid,
-    pub signed_at: DateTime<Utc>,
-    pub content_hash: String,
-}
-
 /// 簽章驗證結果
 #[derive(Debug, Serialize)]
 pub struct VerifyResult {
@@ -378,22 +363,23 @@ impl SignatureService {
         Ok(())
     }
 
-    /// 鎖定記錄（記錄 ID 為 UUID，用於 animal_sacrifices）
+    /// 鎖定記錄（記錄 ID 為 UUID）
+    ///
+    /// C1 (GLP)：簽章後呼叫此函式，將記錄鎖定。後續 service 層的 update/delete 會被
+    /// `ensure_not_locked_uuid` 攔下回 409 Conflict。
+    /// 支援表（migration 038 已補欄位）：
+    /// - sacrifice → animal_sacrifices
+    /// - observation → animal_observations
+    /// - surgery → animal_surgeries
+    /// - blood_test → animal_blood_tests
+    /// - care_medication → care_medication_records
     pub async fn lock_record_uuid(
         pool: &PgPool,
         record_type: &str,
         record_id: Uuid,
         locked_by: Uuid,
     ) -> Result<()> {
-        let table_name = match record_type {
-            "sacrifice" => "animal_sacrifices",
-            _ => {
-                return Err(AppError::Validation(format!(
-                    "不支援的記錄類型 (UUID): {}",
-                    record_type
-                )))
-            }
-        };
+        let table_name = Self::lockable_table_uuid(record_type)?;
 
         let query = format!(
             "UPDATE {} SET is_locked = true, locked_at = NOW(), locked_by = $2 WHERE id = $1",
@@ -407,6 +393,21 @@ impl SignatureService {
             .await?;
 
         Ok(())
+    }
+
+    /// 內部：把 record_type 對應到合法的 lockable table（UUID PK）
+    fn lockable_table_uuid(record_type: &str) -> Result<&'static str> {
+        match record_type {
+            "sacrifice" => Ok("animal_sacrifices"),
+            "observation" => Ok("animal_observations"),
+            "surgery" => Ok("animal_surgeries"),
+            "blood_test" => Ok("animal_blood_tests"),
+            "care_medication" => Ok("care_medication_records"),
+            _ => Err(AppError::Validation(format!(
+                "不支援的記錄類型 (UUID): {}",
+                record_type
+            ))),
+        }
     }
 
     /// 檢查記錄是否已鎖定（記錄 ID 為 i32）
@@ -437,17 +438,9 @@ impl SignatureService {
         Ok(is_locked)
     }
 
-    /// 檢查記錄是否已鎖定（記錄 ID 為 UUID，用於 animal_sacrifices）
+    /// 檢查記錄是否已鎖定（記錄 ID 為 UUID）。支援表同 `lock_record_uuid`。
     pub async fn is_locked_uuid(pool: &PgPool, record_type: &str, record_id: Uuid) -> Result<bool> {
-        let table_name = match record_type {
-            "sacrifice" => "animal_sacrifices",
-            _ => {
-                return Err(AppError::Validation(format!(
-                    "不支援的記錄類型 (UUID): {}",
-                    record_type
-                )))
-            }
-        };
+        let table_name = Self::lockable_table_uuid(record_type)?;
 
         let query = format!(
             "SELECT COALESCE(is_locked, false) FROM {} WHERE id = $1",
@@ -461,6 +454,47 @@ impl SignatureService {
             .unwrap_or(false);
 
         Ok(is_locked)
+    }
+
+    /// C1 guard：若記錄已鎖定，回 409 Conflict 拒絕 update/delete。
+    /// service 層 update / soft_delete 入口（tx 開始前）呼叫此函式做 fail-fast。
+    /// 同 tx 內仍應再以 `ensure_not_locked_uuid_tx` 做 atomic check（避免 check-then-act race）。
+    pub async fn ensure_not_locked_uuid(
+        pool: &PgPool,
+        record_type: &str,
+        record_id: Uuid,
+    ) -> Result<()> {
+        if Self::is_locked_uuid(pool, record_type, record_id).await? {
+            return Err(AppError::Conflict(format!(
+                "記錄已鎖定（已簽章），不可修改或刪除（{record_type}）"
+            )));
+        }
+        Ok(())
+    }
+
+    /// C1 atomic guard：在 transaction 內檢查鎖定狀態，避免 check-then-act race。
+    /// 用於 service 層 update/delete 內，tx.begin() 之後 UPDATE 之前。
+    pub async fn ensure_not_locked_uuid_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        record_type: &str,
+        record_id: Uuid,
+    ) -> Result<()> {
+        let table_name = Self::lockable_table_uuid(record_type)?;
+        let query = format!(
+            "SELECT COALESCE(is_locked, false) FROM {} WHERE id = $1 FOR UPDATE",
+            table_name
+        );
+        let is_locked: bool = sqlx::query_scalar(&query)
+            .bind(record_id)
+            .fetch_optional(&mut **tx)
+            .await?
+            .unwrap_or(false);
+        if is_locked {
+            return Err(AppError::Conflict(format!(
+                "記錄已鎖定（已簽章），不可修改或刪除（{record_type}）"
+            )));
+        }
+        Ok(())
     }
 
     /// 解析簽章類型字串，預設使用指定的 default

@@ -55,3 +55,19 @@ backend/test_output.txt
 
 # R17-1: CI 日誌檔可能含明文測試密碼，不應追蹤
 logs_*/
+
+# 根目錄 templates/ 放 Word 原稿等設計素材，不追蹤
+# （注意：leading `/` 僅匹配 repo 根目錄，不影響 backend/resources/templates/）
+/templates/
+
+# Claude Code 本地設定 / 排程鎖
+.claude/scheduled_tasks.lock
+.claude/settings.json
+
+# 暫存 API 輸出
+/tmp_api*.txt
+frontend/tmp-tw-test/
+
+# 個人筆記 / 原稿素材（不追蹤）
+/925purchase.md
+/*.pdf

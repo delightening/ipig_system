@@ -93,127 +93,16 @@ pub async fn auth_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response> {
-    // 嘗試從多個來源取得 token（優先順序：Bearer Header > Cookie）
+    // 嘗試從多個來源取得 token（優先順序：Bearer Header > Cookie）。
     // Bearer 優先可避免 Cookie 殘留覆蓋正確的 Authorization header，
-    // 同時降低 Cookie 注入攻擊風險
+    // 同時降低 Cookie 注入攻擊風險。
     let token = extract_token_from_bearer(&request)
         .or_else(|| extract_token_from_cookie(&request))
         .ok_or(AppError::Unauthorized)?;
 
-    // H3: 明確指定演算法並驗證 audience/issuer，防止跨環境 token 重放
-    // SEC-UPG: 使用 ES256（ECDSA P-256）取代 HS256，防止對稱金鑰暴力破解
-    let mut validation = Validation::new(Algorithm::ES256);
-    validation.set_audience(&["ipig-system"]);
-    validation.set_issuer(&["ipig-backend"]);
-    let token_data = decode::<Claims>(
-        &token,
-        &state.config.jwt_keys.decoding,
-        &validation,
-    )
-    .map_err(|_| AppError::Unauthorized)?;
-
-    // SEC-23: 檢查 JWT 是否已被撤銷（黑名單）
-    if !token_data.claims.jti.is_empty() && state.jwt_blacklist.is_revoked(&token_data.claims.jti) {
-        tracing::warn!(
-            "[Auth] JWT jti={} 已被撤銷，拒絕存取",
-            token_data.claims.jti
-        );
-        return Err(AppError::Unauthorized);
-    }
-
-    let claims = token_data.claims;
-
-    // BIZ-16: 每請求驗證帳號狀態（is_active + expires_at）
-    // 使用與 permission_cache 相同的 TTL 快取策略，避免每請求打 DB。
-    // 場景：管理員停用帳號或帳號到期後，該使用者的 JWT 在 TTL 內被拒絕存取。
-    // 最壞情況延遲 = PERMISSION_CACHE_TTL_SECS（5 分鐘），可接受。
-    {
-        let cache_ttl = std::time::Duration::from_secs(crate::constants::PERMISSION_CACHE_TTL_SECS);
-        let user_id = claims.sub;
-
-        // 使用快取中的 last-check 時間戳判斷是否需要重新查詢
-        let needs_status_check = state.permission_cache.get(&user_id)
-            .map(|entry| entry.1.elapsed() >= cache_ttl)
-            .unwrap_or(true); // 快取未命中 = 需要查詢
-
-        if needs_status_check {
-            let status: Option<(bool, Option<chrono::DateTime<chrono::Utc>>)> = sqlx::query_as(
-                "SELECT is_active, expires_at FROM users WHERE id = $1",
-            )
-            .bind(user_id)
-            .fetch_optional(&state.db)
-            .await
-            .map_err(|e| {
-                tracing::error!("[Auth] 無法查詢使用者 {} 狀態: {}", user_id, e);
-                AppError::Internal("無法驗證使用者狀態".to_string())
-            })?;
-
-            match status {
-                Some((is_active, expires_at)) => {
-                    if !is_active {
-                        tracing::warn!("[Auth] 使用者 {} 帳號已停用，拒絕存取", user_id);
-                        return Err(AppError::Unauthorized);
-                    }
-                    if let Some(exp) = expires_at {
-                        if exp < chrono::Utc::now() {
-                            tracing::warn!("[Auth] 使用者 {} 帳號已過期，拒絕存取", user_id);
-                            return Err(AppError::Unauthorized);
-                        }
-                    }
-                }
-                None => {
-                    tracing::warn!("[Auth] 使用者 {} 不存在，拒絕存取", user_id);
-                    return Err(AppError::Unauthorized);
-                }
-            }
-        }
-    }
-
-    // JWT 中省略 permissions 以符合 4096 bytes cookie 限制。
-    // 非 admin 使用者從資料庫動態載入，admin 的 has_permission() 直接回傳 true 不需載入。
-    // CRIT-03: 先查記憶體快取（TTL 5 分鐘），miss 時才打 DB，減少每請求的 4-table JOIN。
-    let is_admin = claims.roles.iter().any(|r| {
-        r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY
-    });
-    let permissions = if !is_admin {
-        let cache_ttl = std::time::Duration::from_secs(crate::constants::PERMISSION_CACHE_TTL_SECS);
-        let user_id = claims.sub;
-
-        // 嘗試從快取取得有效的權限
-        let cached = state.permission_cache.get(&user_id).and_then(|entry| {
-            let (ref perms, cached_at) = *entry;
-            if cached_at.elapsed() < cache_ttl {
-                Some(perms.clone())
-            } else {
-                None
-            }
-        });
-
-        if let Some(perms) = cached {
-            perms
-        } else {
-            // 快取未命中或已過期：查詢 DB
-            let fresh = sqlx::query_scalar::<_, String>(
-                r#"SELECT DISTINCT p.code FROM permissions p
-                   INNER JOIN role_permissions rp ON p.id = rp.permission_id
-                   INNER JOIN user_roles ur ON rp.role_id = ur.role_id
-                   INNER JOIN roles r ON r.id = ur.role_id
-                   WHERE ur.user_id = $1 AND r.is_active = true"#,
-            )
-            .bind(user_id)
-            .fetch_all(&state.db)
-            .await
-            .map_err(|e| {
-                tracing::error!("[Auth] 無法載入使用者 {} 的權限: {}", user_id, e);
-                AppError::Internal("無法載入使用者權限".to_string())
-            })?;
-
-            state.permission_cache.insert(user_id, (fresh.clone(), std::time::Instant::now()));
-            fresh
-        }
-    } else {
-        vec![]
-    };
+    // R27-3：拆 validate_jwt 與 load_permissions 兩段，控制 auth_middleware 行數。
+    let claims = validate_jwt(&state, &token)?;
+    let permissions = load_permissions(&state, &claims).await?;
 
     let current_user = CurrentUser {
         id: claims.sub,
@@ -226,8 +115,134 @@ pub async fn auth_middleware(
     };
 
     request.extensions_mut().insert(current_user);
-
     Ok(next.run(request).await)
+}
+
+/// 解碼並驗證 JWT — H3 演算法 / audience / issuer + SEC-23 黑名單。
+fn validate_jwt(state: &AppState, token: &str) -> Result<Claims> {
+    // H3: 明確指定演算法並驗證 audience/issuer，防止跨環境 token 重放。
+    // SEC-UPG: 使用 ES256（ECDSA P-256）取代 HS256，防止對稱金鑰暴力破解。
+    let mut validation = Validation::new(Algorithm::ES256);
+    validation.set_audience(&["ipig-system"]);
+    validation.set_issuer(&["ipig-backend"]);
+    let token_data = decode::<Claims>(token, &state.config.jwt_keys.decoding, &validation)
+        .map_err(|_| AppError::Unauthorized)?;
+
+    // SEC-23: JWT 黑名單撤銷檢查。
+    if !token_data.claims.jti.is_empty()
+        && state.jwt_blacklist.is_revoked(&token_data.claims.jti)
+    {
+        tracing::warn!(
+            "[Auth] JWT jti={} 已被撤銷，拒絕存取",
+            token_data.claims.jti
+        );
+        return Err(AppError::Unauthorized);
+    }
+    Ok(token_data.claims)
+}
+
+/// 載入使用者權限 + 驗證帳號狀態。
+///
+/// 行為（Gemini PR #218 High 採納）：
+/// - **所有使用者**（包括 admin）皆走 `try_get_with` single-flight + 真實
+///   載入 perms（4-table JOIN），確保 cache value 對所有 user_id 語意一致。
+/// - 4-table JOIN 對 admin 是「無用 perms」但僅 cache miss 才跑（5min 一次），
+///   微小 cost；換得「cache 內容真實」的防禦性深度（未來改 has_permission
+///   行為時 cache 內容仍可信）。
+/// - 角色變更時 cache 失效由 handlers/{user,role}.rs 的 invalidate 處理。
+///
+/// H2：moka try_get_with single-flight，cache miss 時並發請求共享同一個 loader
+/// future，避免 4-table JOIN stampede。loader 失敗（status 拒絕 / DB 錯誤）
+/// 不會被快取，下次請求重試。
+///
+/// R27-5（Gemini PR #219 採納）：cache.get() 先試命中，避免每請求 alloc
+/// `Arc<AtomicBool>`；單一 counter + label `result="hit|miss"` 符合
+/// Prometheus best practice。Race（兩並發 get 都 None → 都 try_get_with）
+/// 不影響 single-flight 正確性，僅 metrics 微誤差，可接受。
+async fn load_permissions(state: &AppState, claims: &Claims) -> Result<Vec<String>> {
+    let user_id = claims.sub;
+
+    // Hit path：fast return，省 try_get_with 的 alloc
+    if let Some(perms) = state.permission_cache.get(&user_id).await {
+        metrics::counter!(
+            "ipig_permission_cache_requests_total",
+            "result" => "hit",
+        )
+        .increment(1);
+        return Ok(perms);
+    }
+
+    // Miss path：走 try_get_with single-flight loader
+    let db = state.db.clone();
+    let result = state
+        .permission_cache
+        .try_get_with::<_, AppError>(user_id, async move {
+            check_user_active_status(&db, user_id).await?;
+            crate::repositories::user::list_permission_codes_by_user(&db, user_id).await
+        })
+        .await
+        .map_err(map_cache_loader_error);
+
+    metrics::counter!(
+        "ipig_permission_cache_requests_total",
+        "result" => "miss",
+    )
+    .increment(1);
+    result
+}
+
+/// CodeRabbit review #210：保留 loader 原始 AppError variant，
+/// 避免 Forbidden/NotFound 等被吞成 500。
+fn map_cache_loader_error(arc_err: std::sync::Arc<AppError>) -> AppError {
+    match std::sync::Arc::try_unwrap(arc_err) {
+        Ok(e) => e,
+        Err(arc) => match &*arc {
+            AppError::Unauthorized => AppError::Unauthorized,
+            AppError::InvalidCredentials(m) => AppError::InvalidCredentials(m.clone()),
+            AppError::Forbidden(m) => AppError::Forbidden(m.clone()),
+            AppError::NotFound(m) => AppError::NotFound(m.clone()),
+            AppError::Validation(m) => AppError::Validation(m.clone()),
+            AppError::BadRequest(m) => AppError::BadRequest(m.clone()),
+            AppError::Conflict(m) => AppError::Conflict(m.clone()),
+            AppError::BusinessRule(m) => AppError::BusinessRule(m.clone()),
+            AppError::TooManyRequests(m) => AppError::TooManyRequests(m.clone()),
+            AppError::Internal(m) => AppError::Internal(m.clone()),
+            e => AppError::Internal(format!("permission cache loader: {e}")),
+        },
+    }
+}
+
+/// BIZ-16 helper：檢查 user 是否仍 active 且未過期，否則回 Unauthorized。
+///
+/// R27-4：SQL 已下放至 `repositories::user::find_user_active_status_by_id`；
+/// 本函式僅做業務判斷（拒停用 / 拒過期 / 拒不存在）。
+async fn check_user_active_status(pool: &sqlx::PgPool, user_id: Uuid) -> Result<()> {
+    let row = crate::repositories::user::find_user_active_status_by_id(pool, user_id)
+        .await
+        .map_err(|e| {
+            tracing::error!("[Auth] 無法查詢使用者 {} 狀態: {}", user_id, e);
+            AppError::Internal("無法驗證使用者狀態".to_string())
+        })?;
+
+    match row {
+        Some((is_active, expires_at)) => {
+            if !is_active {
+                tracing::warn!("[Auth] 使用者 {} 帳號已停用，拒絕存取", user_id);
+                return Err(AppError::Unauthorized);
+            }
+            if let Some(exp) = expires_at {
+                if exp < chrono::Utc::now() {
+                    tracing::warn!("[Auth] 使用者 {} 帳號已過期，拒絕存取", user_id);
+                    return Err(AppError::Unauthorized);
+                }
+            }
+            Ok(())
+        }
+        None => {
+            tracing::warn!("[Auth] 使用者 {} 不存在，拒絕存取", user_id);
+            Err(AppError::Unauthorized)
+        }
+    }
 }
 
 /// 從 Cookie header 提取 access_token

@@ -20,7 +20,7 @@ interface AuditLogDetailDialogProps {
 export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetailDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-5xl w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Eye className="h-5 w-5" />
@@ -83,7 +83,7 @@ export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetail
             {log.before_data && (
               <div>
                 <Label className="text-muted-foreground">變更前資料</Label>
-                <pre className="mt-1 p-3 bg-status-error-bg dark:bg-destructive/10 border border-destructive/20 dark:border-destructive/30 rounded-md text-sm overflow-x-auto">
+                <pre className="mt-1 p-3 bg-status-error-bg dark:bg-destructive/10 border border-destructive/20 dark:border-destructive/30 rounded-md text-sm whitespace-pre-wrap break-all">
                   {JSON.stringify(log.before_data, null, 2)}
                 </pre>
               </div>
@@ -92,7 +92,7 @@ export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetail
             {log.after_data && (
               <div>
                 <Label className="text-muted-foreground">變更後資料</Label>
-                <pre className="mt-1 p-3 bg-status-success-bg dark:bg-status-success-text/10 border border-status-success-text/20 dark:border-status-success-text/30 rounded-md text-sm overflow-x-auto">
+                <pre className="mt-1 p-3 bg-status-success-bg dark:bg-status-success-text/10 border border-status-success-text/20 dark:border-status-success-text/30 rounded-md text-sm whitespace-pre-wrap break-all">
                   {JSON.stringify(log.after_data, null, 2)}
                 </pre>
               </div>

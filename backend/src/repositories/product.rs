@@ -188,8 +188,36 @@ pub async fn update_product(
     sku: Option<&str>,
     req: &UpdateProductRequest,
 ) -> Result<Option<Product>> {
-    let product = sqlx::query_as::<_, Product>(UPDATE_PRODUCT_SQL)
-        .bind(sku)
+    let product = bind_update_product(sqlx::query_as::<_, Product>(UPDATE_PRODUCT_SQL), id, sku, req)
+        .fetch_optional(pool)
+        .await?;
+    Ok(product)
+}
+
+/// Tx 版本：與 `update_product` 共用相同 SQL / 綁定邏輯，但接 `&mut Transaction`，
+/// 讓 Service 能與後續的 `sync_uom_conversions_tx` + `log_activity_tx` 在同一 tx 內原子落地。
+/// 由 PR #164 Gemini review 指出：原 Service 直接用 `update_product(pool, ...)` 會在
+/// audit 失敗時產生資料不一致（product 已 commit，uom/audit rollback）。
+pub async fn update_product_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    id: Uuid,
+    sku: Option<&str>,
+    req: &UpdateProductRequest,
+) -> Result<Option<Product>> {
+    let product = bind_update_product(sqlx::query_as::<_, Product>(UPDATE_PRODUCT_SQL), id, sku, req)
+        .fetch_optional(&mut **tx)
+        .await?;
+    Ok(product)
+}
+
+/// 共用綁定輔助：避免 pool / tx 版本在參數綁定上重複。
+fn bind_update_product<'a>(
+    q: sqlx::query::QueryAs<'a, sqlx::Postgres, Product, sqlx::postgres::PgArguments>,
+    id: Uuid,
+    sku: Option<&'a str>,
+    req: &'a UpdateProductRequest,
+) -> sqlx::query::QueryAs<'a, sqlx::Postgres, Product, sqlx::postgres::PgArguments> {
+    q.bind(sku)
         .bind(&req.name)
         .bind(&req.spec)
         .bind(&req.category_code)
@@ -212,9 +240,6 @@ pub async fn update_product(
         .bind(&req.remark)
         .bind(req.is_active)
         .bind(id)
-        .fetch_optional(pool)
-        .await?;
-    Ok(product)
 }
 
 const UPDATE_PRODUCT_SQL: &str = r#"

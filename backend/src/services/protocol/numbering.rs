@@ -1,8 +1,28 @@
 use chrono::Utc;
-use sqlx::PgPool;
+use sqlx::{Postgres, Transaction};
 
 use super::ProtocolService;
 use crate::{AppError, Result};
+
+/// 所有 protocol 編號產生函式共用的 advisory lock key。
+///
+/// 三個 generator（`generate_apig_no` / `generate_iacuc_no` /
+/// `generate_apig_nos_batch`）**共用同一個 lock**，因 APIG 與 PIG 編號的
+/// 流水號空間彼此交疊（APIG-115001 approved 後會變成 PIG-115001），避免
+/// 不同 generator 在同一 tx 之外併發時互相讀到過時的 max_seq。
+///
+/// 搭配 `pg_advisory_xact_lock`：tx commit/rollback 時自動釋放，不會卡死。
+const IACUC_LOCK_KEY: &str = "protocol_iacuc_number_gen";
+
+/// 於 transaction 內取得 protocol-numbering advisory lock。
+/// 並發執行時後到的 tx 會在此阻塞，直到先到的 tx 結束。
+async fn acquire_numbering_lock(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+        .bind(IACUC_LOCK_KEY)
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
+}
 
 /// 從編號字串解析流水號。
 /// 例如：`parse_no_sequence("APIG-115003", "APIG-115")` → `Some(3)`
@@ -20,64 +40,73 @@ pub(super) fn format_protocol_no(prefix: &str, seq: i32) -> String {
 }
 
 impl ProtocolService {
-    /// 生成 APIG 編號
-    /// 格式：APIG-{ROC}{03}
-    /// {ROC} 為民國年（西元年 - 1911）
-    /// {03} 為流水號（3位數，補零）
+    /// Pool-based wrapper：在獨立 mini-tx 內呼叫 `generate_apig_no`。
     ///
-    /// 注意：需要避免重複使用已經轉換為 PIG 的編號
-    /// 例如：如果 APIG-115001 已經變成 PIG-115001，則流水號 001 不應再被使用
-    pub(super) async fn generate_apig_no(pool: &PgPool) -> Result<String> {
+    /// **注意**：這是 **partial** race protection。advisory lock 序列化 gen 階段，
+    /// 但 gen commit 後到呼叫者執行 UPDATE 前仍有短暫視窗。完整 race 修復需要
+    /// 呼叫者本身是 transaction-aware（見 R26-7 `change_status` 完整重構）。
+    /// `submit()` 已是 tx-aware 不走此 wrapper。
+    pub(super) async fn generate_apig_no_pool(pool: &sqlx::PgPool) -> Result<String> {
+        let mut tx = pool.begin().await?;
+        let no = Self::generate_apig_no(&mut tx).await?;
+        tx.commit().await?;
+        Ok(no)
+    }
+
+    /// Pool-based wrapper for `generate_apig_nos_batch`。
+    pub(super) async fn generate_apig_nos_batch_pool(
+        pool: &sqlx::PgPool,
+        count: usize,
+    ) -> Result<Vec<String>> {
+        let mut tx = pool.begin().await?;
+        let nos = Self::generate_apig_nos_batch(&mut tx, count).await?;
+        tx.commit().await?;
+        Ok(nos)
+    }
+
+    /// 生成 APIG 編號（`APIG-{ROC}{03}`，ROC = 西元年 - 1911）。
+    ///
+    /// 需 transaction 參數以支援 advisory lock —— lock 讓兩個同時核准計畫
+    /// 的 request 序列化執行，避免 `max + 1` read-modify-write 產生重複
+    /// 編號（對應 CRIT-01）。
+    ///
+    /// 注意：查詢時**同時考慮 APIG-* 與 PIG-*** 的流水號，避免重複使用
+    /// 已經轉換為 PIG 的編號（例如 APIG-115001 approved 後成為 PIG-115001，
+    /// 流水號 001 就不應再被新的 APIG 使用）。
+    pub(super) async fn generate_apig_no(
+        tx: &mut Transaction<'_, Postgres>,
+    ) -> Result<String> {
+        acquire_numbering_lock(tx).await?;
+
         let now = Utc::now();
         use chrono::Datelike;
-        let year = now.year();
-        // 民國年 = 西元年 - 1911
-        let roc_year = year - 1911;
+        let roc_year = now.year() - 1911;
 
-        // 查詢該民國年的所有 APIG 編號
-        // 格式：APIG-{ROC年}{3位數流水號}，例如：APIG-114001, APIG-115001
         let apig_prefix = format!("APIG-{}", roc_year);
         let apig_nos: Vec<String> = sqlx::query_scalar(
             "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL",
         )
         .bind(format!("{}%", apig_prefix))
-        .fetch_all(pool)
+        .fetch_all(&mut **tx)
         .await?;
 
-        // 查詢該民國年的所有 PIG 編號（因為 PIG 編號可能曾經是 APIG 編號）
-        // 格式：PIG-{ROC年}{3位數流水號}，例如：PIG-115001
-        // 這些流水號不應再被用於新的 APIG 編號
         let iacuc_prefix = format!("PIG-{}", roc_year);
         let iacuc_nos: Vec<String> = sqlx::query_scalar(
             "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL",
         )
         .bind(format!("{}%", iacuc_prefix))
-        .fetch_all(pool)
+        .fetch_all(&mut **tx)
         .await?;
 
-        // 解析 APIG 編號的流水號
-        let apig_seqs: Vec<i32> = apig_nos
+        // 合併 APIG + PIG 的流水號找最大值
+        let max_seq = apig_nos
             .iter()
             .filter_map(|no| parse_no_sequence(no, &apig_prefix))
-            .collect();
+            .chain(iacuc_nos.iter().filter_map(|no| parse_no_sequence(no, &iacuc_prefix)))
+            .max();
 
-        // 解析 PIG 編號的流水號（這些流水號曾經是 APIG 編號，不應重複使用）
-        let iacuc_seqs: Vec<i32> = iacuc_nos
-            .iter()
-            .filter_map(|no| parse_no_sequence(no, &iacuc_prefix))
-            .collect();
-
-        // 合併所有已使用的流水號（包括當前的 APIG 和曾經是 APIG 的 PIG）
-        let mut all_used_seqs: Vec<i32> = apig_seqs;
-        all_used_seqs.extend(iacuc_seqs);
-
-        // 找出最大值
-        let max_seq = all_used_seqs.iter().max().copied();
-
-        // 下一個流水號（從1開始，如果沒有現有編號）
         let seq = max_seq.map(|s| s + 1).unwrap_or(1);
 
-        // 確保流水號不超過999
         if seq > 999 {
             return Err(AppError::Internal(
                 "APIG 編號流水號已達上限（999），無法生成新編號".to_string(),
@@ -87,11 +116,20 @@ impl ProtocolService {
         Ok(format_protocol_no(&apig_prefix, seq))
     }
 
-    /// 批量生成 N 個 APIG 編號（一次 DB 查詢，避免 N+1）
-    pub(super) async fn generate_apig_nos_batch(pool: &PgPool, count: usize) -> Result<Vec<String>> {
+    /// 批量生成 N 個 APIG 編號（單一 tx + 單次 lock）。
+    ///
+    /// 注意：批量場景已序列化成 tx 內操作，之前的 `tokio::try_join!` 不適用
+    /// （單一 `&mut Transaction` 不可同時被兩個 future 借用），改為循序等候
+    /// 兩個 SELECT。效能影響極小（批量核准很罕見）。
+    pub(super) async fn generate_apig_nos_batch(
+        tx: &mut Transaction<'_, Postgres>,
+        count: usize,
+    ) -> Result<Vec<String>> {
         if count == 0 {
             return Ok(Vec::new());
         }
+
+        acquire_numbering_lock(tx).await?;
 
         let now = Utc::now();
         use chrono::Datelike;
@@ -100,19 +138,19 @@ impl ProtocolService {
         let apig_prefix = format!("APIG-{}", roc_year);
         let iacuc_prefix = format!("PIG-{}", roc_year);
 
-        // 一次查詢取得所有已使用的流水號
-        let (apig_nos, iacuc_nos) = tokio::try_join!(
-            sqlx::query_scalar::<_, String>(
-                "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
-            )
-            .bind(format!("{}%", apig_prefix))
-            .fetch_all(pool),
-            sqlx::query_scalar::<_, String>(
-                "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
-            )
-            .bind(format!("{}%", iacuc_prefix))
-            .fetch_all(pool),
-        )?;
+        // 序列化執行（tx 不可被兩個 future 同時借用）
+        let apig_nos: Vec<String> = sqlx::query_scalar(
+            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL",
+        )
+        .bind(format!("{}%", apig_prefix))
+        .fetch_all(&mut **tx)
+        .await?;
+        let iacuc_nos: Vec<String> = sqlx::query_scalar(
+            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL",
+        )
+        .bind(format!("{}%", iacuc_prefix))
+        .fetch_all(&mut **tx)
+        .await?;
 
         let mut all_used: Vec<i32> = apig_nos
             .iter()
@@ -135,39 +173,33 @@ impl ProtocolService {
             .collect())
     }
 
-    /// 生成 IACUC 編號
-    /// 格式：PIG-{ROC}{03}
-    /// {ROC} 為民國年（西元年 - 1911）
-    /// {03} 為流水號（3位數，補零）
-    pub(super) async fn generate_iacuc_no(pool: &PgPool) -> Result<String> {
+    /// 生成 IACUC 編號（`PIG-{ROC}{03}`，approved 計畫使用）。
+    ///
+    /// 需 transaction 參數以支援 advisory lock（對應 CRIT-01，同 `generate_apig_no`）。
+    pub(super) async fn generate_iacuc_no(
+        tx: &mut Transaction<'_, Postgres>,
+    ) -> Result<String> {
+        acquire_numbering_lock(tx).await?;
+
         let now = Utc::now();
         use chrono::Datelike;
-        let year = now.year();
-        // 民國年 = 西元年 - 1911
-        let roc_year = year - 1911;
+        let roc_year = now.year() - 1911;
 
-        // 查詢該民國年的所有 IACUC 編號
-        // 格式：PIG-{ROC年}{3位數流水號}，例如：PIG-114017, PIG-115001
         let prefix = format!("PIG-{}", roc_year);
         let iacuc_nos: Vec<String> = sqlx::query_scalar(
             "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL",
         )
         .bind(format!("{}%", prefix))
-        .fetch_all(pool)
+        .fetch_all(&mut **tx)
         .await?;
 
-        // 解析流水號並找出最大值
-        // IACUC 編號格式：PIG-{ROC年}{3位數流水號}
-        // 例如：PIG-114017 → ROC年=114, 流水號=017
         let max_seq = iacuc_nos
             .iter()
             .filter_map(|no| parse_no_sequence(no, &prefix))
             .max();
 
-        // 下一個流水號（從1開始，如果沒有現有編號）
         let seq = max_seq.map(|s| s + 1).unwrap_or(1);
 
-        // 確保流水號不超過999
         if seq > 999 {
             return Err(AppError::Internal(
                 "IACUC 編號流水號已達上限（999），無法生成新編號".to_string(),

@@ -8,13 +8,13 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         AnimalObservation, CopyRecordRequest, CreateObservationRequest, DeleteRequest,
         ObservationListItem, RecordFilterQuery, UpdateObservationRequest, VersionHistoryResponse,
     },
     require_permission,
-    services::{access, AnimalObservationService, AnimalService, AuditService},
+    services::{access, AnimalObservationService, AnimalService},
     AppState, Result,
 };
 
@@ -99,12 +99,23 @@ pub async fn create_animal_observation(
         require_permission!(current_user, "animal.record.emergency");
     }
 
+    // Audit 已收進 service 層（OBSERVATION_CREATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
     let observation =
-        AnimalObservationService::create(&state.db, animal_id, &req, current_user.id).await?;
+        AnimalObservationService::create(&state.db, &actor, animal_id, &req).await?;
+
+    // R27-10：emergency 與 abnormal 兩條後續通知路徑都需 animal info；
+    // 原本各自呼叫一次 AnimalService::get_by_id，兩條都觸發時打 DB 兩次。
+    // 改為一次 fetch 共用，失敗時兩條路徑都 silent skip（與原 if let Ok 同語意）。
+    let is_abnormal = matches!(req.record_type, crate::models::RecordType::Abnormal);
+    let animal = if req.is_emergency || is_abnormal {
+        AnimalService::get_by_id(&state.db, animal_id).await.ok()
+    } else {
+        None
+    };
 
     if req.is_emergency {
-        // 取得動物資訊
-        if let Ok(animal) = AnimalService::get_by_id(&state.db, animal_id).await {
+        if let Some(ref animal) = animal {
             let notification_service = crate::services::NotificationService::new(state.db.clone());
             let emergency_reason = req.emergency_reason.as_deref().unwrap_or("未提供原因");
 
@@ -133,8 +144,11 @@ pub async fn create_animal_observation(
     }
 
     // 異常紀錄通知 → 通知 VET（依路由表 animal_abnormal_record）
-    if matches!(req.record_type, crate::models::RecordType::Abnormal) {
-        if let Ok(animal) = AnimalService::get_by_id(&state.db, animal_id).await {
+    if is_abnormal {
+        // Gemini PR #221：與第一個 if let 一致用 ref 借用，未來若新增邏輯需要
+        // animal 不會因 ownership 已轉移而失敗（spawn 內已 clone 出 ear_tag /
+        // iacuc_no，不需要 owning animal 本身）。
+        if let Some(ref animal) = animal {
             let summary: String = if req.content.is_empty() {
                 "（未提供摘要）".to_string()
             } else {
@@ -163,37 +177,6 @@ pub async fn create_animal_observation(
         }
     }
 
-    // 取得動物資訊用於日誌顯示
-    let obs_display = match AnimalService::get_by_id(&state.db, animal_id).await {
-        Ok(animal) => {
-            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {}", iacuc, animal.ear_tag)
-        }
-        _ => format!("觀察紀錄 #{} (animal: {})", observation.id, animal_id),
-    };
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "OBSERVATION_CREATE",
-        Some("animal_observation"),
-        Some(animal_id),
-        Some(&obs_display),
-        None,
-        Some(serde_json::json!({
-            "observation_id": observation.id,
-            "is_emergency": req.is_emergency,
-        })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_CREATE): {}", e);
-    }
-
     Ok(Json(observation))
 }
 
@@ -215,27 +198,10 @@ pub async fn update_animal_observation(
 ) -> Result<Json<AnimalObservation>> {
     require_permission!(current_user, "animal.record.edit");
 
+    // Audit 已收進 service 層（OBSERVATION_UPDATE with before/after diff，tx 內）
+    let actor = ActorContext::User(current_user.clone());
     let observation =
-        AnimalObservationService::update(&state.db, id, &req, current_user.id).await?;
-
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "OBSERVATION_UPDATE",
-        Some("animal_observation"),
-        None,
-        Some(&format!("觀察紀錄 #{}", id)),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_UPDATE): {}", e);
-    }
+        AnimalObservationService::update(&state.db, &actor, id, &req).await?;
 
     Ok(Json(observation))
 }
@@ -258,7 +224,9 @@ pub async fn delete_animal_observation(
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
 
-    AnimalObservationService::soft_delete_with_reason(&state.db, id, &req.reason, current_user.id)
+    // Audit 已收進 service 層（OBSERVATION_SOFT_DELETE with change_reasons，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    AnimalObservationService::soft_delete_with_reason(&state.db, &actor, id, &req.reason)
         .await?;
 
     if let Err(e) =
@@ -267,24 +235,8 @@ pub async fn delete_animal_observation(
         tracing::warn!("清理觀察紀錄附件失敗 (non-fatal): {}", e);
     }
 
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ANIMAL",
-        "OBSERVATION_DELETE",
-        Some("animal_observation"),
-        None,
-        Some(&format!("觀察紀錄 #{} (原因: {})", id, req.reason)),
-        None,
-        Some(serde_json::json!({ "reason": req.reason })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_DELETE): {}", e);
-    }
+    // Audit 已由 service 層寫入（OBSERVATION_DELETE，tx 內 with before/after diff）；
+    // 先前此 handler 另外 fire-and-forget log 一次 → 重複 audit，本次移除。
 
     Ok(Json(
         serde_json::json!({ "message": "Observation deleted successfully" }),

@@ -10,10 +10,13 @@ use validator::Validate;
 
 use crate::error::ErrorResponse;
 use crate::{
-    middleware::{CurrentUser, extract_real_ip_with_trust},
+    middleware::{ActorContext, CurrentUser, extract_real_ip_with_trust},
     models::{AuditAction, CreateUserRequest, PaginationParams, ResetPasswordRequest, UpdateUserRequest, UserResponse},
     require_permission,
-    services::{AuthService, AuditService, SessionManager, UserService, EmailService},
+    services::{
+        audit::{ActivityLogEntry, AuditEntity, RequestContext},
+        AuthService, AuditService, SessionManager, UserService, EmailService,
+    },
     AppError, AppState, Result,
 };
 
@@ -47,24 +50,9 @@ pub async fn create_user(
     require_permission!(current_user, "admin.user.create");
     req.validate()?;
 
-    let user = UserService::create(&state.db, &req).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let user = UserService::create(&state.db, &actor, &req).await?;
     let response = UserService::get_by_id(&state.db, user.id).await?;
-
-    // 記錄審計日誌
-    if let Err(e) = AuditService::log(
-        &state.db,
-        current_user.id,
-        AuditAction::Create,
-        "user",
-        user.id,
-        None,
-        Some(serde_json::json!({
-            "email": response.email,
-            "display_name": response.display_name,
-        })),
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (USER_CREATE): {}", e);
-    }
 
     // 生成密碼重設 token (改為發送重設連結而非明文密碼)
     let reset_result = AuthService::forgot_password(&state.db, &response.email).await?;
@@ -154,8 +142,8 @@ pub async fn get_user(
 )]
 pub async fn update_user(
     State(state): State<AppState>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
+    ConnectInfo(_addr): ConnectInfo<SocketAddr>,
+    _headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateUserRequest>,
@@ -163,17 +151,18 @@ pub async fn update_user(
     require_permission!(current_user, "admin.user.edit");
     req.validate()?;
 
-    // SEC: 偵測角色/帳號狀態變更，記錄審計
+    // 取 before 快照供 post-update session 撤銷判斷；audit 由 service 層處理
     let before_user = UserService::get_by_id(&state.db, id).await.ok();
 
-    let user = UserService::update(&state.db, id, current_user.id, &req).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let user = UserService::update(&state.db, &actor, id, &req).await?;
 
-    // H-01: 角色或帳號狀態變更後立即清除該使用者的權限快取，避免舊快取在 TTL 到期前繼續生效
+    // H-01: update 成功後無條件清快取（idempotent + 廉價）。
+    // 即使 before_user 取不到（get_by_id 失敗 .ok() 吞掉），仍確保清空，避免
+    // TTL 殘留 5 分鐘（CodeRabbit review #210 採納）。
+    state.permission_cache.invalidate(&id).await;
+
     if let Some(ref before) = before_user {
-        if before.roles != user.roles || before.is_active != user.is_active {
-            state.permission_cache.remove(&id);
-        }
-
         // BIZ-16: 帳號停用時立即撤銷所有 session 和 refresh token，不等 TTL
         // 場景：人員異動或安全事件下，5 分鐘視窗不可接受
         if before.is_active && !user.is_active {
@@ -186,51 +175,6 @@ pub async fn update_user(
                 tracing::error!("[Security] 停用帳號 {} 時終止 sessions 失敗: {}", id, e);
             }
             tracing::warn!("[Security] 帳號 {} 已停用，所有 session/refresh token 已撤銷", id);
-        }
-    }
-
-    // 偵測角色或狀態變更，記錄二級審計
-    if let Some(ref before) = before_user {
-        let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
-        let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
-        let roles_changed = before.roles != user.roles;
-        let status_changed = before.is_active != user.is_active;
-
-        if roles_changed {
-            let db = state.db.clone();
-            let actor = current_user.id;
-            let before_roles = before.roles.clone();
-            let after_roles = user.roles.clone();
-            let target_name = user.display_name.clone();
-            let ip_c = ip.clone();
-            let ua_c = ua.clone();
-            tokio::spawn(async move {
-                if let Err(e) = AuditService::log_activity(
-                    &db, actor, "SECURITY", "ROLE_CHANGE",
-                    Some("user"), Some(id), Some(&target_name),
-                    Some(serde_json::json!({ "roles": before_roles })),
-                    Some(serde_json::json!({ "roles": after_roles })),
-                    Some(&ip_c), ua_c.as_deref(),
-                ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-            });
-        }
-        if status_changed {
-            let db = state.db.clone();
-            let actor = current_user.id;
-            let target_name = user.display_name.clone();
-            let ip_c = ip.clone();
-            let ua_c = ua.clone();
-            let was_active = before.is_active;
-            let now_active = user.is_active;
-            tokio::spawn(async move {
-                if let Err(e) = AuditService::log_activity(
-                    &db, actor, "SECURITY", "ACCOUNT_STATUS_CHANGE",
-                    Some("user"), Some(id), Some(&target_name),
-                    Some(serde_json::json!({ "is_active": was_active })),
-                    Some(serde_json::json!({ "is_active": now_active })),
-                    Some(&ip_c), ua_c.as_deref(),
-                ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-            });
         }
     }
 
@@ -297,22 +241,10 @@ pub async fn delete_user(
         return Err(AppError::Validation("無法刪除最後一位管理員帳號".to_string()));
     }
 
-    // 先記錄審計日誌再刪除
-    if let Err(e) = AuditService::log(
-        &state.db,
-        current_user.id,
-        AuditAction::Delete,
-        "user",
-        id,
-        None,
-        Some(serde_json::json!({ "deleted_user_id": id })),
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (USER_DELETE): {}", e);
-    }
-    
-    UserService::delete(&state.db, id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    UserService::delete(&state.db, &actor, id).await?;
     // H-01: 使用者刪除後清除其權限快取
-    state.permission_cache.remove(&id);
+    state.permission_cache.invalidate(&id).await;
     Ok(Json(serde_json::json!({ "message": "User deleted successfully" })))
 }
 
@@ -351,11 +283,23 @@ pub async fn reset_user_password(
     }
     
     req.validate()?;
-    
-    // 重設密碼
-    AuthService::reset_user_password(&state.db, id, &req.new_password).await?;
-    
-    // 原有稽核日誌
+
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
+    // 重設密碼（SECURITY audit 已收進 service 層：PASSWORD_ADMIN_RESET，tx 內，含 IP/UA）
+    let actor = crate::middleware::ActorContext::User(current_user.clone());
+    AuthService::reset_user_password(
+        &state.db,
+        &actor,
+        id,
+        &req.new_password,
+        Some(&ip),
+        user_agent,
+    )
+    .await?;
+
+    // 保留 legacy audit_logs 寫入（與 user_activity_logs 不同表，供既有 dashboard 使用）
     AuditService::log(
         &state.db,
         current_user.id,
@@ -369,20 +313,6 @@ pub async fn reset_user_password(
         })),
     ).await?;
 
-    // SEC: 敏感操作二級審計 — 管理員重設密碼
-    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
-    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
-    let db = state.db.clone();
-    let actor = current_user.id;
-    tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, actor, "SECURITY", "PASSWORD_ADMIN_RESET",
-            Some("user"), Some(id), None,
-            None, Some(serde_json::json!({ "target_user_id": id })),
-            Some(&ip), ua.as_deref(),
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-    });
-    
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
 }
 
@@ -442,14 +372,26 @@ pub async fn impersonate_user(
     let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
     let target_name = login_response.user.display_name.clone();
     let db = state.db.clone();
-    let actor = current_user.id;
+    let spawn_actor = ActorContext::User(current_user.clone());
     tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, actor, "SECURITY", "IMPERSONATE_START",
-            Some("user"), Some(id), Some(&target_name),
-            None, Some(serde_json::json!({ "impersonated_user_id": id })),
-            Some(&ip), ua.as_deref(),
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
+        if let Err(e) = AuditService::log_activity_oneshot(
+            &db,
+            &spawn_actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "IMPERSONATE_START",
+                entity: Some(AuditEntity::new("user", id, &target_name)),
+                data_diff: None,
+                request_context: Some(RequestContext {
+                    ip_address: Some(&ip),
+                    user_agent: ua.as_deref(),
+                }),
+            },
+        )
+        .await
+        {
+            tracing::error!("審計日誌寫入失敗: {e}");
+        }
     });
     
     // 回傳 JSON + Set-Cookie headers

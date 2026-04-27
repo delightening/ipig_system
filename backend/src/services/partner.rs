@@ -4,11 +4,17 @@ use std::io::Cursor;
 use std::sync::OnceLock;
 use uuid::Uuid;
 
+use crate::middleware::ActorContext;
 use crate::models::{CustomerCategory, PartnerType, SupplierCategory};
+use crate::services::{
+    audit::{ActivityLogEntry, AuditEntity},
+    AuditService,
+};
 use crate::{
     models::{
-        CreatePartnerRequest, PaginationParams, Partner, PartnerImportErrorDetail,
-        PartnerImportResult, PartnerImportRow, PartnerQuery, UpdatePartnerRequest,
+        audit_diff::DataDiff, CreatePartnerRequest, PaginationParams, Partner,
+        PartnerImportErrorDetail, PartnerImportResult, PartnerImportRow, PartnerQuery,
+        UpdatePartnerRequest,
     },
     AppError, Result,
 };
@@ -89,8 +95,15 @@ impl PartnerService {
         Ok(format_partner_code(prefix, seq))
     }
 
-    /// 建立夥伴（供應商/客戶）
-    pub async fn create(pool: &PgPool, req: &CreatePartnerRequest) -> Result<Partner> {
+    /// 建立夥伴（供應商/客戶）— Service-driven audit
+    ///
+    /// Actor 分層：允許 User 或 System（後者支援 Protocol IACUC 核准時
+    /// 的自動客戶建立路徑），不要求 require_user。
+    pub async fn create(
+        pool: &PgPool,
+        actor: &ActorContext,
+        req: &CreatePartnerRequest,
+    ) -> Result<Partner> {
         // 如果 code 為空，則自動根據類型生成
         let code = match req
             .code
@@ -101,19 +114,6 @@ impl PartnerService {
             Some(provided) => provided.to_string(),
             None => Self::generate_code(pool, req.partner_type, req.supplier_category).await?,
         };
-
-        // 檢查 code 是否已存在
-        let exists: bool =
-            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM partners WHERE code = $1)")
-                .bind(&code)
-                .fetch_one(pool)
-                .await?;
-
-        if exists {
-            return Err(AppError::Conflict(
-                "Partner code already exists".to_string(),
-            ));
-        }
 
         // 將空字串轉換為 None，並驗證 email 格式（如果提供）
         let email = req
@@ -129,10 +129,25 @@ impl PartnerService {
             })
             .transpose()?;
 
+        let mut tx = pool.begin().await?;
+
+        // 在 tx 內檢查 code 唯一（UNIQUE constraint 兜底）
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM partners WHERE code = $1)")
+                .bind(&code)
+                .fetch_one(&mut *tx)
+                .await?;
+
+        if exists {
+            return Err(AppError::Conflict(
+                "Partner code already exists".to_string(),
+            ));
+        }
+
         let partner = sqlx::query_as::<_, Partner>(
             r#"
             INSERT INTO partners (
-                id, partner_type, code, name, supplier_category, customer_category, tax_id, phone, email, address, 
+                id, partner_type, code, name, supplier_category, customer_category, tax_id, phone, email, address,
                 payment_terms, is_active, created_at, updated_at
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW(), NOW())
@@ -150,13 +165,282 @@ impl PartnerService {
         .bind(&email)
         .bind(req.address.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
         .bind(req.payment_terms.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
+
+        let display = format!("{} ({})", partner.name, partner.code);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "PARTNER_CREATE",
+                entity: Some(AuditEntity::new("partner", partner.id, &display)),
+                data_diff: Some(DataDiff::create_only(&partner)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Ok(partner)
     }
 
-    /// 取得夥伴列表
+    /// Transaction 版本：在既有 transaction 內建立夥伴（R26-8 ProtocolService::change_status 需用）。
+    /// 簽名與 `create` 相同，但接 `&mut Transaction` 而非 `&PgPool`；
+    /// 呼叫端負責 commit/rollback。
+    pub async fn create_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        req: &CreatePartnerRequest,
+    ) -> Result<Partner> {
+        // 如果 code 為空，則自動根據類型生成（需從 pool 取，改為簡化：要求 code 在跨服務 tx 內必須提供）
+        let code = match req
+            .code
+            .as_ref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+        {
+            Some(provided) => provided.to_string(),
+            None => {
+                return Err(AppError::Validation(
+                    "Partner code required in transaction context".to_string(),
+                ))
+            }
+        };
+
+        // 將空字串轉換為 None，並驗證 email 格式（如果提供）
+        let email = req
+            .email
+            .as_ref()
+            .map(|e| e.trim())
+            .filter(|e| !e.is_empty())
+            .map(|e| {
+                if !is_valid_email(e) {
+                    return Err(AppError::Validation("Invalid email format".to_string()));
+                }
+                Ok(e.to_string())
+            })
+            .transpose()?;
+
+        // 在 tx 內檢查 code 唯一（UNIQUE constraint 兜底）
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM partners WHERE code = $1)")
+                .bind(&code)
+                .fetch_one(&mut **tx)
+                .await?;
+
+        if exists {
+            return Err(AppError::Conflict(
+                "Partner code already exists".to_string(),
+            ));
+        }
+
+        let partner = sqlx::query_as::<_, Partner>(
+            r#"
+            INSERT INTO partners (
+                id, partner_type, code, name, supplier_category, customer_category, tax_id, phone, email, address,
+                payment_terms, is_active, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW(), NOW())
+            RETURNING *
+            "#
+        )
+        .bind(Uuid::new_v4())
+        .bind(req.partner_type)
+        .bind(&code)
+        .bind(&req.name)
+        .bind(req.supplier_category)
+        .bind(req.customer_category)
+        .bind(req.tax_id.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .bind(req.phone.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .bind(&email)
+        .bind(req.address.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .bind(req.payment_terms.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .fetch_one(&mut **tx)
+        .await?;
+
+        let display = format!("{} ({})", partner.name, partner.code);
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "PARTNER_CREATE",
+                entity: Some(AuditEntity::new("partner", partner.id, &display)),
+                data_diff: Some(DataDiff::create_only(&partner)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        // Note: tx.commit() is caller's responsibility
+
+        Ok(partner)
+    }
+
+    /// Transaction 版本：更新夥伴（用於跨服務原子操作）
+    pub(super) async fn update_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+        req: &UpdatePartnerRequest,
+    ) -> Result<Partner> {
+        // 處理 email：將空字串轉換為 None，並驗證格式（如果提供）
+        let email = req
+            .email
+            .as_ref()
+            .map(|e| e.trim())
+            .filter(|e| !e.is_empty())
+            .map(|e| {
+                if !is_valid_email(e) {
+                    return Err(AppError::Validation("Invalid email format".to_string()));
+                }
+                Ok(e.to_string())
+            })
+            .transpose()?;
+
+        let before = sqlx::query_as::<_, Partner>(
+            "SELECT * FROM partners WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Partner not found".to_string()))?;
+
+        let after = sqlx::query_as::<_, Partner>(
+            r#"
+            UPDATE partners SET
+                name = COALESCE($1, name),
+                tax_id = COALESCE($2, tax_id),
+                phone = COALESCE($3, phone),
+                email = COALESCE($4, email),
+                address = COALESCE($5, address),
+                payment_terms = COALESCE($6, payment_terms),
+                is_active = COALESCE($7, is_active),
+                updated_at = NOW()
+            WHERE id = $8
+            RETURNING *
+            "#,
+        )
+        .bind(req.name.as_ref())
+        .bind(
+            req.tax_id
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(
+            req.phone
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(&email)
+        .bind(
+            req.address
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(
+            req.payment_terms
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(req.is_active)
+        .bind(id)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        let display = format!("{} ({})", after.name, after.code);
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "PARTNER_UPDATE",
+                entity: Some(AuditEntity::new("partner", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        Ok(after)
+    }
+
+    /// Transaction 版本：刪除夥伴（用於跨服務原子操作）
+    pub(super) async fn delete_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        actor: &ActorContext,
+        id: Uuid,
+        is_hard: bool,
+    ) -> Result<()> {
+        let before = sqlx::query_as::<_, Partner>(
+            "SELECT * FROM partners WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Partner not found".to_string()))?;
+
+        // 檢查是否有未完成的採購單或進貨單
+        let open_doc_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM documents \
+             WHERE partner_id = $1 \
+             AND doc_type IN ('PO', 'GRN') \
+             AND status IN ('draft', 'submitted')",
+        )
+        .bind(id)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        if open_doc_count > 0 {
+            return Err(AppError::BusinessRule(format!(
+                "無法停用此夥伴：尚有 {} 筆未完成的採購單或進貨單",
+                open_doc_count
+            )));
+        }
+
+        let (event_type, data_diff) = if is_hard {
+            sqlx::query("DELETE FROM partners WHERE id = $1")
+                .bind(id)
+                .execute(&mut **tx)
+                .await?;
+            ("PARTNER_HARD_DELETE", DataDiff::delete_only(&before))
+        } else {
+            let after = sqlx::query_as::<_, Partner>(
+                "UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING *",
+            )
+            .bind(id)
+            .fetch_one(&mut **tx)
+            .await?;
+            (
+                "PARTNER_DELETE",
+                DataDiff::compute(Some(&before), Some(&after)),
+            )
+        };
+
+        let display = format!("{} ({})", before.name, before.code);
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type,
+                entity: Some(AuditEntity::new("partner", before.id, &display)),
+                data_diff: Some(data_diff),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn list(pool: &PgPool, query: &PartnerQuery) -> Result<Vec<Partner>> {
         let pagination = PaginationParams {
             page: query.page,
@@ -265,108 +549,31 @@ impl PartnerService {
         Ok(partner)
     }
 
-    /// 更新夥伴
-    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdatePartnerRequest) -> Result<Partner> {
-        // 處理 email：將空字串轉換為 None，並驗證格式（如果提供）
-        let email = req
-            .email
-            .as_ref()
-            .map(|e| e.trim())
-            .filter(|e| !e.is_empty())
-            .map(|e| {
-                if !is_valid_email(e) {
-                    return Err(AppError::Validation("Invalid email format".to_string()));
-                }
-                Ok(e.to_string())
-            })
-            .transpose()?;
-
-        let partner = sqlx::query_as::<_, Partner>(
-            r#"
-            UPDATE partners SET
-                name = COALESCE($1, name),
-                tax_id = COALESCE($2, tax_id),
-                phone = COALESCE($3, phone),
-                email = COALESCE($4, email),
-                address = COALESCE($5, address),
-                payment_terms = COALESCE($6, payment_terms),
-                is_active = COALESCE($7, is_active),
-                updated_at = NOW()
-            WHERE id = $8
-            RETURNING *
-            "#,
-        )
-        .bind(req.name.as_ref())
-        .bind(
-            req.tax_id
-                .as_ref()
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty()),
-        )
-        .bind(
-            req.phone
-                .as_ref()
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty()),
-        )
-        .bind(&email)
-        .bind(
-            req.address
-                .as_ref()
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty()),
-        )
-        .bind(
-            req.payment_terms
-                .as_ref()
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty()),
-        )
-        .bind(req.is_active)
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Partner not found".to_string()))?;
-
-        Ok(partner)
+    /// 更新夥伴 — Service-driven audit
+    pub async fn update(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        req: &UpdatePartnerRequest,
+    ) -> Result<Partner> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+        let result = Self::update_tx(&mut tx, actor, id, req).await?;
+        tx.commit().await?;
+        Ok(result)
     }
 
-    /// 刪除夥伴
-    pub async fn delete(pool: &PgPool, id: Uuid, is_hard: bool) -> Result<()> {
-        // 檢查是否有未完成的採購單或進貨單
-        let open_doc_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM documents \
-             WHERE partner_id = $1 \
-             AND doc_type IN ('PO', 'GRN') \
-             AND status IN ('draft', 'submitted')",
-        )
-        .bind(id)
-        .fetch_one(pool)
-        .await?;
-
-        if open_doc_count > 0 {
-            return Err(AppError::BusinessRule(format!(
-                "無法停用此夥伴：尚有 {} 筆未完成的採購單或進貨單",
-                open_doc_count
-            )));
-        }
-
-        let result = if is_hard {
-            sqlx::query("DELETE FROM partners WHERE id = $1")
-                .bind(id)
-                .execute(pool)
-                .await?
-        } else {
-            sqlx::query("UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1")
-                .bind(id)
-                .execute(pool)
-                .await?
-        };
-
-        if result.rows_affected() == 0 {
-            return Err(AppError::NotFound("Partner not found".to_string()));
-        }
-
+    /// 刪除夥伴 — Service-driven audit
+    pub async fn delete(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        is_hard: bool,
+    ) -> Result<()> {
+        let _user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+        Self::delete_tx(&mut tx, actor, id, is_hard).await?;
+        tx.commit().await?;
         Ok(())
     }
 
@@ -374,12 +581,14 @@ impl PartnerService {
     // 夥伴匯入
     // ============================================
 
-    /// 匯入夥伴（CSV 或 Excel）
+    /// 匯入夥伴（CSV 或 Excel）— Service-driven audit (N+1 粒度)
     pub async fn import_partners(
         pool: &PgPool,
+        actor: &ActorContext,
         file_data: &[u8],
         file_name: &str,
     ) -> Result<PartnerImportResult> {
+        let _user = actor.require_user()?;
         let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
         let is_csv = file_name.ends_with(".csv");
 
@@ -486,7 +695,7 @@ impl PartnerService {
                 payment_terms: row.payment_terms.clone().filter(|s| !s.trim().is_empty()),
             };
 
-            match Self::create(pool, &create_req).await {
+            match Self::create(pool, actor, &create_req).await {
                 Ok(_partner) => {
                     success_count += 1;
                 }
@@ -500,6 +709,27 @@ impl PartnerService {
                 }
             }
         }
+
+        // 批次 summary audit（per-row 由 create 的 PARTNER_CREATE 事件記錄）
+        let summary_id = Uuid::new_v4();
+        let display = format!(
+            "import {} (success={}, errors={})",
+            file_name, success_count, error_count
+        );
+        let mut tx = pool.begin().await?;
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "PARTNER_IMPORT",
+                entity: Some(AuditEntity::new("partner_import_job", summary_id, &display)),
+                data_diff: None,
+                request_context: None,
+            },
+        )
+        .await?;
+        tx.commit().await?;
 
         Ok(PartnerImportResult {
             success_count,

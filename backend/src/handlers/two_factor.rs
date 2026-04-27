@@ -9,13 +9,13 @@ use validator::Validate;
 
 use crate::error::ErrorResponse;
 use crate::{
-    handlers::auth::build_set_cookie,
-    middleware::{extract_real_ip_with_trust, CurrentUser},
+    handlers::{auth::build_set_cookie, user::require_reauth_token},
+    middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
     models::{
         TwoFactorConfirmRequest, TwoFactorDisableRequest,
         TwoFactorLoginRequest, TwoFactorSetupResponse,
     },
-    services::{AuthService, AuditService, LoginTracker, SessionManager, UserService},
+    services::{AuthService, LoginTracker, SessionManager, UserService},
     AppError, AppState, Result,
 };
 
@@ -32,11 +32,17 @@ use crate::{
 )]
 pub async fn setup_2fa(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<TwoFactorSetupResponse>> {
     if !current_user.is_admin() {
         return Err(AppError::Forbidden("僅管理員可啟用兩步驟驗證".into()));
     }
+    // C3 (GLP §11.200(a))：啟用 2FA 是 credential 異動，要求 X-Reauth-Token
+    // 確保操作者於近期重新輸入密碼確認身分（防 XSS / session hijack 後攻擊者
+    // 直接重設受害者的 2FA 設定）。
+    require_reauth_token(&headers, &state, &current_user)?;
+
     let user = UserService::get_user_raw(&state.db, current_user.id).await?;
     if user.totp_enabled {
         return Err(AppError::BusinessRule("2FA 已經啟用".into()));
@@ -66,6 +72,8 @@ pub async fn setup_2fa(
 )]
 pub async fn confirm_2fa_setup(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<TwoFactorConfirmRequest>,
 ) -> Result<Json<serde_json::Value>> {
@@ -74,16 +82,19 @@ pub async fn confirm_2fa_setup(
     }
     req.validate()?;
 
-    AuthService::confirm_totp_setup(&state.db, current_user.id, &req.code).await?;
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
 
-    let db = state.db.clone();
-    let user_id = current_user.id;
-    tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, user_id, "SECURITY", "2FA_ENABLED",
-            Some("user"), Some(user_id), None, None, None, None, None,
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-    });
+    let actor = ActorContext::User(current_user.clone());
+    AuthService::confirm_totp_setup(
+        &state.db,
+        &actor,
+        current_user.id,
+        &req.code,
+        Some(&ip),
+        user_agent,
+    )
+    .await?;
 
     Ok(Json(serde_json::json!({ "message": "2FA 已成功啟用" })))
 }
@@ -102,22 +113,28 @@ pub async fn confirm_2fa_setup(
 )]
 pub async fn disable_2fa(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<TwoFactorDisableRequest>,
 ) -> Result<Json<serde_json::Value>> {
     req.validate()?;
 
     AuthService::verify_password_by_id(&state.db, current_user.id, &req.password).await?;
-    AuthService::disable_totp(&state.db, current_user.id, &req.code).await?;
 
-    let db = state.db.clone();
-    let user_id = current_user.id;
-    tokio::spawn(async move {
-        if let Err(e) = AuditService::log_activity(
-            &db, user_id, "SECURITY", "2FA_DISABLED",
-            Some("user"), Some(user_id), None, None, None, None, None,
-        ).await { tracing::error!("審計日誌寫入失敗: {e}"); }
-    });
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
+    let actor = ActorContext::User(current_user.clone());
+    AuthService::disable_totp(
+        &state.db,
+        &actor,
+        current_user.id,
+        &req.code,
+        Some(&ip),
+        user_agent,
+    )
+    .await?;
 
     Ok(Json(serde_json::json!({ "message": "2FA 已停用" })))
 }

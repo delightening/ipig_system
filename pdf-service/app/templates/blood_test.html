@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>動物血液檢查紀錄 — {{ animal_ear_tag }}</title>
+<style>
+{% include "_base.css" %}
+</style>
+</head>
+<body>
+
+<div class="doc-title">動物血液檢查紀錄</div>
+<div class="doc-subtitle">
+  [{{ animal_iacuc_no or "未指派" }}] 耳號 {{ animal_ear_tag }}
+</div>
+
+<div class="meta-bar">
+  <span>匯出日期：{{ export_date }}</span>
+  <span>紀錄筆數：{{ tests|length }}</span>
+</div>
+
+{% if tests %}
+<table class="long-data">
+  <thead>
+    <tr>
+      <th style="width:22mm">檢查日期</th>
+      <th>檢驗機構</th>
+      <th class="num" style="width:18mm">項目數</th>
+      <th class="num" style="width:22mm">異常項目</th>
+      <th style="width:35mm">狀態</th>
+      <th style="width:35mm">建立者</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in tests %}
+    <tr>
+      <td>{{ t.test_date }}</td>
+      <td>{{ t.lab_name or "—" }}</td>
+      <td class="num">{{ t.item_count }}</td>
+      <td class="num">
+        {% if t.abnormal_count > 0 %}
+          <span class="badge-abnormal">⚠ {{ t.abnormal_count }}</span>
+        {% else %}
+          0
+        {% endif %}
+      </td>
+      <td>{{ t.status or "—" }}</td>
+      <td>{{ t.created_by_name or "—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-hint">尚無血液檢查紀錄</div>
+{% endif %}
+
+<div class="copyright">iPig 實驗動物管理系統 — {{ export_date }}</div>
+
+</body>
+</html>

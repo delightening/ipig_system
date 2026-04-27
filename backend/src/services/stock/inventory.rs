@@ -1,9 +1,10 @@
+use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{InventoryOnHand, InventoryQuery, LowStockAlert, UnassignedInventory},
-    Result,
+    models::{AssignUnassignedRequest, InventoryOnHand, InventoryQuery, LowStockAlert, UnassignedInventory},
+    AppError, Result,
 };
 
 use super::StockService;
@@ -415,5 +416,114 @@ impl StockService {
 
         let rows = qb.build_query_as::<UnassignedInventory>().fetch_all(pool).await?;
         Ok(rows)
+    }
+
+    /// 將未分配庫存分配到指定儲位
+    ///
+    /// - 驗證：qty > 0、儲位屬於該倉庫、分配量 ≤ 目前未分配量
+    /// - 動作：UPSERT storage_location_inventory（同 product+batch+expiry 累加），更新 current_count
+    /// - 不寫 stock_ledger（倉庫總量不變，僅儲位層級重新分布）
+    pub async fn assign_unassigned(
+        pool: &PgPool,
+        req: &AssignUnassignedRequest,
+    ) -> Result<()> {
+        if req.qty <= Decimal::ZERO {
+            return Err(AppError::Validation("qty 必須大於 0".to_string()));
+        }
+
+        // 驗證儲位屬於該倉庫
+        let shelf_wh_id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT warehouse_id FROM storage_locations WHERE id = $1 AND is_active = true",
+        )
+        .bind(req.storage_location_id)
+        .fetch_optional(pool)
+        .await?;
+
+        match shelf_wh_id {
+            None => return Err(AppError::NotFound("儲位不存在或已停用".to_string())),
+            Some(wh) if wh != req.warehouse_id => {
+                return Err(AppError::BusinessRule("儲位不屬於指定倉庫".to_string()))
+            }
+            _ => {}
+        }
+
+        let mut tx = pool.begin().await?;
+
+        // 計算目前未分配量（warehouse 總量 - shelf 總量 per product）
+        let current_unassigned: Decimal = sqlx::query_scalar(
+            r#"
+            SELECT
+                COALESCE((
+                    SELECT SUM(
+                        CASE
+                            WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
+                            WHEN sl.direction IN ('out', 'transfer_out', 'adjust_out') THEN -sl.qty_base
+                            ELSE 0
+                        END
+                    )
+                    FROM stock_ledger sl
+                    WHERE sl.warehouse_id = $1 AND sl.product_id = $2
+                ), 0)
+                -
+                COALESCE((
+                    SELECT SUM(sli.on_hand_qty)
+                    FROM storage_location_inventory sli
+                    JOIN storage_locations sloc ON sli.storage_location_id = sloc.id
+                    WHERE sloc.warehouse_id = $1 AND sli.product_id = $2
+                ), 0)
+            "#,
+        )
+        .bind(req.warehouse_id)
+        .bind(req.product_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        if req.qty > current_unassigned {
+            return Err(AppError::BusinessRule(format!(
+                "分配量 {} 超過可用未分配量 {}",
+                req.qty, current_unassigned
+            )));
+        }
+
+        // UPSERT：同 product+batch+expiry 累加
+        sqlx::query(
+            r#"
+            INSERT INTO storage_location_inventory (
+                id, storage_location_id, product_id, on_hand_qty, batch_no, expiry_date, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            ON CONFLICT (storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1900-01-01'::date))
+            DO UPDATE SET
+                on_hand_qty = storage_location_inventory.on_hand_qty + EXCLUDED.on_hand_qty,
+                updated_at = NOW()
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(req.storage_location_id)
+        .bind(req.product_id)
+        .bind(req.qty)
+        .bind(req.batch_no.as_deref())
+        .bind(req.expiry_date)
+        .execute(&mut *tx)
+        .await?;
+
+        // 更新儲位 current_count
+        sqlx::query(
+            r#"
+            UPDATE storage_locations
+            SET current_count = (
+                SELECT COUNT(*) FROM storage_location_inventory
+                WHERE storage_location_id = $1 AND on_hand_qty > 0
+            ),
+            updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(req.storage_location_id)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok(())
     }
 }

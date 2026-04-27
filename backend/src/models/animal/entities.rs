@@ -22,6 +22,9 @@ pub struct AnimalSource {
     pub updated_at: DateTime<Utc>,
 }
 
+// 無敏感欄位，空 impl 即可（see AuditRedact trait doc）
+impl crate::models::audit_diff::AuditRedact for AnimalSource {}
+
 /// 動物主表
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Animal {
@@ -61,6 +64,9 @@ pub struct Animal {
     #[sqlx(default)]
     pub experiment_assigned_by_name: Option<String>, // 分配者名稱（JOIN 查詢時填入）
 }
+
+// R26-9 方針：remark / deletion_reason 為自由文字，GLP 需完整軌跡；空 allowlist。
+impl crate::models::audit_diff::AuditRedact for Animal {}
 
 /// 觀察試驗紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
@@ -107,6 +113,13 @@ pub struct AnimalObservation {
     pub version: Option<i32>,
 }
 
+/// ⚠️ **R26-9 警告**：`AnimalObservation.content` / `equipment_used` / `treatments` /
+/// `remark` / `emergency_reason` 為自由文字 / JSON，含醫療細節。**目前**採空 impl
+/// 允許 audit diff 記錄完整內容（對稽核員為必要），但 R26-9（CodeRabbit PR #156 Major）
+/// 建議改為 allowlist 或 summary log，避免醫療資料過度暴露在 audit UI。
+/// 在 R26-9 完成前，此實作與其他 animal entity（source/weight）一致採最簡模式。
+impl crate::models::audit_diff::AuditRedact for AnimalObservation {}
+
 /// 手術紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalSurgery {
@@ -135,6 +148,10 @@ pub struct AnimalSurgery {
     pub updated_at: DateTime<Utc>,
 }
 
+// R26-9 warning 同 AnimalObservation：手術紀錄含 JSONB 麻醉/藥物/vital signs
+// 等醫療內容；採空 impl 允許 audit diff 記錄完整內容。R26-9 若決定降敏再覆寫。
+impl crate::models::audit_diff::AuditRedact for AnimalSurgery {}
+
 /// 體重紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalWeight {
@@ -145,6 +162,9 @@ pub struct AnimalWeight {
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }
+
+// 無敏感欄位（體重數值、測量日期）；空 impl 即可。
+impl crate::models::audit_diff::AuditRedact for AnimalWeight {}
 
 /// 體重紀錄回應（含建立者名稱）
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
@@ -170,6 +190,9 @@ pub struct AnimalVaccination {
     pub created_at: DateTime<Utc>,
 }
 
+// 無敏感欄位（疫苗名、驅蟲劑量、給藥日期為研究紀錄本身）；空 impl 即可。
+impl crate::models::audit_diff::AuditRedact for AnimalVaccination {}
+
 /// 犧牲/採樣紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalSacrifice {
@@ -189,6 +212,10 @@ pub struct AnimalSacrifice {
     pub updated_at: DateTime<Utc>,
 }
 
+// R26-9 方針同 AnimalObservation：method_other / sampling_other 為自由文字
+// 醫療內容；GLP 研究資料本身，空 allowlist。
+impl crate::models::audit_diff::AuditRedact for AnimalSacrifice {}
+
 /// 猝死記錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AnimalSuddenDeath {
@@ -203,6 +230,10 @@ pub struct AnimalSuddenDeath {
     pub requires_pathology: bool,
     pub created_at: DateTime<Utc>,
 }
+
+// R26-9 方針同 AnimalObservation：probable_cause / remark 為自由文字醫療
+// 判斷內容；GLP 需完整軌跡，空 allowlist。
+impl crate::models::audit_diff::AuditRedact for AnimalSuddenDeath {}
 
 /// 動物轉讓記錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
@@ -229,6 +260,10 @@ fn default_transfer_type_entity() -> String {
     "internal".to_string()
 }
 
+// 轉讓流程的 reason / remark / rejected_reason 為自由文字；依 R26-9 方針暫時
+// 全保留於 audit log（GLP 需完整變更軌跡）。若後續決定降敏再覆寫。
+impl crate::models::audit_diff::AuditRedact for AnimalTransfer {}
+
 /// 轉讓獸醫評估記錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct TransferVetEvaluation {
@@ -241,6 +276,10 @@ pub struct TransferVetEvaluation {
     pub evaluated_at: DateTime<Utc>,
 }
 
+// 獸醫評估含 health_status / conditions 自由文字醫療判斷；同 AnimalObservation
+// R26-9 方針，空 allowlist。
+impl crate::models::audit_diff::AuditRedact for TransferVetEvaluation {}
+
 /// 病理組織報告
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalPathologyReport {
@@ -250,6 +289,9 @@ pub struct AnimalPathologyReport {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// 無敏感欄位（僅時間戳 + 建立者）；空 impl 即可。
+impl crate::models::audit_diff::AuditRedact for AnimalPathologyReport {}
 
 /// 血液檢查項目模板
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -265,6 +307,8 @@ pub struct BloodTestTemplate {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+impl crate::models::audit_diff::AuditRedact for BloodTestTemplate {}
 
 /// 血液檢查主表
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -284,6 +328,9 @@ pub struct AnimalBloodTest {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// GLP：delete_reason / remark 為自由文字，需完整軌跡，空 allowlist。
+impl crate::models::audit_diff::AuditRedact for AnimalBloodTest {}
 
 /// 血液檢查項目明細
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

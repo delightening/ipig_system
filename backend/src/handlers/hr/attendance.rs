@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    middleware::{extract_real_ip_with_trust, CurrentUser},
+    middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
     models::{
         AttendanceCorrectionRequest, AttendanceQuery, AttendanceWithUser, ClockInRequest,
         ClockOutRequest, PaginatedResponse,
@@ -180,9 +180,10 @@ pub async fn clock_in(
         state.config.clock_gps_radius_meters,
     )?;
 
+    let actor = ActorContext::User(current_user.clone());
     let record = HrService::clock_in(
         &state.db,
-        current_user.id,
+        &actor,
         payload.source.as_deref(),
         Some(&ip),
         payload.latitude,
@@ -217,9 +218,10 @@ pub async fn clock_out(
         state.config.clock_gps_radius_meters,
     )?;
 
+    let actor = ActorContext::User(current_user.clone());
     let record = HrService::clock_out(
         &state.db,
-        current_user.id,
+        &actor,
         payload.source.as_deref(),
         Some(&ip),
         payload.latitude,
@@ -274,7 +276,8 @@ pub async fn correct_attendance(
     Path(id): Path<Uuid>,
     Json(payload): Json<AttendanceCorrectionRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    HrService::correct_attendance(&state.db, id, current_user.id, &payload).await?;
+    let actor = ActorContext::User(current_user.clone());
+    HrService::correct_attendance(&state.db, &actor, id, &payload).await?;
     Ok(Json(serde_json::json!({
         "success": true,
         "message": "已更正出勤記錄"

@@ -1,18 +1,19 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{ConnectInfo, Path, Query, State},
     http::HeaderMap,
     Extension, Json,
 };
+use std::net::SocketAddr;
 use uuid::Uuid;
 use validator::Validate;
 
 use crate::error::ErrorResponse;
 use crate::{
     handlers::user::require_reauth_token,
-    middleware::CurrentUser,
+    middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
     models::{CreateRoleRequest, Permission, PermissionQuery, RoleWithPermissions, UpdateRoleRequest},
     require_permission,
-    services::{AuditService, RoleService},
+    services::RoleService,
     AppState, Result,
 };
 
@@ -30,24 +31,20 @@ use crate::{
 )]
 pub async fn create_role(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateRoleRequest>,
 ) -> Result<Json<RoleWithPermissions>> {
     require_permission!(current_user, "dev.role.create");
     req.validate()?;
-    
-    let role = RoleService::create(&state.db, &req).await?;
-    let response = RoleService::get_by_id(&state.db, role.id).await?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "SYSTEM", "ROLE_CREATE",
-        Some("role"), Some(role.id), Some(&role.name),
-        None,
-        Some(serde_json::json!({ "name": role.name })),
-        None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (ROLE_CREATE): {}", e);
-    }
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
+    let actor = ActorContext::User(current_user.clone());
+    let role = RoleService::create(&state.db, &actor, &req, Some(&ip), user_agent).await?;
+    let response = RoleService::get_by_id(&state.db, role.id).await?;
 
     Ok(Json(response))
 }
@@ -114,25 +111,23 @@ pub async fn get_role(
 )]
 pub async fn update_role(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateRoleRequest>,
 ) -> Result<Json<RoleWithPermissions>> {
     require_permission!(current_user, "dev.role.edit");
     req.validate()?;
-    
-    let role = RoleService::update(&state.db, id, &req).await?;
+
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
+    let actor = ActorContext::User(current_user.clone());
+    let role = RoleService::update(&state.db, &actor, id, &req, Some(&ip), user_agent).await?;
 
     // H-01: 角色權限變更後清空全部快取（無法預知哪些使用者持有此角色）
-    state.permission_cache.clear();
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "SYSTEM", "ROLE_UPDATE",
-        Some("role"), Some(id), Some(&role.name),
-        None, None, None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (ROLE_UPDATE): {}", e);
-    }
+    state.permission_cache.invalidate_all();
 
     Ok(Json(role))
 }
@@ -154,6 +149,7 @@ pub async fn update_role(
 )]
 pub async fn delete_role(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Extension(current_user): Extension<CurrentUser>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
@@ -161,17 +157,13 @@ pub async fn delete_role(
     require_permission!(current_user, "dev.role.delete");
     require_reauth_token(&headers, &state, &current_user)?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "SYSTEM", "ROLE_DELETE",
-        Some("role"), Some(id), None,
-        None, None, None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (ROLE_DELETE): {}", e);
-    }
-    
-    RoleService::delete(&state.db, id).await?;
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
+
+    let actor = ActorContext::User(current_user.clone());
+    RoleService::delete(&state.db, &actor, id, Some(&ip), user_agent).await?;
     // H-01: 角色刪除後清空全部快取
-    state.permission_cache.clear();
+    state.permission_cache.invalidate_all();
     Ok(Json(serde_json::json!({ "message": "Role deleted successfully" })))
 }
 

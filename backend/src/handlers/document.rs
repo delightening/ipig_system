@@ -6,13 +6,13 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         AdminRejectRequest, CreateDocumentRequest, DocumentListItem, DocumentQuery,
         DocumentWithLines, PoReceiptStatus, UpdateDocumentRequest,
     },
     require_permission,
-    services::{AuditService, DocumentService, NotificationService},
+    services::{DocumentService, NotificationService},
     AppError, AppState, Result,
 };
 
@@ -40,23 +40,9 @@ pub async fn create_document(
     require_permission!(current_user, "erp.document.create");
     req.validate()?;
 
-    let document = DocumentService::create(&state.db, &req, current_user.id).await?;
-
-    // 審計日誌
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_CREATE",
-        document.document.id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_CREATE): {}", e);
-    }
-
+    // Audit 已收進 service 層（DOC_CREATE，tx 內含 document + lines snapshot）
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::create(&state.db, &actor, &req).await?;
     Ok(Json(document))
 }
 
@@ -136,22 +122,10 @@ pub async fn update_document(
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
     DocumentService::check_access(&current_user, existing.document.created_by)?;
-    let document = DocumentService::update(&state.db, id, &req).await?;
 
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_UPDATE",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_UPDATE): {}", e);
-    }
-
+    // Audit 已收進 service 層（DOC_UPDATE，tx 內含 before/after snapshot）
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::update(&state.db, &actor, id, &req).await?;
     Ok(Json(document))
 }
 
@@ -178,21 +152,10 @@ pub async fn submit_document(
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
     DocumentService::check_access(&current_user, existing.document.created_by)?;
-    let document = DocumentService::submit(&state.db, id).await?;
 
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_SUBMIT",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "submitted" })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_SUBMIT): {}", e);
-    }
+    // Audit 已收進 service 層（DOC_SUBMIT，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::submit(&state.db, &actor, id).await?;
 
     // 非同步通知 WAREHOUSE_MANAGER
     let db = state.db.clone();
@@ -242,21 +205,9 @@ pub async fn approve_document(
         return Err(AppError::Forbidden("僅倉庫管理員可核准單據".to_string()));
     }
 
-    let document = DocumentService::approve(&state.db, id, current_user.id).await?;
-
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_APPROVE",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "approved" })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_APPROVE): {}", e);
-    }
+    // Audit 已收進 service 層（DOC_APPROVE / DOC_WM_APPROVE + GRN 自動建立 DOC_CREATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::approve(&state.db, &actor, id).await?;
 
     // 非同步通知建立者（已核准）
     let db = state.db.clone();
@@ -302,21 +253,9 @@ pub async fn admin_approve_document(
         return Err(AppError::Forbidden("僅管理員可執行最終核准".to_string()));
     }
 
-    let document = DocumentService::admin_approve(&state.db, id, current_user.id).await?;
-
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_ADMIN_APPROVE",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "approved", "level": "admin" })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_ADMIN_APPROVE): {}", e);
-    }
+    // Audit 已收進 service 層（DOC_ADMIN_APPROVE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::admin_approve(&state.db, &actor, id).await?;
 
     // 非同步通知建立者（已核准）
     let db = state.db.clone();
@@ -364,22 +303,10 @@ pub async fn admin_reject_document(
         return Err(AppError::Forbidden("僅管理員可駁回單據".to_string()));
     }
 
+    // Audit 已收進 service 層（DOC_ADMIN_REJECT，tx 內）
+    let actor = ActorContext::User(current_user.clone());
     let document =
-        DocumentService::admin_reject(&state.db, id, current_user.id, &req.reason).await?;
-
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_ADMIN_REJECT",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "rejected", "reason": req.reason })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_ADMIN_REJECT): {}", e);
-    }
+        DocumentService::admin_reject(&state.db, &actor, id, &req.reason).await?;
 
     // 非同步通知建立者（已駁回）
     let db = state.db.clone();
@@ -429,21 +356,9 @@ pub async fn cancel_document(
         return Err(AppError::Forbidden("僅倉庫管理員可取消單據".to_string()));
     }
 
-    let document = DocumentService::cancel(&state.db, id).await?;
-
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        "DOC_CANCEL",
-        id,
-        &document.document.doc_no,
-        Some(&format!("{:?}", document.document.doc_type)),
-        Some(serde_json::json!({ "status": "cancelled" })),
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_CANCEL): {}", e);
-    }
+    // Audit 已收進 service 層（DOC_CANCEL，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::cancel(&state.db, &actor, id).await?;
 
     // 非同步通知建立者（已駁回）
     let db = state.db.clone();
@@ -494,25 +409,9 @@ pub async fn delete_document(
     let existing = DocumentService::get_by_id(&state.db, id).await?;
     DocumentService::check_access(&current_user, existing.document.created_by)?;
 
-    if let Err(e) = AuditService::audit_document(
-        &state.db,
-        current_user.id,
-        if is_hard {
-            "DOC_HARD_DELETE"
-        } else {
-            "DOC_DELETE"
-        },
-        id,
-        &existing.document.doc_no,
-        Some(&format!("{:?}", existing.document.doc_type)),
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (DOC_DELETE): {}", e);
-    }
-
-    DocumentService::delete(&state.db, id, is_hard).await?;
+    // Audit 已收進 service 層（DOC_DELETE / DOC_HARD_DELETE，tx 內含 before snapshot）
+    let actor = ActorContext::User(current_user.clone());
+    DocumentService::delete(&state.db, &actor, id, is_hard).await?;
     Ok(Json(()))
 }
 

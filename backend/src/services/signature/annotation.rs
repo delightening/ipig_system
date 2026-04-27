@@ -39,13 +39,6 @@ pub struct RecordAnnotation {
     pub signature_id: Option<Uuid>,
 }
 
-/// 建立附註請求
-#[derive(Debug, Deserialize)]
-pub struct CreateAnnotationRequest {
-    pub content: String,
-    pub annotation_type: String,
-}
-
 pub struct AnnotationService;
 
 impl AnnotationService {

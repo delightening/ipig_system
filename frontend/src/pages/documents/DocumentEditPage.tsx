@@ -71,6 +71,7 @@ export function DocumentEditPage() {
     handleProtocolSelect,
     handleIacucNoSelect,
     updateLineAmount,
+    updateLineField,
     saveMutation,
     submitMutation,
     setFormData,
@@ -461,6 +462,7 @@ export function DocumentEditPage() {
             handleBatchChange={handleBatchChange}
             handleLineBlur={handleLineBlur}
             updateLineAmount={updateLineAmount}
+            updateLineField={updateLineField}
             setFormData={setFormData}
             needsShelf={needsShelf}
             poReceiptStatus={poReceiptStatus}

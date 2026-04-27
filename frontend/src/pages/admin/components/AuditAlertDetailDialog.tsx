@@ -45,7 +45,7 @@ export function AuditAlertDetailDialog({
 }: AuditAlertDetailDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-5xl w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
@@ -109,7 +109,7 @@ export function AuditAlertDetailDialog({
             {alert.context_data && Object.keys(alert.context_data).length > 0 && (
               <div>
                 <Label className="text-muted-foreground">詳細上下文資料</Label>
-                <pre className="mt-1 p-3 bg-muted/50 border rounded-md text-sm overflow-x-auto">
+                <pre className="mt-1 p-3 bg-muted/50 border rounded-md text-sm whitespace-pre-wrap break-all">
                   {JSON.stringify(alert.context_data, null, 2)}
                 </pre>
               </div>

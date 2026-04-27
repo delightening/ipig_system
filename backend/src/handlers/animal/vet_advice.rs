@@ -9,7 +9,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     require_permission,
     services::{
         access, AnimalVetAdviceService, AnimalVetAdvice, UpsertVetAdviceRequest,
@@ -40,8 +40,12 @@ pub async fn upsert_animal_vet_advice(
     Path(animal_id): Path<Uuid>,
     Json(req): Json<UpsertVetAdviceRequest>,
 ) -> Result<Json<AnimalVetAdvice>> {
-    let advice =
-        AnimalVetAdviceService::upsert(&state.db, animal_id, &req, current_user.id).await?;
+    // SEC-IDOR: 寫入操作需權限 + 動物歸屬檢查（原先缺漏）
+    require_permission!(current_user, "animal.vet.recommend");
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
+
+    let actor = ActorContext::User(current_user.clone());
+    let advice = AnimalVetAdviceService::upsert(&state.db, &actor, animal_id, &req).await?;
     Ok(Json(advice))
 }
 
@@ -89,8 +93,11 @@ pub async fn delete_vet_advice_record(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<()>> {
-    // SEC-IDOR: v2 CI 掃描發現 — 寫入操作必須驗證權限與動物歸屬
+    // SEC-IDOR (R26-11): 權限 + 動物歸屬雙重驗證，service 層亦以
+    // (id, animal_id) 作用域防 IDOR。
     require_permission!(current_user, "animal.vet.recommend");
-    VetAdviceRecordService::delete(&state.db, id).await?;
+    let animal_id = access::get_vet_advice_record_animal_id(&state.db, id).await?;
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
+    VetAdviceRecordService::delete(&state.db, id, animal_id).await?;
     Ok(Json(()))
 }

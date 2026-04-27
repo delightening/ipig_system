@@ -10,13 +10,13 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         CreateWarehouseRequest, UpdateWarehouseRequest, Warehouse, WarehouseImportResult,
         WarehouseQuery, WarehouseReportData, WarehouseTreeNode,
     },
     require_permission,
-    services::{AuditService, PdfService, WarehouseService},
+    services::{PdfService, WarehouseService},
     AppError, AppState, Result,
 };
 
@@ -30,20 +30,8 @@ pub async fn create_warehouse(
     require_permission!(current_user, "erp.warehouse.create");
     req.validate()?;
     
-    let warehouse = WarehouseService::create(&state.db, &req).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "WAREHOUSE_CREATE",
-        Some("warehouse"), Some(warehouse.id), Some(&warehouse.name),
-        None,
-        Some(serde_json::json!({
-            "name": warehouse.name,
-            "code": warehouse.code,
-        })),
-        None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (WAREHOUSE_CREATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let warehouse = WarehouseService::create(&state.db, &actor, &req).await?;
 
     Ok(Json(warehouse))
 }
@@ -97,15 +85,8 @@ pub async fn update_warehouse(
     require_permission!(current_user, "erp.warehouse.edit");
     req.validate()?;
     
-    let warehouse = WarehouseService::update(&state.db, id, &req).await?;
-
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "WAREHOUSE_UPDATE",
-        Some("warehouse"), Some(id), Some(&warehouse.name),
-        None, None, None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (WAREHOUSE_UPDATE): {}", e);
-    }
+    let actor = ActorContext::User(current_user.clone());
+    let warehouse = WarehouseService::update(&state.db, &actor, id, &req).await?;
 
     Ok(Json(warehouse))
 }
@@ -120,15 +101,8 @@ pub async fn delete_warehouse(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "erp.warehouse.delete");
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "WAREHOUSE_DELETE",
-        Some("warehouse"), Some(id), None,
-        None, None, None, None,
-    ).await {
-        tracing::error!("寫入審計日誌失敗 (WAREHOUSE_DELETE): {}", e);
-    }
-    
-    WarehouseService::delete(&state.db, id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    WarehouseService::delete(&state.db, &actor, id).await?;
     Ok(Json(serde_json::json!({ "message": "Warehouse deleted successfully" })))
 }
 
@@ -183,33 +157,10 @@ pub async fn import_warehouses(
         return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
     }
 
-    let result = WarehouseService::import_warehouses(&state.db, &file_data, &file_name).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let result = WarehouseService::import_warehouses(&state.db, &actor, &file_data, &file_name).await?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db,
-        current_user.id,
-        "ERP",
-        "WAREHOUSE_IMPORT",
-        Some("warehouse"),
-        None,
-        Some(&format!(
-            "匯入倉庫: {} (成功: {}, 失敗: {})",
-            file_name, result.success_count, result.error_count
-        )),
-        None,
-        Some(serde_json::json!({
-            "file_name": file_name,
-            "success_count": result.success_count,
-            "error_count": result.error_count
-        })),
-        None,
-        None,
-    )
-    .await
-    {
-        tracing::error!("寫入審計日誌失敗 (WAREHOUSE_IMPORT): {}", e);
-    }
-
+    // service 層 N+1 audit（per-row WAREHOUSE_CREATE + summary WAREHOUSE_IMPORT）
     Ok(Json(result))
 }
 

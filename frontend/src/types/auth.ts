@@ -125,6 +125,8 @@ export interface UpdateRoleRequest {
 export interface ChangeOwnPasswordRequest {
     current_password: string
     new_password: string
+    /** C3：後端要求新密碼二次確認 */
+    new_password_confirmation: string
 }
 
 export interface ResetPasswordRequest {

@@ -1,4 +1,7 @@
-#![allow(dead_code)]
+// R26-7 完成：原本的 crate-level `#![allow(dead_code)]` 在 PR #3 移除後，剩餘
+// 零星死碼已逐一審視——真死碼已刪除（PR #173），serde 被動欄位改為 `_` 前綴
+// 命名 + `#[serde(rename = ...)]`。本模組樹零 `#[allow(dead_code)]`；新死碼
+// 進不來（未標註即 clippy 紅燈）。
 
 pub mod access;
 pub mod alert_threshold;
@@ -7,7 +10,8 @@ pub mod mcp;
 pub mod accounting;
 mod amendment;
 mod animal;
-mod audit;
+pub mod audit;
+pub mod audit_chain_verify;
 mod auth;
 mod calendar;
 mod document;

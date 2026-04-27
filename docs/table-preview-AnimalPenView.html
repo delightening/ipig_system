@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>AnimalPenView RWD Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: #f4f4f5; color: #18181b; padding: 16px;
+  }
+  .controls {
+    max-width: 1400px; margin: 0 auto 16px; display: flex; flex-wrap: wrap;
+    gap: 8px; align-items: center; background: white; padding: 12px; border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .controls button {
+    padding: 6px 12px; border: 1px solid #d4d4d8; border-radius: 6px; background: white;
+    cursor: pointer; font-size: 13px;
+  }
+  .controls button:hover { background: #f4f4f5; }
+  .controls input[type=range] { flex: 1; min-width: 200px; }
+  .label { font-size: 13px; color: #52525b; }
+  .w-display { font-weight: 600; font-family: monospace; min-width: 60px; text-align: right; }
+  .mode-label {
+    font-size: 12px; margin-left: auto; font-weight: 600;
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .preview-wrap {
+    max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;
+  }
+  .stage {
+    margin: 0 auto; border: 2px dashed #a1a1aa;
+    padding: 12px; background: #fafafa; transition: width 0.15s;
+  }
+
+  /* Zone Card */
+  .zone-card {
+    container-type: inline-size;
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    border-radius: 8px; padding: 12px;
+  }
+  .zone-title {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+    font-size: 16px; font-weight: 600;
+  }
+  .zone-badge {
+    width: 32px; height: 32px; border-radius: 8px; background: #f59e0b;
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-weight: bold;
+  }
+  .zone-count {
+    padding: 2px 10px; border: 1px solid #f59e0b; color: #92400e;
+    border-radius: 4px; font-size: 12px;
+  }
+
+  /* Grid table */
+  .grid-table {
+    background: white; border-radius: 6px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .row-split {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    border-bottom: 1px solid #fde68a;
+  }
+  .row-split:last-child { border-bottom: none; }
+  .row-split > div:first-child { border-right: 1px solid #fde68a; }
+  .row-split.zebra-odd { background: #fffbeb; }
+
+  .cell-grid {
+    display: grid; gap: 4px; padding: 6px 10px; align-items: center;
+    font-size: 13px;
+    /* default = 4 cols (desktop) */
+    grid-template-columns: 40px 1fr 80px 80px;
+  }
+  @container (max-width: 699px) {
+    .cell-grid {
+      grid-template-columns: 40px 1fr;
+    }
+    .cell-vet, .cell-abn, .head-vet, .head-abn { display: none; }
+  }
+
+  .header-row {
+    background: #f59e0b; color: white; font-size: 11px; font-weight: 600;
+  }
+  .header-row .cell-grid { padding: 6px 10px; }
+
+  .pen-code { font-weight: 600; color: #92400e; }
+  .ear-link {
+    color: #2563eb; font-weight: 500; text-decoration: none; word-break: break-all;
+  }
+  .ear-link:hover { text-decoration: underline; }
+  .empty { color: #a1a1aa; font-style: italic; }
+  .muted { color: #52525b; font-size: 11px; }
+  .abn { color: #b91c1c; font-weight: 500; }
+
+  /* Abnormal row: light red background */
+  .row-abnormal { background: #fee2e2 !important; }
+
+  /* Multi-row pen (dashed separator within same pen) */
+  .multi-row { border-top: 1px dashed #d4d4d8; }
+
+  .bp-label {
+    position: sticky; top: 0; z-index: 10; background: #18181b; color: white;
+    padding: 6px 12px; font-size: 12px; font-family: monospace; margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <span class="label">容器寬度：</span>
+  <button onclick="setWidth(375)">375</button>
+  <button onclick="setWidth(500)">500</button>
+  <button onclick="setWidth(700)">700</button>
+  <button onclick="setWidth(900)">900</button>
+  <button onclick="setWidth(1200)">1200</button>
+  <input type="range" min="320" max="1400" value="900" id="slider" oninput="setWidth(this.value)">
+  <span class="w-display" id="w">900px</span>
+  <span class="mode-label" id="mode"></span>
+</div>
+
+<div class="preview-wrap">
+  <div class="stage" id="stage" style="width: 900px;">
+    <div class="bp-label" id="bplabel">≥ 700px → 4 欄（欄位 耳號 獸醫檢視 最新異常）</div>
+
+    <div class="zone-card">
+      <div class="zone-title">
+        <span class="zone-badge">A</span>
+        <span>A 區</span>
+        <span class="zone-count">共 11 隻</span>
+      </div>
+
+      <div class="grid-table">
+        <!-- Header -->
+        <div class="row-split header-row">
+          <div class="cell-grid">
+            <div>欄位</div>
+            <div>耳號</div>
+            <div class="head-vet">獸醫檢視</div>
+            <div class="head-abn">最新異常</div>
+          </div>
+          <div class="cell-grid">
+            <div>欄位</div>
+            <div>耳號</div>
+            <div class="head-vet">獸醫檢視</div>
+            <div class="head-abn">最新異常</div>
+          </div>
+        </div>
+
+        <!-- Rows -->
+        <div class="row-split zebra-odd">
+          <div class="cell-grid"><span class="pen-code">A01</span><span class="empty">空</span><span class="cell-vet muted">-</span><span class="cell-abn muted">-</span></div>
+          <div class="cell-grid"><span class="pen-code">A11</span><span class="empty">空</span><span class="cell-vet muted">-</span><span class="cell-abn muted">-</span></div>
+        </div>
+        <div class="row-split">
+          <div class="cell-grid"><span class="pen-code">A02</span><span class="empty">空</span><span class="cell-vet muted">-</span><span class="cell-abn muted">-</span></div>
+          <div class="cell-grid"><span class="pen-code">A12</span><a class="ear-link" href="#">639</a><span class="cell-vet muted">2025-04-10</span><span class="cell-abn muted">-</span></div>
+        </div>
+        <div class="row-split zebra-odd">
+          <div class="cell-grid"><span class="pen-code">A03</span><a class="ear-link" href="#">002</a><span class="cell-vet muted">2025-04-09</span><span class="cell-abn muted">-</span></div>
+          <div class="cell-grid"><span class="pen-code">A13</span><a class="ear-link" href="#">592</a><span class="cell-vet muted">2025-04-11</span><span class="cell-abn muted">-</span></div>
+        </div>
+        <!-- Abnormal row -->
+        <div class="row-split">
+          <div class="cell-grid row-abnormal"><span class="pen-code">A04</span><a class="ear-link" href="#">008</a><span class="cell-vet muted">2025-04-05</span><span class="cell-abn abn">有異常</span></div>
+          <div class="cell-grid"><span class="pen-code">A14</span><span class="empty">空</span><span class="cell-vet muted">-</span><span class="cell-abn muted">-</span></div>
+        </div>
+        <!-- Multi-row pen A15 (3 ear tags, dashed separator) -->
+        <div class="row-split zebra-odd">
+          <div class="cell-grid"><span class="pen-code">A05</span><a class="ear-link" href="#">009</a><span class="cell-vet muted">2025-04-02</span><span class="cell-abn muted">-</span></div>
+          <div>
+            <div class="cell-grid"><span class="pen-code">A15</span><a class="ear-link" href="#">821</a><span class="cell-vet muted">2025-04-07</span><span class="cell-abn muted">-</span></div>
+            <div class="cell-grid multi-row"><span></span><a class="ear-link" href="#">820</a><span class="cell-vet muted">2025-04-07</span><span class="cell-abn muted">-</span></div>
+            <div class="cell-grid multi-row row-abnormal"><span></span><a class="ear-link" href="#">822</a><span class="cell-vet muted">2025-04-07</span><span class="cell-abn abn">有異常</span></div>
+          </div>
+        </div>
+        <div class="row-split">
+          <div class="cell-grid"><span class="pen-code">A06</span><span class="empty">空</span><span class="cell-vet muted">-</span><span class="cell-abn muted">-</span></div>
+          <div class="cell-grid"><span class="pen-code">A16</span><span class="empty">空</span><span class="cell-vet muted">-</span><span class="cell-abn muted">-</span></div>
+        </div>
+        <div class="row-split zebra-odd">
+          <div class="cell-grid"><span class="pen-code">A07</span><span class="empty">空</span><span class="cell-vet muted">-</span><span class="cell-abn muted">-</span></div>
+          <div class="cell-grid"><span class="pen-code">A17</span><a class="ear-link" href="#">638</a><span class="cell-vet muted">2025-04-03</span><span class="cell-abn muted">-</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height: 12px;"></div>
+
+    <!-- Second zone (C) to demonstrate multi-zone -->
+    <div class="zone-card" style="background:#dbeafe;border-color:#3b82f6;">
+      <div class="zone-title">
+        <span class="zone-badge" style="background:#3b82f6;">C</span>
+        <span>C 區</span>
+        <span class="zone-count" style="border-color:#3b82f6;color:#1e40af;">共 3 隻</span>
+      </div>
+      <div class="grid-table">
+        <div class="row-split header-row" style="background:transparent;">
+          <div class="cell-grid" style="background:#3b82f6;color:white;"><div>欄位</div><div>耳號</div><div class="head-vet">獸醫檢視</div><div class="head-abn">最新異常</div></div>
+          <div class="cell-grid" style="background:#3b82f6;color:white;"><div>欄位</div><div>耳號</div><div class="head-vet">獸醫檢視</div><div class="head-abn">最新異常</div></div>
+        </div>
+        <div class="row-split zebra-odd" style="background:#eff6ff;">
+          <div class="cell-grid"><span class="pen-code" style="color:#1e40af;">C01</span><a class="ear-link" href="#">301</a><span class="cell-vet muted">-</span><span class="cell-abn muted">-</span></div>
+          <div class="cell-grid"><span class="pen-code" style="color:#1e40af;">C11</span><span class="empty">空</span><span class="cell-vet muted">-</span><span class="cell-abn muted">-</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const stage = document.getElementById('stage');
+  const slider = document.getElementById('slider');
+  const wDisplay = document.getElementById('w');
+  const mode = document.getElementById('mode');
+  const bplabel = document.getElementById('bplabel');
+
+  function setWidth(w) {
+    w = parseInt(w);
+    stage.style.width = w + 'px';
+    slider.value = w;
+    wDisplay.textContent = w + 'px';
+
+    if (w < 700) {
+      mode.textContent = '2 欄（欄位 + 耳號）';
+      mode.style.background = '#fee2e2';
+      mode.style.color = '#991b1b';
+      bplabel.textContent = '< 700px → 2 欄（欄位 + 耳號，並排維持）';
+    } else {
+      mode.textContent = '4 欄完整顯示';
+      mode.style.background = '#dcfce7';
+      mode.style.color = '#166534';
+      bplabel.textContent = '≥ 700px → 4 欄（欄位 耳號 獸醫檢視 最新異常）';
+    }
+  }
+  setWidth(900);
+</script>
+</body>
+</html>

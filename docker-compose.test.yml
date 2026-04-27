@@ -78,6 +78,10 @@ services:
     environment:
       VITE_API_URL: http://api-test:8080
       API_BACKEND_URL: http://api-test:8080
+      # bind mount 已覆蓋 /etc/nginx/conf.d/default.conf (:ro)，
+      # 把 image 內 template 的 envsubst 輸出導去別處，避免 entrypoint
+      # 嘗試寫入 read-only 路徑導致 exit 1
+      NGINX_ENVSUBST_OUTPUT_DIR: /tmp/nginx-unused
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ || exit 1"]
       interval: 5s

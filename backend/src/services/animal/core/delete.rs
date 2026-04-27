@@ -2,7 +2,15 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::super::AnimalService;
-use crate::Result;
+use crate::{
+    middleware::ActorContext,
+    models::{audit_diff::DataDiff, Animal},
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
+    AppError, Result,
+};
 
 impl AnimalService {
     /// 軟刪除動物
@@ -17,26 +25,29 @@ impl AnimalService {
         Ok(())
     }
 
-    /// 軟刪除動物（含刪除原因）- GLP 合規
+    /// 軟刪除動物（含刪除原因）- GLP 合規 — Service-driven audit
     pub async fn delete_with_reason(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
-        sqlx::query(
-            r#"
-            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
-            VALUES ('animal', $1::text, 'DELETE', $2, $3)
-            "#,
-        )
-        .bind(id.to_string())
-        .bind(reason)
-        .bind(deleted_by)
-        .execute(pool)
-        .await?;
+        let user = actor.require_user()?;
+        let deleted_by = user.id;
 
-        sqlx::query(
+        let mut tx = pool.begin().await?;
+
+        // Gemini PR #184 MED：before snapshot 移進 tx + FOR UPDATE 鎖行
+        let before: Animal = sqlx::query_as(
+            "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("動物不存在或已刪除".into()))?;
+
+        // Gemini PR #178 pattern：先 UPDATE 且檢查 rows_affected，防假刪除審計
+        let rows = sqlx::query(
             r#"
             UPDATE animals SET
                 deleted_at = NOW(),
@@ -49,9 +60,52 @@ impl AnimalService {
         .bind(id)
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+
+        if rows == 0 {
+            return Err(AppError::NotFound("動物不存在或已刪除".into()));
+        }
+
+        // Gemini PR #184 HIGH：CRIT-02 同步修補 — 更新 pen.current_count
+        // （deleted_at 的動物不應計入）
+        if let Some(pid) = before.pen_id {
+            sqlx::query(
+                "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
+            )
+            .bind(pid)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
+            VALUES ('animal', $1::text, 'DELETE', $2, $3)
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(&mut *tx)
         .await?;
 
+        let display = format!("{} (原因: {})", before.ear_tag, reason);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "ANIMAL_DELETE",
+                entity: Some(AuditEntity::new("animal", id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }

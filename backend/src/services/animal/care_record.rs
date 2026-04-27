@@ -6,7 +6,15 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use crate::Result;
+use crate::{
+    middleware::ActorContext,
+    models::audit_diff::DataDiff,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService, SignatureService,
+    },
+    AppError, Result,
+};
 
 /// 照護給藥紀錄模式
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
@@ -59,6 +67,12 @@ pub struct CareRecord {
     pub vet_read: bool,
     pub created_at: DateTime<Utc>,
 }
+
+// R26-9: 異種器官移植研究 + GLP 情境下，照護紀錄數值（疼痛分數、給藥情形）
+// 是研究資料本身，必須完整保留於 audit log（21 CFR Part 11 §11.10 稽核軌跡）。
+// 空 `redacted_fields()` 是**主動決策**而非遺漏；未來若判斷某欄位屬員工
+// PII（例如自由註記含他人姓名），於此覆寫即可。
+impl crate::models::audit_diff::AuditRedact for CareRecord {}
 
 /// 建立照護紀錄請求
 #[derive(Debug, Deserialize)]
@@ -206,11 +220,27 @@ impl CareRecordService {
     }
 
     /// 更新照護紀錄
+    ///
+    /// C1 (GLP) 雙層守衛 — 對齊 observation/surgery/blood_test::update 的 pattern：
+    /// 1. pool fail-fast（快速回應，避免空開 tx）
+    /// 2. tx 內 FOR UPDATE atomic check（防 TOCTOU race：簽章 commit 與本 UPDATE
+    ///    並發時，舊版只走 pool 檢查、UPDATE 仍直接落 pool，可在 race window 內
+    ///    改動已鎖定記錄；現包進 tx 後 atomic check 與 UPDATE 同 row lock 內完成）。
+    ///
+    /// 注意：本函式仍未寫 audit log（R26 SDD 補齊範圍，非本 C1 PR 處理 — 留 TODO）。
     pub async fn update(
         pool: &PgPool,
         id: Uuid,
         req: &UpdateCareRecordRequest,
     ) -> Result<CareRecord> {
+        // C1 (GLP) fail-fast：簽章後鎖定的照護紀錄拒絕修改
+        SignatureService::ensure_not_locked_uuid(pool, "care_medication", id).await?;
+
+        let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證鎖定狀態
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "care_medication", id).await?;
+
         let record = sqlx::query_as::<_, CareRecord>(
             r#"
             UPDATE care_medication_records
@@ -246,20 +276,70 @@ impl CareRecordService {
         .bind(req.injection_meloxicam)
         .bind(req.oral_meloxicam)
         .bind(&req.post_medications)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        tx.commit().await?;
         Ok(record)
     }
 
-    /// 軟刪除照護紀錄（含刪除原因）- GLP 合規
+    /// 取得單一照護紀錄（SDD before snapshot 用）
+    pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<CareRecord> {
+        sqlx::query_as::<_, CareRecord>(
+            r#"
+            SELECT id, record_type, record_id, record_mode, post_op_days,
+                   time_period, incision, attitude_behavior, appetite,
+                   feces, urine, pain_score,
+                   injection_ketorolac, injection_meloxicam, oral_meloxicam,
+                   post_medications, vet_read, created_at
+            FROM care_medication_records
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("照護紀錄不存在或已刪除".into()))
+    }
+
+    /// 軟刪除照護紀錄（含刪除原因）- GLP 合規 — Service-driven audit
     pub async fn soft_delete_with_reason(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
-        let result = sqlx::query(
+        let user = actor.require_user()?;
+        let deleted_by = user.id;
+
+        // C1 (GLP) fail-fast：簽章後鎖定的照護紀錄拒絕刪除
+        SignatureService::ensure_not_locked_uuid(pool, "care_medication", id).await?;
+
+        let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "care_medication", id).await?;
+
+        // Gemini PR #182 MED：before snapshot 在 tx 內 + FOR UPDATE 鎖行
+        let before = sqlx::query_as::<_, CareRecord>(
+            r#"
+            SELECT id, record_type, record_id, record_mode, post_op_days,
+                   time_period, incision, attitude_behavior, appetite,
+                   feces, urine, pain_score,
+                   injection_ketorolac, injection_meloxicam, oral_meloxicam,
+                   post_medications, vet_read, created_at
+            FROM care_medication_records
+            WHERE id = $1 AND deleted_at IS NULL
+            FOR UPDATE
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("照護紀錄不存在或已刪除".into()))?;
+
+        // Gemini PR #178 pattern：先 UPDATE + 檢查 rows_affected
+        let rows = sqlx::query(
             r#"
             UPDATE care_medication_records SET
                 deleted_at = NOW(),
@@ -271,13 +351,45 @@ impl CareRecordService {
         .bind(id)
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
-        .await?;
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
 
-        if result.rows_affected() == 0 {
-            return Err(crate::AppError::NotFound("照護紀錄不存在或已刪除".into()));
+        if rows == 0 {
+            return Err(AppError::NotFound("照護紀錄不存在或已刪除".into()));
         }
 
+        // 寫 change_reasons（同 tx）
+        sqlx::query(
+            r#"
+            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
+            VALUES ('care_record', $1::text, 'DELETE', $2, $3)
+            "#,
+        )
+        .bind(id.to_string())
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(&mut *tx)
+        .await?;
+
+        let display = format!(
+            "照護紀錄 {:?} #{} (原因: {})",
+            before.record_type, before.record_id, reason
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "CARE_RECORD_DELETE",
+                entity: Some(AuditEntity::new("care_medication_record", id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }

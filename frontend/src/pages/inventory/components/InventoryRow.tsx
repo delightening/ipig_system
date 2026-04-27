@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api, { InventoryOnHand } from '@/lib/api'
 import { TableCell, TableRow } from '@/components/ui/table'
-import { Loader2, ChevronRight, AlertTriangle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Loader2, ChevronRight, AlertTriangle, PackagePlus } from 'lucide-react'
 import { formatNumber, formatCurrency, formatDate, formatUom, cn } from '@/lib/utils'
 import type { UnassignedInventoryItem } from '@/types/erp'
+import { AssignToShelfDialog } from './AssignToShelfDialog'
 
 /** 效期日期 Badge：依剩餘天數顯示不同顏色 */
 function ExpiryDateBadge({ date }: { date: string }) {
@@ -63,6 +66,8 @@ function BatchDetailRows({
   })
 
   const unassignedQty = unassigned?.[0] ? parseFloat(unassigned[0].qty_unassigned) : 0
+  const unassignedInfo = unassigned?.[0]
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -122,19 +127,42 @@ function BatchDetailRows({
           </TableCell>
         </TableRow>
       ))}
-      {unassignedQty > 0 && (
-        <TableRow className="bg-status-warning-bg/50 dark:bg-amber-950/20 text-sm">
-          <TableCell className="pl-12" colSpan={2}>
-            <div className="flex items-center gap-1.5 text-status-warning-text dark:text-amber-400 italic">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              未分配庫存（尚未上架至儲位）
-            </div>
-          </TableCell>
-          <TableCell className="text-right font-medium text-status-warning-text dark:text-amber-400">
-            {formatNumber(unassignedQty, 0)}
-          </TableCell>
-          <TableCell colSpan={colSpan - 3} />
-        </TableRow>
+      {unassignedQty > 0 && unassignedInfo && (
+        <>
+          <TableRow className="bg-status-warning-bg/50 dark:bg-amber-950/20 text-sm">
+            <TableCell className="pl-12" colSpan={2}>
+              <div className="flex items-center gap-1.5 text-status-warning-text dark:text-amber-400 italic">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                未分配庫存（尚未上架至儲位）
+              </div>
+            </TableCell>
+            <TableCell className="text-right font-medium text-status-warning-text dark:text-amber-400">
+              {formatNumber(unassignedQty, 0)}
+            </TableCell>
+            <TableCell colSpan={Math.max(colSpan - 3, 1)}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5"
+                onClick={() => setAssignDialogOpen(true)}
+              >
+                <PackagePlus className="h-3.5 w-3.5" />
+                分配至儲位
+              </Button>
+            </TableCell>
+          </TableRow>
+          <AssignToShelfDialog
+            open={assignDialogOpen}
+            onOpenChange={setAssignDialogOpen}
+            warehouseId={unassignedInfo.warehouse_id}
+            warehouseName={unassignedInfo.warehouse_name}
+            productId={unassignedInfo.product_id}
+            productName={unassignedInfo.product_name}
+            productSku={unassignedInfo.product_sku}
+            unassignedQty={unassignedQty}
+            baseUom={unassignedInfo.base_uom}
+          />
+        </>
       )}
     </>
   )

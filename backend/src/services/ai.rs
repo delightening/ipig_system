@@ -5,19 +5,31 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::middleware::ai_auth::{generate_api_key, hash_api_key};
+use crate::middleware::ActorContext;
 use crate::models::ai::*;
+use crate::models::audit_diff::DataDiff;
 use crate::repositories::AiRepository;
+use crate::services::{
+    audit::{ActivityLogEntry, AuditEntity},
+    AuditService,
+};
 use crate::{AppError, Result};
 
 pub struct AiService;
 
 impl AiService {
-    /// 建立新的 AI API key（僅管理員）
+    /// 建立新的 AI API key（僅管理員）— Service-driven audit (SECURITY)
+    ///
+    /// Raw key 只回傳給呼叫端一次（post-create response），絕不寫入 audit log；
+    /// `key_hash` 欄位由 `AuditRedact::redacted_fields` 遮蔽（見 `AiApiKey` 實作）。
     pub async fn create_api_key(
         pool: &PgPool,
+        actor: &ActorContext,
         req: &CreateAiApiKeyRequest,
-        created_by: Uuid,
     ) -> Result<CreateAiApiKeyResponse> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
         if req.name.trim().is_empty() {
             return Err(AppError::Validation("API key 名稱不可為空".to_string()));
         }
@@ -36,17 +48,45 @@ impl AiService {
         let scopes_json = serde_json::to_value(&req.scopes)
             .map_err(|e| AppError::Internal(format!("scopes serialize error: {}", e)))?;
 
-        let record = AiRepository::insert_api_key(
-            pool,
-            &req.name,
-            &key_hash,
-            key_prefix,
-            created_by,
-            &scopes_json,
-            req.expires_at,
-            req.rate_limit_per_minute,
+        // Repository 的 insert_api_key 接 pool 不接 tx — 為保持 Service-driven
+        // audit 原子性，service 層自行 pool.begin 包住 INSERT + audit。
+        let mut tx = pool.begin().await?;
+
+        let record = sqlx::query_as::<_, AiApiKey>(
+            r#"
+            INSERT INTO ai_api_keys (name, key_hash, key_prefix, created_by, scopes,
+                                     is_active, expires_at, rate_limit_per_minute)
+            VALUES ($1, $2, $3, $4, $5, true, $6, $7)
+            RETURNING *
+            "#,
+        )
+        .bind(&req.name)
+        .bind(&key_hash)
+        .bind(key_prefix)
+        .bind(created_by)
+        .bind(&scopes_json)
+        .bind(req.expires_at)
+        .bind(req.rate_limit_per_minute)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        // SECURITY audit：AI API key 建立屬權限擴張，稽核重點事件。
+        // AuditRedact 自動遮蔽 key_hash；raw_key 從未進入 record，無洩漏風險。
+        let display = format!("{} ({})", record.name, record.key_prefix);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "AI_API_KEY_CREATE",
+                entity: Some(AuditEntity::new("ai_api_key", record.id, &display)),
+                data_diff: Some(DataDiff::create_only(&record)),
+                request_context: None,
+            },
         )
         .await?;
+
+        tx.commit().await?;
 
         Ok(CreateAiApiKeyResponse {
             id: record.id,
@@ -65,30 +105,102 @@ impl AiService {
         Ok(keys.into_iter().map(Self::key_to_info).collect())
     }
 
-    /// 停用 / 啟用 API key
+    /// 停用 / 啟用 API key — Service-driven audit (SECURITY)
     pub async fn toggle_api_key(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         is_active: bool,
     ) -> Result<()> {
-        let key = AiRepository::find_api_key_by_id(pool, id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("API key not found".to_string()))?;
+        actor.require_user()?;
+        let mut tx = pool.begin().await?;
 
-        if key.is_active == is_active {
+        let before = sqlx::query_as::<_, AiApiKey>(
+            "SELECT * FROM ai_api_keys WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("API key not found".to_string()))?;
+
+        if before.is_active == is_active {
+            // no-op；仍 commit（空 tx）
+            tx.commit().await?;
             return Ok(());
         }
 
-        AiRepository::update_api_key_active(pool, id, is_active).await
+        let after = sqlx::query_as::<_, AiApiKey>(
+            "UPDATE ai_api_keys SET is_active = $2, updated_at = NOW() WHERE id = $1 RETURNING *",
+        )
+        .bind(id)
+        .bind(is_active)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let display = format!("{} ({})", after.name, after.key_prefix);
+        let event_type = if is_active {
+            "AI_API_KEY_ENABLE"
+        } else {
+            "AI_API_KEY_DISABLE"
+        };
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type,
+                entity: Some(AuditEntity::new("ai_api_key", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(())
     }
 
-    /// 刪除 API key
-    pub async fn delete_api_key(pool: &PgPool, id: Uuid) -> Result<()> {
-        AiRepository::find_api_key_by_id(pool, id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("API key not found".to_string()))?;
+    /// 刪除 API key — Service-driven audit (SECURITY)
+    ///
+    /// 硬刪除；audit 保留 `delete_only` snapshot（key_hash 經 AuditRedact 遮蔽），
+    /// 日後稽核可從 audit log 查誰何時刪了哪個 key。
+    pub async fn delete_api_key(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+    ) -> Result<()> {
+        actor.require_user()?;
+        let mut tx = pool.begin().await?;
 
-        AiRepository::delete_api_key(pool, id).await
+        let before = sqlx::query_as::<_, AiApiKey>(
+            "SELECT * FROM ai_api_keys WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("API key not found".to_string()))?;
+
+        sqlx::query("DELETE FROM ai_api_keys WHERE id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+
+        let display = format!("{} ({})", before.name, before.key_prefix);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "AI_API_KEY_DELETE",
+                entity: Some(AuditEntity::new("ai_api_key", before.id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(())
     }
 
     /// 取得系統概覽

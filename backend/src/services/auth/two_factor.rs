@@ -6,7 +6,12 @@ use uuid::Uuid;
 use crate::{
     config::Config,
     constants::TWO_FA_TEMP_EXPIRES_SECS,
-    models::{LoginResponse, User, UserResponse},
+    middleware::ActorContext,
+    models::{audit_diff::DataDiff, LoginResponse, User, UserResponse},
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
     AppError, Result,
 };
 
@@ -67,57 +72,125 @@ impl AuthService {
         Ok((otpauth_uri, backup_codes))
     }
 
-    /// 驗證 TOTP code 並正式啟用 2FA
-    pub async fn confirm_totp_setup(pool: &PgPool, user_id: Uuid, code: &str) -> Result<()> {
-        let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
-            .bind(user_id)
-            .fetch_one(pool)
-            .await?;
+    /// 驗證 TOTP code 並正式啟用 2FA — Service-driven audit (SECURITY)
+    pub async fn confirm_totp_setup(
+        pool: &PgPool,
+        actor: &ActorContext,
+        user_id: Uuid,
+        code: &str,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> Result<()> {
+        actor.require_user()?;
+        let mut tx = pool.begin().await?;
 
-        let secret = user
+        let before = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 FOR UPDATE")
+            .bind(user_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        let secret = before
             .totp_secret_encrypted
             .as_deref()
             .ok_or_else(|| AppError::BusinessRule("尚未產生 2FA secret，請先呼叫 setup".into()))?;
 
         Self::verify_totp_code(secret, code)?;
 
-        sqlx::query("UPDATE users SET totp_enabled = true, updated_at = NOW() WHERE id = $1")
-            .bind(user_id)
-            .execute(pool)
-            .await?;
+        let after = sqlx::query_as::<_, User>(
+            "UPDATE users SET totp_enabled = true, updated_at = NOW() WHERE id = $1 RETURNING *",
+        )
+        .bind(user_id)
+        .fetch_one(&mut *tx)
+        .await?;
 
+        // SECURITY audit：2FA 啟用（User 的 AuditRedact 已遮蔽 totp_secret / backup_codes）
+        let display = format!("{} <{}>", after.display_name, after.email);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "TWO_FACTOR_ENABLED",
+                entity: Some(AuditEntity::new("user", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         tracing::info!("[2FA] User {} enabled TOTP", user_id);
         Ok(())
     }
 
-    /// 停用 2FA
-    pub async fn disable_totp(pool: &PgPool, user_id: Uuid, code: &str) -> Result<()> {
-        let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
-            .bind(user_id)
-            .fetch_one(pool)
-            .await?;
+    /// 停用 2FA — Service-driven audit (SECURITY)
+    pub async fn disable_totp(
+        pool: &PgPool,
+        actor: &ActorContext,
+        user_id: Uuid,
+        code: &str,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> Result<()> {
+        actor.require_user()?;
+        let mut tx = pool.begin().await?;
 
-        if !user.totp_enabled {
+        let before = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1 FOR UPDATE")
+            .bind(user_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        if !before.totp_enabled {
             return Err(AppError::BusinessRule("2FA 未啟用".into()));
         }
 
-        let secret = user
+        let secret = before
             .totp_secret_encrypted
             .as_deref()
             .ok_or_else(|| AppError::Internal("2FA enabled but no secret".into()))?;
 
-        // 驗證 TOTP 或備用碼
-        if Self::verify_totp_code(secret, code).is_err() {
-            Self::verify_backup_code(pool, user_id, &user.totp_backup_codes, code).await?;
+        // 驗證 TOTP 或備用碼。
+        //
+        // Gemini PR #168 critical 指出：外層 tx 已持 users row FOR UPDATE，呼叫
+        // `verify_backup_code(pool, ...)` 會 deadlock（helper 用 pool 新連線 UPDATE
+        // 同一 row）。disable 流程下方 UPDATE 即將把 `totp_backup_codes` 設為 NULL，
+        // 無需額外消耗單一備用碼；改用純 in-memory 比對。
+        if Self::verify_totp_code(secret, code).is_err()
+            && Self::find_matching_backup_code(&before.totp_backup_codes, code).is_none()
+        {
+            return Err(AppError::Validation("驗證碼錯誤".into()));
         }
 
-        sqlx::query(
-            "UPDATE users SET totp_enabled = false, totp_secret_encrypted = NULL, totp_backup_codes = NULL, updated_at = NOW() WHERE id = $1",
+        let after = sqlx::query_as::<_, User>(
+            "UPDATE users SET totp_enabled = false, totp_secret_encrypted = NULL, totp_backup_codes = NULL, updated_at = NOW() WHERE id = $1 RETURNING *",
         )
         .bind(user_id)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let display = format!("{} <{}>", after.display_name, after.email);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "SECURITY",
+                event_type: "TWO_FACTOR_DISABLED",
+                entity: Some(AuditEntity::new("user", after.id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: Some(crate::services::audit::RequestContext {
+                    ip_address: ip,
+                    user_agent,
+                }),
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         tracing::info!("[2FA] User {} disabled TOTP", user_id);
         Ok(())
     }
@@ -282,21 +355,16 @@ impl AuthService {
         }
     }
 
-    /// 驗證並消耗一次性備用碼
-    async fn verify_backup_code(
-        pool: &PgPool,
-        user_id: Uuid,
-        stored_codes: &Option<Vec<String>>,
-        code: &str,
-    ) -> Result<()> {
-        let codes = stored_codes
-            .as_ref()
-            .ok_or_else(|| AppError::Validation("驗證碼錯誤".into()))?;
-
-        // M5: 支援新（Argon2）與舊（SHA-256 hex）格式，逐一比對
-        let idx = codes.iter().position(|stored| {
+    /// 純 in-memory 驗證一次性備用碼，回傳匹配位置（若符合）。
+    /// 不 touch DB，供 Service-driven tx 內避免死鎖使用。
+    ///
+    /// Gemini PR #168 指出：`verify_backup_code` 在 tx 內被呼叫時會 deadlock
+    /// （外層 tx 已持 users row FOR UPDATE，該 helper 用 pool 新連線 UPDATE
+    /// 同一 row → 永久等待）。本 helper 僅做密碼比對，不寫 DB。
+    fn find_matching_backup_code(stored_codes: &Option<Vec<String>>, code: &str) -> Option<usize> {
+        let codes = stored_codes.as_ref()?;
+        codes.iter().position(|stored| {
             if stored.starts_with("$argon2") {
-                // Argon2 格式
                 use argon2::{
                     password_hash::{PasswordHash, PasswordVerifier},
                     Argon2,
@@ -306,14 +374,32 @@ impl AuthService {
                     .and_then(|h| Argon2::default().verify_password(code.as_bytes(), &h).ok())
                     .is_some()
             } else {
-                // 舊 SHA-256 格式（向後相容，下次重設 2FA 會自動升級）
                 use sha2::{Digest, Sha256};
                 let mut hasher = Sha256::new();
                 hasher.update(code.as_bytes());
                 let legacy_hash = format!("{:x}", hasher.finalize());
                 stored == &legacy_hash
             }
-        });
+        })
+    }
+
+    /// 驗證並消耗一次性備用碼（pool-based：供 2FA login 路徑使用）
+    ///
+    /// 呼叫端必須在 tx 外使用；disable_totp 路徑改用 `find_matching_backup_code`
+    /// 純驗證 + 同 tx 內把 `totp_backup_codes` 設為 NULL（見 `disable_totp`）。
+    async fn verify_backup_code(
+        pool: &PgPool,
+        user_id: Uuid,
+        stored_codes: &Option<Vec<String>>,
+        code: &str,
+    ) -> Result<()> {
+        if stored_codes.as_ref().is_none() {
+            return Err(AppError::Validation("驗證碼錯誤".into()));
+        }
+        let idx = Self::find_matching_backup_code(stored_codes, code);
+        let codes = stored_codes
+            .as_ref()
+            .ok_or_else(|| AppError::Validation("驗證碼錯誤".into()))?;
 
         match idx {
             Some(i) => {

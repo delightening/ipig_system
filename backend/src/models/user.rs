@@ -33,6 +33,21 @@ pub struct UserTraining {
     pub received_date: Option<String>,  // 取得時間
 }
 
+// User 含密碼雜湊與 TOTP 敏感欄位 — 必須覆寫 redacted_fields。
+// 雖然 password_hash / totp_secret_encrypted / totp_backup_codes 已有
+// `#[serde(skip_serializing)]` 讓它們在一般 JSON 序列化時被排除，但 audit
+// 的 DataDiff 套一層 redact 機制作為 defence-in-depth：若某欄位改名或誤加
+// `#[serde(skip_serializing_if)]` 條件跳脫，仍能由 redact 兜底。
+impl crate::models::audit_diff::AuditRedact for User {
+    fn redacted_fields() -> &'static [&'static str] {
+        &[
+            "password_hash",
+            "totp_secret_encrypted",
+            "totp_backup_codes",
+        ]
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct User {
     pub id: Uuid,
@@ -308,6 +323,11 @@ pub struct ChangeOwnPasswordRequest {
     #[validate(length(min = 10, max = 128, message = "New password must be at least 10 characters"))]
     #[validate(custom(function = "validate_password_strength"))]
     pub new_password: String,
+    /// C3 (GLP §11.300 / NIST SP 800-63)：新密碼二次確認，避免使用者誤輸入。
+    /// 用 validator must_match 確保與 `new_password` 一致；handler 走 `req.validate()?`。
+    #[validate(length(min = 1, message = "請再次輸入新密碼"))]
+    #[validate(must_match(other = "new_password", message = "新密碼與確認密碼不一致"))]
+    pub new_password_confirmation: String,
 }
 
 /// SEC-33：敏感操作二級認證 — 確認密碼請求

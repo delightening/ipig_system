@@ -50,6 +50,8 @@ export function ForceChangePasswordPage() {
       return api.put('/me/password', {
         current_password: data.current_password,
         new_password: data.new_password,
+        // C3：後端要求新密碼二次確認；frontend 已有 confirm_password 欄位
+        new_password_confirmation: data.confirm_password,
       })
     },
     onSuccess: async () => {

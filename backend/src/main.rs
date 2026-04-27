@@ -1,13 +1,16 @@
 use std::sync::Arc;
+use std::time::Duration;
+
+use tokio_util::sync::CancellationToken;
 
 use erp_backend::config;
 use erp_backend::middleware::JwtBlacklist;
 use erp_backend::services::scheduler::SchedulerService;
 use erp_backend::services::{AuditService, FileService, GeoIpService, GotenbergClient, ImageProcessorClient, PdfServiceClient, TemplateService};
 use erp_backend::startup::{
-    create_database_pool_with_retry, ensure_admin_user, ensure_all_role_permissions,
-    ensure_required_permissions, ensure_schema, init_tracing, log_startup_config_check,
-    run_migrations, seed_dev_users,
+    check_jwt_key_file_permissions, create_database_pool_with_retry, ensure_admin_user,
+    ensure_all_role_permissions, ensure_required_permissions, ensure_schema, init_tracing,
+    log_startup_config_check, run_migrations, seed_dev_users,
 };
 use erp_backend::startup::server::{build_app, shutdown_signal};
 use erp_backend::AppState;
@@ -88,9 +91,20 @@ async fn main() -> anyhow::Result<()> {
     }
 
     log_startup_config_check(&config);
+    // H7：JWT 私鑰檔權限檢查（檔案模式提供時）
+    check_jwt_key_file_permissions(config.jwt_ec_private_key_file.as_deref());
+
+    // 全域 graceful shutdown 訊號：所有背景任務觀測此 token 優雅收尾
+    let shutdown_token = CancellationToken::new();
 
     // 背景排程服務（必須保留到 server 關閉）
-    let _scheduler = match SchedulerService::start(pool.clone(), config.clone()).await {
+    let _scheduler = match SchedulerService::start(
+        pool.clone(),
+        config.clone(),
+        shutdown_token.clone(),
+    )
+    .await
+    {
         Ok(sched) => {
             tracing::info!("Background scheduler started");
             Some(sched)
@@ -110,7 +124,9 @@ async fn main() -> anyhow::Result<()> {
     // JWT 黑名單（SEC-23 + SEC-33）
     let jwt_blacklist = JwtBlacklist::new();
     jwt_blacklist.load_from_db(&pool).await;
-    jwt_blacklist.clone().start_cleanup_task(pool.clone());
+    let jwt_cleanup_handle = jwt_blacklist
+        .clone()
+        .start_cleanup_task(pool.clone(), shutdown_token.clone());
 
     // SEC-30
     if config.trust_proxy_headers {
@@ -156,7 +172,9 @@ async fn main() -> anyhow::Result<()> {
         image_processor,
         pdf_service,
         templates,
-        permission_cache: std::sync::Arc::new(dashmap::DashMap::new()),
+        // H2：moka::future::Cache 取代 DashMap，內建 TTL + try_get_with single-flight
+        permission_cache: erp_backend::build_permission_cache(),
+        shutdown_token: shutdown_token.clone(),
     };
 
     let app = build_app(state, &config);
@@ -165,12 +183,42 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("Server listening on {}", addr);
 
+    // shutdown 流程：接到訊號 → cancel token → axum 停收新連線 → 等背景任務收尾
+    let shutdown_token_for_signal = shutdown_token.clone();
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-    .with_graceful_shutdown(shutdown_signal())
+    .with_graceful_shutdown(async move {
+        shutdown_signal().await;
+        tracing::info!("Shutdown signal received — cancelling background tasks");
+        shutdown_token_for_signal.cancel();
+    })
     .await?;
+
+    // 等背景任務收尾（timeout 保底避免永久卡死）
+    //
+    // 目前只等 jwt_blacklist cleanup join handle。Scheduler 的 cron job 在
+    // shutdown_token.cancel() 後跳過下一輪觸發，正在執行中的 job 會跑完當輪
+    // 才結束（`is_cancelled()` 在 job body 開頭檢查）。執行中 job 的 join 留給
+    // tokio runtime 自動 drop 處理。
+    //
+    // 長 job 的明確 shutdown 協調（select! 中斷 + scheduler grace period）留待
+    // R26-1 升級，屆時此處會加 `scheduler.shutdown().await` 等 in-flight
+    // cron runtime 結束。
+    const JWT_CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
+    tracing::info!(
+        "Waiting for jwt_blacklist cleanup to finish (up to {}s)...",
+        JWT_CLEANUP_TIMEOUT.as_secs()
+    );
+    match tokio::time::timeout(JWT_CLEANUP_TIMEOUT, jwt_cleanup_handle).await {
+        Ok(Ok(())) => tracing::info!("jwt_blacklist cleanup joined cleanly"),
+        Ok(Err(e)) => tracing::warn!("jwt_blacklist cleanup task panicked: {}", e),
+        Err(_) => tracing::warn!(
+            "jwt_blacklist cleanup did not finish within {}s — forcing shutdown",
+            JWT_CLEANUP_TIMEOUT.as_secs()
+        ),
+    }
 
     tracing::info!("Server shut down gracefully");
     Ok(())

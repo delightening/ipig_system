@@ -12,10 +12,14 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::ExportRequest,
     require_permission,
-    services::{access, AnimalBloodTestService, AnimalMedicalService, AnimalService, AuditService},
+    services::{
+        access,
+        audit::{ActivityLogEntry, AuditEntity},
+        AnimalBloodTestService, AnimalMedicalService, AnimalService, AuditService,
+    },
     AppError, AppState, Result,
 };
 
@@ -58,22 +62,17 @@ pub async fn export_animal_medical_pdf(
         _ => format!("匯出醫療資料 (animal: {})", animal_id),
     };
 
-    if let Err(e) = AuditService::log_activity(
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
         &state.db,
-        current_user.id,
-        "ANIMAL",
-        "EXPORT_MEDICAL",
-        Some("animal"),
-        Some(animal_id),
-        Some(&export_display),
-        None,
-        Some(serde_json::json!({
-            "format": format!("{:?}", req.format),
-            "export_type": format!("{:?}", req.export_type),
-            "engine": "gotenberg",
-        })),
-        None,
-        None,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "EXPORT_MEDICAL",
+            entity: Some(AuditEntity::new("animal", animal_id, &export_display)),
+            data_diff: None,
+            request_context: None,
+        },
     )
     .await
     {
@@ -357,18 +356,17 @@ pub async fn export_blood_test_pdf(
 
     let iacuc = animal.iacuc_no.as_deref().unwrap_or("unassigned");
     let export_display = format!("[{}] {}", iacuc, animal.ear_tag);
-    if let Err(e) = AuditService::log_activity(
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
         &state.db,
-        current_user.id,
-        "ANIMAL",
-        "EXPORT_BLOOD_TEST",
-        Some("animal"),
-        Some(animal_id),
-        Some(&export_display),
-        None,
-        Some(serde_json::json!({ "engine": "pdf-service", "doc_type": "blood_test" })),
-        None,
-        None,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "EXPORT_BLOOD_TEST",
+            entity: Some(AuditEntity::new("animal", animal_id, &export_display)),
+            data_diff: None,
+            request_context: None,
+        },
     )
     .await
     {

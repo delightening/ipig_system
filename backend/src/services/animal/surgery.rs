@@ -2,9 +2,17 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalMedicalService;
+use super::{AnimalMedicalService, AnimalService};
 use crate::{
-    models::{AnimalSurgery, CreateSurgeryRequest, SurgeryListItem, UpdateSurgeryRequest},
+    middleware::ActorContext,
+    models::{
+        audit_diff::DataDiff, AnimalSurgery, CreateSurgeryRequest, SurgeryListItem,
+        UpdateSurgeryRequest,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService, SignatureService,
+    },
     utils::jsonb_validation::{validate_medication_jsonb, validate_vital_signs},
     AppError, Result,
 };
@@ -101,12 +109,16 @@ impl AnimalSurgeryService {
         Ok(surgery)
     }
 
+    /// 建立手術紀錄 — Service-driven audit
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         animal_id: Uuid,
         req: &CreateSurgeryRequest,
-        created_by: Uuid,
     ) -> Result<AnimalSurgery> {
+        let user = actor.require_user()?;
+        let created_by = user.id;
+
         // 驗證 JSONB 欄位結構
         validate_surgery_jsonb_fields(
             &req.induction_anesthesia,
@@ -115,6 +127,11 @@ impl AnimalSurgeryService {
             &req.vital_signs,
             &req.post_surgery_medication,
         )?;
+
+        // 取得動物資訊用於 audit 顯示（Gemini PR #178：顯示 IACUC + 耳號 而非 UUID）
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+
+        let mut tx = pool.begin().await?;
 
         let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
@@ -145,19 +162,46 @@ impl AnimalSurgeryService {
         .bind(&req.remark)
         .bind(req.no_medication_needed)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let display = format!("[{}] {} - {}", iacuc, animal.ear_tag, surgery.surgery_site);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "SURGERY_CREATE",
+                entity: Some(AuditEntity::new(
+                    "animal_surgery",
+                    surgery.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::create_only(&surgery)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(surgery)
     }
 
-    /// 更新手術紀錄
+    /// 更新手術紀錄 — Service-driven audit
+    ///
+    /// 注意：`save_record_version` 目前接 `&PgPool`（GLP 強制版本歷史）。與
+    /// `AnimalObservation::update` 同屬 R26-8 待 tx 化範圍 — 失敗僅丟失該版本
+    /// 歷史，主流程繼續。audit log 仍在 tx 內，符合 R26 DoD-1。
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateSurgeryRequest,
-        updated_by: Uuid,
     ) -> Result<AnimalSurgery> {
+        let user = actor.require_user()?;
+        let updated_by = user.id;
+
         // 驗證 JSONB 欄位結構
         validate_surgery_jsonb_fields(
             &req.induction_anesthesia,
@@ -167,13 +211,26 @@ impl AnimalSurgeryService {
             &req.post_surgery_medication,
         )?;
 
-        // 先取得原始紀錄用於版本歷史
-        let original = Self::get_by_id(pool, id).await?;
+        // C1 (GLP) fail-fast：簽章後鎖定的記錄拒絕修改
+        SignatureService::ensure_not_locked_uuid(pool, "surgery", id).await?;
 
-        // 保存版本歷史
-        AnimalMedicalService::save_record_version(pool, "surgery", id, &original, updated_by)
+        // 先取得原始紀錄用於版本歷史 + audit before snapshot（tx 外 pool read OK）
+        let before = Self::get_by_id(pool, id).await?;
+
+        // 取得動物資訊用於 audit 顯示（Gemini PR #178：顯示 IACUC + 耳號 而非 UUID）
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
+
+        // 保存版本歷史（目前 pool-based；tx 化歸 R26-8）
+        AnimalMedicalService::save_record_version(pool, "surgery", id, &before, updated_by)
             .await?;
 
+        let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證，避免 fail-fast 與 UPDATE 之間的 race
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "surgery", id).await?;
+
+        // Gemini PR #178：加 `AND deleted_at IS NULL` 避免更新已軟刪除紀錄；
+        // 若不存在或已刪除，`fetch_one` 會回 `RowNotFound` 自動映射為 NotFound。
         let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
             UPDATE animal_surgeries SET
@@ -192,7 +249,7 @@ impl AnimalSurgeryService {
                 remark = COALESCE($14, remark),
                 no_medication_needed = COALESCE($15, no_medication_needed),
                 updated_at = NOW()
-            WHERE id = $1
+            WHERE id = $1 AND deleted_at IS NULL
             RETURNING *
             "#,
         )
@@ -211,9 +268,29 @@ impl AnimalSurgeryService {
         .bind(&req.post_surgery_medication)
         .bind(&req.remark)
         .bind(req.no_medication_needed)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let display = format!("[{}] {} - {}", iacuc, animal.ear_tag, surgery.surgery_site);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "SURGERY_UPDATE",
+                entity: Some(AuditEntity::new(
+                    "animal_surgery",
+                    surgery.id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&surgery))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(surgery)
     }
 
@@ -227,13 +304,55 @@ impl AnimalSurgeryService {
         Ok(())
     }
 
-    /// 軟刪除手術紀錄（含刪除原因）- GLP 合規
+    /// 軟刪除手術紀錄（含刪除原因）- GLP 合規 — Service-driven audit
     pub async fn soft_delete_with_reason(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         reason: &str,
-        deleted_by: Uuid,
     ) -> Result<()> {
+        let user = actor.require_user()?;
+        let deleted_by = user.id;
+
+        // C1 (GLP) fail-fast：簽章後鎖定的記錄拒絕刪除
+        SignatureService::ensure_not_locked_uuid(pool, "surgery", id).await?;
+
+        // before snapshot for audit（tx 外 pool read OK）
+        let before = Self::get_by_id(pool, id).await?;
+
+        // 取得動物資訊用於 audit 顯示（Gemini PR #178：顯示 IACUC + 耳號 而非 UUID）
+        let animal = AnimalService::get_by_id(pool, before.animal_id).await?;
+
+        let mut tx = pool.begin().await?;
+
+        // C1 atomic：tx 內以 FOR UPDATE 再次驗證鎖定狀態
+        SignatureService::ensure_not_locked_uuid_tx(&mut tx, "surgery", id).await?;
+
+        // Gemini PR #178：先 UPDATE 並檢查 rows_affected；若 0 回 NotFound 並
+        // rollback（不會寫入 change_reasons 或 audit log）— 防止 race 下產生
+        // 假刪除的審計紀錄。
+        let rows = sqlx::query(
+            r#"
+            UPDATE animal_surgeries SET
+                deleted_at = NOW(),
+                deletion_reason = $2,
+                deleted_by = $3
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+
+        if rows == 0 {
+            return Err(AppError::NotFound(
+                "手術紀錄不存在或已被刪除".to_string(),
+            ));
+        }
+
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
@@ -243,24 +362,28 @@ impl AnimalSurgeryService {
         .bind(id.to_string())
         .bind(reason)
         .bind(deleted_by)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
-        sqlx::query(
-            r#"
-            UPDATE animal_surgeries SET 
-                deleted_at = NOW(), 
-                deletion_reason = $2,
-                deleted_by = $3
-            WHERE id = $1 AND deleted_at IS NULL
-            "#,
+        let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+        let display = format!(
+            "[{}] {} - {} (原因: {})",
+            iacuc, animal.ear_tag, before.surgery_site, reason
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "SURGERY_DELETE",
+                entity: Some(AuditEntity::new("animal_surgery", id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
         )
-        .bind(id)
-        .bind(reason)
-        .bind(deleted_by)
-        .execute(pool)
         .await?;
 
+        tx.commit().await?;
         Ok(())
     }
 

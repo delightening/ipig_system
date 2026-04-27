@@ -1,4 +1,4 @@
-use crate::models::{AnimalBreed, AnimalGender};
+use crate::models::AnimalBreed;
 
 /// 動物相關工具函數
 pub struct AnimalUtils;
@@ -53,14 +53,6 @@ impl AnimalUtils {
         }
     }
 
-    /// 字串轉性別 enum
-    pub fn parse_gender(gender_str: &str) -> Option<AnimalGender> {
-        match gender_str.to_lowercase().as_str() {
-            "male" => Some(AnimalGender::Male),
-            "female" => Some(AnimalGender::Female),
-            _ => None,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -169,30 +161,4 @@ mod tests {
         assert_eq!(AnimalUtils::breed_to_db_value(&AnimalBreed::Other), "other");
     }
 
-    // ── parse_gender ──
-
-    #[test]
-    fn test_parse_gender_male_lowercase() {
-        assert_eq!(AnimalUtils::parse_gender("male"), Some(AnimalGender::Male));
-    }
-
-    #[test]
-    fn test_parse_gender_female_mixed_case() {
-        assert_eq!(AnimalUtils::parse_gender("Female"), Some(AnimalGender::Female));
-    }
-
-    #[test]
-    fn test_parse_gender_uppercase() {
-        assert_eq!(AnimalUtils::parse_gender("MALE"), Some(AnimalGender::Male));
-    }
-
-    #[test]
-    fn test_parse_gender_unknown_returns_none() {
-        assert_eq!(AnimalUtils::parse_gender("other"), None);
-    }
-
-    #[test]
-    fn test_parse_gender_empty_returns_none() {
-        assert_eq!(AnimalUtils::parse_gender(""), None);
-    }
 }

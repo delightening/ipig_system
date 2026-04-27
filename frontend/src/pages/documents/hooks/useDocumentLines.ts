@@ -37,11 +37,25 @@ export function useDocumentLines(
 
   const inputRefs = useRef<InputRefs>({})
 
+  const updateLineField = useCallback(
+    <K extends keyof DocumentLine>(lineId: string, field: K, value: DocumentLine[K]) => {
+      setFormData((prev) => ({
+        ...prev,
+        lines: prev.lines.map((line) => {
+          const curId = line.id || `temp-${prev.lines.indexOf(line)}`
+          return curId === lineId ? { ...line, [field]: value } : line
+        }),
+      }))
+      setUnsavedChanges(true)
+    },
+    [setFormData, setUnsavedChanges],
+  )
+
   const collectLineValues = useCallback((lineId: string): Partial<DocumentLine> => {
     const refs = inputRefs.current[lineId]
     if (!refs) return {}
     const values: Partial<DocumentLine> = {}
-    if (refs.qty) values.qty = refs.qty.value
+    // qty 為 controlled input，不從 DOM ref 讀取，避免 stale ref / re-mount 資料遺失
     if (refs.unit_price) values.unit_price = refs.unit_price.value
     if (refs.expiry_date) {
       // DateTextInput stores ISO value in data-iso attribute (React-rendered, always in sync)
@@ -245,5 +259,6 @@ export function useDocumentLines(
     selectProduct, openProductSearch,
     handleBatchChange, handleLineBlur,
     handleBatchShelfSelect, handleBatchShelfSelectFrom, handleBatchShelfSelectTo,
+    updateLineField,
   }
 }

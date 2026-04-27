@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-04-19 (v31)
+> **最後更新：** 2026-04-23 (v32)
 > **維護慣例：** 完成項目標 [x] + 更新待辦統計 + 在 `docs/PROGRESS.md` §9 新增變更紀錄。詳見 `CLAUDE.md`「文件記錄規則」。
 > **章節排列：** 禁止事項 → P0~P5（優先級）→ 歷史改善計畫 → R6~R13+（輪次嚴格遞增）→ 待辦統計 → 變更紀錄（封存）
 
@@ -112,7 +112,7 @@
 | P1-M1 | **API 版本路徑** | `/api/v1/` 前綴，前端 baseURL 更新 | [x] |
 | P1-M2 | **GDPR 資料主體權利** | `GET /me/export`、`DELETE /me/account`，隱私政策補充 | [x] |
 | P1-M3 | **維運文件 OPERATIONS.md** | 服務擁有者、on-call、升級流程、故障排除 | [x] |
-| P1-M4 | **憑證輪換文件** | `docs/security-compliance/CREDENTIAL_ROTATION.md` 已存在 | [x] |
+| P1-M4 | **憑證輪換文件** | `docs/security/CREDENTIAL_ROTATION.md` 已存在 | [x] |
 | P1-M5 | **Dependabot Phase 2 收尾** | zod 4、zustand 5、date-fns 4 已升級 | [x] |
 | P2-M2 | **人員訓練紀錄模組** | migration 020、training_records 表、CRUD API、TrainingRecordsPage | [x] |
 | P2-M3 | **設備校準紀錄模組** | migration 021、equipment + equipment_calibrations、EquipmentPage | [x] |
@@ -123,7 +123,7 @@
 
 ## 🟣 R4-100 — 邁向 100% 目標（依據 IMPROVEMENT_PLAN_R4 §7）
 
-> 詳見 [IMPROVEMENT_PLAN_R4.md](development/IMPROVEMENT_PLAN_R4.md) §7。兩軌可並行。
+> 詳見 [IMPROVEMENT_PLAN_R4.md](archive/improvement-plans/IMPROVEMENT_PLAN_R4.md) §7。兩軌可並行。
 
 ### 7.1 核心業務邏輯覆蓋率 100%
 
@@ -171,7 +171,7 @@
 
 ## 🔒 R7 — 第七輪改善（安全性原始碼審視，2026-03-08）
 
-> 依據 `docs/development/IMPROVEMENT_PLAN_R7.md` 全面原始碼審視發現。
+> 依據 `docs/archive/improvement-plans/IMPROVEMENT_PLAN_R7.md` 全面原始碼審視發現。
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
@@ -1891,6 +1891,58 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🔄 R26 — Service-driven Audit 重構延伸待辦（2026-04-21 審查報告產出）
+
+> 對應 `docs/reviews/2026-04-21-rust-backend-review.md` 與 `plan-for-the-critical-validated-pebble.md`
+> PR #1 INFRA 完成後發現的延伸優化項；主功能未壞，這些是「更穩健」升級。
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R26-1 | **長 Scheduler job 升級為 `tokio::select!` 中斷式** | PR #177 完成：`monthly_report` / `db_analyze` / `calendar_sync` 等長 job 升級為 `tokio::select!` 中斷式；併同 `main.rs` shutdown grace period 與安全中斷點 | [x] |
+| R26-2 | **HMAC chain 每日驗證 cron** | 完成：`services/audit_chain_verify.rs` + `scheduler.rs::register_audit_chain_verify_job`（每日 02:00 UTC）+ `SecurityNotifier::dispatch` 斷鏈告警；payload 大小限制（top 20 IDs）；`AUDIT_CHAIN_VERIFY_ACTIVE` env 旗標；3 單元測試 | [x] |
+| R26-3 | **現有 handler 遷移至 `log_activity_tx`**（97 call sites / 27 handler 檔） | 完成：animals 49（PR #4a-4g）+ user 8 + product 7 + sku 5 + partner/warehouse/equipment 12 + role/ai/auth/hr 12 + 其他 ≈ 全部遷移；跨越 PR #156/162-184/188/191 共計 20+ 個 PR | [x] |
+| R26-4 | **舊 `log_activity(&pool, ...)` 最終移除** | 完成：`AuditService::log_activity` 舊版已刪除；`compute_and_store_hmac` 舊版已合併；零 deprecated 警告（`cargo clippy --all-targets -- -D warnings` 綠燈） | [x] |
+| R26-5 | **(已完成) migration 036 changed_fields 聯集修正** | 對應 PR #154：stored proc fallback 由 JSONB EXCEPT 改為 UNION + `IS DISTINCT FROM`，正確偵測「被刪除的 key」。 | [x] |
+| R26-6 | **HMAC chain 版本化 + 儲存後雜湊** | PR #170 完成：新增 `user_activity_logs.hmac_version SMALLINT`（`1`=legacy string-concat、`2`=length-prefix canonical）；verifier 依 version 分流；DataDiff 的 changed_fields 避免 stored proc fallback 路徑 | [x] |
+| R26-7 | **Dead code 11 處逐一 review & 清理** | 完成：PR #173 刪除 8 處真死碼；本次清理剩餘 3 處（`IdxfMeta.format_version` + `ManifestTable.columns` 改為 `_`-prefix serde rename；`QUARTERLY_OVERTIME_LIMIT` 移除未用法規常數）；services 模組樹零 `#[allow(dead_code)]` | [x] |
+| R26-8 | **完整 `ProtocolService::change_status` Service-driven 重構** | PR #188 完成：`change_status_tx` 將 10+ DB 操作、numbering、4 helper fn（assign_primary_reviewer/assign_vet_reviewer/record_activity/PartnerService::create_tx）納入單一 tx；跨服務原子性已建立 | [x] |
+| R26-9 | **Audit redact allowlist for medical entities** | PR #175 完成：`CareRecord` / `VetAdviceRecord` / `AnimalObservation` 等醫療自由文字 entity 明確標記 `AuditRedact` impl（空 impl 需文檔證明無敏感欄位） | [x] |
+| R26-10 | **Vet advice upsert 並發安全 + SDD audit** | PR #174 完成：`delete_vet_advice_record` 加 FOR UPDATE 鎖定；upsert pattern 補 SELECT FOR UPDATE；完整 SDD audit | [x] |
+| R26-11 | **IDOR service-layer authz** | PR #176 完成：handler 直接 SQL 檢查身份下沉到 service 層；`services/access.rs` 集中授權 helper | [x] |
+| R26-12 | _（保留編號）_ | 規劃階段曾預留為「edge case 修補」，後續實際工作均歸入 R26-13/14；保留編號維持歷史軌跡 | [x] |
+| R26-13 | **storage_location 庫存 upsert 原子性 + audit** | PR #197 完成：原 `INSERT ... ON CONFLICT DO UPDATE` 無 before snapshot；改為 SELECT FOR UPDATE + 顯式 INSERT/UPDATE 分支 + `log_activity_tx` 在同一 tx 寫 audit | [x] |
+| R26-14 | **Audit redaction 對照文檔 + CI guard** | PR #198 完成：`docs/security/AUDIT_REDACTION.md` 對照表（明確 redact / default empty / 不進 diff / 不存在 entity 分類）+ `.github/workflows/ci.yml::audit-redaction-guard`（find + awk 掃 FromRow struct 含敏感欄位） | [x] |
+
+---
+
+## 🔧 R27 — E2E 修復後的代碼品質改善（2026-04-24 全面代碼審查）
+
+> 對應 PR #200、#201 E2E 測試修復後的全面代碼審查結果
+> 優先級均為 LOW，無阻擋項，可後續漸進式改進
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R27-1 | **Dockerfile CMD 可讀性改善** | `frontend/Dockerfile:72` 超長 CMD（240+ 字元）可考慮提取為獨立 shell 腳本；當前功能正確但後續維護時更易理解。LOW | [ ] |
+| R27-2 | **生環境 API_BACKEND_URL 驗證** | `frontend/Dockerfile:72` envsubst 應驗證 `${API_BACKEND_URL}` 非空，避免生成無效 nginx 配置；CI 環境由 docker-compose.test.yml 保證，生環境應加額外檢查。LOW | [ ] |
+| R27-3 | **auth_middleware 函式拆分** | `backend/src/middleware/auth.rs` `auth_middleware` ~90+ 行（含註解），超過 ≤60 寬鬆上限。建議拆 `validate_jwt(state, token) -> Claims`（token 提取 + ES256 decode + audience/issuer + jti 黑名單）+ `load_permissions(state, claims) -> Vec<String>`（admin 旁路 + try_get_with single-flight + 錯誤映射）。來源：CodeRabbit PR #210 outside-diff Major。LOW | [ ] |
+| R27-4 | **middleware SQL 下放至 repository** | `backend/src/middleware/auth.rs` 內含 4-table JOIN（permissions JOIN role_permissions JOIN user_roles JOIN roles）+ `check_user_active_status` 的 SELECT，違反 CLAUDE.md 「Middleware 禁業務邏輯」「Repository 封裝 SQL」分層。建議移至 `repositories/user.rs`：`list_permission_codes_by_user` + `find_user_active_status_by_id`。同 SELECT 也能被 `services/access.rs` 復用。來源：CodeRabbit PR #210。LOW | [ ] |
+| R27-5 | **permission_cache 觀測指標** | `backend/src/middleware/auth.rs` 的 moka cache 沒有 hit/miss/eviction 計數，無法判斷 capacity 10,000 是否足夠、TTL 5min 是否合適。建議在 `try_get_with` 包 wrapper 取 `entry_count()` / `weighted_size()` 並推到既有 `metrics_handle` (Prometheus)。來源：CodeRabbit PR #210。LOW | [ ] |
+| R27-6 | **admin 路徑帳號狀態 cache** | `backend/src/middleware/auth.rs::check_user_active_status` 對 admin 每請求查 DB（admin 不走 perm cache）。雖 admin 數量小，但屬均勻優化機會：把 admin 也納入 `try_get_with`（cache 空 Vec），或單獨 `Cache<Uuid, ()>` 快取狀態檢查結果。來源：Gemini PR #210 Medium。LOW | [ ] |
+| R27-7 | **amendment::classify 函式拆分** | `backend/src/services/amendment/workflow.rs::classify` ~111 行（>60 寬鬆上限）。Major 與 Minor 分支可拆 `classify_minor_with_signature_tx` + `classify_major_with_reviewers_tx`，主函式僅做驗證 + 分流。來源：CodeRabbit PR #205 outside-diff Major。LOW | [ ] |
+| R27-8 | **C2 R7 已獨立修補** | record_decision 終態守衛已由 PR #213 (`glp/c2-extra-decision-terminal-guard`) 處理，本項僅作紀錄追蹤；PR #213 合併後可關閉。LOW | [x] |
+| R27-9 | **amendment record_decision 重複查 status** | `backend/src/services/amendment/workflow.rs::record_decision` 終態守衛 SELECT FOR UPDATE 已取得 `current_status`；隨後呼叫的 `check_all_decisions_tx` 內部又重新查一次（`get_by_id_raw` 等）。同 tx 內可省一次往返，把 `current_status` 作為參數傳進 `check_all_decisions_tx`。來源：Gemini PR #216 Medium。LOW | [ ] |
+| R27-10 | **animal observation create handler 重複 get_by_id** | `backend/src/handlers/animal/observation.rs::create_animal_observation`（L109 + L139）對同一 animal 重複呼叫 `AnimalService::get_by_id`。可單次查詢後傳遞。來源：Gemini PR #216 Medium。LOW | [ ] |
+
+---
+
+## 🔧 R28 — bot review 發現的深層 perf 問題（2026-04-27）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R28-1 | **observation 服務層仍重複查 animal** | `AnimalObservationService::create` 內部 audit log 邏輯也呼叫 `AnimalService::get_by_id`（observation.rs L113），handler + service 全程仍有 2 次重複查詢。R27-10 (PR #221) 只解了 handler 內的 2→1，service 層的 1 次仍在。深層修法需動 service 簽名（回傳 `(Observation, Animal)` 或讓 handler pre-fetch 傳入）— breaking change 跨多 callers，獨立 PR 處理。來源：Gemini PR #221 Medium。LOW | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -1922,7 +1974,10 @@ ORDER BY 1 DESC;
 | 🎨 R23 全站 Table UI 升級 | 0 (20 完成) |
 | 🛡️ R24 Observability 補強 | 0 (4 完成) |
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
-| **合計（未完成）** | **13** |
+| 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
+| 🔧 R27 E2E + bot review 後續清理 | 9 |
+| 🔧 R28 bot review 深層 perf | 1 |
+| **合計（未完成）** | **23** |
 
 ---
 
@@ -1970,7 +2025,7 @@ ORDER BY 1 DESC;
 | 2026-03-01 | 🧠 Claude：R6 第六輪改善執行 — R6-1 EquipmentPage/TrainingRecordsPage；R6-2 useDateRangeFilter、useTabState 建立並套用 8 頁；R6-3 InlineSkeleton 改 span |
 | 2026-03-01 | 🧠 Claude：建立 R6 第六輪改善計劃 — R6-1 useState→hooks 擴展、R6-2 useDateRangeFilter/useTabState、R6-3 Skeleton DOM 修正、R6-4 財務模組評估、R6-5 Dependabot Phase 2.5 評估。依據專案評估產出 |
 | 2026-03-01 | 🧠 Claude：財務 SOC2 QAU 三項規劃完成 — QAU 角色/儀表板（022、GET /qau/dashboard、QAUDashboardPage）；SOC2 憑證輪換腳本、SLA.md、DR_DRILL_CHECKLIST；財務 AP/AR/GL（023–024、AccountingService、AccountingReportPage）。詳見 `docs/PROGRESS.md` §9 |
-| 2026-03-01 | 🧠 Claude：P0–P2 改進計劃全部完成 — P1-M0 稽核匯出 API、P1-M1 API 版本、P1-M2 GDPR、P1-M3 OPERATIONS.md、P1-M4 憑證輪換、P1-M5 Dependabot；P2-M2 人員訓練紀錄、P2-M3 設備校準、P2-M4 稽核 UI 使用者篩選、P2-M5 security-compliance/SOC2_READINESS.md。詳見 `docs/development/IMPROVEMENT_PLAN_MARKET_REVIEW.md` |
+| 2026-03-01 | 🧠 Claude：P0–P2 改進計劃全部完成 — P1-M0 稽核匯出 API、P1-M1 API 版本、P1-M2 GDPR、P1-M3 OPERATIONS.md、P1-M4 憑證輪換、P1-M5 Dependabot；P2-M2 人員訓練紀錄、P2-M3 設備校準、P2-M4 稽核 UI 使用者篩選、P2-M5 security/SOC2_READINESS.md。詳見 `docs/development/IMPROVEMENT_PLAN_MARKET_REVIEW.md` |
 | 2026-02-28 | 🧠 Claude：第三輪系統改善 20 項（P0-R3-1~4 安全 + P1-R3-5~10 效能 + P2-R3-11~20 品質/維運）— SQL QueryBuilder 統一/IDOR 修補/expect() 清理/非 root 容器/搜尋 debounce/staleTime 調優/AnimalsPage 拆分/DashMap Rate Limiter/DB Pool 指標/Skeleton Loading/Protocol any 消除/審計日誌/常數提取/Error Boundary/SSL 範本/備份驗證/Loki 日誌/環境驗證/無障礙/API 一致性。詳見 `docs/development/IMPROVEMENT_PLAN_R3.md` |
 | 2026-02-28 | 🧠 Claude：第二輪系統改善 15 項（P0-R2-1~2 安全 + P1-R2-3~8 效能/可靠性 + P2-R2-9~15 品質/維運）— DOMPurify XSS 防護/Rate Limiting 分級/jsPDF 動態導入/動物列表分頁/健康檢查深度擴充/Alertmanager 告警/SMTP 重試/Query Key Factory/Zod 表單驗證/i18n 補齊/Zustand Selector/DB 維護自動化/Dependabot/零停機遷移策略/架構圖。詳見 `docs/development/IMPROVEMENT_PLAN_R2.md` |
 | 2026-02-28 | 🧠 Claude：系統改善 14 項（P0-S1~S3 安全性 + P1-S4~S8 效能 + P2-S9~S14 品質）— Docker 網路隔離/DB 埠口/Secrets + N+1 修復/批次 INSERT/移除 .expect()/複合索引 + is_admin()/UserResponse 提取/TypeScript 嚴格化/API 錯誤統一/MainLayout 拆分/Memoization/cargo-chef。詳見 `docs/development/IMPROVEMENT_PLAN_R1.md` |
@@ -1986,7 +2041,7 @@ ORDER BY 1 DESC;
 | 2026-02-27 | 🧠 Claude：完成 P4-18 E2E Rate Limiting / Session 穩定化 — admin-context 改用 storageState 檔案免重複登入、API rate limit 120→600/min、login.spec credential fallback。34/34 連續通過、22s 完成。 |
 | 2026-02-27 | 🧠 Claude：E2E 測試總結計畫實施 — 新增 P4-18 Rate Limiting/Session 穩定化待辦；`docs/e2e/README.md` 故障排除 §5 補充 Session 過期導致 429 連鎖失敗說明。 |
 | 2026-02-25 | 🧠 Claude：完成 P3-7 SEC-33 敏感操作二級認證 — 後端 confirm-password + reauth token，前後端刪除使用者／重設密碼／模擬登入／刪除角色皆需重新輸入密碼確認。 |
-| 2026-02-25 | 🧠 Claude：完成 P1-7 電子簽章合規審查（21 CFR Part 11），新增 `docs/security-compliance/ELECTRONIC_SIGNATURE_COMPLIANCE.md`。 |
+| 2026-02-25 | 🧠 Claude：完成 P1-7 電子簽章合規審查（21 CFR Part 11），新增 `docs/security/ELECTRONIC_SIGNATURE_COMPLIANCE.md`。 |
 | 2026-02-25 | 🧠 Claude：完成 P1-12 OpenAPI 完善 — 新增電子簽章（10 paths + 2 附註）、動物管理（9 paths）及對應 Schema。 |
 | 2026-02-25 | 🧠 Claude：修正 CI `sqlx-cli` 安裝錯誤，增加 `--force` 以應對快取衝突。 |
 | 2026-02-25 | 🧠 Claude：完成 P1-8 資料保留政策 (Data Retention Policy) 定義。 |

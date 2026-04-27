@@ -1,0 +1,92 @@
+@page {
+    size: A4;
+    margin: 15mm 20mm;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", "Heiti TC", sans-serif;
+    font-size: 10pt;
+    line-height: 1.5;
+    color: #000;
+}
+
+.doc-title {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: bold;
+    margin-bottom: 4mm;
+}
+
+.doc-subtitle {
+    text-align: center;
+    font-size: 11pt;
+    margin-bottom: 8mm;
+    color: #333;
+}
+
+.meta-bar {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9pt;
+    margin-bottom: 6mm;
+    color: #444;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4mm;
+}
+
+table.long-data {
+    page-break-inside: auto;
+}
+
+table.long-data tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+}
+
+th, td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    vertical-align: top;
+    font-size: 10pt;
+}
+
+th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+    text-align: center;
+}
+
+td.num, th.num {
+    text-align: center;
+}
+
+.badge-abnormal {
+    color: #991b1b;
+    font-weight: bold;
+}
+
+.empty-hint {
+    text-align: center;
+    padding: 8mm 0;
+    color: #666;
+    font-size: 10pt;
+}
+
+.copyright {
+    text-align: center;
+    font-size: 8pt;
+    margin-top: 8mm;
+    padding-top: 4mm;
+    border-top: 1px solid #000;
+    color: #555;
+}
