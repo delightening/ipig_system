@@ -12,12 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { HandwrittenSignaturePad, type SignatureData } from '@/components/ui/handwritten-signature-pad'
 import { toast } from '@/components/ui/use-toast'
 import api from '@/lib/api'
 import { signatureApi, type SignRecordRequest } from '@/lib/api/signature'
+import { getApiErrorMessage } from '@/lib/validation'
 
 import type { MaintenanceRecordWithDetails } from '../types'
 import { MAINTENANCE_TYPE_LABELS } from '../types'
@@ -33,6 +35,7 @@ export function MaintenanceReviewDialog({ open, onOpenChange, record, mode }: Pr
   const queryClient = useQueryClient()
   const [reviewNotes, setReviewNotes] = useState('')
   const [signatureData, setSignatureData] = useState<SignatureData | null>(null)
+  const [password, setPassword] = useState('')
 
   const isApprove = mode === 'approve'
 
@@ -40,11 +43,12 @@ export function MaintenanceReviewDialog({ open, onOpenChange, record, mode }: Pr
     mutationFn: async () => {
       if (!record) return
 
-      // 驗收通過需要簽章
+      // 驗收通過需要簽章 + 密碼（GLP 21 CFR 11 雙因子）
       if (isApprove && signatureData) {
         const sigReq: SignRecordRequest = {
           handwriting_svg: signatureData.svg,
           stroke_data: signatureData.strokeData,
+          password,
         }
         await signatureApi.signMaintenanceReviewer(record.id, sigReq)
       }
@@ -64,14 +68,19 @@ export function MaintenanceReviewDialog({ open, onOpenChange, record, mode }: Pr
       queryClient.invalidateQueries({ queryKey: ['equipment'] })
       handleClose()
     },
-    onError: () => {
-      toast({ title: '操作失敗', description: '請稍後再試', variant: 'destructive' })
+    onError: (error) => {
+      toast({
+        title: '操作失敗',
+        description: getApiErrorMessage(error, '請稍後再試'),
+        variant: 'destructive',
+      })
     },
   })
 
   const handleClose = () => {
     setReviewNotes('')
     setSignatureData(null)
+    setPassword('')
     onOpenChange(false)
   }
 
@@ -114,13 +123,29 @@ export function MaintenanceReviewDialog({ open, onOpenChange, record, mode }: Pr
           </div>
 
           {isApprove && (
-            <div className="space-y-2">
-              <Label>電子簽章</Label>
-              <HandwrittenSignaturePad
-                onSignatureChange={setSignatureData}
-                height={140}
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label>電子簽章</Label>
+                <HandwrittenSignaturePad
+                  onSignatureChange={setSignatureData}
+                  height={140}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maintenance-review-password">登入密碼</Label>
+                <Input
+                  id="maintenance-review-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="請輸入您的登入密碼以完成簽章"
+                  autoComplete="current-password"
+                />
+                <p className="text-xs text-muted-foreground">
+                  GLP 合規：手寫簽章須再驗證密碼以確認身分
+                </p>
+              </div>
+            </>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
@@ -130,7 +155,10 @@ export function MaintenanceReviewDialog({ open, onOpenChange, record, mode }: Pr
             <Button
               variant={isApprove ? 'default' : 'destructive'}
               onClick={() => reviewMutation.mutate()}
-              disabled={reviewMutation.isPending || (isApprove && !signatureData)}
+              disabled={
+                reviewMutation.isPending ||
+                (isApprove && (!signatureData || password.length === 0))
+              }
             >
               {reviewMutation.isPending
                 ? '處理中...'
