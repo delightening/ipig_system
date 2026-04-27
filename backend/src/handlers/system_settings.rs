@@ -57,7 +57,8 @@ pub async fn update_system_settings(
     }
 
     let service = SystemSettingsService::new(state.db.clone());
-    service.update_settings(&body, current_user.id).await?;
+    let actor = crate::middleware::ActorContext::User(current_user.clone());
+    service.update_settings(&actor, &body).await?;
 
     let mut settings = service.get_all_settings().await?;
     if let Some(val) = settings.get("smtp_password") {
