@@ -203,6 +203,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 **ClawSweeper 紀律統計**（本輪）：6 條 Medium / 4 拒絕 / 2 actionable post-merge bot review ADOPT；R28-5 因 deploy-time backfill SQL 屬 R29 範疇，僅補 design doc 部分完成標 [ ]。
 
+### 2026-04-27 本地環境同步 main + Dev DB schema v39 + Maintenance Review GLP 雙因子 + RBAC 守衛
+
+- ✅ **Dev DB schema v36 → v39**：本地 docker DB 從 R26 epic 中段推進到最新；`pg_dump` 完整備份後 `git checkout main && pull`，`docker compose up -d --build` 觸發 `sqlx::migrate!` 自動跑 037 (audit_hmac_version)、038 (glp_record_locks)、039 (amendment_decision_signature)；三個 migration 皆 `IF NOT EXISTS` + nullable / `NOT NULL DEFAULT false`，零資料風險，全 `success=true`。
+- ✅ **GLP 21 CFR Part 11 雙因子簽章 — Maintenance Review (`d196972d`)**：`MaintenanceReviewDialog` 驗收通過時除手寫簽章外再要求登入密碼；`SignRecordRequest` 帶入 `password`，前端 disabled 條件加上 `password.length === 0`；`onError` 改用 `getApiErrorMessage` 顯示後端具體原因取代「請稍後再試」泛訊息。
+- ✅ **靜態語意骨架閃現修復 (`9f1e81e2`)**：`frontend/index.html` 用 CSS 隱藏 `#static-landing`，DOM 內容仍保留供 SEO crawler / LLM scraper 擷取，`noscript` 環境下顯示骨架供無 JS 使用者閱讀。
+- ✅ **R1+R2 Maintenance signature RBAC + 狀態守衛 (`0801bf9f`，PR #241 fix/maintenance-signature-rbac-guard)**：對 `d196972d` 做 self code-review 發現 `sign_maintenance_reviewer` handler 原無 `require_permission!`，任何已認證使用者皆可用自己密碼為任意 maintenance record 建立簽章並覆寫 `reviewer_signature_id`（pre-existing 漏洞，被 GLP 雙因子 commit 暴露）。修正：handler 加 `equipment.maintenance.review` / `equipment.manage` 雙路徑 RBAC + tx + `SELECT FOR UPDATE` 鎖 row 後檢查 `status = 'pending_review' AND reviewer_signature_id IS NULL`，已簽章回 `Conflict` 不靜默 UPDATE。ClawSweeper review (`docs/review-decisions/PR-241.md`) 3 條 actionable bot comment 全 DEFER 至 R29-1（tx-aware sign_record + handler→service 重構 + audit log 補寫）。驗證：cargo check + clippy `-D warnings` + test --all-targets 501 passed / 32 suites。
+
 ### 2026-04-27 R27 backlog 9 項全清空 — 5 個 perf / refactor / observability PR
 
 承接 2026-04-26 3C+8H 收尾後留下的 R27 backlog（PR #205/#210 review 中 DEFER 的 8 項 + #216 review 補的 R27-9/R27-10）。本輪 5 個 PR 全部完成並 merge，整個 R27 清空。
