@@ -154,18 +154,41 @@ fn validate_jwt(state: &AppState, token: &str) -> Result<Claims> {
 /// H2：moka try_get_with single-flight，cache miss 時並發請求共享同一個 loader
 /// future，避免 4-table JOIN stampede。loader 失敗（status 拒絕 / DB 錯誤）
 /// 不會被快取，下次請求重試。
+///
+/// R27-5（Gemini PR #219 採納）：cache.get() 先試命中，避免每請求 alloc
+/// `Arc<AtomicBool>`；單一 counter + label `result="hit|miss"` 符合
+/// Prometheus best practice。Race（兩並發 get 都 None → 都 try_get_with）
+/// 不影響 single-flight 正確性，僅 metrics 微誤差，可接受。
 async fn load_permissions(state: &AppState, claims: &Claims) -> Result<Vec<String>> {
     let user_id = claims.sub;
-    let db = state.db.clone();
 
-    state
+    // Hit path：fast return，省 try_get_with 的 alloc
+    if let Some(perms) = state.permission_cache.get(&user_id).await {
+        metrics::counter!(
+            "ipig_permission_cache_requests_total",
+            "result" => "hit",
+        )
+        .increment(1);
+        return Ok(perms);
+    }
+
+    // Miss path：走 try_get_with single-flight loader
+    let db = state.db.clone();
+    let result = state
         .permission_cache
         .try_get_with::<_, AppError>(user_id, async move {
             check_user_active_status(&db, user_id).await?;
             crate::repositories::user::list_permission_codes_by_user(&db, user_id).await
         })
         .await
-        .map_err(map_cache_loader_error)
+        .map_err(map_cache_loader_error);
+
+    metrics::counter!(
+        "ipig_permission_cache_requests_total",
+        "result" => "miss",
+    )
+    .increment(1);
+    result
 }
 
 /// CodeRabbit review #210：保留 loader 原始 AppError variant，
