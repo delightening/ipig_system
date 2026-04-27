@@ -71,7 +71,7 @@ hex = "0.4"
 totp-rs = { version = "5", features = ["otpauth", "qr", "serde_support", "gen_secret"] }
 
 # GeoIP
-maxminddb = "0.27"
+maxminddb = "0.28"
 
 # PDF generation
 printpdf = "0.9"
