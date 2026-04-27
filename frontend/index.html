@@ -24,6 +24,14 @@
     <title>豬博士 iPig 系統</title>
     <!-- Google Fonts (Noto Sans TC) 由 CookieConsent 元件根據使用者偏好動態注入 -->
 
+    <!--
+      在 React 掛載前隱藏靜態語意骨架，避免使用者看到純文字閃現。
+      DOM 內容仍存在，供 SEO crawler / LLM scraper（直接讀 HTML、不執行 CSS）擷取；
+      無 JS 環境（noscript）下會顯示骨架供使用者閱讀與導覽。
+    -->
+    <style>#static-landing{display:none}</style>
+    <noscript><style>#static-landing{display:block}</style></noscript>
+
     <!-- Schema.org Organization -->
     <script type="application/ld+json">
       {
