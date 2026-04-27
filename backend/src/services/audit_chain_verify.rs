@@ -57,11 +57,8 @@ const ALERT_SEVERITY: &str = "critical";
 
 /// H1：multi-instance distributed lock key (audit_chain_verify cron)。
 ///
-/// 任意 i64 常數，跨 instance 唯一識別此 cron job。advisory lock 是 session-scoped，
-/// 同一連線可重入，不同 session 互斥。
-///
-/// 取值原因：crc32("audit_chain_verify_cron") 截斷為 i64，避開常見 lock 命名空間。
-const AUDIT_CHAIN_VERIFY_LOCK_KEY: i64 = 0x1A2B_3C4D_5E6F_7081_u64 as i64;
+/// 集中註冊於 `crate::constants`（R28-M3）；本檔 re-import 維持命名空間。
+use crate::constants::AUDIT_CHAIN_VERIFY_LOCK_KEY;
 
 /// H1 (GLP / 併發審查 §H1)：跨 instance 互斥的 advisory lock，RAII 安全。
 ///

@@ -426,8 +426,9 @@ impl AuditService {
         // R26-4 疑慮 1+2: advisory lock 序列化 audit 寫入，保證 HMAC chain
         // 不會在並發下跳 row 或指向 rollback 的死連結。
         // Lock 綁在 tx 上，tx commit/rollback 時自動釋放。
+        // R28-M3：lock key 集中於 crate::constants
         sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
-            .bind("audit_log_chain")
+            .bind(crate::constants::AUDIT_LOG_CHAIN_LOCK_KEY)
             .execute(&mut **tx)
             .await?;
 

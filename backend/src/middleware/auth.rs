@@ -217,11 +217,13 @@ fn map_cache_loader_error(arc_err: std::sync::Arc<AppError>) -> AppError {
 /// R27-4：SQL 已下放至 `repositories::user::find_user_active_status_by_id`；
 /// 本函式僅做業務判斷（拒停用 / 拒過期 / 拒不存在）。
 async fn check_user_active_status(pool: &sqlx::PgPool, user_id: Uuid) -> Result<()> {
+    // R28-M4：直接透傳 repository 的 AppError::Database，不再 wrap 成 Internal
+    // 而失去錯誤 variant context（與 load_permissions 路徑的 error preservation
+    // 邏輯一致；caller 需要 Database/Forbidden/etc 區分）。inspect_err 保留 log。
     let row = crate::repositories::user::find_user_active_status_by_id(pool, user_id)
         .await
-        .map_err(|e| {
+        .inspect_err(|e| {
             tracing::error!("[Auth] 無法查詢使用者 {} 狀態: {}", user_id, e);
-            AppError::Internal("無法驗證使用者狀態".to_string())
         })?;
 
     match row {
