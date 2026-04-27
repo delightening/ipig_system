@@ -141,8 +141,9 @@ pub fn get_leave_type_display(leave_type: &str) -> &'static str {
 //
 // 1. **靜態 i64 常數**（整個系統唯一、跨 instance）：
 //    cron job multi-instance lock 等。
-//    為避免落入 i32 範圍與 hashtext() 結果衝突，**靜態常數使用 i64 高位 bit**
-//    （第 63 bit 為 1，即負數空間）。
+//    為避免與 `hashtext()` 結果（i32 範圍）衝突，**靜態常數的 magnitude 必須超出
+//    i32 範圍**（即 `< i32::MIN as i64` 或 `> i32::MAX as i64`）。具體 bit pattern
+//    不重要（正/負皆可），由下方 `test_static_lock_keys_outside_i32_range` 強制驗證。
 //
 // 2. **`hashtext($string)` 動態派生**（i32 範圍）：
 //    依「鍵字串」分組的鎖，例如 per-email login lock、HMAC chain serialization。

@@ -193,6 +193,12 @@ async fn load_permissions(state: &AppState, claims: &Claims) -> Result<Vec<Strin
 
 /// CodeRabbit review #210：保留 loader 原始 AppError variant，
 /// 避免 Forbidden/NotFound 等被吞成 500。
+///
+/// **R28-M4 已知限制**：`AppError::Database(sqlx::Error)` 因 `sqlx::Error` 不實作
+/// `Clone`，無法在 `Arc::try_unwrap` 失敗（race：>1 holder）時還原 variant，僅
+/// fallback 為 `AppError::Internal` + 訊息保留。常見路徑（first-loader 取 Arc 唯一
+/// 持有）走 `Ok(e)` 分支不受影響，僅多 holder race window 退化。完整修復需要
+/// `moka` 提供 owned-error API 或自訂 cloneable Database wrapper（暫不值得引入）。
 fn map_cache_loader_error(arc_err: std::sync::Arc<AppError>) -> AppError {
     match std::sync::Arc::try_unwrap(arc_err) {
         Ok(e) => e,
@@ -207,6 +213,7 @@ fn map_cache_loader_error(arc_err: std::sync::Arc<AppError>) -> AppError {
             AppError::BusinessRule(m) => AppError::BusinessRule(m.clone()),
             AppError::TooManyRequests(m) => AppError::TooManyRequests(m.clone()),
             AppError::Internal(m) => AppError::Internal(m.clone()),
+            // Database (sqlx::Error 不可 Clone) 走此分支，至少訊息保留供觀測
             e => AppError::Internal(format!("permission cache loader: {e}")),
         },
     }
