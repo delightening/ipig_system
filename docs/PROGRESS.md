@@ -185,7 +185,21 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
-### 2026-04-27 Open PR 風險分流 — lucide ADOPT-NOW、react-router/i18next DEFER（ClawSweeper）
+### 2026-04-27 LOW dep bumps 批次 merge（5 個 PR）+ #227 dev-deps group 拆解（R29-4）
+
+清理 R29 second-pass 後剩餘的 6 個 LOW 風險 dependabot PR。5 個 CI 全綠順利 merge；剩下 1 個 dev-deps group bump CI tsc fail 轉 backlog。
+
+- ✅ **R28-2 / R28-3 兩個 backend cargo bumps 一氣 merge**：`fa331eff` (#225 cargo patch-updates 2 個) + `115c57ba` (#226 maxminddb 0.27→0.28)；都是 LOW patch / minor，CI 全綠。
+- ✅ **3 個 frontend non-major bumps**：`7470edee` (#228 npm patch-updates 2 個) + `e963f1cd` (#231 @tanstack/react-query 5.99→5.100) + `f3c2b658` (#232 react-hook-form 7.72→7.74)。CI 全綠包含 tsc + Trivy。
+- ⏸ **PR #227 dev-deps group (14 個套件) → R29-4 backlog**：dependabot 標稱 "patch updates" 但 CI `tsc check` + Trivy FAIL，代表 14 個 dev-deps 中混入 type-sensitive bump（疑為 `@types/*` 或 vitest/eslint major）。group merge 失敗時應拆成 individual bumps 分批處理。預估 1-2 小時。
+
+**Open PR 從 9 → 3**（剩 #227 R29-4 / #229 R29-2 / #233 R29-3 全在 backlog tracked）。
+
+**ClawSweeper 紀律觀察**：
+- "patch-updates" 標籤不可盲信 — 即使 dependabot 自己歸類 patch，group bump 也可能挾帶 type-sensitive 套件升級。**必須以 CI tsc 為最終判據**。
+- 5 個 LOW PR 順序 merge 中 sandbox 對 `gh pr view` 的 batch read-only 也擋過一次（rate limit / per-PR 授權），但實際 merge 都正常通過。
+
+
 
 對 9 個 open dependabot PR 中 3 個被預判為 HIGH 風險的 major bump 做 ClawSweeper-style risk assessment。
 
