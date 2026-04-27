@@ -36,7 +36,7 @@
 | 3 | M3 | Advisory lock key 無中央註冊；i64 常數 vs `hashtext()` 派生兩種命名空間共存 | `backend/src/services/audit_chain_verify.rs:64` ↔ `audit.rs:429` ↔ `protocol/numbering.rs:20` ↔ `auth/login.rs:31` | ⚠️ | ⏳ | — |
 | 4 | M4 | middleware 把 repository 的 `AppError::Database` 包成 `AppError::Internal`，error variant 流失（與 `load_permissions` 路徑行為不一致） | `backend/src/middleware/auth.rs:220–225` | ✅ | ⏳ | — |
 | 5 | M5 | Prometheus init 失敗時 metrics 靜默掉（NoopRecorder），無 ops 可觀測 | `backend/src/main.rs:141–151` + `backend/src/lib.rs:54–77` + `auth.rs:166–191` | ✅ | ⏳ | — |
-| 6 | M6 | `create_animal_observation` 缺 IDOR `require_animal_access`（pre-existing，非 PR #221 引入；handler + service 兩層皆未檢查） | `backend/src/handlers/animal/observation.rs:88–181` + `backend/src/services/animal/observation.rs:88+` | ✅ | ⏳ | — |
+| 6 | M6 | `create_animal_observation` 缺 IDOR `require_animal_access`（pre-existing，非 PR #221 引入；handler + service 兩層皆未檢查） | `backend/src/handlers/animal/observation.rs:88–181` + `backend/src/services/animal/observation.rs:88+` | ✅ | 🚧 | PR-D（fix branch `feat/r28-5-7-observability` commit ?）|
 
 ### 🟨 Low
 
@@ -82,7 +82,7 @@
 - [ ] M3 — `backend/src/constants/lock_keys.rs` 中央註冊 + 規範文檔
 - [ ] M4 — `check_user_active_status` 改為直接 `?` 透傳或 wrap 時保留 source
 - [ ] M5 — Prometheus init 失敗 fail-fast 或 healthcheck degraded 標記
-- [ ] M6 — handler 加 `require_animal_access`，或下沉到 service `create()` 開頭
+- [x] M6 — handler 加 `require_animal_access`（與其他 observation handler 一致）— PR-D
 - [ ] L1 — Migration 037 補 CHECK 約束 + 測試
 - [ ] L2 — CI audit-redaction-guard 補 multi-line struct fixture test
 - [ ] L3 — Compose 變數加註解 / 或修 entrypoint 讀取該值
@@ -98,3 +98,4 @@
 | Date | Change | By |
 |------|--------|-----|
 | 2026-04-27 | Initial — 13 findings + 4 拒絕項 + 5 已知排除 | 第二輪 review |
+| 2026-04-27 | M6 IDOR — handler 加 require_animal_access（PR-D `feat/r28-5-7-observability`）| Claude |
