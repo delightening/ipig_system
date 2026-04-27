@@ -129,12 +129,25 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
                 erp_backend::TemplateService::empty()
             });
 
+        // R28-M5：TestApp 也提供 PrometheusHandle 讓 /api/health metrics
+        // 健檢回 "up"。install_recorder 是 process-global 一次性，跨多個
+        // TestApp::spawn() 呼叫須用 OnceLock 共享。
+        use std::sync::OnceLock;
+        static METRICS_HANDLE: OnceLock<metrics_exporter_prometheus::PrometheusHandle> = OnceLock::new();
+        let metrics_handle = METRICS_HANDLE
+            .get_or_init(|| {
+                metrics_exporter_prometheus::PrometheusBuilder::new()
+                    .install_recorder()
+                    .expect("install Prometheus recorder for tests")
+            })
+            .clone();
+
         let state = erp_backend::AppState {
             db: pool.clone(),
             config,
             geoip,
             jwt_blacklist,
-            metrics_handle: None,
+            metrics_handle: Some(metrics_handle),
             gotenberg,
             image_processor,
             pdf_service,
