@@ -18,11 +18,12 @@
 //!    - 對應 DoD-3 (HMAC chain 完整性 + audit_chain_verify cron)。
 //!
 //! 4. **`concurrent_audit_writes_no_chain_race`**
-//!    - 3 並發 log_activity_tx 全部成功且每筆有 integrity_hash（advisory
-//!      lock + HMAC chain 序列化）。對應 DoD-6 同類精神。
-//!    - **並發度**：3（不是 10）— TestApp::spawn 的 PgPool `max_connections=5`，
-//!      3 < 5 避免 conn pool 飽和；advisory lock 仍會序列化，足以測試 chain
-//!      race。原規劃 10 在本地可跑，CI 環境 conn 較緊故降級。
+//!    - 10 並發 log_activity_tx 全部成功且每筆有 integrity_hash（advisory
+//!      lock + HMAC chain 序列化）。對應 DoD-6 規劃強度。
+//!    - **並發度**：10（R28-2 從原 3 升級）— TestApp::spawn 的 PgPool
+//!      `max_connections=15`（R28-2 從 5 升級），10 < 15 仍有 5 條 conn 預留
+//!      給 spawn 內部的 `init_hmac_key` 等開銷；advisory lock 序列化所有 audit
+//!      writes，無 chain race。
 //!
 //! ## 測試環境
 //!
@@ -253,10 +254,10 @@ async fn concurrent_audit_writes_no_chain_race() {
     let unique_prefix = format!("R26_TEST_CONCURRENT_{}", uuid::Uuid::new_v4().simple());
     let pool = app.db_pool.clone();
 
-    // Spawn 3 並發 task 各自開獨立 tx 寫一筆 audit。
-    // 3 < max_connections(5) 避免 conn pool 飽和導致測試 hang；
-    // advisory lock 仍會序列化，足以驗證 chain race 不發生。
-    const CONCURRENT: usize = 3;
+    // Spawn 10 並發 task 各自開獨立 tx 寫一筆 audit（R28-2 從原 3 升級）。
+    // pool max_connections=15 (R28-2 升級) → 10 並發 + 5 預留 conn 給 spawn
+    // 內部開銷；advisory lock 序列化所有 audit writes，無 chain race。
+    const CONCURRENT: usize = 10;
     let mut handles = Vec::with_capacity(CONCURRENT);
     for i in 0..CONCURRENT {
         let pool_c = pool.clone();
@@ -294,9 +295,10 @@ async fn concurrent_audit_writes_no_chain_race() {
         }
         ids
     };
-    let written_ids = tokio::time::timeout(Duration::from_secs(10), join_all)
+    // 10 並發 + advisory lock 序列化 + 每 audit ~100ms ≈ 1s + 緩衝；20s timeout 寬鬆
+    let written_ids = tokio::time::timeout(Duration::from_secs(20), join_all)
         .await
-        .expect("3 並發任務應於 10 秒內完成（advisory lock 序列化 + 每 audit ~100ms）");
+        .expect("10 並發任務應於 20 秒內完成（advisory lock 序列化 + 每 audit ~100ms）");
     assert_eq!(
         written_ids.len(),
         CONCURRENT,

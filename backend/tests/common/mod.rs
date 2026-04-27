@@ -35,8 +35,11 @@ impl TestApp {
             .or_else(|_| std::env::var("DATABASE_URL"))
             .expect("TEST_DATABASE_URL or DATABASE_URL must be set for integration tests");
 
+        // R28-2：擴大 conn pool 至 15，讓 concurrent audit write 整合測試
+        // 可跑 10 並發（原 max_connections=5 限制 → 只能跑 3 並發）。
+        // 5 仍足以支援單請求 backend test，15 換取 concurrent test 強度。
         let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(5)
+            .max_connections(15)
             .connect(&database_url)
             .await
             .expect("Failed to connect to test database");
