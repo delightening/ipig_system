@@ -1972,7 +1972,7 @@ ORDER BY 1 DESC;
 |---|------|------|------|
 | R29-1 | **Maintenance signature handler→service 重構 + tx-aware sign_record + audit log 補寫** | 來源：PR #241 ClawSweeper review (CR-1 + CR-2 + G-1)。當前 `sign_maintenance_reviewer` handler 仍違反 CLAUDE.md §4 分層（含 SQL + 業務判斷），且 `SignatureService::sign_record` 自帶獨立 tx，與 maintenance UPDATE 非原子（race window 失敗會留簽章孤兒：`signatures` row 已 persist 但 `reviewer_signature_id` 仍 NULL）。修法包含：(a) 抽 `EquipmentService::sign_maintenance_review_tx(tx, ...)` 一次處理 lock + status guard + sign_record_tx + UPDATE，(b) 擴展 `SignatureService::sign_record_tx` 介面（影響 `signature/transfer.rs` / `sacrifice.rs` / `observation.rs` / `surgery.rs` / `blood_test.rs` / `care_record.rs` 至少 5+ 處 sign handler 同模式），(c) RBAC 委託 `services/access.rs::require_equipment_review`（與 R26-11 IDOR 統一原則同方向），(d) `reviewer_signature_id` UPDATE 補 audit log（service 層 `log_activity_tx`，21 CFR §11.10 audit trail 一致性）。完整 review 紀錄於 `docs/review-decisions/PR-241.md`。MEDIUM (compliance-adjacent) | [ ] |
 | R29-2 | **Frontend deps major bump — react-router-dom 6.30.3 → 7.14.2 升級適配** | 來源：PR #229 ClawSweeper review。CI `tsc check` FAIL — v7 type-level breaking 跨 71 檔（type names 重整、future flags 變 default、framework mode 影響）。dependabot PR 不適合塞適配 commit；標準做法另開 branch `chore/deps-react-router-7-upgrade`：升 package.json + pnpm-lock → 跑 `pnpm typecheck` 收集 errors 分批 fix（types 層先、頁面層後）→ 移除 v6 future flags（已是 v7 default）→ dev server 跑 5 條 critical path smoke（/login / /dashboard / /protocols / /animals / /admin）→ merge 後 dependabot #229 自動 close。完整 review 紀錄於 `docs/review-decisions/PR-229.md`。預估 4-8 小時。MEDIUM (compat / build risk) | [ ] |
-| R29-3 | **Frontend deps major bump — i18next 25.10.10 → 26.0.8 升級適配（含 CWE-117 / ReDoS 安全強化）** | 來源：PR #233 ClawSweeper review。CI `tsc check` FAIL — v26 跨 94 檔 type-level breaking（`ExistsFunction` shape、`TOptions` context 約束變動、`addResourceBundle` 6th param 加入）。v26 含 3 條 security fixes（v26.0.6 release）：CWE-117 log forging via translation keys + ReDoS via `unescapePrefix`/`unescapeSuffix` + nesting injection 警告。本系統 i18n keys 全 hard-coded（非 user input），不直接受 CWE-117 威脅，但 defense-in-depth 仍應採納。修法：開新 branch `chore/deps-i18next-26-upgrade`，升 i18next + react-i18next + 改 `frontend/src/lib/i18n.ts`（`initImmediate` → `initAsync`、若有舊 `interpolation.format` 遷移至 Formatter API）→ pnpm typecheck → smoke 登入/切換語言/表單錯誤訊息 i18n key。完整 review 紀錄於 `docs/review-decisions/PR-233.md`。預估 2-4 小時。**MEDIUM-HIGH**（含 security 強化） | [ ] |
+| R29-3 | **Frontend deps major bump — i18next 25.10.10 → 26.0.8 升級適配（含 CWE-117 / ReDoS 安全強化）** | 來源：PR #233 ClawSweeper review。實際只受單一 breaking 影響：v26 移除 `showSupportNotice` 選項。其他 v26 breaking（`initImmediate` / 舊 `interpolation.format` 函式式 / `simplifyPluralSuffix` / `@babel/polyfill`）本系統皆未使用。94 檔 i18n 使用點全部 forward-compatible。採納 v26.0.6 三條 security fixes（CWE-117 log forging / ReDoS / nesting injection 警告）。**已完成（PR #242 `8b2e68d0`）**，實際工時 ~30 min 遠低於原估 2-4h。 | [x] |
 | R29-4 | **Frontend dev-deps group bump 拆解（PR #227 14 個套件）** | 來源：dependabot PR #227 雖標稱 "patch updates" 但 CI `tsc check` + Trivy FAIL，代表 14 個 dev-deps 中混入 type-sensitive bump（疑為 `@types/*` 或 vitest/eslint major bump）。group merge 失敗時應拆成 individual bumps：`pnpm view package@latest` 對照各個變動 → 分批升級（先低風險 patch、後 type-sensitive）→ 各自跑 pnpm typecheck + lint + test。預估 1-2 小時（多為機械化）。LOW-MEDIUM (build infra risk) | [ ] |
 
 ---
@@ -2011,8 +2011,8 @@ ORDER BY 1 DESC;
 | 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
 | 🔧 R27 E2E + bot review 後續清理 | 0 (9 完成) |
 | 🔧 R28 bot review + R26/R27 code review 發現 | 6 (3 完成 R28-2/3/6 + 6 second-pass M1-M6 完成；R28-1/4/5/7/8/9 待 R29) |
-| 🔧 R29 ClawSweeper review follow-up | 4 (R29-1 PR #241 / R29-2 react-router 7 / R29-3 i18next 26 含 security / R29-4 dev-deps group 拆解) |
-| **合計（未完成）** | **23** |
+| 🔧 R29 ClawSweeper review follow-up | 3 (R29-1 PR #241 / R29-2 react-router 7 / R29-4 dev-deps group 拆解；R29-3 i18next 26 已完成) |
+| **合計（未完成）** | **22** |
 
 ---
 

@@ -185,6 +185,20 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-27 R29-3 i18next 26 升級完成（PR #242 `8b2e68d0`，含 CWE-117 / ReDoS security）
+
+R29-3 backlog 提前完成。實際工時 ~30 min，遠低於原估 2-4h。
+
+- ✅ **單一 breaking change 修補**：v26 移除 `showSupportNotice` 選項（v25.8.0 引入、v26.0.0 永久關閉），`frontend/src/lib/i18n.ts` 移除該行配置並補 R29-3 註解。
+- ✅ **94 檔 i18n 使用點全部 forward-compatible**：`pnpm exec tsc --noEmit` EXIT=0，無需逐檔修補。其他 v26 breaking（`initImmediate` / 舊 `interpolation.format` 函式式 / `simplifyPluralSuffix` / `@babel/polyfill`）本系統皆未使用。
+- ✅ **採納 v26.0.6 三條 security fixes**（defense-in-depth）：
+  - CWE-117 log forging via translation keys / language codes / namespaces
+  - ReDoS via `unescapePrefix` / `unescapeSuffix` regex escape
+  - Nesting injection 警告（`escapeValue: false` + nesting block 組合）
+- ✅ **dependabot PR #233 merge 後自動 close**。
+
+**ClawSweeper 紀律啟示**：dependabot CI tsc fail 看似 94 檔大規模 breaking，實際只是 `showSupportNotice` 單一 type 不兼容；evidence-based ClawSweeper review 預估「2-4h」反而高估。修法歸納：**先 grep 對 deprecated API 使用點 → 移除 → 再 install**，可省去多次 typecheck round-trip。
+
 ### 2026-04-27 LOW dep bumps 批次 merge（5 個 PR）+ #227 dev-deps group 拆解（R29-4）
 
 清理 R29 second-pass 後剩餘的 6 個 LOW 風險 dependabot PR。5 個 CI 全綠順利 merge；剩下 1 個 dev-deps group bump CI tsc fail 轉 backlog。
