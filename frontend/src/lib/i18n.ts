@@ -29,7 +29,8 @@ i18n
     .init({
         resources,
         fallbackLng: 'zh-TW',
-        showSupportNotice: false, // 關閉 Locize 贊助訊息，避免 console 干擾
+        // R29-3 i18next v26：showSupportNotice 選項已移除（連同 console support notice 一併刪除），
+        // 不再需要本地關閉設定。詳見 i18next v26.0.0 release notes。
         detection: {
             order: ['localStorage', 'navigator'],
             lookupLocalStorage: 'ipig-language',
