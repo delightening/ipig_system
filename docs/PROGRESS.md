@@ -185,6 +185,22 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-28 PR #227 / #229 拆解執行 — 5 條獨立升級 PR 全部開出（#243~#247）
+
+按 CLAUDE.md SOP 將 dependabot PR #227（14-package dev-deps bundle）+ #229（react-router-dom 7）拆成 6 條獨立分支，於 worktree `C:/System Coding/ipig_system-deps` 平行於 R29-1 後端工作執行。最終開出 5 條 PR，1 條（Tailwind 4）依裁定 C2-a-1 留作獨立 sprint。
+
+- ✅ **PR #243 vitest 4.1 + jsdom 29 + postcss 8.5.12**：minor + patch 升級。pnpm exec tsc --noEmit ✓ / 41 files / 309 tests ✓ / lint 0 errors。playwright browser binary 順便重裝（v1.59 升級需要）。
+- ✅ **PR #244 eslint 9 → 10**：core + @eslint/js。@typescript-eslint/* 留待 #246 一併升級避免雜訊。驗證三件全綠。
+- ✅ **PR #245 vite 7 → 8 + @vitejs/plugin-react 5 → 6**：vitest 透過 vite 8 transform pipeline 等同完整 dev server smoke。三件全綠。
+- ✅ **PR #246 typescript 5 → 6 + @types/node 20 → 25 + @typescript-eslint 8.59**（A2 路線實際變單 PR）：原規劃拆「lib type fix → import type 統一」子 PR；實跑 tsc 僅出 1 個 tsconfig 層 deprecation（`baseUrl` TS 7 將移除，已移除，TS 5.4+ paths 不需 baseUrl）。Source 層零 type errors，本專案既有 import 寫法已普遍用 `import type`，verbatimModuleSyntax 預設變動零衝擊。
+- ✅ **PR #247 react-router-dom 6.30.3 → 7.14.2（Library mode / B1）**：71 個 import 點全部零修改即可運作（v7 保留向下相容 named exports）。唯一變動：`main.tsx` 移除 `<BrowserRouter future={...}>` prop（v7 已將 v7_startTransition / v7_relativeSplatPath 設為預設）。三件全綠。
+- ⏸ **#6 Tailwind 3 → 4 留作獨立 sprint（C2-a-1）**：規模 + 風險顯著高於前 5 條（191 行 design tokens 遷移 / 577 行 index.css / `tailwindcss-animate` 不相容需換 `tw-animate-css` / `@tailwindcss/container-queries` v4 內建需移除 / dark mode 改 CSS `@custom-variant` / 無視覺 QA 能力）。已 ack backlog 條目（用 `npx @tailwindcss/upgrade` 官方 codemod，merge 後同步更新 `~/.claude/skills/system_table_chats/SKILL.md`）。
+- ✅ **dependabot PR #227 / #229 已 close + comment 指向新 PR**：避免 dependabot 後續 rebase 把 14-bundle 推回來干擾。
+
+**裁定路徑紀錄**：A2（TS 6 拆子 PR）/ B1（react-router Library mode）/ C2（Tailwind 4 升級 + skill 更新）/ D2（Storybook setProjectAnnotations 清理另開 PR，未做）。A2 + B1 實作後皆優於預期（單 PR 完成、零 source 修改）。
+
+**worktree 狀態**：`../ipig_system-deps` 留下，#6 sprint 可繼續用；要清掉跑 `git worktree remove ../ipig_system-deps`。
+
 ### 2026-04-27 Open PR 風險分流 — lucide ADOPT-NOW、react-router/i18next DEFER（ClawSweeper）
 
 對 9 個 open dependabot PR 中 3 個被預判為 HIGH 風險的 major bump 做 ClawSweeper-style risk assessment。
