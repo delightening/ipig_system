@@ -4,21 +4,18 @@ use sqlx::{Postgres, Transaction};
 use super::ProtocolService;
 use crate::{AppError, Result};
 
-/// 所有 protocol 編號產生函式共用的 advisory lock key。
+/// 於 transaction 內取得 protocol-numbering advisory lock。
+/// 並發執行時後到的 tx 會在此阻塞，直到先到的 tx 結束。
 ///
 /// 三個 generator（`generate_apig_no` / `generate_iacuc_no` /
 /// `generate_apig_nos_batch`）**共用同一個 lock**，因 APIG 與 PIG 編號的
-/// 流水號空間彼此交疊（APIG-115001 approved 後會變成 PIG-115001），避免
-/// 不同 generator 在同一 tx 之外併發時互相讀到過時的 max_seq。
+/// 流水號空間彼此交疊（APIG-115001 approved 後會變成 PIG-115001）。
 ///
-/// 搭配 `pg_advisory_xact_lock`：tx commit/rollback 時自動釋放，不會卡死。
-const IACUC_LOCK_KEY: &str = "protocol_iacuc_number_gen";
-
-/// 於 transaction 內取得 protocol-numbering advisory lock。
-/// 並發執行時後到的 tx 會在此阻塞，直到先到的 tx 結束。
+/// R28-M3：lock key 集中於 `crate::constants::PROTOCOL_NUMBERING_LOCK_KEY`。
+/// 搭配 `pg_advisory_xact_lock`：tx commit/rollback 時自動釋放。
 async fn acquire_numbering_lock(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
     sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
-        .bind(IACUC_LOCK_KEY)
+        .bind(crate::constants::PROTOCOL_NUMBERING_LOCK_KEY)
         .execute(&mut **tx)
         .await?;
     Ok(())

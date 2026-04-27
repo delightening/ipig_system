@@ -132,9 +132,60 @@ pub fn get_leave_type_display(leave_type: &str) -> &'static str {
     }
 }
 
+// ============================================================
+// R28-M3：Advisory Lock Key 中央註冊
+// ============================================================
+//
+// PostgreSQL `pg_advisory_lock(key bigint)` / `pg_advisory_xact_lock(key bigint)`
+// 的 key 命名空間是全域的。本系統使用兩種策略：
+//
+// 1. **靜態 i64 常數**（整個系統唯一、跨 instance）：
+//    cron job multi-instance lock 等。
+//    為避免與 `hashtext()` 結果（i32 範圍）衝突，**靜態常數的 magnitude 必須超出
+//    i32 範圍**（即 `< i32::MIN as i64` 或 `> i32::MAX as i64`）。具體 bit pattern
+//    不重要（正/負皆可），由下方 `test_static_lock_keys_outside_i32_range` 強制驗證。
+//
+// 2. **`hashtext($string)` 動態派生**（i32 範圍）：
+//    依「鍵字串」分組的鎖，例如 per-email login lock、HMAC chain serialization。
+//    所有 hashtext key 字串集中在此檔，避免不同模組無意間用相同 key 互搶。
+//
+// **新增 advisory lock 必更新本表**，確保命名空間不衝突。
+
+/// H1（cron）: audit_chain_verify multi-instance lock。
+/// 跨 pod 唯一，僅單一 instance 真的跑 audit chain verify。
+/// `pg_try_advisory_lock` (session-scoped) by `audit_chain_verify.rs::AuditChainVerifyLock`.
+pub const AUDIT_CHAIN_VERIFY_LOCK_KEY: i64 = 0x1A2B_3C4D_5E6F_7081_u64 as i64;
+
+/// audit log HMAC chain 序列化鎖。
+/// 並發 audit 寫入序列化，避免 chain 跳 row（指向 rollback 的死連結）。
+/// `pg_advisory_xact_lock(hashtext($1))` by `audit.rs::log_activity_tx`.
+pub const AUDIT_LOG_CHAIN_LOCK_KEY: &str = "audit_log_chain";
+
+/// Protocol 編號生成鎖。
+/// 序列化 APIG / PIG 編號生成，避免並發 max_seq+1 重複（CRIT-01）。
+/// `pg_advisory_xact_lock(hashtext($1))` by `protocol/numbering.rs::acquire_numbering_lock`.
+pub const PROTOCOL_NUMBERING_LOCK_KEY: &str = "protocol_iacuc_number_gen";
+
+// 補充說明：per-email login attempt lock 不在此列舉，因 key 是 email 本身
+// （`pg_advisory_xact_lock(hashtext($email))`）— 由 `auth/login.rs::validate_credentials`
+// 直接綁 user 提供的 email 字串。命名空間獨立（一般 user email 不會與上述
+// constant 字串衝突）。
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// R28-M3：驗證靜態 i64 lock key 落在 i32 範圍外，避免與 hashtext() 結果衝突。
+    /// hashtext() 回 i32（範圍 -2^31 到 2^31-1）。靜態常數應在此範圍外。
+    #[test]
+    fn test_static_lock_keys_outside_i32_range() {
+        // i32::MIN = -2147483648, i32::MAX = 2147483647
+        let key = AUDIT_CHAIN_VERIFY_LOCK_KEY;
+        assert!(
+            key < i32::MIN as i64 || key > i32::MAX as i64,
+            "AUDIT_CHAIN_VERIFY_LOCK_KEY ({key:#x}) 必須在 i32 範圍外，避免與 hashtext() 衝突"
+        );
+    }
 
     #[test]
     fn test_pagination_constants() {
