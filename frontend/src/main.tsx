@@ -95,7 +95,7 @@ if (staticLanding && staticLanding.contains(rootElement)) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter>
         <ErrorBoundary>
           <App />
         </ErrorBoundary>
