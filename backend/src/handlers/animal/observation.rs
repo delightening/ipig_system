@@ -104,9 +104,18 @@ pub async fn create_animal_observation(
     let observation =
         AnimalObservationService::create(&state.db, &actor, animal_id, &req).await?;
 
+    // R27-10：emergency 與 abnormal 兩條後續通知路徑都需 animal info；
+    // 原本各自呼叫一次 AnimalService::get_by_id，兩條都觸發時打 DB 兩次。
+    // 改為一次 fetch 共用，失敗時兩條路徑都 silent skip（與原 if let Ok 同語意）。
+    let is_abnormal = matches!(req.record_type, crate::models::RecordType::Abnormal);
+    let animal = if req.is_emergency || is_abnormal {
+        AnimalService::get_by_id(&state.db, animal_id).await.ok()
+    } else {
+        None
+    };
+
     if req.is_emergency {
-        // 取得動物資訊
-        if let Ok(animal) = AnimalService::get_by_id(&state.db, animal_id).await {
+        if let Some(ref animal) = animal {
             let notification_service = crate::services::NotificationService::new(state.db.clone());
             let emergency_reason = req.emergency_reason.as_deref().unwrap_or("未提供原因");
 
@@ -135,8 +144,11 @@ pub async fn create_animal_observation(
     }
 
     // 異常紀錄通知 → 通知 VET（依路由表 animal_abnormal_record）
-    if matches!(req.record_type, crate::models::RecordType::Abnormal) {
-        if let Ok(animal) = AnimalService::get_by_id(&state.db, animal_id).await {
+    if is_abnormal {
+        // Gemini PR #221：與第一個 if let 一致用 ref 借用，未來若新增邏輯需要
+        // animal 不會因 ownership 已轉移而失敗（spawn 內已 clone 出 ear_tag /
+        // iacuc_no，不需要 owning animal 本身）。
+        if let Some(ref animal) = animal {
             let summary: String = if req.content.is_empty() {
                 "（未提供摘要）".to_string()
             } else {
