@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-04-26 (v25)
+> **最後更新：** 2026-04-27 (v26)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -184,6 +184,25 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
+
+### 2026-04-27 R27 backlog 9 項全清空 — 5 個 perf / refactor / observability PR
+
+承接 2026-04-26 3C+8H 收尾後留下的 R27 backlog（PR #205/#210 review 中 DEFER 的 8 項 + #216 review 補的 R27-9/R27-10）。本輪 5 個 PR 全部完成並 merge，整個 R27 清空。
+
+- ✅ **R27-1 + R27-2 Dockerfile CMD 拆分 + API_BACKEND_URL 驗證（PR #217 `d291c7d4`）**：`frontend/Dockerfile` 240+ 字 CMD 抽到 `frontend/docker-entrypoint.sh` 獨立腳本；envsubst 路徑加 fail-fast 檢查（trim 後驗證 `API_BACKEND_URL` 非空，避免 `proxy_pass http://;` 無效配置）；CI 測試模式（read-only conf.d）路徑不變。
+- ✅ **R27-3 + R27-4 + R27-6 auth_middleware 重構（PR #218 `4757d16a`）**：`auth_middleware` 從 ~115 行壓到 ~25 行，拆 `validate_jwt` / `load_permissions` / `map_cache_loader_error` / `check_user_active_status` 4 個 helper；middleware 內 4-table JOIN + 帳號狀態 SELECT 下放至 `repositories/user.rs::list_permission_codes_by_user` / `find_user_active_status_by_id`，符合 CLAUDE.md「Middleware 禁業務邏輯 / Repository 封裝 SQL」分層；admin 路徑也走 `try_get_with` single-flight，與一般使用者共用 H2 stampede 防護。
+- ✅ **R27-5 permission_cache hit/miss/eviction Prometheus（PR #222 `822b6ac3`，取代被自動關閉的 #219）**：`build_permission_cache` 加 `eviction_listener`，match `RemovalCause` enum 對 static str（避免 `format!("{:?}")` alloc）；`load_permissions` 用 `cache.get()` pre-check 取代 `Arc<AtomicBool>` 追蹤，single counter `ipig_permission_cache_requests_total{result="hit|miss"}` + 配對 `evictions_total{cause}` 符合 Prometheus best practice；可在 Grafana 計算 hit rate 與 eviction by cause。
+- ✅ **R27-7 + R27-9 amendment workflow 拆分 + 去重（PR #220 `e91ae9b4`）**：`amendment::classify` 從 ~110 行拆 `classify_minor_with_signature_tx` + `classify_major_with_reviewers_tx` 兩個 helper，主函式僅做驗證 + tx 邊界 + 分流（~45 行）；`record_decision` 守衛已取得的 `current_status` 傳入 `check_all_decisions_tx`，省同 tx 內重複查 `amendments.status` 一次。
+- ✅ **R27-10 observation handler 單次 fetch（PR #221 `69024390`）**：`create_animal_observation` 兩個分支（emergency + abnormal）原本各自呼叫 `AnimalService::get_by_id`，合併為條件式單次 fetch + 共用 Option；普通 observation（非 emergency 非 abnormal）跳過 fetch，零成本。
+- ⏸ **R28-1 入後續 backlog**（Gemini PR #221 review 提出）：`AnimalObservationService::create` 內部 audit log 也呼叫 `AnimalService::get_by_id`，handler + service 全程仍有 2 次重複；deeper refactor 需動 service 簽名（breaking change 跨多 callers），獨立 PR 處理 — 入 docs/TODO.md R28-1。
+
+**Bot review pattern 觀察**（持續精進素材）：
+- **CodeRabbit / Gemini 提出的 perf hint 多為 trim/cache_get pre-check/static str 等微優化**，符合 ClawSweeper 紀律的「真實證據 + ADOPT」標準
+- **#218 admin 快取空 Vec 風險（Gemini High）**：表面像 false positive，深入分析後採納（一致性 + 防禦性深度）— 證明高 severity 標籤值得仔細評估
+- **CI cargo test 卡 25-90 分鐘 stuck pattern 重複 6 次**（#213 / #215 / #216 / #217 / #218 / #222）— runner 共用資源不穩，最終都會自然綠或可 admin merge；coverage (tarpaulin) 通過時可作為 cargo test 結果的 proxy
+- **stack PR squash-merge 會自動 close 下游 PR**（#218 squash → #219 自動 close 因 base branch 被刪）；解法是 cherry-pick 重建 + 新 PR 號碼
+
+**ClawSweeper 紀律統計**（本輪）：5 個 PR ＝ 9 個 R27 項目 + 1 個 R28 DEFER；bot review 全程 11 條 ADOPT / 0 條 REJECT / 1 條 DEFER（R28-1）。
 
 ### 2026-04-26 3 Critical + 8 High 全清空 — 11 個合規/安全/效能 PR 一次 merge
 
