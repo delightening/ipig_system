@@ -46,6 +46,9 @@ RUN mkdir -p /etc/nginx/templates
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 # 共用安全標頭 snippet（HSTS/CSP/X-Frame-Options 等），由 nginx.conf 多處 include
 COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
+# 容器啟動腳本（R27-1+R27-2：原 240+ 字 CMD 拆出，含 API_BACKEND_URL 非空驗證）
+# 合併 chown + chmod 至 COPY 一步，省 1 層；明確指定 nginx 為 owner（Gemini PR #217）
+COPY --chown=nginx:nginx --chmod=755 docker-entrypoint.sh /docker-entrypoint.sh
 
 # Copy build output from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -64,9 +67,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 EXPOSE 8080
 
-# 啟動流程：
-#   1) 建立 /tmp/nginx temp 目錄（/tmp 是 tmpfs，容器啟動時為空，需 runtime 建立）
-#   2) 如 /etc/nginx/conf.d 可寫，以 envsubst 代入 ${API_BACKEND_URL} 渲染 template；
-#      若已掛成唯讀（docker-compose.test.yml nginx-ci.conf），跳過此步驟直接使用掛載的配置
-#   3) 啟動 nginx
-CMD ["/bin/sh", "-c", "mkdir -p /tmp/nginx && if [ -w /etc/nginx/conf.d/default.conf ] || [ ! -e /etc/nginx/conf.d/default.conf ]; then envsubst '${API_BACKEND_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf; else echo '⚠️ /etc/nginx/conf.d/default.conf is read-only, using pre-mounted config'; fi && exec nginx -g 'daemon off;'"]
+# 啟動流程交給獨立腳本（見 docker-entrypoint.sh），方便維護 + 支援 fail-fast
+# 驗證 API_BACKEND_URL（R27-1+R27-2）。
+CMD ["/docker-entrypoint.sh"]
