@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-04-28 (v27)
+> **最後更新：** 2026-04-28 (v28)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -184,6 +184,21 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
+
+### 2026-04-28 R29 系列收尾 — R29-1/2/4/6 全 merge + R29-5 Tailwind 4 決策 DEFER
+
+R29 ClawSweeper review follow-up backlog 從 6 條收斂到 1 條（剩 R29-5）。
+
+- ✅ **R29-1 maintenance + disposal sign handler service-driven**：拆 1a + 1b 兩個 PR。1a (PR #249 `70030c63`) 建立 `SignatureService::sign_record_tx` + `EquipmentService::sign_maintenance_review_tx` + `access::require_equipment_review`，handler 退化為 thin wrapper；1b (PR #251 in-flight) 同模式套用 disposal applicant + approver，新增「申請人不得代簽」+ 「申請人不得自核（職權分離）」雙守衛。原 spec 列 6 個 sign handler 經調查後 scope 縮窄 — transfer / sacrifice / observation / euthanasia / protocol_review 只 INSERT signature 一個 statement 不需 atomicity 包裝。
+- ✅ **R29-2 react-router-dom 6 → 7 (`5b49ba4c`)**：走 R29-4 dev-deps 拆解獨立 PR 完成。type-level breaking 在本系統實際無衝擊，無 v6 future flags 殘留。
+- ✅ **R29-4 dev-deps group 拆解（5 個 PR 順序 land）**：#243 vitest patch + jsdom + postcss (`a5d74b98`) → #247 react-router 7 (`5b49ba4c`) → #244 eslint 10 (`66c457c4`) → #245 vite 8 + plugin-react 6 + Rollup 5 manualChunks function 形式 (`842b3543`) → #246 typescript 6 + @types/node 25 + @typescript-eslint 8.59 + tsconfig 移除 deprecated `baseUrl` (`91402950`)。每個 PR 都用 `git reset --hard origin/main` + 重 apply package.json + `pnpm install` 重生 lockfile + force-push 模式 rebase（純 git 解 lockfile conflict 不可行）。原估 1-2h 實際 ~3h。
+- ✅ **R29-6 dependabot major-version groups + CI fail-fast (`bbf7b820`)**：`.github/dependabot.yml` 9 種高風險 major 套件（typescript / tailwind / react-router / eslint / vite / i18next / @types/node / @typescript-eslint / postcss/autoprefixer）單獨成 PR，避免再次 group bump 一紅就要拆；`ci.yml` 為 `frontend-entrypoint-test` + `trivy-scan` 加 `needs:` short-circuit，tsc fail 時不再花 ~10 分鐘 build image 跑 Trivy。
+- ⏸ **R29-5 Tailwind 3.4 → 4.2 升級 — DEFER 至 2026-07-28**：決策（2026-04-28）D1=defer 1-3 個月（v3 仍 LTS、無安全壓力、v4 plugin ecosystem 還在補齊）/ D2=auto-convert `tailwind.config.js` → CSS `@theme`（surgical change） / D3=自動 screenshot diff via gstack browse（不仰賴 E2E + DesignReview 人工）/ D4=grep + 全自動取代 deprecated utility / D5=本專案無 Storybook 不需同步。預估屆時工時 4-8h。
+
+**ClawSweeper 紀律觀察**：
+- **lockfile rebase 模式**：dependabot PR rebase 時純 git merge 必衝，正確做法是 reset → re-apply package.json → pnpm install 重生 lockfile → force-push。本輪 5 個 PR 連鎖 rebase 共執行 4 次。
+- **Spec scope 縮窄勝過盲跟**：R29-1 原列 6 個 sign handler，調查發現只 maintenance + disposal 有 atomicity 破洞，其他 5 個 sign-only handler 不需修補；surgical changes 原則勝過機械式套用。
+- **CI fail-fast cascading 浪費 ~50%**：R29-6 加 `needs:` short-circuit 後 frontend tsc fail 時會省 ~11min（entrypoint ~1min + Trivy ~10min）；下次 frontend 出錯場景可驗證效果。
 
 ### 2026-04-28 Migration 037 checksum 修復 + 本地環境同步
 
