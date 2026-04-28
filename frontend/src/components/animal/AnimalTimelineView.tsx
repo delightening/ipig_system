@@ -292,7 +292,7 @@ export function AnimalTimelineView({
                             {getIcon(item.type)}
                         </div>
                         {/* Card */}
-                        <div className="w-[calc(100%-4rem)] md:w-[45%] bg-card p-4 rounded-xl border border-border shadow-sm transition-all hover:shadow-md">
+                        <div className="w-[calc(100%-4rem)] md:w-[45%] bg-card p-4 rounded-xl border border-border shadow-xs transition-all hover:shadow-md">
                             <div className="flex items-center justify-between mb-2">
                                 <div className="font-bold text-foreground">{item.title}</div>
                                 <time className={`text-xs font-medium ${getTimeBadgeColor(item.type)} px-2 py-1 rounded-full`}>{item.date.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</time>

@@ -179,7 +179,7 @@ export function CalendarView({ events, onDatesSet, isFetching = false }: Calenda
                             {popover.leaveType ? (
                                 <>
                                     <span
-                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white flex-shrink-0 mt-0.5"
+                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white shrink-0 mt-0.5"
                                         style={{ backgroundColor: popover.color }}
                                     >
                                         {popover.leaveType}
@@ -208,7 +208,7 @@ export function CalendarView({ events, onDatesSet, isFetching = false }: Calenda
                         {/* 地點 */}
                         {popover.location && (
                             <div className="text-xs text-muted-foreground flex items-start gap-1">
-                                <span className="flex-shrink-0">📍</span>
+                                <span className="shrink-0">📍</span>
                                 <span>{popover.location}</span>
                             </div>
                         )}

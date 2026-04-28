@@ -32,7 +32,7 @@ export function TransferStepper({ transfer }: { transfer: AnimalTransfer }) {
               ${isDone ? 'bg-indigo-100 text-status-info-text' : 'bg-muted text-muted-foreground'}
               ${isCurrent ? 'ring-2 ring-indigo-400' : ''}
             `}>
-                            <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
                             <span className="hidden sm:inline">{step.label}</span>
                         </div>
                         {idx < TRANSFER_STEPS.length - 1 && (

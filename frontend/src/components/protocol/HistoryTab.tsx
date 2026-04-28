@@ -84,7 +84,7 @@ export const HistoryTab = React.memo(function HistoryTab({ protocolId }: History
                 {paginatedActivities.map((activity: ProtocolActivity) => (
                   <li key={activity.id} className="relative pl-10">
                     <div className="absolute left-2 w-4 h-4 rounded-full bg-primary border-2 border-white mt-1.5" />
-                    <div className="bg-muted p-4 rounded-lg border border-border shadow-sm">
+                    <div className="bg-muted p-4 rounded-lg border border-border shadow-xs">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Badge

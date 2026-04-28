@@ -39,7 +39,7 @@ export function ReviewCommentPanel({
   }
 
   return (
-    <div className="bg-background border rounded-lg shadow-sm flex flex-col">
+    <div className="bg-background border rounded-lg shadow-xs flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="font-semibold text-sm">審查意見</h3>
         <Button variant="ghost" size="sm" onClick={onClose}>
@@ -51,7 +51,7 @@ export function ReviewCommentPanel({
         <div className="space-y-2">
           <Label className="text-xs">針對章節</Label>
           <select
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             value={selectedSection}
             onChange={(e) => setSelectedSection(e.target.value)}
           >

@@ -497,7 +497,7 @@ export function ProfileSettingsPage() {
                                                     className={cn(
                                                         "p-4 rounded-xl border transition-all space-y-3",
                                                         training
-                                                            ? "bg-status-warning-bg border-status-warning-text/20 shadow-sm"
+                                                            ? "bg-status-warning-bg border-status-warning-text/20 shadow-xs"
                                                             : "border-border hover:border-border"
                                                     )}
                                                 >

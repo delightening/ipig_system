@@ -49,12 +49,12 @@ export function SortableTableHead({
       {vertical ? (
         <div className="flex flex-col items-center gap-0.5">
           <span className="[writing-mode:vertical-rl] [text-orientation:upright] tracking-wider leading-tight">{children}</span>
-          <Icon className={cn('h-3 w-3 flex-shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/50')} />
+          <Icon className={cn('h-3 w-3 shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/50')} />
         </div>
       ) : (
         <div className={cn('flex items-center gap-1', align === 'center' && 'justify-center')}>
           <span className="line-clamp-2 break-words leading-tight">{children}</span>
-          <Icon className={cn('h-3 w-3 flex-shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/50')} />
+          <Icon className={cn('h-3 w-3 shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/50')} />
         </div>
       )}
     </TableHead>

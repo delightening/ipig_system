@@ -209,7 +209,7 @@ export function ProductDetailPage() {
           </Button>
           <div className="relative">
             <select
-              className="appearance-none bg-background border rounded-md px-3 py-2 pr-8 cursor-pointer hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+              className="appearance-none bg-background border rounded-md px-3 py-2 pr-8 cursor-pointer hover:bg-muted focus:outline-hidden focus:ring-2 focus:ring-ring text-sm"
               aria-label="更多操作"
               onChange={(e) => {
                 const action = e.target.value

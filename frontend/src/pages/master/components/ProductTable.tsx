@@ -435,7 +435,7 @@ function ProductCard({
           type="checkbox"
           checked={isSelected}
           onChange={() => onSelect(product.id)}
-          className="mt-1 h-4 w-4 rounded border-input flex-shrink-0"
+          className="mt-1 h-4 w-4 rounded border-input shrink-0"
           aria-label={`選擇產品 ${product.sku}`}
         />
         <div className="flex-1 min-w-0 space-y-1">

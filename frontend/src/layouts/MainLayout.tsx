@@ -141,7 +141,7 @@ export function MainLayout() {
             </div>
           )}
 
-          <header className="flex h-14 md:h-16 items-center justify-between border-b bg-card px-3 md:px-4 shadow-sm">
+          <header className="flex h-14 md:h-16 items-center justify-between border-b bg-card px-3 md:px-4 shadow-xs">
           <Button
             variant="ghost"
             size="icon"
