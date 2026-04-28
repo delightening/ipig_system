@@ -211,7 +211,12 @@ export function ProtocolEditPage() {
     if (isNew) {
       createMutation.mutate(data)
     } else {
-      updateMutation.mutate(data, { onSuccess: () => setIsDirty(false) })
+      // R30-B: 帶當前 version 防 lost update（version 從 query 結果取，避免 form
+      // state 的 stale value）
+      updateMutation.mutate(
+        { ...data, version: protocol?.version },
+        { onSuccess: () => setIsDirty(false) },
+      )
     }
   }
 
@@ -223,7 +228,8 @@ export function ProtocolEditPage() {
       return
     }
     const data = buildSaveData()
-    updateMutation.mutate(data, {
+    // R30-B: 帶當前 version 防 lost update
+    updateMutation.mutate({ ...data, version: protocol?.version }, {
       onSuccess: async () => {
         setIsDirty(false)
         // R20-3: 先呼叫 validate endpoint
