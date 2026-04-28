@@ -2014,7 +2014,7 @@ ORDER BY 1 DESC;
 | 🔧 R27 E2E + bot review 後續清理 | 0 (9 完成) |
 | 🔧 R28 bot review + R26/R27 code review 發現 | 5 (R28-2/3/4/6 完成 + 6 second-pass M1-M6 完成；R28-1/5/7/8/9 待後續) |
 | 🔧 R29 ClawSweeper review follow-up | 1 (R29-5 Tailwind 4 — DEFER 至 2026-07-28；R29-1/2/3/4/6 已完成) |
-| **合計（未完成）** | **19** |
+| **合計（未完成）** | **20** |
 
 ---
 
