@@ -247,3 +247,16 @@
   1. 跑 `cargo audit` + `npm audit` 出依賴 CVE 報告
   2. PR #199（R26 Epic Closure）做專項滲透測試
   3. 安排第三方 GLP / ISO 27001 pre-audit
+
+---
+
+## 8. 對應文件（R30-I 補完）
+
+本審查報告所列缺口的 SOP / runbook / traceability 補完文件（2026-04-28 R30-I 新增）：
+
+- [`../glp/traceability-matrix.md`](../glp/traceability-matrix.md) — GLP / 21 CFR Part 11 雙向追溯表（§1 各 Critical / High 缺口的條款對應）
+- [`../glp/amendment-sop.md`](../glp/amendment-sop.md) — Amendment 狀態機 SOP（對應 §1 [C2]）
+- [`../glp/record-lock-rationale.md`](../glp/record-lock-rationale.md) — GLP record lock 5 表選擇理由（對應 §1 [C1]）
+- [`../runbooks/audit-chain-broken-runbook.md`](../runbooks/audit-chain-broken-runbook.md) — Audit chain 斷鏈處理 runbook（對應 §2 [H1]）
+- [`../runbooks/dr-drill-records.md`](../runbooks/dr-drill-records.md) — DR drill 年度演練紀錄（對應 R26-3 / SOC 2 A1.2）
+- [`../glp/training-records-sop.md`](../glp/training-records-sop.md) — Training records SOP 對照（對應 §11.10(i)）
