@@ -12,7 +12,7 @@
 |----|------|-----------|
 | 軸一 併發協調 | 🟡 PASS w/ 重大缺口 | `euthanasia` 全模組無 tx / 無 FOR UPDATE；protocol body 無 version 防 lost update |
 | 軸二 操作日誌 | 🟢 整體成熟 | R26 pattern 已普及；但 `euthanasia.create_order` / `protocol CRUD` / `accounting` / `sudden_death` / `import_export` 漏寫 audit |
-| 軸三 GLP 合規 | 🔴 不可上線稽核 | 簽章單因素 + 非 HMAC + 不在 chain；IDXF 漏 17 表；soft-delete / retention 未強制 |
+| 軸三 GLP 合規 | 🔴 不可上線稽核 | 簽章單因素 + 非 HMAC + 不在 chain；IDXF 漏 19 表；soft-delete / retention 未強制 |
 
 **三軸交叉的最薄弱點**：`euthanasia` 模組（不可逆動物處置決策路徑）三軸全敗 → R30 第一順位。
 
@@ -145,13 +145,13 @@
 **缺口**
 - **保留期未編碼**：grep `retention|7年` 命中 `glp_compliance.rs` 但無 protocol/animal/euthanasia 的 X 年保留 enforcement。
 - `services/animal/core/delete.rs` 無 `soft_delete` 字串 → 疑似 hard delete；違 ALCOA Original。
-- **IDXF 漏 17 表**（記憶體 `project_backup_missing_tables`）→ §11.10(c)「準確完整紀錄副本」未滿足。
+- **IDXF 漏 19 表**（記憶體 `project_backup_missing_tables`）→ §11.10(c)「準確完整紀錄副本」未滿足。
 - `data_export.rs::include_audit: false` 預設 → 重建後 chain 斷。
 
 ### CRITICAL（阻擋 GLP 上線稽核）
 1. 電子簽章單因素 + `signature_data` 非 HMAC — 違 §11.200。
 2. `electronic_signatures` 不在 tamper-evident chain。
-3. IDXF 匯出漏 17 表 — §11.10(c) 未滿足。
+3. IDXF 匯出漏 19 表 — §11.10(c) 未滿足。
 4. 資料保留與 soft-delete 未強制；`animal/core/delete.rs` 疑似 hard delete。
 
 ### HIGH（下個 milestone）
