@@ -350,7 +350,6 @@ function LineRow({
               step="0.01"
               onChange={(e) => {
                 updateLineField(lineId, 'unit_price', e.target.value)
-                onUpdateLineAmount(lineId)
               }}
               onBlur={() => onLineBlur(lineId)}
             />
@@ -546,7 +545,6 @@ function LineCard({
               step="0.01"
               onChange={(e) => {
                 updateLineField(lineId, 'unit_price', e.target.value)
-                onUpdateLineAmount(lineId)
               }}
               onBlur={() => onLineBlur(lineId)}
             />
