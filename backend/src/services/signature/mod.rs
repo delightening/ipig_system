@@ -7,7 +7,11 @@ mod annotation;
 
 pub use annotation::{AnnotationService, AnnotationType};
 
-use crate::{repositories, AppError, Result};
+use crate::{
+    middleware::ActorContext,
+    models::audit_diff::{AuditRedact, DataDiff},
+    repositories, AppError, Result,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -15,7 +19,10 @@ use sha2::{Digest, Sha256};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use super::{audit::AuditService, AuthService};
+use super::{
+    audit::{ActivityLogEntry, AuditEntity},
+    AuditService, AuthService,
+};
 
 // R30-7: signature_data 編碼版本
 /// Legacy plain SHA-256（pre-R30-7）。舊資料永久保持此版本。
@@ -113,6 +120,10 @@ pub struct ElectronicSignature {
     /// verify 時依此欄位 dispatch 計算演算法。
     pub hmac_version: i16,
 }
+
+// R30-9：作廢事件需 DataDiff::compute → 需 AuditRedact。signature_data / content_hash
+// 本身為雜湊（非明文），不含敏感欄位，沿用預設遮蔽（無）即可。
+impl AuditRedact for ElectronicSignature {}
 
 /// 簽章驗證結果
 #[derive(Debug, Serialize)]
@@ -493,14 +504,54 @@ impl SignatureService {
         }
     }
 
-    /// 使簽章失效
+    /// 使簽章失效（R30-9：密碼驗證 + audit-in-tx）
+    ///
+    /// 設計（R30-9 D5/D6）：
+    /// - **D5**：作廢事件寫進 `user_activity_logs`（HMAC chain 已 tamper-evident）；
+    ///   不為簽章本身建獨立 chain（簽章 immutability 由 R30-F PR #273 trigger 保護）。
+    /// - **D6**：作廢為不可逆操作，要求密碼驗證（操作者身分不可否認）。
+    ///   不寫新 `electronic_signatures` row（避免 recursive：作廢簽章再寫一筆簽章
+    ///   record 將形成無止境鏈）。
+    ///
+    /// 流程：
+    ///   1. `verify_password_by_id`（read-only，與 tx 隔離無關）— 失敗回 `Unauthorized`，
+    ///      不寫 audit、不改 signature
+    ///   2. tx.begin → SELECT before snapshot（FOR UPDATE）
+    ///   3. UPDATE is_valid = false + invalidated_*
+    ///   4. `AuditService::log_activity_tx` 寫 `SignatureInvalidated`（before/after diff）
+    ///   5. tx.commit
     pub async fn invalidate(
         pool: &PgPool,
+        actor: &ActorContext,
         signature_id: Uuid,
         reason: &str,
-        invalidated_by: Uuid,
+        password: &str,
     ) -> Result<()> {
-        sqlx::query(
+        let user = actor.require_user()?;
+        let invalidated_by = user.id;
+
+        // 步驟 1：密碼驗證（read-only，先於 tx，失敗 → Unauthorized 不寫 audit）
+        AuthService::verify_password_by_id(pool, invalidated_by, password)
+            .await
+            .map_err(|_| AppError::Unauthorized)?;
+
+        let mut tx = pool.begin().await?;
+
+        // 步驟 2：SELECT before snapshot（FOR UPDATE，避免 race）
+        let before = sqlx::query_as::<_, ElectronicSignature>(
+            "SELECT * FROM electronic_signatures WHERE id = $1 FOR UPDATE",
+        )
+        .bind(signature_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("找不到簽章 {signature_id}")))?;
+
+        if !before.is_valid {
+            return Err(AppError::Conflict("簽章已作廢，無法重複作廢".into()));
+        }
+
+        // 步驟 3：UPDATE 為作廢狀態
+        let after = sqlx::query_as::<_, ElectronicSignature>(
             r#"
             UPDATE electronic_signatures SET
                 is_valid = false,
@@ -508,14 +559,38 @@ impl SignatureService {
                 invalidated_at = NOW(),
                 invalidated_by = $3
             WHERE id = $1
+            RETURNING *
             "#,
         )
         .bind(signature_id)
         .bind(reason)
         .bind(invalidated_by)
-        .execute(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
+        // 步驟 4：寫 audit log（HMAC chain，tamper-evident）
+        let display = format!(
+            "{}/{} ({})",
+            before.entity_type, before.entity_id, before.signature_type
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "AUDIT",
+                event_type: "SIGNATURE_INVALIDATED",
+                entity: Some(AuditEntity::new(
+                    "electronic_signature",
+                    signature_id,
+                    &display,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 
