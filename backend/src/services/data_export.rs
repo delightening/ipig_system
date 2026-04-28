@@ -39,7 +39,13 @@ impl Default for ExportParams {
 /// 大表門檻：超過此行數的表以 NDJSON 儲存於 zip
 const LARGE_TABLE_THRESHOLD: usize = 10_000;
 
-/// 依 FK 依賴順序排列的資料表清單（排除 jwt_blacklist, refresh_tokens, password_reset_tokens）
+/// 依 FK 依賴順序排列的資料表清單
+///
+/// 故意排除（敏感 token / 內部表，非業務資料）：
+/// - `jwt_blacklist`、`refresh_tokens`、`password_reset_tokens`
+/// - `_sqlx_migrations`
+///
+/// 不在此清單但會被 `INTENTIONALLY_EXCLUDED_TABLES`（見測試）涵蓋。
 pub const EXPORT_TABLE_ORDER: &[&str] = &[
     // 001 - 核心，無 FK
     "roles",
@@ -70,8 +76,10 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "role_permissions",
     "user_roles",
     "user_preferences",
+    "user_mcp_keys",
     "invitations",
     "ai_api_keys",
+    "ai_query_logs",
     "notifications",
     "notification_settings",
     "attachments",
@@ -103,6 +111,10 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "animal_transfers",
     "transfer_vet_evaluations",
     "animal_field_correction_requests",
+    "animal_vet_advices",
+    "animal_vet_advice_records",
+    "vet_patrol_reports",
+    "vet_patrol_entries",
     // 003 - AUP
     "protocols",
     "user_protocols",
@@ -137,9 +149,13 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "calendar_sync_conflicts",
     "calendar_sync_history",
     // 005 - 稽核（可選，量大）
+    "user_activity_logs",
     "user_sessions",
     "user_activity_aggregates",
     "security_alerts",
+    "security_alert_config",
+    "security_notification_channels",
+    "ip_blocklist",
     // 006 - ERP 明細
     "storage_locations",
     "products",
@@ -165,6 +181,7 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "equipment_maintenance_records",
     "equipment_disposals",
     "equipment_annual_plans",
+    "equipment_idle_requests",
     "journal_entries",
     "journal_entry_lines",
     "ap_payments",
@@ -178,10 +195,38 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "qa_schedule_items",
     "qa_sop_documents",
     "qa_sop_acknowledgments",
+    // 016 - GLP/法規合規（依賴 users / protocols / products / buildings / zones / electronic_signatures）
+    "reference_standards",
+    "controlled_documents",
+    "document_revisions",
+    "document_acknowledgments",
+    "management_reviews",
+    "risk_register",
+    "change_requests",
+    "environment_monitoring_points",
+    "environment_readings",
+    "competency_assessments",
+    "role_training_requirements",
+    "study_final_reports",
+    "formulation_records",
 ];
 
 /// 稽核相關大表（include_audit=false 時略過）
 const AUDIT_HEAVY_TABLES: &[&str] = &["user_activity_logs", "login_events"];
+
+/// 故意不匯出的表（敏感 token / SQLx 內部表 / 動態建立的分區子表）
+///
+/// - `jwt_blacklist` / `refresh_tokens` / `password_reset_tokens`：JWT/重設密碼短期 token，
+///   匯出後恢復會造成驗證狀態錯亂；不視為業務資料。
+/// - `_sqlx_migrations`：SQLx 內部表，由 migration 自動管理。
+/// - `user_activity_logs_*` / `ai_query_logs_*`：父表（`user_activity_logs`、`ai_query_logs`）
+///   為 partitioned table，子分區資料透過父表查詢即可，不需另外列出。
+pub const INTENTIONALLY_EXCLUDED_TABLES: &[&str] = &[
+    "jwt_blacklist",
+    "refresh_tokens",
+    "password_reset_tokens",
+    "_sqlx_migrations",
+];
 
 /// 從 _sqlx_migrations 讀取最新 schema 版本，格式為 "001".."010"
 pub async fn get_schema_version(pool: &PgPool) -> Result<String> {
@@ -349,4 +394,132 @@ async fn export_table(pool: &PgPool, table: &str) -> Result<TableExport> {
         columns,
         rows: rows.unwrap_or(serde_json::Value::Array(vec![])),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+    use std::fs;
+    use std::path::PathBuf;
+
+    /// 從 migrations 目錄掃出所有 `CREATE TABLE` 表名（排除 partition 子表）。
+    ///
+    /// 規則：
+    /// - 匹配 `CREATE TABLE [IF NOT EXISTS] <name>`
+    /// - 排除 `PARTITION OF` 子分區（其資料透過父表匯出）
+    /// - 不處理 PL/pgSQL `EXECUTE format(...)` 內的動態 CREATE（partition 才會用，已被上一條排除）
+    fn scan_migrations_for_create_tables() -> BTreeSet<String> {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let migrations_dir = PathBuf::from(manifest_dir).join("migrations");
+        let mut tables = BTreeSet::new();
+
+        let entries = fs::read_dir(&migrations_dir)
+            .unwrap_or_else(|e| panic!("read_dir {:?}: {}", migrations_dir, e));
+
+        // 行內正規式：
+        // ^\s*CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?<ident>(...)
+        // 用簡單字串掃描即可，避免引入 regex crate。
+        for entry in entries {
+            let entry = entry.expect("dir entry");
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("sql") {
+                continue;
+            }
+            let content = fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("read {:?}: {}", path, e));
+            for raw_line in content.lines() {
+                let line = raw_line.trim();
+                // 跳過註解
+                if line.starts_with("--") {
+                    continue;
+                }
+                let upper = line.to_ascii_uppercase();
+                if !upper.starts_with("CREATE TABLE") {
+                    continue;
+                }
+                // 跳過 partition 子表
+                if upper.contains("PARTITION OF") {
+                    continue;
+                }
+                // 取出表名 token：去掉 CREATE TABLE [IF NOT EXISTS]
+                let mut rest = line["CREATE TABLE".len()..].trim_start();
+                let upper_rest = rest.to_ascii_uppercase();
+                if upper_rest.starts_with("IF NOT EXISTS") {
+                    rest = rest["IF NOT EXISTS".len()..].trim_start();
+                }
+                // 表名到第一個非 ident 字元為止
+                let name: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                if !name.is_empty() {
+                    tables.insert(name);
+                }
+            }
+        }
+        tables
+    }
+
+    #[test]
+    fn scan_migrations_finds_known_tables() {
+        // sanity check: scanner 至少要找到幾個明顯存在的表
+        let tables = scan_migrations_for_create_tables();
+        for required in ["users", "animals", "protocols", "audit_logs"] {
+            assert!(
+                tables.contains(required),
+                "scanner 沒找到 {}（migrations 目錄可能定位錯誤）",
+                required
+            );
+        }
+    }
+
+    #[test]
+    fn export_covers_all_business_tables() {
+        let migrations_tables = scan_migrations_for_create_tables();
+        let exported: BTreeSet<&str> = EXPORT_TABLE_ORDER.iter().copied().collect();
+        let excluded: BTreeSet<&str> = INTENTIONALLY_EXCLUDED_TABLES.iter().copied().collect();
+
+        let missing: Vec<&str> = migrations_tables
+            .iter()
+            .map(String::as_str)
+            .filter(|t| !exported.contains(t) && !excluded.contains(t))
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "Migrations 中有表未列入 EXPORT_TABLE_ORDER 也未列入 INTENTIONALLY_EXCLUDED_TABLES：{:?}\n\
+             → 修法：在 services/data_export.rs 將表加入 EXPORT_TABLE_ORDER（依 FK 順序），\n\
+             或加入 INTENTIONALLY_EXCLUDED_TABLES 並註明原因。",
+            missing
+        );
+    }
+
+    #[test]
+    fn no_phantom_tables_in_export_order() {
+        // EXPORT_TABLE_ORDER 中每張表都應實際存在於 migrations
+        let migrations_tables = scan_migrations_for_create_tables();
+        let phantom: Vec<&str> = EXPORT_TABLE_ORDER
+            .iter()
+            .copied()
+            .filter(|t| !migrations_tables.contains(*t))
+            .collect();
+        assert!(
+            phantom.is_empty(),
+            "EXPORT_TABLE_ORDER 含有 migrations 中不存在的表：{:?}",
+            phantom
+        );
+    }
+
+    #[test]
+    fn no_duplicate_in_export_order() {
+        let mut seen = BTreeSet::new();
+        let mut dup = Vec::new();
+        for t in EXPORT_TABLE_ORDER {
+            if !seen.insert(*t) {
+                dup.push(*t);
+            }
+        }
+        assert!(dup.is_empty(), "EXPORT_TABLE_ORDER 有重複：{:?}", dup);
+    }
 }
