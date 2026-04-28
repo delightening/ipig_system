@@ -32,6 +32,16 @@ COPY src ./src
 COPY migrations ./migrations
 COPY .sqlx ./.sqlx
 COPY resources ./resources
+COPY build.rs ./build.rs
+
+# R30-22 follow-up：build-time 版本資訊注入給 handlers/version.rs。
+# CI / 本地 build 透過 `--build-arg GIT_SHA=$(git rev-parse --short=12 HEAD)` 等傳入。
+# 未提供時 build.rs 會 fallback 到 "unknown"（GIT_SHA / RUSTC_VERSION_RUNTIME）
+# 或 build.rs 啟動時的 UTC ISO 8601（BUILD_TIME）。
+ARG GIT_SHA=""
+ARG BUILD_TIME=""
+ENV GIT_SHA=${GIT_SHA}
+ENV BUILD_TIME=${BUILD_TIME}
 
 RUN cargo build --release --bin erp-backend --bin healthcheck --bin create_admin --bin create_guest
 

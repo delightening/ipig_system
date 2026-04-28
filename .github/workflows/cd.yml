@@ -72,6 +72,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
+          # R30-22 follow-up：注入 build-time 版本資訊給 handlers/version.rs
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ steps.meta.outputs.created || github.event.head_commit.timestamp }}
 
   # =========================
   # Build and push Web image
