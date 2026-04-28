@@ -124,8 +124,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
 
   const totalAmount = useMemo(() => {
     // Sum in cents to avoid floating-point drift, then convert back
-    const totalCents = formData.lines.reduce((sum, line) => {
-      const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
+    const totalCents = formData.lines.reduce((sum, line, idx) => {
+      const lineId = line.id || `temp-${idx}`
       const cached = lines.lineAmounts[lineId]
       const amount = cached !== undefined
         ? cached
