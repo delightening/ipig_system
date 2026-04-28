@@ -274,6 +274,7 @@ pub async fn get_maintenance_history(
         entity_type: Some("maintenance_record".to_string()),
         entity_id: Some(id),
         is_suspicious: None,
+        query: None,
         from: None,
         to: None,
         page: Some(1),

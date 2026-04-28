@@ -985,6 +985,14 @@ impl AuditService {
         let per_page = query.per_page.unwrap_or(50).min(500);
         let offset = (page - 1) * per_page;
 
+        // R30-14: 自由文字搜尋，限制最多 100 字防 DoS
+        let q_text: Option<String> = query
+            .query
+            .as_ref()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.chars().take(100).collect());
+
         // 計算總數
         let total: (i64,) = sqlx::query_as(
             r#"
@@ -997,6 +1005,13 @@ impl AuditService {
               AND ($6::bool IS NULL OR is_suspicious = $6)
               AND ($7::date IS NULL OR partition_date >= $7)
               AND ($8::date IS NULL OR partition_date <= $8)
+              AND ($9::text IS NULL OR (
+                    entity_display_name ILIKE '%' || $9 || '%'
+                 OR actor_display_name  ILIKE '%' || $9 || '%'
+                 OR actor_email         ILIKE '%' || $9 || '%'
+                 OR event_type          ILIKE '%' || $9 || '%'
+                 OR ip_address::text    ILIKE '%' || $9 || '%'
+              ))
             "#,
         )
         .bind(query.user_id)
@@ -1007,6 +1022,7 @@ impl AuditService {
         .bind(query.is_suspicious)
         .bind(query.from)
         .bind(query.to)
+        .bind(&q_text)
         .fetch_one(pool)
         .await?;
 
@@ -1026,8 +1042,15 @@ impl AuditService {
               AND ($6::bool IS NULL OR is_suspicious = $6)
               AND ($7::date IS NULL OR partition_date >= $7)
               AND ($8::date IS NULL OR partition_date <= $8)
+              AND ($9::text IS NULL OR (
+                    entity_display_name ILIKE '%' || $9 || '%'
+                 OR actor_display_name  ILIKE '%' || $9 || '%'
+                 OR actor_email         ILIKE '%' || $9 || '%'
+                 OR event_type          ILIKE '%' || $9 || '%'
+                 OR ip_address::text    ILIKE '%' || $9 || '%'
+              ))
             ORDER BY created_at DESC
-            LIMIT $9 OFFSET $10
+            LIMIT $10 OFFSET $11
             "#,
         )
         .bind(query.user_id)
@@ -1038,6 +1061,7 @@ impl AuditService {
         .bind(query.is_suspicious)
         .bind(query.from)
         .bind(query.to)
+        .bind(&q_text)
         .bind(per_page)
         .bind(offset)
         .fetch_all(pool)
@@ -1051,6 +1075,14 @@ impl AuditService {
         pool: &PgPool,
         query: &ActivityLogQuery,
     ) -> Result<Vec<UserActivityLog>> {
+        // R30-14: 自由文字搜尋，限制最多 100 字防 DoS
+        let q_text: Option<String> = query
+            .query
+            .as_ref()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.chars().take(100).collect());
+
         let data = sqlx::query_as::<_, UserActivityLog>(
             r#"
             SELECT id, actor_user_id, actor_email, actor_display_name, actor_roles, session_id,
@@ -1067,6 +1099,13 @@ impl AuditService {
               AND ($6::bool IS NULL OR is_suspicious = $6)
               AND ($7::date IS NULL OR partition_date >= $7)
               AND ($8::date IS NULL OR partition_date <= $8)
+              AND ($9::text IS NULL OR (
+                    entity_display_name ILIKE '%' || $9 || '%'
+                 OR actor_display_name  ILIKE '%' || $9 || '%'
+                 OR actor_email         ILIKE '%' || $9 || '%'
+                 OR event_type          ILIKE '%' || $9 || '%'
+                 OR ip_address::text    ILIKE '%' || $9 || '%'
+              ))
             ORDER BY created_at DESC
             LIMIT 10000
             "#,
@@ -1079,6 +1118,7 @@ impl AuditService {
         .bind(query.is_suspicious)
         .bind(query.from)
         .bind(query.to)
+        .bind(&q_text)
         .fetch_all(pool)
         .await?;
 

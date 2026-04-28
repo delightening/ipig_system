@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
+import { useDebounce } from '@/hooks/useDebounce'
 import api from '@/lib/api'
 import type { User } from '@/types/auth'
 import type { UserActivityLog } from '@/types/hr'
@@ -36,6 +37,8 @@ export function AuditLogsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('all')
   const [userFilter, setUserFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState<string>('')
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
   const [selectedLog, setSelectedLog] = useState<UserActivityLog | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -50,7 +53,7 @@ export function AuditLogsPage() {
   })
 
   const { data: activityLogs, isLoading } = useQuery({
-    queryKey: ['audit-logs-activities', dateFrom, dateTo, categoryFilter, entityTypeFilter, userFilter, currentPage],
+    queryKey: ['audit-logs-activities', dateFrom, dateTo, categoryFilter, entityTypeFilter, userFilter, debouncedSearchQuery, currentPage],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (dateFrom) params.set('from', dateFrom)
@@ -58,6 +61,7 @@ export function AuditLogsPage() {
       if (categoryFilter !== 'all') params.set('event_category', categoryFilter)
       if (entityTypeFilter !== 'all') params.set('entity_type', entityTypeFilter)
       if (userFilter !== 'all') params.set('user_id', userFilter)
+      if (debouncedSearchQuery.trim()) params.set('query', debouncedSearchQuery.trim())
       params.set('page', String(currentPage))
       params.set('per_page', String(PER_PAGE))
 
@@ -74,6 +78,7 @@ export function AuditLogsPage() {
     categoryFilter,
     entityTypeFilter,
     userFilter,
+    searchQuery: debouncedSearchQuery,
   })
 
   const handleCategoryChange = (val: string) => {
@@ -105,6 +110,11 @@ export function AuditLogsPage() {
     setCurrentPage(1)
   }
 
+  const handleSearchQueryChange = (val: string) => {
+    setSearchQuery(val)
+    setCurrentPage(1)
+  }
+
   const totalPages = activityLogs ? Math.ceil(activityLogs.total / PER_PAGE) : 0
 
   return (
@@ -121,12 +131,14 @@ export function AuditLogsPage() {
         entityTypeFilter={entityTypeFilter}
         dateFrom={dateFrom}
         dateTo={dateTo}
+        searchQuery={searchQuery}
         availableEntityTypes={availableEntityTypes}
         onUserChange={handleUserChange}
         onCategoryChange={handleCategoryChange}
         onEntityTypeChange={handleEntityTypeChange}
         onDateFromChange={handleDateFromChange}
         onDateToChange={handleDateToChange}
+        onSearchQueryChange={handleSearchQueryChange}
       />
 
       <GuestHide>

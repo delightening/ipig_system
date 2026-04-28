@@ -139,6 +139,7 @@ pub async fn export_audit_logs(
         entity_type: params.entity_type.clone(),
         entity_id: None,
         is_suspicious: None,
+        query: None,
         from,
         to,
         page: None,

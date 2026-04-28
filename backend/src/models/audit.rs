@@ -214,6 +214,9 @@ pub struct ActivityLogQuery {
     pub entity_type: Option<String>,
     pub entity_id: Option<Uuid>,
     pub is_suspicious: Option<bool>,
+    /// R30-14: 自由文字搜尋（ILIKE 比對 entity_display_name / actor_display_name /
+    /// actor_email / event_type / ip_address），長度上限 100 字
+    pub query: Option<String>,
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
     pub page: Option<i64>,
