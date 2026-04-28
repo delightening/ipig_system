@@ -52,7 +52,7 @@ impl SchedulerService {
         Self::register_iacuc_submission_notify_job(&sched, &db, &config, t, &mut job_count).await?;
         Self::register_unresolved_alert_sweep_job(&sched, &db, &config, t, &mut job_count).await?;
         Self::register_audit_chain_verify_job(&sched, &db, &config, t, &mut job_count).await?;
-        Self::register_retention_enforcer_job(&sched, &db, t, &mut job_count).await?;
+        Self::register_retention_enforcer_job(&sched, &db, &config, t, &mut job_count).await?;
 
         sched.start().await?;
         info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
@@ -510,30 +510,37 @@ impl SchedulerService {
     async fn register_retention_enforcer_job(
         sched: &JobScheduler,
         db: &PgPool,
+        config: &Arc<Config>,
         token: &CancellationToken,
         count: &mut u32,
     ) -> SchedulerResult {
         let db_clone = db.clone();
+        let config_clone = config.clone();
         let token_outer = token.clone();
         let job = Job::new_async(RETENTION_ENFORCER_CRON, move |_uuid, _l| {
             let db = db_clone.clone();
+            let config = config_clone.clone();
             let token = token_outer.clone();
             Box::pin(async move {
+                // shutdown 期間：不啟動新一輪。
                 if token.is_cancelled() {
                     info!("[Scheduler] retention_enforcer skipped during shutdown");
                     return;
                 }
+                // R30-17：feature flag gate。預設關閉，需顯式設 RETENTION_ENFORCER_ENABLED=true
+                // 才實際執行；保護首次部署不會立即 hard-delete / partition drop。
+                if !config.retention_enforcer_enabled {
+                    info!(
+                        "[Scheduler] retention_enforcer disabled (RETENTION_ENFORCER_ENABLED=false); \
+                         skipping. Enable after staging dry-run review."
+                    );
+                    return;
+                }
                 info!("[Scheduler] Running daily retention enforcer...");
-                tokio::select! {
-                    biased;
-                    _ = token.cancelled() => {
-                        info!("[Scheduler] retention_enforcer interrupted by shutdown");
-                    }
-                    result = RetentionEnforcer::run(&db) => {
-                        if let Err(e) = result {
-                            error!("[R30-17] retention_enforcer failed: {e}");
-                        }
-                    }
+                // 已啟動的這輪一律跑完並寫 audit summary（不被 shutdown 中斷），
+                // 避免「部分刪除、沒總結 audit」的 broken state。
+                if let Err(e) = RetentionEnforcer::run(&db).await {
+                    error!("[R30-17] retention_enforcer failed: {e}");
                 }
             })
         })?;

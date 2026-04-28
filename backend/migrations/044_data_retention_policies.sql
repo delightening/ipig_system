@@ -26,7 +26,8 @@
 
 CREATE TABLE data_retention_policies (
     id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    table_name      TEXT         NOT NULL UNIQUE,
+    table_name      TEXT         NOT NULL UNIQUE
+                                  CHECK (table_name ~ '^[a-z0-9_]+$'),
     retention_years INTEGER,     -- NULL = 永久保留
     delete_strategy TEXT         NOT NULL CHECK (delete_strategy IN ('hard_delete', 'partition_drop', 'never')),
     description     TEXT,

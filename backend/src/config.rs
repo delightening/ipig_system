@@ -114,6 +114,12 @@ pub struct Config {
     /// 設為 `true` 的時機：R26-6（HMAC 版本化 + legacy backfill）完成後。
     /// 環境變數：`AUDIT_CHAIN_VERIFY_ACTIVE=true`。
     pub audit_chain_verify_active: bool,
+    /// R30-17：retention enforcer 是否真實執行 hard-delete / partition drop。
+    ///
+    /// 預設 `false`，每日 03:00 UTC cron 會跳過真正執行（log 即可）；
+    /// 在 staging 連續觀察 dry-run 報表 ≥7 天確認沒誤刪後，再設為 `true`
+    /// 啟用實刪。環境變數：`RETENTION_ENFORCER_ENABLED=true`。
+    pub retention_enforcer_enabled: bool,
     /// H7：JWT 私鑰檔路徑（從 `JWT_EC_PRIVATE_KEY_FILE` env 讀取，None = 用 PEM env）。
     /// 啟動時 `check_jwt_key_file_permissions` 用此檢查 unix mode；走 Config 統一
     /// 而非散落 std::env::var（CLAUDE.md：禁止散落讀取 env）。
@@ -291,6 +297,7 @@ impl Config {
             // `.env.example` 有對應文檔與 openssl rand -base64 32 產生指引。
             audit_hmac_key: read_secret("AUDIT_HMAC_KEY").filter(|s| s.len() >= 44),
             audit_chain_verify_active: parse_bool_env("AUDIT_CHAIN_VERIFY_ACTIVE"),
+            retention_enforcer_enabled: parse_bool_env("RETENTION_ENFORCER_ENABLED"),
             jwt_ec_private_key_file: std::env::var("JWT_EC_PRIVATE_KEY_FILE")
                 .ok()
                 .filter(|s| !s.is_empty()),
@@ -429,6 +436,7 @@ mod tests {
             cors_allowed_origins: vec!["http://localhost:8080".to_string()],
             audit_hmac_key: None,
             audit_chain_verify_active: false,
+            retention_enforcer_enabled: false,
             jwt_ec_private_key_file: None,
             disable_csrf_for_tests: false,
             disable_account_lockout: false,

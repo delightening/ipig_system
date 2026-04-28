@@ -16,3 +16,4 @@ pub mod warehouse;
 pub mod qa_plan;
 pub mod glp_compliance;
 pub mod pen;
+pub mod data_retention;
