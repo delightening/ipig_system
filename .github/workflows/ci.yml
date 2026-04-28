@@ -617,6 +617,9 @@ jobs:
         env:
           CI_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
           CI_DEV_PASSWORD: ${{ secrets.CI_DEV_PASSWORD }}
+          # E2E 覆蓋率：docker-compose.test.yml 透過 ${VITE_E2E_COVERAGE:-0} 讀取，
+          # local/dev 預設 0、CI 顯式設 1 → vite 產 hidden source map
+          VITE_E2E_COVERAGE: "1"
         run: |
           set -euo pipefail
           echo "=== Docker 版本檢查 ==="
@@ -739,6 +742,8 @@ jobs:
           E2E_ADMIN_EMAIL: admin@ipigsystem.asia
           E2E_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
           ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_for_local' }}
+          # 啟用 V8 coverage：fixtures/coverage.ts 收集，monocart-reporter 聚合 → lcov + html
+          E2E_COVERAGE: "1"
         run: pnpm run test:e2e
 
       - name: 上傳測試報告 (失敗時)
@@ -748,6 +753,15 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 30
+
+      - name: 上傳 E2E coverage 報告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-coverage-report
+          path: frontend/monocart-report/
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: 停止 Docker 環境
         if: always()

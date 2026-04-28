@@ -2,7 +2,8 @@
  * 在 chromium 專案開始前重新登入 admin 並覆寫 admin.json，
  * 確保後續使用 admin storageState 的 test 拿到的是剛登入的 session，避免中途失效。
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/coverage'
+
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'

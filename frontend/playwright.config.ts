@@ -31,6 +31,42 @@ const authDir = path.join(__dirname, 'e2e', '.auth')
  */
 const runFirefox = process.env.PLAYWRIGHT_FIREFOX === '1'
 const runWebKit = process.env.PLAYWRIGHT_WEBKIT === '1'
+const collectCoverage = process.env.E2E_COVERAGE === '1'
+const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080'
+
+// 從 baseURL 解析 origin，避免 entryFilter 寫死 host 在 BASE_URL 被覆寫時靜默漏接 coverage
+const baseOrigin = (() => {
+    try {
+        return new URL(baseURL).origin
+    } catch {
+        return baseURL
+    }
+})()
+
+// monocart-reporter：聚合 V8 coverage entries（fixtures/coverage.ts 寫入），
+// 透過 hidden source map 還原到 src/*.ts，輸出 lcov + html。
+const coverageReporter: any[] = collectCoverage
+    ? [
+          [
+              'monocart-reporter',
+              {
+                  name: 'E2E Coverage',
+                  outputFile: './monocart-report/index.html',
+                  coverage: {
+                      entryFilter: (entry: { url: string }) =>
+                          entry.url.startsWith(baseOrigin) &&
+                          !entry.url.includes('node_modules'),
+                      // 只收 frontend/src/*；排除 node_modules（含 .pnpm 內的 d3-array
+                      // 等內部 src/ 結構，會被 /src\// 寬鬆規則誤吃）。
+                      sourceFilter: (sourcePath: string) =>
+                          sourcePath.startsWith('src/') && !sourcePath.includes('node_modules'),
+                      reports: [['lcovonly', { file: 'lcov.info' }], ['v8'], ['console-summary']],
+                      outputDir: './monocart-report/coverage',
+                  },
+              },
+          ],
+      ]
+    : []
 
 export default defineConfig({
     testDir: './e2e',
@@ -40,11 +76,13 @@ export default defineConfig({
     timeout: 30_000,
 
     reporter: process.env.CI
-        ? [['github'], ['html', { open: 'never' }]]
-        : 'html',
+        ? [['github'] as any, ['html', { open: 'never' }] as any, ...coverageReporter]
+        : collectCoverage
+          ? [['html'] as any, ...coverageReporter]
+          : 'html',
 
     use: {
-        baseURL: process.env.E2E_BASE_URL || 'http://localhost:8080',
+        baseURL,
         screenshot: 'only-on-failure',
         trace: 'on-first-retry',
     },

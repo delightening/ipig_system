@@ -3,7 +3,7 @@
  * 優先載入 auth.setup 儲存的 admin.json storageState，
  * 只在 storageState 過期時才重新登入，大幅減少 API 呼叫次數。
  */
-import base, { expect } from '@playwright/test'
+import { test as base, expect } from './coverage'
 import type { BrowserContext } from 'playwright'
 import { performLogin, getAdminCredentials } from '../auth-helpers'
 import { globalSessionMonitor } from '../helpers/session-monitor'

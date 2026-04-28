@@ -20,6 +20,9 @@ RUN pnpm config set fetch-retries 5 && \
 
 # Copy source and build
 COPY . .
+# E2E 覆蓋率：docker-compose.test.yml 傳 ARG 進來，觸發 vite 產 hidden source map
+ARG VITE_E2E_COVERAGE=0
+ENV VITE_E2E_COVERAGE=${VITE_E2E_COVERAGE}
 RUN pnpm run build
 
 # ============================================

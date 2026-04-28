@@ -31,6 +31,7 @@ secrets/
 **/e2e/.auth/
 **/test-results/
 **/playwright-report/
+**/monocart-report/
 
 # Runtime / local artifacts
 last_error.json
