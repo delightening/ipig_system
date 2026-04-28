@@ -360,7 +360,7 @@ export function ProtocolEditPage() {
         <AIReviewPanel protocolId={id} />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader>
             <CardTitle className="text-lg">{t('aup.sections')}</CardTitle>
@@ -389,11 +389,11 @@ export function ProtocolEditPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full justify-between text-left"
+                    className="gap-1 max-w-full"
                     onClick={() => setActiveSection(next.section)}
                   >
-                    <span className="truncate text-xs">{t('aup.nextEmptyField')}</span>
-                    <ArrowRight className="h-3.5 w-3.5 flex-shrink-0 ml-1" />
+                    <span className="text-xs">{t('aup.nextEmptyField')}</span>
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0" />
                   </Button>
                   <p className="text-[11px] text-muted-foreground mt-1 px-1 truncate">{next.label}</p>
                 </div>
