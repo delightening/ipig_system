@@ -154,7 +154,8 @@ export function useAnimalsMutations(opts: MutationsOptions) {
       const animal = matchingAnimals[0]
       if (animal.pen_location === targetPenLocation) throw new Error(`動物 ${formattedEarTag} 已經在 ${targetPenLocation} 欄位`)
 
-      return { ...await api.put<Animal>(`/animals/${animal.id}`, { pen_location: targetPenLocation }), notFound: false }
+      // R30-B: 帶當前 version 防 lost update（從搜尋結果取）
+      return { ...await api.put<Animal>(`/animals/${animal.id}`, { pen_location: targetPenLocation, version: animal.version }), notFound: false }
     },
     onSuccess: (data: { notFound?: boolean; formattedEarTag?: string; targetPenLocation?: string }, variables: { earTag: string; targetPenLocation: string }) => {
       if (data.notFound && data.formattedEarTag != null && data.targetPenLocation != null) {

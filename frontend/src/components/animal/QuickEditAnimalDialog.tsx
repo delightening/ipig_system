@@ -97,7 +97,8 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    updateMutation.mutate(formData)
+    // R30-B: 帶當前 version 防 lost update（從 query 結果取，避免 form state stale）
+    updateMutation.mutate({ ...formData, version: animal?.version })
   }
 
   const handleChange = (field: keyof UpdateAnimalRequest, value: UpdateAnimalRequestValue) => {
