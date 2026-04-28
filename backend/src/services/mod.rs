@@ -136,3 +136,6 @@ pub use data_import::{import_idxf, ImportMode, ImportResult};
 
 mod partition_maintenance;
 pub use partition_maintenance::PartitionMaintenanceJob;
+
+pub mod retention_enforcer;
+pub use retention_enforcer::{RetentionEnforcer, RetentionRunReport};

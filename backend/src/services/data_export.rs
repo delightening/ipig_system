@@ -212,6 +212,8 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "role_training_requirements",
     "study_final_reports",
     "formulation_records",
+    // 042 - R30-17 retention policy（系統設定，無 FK）
+    "data_retention_policies",
 ];
 
 /// 稽核相關大表（include_audit=false 時略過）

@@ -7,13 +7,16 @@ use chrono::{Timelike, Datelike, Weekday};
 
 use crate::{
     config::Config,
-    services::{EmailService, InvitationService, NotificationService, BalanceExpirationJob, CalendarService, PartitionMaintenanceJob, EuthanasiaService, SecurityNotifier, SecurityNotification},
+    services::{EmailService, InvitationService, NotificationService, BalanceExpirationJob, CalendarService, PartitionMaintenanceJob, EuthanasiaService, RetentionEnforcer, SecurityNotifier, SecurityNotification},
 };
 
 type SchedulerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
 /// R26-2 audit HMAC chain 每日驗證 cron schedule（每日 02:00:00 UTC）。
 const AUDIT_CHAIN_VERIFY_CRON: &str = "0 0 2 * * *";
+
+/// R30-17 retention enforcement cron schedule（每日 03:00:00 UTC，避開 audit_chain_verify 02:00）。
+const RETENTION_ENFORCER_CRON: &str = "0 0 3 * * *";
 
 pub struct SchedulerService;
 
@@ -49,6 +52,7 @@ impl SchedulerService {
         Self::register_iacuc_submission_notify_job(&sched, &db, &config, t, &mut job_count).await?;
         Self::register_unresolved_alert_sweep_job(&sched, &db, &config, t, &mut job_count).await?;
         Self::register_audit_chain_verify_job(&sched, &db, &config, t, &mut job_count).await?;
+        Self::register_retention_enforcer_job(&sched, &db, t, &mut job_count).await?;
 
         sched.start().await?;
         info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
@@ -492,6 +496,49 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'audit_chain_verify' registered (daily 02:00 UTC)");
+        *count += 1;
+        Ok(())
+    }
+
+    /// R30-17：每日 03:00 UTC 執行 retention enforcement。
+    ///
+    /// 找出 `data_retention_policies` 中標 `hard_delete` 且已過 retention_years 的
+    /// soft-deleted row 真實刪除；對 `partition_drop` 表 (e.g. user_activity_logs)
+    /// 走 DETACH PARTITION + DROP，避開 R30-F BEFORE DELETE trigger。
+    ///
+    /// 執行結果寫入 `RETENTION_ENFORCEMENT_RUN` audit event（actor = SystemActor）。
+    async fn register_retention_enforcer_job(
+        sched: &JobScheduler,
+        db: &PgPool,
+        token: &CancellationToken,
+        count: &mut u32,
+    ) -> SchedulerResult {
+        let db_clone = db.clone();
+        let token_outer = token.clone();
+        let job = Job::new_async(RETENTION_ENFORCER_CRON, move |_uuid, _l| {
+            let db = db_clone.clone();
+            let token = token_outer.clone();
+            Box::pin(async move {
+                if token.is_cancelled() {
+                    info!("[Scheduler] retention_enforcer skipped during shutdown");
+                    return;
+                }
+                info!("[Scheduler] Running daily retention enforcer...");
+                tokio::select! {
+                    biased;
+                    _ = token.cancelled() => {
+                        info!("[Scheduler] retention_enforcer interrupted by shutdown");
+                    }
+                    result = RetentionEnforcer::run(&db) => {
+                        if let Err(e) = result {
+                            error!("[R30-17] retention_enforcer failed: {e}");
+                        }
+                    }
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'retention_enforcer' registered (daily 03:00 UTC)");
         *count += 1;
         Ok(())
     }
