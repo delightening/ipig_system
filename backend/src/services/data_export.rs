@@ -221,7 +221,8 @@ const AUDIT_HEAVY_TABLES: &[&str] = &["user_activity_logs", "login_events"];
 /// - `_sqlx_migrations`：SQLx 內部表，由 migration 自動管理。
 /// - `user_activity_logs_*` / `ai_query_logs_*`：父表（`user_activity_logs`、`ai_query_logs`）
 ///   為 partitioned table，子分區資料透過父表查詢即可，不需另外列出。
-pub const INTENTIONALLY_EXCLUDED_TABLES: &[&str] = &[
+#[cfg(test)]
+const INTENTIONALLY_EXCLUDED_TABLES: &[&str] = &[
     "jwt_blacklist",
     "refresh_tokens",
     "password_reset_tokens",
