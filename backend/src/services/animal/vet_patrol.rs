@@ -5,7 +5,15 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use crate::Result;
+use crate::{
+    middleware::ActorContext,
+    models::audit_diff::DataDiff,
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
+    AppError, Result,
+};
 
 // ── 報告主表 ──────────────────────────────
 
@@ -133,9 +141,10 @@ impl VetPatrolReportService {
     /// 建立巡場報告（含條目）+ 自動同步到動物獸醫師建議
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         req: &CreateVetPatrolReportRequest,
-        user_id: Uuid,
     ) -> Result<VetPatrolReport> {
+        let user_id = actor.require_user()?.id;
         let mut tx = pool.begin().await?;
 
         let report = sqlx::query_as::<_, VetPatrolReport>(
@@ -191,6 +200,20 @@ impl VetPatrolReportService {
             }
         }
 
+        let display = format!("巡場報告 {}", report.patrol_date);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "VetPatrolReportCreated",
+                entity: Some(AuditEntity::new("vet_patrol_reports", report.id, &display)),
+                data_diff: Some(DataDiff::create_only(&report)),
+                request_context: None,
+            },
+        )
+        .await?;
+
         tx.commit().await?;
         Ok(report)
     }
@@ -198,11 +221,24 @@ impl VetPatrolReportService {
     /// 更新巡場報告（條目全部替換）
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateVetPatrolReportRequest,
-        user_id: Uuid,
     ) -> Result<VetPatrolReport> {
+        let user_id = actor.require_user()?.id;
         let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, VetPatrolReport>(
+            r#"SELECT id, patrol_date, week_start, week_end, status,
+                      created_by, updated_by, created_at, updated_at
+               FROM vet_patrol_reports
+               WHERE id = $1 AND deleted_at IS NULL
+               FOR UPDATE"#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("找不到巡場報告".to_string()))?;
 
         let report = sqlx::query_as::<_, VetPatrolReport>(
             r#"UPDATE vet_patrol_reports SET
@@ -222,6 +258,7 @@ impl VetPatrolReportService {
         .bind(user_id)
         .fetch_one(&mut *tx)
         .await?;
+        let after = report.clone();
 
         // 如果有傳入新的 entries，整批替換
         if let Some(entries) = &req.entries {
@@ -248,18 +285,62 @@ impl VetPatrolReportService {
             }
         }
 
+        let display = format!("巡場報告 {}", after.patrol_date);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "VetPatrolReportUpdated",
+                entity: Some(AuditEntity::new("vet_patrol_reports", id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
         tx.commit().await?;
         Ok(report)
     }
 
     /// 刪除巡場報告（soft delete）
-    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
+    pub async fn delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, VetPatrolReport>(
+            r#"SELECT id, patrol_date, week_start, week_end, status,
+                      created_by, updated_by, created_at, updated_at
+               FROM vet_patrol_reports
+               WHERE id = $1 AND deleted_at IS NULL
+               FOR UPDATE"#,
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("找不到巡場報告".to_string()))?;
+
         sqlx::query(
             "UPDATE vet_patrol_reports SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
         .bind(id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
+
+        let display = format!("巡場報告 {}", before.patrol_date);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "VetPatrolReportDeleted",
+                entity: Some(AuditEntity::new("vet_patrol_reports", id, &display)),
+                data_diff: Some(DataDiff::delete_only(&before)),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }

@@ -7,7 +7,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     require_permission,
     services::{
         VetPatrolReport, VetPatrolReportService, VetPatrolReportWithEntries,
@@ -46,7 +46,8 @@ pub async fn create_vet_patrol_report(
     Json(req): Json<CreateVetPatrolReportRequest>,
 ) -> Result<Json<VetPatrolReport>> {
     require_permission!(current_user, "animal.vet.recommend");
-    let report = VetPatrolReportService::create(&state.db, &req, current_user.id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let report = VetPatrolReportService::create(&state.db, &actor, &req).await?;
     Ok(Json(report))
 }
 
@@ -58,7 +59,8 @@ pub async fn update_vet_patrol_report(
     Json(req): Json<UpdateVetPatrolReportRequest>,
 ) -> Result<Json<VetPatrolReport>> {
     require_permission!(current_user, "animal.vet.recommend");
-    let report = VetPatrolReportService::update(&state.db, id, &req, current_user.id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let report = VetPatrolReportService::update(&state.db, &actor, id, &req).await?;
     Ok(Json(report))
 }
 
@@ -69,6 +71,7 @@ pub async fn delete_vet_patrol_report(
     Path(id): Path<Uuid>,
 ) -> Result<Json<()>> {
     require_permission!(current_user, "animal.vet.recommend");
-    VetPatrolReportService::delete(&state.db, id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    VetPatrolReportService::delete(&state.db, &actor, id).await?;
     Ok(Json(()))
 }
