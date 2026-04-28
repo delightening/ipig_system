@@ -90,12 +90,15 @@ export function useDocumentLines(
   }, [collectLineValues, setFormData])
 
   const calculateLineAmount = useCallback((lineId: string) => {
+    const line = formData.lines.find((l) => (l.id || `temp-${formData.lines.indexOf(l)}`) === lineId)
     const refs = inputRefs.current[lineId]
-    if (!refs) return 0
-    const qty = refs.qty?.value ? parseFloat(refs.qty.value) : 0
-    const price = refs.unit_price?.value ? parseFloat(refs.unit_price.value) : 0
-    return qty * price
-  }, [])
+    const qtyStr = line?.qty || refs?.qty?.value || ''
+    const priceStr = line?.unit_price || refs?.unit_price?.value || ''
+    const qty = qtyStr ? parseFloat(qtyStr) : 0
+    const price = priceStr ? parseFloat(priceStr) : 0
+    if (!Number.isFinite(qty) || !Number.isFinite(price)) return 0
+    return Math.round(qty * price * 100) / 100
+  }, [formData.lines])
 
   const updateLineAmount = useCallback((lineId: string) => {
     const amount = calculateLineAmount(lineId)

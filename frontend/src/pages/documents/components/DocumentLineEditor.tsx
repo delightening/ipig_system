@@ -114,12 +114,7 @@ export function DocumentLineEditor({
         })
       }))
 
-      // Sync uncontrolled input refs (defaultValue won't update existing DOM elements)
-      // qty 已為 controlled input，不需直接寫 DOM ref
-      if (isPoLinkedGrn && extraData) {
-        const refs = inputRefs.current[activeLineId]
-        if (refs?.unit_price) refs.unit_price.value = extraData.unit_price ? String(extraData.unit_price) : ''
-      }
+      // qty / unit_price 已為 controlled input，不需直接寫 DOM ref
       if (extraData && !isPoLinkedGrn) {
         const refs = inputRefs.current[activeLineId]
         if (refs?.batch_no) refs.batch_no.value = extraData.batch_no || ''
@@ -297,7 +292,6 @@ function LineRow({
   const showExpiry = !product || product.track_expiry
   const showBatch = !product || product.track_batch
 
-  const unitPriceDefault = String(line.unit_price || '')
   const expiryDateDefault = String(line.expiry_date || '')
   const batchNoDefault = String(line.batch_no || '')
 
@@ -349,12 +343,15 @@ function LineRow({
           <TableCell>
             <Input
               type="number"
-              defaultValue={unitPriceDefault}
+              value={line.unit_price ?? ''}
               ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].unit_price = el } }}
               className="text-right"
               min="0"
               step="0.01"
-              onChange={() => onUpdateLineAmount(lineId)}
+              onChange={(e) => {
+                updateLineField(lineId, 'unit_price', e.target.value)
+                onUpdateLineAmount(lineId)
+              }}
               onBlur={() => onLineBlur(lineId)}
             />
           </TableCell>
@@ -479,7 +476,6 @@ function LineCard({
   const showExpiry = !product || product.track_expiry
   const showBatch = !product || product.track_batch
 
-  const unitPriceDefault = String(line.unit_price || '')
   const expiryDateDefault = String(line.expiry_date || '')
   const batchNoDefault = String(line.batch_no || '')
 
@@ -543,12 +539,15 @@ function LineCard({
             <Label className="text-xs text-muted-foreground">單價</Label>
             <Input
               type="number"
-              defaultValue={unitPriceDefault}
+              value={line.unit_price ?? ''}
               ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].unit_price = el } }}
               className="text-right"
               min="0"
               step="0.01"
-              onChange={() => onUpdateLineAmount(lineId)}
+              onChange={(e) => {
+                updateLineField(lineId, 'unit_price', e.target.value)
+                onUpdateLineAmount(lineId)
+              }}
               onBlur={() => onLineBlur(lineId)}
             />
           </div>

@@ -123,13 +123,16 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   }, [partners])
 
   const totalAmount = useMemo(() => {
-    return formData.lines.reduce((sum, line) => {
+    // Sum in cents to avoid floating-point drift, then convert back
+    const totalCents = formData.lines.reduce((sum, line) => {
       const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
-      const amount = lines.lineAmounts[lineId] !== undefined
-        ? lines.lineAmounts[lineId]
-        : (parseFloat(line.qty) || 0) * (parseFloat(line.unit_price) || 0)
-      return sum + amount
+      const cached = lines.lineAmounts[lineId]
+      const amount = cached !== undefined
+        ? cached
+        : Math.round((parseFloat(line.qty) || 0) * (parseFloat(line.unit_price) || 0) * 100) / 100
+      return sum + Math.round(amount * 100)
     }, 0)
+    return totalCents / 100
   }, [formData.lines, lines.lineAmounts])
 
   // --- Submit hook ---
@@ -233,15 +236,25 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCopy, isEdit])
 
+  // Recompute lineAmounts synchronously when lines change (covers copy / re-mount).
+  // Document load 與 addLine 已分別自行初始化，這裡負責補齊複製單據與 doc_type 切換情境。
   useEffect(() => {
-    if (['PO', 'GRN', 'DO'].includes(formData.doc_type)) {
-      formData.lines.forEach((line) => {
-        const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
-        setTimeout(() => lines.updateLineAmount(lineId), 0)
-      })
-    }
+    if (!['PO', 'GRN', 'DO'].includes(formData.doc_type)) return
+    const next: Record<string, number> = {}
+    formData.lines.forEach((line, idx) => {
+      const lineId = line.id || `temp-${idx}`
+      const qty = parseFloat(line.qty) || 0
+      const price = parseFloat(line.unit_price) || 0
+      next[lineId] = Math.round(qty * price * 100) / 100
+    })
+    lines.setLineAmounts((prev) => {
+      const prevKeys = Object.keys(prev)
+      const nextKeys = Object.keys(next)
+      if (prevKeys.length === nextKeys.length && nextKeys.every((k) => prev[k] === next[k])) return prev
+      return next
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.doc_type, formData.lines.length])
+  }, [formData.doc_type, formData.lines])
 
   useEffect(() => {
     if (!isEdit) {
