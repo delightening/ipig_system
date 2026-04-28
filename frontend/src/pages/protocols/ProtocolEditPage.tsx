@@ -360,7 +360,7 @@ export function ProtocolEditPage() {
         <AIReviewPanel protocolId={id} />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader>
             <CardTitle className="text-lg">{t('aup.sections')}</CardTitle>
