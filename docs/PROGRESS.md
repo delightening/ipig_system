@@ -187,15 +187,15 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ### 2026-04-28 R30 三軸 Code Review 全部結案
 
-R30 立項當日（2026-04-28）完整實作完成，**40 項中 38 項實作 + 2 項使用者決定跳過**。當天總工時遠低於原估 125-177h（高度平行 dispatch + agent 並行）。
+R30 立項當日（2026-04-28）完整實作完成，**40 項中 33 項實作 + 2 項使用者決定跳過 + 5 項移至後續 backlog**。當天總工時遠低於原估 125-177h（高度平行 dispatch + agent 並行）。
 
 - ✅ **R30-A** Euthanasia 三軸補強（pattern 驗證 PR，PR #262 merged）— 4 項
 - ✅ **R30-B** Protocol body lost update + CRUD audit（PR #269 + R30-B2 follow-up PR #272）— 3 項
 - ✅ **R30-C** 簽章升級簡化版（PR #275 R30-10 meaning / PR #276 R30-7 HMAC v2 / PR #277 R30-9 invalidate audit）— 3 項
 - ✅ **R30-D** Audit 顯示與匯出（PR #265 merged）— 4 項實作 + R30-15 跳過
-- ✅ **R30-E** Soft-delete cleanup + retention policy（PR #278 R30-16/17 含全 GLP 表 20 年保留期 seed）— 4 項
+- ✅ **R30-E** Soft-delete cleanup + retention policy（PR #278 R30-16/17 含全 GLP 表 20 年保留期 seed）— 2 項
 - ✅ **R30-F** Audit + signature DB-level immutability triggers（PR #273 merged）— 2 項
-- ✅ **R30-G** IQ-PQ + 變更控制（PR #266 R30-22 + R30-26 / PR #271 build.rs 注入；R30-23~28 部分留待後續）— 部分 7 項
+- 🔶 **R30-G** IQ-PQ + 變更控制（PR #266 R30-22 + R30-26 / PR #271 build.rs 注入；R30-23~25, 27, 28 留待後續）— 部分 7 項（2 完成 / 5 backlog）
 - ✅ **R30-H** 漏 audit 路徑補齊（PR #267 accounting / import_export / vet_patrol；R30-30 sudden_death 已存在）— 4 項
 - ✅ **R30-I** GLP 文件補完（PR #264 merged，6 份 SOP / runbook / traceability matrix）— 6 項
 - ✅ **R30-J** R29-5b v4 class rename codemod（PR #263 merged）— 1 項
