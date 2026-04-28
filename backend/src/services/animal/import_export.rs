@@ -760,7 +760,7 @@ impl AnimalImportExportService {
             ActivityLogEntry {
                 event_category: "ANIMAL",
                 event_type: "ANIMAL_IMPORT",
-                entity: Some(AuditEntity::new("animal", batch.id, &display)),
+                entity: Some(AuditEntity::new("animal_import_batch", batch.id, &display)),
                 data_diff: None,
                 request_context: None,
             },
@@ -842,7 +842,7 @@ impl AnimalImportExportService {
             ActivityLogEntry {
                 event_category: "ANIMAL",
                 event_type: "WEIGHT_IMPORT",
-                entity: Some(AuditEntity::new("animal_weight", batch.id, &display)),
+                entity: Some(AuditEntity::new("animal_import_batch", batch.id, &display)),
                 data_diff: None,
                 request_context: None,
             },

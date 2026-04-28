@@ -34,6 +34,46 @@ pub struct VetPatrolReport {
 // 需完整保留於 audit log。空 `redacted_fields()` 是主動決策。
 impl crate::models::audit_diff::AuditRedact for VetPatrolReport {}
 
+// ── Audit snapshot：包含 report + entries（GLP 醫療紀錄完整保留） ──────────────────────────────
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct VetPatrolEntrySnapshot {
+    pub id: Uuid,
+    pub category: String,
+    pub animal_id: Option<Uuid>,
+    pub observation: String,
+    pub suggestion: String,
+    pub follow_up: String,
+    pub sort_order: i32,
+}
+
+impl crate::models::audit_diff::AuditRedact for VetPatrolEntrySnapshot {}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VetPatrolReportSnapshot {
+    #[serde(flatten)]
+    pub report: VetPatrolReport,
+    pub entries: Vec<VetPatrolEntrySnapshot>,
+}
+
+impl crate::models::audit_diff::AuditRedact for VetPatrolReportSnapshot {}
+
+async fn fetch_entry_snapshots(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    report_id: Uuid,
+) -> Result<Vec<VetPatrolEntrySnapshot>> {
+    let entries = sqlx::query_as::<_, VetPatrolEntrySnapshot>(
+        r#"SELECT id, category, animal_id, observation, suggestion, follow_up, sort_order
+           FROM vet_patrol_entries
+           WHERE report_id = $1
+           ORDER BY sort_order, created_at"#,
+    )
+    .bind(report_id)
+    .fetch_all(&mut **tx)
+    .await?;
+    Ok(entries)
+}
+
 // ── 含耳號的條目（join animals） ──────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -200,15 +240,20 @@ impl VetPatrolReportService {
             }
         }
 
+        let entry_snapshots = fetch_entry_snapshots(&mut tx, report.id).await?;
+        let snapshot = VetPatrolReportSnapshot {
+            report: report.clone(),
+            entries: entry_snapshots,
+        };
         let display = format!("巡場報告 {}", report.patrol_date);
         AuditService::log_activity_tx(
             &mut tx,
             actor,
             ActivityLogEntry {
                 event_category: "ANIMAL",
-                event_type: "VetPatrolReportCreated",
+                event_type: "VET_PATROL_REPORT_CREATED",
                 entity: Some(AuditEntity::new("vet_patrol_reports", report.id, &display)),
-                data_diff: Some(DataDiff::create_only(&report)),
+                data_diff: Some(DataDiff::create_only(&snapshot)),
                 request_context: None,
             },
         )
@@ -239,6 +284,7 @@ impl VetPatrolReportService {
         .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("找不到巡場報告".to_string()))?;
+        let before_entries = fetch_entry_snapshots(&mut tx, id).await?;
 
         let report = sqlx::query_as::<_, VetPatrolReport>(
             r#"UPDATE vet_patrol_reports SET
@@ -285,15 +331,24 @@ impl VetPatrolReportService {
             }
         }
 
+        let after_entries = fetch_entry_snapshots(&mut tx, id).await?;
+        let before_snapshot = VetPatrolReportSnapshot {
+            report: before,
+            entries: before_entries,
+        };
+        let after_snapshot = VetPatrolReportSnapshot {
+            report: after.clone(),
+            entries: after_entries,
+        };
         let display = format!("巡場報告 {}", after.patrol_date);
         AuditService::log_activity_tx(
             &mut tx,
             actor,
             ActivityLogEntry {
                 event_category: "ANIMAL",
-                event_type: "VetPatrolReportUpdated",
+                event_type: "VET_PATROL_REPORT_UPDATED",
                 entity: Some(AuditEntity::new("vet_patrol_reports", id, &display)),
-                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                data_diff: Some(DataDiff::compute(Some(&before_snapshot), Some(&after_snapshot))),
                 request_context: None,
             },
         )
@@ -318,6 +373,7 @@ impl VetPatrolReportService {
         .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("找不到巡場報告".to_string()))?;
+        let before_entries = fetch_entry_snapshots(&mut tx, id).await?;
 
         sqlx::query(
             "UPDATE vet_patrol_reports SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
@@ -326,15 +382,19 @@ impl VetPatrolReportService {
         .execute(&mut *tx)
         .await?;
 
+        let snapshot = VetPatrolReportSnapshot {
+            report: before.clone(),
+            entries: before_entries,
+        };
         let display = format!("巡場報告 {}", before.patrol_date);
         AuditService::log_activity_tx(
             &mut tx,
             actor,
             ActivityLogEntry {
                 event_category: "ANIMAL",
-                event_type: "VetPatrolReportDeleted",
+                event_type: "VET_PATROL_REPORT_DELETED",
                 entity: Some(AuditEntity::new("vet_patrol_reports", id, &display)),
-                data_diff: Some(DataDiff::delete_only(&before)),
+                data_diff: Some(DataDiff::delete_only(&snapshot)),
                 request_context: None,
             },
         )
