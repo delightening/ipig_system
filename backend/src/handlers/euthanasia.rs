@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
@@ -10,9 +10,10 @@ use validator::Validate;
 
 use crate::{
     error::AppError,
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::{
         ChairDecisionRequest, CreateEuthanasiaAppealRequest, CreateEuthanasiaOrderRequest,
+        ExecuteEuthanasiaRequest, PiApproveEuthanasiaRequest,
     },
     services::EuthanasiaService,
     AppState,
@@ -35,18 +36,16 @@ pub async fn create_order(
     Extension(auth): Extension<CurrentUser>,
     Json(req): Json<CreateEuthanasiaOrderRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    // 驗證請求
     req.validate()?;
 
-    // 驗證權限：只有 VET 可以建立
     if !auth.has_permission("animal.euthanasia.create") && !auth.has_role(crate::constants::ROLE_VET) {
         return Err(AppError::Forbidden("無權限開立安樂死單".to_string()));
     }
 
-    let order = EuthanasiaService::create_order(&state.db, &req, auth.id).await?;
+    let actor = ActorContext::User(auth);
+    let order = EuthanasiaService::create_order(&state.db, &actor, &req).await?;
 
-    // 發送 Email 通知給 PI
-    // 取得必要資訊
+    // 發送 Email 通知給 PI（與 service 內 in-app notification 並行；失敗只 log）
     let animal_email_info = sqlx::query_as::<_, EuthanasiaEmailInfo>(
         r#"
         SELECT p.ear_tag, p.iacuc_no, u.email, u.display_name, vu.display_name as vet_name
@@ -73,10 +72,11 @@ pub async fn create_order(
             info.vet_name.as_deref().unwrap_or(""),
             &order.reason,
             &deadline,
-        ).await {
+        )
+        .await
+        {
             tracing::warn!("發送安樂死通知郵件失敗: {e}");
         }
-
     }
 
     Ok((StatusCode::CREATED, Json(order)))
@@ -120,9 +120,11 @@ pub async fn approve_order(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Extension(auth): Extension<CurrentUser>,
+    Json(req): Json<PiApproveEuthanasiaRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let order = EuthanasiaService::pi_approve(&state.db, id, auth.id).await?;
-
+    req.validate()?;
+    let actor = ActorContext::User(auth);
+    let order = EuthanasiaService::pi_approve(&state.db, &actor, id, &req).await?;
     Ok(Json(order))
 }
 
@@ -135,8 +137,8 @@ pub async fn appeal_order(
     Json(req): Json<CreateEuthanasiaAppealRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     req.validate()?;
-
-    let appeal = EuthanasiaService::pi_appeal(&state.db, id, auth.id, &req).await?;
+    let actor = ActorContext::User(auth);
+    let appeal = EuthanasiaService::pi_appeal(&state.db, &actor, id, &req).await?;
 
     Ok((StatusCode::CREATED, Json(appeal)))
 }
@@ -149,12 +151,13 @@ pub async fn decide_appeal(
     Extension(auth): Extension<CurrentUser>,
     Json(req): Json<ChairDecisionRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    // 驗證權限：只有 CHAIR 可以裁決
+    req.validate()?;
     if !auth.has_role(crate::constants::ROLE_IACUC_CHAIR) {
         return Err(AppError::Forbidden("無權限進行仲裁".to_string()));
     }
 
-    let appeal = EuthanasiaService::chair_decide(&state.db, id, auth.id, &req).await?;
+    let actor = ActorContext::User(auth);
+    let appeal = EuthanasiaService::chair_decide(&state.db, &actor, id, &req).await?;
 
     Ok(Json(appeal))
 }
@@ -165,13 +168,15 @@ pub async fn execute_order(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Extension(auth): Extension<CurrentUser>,
+    Json(req): Json<ExecuteEuthanasiaRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    // 驗證權限：只有 VET 可以執行
+    req.validate()?;
     if !auth.has_permission("animal.euthanasia.execute") && !auth.has_role(crate::constants::ROLE_VET) {
         return Err(AppError::Forbidden("無權限執行安樂死".to_string()));
     }
 
-    let order = EuthanasiaService::execute(&state.db, id, auth.id).await?;
+    let actor = ActorContext::User(auth);
+    let order = EuthanasiaService::execute(&state.db, &actor, id, &req).await?;
 
     Ok(Json(order))
 }
