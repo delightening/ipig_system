@@ -275,34 +275,6 @@ impl ProtocolService {
         Ok(activity)
     }
 
-    /// 記錄狀態變更（相容舊介面，內部轉換為 record_activity）
-    pub(super) async fn record_status_change(
-        pool: &PgPool,
-        protocol_id: Uuid,
-        from_status: Option<ProtocolStatus>,
-        to_status: ProtocolStatus,
-        changed_by: Uuid,
-        remark: Option<String>,
-    ) -> Result<()> {
-        let activity_type = activity_type_for_status(to_status);
-
-        if let Err(e) = Self::record_activity(
-            pool,
-            protocol_id,
-            activity_type,
-            changed_by,
-            from_status.map(|s| s.as_str().to_string()),
-            Some(to_status.as_str().to_string()),
-            None,
-            remark,
-            None,
-        ).await {
-            tracing::warn!("記錄活動失敗: {e}");
-        }
-
-        Ok(())
-    }
-
     /// 取得版本列表
     pub async fn get_versions(pool: &PgPool, protocol_id: Uuid) -> Result<Vec<ProtocolVersion>> {
         let versions = sqlx::query_as::<_, ProtocolVersion>(
