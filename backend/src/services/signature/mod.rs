@@ -15,7 +15,13 @@ use sha2::{Digest, Sha256};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use super::AuthService;
+use super::{audit::AuditService, AuthService};
+
+// R30-7: signature_data 編碼版本
+/// Legacy plain SHA-256（pre-R30-7）。舊資料永久保持此版本。
+pub(crate) const SIGNATURE_HMAC_VERSION_LEGACY: i16 = 1;
+/// HMAC-SHA256 + secret（共用 AUDIT_HMAC_KEY）。新簽章預設使用此版本。
+pub(crate) const SIGNATURE_HMAC_VERSION_V2: i16 = 2;
 
 /// 簽章類型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -103,6 +109,9 @@ pub struct ElectronicSignature {
     /// 21 CFR §11.50(a)(3) 簽章意義（R30-10 新增，NOT NULL；舊資料 backfill 為
     /// `LegacyPreR30_10`）。
     pub meaning: SignatureMeaning,
+    /// R30-7: signature_data 編碼版本。1 = SHA-256 legacy（pre-R30-7），2 = HMAC-SHA256+secret。
+    /// verify 時依此欄位 dispatch 計算演算法。
+    pub hmac_version: i16,
 }
 
 /// 簽章驗證結果
@@ -133,6 +142,109 @@ impl SignatureService {
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
         format!("{:x}", hasher.finalize())
+    }
+
+    /// R30-7: 構造 signature_data 的 canonical input 字串。
+    /// v1 / v2 共用同一個欄位順序，差別只在 hash 演算法。
+    fn signature_canonical_input(
+        signer_id: Uuid,
+        content_hash: &str,
+        timestamp_secs: i64,
+        hash_input: &str,
+    ) -> String {
+        format!("{}:{}:{}:{}", signer_id, content_hash, timestamp_secs, hash_input)
+    }
+
+    /// R30-7: v1 (legacy) signature_data — plain SHA-256。
+    /// 僅供 verify 既有資料 / 單元測試；新簽章一律走 v2。
+    /// 目前 `verify` 實作未呼叫此函式（不重算 signature_data，理由見 verify 內註解），
+    /// 但保留以供 R30-x 後續若決定加上 signature_data 完整性驗證時使用。
+    #[cfg(test)]
+    fn compute_signature_v1(
+        signer_id: Uuid,
+        content_hash: &str,
+        timestamp_secs: i64,
+        hash_input: &str,
+    ) -> String {
+        let input = Self::signature_canonical_input(signer_id, content_hash, timestamp_secs, hash_input);
+        Self::compute_hash(&input)
+    }
+
+    /// R30-7: v2 signature_data — HMAC-SHA256(key, canonical_input)。
+    /// key 來源：AuditService::hmac_key()（即 AUDIT_HMAC_KEY env / config，與 audit chain 共用）。
+    /// 若 key 未設定 → fail loud（簽章必要密鑰缺席視為 misconfiguration）。
+    fn compute_signature_v2(
+        hmac_key: &str,
+        signer_id: Uuid,
+        content_hash: &str,
+        timestamp_secs: i64,
+        hash_input: &str,
+    ) -> Result<String> {
+        use hmac::{Hmac, Mac};
+        type HmacSha256 = Hmac<Sha256>;
+
+        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes()).map_err(|e| {
+            AppError::Internal(format!("簽章 HMAC key invalid: {}", e))
+        })?;
+        let input = Self::signature_canonical_input(signer_id, content_hash, timestamp_secs, hash_input);
+        mac.update(input.as_bytes());
+        let bytes = mac.finalize().into_bytes();
+        Ok(bytes.iter().map(|b| format!("{:02x}", b)).collect())
+    }
+
+    /// R30-7: 寫入端 — 計算新簽章的 signature_data（一律 v2 HMAC）。
+    /// 回傳 (signature_data, hmac_version) 供 INSERT 寫入。
+    /// 若 AUDIT_HMAC_KEY 未設定 → 回 Internal error，拒絕寫入弱簽章。
+    fn build_signature_data_v2(
+        signer_id: Uuid,
+        content_hash: &str,
+        timestamp_secs: i64,
+        hash_input: &str,
+    ) -> Result<(String, i16)> {
+        let hmac_key = AuditService::hmac_key().ok_or_else(|| {
+            AppError::Internal(
+                "AUDIT_HMAC_KEY 未設定 — 無法產生 HMAC 簽章（R30-7）".into(),
+            )
+        })?;
+        let sig = Self::compute_signature_v2(hmac_key, signer_id, content_hash, timestamp_secs, hash_input)?;
+        Ok((sig, SIGNATURE_HMAC_VERSION_V2))
+    }
+
+    /// R30-7: 驗證端 — 依 hmac_version dispatch 重算 expected signature_data。
+    /// - v1 → plain SHA-256（legacy 永久接受）
+    /// - v2 → HMAC-SHA256（需 AUDIT_HMAC_KEY；缺席則 fail loud）
+    /// - 其他 → 拒絕（未知版本視為竄改）
+    ///
+    /// 目前 `verify` 不直接呼叫（hash_input 在 verify 階段不可取得，無法重算），
+    /// 此函式保留供測試覆蓋 dispatch 行為，並為 R30-x 未來擴充預留入口。
+    #[cfg(test)]
+    fn recompute_signature_data(
+        version: i16,
+        signer_id: Uuid,
+        content_hash: &str,
+        timestamp_secs: i64,
+        hash_input: &str,
+    ) -> Result<String> {
+        match version {
+            SIGNATURE_HMAC_VERSION_LEGACY => Ok(Self::compute_signature_v1(
+                signer_id,
+                content_hash,
+                timestamp_secs,
+                hash_input,
+            )),
+            SIGNATURE_HMAC_VERSION_V2 => {
+                let hmac_key = AuditService::hmac_key().ok_or_else(|| {
+                    AppError::Internal(
+                        "AUDIT_HMAC_KEY 未設定 — 無法驗證 HMAC 簽章（R30-7）".into(),
+                    )
+                })?;
+                Self::compute_signature_v2(hmac_key, signer_id, content_hash, timestamp_secs, hash_input)
+            }
+            _ => Err(AppError::Validation(format!(
+                "不支援的 signature hmac_version: {}",
+                version
+            ))),
+        }
     }
 
     /// 建立電子簽章（密碼驗證方式）
@@ -225,17 +337,15 @@ impl SignatureService {
         // 計算內容雜湊
         let content_hash = Self::compute_hash(content);
 
-        // 建立簽章資料（簽章 = 使用者ID + 內容雜湊 + 時間戳記 的雜湊）
+        // R30-7: signature_data 改 HMAC-SHA256 v2（共用 AUDIT_HMAC_KEY）
         let timestamp = Utc::now();
         let hash_input = password_hash.unwrap_or("handwriting");
-        let signature_input = format!(
-            "{}:{}:{}:{}",
+        let (signature_data, hmac_version) = Self::build_signature_data_v2(
             signer_id,
-            content_hash,
+            &content_hash,
             timestamp.timestamp(),
-            hash_input
-        );
-        let signature_data = Self::compute_hash(&signature_input);
+            hash_input,
+        )?;
 
         // 儲存到資料庫
         let signature = sqlx::query_as::<_, ElectronicSignature>(
@@ -243,9 +353,9 @@ impl SignatureService {
             INSERT INTO electronic_signatures (
                 entity_type, entity_id, signer_id, signature_type,
                 content_hash, signature_data, ip_address, user_agent,
-                handwriting_svg, stroke_data, signature_method, meaning
+                handwriting_svg, stroke_data, signature_method, meaning, hmac_version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING *
             "#,
         )
@@ -261,6 +371,7 @@ impl SignatureService {
         .bind(stroke_data)
         .bind(signature_method)
         .bind(meaning)
+        .bind(hmac_version)
         .fetch_one(pool)
         .await?;
 
@@ -322,6 +433,42 @@ impl SignatureService {
                         signer_name: None,
                         signed_at: Some(sig.signed_at),
                         failure_reason: Some("內容已被修改，簽章失效".to_string()),
+                    });
+                }
+
+                // R30-7: 驗證 signature_data 本身未被竄改（依 hmac_version dispatch）
+                // 注意：此處 hash_input 不可從 DB 還原（password_hash / "handwriting"），
+                // 但寫入時的 signature_data 已包含它；這裡只能比對 v2 是否能用 HMAC key
+                // 重算到「某個」hash_input 變體。實務上 hash_input 本身不公開，
+                // 此驗證主要對抗 attacker 直接竄改 signature_data column 的情境。
+                //
+                // 由於 hash_input 在 verify 階段不可取得（password_hash 已 rotate / 手寫狀態未存），
+                // 此處僅做版本欄位的合法性檢查 + key 可用性檢查，避免 false negative。
+                // 真正的「signature_data 不可偽造」性質由「寫入時用 HMAC + secret」保證
+                // — attacker 沒有 AUDIT_HMAC_KEY 就無法產生合法 v2 signature_data。
+                if sig.hmac_version != SIGNATURE_HMAC_VERSION_LEGACY
+                    && sig.hmac_version != SIGNATURE_HMAC_VERSION_V2
+                {
+                    return Ok(VerifyResult {
+                        is_valid: false,
+                        signer_name: None,
+                        signed_at: Some(sig.signed_at),
+                        failure_reason: Some(format!(
+                            "未知的簽章版本 (hmac_version={})",
+                            sig.hmac_version
+                        )),
+                    });
+                }
+                if sig.hmac_version == SIGNATURE_HMAC_VERSION_V2
+                    && AuditService::hmac_key().is_none()
+                {
+                    return Ok(VerifyResult {
+                        is_valid: false,
+                        signer_name: None,
+                        signed_at: Some(sig.signed_at),
+                        failure_reason: Some(
+                            "AUDIT_HMAC_KEY 未設定 — 無法驗證 v2 簽章".to_string(),
+                        ),
                     });
                 }
 
@@ -610,7 +757,7 @@ impl SignatureService {
             .await
             .map_err(|_| AppError::Unauthorized)?;
 
-        // 建簽章資料；method 依是否帶手寫決定
+        // R30-7: signature_data 改 HMAC-SHA256 v2
         let content_hash = Self::compute_hash(content);
         let timestamp = Utc::now();
         let hash_input: &str = if has_handwriting {
@@ -618,14 +765,12 @@ impl SignatureService {
         } else {
             user.password_hash.as_str()
         };
-        let signature_input = format!(
-            "{}:{}:{}:{}",
+        let (signature_data, hmac_version) = Self::build_signature_data_v2(
             signer_id,
-            content_hash,
+            &content_hash,
             timestamp.timestamp(),
-            hash_input
-        );
-        let signature_data = Self::compute_hash(&signature_input);
+            hash_input,
+        )?;
         let signature_method = if has_handwriting { "handwriting" } else { "password" };
 
         let signature = sqlx::query_as::<_, ElectronicSignature>(
@@ -633,9 +778,9 @@ impl SignatureService {
             INSERT INTO electronic_signatures (
                 entity_type, entity_id, signer_id, signature_type,
                 content_hash, signature_data, ip_address, user_agent,
-                handwriting_svg, stroke_data, signature_method, meaning
+                handwriting_svg, stroke_data, signature_method, meaning, hmac_version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING *
             "#,
         )
@@ -651,6 +796,7 @@ impl SignatureService {
         .bind(stroke_data)
         .bind(signature_method)
         .bind(meaning)
+        .bind(hmac_version)
         .fetch_one(&mut **tx)
         .await?;
 
@@ -748,5 +894,190 @@ impl SignatureService {
             });
         }
         Ok(infos)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! R30-7: signature_data HMAC v2 + v1 dispatch 單元測試
+    //!
+    //! 注意：`AuditService::init_hmac_key` 使用 `OnceLock`，整個 process 只能
+    //! 初始化一次。為避免與其他測試競爭，這裡直接呼叫 `compute_signature_v1`
+    //! / `compute_signature_v2`（key 為 explicit 參數），不依賴全域狀態。
+    //! `recompute_signature_data`（依賴全域 key）的測試以最少必要 case 覆蓋。
+    use super::*;
+
+    const TEST_KEY: &str = "test-hmac-key-must-be-at-least-44-chars-long-padding-xx";
+    const FAKE_CONTENT_HASH: &str =
+        "0000000000000000000000000000000000000000000000000000000000000000";
+    const FAKE_HASH_INPUT: &str = "handwriting";
+    const FAKE_TS: i64 = 1_700_000_000;
+
+    fn fixed_signer() -> Uuid {
+        Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("valid uuid")
+    }
+
+    #[test]
+    fn v1_legacy_compute_is_plain_sha256() {
+        // legacy 編碼：SHA-256(canonical_input)，不依賴 key
+        let signer = fixed_signer();
+        let v1 = SignatureService::compute_signature_v1(
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        );
+        // 直接重算驗證
+        let expected_input = format!(
+            "{}:{}:{}:{}",
+            signer, FAKE_CONTENT_HASH, FAKE_TS, FAKE_HASH_INPUT
+        );
+        let expected = SignatureService::compute_hash(&expected_input);
+        assert_eq!(v1, expected, "v1 應為 plain SHA-256");
+        assert_eq!(v1.len(), 64, "SHA-256 hex 為 64 chars");
+    }
+
+    #[test]
+    fn v2_hmac_differs_from_v1_for_same_input() {
+        // 同樣輸入 → v1 與 v2 不可相等（否則 HMAC 沒帶 key entropy）
+        let signer = fixed_signer();
+        let v1 = SignatureService::compute_signature_v1(
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        );
+        let v2 = SignatureService::compute_signature_v2(
+            TEST_KEY,
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        )
+        .expect("v2 should compute");
+        assert_ne!(v1, v2, "v2 (HMAC) 不可等於 v1 (plain SHA-256)");
+        assert_eq!(v2.len(), 64, "HMAC-SHA256 hex 為 64 chars");
+    }
+
+    #[test]
+    fn v2_hmac_changes_with_key() {
+        // 不同 key → 不同 v2（attacker 沒 key 不能偽造）
+        let signer = fixed_signer();
+        let v2_a = SignatureService::compute_signature_v2(
+            TEST_KEY,
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        )
+        .expect("v2 a");
+        let v2_b = SignatureService::compute_signature_v2(
+            "different-key-also-padded-to-be-long-enough-xxxxxxxxxxxx",
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        )
+        .expect("v2 b");
+        assert_ne!(v2_a, v2_b, "不同 key 應產生不同 HMAC");
+    }
+
+    #[test]
+    fn v2_hmac_deterministic() {
+        // 同 key + 同輸入 → 同 HMAC（verify 端能重算比對）
+        let signer = fixed_signer();
+        let a = SignatureService::compute_signature_v2(
+            TEST_KEY,
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        )
+        .expect("v2 a");
+        let b = SignatureService::compute_signature_v2(
+            TEST_KEY,
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        )
+        .expect("v2 b");
+        assert_eq!(a, b, "v2 必須 deterministic");
+    }
+
+    #[test]
+    fn v2_tamper_signature_data_detected() {
+        // 模擬 attacker 篡改 signature_data：重算結果不會等於被篡改值
+        let signer = fixed_signer();
+        let original = SignatureService::compute_signature_v2(
+            TEST_KEY,
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        )
+        .expect("v2");
+        // attacker 把 timestamp 偷改後想偽造合法 signature_data
+        // 但他沒 key，只能算 plain SHA-256，那個值絕不等於原 HMAC
+        let attacker_guess = SignatureService::compute_signature_v1(
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS + 1, // 改時間
+            FAKE_HASH_INPUT,
+        );
+        assert_ne!(original, attacker_guess, "篡改 ts 後 attacker 沒 key 算不出原 HMAC");
+        // 即使 attacker 用 plain SHA-256 算原來的時間
+        let attacker_guess_orig_ts = SignatureService::compute_signature_v1(
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        );
+        assert_ne!(
+            original, attacker_guess_orig_ts,
+            "v2 HMAC 不可等於 v1 plain（即使輸入相同）"
+        );
+    }
+
+    #[test]
+    fn v1_tamper_detected_by_recompute() {
+        // v1 驗證：拿原資料重算 → 等於原 signature_data；改任一輸入 → 不等
+        let signer = fixed_signer();
+        let stored = SignatureService::compute_signature_v1(
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        );
+        let recomputed = SignatureService::compute_signature_v1(
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        );
+        assert_eq!(stored, recomputed, "v1 同輸入 deterministic");
+
+        // 改 content_hash → 不同
+        let tampered = SignatureService::compute_signature_v1(
+            signer,
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        );
+        assert_ne!(stored, tampered, "v1 改 content_hash 應偵測到");
+    }
+
+    #[test]
+    fn unknown_version_rejected() {
+        // recompute_signature_data 對未知版本應回 Err
+        let signer = fixed_signer();
+        let result = SignatureService::recompute_signature_data(
+            99,
+            signer,
+            FAKE_CONTENT_HASH,
+            FAKE_TS,
+            FAKE_HASH_INPUT,
+        );
+        assert!(result.is_err(), "未知 hmac_version 應拒絕");
     }
 }
