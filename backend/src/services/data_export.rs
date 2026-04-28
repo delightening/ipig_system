@@ -212,7 +212,12 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
 ];
 
 /// 稽核相關大表（include_audit=false 時略過）
-const AUDIT_HEAVY_TABLES: &[&str] = &["user_activity_logs", "login_events"];
+const AUDIT_HEAVY_TABLES: &[&str] = &[
+    "user_activity_logs",
+    "user_sessions",
+    "user_activity_aggregates",
+    "login_events",
+];
 
 /// 故意不匯出的表（敏感 token / SQLx 內部表 / 動態建立的分區子表）
 ///
@@ -404,12 +409,64 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    /// 從 migrations 目錄掃出所有 `CREATE TABLE` 表名（排除 partition 子表）。
+    /// 從單一 SQL 檔抽出所有 `CREATE TABLE` 表名。
     ///
-    /// 規則：
-    /// - 匹配 `CREATE TABLE [IF NOT EXISTS] <name>`
-    /// - 排除 `PARTITION OF` 子分區（其資料透過父表匯出）
-    /// - 不處理 PL/pgSQL `EXECUTE format(...)` 內的動態 CREATE（partition 才會用，已被上一條排除）
+    /// 以「statement = `;` 切」為單位掃描，支援多行 `CREATE TABLE`、多空格、
+    /// 引號識別子（`"users"`）、schema-qualified（`public.users`）、以及
+    /// `IF NOT EXISTS`。排除 `PARTITION OF` 子分區。
+    fn extract_create_table_names(content: &str) -> BTreeSet<String> {
+        // 先逐行剝掉行註解（`-- ...`），避免註解行混入 statement 開頭
+        // 影響後續 split(';') 後的 token 判斷。
+        let stripped: String = content
+            .lines()
+            .map(|line| match line.find("--") {
+                Some(idx) => &line[..idx],
+                None => line,
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let mut names = BTreeSet::new();
+        for stmt in stripped.split(';') {
+            let trimmed = stmt.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let upper = trimmed.to_ascii_uppercase();
+            if !upper.contains("CREATE") || !upper.contains("TABLE") {
+                continue;
+            }
+            if upper.contains("PARTITION OF") {
+                continue;
+            }
+            let mut toks = trimmed.split_whitespace();
+            if !matches!(toks.next(), Some(t) if t.eq_ignore_ascii_case("CREATE")) {
+                continue;
+            }
+            if !matches!(toks.next(), Some(t) if t.eq_ignore_ascii_case("TABLE")) {
+                continue;
+            }
+            let mut name_tok = toks.next().unwrap_or_default();
+            if name_tok.eq_ignore_ascii_case("IF") {
+                let _ = toks.next(); // NOT
+                let _ = toks.next(); // EXISTS
+                name_tok = toks.next().unwrap_or_default();
+            }
+            // 去引號、schema 前綴
+            let unquoted = name_tok.trim_matches('"');
+            let bare = unquoted.rsplit('.').next().unwrap_or(unquoted);
+            let name: String = bare
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                .collect();
+            if !name.is_empty() {
+                names.insert(name);
+            }
+        }
+        names
+    }
+
+    /// 從 migrations 目錄掃出所有 `CREATE TABLE` 表名（排除 partition 子表）。
     fn scan_migrations_for_create_tables() -> BTreeSet<String> {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let migrations_dir = PathBuf::from(manifest_dir).join("migrations");
@@ -418,9 +475,6 @@ mod tests {
         let entries = fs::read_dir(&migrations_dir)
             .unwrap_or_else(|e| panic!("read_dir {:?}: {}", migrations_dir, e));
 
-        // 行內正規式：
-        // ^\s*CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?<ident>(...)
-        // 用簡單字串掃描即可，避免引入 regex crate。
         for entry in entries {
             let entry = entry.expect("dir entry");
             let path = entry.path();
@@ -429,35 +483,7 @@ mod tests {
             }
             let content = fs::read_to_string(&path)
                 .unwrap_or_else(|e| panic!("read {:?}: {}", path, e));
-            for raw_line in content.lines() {
-                let line = raw_line.trim();
-                // 跳過註解
-                if line.starts_with("--") {
-                    continue;
-                }
-                let upper = line.to_ascii_uppercase();
-                if !upper.starts_with("CREATE TABLE") {
-                    continue;
-                }
-                // 跳過 partition 子表
-                if upper.contains("PARTITION OF") {
-                    continue;
-                }
-                // 取出表名 token：去掉 CREATE TABLE [IF NOT EXISTS]
-                let mut rest = line["CREATE TABLE".len()..].trim_start();
-                let upper_rest = rest.to_ascii_uppercase();
-                if upper_rest.starts_with("IF NOT EXISTS") {
-                    rest = rest["IF NOT EXISTS".len()..].trim_start();
-                }
-                // 表名到第一個非 ident 字元為止
-                let name: String = rest
-                    .chars()
-                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
-                    .collect();
-                if !name.is_empty() {
-                    tables.insert(name);
-                }
-            }
+            tables.extend(extract_create_table_names(&content));
         }
         tables
     }
