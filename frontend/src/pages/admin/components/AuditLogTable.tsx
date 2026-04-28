@@ -1,3 +1,8 @@
+// TODO(R30-15): AuditLogTable container-queries / 卡片化重設計
+// 暫緩 — 此項涉及 UI 設計決策（欄位優先級、≤3 個斷點、卡片佈局），
+// 必須走 /system_table_chats skill 互動流程取得人類確認後再實作。
+// 範圍：column 優先級 → ≤3 個 @container query 斷點 → 窄螢幕卡片化，
+// 禁止 truncate、禁止橫向卷軸、套 @tailwindcss/container-queries。
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
