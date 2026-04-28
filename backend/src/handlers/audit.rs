@@ -8,7 +8,7 @@ use axum::{
     response::Response,
     Extension, Json,
 };
-use chrono::Utc;
+use chrono::{FixedOffset, Utc};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -152,9 +152,13 @@ pub async fn export_audit_logs(
 
     match format {
         "csv" => {
+            // R30-11: CSV 時間欄位改為 GMT+8 (Asia/Taipei) 顯示
+            // FixedOffset::east_opt(8 * 3600) 在程式啟動即固定，unwrap 為靜態安全（編譯期常數）
+            let tz_taipei = FixedOffset::east_opt(8 * 3600)
+                .expect("FixedOffset(+08:00) is always valid");
             let mut wtr = csv::Writer::from_writer(Vec::new());
             wtr.write_record([
-                "時間",
+                "時間 (Asia/Taipei)",
                 "操作者",
                 "操作者信箱",
                 "類別",
@@ -166,7 +170,11 @@ pub async fn export_audit_logs(
             ])
             .map_err(|e| AppError::Internal(format!("CSV write error: {}", e)))?;
             for log in &logs {
-                let created_at = log.created_at.with_timezone(&Utc).format("%Y-%m-%d %H:%M:%S").to_string();
+                let created_at = log
+                    .created_at
+                    .with_timezone(&tz_taipei)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string();
                 let actor = log.actor_display_name.as_deref().unwrap_or("");
                 let email = log.actor_email.as_deref().unwrap_or("");
                 let entity_name = log.entity_display_name.as_deref().unwrap_or("");
