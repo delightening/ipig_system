@@ -409,22 +409,53 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
+    /// 剝掉 SQL 內的 `--` 行註解，但**保留** single-quote 字串字面值內的 `--`。
+    /// 處理 SQL 標準的 `''` 雙引號 escape。
+    fn strip_line_comments(content: &str) -> String {
+        let mut out = String::with_capacity(content.len());
+        let mut chars = content.chars().peekable();
+        let mut in_string = false;
+        while let Some(c) = chars.next() {
+            if in_string {
+                out.push(c);
+                if c == '\'' {
+                    if chars.peek() == Some(&'\'') {
+                        // SQL 標準：`''` 為 escape，仍在字串內
+                        if let Some(next_c) = chars.next() {
+                            out.push(next_c);
+                        }
+                    } else {
+                        in_string = false;
+                    }
+                }
+            } else if c == '\'' {
+                out.push(c);
+                in_string = true;
+            } else if c == '-' && chars.peek() == Some(&'-') {
+                // 行註解：消耗 `--` 與其後內容到行尾（保留換行）
+                chars.next();
+                while let Some(&next_c) = chars.peek() {
+                    if next_c == '\n' {
+                        break;
+                    }
+                    chars.next();
+                }
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    }
+
     /// 從單一 SQL 檔抽出所有 `CREATE TABLE` 表名。
     ///
     /// 以「statement = `;` 切」為單位掃描，支援多行 `CREATE TABLE`、多空格、
     /// 引號識別子（`"users"`）、schema-qualified（`public.users`）、以及
     /// `IF NOT EXISTS`。排除 `PARTITION OF` 子分區。
     fn extract_create_table_names(content: &str) -> BTreeSet<String> {
-        // 先逐行剝掉行註解（`-- ...`），避免註解行混入 statement 開頭
-        // 影響後續 split(';') 後的 token 判斷。
-        let stripped: String = content
-            .lines()
-            .map(|line| match line.find("--") {
-                Some(idx) => &line[..idx],
-                None => line,
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
+        // 先剝掉 `--` 行註解（注意保留字串字面值內的 `--`），
+        // 避免註解行混入 statement 開頭影響後續 split(';') 後的 token 判斷。
+        let stripped = strip_line_comments(content);
 
         let mut names = BTreeSet::new();
         for stmt in stripped.split(';') {
@@ -536,6 +567,32 @@ mod tests {
             "EXPORT_TABLE_ORDER 含有 migrations 中不存在的表：{:?}",
             phantom
         );
+    }
+
+    #[test]
+    fn strip_line_comments_preserves_string_literals() {
+        // 字串字面值內的 `--` 不可被當行註解切掉
+        let sql = "INSERT INTO foo (msg) VALUES ('-- not a comment'); CREATE TABLE bar (id INT);";
+        let stripped = strip_line_comments(sql);
+        assert!(stripped.contains("'-- not a comment'"));
+        // 解析後應抓到 bar
+        let names = extract_create_table_names(sql);
+        assert!(names.contains("bar"));
+    }
+
+    #[test]
+    fn strip_line_comments_handles_escaped_single_quote() {
+        // SQL 標準 `''` escape：字串內的 `''` 不結束字串
+        let sql = "INSERT INTO foo VALUES ('it''s -- ok'); CREATE TABLE baz (id INT);";
+        let names = extract_create_table_names(sql);
+        assert!(names.contains("baz"));
+    }
+
+    #[test]
+    fn strip_line_comments_strips_real_comments() {
+        let sql = "-- header comment\nCREATE TABLE qux (id INT); -- trailing\n";
+        let names = extract_create_table_names(sql);
+        assert!(names.contains("qux"));
     }
 
     #[test]
