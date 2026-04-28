@@ -389,7 +389,7 @@ export function ProtocolEditPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="gap-1"
+                    className="gap-1 max-w-full"
                     onClick={() => setActiveSection(next.section)}
                   >
                     <span className="text-xs">{t('aup.nextEmptyField')}</span>

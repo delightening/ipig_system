@@ -35,7 +35,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "dialog-scroll-container fixed z-50 w-full max-w-lg overflow-y-auto bg-background border shadow-lg grid gap-4 p-6",
+        "dialog-scroll-container fixed z-50 w-full max-w-lg mx-auto overflow-y-auto bg-background border shadow-lg grid gap-4 p-6",
         // Mobile: anchored to bottom, slides up
         "inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl",
         "data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom",

@@ -9,7 +9,7 @@
    `scrollbar-gutter: stable` 僅對實際有 overflow:auto/scroll 的元素生效，
    不影響 overflow:hidden / visible / 強制 always-visible 的元素。
    使用 :where() 維持 specificity 0，特殊情境可用 utility class 覆蓋 */
-:where([class~="overflow-auto"], [class~="overflow-y-auto"], [class~="overflow-y-scroll"]) {
+:where([class*="overflow-auto"], [class*="overflow-y-auto"], [class*="overflow-y-scroll"]) {
   scrollbar-gutter: stable;
 }
 
