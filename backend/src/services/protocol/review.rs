@@ -1,12 +1,17 @@
 use sqlx::{PgPool, Transaction, Postgres};
 use uuid::Uuid;
 
+use super::history::event_type_for;
 use super::ProtocolService;
 use crate::{
     middleware::ActorContext,
     models::{
         AssignCoEditorRequest, AssignReviewerRequest, CoEditorAssignmentResponse, ProtocolActivityType,
         ReviewAssignment, UserProtocol,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
     },
     AppError, Result,
 };
@@ -190,6 +195,27 @@ impl ProtocolService {
             Some(("user", vet_user_id, "Vet")),
             Some(format!("Assigned vet reviewer {}", vet_user_id)),
             None,
+        )
+        .await?;
+
+        // PR #269 Option C：補 audit log（無 diff 的 timeline 事件）
+        let protocol_title: String = sqlx::query_scalar(
+            "SELECT title FROM protocols WHERE id = $1",
+        )
+        .bind(protocol_id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .unwrap_or_else(|| "Unknown Protocol".to_string());
+        AuditService::log_activity_tx(
+            tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "AUP",
+                event_type: event_type_for(ProtocolActivityType::VetAssigned),
+                entity: Some(AuditEntity::new("protocol", protocol_id, &protocol_title)),
+                data_diff: None,
+                request_context: None,
+            },
         )
         .await?;
 
