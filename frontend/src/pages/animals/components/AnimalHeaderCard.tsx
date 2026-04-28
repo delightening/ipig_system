@@ -65,7 +65,8 @@ function PenLocationField({ animal, animalId, penLocation }: { animal: Animal; a
 
   const mutation = useMutation({
     mutationFn: (penCode: string) =>
-      api.put(`/animals/${animalId}`, { pen_location: penCode || null }),
+      // R30-B: 帶當前 version 防 lost update（從 prop 取得的 animal query 結果）
+      api.put(`/animals/${animalId}`, { pen_location: penCode || null, version: animal.version }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
       queryClient.invalidateQueries({ queryKey: ['animals'] })

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import api from '@/lib/api'
+import api, { Animal } from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
 import { toast } from '@/components/ui/use-toast'
 
@@ -31,9 +31,12 @@ export function useAnimalDetailMutations(animalId: string) {
 
   const assignTrialMutation = useMutation({
     mutationFn: async (iacucNo: string) => {
+      // R30-B: 帶當前 version 防 lost update（從 query cache 取，避免 stale form state）
+      const animal = queryClient.getQueryData<Animal>(['animal', animalId])
       return api.put(`/animals/${animalId}`, {
         iacuc_no: iacucNo,
         status: 'in_experiment',
+        version: animal?.version,
       })
     },
     onSuccess: () => {
