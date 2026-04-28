@@ -14,27 +14,14 @@ export default defineConfig({
     chunkSizeWarningLimit: 600, // vendor chunks 可能略超 500KB
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React 核心
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          // 資料管理
-          'vendor-data': ['@tanstack/react-query', '@tanstack/react-table', 'axios', 'zustand'],
-          // Radix UI 元件庫
-          'vendor-radix': [
-            '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-select', '@radix-ui/react-tabs',
-            '@radix-ui/react-popover', '@radix-ui/react-tooltip',
-            '@radix-ui/react-alert-dialog', '@radix-ui/react-checkbox',
-            '@radix-ui/react-switch', '@radix-ui/react-toast',
-            '@radix-ui/react-avatar', '@radix-ui/react-label',
-            '@radix-ui/react-separator', '@radix-ui/react-slot',
-            '@radix-ui/react-icons',
-          ],
-          // recharts and @fullcalendar are NOT listed here —
-          // they are only used in lazy-loaded pages and will be
-          // automatically code-split by Vite into on-demand chunks.
-          // 國際化（初始渲染即需要，獨立 chunk 避免污染主 bundle）
-          'vendor-i18n': ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+        // Rollup 5 (Vite 8) 移除 manualChunks 的 object 形式，僅支援 function 形式。
+        // recharts / @fullcalendar 不在此列：僅 lazy-loaded 頁面使用，Vite 自動 code-split。
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router-dom)[\\/]/.test(id)) return 'vendor-react';
+          if (/[\\/]node_modules[\\/](@tanstack[\\/](react-query|react-table)|axios|zustand)[\\/]/.test(id)) return 'vendor-data';
+          if (/[\\/]node_modules[\\/]@radix-ui[\\/]/.test(id)) return 'vendor-radix';
+          if (/[\\/]node_modules[\\/](i18next|react-i18next|i18next-browser-languagedetector)[\\/]/.test(id)) return 'vendor-i18n';
         },
       },
     },
