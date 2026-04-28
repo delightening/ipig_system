@@ -167,6 +167,9 @@ pub async fn export_audit_logs(
                 "實體名稱",
                 "IP 位址",
                 "可疑",
+                "變更欄位",
+                "變更前",
+                "變更後",
             ])
             .map_err(|e| AppError::Internal(format!("CSV write error: {}", e)))?;
             for log in &logs {
@@ -179,6 +182,26 @@ pub async fn export_audit_logs(
                 let email = log.actor_email.as_deref().unwrap_or("");
                 let entity_name = log.entity_display_name.as_deref().unwrap_or("");
                 let suspicious = if log.is_suspicious { "Y" } else { "N" };
+
+                // R30-12: 補 changed_fields / before_data / after_data 三欄
+                // before_data / after_data 已在 service 層套用 redact，CSV 端直接序列化。
+                // 採 single-line JSON（CSV cell 內換行不友善），csv crate 會自動 quote 含逗號 / 引號的字串。
+                let changed_fields = log
+                    .changed_fields
+                    .as_ref()
+                    .map(|v| v.join("; "))
+                    .unwrap_or_default();
+                let before_str = log
+                    .before_data
+                    .as_ref()
+                    .map(|v| serde_json::to_string(v).unwrap_or_default())
+                    .unwrap_or_default();
+                let after_str = log
+                    .after_data
+                    .as_ref()
+                    .map(|v| serde_json::to_string(v).unwrap_or_default())
+                    .unwrap_or_default();
+
                 wtr.write_record([
                     created_at.as_str(),
                     actor,
@@ -189,6 +212,9 @@ pub async fn export_audit_logs(
                     entity_name,
                     log.ip_address.as_deref().unwrap_or(""),
                     suspicious,
+                    changed_fields.as_str(),
+                    before_str.as_str(),
+                    after_str.as_str(),
                 ])
                 .map_err(|e| AppError::Internal(format!("CSV write error: {}", e)))?;
             }
