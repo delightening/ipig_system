@@ -617,6 +617,9 @@ jobs:
         env:
           CI_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
           CI_DEV_PASSWORD: ${{ secrets.CI_DEV_PASSWORD }}
+          # E2E 覆蓋率：docker-compose.test.yml 透過 ${VITE_E2E_COVERAGE:-0} 讀取，
+          # local/dev 預設 0、CI 顯式設 1 → vite 產 hidden source map
+          VITE_E2E_COVERAGE: "1"
         run: |
           set -euo pipefail
           echo "=== Docker 版本檢查 ==="

@@ -32,6 +32,16 @@ const authDir = path.join(__dirname, 'e2e', '.auth')
 const runFirefox = process.env.PLAYWRIGHT_FIREFOX === '1'
 const runWebKit = process.env.PLAYWRIGHT_WEBKIT === '1'
 const collectCoverage = process.env.E2E_COVERAGE === '1'
+const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080'
+
+// 從 baseURL 解析 origin，避免 entryFilter 寫死 host 在 BASE_URL 被覆寫時靜默漏接 coverage
+const baseOrigin = (() => {
+    try {
+        return new URL(baseURL).origin
+    } catch {
+        return baseURL
+    }
+})()
 
 // monocart-reporter：聚合 V8 coverage entries（fixtures/coverage.ts 寫入），
 // 透過 hidden source map 還原到 src/*.ts，輸出 lcov + html。
@@ -44,7 +54,7 @@ const coverageReporter: any[] = collectCoverage
                   outputFile: './monocart-report/index.html',
                   coverage: {
                       entryFilter: (entry: { url: string }) =>
-                          entry.url.includes('localhost:8080') &&
+                          entry.url.startsWith(baseOrigin) &&
                           !entry.url.includes('node_modules'),
                       sourceFilter: (sourcePath: string) => sourcePath.search(/src\//) !== -1,
                       reports: [['lcovonly', { file: 'lcov.info' }], ['v8'], ['console-summary']],
@@ -69,7 +79,7 @@ export default defineConfig({
           : 'html',
 
     use: {
-        baseURL: process.env.E2E_BASE_URL || 'http://localhost:8080',
+        baseURL,
         screenshot: 'only-on-failure',
         trace: 'on-first-retry',
     },
