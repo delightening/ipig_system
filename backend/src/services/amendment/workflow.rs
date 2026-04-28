@@ -79,25 +79,28 @@ async fn insert_decision_signature_tx(
     );
     let signature_data = SignatureService::compute_hash(&signature_input);
 
-    // CodeRabbit review #205：改用 query_scalar! macro 啟用 SQLX_OFFLINE 編譯期型別檢查，
-    // 與檔案內其他查詢一致，避免 schema 漂移時 CI 漏掉。
-    let sig_id: Uuid = sqlx::query_scalar!(
+    // R30-10：amendment 終態決定（APPROVE / REJECT）皆為「行使審查/核准權限」的
+    // 簽章行為，meaning 對齊 §11.50(a)(3) "approval" → SignatureMeaning::Approve。
+    // 改用 runtime sqlx::query_scalar（非 macro）以避免 signature_meaning ENUM
+    // 加入後 .sqlx offline cache 需重生的循環依賴。
+    let sig_id: Uuid = sqlx::query_scalar(
         r#"
         INSERT INTO electronic_signatures (
             entity_type, entity_id, signer_id, signature_type,
-            content_hash, signature_data, signature_method
+            content_hash, signature_data, signature_method, meaning
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::signature_meaning)
         RETURNING id
         "#,
-        AMENDMENT_ENTITY_TYPE,
-        entity_id,
-        signer_id,
-        decision_word,
-        content_hash,
-        signature_data,
-        SIGNATURE_METHOD_INTERNAL,
     )
+    .bind(AMENDMENT_ENTITY_TYPE)
+    .bind(&entity_id)
+    .bind(signer_id)
+    .bind(decision_word)
+    .bind(&content_hash)
+    .bind(&signature_data)
+    .bind(SIGNATURE_METHOD_INTERNAL)
+    .bind("APPROVE")
     .fetch_one(&mut **tx)
     .await?;
 

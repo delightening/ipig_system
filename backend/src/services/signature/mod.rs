@@ -36,6 +36,50 @@ impl SignatureType {
     }
 }
 
+/// 簽章意義（21 CFR §11.50(a)(3)）
+///
+/// 對應 §11.50 字面要求：「the meaning (such as review, approval, responsibility,
+/// or authorship) associated with the signature」。
+///
+/// 與 `SignatureType` 的差異：
+/// - `SignatureType` 是「動作型別」（APPROVE / CONFIRM / WITNESS）
+/// - `SignatureMeaning` 是「§11.50 法定 meaning」，含 REVIEW / AUTHOR / INVALIDATE 等
+///   `SignatureType` 不涵蓋的語意
+///
+/// `LegacyPreR30_10` 是 R30-10 升級前的歷史資料 backfill 標記（D8=B 最誠實策略）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "signature_meaning", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SignatureMeaning {
+    Approve,    // §11.50 "approval"
+    Review,     // §11.50 "review"
+    Witness,    // 見證
+    Author,     // §11.50 "authorship"
+    Invalidate, // 失效標記（簽章作廢）
+    Confirm,    // §11.50 "responsibility"，如完成記錄
+    #[serde(rename = "LEGACY_PRE_R30_10")]
+    #[sqlx(rename = "LEGACY_PRE_R30_10")]
+    LegacyPreR30_10,
+}
+
+impl SignatureMeaning {
+    /// 從 SignatureType 推導預設 meaning
+    ///
+    /// 推導規則（與 §11.50 對齊）：
+    /// - `Approve` → `Approve`
+    /// - `Confirm` → `Confirm`（§11.50 "responsibility"）
+    /// - `Witness` → `Witness`
+    ///
+    /// 其他 meaning（`Review` / `Author` / `Invalidate`）由 caller 顯式指定。
+    pub fn from_signature_type(sig_type: SignatureType) -> Self {
+        match sig_type {
+            SignatureType::Approve => SignatureMeaning::Approve,
+            SignatureType::Confirm => SignatureMeaning::Confirm,
+            SignatureType::Witness => SignatureMeaning::Witness,
+        }
+    }
+}
+
 /// 電子簽章記錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ElectronicSignature {
@@ -56,6 +100,9 @@ pub struct ElectronicSignature {
     pub handwriting_svg: Option<String>,
     pub stroke_data: Option<JsonValue>,
     pub signature_method: Option<String>,
+    /// 21 CFR §11.50(a)(3) 簽章意義（R30-10 新增，NOT NULL；舊資料 backfill 為
+    /// `LegacyPreR30_10`）。
+    pub meaning: SignatureMeaning,
 }
 
 /// 簽章驗證結果
@@ -89,6 +136,9 @@ impl SignatureService {
     }
 
     /// 建立電子簽章（密碼驗證方式）
+    ///
+    /// `meaning`: 21 CFR §11.50(a)(3) 簽章意義。傳 `None` 時由 `signature_type` 推導
+    /// （見 `SignatureMeaning::from_signature_type`）。
     #[allow(clippy::too_many_arguments)]
     pub async fn sign(
         pool: &PgPool,
@@ -100,6 +150,7 @@ impl SignatureService {
         content: &str,
         ip_address: Option<&str>,
         user_agent: Option<&str>,
+        meaning: Option<SignatureMeaning>,
     ) -> Result<ElectronicSignature> {
         Self::sign_internal(
             pool,
@@ -114,11 +165,14 @@ impl SignatureService {
             None,
             None,
             "password",
+            meaning.unwrap_or_else(|| SignatureMeaning::from_signature_type(signature_type)),
         )
         .await
     }
 
     /// 建立電子簽章（手寫簽名方式）
+    ///
+    /// `meaning`: 同 `sign`。
     #[allow(clippy::too_many_arguments)]
     pub async fn sign_with_handwriting(
         pool: &PgPool,
@@ -131,6 +185,7 @@ impl SignatureService {
         user_agent: Option<&str>,
         handwriting_svg: &str,
         stroke_data: Option<&JsonValue>,
+        meaning: Option<SignatureMeaning>,
     ) -> Result<ElectronicSignature> {
         Self::sign_internal(
             pool,
@@ -145,6 +200,7 @@ impl SignatureService {
             Some(handwriting_svg),
             stroke_data,
             "handwriting",
+            meaning.unwrap_or_else(|| SignatureMeaning::from_signature_type(signature_type)),
         )
         .await
     }
@@ -164,6 +220,7 @@ impl SignatureService {
         handwriting_svg: Option<&str>,
         stroke_data: Option<&JsonValue>,
         signature_method: &str,
+        meaning: SignatureMeaning,
     ) -> Result<ElectronicSignature> {
         // 計算內容雜湊
         let content_hash = Self::compute_hash(content);
@@ -186,9 +243,9 @@ impl SignatureService {
             INSERT INTO electronic_signatures (
                 entity_type, entity_id, signer_id, signature_type,
                 content_hash, signature_data, ip_address, user_agent,
-                handwriting_svg, stroke_data, signature_method
+                handwriting_svg, stroke_data, signature_method, meaning
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *
             "#,
         )
@@ -203,6 +260,7 @@ impl SignatureService {
         .bind(handwriting_svg)
         .bind(stroke_data)
         .bind(signature_method)
+        .bind(meaning)
         .fetch_one(pool)
         .await?;
 
@@ -528,6 +586,8 @@ impl SignatureService {
         handwriting_svg: Option<&str>,
         stroke_data: Option<&JsonValue>,
     ) -> Result<ElectronicSignature> {
+        // R30-10: 從 SignatureType 推導 §11.50 meaning（caller 不需新增參數）
+        let meaning = SignatureMeaning::from_signature_type(sig_type);
         let has_password = password.is_some_and(|p| !p.is_empty());
         let has_handwriting = handwriting_svg.is_some_and(|s| !s.is_empty());
 
@@ -573,9 +633,9 @@ impl SignatureService {
             INSERT INTO electronic_signatures (
                 entity_type, entity_id, signer_id, signature_type,
                 content_hash, signature_data, ip_address, user_agent,
-                handwriting_svg, stroke_data, signature_method
+                handwriting_svg, stroke_data, signature_method, meaning
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *
             "#,
         )
@@ -590,6 +650,7 @@ impl SignatureService {
         .bind(handwriting_svg.filter(|s| !s.is_empty()))
         .bind(stroke_data)
         .bind(signature_method)
+        .bind(meaning)
         .fetch_one(&mut **tx)
         .await?;
 
@@ -641,6 +702,7 @@ impl SignatureService {
                 None,
                 svg,
                 stroke_data,
+                None, // meaning：由 sig_type 推導
             )
             .await
         } else {
@@ -659,6 +721,7 @@ impl SignatureService {
                 content,
                 None,
                 None,
+                None, // meaning：由 sig_type 推導
             )
             .await
         }
