@@ -104,7 +104,7 @@ export function SmartInput({
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
-            "flex-1 text-base bg-transparent border-0 outline-none",
+            "flex-1 text-base bg-transparent border-0 outline-hidden",
             "placeholder:text-muted-foreground",
             "text-foreground dark:text-slate-100"
           )}

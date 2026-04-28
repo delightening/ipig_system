@@ -202,7 +202,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
                 {/* Urgent Warning */}
                 {isUrgent && (
                   <div className="p-3 bg-status-error-bg border border-status-error-border rounded-lg flex items-start gap-2">
-                    <AlertTriangle className="h-5 w-5 text-status-error-solid mt-0.5 flex-shrink-0" />
+                    <AlertTriangle className="h-5 w-5 text-status-error-solid mt-0.5 shrink-0" />
                     <div className="text-sm text-status-error-text">
                       <p className="font-medium">緊急通知模式</p>
                       <p className="text-xs mt-1">

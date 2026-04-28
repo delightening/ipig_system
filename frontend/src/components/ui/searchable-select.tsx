@@ -153,7 +153,7 @@ export function SearchableSelect({
         disabled={disabled}
         className={cn(
           'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm',
-          'ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+          'ring-offset-background focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2',
           'disabled:cursor-not-allowed disabled:opacity-50',
           isOpen && 'ring-2 ring-ring ring-offset-2',
         )}
@@ -209,7 +209,7 @@ export function SearchableSelect({
               }}
               onKeyDown={handleKeyDown}
               placeholder={searchPlaceholder}
-              className="flex-1 bg-transparent border-0 outline-none py-2.5 px-2 text-sm placeholder:text-muted-foreground"
+              className="flex-1 bg-transparent border-0 outline-hidden py-2.5 px-2 text-sm placeholder:text-muted-foreground"
               role="combobox"
               aria-expanded={isOpen}
             />

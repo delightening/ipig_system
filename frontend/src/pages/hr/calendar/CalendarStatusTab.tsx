@@ -102,7 +102,7 @@ export function CalendarStatusTab({
             <div className="space-y-6">
                 {/* 連線標頭 */}
                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-status-success-bg flex items-center justify-center flex-shrink-0">
+                    <div className="h-12 w-12 rounded-full bg-status-success-bg flex items-center justify-center shrink-0">
                         <CheckCircle className="h-6 w-6 text-status-success-text" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -115,7 +115,7 @@ export function CalendarStatusTab({
                         variant="destructive"
                         onClick={onDisconnect}
                         disabled={disconnectPending}
-                        className="flex-shrink-0"
+                        className="shrink-0"
                     >
                         <Unlink className="h-4 w-4 mr-2" />
                         斷開連接
@@ -125,7 +125,7 @@ export function CalendarStatusTab({
                 {/* 近期錯誤警告 */}
                 {syncStatus.recent_errors > 0 && (
                     <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
-                        <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+                        <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                         <div className="text-sm text-destructive">
                             過去 24 小時內有 {syncStatus.recent_errors} 個同步錯誤，請至「同步歷史」查看詳情
                         </div>
@@ -241,7 +241,7 @@ export function CalendarStatusTab({
                                             type="time"
                                             value={morningTime}
                                             onChange={(e) => { setMorningTime(e.target.value); setIsDirty(true) }}
-                                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                                         />
                                         <div className="text-xs text-muted-foreground">留空表示不設定早上同步</div>
                                     </div>
@@ -254,7 +254,7 @@ export function CalendarStatusTab({
                                             type="time"
                                             value={eveningTime}
                                             onChange={(e) => { setEveningTime(e.target.value); setIsDirty(true) }}
-                                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                                         />
                                         <div className="text-xs text-muted-foreground">留空表示不設定晚上同步</div>
                                     </div>

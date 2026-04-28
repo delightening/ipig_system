@@ -71,7 +71,7 @@ export function SkuPreviewTable({
                         setRowCategoryCode((prev) => ({ ...prev, [r.row]: v }))
                         setRowSubcategoryCode((prev) => ({ ...prev, [r.row]: '' }))
                       }}
-                      className="w-full min-w-[90px] rounded border border-border px-1.5 py-1 text-sm focus:border-status-info-solid focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full min-w-[90px] rounded border border-border px-1.5 py-1 text-sm focus:border-status-info-solid focus:outline-hidden focus:ring-1 focus:ring-primary"
                     >
                       <option value="">—</option>
                       {skuCategories.map((c) => (
@@ -94,7 +94,7 @@ export function SkuPreviewTable({
                             [r.row]: e.target.value,
                           }))
                         }
-                        className="w-full min-w-[90px] rounded border border-border px-1.5 py-1 text-sm focus:border-status-info-solid focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="w-full min-w-[90px] rounded border border-border px-1.5 py-1 text-sm focus:border-status-info-solid focus:outline-hidden focus:ring-1 focus:ring-primary"
                       >
                         <option value="">—</option>
                         {subList.map((s) => (
@@ -146,7 +146,7 @@ export function SkuPreviewTable({
                         setSkuOverrides((prev) => ({ ...prev, [r.row]: e.target.value }))
                       }
                       placeholder="留空自動產生"
-                      className="w-full min-w-[100px] rounded border border-border px-2 py-1 text-sm font-mono focus:border-status-info-solid focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full min-w-[100px] rounded border border-border px-2 py-1 text-sm font-mono focus:border-status-info-solid focus:outline-hidden focus:ring-1 focus:ring-primary"
                     />
                   </td>
                 </tr>

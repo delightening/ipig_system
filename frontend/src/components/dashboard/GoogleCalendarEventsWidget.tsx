@@ -115,7 +115,7 @@ export function GoogleCalendarEventsWidget() {
                                 key={event.id}
                                 type="button"
                                 onClick={() => handleOpenInGoogle(event)}
-                                className="w-full p-3 text-left hover:bg-muted/50 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                                className="w-full p-3 text-left hover:bg-muted/50 transition-colors group focus:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                             >
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="flex-1 min-w-0">

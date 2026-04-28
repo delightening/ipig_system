@@ -226,7 +226,7 @@ export function DrugCombobox({
                                 onKeyDown={handleKeyDown}
                                 placeholder={placeholder}
                                 disabled={disabled}
-                                className="flex-1 bg-transparent border-0 outline-none placeholder:text-muted-foreground text-foreground"
+                                className="flex-1 bg-transparent border-0 outline-hidden placeholder:text-muted-foreground text-foreground"
                                 role="combobox"
                                 aria-expanded={showDropdown}
                             />
@@ -304,7 +304,7 @@ export function DrugCombobox({
                         placeholder="劑量"
                         disabled={disabled}
                         className="w-20 h-9 px-2 rounded-md border border-border text-sm text-center
-                       focus:border-status-info-solid focus:ring-1 focus:ring-primary/30 outline-none
+                       focus:border-status-info-solid focus:ring-1 focus:ring-primary/30 outline-hidden
                        disabled:opacity-50 disabled:bg-muted"
                     />
                     <select
@@ -314,7 +314,7 @@ export function DrugCombobox({
                         }
                         disabled={disabled}
                         className="w-20 h-9 px-1 rounded-md border border-border text-sm
-                       focus:border-status-info-solid focus:ring-1 focus:ring-primary/30 outline-none
+                       focus:border-status-info-solid focus:ring-1 focus:ring-primary/30 outline-hidden
                        disabled:opacity-50 disabled:bg-muted"
                     >
                         <option value="">單位</option>

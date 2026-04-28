@@ -111,7 +111,7 @@ export function InventoryPage() {
         </div>
       )}
 
-      <div className="grid gap-4 md:flex md:items-center bg-card p-4 rounded-xl border shadow-sm items-stretch">
+      <div className="grid gap-4 md:flex md:items-center bg-card p-4 rounded-xl border shadow-xs items-stretch">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
           <Input
@@ -136,7 +136,7 @@ export function InventoryPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      <div className="rounded-xl border bg-card shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="bg-muted/30">

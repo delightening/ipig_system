@@ -279,7 +279,7 @@ export function WarehouseLayoutPage() {
                         onLocationClick={handleLocationClick}
                     />
                 ) : (
-                    <div className="h-64 flex items-center justify-center rounded-xl border bg-card shadow-sm text-muted-foreground">
+                    <div className="h-64 flex items-center justify-center rounded-xl border bg-card shadow-xs text-muted-foreground">
                         請先選擇一個倉庫以檢視佈局
                     </div>
                 )}

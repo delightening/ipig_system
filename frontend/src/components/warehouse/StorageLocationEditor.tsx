@@ -125,7 +125,7 @@ export function StorageLocationEditor({
     }
 
     return (
-        <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
+        <div className="rounded-xl border bg-card shadow-xs p-5 space-y-4">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold">儲位佈局圖</h3>
@@ -222,7 +222,7 @@ export function StorageLocationEditor({
                             return (
                                 <div
                                     key={loc.id}
-                                    className={`rounded shadow-sm overflow-hidden transition-all ${
+                                    className={`rounded shadow-xs overflow-hidden transition-all ${
                                         isEditMode
                                             ? 'cursor-move ring-1 ring-blue-200'
                                             : isStructural

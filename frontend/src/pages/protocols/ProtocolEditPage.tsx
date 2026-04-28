@@ -376,7 +376,7 @@ export function ProtocolEditPage() {
                     : 'text-muted-foreground hover:bg-muted'
                     }`}
                 >
-                  <section.icon className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <section.icon className="h-4 w-4 mt-0.5 shrink-0" />
                   <span className="text-sm font-medium">{t(section.labelKey)}</span>
                 </button>
               ))}

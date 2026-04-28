@@ -266,7 +266,7 @@ export function BloodTestFormDialog({
                       variant={isActive ? 'default' : 'outline'}
                       size="sm"
                       className={`transition-all ${isActive
-                        ? 'bg-primary hover:bg-primary/90 text-white shadow-sm'
+                        ? 'bg-primary hover:bg-primary/90 text-white shadow-xs'
                         : 'hover:bg-status-info-bg hover:border-primary'
                       }`}
                       onClick={() => togglePanel(panel)}
