@@ -31,13 +31,64 @@ updates:
       - "frontend"
     commit-message:
       prefix: "chore(deps):"
+    # R29-6: 高風險 major 套件單獨成 PR（避免 group bump 一紅就要拆）。
+    # 規則：dependabot 由上而下匹配，先列高風險 → 群組（不互斥；patterns 命中先群組就退出）。
     groups:
+      # MAJOR-only PRs（不混入 dev-dependencies group）：
+      # 任何匹配下列 patterns 的套件升級，都會自己一個 PR，方便個別 review / rebase。
+      typescript-major:
+        patterns:
+          - "typescript"
+          - "@types/node"
+          - "@typescript-eslint/*"
+        update-types:
+          - "major"
+      tailwindcss-major:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+          - "postcss"
+          - "autoprefixer"
+        update-types:
+          - "major"
+      react-router-major:
+        patterns:
+          - "react-router"
+          - "react-router-dom"
+        update-types:
+          - "major"
+      eslint-major:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+        update-types:
+          - "major"
+      vite-major:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+        update-types:
+          - "major"
+      i18next-major:
+        patterns:
+          - "i18next"
+          - "react-i18next"
+          - "i18next-*"
+        update-types:
+          - "major"
+      # 一般分組（patch / minor 為主）
       dev-dependencies:
         dependency-type: "development"
+        update-types:
+          - "patch"
+          - "minor"
       react-ecosystem:
         patterns:
           - "react*"
           - "@types/react*"
+        update-types:
+          - "patch"
+          - "minor"
       patch-updates:
         update-types:
           - "patch"

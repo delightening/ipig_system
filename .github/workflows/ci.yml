@@ -476,6 +476,8 @@ jobs:
   frontend-entrypoint-test:
     name: "🛡️ Frontend: docker-entrypoint.sh"
     runs-on: ubuntu-latest
+    # R29-6: tsc fail 時內部 pnpm build 必失敗，short-circuit 省 ~1 分鐘 runner 時間
+    needs: [frontend-check]
     steps:
       - uses: actions/checkout@v4
 
@@ -522,6 +524,10 @@ jobs:
   trivy-scan:
     name: "🐳 Security: Trivy container scan"
     runs-on: ubuntu-latest
+    # R29-6: 雙路徑 short-circuit — backend tsc 等同 cargo check 在 backend-check job
+    # 已涵蓋；frontend image 內含 pnpm build 在 tsc fail 時必失敗。CI 已知 code 壞時
+    # 不再花 ~10 分鐘 build image 跑 Trivy。
+    needs: [backend-check, frontend-check]
     steps:
       - uses: actions/checkout@v4
 
