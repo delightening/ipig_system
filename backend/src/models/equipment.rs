@@ -481,6 +481,10 @@ pub struct EquipmentDisposal {
     pub updated_at: DateTime<Utc>,
 }
 
+// EquipmentDisposal 不含敏感欄位，default empty 即可（R29-1b: sign_disposal_*_tx
+// 需 DataDiff::compute 對其做 audit log）。
+impl crate::models::audit_diff::AuditRedact for EquipmentDisposal {}
+
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct DisposalWithDetails {
     pub id: Uuid,

@@ -14,7 +14,8 @@ use crate::{
         ApproveIdleRequestRequest, CalibrationCycle, CalibrationQuery, CalibrationWithEquipment,
         CreateAnnualPlanRequest, CreateCalibrationRequest, CreateDisposalRequest,
         CreateEquipmentRequest, CreateEquipmentSupplierRequest, CreateIdleRequestRequest,
-        CreateMaintenanceRequest, DisposalQuery, DisposalStatus, DisposalWithDetails, Equipment,
+        CreateMaintenanceRequest, DisposalQuery, DisposalStatus, DisposalWithDetails,
+        EquipmentDisposal, Equipment,
         EquipmentCalibration, EquipmentHistoryQuery, EquipmentMaintenanceRecord, EquipmentQuery,
         EquipmentStatus, EquipmentStatusLog, EquipmentSupplierWithPartner, EquipmentTimelineEntry,
         ExecutionSummaryQuery, GenerateAnnualPlanRequest, IdleRequestQuery, IdleRequestWithDetails,
@@ -1279,6 +1280,184 @@ impl EquipmentService {
         }
 
         Ok(record)
+    }
+
+    /// 為報廢申請建立申請人簽章，與 record UPDATE 同 tx 原子（21 CFR §11.10(e)(1)）。
+    ///
+    /// 流程（同一 tx 內）：
+    ///   1. RBAC：`equipment.manage`（同 create_disposal）
+    ///   2. SELECT FOR UPDATE 鎖 row + 狀態守衛（pending / 未簽過）+ 自簽檢查
+    ///      （applied_by == current_user.id；申請人不能由他人代簽）
+    ///   3. `SignatureService::sign_record_tx` 寫 electronic_signatures
+    ///   4. UPDATE applicant_signature_id
+    ///   5. audit log（log_activity_tx）
+    pub async fn sign_disposal_applicant_tx(
+        pool: &PgPool,
+        actor: &ActorContext,
+        disposal_id: Uuid,
+        sig_type: super::SignatureType,
+        password: Option<&str>,
+        handwriting_svg: Option<&str>,
+        stroke_data: Option<&serde_json::Value>,
+    ) -> Result<super::ElectronicSignature> {
+        let current_user = actor.require_user()?;
+        super::access::require_equipment_manage(current_user)?;
+
+        let mut tx = pool.begin().await?;
+
+        let existing = sqlx::query_as::<_, EquipmentDisposal>(
+            "SELECT * FROM equipment_disposals WHERE id = $1 FOR UPDATE",
+        )
+        .bind(disposal_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("報廢紀錄不存在".into()))?;
+
+        if existing.status != DisposalStatus::Pending {
+            return Err(AppError::BadRequest("此報廢申請非待處理狀態".into()));
+        }
+        if existing.applicant_signature_id.is_some() {
+            return Err(AppError::Conflict("此報廢申請的申請人已簽章，不得覆寫".into()));
+        }
+        if existing.applied_by != current_user.id {
+            return Err(AppError::Forbidden(
+                "只有申請人本人可以簽章（不得代簽）".into(),
+            ));
+        }
+
+        let content = format!("disposal_applicant:{}", disposal_id);
+        let signature = super::SignatureService::sign_record_tx(
+            &mut tx,
+            pool,
+            "disposal_applicant",
+            &disposal_id.to_string(),
+            current_user.id,
+            sig_type,
+            &content,
+            password,
+            handwriting_svg,
+            stroke_data,
+        )
+        .await?;
+
+        let updated = sqlx::query_as::<_, EquipmentDisposal>(
+            "UPDATE equipment_disposals \
+             SET applicant_signature_id = $1, updated_at = NOW() WHERE id = $2 \
+             RETURNING *",
+        )
+        .bind(signature.id)
+        .bind(disposal_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "EQUIPMENT",
+                event_type: "DISPOSAL_APPLICANT_SIGNATURE",
+                entity: Some(AuditEntity::new(
+                    "equipment_disposal",
+                    disposal_id,
+                    "disposal_applicant_signature",
+                )),
+                data_diff: Some(DataDiff::compute(Some(&existing), Some(&updated))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(signature)
+    }
+
+    /// 為報廢申請建立核准人簽章，與 record UPDATE 同 tx 原子（21 CFR §11.10(e)(1)）。
+    ///
+    /// 流程（同一 tx 內）：
+    ///   1. RBAC：`equipment.disposal.approve` 或 `equipment.manage`
+    ///   2. SELECT FOR UPDATE 鎖 row + 狀態守衛（pending / 未簽過）+ 申請人不能自核
+    ///      （applied_by != current_user.id；防止 self-approve 提權）
+    ///   3. `SignatureService::sign_record_tx` 寫 electronic_signatures
+    ///   4. UPDATE approver_signature_id
+    ///   5. audit log（log_activity_tx）
+    pub async fn sign_disposal_approver_tx(
+        pool: &PgPool,
+        actor: &ActorContext,
+        disposal_id: Uuid,
+        sig_type: super::SignatureType,
+        password: Option<&str>,
+        handwriting_svg: Option<&str>,
+        stroke_data: Option<&serde_json::Value>,
+    ) -> Result<super::ElectronicSignature> {
+        let current_user = actor.require_user()?;
+        super::access::require_equipment_disposal_approve(current_user)?;
+
+        let mut tx = pool.begin().await?;
+
+        let existing = sqlx::query_as::<_, EquipmentDisposal>(
+            "SELECT * FROM equipment_disposals WHERE id = $1 FOR UPDATE",
+        )
+        .bind(disposal_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("報廢紀錄不存在".into()))?;
+
+        if existing.status != DisposalStatus::Pending {
+            return Err(AppError::BadRequest("此報廢申請非待處理狀態".into()));
+        }
+        if existing.approver_signature_id.is_some() {
+            return Err(AppError::Conflict("此報廢申請的核准人已簽章，不得覆寫".into()));
+        }
+        if existing.applied_by == current_user.id {
+            return Err(AppError::Forbidden(
+                "申請人不得自核自簽（職權分離）".into(),
+            ));
+        }
+
+        let content = format!("disposal_approver:{}", disposal_id);
+        let signature = super::SignatureService::sign_record_tx(
+            &mut tx,
+            pool,
+            "disposal_approver",
+            &disposal_id.to_string(),
+            current_user.id,
+            sig_type,
+            &content,
+            password,
+            handwriting_svg,
+            stroke_data,
+        )
+        .await?;
+
+        let updated = sqlx::query_as::<_, EquipmentDisposal>(
+            "UPDATE equipment_disposals \
+             SET approver_signature_id = $1, updated_at = NOW() WHERE id = $2 \
+             RETURNING *",
+        )
+        .bind(signature.id)
+        .bind(disposal_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "EQUIPMENT",
+                event_type: "DISPOSAL_APPROVER_SIGNATURE",
+                entity: Some(AuditEntity::new(
+                    "equipment_disposal",
+                    disposal_id,
+                    "disposal_approver_signature",
+                )),
+                data_diff: Some(DataDiff::compute(Some(&existing), Some(&updated))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(signature)
     }
 
     pub async fn approve_disposal(

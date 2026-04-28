@@ -319,3 +319,25 @@ pub fn require_equipment_review(current_user: &CurrentUser) -> Result<()> {
         Err(AppError::Forbidden("無權驗收維修保養紀錄".into()))
     }
 }
+
+/// 設備管理權限：`equipment.manage`（用於 disposal applicant sign）
+/// 與 `EquipmentService::create_disposal` 的 `check_manage_permission` 一致。
+pub fn require_equipment_manage(current_user: &CurrentUser) -> Result<()> {
+    if current_user.has_permission("equipment.manage") {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("無權管理設備".into()))
+    }
+}
+
+/// 設備報廢核准權限：`equipment.disposal.approve` 或 `equipment.manage`
+/// 與 `EquipmentService::approve_disposal` 一致，用於 sign handler。
+pub fn require_equipment_disposal_approve(current_user: &CurrentUser) -> Result<()> {
+    if current_user.has_permission("equipment.disposal.approve")
+        || current_user.has_permission("equipment.manage")
+    {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("無權核准設備報廢".into()))
+    }
+}

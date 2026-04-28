@@ -7,84 +7,69 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
-    services::{SignatureService, SignatureType},
+    middleware::{ActorContext, CurrentUser},
+    services::{EquipmentService, SignatureService, SignatureType},
     AppState, Result,
 };
 
 use super::{sign_response, to_signature_infos, SignRecordRequest, SignRecordResponse, SignatureStatusResponse};
 
 /// 為報廢申請簽章（申請人簽章）
+///
+/// Service-driven：handler 只解 request、組 ActorContext、轉呼叫
+/// `EquipmentService::sign_disposal_applicant_tx`（內含 RBAC + lock + status guard +
+/// sign_record_tx + UPDATE + audit log，全 tx 原子）。
 pub async fn sign_disposal_applicant(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(disposal_id): Path<Uuid>,
     Json(req): Json<SignRecordRequest>,
 ) -> Result<Json<SignRecordResponse>> {
-    let content = format!("disposal_applicant:{}", disposal_id);
     let sig_type = SignatureService::parse_signature_type(
         req.signature_type.as_deref(),
         SignatureType::Confirm,
     );
+    let actor = ActorContext::User(current_user);
 
-    let signature = SignatureService::sign_record(
+    let signature = EquipmentService::sign_disposal_applicant_tx(
         &state.db,
-        "disposal_applicant",
-        &disposal_id.to_string(),
-        current_user.id,
+        &actor,
+        disposal_id,
         sig_type,
-        &content,
         req.password.as_deref(),
         req.handwriting_svg.as_deref(),
         req.stroke_data.as_ref(),
     )
-    .await?;
-
-    // 更新報廢紀錄的申請人簽章 ID
-    sqlx::query(
-        "UPDATE equipment_disposals SET applicant_signature_id = $1, updated_at = NOW() WHERE id = $2",
-    )
-    .bind(signature.id)
-    .bind(disposal_id)
-    .execute(&state.db)
     .await?;
 
     Ok(Json(sign_response(&signature, false)))
 }
 
 /// 為報廢核准簽章（核准人簽章）
+///
+/// Service-driven：同 sign_disposal_applicant 模式。額外守衛：申請人不得自核自簽
+/// （職權分離；service 層檢查 applied_by != current_user.id）。
 pub async fn sign_disposal_approver(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(disposal_id): Path<Uuid>,
     Json(req): Json<SignRecordRequest>,
 ) -> Result<Json<SignRecordResponse>> {
-    let content = format!("disposal_approver:{}", disposal_id);
     let sig_type = SignatureService::parse_signature_type(
         req.signature_type.as_deref(),
         SignatureType::Approve,
     );
+    let actor = ActorContext::User(current_user);
 
-    let signature = SignatureService::sign_record(
+    let signature = EquipmentService::sign_disposal_approver_tx(
         &state.db,
-        "disposal_approver",
-        &disposal_id.to_string(),
-        current_user.id,
+        &actor,
+        disposal_id,
         sig_type,
-        &content,
         req.password.as_deref(),
         req.handwriting_svg.as_deref(),
         req.stroke_data.as_ref(),
     )
-    .await?;
-
-    // 更新報廢紀錄的核准人簽章 ID
-    sqlx::query(
-        "UPDATE equipment_disposals SET approver_signature_id = $1, updated_at = NOW() WHERE id = $2",
-    )
-    .bind(signature.id)
-    .bind(disposal_id)
-    .execute(&state.db)
     .await?;
 
     Ok(Json(sign_response(&signature, true)))
