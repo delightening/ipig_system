@@ -596,7 +596,7 @@ impl ProtocolService {
         .fetch_one(&mut *tx)
         .await?;
 
-        // 狀態變更歷程 + 全域 audit log（tx 版本，HMAC 涵蓋）
+        // protocol_activities 時間軸（PR #269 Option C 後此處不再寫 user_activity_logs）
         Self::record_status_change_tx(
             &mut tx,
             actor,
