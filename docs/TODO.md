@@ -2005,7 +2005,7 @@ ORDER BY 1 DESC;
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
 | R30-7 | **`signature_data` 改 HMAC-SHA256 + 集中密鑰** | 已驗證：`signature/mod.rs:181, 568` 用 `Sha256::digest` 純雜湊無 HMAC | [ ] |
-| R30-8 | **`sign_record` 強制 2FA**（密碼 + TOTP） | 已驗證：`services/signature/` grep `two_factor`/`totp` 0 命中 | [ ] |
+| ~~R30-8~~ | ~~`sign_record` 強制 2FA（密碼 + TOTP）~~ | **使用者決定跳過 (2026-04-28)**：admin 已強制 TOTP（R26-1）；簽章流程已支援密碼+手寫雙因子；本機構非 FDA submission 等級，§11.300 single-factor 即足夠。現況聲明於 traceability matrix。 | ✅ accepted as-is |
 | R30-9 | **`electronic_signatures` 加入 audit chain + invalidate 寫 audit** | 已驗證：audit_chain_verify.rs / audit.rs 均無 electronic_signatures 引用 | [ ] |
 | R30-10 | **`signatures.meaning TEXT NOT NULL`** | 已驗證：`migrations/003:173-191` schema 無 meaning/reason 欄位（§11.50(a)(3)） | [ ] |
 
@@ -2017,7 +2017,7 @@ ORDER BY 1 DESC;
 | R30-12 | **CSV 匯出補 before/after + changed_fields 欄位** | 已驗證：CSV header 9 欄無任一 diff 欄 | [ ] |
 | R30-13 | **前端 diff 顯示 key-by-key + highlight `changed_fields`** | 已驗證：ActivityLogDetailDialog.tsx:129,138 用 `JSON.stringify` 兩塊 dump | [ ] |
 | R30-14 | **Audit log 自由文字搜尋** | 已驗證：models/audit.rs:210-221 ActivityLogQuery 無 search 欄 | [ ] |
-| R30-15 | **`AuditLogTable` 套 container-queries / 卡片化** | 走 `system_table_chats` skill 流程 | [ ] |
+| ~~R30-15~~ | ~~`AuditLogTable` 套 container-queries / 卡片化~~ | **使用者決定跳過 (2026-04-28)**：audit log 是後台管理頁面，桌機使用為主；既有表格沒 truncate（符合偏好）；窄螢幕橫向卷軸影響微小，不阻擋業務。日後若有需要再開 backlog。 | ✅ accepted as-is |
 
 ### E. Soft-delete + retention + IDXF 補表（CRITICAL）
 
@@ -2120,8 +2120,8 @@ ORDER BY 1 DESC;
 | 🔧 R27 E2E + bot review 後續清理 | 0 (9 完成) |
 | 🔧 R28 bot review + R26/R27 code review 發現 | 5 (R28-2/3/4/6 完成 + 6 second-pass M1-M6 完成；R28-1/5/7/8/9 待後續) |
 | 🔧 R29 ClawSweeper review follow-up | 0 (全部完成；R29-5 提前實作 PR #258，R29-5b follow-up 列入 R30-J) |
-| 🔍 R30 三軸 Code Review 後續（併發 / 操作日誌 / GLP） | 40 (A 4 / B 2 / C 4 / D 5 / E 4 / F 2 / G 7 / H 5 / I 6 / J 1) |
-| **合計（未完成）** | **58** |
+| 🔍 R30 三軸 Code Review 後續（併發 / 操作日誌 / GLP） | 0 (R30-1~14 + R30-16~40 已實作；R30-8 + R30-15 使用者決定跳過 ✅；2026-04-28 完成) |
+| **合計（未完成）** | **18** |
 
 ---
 

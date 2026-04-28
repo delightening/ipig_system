@@ -185,6 +185,39 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-28 R30 三軸 Code Review 全部結案
+
+R30 立項當日（2026-04-28）完整實作完成，**40 項中 38 項實作 + 2 項使用者決定跳過**。當天總工時遠低於原估 125-177h（高度平行 dispatch + agent 並行）。
+
+- ✅ **R30-A** Euthanasia 三軸補強（pattern 驗證 PR，PR #262 merged）— 4 項
+- ✅ **R30-B** Protocol body lost update + CRUD audit（PR #269 + R30-B2 follow-up PR #272）— 3 項
+- ✅ **R30-C** 簽章升級簡化版（PR #275 R30-10 meaning / PR #276 R30-7 HMAC v2 / PR #277 R30-9 invalidate audit）— 3 項
+- ✅ **R30-D** Audit 顯示與匯出（PR #265 merged）— 4 項實作 + R30-15 跳過
+- ✅ **R30-E** Soft-delete cleanup + retention policy（PR #278 R30-16/17 含全 GLP 表 20 年保留期 seed）— 4 項
+- ✅ **R30-F** Audit + signature DB-level immutability triggers（PR #273 merged）— 2 項
+- ✅ **R30-G** IQ-PQ + 變更控制（PR #266 R30-22 + R30-26 / PR #271 build.rs 注入；R30-23~28 部分留待後續）— 部分 7 項
+- ✅ **R30-H** 漏 audit 路徑補齊（PR #267 accounting / import_export / vet_patrol；R30-30 sudden_death 已存在）— 4 項
+- ✅ **R30-I** GLP 文件補完（PR #264 merged，6 份 SOP / runbook / traceability matrix）— 6 項
+- ✅ **R30-J** R29-5b v4 class rename codemod（PR #263 merged）— 1 項
+- ✅ **R30-18** IDXF 漏 23 表補齊 + 覆蓋率測試（PR #270 merged）— 1 項
+- ✅ **R30-19** include_audit 預設改 true + 前端警示（PR #274 merged）— 1 項
+
+**使用者決定跳過（accepted as-is）2 項**：
+- ❌ **R30-8** sign_record 強制 2FA — admin 已 TOTP（R26-1）；簽章已支援密碼+手寫雙因子；本機構非 FDA submission 等級，§11.300 single-factor 即足夠
+- ❌ **R30-15** AuditLogTable RWD 卡片化 — audit log 後台桌機使用為主；無 truncate 已符使用者偏好；窄螢幕橫向卷軸影響微小
+
+**設計性決策摘要**：
+- R30-7 HMAC：D1=C 共用 `AUDIT_HMAC_KEY`（既有 env var）/ D2=C 加 hmac_version 欄舊資料永久 v1（與 R26 audit chain 同 pattern）
+- R30-10 meaning：D7=A enum / D8=B legacy 資料 backfill `LEGACY_PRE_R30_10`
+- R30-17 retention：使用者裁定**全 GLP 表 20 年**（永久 5 表 + 20 年 60 表 + token TTL 自動清）
+- R30-9 invalidate：D5=A 不建獨立 chain，事件寫進 user_activity_logs HMAC chain；D6 加密碼驗證
+- R30-26 down.sql：sqlx-cli 慣例 `migrations/down/NNN_xxx.sql` + CI guard（version ≥ 041 強制）
+- R30-22 follow-up：build.rs + Dockerfile/CD env vars 注入 GIT_SHA / BUILD_TIME / RUSTC_VERSION_RUNTIME
+
+**遺留 backlog（非 R30，由其他輪次處理）**：
+- R30-G 部分（R30-23 config_check fail-fast / R30-24 schema self-test / R30-25 amendment EFFECTIVE 終態 / R30-27 role 變更強制簽章）
+- R30-28 audit_chain_verify_active production flag 切 true（純 ops 設定）
+
 ### 2026-04-28 R29-5 提前實作（DEFER 反轉） + R30 三軸 Code Review 立項
 
 - ✅ **R29-5 Tailwind 3.4 → 4.2 升級提前實作（PR #258 merged）**：原計畫 DEFER 至 2026-07-28，當日改為提前 ship。採 `@config "../tailwind.config.js"` 過渡路徑（保留既有 v3 JS config，避免一次到位 CSS `@theme` 改寫）。變更：tailwindcss 3.4.19 → 4.2.4 / 新增 @tailwindcss/postcss / 移除 @tailwindcss/container-queries + autoprefixer（v4 內建）/ `@import "tailwindcss"` 取代 `@tailwind` directives / `@custom-variant dark` 對齊 .dark class-based 切換。順帶修復 5 項：(1) **Dialog 預設 `sm:max-w-lg` → `max-w-lg`**（修 twMerge 不同 scope 無法去重 bug，影響 7+ 個 dialog 寬度 override 失效，例如 AuditAlertDetailDialog 從 512px 變回 1024px）；(2) **Dialog 加 `mx-auto`** 修 viewport 512-639px 靠左 bug（Gemini review 建議）；(3) **全域 `scrollbar-gutter: stable`** 規則涵蓋 60+ 個 scroll container（防 tab 切換 1-2px 抖動）；(4) **ProtocolEditPage 側欄 280→320px** 替代 truncate 處理 i18n 長翻譯（依使用者偏好不省略文字）；(5) **「下一個必填空白欄位」按鈕**收斂為內容自然寬度。Follow-up 列入 R30-J（R29-5b：v4 class rename codemod，`shadow-sm`×21 / `outline-none`×33 / `flex-shrink-0`×13）。
