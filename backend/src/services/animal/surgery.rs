@@ -294,16 +294,6 @@ impl AnimalSurgeryService {
         Ok(surgery)
     }
 
-    /// 刪除手術紀錄
-    pub async fn soft_delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query("DELETE FROM animal_surgeries WHERE id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
-
-        Ok(())
-    }
-
     /// 軟刪除手術紀錄（含刪除原因）- GLP 合規 — Service-driven audit
     pub async fn soft_delete_with_reason(
         pool: &PgPool,

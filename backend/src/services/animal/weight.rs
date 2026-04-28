@@ -168,47 +168,6 @@ impl AnimalWeightService {
         Ok(after)
     }
 
-    /// 硬刪除體重紀錄 — Service-driven audit
-    ///
-    /// 僅供 admin 工具使用；一般業務路徑應用 `soft_delete_with_reason`。
-    pub async fn hard_delete(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
-        actor.require_user()?;
-        let mut tx = pool.begin().await?;
-
-        let before = sqlx::query_as::<_, AnimalWeight>(
-            "SELECT * FROM animal_weights WHERE id = $1 FOR UPDATE",
-        )
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| AppError::NotFound("體重紀錄不存在".into()))?;
-
-        sqlx::query("DELETE FROM animal_weights WHERE id = $1")
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
-
-        let display = format!(
-            "animal {} @ {}: {}kg",
-            before.animal_id, before.measure_date, before.weight
-        );
-        AuditService::log_activity_tx(
-            &mut tx,
-            actor,
-            ActivityLogEntry {
-                event_category: "ANIMAL",
-                event_type: "WEIGHT_HARD_DELETE",
-                entity: Some(AuditEntity::new("animal_weight", before.id, &display)),
-                data_diff: Some(DataDiff::delete_only(&before)),
-                request_context: None,
-            },
-        )
-        .await?;
-
-        tx.commit().await?;
-        Ok(())
-    }
-
     /// 軟刪除體重紀錄（含刪除原因）— Service-driven audit
     ///
     /// GLP 合規：刪除原因寫入 change_reasons 與 animal_weights.deletion_reason，
