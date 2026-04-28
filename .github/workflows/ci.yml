@@ -443,7 +443,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 啟用 pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           package_json_file: frontend/package.json
 
@@ -500,7 +500,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 啟用 pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           package_json_file: frontend/package.json
 
@@ -546,7 +546,7 @@ jobs:
           vuln-type: "os,library"
 
       - name: 啟用 pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           package_json_file: frontend/package.json
 
@@ -710,7 +710,7 @@ jobs:
           exit 1
 
       - name: 啟用 pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           package_json_file: frontend/package.json
 
