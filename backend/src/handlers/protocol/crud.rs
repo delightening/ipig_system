@@ -42,7 +42,8 @@ pub async fn create_protocol(
         return Err(AppError::Forbidden("Permission denied: requires aup.protocol.create or PI role".to_string()));
     }
     req.validate()?;
-    let protocol = ProtocolService::create(&state.db, &req, current_user.id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let protocol = ProtocolService::create(&state.db, &actor, &req, current_user.id).await?;
     Ok(Json(protocol))
 }
 
@@ -108,7 +109,8 @@ pub async fn update_protocol(
         return Err(AppError::Forbidden("You don't have permission to edit this protocol".to_string()));
     }
     req.validate()?;
-    let protocol = ProtocolService::update(&state.db, id, &req, current_user.id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let protocol = ProtocolService::update(&state.db, &actor, id, &req).await?;
     Ok(Json(protocol))
 }
 
@@ -403,6 +405,7 @@ pub async fn copy_protocol(
     if !can_create {
         return Err(AppError::Forbidden("Permission denied: requires aup.protocol.create or PI role".to_string()));
     }
-    let protocol = ProtocolService::copy(&state.db, id, current_user.id).await?;
+    let actor = ActorContext::User(current_user.clone());
+    let protocol = ProtocolService::copy(&state.db, &actor, id, current_user.id).await?;
     Ok((StatusCode::CREATED, Json(protocol)))
 }

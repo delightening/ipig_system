@@ -4,12 +4,20 @@ use chrono::{Datelike, Utc};
 
 use super::ProtocolService;
 use crate::{
+    middleware::ActorContext,
     models::{
-        CreateProtocolRequest, Protocol, ProtocolActivityType, ProtocolListItem, ProtocolQuery,
-        ProtocolResponse, ProtocolRole, ProtocolStatus, UpdateProtocolRequest,
+        audit_diff::DataDiff, CreateProtocolRequest, Protocol, ProtocolActivityType,
+        ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolRole, ProtocolStatus,
+        UpdateProtocolRequest,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
     },
     AppError, Result,
 };
+
+const CONFLICT_MSG: &str = "此記錄已被其他人修改，請重新載入後再試。";
 
 impl ProtocolService {
     /// 生成計畫編號
@@ -50,13 +58,19 @@ impl ProtocolService {
     }
 
     /// 建立計畫
+    ///
+    /// R30-29：INSERT + user_protocols + audit-in-tx 全 tx 原子。
+    /// 失敗整 tx rollback，不留半成品。
     pub async fn create(
         pool: &PgPool,
+        actor: &ActorContext,
         req: &CreateProtocolRequest,
         created_by: Uuid,
     ) -> Result<Protocol> {
         let protocol_no = Self::generate_protocol_no(pool).await?;
         let pi_user_id = req.pi_user_id.unwrap_or(created_by);
+
+        let mut tx = pool.begin().await?;
 
         let protocol = sqlx::query_as::<_, Protocol>(
             r#"
@@ -77,47 +91,67 @@ impl ProtocolService {
         .bind(req.start_date)
         .bind(req.end_date)
         .bind(created_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 三個獨立操作並行執行
-        tokio::try_join!(
-            Self::record_status_change(pool, protocol.id, None, ProtocolStatus::Draft, created_by, None),
-            async {
-                sqlx::query(
-                    r#"
-                    INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
-                    VALUES ($1, $2, $3, NOW(), $4)
-                    ON CONFLICT (user_id, protocol_id) DO NOTHING
-                    "#
-                )
-                .bind(pi_user_id)
-                .bind(protocol.id)
-                .bind(ProtocolRole::Pi)
-                .bind(created_by)
-                .execute(pool)
-                .await
-                .map_err(AppError::from)
+        // user_protocols：PI 連結
+        sqlx::query(
+            r#"
+            INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
+            VALUES ($1, $2, $3, NOW(), $4)
+            ON CONFLICT (user_id, protocol_id) DO NOTHING
+            "#
+        )
+        .bind(pi_user_id)
+        .bind(protocol.id)
+        .bind(ProtocolRole::Pi)
+        .bind(created_by)
+        .execute(&mut *tx)
+        .await?;
+
+        // protocol_activities + user_activity_logs（同 tx）
+        Self::record_activity_tx(
+            &mut tx,
+            actor,
+            protocol.id,
+            ProtocolActivityType::Created,
+            None,
+            Some(protocol.status.as_str().to_string()),
+            None,
+            None,
+            None,
+        )
+        .await?;
+
+        // Service-driven audit：完整 create 快照進 HMAC chain
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "AUP",
+                event_type: "PROTOCOL_CREATE",
+                entity: Some(AuditEntity::new("protocol", protocol.id, &protocol.title)),
+                data_diff: Some(DataDiff::create_only(&protocol)),
+                request_context: None,
             },
-            Self::record_activity(
-                pool,
-                protocol.id,
-                ProtocolActivityType::Created,
-                created_by,
-                None,
-                Some(protocol.status.as_str().to_string()),
-                None,
-                None,
-                None,
-            ),
-        )?;
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Ok(protocol)
     }
 
     /// 複製既有計畫建立新草稿
     /// 複製 title、working_content、start_date、end_date，新計畫狀態為 DRAFT
-    pub async fn copy(pool: &PgPool, source_id: Uuid, copied_by: Uuid) -> Result<Protocol> {
+    ///
+    /// R30-29：INSERT + user_protocols + audit-in-tx 全 tx 原子。
+    pub async fn copy(
+        pool: &PgPool,
+        actor: &ActorContext,
+        source_id: Uuid,
+        copied_by: Uuid,
+    ) -> Result<Protocol> {
         let source = sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1")
             .bind(source_id)
             .fetch_optional(pool)
@@ -127,6 +161,8 @@ impl ProtocolService {
         let new_protocol_no = Self::generate_protocol_no(pool).await?;
         let new_title = format!("（複製）{}", source.title);
         let pi_user_id = source.pi_user_id;
+
+        let mut tx = pool.begin().await?;
 
         let protocol = sqlx::query_as::<_, Protocol>(
             r#"
@@ -147,40 +183,50 @@ impl ProtocolService {
         .bind(source.start_date)
         .bind(source.end_date)
         .bind(copied_by)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 三個獨立操作並行執行
-        let (_, _pi_res, _activity_res) = tokio::try_join!(
-            Self::record_status_change(pool, protocol.id, None, ProtocolStatus::Draft, copied_by, None),
-            async {
-                sqlx::query(
-                    r#"
-                    INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
-                    VALUES ($1, $2, $3, NOW(), $4)
-                    ON CONFLICT (user_id, protocol_id) DO NOTHING
-                    "#
-                )
-                .bind(pi_user_id)
-                .bind(protocol.id)
-                .bind(ProtocolRole::Pi)
-                .bind(copied_by)
-                .execute(pool)
-                .await
-                .map_err(AppError::from)
+        sqlx::query(
+            r#"
+            INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
+            VALUES ($1, $2, $3, NOW(), $4)
+            ON CONFLICT (user_id, protocol_id) DO NOTHING
+            "#
+        )
+        .bind(pi_user_id)
+        .bind(protocol.id)
+        .bind(ProtocolRole::Pi)
+        .bind(copied_by)
+        .execute(&mut *tx)
+        .await?;
+
+        Self::record_activity_tx(
+            &mut tx,
+            actor,
+            protocol.id,
+            ProtocolActivityType::Created,
+            None,
+            Some(protocol.status.as_str().to_string()),
+            None,
+            Some(format!("複製自計畫 {}", source.protocol_no)),
+            None,
+        )
+        .await?;
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "AUP",
+                event_type: "PROTOCOL_CREATE",
+                entity: Some(AuditEntity::new("protocol", protocol.id, &protocol.title)),
+                data_diff: Some(DataDiff::create_only(&protocol)),
+                request_context: None,
             },
-            Self::record_activity(
-                pool,
-                protocol.id,
-                ProtocolActivityType::Created,
-                copied_by,
-                None,
-                Some(protocol.status.as_str().to_string()),
-                None,
-                Some(format!("複製自計畫 {}", source.protocol_no)),
-                None,
-            ),
-        )?;
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Ok(protocol)
     }
@@ -340,28 +386,38 @@ impl ProtocolService {
     }
 
     /// 更新計畫
+    ///
+    /// R30-5：version optimistic lock 防 lost update。
+    /// R30-29：tx + FOR UPDATE before snapshot + audit-in-tx + 完整 before/after diff。
     pub async fn update(
         pool: &PgPool,
+        actor: &ActorContext,
         id: Uuid,
         req: &UpdateProtocolRequest,
-        updated_by: Uuid,
     ) -> Result<Protocol> {
-        // 只有草稿狀態可以編輯
-        let protocol = sqlx::query_as::<_, Protocol>(
-            "SELECT * FROM protocols WHERE id = $1"
+        let mut tx = pool.begin().await?;
+
+        // FOR UPDATE 鎖行 + 完整 before snapshot（在同 tx 內，與後續 UPDATE 一致）
+        let before: Protocol = sqlx::query_as::<_, Protocol>(
+            "SELECT * FROM protocols WHERE id = $1 FOR UPDATE",
         )
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
 
-        if protocol.status != ProtocolStatus::Draft 
-            && protocol.status != ProtocolStatus::RevisionRequired 
-            && protocol.status != ProtocolStatus::PreReviewRevisionRequired
-            && protocol.status != ProtocolStatus::VetRevisionRequired {
-            return Err(AppError::BusinessRule("Only draft or revision-required protocols can be edited".to_string()));
+        if before.status != ProtocolStatus::Draft
+            && before.status != ProtocolStatus::RevisionRequired
+            && before.status != ProtocolStatus::PreReviewRevisionRequired
+            && before.status != ProtocolStatus::VetRevisionRequired
+        {
+            return Err(AppError::BusinessRule(
+                "Only draft or revision-required protocols can be edited".to_string(),
+            ));
         }
 
+        // R30-5：version optimistic lock + version+1
+        // $6 = NULL → 跳過版本檢查（向後相容）；命中 0 row → 409 Conflict
         let updated = sqlx::query_as::<_, Protocol>(
             r#"
             UPDATE protocols SET
@@ -369,31 +425,52 @@ impl ProtocolService {
                 working_content = COALESCE($3, working_content),
                 start_date = COALESCE($4, start_date),
                 end_date = COALESCE($5, end_date),
+                version = version + 1,
                 updated_at = NOW()
             WHERE id = $1
+              AND ($6::INT IS NULL OR version = $6)
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(&req.title)
         .bind(&req.working_content)
         .bind(req.start_date)
         .bind(req.end_date)
-        .fetch_one(pool)
-        .await?;
+        .bind(req.version)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::Conflict(CONFLICT_MSG.to_string()))?;
 
-        // 記錄專屬活動紀錄（record_activity 現在也會自動同步到 AuditService）
-        Self::record_activity(
-            pool,
+        // protocol_activities + user_activity_logs（同 tx，UPDATED 事件）
+        Self::record_activity_tx(
+            &mut tx,
+            actor,
             id,
             ProtocolActivityType::Updated,
-            updated_by,
             None,
             None,
             None,
             None,
             None,
-        ).await?;
+        )
+        .await?;
+
+        // Service-driven audit：完整 before/after diff 進 HMAC chain
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "AUP",
+                event_type: "PROTOCOL_UPDATE",
+                entity: Some(AuditEntity::new("protocol", id, &updated.title)),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&updated))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
 
         Ok(updated)
     }

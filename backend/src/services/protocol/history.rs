@@ -18,8 +18,9 @@ use crate::{
 
 /// 把 `ProtocolActivityType` 對應到全域 audit event_type 字串。
 ///
-/// 抽成獨立函式讓 `record_activity` 與 `record_activity_tx` 共用。
-fn event_type_for(activity_type: ProtocolActivityType) -> &'static str {
+/// 抽成獨立函式讓 `record_activity`、`record_activity_tx` 與呼叫端
+/// （core / status / review）統一使用同一份對應表。
+pub(super) fn event_type_for(activity_type: ProtocolActivityType) -> &'static str {
     match activity_type {
         ProtocolActivityType::Created => "PROTOCOL_CREATE",
         ProtocolActivityType::Updated => "PROTOCOL_UPDATE",
@@ -40,7 +41,7 @@ fn event_type_for(activity_type: ProtocolActivityType) -> &'static str {
 }
 
 /// 把 status enum 轉成 `ProtocolActivityType`（record_status_change 用）。
-fn activity_type_for_status(to_status: ProtocolStatus) -> ProtocolActivityType {
+pub(super) fn activity_type_for_status(to_status: ProtocolStatus) -> ProtocolActivityType {
     match to_status {
         ProtocolStatus::Draft => ProtocolActivityType::Created,
         ProtocolStatus::Approved => ProtocolActivityType::Approved,
@@ -71,10 +72,12 @@ impl ProtocolService {
         Ok(max_version.unwrap_or(0) + 1)
     }
 
-    /// Transaction 版本：同 `record_activity` 但走 tx + 使用 `log_activity_tx`
-    /// 讓 protocol_activities INSERT 與 user_activity_logs + HMAC 全部同 tx。
+    /// Transaction 版本：寫入 `protocol_activities` 時間軸表（同 tx）。
     ///
-    /// Service-driven 重構的 protocol 路徑（例如 `submit`）使用此函式。
+    /// **不再寫 user_activity_logs**（PR #269 review fix）— 呼叫端負責
+    /// 自行呼叫 `AuditService::log_activity_tx` 以避免同事件雙寫。
+    /// 對於沒有實質 diff 的 timeline 事件（例如指派 reviewer / vet），
+    /// 呼叫端應傳 `data_diff: None`。
     #[allow(clippy::too_many_arguments)]
     pub(super) async fn record_activity_tx(
         tx: &mut Transaction<'_, Postgres>,
@@ -128,28 +131,6 @@ impl ProtocolService {
         .bind(&remark)
         .bind(&extra_data)
         .fetch_one(&mut **tx)
-        .await?;
-
-        // Protocol 標題（供 audit 顯示）
-        let protocol_title: String = sqlx::query_scalar(
-            "SELECT title FROM protocols WHERE id = $1",
-        )
-        .bind(protocol_id)
-        .fetch_optional(&mut **tx)
-        .await?
-        .unwrap_or_else(|| "Unknown Protocol".to_string());
-
-        AuditService::log_activity_tx(
-            tx,
-            actor,
-            ActivityLogEntry {
-                event_category: "AUP",
-                event_type: event_type_for(activity_type),
-                entity: Some(AuditEntity::new("protocol", protocol_id, &protocol_title)),
-                data_diff: None,
-                request_context: None,
-            },
-        )
         .await?;
 
         Ok(activity)
@@ -273,34 +254,6 @@ impl ProtocolService {
         }
 
         Ok(activity)
-    }
-
-    /// 記錄狀態變更（相容舊介面，內部轉換為 record_activity）
-    pub(super) async fn record_status_change(
-        pool: &PgPool,
-        protocol_id: Uuid,
-        from_status: Option<ProtocolStatus>,
-        to_status: ProtocolStatus,
-        changed_by: Uuid,
-        remark: Option<String>,
-    ) -> Result<()> {
-        let activity_type = activity_type_for_status(to_status);
-
-        if let Err(e) = Self::record_activity(
-            pool,
-            protocol_id,
-            activity_type,
-            changed_by,
-            from_status.map(|s| s.as_str().to_string()),
-            Some(to_status.as_str().to_string()),
-            None,
-            remark,
-            None,
-        ).await {
-            tracing::warn!("記錄活動失敗: {e}");
-        }
-
-        Ok(())
     }
 
     /// 取得版本列表

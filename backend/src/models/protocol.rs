@@ -87,6 +87,10 @@ pub struct Protocol {
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// R30-B optimistic lock：每次 UPDATE 自動 +1，前端送 PUT 時帶當前 version
+    /// 防 lost update。NULL 跳過版本檢查（向後相容舊客戶端）。
+    #[serde(default)]
+    pub version: i32,
 }
 
 /// Protocol 無敏感欄位需脫敏（GLP 稽核需要完整內容；working_content 雖為 jsonb
@@ -417,6 +421,9 @@ pub struct UpdateProtocolRequest {
     pub working_content: Option<serde_json::Value>,
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
+    /// R30-B optimistic lock：前端從 query 結果取當前 version 回送；
+    /// None → 跳過版本檢查（向後相容）。命中 0 row → 409 Conflict。
+    pub version: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

@@ -58,6 +58,8 @@ export interface Protocol {
     created_by: string
     created_at: string
     updated_at: string
+    /** R30-B: optimistic lock 版本號，前端送 PUT 時帶回防 lost update */
+    version: number
 }
 
 export interface ProtocolListItem {
@@ -173,6 +175,9 @@ export interface UpdateProtocolRequest {
     working_content?: ProtocolWorkingContent
     start_date?: string
     end_date?: string
+    /** R30-B: optimistic lock。從 query 結果取當前 version 回送；
+     * 後端命中 0 row → 409 Conflict。omit → 跳過版本檢查（向後相容） */
+    version?: number
 }
 
 export interface ChangeStatusRequest {

@@ -2,6 +2,7 @@ use serde_json::Value;
 use sqlx::{PgPool, Transaction, Postgres};
 use uuid::Uuid;
 
+use super::history::{activity_type_for_status, event_type_for};
 use super::ProtocolService;
 use crate::{
     middleware::ActorContext,
@@ -285,6 +286,22 @@ impl ProtocolService {
         )
         .await?;
 
+        // PR #269 Option C：record_activity_tx 不再寫 user_activity_logs，
+        // 由呼叫端負責補 audit。此處附 before/after diff 供 HMAC chain。
+        let status_event_type = event_type_for(activity_type_for_status(req.to_status));
+        AuditService::log_activity_tx(
+            &mut *tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "AUP",
+                event_type: status_event_type,
+                entity: Some(AuditEntity::new("protocol", id, &updated.title)),
+                data_diff: Some(DataDiff::compute(Some(&protocol), Some(&updated))),
+                request_context: None,
+            },
+        )
+        .await?;
+
         // 當狀態變為 UNDER_REVIEW 時，自動指派選定的審查委員（tx 版本）
         if let Some(info) = reviewer_info {
             if let Some(reviewer_ids) = &req.reviewer_ids {
@@ -309,6 +326,20 @@ impl ProtocolService {
                     None,
                     Some(format!("審查委員：{}", reviewer_names.join("、"))),
                     Some(extra),
+                )
+                .await?;
+
+                // PR #269 Option C：補 audit log（無 diff 的 timeline 事件）
+                AuditService::log_activity_tx(
+                    &mut *tx,
+                    actor,
+                    ActivityLogEntry {
+                        event_category: "AUP",
+                        event_type: event_type_for(ProtocolActivityType::ReviewerAssigned),
+                        entity: Some(AuditEntity::new("protocol", id, &updated.title)),
+                        data_diff: None,
+                        request_context: None,
+                    },
                 )
                 .await?;
             }
@@ -565,7 +596,7 @@ impl ProtocolService {
         .fetch_one(&mut *tx)
         .await?;
 
-        // 狀態變更歷程 + 全域 audit log（tx 版本，HMAC 涵蓋）
+        // protocol_activities 時間軸（PR #269 Option C 後此處不再寫 user_activity_logs）
         Self::record_status_change_tx(
             &mut tx,
             actor,

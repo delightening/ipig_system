@@ -66,6 +66,8 @@ export function useAnimalEdit(animalId: string) {
                 iacuc_no: data.iacuc_no || undefined,
                 experiment_date: data.experiment_date || undefined,
                 remark: data.remark || undefined,
+                // R30-B: optimistic lock — 從 query 結果取當前 version 防 lost update
+                version: animal?.version,
             })
         },
         onSuccess: () => {
