@@ -88,6 +88,8 @@ export interface Animal {
     created_by?: string
     created_at: string
     updated_at: string
+    /** R30-B: optimistic lock 版本號，前端送 PUT 時帶回防 lost update */
+    version?: number
 }
 
 export interface AnimalListItem extends Animal {
@@ -444,6 +446,8 @@ export interface UpdateAnimalRequest {
     iacuc_no?: string
     experiment_date?: string
     remark?: string
+    /** R30-B: optimistic lock。從 query 結果取當前 version 回送防 lost update */
+    version?: number
 }
 
 /** P2-R4-13: Timeline 可編輯的紀錄類型 */

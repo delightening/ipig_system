@@ -78,6 +78,9 @@ export interface Amendment {
     created_by: string
     created_at: string
     updated_at: string
+    /** R30-B: optimistic lock 版本號（forward-compat：後端 amendments 表尚未加 version 欄，
+     * 待 R30 後續 PR 補上 migration 與 service 邏輯後啟用） */
+    version?: number
 }
 
 export interface AmendmentListItem extends Amendment {
@@ -100,6 +103,9 @@ export interface UpdateAmendmentRequest {
     description?: string
     change_items?: string[]
     changes_content?: Record<string, unknown>
+    /** R30-B: optimistic lock 版本號（forward-compat — 待後端 amendments 表加 version
+     * 欄位後啟用 lost-update 防護；目前送出會被後端忽略，無副作用） */
+    version?: number
 }
 
 export interface ClassifyAmendmentRequest {
