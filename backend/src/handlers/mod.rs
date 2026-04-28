@@ -37,6 +37,7 @@ mod qau;
 pub mod qa_plan;
 pub mod glp_compliance;
 pub mod two_factor;
+pub mod version;
 mod upload;
 pub(crate) mod user;
 mod system_settings;
