@@ -6,16 +6,49 @@
 
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
+use serde::Serialize;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::middleware::ActorContext;
 use crate::models::accounting::{
     ApAgingRow, ArAgingRow, ChartOfAccount, JournalEntryLineRow, JournalEntryRow, ProfitLossRow,
     ProfitLossSummary, TrialBalanceRow,
 };
+use crate::models::audit_diff::{AuditRedact, DataDiff};
 use crate::models::{DocType, Document, DocumentLine};
 use crate::repositories::accounting as repo;
+use crate::services::audit::{ActivityLogEntry, AuditEntity};
+use crate::services::AuditService;
 use crate::{AppError, Result};
+
+/// AP 付款 audit 快照（用於 create_only DataDiff）
+#[derive(Debug, Serialize)]
+struct ApPaymentSnapshot<'a> {
+    id: Uuid,
+    payment_no: &'a str,
+    partner_id: Uuid,
+    payment_date: NaiveDate,
+    amount: Decimal,
+    reference: Option<&'a str>,
+    journal_entry_id: Uuid,
+}
+
+impl AuditRedact for ApPaymentSnapshot<'_> {}
+
+/// AR 收款 audit 快照
+#[derive(Debug, Serialize)]
+struct ArReceiptSnapshot<'a> {
+    id: Uuid,
+    receipt_no: &'a str,
+    partner_id: Uuid,
+    receipt_date: NaiveDate,
+    amount: Decimal,
+    reference: Option<&'a str>,
+    journal_entry_id: Uuid,
+}
+
+impl AuditRedact for ArReceiptSnapshot<'_> {}
 
 /// 會計科目代碼
 const ACCT_INVENTORY: &str = "1300";
@@ -287,12 +320,13 @@ impl AccountingService {
     /// 建立 AP 付款並過帳（借：應付 2100，貸：現金 1100）
     pub async fn create_ap_payment(
         pool: &PgPool,
+        actor: &ActorContext,
         partner_id: Uuid,
         payment_date: NaiveDate,
         amount: Decimal,
         reference: Option<String>,
-        created_by: Uuid,
     ) -> Result<Uuid> {
+        let created_by = actor.require_user()?.id;
         let mut tx = pool.begin().await?;
         let payment_no = repo::next_ap_payment_no(&mut tx).await?;
         let ap_id = Self::require_account_id(&mut tx, ACCT_AP, "應付帳款").await?;
@@ -314,6 +348,30 @@ impl AccountingService {
         }).await?;
 
         repo::insert_ap_payment(&mut tx, payment_id, &payment_no, partner_id, payment_date, amount, reference.as_deref(), entry_id, created_by).await?;
+
+        let snapshot = ApPaymentSnapshot {
+            id: payment_id,
+            payment_no: &payment_no,
+            partner_id,
+            payment_date,
+            amount,
+            reference: reference.as_deref(),
+            journal_entry_id: entry_id,
+        };
+        let display = format!("AP {} ({})", payment_no, amount);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "AP_PAYMENT_CREATED",
+                entity: Some(AuditEntity::new("ap_payment", payment_id, &display)),
+                data_diff: Some(DataDiff::create_only(&snapshot)),
+                request_context: None,
+            },
+        )
+        .await?;
+
         tx.commit().await?;
         Ok(payment_id)
     }
@@ -321,12 +379,13 @@ impl AccountingService {
     /// 建立 AR 收款並過帳（借：現金 1100，貸：應收 1200）
     pub async fn create_ar_receipt(
         pool: &PgPool,
+        actor: &ActorContext,
         partner_id: Uuid,
         receipt_date: NaiveDate,
         amount: Decimal,
         reference: Option<String>,
-        created_by: Uuid,
     ) -> Result<Uuid> {
+        let created_by = actor.require_user()?.id;
         let mut tx = pool.begin().await?;
         let receipt_no = repo::next_ar_receipt_no(&mut tx).await?;
         let ar_id = Self::require_account_id(&mut tx, ACCT_AR, "應收帳款").await?;
@@ -348,6 +407,30 @@ impl AccountingService {
         }).await?;
 
         repo::insert_ar_receipt(&mut tx, receipt_id, &receipt_no, partner_id, receipt_date, amount, reference.as_deref(), entry_id, created_by).await?;
+
+        let snapshot = ArReceiptSnapshot {
+            id: receipt_id,
+            receipt_no: &receipt_no,
+            partner_id,
+            receipt_date,
+            amount,
+            reference: reference.as_deref(),
+            journal_entry_id: entry_id,
+        };
+        let display = format!("AR {} ({})", receipt_no, amount);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "ERP",
+                event_type: "AR_RECEIPT_CREATED",
+                entity: Some(AuditEntity::new("ar_receipt", receipt_id, &display)),
+                data_diff: Some(DataDiff::create_only(&snapshot)),
+                request_context: None,
+            },
+        )
+        .await?;
+
         tx.commit().await?;
         Ok(receipt_id)
     }
