@@ -214,7 +214,7 @@ pub async fn download_weight_import_template(
         .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
-/// 匯入動物基礎資料
+/// 匯入動物基礎資料（audit 在 service 層）
 pub async fn import_basic_data(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -230,29 +230,10 @@ pub async fn import_basic_data(
         &file_name,
     )
     .await?;
-    let display = format!(
-        "匯入動物基礎資料: {} (成功: {}, 失敗: {})",
-        file_name, result.success_count, result.error_count
-    );
-    if let Err(e) = AuditService::log_activity_oneshot(
-        &state.db,
-        &actor,
-        ActivityLogEntry {
-            event_category: "ANIMAL",
-            event_type: "ANIMAL_IMPORT",
-            entity: Some(AuditEntity::new("animal", Uuid::nil(), &display)),
-            data_diff: None,
-            request_context: None,
-        },
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_IMPORT): {}", e);
-    }
     Ok(Json(result))
 }
 
-/// 匯入動物體重資料
+/// 匯入動物體重資料（audit 在 service 層）
 pub async fn import_weight_data(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -268,25 +249,6 @@ pub async fn import_weight_data(
         &file_name,
     )
     .await?;
-    let display = format!(
-        "匯入體重資料: {} (成功: {}, 失敗: {})",
-        file_name, result.success_count, result.error_count
-    );
-    if let Err(e) = AuditService::log_activity_oneshot(
-        &state.db,
-        &actor,
-        ActivityLogEntry {
-            event_category: "ANIMAL",
-            event_type: "WEIGHT_IMPORT",
-            entity: Some(AuditEntity::new("animal_weight", Uuid::nil(), &display)),
-            data_diff: None,
-            request_context: None,
-        },
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_IMPORT): {}", e);
-    }
     Ok(Json(result))
 }
 

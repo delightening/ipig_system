@@ -10,6 +10,10 @@ use crate::{
         CreateWeightRequest, ImportErrorDetail, ImportResult, ImportType, UpdateAnimalRequest,
         WeightImportRow,
     },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
     AppError, Result,
 };
 
@@ -742,8 +746,31 @@ impl AnimalImportExportService {
             }
         }
 
-        finalize_import_batch(pool, batch.id, rows.len() as i32, success_count, error_count, errors)
-            .await
+        let result =
+            finalize_import_batch(pool, batch.id, rows.len() as i32, success_count, error_count, errors)
+                .await?;
+
+        let display = format!(
+            "匯入動物基礎資料: {} (成功: {}, 失敗: {})",
+            file_name, result.success_count, result.error_count
+        );
+        if let Err(e) = AuditService::log_activity_oneshot(
+            pool,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "ANIMAL_IMPORT",
+                entity: Some(AuditEntity::new("animal", batch.id, &display)),
+                data_diff: None,
+                request_context: None,
+            },
+        )
+        .await
+        {
+            tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_IMPORT): {}", e);
+        }
+
+        Ok(result)
     }
 
     /// 匯入體重資料
@@ -801,8 +828,31 @@ impl AnimalImportExportService {
             }
         }
 
-        finalize_import_batch(pool, batch.id, rows.len() as i32, success_count, error_count, errors)
-            .await
+        let result =
+            finalize_import_batch(pool, batch.id, rows.len() as i32, success_count, error_count, errors)
+                .await?;
+
+        let display = format!(
+            "匯入體重資料: {} (成功: {}, 失敗: {})",
+            file_name, result.success_count, result.error_count
+        );
+        if let Err(e) = AuditService::log_activity_oneshot(
+            pool,
+            actor,
+            ActivityLogEntry {
+                event_category: "ANIMAL",
+                event_type: "WEIGHT_IMPORT",
+                entity: Some(AuditEntity::new("animal_weight", batch.id, &display)),
+                data_diff: None,
+                request_context: None,
+            },
+        )
+        .await
+        {
+            tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_IMPORT): {}", e);
+        }
+
+        Ok(result)
     }
 
     // ============================================
