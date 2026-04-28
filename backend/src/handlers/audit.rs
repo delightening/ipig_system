@@ -8,7 +8,7 @@ use axum::{
     response::Response,
     Extension, Json,
 };
-use chrono::Utc;
+use chrono::{FixedOffset, Utc};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -139,6 +139,7 @@ pub async fn export_audit_logs(
         entity_type: params.entity_type.clone(),
         entity_id: None,
         is_suspicious: None,
+        query: None,
         from,
         to,
         page: None,
@@ -152,9 +153,13 @@ pub async fn export_audit_logs(
 
     match format {
         "csv" => {
+            // R30-11: CSV 時間欄位改為 GMT+8 (Asia/Taipei) 顯示
+            // FixedOffset::east_opt(8 * 3600) 在程式啟動即固定，unwrap 為靜態安全（編譯期常數）
+            let tz_taipei = FixedOffset::east_opt(8 * 3600)
+                .expect("FixedOffset(+08:00) is always valid");
             let mut wtr = csv::Writer::from_writer(Vec::new());
             wtr.write_record([
-                "時間",
+                "時間 (Asia/Taipei)",
                 "操作者",
                 "操作者信箱",
                 "類別",
@@ -163,14 +168,41 @@ pub async fn export_audit_logs(
                 "實體名稱",
                 "IP 位址",
                 "可疑",
+                "變更欄位",
+                "變更前",
+                "變更後",
             ])
             .map_err(|e| AppError::Internal(format!("CSV write error: {}", e)))?;
             for log in &logs {
-                let created_at = log.created_at.with_timezone(&Utc).format("%Y-%m-%d %H:%M:%S").to_string();
+                let created_at = log
+                    .created_at
+                    .with_timezone(&tz_taipei)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string();
                 let actor = log.actor_display_name.as_deref().unwrap_or("");
                 let email = log.actor_email.as_deref().unwrap_or("");
                 let entity_name = log.entity_display_name.as_deref().unwrap_or("");
                 let suspicious = if log.is_suspicious { "Y" } else { "N" };
+
+                // R30-12: 補 changed_fields / before_data / after_data 三欄
+                // before_data / after_data 已在 service 層套用 redact，CSV 端直接序列化。
+                // 採 single-line JSON（CSV cell 內換行不友善），csv crate 會自動 quote 含逗號 / 引號的字串。
+                let changed_fields = log
+                    .changed_fields
+                    .as_ref()
+                    .map(|v| v.join("; "))
+                    .unwrap_or_default();
+                let before_str = log
+                    .before_data
+                    .as_ref()
+                    .map(|v| serde_json::to_string(v).unwrap_or_default())
+                    .unwrap_or_default();
+                let after_str = log
+                    .after_data
+                    .as_ref()
+                    .map(|v| serde_json::to_string(v).unwrap_or_default())
+                    .unwrap_or_default();
+
                 wtr.write_record([
                     created_at.as_str(),
                     actor,
@@ -181,6 +213,9 @@ pub async fn export_audit_logs(
                     entity_name,
                     log.ip_address.as_deref().unwrap_or(""),
                     suspicious,
+                    changed_fields.as_str(),
+                    before_str.as_str(),
+                    after_str.as_str(),
                 ])
                 .map_err(|e| AppError::Internal(format!("CSV write error: {}", e)))?;
             }

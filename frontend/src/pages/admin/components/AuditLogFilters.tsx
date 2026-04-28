@@ -18,12 +18,15 @@ interface AuditLogFiltersProps {
   entityTypeFilter: string
   dateFrom: string
   dateTo: string
+  /** R30-14: 自由文字搜尋（操作者 / 實體 / 事件 / IP） */
+  searchQuery: string
   availableEntityTypes: { value: string; label: string }[]
   onUserChange: (val: string) => void
   onCategoryChange: (val: string) => void
   onEntityTypeChange: (val: string) => void
   onDateFromChange: (val: string) => void
   onDateToChange: (val: string) => void
+  onSearchQueryChange: (val: string) => void
 }
 
 export function AuditLogFilters({
@@ -33,12 +36,14 @@ export function AuditLogFilters({
   entityTypeFilter,
   dateFrom,
   dateTo,
+  searchQuery,
   availableEntityTypes,
   onUserChange,
   onCategoryChange,
   onEntityTypeChange,
   onDateFromChange,
   onDateToChange,
+  onSearchQueryChange,
 }: AuditLogFiltersProps) {
   return (
     <Card>
@@ -48,7 +53,18 @@ export function AuditLogFilters({
           搜尋條件
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="audit-search">關鍵字搜尋</Label>
+          <Input
+            id="audit-search"
+            type="text"
+            placeholder="搜尋操作者 / 實體名稱 / 事件 / IP（最多 100 字）"
+            value={searchQuery}
+            maxLength={100}
+            onChange={(e) => onSearchQueryChange(e.target.value)}
+          />
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="space-y-2">
             <Label>操作者</Label>

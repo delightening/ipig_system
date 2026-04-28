@@ -12,6 +12,135 @@ import { formatDate, formatTime } from '@/lib/utils'
 
 import { categoryLabels, eventTypeLabels, entityTypeLabels } from '../constants/auditLogs'
 
+// R30-13: 逐 key diff 工具與 DiffView component
+type JsonObj = Record<string, unknown>
+
+function isPlainObject(v: unknown): v is JsonObj {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+/** 將值轉為單行字串以便顯示。物件/陣列用 JSON.stringify。 */
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined) return '∅'
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  try {
+    return JSON.stringify(v)
+  } catch {
+    return String(v)
+  }
+}
+
+interface DiffRow {
+  key: string
+  kind: 'removed' | 'added' | 'modified' | 'unchanged'
+  before?: unknown
+  after?: unknown
+  /** 是否在 changed_fields 清單中（service 層回報） */
+  highlighted: boolean
+}
+
+function computeDiffRows(
+  before: unknown,
+  after: unknown,
+  changedFields: string[] | null | undefined,
+): DiffRow[] {
+  const beforeObj: JsonObj = isPlainObject(before) ? before : {}
+  const afterObj: JsonObj = isPlainObject(after) ? after : {}
+  const allKeys = Array.from(new Set([...Object.keys(beforeObj), ...Object.keys(afterObj)])).sort()
+  const changedSet = new Set(changedFields ?? [])
+
+  return allKeys.map<DiffRow>((key) => {
+    const inBefore = key in beforeObj
+    const inAfter = key in afterObj
+    const bVal = beforeObj[key]
+    const aVal = afterObj[key]
+
+    let kind: DiffRow['kind']
+    if (inBefore && !inAfter) kind = 'removed'
+    else if (!inBefore && inAfter) kind = 'added'
+    else if (formatValue(bVal) !== formatValue(aVal)) kind = 'modified'
+    else kind = 'unchanged'
+
+    return {
+      key,
+      kind,
+      before: bVal,
+      after: aVal,
+      highlighted: changedSet.has(key),
+    }
+  })
+}
+
+interface DiffViewProps {
+  before: unknown
+  after: unknown
+  changedFields: string[] | null | undefined
+}
+
+function DiffView({ before, after, changedFields }: DiffViewProps) {
+  const rows = computeDiffRows(before, after, changedFields)
+  // 若無法呈現為物件 diff（兩邊都不是 plain object），fallback 為 raw JSON
+  const fallback = !isPlainObject(before) && !isPlainObject(after)
+  if (fallback) {
+    return (
+      <pre className="mt-1 p-3 bg-muted/50 border rounded-md text-sm overflow-x-auto">
+        {JSON.stringify({ before, after }, null, 2)}
+      </pre>
+    )
+  }
+
+  return (
+    <div className="mt-1 border rounded-md divide-y text-sm overflow-hidden">
+      {rows.length === 0 ? (
+        <div className="p-3 text-muted-foreground italic">無欄位變動</div>
+      ) : (
+        rows.map((row) => {
+          const baseRow = 'grid grid-cols-[auto_1fr_auto_1fr] gap-2 px-3 py-1.5 items-start'
+          const ringCls = row.highlighted ? 'ring-1 ring-status-warning-text/40' : ''
+          if (row.kind === 'removed') {
+            return (
+              <div key={row.key} className={`${baseRow} bg-status-error-bg ${ringCls}`}>
+                <span className="font-mono text-xs font-semibold">{row.key}</span>
+                <span className="line-through break-all">{formatValue(row.before)}</span>
+                <span className="text-muted-foreground">→</span>
+                <span className="text-muted-foreground italic">已移除</span>
+              </div>
+            )
+          }
+          if (row.kind === 'added') {
+            return (
+              <div key={row.key} className={`${baseRow} bg-status-success-bg ${ringCls}`}>
+                <span className="font-mono text-xs font-semibold">{row.key}</span>
+                <span className="text-muted-foreground italic">未存在</span>
+                <span className="text-muted-foreground">→</span>
+                <span className="break-all">{formatValue(row.after)}</span>
+              </div>
+            )
+          }
+          if (row.kind === 'modified') {
+            return (
+              <div key={row.key} className={`${baseRow} bg-status-warning-bg ${ringCls}`}>
+                <span className="font-mono text-xs font-semibold">{row.key}</span>
+                <span className="line-through break-all opacity-70">{formatValue(row.before)}</span>
+                <span className="text-muted-foreground">→</span>
+                <span className="break-all">{formatValue(row.after)}</span>
+              </div>
+            )
+          }
+          // unchanged
+          return (
+            <div key={row.key} className={`${baseRow} text-muted-foreground/80`}>
+              <span className="font-mono text-xs">{row.key}</span>
+              <span className="break-all col-span-3">{formatValue(row.after)}</span>
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
 /** R26-6 HMAC 編碼版本標籤對照 */
 const HMAC_VERSION_LABELS: Record<number, string> = {
   1: 'v1 (legacy string-concat)',
@@ -122,21 +251,23 @@ export function ActivityLogDetailDialog({ selectedLog, onClose }: ActivityLogDet
               </div>
             )}
 
-            {selectedLog.before_data && (
+            {/* R30-13: 逐 key diff，三色標示新增 / 移除 / 修改；
+                changed_fields 在右側加 ring 強調 */}
+            {(selectedLog.before_data || selectedLog.after_data) && (
               <div>
-                <Label className="text-muted-foreground">變更前資料</Label>
-                <pre className="mt-1 p-3 bg-status-error-bg border border-destructive/20 rounded-md text-sm overflow-x-auto">
-                  {JSON.stringify(selectedLog.before_data, null, 2)}
-                </pre>
-              </div>
-            )}
-
-            {selectedLog.after_data && (
-              <div>
-                <Label className="text-muted-foreground">變更後資料</Label>
-                <pre className="mt-1 p-3 bg-status-success-bg border border-status-success-text/20 rounded-md text-sm overflow-x-auto">
-                  {JSON.stringify(selectedLog.after_data, null, 2)}
-                </pre>
+                <Label className="text-muted-foreground">資料變更比對</Label>
+                <DiffView
+                  before={selectedLog.before_data}
+                  after={selectedLog.after_data}
+                  changedFields={selectedLog.changed_fields}
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  色彩說明：
+                  <span className="ml-1 px-1 bg-status-error-bg">紅</span> 移除、
+                  <span className="ml-1 px-1 bg-status-success-bg">綠</span> 新增、
+                  <span className="ml-1 px-1 bg-status-warning-bg">黃</span> 修改。
+                  灰色為未變動欄位，外框強調為 changed_fields 標示之欄位。
+                </p>
               </div>
             )}
 

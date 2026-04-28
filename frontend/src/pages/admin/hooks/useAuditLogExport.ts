@@ -23,6 +23,8 @@ interface ExportParams {
   categoryFilter: string
   entityTypeFilter: string
   userFilter: string
+  /** R30-14: 自由文字搜尋（已 debounce） */
+  searchQuery?: string
 }
 
 function buildExportQueryString(params: ExportParams): string {
@@ -32,6 +34,7 @@ function buildExportQueryString(params: ExportParams): string {
   if (params.categoryFilter !== 'all') qs.set('event_category', params.categoryFilter)
   if (params.entityTypeFilter !== 'all') qs.set('entity_type', params.entityTypeFilter)
   if (params.userFilter !== 'all') qs.set('user_id', params.userFilter)
+  if (params.searchQuery && params.searchQuery.trim()) qs.set('query', params.searchQuery.trim())
   return qs.toString()
 }
 
