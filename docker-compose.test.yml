@@ -69,6 +69,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # E2E 覆蓋率：production build 開 hidden source map，供 Playwright V8 coverage 對回 .ts
+        VITE_E2E_COVERAGE: "1"
     container_name: ipig-web-test
     ports:
       - "8080:80"   # host:container（nginx 聽 80，CI/Playwright 用 localhost:8080）

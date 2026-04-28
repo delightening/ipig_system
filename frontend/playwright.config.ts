@@ -31,6 +31,29 @@ const authDir = path.join(__dirname, 'e2e', '.auth')
  */
 const runFirefox = process.env.PLAYWRIGHT_FIREFOX === '1'
 const runWebKit = process.env.PLAYWRIGHT_WEBKIT === '1'
+const collectCoverage = process.env.E2E_COVERAGE === '1'
+
+// monocart-reporter：聚合 V8 coverage entries（fixtures/coverage.ts 寫入），
+// 透過 hidden source map 還原到 src/*.ts，輸出 lcov + html。
+const coverageReporter: any[] = collectCoverage
+    ? [
+          [
+              'monocart-reporter',
+              {
+                  name: 'E2E Coverage',
+                  outputFile: './monocart-report/index.html',
+                  coverage: {
+                      entryFilter: (entry: { url: string }) =>
+                          entry.url.includes('localhost:8080') &&
+                          !entry.url.includes('node_modules'),
+                      sourceFilter: (sourcePath: string) => sourcePath.search(/src\//) !== -1,
+                      reports: [['lcovonly', { file: 'lcov.info' }], ['v8'], ['console-summary']],
+                      outputDir: './monocart-report/coverage',
+                  },
+              },
+          ],
+      ]
+    : []
 
 export default defineConfig({
     testDir: './e2e',
@@ -40,8 +63,10 @@ export default defineConfig({
     timeout: 30_000,
 
     reporter: process.env.CI
-        ? [['github'], ['html', { open: 'never' }]]
-        : 'html',
+        ? [['github'] as any, ['html', { open: 'never' }] as any, ...coverageReporter]
+        : collectCoverage
+          ? [['html'] as any, ...coverageReporter]
+          : 'html',
 
     use: {
         baseURL: process.env.E2E_BASE_URL || 'http://localhost:8080',

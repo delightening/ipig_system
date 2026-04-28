@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // https://vitejs.dev/config/
+// E2E coverage：CI 跑 Playwright 收集 V8 coverage 時，需 source map 把 minified
+// bundle 對回 .ts 原始檔。由 docker-compose.test.yml 傳入 build arg 觸發。
+const e2eCoverage = process.env.VITE_E2E_COVERAGE === '1'
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -12,6 +16,7 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 600, // vendor chunks 可能略超 500KB
+    sourcemap: e2eCoverage ? 'hidden' : false,
     rollupOptions: {
       output: {
         // Rollup 5 (Vite 8) 移除 manualChunks 的 object 形式，僅支援 function 形式。
