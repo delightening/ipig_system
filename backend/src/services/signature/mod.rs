@@ -507,6 +507,95 @@ impl SignatureService {
         }
     }
 
+    /// tx-aware 統一簽章建立：在呼叫者管理的 tx 內 INSERT electronic_signatures。
+    ///
+    /// 與 `sign_record` 的差異：
+    ///   - INSERT 走呼叫者的 `&mut Transaction`（caller commit / rollback 時才落地）
+    ///   - 密碼驗證仍走 `pool`（read-only，與 tx 隔離無關）
+    ///
+    /// 用途：caller 已開 tx 處理 row lock + status guard + UPDATE，需簽章與這些操作原子。
+    /// 失敗（密碼錯 / 缺手寫 / DB error）會把 Err 傳上去，由 caller drop tx 即 rollback。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn sign_record_tx<'c>(
+        tx: &mut sqlx::Transaction<'c, sqlx::Postgres>,
+        pool: &PgPool,
+        entity_type: &str,
+        entity_id: &str,
+        signer_id: Uuid,
+        sig_type: SignatureType,
+        content: &str,
+        password: Option<&str>,
+        handwriting_svg: Option<&str>,
+        stroke_data: Option<&JsonValue>,
+    ) -> Result<ElectronicSignature> {
+        let has_password = password.is_some_and(|p| !p.is_empty());
+        let has_handwriting = handwriting_svg.is_some_and(|s| !s.is_empty());
+
+        if !has_password && !has_handwriting {
+            return Err(AppError::Validation("請提供密碼或手寫簽名".into()));
+        }
+
+        // SEC-BIZ-3：手寫 + 密碼雙因子；純密碼也要驗。AuthService 走獨立 pool 連線
+        // 是 read-only，不影響 caller 的 row lock。
+        let pwd = password
+            .filter(|p| !p.is_empty())
+            .ok_or_else(|| {
+                if has_handwriting {
+                    AppError::Validation("手寫簽章仍需輸入密碼以驗證身分".into())
+                } else {
+                    AppError::Internal("missing password".into())
+                }
+            })?;
+        let user = AuthService::verify_password_by_id(pool, signer_id, pwd)
+            .await
+            .map_err(|_| AppError::Unauthorized)?;
+
+        // 建簽章資料；method 依是否帶手寫決定
+        let content_hash = Self::compute_hash(content);
+        let timestamp = Utc::now();
+        let hash_input: &str = if has_handwriting {
+            "handwriting"
+        } else {
+            user.password_hash.as_str()
+        };
+        let signature_input = format!(
+            "{}:{}:{}:{}",
+            signer_id,
+            content_hash,
+            timestamp.timestamp(),
+            hash_input
+        );
+        let signature_data = Self::compute_hash(&signature_input);
+        let signature_method = if has_handwriting { "handwriting" } else { "password" };
+
+        let signature = sqlx::query_as::<_, ElectronicSignature>(
+            r#"
+            INSERT INTO electronic_signatures (
+                entity_type, entity_id, signer_id, signature_type,
+                content_hash, signature_data, ip_address, user_agent,
+                handwriting_svg, stroke_data, signature_method
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING *
+            "#,
+        )
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(signer_id)
+        .bind(sig_type.as_str())
+        .bind(&content_hash)
+        .bind(&signature_data)
+        .bind(None::<&str>)
+        .bind(None::<&str>)
+        .bind(handwriting_svg.filter(|s| !s.is_empty()))
+        .bind(stroke_data)
+        .bind(signature_method)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        Ok(signature)
+    }
+
     /// 統一簽章請求處理：驗證輸入 → 依模式建立簽章
     #[allow(clippy::too_many_arguments)]
     pub async fn sign_record(

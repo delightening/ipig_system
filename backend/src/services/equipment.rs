@@ -1087,6 +1087,93 @@ impl EquipmentService {
         Ok(record)
     }
 
+    /// 為維修保養紀錄建立驗收簽章，與 record UPDATE 同 tx 原子。
+    ///
+    /// 流程（同一 tx 內）：
+    ///   1. RBAC：`equipment.maintenance.review` / `equipment.manage`
+    ///   2. SELECT FOR UPDATE 鎖 row + 狀態守衛（pending_review / 未簽過）
+    ///   3. `SignatureService::sign_record_tx` 寫 electronic_signatures
+    ///   4. UPDATE equipment_maintenance_records.reviewer_signature_id
+    ///   5. audit log（service 層 log_activity_tx，21 CFR §11.10 audit trail）
+    ///
+    /// 任何步驟失敗 → 整個 tx rollback，不留簽章孤兒。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn sign_maintenance_review_tx(
+        pool: &PgPool,
+        actor: &ActorContext,
+        record_id: Uuid,
+        sig_type: super::SignatureType,
+        password: Option<&str>,
+        handwriting_svg: Option<&str>,
+        stroke_data: Option<&serde_json::Value>,
+    ) -> Result<super::ElectronicSignature> {
+        let current_user = actor.require_user()?;
+        super::access::require_equipment_review(current_user)?;
+
+        let mut tx = pool.begin().await?;
+
+        let existing = sqlx::query_as::<_, EquipmentMaintenanceRecord>(
+            "SELECT * FROM equipment_maintenance_records WHERE id = $1 FOR UPDATE",
+        )
+        .bind(record_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound("維修保養紀錄不存在".into()))?;
+
+        if existing.status != MaintenanceStatus::PendingReview {
+            return Err(AppError::BadRequest("此紀錄非待驗收狀態，無法簽章".into()));
+        }
+        if existing.reviewer_signature_id.is_some() {
+            return Err(AppError::Conflict("此紀錄已簽章，不得覆寫".into()));
+        }
+
+        let content = format!("maintenance_reviewer:{}", record_id);
+        let signature = super::SignatureService::sign_record_tx(
+            &mut tx,
+            pool,
+            "maintenance_reviewer",
+            &record_id.to_string(),
+            current_user.id,
+            sig_type,
+            &content,
+            password,
+            handwriting_svg,
+            stroke_data,
+        )
+        .await?;
+
+        let updated = sqlx::query_as::<_, EquipmentMaintenanceRecord>(
+            "UPDATE equipment_maintenance_records \
+             SET reviewer_signature_id = $1, updated_at = NOW() WHERE id = $2 \
+             RETURNING *",
+        )
+        .bind(signature.id)
+        .bind(record_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let display = format!(
+            "maintenance_reviewer_signature:{:?}",
+            updated.maintenance_type
+        );
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "EQUIPMENT",
+                event_type: "MAINTENANCE_REVIEWER_SIGNATURE",
+                entity: Some(AuditEntity::new("maintenance_record", record_id, &display)),
+                data_diff: Some(DataDiff::compute(Some(&existing), Some(&updated))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(signature)
+    }
+
     // ========== Disposal Records (報廢) ==========
 
     pub async fn list_disposals(

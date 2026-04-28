@@ -303,3 +303,19 @@ pub async fn require_iacuc_protocol_access(
     require_protocol_related_access(pool, current_user, protocol_id).await?;
     Ok(protocol_id)
 }
+
+// ============================================
+// 設備驗收存取權限檢查
+// ============================================
+
+/// 維修保養紀錄驗收權限：`equipment.maintenance.review` 或 `equipment.manage`
+/// 與 `EquipmentService::review_maintenance_record` 一致，用於 sign handler。
+pub fn require_equipment_review(current_user: &CurrentUser) -> Result<()> {
+    if current_user.has_permission("equipment.maintenance.review")
+        || current_user.has_permission("equipment.manage")
+    {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("無權驗收維修保養紀錄".into()))
+    }
+}
