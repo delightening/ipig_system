@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-04-27 (v26)
+> **最後更新：** 2026-04-28 (v27)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -185,6 +185,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-28 Migration 037 checksum 修復 + 本地環境同步
+
+- ✅ **Migration 037 checksum mismatch 修復**：dev DB 在 2026-04-27 已套用舊版 037（commit `be467a5e`），PR #240 的純註解修正 (`ace7c379`) 改變 sqlx checksum，啟動 api 觸發「migration 37 was previously applied but has been modified」rejection。確認 diff 僅為 SQL 註解（零 SQL 行為變化）後，`DELETE FROM _sqlx_migrations WHERE version = 37`，重啟 api → sqlx 自動重跑 037（`IF NOT EXISTS` + nullable column，idempotent），v37/v38/v39 全 success=true。**ops note**：未來若拉到含註解修改的 migration PR，dev/staging 都可採此模式；prod 應改用 `SKIP_MIGRATION_CHECK=true` 一次性 env var。
+- ✅ **本地 main fast-forward 至 origin/main**：含 R28 second-pass 6 條 Medium、PR #241、R29-1/2/3 backlog、lucide-react 1.11.0 等。
+
 ### 2026-04-27 R29-3 i18next 26 升級完成（PR #242 `8b2e68d0`，含 CWE-117 / ReDoS security）
 
 R29-3 backlog 提前完成。實際工時 ~30 min，遠低於原估 2-4h。
@@ -213,7 +218,7 @@ R29-3 backlog 提前完成。實際工時 ~30 min，遠低於原估 2-4h。
 - "patch-updates" 標籤不可盲信 — 即使 dependabot 自己歸類 patch，group bump 也可能挾帶 type-sensitive 套件升級。**必須以 CI tsc 為最終判據**。
 - 5 個 LOW PR 順序 merge 中 sandbox 對 `gh pr view` 的 batch read-only 也擋過一次（rate limit / per-PR 授權），但實際 merge 都正常通過。
 
-
+### 2026-04-27 Open PR 風險分流 — lucide ADOPT-NOW、react-router/i18next DEFER（ClawSweeper）
 
 對 9 個 open dependabot PR 中 3 個被預判為 HIGH 風險的 major bump 做 ClawSweeper-style risk assessment。
 
