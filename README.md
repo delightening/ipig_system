@@ -20,14 +20,14 @@
 
 ### What
 - **CRO 級實驗動物管理系統**，整合 IACUC 計畫、動物紀錄、實驗執行、HR 與庫存
-- **多研究案並行 + 客戶資料隔離（multi-study / multi-sponsor）**：同時 active 10–30 個 study，不同 sponsor 之間資料嚴格隔離
+- **多研究案並行 + 客戶資料隔離（multi-study / multi-sponsor）**：每年 10–30 個 active study annually，不同 sponsor 之間資料嚴格隔離
 - **對齊 GLP + 21 CFR Part 11 + OECD §10**：HMAC chain audit、electronic signature with meaning、record lock、append-only triggers、20 年 retention 排程，完整支援客戶稽核與主管機關（FDA / PMDA / EMA）資料還原
 - **單頁應用 + REST API**：Rust + Axum 後端、React + TypeScript 前端、PostgreSQL 16
 
 ### Scale（典型營運規模）
 - **人員：~20 人** — 研究獸醫、技術員、QAU、IT admin、業務 / 客戶聯繫
 - **動物：同時養 100–200 隻豬** — 中型 CRO 規模，個體照顧而非群體管理
-- **同時 active：10–30 個 study** — 來自不同 sponsor，需 multi-tenant 等級的資料隔離
+- **每年 active study：10–30 個** — 來自不同 sponsor，需 multi-tenant 等級的資料隔離
 - **資料量級**：年增 ~3–5 GB DB（user_activity_logs 為主）+ ~30–50 GB 附件（影像、報告、簽章 PDF）；20 年 retention 累積仍在 PostgreSQL + 本地 NAS / 雲端冷儲存可負擔範圍
 
 ### Who
