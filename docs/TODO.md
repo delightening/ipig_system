@@ -1942,7 +1942,7 @@ ORDER BY 1 DESC;
 | R28-1 | **observation 服務層仍重複查 animal** | `AnimalObservationService::create` 內部 audit log 邏輯也呼叫 `AnimalService::get_by_id`（observation.rs L113），handler + service 全程仍有 2 次重複查詢。R27-10 (PR #221) 只解了 handler 內的 2→1，service 層的 1 次仍在。深層修法需動 service 簽名（回傳 `(Observation, Animal)` 或讓 handler pre-fetch 傳入）— breaking change 跨多 callers，獨立 PR 處理。來源：Gemini PR #221 Medium。LOW | [ ] |
 | R28-2 | **concurrent audit write 整合測試提升至 10 並行** | `backend/tests/api_audit_r26.rs` L259 並行度為 3（pool max=5 限制保守值），規劃中為 10。需先擴 TestApp pool max_connections ≥12 再補測試。來源：R26 review。MEDIUM。**已完成（PR #236 `f46f762e`）** | [x] |
 | R28-3 | **掃描 upsert pattern 是否還有 SELECT FOR UPDATE 遺漏** | PR #197 R26-13 修了 `storage_location.rs`，但其他 module（product / equipment / partner）的 upsert (`ON CONFLICT DO UPDATE`) 樣式可能仍有遺漏。grep `INSERT.*ON CONFLICT DO UPDATE` 全 backend，逐一驗證是否需改為顯式 SELECT FOR UPDATE + 分支以保證 audit before snapshot 正確 + 並發安全。來源：R26 review。MEDIUM (security-adjacent)。**已完成（PR #234 `255bdd4e`，含 system_settings audit 補全）** | [x] |
-| R28-4 | **ActorContext::Anonymous 適用情境文檔化** | `middleware/actor.rs` 的 Anonymous 變體目前用於 login attempt + CSP report；HMAC fallback 用 SYSTEM_USER_ID。新增 anonymous 事件（rate limit block 等）易遺漏一致性。建議在 CLAUDE.md Backend section 加 subsection 列舉已知 Anonymous 場景 + Anonymous HMAC 必用 SYSTEM_USER_ID 的規範。來源：R26 review。LOW | [ ] |
+| R28-4 | **ActorContext::Anonymous 適用情境文檔化** | `middleware/actor.rs` Anonymous 變體用於 login attempt + CSP report；HMAC fallback 用 SYSTEM_USER_ID。新增 anonymous 事件（rate limit block 等）易遺漏一致性。**已完成**：CLAUDE.md §4 Backend 加 ActorContext::Anonymous subsection — 列 5 個已知場景（LOGIN_FAILED / CSP_VIOLATION / HONEYPOT_HIT / RATE_LIMIT_EXCEEDED / IDOR_PROBE）+ 3 條規範（HMAC chain 用 SYSTEM_USER_ID / service 層拒絕 Anonymous mutation / 新增事件 checklist）。LOW | [x] |
 | R28-5 | **HMAC versioning backfill 完成度監控** | `migration 037` 後新 row 帶 `hmac_version=1`，舊 row 為 NULL；verifier 採 try-both fallback。需 dashboard 監控「`hmac_version IS NULL` row 數量」（目標 → 0）+ 記載「try-both fallback 預期何時可移除」。staging migration 確認後納入移除規劃。來源：R26 review。MEDIUM (production safety)。**部分完成**（PR #240 `ace7c379` 補 `docs/security/HMAC_VERSIONING.md` 三階段 backfill 計畫；dashboard 監控 + 實際 backfill SQL 留 R29 deploy-time） | [ ] |
 | R28-6 | **Shell script + Docker 邊界 case 自動化測試** | `frontend/docker-entrypoint.sh` 邏輯（trim、fail-fast、唯讀路徑判斷）只手動驗證，無 CI 自動測試。建議：(1) `sh -n` 語法檢查 (2) docker run with `API_BACKEND_URL=""` / `"  "` / valid 三組驗證；放 `frontend/test-entrypoint.sh` + CI step。來源：R27 review (PR #217)。MEDIUM。**已完成（PR #236 `f46f762e`）** | [x] |
 | R28-7 | **Admin permission cache 效能基準** | PR #218 admin 改走 always-load 4-table JOIN（cache miss 才跑），commit message 宣稱「微小 cost」但缺實測。建議用 `ipig_permission_cache_requests_total{result="miss"}` filter admin 看實際 miss QPS + 平均延遲；確認 5min TTL 設計合理。來源：R27 review (PR #218)。MEDIUM | [ ] |
@@ -2012,9 +2012,9 @@ ORDER BY 1 DESC;
 | 🔒 R25 安全基礎設施補強 | 0 (5 完成) |
 | 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
 | 🔧 R27 E2E + bot review 後續清理 | 0 (9 完成) |
-| 🔧 R28 bot review + R26/R27 code review 發現 | 6 (3 完成 R28-2/3/6 + 6 second-pass M1-M6 完成；R28-1/4/5/7/8/9 待 R29) |
+| 🔧 R28 bot review + R26/R27 code review 發現 | 5 (R28-2/3/4/6 完成 + 6 second-pass M1-M6 完成；R28-1/5/7/8/9 待後續) |
 | 🔧 R29 ClawSweeper review follow-up | 1 (R29-5 Tailwind 4 — DEFER 至 2026-07-28；R29-1/2/3/4/6 已完成) |
-| **合計（未完成）** | **20** |
+| **合計（未完成）** | **19** |
 
 ---
 
