@@ -35,14 +35,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "dialog-scroll-container fixed z-50 w-full overflow-y-auto bg-background border shadow-lg grid gap-4 p-6",
+        "dialog-scroll-container fixed z-50 w-full max-w-lg overflow-y-auto bg-background border shadow-lg grid gap-4 p-6",
         // Mobile: anchored to bottom, slides up
         "inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl",
         "data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom",
         "data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom",
         // Desktop: centered dialog
         "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
-        "sm:max-w-lg sm:max-h-[90vh] sm:rounded-lg",
+        "sm:max-h-[90vh] sm:rounded-lg",
         "sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:fade-in-0",
         "sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=closed]:fade-out-0",
         "duration-300",
