@@ -56,7 +56,10 @@ const coverageReporter: any[] = collectCoverage
                       entryFilter: (entry: { url: string }) =>
                           entry.url.startsWith(baseOrigin) &&
                           !entry.url.includes('node_modules'),
-                      sourceFilter: (sourcePath: string) => sourcePath.search(/src\//) !== -1,
+                      // 只收 frontend/src/*；排除 node_modules（含 .pnpm 內的 d3-array
+                      // 等內部 src/ 結構，會被 /src\// 寬鬆規則誤吃）。
+                      sourceFilter: (sourcePath: string) =>
+                          sourcePath.startsWith('src/') && !sourcePath.includes('node_modules'),
                       reports: [['lcovonly', { file: 'lcov.info' }], ['v8'], ['console-summary']],
                       outputDir: './monocart-report/coverage',
                   },
