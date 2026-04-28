@@ -185,6 +185,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **格式規範：** 反向時間序（新→舊）。每個條目：`### YYYY-MM-DD 標題` + `- ✅ **粗體摘要**：細節`。
 > 此處為全專案唯一的變更日誌，TODO.md 變更紀錄已封存。
 
+### 2026-04-28 R29-5 提前實作（DEFER 反轉） + R30 三軸 Code Review 立項
+
+- ✅ **R29-5 Tailwind 3.4 → 4.2 升級提前實作（PR #258 merged）**：原計畫 DEFER 至 2026-07-28，當日改為提前 ship。採 `@config "../tailwind.config.js"` 過渡路徑（保留既有 v3 JS config，避免一次到位 CSS `@theme` 改寫）。變更：tailwindcss 3.4.19 → 4.2.4 / 新增 @tailwindcss/postcss / 移除 @tailwindcss/container-queries + autoprefixer（v4 內建）/ `@import "tailwindcss"` 取代 `@tailwind` directives / `@custom-variant dark` 對齊 .dark class-based 切換。順帶修復 5 項：(1) **Dialog 預設 `sm:max-w-lg` → `max-w-lg`**（修 twMerge 不同 scope 無法去重 bug，影響 7+ 個 dialog 寬度 override 失效，例如 AuditAlertDetailDialog 從 512px 變回 1024px）；(2) **Dialog 加 `mx-auto`** 修 viewport 512-639px 靠左 bug（Gemini review 建議）；(3) **全域 `scrollbar-gutter: stable`** 規則涵蓋 60+ 個 scroll container（防 tab 切換 1-2px 抖動）；(4) **ProtocolEditPage 側欄 280→320px** 替代 truncate 處理 i18n 長翻譯（依使用者偏好不省略文字）；(5) **「下一個必填空白欄位」按鈕**收斂為內容自然寬度。Follow-up 列入 R30-J（R29-5b：v4 class rename codemod，`shadow-sm`×21 / `outline-none`×33 / `flex-shrink-0`×13）。
+- ⚠️ **PR #257 docs (R29-5 DEFER 文字) 與 PR #258 (實作) 並存於 main**：時序問題導致 docs 與現實短暫不一致，本 PR (`docs/r29-r30-update`) 修正 R29-5 狀態為「已完成」並補上 R30 立項。
+- ✅ **R30 三軸 Code Review 立項（40 項任務 / 9 階段 + 1 R29 follow-up）**：對 ipig_system 全棧做併發協調 / 操作日誌 / GLP 合規三軸平行掃描，產出 `docs/codeReviewFindings.md`。三軸交叉最弱點為 `euthanasia` 模組（無 tx + 無 audit + 無簽章保護）；GLP CRITICAL 缺口 4 項（簽章單因素、`signature_data` 非 HMAC、`electronic_signatures` 不在 chain、IDXF 漏 19 表 + soft-delete 未強制）。原 42 項中經 codebase 驗證移除 3 項誤報（amendment_versions 已有 `UNIQUE`、animals 已 soft-delete、audit_chain_verify 排程已註冊），修訂 6 項措辭精準化。階段：A euthanasia 補強 / B protocol body lost update / C 簽章升級 §11.200 / D audit 顯示與匯出 / E soft-delete + retention + IDXF / F append-only DB 防護 / G IQ-PQ + 變更控制 / H 漏 audit 路徑補齊 / I GLP 文件補完 / J R29-5b。總預估 125-177 小時；R30-A 為 pattern 驗證 PR，做完必停。
+
+
 ### 2026-04-28 R29 系列收尾 — R29-1/2/4/6 全 merge + R29-5 Tailwind 4 決策 DEFER
 
 R29 ClawSweeper review follow-up backlog 從 6 條收斂到 1 條（剩 R29-5）。

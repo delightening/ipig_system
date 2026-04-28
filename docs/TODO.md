@@ -1979,6 +1979,112 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🔍 R30 — 三軸 Code Review 後續（併發 / 操作日誌 / GLP 合規，2026-04-28）
+
+> 來源：`docs/codeReviewFindings.md`（三 agent 平行掃描，已逐項以 codebase 驗證）。
+> 三軸交叉最弱點為 `euthanasia` 模組 → 必須最先。階段順位 A → D → C → B → E+F → G → H → I（A 為 pattern 驗證 PR，做完必停）。
+
+### A. Euthanasia 三軸補強（CRITICAL，pattern 驗證 PR，做完必停）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-1 | **`euthanasia.rs` 套 R26 pattern**：`pi_approve` (line 167) / `pi_appeal` (line 217) / `chair_decide` (line 312) 改為 `tx + SELECT … FOR UPDATE + version 樂觀鎖` | 已驗證：三 fn 全用 `&PgPool` 直接讀寫無 tx、無 FOR UPDATE。對齊 `animal/core/update.rs:42-165` | [ ] |
+| R30-2 | **`euthanasia.rs` 補 audit-in-tx** | 已驗證：`services/euthanasia.rs` + `handlers/euthanasia.rs` grep `log_activity` 兩檔 0 命中 | [ ] |
+| R30-3 | **euthanasia 通知改 outbox 或同 tx 寫入** | 已驗證：line 88, 98, 210, 304, 467, 514 共 5 處 `tracing::warn!` 吞訊 | [ ] |
+| R30-4 | **euthanasia 高敏感操作（execute / appeal）強制簽章** | 已驗證：grep `signature` / `sign_record` 0 命中 | [ ] |
+
+### B. Protocol body lost update（HIGH）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-5 | **`services/protocol/core.rs:343-399` UPDATE 加 version optimistic lock** | 已驗證：schema `migrations/007:24` 已有 `version` 欄但 update SQL 未使用、未遞增 | [ ] |
+| R30-6 | **前端 mutation 統一帶 version** | 已驗證：UpdateProtocolRequest / UpdateAmendmentRequest / UpdateAnimalRequest 三 interface 皆無 version | [ ] |
+
+### C. 簽章系統升級 §11.200（CRITICAL，每個子 PR 後必停）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-7 | **`signature_data` 改 HMAC-SHA256 + 集中密鑰** | 已驗證：`signature/mod.rs:181, 568` 用 `Sha256::digest` 純雜湊無 HMAC | [ ] |
+| R30-8 | **`sign_record` 強制 2FA**（密碼 + TOTP） | 已驗證：`services/signature/` grep `two_factor`/`totp` 0 命中 | [ ] |
+| R30-9 | **`electronic_signatures` 加入 audit chain + invalidate 寫 audit** | 已驗證：audit_chain_verify.rs / audit.rs 均無 electronic_signatures 引用 | [ ] |
+| R30-10 | **`signatures.meaning TEXT NOT NULL`** | 已驗證：`migrations/003:173-191` schema 無 meaning/reason 欄位（§11.50(a)(3)） | [ ] |
+
+### D. Audit log 顯示與匯出（MEDIUM，稽核可見度高）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-11 | **`handlers/audit.rs:169` CSV 時區改 GMT+8** | 已驗證：line 169 明確 `with_timezone(&Utc)` | [ ] |
+| R30-12 | **CSV 匯出補 before/after + changed_fields 欄位** | 已驗證：CSV header 9 欄無任一 diff 欄 | [ ] |
+| R30-13 | **前端 diff 顯示 key-by-key + highlight `changed_fields`** | 已驗證：ActivityLogDetailDialog.tsx:129,138 用 `JSON.stringify` 兩塊 dump | [ ] |
+| R30-14 | **Audit log 自由文字搜尋** | 已驗證：models/audit.rs:210-221 ActivityLogQuery 無 search 欄 | [ ] |
+| R30-15 | **`AuditLogTable` 套 container-queries / 卡片化** | 走 `system_table_chats` skill 流程 | [ ] |
+
+### E. Soft-delete + retention + IDXF 補表（CRITICAL）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-16 | **移除 legacy hard delete fn，統一走 soft-delete `*_with_reason()`** | 已驗證：observation.rs:267 / surgery.rs:299 / medical.rs:179 / blood_test.rs:232,509,808 / weight.rs:186 仍 `DELETE FROM` | [ ] |
+| R30-17 | **新增跨表 retention policy 表 + 排程** | 已驗證：`migrations/016:196` 僅 `controlled_documents.retention_years`，無跨表 policy 表 | [ ] |
+| R30-18 | **IDXF 漏 19 表補齊 + 覆蓋率測試** | 已驗證：`data_export.rs:43-181` 列 ~140 表，migrations 共 ~130 唯一表，實際漏 19 張 | [ ] |
+| R30-19 | **`data_export.rs::include_audit` 預設改 true** | 已驗證：`data_export.rs:33` 預設 false | [ ] |
+
+### F. Append-only DB 防護（HIGH，與 E 同 PR 為佳）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-20 | **`user_activity_logs` 補 BEFORE DELETE trigger** | 已驗證：`migrations/012:90-131` 已有 BEFORE UPDATE trigger，缺 BEFORE DELETE | [ ] |
+| R30-21 | **`electronic_signatures` 加 immutability trigger** | 已驗證：electronic_signatures 表完全無 trigger | [ ] |
+
+### G. IQ/PQ + 變更控制（HIGH）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-22 | **`/api/internal/version` endpoint** | 已驗證：`handlers/health.rs:14` 註解「M14 移除版本號」刻意省略 | [ ] |
+| R30-23 | **`startup/config_check.rs` production fail-fast** | 已驗證：line 108 `tracing::warn!`，全檔無 panic / process::exit | [ ] |
+| R30-24 | **啟動 schema/role/permission self-test** | 已驗證：`startup/security_checks.rs:18` 已有 JWT key 檢查，但無 DB schema/role self-check | [ ] |
+| R30-25 | **amendment 加 `EFFECTIVE` 終態 + `effective_from`** | 已驗證：AmendmentStatus enum 9 變體無 EFFECTIVE | [ ] |
+| R30-26 | **migration `down.sql` 模板** | 已驗證：`backend/migrations/` 41 個檔全為單檔 | [ ] |
+| R30-27 | **role / permission 變更強制簽章流程** | 已驗證：`services/role.rs` grep signature 0 命中 | [ ] |
+| R30-28 | **`config.audit_chain_verify_active` production 預設改 true** | 已驗證：scheduler 已註冊但 `config.rs:431` 預設 false，alert 路徑未啟用 | [ ] |
+
+### H. 漏 audit 路徑補齊（MEDIUM）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-29 | **`services/protocol/core.rs::create / update` 補 audit** | 已驗證：core.rs grep `log_activity` 0 命中 | [ ] |
+| R30-30 | **`handlers/animal/sudden_death.rs` 補 audit** | 已驗證：grep 0 命中 | [ ] |
+| R30-31 | **accounting 全路徑補 audit** | 已驗證：handlers + services 兩檔 0 命中 | [ ] |
+| R30-32 | **`services/animal/import_export.rs` 補 audit（service-driven 一致性）** | 已驗證：service 層 0 命中；handler 層有寫，違反 R26 pattern | [ ] |
+| R30-33 | **`services/animal/vet_patrol.rs` 接 `log_activity_tx`** | 已驗證：`impl AuditRedact` 已實作但全檔無 `log_activity` 呼叫 | [ ] |
+
+### I. GLP 文件補完（DOCUMENTATION，可平行 code 階段）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-34 | **`docs/glp/traceability-matrix.md`** | 條款 → 需求 → migration → service → test 雙向追溯 | [ ] |
+| R30-35 | **AmendmentStatus mermaid 流程圖 + IACUC SOP 對齊** | 加入 `docs/glp/amendment-sop.md` | [ ] |
+| R30-36 | **GLP record-lock 5 表選擇理由文件化** | observation / surgery / sacrifice / blood_test / care_medication | [ ] |
+| R30-37 | **HMAC chain 斷鏈處理 runbook** | code 在（`audit_chain_verify.rs`），SOP 缺 | [ ] |
+| R30-38 | **DR drill 年度演練紀錄表** | `DR_DRILL_CHECKLIST.md` 在但無歷年紀錄 | [ ] |
+| R30-39 | **`training` 模組與 §11.10(i) 訓練紀錄 SOP 對照** | 程式存在但未對應條款 | [ ] |
+
+### J. R29 follow-up（從 PR #258 衍生）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R30-40 | **R29-5b：v4 deprecated class rename codemod** | `shadow-sm` × 21 處 / `outline-none` × 33 處 / `flex-shrink-0` × 13 處。純機械替換 | [ ] |
+
+### R30 風險與停機規則
+- **R30-1~4 完成後必停**：使用者驗證 euthanasia 三軸 pattern 可複製
+- **R30-7~10 簽章每個子 PR 後必停**：21 CFR §11 屬高風險不可逆改動
+- **R30-16~19 soft-delete schema 變更前必停**：DB schema 不可逆
+- **R30-20~21 immutability trigger 於 staging 先測一輪再推 production**
+
+### R30 預估
+- 9 階段 + R29 follow-up = 40 項，總預估 125-177 小時（約 4-6 週全職）。
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -2013,8 +2119,9 @@ ORDER BY 1 DESC;
 | 🔄 R26 Service-driven Audit 重構延伸 | 0 (14 完成；含 R26-12 保留編號) |
 | 🔧 R27 E2E + bot review 後續清理 | 0 (9 完成) |
 | 🔧 R28 bot review + R26/R27 code review 發現 | 5 (R28-2/3/4/6 完成 + 6 second-pass M1-M6 完成；R28-1/5/7/8/9 待後續) |
-| 🔧 R29 ClawSweeper review follow-up | 1 (R29-5 Tailwind 4 — DEFER 至 2026-07-28；R29-1/2/3/4/6 已完成) |
-| **合計（未完成）** | **20** |
+| 🔧 R29 ClawSweeper review follow-up | 0 (全部完成；R29-5 提前實作 PR #258，R29-5b follow-up 列入 R30-J) |
+| 🔍 R30 三軸 Code Review 後續（併發 / 操作日誌 / GLP） | 40 (A 4 / B 2 / C 4 / D 5 / E 4 / F 2 / G 7 / H 5 / I 6 / J 1) |
+| **合計（未完成）** | **58** |
 
 ---
 
