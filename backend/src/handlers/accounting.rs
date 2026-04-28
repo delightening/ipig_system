@@ -11,7 +11,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{ActorContext, CurrentUser},
     models::accounting::{
         ApAgingRow, ArAgingRow, ChartOfAccount, JournalEntryLineRow, JournalEntryRow,
         ProfitLossSummary, TrialBalanceRow,
@@ -138,13 +138,14 @@ pub async fn create_ap_payment(
     Json(req): Json<CreateApPaymentRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "erp.document.create");
+    let actor = ActorContext::User(current_user.clone());
     let id = AccountingService::create_ap_payment(
         &state.db,
+        &actor,
         req.partner_id,
         req.payment_date,
         req.amount,
         req.reference,
-        current_user.id,
     )
     .await?;
     Ok(Json(serde_json::json!({ "id": id })))
@@ -158,13 +159,14 @@ pub async fn create_ar_receipt(
     Json(req): Json<CreateArReceiptRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "erp.document.create");
+    let actor = ActorContext::User(current_user.clone());
     let id = AccountingService::create_ar_receipt(
         &state.db,
+        &actor,
         req.partner_id,
         req.receipt_date,
         req.amount,
         req.reference,
-        current_user.id,
     )
     .await?;
     Ok(Json(serde_json::json!({ "id": id })))
