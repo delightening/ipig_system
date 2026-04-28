@@ -30,7 +30,10 @@ pub struct ExportParams {
 impl Default for ExportParams {
     fn default() -> Self {
         Self {
-            include_audit: false,
+            // R30-19：預設改為 true 以符合 GLP / 21 CFR §11.10(c) 對「準確完整紀錄副本」的要求。
+            // 不含 audit 重建後 HMAC chain 會斷裂，無法通過完整性驗證；僅在非合規用途
+            // （如資料遷移）才應顯式關閉。
+            include_audit: true,
             format: ExportFormat::Json,
         }
     }

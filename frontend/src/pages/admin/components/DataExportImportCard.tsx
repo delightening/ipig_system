@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Download, Upload, Loader2, AlertCircle } from 'lucide-react'
+import { Download, Upload, Loader2, AlertCircle, AlertTriangle } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,6 +13,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { toast } from '@/components/ui/use-toast'
 import api, { confirmPassword } from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
@@ -32,11 +42,14 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [includeAudit, setIncludeAudit] = useState(false)
+  // R30-19：預設勾選含稽核軌跡，符合 GLP / 21 CFR §11.10(c) 對「準確完整紀錄副本」的要求。
+  const [includeAudit, setIncludeAudit] = useState(true)
   const [exportAsZip, setExportAsZip] = useState(false)
   const [importResultOpen, setImportResultOpen] = useState(false)
   const [lastImportResult, setLastImportResult] = useState<ImportResult | null>(null)
   const [reauthOpen, setReauthOpen] = useState(false)
+  // R30-19：使用者取消勾選 include_audit 時，匯出前先要求二次確認。
+  const [auditWarningOpen, setAuditWarningOpen] = useState(false)
 
   const exportMutation = useMutation({
     mutationFn: async (reauthToken: string) => {
@@ -69,6 +82,16 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
 
   const handleFullExport = () => {
     if (!canExport) return
+    // R30-19：未勾選含稽核軌跡時，先彈出警示 dialog 要求二次確認。
+    if (!includeAudit) {
+      setAuditWarningOpen(true)
+      return
+    }
+    setReauthOpen(true)
+  }
+
+  const handleAuditWarningConfirm = () => {
+    setAuditWarningOpen(false)
     setReauthOpen(true)
   }
 
@@ -144,11 +167,35 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
             <>
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="includeAudit" checked={includeAudit} onCheckedChange={(v) => setIncludeAudit(!!v)} />
-                  <Label htmlFor="includeAudit" className="cursor-pointer text-sm">
+                  <Checkbox
+                    id="includeAudit"
+                    checked={includeAudit}
+                    onCheckedChange={(v) => setIncludeAudit(!!v)}
+                  />
+                  <Label
+                    htmlFor="includeAudit"
+                    className="cursor-pointer text-sm"
+                    title="不含 audit 重建後 HMAC chain 會斷裂，無法通過完整性驗證。除非確定不需要，建議保留勾選。"
+                  >
                     包含稽核大表（user_activity_logs、login_events）
+                    <span className="ml-1 text-xs text-status-warning-text">建議保留</span>
                   </Label>
                 </div>
+                <p className="pl-6 text-xs text-muted-foreground">
+                  不含 audit 重建後 HMAC chain 會斷裂，無法通過完整性驗證。除非確定不需要，建議保留勾選。
+                </p>
+                {!includeAudit && (
+                  <div
+                    role="alert"
+                    className="flex items-start gap-2 rounded border border-status-warning-text/40 bg-status-warning-text/10 p-2 text-xs text-status-warning-text"
+                  >
+                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                    <span>
+                      您即將匯出<strong>不含稽核軌跡</strong>的副本。此匯出無法用於 GLP / 21 CFR §11.10(c)
+                      完整性驗證，僅適合非合規用途（如資料遷移）。
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center space-x-2">
                   <Checkbox id="exportAsZip" checked={exportAsZip} onCheckedChange={(v) => setExportAsZip(!!v)} />
                   <Label htmlFor="exportAsZip" className="cursor-pointer text-sm">
@@ -184,6 +231,26 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
           )}
         </CardContent>
       </Card>
+
+      {/* R30-19：未勾選 include_audit 的二次確認 */}
+      <AlertDialog open={auditWarningOpen} onOpenChange={setAuditWarningOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-status-warning-text">
+              <AlertTriangle className="h-5 w-5" />
+              即將匯出不含稽核軌跡的副本
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              您即將匯出<strong>不含稽核軌跡</strong>的副本。此匯出無法用於 GLP / 21 CFR §11.10(c)
+              完整性驗證，僅適合非合規用途（如資料遷移）。確定繼續？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAuditWarningConfirm}>確定繼續</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* SEC-33: 敏感操作二級認證 */}
       <ConfirmPasswordModal

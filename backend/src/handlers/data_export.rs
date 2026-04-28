@@ -40,7 +40,10 @@ pub struct DataExportQuery {
 
 
 /// 一鍵匯出全庫
-/// GET /admin/data-export?include_audit=false&format=json|zip
+/// GET /admin/data-export?include_audit=true&format=json|zip
+///
+/// R30-19：`include_audit` 預設改為 `true`，以符合 GLP / 21 CFR §11.10(c)
+/// 對「準確完整紀錄副本」的要求。明確傳 `include_audit=false` 才會略過稽核大表。
 pub async fn full_database_export(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -51,7 +54,7 @@ pub async fn full_database_export(
     // C5: 全庫匯出屬高度敏感操作，強制要求 reauth（二次密碼確認）
     require_reauth_token(&headers, &state, &current_user)?;
 
-    let include_audit = params.include_audit.unwrap_or(false);
+    let include_audit = params.include_audit.unwrap_or(true);
     let format = match params.format.as_deref() {
         Some("zip") => ExportFormat::Zip,
         _ => ExportFormat::Json,
