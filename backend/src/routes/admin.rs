@@ -8,6 +8,11 @@ use crate::{handlers, AppState};
 /// 管理後台路由：系統設定、配置警告、稽核軌跡、QAU、SSE、通知路由、治療藥物
 pub fn routes() -> Router<AppState> {
     Router::new()
+        // R30-22: 內部版本資訊（admin-only，IQ-PQ / incident 排查用，刻意不放 /api/health）
+        .route(
+            "/admin/internal/version",
+            get(handlers::version::get_internal_version),
+        )
         // Admin System Settings
         .route(
             "/admin/system-settings",

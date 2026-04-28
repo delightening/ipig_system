@@ -84,6 +84,69 @@ jobs:
           log-level: "info"
 
   # =========================
+  # 🔄 Migration down.sql 守衛 (R30-26)
+  # 規則：本 PR 新增的 backend/migrations/NNN_xxx.sql（NNN ≥ 041）必須同步附
+  #       backend/migrations/down/NNN_xxx.sql。既有 001-040 在 ignore list，
+  #       不回溯補齊（列為 R30-26b backlog）。
+  # 撰寫規範：見 backend/migrations/down/README.md
+  # =========================
+  migration-down-guard:
+    name: "🔄 Guard: migration down.sql"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 檢查新 migration 是否附 down.sql
+        run: |
+          set -euo pipefail
+          # 比對範圍：PR base ref（pull_request 事件）或 main（push 事件）
+          if [ -n "${GITHUB_BASE_REF:-}" ]; then
+            BASE="origin/${GITHUB_BASE_REF}"
+          else
+            BASE="origin/main"
+          fi
+          git fetch origin "${GITHUB_BASE_REF:-main}" --depth=1 || true
+
+          # 既有 migration 豁免清單（version ≤ 040 不回溯補 down）
+          MIN_NEW_VERSION=41
+
+          # 找出本 PR 新增的 migration up 檔（不含 down/ 子目錄）
+          ADDED=$(git diff --name-only --diff-filter=A "${BASE}...HEAD" \
+                  | grep -E '^backend/migrations/[0-9]+_[^/]+\.sql$' || true)
+
+          if [ -z "$ADDED" ]; then
+            echo "✅ 本 PR 未新增 migration，跳過"
+            exit 0
+          fi
+
+          MISSING=""
+          for up in $ADDED; do
+            base=$(basename "$up" .sql)
+            version=$(echo "$base" | grep -oE '^[0-9]+' | sed 's/^0*//')
+            if [ -z "$version" ] || [ "$version" -lt "$MIN_NEW_VERSION" ]; then
+              echo "⏭  $up (version=$version < $MIN_NEW_VERSION) 為既有 migration 範圍，豁免"
+              continue
+            fi
+            down="backend/migrations/down/${base}.sql"
+            if [ ! -f "$down" ]; then
+              MISSING="${MISSING}${down}\n"
+            else
+              echo "✅ $up → $down 配對 OK"
+            fi
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo "::error::新 migration 缺少對應的 down.sql："
+            printf '::error::  - %b' "$MISSING"
+            echo "::error::撰寫規範：backend/migrations/down/README.md"
+            echo "::error::範本：backend/migrations/down/TEMPLATE.sql"
+            exit 1
+          fi
+          echo "✅ 所有新 migration 皆附 down.sql"
+
+  # =========================
   # 🛑 SQL 注入守衛
   # =========================
   sql-injection-guard:

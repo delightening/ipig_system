@@ -3,6 +3,7 @@
 > **用途**：本文件記錄 UP migration 的反向 SQL，供手動回退資料庫結構時參考。涵蓋 001–014、022、033–037。
 > **TODO**：Migration 015–021（HR/AUP 擴充）、023–032（QAU / R19 邀請 / R21 環境監控 / R22 攻擊偵測等）尚未補齊，列為後續文件補強。
 > **SQLx 注意**：SQLx（Rust）不原生支援 DOWN migration，因此所有回退操作需透過手動執行 SQL 完成。
+> **R30-26（041 起）**：新 migration 必須於 `backend/migrations/down/NNN_xxx.sql` 附對應 down SQL，CI `migration-down-guard` 會強制檢查。撰寫規範見 [backend/migrations/down/README.md](../../backend/migrations/down/README.md)。本文件保留作為 001-040 既有 migration 的歷史 down SQL 索引（R30-26b backlog 將補齊缺漏項）。
 
 ---
 
