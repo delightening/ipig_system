@@ -62,8 +62,7 @@ BEGIN
        OR OLD.signature_method IS DISTINCT FROM NEW.signature_method
        OR OLD.handwriting_svg IS DISTINCT FROM NEW.handwriting_svg
        OR OLD.stroke_data IS DISTINCT FROM NEW.stroke_data
-       OR OLD.created_at IS DISTINCT FROM NEW.created_at
-       OR OLD.signer_id IS DISTINCT FROM NEW.signer_id THEN
+       OR OLD.signed_at IS DISTINCT FROM NEW.signed_at THEN
         RAISE EXCEPTION 'electronic_signatures core fields immutable (GLP §11.70)。
 僅 is_valid / invalidated_reason / invalidated_at / invalidated_by 可由 SignatureService::invalidate 修改。'
             USING ERRCODE = 'P0001';
@@ -80,7 +79,7 @@ CREATE TRIGGER check_electronic_signatures_immutable_trigger
     EXECUTE FUNCTION check_electronic_signatures_immutable();
 
 COMMENT ON FUNCTION check_electronic_signatures_immutable() IS
-'GLP §11.70：簽章 core fields (entity / signer / hash / signature_data / handwriting / created_at) 不可動。僅允許軟失效（is_valid + invalidated_* 4 欄）。';
+'GLP §11.70：簽章 core fields (entity / signer / hash / signature_data / handwriting / signed_at) 不可動。僅允許軟失效（is_valid + invalidated_* 4 欄）。';
 
 -- =========================================================================
 -- R30-21: electronic_signatures BEFORE DELETE trigger
