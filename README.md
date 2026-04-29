@@ -71,7 +71,7 @@ graph TB
             Nginx[Nginx<br/>:8080<br/>+ ModSecurity CRS v4]
         end
         subgraph "backend network"
-            API[Rust + Axum API<br/>:3000]
+            API[Rust + Axum API<br/>:8000]
             Prom[Prometheus]
             Graf[Grafana]
         end
@@ -257,7 +257,7 @@ ipig_system/
 ### 啟動
 
 ```bash
-git clone https://github.com/<org>/ipig_system.git
+git clone https://github.com/delightening/ipig_system.git
 cd ipig_system
 
 # 1. 設定環境變數
@@ -332,7 +332,7 @@ npm run dev
 4. 整合測試覆蓋：mutation 後查 `user_activity_logs` 確認寫入 + chain 驗證綠
 
 ### 程式碼規範
-- Backend：handler 不寫 SQL；handler / service / repository / model 嚴格分層；`unwrap()` 禁止（測試碼用 `expect_err`）；魔術字串改 `const`
+- Backend：handler 不寫 SQL；handler / service / repository / model 嚴格分層；`unwrap()` 禁止（測試碼用 `expect("描述")`，斷言 Err 用 `expect_err("描述")`）；魔術字串改 `const`
 - Frontend：API 走 TanStack Query；驗證走 Zod；custom hook 回傳物件**不可整包**放 `useEffect` deps
 - 詳見 [CLAUDE.md](CLAUDE.md)（量化門檻、Rust / TS 命名、import 順序、清理規則）
 
