@@ -8,10 +8,21 @@ on:
     branches:
       - main
       - 'integration/**'
+    # docs-only push 跳過整個 CI（治本：所有純文件 PR 不再跑 backend / frontend / Trivy）
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
     branches:
       - main
       - 'integration/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_dispatch:
 
 env:
