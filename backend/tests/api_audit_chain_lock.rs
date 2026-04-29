@@ -69,18 +69,21 @@ async fn second_instance_observes_lock_held() {
         .expect("cleanup unlock");
 }
 
-/// 當 audit_chain_verify_active=false（test 環境預設），verify_yesterday_chain
+/// 當 audit_chain_verify_active=false，verify_yesterday_chain
 /// 應 early return 而不嘗試 acquire lock — 確認 active=false 不影響 lock 系統。
+///
+/// 注意：R30-28 後 default 已改為 true（fail-safe-on），此測試需顯式設 false。
 #[tokio::test]
 #[serial]
 async fn verify_skips_when_inactive_does_not_touch_lock() {
+    // R30-28：default true → 必須顯式設 false 才能驗證 inactive 路徑
+    std::env::set_var("AUDIT_CHAIN_VERIFY_ACTIVE", "false");
     let app = TestApp::spawn().await;
 
-    // active=false（預設，TestApp::spawn 不會設 AUDIT_CHAIN_VERIFY_ACTIVE）→ 早退
     let config = erp_backend::config::Config::from_env().expect("build config");
     assert!(
         !config.audit_chain_verify_active,
-        "test 環境預設 audit_chain_verify_active=false"
+        "顯式設 AUDIT_CHAIN_VERIFY_ACTIVE=false 應反映在 config"
     );
 
     erp_backend::services::audit_chain_verify::verify_yesterday_chain(&app.db_pool, &config)
@@ -103,6 +106,8 @@ async fn verify_skips_when_inactive_does_not_touch_lock() {
         .execute(&mut *conn)
         .await
         .expect("cleanup unlock");
+
+    std::env::remove_var("AUDIT_CHAIN_VERIFY_ACTIVE");
 }
 
 /// Happy path（Gemini review #206 Medium）：active=true 時 verify_yesterday_chain
