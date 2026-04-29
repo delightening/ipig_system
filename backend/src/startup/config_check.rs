@@ -2,10 +2,13 @@
 
 use crate::config::Config;
 use crate::constants::DEFAULT_INSECURE_PASSWORD;
-use super::is_production;
 
-/// 在啟動時印出配置摘要框（永遠顯示），提示潛在的安全或設定問題
-pub fn log_startup_config_check(config: &Config) {
+/// 在啟動時印出配置摘要框（永遠顯示），提示潛在的安全或設定問題。
+///
+/// **R30-23**：回傳 `warn_count`，呼叫端依 `is_production()` 決定是否 fail-fast。
+/// 把 `process::exit` 邏輯移到 `main.rs` 與 `run_db_self_test` 一致，
+/// 並讓本函式在整合測試中可重用。
+pub fn log_startup_config_check(config: &Config) -> usize {
     let mut items: Vec<String> = Vec::new();
     let mut warn_count: usize = 0;
 
@@ -115,18 +118,6 @@ pub fn log_startup_config_check(config: &Config) {
             header,
             numbered
         );
-
-        // R30-23：production 環境硬性 fail-fast。dev / staging 仍 warn-only
-        // 以便快速 iterate；production 啟動前必須清掉所有警告。
-        // 對應 21 CFR §11.10(k) + GLP §1.4 production 啟動完整性要求。
-        if is_production() {
-            tracing::error!(
-                "[R30-23] production 環境啟動前必須清掉所有 config 警告（{} 項）。\
-                 退出（exit code 1）。設 APP_ENV=staging 或移除可避開此檢查。",
-                warn_count
-            );
-            std::process::exit(1);
-        }
     } else {
         tracing::info!(
             "\n╔════════════════════════════════════════════════════════════╗\n\
@@ -138,4 +129,5 @@ pub fn log_startup_config_check(config: &Config) {
             numbered
         );
     }
+    warn_count
 }

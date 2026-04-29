@@ -29,6 +29,23 @@ use sqlx::PgPool;
 use crate::middleware::SYSTEM_USER_ID;
 use crate::Result;
 
+/// Helper：檢查 `public.<table>.<column>` 是否存在。
+async fn column_exists(pool: &PgPool, table: &str, column: &str) -> Result<bool> {
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = $1
+              AND column_name = $2
+        )",
+    )
+    .bind(table)
+    .bind(column)
+    .fetch_one(pool)
+    .await?;
+    Ok(exists)
+}
+
 /// R30-24 self-test 失敗時，依 R30-23 production fail-fast 規則決定是否 exit。
 ///
 /// **本函式只負責檢查 + 印 log**；caller (main.rs) 依 `is_production()` 決定 exit。
@@ -39,13 +56,12 @@ pub async fn run_db_self_test(pool: &PgPool) -> Result<usize> {
     let mut failures: Vec<String> = Vec::new();
 
     // 1. system_user 存在（migration 033 seed）
-    let sys_user_exists: Option<(bool,)> = sqlx::query_as(
+    let sys_ok: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)",
     )
     .bind(SYSTEM_USER_ID)
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
-    let sys_ok = sys_user_exists.map(|(b,)| b).unwrap_or(false);
     if !sys_ok {
         failures.push(format!(
             "system_user (id={}) 不存在 — migration 033 (system_user seed) 未跑。\n     \
@@ -71,9 +87,9 @@ pub async fn run_db_self_test(pool: &PgPool) -> Result<usize> {
     }
 
     // 3. permissions 表非空（避免 truncate / 大規模刪除後啟動）
-    let perm_count: Option<(i64,)> =
-        sqlx::query_as("SELECT COUNT(*) FROM permissions").fetch_optional(pool).await?;
-    let perm_n = perm_count.map(|(n,)| n).unwrap_or(0);
+    let perm_n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM permissions")
+        .fetch_one(pool)
+        .await?;
     if perm_n == 0 {
         failures.push(
             "permissions 表空 — seed 失敗或 truncate 後啟動。所有 has_permission 將回 false。"
@@ -81,61 +97,36 @@ pub async fn run_db_self_test(pool: &PgPool) -> Result<usize> {
         );
     }
 
-    // 4. R30-10 schema 完整性：electronic_signatures.meaning column 存在
-    let meaning_col: Option<(bool,)> = sqlx::query_as(
-        "SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public'
-              AND table_name = 'electronic_signatures'
-              AND column_name = 'meaning'
-        )",
-    )
-    .fetch_optional(pool)
-    .await?;
-    if !meaning_col.map(|(b,)| b).unwrap_or(false) {
-        failures.push(
-            "electronic_signatures.meaning column 不存在 — migration 043 未跑。\n     \
-             SignatureService::sign 寫入會 fail。"
-                .to_string(),
-        );
-    }
-
-    // 5. R30-7 schema 完整性：electronic_signatures.hmac_version column 存在
-    let hmac_col: Option<(bool,)> = sqlx::query_as(
-        "SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public'
-              AND table_name = 'electronic_signatures'
-              AND column_name = 'hmac_version'
-        )",
-    )
-    .fetch_optional(pool)
-    .await?;
-    if !hmac_col.map(|(b,)| b).unwrap_or(false) {
-        failures.push(
-            "electronic_signatures.hmac_version column 不存在 — migration 042 未跑。\n     \
-             簽章寫入 / verify dispatch 會 fail。"
-                .to_string(),
-        );
-    }
-
-    // 6. R26-6 schema 完整性：user_activity_logs.hmac_version column 存在
-    let activity_hmac_col: Option<(bool,)> = sqlx::query_as(
-        "SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public'
-              AND table_name = 'user_activity_logs'
-              AND column_name = 'hmac_version'
-        )",
-    )
-    .fetch_optional(pool)
-    .await?;
-    if !activity_hmac_col.map(|(b,)| b).unwrap_or(false) {
-        failures.push(
-            "user_activity_logs.hmac_version column 不存在 — migration 037 未跑。\n     \
-             audit chain verify 會無法 dispatch 版本。"
-                .to_string(),
-        );
+    // 4-6. Schema column 完整性（migration drift 偵測）：要求每筆 (table, column,
+    //   migration 編號, 失敗時的影響說明) 都存在於 information_schema.columns。
+    //   抽 const tuple 列表 + helper 迴圈，避免重複 SELECT EXISTS 樣板。
+    const REQUIRED_COLUMNS: &[(&str, &str, &str, &str)] = &[
+        (
+            "electronic_signatures",
+            "meaning",
+            "043",
+            "SignatureService::sign 寫入會 fail（R30-10 §11.50 meaning 欄缺失）。",
+        ),
+        (
+            "electronic_signatures",
+            "hmac_version",
+            "042",
+            "簽章寫入 / verify dispatch 會 fail（R30-7 HMAC 版本化欄缺失）。",
+        ),
+        (
+            "user_activity_logs",
+            "hmac_version",
+            "037",
+            "audit chain verify 會無法 dispatch 版本（R26-6 欄缺失）。",
+        ),
+    ];
+    for (table, column, mig, impact) in REQUIRED_COLUMNS {
+        if !column_exists(pool, table, column).await? {
+            failures.push(format!(
+                "{}.{} column 不存在 — migration {} 未跑。\n     {}",
+                table, column, mig, impact
+            ));
+        }
     }
 
     // 輸出總結
