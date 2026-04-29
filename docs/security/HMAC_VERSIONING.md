@@ -56,12 +56,19 @@ UPDATE user_activity_logs
    AND <verifier 確認 v1 計算等於 stored>;
 ```
 
-**監控指標**（待 R28-future 加）：
+**監控指標**（R28-5 已實裝，2026-04-29）：
 
 ```promql
 # 尚未 backfill 的 row 數量（目標 → 0）
 ipig_audit_hmac_legacy_rows{version="null"}
 ```
+
+由 scheduler `register_hmac_legacy_gauge_job` 每 10 分鐘執行
+`SELECT COUNT(*) FROM user_activity_logs WHERE hmac_version IS NULL AND integrity_hash IS NOT NULL`
+更新 gauge。Grafana panel 範例：
+- 顯示當前值（目標 0）
+- 7 日趨勢（backfill 推進時應呈下降）
+- 30 日 = 0 觸發 alert：「可進入階段 C，移除 try-both fallback」
 
 ### 階段 C（backfill 完成後）— 移除 try-both fallback
 
@@ -125,3 +132,4 @@ verifier 也用同一 fallback。
 | Date | Change | By |
 |---|---|---|
 | 2026-04-27 | Initial — R28-M1 註解修正 + R28-M2 residual risk doc | Claude (PR-E) |
+| 2026-04-29 | R28-5 — 加 `ipig_audit_hmac_legacy_rows{version="null"}` gauge + scheduler 10min 更新；R30-28 audit_chain_verify_active 預設改 true | Claude |

@@ -31,6 +31,18 @@ fn parse_bool_env(key: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// 解析 boolean 環境變數，**預設 `true`**（fail-safe-on）。
+/// 接受 trimmed "false" / "0"（大小寫不限）才視為 false；其他任何值（含未設定）皆為 true。
+/// 用途：合規 / 安全相關 feature 應預設啟用，明確設 `=false` 才停用。
+fn parse_bool_env_default_true(key: &str) -> bool {
+    std::env::var(key)
+        .map(|v| {
+            let v = v.trim();
+            !(v.eq_ignore_ascii_case("false") || v == "0")
+        })
+        .unwrap_or(true)
+}
+
 /// Read a secret value: prefer `{key}_FILE` (Docker Secrets path), fallback to `{key}` env var.
 fn read_secret(key: &str) -> Option<String> {
     let file_key = format!("{}_FILE", key);
@@ -105,14 +117,13 @@ pub struct Config {
     pub audit_hmac_key: Option<String>,
     /// R26-2: HMAC chain 每日驗證 cron 是否實際執行驗證。
     ///
-    /// 預設 `false`：cron 仍註冊但每輪僅 log 「skipped」，**不**呼叫
-    /// `verify_chain_range`。原因：deprecated `log_activity(&pool, ...)` 寫入
-    /// 的 row 仍存在 DB，與新 `log_activity_tx` 的 length-prefix canonical
-    /// HMAC 編碼不同；若立即啟用驗證會對 legacy row 大量 false positive
-    /// （CodeRabbit PR #158 🟠 Major）。
+    /// **預設 `true`（R30-28 後）**：每日 02:00 UTC 跑 `verify_chain_range`，
+    /// 對應 21 CFR §11.10(e) audit log 完整性合規。env `AUDIT_CHAIN_VERIFY_ACTIVE=false`
+    /// 才停用（如大量 legacy 待 backfill 的暫時 opt-out）。
     ///
-    /// 設為 `true` 的時機：R26-6（HMAC 版本化 + legacy backfill）完成後。
-    /// 環境變數：`AUDIT_CHAIN_VERIFY_ACTIVE=true`。
+    /// **歷史背景（R30-28 前預設 `false`）**：deprecated `log_activity(&pool, ...)`
+    /// 與 `log_activity_tx` 的 HMAC 編碼不同；R26-6 HMAC 版本化 + verifier try-both
+    /// fallback 完成後（PR #158 解掉 false positive 風險），預設可安全翻為 `true`。
     pub audit_chain_verify_active: bool,
     /// R30-17：retention enforcer 是否真實執行 hard-delete / partition drop。
     ///
@@ -296,7 +307,11 @@ impl Config {
             // 對應 NIST SP 800-107 建議：HMAC 密鑰至少與 hash 輸出長度相同（SHA256=32 bytes）。
             // `.env.example` 有對應文檔與 openssl rand -base64 32 產生指引。
             audit_hmac_key: read_secret("AUDIT_HMAC_KEY").filter(|s| s.len() >= 44),
-            audit_chain_verify_active: parse_bool_env("AUDIT_CHAIN_VERIFY_ACTIVE"),
+            // R30-28：預設 true（fail-safe-on）。合規路徑 GLP §11.10(e) / 21 CFR
+            // 要求 audit log 完整性可追溯；新環境部署應自動啟用每日驗證。
+            // 顯式設 `AUDIT_CHAIN_VERIFY_ACTIVE=false` 才停用（如 backfill 跑完前的暫時 opt-out）。
+            audit_chain_verify_active: parse_bool_env_default_true("AUDIT_CHAIN_VERIFY_ACTIVE"),
+            // R30-17：retention enforcer 預設關閉，需顯式 RETENTION_ENFORCER_ENABLED=true 才啟用實刪。
             retention_enforcer_enabled: parse_bool_env("RETENTION_ENFORCER_ENABLED"),
             jwt_ec_private_key_file: std::env::var("JWT_EC_PRIVATE_KEY_FILE")
                 .ok()

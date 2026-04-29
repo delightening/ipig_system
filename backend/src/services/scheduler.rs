@@ -18,6 +18,15 @@ const AUDIT_CHAIN_VERIFY_CRON: &str = "0 0 2 * * *";
 /// R30-17 retention enforcement cron schedule（每日 03:00:00 UTC，避開 audit_chain_verify 02:00）。
 const RETENTION_ENFORCER_CRON: &str = "0 0 3 * * *";
 
+/// R28-5 audit HMAC legacy backfill 監控 cron — 每 10 分鐘更新 gauge
+/// `ipig_audit_hmac_legacy_rows{version="null"}`，目標 → 0。
+const HMAC_LEGACY_GAUGE_CRON: &str = "0 */10 * * * *";
+
+/// R28-5 監控 metric 名稱與 label（避免散落字串）。
+const METRIC_AUDIT_HMAC_LEGACY_ROWS: &str = "ipig_audit_hmac_legacy_rows";
+const METRIC_LABEL_VERSION: &str = "version";
+const METRIC_LABEL_VERSION_NULL: &str = "null";
+
 pub struct SchedulerService;
 
 impl SchedulerService {
@@ -53,6 +62,7 @@ impl SchedulerService {
         Self::register_unresolved_alert_sweep_job(&sched, &db, &config, t, &mut job_count).await?;
         Self::register_audit_chain_verify_job(&sched, &db, &config, t, &mut job_count).await?;
         Self::register_retention_enforcer_job(&sched, &db, &config, t, &mut job_count).await?;
+        Self::register_hmac_legacy_gauge_job(&sched, &db, t, &mut job_count).await?;
 
         sched.start().await?;
         info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
@@ -522,13 +532,10 @@ impl SchedulerService {
             let config = config_clone.clone();
             let token = token_outer.clone();
             Box::pin(async move {
-                // shutdown 期間：不啟動新一輪。
                 if token.is_cancelled() {
                     info!("[Scheduler] retention_enforcer skipped during shutdown");
                     return;
                 }
-                // R30-17：feature flag gate。預設關閉，需顯式設 RETENTION_ENFORCER_ENABLED=true
-                // 才實際執行；保護首次部署不會立即 hard-delete / partition drop。
                 if !config.retention_enforcer_enabled {
                     info!(
                         "[Scheduler] retention_enforcer disabled (RETENTION_ENFORCER_ENABLED=false); \
@@ -537,8 +544,6 @@ impl SchedulerService {
                     return;
                 }
                 info!("[Scheduler] Running daily retention enforcer...");
-                // 已啟動的這輪一律跑完並寫 audit summary（不被 shutdown 中斷），
-                // 避免「部分刪除、沒總結 audit」的 broken state。
                 if let Err(e) = RetentionEnforcer::run(&db).await {
                     error!("[R30-17] retention_enforcer failed: {e}");
                 }
@@ -546,6 +551,44 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'retention_enforcer' registered (daily 03:00 UTC)");
+        *count += 1;
+        Ok(())
+    }
+
+    /// R28-5：每 10 分鐘更新 `ipig_audit_hmac_legacy_rows{version="null"}` gauge。
+    /// 用途：監控 backfill 進度（目標 → 0），到 0 持續 30 天後即可移除 verifier
+    /// 的 try-both fallback（見 docs/security/HMAC_VERSIONING.md §3 階段 C）。
+    async fn register_hmac_legacy_gauge_job(
+        sched: &JobScheduler,
+        db: &PgPool,
+        token: &CancellationToken,
+        count: &mut u32,
+    ) -> SchedulerResult {
+        let db_clone = db.clone();
+        let token_outer = token.clone();
+        let job = Job::new_async(HMAC_LEGACY_GAUGE_CRON, move |_uuid, _l| {
+            let db = db_clone.clone();
+            let token = token_outer.clone();
+            Box::pin(async move {
+                if token.is_cancelled() {
+                    return;
+                }
+                match crate::repositories::audit_log::AuditLogRepository::count_legacy_hmac_rows(&db).await {
+                    Ok(n) => {
+                        metrics::gauge!(
+                            METRIC_AUDIT_HMAC_LEGACY_ROWS,
+                            METRIC_LABEL_VERSION => METRIC_LABEL_VERSION_NULL,
+                        )
+                        .set(n as f64);
+                    }
+                    Err(e) => {
+                        error!("[R28-5] hmac_legacy gauge update failed: {e}");
+                    }
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'hmac_legacy_gauge' registered (every 10 min)");
         *count += 1;
         Ok(())
     }
