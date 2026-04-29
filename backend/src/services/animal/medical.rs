@@ -174,16 +174,6 @@ impl AnimalMedicalService {
         Ok(vaccination)
     }
 
-    /// 刪除疫苗紀錄
-    pub async fn soft_delete_vaccination(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query("DELETE FROM animal_vaccinations WHERE id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
-
-        Ok(())
-    }
-
     /// 軟刪除疫苗紀錄（含刪除原因）- GLP 合規 — Service-driven audit
     pub async fn soft_delete_vaccination_with_reason(
         pool: &PgPool,
