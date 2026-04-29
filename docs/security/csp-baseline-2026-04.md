@@ -14,10 +14,14 @@ script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsight
 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
 font-src 'self' https://fonts.gstatic.com data:;
 img-src 'self' data: blob:;
-connect-src 'self' https://cloudflareinsights.com https://www.google-analytics.com https://analytics.google.com;
+connect-src 'self' https://cloudflareinsights.com;
 frame-ancestors 'none';
 report-uri /api/v1/csp-report
 ```
+
+> **R31-14（本 PR 已處理）**：移除 `https://www.google-analytics.com` / `https://analytics.google.com`
+> 從 `connect-src`。grep 確認前端 codebase 無 `gtag(` / `googletagmanager` / `G-XXXXXXXX` ID，
+> 屬未使用的預留白名單。少一個白名單 = 少一個潛在資料外洩管道。
 
 **已知破口**：
 - `script-src 'unsafe-inline' 'unsafe-eval'` — XSS script 注入幾乎無防線
@@ -90,7 +94,6 @@ report-uri /api/v1/csp-report?mode=ro
 | index.html JSON-LD ×4 | `script-src` | `inline` | R31-7 加 nonce |
 | index.html `<style>` ×2 | `style-src` | `inline` | 已 accept；hash 化可選 |
 | Cloudflare Insights | （應已白名單） | — | 確認 `connect-src` 未漏 |
-| Google Analytics | （應已白名單） | — | 確認 `connect-src` 未漏 |
 
 #### 監控 SQL
 

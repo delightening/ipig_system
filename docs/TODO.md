@@ -2128,7 +2128,7 @@ ORDER BY 1 DESC;
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
 | R31-13 | **`style-src 'unsafe-inline'` 收緊評估** | 取決於 R31-3 結果。若 inline style 量小可改 nonce / hash；若量大（CSS-in-JS / Tailwind arbitrary values）則放棄收緊，文件標記為已接受風險 | [ ] |
-| R31-14 | **`connect-src` 第三方白名單清理** | Cloudflare Insights / Google Analytics 若停用某項，同步移除白名單；定期 quarterly review | [ ] |
+| R31-14 | **`connect-src` 第三方白名單清理** | ✅ GA4（`google-analytics.com` / `analytics.google.com`）已移除（前端未使用，PR #284）；Cloudflare Insights 保留；後續 quarterly review | [x] |
 
 ### R31 風險與停機規則
 
@@ -2178,8 +2178,8 @@ ORDER BY 1 DESC;
 | 🔧 R28 bot review + R26/R27 code review 發現 | 5 (R28-2/3/4/6 完成 + 6 second-pass M1-M6 完成；R28-1/5/7/8/9 待後續) |
 | 🔧 R29 ClawSweeper review follow-up | 0 (全部完成；R29-5 提前實作 PR #258，R29-5b follow-up 列入 R30-J) |
 | 🔍 R30 三軸 Code Review 後續（併發 / 操作日誌 / GLP） | 5 (R30-1~7, 9~14, 16~22, 26, 29~40 已實作；R30-8 + R30-15 使用者決定跳過 ✅；R30-23~25, 27, 28 待後續) |
-| 🔒 R31 CSP 強化 | 14 (全部待開工) |
-| **合計（未完成）** | **37** |
+| 🔒 R31 CSP 強化 | 11 (R31-2/3 靜態分析完成 + R31-14 GA4 清理完成於 PR #284) |
+| **合計（未完成）** | **34** |
 
 ---
 
