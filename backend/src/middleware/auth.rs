@@ -32,6 +32,16 @@ pub struct Claims {
     pub aud: String,
 }
 
+impl Claims {
+    /// 與 `CurrentUser::is_admin` 同義（共用判定規則：SYSTEM_ADMIN 或 LEGACY admin role）。
+    /// JWT 解碼後即可判斷，不需建構完整 `CurrentUser`。
+    pub fn is_admin(&self) -> bool {
+        self.roles
+            .iter()
+            .any(|r| r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY)
+    }
+}
+
 /// SEC-33：敏感操作二級認證用 JWT claims（短期 reauth token）
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReauthClaims {
@@ -164,13 +174,7 @@ async fn load_permissions(state: &AppState, claims: &Claims) -> Result<Vec<Strin
     // R28-7：admin / non-admin 分流量測。admin 走 always-load 4-table JOIN 路徑，
     // 一般用戶用 5min TTL cache；用 label 讓 Grafana 能 filter 出 admin 的
     // miss QPS + 平均延遲，驗證 admin 路徑成本合理。
-    let is_admin_label = if claims.roles.iter().any(|r| {
-        r == crate::constants::ROLE_SYSTEM_ADMIN || r == crate::constants::ROLE_ADMIN_LEGACY
-    }) {
-        "true"
-    } else {
-        "false"
-    };
+    let is_admin_label = if claims.is_admin() { "true" } else { "false" };
 
     // Hit path：fast return，省 try_get_with 的 alloc
     if let Some(perms) = state.permission_cache.get(&user_id).await {
