@@ -2085,6 +2085,63 @@ ORDER BY 1 DESC;
 
 ---
 
+## 🔒 R31 — CSP 強化（2026-04-29）
+
+> **背景**：當前 CSP（`frontend/security-headers.conf:12`）為了 Vite/React 與 Tailwind 開了 `script-src 'unsafe-inline' 'unsafe-eval'` 與 `style-src 'unsafe-inline'`，相當於 XSS 防線被大幅削弱。本輪目標：在不破壞 dev/prod build 的前提下，**逐步收緊 CSP 至 `'strict-dynamic' + nonce`**，並移除 prod `'unsafe-eval'`。
+>
+> **不要一次全收**：每收一個 directive 都要 staging 驗證 + CSP report 觀察一週確認無 violation 再上 prod。
+
+### A. 偵察階段（執行收緊前必做）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R31-1 | **CSP report 基準掃描** | 開啟 `Content-Security-Policy-Report-Only` header（與當前 enforce header 並存），收一週 `csp_report` 表，分類目前實際違規來源（inline script / inline style / eval / 第三方 domain）。產出基準報告 `docs/security/csp-baseline-2026-04.md`。**這是後續所有收緊 PR 的依據** | [ ] |
+| R31-2 | **Audit `index.html` inline 內容** | 檢查 `frontend/index.html` 是否有 inline `<script>`、`<style>`、`onclick=` 等。若有，盤點是否可挪到外部檔案（最理想），或標記必須保留 → 之後改 nonce / hash | [ ] |
+| R31-3 | **Audit React inline style 用量** | grep `style={{` 全 codebase，量級評估。若 >50 處，`style-src 'unsafe-inline'` 短期不收（標記 R31-Z 長期項目） | [ ] |
+
+### B. Prod 移除 `'unsafe-eval'`（低風險高 ROI）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R31-4 | **拆分 dev / prod nginx CSP** | `security-headers.conf` 拆兩份：`security-headers.dev.conf` 保留 `'unsafe-eval'`（Vite HMR 需要）；`security-headers.prod.conf` 移除。`frontend/Dockerfile` build target 對應切換 | [ ] |
+| R31-5 | **Staging 驗證 prod build 無 eval 依賴** | 部署 prod build 到 staging，跑核心流程（登入 / 動物 CRUD / 計畫 CRUD / 報表匯出）+ 觀察 CSP report 一週，確認無 `eval` violation | [ ] |
+| R31-6 | **Prod 切換** | 確認 staging 無 violation 後，prod 切換到 `prod.conf` | [ ] |
+
+### C. Script nonce 化（中風險高 ROI）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R31-7 | **nginx 注入 nonce** | nginx config 用 `set $cspNonce` + `sub_filter` 把 nonce 注到 `index.html` 所有 `<script>` tag。CSP 改為 `script-src 'self' 'nonce-$cspNonce' 'strict-dynamic' https://static.cloudflareinsights.com`（移除 `'unsafe-inline'`） | [ ] |
+| R31-8 | **Vite build 配合** | 確認 Vite prod build 出來的 `<script>` 都會被 `sub_filter` 命中（含 module preload）；若有遺漏需改 plugin 注入 placeholder | [ ] |
+| R31-9 | **Report-Only 並存一週** | 先把新 CSP 用 `Content-Security-Policy-Report-Only` 上 prod，與舊 enforce header 並存；觀察 violation report 一週 | [ ] |
+| R31-10 | **切換 enforce** | 無 violation 後，把 Report-Only header 升級為 enforce，移除舊 header | [ ] |
+
+### D. report-uri → report-to 過渡
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R31-11 | **加 `report-to` directive + Reporting-Endpoints header** | 與 deprecated `report-uri` 並存（dual-report）；後端 `csp_report.rs` 同時支援新版 `application/reports+json` 與舊版 `application/csp-report` 兩種 payload | [ ] |
+| R31-12 | **觀察新版 report 進來後移除 `report-uri`** | 三個月過渡期後，若所有主流瀏覽器都已切到 `report-to`，移除 `report-uri` directive 與 handler 舊版分支 | [ ] |
+
+### E. 長期項目（觀察用，不主動推）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R31-13 | **`style-src 'unsafe-inline'` 收緊評估** | 取決於 R31-3 結果。若 inline style 量小可改 nonce / hash；若量大（CSS-in-JS / Tailwind arbitrary values）則放棄收緊，文件標記為已接受風險 | [ ] |
+| R31-14 | **`connect-src` 第三方白名單清理** | Cloudflare Insights / Google Analytics 若停用某項，同步移除白名單；定期 quarterly review | [ ] |
+
+### R31 風險與停機規則
+
+- **R31-1 偵察報告產出後必停**：使用者裁定先收哪個 directive（順序可能不同於 B → C）
+- **R31-6（prod 切換 unsafe-eval 移除）必停**：prod 部署不可逆風險
+- **R31-10（script-src enforce 切換）必停**：若有遺漏的 inline script，prod 立即白屏
+- **R31-9 / R31-11 dual-header 期間 prod 推送 OK**：Report-Only 不會擋資源，安全可逆
+
+### R31 預估
+- 14 項，總預估 35-50 小時（約 1-1.5 週全職），跨 4-6 週日曆時間（含 staging 觀察等待）。
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -2121,7 +2178,8 @@ ORDER BY 1 DESC;
 | 🔧 R28 bot review + R26/R27 code review 發現 | 5 (R28-2/3/4/6 完成 + 6 second-pass M1-M6 完成；R28-1/5/7/8/9 待後續) |
 | 🔧 R29 ClawSweeper review follow-up | 0 (全部完成；R29-5 提前實作 PR #258，R29-5b follow-up 列入 R30-J) |
 | 🔍 R30 三軸 Code Review 後續（併發 / 操作日誌 / GLP） | 5 (R30-1~7, 9~14, 16~22, 26, 29~40 已實作；R30-8 + R30-15 使用者決定跳過 ✅；R30-23~25, 27, 28 待後續) |
-| **合計（未完成）** | **23** |
+| 🔒 R31 CSP 強化 | 14 (全部待開工) |
+| **合計（未完成）** | **37** |
 
 ---
 

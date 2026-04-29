@@ -3,8 +3,12 @@
 use crate::config::Config;
 use crate::constants::DEFAULT_INSECURE_PASSWORD;
 
-/// 在啟動時印出配置摘要框（永遠顯示），提示潛在的安全或設定問題
-pub fn log_startup_config_check(config: &Config) {
+/// 在啟動時印出配置摘要框（永遠顯示），提示潛在的安全或設定問題。
+///
+/// **R30-23**：回傳 `warn_count`，呼叫端依 `is_production()` 決定是否 fail-fast。
+/// 把 `process::exit` 邏輯移到 `main.rs` 與 `run_db_self_test` 一致，
+/// 並讓本函式在整合測試中可重用。
+pub fn log_startup_config_check(config: &Config) -> usize {
     let mut items: Vec<String> = Vec::new();
     let mut warn_count: usize = 0;
 
@@ -125,4 +129,5 @@ pub fn log_startup_config_check(config: &Config) {
             numbered
         );
     }
+    warn_count
 }

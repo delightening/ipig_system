@@ -10,7 +10,7 @@ use erp_backend::services::{AuditService, FileService, GeoIpService, GotenbergCl
 use erp_backend::startup::{
     check_jwt_key_file_permissions, create_database_pool_with_retry, ensure_admin_user,
     ensure_all_role_permissions, ensure_required_permissions, ensure_schema, init_tracing,
-    log_startup_config_check, run_migrations, seed_dev_users,
+    is_production, log_startup_config_check, run_db_self_test, run_migrations, seed_dev_users,
 };
 use erp_backend::startup::server::{build_app, shutdown_signal};
 use erp_backend::AppState;
@@ -90,9 +90,36 @@ async fn main() -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("SEC-26: 正式環境不得啟用 SEED_DEV_USERS"));
     }
 
-    log_startup_config_check(&config);
+    // R30-23：config 檢查回傳 warn_count，本檔依環境決定 fail-fast。
+    // 把 exit 邏輯留在 main.rs 與 run_db_self_test 一致；config_check 純印 + 回傳，
+    // 整合測試也能直接斷言 warn_count 而不會中斷 runner。
+    let config_warn_count = log_startup_config_check(&config);
+    if config_warn_count > 0 && is_production() {
+        tracing::error!(
+            "[R30-23] production 環境啟動前必須清掉所有 config 警告（{} 項）。\
+             退出（exit code 1）。設 APP_ENV=staging 或修正配置可避開。",
+            config_warn_count
+        );
+        std::process::exit(1);
+    }
     // H7：JWT 私鑰檔權限檢查（檔案模式提供時）
     check_jwt_key_file_permissions(config.jwt_ec_private_key_file.as_deref());
+
+    // R30-24：DB schema / role / permission self-test。
+    // 啟動成功 ≠ DB 正確；備份還原 / migration 漏跑 / seed 失敗等情境會讓
+    // 後端啟動但業務 broken。Production 任一檢查失敗 → fail-fast。
+    let self_test_failures = run_db_self_test(&pool).await.unwrap_or_else(|e| {
+        tracing::error!("[R30-24] DB self-test query failed: {}", e);
+        // query 本身失敗（DB 連不上 / 表不存在）視為一項 failure
+        1
+    });
+    if self_test_failures > 0 && is_production() {
+        tracing::error!(
+            "[R30-24] production 環境啟動前必須通過 DB self-test（{} 項失敗）。退出。",
+            self_test_failures
+        );
+        std::process::exit(1);
+    }
 
     // 全域 graceful shutdown 訊號：所有背景任務觀測此 token 優雅收尾
     let shutdown_token = CancellationToken::new();
