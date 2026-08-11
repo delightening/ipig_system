@@ -46,6 +46,11 @@ pub async fn create_care_record(
             .await?;
     // SEC-IDOR: 驗證 body 的 record_id（觀察/手術紀錄）確實屬於 path 的 animal_id，
     // 否則使用者可用自己有權的 animal_id 為他人動物的紀錄掛上照護紀錄（繞過存取邊界）
+    //
+    // R94-4 註：此處**刻意**保留裸的 `get_*_animal_id`，不改用 `Scoped::from_*`——
+    // 它在這裡的用途是**歸屬比對**（比對 record 的動物是否等於 path 的動物），
+    // 不是「解析後再授權」的兩步形狀；授權已由上方的 `Scoped<AnimalWrite>::authorize`
+    // 對 `animal_id` 完成。改成 `from_*` 會變成對同一使用者做第二次授權，語意也不對。
     let target_animal_id = match req.record_type {
         CareVetRecordType::Observation => {
             access::get_observation_animal_id(&state.db, req.record_id).await?
@@ -71,8 +76,13 @@ pub async fn list_observation_care_records(
     Path(observation_id): Path<Uuid>,
 ) -> Result<Json<Vec<CareRecord>>> {
     // SEC-IDOR: v2 審計發現 — 透過觀察紀錄所屬動物驗證計畫存取權限
-    let animal_id = access::get_observation_animal_id(&state.db, observation_id).await?;
-    access::require_animal_read_access(&state.db, &current_user, animal_id).await?;
+    // R94-4: 反查與授權收進單一入口；本端點的 service 不吃 scope，故不使用回傳值。
+    let _scope = access::Scoped::<access::AnimalRead>::from_observation(
+        &state.db,
+        &current_user,
+        observation_id,
+    )
+    .await?;
     let records = CareRecordService::list_by_record(
         &state.db,
         CareVetRecordType::Observation,

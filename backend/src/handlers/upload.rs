@@ -129,8 +129,14 @@ async fn check_attachment_permission(
         "observation" => {
             require_permission!(current_user, "animal.record.create");
             let observation_id = parse_entity_uuid(entity_id)?;
-            let animal_id = access::get_observation_animal_id(db, observation_id).await?;
-            access::require_animal_access(db, current_user, animal_id).await?;
+            // R94-4: 反查與授權收進單一入口。維持 Write 強度（原為 require_animal_access），
+            // 上傳附件屬寫入動作，不可放寬成 Read。
+            let _scope = access::Scoped::<access::AnimalWrite>::from_observation(
+                db,
+                current_user,
+                observation_id,
+            )
+            .await?;
         }
         "vet_recommendation" => {
             // entity_id 為 `{record_type}_{record_id}` 複合鍵（非 UUID）；此權限限 VET，
