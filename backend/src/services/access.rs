@@ -508,8 +508,16 @@ impl Scoped<AnimalRead> {
     /// 由**觀察紀錄 ID** 建立讀取證明（R94-4）。
     ///
     /// 存在理由：呼叫端過去必須自己跑「`get_observation_animal_id` 解析 → 再授權」兩步，
-    /// **漏掉第二步會造成跨計畫讀取（IDOR）且編譯得過**。本方法把兩步封在唯一入口內，
-    /// 讓那個漏法在結構上不可能發生。
+    /// **漏掉第二步會造成跨計畫讀取（IDOR）且編譯得過**。本方法把兩步封在同一個入口內。
+    ///
+    /// ⚠️ **這是慣例保證，不是型別保證**：`get_observation_animal_id` 目前仍是 `pub`
+    /// （`create_care_record` 的歸屬比對需要它），所以「解析完忘了授權」仍然寫得出來也編譯得過。
+    /// 要升級成真正的結構性保證，得把 resolver 收私有、另開一支歸屬比對專用 helper。
+    ///
+    /// ⚠️ **呼叫時務必顯式寫出 turbofish**（`Scoped::<AnimalRead>::from_observation`）。
+    /// 本型別與 `Scoped<AnimalWrite>` 的同名方法簽章完全相同，只差型別參數；若省略
+    /// turbofish，型別推論會從**期望型別**倒推變體——當下游 service 收 `Scoped<AnimalRead>`
+    /// 時就會自動選到較弱的讀取授權。
     ///
     /// 回傳的 `id()` 仍是 **animal_id**（與 `authorize` 一致），故下游吃 `Scoped<AnimalRead>`
     /// 的 service 不需改動。

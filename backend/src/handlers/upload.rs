@@ -129,8 +129,12 @@ async fn check_attachment_permission(
         "observation" => {
             require_permission!(current_user, "animal.record.create");
             let observation_id = parse_entity_uuid(entity_id)?;
-            // R94-4: 反查與授權收進單一入口。維持 Write 強度（原為 require_animal_access），
-            // 上傳附件屬寫入動作，不可放寬成 Read。
+            // R94-4: 反查與授權收進同一入口。維持 Write 強度（原為 require_animal_access）。
+            //
+            // ⚠️ 本函式只被 `list_attachments` / `download_attachment`（**讀取**路徑）呼叫；
+            // `upload_observation_attachment` 是 `require_permission!` 後直接進 `handle_upload`，
+            // **不經過這裡**。此處用 Write 強度是沿用原判斷（附件內容敏感度等同紀錄本身），
+            // 不是因為它是上傳路徑——別被函式名誤導。
             let _scope = access::Scoped::<access::AnimalWrite>::from_observation(
                 db,
                 current_user,
