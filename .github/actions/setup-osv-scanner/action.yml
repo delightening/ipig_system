@@ -1,0 +1,44 @@
+name: "Setup osv-scanner (SLSA verified)"
+description: >
+  下載 osv-scanner 並以 SLSA provenance 驗證完整性後才安裝。
+  Composite action 用來 DRY 兩個掃描 job（pnpm / Python）共用的下載邏輯。
+
+inputs:
+  version:
+    description: "osv-scanner release tag（升版時只需改這裡的 default）"
+    required: false
+    default: "v2.4.0"
+
+runs:
+  using: composite
+  steps:
+    # slsa-verifier 本身也 pin 到 commit SHA（供應鏈硬化，同 R52 慣例）
+    - name: 安裝 slsa-verifier
+      uses: slsa-framework/slsa-verifier/actions/installer@ea584f4502babc6f60d9bc799dbbb13c1caa9ee6 # v2.7.1
+
+    - name: 下載 osv-scanner 並驗證 provenance
+      shell: bash
+      env:
+        OSV_VERSION: ${{ inputs.version }}
+      run: |
+        # set -e 是這段的安全關鍵：verify-artifact 失敗會直接讓 job 紅，
+        # 不會走到下面的 install——絕不能讓未驗證的 binary 被裝進 PATH。
+        set -euo pipefail
+        base="https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}"
+
+        # -f：HTTP 4xx/5xx 時讓 curl 回非 0，否則會把錯誤頁面存成「binary」
+        curl -sSLf -o osv-scanner_linux_amd64 "${base}/osv-scanner_linux_amd64"
+        curl -sSLf -o multiple.intoto.jsonl "${base}/multiple.intoto.jsonl"
+
+        # osv-scanner 的 release 只提供 SLSA provenance，沒有 checksums.txt，
+        # 因此無法用 sha256 比對，只能驗 provenance。
+        # --source-uri / --source-tag 一併固定「這份 binary 由誰、從哪個 tag 建出」，
+        # 只驗簽章而不驗來源的話，任何有效簽章都會通過。
+        slsa-verifier verify-artifact osv-scanner_linux_amd64 \
+          --provenance-path multiple.intoto.jsonl \
+          --source-uri github.com/google/osv-scanner \
+          --source-tag "${OSV_VERSION}"
+
+        sudo install -m 0755 osv-scanner_linux_amd64 /usr/local/bin/osv-scanner
+        rm -f osv-scanner_linux_amd64 multiple.intoto.jsonl
+        osv-scanner --version

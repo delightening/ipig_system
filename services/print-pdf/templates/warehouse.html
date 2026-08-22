@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{#
+  R45 Phase 0：倉庫現況報表 HTML 版本（取代 templates/warehouse.docx → PDF 路徑）。
+  非 GLP 文件，頁眉左側放公司名而非文件編號。
+  Context schema：pdf-service/app/schemas/warehouse.py::WarehouseReportPayload
+    + 由 handler 注入 `floor_plan_data_uri`（base64 PNG，可空字串）
+#}
+
+{% block extra_styles %}
+    .footer-meta {
+      margin-top: 14pt;
+      font-size: 9.5pt;
+      display: flex;
+      justify-content: space-between;
+    }
+    .floor-plan {
+      margin: 14pt 0;
+      text-align: center;
+    }
+    .floor-plan img {
+      max-width: 100%;
+      max-height: 14cm;
+      page-break-inside: avoid;
+    }
+    /* summary 表格樣式 */
+    table.summary {
+      width: 100%;
+      margin-bottom: 14pt;
+      border-collapse: collapse;
+    }
+    table.summary th, table.summary td {
+      border: 1pt solid #000;
+      padding: 4pt 6pt;
+      font-size: 10pt;
+      text-align: center;
+    }
+    table.summary th {
+      background: #d8d8d8;
+      font-weight: normal;
+    }
+{% endblock %}
+
+{% block content %}
+  <h1 class="doc-title">倉庫現況報表</h1>
+
+  <table class="meta">
+    <tr>
+      <th>倉庫代號</th><td>{{ warehouse.code }}</td>
+      <th>倉庫名稱</th><td>{{ warehouse.name }}</td>
+    </tr>
+    <tr>
+      <th>地址</th><td colspan="3">{{ warehouse.address }}</td>
+    </tr>
+    <tr>
+      <th>報表產出時間</th><td>{{ generated_at }}</td>
+      <th>產出者</th><td>{{ exporter_name }}</td>
+    </tr>
+  </table>
+
+  <table class="summary">
+    <thead>
+      <tr>
+        <th>總儲位數</th>
+        <th>啟用儲位</th>
+        <th>容量上限</th>
+        <th>目前在庫</th>
+        <th>品項種類</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ summary.total_locations }}</td>
+        <td>{{ summary.active_locations }}</td>
+        <td>{{ '{:,}'.format(summary.total_capacity) }}</td>
+        <td>{{ '{:,}'.format(summary.total_current_count) }}</td>
+        <td>{{ summary.total_inventory_items }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  {% if floor_plan_data_uri %}
+  <div class="section-title">倉庫平面圖</div>
+  <div class="floor-plan">
+    <img src="{{ floor_plan_data_uri }}" alt="warehouse floor plan">
+  </div>
+  {% endif %}
+
+  <div class="section-title">庫存明細</div>
+
+  {% if inventory_rows %}
+  <table class="data">
+    <thead>
+      <tr>
+        <th style="width:9%">儲位代號</th>
+        <th style="width:13%">儲位名稱</th>
+        <th style="width:24%">品項名稱</th>
+        <th style="width:14%">規格</th>
+        <th style="width:12%">批號</th>
+        <th style="width:8%">數量</th>
+        <th style="width:6%">單位</th>
+        <th style="width:14%">有效期限</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in inventory_rows %}
+      <tr>
+        <td class="center">{{ inv.location_code }}</td>
+        <td>{{ inv.location_name }}</td>
+        <td>{{ inv.product_name }}</td>
+        <td>{{ inv.spec }}</td>
+        <td class="center">{{ inv.batch_no }}</td>
+        <td class="num">{{ inv.quantity }}</td>
+        <td class="center">{{ inv.unit }}</td>
+        <td class="center">{{ inv.expiry_date }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="margin: 12pt 0; color: #555;">（本倉庫目前無庫存明細）</p>
+  {% endif %}
+
+  <div class="footer-meta">
+    <span>本報表共計 {{ inventory_rows|length }} 筆明細</span>
+    <span>系統版本 ipig v7.0</span>
+  </div>
+{% endblock %}

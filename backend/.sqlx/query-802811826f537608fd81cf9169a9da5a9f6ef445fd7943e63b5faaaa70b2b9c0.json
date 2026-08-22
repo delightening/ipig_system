@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                ara.id, ara.amendment_id, ara.reviewer_id, ara.assigned_by, ara.assigned_at,\n                ara.decision, ara.decided_at, ara.comment,\n                COALESCE(u.display_name, ara.reviewer_name, '') as \"reviewer_name!\",\n                COALESCE(u.email, '') as \"reviewer_email!\"\n            FROM amendment_review_assignments ara\n            LEFT JOIN users u ON ara.reviewer_id = u.id\n            WHERE ara.amendment_id = $1\n            ORDER BY ara.assigned_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "amendment_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "reviewer_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "assigned_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "assigned_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "decision",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "decided_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "comment",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "reviewer_name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 9,
+        "name": "reviewer_email!",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "802811826f537608fd81cf9169a9da5a9f6ef445fd7943e63b5faaaa70b2b9c0"
+}

@@ -1,0 +1,34 @@
+﻿# ipig-watchdog — 外部看門狗（跑在 Cloudflare，不在 prod 筆電上）
+#
+# 部署前必須替換的 <佔位符> 見 README.md §2。
+# ⚠️ 本檔進版控：禁止寫入任何 token / 密碼 / API key。
+#    PING_TOKEN 走 `wrangler secret put`，不是 [vars]。
+
+name = "ipig-watchdog"
+main = "src/worker.js"
+compatibility_date = "2026-01-01"
+
+# 每 5 分鐘探測一次；連續 FAIL_THRESHOLD 次失敗才告警（預設 3 = 15 分鐘）
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+HEALTH_URL = "https://ipigsystem.asia/api/health"
+FAIL_THRESHOLD = "3"
+PROBE_TIMEOUT_MS = "10000"
+# 寄件地址必須屬於本 zone；收件地址必須已在 Cloudflare Email Routing 驗證過
+ALERT_FROM = "watchdog@ipigsystem.asia"
+ALERT_TO = "<已在 Email Routing 驗證的收件信箱>"
+
+# 狀態儲存（連續失敗計數、已告警旗標、各 job 最後心跳時間）
+[[kv_namespaces]]
+binding = "WATCHDOG_KV"
+id = "<wrangler kv namespace create WATCHDOG_KV 產生的 id>"
+
+# Cloudflare Email Routing 的 send_email binding：
+# destination_address 限定單一已驗證地址，Worker 無法拿它寄給任意人；
+# allowed_sender_addresses 限定寄件地址只能是 ALERT_FROM，收窄最小權限
+[[send_email]]
+name = "ALERT_EMAIL"
+destination_address = "<同 ALERT_TO>"
+allowed_sender_addresses = ["watchdog@ipigsystem.asia"]

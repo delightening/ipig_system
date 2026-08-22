@@ -1,0 +1,112 @@
+# CodeRabbit 設定
+# 參考：https://docs.coderabbit.ai/reference/configuration
+#
+# 建立於 2026-08-04。此前本 repo 無設定檔，全部走預設值。
+
+reviews:
+  # 把制度檔的備份副本排除出審查範圍。
+  #
+  # 2026-08-20：`MAINTENANCE.md` §1 要求改任何制度檔前先複製一份到
+  # `docs/agents/backup/{檔名}.{日期}.bak`。這些是既有檔的**逐字副本**，
+  # 內容 100% 與被改的正本重疊，審它等於把同一份文字再審一次。
+  #
+  # 為什麼值得特地排除——本 repo 的 CodeRabbit 額度是浮動的 1–10 次／開發者／
+  # 小時（OSS 方案，rolling window，跨 session 共用），實測常落在 1。讓那唯一
+  # 一次額度分心去讀逐字副本，是真的有代價的。#19 實測：4 個檔的 PR 裡有 1 個
+  # 是 207 行的 .bak，佔了超過一半的行數。
+  #
+  # 另有前例佐證備份檔會讓 bot 產生雜訊：CodeAnt 曾把 .bak「逐字保留原文」
+  # 判成「過時的權威宣告」而報 comment-mismatch（見 REVIEW_BOTS.md §7.2），
+  # 最後是靠 review instruction 個案關掉。從來源排除比逐家 bot 教一次省事。
+  #
+  # ⚠️ 純排除清單（只有 `!` 開頭的項目）**不會**退化成「只審這些」的 allowlist。
+  # 依據不是推論而是本 repo 的實際行為：CodeRabbit 預設就帶 `!**/*.lock` 這類
+  # 過濾（見 CLAUDE.md 授權節 (f) 與 PROGRESS.md 2026-08-03 的 #14 實例），
+  # 而一般 PR 照樣被完整審查。官方 schema 對本鍵的說明是
+  # 「including specified patterns and ignoring excluded ones (starting with '!')」。
+  #
+  # ⚠️ 落地後要驗一次，不要當作寫了就生效：下一支含 .bak 的 PR，CodeRabbit 的
+  # `📒 Files selected for processing (N)` 清單裡**不應**出現 .bak，且 N 應等於
+  # 非備份檔的檔數。若反而看到 `Review skipped due to path filters`＝它一個檔
+  # 都沒看，本設定寫錯，立刻還原。
+  #
+  # 註：pr-agent 那邊的對應設定在 `.pr_agent.toml` 的 `[ignore] glob`（PR #19），
+  # 兩者是各自獨立的鍵，改一邊不會連動另一邊。
+  path_filters:
+    - "!docs/agents/backup/**"
+
+  auto_review:
+    # 只在「開 PR」時自動審一次，之後 push 不再自動重審。
+    #
+    # 預設 `true`，官方說明即「Re-run the review on each push」。本 repo 的實際
+    # 工作流是「開 PR → 依 review 修 → push 修正」，每一次 push 都燒掉一次配額；
+    # 而 OSS 方案是浮動的 1–10 次／開發者／小時（rolling window，跨 session 共用）。
+    #
+    # 2026-08-07~08 實例：#44 推 2 個 commit 吃掉 2 次，第 2 次即撞
+    # `Review limit reached`；隨後 #37 / #46 也全部卡在同一道牆。更關鍵的是——
+    # 官方訊息載明近期活動達 95 百分位時額度「隨舊 review 逐筆老化而更緩慢釋出」，
+    # 實測倒數不減反增（12 分鐘 → 37 分鐘 → 55 分鐘），**等待與重試無法收斂**。
+    #
+    # ⚠️ 這改變工作流，務必知道：修完 push 之後 **不會**自動重審，要自己在 PR 留
+    # `@coderabbitai review` 觸發一次。這其實更貼合 CLAUDE.md 授權節 (e) 的閘門
+    # ——它要求 bot 的 review 必須晚於最後一次 commit；把「全部修完再請求一次」
+    # 變成明確動作，反而比「每 push 都審、最後一次常撞牆」更容易拿到乾淨章。
+    # 並行協議 §7 的觸發上限仍然適用：**同一 PR 合計 2 次**，第二次仍未涵蓋
+    # 最新 commit 就停下回報。（本行原寫「最多觸發一次」，與 §7 及 CLAUDE.md
+    # 授權節不符，2026-08-20 訂正。撞 rate limit 的無效觸發**照樣計入**這 2 次。）
+    #
+    # 註：本鍵與上方 #50 加的 `base_branches` 方向相反——那個擴大了審查範圍
+    # （integration/* 子 PR 也審，其註解已標明會增加配額消耗），本鍵則減少重複審查。
+    # 兩者互補：該審的都審到，但同一份 diff 不重複燒配額。
+    auto_incremental_review: false
+
+    # 除預設分支（main）外，也審 base 為 integration/* 的 PR。
+    #
+    # 背景：本鍵預設 `[]`，語意是「預設分支**以外**都不審」。因此走
+    # `integration/<代號>` 長期分支策略時（見 CLAUDE.md 記憶 integration-branch-strategy
+    # 與 docs/agents/PARALLEL_SESSIONS.md §3：N ≥ 6 支 PR 同改同區塊時改走
+    # integration 分支以免衝突雪崩），系列中的每一支子 PR 都會拿到
+    # `Review skipped: reviews are disabled for this base branch`。
+    #
+    # 那個 status 的 `state` 是 `success`，看起來像審過、其實一個檔案都沒看 ——
+    # 依 CLAUDE.md 授權節 (e)/(f) 不算乾淨章，等於整個系列都無法滿足「bot 0 建議」閘，
+    # 只有最後 integration→main 那一次會被審。而那正好是切分 PR 想避免的一坨大 diff：
+    # 把 N 支小 PR 的審查壓縮成一次，審查品質必然下降。
+    #
+    # 2026-08-07 實測：PR #48（base=integration/button-permission-gate）即為此狀況。
+    #
+    # ⚠️ 代價：系列中每支子 PR 都會消耗共用的 review 配額（OSS 方案 1–10 次／
+    # 開發者／小時，rolling window，且跨 session 共用 —— 見下方 Dependabot 段落的
+    # 配額說明與 PARALLEL_SESSIONS.md §7）。開 integration 系列時要一併考慮
+    # 「同一小時最多開 3 支 PR」的自我節流。
+    base_branches:
+      - "integration/.*"
+
+    # 不審 Dependabot 開的 PR。
+    #
+    # 理由：這類 PR 的 diff 只有版本號與 lockfile，CodeRabbit 對它結構上
+    # 無從置喙——CLAUDE.md 授權節 (f) 已據此免除其 bot 閘，改以「CI 全綠 +
+    # 該 stack 的依賴漏洞掃描 job 綠」為判準。既然 bot 的意見不參與決策，
+    # 就不該讓它在這類 PR 上留下 commit status——`Review rate limited` 與
+    # `Review skipped due to path filters` 的 `state` 都是 `success`，看起來
+    # 像審過、其實一個檔案都沒看，是 (e)/(f) 判斷時的雜訊來源。完全不產生
+    # status 比產生一個假綠的乾淨。
+    #
+    # ⚠️ 本設定「省不到 review 配額」——2026-08-04 建檔時的原始理由（避免
+    # Dependabot 佔用配額）已由 CodeRabbit 官方回信（2026-08-05）推翻：
+    #   * bot 開的 PR 走 bot 自己的配額，**不佔人類開發者的額度**（bot 被
+    #     當成另一個 user，也可單獨配 seat）。
+    #   * 當天撞上 "Review rate limited" 的 #16 / #17 / #18 / #20 經查
+    #     **全是 delightening 本人開的**，跟 Dependabot 的 13 支無關；
+    #     真正原因是自己一小時內開太多 PR。
+    #   * 建檔時寫的「Pro Plus 上限 10／開發者／小時」也套錯方案：Marketplace
+    #     的「Pro Plus 對開源免費」只指**功能集**，配額另計。本 repo 走 OSS
+    #     方案，PR review 上限是浮動的 **1–10 次／開發者／小時**（依專案熱門度，
+    #     rolling window），小型新 repo 落在低端。
+    # 詳見官方 docs：https://docs.coderabbit.ai/management/plans#rate-limits
+    #
+    # ⚠️ 選項語意為 exact match。實際 GitHub login 是 `dependabot[bot]`，
+    # 而官方文件範例寫的是 `dependabot`——兩者都列以確保命中。
+    ignore_usernames:
+      - dependabot[bot]
+      - dependabot

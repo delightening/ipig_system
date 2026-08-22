@@ -1,0 +1,102 @@
+//! Prometheus 與 Web Vitals 指標收集端點
+//!
+//! - GET /metrics（公開端點，供 Prometheus scrape）
+//! - POST /api/metrics/vitals（前端 Web Vitals 上報，僅限流、不需認證；sendBeacon 無法帶 Authorization）
+//!
+//! Prometheus 提供：
+//! - `http_requests_total` — HTTP 請求計數
+//! - `http_request_duration_seconds` — 請求延遲
+//! - `db_pool_connections` — 連線池狀態
+
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use serde::Deserialize;
+use utoipa::ToSchema;
+
+use crate::utils::secure_eq::const_time_eq;
+use crate::AppState;
+
+/// Web Vitals 上報 payload（與 web-vitals 的 Metric 對應）
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct WebVitalsMetric {
+    pub id: String,
+    pub name: String,
+    pub value: f64,
+    pub rating: Option<String>,
+    pub delta: f64,
+    #[serde(rename = "navigationType")]
+    pub navigation_type: Option<String>,
+}
+
+/// POST /api/metrics/vitals — 接收前端 Web Vitals 指標（整批）
+///
+/// 前端於頁面隱藏時將該頁所有指標一次送出（陣列），避免每指標各打一次。
+/// 開發環境可記錄至日誌；正式環境可轉送 APM 或儲存。
+#[utoipa::path(
+    post,
+    path = "/api/metrics/vitals",
+    request_body = Vec<WebVitalsMetric>,
+    responses((status = 204, description = "已接收")),
+    tag = "監控"
+)]
+pub async fn vitals_handler(Json(metrics): Json<Vec<WebVitalsMetric>>) -> impl IntoResponse {
+    for metric in &metrics {
+        tracing::debug!(
+            name = %metric.name,
+            value = %metric.value,
+            "Web Vitals metric received"
+        );
+    }
+    StatusCode::NO_CONTENT
+}
+
+/// 回傳 Prometheus 格式的指標文字
+///
+/// 使用 `metrics-exporter-prometheus` 的 `PrometheusHandle` 渲染指標
+#[utoipa::path(
+    get,
+    path = "/metrics",
+    responses(
+        (status = 200, description = "Prometheus 格式指標 (text/plain)"),
+        (status = 503, description = "指標收集器未啟用")
+    ),
+    tag = "監控"
+)]
+pub async fn metrics_handler(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    // R17-4: 從 config 讀取 METRICS_TOKEN，不再散落讀取 std::env::var
+    // 定速比對防 timing side-channel 推測 token（同 alertmanager_webhook 規範）
+    if let Some(ref expected) = state.config.metrics_token {
+        let provided = headers
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .unwrap_or("");
+        if !const_time_eq(provided.as_bytes(), expected.as_bytes()) {
+            return (StatusCode::UNAUTHORIZED, "Invalid metrics token").into_response();
+        }
+    }
+    let pool = &state.db;
+    let pool_size = pool.size() as f64;
+    let pool_idle = pool.num_idle() as f64;
+    metrics::gauge!("db_pool_connections_total").set(pool_size);
+    metrics::gauge!("db_pool_connections_idle").set(pool_idle);
+    metrics::gauge!("db_pool_connections_active").set(pool_size - pool_idle);
+
+    // 從 PrometheusHandle 渲染指標
+    let handle = state.metrics_handle.as_ref();
+
+    match handle {
+        Some(h) => (
+            StatusCode::OK,
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "text/plain; version=0.0.4; charset=utf-8",
+            )],
+            h.render(),
+        )
+            .into_response(),
+        None => (StatusCode::SERVICE_UNAVAILABLE, "Metrics not available").into_response(),
+    }
+}

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{#
+  R45 Phase 3：實驗豬隻病歷總表（非 GLP，未來可能升級 GLP 見 R45-6）。
+  Context schema：MedicalRecordPayload — animal + vaccinations + events (timeline)
+#}
+
+{% block extra_styles %}
+    body { font-size: 11pt; line-height: 1.6; }
+
+    h1.doc-title {
+      font-size: 17pt;
+      text-align: center;
+      letter-spacing: 4pt;
+      margin: 12pt 0 14pt 0;
+    }
+
+    table.timeline {
+      width: 100%;
+      border-collapse: collapse;
+      page-break-inside: auto;
+    }
+    table.timeline thead { display: table-header-group; }
+    table.timeline tr { page-break-inside: avoid; }
+    table.timeline th, table.timeline td {
+      border: 0.5pt solid #000;
+      padding: 4pt 6pt;
+      font-size: 10.5pt;
+      vertical-align: top;
+    }
+    table.timeline th {
+      background: #d8d8d8;
+      text-align: center;
+      font-weight: bold;
+    }
+    table.timeline td.center { text-align: center; }
+    table.timeline tbody tr:nth-child(even) td { background: #fafafa; }
+    table.timeline td .med { margin-top: 2pt; font-size: 9.5pt; color: #333; }
+    table.timeline td .med::before { content: "用藥："; font-weight: bold; }
+
+    .footer-meta { margin-top: 14pt; text-align: right; font-size: 10pt; color: #555; }
+{% endblock %}
+
+{% block content %}
+  <h1 class="doc-title">實 驗 豬 隻 病 歷 總 表</h1>
+
+  <div class="section-title">動物基本資料</div>
+  <table class="meta">
+    <tr>
+      <th>耳號</th><td>{{ animal.ear_tag }}</td>
+      <th>IACUC 編號</th><td>{{ animal.iacuc_no or '—' }}</td>
+    </tr>
+    <tr>
+      <th>品種</th><td>{{ animal.breed_zh }}</td>
+      <th>性別</th><td>{{ animal.gender_zh }}</td>
+    </tr>
+    <tr>
+      <th>出生日期</th><td>{{ animal.birth_date or '—' }}</td>
+      <th>入場日期</th><td>{{ animal.entry_date or '—' }}</td>
+    </tr>
+    <tr>
+      <th>來源</th><td>{{ animal.source_name or '—' }}</td>
+      <th>入場體重</th><td>{% if animal.entry_weight is not none %}{{ animal.entry_weight }} kg{% else %}—{% endif %}</td>
+    </tr>
+  </table>
+
+  <div class="section-title">疫苗 / 驅蟲紀錄</div>
+  {% if vaccinations %}
+  <table class="timeline">
+    <thead>
+      <tr>
+        <th style="width:25%">給藥日期</th>
+        <th style="width:38%">疫苗</th>
+        <th style="width:37%">驅蟲</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vaccinations %}
+      <tr>
+        <td class="center">{{ v.administered_date }}</td>
+        <td>{{ v.vaccine }}</td>
+        <td>{{ v.deworming_dose }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>（無疫苗 / 驅蟲紀錄）</p>{% endif %}
+
+  <div class="section-title">體重 / 觀察 / 手術 時間軸</div>
+  {% if events %}
+  <table class="timeline">
+    <thead>
+      <tr>
+        <th style="width:18%">日期</th>
+        <th style="width:14%">體重 (kg)</th>
+        <th style="width:68%">事件內容</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td class="center">{{ e.event_date }}</td>
+        <td class="center">{{ e.weight or '—' }}</td>
+        <td>
+          {{ e.content or '—' }}
+          {% if e.medications %}<div class="med">{{ e.medications }}</div>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>（無觀察 / 體重 / 手術紀錄）</p>{% endif %}
+
+{% endblock %}

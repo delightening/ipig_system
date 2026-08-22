@@ -1,0 +1,319 @@
+// 觀察記錄管理 Handlers
+
+use axum::{
+    extract::{Path, Query, State},
+    Extension, Json,
+};
+use uuid::Uuid;
+use validator::Validate;
+
+use crate::{
+    middleware::{ActorContext, CurrentUser},
+    models::{
+        AnimalObservation, CopyRecordRequest, CreateObservationRequest, DeleteRequest,
+        ObservationListItem, RecordFilterQuery, UpdateObservationRequest, VersionHistoryResponse,
+    },
+    require_permission,
+    services::{access, AnimalObservationService, AnimalService},
+    AppState, Result,
+};
+
+/// 列出動物的所有觀察記錄
+#[utoipa::path(
+    get,
+    path = "/api/v1/animals/{animal_id}/observations",
+    params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery),
+    responses((status = 200, description = "觀察記錄清單", body = Vec<AnimalObservation>), (status = 401, description = "未認證")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
+pub async fn list_animal_observations(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(animal_id): Path<Uuid>,
+    Query(filter): Query<RecordFilterQuery>,
+) -> Result<Json<Vec<AnimalObservation>>> {
+    // R70-3: 觀察紀錄（異常/觀察性質）為免計畫紀錄，允許未指派計畫的動物存取
+    access::require_animal_read_access(&state.db, &current_user, animal_id).await?;
+    let observations = AnimalObservationService::list(&state.db, animal_id, filter.after).await?;
+    Ok(Json(observations))
+}
+
+/// 列出動物的觀察記錄（包含獸醫建議）
+pub async fn list_animal_observations_with_recommendations(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(animal_id): Path<Uuid>,
+    Query(filter): Query<RecordFilterQuery>,
+) -> Result<Json<Vec<ObservationListItem>>> {
+    // R70-3: 同 list_animal_observations，免計畫紀錄路徑
+    let scope =
+        access::Scoped::<access::AnimalRead>::authorize(&state.db, &current_user, animal_id)
+            .await?;
+    let observations =
+        AnimalObservationService::list_with_recommendations(&state.db, scope, filter.after).await?;
+    Ok(Json(observations))
+}
+
+/// 取得單個觀察記錄
+#[utoipa::path(
+    get,
+    path = "/api/v1/observations/{id}",
+    params(("id" = Uuid, Path, description = "觀察記錄 ID")),
+    responses((status = 200, description = "觀察記錄", body = AnimalObservation), (status = 401, description = "未認證"), (status = 404, description = "找不到")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
+pub async fn get_animal_observation(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<AnimalObservation>> {
+    // R70-3: 免計畫路徑（IDOR 防護透過 get_observation_animal_id 解析仍存在）
+    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    access::require_animal_read_access(&state.db, &current_user, animal_id).await?;
+    let observation = AnimalObservationService::get_by_id(&state.db, id).await?;
+    Ok(Json(observation))
+}
+
+/// 建立觀察記錄
+#[utoipa::path(
+    post,
+    path = "/api/v1/animals/{animal_id}/observations",
+    params(("animal_id" = Uuid, Path, description = "動物 ID")),
+    request_body = CreateObservationRequest,
+    responses((status = 200, description = "建立成功", body = AnimalObservation), (status = 400, description = "驗證失敗"), (status = 401, description = "未認證")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
+pub async fn create_animal_observation(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(animal_id): Path<Uuid>,
+    Json(req): Json<CreateObservationRequest>,
+) -> Result<Json<AnimalObservation>> {
+    require_permission!(current_user, "animal.record.create");
+    req.validate()?;
+
+    // R70-3: 觀察（異常/觀察性質）為免計畫紀錄；試驗性觀察由 service 層 R70-1 擋回。
+    let scope =
+        access::Scoped::<access::AnimalRead>::authorize(&state.db, &current_user, animal_id)
+            .await?;
+
+    // 檢查是否為緊急給藥，需驗證是否有緊急給藥權限
+    if req.is_emergency {
+        require_permission!(current_user, "animal.record.emergency");
+    }
+
+    // Audit 已收進 service 層（OBSERVATION_CREATE，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let observation = AnimalObservationService::create(&state.db, &actor, scope, &req).await?;
+
+    // R27-10：emergency 與 abnormal 兩條後續通知路徑都需 animal info；
+    // 原本各自呼叫一次 AnimalService::get_by_id，兩條都觸發時打 DB 兩次。
+    // 改為一次 fetch 共用，失敗時兩條路徑都 silent skip（與原 if let Ok 同語意）。
+    let is_abnormal = matches!(req.record_type, crate::models::RecordType::Abnormal);
+    let animal = if req.is_emergency || is_abnormal {
+        AnimalService::get_by_id(&state.db, animal_id)
+            .await
+            .inspect_err(|e| {
+                tracing::warn!(
+                    "通知用 animal fetch 失敗（emergency={} abnormal={}）: {e}",
+                    req.is_emergency,
+                    is_abnormal,
+                );
+            })
+            .ok()
+    } else {
+        None
+    };
+
+    if req.is_emergency {
+        if let Some(ref animal) = animal {
+            let notification_service = crate::services::NotificationService::new(state.db.clone());
+            let emergency_reason = req.emergency_reason.as_deref().unwrap_or("未提供原因");
+
+            // 異步發送通知，不阻塞主流程
+            if let Err(e) = notification_service
+                .notify_emergency_medication(
+                    animal_id,
+                    observation.id,
+                    &animal.ear_tag,
+                    animal.iacuc_no.as_deref(),
+                    &current_user.email,
+                    emergency_reason,
+                )
+                .await
+            {
+                tracing::warn!("發送緊急給藥通知失敗: {e}");
+            }
+
+            tracing::warn!(
+                "[Emergency Medication] User {} recorded emergency medication for animal {} (observation {})",
+                current_user.email,
+                animal.ear_tag,
+                observation.id
+            );
+        }
+    }
+
+    // 異常紀錄通知 → 通知 VET（依路由表 animal_abnormal_record）
+    if is_abnormal {
+        // Gemini PR #221：與第一個 if let 一致用 ref 借用，未來若新增邏輯需要
+        // animal 不會因 ownership 已轉移而失敗（spawn 內已 clone 出 ear_tag /
+        // iacuc_no，不需要 owning animal 本身）。
+        if let Some(ref animal) = animal {
+            let summary: String = if req.content.is_empty() {
+                "（未提供摘要）".to_string()
+            } else {
+                req.content.chars().take(100).collect()
+            };
+            let operator = current_user.email.clone();
+            let ear_tag = animal.ear_tag.clone();
+            let iacuc_no = animal.iacuc_no.clone();
+            let a_id = animal_id;
+            let db = state.db.clone();
+            tokio::spawn(async move {
+                let svc = crate::services::NotificationService::new(db);
+                if let Err(e) = svc
+                    .notify_abnormal_record(
+                        a_id,
+                        &ear_tag,
+                        iacuc_no.as_deref(),
+                        &summary,
+                        &operator,
+                    )
+                    .await
+                {
+                    tracing::warn!("發送異常紀錄通知失敗: {e}");
+                }
+            });
+        }
+    }
+
+    Ok(Json(observation))
+}
+
+/// 更新觀察記錄
+#[utoipa::path(
+    put,
+    path = "/api/v1/observations/{id}",
+    params(("id" = Uuid, Path, description = "觀察記錄 ID")),
+    request_body = UpdateObservationRequest,
+    responses((status = 200, description = "更新成功", body = AnimalObservation), (status = 400, description = "驗證失敗"), (status = 401, description = "未認證"), (status = 404, description = "找不到")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
+pub async fn update_animal_observation(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateObservationRequest>,
+) -> Result<Json<AnimalObservation>> {
+    require_permission!(current_user, "animal.record.edit");
+    // R70-3: 免計畫路徑（record_id → animal_id 仍保留 IDOR 防護）
+    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    let scope =
+        access::Scoped::<access::AnimalRead>::authorize(&state.db, &current_user, animal_id)
+            .await?;
+
+    // Audit 已收進 service 層（OBSERVATION_UPDATE with before/after diff，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    let observation = AnimalObservationService::update(&state.db, &actor, scope, id, &req).await?;
+
+    Ok(Json(observation))
+}
+
+/// 刪除觀察記錄（軟刪除 + 刪除原因）- GLP 合規
+#[utoipa::path(
+    delete,
+    path = "/api/v1/observations/{id}",
+    params(("id" = Uuid, Path, description = "觀察記錄 ID")),
+    responses((status = 200, description = "刪除成功"), (status = 401, description = "未認證"), (status = 404, description = "找不到")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
+pub async fn delete_animal_observation(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<DeleteRequest>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "animal.record.delete");
+    req.validate()?;
+    // R70-3: 免計畫路徑（record_id → animal_id 仍保留 IDOR 防護）
+    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    let scope =
+        access::Scoped::<access::AnimalRead>::authorize(&state.db, &current_user, animal_id)
+            .await?;
+
+    // Audit 已收進 service 層（OBSERVATION_SOFT_DELETE with change_reasons，tx 內）
+    let actor = ActorContext::User(current_user.clone());
+    AnimalObservationService::soft_delete_with_reason(&state.db, &actor, scope, id, &req.reason)
+        .await?;
+
+    if let Err(e) =
+        crate::services::FileService::delete_by_entity(&state.db, "observation", &id).await
+    {
+        tracing::warn!("清理觀察紀錄附件失敗 (non-fatal): {}", e);
+    }
+
+    // Audit 已由 service 層寫入（OBSERVATION_DELETE，tx 內 with before/after diff）；
+    // 先前此 handler 另外 fire-and-forget log 一次 → 重複 audit，本次移除。
+
+    Ok(Json(
+        serde_json::json!({ "message": "Observation deleted successfully" }),
+    ))
+}
+
+/// 複製觀察記錄
+pub async fn copy_animal_observation(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(animal_id): Path<Uuid>,
+    Json(req): Json<CopyRecordRequest>,
+) -> Result<Json<AnimalObservation>> {
+    require_permission!(current_user, "animal.record.copy");
+    // SEC-IDOR: 驗證目標 animal 的計畫歸屬
+    let scope =
+        access::Scoped::<access::AnimalWrite>::authorize(&state.db, &current_user, animal_id)
+            .await?;
+    // High-5 (#237相關): 來源觀察紀錄也須驗證計畫存取權，否則具 copy 權者可指定他人計畫的
+    // source_id，把跨計畫敏感觀察內容複製進自己可讀的新紀錄（cross-protocol read IDOR）。
+    let source_animal_id = access::get_observation_animal_id(&state.db, req.source_id).await?;
+    access::require_animal_access(&state.db, &current_user, source_animal_id).await?;
+
+    let observation =
+        AnimalObservationService::copy(&state.db, scope, req.source_id, current_user.id).await?;
+    Ok(Json(observation))
+}
+
+/// 標記觀察記錄為獸醫已讀
+pub async fn mark_observation_vet_read(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "animal.vet.read");
+    // SEC-IDOR: 由紀錄 id 反查 animal_id，驗證計畫歸屬
+    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    let scope =
+        access::Scoped::<access::AnimalWrite>::authorize(&state.db, &current_user, animal_id)
+            .await?;
+
+    AnimalObservationService::mark_vet_read(&state.db, scope, id, current_user.id).await?;
+    Ok(Json(serde_json::json!({ "message": "Marked as read" })))
+}
+
+/// 取得觀察記錄的版本歷史
+pub async fn get_observation_versions(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<VersionHistoryResponse>> {
+    // SEC-IDOR: v2 審計發現 — 版本歷程需驗證動物計畫歸屬
+    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    access::require_animal_read_access(&state.db, &current_user, animal_id).await?;
+    let versions = AnimalService::get_record_versions(&state.db, "observation", id).await?;
+    Ok(Json(versions))
+}

@@ -1,0 +1,466 @@
+﻿// 設施管理 Models
+// 包含：Species, Facility, Building, Zone, Pen, Department
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use utoipa::ToSchema;
+use uuid::Uuid;
+
+// ============================================
+// Species (物種)
+// ============================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Species {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub name_en: Option<String>,
+    pub icon: Option<String>,
+    pub is_active: bool,
+    pub config: Option<serde_json::Value>,
+    pub parent_id: Option<Uuid>,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 物種清單項目 — Species 外加「被幾隻動物引用」。
+///
+/// species_id 自 P1 起是動物種類的真相源，停用/刪除使用中的物種會讓那些動物的
+/// 品種顯示變成孤兒，故清單一併帶出引用數供前端標示「使用中」並停用刪除鈕。
+/// 計數**含軟刪除的動物**：牠們的明細與稽核紀錄仍要顯示物種名稱。
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct SpeciesListItem {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub name_en: Option<String>,
+    pub icon: Option<String>,
+    pub is_active: bool,
+    pub config: Option<serde_json::Value>,
+    pub parent_id: Option<Uuid>,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub animal_count: i64,
+}
+
+/// 物種清單查詢參數。
+///
+/// 預設只回啟用中的物種——動物表單的品種下拉吃同一支 API，停用物種不該混進去。
+/// 物種管理頁需要 `include_inactive=true` 才能看到停用物種並重新啟用它。
+#[derive(Debug, Default, Deserialize, ToSchema, utoipa::IntoParams)]
+pub struct SpeciesListQuery {
+    #[serde(default)]
+    pub include_inactive: bool,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateSpeciesRequest {
+    pub code: String,
+    pub name: String,
+    pub name_en: Option<String>,
+    pub icon: Option<String>,
+    pub parent_id: Option<Uuid>,
+    pub config: Option<serde_json::Value>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateSpeciesRequest {
+    pub name: Option<String>,
+    pub name_en: Option<String>,
+    pub icon: Option<String>,
+    pub is_active: Option<bool>,
+    pub parent_id: Option<Uuid>,
+    pub config: Option<serde_json::Value>,
+    pub sort_order: Option<i32>,
+}
+
+// ============================================
+// Facility (設施)
+// ============================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Facility {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub address: Option<String>,
+    pub phone: Option<String>,
+    pub contact_person: Option<String>,
+    pub is_active: bool,
+    pub config: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateFacilityRequest {
+    pub code: String,
+    pub name: String,
+    pub address: Option<String>,
+    pub phone: Option<String>,
+    pub contact_person: Option<String>,
+    pub config: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateFacilityRequest {
+    pub name: Option<String>,
+    pub address: Option<String>,
+    pub phone: Option<String>,
+    pub contact_person: Option<String>,
+    pub is_active: Option<bool>,
+    pub config: Option<serde_json::Value>,
+}
+
+// ============================================
+// Building (棟舍)
+// ============================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Building {
+    pub id: Uuid,
+    pub facility_id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub is_active: bool,
+    pub config: Option<serde_json::Value>,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, FromRow, ToSchema)]
+pub struct BuildingWithFacility {
+    pub id: Uuid,
+    pub facility_id: Uuid,
+    pub facility_code: String,
+    pub facility_name: String,
+    pub code: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub is_active: bool,
+    pub config: Option<serde_json::Value>,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateBuildingRequest {
+    pub facility_id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateBuildingRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub is_active: Option<bool>,
+    pub config: Option<serde_json::Value>,
+    pub sort_order: Option<i32>,
+}
+
+// ============================================
+// Zone (區域)
+// ============================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Zone {
+    pub id: Uuid,
+    pub building_id: Uuid,
+    pub code: String,
+    pub name: Option<String>,
+    pub color: Option<String>,
+    pub is_active: bool,
+    pub layout_config: Option<serde_json::Value>,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, FromRow, ToSchema)]
+pub struct ZoneWithBuilding {
+    pub id: Uuid,
+    pub building_id: Uuid,
+    pub building_code: String,
+    pub building_name: String,
+    pub facility_id: Uuid,
+    pub facility_name: String,
+    pub code: String,
+    pub name: Option<String>,
+    pub color: Option<String>,
+    pub is_active: bool,
+    pub layout_config: Option<serde_json::Value>,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateZoneRequest {
+    pub building_id: Uuid,
+    pub code: String,
+    pub name: Option<String>,
+    pub color: Option<String>,
+    pub layout_config: Option<serde_json::Value>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateZoneRequest {
+    pub name: Option<String>,
+    pub color: Option<String>,
+    pub is_active: Option<bool>,
+    pub layout_config: Option<serde_json::Value>,
+    pub sort_order: Option<i32>,
+}
+
+// ============================================
+// Pen (欄位)
+// ============================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Pen {
+    pub id: Uuid,
+    pub zone_id: Uuid,
+    pub code: String,
+    pub name: Option<String>,
+    pub capacity: i32,
+    pub current_count: i32,
+    pub status: String,
+    pub row_index: Option<i32>,
+    pub col_index: Option<i32>,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, FromRow, ToSchema)]
+pub struct PenDetails {
+    pub id: Uuid,
+    pub code: String,
+    pub name: Option<String>,
+    pub capacity: i32,
+    pub current_count: i32,
+    pub status: String,
+    pub row_index: Option<i32>,
+    pub col_index: Option<i32>,
+    pub zone_id: Uuid,
+    pub zone_code: String,
+    pub zone_name: Option<String>,
+    pub zone_color: Option<String>,
+    pub zone_layout_config: Option<serde_json::Value>,
+    pub building_id: Uuid,
+    pub building_code: String,
+    pub building_name: String,
+    pub facility_id: Uuid,
+    pub facility_code: String,
+    pub facility_name: String,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreatePenRequest {
+    pub zone_id: Uuid,
+    pub code: String,
+    pub name: Option<String>,
+    pub capacity: Option<i32>,
+    pub row_index: Option<i32>,
+    pub col_index: Option<i32>,
+}
+
+/// 批次建立欄位請求
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct BatchCreatePensRequest {
+    pub zone_id: Uuid,
+    /// 代碼前綴（如 "Q"）
+    pub prefix: String,
+    /// 建立數量
+    pub count: i32,
+    /// 排列模式："single"=單欄, "double"=兩欄並排
+    #[serde(default = "default_pen_layout")]
+    pub layout: String,
+    /// 每欄容量
+    #[serde(default = "default_pen_capacity")]
+    pub capacity: i32,
+}
+
+fn default_pen_layout() -> String {
+    "double".to_string()
+}
+fn default_pen_capacity() -> i32 {
+    1
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdatePenRequest {
+    pub name: Option<String>,
+    pub capacity: Option<i32>,
+    pub status: Option<String>,
+    pub row_index: Option<i32>,
+    pub col_index: Option<i32>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PenQuery {
+    pub zone_id: Option<Uuid>,
+    pub building_id: Option<Uuid>,
+    pub facility_id: Option<Uuid>,
+    pub status: Option<String>,
+    pub is_active: Option<bool>,
+}
+
+// ============================================
+// Department (部門)
+// ============================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Department {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+    pub manager_id: Option<Uuid>,
+    pub is_active: bool,
+    pub config: Option<serde_json::Value>,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, FromRow, ToSchema)]
+pub struct DepartmentWithManager {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+    pub parent_name: Option<String>,
+    pub manager_id: Option<Uuid>,
+    pub manager_name: Option<String>,
+    pub is_active: bool,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateDepartmentRequest {
+    pub code: String,
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+    pub manager_id: Option<Uuid>,
+    pub config: Option<serde_json::Value>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateDepartmentRequest {
+    pub name: Option<String>,
+    pub parent_id: Option<Uuid>,
+    pub manager_id: Option<Uuid>,
+    pub is_active: Option<bool>,
+    pub config: Option<serde_json::Value>,
+    pub sort_order: Option<i32>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_species_serde() {
+        let json = r#"{
+            "code": "PIG",
+            "name": "豬",
+            "name_en": "Pig",
+            "icon": null,
+            "config": null,
+            "sort_order": 1
+        }"#;
+        let req: CreateSpeciesRequest =
+            serde_json::from_str(json).expect("反序列化 CreateSpeciesRequest 失敗");
+        assert_eq!(req.code, "PIG");
+        assert_eq!(req.name, "豬");
+        assert_eq!(req.name_en.as_deref(), Some("Pig"));
+        assert_eq!(req.sort_order, Some(1));
+    }
+
+    #[test]
+    fn test_facility_serde() {
+        let json = r#"{
+            "code": "FAC-001",
+            "name": "動物試驗中心",
+            "address": "台南市中西區",
+            "phone": "06-1234567",
+            "contact_person": "王小明",
+            "config": null
+        }"#;
+        let req: CreateFacilityRequest =
+            serde_json::from_str(json).expect("反序列化 CreateFacilityRequest 失敗");
+        assert_eq!(req.code, "FAC-001");
+        assert_eq!(req.name, "動物試驗中心");
+        assert_eq!(req.phone.as_deref(), Some("06-1234567"));
+    }
+
+    #[test]
+    fn test_pen_query_defaults() {
+        let json = r#"{}"#;
+        let query: PenQuery = serde_json::from_str(json).expect("反序列化 PenQuery 失敗");
+        assert!(query.zone_id.is_none());
+        assert!(query.building_id.is_none());
+        assert!(query.facility_id.is_none());
+        assert!(query.status.is_none());
+        assert!(query.is_active.is_none());
+    }
+
+    #[test]
+    fn test_create_pen_request() {
+        let zone_id = Uuid::new_v4();
+        let json = format!(
+            r#"{{
+            "zone_id": "{}",
+            "code": "P-001",
+            "name": "1號欄",
+            "capacity": 10
+        }}"#,
+            zone_id
+        );
+        let req: CreatePenRequest =
+            serde_json::from_str(&json).expect("反序列化 CreatePenRequest 失敗");
+        assert_eq!(req.zone_id, zone_id);
+        assert_eq!(req.code, "P-001");
+        assert_eq!(req.capacity, Some(10));
+    }
+
+    #[test]
+    fn test_department_serde() {
+        let json = r#"{
+            "code": "DEPT-001",
+            "name": "研發部",
+            "parent_id": null,
+            "manager_id": null,
+            "config": null,
+            "sort_order": 1
+        }"#;
+        let req: CreateDepartmentRequest =
+            serde_json::from_str(json).expect("反序列化 CreateDepartmentRequest 失敗");
+        assert_eq!(req.code, "DEPT-001");
+        assert_eq!(req.name, "研發部");
+        assert!(req.parent_id.is_none());
+    }
+
+    #[test]
+    fn test_update_pen_optional_fields() {
+        let json = r#"{"capacity": 20}"#;
+        let req: UpdatePenRequest =
+            serde_json::from_str(json).expect("反序列化 UpdatePenRequest 失敗");
+        assert_eq!(req.capacity, Some(20));
+        assert!(req.name.is_none());
+        assert!(req.status.is_none());
+        assert!(req.is_active.is_none());
+    }
+}

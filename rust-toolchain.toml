@@ -1,0 +1,20 @@
+# 釘住 Rust toolchain 版本（2026-08-03）。
+#
+# 為什麼要釘：本檔出現前 CI 用 `toolchain: stable`、repo 內也沒有 rustfmt.toml，
+# 格式等於「誰、什麼時候、用哪版 rustfmt 跑過」。2026-07-11 的 fmt 全量收斂（#945）
+# 之後 stable 由 1.96.x 進到 1.97.1，rustfmt 的換行啟發式隨之改變，於是 2026-03 /
+# 2026-04 就寫好、且撐過兩次 fmt 全掃的程式碼開始被判定為「未格式化」——實測
+# origin/main 上累積 25 檔 / 67 hunk 的漂移，每個後端 PR 都得手動還原無關檔案。
+#
+# 版本異動時要一起改的地方（保持同步，否則 CI 會多下載一份 toolchain）：
+#   - .github/actions/setup-rust/action.yml 的 `toolchain` 預設值
+#   - backend/Dockerfile 等三支 Dockerfile 的 cargo-chef base image tag
+#     （目前 lukemathwalker/cargo-chef:latest-rust-1.97；Docker build context 是
+#      ./backend，不含本檔，故映像建置不受本檔影響）
+#
+# 注意：`channel` 綁定 rustc/cargo 版本，連帶決定 sqlx 0.9 要求的 MSRV
+# （見 docs 中 sqlx 0.9 升級紀錄：MSRV = rustc 1.94）。降版前先確認相依套件仍可編譯。
+
+[toolchain]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]

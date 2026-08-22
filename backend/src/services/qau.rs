@@ -1,0 +1,345 @@
+//! QAU (Quality Assurance Unit) 服務
+//!
+//! GLP 品質保證：提供研究狀態、審查進度、稽核摘要、動物實驗概覽的唯讀檢視
+
+use chrono::{Datelike, Utc};
+use serde::Serialize;
+use sqlx::PgPool;
+
+use crate::Result;
+
+/// QAU 儀表板回應
+#[derive(Debug, Serialize)]
+pub struct QauDashboard {
+    /// 計畫狀態分布
+    pub protocol_status_summary: Vec<ProtocolStatusCount>,
+    /// 審查進度（近期狀態變更數）
+    pub review_progress: ReviewProgressSummary,
+    /// 稽核摘要（依 entity_type 聚合）
+    pub audit_summary: Vec<AuditEntityCount>,
+    /// 動物實驗概覽
+    pub animal_summary: AnimalSummary,
+    /// QA 計畫管理摘要
+    pub qa_plan_summary: QaPlanSummary,
+}
+
+#[derive(Debug, Serialize)]
+pub struct QaPlanSummary {
+    /// 開放中的不符合事項數
+    pub open_nc_count: i64,
+    /// 逾期未結的不符合事項數
+    pub overdue_nc_count: i64,
+    /// 現行 SOP 文件數
+    pub active_sop_count: i64,
+    /// 稽查報告（依狀態統計）
+    pub inspection_by_status: Vec<StatusCount>,
+    /// 今年稽查排程項目（依狀態統計）
+    pub schedule_items_by_status: Vec<StatusCount>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StatusCount {
+    pub status: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProtocolStatusCount {
+    pub status: String,
+    pub display_name: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReviewProgressSummary {
+    pub status_changes_last_7_days: i64,
+    pub protocols_in_review: i64,
+    pub protocols_pending_pi_response: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AuditEntityCount {
+    pub entity_type: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AnimalSummary {
+    pub total: i64,
+    pub by_status: Vec<AnimalStatusCount>,
+    pub in_experiment: i64,
+    pub euthanized: i64,
+    pub completed: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AnimalStatusCount {
+    pub status: String,
+    pub display_name: String,
+    pub count: i64,
+}
+
+pub struct QauService;
+
+impl QauService {
+    /// 取得 QAU 儀表板資料
+    pub async fn get_dashboard(pool: &PgPool) -> Result<QauDashboard> {
+        let protocol_status_summary = Self::get_protocol_status_summary(pool).await?;
+        let review_progress = Self::get_review_progress(pool).await?;
+        let audit_summary = Self::get_audit_summary(pool).await?;
+        let animal_summary = Self::get_animal_summary(pool).await?;
+        let qa_plan_summary = Self::get_qa_plan_summary(pool).await?;
+
+        Ok(QauDashboard {
+            protocol_status_summary,
+            review_progress,
+            audit_summary,
+            animal_summary,
+            qa_plan_summary,
+        })
+    }
+
+    async fn get_protocol_status_summary(pool: &PgPool) -> Result<Vec<ProtocolStatusCount>> {
+        let rows: Vec<(String, i64)> = sqlx::query_as(
+            r#"
+            SELECT status::text, COUNT(*)::bigint
+            FROM protocols
+            WHERE status != 'DELETED'
+            GROUP BY status
+            ORDER BY count DESC
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let display_names: std::collections::HashMap<&str, &str> = [
+            ("DRAFT", "草稿"),
+            ("SUBMITTED", "已提交"),
+            ("PRE_REVIEW", "行政預審"),
+            ("PRE_REVIEW_REVISION_REQUIRED", "行政預審補件"),
+            ("VET_REVIEW", "獸醫審查"),
+            ("VET_REVISION_REQUIRED", "獸醫要求修訂"),
+            ("UNDER_REVIEW", "審查中"),
+            ("REVISION_REQUIRED", "需修訂"),
+            ("RESUBMITTED", "已重送"),
+            ("APPROVED", "已核准"),
+            ("APPROVED_WITH_CONDITIONS", "附條件核准"),
+            ("DEFERRED", "延後審議"),
+            ("REJECTED", "已否決"),
+            ("SUSPENDED", "已暫停"),
+            ("CLOSED", "已結案"),
+        ]
+        .into_iter()
+        .collect();
+
+        Ok(rows
+            .into_iter()
+            .map(|(status, count)| ProtocolStatusCount {
+                display_name: display_names
+                    .get(status.as_str())
+                    .copied()
+                    .unwrap_or(&status)
+                    .to_string(),
+                status,
+                count,
+            })
+            .collect())
+    }
+
+    async fn get_review_progress(pool: &PgPool) -> Result<ReviewProgressSummary> {
+        let week_ago = Utc::now() - chrono::Duration::days(7);
+
+        // 狀態變更數：以 activity_type 白名單精準過濾（只算實際狀態轉移，不含指派/留言）。
+        // 對應 `activity_type_for_status` 產生的 variants；使用索引 (activity_type, created_at DESC)。
+        let status_changes: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)::bigint
+            FROM protocol_activities
+            WHERE created_at >= $1
+            AND activity_type IN (
+                'SUBMITTED', 'RESUBMITTED', 'APPROVED', 'APPROVED_WITH_CONDITIONS',
+                'REJECTED', 'CLOSED', 'SUSPENDED', 'DELETED', 'STATUS_CHANGED'
+            )
+            "#,
+        )
+        .bind(week_ago)
+        .fetch_one(pool)
+        .await?;
+
+        let in_review: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)::bigint
+            FROM protocols
+            WHERE status IN ('UNDER_REVIEW', 'VET_REVIEW', 'PRE_REVIEW', 'SUBMITTED', 'RESUBMITTED')
+            AND status != 'DELETED'
+            "#,
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let pending_pi: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)::bigint
+            FROM protocols
+            WHERE status IN ('REVISION_REQUIRED', 'PRE_REVIEW_REVISION_REQUIRED', 'VET_REVISION_REQUIRED')
+            AND status != 'DELETED'
+            "#,
+        )
+        .fetch_one(pool)
+        .await?;
+
+        Ok(ReviewProgressSummary {
+            status_changes_last_7_days: status_changes.0,
+            protocols_in_review: in_review.0,
+            protocols_pending_pi_response: pending_pi.0,
+        })
+    }
+
+    async fn get_audit_summary(pool: &PgPool) -> Result<Vec<AuditEntityCount>> {
+        let week_ago = Utc::now() - chrono::Duration::days(7);
+
+        let rows: Vec<(Option<String>, i64)> = sqlx::query_as(
+            r#"
+            SELECT entity_type, COUNT(*)::bigint
+            FROM user_activity_logs
+            WHERE created_at >= $1
+            AND entity_type IS NOT NULL
+            GROUP BY entity_type
+            ORDER BY count DESC
+            LIMIT 15
+            "#,
+        )
+        .bind(week_ago)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|(entity_type, count)| AuditEntityCount {
+                entity_type: entity_type.unwrap_or_else(|| "unknown".to_string()),
+                count,
+            })
+            .collect())
+    }
+
+    async fn get_animal_summary(pool: &PgPool) -> Result<AnimalSummary> {
+        let total: (i64,) = sqlx::query_as("SELECT COUNT(*)::bigint FROM animals")
+            .fetch_one(pool)
+            .await?;
+
+        let rows: Vec<(String, i64)> = sqlx::query_as(
+            r#"
+            SELECT status::text, COUNT(*)::bigint
+            FROM animals
+            GROUP BY status
+            ORDER BY count DESC
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let display_names: std::collections::HashMap<&str, &str> = [
+            ("unassigned", "未分配"),
+            ("in_experiment", "實驗中"),
+            ("completed", "實驗完成"),
+            ("euthanized", "安樂死"),
+            ("sudden_death", "猝死"),
+            ("transferred", "已轉讓"),
+        ]
+        .into_iter()
+        .collect();
+
+        let by_status: Vec<AnimalStatusCount> = rows
+            .into_iter()
+            .map(|(status, count)| AnimalStatusCount {
+                display_name: display_names
+                    .get(status.as_str())
+                    .copied()
+                    .unwrap_or(&status)
+                    .to_string(),
+                status,
+                count,
+            })
+            .collect();
+
+        let in_experiment: i64 = by_status
+            .iter()
+            .find(|s| s.status == "in_experiment")
+            .map(|s| s.count)
+            .unwrap_or(0);
+        let euthanized: i64 = by_status
+            .iter()
+            .find(|s| s.status == "euthanized")
+            .map(|s| s.count)
+            .unwrap_or(0);
+        let completed: i64 = by_status
+            .iter()
+            .find(|s| s.status == "completed")
+            .map(|s| s.count)
+            .unwrap_or(0);
+
+        Ok(AnimalSummary {
+            total: total.0,
+            by_status,
+            in_experiment,
+            euthanized,
+            completed,
+        })
+    }
+
+    async fn get_qa_plan_summary(pool: &PgPool) -> Result<QaPlanSummary> {
+        let open_nc: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM qa_non_conformances WHERE status IN ('open', 'in_progress', 'pending_verification')",
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let today = Utc::now().date_naive();
+        let overdue_nc: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM qa_non_conformances WHERE status IN ('open', 'in_progress') AND due_date IS NOT NULL AND due_date < $1",
+        )
+        .bind(today)
+        .fetch_one(pool)
+        .await?;
+
+        let active_sop: (i64,) =
+            sqlx::query_as("SELECT COUNT(*)::bigint FROM qa_sop_documents WHERE status = 'active'")
+                .fetch_one(pool)
+                .await?;
+
+        let inspection_rows: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT status::text, COUNT(*)::bigint FROM qa_inspections GROUP BY status ORDER BY count DESC",
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let current_year = Utc::now().naive_utc().date().year();
+        let schedule_rows: Vec<(String, i64)> = sqlx::query_as(
+            r#"
+            SELECT si.status::text, COUNT(*)::bigint
+            FROM qa_schedule_items si
+            JOIN qa_audit_schedules s ON s.id = si.schedule_id
+            WHERE s.year = $1
+            GROUP BY si.status
+            ORDER BY count DESC
+            "#,
+        )
+        .bind(current_year)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(QaPlanSummary {
+            open_nc_count: open_nc.0,
+            overdue_nc_count: overdue_nc.0,
+            active_sop_count: active_sop.0,
+            inspection_by_status: inspection_rows
+                .into_iter()
+                .map(|(status, count)| StatusCount { status, count })
+                .collect(),
+            schedule_items_by_status: schedule_rows
+                .into_iter()
+                .map(|(status, count)| StatusCount { status, count })
+                .collect(),
+        })
+    }
+}

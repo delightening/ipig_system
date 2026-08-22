@@ -1,0 +1,44 @@
+# CODEOWNERS — 各路徑的強制 reviewer 設定
+# 格式：<path> <GitHub username>
+# 文件：https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ──────────────────────────────────────────
+# CI/CD、GitHub 配置（CSO audit 2026-05-27 Finding #3）
+# ──────────────────────────────────────────
+/.github/ @jasonwang
+
+# ──────────────────────────────────────────
+# 部署基礎設施
+# ──────────────────────────────────────────
+/docker-compose*.yml @jasonwang
+/backend/Dockerfile* @jasonwang
+/frontend/Dockerfile @jasonwang
+/deploy/ @jasonwang
+/monitoring/ @jasonwang
+
+# ──────────────────────────────────────────
+# 資安相關（認證、中間件、WAF 設定）
+# ──────────────────────────────────────────
+/backend/src/middleware/ @jasonwang
+/backend/src/services/auth/ @jasonwang
+/backend/src/services/access.rs @jasonwang
+/.gitleaks.toml @jasonwang
+/.trivyignore @jasonwang
+/services/ @jasonwang
+
+# ──────────────────────────────────────────
+# 資料庫 Migration（不可逆操作，需嚴格審查）
+# ──────────────────────────────────────────
+/backend/migrations/ @jasonwang
+
+# ──────────────────────────────────────────
+# GLP / 21 CFR Part 11 合規文件
+# ──────────────────────────────────────────
+/docs/glp/ @jasonwang
+/SECURITY.md @jasonwang
+
+# ──────────────────────────────────────────
+# 設定檔與環境變數範本
+# ──────────────────────────────────────────
+/.env.example @jasonwang
+/backend/src/config.rs @jasonwang

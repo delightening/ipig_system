@@ -1,0 +1,1362 @@
+{% extends "base.html" %}
+
+{#
+  R45 Phase 3 v3：AUP 計畫書 HTML 版本 — 內容完全等效 daemon docx 路徑 +
+  PagedJS 注入 TOC 頁碼。GLP 受控文件，AD-04-01-01F 編號嵌在頁眉左側。
+  Context schema：pdf-service/app/schemas/aup_protocol.py::AupProtocolPayload
+
+  PagedJS：Chromium 原生不支援 target-counter()。注入 paged.polyfill.js 在
+  渲染前跑一遍 layout，動態算各 anchor 的頁碼填入 TOC。Gotenberg 用
+  `waitForExpression` 等到 .pagedjs_pages 出現才印 PDF。
+#}
+
+{% block page_top_left %}{% if lang == 'en' %}"Translation of AD-04-01-01F (zh, authoritative)"{% else %}"文 件 編 號　AD-04-01-01F"{% endif %}{% endblock %}
+{% block page_top_right %}{% if lang == 'en' %}"Page " counter(page) " of " counter(pages){% else %}"頁 次/ 總頁數 " counter(page) " of " counter(pages){% endif %}{% endblock %}
+
+{#
+  PagedJS 嘗試（2026-05-13）：Chromium 原生不支援 target-counter()。試了
+  bundled paged.polyfill.min.js + waitDelay 5s + Gotenberg multipart 上傳，
+  PagedJS 都沒成功改寫 layout（推測 Gotenberg pinning-proxy / CSS conflict 等）。
+  暫接受 TOC 無自動頁碼。未來可考慮：
+  - 兩 pass 渲染：先印一次抓 anchor 對應頁，再印一次填回 TOC
+  - 改用 WeasyPrint pdf-engine（原生支援 target-counter，但要換引擎）
+#}
+
+{% block extra_styles %}
+    /* R66 pixel-match：嵌入真字型。官方 AD-04-01-01F = 標楷體(eastAsia) + Times New Roman(西文)。
+       唯一 @font-face 名避開容器 fontconfig alias 碰撞；標楷體用 decompose 後 kaiu_flat（見字型 composite 修復）。 */
+    @font-face { font-family: "KaiEmbed"; src: url("file:///app/fonts/kaiu.ttf"); }
+    @font-face { font-family: "TimesEmbed"; font-weight: normal; font-style: normal; src: url("file:///app/fonts/times.ttf"); }
+    @font-face { font-family: "TimesEmbed"; font-weight: bold;   font-style: normal; src: url("file:///app/fonts/timesbd.ttf"); }
+    @font-face { font-family: "TimesEmbed"; font-weight: normal; font-style: italic; src: url("file:///app/fonts/timesi.ttf"); }
+    @font-face { font-family: "TimesEmbed"; font-weight: bold;   font-style: italic; src: url("file:///app/fonts/timesbi.ttf"); }
+    @font-face { font-family: "ArialEmbed"; src: url("file:///app/fonts/arial.ttf"); }
+
+    /* 頁眉頁尾 chrome 也用真字型（覆寫 base.html @page 的 Noto） */
+    @page {
+      /* 邊距對齊官方（覆寫 base 的 2.5cm 2cm 2.8cm 2cm）：上 右 下 左。
+         對稱左右 12.7mm → 頁尾置中於頁面中線（官方）；body 左緣 12.7 對齊官方。
+         頁首靠「底」、頁尾靠「頂」對齊（官方頁首壓在上邊距下緣 y≈10、頁尾貼內文下方 y≈271）。 */
+      size: A4;
+      margin: 24mm 12.7mm 26mm 12.7mm;   /* 上邊距→頁首下移近官方 10.3；內容落頁頂與頁首保距 */
+      @top-left   { font-family: "KaiEmbed", "TimesEmbed", serif; font-size: 12pt; }
+      @top-center { font-family: "KaiEmbed", "TimesEmbed", serif; font-size: 12pt; }
+      @top-right  { font-family: "KaiEmbed", "TimesEmbed", serif; font-size: 12pt; }
+      @bottom-center { font-family: "TimesEmbed", "KaiEmbed", serif; font-weight: bold; vertical-align: top; }
+    }
+
+    /* Word 風格密度 — 拉密度逼近 daemon 18 頁 */
+    body { font-size: 12pt; line-height: 1.7; font-family: "TimesEmbed", "KaiEmbed", serif; }
+    table.data th, table.data td { font-family: "TimesEmbed", "KaiEmbed", serif; }
+
+    /* 內文字級下限統一 12pt（per-user）：§3/§8 資料表內文同步抬到 12pt（覆寫 base 的 10pt） */
+    /* 列高統一緊湊（對齊 §1 研究資料表）：padding 2.5pt、line-height 1.35 */
+    table.data th, table.data td { font-size: 12pt; padding: 2.5pt 8pt; line-height: 1.35; }
+
+    /* 新版 AD-04-01-01F 封面：紅色主標 25px 粗體 + 紅色副標 Times New Roman 25px 粗體
+       封面預設粗體（簽署區除外）。
+       單一字體策略：LXGW WenKai 霞鹜文楷（SIL OFL 可商用，3 字重 Light/Regular/Medium）。
+       font-weight: bold (700) 自動 mapping 到 Medium (500) — 唯一 FOSS 多字重楷體。 */
+    .cover {
+      page-break-after: always;
+      text-align: center;
+      font-weight: bold;
+      font-family: "TimesEmbed", "KaiEmbed", serif;
+      /* 整頁上下置中：A4 portrait 內容區（扣 2.5cm/2.8cm margin）≈ 240mm */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 230mm;
+    }
+    h1.doc-title {
+      font-family: "TimesEmbed", "KaiEmbed", serif;
+      font-size: 31.25pt;         /* 1.25 階 L6：封面主標題 */
+      letter-spacing: 0;
+      margin: 12pt 0 8pt 0;
+      font-weight: bold;
+      color: #c00000;
+      text-align: center;
+    }
+    .cover .doc-subtitle {
+      font-family: "TimesEmbed", "KaiEmbed", serif;
+      font-size: 25px;
+      letter-spacing: 0;
+      margin: 0 0 30pt 0;
+      font-weight: bold;
+      font-style: normal;
+      color: #c00000;
+    }
+    .cover .title-block {
+      margin: 10pt auto;
+      font-size: 20pt;            /* 1.25 階 L4：封面區段標籤 */
+      text-align: center;
+    }
+    .cover .title-block .zh-en {
+      display: block;
+      margin: 12pt 0 4pt 0;
+      color: #c00000;
+    }
+    .cover .title-block .zh-en .en {
+      font-variant-caps: small-caps;
+      margin-left: 6pt;
+    }
+    .cover .title-block .field-value {
+      font-size: 16pt;            /* 1.25 階 L3：封面內容 */
+      color: #000;
+      margin: 4pt 0 0 0;
+      text-wrap: balance;   /* 封面長題目兩行等長平衡 */
+    }
+    .cover .title-block .field-value .label-cn { margin-right: 4pt; }
+    .cover .iacuc-block {
+      margin: 16pt auto 12pt auto;
+      font-size: 16pt;            /* 1.25 階 L3：IACUC 列 */
+      text-align: center;
+    }
+    .cover .iacuc-block .iacuc-row {
+      margin: 6pt 0;
+    }
+    .cover .iacuc-block .iacuc-row .value {
+      display: inline-block;
+      min-width: 6em;
+      border-bottom: 0.75pt solid #000;
+      padding: 0 4pt;
+      margin: 0 4pt;
+    }
+    .cover .sign-header {
+      text-align: center;
+      font-size: 20pt;            /* 1.25 階 L4：封面簽核標題 */
+      margin: 16pt 0 12pt 0;
+    }
+    /* 簽署區 4 個項目強制 normal weight + 移除 text-shadow（per user 規格） */
+    .cover .signature {
+      margin-top: 8pt;
+      font-size: 16pt;            /* 1.25 階 L3：封面簽署列 */
+      font-weight: normal;
+      text-shadow: none;
+    }
+    .cover .signature .sig-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10pt 30pt;
+      font-weight: normal;
+      text-shadow: none;
+    }
+    .cover .signature .role {
+      text-align: left;
+      line-height: 1.4;
+      font-weight: normal;
+      text-shadow: none;
+      white-space: nowrap;
+    }
+    .cover .signature .role .role-en {
+      font-size: 12pt;
+      display: block;
+      font-weight: normal;
+      text-shadow: none;
+    }
+    .cover .signature .sig-line {
+      flex-shrink: 0;
+      white-space: nowrap;
+      font-weight: normal;
+      text-shadow: none;
+    }
+
+    h2.section {
+      font-size: 16pt;            /* 1.25 階 L3：章節標題 §N（貼官方）*/
+      font-weight: bold;
+      margin: 0 0 3pt 0;          /* §N 換頁起：標題貼上邊距、標題到內容收緊(對齊官方緊湊章節區) */
+      padding: 0;
+      line-height: 1.2;           /* 收緊標題行高（原繼承 1.7 撐大章節區，把表格推低） */
+      page-break-after: avoid;
+      page-break-before: always;
+      white-space: nowrap;
+    }
+    h2.section .sec-num { display: inline-block; min-width: 1.5em; margin-right: 0.4em; }
+    h2.section .req-star { color: #c00000; margin: 0 4pt 0 6pt; }
+    h2.section .glp-options {
+      color: #c00000;
+      font-size: 12pt;
+      float: right;               /* 整串 GLP/非GLP 勾選靠右對齊（使用者指定）*/
+    }
+    h2.section .glp-options .cb { color: #000; margin-right: 2pt; }
+    h2.section .glp-options .cb-label {
+      margin-right: 8pt;
+      white-space: nowrap;
+    }
+    h2.section.no-break { page-break-before: avoid; }
+    /* h3/h4 subsection/subsub with inline 是/否 checkbox on right（全文是非題統一格式） */
+    h3.subsection.inline-yn,
+    h4.subsub.inline-yn {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    h3.subsection.inline-yn .yn,
+    h4.subsub.inline-yn .yn {
+      display: inline-block;
+      min-width: 80pt;
+      text-align: left;
+      font-size: 12pt;
+      font-weight: normal;
+      white-space: nowrap;
+    }
+    h3.subsection {
+      font-size: 12pt;
+      font-weight: bold;
+      margin: 12pt 0 6pt 0;
+      padding-left: 1.2em;          /* #7 小節 N.N 縮 1.2em */
+      page-break-after: avoid;
+    }
+    /* h3 小節層內容（緊接小節標題的段落/表格）縮 1.2em，與小節標題對齊 */
+    h3.subsection + .summary-text,
+    h3.subsection + .free-text { margin-left: 1.2em; }
+    h3.subsection + table { margin-left: 1.2em; width: calc(100% - 1.2em); }
+
+    /* TOC with auto page numbers (Chromium paged media: target-counter) */
+    .toc { margin: 16pt 0; }
+    .toc h2.toc-title {
+      font-size: 25pt;            /* 1.25 階 L5：目錄標題 */
+      font-weight: bold;
+      margin: 0 0 16pt 0;
+      page-break-before: avoid;
+      page-break-after: avoid;
+    }
+    .toc ol { list-style: none; padding-left: 0; counter-reset: section; }
+    .toc li {
+      counter-increment: section;
+      margin: 6pt 0;
+      font-size: 12pt;
+      display: flex;
+    }
+    .toc li::before {
+      content: counter(section) "  ";
+      flex-shrink: 0;
+      margin-right: 0.4em;
+      min-width: 1.5em;
+    }
+    .toc a {
+      color: #000;
+      text-decoration: none;
+      flex-grow: 1;
+      display: flex;
+    }
+    .toc a .title { flex-shrink: 0; }
+    .toc a .leader {
+      flex-grow: 1;
+      border-bottom: 1pt dotted #333;
+      margin: 0 4pt;
+      align-self: flex-end;
+      padding-bottom: 2pt;
+    }
+    /* 頁碼：Chromium 不支援 target-counter()，改由 server 兩遍渲染回填 .pageno
+       （第一遍空白 → 讀 PDF 內部連結/文字定位各章節頁 → 第二遍填入）。 */
+    .toc a .pageno {
+      flex-shrink: 0;
+      align-self: flex-end;
+      min-width: 1.5em;
+      text-align: right;
+    }
+    .toc-page-break { page-break-after: always; }
+
+    table.kv {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin: 8pt 0;
+    }
+    /* 全 AUP 表格列高統一為緊湊（對齊 §1 研究資料表）：padding 小、無 min-height、line-height 1.35 */
+    table.kv th, table.kv td {
+      border: 0.75pt solid #000;
+      padding: 2.5pt 8pt;
+      font-size: 12pt;
+      vertical-align: middle;
+      min-height: 0;
+      line-height: 1.35;
+    }
+    /* 列級防切割：分頁線不得落在單一列中間（避免儲存格被攔腰切成兩頁）。
+       列高超過整頁時 WeasyPrint 仍會自動 fallback 分割，不會造成溢出。 */
+    table.kv tr { break-inside: avoid; }
+    /* keep-together：整張小表不被分頁拆開（如 2.2.2 替代方案檢索）。配合標題的
+       page-break-after:avoid，標題＋表格整塊一起移到下一頁，保持連續。
+       僅用於確定可容於單頁的小表；大表勿套，否則會被迫整頁留白。 */
+    table.kv.kv-keep { break-inside: avoid; }
+    table.kv th {
+      background: none;   /* 對齊官方：標籤欄白底 */
+      width: 25%;
+      text-align: left;
+      font-weight: normal;
+    }
+
+    /* 跨欄子標題列（如「計畫主持人資料」）：對齊官方一張連續表內的合併列 */
+    table.kv tr.subhead th { font-weight: bold; width: auto; }
+    /* §1 連續長表：收緊列高使整表容於同一頁（對齊官方 §1 單頁） */
+    table.kv-s1 td, table.kv-s1 th { min-height: 0; padding: 2.5pt 8pt; line-height: 1.35; }
+    /* §1 申請/核准編號：內嵌無框表，使「編號／日期」兩欄對齊（對齊官方） */
+    table.kv-inner { width: 100%; border-collapse: collapse; }
+    table.kv-inner td { border: 0 !important; padding: 0 6pt 0 0 !important; min-height: 0 !important; line-height: 1.35; background: transparent; }
+    /* §3 試驗/對照物質表：列高收緊（≈14pt，對齊官方） */
+    table.kv-mat td, table.kv-mat th { min-height: 0; height: 14pt; padding: 1pt 8pt; line-height: 1.25; }
+
+    /* 雙語 label/data 樣式：中文上、英文下；同字級、同色 */
+    table.kv-bilingual .lbl-zh,
+    table.kv-bilingual .lbl-en {
+      font-weight: normal;
+      color: #000;
+    }
+    table.kv-bilingual td > div + div {
+      margin-top: 2pt;
+    }
+
+    /* summary-text: 列重點段落，無框、無 min-height（不再模擬表單空白格）。
+       #7 階層遞進：基礎左縮 1.2em（小節層）；h4 子小節內容由 h4.subsub+* 覆寫為 2.4em。 */
+    .summary-text {
+      padding: 4pt 0 8pt 0;
+      margin: 0 0 8pt 1.2em;
+      font-size: 12pt;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      text-align: justify;       /* 分散對齊 */
+      text-align-last: left;     /* 末行靠左，避免末行字距被拉開 */
+      orphans: 2; widows: 2;     /* 防段落首/尾單行落在頁界 */
+    }
+    .free-text {
+      border: 0.5pt solid #999;
+      padding: 10pt 12pt;
+      margin: 6pt 0 14pt 0;
+      font-size: 12pt;
+      white-space: pre-wrap;
+      min-height: 100pt;         /* Word 的 free-text cell 約 5-6 行 */
+      line-height: 1.8;
+      text-align: justify;       /* 分散對齊 */
+      text-align-last: left;     /* 末行靠左 */
+      orphans: 2; widows: 2;
+    }
+    .free-text.large { min-height: 180pt; }    /* 大段內容如 abstract / surgery */
+    .free-text-label { font-weight: bold; }
+
+    /* #5 keep-together：各內容區塊整塊不被分頁切開（放不下就整塊移次頁）；
+       區塊本身超過一整頁時，瀏覽器自動允許切（符合「超過一頁才切」）。
+       配合標題 h2/h3/h4 的 page-break-after:avoid（標題不孤兒、緊跟首區塊）→ 達成「小節整塊」。 */
+    .summary-text, .free-text, table.kv, table.data,
+    .grid-2col, .grid-3col, .grid-4col, .checkbox-row, .pain-list,
+    ul.ref-db-list, ol.ref-list, .hazardous-block {
+      break-inside: avoid;
+    }
+
+    /* §5.2 文獻資料庫清單：移除 <ul> 預設左縮排與 disc bullet，
+       使內文起始位置與 §5.1 .summary-text（左 padding 0）對齊 */
+    ul.ref-db-list {
+      list-style: none;
+      margin: 4pt 0 8pt 0;
+      padding-left: 0;
+    }
+    ul.ref-db-list > li { margin-bottom: 4pt; }
+
+    /* §5.3 引用文獻編號清單：保留 1. 2. 3. 編號，但編號起始位置貼齊左緣，
+       與 §5.1（.summary-text，左 padding 0）/ §5.2 一致。
+       list-style-position: inside + padding-left:0 → 編號在左緣、換行回左緣，
+       行為與 §5.1 純文字段落相同。 */
+    ol.ref-list {
+      margin: 4pt 0 8pt 0;
+      padding-left: 0;
+      list-style-position: inside;
+    }
+    ol.ref-list > li { margin-bottom: 4pt; }
+
+    /* checkbox glyph 放大 ~1.4×（11pt 內文 → 15pt），line-height:1 避免撐破行高 */
+    .cb { font-family: "ArialEmbed", "KaiEmbed", "Noto Sans CJK TC", sans-serif; margin-right: 2pt; font-size: 15pt; line-height: 1; vertical-align: -1pt; }
+    .cb-label { margin-right: 10pt; display: inline-block; white-space: normal; vertical-align: top; min-width: 0; }
+    .checkbox-row {
+      margin: 4pt 0;
+      font-size: 12pt;
+      line-height: 1.6;
+    }
+    .checkbox-row strong { margin-right: 6pt; }
+
+    /* 5×4 多項勾選 grid（T20 abnormal signs） */
+    .grid-4col {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 3pt 6pt;
+      margin: 6pt 0;
+      font-size: 12pt;
+    }
+    .grid-2col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 3pt 6pt;
+      margin: 6pt 0;
+      font-size: 12pt;
+    }
+    .grid-3col {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 3pt 6pt;
+      margin: 6pt 0;
+      font-size: 12pt;
+    }
+
+    /* 疼痛分級 4 區塊 */
+    .pain-grid {
+      margin: 6pt 0;
+      border: 0.75pt solid #000;
+    }
+    .pain-grid .pain-header {
+      background: #e8e8e8;
+      padding: 3pt 6pt;
+      font-weight: bold;
+      font-size: 12pt;
+      border-bottom: 0.5pt solid #999;
+    }
+    .pain-grid .pain-options {
+      padding: 4pt 8pt;
+      font-size: 12pt;
+      line-height: 1.5;
+    }
+
+    /* 疼痛分級：扁平清單（4 類標題恆顯示；已勾類別下只列「已勾子項」，縮排） */
+    .pain-list { margin: 6pt 0; font-size: 12pt; }
+    .pain-list .pain-cat { margin: 5pt 0 2pt 0; line-height: 1.5; }
+    .pain-list .pain-subs { margin-left: 2em; }
+    .pain-list .pain-subs .cb-label { display: block; margin: 2pt 0; line-height: 1.4; }
+    /* 只顯示已勾選子項（4.1.1 麻醉 / 4.1.8 處置 等）縮排 */
+    .sub-checked { margin-left: 2em; }
+    .sub-checked .cb-label { display: block; margin: 2pt 0; line-height: 1.4; }
+
+    /* §6 無手術全 N/A：收斂小標題與 N/A 內文的上下間距，讓 6.1–6.10 塞入同一頁 */
+    .surgery-na h3.subsection { margin: 5pt 0 1pt 0; }
+    .surgery-na .summary-text { padding: 0; margin: 0 0 2pt 0; min-height: 0; }
+
+    /* ── 全文字級宗旨（2026-06-29 改：官方 1.25 等比 6 階 10/12/16/20/25/31.25）──
+       L6 31.25 封面主標題；L5 25 目錄標題/封面英文副標(EN)；
+       L4 20 封面區段標籤(研究名稱/試驗單位/試驗機構/簽核)；
+       L3 16 封面內容/IACUC/簽署列、章節標題 §N(貼官方)；
+       L2 12 內文/表格/小節 N.N·N.N.N(粗)/頁首；
+       L1 10 備註/代碼說明/※註/§8訓練證照(.note/.trainings-cell)/頁尾版權。 */
+    .note { font-size: 10pt; color: #555; margin: 4pt 0; line-height: 1.5; }
+    .hazardous-block {
+      border: 0.75pt solid #000;
+      padding: 6pt;
+      margin: 6pt 0;
+      font-size: 12pt;
+    }
+    .hazardous-block .hz-row { margin: 3pt 0; }
+
+    /* 強制分頁工具（per-user：類型表 / 章節邊界）*/
+    .page-break { page-break-after: always; }
+
+    /* 計畫類型 / 種類 / 經費來源 表格化（per-user 3 row × 2 col） */
+    table.classification-table th {
+      width: 14%;
+      vertical-align: middle;
+      text-align: center;
+    }
+    table.classification-table td { padding: 2.5pt 10pt; }  /* 列高統一緊湊 */
+    table.classification-table .opt {
+      display: inline-block;
+      margin: 0 8pt 4pt 0;
+      white-space: nowrap;
+    }
+
+    /* #7 階層遞進縮排：§N 齊左(0) → 小節 N.N 1.2em → 子小節 N.N.N 2.4em；內容隨所屬層級 */
+    h4.subsub {
+      font-size: 12pt;
+      font-weight: bold;
+      margin: 10pt 0 4pt 0;
+      padding-left: 2.4em;          /* 子小節縮 2.4em（比小節深一層） */
+      page-break-after: avoid;
+    }
+    /* h4.subsub 下方 immediate sibling 縮排 2.4em，與 h4 視覺對齊。
+       排除標題（h2/h3/h4）：否則連續的 h4 或其後的 h3/h2 會被多縮一層。 */
+    h4.subsub + :not(h2):not(h3):not(h4) {
+      margin-left: 2.4em;
+    }
+    /* #7 階層遞進：勾選/grid/pain 等內容基礎左縮 1.2em（小節層）；
+       h4 子小節層由上方 h4.subsub + :not(...) 覆寫為 2.4em。修 6.3 等未縮排問題。 */
+    .checkbox-row, .grid-2col, .grid-3col, .grid-4col, .pain-list { margin-left: 1.2em; }
+    /* table 縮排後寬度需扣回，否則撐出右邊 */
+    h4.subsub + table {
+      width: calc(100% - 2.4em);
+    }
+    /* 同一 h4.subsub 下重複產生的多個表格（如 §3.1.2 多筆試驗物質）：
+       相鄰選擇器只套到第一個，第二個起會少縮排且寬度不同 → 表格左右緣對不齊。
+       以 .kv-indent 強制每個表格皆套相同縮排與寬度。 */
+    table.kv.kv-indent {
+      margin-left: 2.4em;
+      width: calc(100% - 2.4em);
+    }
+    /* pain-grid (Category B/C/D/E) header 縮排 1.2em，sub-options 再縮 1.6em */
+    h4.subsub + .pain-grid,
+    .pain-grid {
+      margin-left: 1.2em;
+      width: calc(100% - 1.2em);
+    }
+    .pain-grid .pain-options {
+      padding-left: 1.6em;
+    }
+    /* 多個 sibling 串：h4.subsub + 第一個 (rule 已有) + 後續同類 sibling 也縮排
+       涵蓋 4.1.5 grid（2/3/4 欄）+ checkbox-row（「其他」列）、4.1.8 連續 checkbox-row 等情境。
+       grid 欄數須全列，否則選擇器對不上 → 後續 checkbox-row 少縮排靠左（4.1.5 即此症）。 */
+    h4.subsub + .grid-2col + .checkbox-row,
+    h4.subsub + .grid-3col + .checkbox-row,
+    h4.subsub + .grid-4col + .checkbox-row,
+    h4.subsub + .checkbox-row + .checkbox-row,
+    h4.subsub + .checkbox-row + .checkbox-row + .checkbox-row {
+      margin-left: 1.2em;
+    }
+
+    /* §8 試驗人員 — 訓練/資格 cell 多行排版；字級 8pt 對齊官方（密集證照清單）。
+       選擇器須含 table.data 以勝過 `table.data td{font-size:12pt}` 的優先級。 */
+    table.data td.trainings-cell {
+      font-size: 10pt;
+      line-height: 1.5;
+      white-space: normal;
+    }
+
+    /* §3 物質照片縮圖 */
+    td.photo-cell { line-height: 0; }
+    .material-photo {
+      max-height: 96pt;
+      max-width: 31%;
+      margin: 0 4pt 4pt 0;
+      border: 0.5pt solid #ccc;
+      vertical-align: top;
+    }
+    .photo-fname {
+      line-height: 1.4;
+      font-size: 12pt;
+      display: inline-block;
+      margin-right: 10pt;
+      color: #555;
+    }
+
+    /* 4.1.2 流程圖 / 6.4 手術示意圖：一張一列、置中限寬、圖N 說明 */
+    .figure { text-align: center; margin: 8pt 0; break-inside: avoid; }
+    .figure img { max-width: 70%; max-height: 200mm; border: 0.5pt solid #ccc; }
+    .figure-cap { font-size: 10pt; line-height: 1.4; margin-top: 3pt; }  /* L1：比照 .note */
+
+    /* §9 附件清單 */
+    ol.attachment-list {
+      margin: 4pt 0 8pt 0;
+      padding-left: 0;
+      list-style-position: inside;
+    }
+    ol.attachment-list > li { margin-bottom: 3pt; font-size: 12pt; }
+
+    /* 配色：螢幕（HTML 預覽）維持官方紅；列印 / PDF 一律轉黑白（使用者指定）。
+       Chromium page.pdf() 以 print media 出圖 → @media print 套用使 PDF 為黑字。 */
+    @media print {
+      h1.doc-title,
+      .cover .doc-subtitle,
+      .cover .title-block .zh-en,
+      h2.section .req-star,
+      h2.section .glp-options { color: #000 !important; }
+    }
+{% endblock %}
+
+{# Macro：勾選方格 #}
+{% macro cb(val, label) -%}
+<span class="cb-label"><span class="cb">{{ '☑' if val else '☐' }}</span>{{ label }}</span>
+{%- endmacro %}
+
+{# Macro：表格 cell 空值 fallback → N/A #}
+{% macro na(val) -%}
+{% if val is none or val == '' %}N/A{% else %}{{ val }}{% endif %}
+{%- endmacro %}
+
+{# Macro：尚未指派欄位（如 SD 未填）fallback → 待填（非 N/A）；中文 master / en reference #}
+{% macro tbd(val) -%}
+{% if val is none or val == '' %}{{ L('待填', 'TBD') }}{% else %}{{ val }}{% endif %}
+{%- endmacro %}
+
+{# R60-2b i18n：L(zh, en) — payload.lang 切換中英文標籤（資料內容不轉譯） #}
+{% macro L(zh, en) -%}{%- if lang == 'en' -%}{{ en }}{%- else -%}{{ zh }}{%- endif -%}{%- endmacro %}
+
+{# Macro：4.1.2/6.4 流程圖/手術示意圖。一張一列置中限寬；圖N 全文連續編號（fig_ns 由 content 維護）。
+   無 datauri（過大/非圖片/未提供）時僅顯示「圖N：說明」一行，保留圖位語意。 #}
+{% macro figure_photos(photos, fig_ns) -%}
+{%- for ph in photos %}{% set fig_ns.n = fig_ns.n + 1 %}
+<div class="figure">
+{%- if ph.datauri %}<img src="{{ ph.datauri }}" alt="{{ ph.caption }}"/>{% endif %}
+<div class="figure-cap">{{ L('圖', 'Fig. ') }}{{ fig_ns.n }}{{ L('：', ': ') }}{{ ph.caption }}</div>
+</div>
+{%- endfor %}
+{%- endmacro %}
+
+{# Macro：§3 物質照片 row。datauri（backend 內嵌）顯示縮圖；無 datauri（過大/非圖片）僅顯示檔名 #}
+{% macro material_photos(photos) -%}
+{%- if photos %}<tr><th>{{ L('照片', 'Photos') }}</th><td class="photo-cell">
+{%- for ph in photos %}{% if ph.datauri %}<img class="material-photo" src="{{ ph.datauri }}" alt="{{ ph.file_name }}"/>{% else %}<span class="photo-fname">{{ ph.file_name or L('（照片）', '(photo)') }}</span>{% endif %}{% endfor %}
+</td></tr>{%- endif %}
+{%- endmacro %}
+
+{% block content %}
+  {#- 全文圖片連續編號計數器（4.1.2 流程圖 / 6.4 手術示意圖共用） -#}
+  {%- set fig_ns = namespace(n=0) -%}
+
+  {# ============ 封面（AD-04-01-01F：紅色主標 + 標題式置中區塊） ============ #}
+  <section class="cover">
+    <h1 class="doc-title">{{ L('動物試驗研究計畫書', 'ANIMAL USE PROTOCOL') }}</h1>
+
+    <div class="title-block">
+      <div class="zh-en">{{ L('研究名稱', 'Study Title') }}</div>
+      {#- 單語版：封面題目中文版只中文、英文版只英文 -#}
+      {% if lang == 'en' %}<div class="field-value">{{ cover.study_title_en|default('', true) }}</div>{% else %}<div class="field-value">{{ cover.study_title_zh|default('', true) }}</div>{% endif %}
+    </div>
+
+    <div class="title-block">
+      <div class="zh-en">{{ L('試驗單位', 'Sponsor') }}</div>
+      <div class="field-value">{{ cover.sponsor|default('', true) }}</div>
+    </div>
+
+    <div class="title-block">
+      <div class="zh-en">{{ L('試驗機構', 'Testing Facility') }}</div>
+      <div class="field-value">{{ cover.testing_facility|default('', true) }}</div>
+    </div>
+
+    <div class="iacuc-block">
+      <div class="iacuc-row">{{ L('IACUC 核准編號：', 'IACUC Approval No.: ') }}<span class="value">{{ protocol.iacuc_approval_no|default('', true) }}</span>{{ L('核准日期：', 'Approval Date: ') }}<span class="value">{{ protocol.approval_date|default('', true) }}</span></div>
+    </div>
+
+    <div class="sign-header">{{ L('簽核', 'Signature') }}</div>
+    <div class="signature">
+      <div class="sig-row">
+        <div class="role">
+          {{ L('計畫主持人', 'Principal Investigator') }}
+        </div>
+        <div class="sig-line">
+          {%- if pi_signature_datauri %}
+          <img src="{{ pi_signature_datauri }}" alt="signature" style="height: 2.2em; vertical-align: middle;"/>　{{ pi_signed_date }}
+          {%- elif pi_signature_uploaded %}
+          {{ L('✓ 已電子簽署', '✓ Electronically signed') }}　{{ pi_signed_date }}
+          {%- else %}
+          __________________ {{ L('(簽章/日期)', '(Signature/Date)') }}
+          {%- endif %}
+        </div>
+      </div>
+      <div class="sig-row">
+        <div class="role">
+          {{ L('機構負責人', 'Facility Manager') }}
+        </div>
+        <div class="sig-line">__________________ {{ L('(簽章/日期)', '(Signature/Date)') }}</div>
+      </div>
+    </div>
+  </section>
+
+  {# ============ 目錄（含 CSS target-counter 自動頁碼） ============ #}
+  <section class="toc toc-page-break">
+    <h2 class="toc-title">{{ L('目錄', 'Table of Contents') }}</h2>
+    <ol>
+      <li><a href="#sec1"><span class="title">{{ L('研究資料', 'Study Information') }}</span><span class="leader"></span><span class="pageno">{{ (toc_pages or {}).get('sec1', '') }}</span></a></li>
+      <li><a href="#sec2"><span class="title">{{ L('計畫摘要', 'Abstract') }}</span><span class="leader"></span><span class="pageno">{{ (toc_pages or {}).get('sec2', '') }}</span></a></li>
+      <li><a href="#sec3"><span class="title">{{ L('試驗物質與對照物質', 'Testing and Control Item') }}</span><span class="leader"></span><span class="pageno">{{ (toc_pages or {}).get('sec3', '') }}</span></a></li>
+      <li><a href="#sec4"><span class="title">{{ L('研究設計與方法', 'Study Design and Methods') }}</span><span class="leader"></span><span class="pageno">{{ (toc_pages or {}).get('sec4', '') }}</span></a></li>
+      <li><a href="#sec5"><span class="title">{{ L('相關規範及參考文獻', 'Guidelines and References') }}</span><span class="leader"></span><span class="pageno">{{ (toc_pages or {}).get('sec5', '') }}</span></a></li>
+      <li><a href="#sec6"><span class="title">{{ L('動物手術規劃', 'Animal Surgical Plan') }}</span><span class="leader"></span><span class="pageno">{{ (toc_pages or {}).get('sec6', '') }}</span></a></li>
+      <li><a href="#sec7"><span class="title">{{ L('實驗動物資料', 'Animal Information') }}</span><span class="leader"></span><span class="pageno">{{ (toc_pages or {}).get('sec7', '') }}</span></a></li>
+      <li><a href="#sec8"><span class="title">{{ L('試驗人員資料', 'Personnel') }}</span><span class="leader"></span><span class="pageno">{{ (toc_pages or {}).get('sec8', '') }}</span></a></li>
+      <li><a href="#sec9"><span class="title">{{ L('附件', 'Attachments') }}</span><span class="leader"></span><span class="pageno">{{ (toc_pages or {}).get('sec9', '') }}</span></a></li>
+    </ol>
+  </section>
+
+  {# ============ 1 研究資料（含 GLP 勾選內嵌） ============ #}
+  <h2 class="section" id="sec1">
+    <span class="sec-num">1</span>{{ L('研究資料', 'Study Information') }}
+    <span class="glp-options">
+      <span class="cb-label"><span class="cb">{{ '☑' if protocol.is_glp else '☐' }}</span>{{ L('GLP 動物試驗', 'GLP Animal Study') }}</span>
+      <span class="cb-label"><span class="cb">{{ '☑' if not protocol.is_glp else '☐' }}</span>{{ L('非 GLP 動物試驗', 'Non-GLP Animal Study') }}</span>
+    </span>
+  </h2>
+  {%- if sections.registration_authorities %}
+  <div class="summary-text">{{ L('預定申請註冊之權責機關：', 'Intended registration authorities: ') }}{{ sections.registration_authorities }}</div>
+  {%- endif %}
+
+  {# §1 對齊官方：一張連續 2 欄表，含跨欄子標題列；試驗時程置於最末（官方序） #}
+  <table class="kv kv-bilingual kv-s1">
+    <colgroup>
+      <col style="width: 28%">
+      <col style="width: 72%">
+    </colgroup>
+    <tr>
+      <th style="font-weight:bold">{{ L('研究名稱', 'Study Title') }}</th>
+      <td style="font-weight:bold">
+        {#- 單語版：中文版只顯中文題目、英文版只顯英文題目；值粗體 -#}
+        {% if lang == 'en' %}<div>{{ na(cover.study_title_en) }}</div>{% else %}<div>{{ na(cover.study_title_zh) }}</div>{% endif %}
+      </td>
+    </tr>
+    <tr>
+      <th style="font-weight:bold">{{ L('研究申請/核准編號', 'Application / Approval No.') }}</th>
+      <td style="font-weight:bold">
+        {#- 對齊官方：編號／日期 兩欄對齊（內嵌無框表）；值粗體 -#}
+        <table class="kv-inner">
+          <colgroup><col style="width: 58%"><col style="width: 42%"></colgroup>
+          <tr>
+            <td>{{ L('IACUC 申請編號：', 'IACUC Application No.: ') }}{{ na(protocol.iacuc_apply_no) }}</td>
+            <td>{{ L('申請日期：', 'Application Date: ') }}{{ na(protocol.apply_date) }}</td>
+          </tr>
+          <tr>
+            <td>{{ L('IACUC 核准編號：', 'IACUC Approval No.: ') }}{{ na(protocol.iacuc_approval_no) }}</td>
+            <td>{{ L('核准日期：', 'Approval Date: ') }}{{ na(protocol.approval_date) }}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr class="subhead"><th colspan="2">{{ L('計畫主持人資料', 'Principal Investigator') }}</th></tr>
+    <tr><th>{{ L('計畫主持人', 'Principal Investigator (PI)') }}</th><td>{{ na(pi.name) }}</td></tr>
+    <tr><th>{{ L('職稱', 'Position / Title') }}</th><td>{{ na(pi.title) }}</td></tr>
+    <tr><th>{{ L('連絡電話', 'Phone No.') }}</th><td>{{ na(pi.phone) }}</td></tr>
+    <tr><th>{{ L('電子信箱', 'E-mail') }}</th><td style="overflow-wrap: anywhere">{{ na(pi.email) }}</td></tr>
+    <tr><th>{{ L('地址', 'Address') }}</th><td>{{ na(pi.address) }}</td></tr>
+    <tr><th>{{ L('試驗單位名稱', 'Sponsor Name') }}</th><td>{{ na(pi.sponsor_name) }}</td></tr>
+    <tr><th>{{ L('聯絡人', 'Contact Person') }}</th><td>{{ na(pi.contact_person) }}</td></tr>
+    <tr><th>{{ L('連絡電話', 'Phone No.') }}</th><td>{{ na(pi.contact_phone) }}</td></tr>
+    <tr><th>{{ L('電子信箱', 'E-mail') }}</th><td style="overflow-wrap: anywhere">{{ na(pi.contact_email) }}</td></tr>
+
+    <tr class="subhead"><th colspan="2">{{ L('專案主持人資料', 'Study Director') }}</th></tr>
+    <tr><th>{{ L('專案主持人', 'Study Director (SD)') }}</th><td>{{ tbd(sd.name) }}</td></tr>
+    <tr><th>{{ L('電子信箱', 'E-mail') }}</th><td style="overflow-wrap: anywhere">{{ tbd(sd.email) }}</td></tr>
+
+    <tr class="subhead"><th colspan="2">{{ L('試驗機構及動物飼養場所', 'Test Facility & Animal Environment') }}</th></tr>
+    <tr><th>{{ L('試驗機構名稱', 'Facility Title') }}</th><td>{{ na(facility.title) }}</td></tr>
+    <tr><th>{{ L('試驗機構地址', 'Facility Address') }}</th><td>{{ na(facility.address) }}</td></tr>
+
+    <tr class="subhead"><th colspan="2">{{ L('試驗時程', 'Valid Period') }}</th></tr>
+    <tr><th>{{ L('生效日期', 'To be valid From') }}</th><td>{% if protocol.valid_from %}{{ L('自 ', 'From ') }}{{ protocol.valid_from }}{{ L(' 至 ', ' to ') }}{{ na(protocol.valid_to) }}{% else %}{{ L('自　　　　　 至 ', 'From　　　　 to ') }}{{ na(protocol.valid_to) }}{% endif %}</td></tr>
+  </table>
+
+  {# 計畫類型 / 種類 / 經費來源 — 併入 §1 同頁（移除強制分頁，避免半空白頁） #}
+  <h3 class="subsection no-break-before">{{ L('計畫類型及種類與經費來源', 'Study Type, Category, and Funding Source') }}</h3>
+  {#- 只顯示已勾選項目，且移除☑與編號、僅留文字（使用者規格） -#}
+  <table class="kv classification-table">
+    <tr>
+      <th>{{ L('類型', 'Type') }}</th>
+      <td>
+        {% if classification.type_basic_research %}<span class="opt">{{ L('基礎研究', 'Basic Research') }}</span>{% endif %}
+        {% if classification.type_applied_research %}<span class="opt">{{ L('應用研究', 'Applied Research') }}</span>{% endif %}
+        {% if classification.type_premarket %}<span class="opt">{{ L('產品上市前測試', 'Pre-market Product Testing') }}</span>{% endif %}
+        {% if classification.type_educational %}<span class="opt">{{ L('教學訓練', 'Education / Training') }}</span>{% endif %}
+        {% if classification.type_biologics %}<span class="opt">{{ L('製造生物製劑', 'Biologics Manufacturing') }}</span>{% endif %}
+        {% if classification.type_other %}<span class="opt">{{ L('其他', 'Other') ~ ('：' ~ classification.type_other_text if classification.type_other_text else '') }}</span>{% endif %}
+      </td>
+    </tr>
+    <tr>
+      <th>{{ L('種類', 'Category') }}</th>
+      <td>
+        {% if classification.cat_medical %}<span class="opt">{{ L('醫學研究', 'Medical Research') }}</span>{% endif %}
+        {% if classification.cat_agricultural %}<span class="opt">{{ L('農業研究', 'Agricultural Research') }}</span>{% endif %}
+        {% if classification.cat_drug_vaccine %}<span class="opt">{{ L('藥物及疫苗 (含中草藥)', 'Drugs and Vaccines (incl. Herbal)') }}</span>{% endif %}
+        {% if classification.cat_health_food %}<span class="opt">{{ L('健康食品', 'Health Food') }}</span>{% endif %}
+        {% if classification.cat_food %}<span class="opt">{{ L('食品', 'Food') }}</span>{% endif %}
+        {% if classification.cat_toxic_chemical %}<span class="opt">{{ L('毒、化學品', 'Toxic / Chemical Substances') }}</span>{% endif %}
+        {% if classification.cat_medical_material %}<span class="opt">{{ L('醫療器材', 'Medical Devices') }}</span>{% endif %}
+        {% if classification.cat_pesticide %}<span class="opt">{{ L('農藥', 'Pesticides') }}</span>{% endif %}
+        {% if classification.cat_animal_drug %}<span class="opt">{{ L('動物用藥及疫苗', 'Veterinary Drugs and Vaccines') }}</span>{% endif %}
+        {% if classification.cat_animal_health %}<span class="opt">{{ L('動物保健品、飼料添加物', 'Animal Health Products / Feed Additives') }}</span>{% endif %}
+        {% if classification.cat_cosmetics %}<span class="opt">{{ L('(含藥)化妝品', 'Cosmetics (incl. Medicated)') }}</span>{% endif %}
+        {% if classification.cat_other %}<span class="opt">{{ L('其他', 'Other') ~ ('：' ~ classification.cat_other_text if classification.cat_other_text else '') }}</span>{% endif %}
+      </td>
+    </tr>
+    <tr>
+      <th>{{ L('經費來源', 'Funding Source') }}</th>
+      <td>
+        {% if classification.funding_moa %}<span class="opt">{{ L('農業部', 'Ministry of Agriculture') }}</span>{% endif %}
+        {% if classification.funding_mohw %}<span class="opt">{{ L('衛生福利部', 'Ministry of Health and Welfare') }}</span>{% endif %}
+        {% if classification.funding_nstc %}<span class="opt">{{ L('國科會', 'National Science and Technology Council') }}</span>{% endif %}
+        {% if classification.funding_moe %}<span class="opt">{{ L('教育部', 'Ministry of Education') }}</span>{% endif %}
+        {% if classification.funding_environment %}<span class="opt">{{ L('環境部', 'Ministry of Environment') }}</span>{% endif %}
+        {% if classification.funding_other %}<span class="opt">{{ L('其他', 'Other') ~ ('：' ~ classification.funding_other_text if classification.funding_other_text else '') }}</span>{% endif %}
+      </td>
+    </tr>
+  </table>
+
+  {# ============ 2 計畫摘要 — summary-style：列重點不重現空白表單 ============ #}
+  <h2 class="section" id="sec2"><span class="sec-num">2</span>{{ L('計畫摘要', 'Abstract') }}</h2>
+
+  <h3 class="subsection">{{ L('2.1 目的與重要性', '2.1 Purpose and Significance') }}</h3>
+  <div class="summary-text">{{ sections.abstract }}</div>
+
+  <h3 class="subsection">{{ L('2.2 替代原則', '2.2 Replacement') }}</h3>
+
+  <h4 class="subsub">{{ L('2.2.1 活體動物試驗必要性與物種選擇', '2.2.1 Necessity of Live Animal Study and Species Selection') }}</h4>
+  <div class="summary-text">{{ sections.live_animal_necessity }}</div>
+
+  <h4 class="subsub">{{ L('2.2.2 非動物性替代方案檢索', '2.2.2 Search for Non-animal Alternatives') }}</h4>
+  <table class="kv kv-keep">
+    <colgroup><col style="width: 30%"><col style="width: 70%"></colgroup>
+    <tr><th>{{ L('已檢索資料庫', 'Databases Searched') }}</th>
+        <td>{% if sections.alternatives_databases %}{{ sections.alternatives_databases|join('、') }}{% else %}{{ sections.alternatives_search or '—' }}{% endif %}</td></tr>
+    {%- if sections.alternatives_keywords %}
+    <tr><th>{{ L('檢索關鍵字', 'Search Keywords') }}</th><td>{{ sections.alternatives_keywords }}</td></tr>
+    {%- endif %}
+    <tr><th>{{ L('結論', 'Conclusion') }}</th>
+        <td>{{ sections.alternatives_conclusion or L('未發現可行非動物性替代方案，本試驗具不可替代性。', 'No feasible non-animal alternative identified; this study is irreplaceable.') }}</td></tr>
+  </table>
+
+  <h4 class="subsub">{{ L('2.2.3 是否為重複他人試驗', '2.2.3 Does This Project Duplicate Experiments') }}</h4>
+  {#- 是/否 左置二元；勾「是」者下方分兩種詳述（重複他人試驗 / 本人延續性實驗）。
+     st 對應：no/n_a → 否；yes → 是·重複他人；continuing → 是·本人延續性。 -#}
+  {%- set st = sections.duplicate_status -%}
+  {%- set dup_yes = st in ('yes', 'continuing') -%}
+  <div class="checkbox-row">
+    <span>{{ cb(dup_yes, L('是', 'Yes')) }}　{{ cb(not dup_yes, L('否', 'No')) }}</span>
+  </div>
+  {%- if dup_yes %}
+    <div class="sub-checked">
+      {%- if st == 'yes' %}
+      <div>{{ L('重複他人試驗', 'Duplicates others\' experiments') }}{% if sections.duplicate_yes_note %}　{{ L('重複實驗之必要性：', 'Justification for duplication: ') }}{{ sections.duplicate_yes_note }}{% endif %}</div>
+      {%- elif st == 'continuing' %}
+      <div>{{ L('本申請人延續性實驗', 'Continuing study by the same applicant') }}{% if sections.duplicate_yes_note %}：{{ sections.duplicate_yes_note }}{% endif %}{% if sections.duplicate_prev_iacuc %}　{{ L('前次核准 IACUC 編號：', 'Previous IACUC approval no.: ') }}{{ sections.duplicate_prev_iacuc }}{% endif %}</div>
+      {%- endif %}
+    </div>
+  {%- endif %}
+
+  <h3 class="subsection">{{ L('2.3 減量原則', '2.3 Reduction') }}</h3>
+  <div class="summary-text">{{ sections.reduction_rationale }}</div>
+
+  {#- 2.3.1/2.3.2/2.3.3 是非題統一格式：是/否置右；勾「是」才於下方說明。
+     資料為自由文字 → 視為「否」者：空/否/無/N/A/-；其餘視為「是」並於下方顯示內容。 -#}
+  {%- set sc = (sections.special_care or '')|trim %}{%- set sc_yes = sc and sc not in ['否','無','N/A','-','—'] %}
+  <h4 class="subsub inline-yn"><span>{{ L('2.3.1 動物是否需要特殊照護', '2.3.1 Does the Animal Require Special Care?') }}</span><span class="yn">{{ cb(sc_yes, L('是','Yes')) }}　{{ cb(not sc_yes, L('否','No')) }}</span></h4>
+  {%- if sc_yes %}<div class="summary-text">{{ sc }}</div>{%- endif %}
+
+  {%- set ih = (sections.individual_housing or '')|trim %}{%- set ih_yes = ih and ih not in ['否','無','N/A','-','—'] %}
+  <h4 class="subsub inline-yn"><span>{{ L('2.3.2 是否需要單獨飼養', '2.3.2 Is Individual Housing Required?') }}</span><span class="yn">{{ cb(ih_yes, L('是','Yes')) }}　{{ cb(not ih_yes, L('否','No')) }}</span></h4>
+  {%- if ih_yes %}<div class="summary-text">{{ ih }}</div>{%- endif %}
+
+  {%- set ru = (sections.reuse_after_study or '')|trim %}{%- set ru_yes = ru and ru not in ['否','無','N/A','-','—'] %}
+  <h4 class="subsub inline-yn"><span>{{ L('2.3.3 本試驗結束後是否會考量動物的再應用', '2.3.3 Will Animal Reuse Be Considered After the Study?') }}</span><span class="yn">{{ cb(ru_yes, L('是','Yes')) }}　{{ cb(not ru_yes, L('否','No')) }}</span></h4>
+  {%- if ru_yes %}<div class="summary-text">{{ ru }}</div>{%- endif %}
+
+  <h3 class="subsection">{{ L('2.4 精緻化', '2.4 Refinement') }}</h3>
+  <div class="summary-text">{{ sections.refinement_measures }}</div>
+
+  {# ============ 3 試驗物質與對照物質 (AD-04-01-01F outline) ============ #}
+  <h2 class="section" id="sec3"><span class="sec-num">3</span>{{ L('試驗物質與對照物質', 'Testing and Control Item') }}</h2>
+
+  <h3 class="subsection">{{ L('3.1 試驗物質資訊', '3.1 Test Article Information') }}</h3>
+
+  <h4 class="subsub inline-yn"><span>{{ L('3.1.1 是否於試驗進行時，使用試驗物質於實驗動物體上', '3.1.1 Will a test article be administered to the animals?') }}</span><span class="yn">{{ cb(test_article.use_article == true, L('是', 'Yes')) }}　{{ cb(test_article.use_article == false, L('否', 'No')) }}</span></h4>
+
+  {%- if test_materials %}
+  <h4 class="subsub">{{ L('3.1.2 試驗物質相關資訊', '3.1.2 Test Article Details') }}</h4>
+  {%- for m in test_materials %}
+  <table class="kv kv-indent kv-mat">
+    <tr><th>{{ L('名稱', 'Name') }}</th><td>{{ m.name }}</td></tr>
+    <tr><th>{{ L('效期', 'Expiry') }}</th><td>{{ m.expiry }}</td></tr>
+    <tr><th>{{ L('是否為無菌製備', 'Sterile Preparation?') }}</th><td>
+      {{ cb(m.sterile == true, L('是', 'Yes')) }}　{{ cb(m.sterile == false, L('否', 'No')) }}
+      {%- if m.sterile == false and m.non_sterile_justification %}<br/>{{ L('非無菌製備之說明', 'Non-sterile justification') }}：{{ m.non_sterile_justification }}{%- endif %}
+    </td></tr>
+    <tr><th>{{ L('用途', 'Purpose') }}</th><td>{{ m.purpose }}</td></tr>
+    <tr><th>{{ L('保存規定', 'Storage') }}</th><td>{{ m.storage }}</td></tr>
+    {{ material_photos(m.photos) }}
+  </table>
+  {%- endfor %}
+  {%- endif %}
+
+  {%- if control_materials %}
+  <h4 class="subsub">{{ L('3.1.3 對照物質相關資訊', '3.1.3 Control Article Details') }}</h4>
+  {%- for m in control_materials %}
+  <table class="kv kv-indent kv-mat">
+    <tr><th>{{ L('名稱', 'Name') }}</th><td>{{ m.name }}</td></tr>
+    <tr><th>{{ L('效期', 'Expiry') }}</th><td>{{ m.expiry }}</td></tr>
+    <tr><th>{{ L('是否為無菌製備', 'Sterile Preparation?') }}</th><td>
+      {{ cb(m.sterile == true, L('是', 'Yes')) }}　{{ cb(m.sterile == false, L('否', 'No')) }}
+      {%- if m.sterile == false and m.non_sterile_justification %}<br/>{{ L('非無菌製備之說明', 'Non-sterile justification') }}：{{ m.non_sterile_justification }}{%- endif %}
+    </td></tr>
+    <tr><th>{{ L('用途', 'Purpose') }}</th><td>{{ m.purpose }}</td></tr>
+    <tr><th>{{ L('保存規定', 'Storage') }}</th><td>{{ m.storage }}</td></tr>
+    {{ material_photos(m.photos) }}
+  </table>
+  {%- endfor %}
+  {%- endif %}
+
+  {# ============ 4 研究設計與方法 (AD-04-01-01F outline) ============ #}
+  <h2 class="section" id="sec4"><span class="sec-num">4</span>{{ L('研究設計與方法', 'Study Design and Methods') }}</h2>
+
+  <h3 class="subsection">{{ L('4.1 動物試驗內容（依 3Rs 精緻化原則）', '4.1 Animal Study Procedures (3Rs Refinement)') }}</h3>
+
+  {%- set anes_any = anesthesia.survival_surgery or anesthesia.non_survival_surgery or anesthesia.isoflurane_only or anesthesia.azaperonum_atropine_isoflurane -%}
+  <h4 class="subsub inline-yn"><span>{{ L('4.1.1 是否於麻醉下進行試驗', '4.1.1 Will procedures be performed under anesthesia?') }}</span><span class="yn">{{ cb(anes_any, L('是', 'Yes')) }}　{{ cb(anesthesia.none and not anes_any, L('否', 'No')) }}</span></h4>
+  {#- 是 → 下方列已選麻醉方式（選項，去☑只列文字）-#}
+  {%- if anes_any %}
+    <div class="sub-checked">
+      {% if anesthesia.survival_surgery %}<span class="cb-label">{{ L('存活性手術（詳項次 8 手術計畫書）', 'Survival Surgery (see Section 8 Surgical Plan)') }}</span>{% endif %}
+      {% if anesthesia.non_survival_surgery %}<span class="cb-label">{{ L('非存活性手術（詳項次 8 手術計畫書）', 'Non-survival Surgery (see Section 8 Surgical Plan)') }}</span>{% endif %}
+      {% if anesthesia.isoflurane_only %}<span class="cb-label">{{ L('使用氣體麻醉(Isoflurane 1-2%)進行實驗', 'Isoflurane 1-2% inhalation before experiment') }}</span>{% endif %}
+      {% if anesthesia.azaperonum_atropine_isoflurane %}<span class="cb-label">{{ L('使用畜舒坦Azaperonum 3-5 mg/kg和 Atropine® 0.03-0.05mg/kg 肌肉注射鎮靜後，以氣體麻醉(Isoflurane 1-2%)誘導再進行實驗', 'Using Azaperone 3-5 mg/kg and Atropine 0.03-0.05mg/kg IM with Isoflurane inhalation before experiment') }}</span>{% endif %}
+    </div>
+  {%- endif %}
+
+  <h4 class="subsub">{{ L('4.1.2 動物試驗內容及流程', '4.1.2 Animal Procedures and Workflow') }}</h4>
+  <div class="summary-text">{{ sections.animal_procedures }}</div>
+  {{ figure_photos(sections.procedure_photos, fig_ns) }}
+
+  <h4 class="subsub">{{ L('4.1.3 實驗動物疼痛等級評估', '4.1.3 Pain Category Assessment') }}</h4>
+  {#- 各 Category 是否被勾選：以 any sub-option 為依據（auto-derived parent checkbox） -#}
+  {%- set cat_b_any = pain.cat_b.breeding_only or pain.cat_b.other -%}
+  {%- set cat_c_any = pain.cat_c.handling_weighing or pain.cat_c.injection_oral or pain.cat_c.marking or pain.cat_c.routine_husbandry or pain.cat_c.full_anesthesia or pain.cat_c.avma_euthanasia or pain.cat_c.other -%}
+  {%- set cat_d_any = pain.cat_d.transport_with_sedative or pain.cat_d.intubation or pain.cat_d.survival_surgery_under_anesthesia or pain.cat_d.non_survival_surgery_under_anesthesia or pain.cat_d.sub_lethal_chemical or pain.cat_d.catheter_implant or pain.cat_d.bleeding_perfusion or pain.cat_d.food_water_restriction or pain.cat_d.pain_with_analgesia or pain.cat_d.induced_pathology or pain.cat_d.chemical_damage or pain.cat_d.eye_skin_irritation or pain.cat_d.other -%}
+  {%- set cat_e_any = pain.cat_e.chemical_severe_damage or pain.cat_e.paralytic_no_anesthesia or pain.cat_e.burns_skin_trauma or pain.cat_e.induced_disease or pain.cat_e.near_pain_threshold or pain.cat_e.chronic_pain_disease or pain.cat_e.extreme_food_water_restriction or pain.cat_e.extreme_environment or pain.cat_e.lethal_procedures or pain.cat_e.pain_distress_research or pain.cat_e.non_avma_euthanasia or pain.cat_e.other -%}
+
+  {#- 非是否區：去 ☑/☐，只列「已選類別 + 已選項目」純文字（隱藏未選類別）。 -#}
+  <div class="pain-list">
+    {%- if cat_b_any %}
+    <div class="pain-cat">{{ L('Category B：不引起疼痛與不適', 'Category B: No pain or distress') }}</div>
+    <div class="pain-subs">
+      {% if pain.cat_b.breeding_only %}<span class="cb-label">{{ L('飼養與繁殖，無實驗操作', 'Breeding and husbandry only, no experimental procedures') }}</span>{% endif %}
+      {% if pain.cat_b.other %}<span class="cb-label">{{ L('其他：', 'Other: ') ~ pain.cat_b.other_text }}</span>{% endif %}
+    </div>{%- endif %}
+
+    {%- if cat_c_any %}
+    <div class="pain-cat">{{ L('Category C：極小的不適，不需用藥緩解', 'Category C: Minimal discomfort, no medication needed') }}</div>
+    <div class="pain-subs">
+      {% if pain.cat_c.handling_weighing %}<span class="cb-label">{{ L('抓取，稱重或運輸動物（無壓力狀態下短距離的運輸）', 'Handling, weighing, or transport of animals (short-distance transport without stress)') }}</span>{% endif %}
+      {% if pain.cat_c.injection_oral %}<span class="cb-label">{{ L('注射（肌肉）及口服無刺激性物質', 'Injection (intramuscular) and oral administration of non-irritant substances') }}</span>{% endif %}
+      {% if pain.cat_c.marking %}<span class="cb-label">{{ L('動物標示如刺青或齧齒類動物的耳朵打孔', 'Animal identification such as tattooing or ear punching of rodents') }}</span>{% endif %}
+      {% if pain.cat_c.routine_husbandry %}<span class="cb-label">{{ L('常規農牧業程序', 'Routine agricultural/husbandry procedures') }}</span>{% endif %}
+      {% if pain.cat_c.full_anesthesia %}<span class="cb-label">{{ L('完整的全身麻醉', 'Complete general anesthesia') }}</span>{% endif %}
+      {% if pain.cat_c.avma_euthanasia %}<span class="cb-label">{{ L('AVMA(美國獸醫協會)認可的人道安樂死程序', 'AVMA-approved humane euthanasia procedures') }}</span>{% endif %}
+      {% if pain.cat_c.other %}<span class="cb-label">{{ L('其他：', 'Other: ') ~ pain.cat_c.other_text }}</span>{% endif %}
+    </div>{%- endif %}
+
+    {%- if cat_d_any %}
+    <div class="pain-cat">{{ L('Category D：有疼痛或不適，須給予適當的藥物緩解', 'Category D: Pain or distress present, requiring appropriate medication for relief') }}</div>
+    <div class="pain-subs">
+      {% if pain.cat_d.transport_with_sedative %}<span class="cb-label">{{ L('存在潛在的壓力運輸，該動物需給予鎮靜劑', 'Potentially stressful transport requiring sedation') }}</span>{% endif %}
+      {% if pain.cat_d.intubation %}<span class="cb-label">{{ L('麻醉中插管', 'Intubation under anesthesia') }}</span>{% endif %}
+      {% if pain.cat_d.survival_surgery_under_anesthesia %}<span class="cb-label">{{ L('在全身麻醉下進行存活性手術', 'Survival surgery under general anesthesia') }}</span>{% endif %}
+      {% if pain.cat_d.non_survival_surgery_under_anesthesia %}<span class="cb-label">{{ L('全身麻醉下進行非存活性手術', 'Non-survival surgery under general anesthesia') }}</span>{% endif %}
+      {% if pain.cat_d.sub_lethal_chemical %}<span class="cb-label">{{ L('暴露於不致命性的藥物或化學物下，未對動物造成顯著的身體變化', 'Exposure to non-lethal drugs or chemicals without significant physical change to the animal') }}</span>{% endif %}
+      {% if pain.cat_d.catheter_implant %}<span class="cb-label">{{ L('在血管暴露狀況下植入導管', 'Catheter implantation with vascular exposure') }}</span>{% endif %}
+      {% if pain.cat_d.bleeding_perfusion %}<span class="cb-label">{{ L('在麻醉下放血或進行灌流', 'Blood withdrawal or perfusion under anesthesia') }}</span>{% endif %}
+      {% if pain.cat_d.food_water_restriction %}<span class="cb-label">{{ L('非手術前必要的限食及限水', 'Food/water restriction not required for pre-surgical preparation') }}</span>{% endif %}
+      {% if pain.cat_d.pain_with_analgesia %}<span class="cb-label">{{ L('任何流程導致明顯的疼痛或不適，但可以施以止痛藥物予以緩解，如減少食慾/活動、觸摸引起不良反應、開放性皮膚病變、膿腫、跛行、結膜炎、角膜浮腫或畏光', 'Any procedure causing marked pain or distress that can be relieved with analgesics (e.g., reduced appetite/activity, adverse reaction to touch, open skin lesions, abscess, lameness, conjunctivitis, corneal edema, or photophobia)') }}</span>{% endif %}
+      {% if pain.cat_d.induced_pathology %}<span class="cb-label">{{ L('誘導解剖學或生理學異常造成的疼痛或緊迫輻射性病痛', 'Pain or distress from induced anatomical or physiological abnormalities') }}</span>{% endif %}
+      {% if pain.cat_d.chemical_damage %}<span class="cb-label">{{ L('藥物或化學物損害動物體的生理系統', "Drugs or chemicals damaging the animal's physiological system") }}</span>{% endif %}
+      {% if pain.cat_d.eye_skin_irritation %}<span class="cb-label">{{ L('眼睛和皮膚刺激性測試所引起的疼痛，該疼痛可以被緩解', 'Relievable pain from eye and skin irritation testing') }}</span>{% endif %}
+      {% if pain.cat_d.other %}<span class="cb-label">{{ L('其他：', 'Other: ') ~ pain.cat_d.other_text }}</span>{% endif %}
+    </div>{%- endif %}
+
+    {%- if cat_e_any %}
+    <div class="pain-cat">{{ L('Category E：對神智清醒、未麻醉的動物造成劇烈疼痛且接近或超過疼痛極限，無法以藥物或其他方式緩解（需經 IACUC 及獸醫師謹慎監督）', 'Category E: Severe pain at or above the threshold in conscious, unanesthetized animals, unrelievable by medication or other means (requires careful IACUC and veterinary oversight)') }}</div>
+    <div class="pain-subs">
+      {% if pain.cat_e.chemical_severe_damage %}<span class="cb-label">{{ L('使用藥物或化學物嚴重損害動物生理系統而造成動物死亡、劇烈疼痛或極度緊迫', 'Use of drugs or chemicals severely damaging the physiological system, causing death, intense pain, or extreme distress') }}</span>{% endif %}
+      {% if pain.cat_e.paralytic_no_anesthesia %}<span class="cb-label">{{ L('未麻醉情形下使用麻痺或肌肉鬆弛劑', 'Use of paralytics or muscle relaxants without anesthesia') }}</span>{% endif %}
+      {% if pain.cat_e.burns_skin_trauma %}<span class="cb-label">{{ L('燒燙傷或大規模皮膚創傷', 'Burns or large-scale skin trauma') }}</span>{% endif %}
+      {% if pain.cat_e.induced_disease %}<span class="cb-label">{{ L('實驗性誘發疾病，包括代謝干擾和營養性疾病或接觸會引起疾病有毒物質', 'Experimentally induced disease, including metabolic disruption, nutritional disease, or exposure to disease-causing toxic substances') }}</span>{% endif %}
+      {% if pain.cat_e.near_pain_threshold %}<span class="cb-label">{{ L('任何會造成接近疼痛閥值且無法以止痛劑解除該疼痛的操作步驟（如：關節炎模式、眼睛/皮膚刺激性試驗、強烈炎症反應模式、視覺剝奪、電擊/加熱試驗…等）', 'Any procedure causing pain near the threshold that cannot be relieved by analgesics (e.g., arthritis models, eye/skin irritation tests, strong inflammatory models, visual deprivation, electric shock/heat tests, etc.)') }}</span>{% endif %}
+      {% if pain.cat_e.chronic_pain_disease %}<span class="cb-label">{{ L('突變或患有慢性疼痛的疾病，且無法用止痛藥或適當處置緩解', 'Mutations or diseases with chronic pain that cannot be relieved by analgesics or appropriate management') }}</span>{% endif %}
+      {% if pain.cat_e.extreme_food_water_restriction %}<span class="cb-label">{{ L('超出常規術前必要的限食及限水且對動物產生壓力', 'Food/water restriction exceeding routine pre-surgical needs and causing stress to the animal') }}</span>{% endif %}
+      {% if pain.cat_e.extreme_environment %}<span class="cb-label">{{ L('暴露於異常或極端環境中情況', 'Exposure to abnormal or extreme environmental conditions') }}</span>{% endif %}
+      {% if pain.cat_e.lethal_procedures %}<span class="cb-label">{{ L('實驗操作可能會導致動物死亡', 'Experimental procedures that may cause animal death') }}</span>{% endif %}
+      {% if pain.cat_e.pain_distress_research %}<span class="cb-label">{{ L('允許測試項目為疼痛或緊迫的研究（如未經治療就戒斷成癮的藥物或疼痛研究）', 'Studies where pain or distress is the test endpoint (e.g., untreated withdrawal from addictive drugs, or pain research)') }}</span>{% endif %}
+      {% if pain.cat_e.non_avma_euthanasia %}<span class="cb-label">{{ L('未經 AVMA(美國獸醫協會)認可的安樂死方法', 'Euthanasia method not approved by AVMA') }}</span>{% endif %}
+      {% if pain.cat_e.other %}<span class="cb-label">{{ L('其他：', 'Other: ') ~ pain.cat_e.other_text }}</span>{% endif %}
+    </div>{%- endif %}
+  </div>
+  {%- set diet_yes = dietary.has_restriction or dietary.fast_before_anesthesia or dietary.other -%}
+  <h4 class="subsub inline-yn"><span>{{ L('4.1.4 實驗動物是否限制飲食或飲水', '4.1.4 Food / Water Restriction') }}</span><span class="yn">{{ cb(diet_yes, L('是', 'Yes')) }}　{{ cb(not diet_yes, L('否', 'No')) }}</span></h4>
+  {#- 是 → 下方列已選限制方式（選項，去☑只列文字）-#}
+  {%- if diet_yes %}
+    <div class="sub-checked">
+      {% if dietary.fast_before_anesthesia %}<span class="cb-label">{{ L('麻醉前禁食', 'Fast Before Anesthesia') }}</span>{% endif %}
+      {% if dietary.other %}<span class="cb-label">{{ L('其他：', 'Other: ') ~ dietary.other_text }}</span>{% endif %}
+    </div>
+  {%- endif %}
+
+  <h4 class="subsub">{{ L('4.1.5 本試驗可能對動物造成之疼痛或痛苦徵兆', '4.1.5 Pain or Distress Signs Possible in This Study') }}</h4>
+  {#- 多選徵兆（非是否）→ 去☑只列已選文字 -#}
+  <div class="grid-2col">
+    {% if signs.weight_loss %}<span class="cb-label">{{ L('體重減輕', 'Weight loss') }}</span>{% endif %}
+    {% if signs.food_water_decrease %}<span class="cb-label">{{ L('食物與水攝取量減少', 'Reduced food and water intake') }}</span>{% endif %}
+    {% if signs.dehydration %}<span class="cb-label">{{ L('脫水／皮膚無彈性／眼眶下陷', 'Dehydration / loss of skin elasticity / sunken eyes') }}</span>{% endif %}
+    {% if signs.hair_disheveled %}<span class="cb-label">{{ L('毛髮蓬亂、打結或失去光澤', 'Fur disheveled, matted, or dull') }}</span>{% endif %}
+    {% if signs.self_isolation %}<span class="cb-label">{{ L('自行隔離或躲藏', 'Self-isolation or hiding') }}</span>{% endif %}
+    {% if signs.self_mutilation %}<span class="cb-label">{{ L('自殘，如咬肢體', 'Self-mutilation, e.g., biting limbs') }}</span>{% endif %}
+    {% if signs.abnormal_posture %}<span class="cb-label">{{ L('姿勢或體位異常（如頂頭、背拱）', 'Abnormal posture (e.g., head pressing, arched back)') }}</span>{% endif %}
+    {% if signs.abnormal_breathing %}<span class="cb-label">{{ L('呼吸異常（如急促呼吸、張口呼吸、腹式呼吸）', 'Abnormal breathing (e.g., rapid, open-mouth, or abdominal breathing)') }}</span>{% endif %}
+    {% if signs.abnormal_activity %}<span class="cb-label">{{ L('活動量異常（增加或減少）', 'Abnormal activity level (increased or decreased)') }}</span>{% endif %}
+    {% if signs.aggressive_behavior %}<span class="cb-label">{{ L('咬人、咆哮或具攻擊性行為', 'Biting, growling, or aggressive behavior') }}</span>{% endif %}
+    {% if signs.tearing_no_blink %}<span class="cb-label">{{ L('流淚（包括紅色淚液）、無眨眼反射', 'Tearing (including red tears), absent blink reflex') }}</span>{% endif %}
+    {% if signs.muscle_stiffness %}<span class="cb-label">{{ L('肌肉僵硬或無力', 'Muscle rigidity or weakness') }}</span>{% endif %}
+    {% if signs.tremor_seizure %}<span class="cb-label">{{ L('顫抖、顫動或抽搐', 'Tremor, trembling, or convulsions') }}</span>{% endif %}
+    {% if signs.vocalization %}<span class="cb-label">{{ L('發出叫聲（哀鳴）', 'Vocalization (whimpering)') }}</span>{% endif %}
+    {% if signs.surgical_site_inflammation %}<span class="cb-label">{{ L('手術部位紅腫或發炎', 'Surgical site redness or inflammation') }}</span>{% endif %}
+    {% if signs.teeth_grinding %}<span class="cb-label">{{ L('磨牙', 'Teeth grinding') }}</span>{% endif %}
+  </div>
+  {% if signs.other %}
+  <div class="checkbox-row"><span class="cb-label">{{ L('其他：', 'Other: ') ~ signs.other_text }}</span></div>
+  {% endif %}
+
+  <h4 class="subsub">{{ L('4.1.6 緩解措施', '4.1.6 Mitigation Measures') }}</h4>
+  <div class="summary-text">{{ sections.pain_distress_mitigation }}</div>
+
+  <h4 class="subsub">{{ L('4.1.7 實驗預期結束之時機與人道終點', '4.1.7 Expected Study Endpoint and Humane Endpoint') }}</h4>
+  <div class="summary-text">{{ sections.endpoint_humane }}</div>
+
+  <h4 class="subsub">{{ L('4.1.8 動物安樂死或最終處置方式', '4.1.8 Euthanasia or Final Disposition') }}</h4>
+  {#- 只顯示已選處置 + 完整方法全文（含 SOP 依據），使用者規格 -#}
+  {%- set eutha_any = end_handling.eutha_kcl or end_handling.eutha_electrocution or end_handling.eutha_other -%}
+  {%- if eutha_any %}
+  <div class="checkbox-row">
+    {#- 處置方式為選項（非是否）→ 去☑只列文字 -#}
+    <span class="cb-label" style="font-weight:bold">{{ L('安樂死', 'Euthanized') }}：</span>
+    <div class="sub-checked">
+      {% if end_handling.eutha_kcl %}<div>{{ L('麻醉下(Zoletil®-50 4-5 mg/kg)，以 KCl 注射安樂死後放血。依「AD-04-03-00 試驗豬隻安樂死規範標準作業程序書」執行。', 'Under anesthesia (Zoletil®-50 4-5 mg/kg), KCl injection followed by exsanguination. Performed in accordance with "AD-04-03-00 Standard Operating Procedure for Euthanasia of Test Pigs."') }}</div>{% endif %}
+      {% if end_handling.eutha_electrocution %}<div>{{ L('麻醉下(Zoletil®-50 4-5 mg/kg)，以 220V 電擊後放血。依「AD-04-03-00 試驗豬隻安樂死規範標準作業程序書」執行。', 'Under anesthesia (Zoletil®-50 4-5 mg/kg), 220V electrocution followed by exsanguination. Performed in accordance with "AD-04-03-00 Standard Operating Procedure for Euthanasia of Test Pigs."') }}</div>{% endif %}
+      {% if end_handling.eutha_other %}<div>{{ L('其他：', 'Other: ') ~ end_handling.eutha_other_text }}</div>{% endif %}
+    </div>
+  </div>
+  {%- endif %}
+  {%- if end_handling.transfer %}
+  <div class="checkbox-row">
+    <span class="cb-label">{{ L('轉讓 — 接受人：', 'Transfer — Recipient: ') ~ end_handling.transfer_recipient_name ~ L('（', ' (') ~ end_handling.transfer_recipient_org ~ L('），計畫：', '), Project: ') ~ end_handling.transfer_project }}</span>
+  </div>
+  {%- endif %}
+  {%- if end_handling.other and end_handling.other_text %}
+  <div class="checkbox-row">
+    <span class="cb-label">{{ L('其他：', 'Other: ') ~ end_handling.other_text }}</span>
+  </div>
+  {%- endif %}
+
+  <h3 class="subsection">{{ L('4.2 動物屍體處理方法', '4.2 Carcass Disposal Method') }}</h3>
+  <div class="summary-text">{{ sections.carcass_disposal }}</div>
+
+  <h3 class="subsection inline-yn">
+    <span>{{ L('4.3 是否使用非醫藥級化學藥品或其他物質', '4.3 Use of Non-pharmaceutical-grade Chemicals or Substances') }}</span>
+    <span class="yn">{{ cb(non_pharma.use, L('是', 'Yes')) }}　{{ cb(not non_pharma.use, L('否', 'No')) }}</span>
+  </h3>
+  {%- if non_pharma.use %}
+  <div class="summary-text">{{ non_pharma.explanation or sections.non_pharma_grade }}</div>
+  {%- endif %}
+
+  <h3 class="subsection inline-yn">
+    <span>{{ L('4.4 是否使用危害性物質材料', '4.4 Use of Hazardous Materials') }}</span>
+    <span class="yn">{{ cb(hazardous.use_any, L('是', 'Yes')) }}　{{ cb(not hazardous.use_any, L('否', 'No')) }}</span>
+  </h3>
+  {%- if hazardous.use_any %}
+  <table class="kv">
+    <tr>
+      <th>{{ L('材料種類', 'Material Type') }}</th>
+      <th>{{ L('物質名稱', 'Substance Name') }}</th>
+      <th>{{ L('所需用量', 'Required Quantity') }}</th>
+    </tr>
+    {%- if hazardous.biological.used %}
+    <tr>
+      <td>{{ L('生物性材料', 'Biological Material') }}</td>
+      <td>{{ na(hazardous.biological.agent) }}</td>
+      <td>{{ na(hazardous.biological.amount) }}</td>
+    </tr>
+    {%- endif %}
+    {%- if hazardous.radioactive.used %}
+    <tr>
+      <td>{{ L('放射線', 'Radiation') }}</td>
+      <td>{{ na(hazardous.radioactive.agent) }}</td>
+      <td>{{ na(hazardous.radioactive.amount) }}</td>
+    </tr>
+    {%- endif %}
+    {%- if hazardous.chemical.used %}
+    <tr>
+      <td>{{ L('危險性化學藥品', 'Hazardous Chemical') }}</td>
+      <td>{{ na(hazardous.chemical.agent) }}</td>
+      <td>{{ na(hazardous.chemical.amount) }}</td>
+    </tr>
+    {%- endif %}
+  </table>
+  {%- endif %}
+
+  <h3 class="subsection inline-yn">
+    <span>{{ L('4.5 危害性物質及其廢棄物處理方式', '4.5 Hazardous Materials and Waste Handling') }}</span>
+    {%- if not hazardous.use_any %}
+    <span class="yn">{{ cb(true, L('不適用', 'Not applicable')) }}</span>
+    {%- endif %}
+  </h3>
+  {%- if hazardous.use_any %}
+  <h4 class="subsub">{{ L('4.5.1 進行危害性物質施用之方法、途徑及場所', '4.5.1 Hazardous Material Application Method, Route, and Location') }}</h4>
+  <div class="summary-text">{{ sections.hazardous_application }}</div>
+  <h4 class="subsub">{{ L('4.5.2 針對試驗人員、實驗動物以及飼養環境所採行之保護措施', '4.5.2 Protective Measures for Personnel, Animals, and Housing Environment') }}</h4>
+  <div class="summary-text">{{ sections.hazardous_protection }}</div>
+  <h4 class="subsub">{{ L('4.5.3 實驗廢棄物與屍體之處理方式', '4.5.3 Waste and Carcass Disposal Methods') }}</h4>
+  <div class="summary-text">{{ sections.hazardous_disposal }}</div>
+  {%- endif %}
+
+  <h3 class="subsection inline-yn">
+    <span>{{ L('4.6 是否使用管制藥品', '4.6 Use of Controlled Drugs') }}</span>
+    <span class="yn">{{ cb(controlled.use_any, L('是', 'Yes')) }}　{{ cb(not controlled.use_any, L('否', 'No')) }}</span>
+  </h3>
+  {%- if controlled.use_any and controlled.drugs %}
+  <table class="kv">
+    <colgroup>
+      <col style="width: 30%">
+      <col style="width: 25%">
+      <col style="width: 15%">
+      <col style="width: 30%">
+    </colgroup>
+    <tr>
+      <th>{{ L('藥品名稱', 'Drug Name') }}</th>
+      <th>{{ L('核准編號', 'Approval No.') }}</th>
+      <th>{{ L('所需用量', 'Required Quantity') }}</th>
+      <th>{{ L('管制藥品管理人', 'Controlled Drug Custodian') }}</th>
+    </tr>
+    {%- for d in controlled.drugs %}
+    <tr>
+      <td>{{ na(d.name) }}</td>
+      <td class="center">{{ na(d.approval_no) }}</td>
+      <td class="center">{{ na(d.amount) }}</td>
+      <td>{{ na(d.authorized_person) }}</td>
+    </tr>
+    {%- endfor %}
+  </table>
+  {%- endif %}
+
+  {# ============ 5 相關規範及參考文獻 (AD-04-01-01F outline) ============ #}
+  <h2 class="section" id="sec5"><span class="sec-num">5</span>{{ L('相關規範及參考文獻', 'Guidelines and References') }}</h2>
+  <h3 class="subsection">{{ L('5.1 法源依據（指南／標準）及參考文獻', '5.1 Regulatory Basis (Guidelines / Standards) and References') }}</h3>
+  <div class="summary-text">{{ sections.references }}</div>
+
+  {%- if reference_databases %}
+  <h3 class="subsection">{{ L('5.2 文獻資料庫搜尋紀錄', '5.2 Literature Database Search') }}</h3>
+  <ul class="ref-db-list">
+    {%- for db in reference_databases %}
+    <li><span class="cb">☑</span> {{ db.name_zh if lang == 'zh' else db.name_en }}
+      {%- if db.keywords %}<br/><span class="ref-kw">{{ L('關鍵字', 'Keywords') }}：{{ db.keywords }}</span>{%- endif %}
+      {%- if db.note %}<br/><span class="ref-kw">{{ L('備註', 'Note') }}：{{ db.note }}</span>{%- endif %}
+    </li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+
+  {%- if reference_list %}
+  <h3 class="subsection">{{ L('5.3 引用文獻列表', '5.3 Cited References') }}</h3>
+  <ol class="ref-list">
+    {%- for r in reference_list %}
+    <li>{{ r.citation }}{% if r.url %}<br/><span class="ref-url">{{ r.url }}</span>{% endif %}</li>
+    {%- endfor %}
+  </ol>
+  {%- endif %}
+
+  {# ============ 6 動物手術規劃 (AD-04-01-01F outline 6.1-6.10) ============ #}
+  <h2 class="section" id="sec6"><span class="sec-num">6</span>{{ L('動物手術規劃', 'Animal Surgical Plan') }}</h2>
+  {%- set has_surgery = surgery_type.survival or surgery_type.non_survival or anesthesia.survival_surgery or anesthesia.non_survival_surgery -%}
+  {% if has_surgery %}
+
+  <h3 class="subsection">{{ L('6.1 手術種類', '6.1 Surgery Type') }}</h3>
+  {#- 選項（非是否）→ 去☑只列已選文字 -#}
+  <div class="checkbox-row">
+    {% if surgery_type.survival %}<span class="cb-label">{{ L('存活手術', 'Survival Surgery') }}</span>{% endif %}
+    {% if surgery_type.non_survival %}<span class="cb-label">{{ L('非存活手術', 'Non-survival Surgery') }}</span>{% endif %}
+  </div>
+
+  <h3 class="subsection">{{ L('6.2 動物術前準備', '6.2 Pre-operative Preparation') }}</h3>
+  <div class="summary-text">{{ sections.pre_surgery_prep }}</div>
+
+  <h3 class="subsection">{{ L('6.3 無菌措施', '6.3 Aseptic Measures') }}</h3>
+  {#- 無菌措施＝手術 checklist：全列選項 + ☑/☐（使用者指定，例外於 §6「非是否去☑」原則；
+     列出未做項目對無菌稽核有意義）。 -#}
+  <div class="grid-3col">
+    {{ cb(aseptic.surgical_site_disinfection, L('動物術部消毒', 'Surgical Site Disinfection')) }}
+    {{ cb(aseptic.instrument_disinfection, L('器械消毒', 'Instrument Disinfection')) }}
+    {{ cb(aseptic.sterile_gowns_gloves, L('無菌手術衣及手套', 'Sterile Gowns and Gloves')) }}
+    {{ cb(aseptic.sterile_drapes, L('無菌手術覆布', 'Sterile Drapes')) }}
+    {{ cb(aseptic.surgical_hand_disinfection, L('術者刷手', 'Surgical Hand Scrub')) }}
+  </div>
+
+  <h3 class="subsection">{{ L('6.4 手術內容說明', '6.4 Surgical Procedure Description') }}</h3>
+  <div class="summary-text">{{ sections.surgery_description }}</div>
+  {{ figure_photos(sections.surgery_photos, fig_ns) }}
+
+  <h3 class="subsection">{{ L('6.5 術中監控', '6.5 Intra-operative Monitoring') }}</h3>
+  <div class="summary-text">{{ sections.intraop_monitoring }}</div>
+
+  <h3 class="subsection">{{ L('6.6 存活性手術之預期術後影響', '6.6 Survival Surgery — Expected Post-operative Impact on Animals') }}</h3>
+  <div class="summary-text">{{ sections.postop_impact }}</div>
+
+  <h3 class="subsection inline-yn">
+    <span>{{ L('6.7 動物是否會接受一次以上的手術', '6.7 Will Animals Undergo More Than One Surgery?') }}</span>
+    <span class="yn">{{ cb(sections.multiple_surgery_yes, L('是', 'Yes')) }}　{{ cb(not sections.multiple_surgery_yes, L('否', 'No')) }}</span>
+  </h3>
+  {%- if sections.multiple_surgery_yes and sections.multiple_surgery %}
+  <div class="summary-text">{{ sections.multiple_surgery }}</div>
+  {%- endif %}
+
+  <h3 class="subsection inline-yn">
+    <span>{{ L('6.8 動物術後照護及止痛給藥方法', '6.8 Post-operative Care and Analgesic Regimen') }}</span>
+    {%- if sections.postop_care_type %}
+    <span class="yn">{{ cb(sections.postop_care_type == '骨科手術', L('骨科手術', 'Orthopedic Surgery')) }}　{{ cb(sections.postop_care_type == '非骨科手術', L('非骨科手術', 'Non-orthopedic Surgery')) }}</span>
+    {%- endif %}
+  </h3>
+  <div class="summary-text">{{ sections.postop_care }}</div>
+
+  <h3 class="subsection">{{ L('6.9 實驗預期結束時機', '6.9 Expected Study Endpoint') }}</h3>
+  <div class="summary-text">{{ sections.surgery_endpoint }}</div>
+
+  <h3 class="subsection">{{ L('6.10 手術用藥資訊', '6.10 Surgical Drug Information') }}</h3>
+  <table class="data" style="table-layout: fixed">
+    <colgroup>
+      <col style="width: 24%">  {# 藥品名稱 #}
+      <col style="width: 18%">  {# 劑量 #}
+      <col style="width: 12%">  {# 投與途徑 #}
+      <col style="width: 18%">  {# 頻率 #}
+      <col style="width: 28%">  {# 給藥目的 #}
+    </colgroup>
+    <thead>
+      <tr><th>{{ L('藥品名稱', 'Drug Name') }}</th><th>{{ L('劑量', 'Dose') }}</th><th>{{ L('投與途徑', 'Route') }}</th><th>{{ L('頻率', 'Frequency') }}</th><th>{{ L('給藥目的', 'Purpose') }}</th></tr>
+    </thead>
+    <tbody>
+    {% if drugs %}
+      {% for d in drugs %}
+      <tr>
+        <td>{{ na(d.name) }}</td>
+        <td class="center">{{ na(d.dose) }}</td>
+        <td class="center">{{ na(d.route) }}</td>
+        <td class="center">{{ na(d.frequency) }}</td>
+        <td>{{ na(d.purpose) }}</td>
+      </tr>
+      {% endfor %}
+    {% else %}
+      <tr>
+        <td>N/A</td><td class="center">N/A</td><td class="center">N/A</td><td class="center">N/A</td><td>N/A</td>
+      </tr>
+    {% endif %}
+    </tbody>
+  </table>
+  {% else %}
+  {# 無手術：6.1–6.10 全部 N/A（依使用者要求，含 6.1 / 6.3 / 6.10）。
+     .surgery-na 收斂小標題與 N/A 間距，使整段塞入同一頁。 #}
+  <div class="surgery-na">
+  <h3 class="subsection">{{ L('6.1 手術種類', '6.1 Surgery Type') }}</h3>
+  <div class="summary-text">N/A</div>
+  <h3 class="subsection">{{ L('6.2 動物術前準備', '6.2 Pre-operative Preparation') }}</h3>
+  <div class="summary-text">N/A</div>
+  <h3 class="subsection">{{ L('6.3 無菌措施', '6.3 Aseptic Measures') }}</h3>
+  <div class="summary-text">N/A</div>
+  <h3 class="subsection">{{ L('6.4 手術內容說明', '6.4 Surgical Procedure Description') }}</h3>
+  <div class="summary-text">N/A</div>
+  <h3 class="subsection">{{ L('6.5 術中監控', '6.5 Intra-operative Monitoring') }}</h3>
+  <div class="summary-text">N/A</div>
+  <h3 class="subsection">{{ L('6.6 存活性手術之預期術後影響', '6.6 Survival Surgery — Expected Post-operative Impact on Animals') }}</h3>
+  <div class="summary-text">N/A</div>
+  <h3 class="subsection">{{ L('6.7 動物是否會接受一次以上的手術', '6.7 Will Animals Undergo More Than One Surgery?') }}</h3>
+  <div class="summary-text">N/A</div>
+  <h3 class="subsection">{{ L('6.8 動物術後照護及止痛給藥方法', '6.8 Post-operative Care and Analgesic Regimen') }}</h3>
+  <div class="summary-text">N/A</div>
+  <h3 class="subsection">{{ L('6.9 實驗預期結束時機', '6.9 Expected Study Endpoint') }}</h3>
+  <div class="summary-text">N/A</div>
+  <h3 class="subsection">{{ L('6.10 手術用藥資訊', '6.10 Surgical Drug Information') }}</h3>
+  <div class="summary-text">N/A</div>
+  </div>
+  {% endif %}
+
+  {# ============ 7 實驗動物資料 ============ #}
+  <h2 class="section" id="sec7"><span class="sec-num">7</span>{{ L('實驗動物資料', 'Animal Information') }}</h2>
+  <table class="data" style="table-layout: fixed">
+    <colgroup>
+      <col style="width: 16%">  {# 動物別/品系 #}
+      <col style="width: 14%">  {# 性別/使用量 #}
+      <col style="width: 11%">  {# 年齡 #}
+      <col style="width: 13%">  {# 體重 #}
+      <col style="width: 23%">  {# 動物來源 #}
+      <col style="width: 23%">  {# 動物飼養場所 #}
+    </colgroup>
+    <thead>
+      <tr>
+        <th>{% if lang == 'en' %}Species /<br>Strain{% else %}動物別 /<br>品系{% endif %}</th>
+        <th>{% if lang == 'en' %}Sex /<br>Count{% else %}性別 /<br>使用量{% endif %}</th>
+        <th>{{ L('年齡', 'Age') }}</th>
+        <th>{{ L('體重 (kg)', 'Weight (kg)') }}</th>
+        <th>{{ L('動物來源', 'Source') }}</th>
+        <th>{{ L('動物飼養場所', 'Housing Location') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% if animals %}
+      {% for a in animals %}
+      <tr>
+        <td class="center">{{ na(a.species_breed) }}</td>
+        <td class="center">{{ na(a.sex_count) }}</td>
+        <td class="center">{{ na(a.age) }}</td>
+        <td class="center">{{ na(a.weight) }}</td>
+        <td style="white-space: pre-line">{{ na(a.source) }}</td>
+        <td>{{ na(a.housing) }}</td>
+      </tr>
+      {% endfor %}
+    {% else %}
+      <tr>
+        <td>N/A</td><td class="center">N/A</td><td class="center">N/A</td><td class="center">N/A</td><td>N/A</td><td>N/A</td>
+      </tr>
+    {% endif %}
+    </tbody>
+  </table>
+
+  {# ============ 8 試驗人員資料 ============ #}
+  <h2 class="section" id="sec8"><span class="sec-num">8</span>{{ L('試驗人員資料', 'Personnel') }}</h2>
+  <h3 class="subsection">{{ L('8.1 負責進行動物試驗之相關人員資料', '8.1 Personnel Conducting the Animal Study') }}</h3>
+  <table class="data" style="table-layout: fixed">
+    <colgroup>
+      <col style="width: 12%">   {# 姓名 #}
+      <col style="width: 16%">   {# 職稱（容 5 字：助理工程師/專案主持人）#}
+      <col style="width: 14%">   {# 工作內容 #}
+      <col style="width: 14%">   {# 參與年數 #}
+      <col style="width: 44%">   {# 訓練/資格（多行，8pt）#}
+    </colgroup>
+    <thead>
+      <tr><th>{{ L('姓名', 'Name') }}</th><th>{{ L('職稱', 'Title') }}</th><th>{{ L('工作內容', 'Role') }}</th><th>{{ L('參與動物試驗年數', 'Years of Animal Study Experience') }}</th><th>{{ L('訓練/資格/取得時間', 'Training / Qualification / Date Obtained') }}</th></tr>
+    </thead>
+    <tbody>
+    {% if personnel %}
+      {% for p in personnel %}
+      <tr>
+        <td class="center">{{ na(p.name) }}</td>
+        <td class="center">{{ na(p.position) }}</td>
+        <td>{{ na(p.roles) }}</td>
+        <td class="center">{{ na(p.years) }}</td>
+        <td class="trainings-cell">
+          {#- 每筆證照各自一行（無逗號）；資料含換行則依換行，否則依逗號切 -#}
+          {%- if p.trainings and p.trainings.strip() -%}
+            {%- set certs = p.trainings.split('\n') if '\n' in p.trainings else p.trainings.split(',') -%}
+            {%- for cert in certs -%}
+              {%- if cert.strip() -%}{{ cert.strip() }}{% if not loop.last %}<br>{% endif %}{%- endif -%}
+            {%- endfor -%}
+          {%- else -%}
+            N/A
+          {%- endif -%}
+        </td>
+      </tr>
+      {% endfor %}
+    {% else %}
+      <tr>
+        <td>N/A</td><td>N/A</td><td>N/A</td><td class="center">N/A</td><td>N/A</td>
+      </tr>
+    {% endif %}
+    </tbody>
+  </table>
+
+  {% if sections.personnel_other_role %}
+  <h3 class="subsection">{{ L('工作內容「i. 其他」說明', 'Role "i. Other" — Description') }}</h3>
+  <div class="summary-text">{{ sections.personnel_other_role }}</div>
+  {% endif %}
+
+  {#- 備註：代碼說明，分「工作內容」與「訓練資格」兩行（中文版不含英文） -#}
+  <p class="note" style="margin-top: 20pt;">
+    {{ L('代碼說明：', 'Code legend:') }}<br>
+    {{ L('工作內容：a.計畫督導；b.飼養照顧；c.保定；d.麻醉止痛；e.手術；f.手術支援；g.觀察監測；h.安樂死；i.其他', 'Roles in Project: a. Supervision; b. Animal care; c. Restraint; d. Anesthesia and analgesia; e. Surgery; f. Surgery assistance; g. Monitoring; h. Euthanasia; i. Other') }}<br>
+    {{ L('訓練資格：A.實驗動物照護及使用委員會或小組成員訓練班；B.IACUC教育訓練研討會；C.輻射安全訓練班；D.生醫產業用畜禽應用研習會及技術研習會；E.實驗動物法規及照護管理班', 'Training/Qualification: A. Laboratory animal care and use committee member training course; B. IACUC education seminar; C. Radiation safety course; D. Biomedical industry livestock/poultry workshop and technical seminar; E. Laboratory animal regulations and care management course') }}
+  </p>
+
+  {# ============ 9 附件（佐證文件 PDF 檔名清單；內容不內嵌） ============ #}
+  <h2 class="section" id="sec9"><span class="sec-num">9</span>{{ L('附件', 'Attachments') }}</h2>
+  {%- if attachments %}
+  <p class="note">{{ L('以下為計畫書佐證文件附件清單，內容詳見原始檔案：', 'Supporting document attachments (content detailed in the original files):') }}</p>
+  <ol class="attachment-list">
+    {%- for att in attachments %}
+    <li>{{ att.file_name }}</li>
+    {%- endfor %}
+  </ol>
+  {%- else %}
+  <div class="summary-text">N/A</div>
+  {%- endif %}
+
+{% endblock %}

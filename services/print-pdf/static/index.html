@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>print-pdf — 列印測試台</title>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+  margin: 0; display: flex; height: 100vh; background: #f5f5f5;
+}
+aside {
+  width: 380px; padding: 18px; background: #fff; border-right: 1px solid #ddd;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+}
+main { flex: 1; display: flex; flex-direction: column; }
+h1 { font-size: 16pt; margin: 0 0 8px; }
+h2 { font-size: 11pt; margin: 12px 0 4px; color: #444; }
+label { display: block; font-size: 9.5pt; color: #555; margin: 4px 0 2px; }
+input, textarea, select {
+  width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px;
+  font: inherit; font-size: 10pt;
+}
+textarea { font-family: ui-monospace, Consolas, monospace; font-size: 9pt; min-height: 200px; }
+button {
+  padding: 8px 14px; border: 0; border-radius: 4px; background: #2563eb; color: #fff;
+  font: inherit; cursor: pointer;
+}
+button.secondary { background: #6b7280; }
+button:hover { filter: brightness(1.08); }
+.row { display: flex; gap: 6px; }
+.row > * { flex: 1; }
+.preview { flex: 1; background: #ddd; }
+.preview iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+.bar {
+  padding: 10px 16px; background: #fff; border-bottom: 1px solid #ddd;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.muted { color: #888; font-size: 9pt; }
+.error { color: #b91c1c; font-size: 9pt; white-space: pre-wrap; }
+</style>
+</head>
+<body x-data="app()" x-init="init()">
+
+<aside>
+  <h1>print-pdf 測試台</h1>
+  <div class="muted">取代 word-convert daemon + gotenberg 的 FastAPI 服務。</div>
+
+  <label>模板</label>
+  <select x-model="templateId" @change="loadSample()">
+    <template x-for="t in templates" :key="t.id">
+      <option :value="t.id" x-text="t.name + ' (' + t.id + ')'"></option>
+    </template>
+  </select>
+
+  <h2>JSON Payload</h2>
+  <textarea x-model="payloadText" spellcheck="false"></textarea>
+  <div class="error" x-show="error" x-text="error"></div>
+
+  <div class="row">
+    <button type="button" @click="loadSample()" class="secondary">載入 sample</button>
+    <button type="button" @click="preview('html')">預覽 HTML</button>
+  </div>
+  <div class="row">
+    <button type="button" @click="preview('pdf')">預覽 PDF</button>
+    <button type="button" @click="download()" class="secondary">下載 PDF</button>
+  </div>
+
+  <div class="muted" style="margin-top:auto">
+    <a href="/docs" target="_blank">OpenAPI Swagger</a> ·
+    <a href="/api/templates" target="_blank">/api/templates</a>
+  </div>
+</aside>
+
+<main>
+  <div class="bar">
+    <strong x-text="currentName()"></strong>
+    <span class="muted" x-text="lastAction"></span>
+  </div>
+  <div class="preview"><iframe :src="previewUrl" title="PDF 預覽畫面"></iframe></div>
+</main>
+
+<script>
+function app() {
+  return {
+    templates: [],
+    templateId: 'pig_approval',
+    payloadText: '{}',
+    previewUrl: 'about:blank',
+    lastAction: '',
+    error: '',
+    samples: {},
+
+    revokePreview() {
+      if (this.previewUrl && this.previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(this.previewUrl);
+      }
+    },
+
+    async init() {
+      try {
+        const r = await fetch('/api/templates');
+        if (!r.ok) throw new Error('無法載入模板列表');
+        const j = await r.json();
+        this.templates = j.templates;
+        await this.loadSample();
+      } catch (e) {
+        this.templates = [];
+        this.error = '初始化失敗: ' + e.message;
+      }
+    },
+
+    currentName() {
+      const t = this.templates.find(t => t.id === this.templateId);
+      return t ? t.name : this.templateId;
+    },
+
+    async loadSample() {
+      this.error = '';
+      this.revokePreview();
+      try {
+        const s = await fetch(`/api/sample/${this.templateId}`);
+        if (s.ok) {
+          this.payloadText = JSON.stringify(await s.json(), null, 2);
+        } else {
+          this.payloadText = '{}';
+        }
+        const r = await fetch(`/api/preview/${this.templateId}?format=html`);
+        if (!r.ok) { this.error = await r.text(); return; }
+        const html = await r.text();
+        this.previewUrl = URL.createObjectURL(new Blob([html], {type: 'text/html'}));
+        this.lastAction = 'sample loaded';
+      } catch (e) {
+        this.payloadText = '{}';
+        this.error = '載入失敗: ' + (e?.message || String(e));
+      }
+    },
+
+    parsedPayload() {
+      try {
+        return JSON.parse(this.payloadText || '{}');
+      } catch (e) {
+        this.error = 'JSON 解析失敗: ' + e.message;
+        return null;
+      }
+    },
+
+    async preview(format) {
+      this.error = '';
+      try {
+        const payload = this.parsedPayload();
+        if (payload === null) return;
+        const url = `/api/render/${this.templateId}?format=${format}`;
+        const r = await fetch(url, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload),
+        });
+        if (!r.ok) { this.error = (await r.text()).slice(0, 2000); return; }
+        const blob = await r.blob();
+        this.revokePreview();
+        this.previewUrl = URL.createObjectURL(blob);
+        this.lastAction = `rendered ${format} @ ${new Date().toLocaleTimeString()}`;
+      } catch (e) {
+        this.error = '預覽失敗: ' + (e?.message || String(e));
+      }
+    },
+
+    async download() {
+      this.error = '';
+      let url;
+      try {
+        const payload = this.parsedPayload();
+        if (payload === null) return;
+        const r = await fetch(`/api/render/${this.templateId}?format=pdf`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload),
+        });
+        if (!r.ok) { this.error = await r.text(); return; }
+        const blob = await r.blob();
+        url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${this.templateId}.pdf`;
+        a.click();
+      } catch (e) {
+        this.error = '下載失敗: ' + (e?.message || String(e));
+      } finally {
+        if (url) URL.revokeObjectURL(url);
+      }
+    },
+  };
+}
+</script>
+</body>
+</html>

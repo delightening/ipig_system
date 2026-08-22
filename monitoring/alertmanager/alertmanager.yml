@@ -1,0 +1,23 @@
+# ============================================================
+# Alertmanager 靜態 fallback 設定（無密碼、無秘密）
+# ============================================================
+# 此檔案只在 ALERTMANAGER_WEBHOOK_URL 未設定時被 docker-entrypoint.sh 使用。
+# 一旦 .env 有設定 ALERTMANAGER_WEBHOOK_URL / ALERT_SMTP_* 等變數，
+# docker-entrypoint.sh 會改從環境變數動態產生 /tmp/alertmanager.yml，
+# 本檔不會被讀取。
+#
+# ⚠️ 禁止將任何 email、密碼、token 寫入此檔，所有機敏值一律放 .env 或 secrets/。
+# ============================================================
+
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: "null"
+
+receivers:
+  - name: "null"

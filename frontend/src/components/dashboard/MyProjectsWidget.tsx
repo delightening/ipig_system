@@ -1,0 +1,169 @@
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { FolderOpen, Loader2, FileSearch, PlayCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import api, { ProtocolListItem } from '@/lib/api'
+
+// 狀態類別
+const REVIEW_STATUSES = ['SUBMITTED', 'PRE_REVIEW', 'UNDER_REVIEW', 'REVISION_REQUIRED']
+const ACTIVE_STATUSES = ['APPROVED', 'APPROVED_WITH_CONDITIONS']
+
+export function MyProjectsWidget() {
+    const { t } = useTranslation()
+    const navigate = useNavigate()
+
+    const { data: projects, isLoading, error } = useQuery({
+        queryKey: ['my-projects-widget'],
+        queryFn: async () => {
+            const res = await api.get<ProtocolListItem[]>('/my-projects')
+            return res.data
+        },
+        staleTime: 60_000,
+    })
+
+    if (isLoading) {
+        return (
+            <Card className="h-full">
+                <CardHeader className="pt-3 pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-status-purple-solid" />
+                        {t('dashboard.widgets.names.my_projects')}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    if (error) {
+        return (
+            <Card className="h-full">
+                <CardHeader className="pt-3 pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-status-purple-solid" />
+                        {t('dashboard.widgets.names.my_projects')}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">{t('dashboard.widgets.common.loadFailed')}</p>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    // 計算各類計畫數量
+    const totalCount = projects?.length || 0
+    const reviewingProjects = projects?.filter(p => REVIEW_STATUSES.includes(p.status)) || []
+    const activeProjects = projects?.filter(p => ACTIVE_STATUSES.includes(p.status)) || []
+
+    return (
+        <Card className="h-full flex flex-col overflow-hidden">
+            <CardHeader className="pt-3 pb-2">
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-status-purple-solid" />
+                        {t('dashboard.widgets.names.my_projects')}
+                    </CardTitle>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate('/my-projects')}
+                        className="text-xs"
+                    >
+                        {t('dashboard.widgets.common.viewAll')}
+                    </Button>
+                </div>
+                <CardDescription className="text-xs">{t('dashboard.widgets.projects.description')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-auto">
+                {/* 統計數字 */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="text-center p-2 bg-muted rounded-lg">
+                        <div className="text-2xl font-bold text-foreground">{totalCount}</div>
+                        <div className="text-xs text-muted-foreground">{t('dashboard.widgets.projects.total')}</div>
+                    </div>
+                    <div className="text-center p-2 bg-status-warning-bg rounded-lg">
+                        <div className="text-2xl font-bold text-status-warning-text">{reviewingProjects.length}</div>
+                        <div className="text-xs text-muted-foreground">{t('dashboard.widgets.projects.reviewing')}</div>
+                    </div>
+                    <div className="text-center p-2 bg-status-success-bg rounded-lg">
+                        <div className="text-2xl font-bold text-status-success-text">{activeProjects.length}</div>
+                        <div className="text-xs text-muted-foreground">{t('dashboard.widgets.projects.active')}</div>
+                    </div>
+                </div>
+
+                {/* 審查中的計畫 */}
+                {reviewingProjects.length > 0 && (
+                    <div className="mb-3">
+                        <div className="flex items-center gap-1 text-xs font-medium text-status-warning-text mb-1">
+                            <FileSearch className="h-3 w-3" />
+                            {t('dashboard.widgets.projects.reviewing')}
+                        </div>
+                        <div className="space-y-1">
+                            {reviewingProjects.slice(0, 3).map((project) => (
+                                <div
+                                    key={project.id}
+                                    className="text-xs p-2 bg-status-warning-bg/50 rounded border border-status-warning-border hover:bg-status-warning-bg cursor-pointer transition-colors"
+                                    onClick={() => navigate(`/protocols/${project.id}`)}
+                                >
+                                    <span className="font-medium">{project.title}</span>
+                                    {project.iacuc_no && (
+                                        <span className="text-muted-foreground ml-2">({project.iacuc_no})</span>
+                                    )}
+                                </div>
+                            ))}
+                            {reviewingProjects.length > 3 && (
+                                <div className="text-xs text-muted-foreground text-center">
+                                    +{reviewingProjects.length - 3} {t('dashboard.widgets.common.viewMore')}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* 執行中的計畫 */}
+                {activeProjects.length > 0 && (
+                    <div>
+                        <div className="flex items-center gap-1 text-xs font-medium text-status-success-text mb-1">
+                            <PlayCircle className="h-3 w-3" />
+                            {t('dashboard.widgets.projects.active')}
+                        </div>
+                        <div className="space-y-1">
+                            {activeProjects.slice(0, 3).map((project) => (
+                                <div
+                                    key={project.id}
+                                    className="text-xs p-2 bg-status-success-bg/50 rounded border border-green-100 hover:bg-status-success-bg cursor-pointer transition-colors"
+                                    onClick={() => navigate(`/protocols/${project.id}`)}
+                                >
+                                    <span className="font-medium">{project.title}</span>
+                                    {project.iacuc_no && (
+                                        <span className="text-muted-foreground ml-2">({project.iacuc_no})</span>
+                                    )}
+                                </div>
+                            ))}
+                            {activeProjects.length > 3 && (
+                                <div className="text-xs text-muted-foreground text-center">
+                                    +{activeProjects.length - 3} {t('dashboard.widgets.common.viewMore')}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* 無計畫時顯示 */}
+                {totalCount === 0 && (
+                    <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
+                        <FolderOpen className="h-8 w-8 mb-2" />
+                        <p className="text-sm">{t('dashboard.widgets.projects.noProjects')}</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}

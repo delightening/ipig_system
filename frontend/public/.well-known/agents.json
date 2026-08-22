@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "agents": [
+    {
+      "name": "ipig-system",
+      "displayName": "豬博士 iPig 系統",
+      "description": "整合型實驗動物管理平台主 agent，提供 MCP、AI 查詢與 REST API 介面。",
+      "url": "https://ipigsystem.asia/.well-known/agent.json",
+      "openapi": "https://ipigsystem.asia/openapi.json",
+      "mcp": "https://ipigsystem.asia/.well-known/mcp.json",
+      "documentation": "https://ipigsystem.asia/llms.txt"
+    }
+  ],
+  "metadata": {
+    "publisher": "豬博士 iPig 系統團隊",
+    "contact": "https://ipigsystem.asia/",
+    "license": "MIT"
+  }
+}

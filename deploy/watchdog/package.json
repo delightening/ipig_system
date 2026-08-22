@@ -1,0 +1,16 @@
+﻿{
+  "name": "ipig-watchdog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "外部看門狗 Worker — 監控 ipig_system 的存活與備份心跳，刻意跑在 prod 筆電之外",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "check": "node --input-type=module --check < src/worker.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

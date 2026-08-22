@@ -1,0 +1,107 @@
+import { test, expect } from './fixtures/admin-context'
+import { ensureAdminOnPage } from './auth-helpers'
+
+test.describe('個人資料設定', () => {
+    test.beforeEach(async ({ page }) => {
+        await ensureAdminOnPage(page, '/profile/settings')
+        await page.waitForLoadState('load')
+        await page.waitForTimeout(1500)
+
+        if (page.url().includes('/login')) {
+            await ensureAdminOnPage(page, '/profile/settings')
+        }
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
+        // 個人資料頁載入後才有 disabled email 欄位（依賴 /me API）
+        await expect(page.locator('input[disabled]').first(), '應已登入且進入個人資料頁').toBeVisible({ timeout: 20_000 })
+    })
+
+    test('應顯示個人資料頁面', async ({ page }) => {
+        // Email 欄位應為唯讀（disabled input）
+        const emailInput = page.locator('input[disabled]').first()
+        await expect(emailInput).toBeVisible({ timeout: 15_000 })
+    })
+
+    test('應顯示基本資料欄位', async ({ page }) => {
+        // 等待表單載入（找 disabled email input 作為載入指標）
+        await expect(page.locator('input[disabled]').first()).toBeVisible({ timeout: 15_000 })
+
+        // Display Name 或 顯示名稱 的 input
+        const inputs = page.locator('input:not([disabled]):not([type="date"]):not([type="number"])')
+        // 至少應有 display_name, phone, organization
+        const count = await inputs.count()
+        expect(count).toBeGreaterThanOrEqual(2)
+    })
+
+    test('應有儲存按鈕', async ({ page }) => {
+        // Save Changes 或 儲存變更
+        const saveBtn = page.getByRole('button', { name: /Save Changes|儲存變更/ })
+        await expect(saveBtn).toBeVisible({ timeout: 15_000 })
+    })
+
+    test('修改顯示名稱應可儲存', async ({ page }) => {
+        if (page.url().includes('/login')) {
+            await ensureAdminOnPage(page, '/profile/settings')
+        }
+        // 等待表單載入
+        await expect(page.locator('input[disabled]').first()).toBeVisible({ timeout: 15_000 })
+
+        // 找第一個可編輯的 text input（Display Name）
+        const editableInputs = page.locator('input:not([disabled]):not([type="date"]):not([type="number"]):not([type="hidden"])')
+        const nameInput = editableInputs.first()
+        const originalName = await nameInput.inputValue()
+
+        // 修改名稱（改回相同值以避免副作用）
+        await nameInput.clear()
+        await nameInput.fill(originalName || 'E2E 測試帳號')
+
+        // #899：儲存鈕在「必填全數填妥」前為 disabled；若必填有空欄，點擊會逾時 →
+        // context 關閉（Target page/browser has been closed）。故先依 id 補齊各必填欄位
+        // （依角色可能出現 position / entry_date），讓 isComplete=true、儲存鈕 enabled。
+        const fillIfEmpty = async (selector: string, value: string) => {
+            const loc = page.locator(selector)
+            if ((await loc.count()) > 0 && !(await loc.first().inputValue()).trim()) {
+                await loc.first().fill(value)
+            }
+        }
+        await fillIfEmpty('#phone', '0900000000')
+        await fillIfEmpty('#organization', 'E2E 單位')
+        await fillIfEmpty('#position', 'E2E 職稱')
+        await fillIfEmpty('#entry_date', '2020-01-01')
+
+        // 點擊儲存（此時必填已補齊，按鈕應為 enabled）
+        const saveBtn = page.getByRole('button', { name: /Save Changes|儲存變更/ })
+        await expect(saveBtn).toBeEnabled({ timeout: 5_000 })
+        await saveBtn.click()
+
+        // 應出現成功提示 toast（中/英）
+        const successToast = page.getByText(/成功|success/i).first()
+        await expect(successToast).toBeVisible({ timeout: 10_000 })
+    })
+})
+
+test.describe('變更密碼', () => {
+    test('應可從側邊欄開啟變更密碼對話框', async ({ page }) => {
+        await page.goto('/dashboard')
+        await page.waitForLoadState('domcontentloaded')
+        await expect(page.locator('img[src*="pigmodel"]').first()).toBeVisible({ timeout: 15_000 })
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 5_000 })
+
+        // 若 Cookie 同意橫幅出現，先點擊接受以免阻擋側邊欄按鈕
+        try {
+            await page.locator('.fixed.bottom-0').waitFor({ state: 'visible', timeout: 2_000 })
+            await page.getByRole('button', { name: '接受' }).click()
+            await page.waitForTimeout(300)
+        } catch {
+            // 橫幅未出現（已接受過）
+        }
+
+        const changePasswordBtn = page.getByText(/Change Password|變更密碼/).first()
+        await expect(changePasswordBtn, '側邊欄應有變更密碼按鈕').toBeVisible({ timeout: 10_000 })
+
+        await changePasswordBtn.click()
+
+        const dialog = page.locator('[role="dialog"]')
+        await expect(dialog).toBeVisible({ timeout: 5_000 })
+        await expect(dialog.locator('input[type="password"]').first()).toBeVisible()
+    })
+})

@@ -1,0 +1,229 @@
+# ============================================
+# Production override: GHCR images + Watchtower auto-update
+# ============================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+#
+# Required env vars in .env:
+#   GHCR_OWNER  - GitHub username or org
+#   IMAGE_TAG   - Image tag (default: latest)
+#
+# Prerequisites:
+#   docker login ghcr.io -u <GHCR_OWNER> --password-stdin < token.txt
+# ============================================
+
+services:
+  # Override api to use GHCR image
+  api:
+    image: ghcr.io/${GHCR_OWNER}/ipig-api:${IMAGE_TAG:-latest}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    # P0-S3: 生產環境使用 Docker Secrets 取代環境變數中的明文機密
+    secrets:
+      - jwt_ec_private_key
+      - jwt_ec_public_key
+      - db_url
+      - smtp_password
+    environment:
+      JWT_EC_PRIVATE_KEY_FILE: /run/secrets/jwt_ec_private_key
+      JWT_EC_PUBLIC_KEY_FILE: /run/secrets/jwt_ec_public_key
+      DATABASE_URL_FILE: /run/secrets/db_url
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      # R24-3: Alertmanager webhook token（從 .env 注入；值需與 ./secrets/alertmanager_webhook_token.txt 一致）
+      ALERTMANAGER_WEBHOOK_TOKEN: ${ALERTMANAGER_WEBHOOK_TOKEN:-}
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    # R22-18: 加大 log rotation（安全事件 tracing log 需保留更長時間）
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # Override web to use GHCR image（Critical 3：生產綁定 localhost，對外由反向代理提供）
+  web:
+    image: ghcr.io/${GHCR_OWNER}/ipig-web:${IMAGE_TAG:-latest}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Database resource limits
+  db:
+    # P0-S3: 使用 Docker Secrets 提供資料庫密碼
+    secrets:
+      - db_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # Explicitly exclude db-backup from auto-update（High 5: Secret 提供密碼；High 7: 生產強制 GPG 加密）
+  db-backup:
+    secrets:
+      - db_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      BACKUP_REQUIRE_ENCRYPTION: "true"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =========================
+  # R24-2: Loki + Promtail（生產環境集中式日誌收集）
+  # =========================
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: ipig-loki
+    # localhost-only：僅 Grafana 與 Promtail 於同網段存取
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: ipig-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./monitoring/promtail/config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    restart: unless-stopped
+
+  # =========================
+  # Watchtower: auto-update containers（High 1/2: API token 與 SMTP 密碼改由 Docker Secrets）
+  # =========================
+  watchtower:
+    # M15: 使用固定版本號取代 latest，避免自動取得未知版本（digest 已 pin 確保不可置換）
+    image: containrrr/watchtower:1.7.1@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
+    container_name: ipig-watchtower
+    secrets:
+      - watchtower_api_token
+      - watchtower_smtp_password
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.docker/config.json:/config.json:ro
+      - ./scripts/watchtower-entrypoint.sh:/entrypoint.sh:ro
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_POLL_INTERVAL: 3600
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_ROLLING_RESTART: "true"
+      WATCHTOWER_HTTP_API_UPDATE: "true"
+      WATCHTOWER_HTTP_API_METRICS: "true"
+      WATCHTOWER_NOTIFICATIONS: "email"
+      WATCHTOWER_NOTIFICATION_EMAIL_FROM: ${SMTP_FROM_EMAIL:-noreply@erp.local}
+      WATCHTOWER_NOTIFICATION_EMAIL_TO: ${DEPLOY_NOTIFY_EMAIL:-}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER: ${SMTP_HOST:-}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT: ${SMTP_PORT:-587}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER: ${SMTP_USERNAME:-}
+      WATCHTOWER_NOTIFICATION_EMAIL_DELAY: 2
+    ports:
+      - "127.0.0.1:8090:8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    restart: unless-stopped
+
+# P0-S3: Docker Secrets for production
+# 建立方式（先在 Host 執行一次）:
+#   openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt > secrets/jwt_ec_private_key.pem
+#   openssl ec -in secrets/jwt_ec_private_key.pem -pubout > secrets/jwt_ec_public_key.pem
+volumes:
+  loki_data:
+
+secrets:
+  jwt_ec_private_key:
+    file: ./secrets/jwt_ec_private_key.pem
+  jwt_ec_public_key:
+    file: ./secrets/jwt_ec_public_key.pem
+  db_url:
+    file: ./secrets/db_url.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  smtp_password:
+    file: ./secrets/smtp_password.txt
+  watchtower_api_token:
+    file: ./secrets/watchtower_api_token.txt
+  watchtower_smtp_password:
+    file: ./secrets/watchtower_smtp_password.txt

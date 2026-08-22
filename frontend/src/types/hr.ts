@@ -1,0 +1,456 @@
+// 前端 API 型別定義擴展
+// HR, Audit, Facility, Calendar 相關型別
+
+// ============================================
+// Audit Types
+// ============================================
+
+export interface UserActivityLog {
+    id: string;
+    actor_user_id: string | null;
+    actor_email: string | null;
+    actor_display_name: string | null;
+    event_category: string;
+    event_type: string;
+    event_severity: string;
+    entity_type: string | null;
+    entity_id: string | null;
+    entity_display_name: string | null;
+    before_data: Record<string, unknown> | null;
+    after_data: Record<string, unknown> | null;
+    /** R26-3 新增：app 層或 stored proc 計算的變更欄位名（含 redact 後欄位名）*/
+    changed_fields: string[] | null;
+    ip_address: string | null;
+    user_agent: string | null;
+    request_path: string | null;
+    is_suspicious: boolean;
+    suspicious_reason: string | null;
+    created_at: string;
+    // ============================================
+    // R26 SDD 新增欄位（migration 034 + 037 + SEC-34）
+    // ============================================
+    /** SEC-34：HMAC-SHA256 雜湊鏈 — non-empty 表示該 row 已加入鏈；NULL 為 SECURITY 事件不入鏈 */
+    integrity_hash: string | null;
+    /** SEC-34：上一筆 row 的 integrity_hash（用於 verify_chain_range 驗證鏈連續性）*/
+    previous_hash: string | null;
+    /** R26-1 (migration 034)：SEC-11 impersonate 場景下，真正執行的管理員 user_id；NULL 為直接操作 */
+    impersonated_by_user_id: string | null;
+    /** R26-6 (migration 037)：HMAC 編碼版本（1=legacy string-concat, 2=length-prefix canonical）；NULL 表 pre-R26-6 row */
+    hmac_version: number | null;
+}
+
+export interface LoginEventWithUser {
+    id: string;
+    user_id: string | null;
+    email: string;
+    user_name: string | null;
+    event_type: string;
+    ip_address: string | null;
+    user_agent: string | null;
+    device_type: string | null;
+    browser: string | null;
+    os: string | null;
+    is_unusual_time: boolean;
+    is_unusual_location: boolean;
+    is_new_device: boolean;
+    is_mass_login: boolean;
+    failure_reason: string | null;
+    created_at: string;
+}
+
+export interface SessionWithUser {
+    id: string;
+    user_id: string;
+    user_email: string;
+    user_name: string;
+    started_at: string;
+    ended_at: string | null;
+    last_activity_at: string;
+    ip_address: string | null;
+    user_agent: string | null;
+    page_view_count: number;
+    action_count: number;
+    is_active: boolean;
+    ended_reason: string | null;
+}
+
+export interface SecurityAlert {
+    id: string;
+    alert_type: string;
+    severity: string;
+    title: string;
+    description: string | null;
+    user_id: string | null;
+    context_data: Record<string, unknown> | null;
+    status: string;
+    resolved_by: string | null;
+    resolved_at: string | null;
+    resolution_notes: string | null;
+    created_at: string;
+}
+
+export interface AuditDashboardStats {
+    active_users_today: number;
+    active_users_week: number;
+    active_users_month: number;
+    total_logins_today: number;
+    failed_logins_today: number;
+    active_sessions: number;
+    open_alerts: number;
+    critical_alerts: number;
+}
+
+// ============================================
+// HR Types
+// ============================================
+
+/** 工作人員簡易資訊（從 /hr/staff API 返回） */
+export interface StaffInfo {
+    id: string;
+    display_name: string;
+    email: string;
+}
+
+export interface AttendanceWithUser {
+    id: string;
+    user_id: string;
+    user_email: string;
+    user_name: string;
+    work_date: string;
+    clock_in_time: string | null;
+    clock_out_time: string | null;
+    regular_hours: number | null;
+    overtime_hours: number | null;
+    status: string;
+    remark: string | null;
+    is_corrected: boolean;
+}
+
+export interface OvertimeWithUser {
+    id: string;
+    user_id: string;
+    user_email: string;
+    user_name: string;
+    overtime_date: string;
+    start_time: string;
+    end_time: string;
+    hours: number;
+    overtime_type: string;
+    multiplier: number;
+    comp_time_hours: number;
+    comp_time_expires_at: string;
+    status: string;
+    reason: string;
+    /** R86-2：作廢理由（status='voided' 時才有值） */
+    void_reason?: string | null;
+    /** R72-2：當前使用者是否可核准此列（後端依狀態 + 角色計算，後端固定回傳 bool） */
+    can_approve: boolean;
+}
+
+export interface LeaveRequestWithUser {
+    id: string;
+    user_id: string;
+    user_email: string;
+    user_name: string;
+    proxy_user_id: string | null;
+    proxy_user_name: string | null;
+    leave_type: string;
+    start_date: string;
+    end_date: string;
+    total_days: number;
+    total_hours?: number | null;
+    reason: string;
+    is_urgent: boolean;
+    is_retroactive: boolean;
+    status: string;
+    current_approver_id: string | null;
+    current_approver_name: string | null;
+    submitted_at: string | null;
+    created_at: string;
+    /** R72-2：當前使用者是否可核准此列（後端依狀態 + 角色/部門主管計算，後端固定回傳 bool） */
+    can_approve: boolean;
+    /** 當前使用者是否為此列（PENDING_PROXY）的職務代理人、可確認/退回，後端固定回傳 bool */
+    can_confirm_proxy: boolean;
+}
+
+export interface AnnualLeaveBalanceView {
+    entitlement_year: number;
+    entitled_days: number;
+    used_days: number;
+    remaining_days: number;
+    expires_at: string;
+    days_until_expiry: number;
+    is_expired: boolean;  // 是否已過期（待補償）
+}
+
+export interface CompTimeBalanceView {
+    id: string;
+    earned_date: string;
+    original_hours: number;
+    used_hours: number;
+    remaining_hours: number;
+    expires_at: string;
+    days_until_expiry: number;
+}
+
+export interface BalanceSummary {
+    user_id: string;
+    user_name: string;
+    annual_leave_total: number;
+    annual_leave_used: number;
+    annual_leave_remaining: number;
+    comp_time_total: number;
+    comp_time_used: number;
+    comp_time_remaining: number;
+    expiring_soon_days: number;
+    expiring_soon_hours: number;
+}
+
+// 過期特休假報表（待補償）
+export interface ExpiredLeaveReport {
+    user_id: string;
+    user_name: string;
+    user_email: string;
+    entitlement_year: number;
+    entitled_days: number;
+    used_days: number;
+    remaining_days: number;  // 待補償天數
+    expires_at: string;
+}
+
+// 建立特休額度請求
+export interface CreateAnnualLeaveRequest {
+    user_id: string;
+    entitlement_year: number;
+    entitled_days: number;
+    hire_date?: string;  // 到職日，用於計算到期日（到職週年日 + 2年）
+    calculation_basis?: string;
+    notes?: string;
+}
+
+// Leave Type 顯示名稱映射
+export const LEAVE_TYPE_NAMES: Record<string, string> = {
+    ANNUAL: '特休假',
+    PERSONAL: '事假',
+    SICK: '病假',
+    COMPENSATORY: '補休假',
+    MARRIAGE: '婚假',
+    BEREAVEMENT: '喪假',
+    MATERNITY: '產假',
+    PATERNITY: '陪產假',
+    MENSTRUAL: '生理假',
+    OFFICIAL: '公假',
+};
+
+export const LEAVE_STATUS_NAMES: Record<string, string> = {
+    DRAFT: '草稿',
+    PENDING_PROXY: '待代理確認',
+    PENDING_L1: '待單位主管審核',
+    PENDING_L2: '待二級審核',
+    PENDING_HR: '待行政審核',
+    PENDING_GM: '待總經理核准',
+    PENDING_DIRECTOR: '待負責人簽核',
+    APPROVED: '已核准',
+    REJECTED: '已駁回',
+    CANCELLED: '已取消',
+    REVOKED: '已銷假',
+};
+
+// ============================================
+// 請假行事曆（原生，GET /hr/leaves/calendar）
+// ============================================
+
+/**
+ * 行事曆上的一筆假單。
+ *
+ * 與 `CalendarEvent`（Google 同步事件）不同：本型別直接對應 `leave_requests`，
+ * 因此含**審核中**的假單與結構化的代理人欄位，不必從標題字串回推。
+ */
+export interface LeaveCalendarEntry {
+    id: string;
+    user_id: string;
+    user_name: string;
+    department_name?: string | null;
+    leave_type: string;
+    leave_type_display: string;
+    status: string;
+    /** 審核中時卡在哪一關；已核准為 null */
+    pending_stage_display?: string | null;
+    start_date: string;
+    end_date: string;
+    start_time?: string | null;
+    end_time?: string | null;
+    /** FullCalendar 的擺放方式：無起訖時間就只能畫成整天色塊，不等於「請了一整天」 */
+    is_all_day: boolean;
+    /** 時數不足整日。請假表單只收時數不收時段，故必須另外標時數才看得出差別 */
+    is_partial_day: boolean;
+    total_days: string;
+    total_hours?: string | null;
+    proxy_user_id?: string | null;
+    proxy_user_name?: string | null;
+    /** 代理人是否已確認。false 時 UI 必須標「未確認」，不可顯示成既定事實 */
+    proxy_confirmed: boolean;
+    is_mine: boolean;
+    is_my_proxy_duty: boolean;
+}
+
+/** 本次查詢實際套用的可見範圍 */
+export type LeaveCalendarScope = 'all' | 'department';
+
+export interface LeaveCalendarResponse {
+    entries: LeaveCalendarEntry[];
+    scope: LeaveCalendarScope;
+}
+
+// ============================================
+// Facility Types
+// ============================================
+
+export interface Species {
+    id: string;
+    code: string;
+    name: string;
+    name_en: string | null;
+    icon: string | null;
+    is_active: boolean;
+    config: Record<string, unknown> | null;
+    sort_order: number;
+}
+
+export interface Facility {
+    id: string;
+    code: string;
+    name: string;
+    address: string | null;
+    phone: string | null;
+    contact_person: string | null;
+    is_active: boolean;
+}
+
+export interface BuildingWithFacility {
+    id: string;
+    facility_id: string;
+    facility_code: string;
+    facility_name: string;
+    code: string;
+    name: string;
+    description: string | null;
+    is_active: boolean;
+    sort_order: number;
+}
+
+export interface ZoneWithBuilding {
+    id: string;
+    building_id: string;
+    building_code: string;
+    building_name: string;
+    facility_id: string;
+    facility_name: string;
+    code: string;
+    name: string | null;
+    color: string | null;
+    is_active: boolean;
+    sort_order: number;
+}
+
+export interface PenDetails {
+    id: string;
+    code: string;
+    name: string | null;
+    capacity: number;
+    current_count: number;
+    status: string;
+    zone_id: string;
+    zone_code: string;
+    zone_name: string | null;
+    zone_color: string | null;
+    building_id: string;
+    building_code: string;
+    building_name: string;
+    facility_id: string;
+    facility_code: string;
+    facility_name: string;
+}
+
+export interface DepartmentWithManager {
+    id: string;
+    code: string;
+    name: string;
+    parent_id: string | null;
+    parent_name: string | null;
+    manager_id: string | null;
+    manager_name: string | null;
+    is_active: boolean;
+    sort_order: number;
+}
+
+// ============================================
+// Calendar Types
+// ============================================
+
+export interface CalendarSyncStatus {
+    is_configured: boolean;
+    sync_enabled: boolean;
+    calendar_id: string;
+    last_sync_at: string | null;
+    last_sync_status: string | null;
+    next_sync_at: string | null;
+    pending_syncs: number;
+    pending_conflicts: number;
+    recent_errors: number;
+}
+
+export interface ConflictWithDetails {
+    id: string;
+    leave_request_id: string | null;
+    user_name: string | null;
+    leave_type: string | null;
+    conflict_type: string;
+    difference_summary: string | null;
+    status: string;
+    detected_at: string;
+}
+
+export interface CalendarSyncHistory {
+    id: string;
+    job_type: string;
+    triggered_by: string | null;
+    started_at: string;
+    completed_at: string | null;
+    duration_ms: number | null;
+    status: string;
+    events_created: number;
+    events_updated: number;
+    events_deleted: number;
+    conflicts_detected: number;
+    errors_count: number;
+}
+
+export interface CalendarEvent {
+    id: string;
+    summary: string;
+    start: string;
+    end: string;
+    all_day: boolean;
+    description?: string;
+    location?: string;
+    color_id?: string;
+    html_link?: string;
+}
+
+/** Google Calendar 同步設定（僅包含前端可修改的欄位） */
+export interface CalendarConfig {
+    sync_enabled: boolean;
+    /** 早上自動同步時間，格式 "HH:MM:SS"，null 表示停用 */
+    sync_schedule_morning: string | null;
+    /** 晚上自動同步時間，格式 "HH:MM:SS"，null 表示停用 */
+    sync_schedule_evening: string | null;
+    sync_timezone: string | null;
+}
+
+export interface UpdateCalendarConfig {
+    sync_enabled?: boolean;
+    sync_schedule_morning?: string | null;
+    sync_schedule_evening?: string | null;
+}
+

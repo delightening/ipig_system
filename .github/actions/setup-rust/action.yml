@@ -1,0 +1,44 @@
+name: "Setup Rust toolchain + cargo cache"
+description: >
+  Install the pinned Rust toolchain + restore cargo cache (registry/git/target).
+  Composite action to DRY the boilerplate that appears in 5+ Rust jobs.
+
+inputs:
+  components:
+    description: "Optional rustup components (e.g. 'clippy')"
+    required: false
+    default: ""
+  cache-key-suffix:
+    description: "Suffix to differentiate caches per job (e.g. 'test' for backend-test)"
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: 安裝 Rust toolchain
+      # dtolnay/rust-toolchain pinned to specific SHA per supply-chain hardening (R52)
+      #
+      # toolchain 顯式寫死版本，與 repo 根目錄的 rust-toolchain.toml 保持一致：
+      # 兩者若不同步，rustup 會在 job 內為 rust-toolchain.toml 指定的版本再下載一份
+      # toolchain（拖慢 CI），且本 action 裝的 components 會掛在錯的 toolchain 上。
+      # 升版時兩處要一起改（rust-toolchain.toml 檔頭有完整的同步清單）。
+      uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+      with:
+        toolchain: "1.97.1"
+        components: ${{ inputs.components }}
+
+    - name: 快取 Cargo 依賴
+      # actions/cache pinned to specific SHA per supply-chain hardening (CSO-r3 #8)
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          backend/target/
+        key: ${{ runner.os }}-cargo-${{ inputs.cache-key-suffix }}-${{ hashFiles('backend/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ inputs.cache-key-suffix }}-
+          ${{ runner.os }}-cargo-

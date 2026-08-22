@@ -1,0 +1,160 @@
+version: 2
+
+updates:
+  # Rust / Cargo
+  - package-ecosystem: "cargo"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "chore(deps):"
+    # L6: 安全更新優先處理
+    groups:
+      patch-updates:
+        update-types:
+          - "patch"
+
+  # npm / Frontend
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "chore(deps):"
+    # R29-6: 高風險 major 套件單獨成 PR（避免 group bump 一紅就要拆）。
+    # 規則：dependabot 由上而下匹配，先列高風險 → 群組（不互斥；patterns 命中先群組就退出）。
+    groups:
+      # MAJOR-only PRs（不混入 dev-dependencies group）：
+      # 任何匹配下列 patterns 的套件升級，都會自己一個 PR，方便個別 review / rebase。
+      typescript-major:
+        patterns:
+          - "typescript"
+          - "@types/node"
+          - "@typescript-eslint/*"
+        update-types:
+          - "major"
+      tailwindcss-major:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+          - "postcss"
+          - "autoprefixer"
+        update-types:
+          - "major"
+      react-router-major:
+        patterns:
+          - "react-router"
+          - "react-router-dom"
+        update-types:
+          - "major"
+      eslint-major:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+        update-types:
+          - "major"
+      vite-major:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+        update-types:
+          - "major"
+      i18next-major:
+        patterns:
+          - "i18next"
+          - "react-i18next"
+          - "i18next-*"
+        update-types:
+          - "major"
+      # 一般分組（patch / minor 為主）
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "patch"
+          - "minor"
+      react-ecosystem:
+        patterns:
+          - "react*"
+          - "@types/react*"
+        update-types:
+          - "patch"
+          - "minor"
+      patch-updates:
+        update-types:
+          - "patch"
+    # ── 已裁定不升的 major（2026-08-04 寫入）──────────────────────────
+    # 只擋 major；6.x 的 patch/minor 與安全更新照常送來，不影響修補。
+    ignore:
+      # TypeScript 7：lint 工具鏈尚未支援。
+      #   證據：#4 的 CI job「Frontend: tsc + eslint + vitest」失敗，
+      #         錯誤訊息為 `typescript-eslint does not support TS 7.0.`
+      #         （exit code 2）。不是本專案 code 的問題。
+      #   歷史：此升級已第三次出現——ipig_system#1060（關掉）→ #1113（復活）
+      #         → 本 repo #4。關 PR 擋不住，必須寫進設定。
+      #   ✅ 何時可以升：`typescript-eslint` 發布支援 TS 7.0 的版本之後。
+      #      驗證方式＝移除本條、讓 Dependabot 重開 PR，確認
+      #      「Frontend: tsc + eslint + vitest」轉綠即可合。
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
+  # Docker
+  # 本 repo 根目錄沒有 Dockerfile，全部散在子目錄；先前設 directory: "/" 導致 updater
+  # 每次都以 dependency_file_not_found 中止（"No Dockerfiles nor Kubernetes YAML found in /"），
+  # base image 更新從未被提出。改用 directories（複數）逐一指名實際存放位置。
+  # Dependabot docker 的檔名比對是子字串 /dockerfile|containerfile/i（dependabot-core
+  # docker/lib/dependabot/docker/file_fetcher.rb），故 Dockerfile.dev /
+  # Dockerfile.outbox-worker / Dockerfile.backup 等變體檔名亦會被涵蓋。
+  - package-ecosystem: "docker"
+    directories:
+      - "/backend" # Dockerfile, Dockerfile.dev, Dockerfile.outbox-worker
+      - "/frontend" # Dockerfile
+      - "/services/print-pdf" # Dockerfile
+      - "/scripts/backup" # Dockerfile.backup
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker):"
+    # ── 已裁定不升的 major（2026-08-04 寫入）──────────────────────────
+    # 只擋 major；16.x 的 patch/minor 與安全更新照常送來，不影響修補。
+    ignore:
+      # postgres：db-backup 的 base image 必須與 prod DB 主版本綁在一起。
+      #   現況（2026-08-04 實測）：
+      #     prod DB                  = PostgreSQL 16.13
+      #     db-backup 的 pg_dump/psql = 16.12   ← 刻意對齊同一主版本
+      #     Dockerfile.backup base    = postgres:16-alpine
+      #   風險：升到 18 後會用 pg_dump 18 去 dump 一個 16.13 的資料庫。
+      #     dump 那步通常過得去，真正的問題在**還原**——18 產出的檔案不保證
+      #     能被 16 的工具吃下去。而且失敗時機最糟：備份每天照常產生、看起來
+      #     一切正常，直到真的需要還原時才發現用不了。
+      #   ⚠️ CI 綠不算數：CI 只驗映像建得起來，不會實跑一輪 dump → restore。
+      #   ✅ 何時可以升，兩條路擇一：
+      #      (a) prod DB 主版本一起升到 18 —— 兩者必須同步，不可只動備份端；
+      #      (b) 先跑 `scripts/backup/dr_drill.sh` 完整災難復原演練，確認
+      #          跨版本 dump + restore 全流程可用，通過後才合。
+      #      無論走哪條，都要人工確認過才移除本條，不能因為 CI 綠就放行。
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci):"

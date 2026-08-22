@@ -1,0 +1,170 @@
+// 儲位/貨架 Models
+// 用於倉庫內部視覺化佈局管理
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use utoipa::ToSchema;
+use uuid::Uuid;
+use validator::Validate;
+
+/// 儲位類型
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type, Default, ToSchema)]
+#[sqlx(type_name = "VARCHAR", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum LocationType {
+    #[default]
+    Shelf, // 貨架
+    Rack, // 儲物架
+    Zone, // 區域
+    Bin,  // 儲物格
+}
+
+/// 儲位/貨架資料結構
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct StorageLocation {
+    pub id: Uuid,
+    pub warehouse_id: Uuid,
+    pub code: String,
+    pub name: Option<String>,
+    pub location_type: String,
+    pub row_index: i32,
+    pub col_index: i32,
+    pub width: i32,
+    pub height: i32,
+    pub capacity: Option<i32>,
+    pub current_count: i32,
+    pub color: Option<String>,
+    pub is_active: bool,
+    pub config: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 儲位詳細資料（包含倉庫資訊）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct StorageLocationWithWarehouse {
+    pub id: Uuid,
+    pub warehouse_id: Uuid,
+    pub warehouse_code: String,
+    pub warehouse_name: String,
+    pub code: String,
+    pub name: Option<String>,
+    pub location_type: String,
+    pub row_index: i32,
+    pub col_index: i32,
+    pub width: i32,
+    pub height: i32,
+    pub capacity: Option<i32>,
+    pub current_count: i32,
+    pub color: Option<String>,
+    pub is_active: bool,
+    pub config: Option<serde_json::Value>,
+}
+
+/// 建立儲位請求
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct CreateStorageLocationRequest {
+    pub warehouse_id: Uuid,
+    /// 代碼（選填，系統會自動生成）
+    #[validate(length(max = 50, message = "Code must be at most 50 characters"))]
+    pub code: Option<String>,
+    /// 名稱（必填）
+    #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
+    pub name: String,
+    pub location_type: Option<String>,
+    pub row_index: Option<i32>,
+    pub col_index: Option<i32>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub capacity: Option<i32>,
+    pub color: Option<String>,
+    pub config: Option<serde_json::Value>,
+}
+
+/// 更新儲位請求
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct UpdateStorageLocationRequest {
+    #[validate(length(min = 1, max = 50, message = "Code must be 1-50 characters"))]
+    pub code: Option<String>,
+    #[validate(length(max = 200, message = "Name must be at most 200 characters"))]
+    pub name: Option<String>,
+    pub location_type: Option<String>,
+    pub row_index: Option<i32>,
+    pub col_index: Option<i32>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub capacity: Option<i32>,
+    pub color: Option<String>,
+    pub is_active: Option<bool>,
+    pub config: Option<serde_json::Value>,
+}
+
+/// 單一儲位佈局項目（用於批次更新）
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct StorageLayoutItem {
+    pub id: Uuid,
+    pub row_index: i32,
+    pub col_index: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+/// 批次更新儲位佈局請求
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateStorageLayoutRequest {
+    pub items: Vec<StorageLayoutItem>,
+}
+
+/// 儲位查詢參數
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
+pub struct StorageLocationQuery {
+    pub warehouse_id: Option<Uuid>,
+    pub location_type: Option<String>,
+    pub is_active: Option<bool>,
+    pub keyword: Option<String>,
+}
+
+/// 儲位庫存項目（用於顯示儲位內的庫存）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct StorageLocationInventoryItem {
+    pub id: Uuid,
+    pub storage_location_id: Uuid,
+    pub product_id: Uuid,
+    pub product_sku: String,
+    pub product_name: String,
+    /// `products.spec` — 規格描述（"5L" / "180 cm" / "10*12\"" 等）。
+    /// 命名與 `product_sku` / `product_name` siblings 一致；pdf-service adapter
+    /// 讀 `inv.get("product_spec")` 對齊（不在共用 model 加 serde rename 污染）
+    pub product_spec: Option<String>,
+    #[schema(value_type = String)]
+    pub on_hand_qty: rust_decimal::Decimal,
+    pub base_uom: String,
+    pub batch_no: Option<String>,
+    pub expiry_date: Option<chrono::NaiveDate>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// R26-13：儲位庫存項目不含敏感欄位，default `redacted_fields()` = `&[]`
+/// （全欄位明碼可存 audit trail）。
+impl crate::models::audit_diff::AuditRedact for StorageLocationInventoryItem {}
+
+/// 更新儲位庫存項目請求
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct UpdateStorageLocationInventoryItemRequest {
+    // Note: range validator doesn't work with rust_decimal::Decimal
+    // Validation for non-negative values is handled in the service layer
+    #[schema(value_type = String)]
+    pub on_hand_qty: rust_decimal::Decimal,
+}
+
+/// 新增儲位庫存項目請求
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct CreateStorageLocationInventoryItemRequest {
+    pub product_id: Uuid,
+    #[schema(value_type = String)]
+    pub on_hand_qty: rust_decimal::Decimal,
+    #[validate(length(max = 50, message = "Batch number must be at most 50 characters"))]
+    pub batch_no: Option<String>,
+    pub expiry_date: Option<chrono::NaiveDate>,
+}

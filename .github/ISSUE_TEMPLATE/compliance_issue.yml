@@ -1,0 +1,81 @@
+name: 合規問題 (Compliance / GLP Issue)
+description: 回報 GLP、21 CFR Part 11 或 IACUC 合規相關問題
+title: "[Compliance] "
+labels: ["compliance", "P1-high", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **注意**：
+        - 若為**資安漏洞**（未授權存取、資料洩漏），請改用 [Security Advisories](https://github.com/delightening/ipig_system/security/advisories/new) 私下回報。
+        - 此 template 適用於稽核完整性、電子簽章、紀錄鎖定、IACUC 流程等合規問題。
+
+  - type: dropdown
+    id: compliance_type
+    attributes:
+      label: 合規類型
+      options:
+        - "GLP — 稽核記錄完整性 (Audit Trail)"
+        - "GLP — 電子簽章 (Electronic Signature)"
+        - "GLP — 紀錄鎖定 (Record Lock)"
+        - "GLP — 資料保留 (Data Retention)"
+        - "21 CFR Part 11 — 存取控制"
+        - "21 CFR Part 11 — 稽核追蹤"
+        - "21 CFR Part 11 — 電子記錄完整性"
+        - "IACUC — 動物實驗委員會要求"
+        - "其他合規問題"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 問題描述
+      placeholder: 描述具體的合規疑慮或不符合項目。說明「應該如何」vs「實際如何」。
+    validations:
+      required: true
+
+  - type: textarea
+    id: regulation_ref
+    attributes:
+      label: 法規 / 條款參考
+      placeholder: |
+        例如：21 CFR Part 11.10(e) — 「稽核追蹤應包含日期、時間、操作者身份」
+        例如：OECD GLP Principles §7.3.2 — 「所有資料應立即記錄...」
+        例如：IACUC Policy — 「Protocol 修改須委員會重新審查」
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 潛在影響
+      placeholder: |
+        若不修正，對稽核或法規審查的可能影響？
+        例如：「稽核員無法驗證操作者身份，可能導致 GLP 審查不通過」
+    validations:
+      required: true
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: 緊急程度
+      options:
+        - "立即 — 正在進行中的稽核 / 查核"
+        - "高 — 即將到來的稽核（30 天內）"
+        - "中 — 非緊急，但應於下次 release 前修正"
+        - "低 — 改善項目，不影響當前合規狀態"
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 佐證資料
+      placeholder: 截圖、Log 片段、或具體操作步驟重現
+
+  - type: checkboxes
+    id: traceability
+    attributes:
+      label: 追溯確認
+      options:
+        - label: 我已查閱 docs/glp/traceability-matrix.md 確認相關條款覆蓋狀況
+        - label: 此問題涉及 HMAC chain 驗證失敗（處置程序見內部稽核鏈中斷 runbook）

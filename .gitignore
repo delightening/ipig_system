@@ -1,0 +1,182 @@
+.env
+.env.*
+.claude/worktrees/
+.claude/settings.local.json
+**/target
+**/target-*
+**/node_modules
+**/.env
+**/.env.*
+**/dist
+scripts/trivy_bin/
+scripts/r38_validation/output/
+**/build
+**/.next
+# === environments ===
+.venv/
+.venv*/
+
+# === secrets ===
+.env
+.env.*
+!.env.example
+*_dump.sql
+*.dump.sql
+*.sql
+!**/migrations/*.sql
+!**/migrations/down/*.sql
+
+# app secrets files (optional)
+secrets/
+
+# === local logs（不該進 repo） ===
+logs/
+*.log
+
+# Playwright
+**/e2e/.auth/
+**/test-results/
+**/playwright-report/
+**/monocart-report/
+
+# Runtime / local artifacts
+last_error.json
+test-login.json
+
+# R7-P0-4: 業務資料檔案不應進 Git（含資料庫 dump、CSV 匯入檔）
+*.dump
+*.csv
+!**/migrations/*.csv
+
+storybook-static
+
+# Backend 開發/CI 產物
+backend/build_final.txt
+backend/build_output.txt
+backend/ci-fail.txt
+backend/error.txt
+backend/test_output.txt
+.gstack/
+
+# R17-1: CI 日誌檔可能含明文測試密碼，不應追蹤
+logs_*/
+
+# 根目錄 templates/ 放 Word 原稿等設計素材，不追蹤
+# （注意：leading `/` 僅匹配 repo 根目錄，不影響 backend/resources/templates/）
+/templates/
+
+# Claude Code 本地設定 / 排程鎖
+.claude/scheduled_tasks.lock
+.claude/settings.json
+
+# 暫存 API 輸出
+/tmp_api*.txt
+frontend/tmp-tw-test/
+
+# tsc --noEmit 的 incremental build 產物：每次型別檢查都會改寫，追蹤它會讓
+# CI 的 coverage ratchet step（ci.yml）在 git pull --rebase 前永遠有 unstaged 變更
+**/tsconfig.tsbuildinfo
+
+# vitest --coverage 的 HTML/JSON 報告：與 tsbuildinfo 同一個問題，而且規模更大
+# （frontend/coverage/ 曾有 258 個追蹤檔）。#1075 修掉 tsbuildinfo 後 main CI 仍紅，
+# 剩下的 unstaged 變更就來自這裡。coverage 門檻本身存在 vitest.config.ts，報告可重新生成。
+# 註：只匹配目錄，不影響 backend/coverage-baseline.txt 這類基準檔。
+**/coverage/
+
+# Review decision 工作快取（bot review JSON snapshots，不追蹤）
+/.review-cache/
+
+# 個人筆記 / 原稿素材（不追蹤）
+/docs/notes/
+/*.pdf
+
+# 本機維運腳本（使用者選擇不進 git；移自根目錄）
+/scripts/rebuild-and-clean.ps1
+/scripts/auto-cleanup-guard.ps1
+
+# R32-A3 smoke_real_data 驗證輸出（可重複生成）
+templates/output/
+
+# R55-1 / R55-6: print-pdf smoke / audit 產物（可重新生成）
+services/print-pdf/_tools/_smoke_out/
+services/print-pdf/_tools/_audit_out/
+services/print-pdf/_tools/_compare_out/
+
+# 使用者上傳檔案（動物照片 / 巡場照片 / 附件等）— prod / dev 都不該進 repo
+/uploads/
+
+# AI retro 指標快照（auto-generated，不追蹤）
+.context/retros/
+
+# GeoIP 資料庫（由 scripts/update_geoip.sh 下載，runtime 資料不追蹤）
+# .mmdb.bak.<date> 是該腳本替換前留的備份，pattern 為 *.mmdb 時不會命中（副檔名在中間），
+# 漏掉會讓 60MB 級的二進位備份變成未追蹤檔案、被 `git add .` 誤收進版控。
+geoip/*.tar.gz
+geoip/*.mmdb
+geoip/*.mmdb.bak.*
+
+# 資料備份 / Export（一次性資料處理產物，不追蹤）
+backups/*.json
+
+# Python bytecode（pdf-service / scripts）
+**/__pycache__/
+*.pyc
+*.pyo
+
+# CSO R63-C13: MCP notify_secretary 外部收件人白名單工作表（含人員 email，僅本機）
+docs/security/mcp_notify_allowlist.local.md
+
+# R85-7（2026-07-31 使用者裁定）：計畫書補登的中間 JSON 一律不進版控。
+# 它是「docx → 抽取器 → JSON → CLI → DB」管線中間那一手，寫進 DB 之後就沒有用途：
+# 執行期沒有任何程式讀它，真相源是 DB、憑證是原始申請表。留在版控會造成三個問題——
+# DB 之後被修改就與檔案分岔（兩個互相矛盾的真相源）、本 repo 為 public 而內容含
+# 主持人／委託單位聯絡資訊與審查意見全文、以及 review bot 把資料當程式碼審而產生誤判。
+# 工作檔請放 repo 外（本機慣例 `<workspace-root>\_import-artifacts\`），需要時以
+# `_phase*.py` 從原始申請表重跑產生。
+# 註：已追蹤的既有檔案不受 .gitignore 影響，本規則只擋新增。
+docs/design/protocol-import/_artifacts/*.json
+
+# 商用專有字型（標楷體 DFKai-SB / Times New Roman / Arial）— 禁止隨 repo 散布；
+# build 主機需自備字型於 services/print-pdf/fonts/（Dockerfile 從 build context COPY）
+services/print-pdf/fonts/
+# 根目錄 font/ 同屬 build 主機自備字型（含 arial/times/kaiu 商業字型），勿隨 repo 散布
+font/
+
+# Code review / PR diff 暫存（gh pr diff dump、CI log 等，根目錄 scratch，勿追蹤）
+/pr*.diff
+/pr*_diff.txt
+/pr*_view.txt
+/pr*meta.json
+/.review_tmp/
+*.tmp.yml
+
+# staging pentest（含測試密碼，勿 commit）
+.env.staging
+secrets-staging/
+docker-compose.staging.yml
+
+# 含真實員工姓名的工作資料檔（非說明文件，勿追蹤；本機保留繼續使用）
+docs/design/protocol-import/protocol-import-worksheet.html
+docs/design/protocol-import/legacy-import-account-mapping.md
+
+# 員工代號對照表（還原假名用，commit 了等於前功盡棄）
+docs/design/_local/
+
+# 2026-08-18 新 repo 排除清單(HANDOVER v2 §3):滲透測試/稽核/部署細節,
+# 公開後等於幫攻擊者畫地圖,不進這個 repo(留在私有的 ipigsystem)
+docs/security/
+docs/runbooks/
+docs/audit/
+docs/deploy/
+tests/results/
+docs/plans/public-repo-migration-plan.md
+
+# 2026-08-20 使用者裁定：`docs/archive/` 整個目錄不隨公開 repo 發布
+# （原本只排除 compliance-reports/，該條已被本條涵蓋、刪去）。
+# ⚠️ **防誤匯入警語**：私有 repo（ipigsystem）的同名副本**未去識別化**。
+#    2026-08-20 逐檔比對 69 個檔：66 檔位元組相同、3 檔有差，差的正是去識別化替換——
+#    私有版含真實的 NAS 機型代號、內網 IP、備份 bucket 與專用帳號名、加密共用資料夾名、
+#    以及三家外部供應牧場的真實名稱；公開版已全部換成 NAS-A/B/C、外部供應牧場A/B/C 等代稱。
+#    （這裡刻意不列出被換掉的原值——寫出來等於在公開 repo 裡把去識別化又還原一次。）
+#    → 日後要補歷史資料時**不可直接從私有 repo 複製回來**，必須先做同樣的替換。
+docs/archive/

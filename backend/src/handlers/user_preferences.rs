@@ -1,0 +1,153 @@
+use axum::{
+    extract::{Path, State},
+    Extension, Json,
+};
+
+use crate::error::{AppError, ErrorResponse};
+use crate::middleware::CurrentUser;
+use crate::models::user_preferences::{
+    default_dashboard_widgets, default_nav_order, get_dashboard_widgets_for_roles,
+    AllPreferencesResponse, PreferenceResponse, UpsertPreferenceRequest,
+};
+use crate::repositories::user_preference as user_preference_repo;
+use crate::AppState;
+
+/// 取得單一偏好設定
+/// GET /me/preferences/:key
+#[utoipa::path(
+    get,
+    path = "/api/v1/me/preferences/{key}",
+    params(("key" = String, Path, description = "偏好鍵名")),
+    responses(
+        (status = 200, description = "偏好設定", body = PreferenceResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
+pub async fn get_preference(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(key): Path<String>,
+) -> Result<Json<PreferenceResponse>, AppError> {
+    let preference =
+        user_preference_repo::find_preference_by_user_and_key(&state.db, current_user.id, &key)
+            .await?;
+
+    match preference {
+        Some(pref) => Ok(Json(PreferenceResponse::from(pref))),
+        None => {
+            // 回傳預設值 (根據角色)
+            let default_value = get_default_value_for_user(&key, &current_user.roles);
+            Ok(Json(PreferenceResponse {
+                key,
+                value: default_value,
+                updated_at: None,
+            }))
+        }
+    }
+}
+
+/// 更新偏好設定 (upsert)
+/// PUT /me/preferences/:key
+#[utoipa::path(
+    put,
+    path = "/api/v1/me/preferences/{key}",
+    params(("key" = String, Path, description = "偏好鍵名")),
+    request_body = UpsertPreferenceRequest,
+    responses(
+        (status = 200, description = "更新成功", body = PreferenceResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
+pub async fn upsert_preference(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(key): Path<String>,
+    Json(payload): Json<UpsertPreferenceRequest>,
+) -> Result<Json<PreferenceResponse>, AppError> {
+    let preference =
+        user_preference_repo::upsert_preference(&state.db, current_user.id, &key, &payload.value)
+            .await?;
+
+    Ok(Json(PreferenceResponse::from(preference)))
+}
+
+/// 取得所有偏好設定
+/// GET /me/preferences
+#[utoipa::path(
+    get,
+    path = "/api/v1/me/preferences",
+    responses(
+        (status = 200, description = "所有偏好設定", body = AllPreferencesResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
+pub async fn get_all_preferences(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<AllPreferencesResponse>, AppError> {
+    let preferences =
+        user_preference_repo::list_preferences_by_user(&state.db, current_user.id).await?;
+
+    let response = AllPreferencesResponse {
+        preferences: preferences
+            .into_iter()
+            .map(PreferenceResponse::from)
+            .collect::<Vec<_>>(),
+    };
+
+    Ok(Json(response))
+}
+
+/// 刪除偏好設定（重置為預設）
+/// DELETE /me/preferences/:key
+#[utoipa::path(
+    delete,
+    path = "/api/v1/me/preferences/{key}",
+    params(("key" = String, Path, description = "偏好鍵名")),
+    responses(
+        (status = 200, description = "已刪除，回傳預設值", body = PreferenceResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
+pub async fn delete_preference(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(key): Path<String>,
+) -> Result<Json<PreferenceResponse>, AppError> {
+    user_preference_repo::delete_preference_by_user_and_key(&state.db, current_user.id, &key)
+        .await?;
+
+    // 回傳預設值
+    let default_value = get_default_value(&key);
+    Ok(Json(PreferenceResponse {
+        key,
+        value: default_value,
+        updated_at: None,
+    }))
+}
+
+/// 取得特定 key 的預設值
+fn get_default_value(key: &str) -> serde_json::Value {
+    match key {
+        "nav_order" => default_nav_order(),
+        "dashboard_widgets" => default_dashboard_widgets(),
+        _ => serde_json::Value::Null,
+    }
+}
+
+/// 取得特定 key 的預設值 (根據使用者角色)
+fn get_default_value_for_user(key: &str, roles: &[String]) -> serde_json::Value {
+    match key {
+        "nav_order" => default_nav_order(),
+        "dashboard_widgets" => get_dashboard_widgets_for_roles(roles),
+        _ => serde_json::Value::Null,
+    }
+}

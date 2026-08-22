@@ -1,0 +1,5 @@
+[
+  { "action": "goto", "url": "{{BASE_URL}}/login" },
+  { "action": "wait", "selector": "input[name='username'], input[type='email'], #username, #email" },
+  { "action": "screenshot", "path": "{{SCREENSHOT_DIR}}/01-login-page.png" }
+]

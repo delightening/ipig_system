@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{#
+  R45 Phase 3：系統稽核日誌報表（非 GLP）。
+  Context schema：AuditLogPayload
+#}
+
+{% block extra_styles %}
+    body { font-size: 11pt; line-height: 1.6; }
+
+    h1.doc-title {
+      font-size: 16pt;
+      text-align: center;
+      letter-spacing: 4pt;
+      margin: 12pt 0 14pt 0;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8pt;
+      margin: 10pt 0 14pt 0;
+    }
+    .summary-cell {
+      border: 0.75pt solid #000;
+      padding: 8pt;
+      text-align: center;
+    }
+    .summary-cell .num {
+      font-size: 18pt;
+      font-weight: bold;
+      display: block;
+      margin: 4pt 0;
+    }
+    .summary-cell .label {
+      font-size: 9.5pt;
+      color: #555;
+    }
+
+    table.audit {
+      width: 100%;
+      border-collapse: collapse;
+      page-break-inside: auto;
+      table-layout: fixed;
+    }
+    table.audit thead { display: table-header-group; }
+    table.audit tr { page-break-inside: avoid; }
+    table.audit th, table.audit td {
+      border: 0.5pt solid #000;
+      padding: 4pt 5pt;
+      font-size: 9.5pt;
+      vertical-align: top;
+      overflow-wrap: break-word;
+    }
+    table.audit th {
+      background: #d8d8d8;
+      text-align: center;
+      font-weight: bold;
+    }
+    table.audit td.mono { font-family: "Noto Serif", "Noto Sans CJK TC", serif; font-size: 9pt; }
+    table.audit tbody tr:nth-child(even) td { background: #fafafa; }
+
+    .sig-block {
+      margin-top: 20pt;
+      padding: 10pt 12pt;
+      border: 0.5pt solid #999;
+      width: 60%;
+    }
+    .sig-block .label { font-weight: bold; margin-bottom: 6pt; }
+{% endblock %}
+
+{% block content %}
+  <h1 class="doc-title">系 統 稽 核 日 誌 報 表</h1>
+
+  <table class="meta">
+    <tr><th>系統名稱</th><td>{{ meta.system_name }}</td></tr>
+    <tr><th>稽核期間</th><td>{{ meta.period_from }} ~ {{ meta.period_to }}</td></tr>
+    <tr><th>匯出者</th><td>{{ meta.exported_by }}</td><th>匯出時間</th><td>{{ meta.export_time }}</td></tr>
+  </table>
+
+  <div class="section-title">統計摘要</div>
+  <div class="summary-grid">
+    <div class="summary-cell"><div class="label">總筆數</div><span class="num">{{ summary.total_count }}</span></div>
+    <div class="summary-cell"><div class="label">使用者數</div><span class="num">{{ summary.user_count }}</span></div>
+    <div class="summary-cell"><div class="label">失敗事件</div><span class="num">{{ summary.failure_count }}</span></div>
+    <div class="summary-cell"><div class="label">管理操作</div><span class="num">{{ summary.admin_count }}</span></div>
+  </div>
+
+  <div class="section-title">稽核紀錄</div>
+  {% if entries %}
+  <table class="audit">
+    <thead>
+      <tr>
+        <th style="width:13%">時間</th>
+        <th style="width:11%">使用者</th>
+        <th style="width:14%">動作</th>
+        <th style="width:14%">對象</th>
+        <th style="width:11%">來源 IP</th>
+        <th style="width:37%">變更摘要</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td class="mono">{{ e.timestamp }}</td>
+        <td>{{ e.user }}</td>
+        <td>{{ e.action }}</td>
+        <td class="mono">{{ e.resource }}</td>
+        <td class="mono">{{ e.ip }}</td>
+        <td>{{ e.change_summary }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>（本期間無稽核紀錄）</p>{% endif %}
+
+  <div class="sig-block">
+    <div class="label">系統管理員簽章</div>
+    <div>姓名：{{ signature.admin_name }}</div>
+    <div style="margin-top: 8pt;">簽章 / 日期：{{ signature.admin_signature }}</div>
+  </div>
+{% endblock %}

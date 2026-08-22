@@ -1,0 +1,739 @@
+services:
+  # =========================
+  # PostgreSQL Database
+  # =========================
+  db:
+    image: postgres:16-alpine@sha256:20edbde7749f822887a1a022ad526fde0a47d6b2be9a8364433605cf65099416
+    container_name: ipig-db
+    # W0 可觀測性：pg_stat_statements 需於啟動時 preload（ALTER SYSTEM 無法事後補）。
+    # extension 物件已由 migration 012 建立；此處僅負責載入 + 慢查詢 log + I/O 計時。
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=top"
+      - "-c"
+      - "log_min_duration_statement=500"
+      - "-c"
+      - "track_io_timing=on"
+    env_file:
+      - .env
+    secrets:
+      - db_password
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: ${POSTGRES_DB:-ipig_db}
+      POSTGRES_INITDB_ARGS: "--locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # P0-S2: 僅綁定 localhost，防止外部直連 DB
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    networks:
+      - database
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-ipig_db}" ]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    restart: unless-stopped
+
+  # =========================
+  # Rust Backend API
+  # =========================
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ipig-api
+    container_name: ipig-api
+    env_file:
+      - .env
+    secrets:
+      - google_service_account
+      - jwt_ec_private_key
+      - jwt_ec_public_key
+      - db_url
+      - smtp_password
+      # R37-1: AUDIT_HMAC_KEY 從 secret file 讀（避免 .env 明文）
+      - audit_hmac_key
+      # R82-6: CSRF_SECRET 獨立 secret（與 JWT 金鑰隔離）
+      - csrf_secret
+      # R66-B2/C6: AEAD at-rest 加密金鑰（TOTP secret / 簽章 bridge payload）
+      - encryption_key
+      # R37-2: ADMIN_INITIAL_PASSWORD 從 secret file 讀
+      - admin_initial_password
+      # R17-4: /metrics Bearer token（與 Prometheus 的 credentials_file 同一份來源）
+      - metrics_token
+      # R37-6: pdf-service service-to-service token
+      # R37-12: image_processor_token 已移除（service 整個砍掉）
+      - pdf_service_token
+      # R37-7: alertmanager webhook 認證 token（handler 驗證 X-Webhook-Token header）
+      - alertmanager_webhook_token
+    environment:
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-8000}
+
+      # High-4 (#283)：本 base compose 即 prod 部署來源（scripts/deploy-prod.ps1）。
+      # 預設 production 讓 #283 啟動 fail-fast（config / DB self-test）真正生效；
+      # 本機開發可於 .env 設 APP_ENV=development 覆寫。
+      APP_ENV: ${APP_ENV:-production}
+
+      # Production: 密碼由 Docker Secrets 提供
+      DATABASE_URL_FILE: /run/secrets/db_url
+      JWT_EC_PRIVATE_KEY_FILE: /run/secrets/jwt_ec_private_key
+      JWT_EC_PUBLIC_KEY_FILE: /run/secrets/jwt_ec_public_key
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      # R37-1/2/6/7: 改 _FILE 模式（read_secret() 優先讀檔，沒檔才回退到 env）
+      # 注意：Grafana 用 __FILE（雙底線，原生語法），其餘服務用 _FILE（read_secret helper）
+      AUDIT_HMAC_KEY_FILE: /run/secrets/audit_hmac_key
+      # R82-6: CSRF_SECRET 獨立 secret（與 JWT 金鑰隔離）。未設時 config 回退為 JWT 派生
+      # → config_check 記 warn → prod (is_production) fail-fast。
+      CSRF_SECRET_FILE: /run/secrets/csrf_secret
+      ENCRYPTION_KEY_FILE: /run/secrets/encryption_key
+      ADMIN_INITIAL_PASSWORD_FILE: /run/secrets/admin_initial_password
+      PDF_SERVICE_TOKEN_FILE: /run/secrets/pdf_service_token
+      # R17-4: 未設定（或 secret 檔為空）時 /metrics 完全不驗證，僅發啟動警告——
+      # 不 fail-close 是刻意的，避免 token 沒配好就讓 Prometheus 抓不到指標而失去可觀測性。
+      METRICS_TOKEN_FILE: /run/secrets/metrics_token
+      ALERTMANAGER_WEBHOOK_TOKEN_FILE: /run/secrets/alertmanager_webhook_token
+
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
+      DATABASE_RETRY_ATTEMPTS: ${DATABASE_RETRY_ATTEMPTS:-10}
+      DATABASE_RETRY_DELAY_SECONDS: ${DATABASE_RETRY_DELAY_SECONDS:-3}
+
+      # JWT_EXPIRATION_HOURS 已廢棄，改用下方 JWT_EXPIRATION_MINUTES
+      JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-7}
+      # SEC-32: 統一使用分鐘級設定
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-15}
+
+      # Email settings（密碼由 secrets 提供）
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@erp.local}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-ERP System}
+
+      APP_URL: ${APP_URL:-http://localhost}
+
+      # GeoIP
+      GEOIP_DB_PATH: /app/geoip/GeoLite2-City.mmdb
+
+      # Cookie 安全設定（SEC-02 HttpOnly Cookie）
+      # SEC-29: 預設 true
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+
+      # Uploads
+      UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
+      # SEC-29: 預設 false
+      SEED_DEV_USERS: ${SEED_DEV_USERS:-false}
+
+      # SEC-30: IP Header 信任策略（反向代理後方設 true）
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
+      # SEC-31: CORS 允許的 Origin（逗號分隔）
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
+
+      # 帳號鎖定：設為 true 可關閉 SEC-20 登入失敗鎖定
+      DISABLE_ACCOUNT_LOCKOUT: ${DISABLE_ACCOUNT_LOCKOUT:-false}
+
+      # R26 Audit 系統
+      # R37-1 (2026-05-09)：AUDIT_HMAC_KEY 改走 _FILE 模式（見 secrets section + AUDIT_HMAC_KEY_FILE 上方）
+      # AUDIT_CHAIN_VERIFY_ACTIVE：每日 02:00 UTC HMAC chain 驗證 cron。
+      # 2026-06-09 (D) 啟用：migration 095 根治多筆/tx 排序斷鏈、migration 097 白名單既有 35 筆
+      # 歷史斷鏈（acknowledged 不告警），新斷鏈仍偵測。cron 僅掃「昨日」範圍故不會觸及歷史 35 筆。
+      AUDIT_CHAIN_VERIFY_ACTIVE: ${AUDIT_CHAIN_VERIFY_ACTIVE:-true}
+
+      # Google Calendar service account
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_service_account
+      GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
+
+      # 打卡 IP 白名單（CIDR 格式，逗號分隔，空值=不限制）
+      ALLOWED_CLOCK_IP_RANGES: ${ALLOWED_CLOCK_IP_RANGES:-}
+
+      # 打卡 GPS 定位（經緯度 + 允許半徑，空值=不啟用 GPS 驗證）
+      CLOCK_OFFICE_LATITUDE: ${CLOCK_OFFICE_LATITUDE:-}
+      CLOCK_OFFICE_LONGITUDE: ${CLOCK_OFFICE_LONGITUDE:-}
+      CLOCK_GPS_RADIUS_METERS: ${CLOCK_GPS_RADIUS_METERS:-200}
+
+      # PDF Service：print-pdf 純 HTML→PDF（Playwright/Chromium）
+      PDF_SERVICE_URL: ${PDF_SERVICE_URL:-http://print-pdf:9200}
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    volumes:
+      - ${UPLOAD_VOLUME:-./uploads}:/app/uploads
+      - ./geoip:/app/geoip:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: [ "CMD", "/app/healthcheck" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+        # R24-2: 把容器名注入 log attrs.tag，供 Promtail 抽 label 用
+        tag: "{{.Name}}"
+    networks:
+      - backend
+      - database
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # =========================
+  # R37-9 (2026-05-09)：seed service (create_guest) 已移除
+  # 理由：GUEST role 已棄用（見 project_guest_role_deprecated memory），
+  # create_guest seed 跑起來必然 silent fail（GUEST role 不存在於 DB），
+  # 浪費容器啟動資源 + 製造 noise log。Guest 已轉型為 demo 功能，
+  # 不再透過此 seed 路徑建立。如要重啟此服務需先確認 GUEST role 重新啟用。
+  # =========================
+  # R30-3a: Outbox Worker — independent process for guaranteed-delivery
+  # notifications (email / line / webhook). Polls event_outbox + sends + retries.
+  # Multiple replicas safe (claim_batch uses FOR UPDATE SKIP LOCKED).
+  # =========================
+  outbox-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.outbox-worker
+    image: ipig-outbox-worker
+    # 不設 container_name：保留 docker compose --scale outbox-worker=N 多副本能力
+    # （多 worker 互斥靠 claim_batch FOR UPDATE SKIP LOCKED）
+    env_file:
+      - .env
+    secrets:
+      - db_url
+      - smtp_password
+      - jwt_ec_private_key
+      - jwt_ec_public_key
+      # R37-1: AUDIT_HMAC_KEY 從 secret file 讀（worker 啟動時 AuditService::init_hmac_key 需要）
+      - audit_hmac_key
+      # R82-6: 與 api 共用 Config::from_env，對齊 CSRF secret 來源（worker 不用 csrf，但避免派生 fallback）
+      - csrf_secret
+    environment:
+      # Production: 密碼由 Docker Secrets 提供（與 ipig-api 共用 secrets）
+      DATABASE_URL_FILE: /run/secrets/db_url
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+
+      # outbox-worker 與 ipig-api 共用 erp_backend Config::from_env，啟動時會驗證
+      # JWT key 設定即使 worker 本身不簽 token。對齊 api 的 secret file 路徑。
+      JWT_EC_PRIVATE_KEY_FILE: /run/secrets/jwt_ec_private_key
+      JWT_EC_PUBLIC_KEY_FILE: /run/secrets/jwt_ec_public_key
+      # R37-1：AuditService::init_hmac_key 需要這把 key 才能寫 chain HMAC
+      AUDIT_HMAC_KEY_FILE: /run/secrets/audit_hmac_key
+      # R82-6: 對齊 api 的 CSRF secret 來源
+      CSRF_SECRET_FILE: /run/secrets/csrf_secret
+
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
+      DATABASE_RETRY_ATTEMPTS: ${DATABASE_RETRY_ATTEMPTS:-10}
+      DATABASE_RETRY_DELAY_SECONDS: ${DATABASE_RETRY_DELAY_SECONDS:-3}
+
+      # Email settings（與 api 對齊；密碼由 secrets 提供）
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@erp.local}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-ERP System}
+
+      # AuditService::init_hmac_key 啟動時呼叫；不寫 chain 但 init 會檢查 key
+      # （與 ipig-api 對齊以共用 Config::from_env 路徑）
+
+      RUST_LOG: ${RUST_LOG:-info}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+        tag: "{{.Name}}"
+    networks:
+      - database
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # =========================
+  # React Frontend (Prod build served by nginx)
+  # =========================
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ipig-web
+    ports:
+      # R17-2: 綁定 localhost，避免意外暴露至外部網路
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    environment:
+      # nginx 運行時使用的 API 後端地址
+      API_BACKEND_URL: http://api:8000
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+      # envsubst 在容器啟動時把 default.conf.template 渲染到這裡；read_only:true 會鎖住整個 FS，
+      # 必須把 conf.d 掛成 tmpfs 才能寫入。uid/gid=101 對應 alpine nginx 的 nginx user。
+      - /etc/nginx/conf.d:uid=101,gid=101,mode=0755
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ || exit 1" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        # R24-2: 把容器名注入 log attrs.tag，供 Promtail 抽 label 用
+        tag: "{{.Name}}"
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # =========================
+  # React Frontend Dev (Vite) — 僅 dev profile 啟用
+  # docker compose --profile dev up web-dev
+  # =========================
+  web-dev:
+    image: node:22-alpine
+    container_name: ipig-web-dev
+    profiles:
+      - dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      # R17-2: 綁定 localhost
+      - "127.0.0.1:${WEB_DEV_PORT:-5173}:5173"
+    environment:
+      - VITE_API_URL=http://api:8000
+    command: >
+      sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm run dev -- --host 0.0.0.0 --port 5173"
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      - api
+
+  # =========================
+  # print-pdf (FastAPI + Playwright/Chromium，HTML→PDF 自帶引擎)
+  # 6 個 GLP 文件（pig_approval / review_result / review_reply / aup_protocol /
+  # vet_patrol / vet_patrol_report）透過 PDF_SERVICE_URL 由本服務 HTML→PDF。
+  # 完整背景：services/print-pdf/README.md
+  # =========================
+  print-pdf:
+    build:
+      context: ./services/print-pdf
+      dockerfile: Dockerfile
+    container_name: ipig-print-pdf
+    secrets:
+      # R55-3: share pdf_service_token with api side so X-Internal-Token
+      # round-trips correctly (api signs, print-pdf verifies).
+      - pdf_service_token
+    environment:
+      PORT: "9200"
+      TZ: Asia/Taipei
+      # R55-3: enable X-Internal-Token validation on /render-* endpoints
+      PDF_SERVICE_TOKEN_FILE: /run/secrets/pdf_service_token
+    networks:
+      - backend
+    # 測試台 UI 只在本機暴露（loopback only）— 不對外開放
+    ports:
+      - "127.0.0.1:9210:9200"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys,os;p=os.getenv('PORT','9200');sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{p}/healthz').status==200 else 1)\" || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  # =========================
+  # R37-12 (2026-05-09)：image-processor 服務已移除（dead code 清理）
+  # 理由：grep 全 backend/src/handlers/ 確認無人呼叫 image_processor.process()。
+  # ImageProcessorClient 在 main.rs:195 建立並塞 AppState 但從未被使用 →
+  # 容器跑 24/7 純浪費資源（~24MB RAM idle + 攻擊面）。
+  # 未來真的要圖片處理時，建議重新加回（YAGNI 原則 — 沒人用就先砍）。
+  # 對應 backend cleanup：services/image_processor.rs 整檔刪除 + AppState
+  # field 移除 + main.rs 實例化刪除 + config.rs image_processor_url 刪除。
+  # =========================
+  # Prometheus (系統監控)
+  # =========================
+  # =========================
+  # Node Exporter (主機指標: CPU / Memory / Disk)
+  # =========================
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    container_name: ipig-node-exporter
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      # R36-3: 共享 textfile metrics（db-backup 寫，node-exporter 讀）
+      - backup_metrics:/backup-metrics:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+      - "--collector.textfile.directory=/backup-metrics"
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 64M
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.51.0@sha256:5ccad477d0057e62a7cd1981ffcc43785ac10c5a35522dc207466ff7e7ec845f
+    container_name: ipig-prometheus
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+      - ./secrets/metrics_token.txt:/run/secrets/metrics_token:ro
+      - ./secrets/prometheus_password.txt:/run/secrets/prometheus_password.txt:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      # H6: 啟用 basic_auth，防止未授權存取 /api/v1/query
+      # 部署前需先在 monitoring/prometheus/web.yml 填入 bcrypt 密碼雜湊
+      - "--web.config.file=/etc/prometheus/web.yml"
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # =========================
+  # AlertManager (告警管理)
+  # =========================
+  alertmanager:
+    image: prom/alertmanager:v0.27.0@sha256:e13b6ed5cb929eeaee733479dce55e10eb3bc2e9c4586c705a4e8da41e5eacf5
+    container_name: ipig-alertmanager
+    entrypoint: ["/bin/sh", "/etc/alertmanager/docker-entrypoint.sh"]
+    environment:
+      ALERTMANAGER_WEBHOOK_URL: ${ALERTMANAGER_WEBHOOK_URL:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
+      ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-}
+      ALERT_SMTP_USER: ${ALERT_SMTP_USER:-}
+      # Plan B: ALERT_SMTP_PASSWORD 從 /run/secrets/alert_smtp_password 讀取（見 docker-entrypoint.sh）
+      # 不透過 env 傳遞，避免 `docker inspect` 外洩密碼
+    volumes:
+      - ./monitoring/alertmanager:/etc/alertmanager:ro
+      # Plan B: 服務獨立 app password（file-based secret）
+      - ./secrets/alert_smtp_password.txt:/run/secrets/alert_smtp_password:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # =========================
+  # Grafana (監控儀表板)
+  # =========================
+  grafana:
+    # 升級至 13.x 以支援繁體中文 UI（zh-Hant，11.x 僅有 zh-Hans 簡體）
+    image: grafana/grafana:13.0.1
+    container_name: ipig-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      # R37-3: 改 __FILE 模式（Grafana 原生支援），避免 .env 弱密碼明文
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      # 繁體中文 UI（13.x 起支援 zh-Hant）
+      GF_USERS_DEFAULT_LANGUAGE: zh-Hant
+      # 關掉外連（避免本機/防火牆環境下 grafana.com 401 觸發瀏覽器密碼框）
+      GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: ${GRAFANA_SMTP_HOST:-smtp.gmail.com:587}
+      GF_SMTP_USER: ${GRAFANA_SMTP_USER:-}
+      # Plan B: Grafana 原生支援 __FILE 從檔案讀取密碼（避免 docker inspect 外洩）
+      GF_SMTP_PASSWORD__FILE: /run/secrets/grafana_smtp_password
+      GF_SMTP_FROM_ADDRESS: ${GRAFANA_SMTP_USER:-}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      # R24-4: 整個 dashboards/ 目錄掛載，新增儀表板無需改 compose
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./secrets/grafana_pg_password.txt:/run/secrets/grafana_pg_password:ro
+      - ./secrets/prometheus_password.txt:/run/secrets/prometheus_password:ro
+      # Plan B: 服務獨立 app password（file-based secret）
+      - ./secrets/grafana_smtp_password.txt:/run/secrets/grafana_smtp_password:ro
+      # R37-3: Grafana admin password 從 secret file 讀
+      - ./secrets/grafana_admin_password.txt:/run/secrets/grafana_admin_password:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+    # R24-4: Grafana 需 database 網路才能連 Postgres datasource
+    networks:
+      - backend
+      - database
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # =========================
+  # DB Backup (排程備份)
+  # =========================
+  db-backup:
+    build:
+      context: ./scripts/backup
+      dockerfile: Dockerfile.backup
+    container_name: ipig-db-backup
+    env_file:
+      - .env
+    secrets:
+      - db_password
+      # R36-4: GPG 公鑰自動 import（檔案不存在時 secret 仍可宣告但 mount 失敗，
+      # 因此 secret 是 optional：使用者要嘛建檔、要嘛把 BACKUP_REQUIRE_ENCRYPTION 設 false）
+      - backup_gpg_pubkey
+      # R36-5/6/7: rclone 設定（包含 R2 endpoint + NAS-B SMB credentials）
+      - rclone_config
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ipig_db}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      PGHOST: db
+      PGPORT: "5432"
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
+      BACKUP_ON_START: ${BACKUP_ON_START:-false}
+      # dev 預設關閉強制加密（避免未配 GPG 時啟動失敗）；prod 透過 .env 設 true
+      BACKUP_REQUIRE_ENCRYPTION: ${BACKUP_REQUIRE_ENCRYPTION:-false}
+      # GPG 加密備份（設定收件者 Key ID 或 email，留空則不加密）
+      BACKUP_GPG_RECIPIENT: ${BACKUP_GPG_RECIPIENT:-}
+      # R36-5/6/7: rclone 異地上傳目標（逗號分隔，如 r2:bucket-name,nas:share-name）
+      BACKUP_RCLONE_REMOTES: ${BACKUP_RCLONE_REMOTES:-}
+      # 過時：rsync over SSH（保留變數讓舊 deployment 不爆）
+      RSYNC_TARGET: ${RSYNC_TARGET:-}
+    volumes:
+      - db_backups:/backups
+      - ${UPLOAD_VOLUME:-./uploads}:/uploads:ro
+      # R36-3: backup heartbeat metric → node-exporter textfile collector
+      - backup_metrics:/backup-metrics
+    networks:
+      - database
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    restart: unless-stopped
+
+  # =========================
+  # Loki (集中式 Log 收集)
+  # =========================
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: ipig-loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - loki_data:/loki
+      - ./monitoring/loki/config.yml:/etc/loki/config.yml:ro
+    command: -config.file=/etc/loki/config.yml
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # =========================
+  # Promtail (Log 採集器)
+  # =========================
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: ipig-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./monitoring/promtail/config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    restart: unless-stopped
+
+# =========================
+# Networks (P0-S1: 最小權限網路隔離)
+# =========================
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  database:
+    driver: bridge
+
+# =========================
+# Secrets
+# =========================
+secrets:
+  google_service_account:
+    file: ./secrets/google-service-account.json
+  jwt_ec_private_key:
+    file: ./secrets/jwt_ec_private_key.pem
+  jwt_ec_public_key:
+    file: ./secrets/jwt_ec_public_key.pem
+  db_url:
+    file: ./secrets/db_url.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  smtp_password:
+    file: ./secrets/smtp_password.txt
+  # R37-1: HMAC chain 完整性 key（GLP §11.10(e)）
+  audit_hmac_key:
+    file: ./secrets/audit_hmac_key.txt
+  # R82-6: CSRF token 簽章 secret（與 JWT 金鑰隔離；fresh 隨機，非 JWT 派生）
+  csrf_secret:
+    file: ./secrets/csrf_secret.txt
+  encryption_key:
+    file: ./secrets/encryption_key.txt
+  # R37-2: admin 初始密碼（首次部署用，登入後強制改）
+  admin_initial_password:
+    file: ./secrets/admin_initial_password.txt
+  # R37-12: image_processor_token 已移除（service 整個砍掉）
+  # R37-6: print-pdf 服務間認證 token（backend PdfServiceClient 送 X-Internal-Token header，
+  # print-pdf 端已 fail-closed 驗證：token 設定 → render 端點強制驗證、無效/缺漏回 401；
+  # secret 來源已設定卻讀不到值 → 回 503（不 fail-open）。見 services/print-pdf/main.py）
+  pdf_service_token:
+    file: ./secrets/pdf_service_token.txt
+  # R17-4: /metrics Bearer token。Prometheus 端以 credentials_file 讀同一個檔
+  # （見 monitoring/prometheus/prometheus.yml 的 authorization 區塊），兩邊共用單一來源。
+  metrics_token:
+    file: ./secrets/metrics_token.txt
+  # R37-7: alertmanager webhook 認證 token（被 alertmanager_webhook handler 驗證）
+  alertmanager_webhook_token:
+    file: ./secrets/alertmanager_webhook_token.txt
+  # R36-4: backup GPG 公鑰（dedicated keypair，私鑰離線存）
+  # 檔案不存在時 docker compose up 會報錯。要 disable 加密請：
+  # (1) BACKUP_REQUIRE_ENCRYPTION=false  (2) 建空檔 touch secrets/backup_gpg_pubkey.asc
+  backup_gpg_pubkey:
+    file: ./secrets/backup_gpg_pubkey.asc
+  # R36-5/6/7: rclone 設定（含 R2 endpoint / SMB credentials）
+  # 內容範本見 docs/runbooks/backup-setup.md
+  rclone_config:
+    file: ./secrets/rclone.conf
+
+# =========================
+# Volumes
+# =========================
+volumes:
+  postgres_data:
+  db_backups:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  # R36-3: backup heartbeat textfile metrics（db-backup 寫，node-exporter 讀）
+  backup_metrics:

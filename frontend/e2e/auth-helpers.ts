@@ -1,0 +1,181 @@
+import { expect } from '@playwright/test'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import dotenv from 'dotenv'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
+
+/**
+ * 透過瀏覽器執行登入，處理 429 rate limit 重試。
+ * 成功後確保頁面已離開 /login。
+ */
+export async function performLogin(
+    page: import('@playwright/test').Page,
+    email: string,
+    password: string,
+    maxRetries = 5,
+) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        await page.goto('/login')
+        await page.waitForLoadState('domcontentloaded')
+        // 等待登入表單元素可見，確保頁面已載入
+        await expect(page.locator('#email')).toBeVisible({ timeout: 10_000 })
+        await page.locator('#email').fill(email)
+        await page.locator('#password').fill(password)
+
+        const [response] = await Promise.all([
+            page.waitForResponse(
+                (resp: import('@playwright/test').APIResponse) =>
+                    (resp.url().includes('/api/v1/auth/login') || resp.url().includes('/api/auth/login')) &&
+                    resp.request().method() === 'POST',
+                { timeout: 15_000 },
+            ),
+            page.getByRole('button', { name: '登入' }).click(),
+        ])
+
+        if (response.status() === 502 || response.status() === 503) {
+            const waitMs = 3000
+            console.log(
+                `[auth-helpers] Backend unavailable (${response.status()}), attempt ${attempt}/${maxRetries}, waiting ${waitMs / 1000}s`
+            )
+            if (attempt < maxRetries) {
+                await page.waitForTimeout(waitMs)
+                continue
+            }
+            throw new Error(`Login API returned ${response.status()} after ${maxRetries} retries`)
+        }
+
+        if (response.status() === 429) {
+            const retryAfter = Number(response.headers()['retry-after']) || 60
+            // 增加隨機化，避免所有重試同時發生（jitter: ±20%）
+            const jitter = Math.random() * 0.4 - 0.2 // -0.2 到 +0.2
+            const waitMs = Math.min(
+                Math.floor((retryAfter * 1000 + 2000) * (1 + jitter)),
+                65_000
+            ) // 最多等 65s
+            console.log(
+                `[auth-helpers] Login rate limited (429), attempt ${attempt}/${maxRetries}, waiting ${Math.round(waitMs / 1000)}s`
+            )
+            if (attempt < maxRetries) {
+                await page.waitForTimeout(waitMs)
+                continue
+            }
+            throw new Error(`Login rate limited (429) after ${maxRetries} retries`)
+        }
+
+        if (response.status() !== 200) {
+            const body = await response.text()
+            const hint = body.length > 0 ? ` Response: ${body.slice(0, 200)}` : ''
+            console.error(
+                `[auth-helpers] Login failed with status ${response.status()}, attempt ${attempt}/${maxRetries}${hint}`
+            )
+            throw new Error(`Login API returned ${response.status()}.${hint}`)
+        }
+
+        try {
+            await expect(page).toHaveURL(/\/(dashboard|my-projects|force-change)/, {
+                timeout: 8_000,
+            })
+            console.log(`[auth-helpers] Login successful, redirected to ${page.url()}`)
+        } catch {
+            console.warn(`[auth-helpers] Expected redirect did not occur, navigating to /dashboard`)
+            await page.goto('/dashboard')
+            await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
+        }
+
+        return
+    }
+}
+
+/**
+ * 從環境變數或 .env 取得 admin 帳密。
+ * 密碼順序：E2E_ADMIN_PASSWORD > E2eTest123! > ADMIN_INITIAL_PASSWORD
+ * 本機首次 E2E 完成 force-change 後，admin 密碼變為 E2eTest123!，
+ * 建議在 .env 設 E2E_ADMIN_PASSWORD=E2eTest123! 以便 login.spec 等通過。
+ */
+export function getAdminCredentials() {
+    const email = process.env.E2E_ADMIN_EMAIL || 'admin@ipig.local'
+    const password =
+        process.env.E2E_ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD || E2E_NEW_PASSWORD
+    return { email, password }
+}
+
+/** E2E 變更密碼後使用的密碼（需與 current 不同且符合強度：≥8 字元、大小寫、數字、特殊字元） */
+export const E2E_NEW_PASSWORD = 'E2eTest123!'
+
+/**
+ * user setup 專用：取得 user 帳密。
+ * 若未設 E2E_USER_* 則回傳 admin 帳號，密碼為 E2E_ADMIN_PASSWORD || E2eTest123!
+ * （admin setup 先執行且完成 force-change 後，admin 密碼已變為 E2eTest123!）
+ */
+export function getCredentialsForUserSetup() {
+    const userEmail = process.env.E2E_USER_EMAIL
+    const userPassword = process.env.E2E_USER_PASSWORD
+    if (userEmail && userPassword) return { email: userEmail, password: userPassword }
+    const admin = getAdminCredentials()
+    // admin setup 已先完成 force-change，密碼應為 E2eTest123!
+    return {
+        email: admin.email,
+        password: process.env.E2E_ADMIN_PASSWORD || E2E_NEW_PASSWORD,
+    }
+}
+
+/**
+ * 完成強制變更密碼流程（本機環境 admin 首次登入時需要）。
+ * 使用 currentPassword 登入後若被導向 /force-change-password，填入表單並送出。
+ */
+export async function completeForceChangePassword(
+    page: import('@playwright/test').Page,
+    currentPassword: string,
+    newPassword: string = E2E_NEW_PASSWORD,
+): Promise<void> {
+    const url = page.url()
+    if (!url.includes('force-change')) return
+
+    await page.waitForLoadState('domcontentloaded')
+    const currentInput = page.locator('#currentPassword')
+    await expect(currentInput).toBeVisible({ timeout: 10_000 })
+    await currentInput.fill(currentPassword)
+
+    const newInput = page.locator('#newPassword')
+    await newInput.fill(newPassword)
+
+    const confirmInput = page.locator('#confirmPassword')
+    await confirmInput.fill(newPassword)
+
+    const submitBtn = page.getByRole('button', { name: /確認|Submit|變更/ })
+    await expect(submitBtn).toBeVisible()
+    await submitBtn.click()
+
+    await expect(page).toHaveURL(/\/(dashboard|my-projects|admin)/, { timeout: 15_000 })
+}
+
+/**
+ * 先導向 path，若被導向 /login（session 過期）則重新登入後再導向 path。
+ * 用於 beforeEach，讓同一 context 在 session 過期時能自動恢復。
+ * 會等待 SPA 載入並完成可能的重導向，再確認最終 URL 非 /login。
+ */
+export async function ensureAdminOnPage(
+    page: import('@playwright/test').Page,
+    path: string,
+): Promise<void> {
+    const maxAttempts = 4
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await page.goto(path)
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForLoadState('load')
+
+        // 等待 SPA 載入完成，可能非同步重導向至 /login（401）
+        await page.waitForTimeout(2000)
+        const url = page.url()
+        if (!url.includes('/login')) {
+            return
+        }
+
+        const { email, password } = getAdminCredentials()
+        if (!password) break
+        await performLogin(page, email, password)
+        await page.waitForTimeout(1000)
+    }
+}

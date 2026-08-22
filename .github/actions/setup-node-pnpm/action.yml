@@ -1,0 +1,33 @@
+name: "Setup Node.js + pnpm + frontend deps"
+description: >
+  Enable pnpm, install Node 24, restore pnpm cache, run `pnpm install --frozen-lockfile`.
+  Composite action to DRY the boilerplate that appears in 4 frontend jobs.
+
+inputs:
+  install:
+    description: "Run pnpm install (default true). Set to 'false' if job only needs node binary."
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: 啟用 pnpm
+      # pnpm/action-setup pinned to specific SHA per supply-chain hardening (R52)
+      uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093
+      with:
+        package_json_file: frontend/package.json
+
+    - name: 設定 Node.js
+      # actions/setup-node pinned to specific SHA per supply-chain hardening (CSO-r3 #8)
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: "24"
+        cache: "pnpm"
+        cache-dependency-path: frontend/pnpm-lock.yaml
+
+    - name: 安裝依賴
+      if: inputs.install == 'true'
+      shell: bash
+      working-directory: ./frontend
+      run: pnpm install --frozen-lockfile

@@ -1,0 +1,122 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Security Alerts 時間線（24h）",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT date_trunc('hour', created_at) AS time, severity, COUNT(*) AS count FROM security_alerts WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY 1, 2 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Active IP Blocklist",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT COUNT(*) AS active FROM ip_blocklist WHERE unblocked_at IS NULL AND (blocked_until IS NULL OR blocked_until > NOW())",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Top 10 IPs by Activity (24h)",
+      "type": "table",
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "gridPos": { "h": 10, "w": 16, "x": 8, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT host(ip_address) AS ip, COUNT(*) AS events, COUNT(DISTINCT event_type) AS distinct_types FROM user_activity_logs WHERE created_at > NOW() - INTERVAL '24 hours' AND ip_address IS NOT NULL GROUP BY ip_address ORDER BY events DESC LIMIT 10",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Login Anomaly（24h）",
+      "type": "table",
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 18 },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT created_at, host(ip_address) AS ip, event_type, user_agent FROM login_events WHERE (is_anomalous_time OR is_new_device OR is_anomalous_location) AND created_at > NOW() - INTERVAL '24 hours' ORDER BY created_at DESC LIMIT 100",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Honeypot Hits (7d)",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 28 },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT COUNT(*) AS hits FROM user_activity_logs WHERE event_type = 'HONEYPOT_HIT' AND created_at > NOW() - INTERVAL '7 days'",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "403 Permission Denied Rate（Loki，1h bucket）",
+      "type": "timeseries",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 28 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({container_name=\"ipig-api\"} |= \"PERMISSION_DENIED\" [1h])) by (container_name)"
+        }
+      ]
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["security", "r24-4"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "Asia/Taipei",
+  "title": "iPig Security Dashboard",
+  "uid": "ipig-security",
+  "version": 1,
+  "weekStart": ""
+}

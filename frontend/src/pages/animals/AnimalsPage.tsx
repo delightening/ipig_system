@@ -1,0 +1,396 @@
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { useAuthHasPermission, useAuthHasRole, useAuthIsGuest } from '@/stores/auth'
+import { useDebounce } from '@/hooks/useDebounce'
+import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
+import { Plus, Upload, Download, FileSpreadsheet, Stethoscope } from 'lucide-react'
+
+import { GuestHide } from '@/components/ui/guest-hide'
+import { toast } from '@/components/ui/use-toast'
+import { DEMO_ANIMALS_BY_PEN } from '@/lib/guest-demo'
+import type { AnimalListItem } from '@/types/animal'
+import { ExportDialog } from '@/components/animal/ExportDialog'
+import { VetPatrolReportDialog } from '@/components/animal/VetPatrolReportDialog'
+import { ImportDialog } from '@/components/animal/ImportDialog'
+import { QuickEditAnimalDialog } from '@/components/animal/QuickEditAnimalDialog'
+import { Can } from '@/components/auth'
+import { PERMISSIONS } from '@/lib/permissions.generated'
+import { AnimalPenReport } from '../../components/animal/AnimalPenReport'
+
+import { AnimalFilters } from './components/AnimalFilters'
+import { AnimalListTable } from './components/AnimalListTable'
+import { AnimalPenView } from './components/AnimalPenView'
+import {
+  AnimalAddDialog,
+  BatchAssignDialog,
+  QuickAddDialog,
+  DuplicateWarningDialog,
+} from './components/AnimalAddDialog'
+import {
+  useAnimalFilters,
+  useAnimalDialogs,
+  useAnimalSelection,
+  useAnimalForms,
+} from './hooks/useAnimalsPageState'
+import { useAnimalsMutations } from './hooks/useAnimalsMutations'
+import { useAnimalsQueries } from './hooks/useAnimalsQueries'
+
+const ADMIN_ONLY_STATUSES = ['euthanized', 'sudden_death', 'transferred']
+
+export function AnimalsPage() {
+  const queryClient = useQueryClient()
+  const hasRole = useAuthHasRole()
+  const isGuest = useAuthIsGuest()
+  const { t } = useTranslation()
+
+  // 巡場報告僅獸醫可建立（對齊後端 create_vet_patrol_report 的
+  // require_permission!("animal.vet.recommend")，seed 只發給 VET role）。
+  // 同 VetPatrolReportListPage 的新增鈕判定，避免非獸醫看到按鈕點下去才吃 403。
+  const canCreateVetPatrol = useAuthHasPermission()('animal.vet.recommend')
+
+  const isPIOrClient = hasRole('PI') || hasRole('CLIENT')
+  const isAdmin = hasRole('admin')
+  const adminOnlyStatuses = ADMIN_ONLY_STATUSES
+
+  const allowedStatuses = useMemo(
+    () =>
+      isPIOrClient
+        ? ['in_experiment', 'completed', ...(isAdmin ? adminOnlyStatuses : [])]
+        : ['pen', 'unassigned', 'in_experiment', 'completed', ...(isAdmin ? adminOnlyStatuses : []), 'all'],
+    [isPIOrClient, isAdmin, adminOnlyStatuses]
+  )
+  const defaultStatus = isPIOrClient ? 'in_experiment' : 'pen'
+
+  const filters = useAnimalFilters({ allowedStatuses, defaultStatus })
+  const { search, setSearch, statusFilter, setStatusFilter, buildingCode, setBuildingCode, breedFilter, setBreedFilter, page, setPage, sortColumn, setSortColumn, sortDirection, setSortDirection, setSearchParams } = filters
+  const debouncedSearch = useDebounce(search, 400)
+  const [appliedSearch, setAppliedSearch] = useState('')
+  // 僅在 debounce 已跟上輸入時同步，避免使用者按 Enter/搜尋後被舊的 debouncedSearch 覆寫
+  useEffect(() => {
+    if (debouncedSearch === search) {
+      setAppliedSearch(debouncedSearch)
+    }
+  }, [debouncedSearch, search])
+  const handleSearchSubmit = () => {
+    setAppliedSearch(search)
+    setPage(1)
+    queryClient.invalidateQueries({ queryKey: ['animals'] })
+  }
+
+  const dialogs = useAnimalDialogs()
+  const selection = useAnimalSelection()
+  const forms = useAnimalForms()
+  const {
+    showAddDialog,
+    setShowAddDialog,
+    showBatchAssignDialog,
+    setShowBatchAssignDialog,
+    showBatchExportDialog,
+    setShowBatchExportDialog,
+    showImportBasicDialog,
+    setShowImportBasicDialog,
+    showImportWeightDialog,
+    setShowImportWeightDialog,
+    showPrintReport,
+    setShowPrintReport,
+    showVetPatrolDialog,
+    setShowVetPatrolDialog,
+    showDuplicateWarning,
+    setShowDuplicateWarning,
+    showQuickAddDialog,
+    setShowQuickAddDialog,
+    duplicateWarningData,
+    setDuplicateWarningData,
+  } = dialogs
+  const {
+    selectedAnimals,
+    setSelectedAnimals,
+    assignIacucNo,
+    setAssignIacucNo,
+    quickEditAnimalId,
+    setQuickEditAnimalId,
+  } = selection
+  const {
+    newAnimal,
+    setNewAnimal,
+    quickAddPending,
+    setQuickAddPending,
+    quickAddForm,
+    setQuickAddForm,
+    penBuilding,
+    setPenBuilding,
+    penZone,
+    setPenZone,
+    penCode,
+    setPenCode,
+    resetNewAnimalForm,
+  } = forms
+
+  useEffect(() => { setPage(1) }, [statusFilter, breedFilter, appliedSearch, setPage])
+
+  const perPage = 50
+
+  const {
+    animals, sourcesData, isLoading, groupedLoading,
+    totalPages, totalAnimals, penViewGroupedData, penViewAnimals,
+    statusCounts, penCountsByBuilding, allAnimalsCount,
+  } = useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, page, perPage, sortColumn, sortDirection })
+
+  const hasPenSearch = statusFilter === 'pen' && (!!(appliedSearch ?? '').trim() || (breedFilter && breedFilter !== 'all'))
+
+  // ─── Guest 本地欄位狀態（訪客模式下模擬欄位移動，不呼叫 API）─────────────
+  type PenGroup = { pen_location: string; animals: AnimalListItem[] }
+  const [guestPenData, setGuestPenData] = useState<PenGroup[]>(
+    () => isGuest ? (DEMO_ANIMALS_BY_PEN as unknown as PenGroup[]) : []
+  )
+
+  const handleGuestQuickMove = useCallback((earTag: string, target: string) => {
+    const tag = /^\d+$/.test(earTag.trim()) ? earTag.trim().padStart(3, '0') : earTag.trim()
+    setGuestPenData(prev => {
+      const all = prev.flatMap(g => g.animals)
+      const animal = all.find(a => a.ear_tag === tag || a.ear_tag === earTag.trim())
+      if (!animal) {
+        toast({ title: '找不到動物', description: `耳號 ${earTag} 不存在`, variant: 'destructive' })
+        return prev
+      }
+      if (animal.pen_location === target) {
+        toast({ title: '提示', description: `動物 ${animal.ear_tag} 已在 ${target}` })
+        return prev
+      }
+      const updated = prev.map(g => ({ ...g, animals: g.animals.filter(a => a.ear_tag !== animal.ear_tag) }))
+      const existing = updated.find(g => g.pen_location === target)
+      const moved = { ...animal, pen_location: target }
+      if (existing) {
+        existing.animals = [...existing.animals, moved]
+      } else {
+        updated.push({ pen_location: target, animals: [moved] })
+      }
+      toast({ title: '移動成功', description: `${animal.ear_tag} → ${target}（訪客模式，重整後還原）` })
+      return updated
+    })
+  }, [])
+
+  // ─── Mutations ─────────────────────────────────────────────────────────────
+  const { createAnimalMutation, batchAssignMutation, quickMoveMutation, quickAddMutation, forceCreateMutation } = useAnimalsMutations({
+    penZone, penCode,
+    selectedAnimals, assignIacucNo,
+    newAnimal, quickAddPending, quickAddForm,
+    setQuickAddForm,
+    setShowAddDialog, setShowBatchAssignDialog, setShowQuickAddDialog, setShowDuplicateWarning,
+    setSelectedAnimals, setAssignIacucNo, setQuickAddPending, setDuplicateWarningData,
+    setQuickEditAnimalId,
+    resetNewAnimalForm,
+  })
+
+  // ─── Handlers ──────────────────────────────────────────────────────────────
+  // 每個 tag 都對應一個可分享 / 可加書籤的網址
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value)
+    setSearchParams({ status: value })
+  }
+
+  /** 棟別 tag：切進欄位檢視並鎖定該棟 → `?status=pen&building=<code>` */
+  const handleBuildingChange = (code: string) => {
+    setStatusFilter('pen')
+    setBuildingCode(code)
+    setSearchParams({ status: 'pen', building: code })
+  }
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    else { setSortColumn(column); setSortDirection('asc') }
+  }
+
+  const toggleAnimalSelection = (id: string) => {
+    setSelectedAnimals(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])
+  }
+
+  const toggleAllAnimals = () => {
+    if (animals.length === 0) return
+    setSelectedAnimals(selectedAnimals.length === animals.length ? [] : animals.map(p => p.id))
+  }
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <PageHeader
+        title={t('animals.title')}
+        description={t('animals.description')}
+        actions={
+          <GuestHide>
+            <div className="grid grid-cols-3 gap-2">
+              <Button size="sm" variant="outline" className="w-full gap-2 text-status-warning-text border-status-warning-border hover:bg-status-warning-bg text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>
+                <Download className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t('animals.generateReport')}</span>
+              </Button>
+              <Can permission={PERMISSIONS.ANIMAL_ANIMAL_IMPORT}>
+                <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportWeightDialog(true)}>
+                  <Upload className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{t('animals.importWeight')}</span>
+                </Button>
+              </Can>
+              <Can permission={PERMISSIONS.ANIMAL_ANIMAL_IMPORT}>
+                <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportBasicDialog(true)}>
+                  <Upload className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{t('animals.importBasic')}</span>
+                </Button>
+              </Can>
+              {canCreateVetPatrol && (
+                <Button size="sm" variant="outline" className="w-full gap-2 text-status-success-solid border-status-success-solid/30 hover:bg-status-success-solid/10 text-xs md:text-sm" onClick={() => setShowVetPatrolDialog(true)}>
+                  <Stethoscope className="h-4 w-4 shrink-0" />
+                  <span className="truncate">獸醫巡場紀錄</span>
+                </Button>
+              )}
+              {/* R32-A3b：欄位狀態表 xlsx/PDF 匯出已併入 AnimalPenReport dialog
+                  （產生欄位狀態表 → 匯出 Excel / 匯出 PDF），不再單獨外掛按鈕 */}
+              <Can permission={PERMISSIONS.ANIMAL_EXPORT_MEDICAL}>
+                <Button size="sm" variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowBatchExportDialog(true)}>
+                  <FileSpreadsheet className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{t('animals.batchExport')}</span>
+                </Button>
+              </Can>
+              <Can permission={PERMISSIONS.ANIMAL_ANIMAL_CREATE}>
+                <Button size="sm" onClick={() => setShowAddDialog(true)} className="w-full gap-2 bg-primary hover:bg-primary/90 text-xs md:text-sm">
+                  <Plus className="h-4 w-4 shrink-0" />
+                  {t('animals.addAnimal')}
+                </Button>
+              </Can>
+            </div>
+          </GuestHide>
+        }
+      />
+
+      {/* Filters & Tabs */}
+      <AnimalFilters
+        filters={{
+          statusFilter,
+          onStatusFilterChange: handleStatusFilterChange,
+          activeBuildingCode: buildingCode,
+          onBuildingChange: handleBuildingChange,
+          breedFilter,
+          onBreedFilterChange: setBreedFilter,
+          search,
+          onSearchChange: setSearch,
+          onSearchSubmit: handleSearchSubmit,
+        }}
+        counts={{
+          statusCounts,
+          allAnimalsCount,
+          penCountsByBuilding,
+          selectedAnimalsCount: selectedAnimals.length,
+        }}
+        adminOnlyStatuses={adminOnlyStatuses}
+        isPIOrClient={isPIOrClient}
+        isAdmin={isAdmin}
+        onShowBatchAssign={() => setShowBatchAssignDialog(true)}
+      />
+
+      {/* List View（未分配／實驗中／所有動物等，或 欄位＋搜尋時改顯示表格） */}
+      {(statusFilter !== 'pen' || hasPenSearch) && (
+        <AnimalListTable
+          animals={hasPenSearch ? penViewAnimals : animals}
+          isLoading={hasPenSearch ? groupedLoading : isLoading}
+          onQuickEdit={setQuickEditAnimalId}
+          selection={{
+            selectedAnimals,
+            onToggleSelection: toggleAnimalSelection,
+            onToggleAll: toggleAllAnimals,
+          }}
+          sorting={{
+            sortColumn,
+            sortDirection,
+            onSort: handleSort,
+          }}
+          pagination={{
+            page: hasPenSearch ? 1 : page,
+            totalPages: hasPenSearch ? 1 : totalPages,
+            totalAnimals: hasPenSearch ? penViewAnimals.length : totalAnimals,
+            perPage: hasPenSearch ? Math.max(perPage, penViewAnimals.length) || 50 : perPage,
+            onPageChange: hasPenSearch ? () => {} : setPage,
+          }}
+        />
+      )}
+
+      {/* Pen View：無搜尋時顯示欄位格線圖（圖一）；有搜尋時改由上方表格顯示（圖二） */}
+      {statusFilter === 'pen' && !hasPenSearch && (
+        <AnimalPenView
+          groupedData={isGuest ? guestPenData : penViewGroupedData}
+          isLoading={groupedLoading}
+          activeBuildingCode={buildingCode}
+          onQuickMove={isGuest ? handleGuestQuickMove : (earTag, target) => quickMoveMutation.mutate({ earTag, targetPenLocation: target })}
+          isQuickMovePending={isGuest ? false : quickMoveMutation.isPending}
+        />
+      )}
+
+      {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
+      <AnimalAddDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        newAnimal={newAnimal}
+        onNewAnimalChange={setNewAnimal}
+        penBuilding={penBuilding}
+        onPenBuildingChange={setPenBuilding}
+        penZone={penZone}
+        onPenZoneChange={setPenZone}
+        penCode={penCode}
+        onPenCodeChange={setPenCode}
+        sourcesData={sourcesData}
+        onSubmit={() => createAnimalMutation.mutate(newAnimal)}
+        isPending={createAnimalMutation.isPending}
+      />
+
+      <BatchAssignDialog
+        open={showBatchAssignDialog}
+        onOpenChange={setShowBatchAssignDialog}
+        selectedCount={selectedAnimals.length}
+        iacucNo={assignIacucNo}
+        onIacucNoChange={setAssignIacucNo}
+        onSubmit={() => batchAssignMutation.mutate()}
+        isPending={batchAssignMutation.isPending}
+      />
+
+      <VetPatrolReportDialog open={showVetPatrolDialog} onOpenChange={setShowVetPatrolDialog} />
+      <ExportDialog open={showBatchExportDialog} onOpenChange={setShowBatchExportDialog} type="batch_project" />
+      <ImportDialog open={showImportBasicDialog} onOpenChange={setShowImportBasicDialog} type="basic" />
+      <ImportDialog open={showImportWeightDialog} onOpenChange={setShowImportWeightDialog} type="weight" />
+
+      {quickEditAnimalId && (
+        <QuickEditAnimalDialog
+          open={!!quickEditAnimalId}
+          onOpenChange={(open) => { if (!open) setQuickEditAnimalId(null) }}
+          animalId={quickEditAnimalId}
+        />
+      )}
+
+      <QuickAddDialog
+        open={showQuickAddDialog}
+        onOpenChange={(open) => {
+          if (!open) { setShowQuickAddDialog(false); setQuickAddPending(null) }
+        }}
+        earTag={quickAddPending?.earTag ?? ''}
+        penLocation={quickAddPending?.penLocation ?? ''}
+        form={quickAddForm}
+        onFormChange={setQuickAddForm}
+        onSubmit={() => quickAddMutation.mutate()}
+        isPending={quickAddMutation.isPending}
+      />
+
+      <DuplicateWarningDialog
+        open={showDuplicateWarning}
+        onOpenChange={(open) => {
+          if (!open) { setShowDuplicateWarning(false); setDuplicateWarningData(null) }
+        }}
+        data={duplicateWarningData}
+        onConfirm={(payload) => forceCreateMutation.mutate(payload)}
+        isPending={forceCreateMutation.isPending}
+      />
+
+      {showPrintReport && (
+        <AnimalPenReport onClose={() => setShowPrintReport(false)} />
+      )}
+    </div>
+  )
+}

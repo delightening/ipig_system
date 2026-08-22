@@ -1,0 +1,146 @@
+use axum::{
+    extract::State,
+    http::{header, HeaderMap, StatusCode},
+    response::Response,
+    Extension, Json,
+};
+use chrono::{DateTime, Utc};
+use serde::Serialize;
+
+use crate::error::ErrorResponse;
+use crate::{
+    middleware::{ActorContext, CurrentUser},
+    models::UserResponse,
+    services::{AuthService, SessionManager, UserService},
+    AppError, AppState, Result,
+};
+
+use super::cookie::build_clear_cookie;
+
+/// GDPR 匯出：單一偏好項目
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct PreferenceExport {
+    pub key: String,
+    pub value: serde_json::Value,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// GDPR 匯出：個人資料完整回應
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct GdprExportResponse {
+    pub exported_at: DateTime<Utc>,
+    pub user: UserResponse,
+    pub preferences: Vec<PreferenceExport>,
+    pub notification_settings: Option<crate::models::NotificationSettings>,
+}
+
+/// GDPR：匯出個人資料（存取權、可攜權）
+#[utoipa::path(
+    get,
+    path = "/api/v1/me/export",
+    responses(
+        (status = 200, description = "個人資料 JSON", body = GdprExportResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
+pub async fn export_me(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<GdprExportResponse>> {
+    let user = UserService::get_by_id(&state.db, current_user.id).await?;
+
+    let preferences =
+        crate::repositories::user_preference::list_preferences_by_user(&state.db, current_user.id)
+            .await?;
+
+    let preferences_export: Vec<PreferenceExport> = preferences
+        .into_iter()
+        .map(|p| PreferenceExport {
+            key: p.preference_key,
+            value: p.preference_value,
+            updated_at: p.updated_at,
+        })
+        .collect();
+
+    let notification_settings =
+        crate::repositories::notification::find_notification_settings_by_user(
+            &state.db,
+            current_user.id,
+        )
+        .await?;
+
+    Ok(Json(GdprExportResponse {
+        exported_at: chrono::Utc::now(),
+        user,
+        preferences: preferences_export,
+        notification_settings,
+    }))
+}
+
+/// GDPR：刪除帳號請求（刪除權）- 軟刪除，需 X-Reauth-Token
+#[utoipa::path(
+    delete,
+    path = "/api/v1/me/account",
+    responses(
+        (status = 200, description = "帳號已停用"),
+        (status = 401, description = "未認證", body = ErrorResponse),
+        (status = 403, description = "需帶 X-Reauth-Token 重新確認密碼", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
+pub async fn delete_me_account(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    headers: HeaderMap,
+) -> Result<Response> {
+    crate::handlers::user::require_reauth_token(&headers, &state, &current_user)?;
+
+    // deactivate_self 內部以 log_activity_tx 寫入 USER_DEACTIVATE_SELF 事件；
+    // 原本額外的 GDPR_ACCOUNT_DELETE 事件已被整合（GDPR 語意可由 event_type
+    // + entity + actor 還原）
+    let actor = ActorContext::User(current_user.clone());
+    UserService::deactivate_self(&state.db, &actor, current_user.id).await?;
+
+    // 將當前 JWT 加入黑名單
+    if !current_user.jti.is_empty() {
+        state
+            .jwt_blacklist
+            .revoke(current_user.jti.clone(), current_user.exp, &state.db)
+            .await;
+    }
+
+    // 結束所有 sessions、清除 refresh tokens
+    let _ =
+        SessionManager::end_all_sessions(&state.db, current_user.id, "gdpr_account_delete").await;
+    let _ = AuthService::logout(&state.db, current_user.id).await;
+
+    // L-3（安全稽核 2026-07-04）：一併失效 permission_cache，避免同一使用者其他裝置
+    // 的 access token 在 5 分快取 TTL 窗口內仍讀到過時（有效）權限（縱深防禦，
+    // 主防線為上方 tokens_valid_after + JWT 黑名單）。
+    state.permission_cache.invalidate(&current_user.id).await;
+
+    let body = serde_json::json!({
+        "message": "帳號已停用。您已登出，如需恢復請聯絡管理員。"
+    });
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(
+            header::SET_COOKIE,
+            build_clear_cookie("access_token", &state.config),
+        )
+        .header(
+            header::SET_COOKIE,
+            build_clear_cookie("refresh_token", &state.config),
+        )
+        .body(
+            serde_json::to_string(&body)
+                .map_err(|e| AppError::Internal(format!("JSON error: {}", e)))?
+                .into(),
+        )
+        .map_err(|e| AppError::Internal(format!("Response build error: {e}")))?;
+    Ok(response)
+}

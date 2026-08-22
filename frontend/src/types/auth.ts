@@ -1,0 +1,148 @@
+/**
+ * 認證與使用者型別
+ */
+
+// 使用者訓練紀錄
+export interface UserTraining {
+    code: string
+    certificate_no?: string
+    received_date?: string
+}
+
+// 使用者
+export interface User {
+    id: string
+    email: string
+    display_name: string
+    phone?: string
+    phone_ext?: string
+    organization?: string
+    is_active: boolean
+    /** 內部人員旗標（後端 UserResponse 提供）：決定入職日期欄位與 MCP 金鑰可見性 */
+    is_internal?: boolean
+    roles: string[]
+    permissions: string[]
+    must_change_password?: boolean
+    totp_enabled?: boolean
+    /** R35-18: 最後登入時間（ISO 8601）；null 代表從未登入。Admin UI 用於 dormant account 審計 */
+    last_login_at?: string | null
+    // AUP 第 8 節人員資料
+    entry_date?: string | null
+    position?: string | null
+    aup_roles?: string[]
+    years_experience?: number
+    trainings?: UserTraining[]
+    // 帳號到期日
+    expires_at?: string | null
+}
+
+// 簡易使用者資訊
+export interface UserSimple {
+    id: string
+    email: string
+    display_name?: string
+}
+
+// 登入回應
+export interface LoginResponse {
+    access_token: string
+    refresh_token: string
+    token_type: string
+    expires_in: number
+    user: User
+}
+
+// 2FA 所需回應（密碼驗證通過，需要 TOTP 驗證）
+export interface TwoFactorRequiredResponse {
+    requires_2fa: true
+    temp_token: string
+}
+
+// 2FA 設定回應
+export interface TwoFactorSetupResponse {
+    otpauth_uri: string
+    backup_codes: string[]
+}
+
+// 角色
+export interface Role {
+    id: string
+    code: string
+    name: string
+    description?: string
+    is_internal: boolean
+    is_system: boolean
+    is_active: boolean
+    permissions: Permission[]
+    created_at: string
+    updated_at: string
+}
+
+// 權限
+export interface Permission {
+    id: string
+    code: string
+    name: string
+    module?: string
+    description?: string
+    created_at: string
+}
+
+// 請求型別
+export interface CreateUserRequest {
+    email: string
+    password: string
+    display_name: string
+    role_ids: string[]
+}
+
+export interface UpdateUserRequest {
+    email?: string
+    display_name?: string
+    phone?: string
+    phone_ext?: string
+    organization?: string
+    is_active?: boolean
+    role_ids?: string[]
+    // AUP 第 8 節人員資料
+    entry_date?: string | null
+    position?: string | null
+    aup_roles?: string[]
+    years_experience?: number
+    trainings?: UserTraining[]
+    // 帳號到期日
+    expires_at?: string | null
+}
+
+export interface CreateRoleRequest {
+    code: string
+    name: string
+    permission_ids: string[]
+}
+
+export interface UpdateRoleRequest {
+    name?: string
+    permission_ids?: string[]
+}
+
+// 密碼變更
+export interface ChangeOwnPasswordRequest {
+    current_password: string
+    new_password: string
+    /** C3：後端要求新密碼二次確認 */
+    new_password_confirmation: string
+}
+
+export interface ResetPasswordRequest {
+    new_password: string
+}
+
+// 密碼重設
+export interface ForgotPasswordRequest {
+    email: string
+}
+
+export interface ResetPasswordWithTokenRequest {
+    token: string
+    new_password: string
+}

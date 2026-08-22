@@ -1,0 +1,103 @@
+# cargo-deny 設定檔
+# 文件：https://embarkstudios.github.io/cargo-deny/
+#
+# 此檔案定義供應鏈安全策略：
+# - advisories: 已知漏洞資料庫檢查
+# - licenses: 授權條款審查
+# - bans: 禁止特定 crate 或重複版本
+# - sources: 允許的 crate 來源
+
+[graph]
+targets = []
+all-features = true
+
+# ============================
+# 漏洞資料庫檢查
+# ============================
+[advisories]
+# 使用 RustSec Advisory Database
+# 發現已知漏洞時，CI 會失敗
+# 如需暫時忽略特定漏洞，在此加入 RUSTSEC ID
+yanked = "allow"  # yanked 由 transitive 引入，改 allow 避免 warn（可改以 cargo update 修復）
+# 僅保留依賴樹中「實際存在」的 advisory。printpdf 0.9 已移除，其傳遞依賴
+# bincode/fxhash/kuchiki/proc-macro-error 對應的 ignore（RUSTSEC-2025-0141/2025-0057/
+# 2023-0019/2024-0370）連同 lettre 已修復的 RUSTSEC-2026-0141 一併清除（2026-06-24）。
+ignore = [
+    # rsa 時序攻擊（Marvin Attack）。由 jsonwebtoken 的 RS256 引入——
+    # services/google_calendar.rs 用 RS256 簽 Google Calendar service-account JWT。
+    # 無修復版本；Marvin 需攻擊者對私鑰運算具時序 oracle + 可控輸入，此處為系統
+    # 自有金鑰簽系統自產 payload、對外呼叫，前提不成立 → 實務風險低。
+    "RUSTSEC-2023-0071",
+    # proc-macro-error2 不維護（validator_derive 0.20 transitive 引入；validator 0.20
+    # 為最新、所有 0.19+ 版皆依賴它、無版本可擺脫）。build-time proc-macro、零執行期
+    # 攻擊面、僅 unmaintained 標記、非漏洞。
+    "RUSTSEC-2026-0173",
+    # anyhow Error::downcast_mut() unsound（2026-06-30 新發布）。僅在對 anyhow::Error
+    # 先 .context() 後又 .downcast_mut() 取回 context 時觸發 UB；本專案 anyhow 僅用於
+    # 錯誤傳播/?，無 downcast_mut() 取回自訂 context 的用法 → 實際不受影響。無修復版本。
+    "RUSTSEC-2026-0190",
+]
+
+# ⚠️ 本清單刻意**不與 `.github/workflows/ci.yml` 的 `cargo audit --ignore` 相同**
+# （2026-08-06 更正）。兩個工具的偵測範圍不同：
+#   * cargo audit 掃 **Cargo.lock**——lockfile 會記錄未啟用的 optional dependency，
+#     因此看得到 rkyv（rust_decimal 的 optional dep，本專案只啟用 features=["serde"]），
+#     需要 `--ignore RUSTSEC-2026-0235`，理由見 ci.yml 該處註解。
+#   * cargo-deny 走 **dependency graph**——看不到 rkyv，對它保留 ignore 只會換來
+#     `warning[advisory-not-detected]: advisory was not encountered`。
+# #32 為了「兩邊對齊」把 0235 一併加進本檔，反而製造了該警告。故本檔只保留
+# cargo-deny 真正會偵測到的項目。
+# 實測依據（2026-08-06，backend/ 內）：
+#   `cargo tree --target all -e normal,build,dev -i rkyv` → warning: nothing to print.
+
+# ============================
+# 授權條款審查
+# ============================
+[licenses]
+# 新版 cargo-deny 預設拒絕所有未列在 allow 中的授權（deny by default）
+# 信心閾值
+confidence-threshold = 0.8
+
+# 允許的授權條款
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "0BSD",
+    "ISC",
+    "Unicode-3.0",
+    "CC0-1.0",
+    "Zlib",
+    "BSL-1.0",
+    "CDLA-Permissive-2.0",
+    # printpdf 0.9 的 HTML 渲染依賴（azul-*, cssparser, selectors, dtoa-short）
+    "MPL-2.0",
+]
+
+
+# ============================
+# Crate 禁止/限制規則
+# ============================
+[bans]
+# 允許多個版本的 crate（多為 transitive，無法統一，改 allow 消除 warn）
+multiple-versions = "allow"
+wildcards = "allow"
+highlight = "all"
+
+# 禁止的 crate（已知有安全問題的替代品）
+deny = [
+    # 使用 getrandom 取代
+    # { name = "rand_core", wrappers = ["rand"] },
+]
+
+# ============================
+# Crate 來源限制
+# ============================
+[sources]
+# 僅允許 crates.io
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

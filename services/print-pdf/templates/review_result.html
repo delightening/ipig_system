@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{#
+  R45 Phase 3：審核結果 HTML 版本（AD-04-01-10B）— 1 表 7 row 結構。
+  GLP 受控文件。Context schema：ReviewResultPayload (initial + final)
+#}
+
+{% block page_top_left %}"文 件 編 號  AD-04-01-10B"{% endblock %}
+
+{% block extra_styles %}
+    /* AD-04-01-10B 對齊 — LXGW WenKai 楷體 + 整份單一 table 結構 */
+    body {
+      font-size: 11pt;
+      line-height: 1.6;
+      font-family: "Noto Serif", "Noto Sans CJK TC", serif;
+    }
+
+    .company-name {
+      text-align: center;
+      font-size: 13pt;
+      font-weight: bold;
+      margin: 8pt 0 2pt 0;
+    }
+
+    h1.doc-title {
+      font-size: 20pt;
+      text-align: center;
+      letter-spacing: 0;
+      margin: 6pt 0 0 0;
+      font-weight: bold;
+    }
+
+    /* 單一 table 結構：兩個 round（初審 / 複審）整合在同一表，與標題零距離 */
+    table.result-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0;
+    }
+    table.result-table tr {
+      page-break-inside: avoid;
+    }
+    table.result-table td {
+      border: 0.5pt solid #000;
+      padding: 8pt 12pt;
+      font-size: 11pt;
+      vertical-align: middle;
+    }
+    /* 區段標頭：初審結果 / 複審結果 */
+    table.result-table td.section-header {
+      background: #e8e8e8;
+      font-weight: bold;
+      font-size: 12.5pt;
+      padding: 6pt 12pt;
+    }
+    /* 勾選 row：垂直列表 */
+    table.result-table td.cb-row { padding: 4pt 14pt; font-size: 11pt; }
+    .cb { font-family: "Noto Serif", "Noto Sans CJK TC", serif; margin-right: 6pt; }
+
+    /* 審查意見 row — 無外框，直接 inline 顯示，空值寫 N/A */
+    table.result-table td.opinion-row { padding: 8pt 12pt; }
+    .opinion-label { font-weight: bold; }
+    .opinion-text {
+      font-size: 10.5pt;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      margin-top: 4pt;
+    }
+    .opinion-text.inline { display: inline; margin: 0; }
+
+    /* 簽章 row：label + 簽名線 + (簽名/日期) tag，無實際日期 */
+    table.result-table td.sig-row {
+      padding: 10pt 12pt;
+    }
+    .sig-line-inner {
+      display: flex;
+      align-items: baseline;
+      gap: 10pt;
+    }
+    .sig-line-inner .label { font-weight: bold; flex-shrink: 0; }
+    .sig-line-inner .line {
+      flex-grow: 1;
+      border-bottom: 0.5pt solid #000;
+      min-height: 18pt;
+      padding: 0 6pt;
+    }
+    .sig-line-inner .tag {
+      flex-shrink: 0;
+      color: #555;
+      font-size: 10pt;
+    }
+{% endblock %}
+
+{% macro cb(val, label) -%}
+<span class="cb">{{ '☑' if val else '☐' }}</span>{{ label }}
+{%- endmacro %}
+
+{% macro decision_rows(title, decision) %}
+  <tr><td class="section-header">{{ title }}</td></tr>
+  <tr><td class="cb-row">{{ cb(decision.approved, '照案通過') }}</td></tr>
+  <tr><td class="cb-row">{{ cb(decision.revise_required, '應改善後複審') }}</td></tr>
+  <tr><td class="cb-row">{{ cb(decision.rejected, '不通過') }}</td></tr>
+  <tr>
+    <td class="opinion-row">
+      {% if decision.revision_opinions and decision.revision_opinions.strip() %}
+        <div class="opinion-label">需改善或不通過之審查意見：</div>
+        <div class="opinion-text">{{ decision.revision_opinions }}</div>
+      {% else %}
+        <span class="opinion-label">需改善或不通過之審查意見：</span><span class="opinion-text inline">N/A</span>
+      {% endif %}
+    </td>
+  </tr>
+  <tr>
+    <td class="sig-row">
+      <div class="sig-line-inner">
+        <span class="label">審查委員簽章：</span>
+        <span class="line">{{ decision.reviewer_signature }}</span>
+        <span class="tag">(簽名/日期)</span>
+      </div>
+    </td>
+  </tr>
+  <tr>
+    <td class="sig-row">
+      <div class="sig-line-inner">
+        <span class="label">召集人簽章：</span>
+        <span class="line">{{ decision.convener_signature }}</span>
+        <span class="tag">(簽名/日期)</span>
+      </div>
+    </td>
+  </tr>
+{% endmacro %}
+
+{% block content %}
+  <div class="company-name">{{ company_name|default('豬博士動物科技股份有限公司') }}</div>
+  <h1 class="doc-title">審核結果</h1>
+
+  <table class="result-table">
+    {{ decision_rows('初審結果', initial) }}
+    {{ decision_rows('複審結果', final) }}
+  </table>
+{% endblock %}

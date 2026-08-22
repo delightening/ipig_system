@@ -1,0 +1,28 @@
+# ============================================
+# iPIG 資料庫備份容器
+# 基於 PostgreSQL 16 Alpine，內建 cron 排程
+# ============================================
+FROM postgres:16-alpine
+
+# 安裝 rsync（過時但保留）、dcron（排程用）、gnupg（加密）、rclone（R36-5/6/7 異地上傳）
+# rclone 同時支援 R2 (s3 backend) + NAS-B SMB share + WebDAV，比 rsync over SSH 維運簡單
+# curl：送外部看門狗心跳（deploy/watchdog）。busybox 內建的 wget 對 POST + header
+# 的支援隨版本而異，備份鏈上不賭這個。
+RUN apk add --no-cache dcron rsync openssh-client gnupg rclone ca-certificates su-exec curl
+
+# 複製備份腳本（sed 去除 Windows CRLF 換行符）
+COPY pg_backup.sh /usr/local/bin/pg_backup.sh
+RUN sed -i 's/\r$//' /usr/local/bin/pg_backup.sh && chmod +x /usr/local/bin/pg_backup.sh
+
+# 複製 entrypoint 腳本
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
+
+# 建立非 root 備份使用者 + 備份目錄
+RUN adduser -D -h /home/backup backup \
+    && mkdir -p /backups \
+    && chown backup:backup /backups
+
+VOLUME /backups
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

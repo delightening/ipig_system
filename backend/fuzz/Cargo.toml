@@ -1,0 +1,30 @@
+[package]
+name = "erp-backend-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# 引用主專案（只用到解析邏輯，不需要完整依賴）
+[dependencies.erp-backend]
+path = ".."
+
+# 防止 fuzz 目標在 workspace 中混淆
+[workspace]
+members = ["."]
+
+# Fuzz 目標定義
+[[bin]]
+name = "fuzz_ear_tag"
+path = "fuzz_targets/fuzz_ear_tag.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_sku_parse"
+path = "fuzz_targets/fuzz_sku_parse.rs"
+doc = false

@@ -1,0 +1,287 @@
+import { useEffect, useState } from 'react'
+import { Can } from '@/components/auth'
+import { PERMISSIONS } from '@/lib/permissions.generated'
+import { useForm } from 'react-hook-form'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import api from '@/lib/api'
+import { formatNumber } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
+
+// R57-2: 改 React Hook Form 原生 validation rules（避開 Zod 4 CSP eval probe）
+type ApPaymentFormData = {
+  partner_id: string
+  payment_date: string
+  amount: string
+  reference: string
+}
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Loader2, Plus, FileText } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { toast } from '@/components/ui/use-toast'
+import type { ApAgingRow, Partner } from '@/types/accounting'
+
+function CreateApPaymentDialog({
+  asOfDate,
+  onSuccess,
+}: {
+  asOfDate: string
+  onSuccess: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const queryClient = useQueryClient()
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors },
+  } = useForm<ApPaymentFormData>({
+    defaultValues: {
+      partner_id: '',
+      payment_date: asOfDate,
+      amount: '',
+      reference: '',
+    },
+  })
+
+  const partnerId = watch('partner_id')
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        partner_id: '',
+        payment_date: asOfDate,
+        amount: '',
+        reference: '',
+      })
+    }
+  }, [open, asOfDate, reset])
+
+  const { data: partners } = useQuery<Partner[]>({
+    queryKey: ['partners', 'supplier'],
+    queryFn: async () => {
+      const r = await api.get<Partner[]>('/partners', { params: { partner_type: 'supplier' } })
+      return r.data
+    },
+    enabled: open,
+  })
+
+  const createPaymentMutation = useMutation({
+    mutationFn: (payload: { partner_id: string; payment_date: string; amount: number; reference?: string }) =>
+      api.post('/accounting/ap-payments', payload),
+    onSuccess: () => {
+      toast({ title: '付款已建立' })
+      setOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['accounting-ap-aging'] })
+      queryClient.invalidateQueries({ queryKey: ['accounting-trial-balance'] })
+      queryClient.invalidateQueries({ queryKey: ['accounting-journal-entries'] })
+      onSuccess()
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '建立失敗'
+      toast({ title: msg, variant: 'destructive' })
+    },
+  })
+
+  const onValid = (data: ApPaymentFormData) => {
+    createPaymentMutation.mutate({
+      partner_id: data.partner_id,
+      payment_date: data.payment_date,
+      amount: parseFloat(data.amount),
+      reference: data.reference || undefined,
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      {/* 後端 create_ap_payment / create_ar_receipt 皆 require_permission!("erp.document.create")；
+          原本此頁完全沒有按鈕層閘。閘在 DialogTrigger 外層，連對話框都打不開。 */}
+      <Can permission={PERMISSIONS.ERP_DOCUMENT_CREATE}>
+        <DialogTrigger asChild>
+          <Button size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            新增付款
+          </Button>
+        </DialogTrigger>
+      </Can>
+      <DialogContent>
+        <form onSubmit={handleSubmit(onValid)}>
+          <DialogHeader>
+            <DialogTitle>應付帳款付款</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>供應商 *</Label>
+              <input type="hidden" {...register('partner_id', { required: '請選擇供應商' })} />
+              <Select value={partnerId} onValueChange={(v) => setValue('partner_id', v, { shouldValidate: true })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="選擇供應商" />
+                </SelectTrigger>
+                <SelectContent>
+                  {partners?.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.code} - {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.partner_id && (
+                <p className="text-sm text-destructive">{errors.partner_id.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>付款日期 *</Label>
+              <Input
+                type="date"
+                {...register('payment_date', {
+                  required: '請選擇付款日期',
+                  pattern: { value: DATE_PATTERN, message: '請選擇付款日期' },
+                })}
+              />
+              {errors.payment_date && (
+                <p className="text-sm text-destructive">{errors.payment_date.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>金額 *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                {...register('amount', {
+                  required: '請輸入有效金額',
+                  validate: (v) => {
+                    const n = parseFloat(v)
+                    return (!isNaN(n) && n > 0) || '請輸入有效金額'
+                  },
+                })}
+                placeholder="0.00"
+              />
+              {errors.amount && (
+                <p className="text-sm text-destructive">{errors.amount.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>備註</Label>
+              <Input {...register('reference')} placeholder="選填" aria-label="備註" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              取消
+            </Button>
+            <Button type="submit" disabled={createPaymentMutation.isPending}>
+              {createPaymentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              建立
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface ApAgingTabProps {
+  asOfDate: string
+  onAsOfDateChange: (date: string) => void
+}
+
+export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
+  const { data: apAging, isLoading } = useQuery<ApAgingRow[]>({
+    queryKey: ['accounting-ap-aging', asOfDate],
+    queryFn: async () => {
+      const r = await api.get<ApAgingRow[]>('/accounting/ap-aging', {
+        params: { as_of_date: asOfDate },
+      })
+      return r.data
+    },
+  })
+
+  const { sortedData, sort, toggleSort } = useTableSort(apAging)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end gap-4 flex-wrap">
+        <div className="space-y-2">
+          <Label>截至日期</Label>
+          <Input
+            type="date"
+            value={asOfDate}
+            onChange={(e) => onAsOfDateChange(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <CreateApPaymentDialog asOfDate={asOfDate} onSuccess={() => {}} />
+      </div>
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <SortableTableHead sortKey="partner_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>供應商代碼</SortableTableHead>
+              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>供應商名稱</SortableTableHead>
+              <SortableTableHead sortKey="total_payable" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">應付總額</SortableTableHead>
+              <SortableTableHead sortKey="total_paid" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">已付總額</SortableTableHead>
+              <SortableTableHead sortKey="balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">餘額</SortableTableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="p-0">
+                  <TableSkeleton rows={8} cols={5} />
+                </TableCell>
+              </TableRow>
+            ) : sortedData && sortedData.length > 0 ? (
+              sortedData.map((r) => (
+                <TableRow key={r.partner_id}>
+                  <TableCell className="font-mono">{r.partner_code}</TableCell>
+                  <TableCell>{r.partner_name}</TableCell>
+                  <TableCell className="text-right">
+                    {formatNumber(Number(r.total_payable), 2)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatNumber(Number(r.total_paid), 2)}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatNumber(Number(r.balance), 2)}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableEmptyRow colSpan={5} icon={FileText} title="尚無應付帳款餘額" />
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}

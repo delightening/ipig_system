@@ -1,0 +1,199 @@
+use axum::{middleware, Router};
+use tower::ServiceBuilder;
+
+use crate::middleware::etag::etag_middleware;
+use crate::middleware::rate_limiter::{
+    api_rate_limit_middleware, auth_rate_limit_middleware, forgot_password_rate_limit_middleware,
+    upload_rate_limit_middleware, write_rate_limit_middleware,
+};
+use crate::{
+    handlers,
+    middleware::{
+        auth_middleware, csrf_middleware, guest_guard_middleware, http_metrics_middleware,
+        ip_blocklist_middleware, security_response_logger,
+    },
+    AppState,
+};
+
+mod admin;
+mod ai;
+mod animal;
+mod auth;
+mod erp;
+mod honeypot;
+mod hr;
+mod invitation;
+mod mcp;
+mod messaging;
+mod notification;
+mod protocol;
+mod report;
+mod upload;
+mod user;
+
+pub fn api_routes(state: AppState) -> Router {
+    let public_routes = auth::public_routes()
+        .merge(invitation::public_routes())
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_rate_limit_middleware,
+        ))
+        .with_state(state.clone());
+
+    // E-5: forgot/reset-password 套用較嚴格的獨立限制（5/10min，不觸發 IP 封鎖）
+    let pw_reset_routes = auth::password_reset_routes()
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            forgot_password_rate_limit_middleware,
+        ))
+        .with_state(state.clone());
+
+    // 使用 ServiceBuilder 合併 middleware 層（避免 .route_layer 逐路由包裝導致記憶體暴漲）
+    // R22-3: security_response_logger 必須放在 auth_middleware 內層（最後一個 .layer()），
+    // 確保 auth_middleware 先執行並設定 CurrentUser，logger 才能讀取到 user_id。
+    // ServiceBuilder 中第一個 .layer() 是最外層（最先執行），最後一個是最內層（最後執行）。
+    // guest_guard_middleware 必須在 auth_middleware 之後執行，才能從 extensions 讀到 CurrentUser。
+    // PENTEST-FIX-1: guest_guard 攔截 guest 寫入請求 → 403，補 has_permission 漏網之魚。
+    // R33-1: csrf_middleware 必須在 auth_middleware 之後執行，才能信任 extensions 內
+    // 已驗簽的 CurrentUser.id 作為 HMAC session 綁定，移除自解 JWT 的程式碼路徑。
+    let auth_middleware_stack = ServiceBuilder::new()
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            write_rate_limit_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            csrf_middleware,
+        ))
+        .layer(middleware::from_fn(guest_guard_middleware))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            security_response_logger,
+        ));
+
+    let protected_routes = auth::protected_routes()
+        .merge(user::routes())
+        .merge(erp::routes())
+        .merge(report::routes())
+        .merge(protocol::routes())
+        .merge(animal::routes())
+        .merge(notification::routes())
+        .merge(messaging::routes())
+        .merge(admin::routes())
+        .merge(hr::routes())
+        .merge(invitation::admin_routes())
+        .merge(ai::admin_routes())
+        .layer(auth_middleware_stack)
+        .with_state(state.clone());
+
+    // R33-1: auth_middleware 在 csrf_middleware 之前，提供已驗簽的 CurrentUser 供 CSRF HMAC 綁定。
+    let upload_middleware_stack = ServiceBuilder::new()
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            upload_rate_limit_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            csrf_middleware,
+        ))
+        .layer(middleware::from_fn(guest_guard_middleware));
+
+    let upload_routes = upload::routes()
+        .layer(upload_middleware_stack)
+        .with_state(state.clone());
+
+    // 健康檢查 + 指標路由（不受 Rate Limiter 影響，確保監控系統可探測）
+    let health_route = Router::new()
+        .route(
+            "/api/health",
+            axum::routing::get(handlers::health::health_check),
+        )
+        // GLP 匯出前端 pre-check：探測 print-pdf 服務存活，失聯時觸發 email 通知
+        .route(
+            "/api/pdf-service-health",
+            axum::routing::get(handlers::health::pdf_service_health),
+        )
+        .route(
+            "/metrics",
+            axum::routing::get(handlers::metrics::metrics_handler),
+        )
+        .with_state(state.clone());
+
+    // R63-B7: Web Vitals 從 health_route 獨立出來，加 rate limit 防 flood
+    let vitals_route = Router::new()
+        .route(
+            "/api/metrics/vitals",
+            axum::routing::post(handlers::metrics::vitals_handler),
+        )
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            api_rate_limit_middleware,
+        ))
+        .with_state(state.clone());
+
+    // AI 查詢路由（使用獨立的 AI API key 認證，不走 JWT / CSRF）
+    let ai_query_routes = ai::ai_routes(state.clone()).with_state(state.clone());
+
+    // MCP 路由（使用個人 MCP API Key 認證，不走 JWT / CSRF）
+    let mcp_routes = mcp::routes().with_state(state.clone());
+
+    // R22-16: 蜜罐端點（/api/v1 外層，不需 auth）
+    let honeypot_routes = honeypot::routes().with_state(state.clone());
+
+    // R24-3: Alertmanager webhook（/api/v1 外層，由 X-Webhook-Token 防護）
+    let webhook_routes = Router::new()
+        .route(
+            "/api/webhooks/alertmanager",
+            axum::routing::post(handlers::alertmanager_webhook::alertmanager_webhook),
+        )
+        .with_state(state.clone());
+
+    // R25-3: CSP violation report（/api/v1 內，無 auth / 無 CSRF，瀏覽器匿名送出）
+    let csp_report_route = Router::new()
+        .route(
+            "/csp-report",
+            axum::routing::post(handlers::csp_report_handler),
+        )
+        .with_state(state.clone());
+
+    // R24-1: ip_blocklist 掛於 /api/v1 最外層，涵蓋 public/protected/upload/ai/mcp 所有 API。
+    // 不影響 health_route（/metrics、/api/health）與 honeypot_routes — 它們位於 /api/v1 之外。
+    let api_middleware_stack = ServiceBuilder::new()
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            ip_blocklist_middleware,
+        ))
+        .layer(middleware::from_fn(etag_middleware))
+        .layer(middleware::from_fn_with_state(
+            state,
+            api_rate_limit_middleware,
+        ));
+
+    // P1-M1: API 版本路徑 — /api/v1 為唯一前綴
+    let api_v1 = public_routes
+        .merge(pw_reset_routes)
+        .merge(protected_routes)
+        .merge(upload_routes)
+        .merge(ai_query_routes)
+        .merge(mcp_routes)
+        .merge(csp_report_route);
+
+    health_route
+        .merge(vitals_route)
+        .merge(honeypot_routes)
+        .merge(webhook_routes)
+        .merge(
+            Router::new()
+                .nest("/api/v1", api_v1)
+                .layer(api_middleware_stack),
+        )
+        .layer(middleware::from_fn(http_metrics_middleware))
+}

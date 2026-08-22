@@ -1,0 +1,104 @@
+name: 錯誤回報 (Bug Report)
+description: 回報系統中發現的問題
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝您回報問題。請盡量填寫詳細，以便我們重現並修復問題。
+        若為**資安漏洞**，請改用 [GitHub Security Advisories](https://github.com/delightening/ipig_system/security/advisories/new) 私下回報。
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 影響模組
+      description: 問題發生在哪個功能區域？
+      options:
+        - AUP 計畫書管理
+        - 動物管理
+        - 實驗執行
+        - HR 人事管理
+        - 進銷存 (ERP)
+        - 系統管理
+        - 認證 / 授權
+        - 稽核記錄 (Audit Trail)
+        - 電子簽章
+        - 報表 / PDF 匯出
+        - 通知系統
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 問題描述
+      placeholder: 簡短說明發生了什麼問題
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重現步驟
+      placeholder: |
+        1. 進入頁面 '...'
+        2. 點選 '...'
+        3. 出現錯誤 '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期行為
+      placeholder: 您預期應該發生什麼？
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 實際行為
+      placeholder: 實際發生了什麼？包含錯誤訊息截圖或文字。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 嚴重程度
+      options:
+        - "P0 — 系統無法使用 / 資料遺失"
+        - "P1 — 核心功能異常，無替代方案"
+        - "P2 — 功能受限，但有替代方案"
+        - "P3 — 輕微問題 / UI 異常"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境資訊
+      placeholder: |
+        瀏覽器 / 版本：Chrome 130 / Safari 18...
+        作業系統：Windows 11 / macOS 15...
+        帳號角色：研究獸醫 / 技術員 / 管理員...
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 錯誤訊息 / Log
+      render: shell
+      placeholder: 貼上瀏覽器 Console 錯誤（F12 → Console）或系統 Log
+
+  - type: checkboxes
+    id: compliance_impact
+    attributes:
+      label: 合規影響評估（若不確定請跳過）
+      options:
+        - label: 此問題影響稽核記錄完整性 (Audit Trail)
+        - label: 此問題影響電子簽章功能
+        - label: 此問題影響 GLP / 21 CFR Part 11 合規性
+        - label: 此問題涉及個資或敏感實驗資料

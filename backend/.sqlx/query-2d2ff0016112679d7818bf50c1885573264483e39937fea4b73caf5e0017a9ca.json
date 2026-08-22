@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM amendment_review_assignments WHERE amendment_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2d2ff0016112679d7818bf50c1885573264483e39937fea4b73caf5e0017a9ca"
+}

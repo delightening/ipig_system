@@ -1,0 +1,129 @@
+import { useQuery } from '@tanstack/react-query'
+import api, { StockOnHandReport } from '@/lib/api'
+import { formatNumber, formatUom } from '@/lib/utils'
+import { useTableSort } from '@/hooks/useTableSort'
+import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
+import { TableEmptyRow } from '@/components/ui/empty-state'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { Download, Package } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+
+export function StockOnHandReportPage() {
+  const { data: report, isLoading } = useQuery<StockOnHandReport[]>({
+    queryKey: ['report-stock-on-hand'],
+    queryFn: async () => {
+      const response = await api.get<StockOnHandReport[]>('/reports/stock-on-hand')
+      return response.data
+    },
+  })
+
+  const exportToCSV = () => {
+    if (!report) return
+
+    const headers = ['倉庫代碼', '倉庫名稱', '產品代碼', '產品名稱', '類別', '單位', '庫存量', '平均成本', '庫存價值', '安全庫存', '補貨點']
+    const rows = report.map(r => [
+      r.warehouse_code,
+      r.warehouse_name,
+      r.product_sku,
+      r.product_name,
+      r.category_name || '',
+      formatUom(r.base_uom),
+      r.qty_on_hand,
+      r.avg_cost || '',
+      r.total_value || '',
+      r.safety_stock || '',
+      r.reorder_point || '',
+    ])
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `stock_on_hand_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+
+  const { sortedData: sortedReport, sort, toggleSort } = useTableSort(report)
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="庫存現況報表"
+        description="各倉庫商品庫存量與價值"
+        actions={
+          <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            匯出 CSV
+          </Button>
+        }
+      />
+
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
+              <SortableTableHead sortKey="product_sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品代碼</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品名稱</SortableTableHead>
+              <SortableTableHead sortKey="category_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類別</SortableTableHead>
+              <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單位</SortableTableHead>
+              <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">庫存量</SortableTableHead>
+              <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">平均成本</SortableTableHead>
+              <SortableTableHead sortKey="total_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">庫存價值</SortableTableHead>
+              <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">安全庫存</SortableTableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={9} className="p-0">
+                  <TableSkeleton rows={8} cols={9} />
+                </TableCell>
+              </TableRow>
+            ) : sortedReport && sortedReport.length > 0 ? (
+              sortedReport.map((row) => (
+                <TableRow key={`${row.warehouse_id}-${row.product_id}`}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{row.warehouse_name}</div>
+                      <div className="text-xs text-muted-foreground">{row.warehouse_code}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">{row.product_sku}</TableCell>
+                  <TableCell>{row.product_name}</TableCell>
+                  <TableCell>{row.category_name || '-'}</TableCell>
+                  <TableCell>{formatUom(row.base_uom)}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatNumber(row.qty_on_hand, 0)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {row.avg_cost ? `$${formatNumber(row.avg_cost, 2)}` : '-'}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {row.total_value ? `$${formatNumber(row.total_value, 2)}` : '-'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {row.safety_stock ? formatNumber(row.safety_stock, 0) : '-'}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableEmptyRow colSpan={9} icon={Package} title="尚無庫存資料" />
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}

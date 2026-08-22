@@ -1,0 +1,227 @@
+groups:
+  - name: ipig_api_alerts
+    rules:
+      # Error rate > 1% 持續 5 分鐘 → warning
+      - alert: ErrorRateWarning
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 5xx 錯誤率偏高 ({{ $value | humanizePercentage }})"
+          description: "過去 5 分鐘 5xx 回應比率超過 1%，請留意後端服務狀態。"
+
+      # Error rate > 5% 持續 5 分鐘 → critical
+      - alert: ErrorRateCritical
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx 錯誤率過高 ({{ $value | humanizePercentage }})"
+          description: "過去 5 分鐘 5xx 回應比率超過 5%，請立即檢查後端服務。"
+
+      # P95 延遲 > 2 秒持續 5 分鐘 → warning
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+          > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P95 延遲超過 2 秒 ({{ $value | humanizeDuration }})"
+          description: "過去 5 分鐘 P95 回應時間超過 2 秒，可能需要調查效能問題。"
+
+      # P95 延遲 > 5 秒持續 2 分鐘 → critical
+      - alert: HighP95LatencyCritical
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+          > 5.0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API P95 延遲超過 5 秒 ({{ $value | humanizeDuration }})"
+          description: "過去 5 分鐘 P95 回應時間超過 5 秒，服務嚴重緩慢，請立即處理。"
+
+  - name: ipig_infra_alerts
+    rules:
+      # CPU > 80% 持續 5 分鐘 → warning
+      - alert: HighCpuWarning
+        expr: |
+          100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU 使用率超過 80% ({{ $value | humanize }}%)"
+          description: "主機 CPU 使用率持續偏高，請留意負載狀況。"
+
+      # CPU > 95% 持續 2 分鐘 → critical
+      - alert: HighCpuCritical
+        expr: |
+          100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CPU 使用率超過 95% ({{ $value | humanize }}%)"
+          description: "主機 CPU 使用率極高，可能導致服務不穩定，請立即處理。"
+
+      # Memory > 80% → warning
+      - alert: HighMemoryWarning
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "記憶體使用率超過 80% ({{ $value | humanize }}%)"
+          description: "主機記憶體使用率偏高，請留意是否有 memory leak 或需要擴充。"
+
+      # Memory > 95% → critical
+      - alert: HighMemoryCritical
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "記憶體使用率超過 95% ({{ $value | humanize }}%)"
+          description: "主機記憶體即將耗盡，可能導致 OOM，請立即處理。"
+
+      # DB 連線池使用率 > 80%
+      - alert: DbPoolSaturated
+        expr: |
+          (db_pool_active / db_pool_size) > 0.8
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "資料庫連線池使用率超過 80% ({{ $value | humanizePercentage }})"
+          description: "連線池快要飽和，active={{ $labels.active }}，size={{ $labels.size }}。考慮增加 max_connections 或優化查詢。"
+
+      # 健康檢查端點不健康
+      - alert: HealthCheckFailing
+        expr: up{job="ipig-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "iPig API 健康檢查失敗"
+          description: "API 服務已無回應超過 1 分鐘，可能已當機。"
+
+      # 磁碟空間 < 20% 剩餘 → warning
+      - alert: DiskSpaceWarning
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁碟空間不足 (剩餘 {{ $value | humanizePercentage }})"
+          description: "根目錄磁碟空間低於 20%，請清理空間或擴展儲存。"
+
+      # 磁碟空間 < 10% 剩餘 → critical
+      - alert: DiskSpaceCritical
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁碟空間嚴重不足 (剩餘 {{ $value | humanizePercentage }})"
+          description: "根目錄磁碟空間低於 10%，即將耗盡，請立即處理。"
+
+  # R36-3: Backup heartbeat alerts
+  # backup_last_success_timestamp_seconds 由 pg_backup.sh 寫入 textfile，
+  # node-exporter --collector.textfile.directory 暴露為 metric。
+  - name: ipig_backup_alerts
+    rules:
+      # Backup 超過 25 小時沒成功 → critical（cron 排程 02:00 daily）
+      - alert: BackupStale
+        expr: |
+          time() - backup_last_success_timestamp_seconds > 25 * 3600
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "資料庫 backup 超過 25 小時沒成功"
+          description: "上次成功 backup 時間：{{ $value | humanizeDuration }} 之前。可能是 cron job 失敗、container 被停、或 DB 連線異常。檢查 docker logs ipig-db-backup。"
+
+      # Backup metric 完全消失（容器停止或 textfile 被刪）→ critical
+      - alert: BackupMetricMissing
+        expr: |
+          absent(backup_last_success_timestamp_seconds)
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup metric 不存在"
+          description: "node-exporter 沒有暴露 backup_last_success_timestamp_seconds。可能 backup 從未成功跑過、textfile collector 路徑錯、或 db-backup container 沒寫入。"
+
+      # Backup 檔案大小驟降 50% 以上（資料庫被清空 / dump 異常）→ warning
+      - alert: BackupSizeAnomaly
+        expr: |
+          (
+            backup_last_success_size_bytes
+            /
+            avg_over_time(backup_last_success_size_bytes[7d])
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup 檔案大小異常下降（{{ $value | humanizePercentage }} of 7d 平均）"
+          description: "可能 DB 資料異常被刪、pg_dump 跑到一半被截斷、或 schema 大幅變動。確認 DB row count 跟過去一致。"
+
+  # R41-3: Audit log table capacity alerts
+  # 對應 NICS 附表十「稽核儲存容量」要求；觸發後執行 backend/src/bin/audit_archive
+  # 詳見 docs/security/DATA_RETENTION_POLICY.md §6
+  - name: ipig_audit_capacity_alerts
+    rules:
+      # user_activity_logs row count > 5M → warning（執行 audit_archive 歸檔 >2 年舊紀錄）
+      - alert: AuditLogTableRowsWarning
+        expr: |
+          pg_stat_user_tables_n_live_tup{relname="user_activity_logs"} > 5000000
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "user_activity_logs row count {{ $value | humanize }} 超過 5M 閾值"
+          description: "稽核日誌表 row 數超過 5,000,000，建議執行 audit_archive 歸檔 >2 年舊紀錄。詳見 docs/security/DATA_RETENTION_POLICY.md §6。"
+
+      # user_activity_logs size > 5 GB → warning
+      - alert: AuditLogTableSizeWarning
+        expr: |
+          pg_relation_size_bytes{relname="user_activity_logs"} > 5e9
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "user_activity_logs 表大小 {{ $value | humanize1024 }}B 超過 5 GB 閾值"
+          description: "稽核日誌表大小超過 5 GB，建議執行 audit_archive 歸檔 >2 年舊紀錄。詳見 docs/security/DATA_RETENTION_POLICY.md §6。"
+
+      # user_activity_logs size > 10 GB → critical
+      - alert: AuditLogTableSizeCritical
+        expr: |
+          pg_relation_size_bytes{relname="user_activity_logs"} > 10e9
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "user_activity_logs 表大小 {{ $value | humanize1024 }}B 超過 10 GB"
+          description: "稽核日誌表已達 critical 閾值，必須立即執行 audit_archive 歸檔以避免查詢效能退化。"
+
+  # ====================================================================

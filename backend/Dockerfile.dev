@@ -1,0 +1,31 @@
+# R35-9: dev hot-reload image (cargo-watch + bind mount).
+#
+# 與 prod `Dockerfile` 不同：
+#   - 不 copy source（runtime 由 docker-compose.dev.yml bind mount）
+#   - 不做 release build（cargo-watch 跑 debug build 觸發 incremental compile）
+#   - 保留完整 toolchain（cargo / rustc）以便 in-container `cargo test` / `cargo check`
+#
+# 使用：
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up api
+FROM rust:1.97-bookworm
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    libbz2-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# cargo-watch 提供 file change → cargo run 自動重啟
+RUN cargo install --locked cargo-watch@8.5.3
+
+# .sqlx/ 已包含 query metadata，dev 容器內 sqlx::query!() 走 offline mode 不需連 DB compile-time
+ENV SQLX_OFFLINE=true
+ENV RUST_BACKTRACE=1
+
+EXPOSE 8000
+
+# Source 由 docker-compose.dev.yml bind mount 至 /app；target/ 走 named volume 避免污染 host
+CMD ["cargo", "watch", "-q", "-w", "src", "-w", "migrations", "-w", "Cargo.toml", "-w", "build.rs", "-x", "run --bin erp-backend"]

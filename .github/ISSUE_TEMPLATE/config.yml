@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用者操作手冊
+    url: https://github.com/delightening/ipig_system/blob/main/docs/user/USER_GUIDE.md
+    about: 查閱終端使用者操作手冊
+  - name: 技術文件總索引
+    url: https://github.com/delightening/ipig_system/blob/main/docs/README.md
+    about: 查閱架構、API、維運等技術文件
+  - name: 資安漏洞回報
+    url: https://github.com/delightening/ipig_system/security/advisories/new
+    about: 請勿公開回報資安漏洞，改用 GitHub Security Advisories 私下回報

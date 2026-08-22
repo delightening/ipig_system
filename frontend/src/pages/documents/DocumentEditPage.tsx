@@ -1,0 +1,539 @@
+import React from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import api from '@/lib/api'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Loader2, AlertTriangle } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { DocType } from '@/lib/api'
+import type { Document as ErpDocument } from '@/types/erp'
+import { DocumentFormHeader } from './components/DocumentFormHeader'
+import { DocumentPreview } from './components/DocumentPreview'
+import { DocumentLineEditor } from './components/DocumentLineEditor'
+import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components/inventory/WarehouseShelfTreeSelect'
+import { useDocumentForm } from './hooks/useDocumentForm'
+import { DOC_TYPE_NAMES } from './types'
+
+export type AdjMode = 'add' | 'modify'
+
+export function DocumentEditPage() {
+  const [searchParams] = useSearchParams()
+  const defaultType = (searchParams.get('type') as DocType) || ''
+  const [adjMode, setAdjMode] = React.useState<AdjMode>('modify')
+
+  const {
+    isEdit,
+    formData,
+    updateField,
+    productSearchOpen,
+    setProductSearchOpen,
+    productSearch,
+    setProductSearch,
+    showUnsavedDialog,
+    setShowUnsavedDialog,
+    confirmNavigation,
+    lineAmounts,
+    inputRefs,
+    loadingDocument,
+    loadingProtocols,
+    products,
+    activeProtocols,
+    filteredPartners,
+    needsPartner,
+    needsProtocol,
+    isTransfer,
+    totalAmount,
+    addLine,
+    removeLine,
+    selectProduct,
+    openProductSearch,
+    handleBatchChange,
+    handleLineBlur,
+    handleBack,
+    handleProtocolSelect,
+    handleIacucNoSelect,
+    updateLineAmount,
+    updateLineField,
+    saveMutation,
+    submitMutation,
+    setFormData,
+    showIacucWarning,
+    setShowIacucWarning,
+    iacucWarningData,
+    iacucDisabled,
+    needsShelf: needsShelf,
+    batchStorageLocationId,
+    batchStorageLocationFromId,
+    batchStorageLocationToId,
+    handleBatchShelfSelect,
+    handleBatchShelfSelectFrom,
+    handleBatchShelfSelectTo,
+    poReceiptStatus,
+    categoryCode,
+    setCategoryCode,
+  } = useDocumentForm({ defaultType })
+
+  const { data: allDocuments } = useQuery({
+    queryKey: ['documents', { doc_type: 'PO', status: 'approved' }],
+    queryFn: async () => {
+      const response = await api.get('/documents?doc_type=PO&status=approved')
+      return response.data || []
+    },
+    enabled: formData.doc_type === 'GRN',
+    staleTime: 60000,
+  })
+
+  const availableSourcePos = React.useMemo(() => {
+    if (!allDocuments || !formData.partner_id) return []
+    return (allDocuments as ErpDocument[]).filter((d) => d.partner_id === formData.partner_id)
+  }, [allDocuments, formData.partner_id])
+
+  const showTotalAmount = ['PO', 'GRN'].includes(formData.doc_type)
+
+  if (isEdit && loadingDocument) {
+    return <Skeleton variant="form" fields={6} />
+  }
+
+  return (
+    <div className="space-y-6">
+      <DocumentFormHeader
+        isEdit={isEdit}
+        docTypeName={formData.doc_type ? DOC_TYPE_NAMES[formData.doc_type] : ''}
+        onBack={handleBack}
+        onSave={() => saveMutation.mutate()}
+        onSubmit={() => submitMutation.mutate()}
+        isSaving={saveMutation.isPending}
+        isSubmitting={submitMutation.isPending}
+        hasLines={formData.lines.length > 0}
+      />
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>單據資訊</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>單據類型</Label>
+                <Select
+                  value={formData.doc_type || undefined}
+                  onValueChange={(v) => updateField('doc_type', v as DocType)}
+                  disabled={isEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="選擇類型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DOC_TYPE_NAMES)
+                      .map(([key, name]) => (
+                        <SelectItem key={key} value={key}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>單據日期</Label>
+                <Input
+                  type="date"
+                  value={formData.doc_date}
+                  onChange={(e) => updateField('doc_date', e.target.value)}
+                  disabled={!formData.doc_type}
+                />
+              </div>
+            </div>
+
+            {formData.doc_type && (
+              <>
+            {isTransfer ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>來源倉庫 *</Label>
+                  <WarehouseShelfTreeSelect
+                    value={formData.warehouse_from_id ? `wh:${formData.warehouse_from_id}` : ''}
+                    onValueChange={(v: WarehouseShelfValue) => {
+                      const id = v.startsWith('wh:') ? v.slice(3) : ''
+                      updateField('warehouse_from_id', id)
+                    }}
+                    selectLevel="warehouse"
+                    allowAll={false}
+                    className="w-full"
+                    placeholder="選擇來源倉庫"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>目標倉庫 *</Label>
+                  <WarehouseShelfTreeSelect
+                    value={formData.warehouse_to_id ? `wh:${formData.warehouse_to_id}` : ''}
+                    onValueChange={(v: WarehouseShelfValue) => {
+                      const id = v.startsWith('wh:') ? v.slice(3) : ''
+                      updateField('warehouse_to_id', id)
+                    }}
+                    selectLevel="warehouse"
+                    allowAll={false}
+                    className="w-full"
+                    placeholder="選擇目標倉庫"
+                  />
+                </div>
+                {formData.warehouse_from_id && (
+                  <div className="space-y-2">
+                    <Label>批次套用來源儲位 (選填)</Label>
+                    <WarehouseShelfTreeSelect
+                      value={batchStorageLocationFromId ? `loc:${batchStorageLocationFromId}` : ''}
+                      onValueChange={(v: WarehouseShelfValue) => {
+                        const shelfId = v.startsWith('loc:') ? v.slice(4) : ''
+                        handleBatchShelfSelectFrom(shelfId)
+                      }}
+                      selectLevel="shelf"
+                      parentId={formData.warehouse_from_id}
+                      allowAll={false}
+                      className="w-full"
+                      placeholder="選擇來源儲位"
+                    />
+                  </div>
+                )}
+                {formData.warehouse_to_id && (
+                  <div className="space-y-2">
+                    <Label>批次套用目標儲位 (選填)</Label>
+                    <WarehouseShelfTreeSelect
+                      value={batchStorageLocationToId ? `loc:${batchStorageLocationToId}` : ''}
+                      onValueChange={(v: WarehouseShelfValue) => {
+                        const shelfId = v.startsWith('loc:') ? v.slice(4) : ''
+                        handleBatchShelfSelectTo(shelfId)
+                      }}
+                      selectLevel="shelf"
+                      parentId={formData.warehouse_to_id}
+                      allowAll={false}
+                      className="w-full"
+                      placeholder="選擇目標儲位"
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  {/* SO 跨倉（#1004）：表頭倉庫僅為品項搜尋/批次套用的預設過濾，非必填；
+                      每行實際倉庫＝該行儲位所屬倉。其他單據仍必填。 */}
+                  <Label>{formData.doc_type === 'SO' ? '預設倉庫（選填）' : '倉庫 *'}</Label>
+                  <WarehouseShelfTreeSelect
+                    value={formData.warehouse_id ? `wh:${formData.warehouse_id}` : ''}
+                    onValueChange={(v: WarehouseShelfValue) => {
+                      const id = v.startsWith('wh:') ? v.slice(3) : ''
+                      updateField('warehouse_id', id)
+                    }}
+                    selectLevel="warehouse"
+                    allowAll={formData.doc_type === 'SO'}
+                    className="w-full"
+                    placeholder={formData.doc_type === 'SO' ? '全部倉庫（跨倉）' : '選擇倉庫'}
+                  />
+                </div>
+                {formData.warehouse_id && needsShelf && (
+                  <div className="space-y-2">
+                    <Label>批次套用儲位 (選填)</Label>
+                    <WarehouseShelfTreeSelect
+                      value={batchStorageLocationId ? `loc:${batchStorageLocationId}` : ''}
+                      onValueChange={(v: WarehouseShelfValue) => {
+                        const shelfId = v.startsWith('loc:') ? v.slice(4) : ''
+                        handleBatchShelfSelect(shelfId)
+                      }}
+                      selectLevel="shelf"
+                      parentId={formData.warehouse_id}
+                      allowAll={false}
+                      className="w-full"
+                      placeholder="選擇儲位"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 採購類：選擇供應商 */}
+            {needsPartner && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>供應商 *</Label>
+                  <Select
+                    value={formData.partner_id}
+                    onValueChange={(v) => {
+                      updateField('partner_id', v)
+                      if (formData.doc_type === 'GRN') {
+                        updateField('source_doc_id', '')
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="選擇供應商" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {!filteredPartners ? (
+                        <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          載入中...
+                        </div>
+                      ) : filteredPartners.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground text-center">
+                          無可用供應商
+                        </div>
+                      ) : (
+                        filteredPartners.map((partner) => (
+                          <SelectItem key={partner.id} value={partner.id}>
+                            {partner.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.doc_type === 'GRN' && (
+                  <div className="space-y-2">
+                    <Label>來源採購單 *</Label>
+                    <Select
+                      value={formData.source_doc_id || ''}
+                      onValueChange={(v) => updateField('source_doc_id', v)}
+                      disabled={!formData.partner_id}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={formData.partner_id ? "選擇採購單" : "請先選擇供應商"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSourcePos.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            無可用採購單
+                          </div>
+                        ) : (
+                          availableSourcePos.map((doc) => (
+                            <SelectItem key={doc.id} value={doc.id}>
+                              {doc.doc_no} ({doc.doc_date})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 銷貨類：直接選已核准計畫（計畫即客戶） */}
+            {needsProtocol && (
+              <div className="space-y-2">
+                <Label>銷貨計畫 *</Label>
+                <Select
+                  value={formData.protocol_id || ''}
+                  onValueChange={handleProtocolSelect}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="選擇計畫（已核准、未結案）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingProtocols ? (
+                      <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        載入中...
+                      </div>
+                    ) : activeProtocols && activeProtocols.length > 0 ? (
+                      activeProtocols.map((protocol) => (
+                        <SelectItem key={protocol.id} value={protocol.id}>
+                          {protocol.iacuc_no || protocol.protocol_no} - {protocol.title}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        無已核准之進行中計畫
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* 採購類：選填 IACUC 費用歸屬計畫 */}
+            {needsPartner && !iacucDisabled && (
+              <div className="space-y-2">
+                <Label>費用歸屬計畫 (選填)</Label>
+                <Select
+                  value={formData.protocol_no || ''}
+                  onValueChange={handleIacucNoSelect}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="選擇IACUC No." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingProtocols ? (
+                      <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        載入中...
+                      </div>
+                    ) : activeProtocols && activeProtocols.length > 0 ? (
+                      <>
+                        <SelectItem value="PUBLIC">
+                          --- 公用 (無特定計畫) ---
+                        </SelectItem>
+                        {activeProtocols.map((protocol) => (
+                          <SelectItem
+                            key={protocol.iacuc_no}
+                            value={protocol.iacuc_no || ''}
+                          >
+                            {protocol.iacuc_no} - {protocol.title}
+                          </SelectItem>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        無可用計畫
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {formData.doc_type === 'ADJ' && (
+              <div className="space-y-2">
+                <Label>調整模式</Label>
+                <Select value={adjMode} onValueChange={(v) => setAdjMode(v as AdjMode)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="modify">修改現有庫存</SelectItem>
+                    <SelectItem value="add">新增庫存品項</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>備註</Label>
+              <Input
+                value={formData.remark}
+                onChange={(e) => updateField('remark', e.target.value)}
+                placeholder="輸入備註..."
+              />
+            </div>
+            </>
+            )}
+          </CardContent>
+        </Card>
+
+        <DocumentPreview
+          formData={formData}
+          totalAmount={totalAmount}
+          showTotalAmount={showTotalAmount}
+        />
+      </div>
+
+      {formData.doc_type && (
+        <>
+          <DocumentLineEditor
+            formData={formData}
+            lineAmounts={lineAmounts}
+            inputRefs={inputRefs}
+            productSearchOpen={productSearchOpen}
+            setProductSearchOpen={setProductSearchOpen}
+            productSearch={productSearch}
+            setProductSearch={setProductSearch}
+            products={products}
+            addLine={addLine}
+            removeLine={removeLine}
+            selectProduct={selectProduct}
+            openProductSearch={openProductSearch}
+            handleBatchChange={handleBatchChange}
+            handleLineBlur={handleLineBlur}
+            updateLineAmount={updateLineAmount}
+            updateLineField={updateLineField}
+            setFormData={setFormData}
+            needsShelf={needsShelf}
+            poReceiptStatus={poReceiptStatus}
+            categoryCode={categoryCode}
+            setCategoryCode={setCategoryCode}
+            adjMode={formData.doc_type === 'ADJ' ? adjMode : undefined}
+            batchStorageLocationFromId={batchStorageLocationFromId}
+            batchStorageLocationId={batchStorageLocationId}
+          />
+        </>
+      )}
+
+      <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-status-warning-solid" />
+              尚有未儲存的變更
+            </DialogTitle>
+            <DialogDescription>
+              您有尚未儲存的變更，確定要離開嗎？離開後變更將會遺失。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUnsavedDialog(false)}>
+              繼續編輯
+            </Button>
+            <Button variant="destructive" onClick={confirmNavigation}>
+              放棄變更
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showIacucWarning} onOpenChange={setShowIacucWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-status-warning-solid" />
+              專屬採購計畫不符警告
+            </DialogTitle>
+            <DialogDescription>
+              此批次產品（批號：{iacucWarningData?.batch_no}）是專門為計畫{' '}
+              <span className="font-bold text-primary">
+                {iacucWarningData?.source_iacuc}
+              </span>{' '}
+              採購的。
+              <br />
+              <br />
+              您目前選擇的銷貨計畫為{' '}
+              <span className="font-bold text-destructive">
+                {formData.protocol_id
+                  ? activeProtocols?.find((p) => p.id === formData.protocol_id)?.iacuc_no
+                    || activeProtocols?.find((p) => p.id === formData.protocol_id)?.protocol_no
+                    || formData.protocol_id
+                  : '未指定'}
+              </span>
+              。確定要繼續使用此批次嗎？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowIacucWarning(false)}>
+              返回修改
+            </Button>
+            <Button onClick={() => setShowIacucWarning(false)}>
+              我了解，繼續使用
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

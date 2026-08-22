@@ -1,0 +1,126 @@
+import { useState } from 'react'
+import { uiLocale } from '@/lib/utils'
+import { GuestHide } from '@/components/ui/guest-hide'
+import { Can } from '@/components/auth'
+import { PERMISSIONS } from '@/lib/permissions.generated'
+import { AnimalSacrifice } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Plus, Edit2, Heart } from 'lucide-react'
+import { SacrificeFormDialog } from './SacrificeFormDialog'
+import { ByproductSamplesPanel } from './ByproductSamplesPanel'
+
+interface SacrificeTabProps {
+  animalId: string
+  earTag: string
+  sacrifice: AnimalSacrifice | undefined
+}
+
+export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps) {
+  const [showDialog, setShowDialog] = useState(false)
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>犧牲/採樣紀錄</CardTitle>
+            <CardDescription>記錄實驗結束後的犧牲與採樣資訊</CardDescription>
+          </div>
+          <GuestHide>
+            <Can permission={PERMISSIONS.ANIMAL_RECORD_CREATE}>
+              <Button
+                className="bg-status-purple-solid hover:bg-status-purple-solid/90 text-white shrink-0"
+                onClick={() => setShowDialog(true)}
+              >
+                {sacrifice ? (
+                  <>
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    編輯
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    建立紀錄
+                  </>
+                )}
+              </Button>
+            </Can>
+          </GuestHide>
+        </CardHeader>
+        <CardContent>
+          {!sacrifice ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Heart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p>尚無犧牲/採樣紀錄</p>
+              <p className="text-sm mt-1">點擊上方按鈕新增</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">犧牲日期</Label>
+                  <p className="font-medium">
+                    {sacrifice.sacrifice_date
+                      ? new Date(sacrifice.sacrifice_date).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })
+                      : '-'
+                    }
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">確定犧牲</Label>
+                  <p className="font-medium">
+                    {sacrifice.confirmed_sacrifice ? (
+                      <Badge className="bg-status-error-bg text-status-error-text">已確認</Badge>
+                    ) : '否'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Zoletil-50 (ml)</Label>
+                  <p className="font-medium">{sacrifice.zoletil_dose || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">200V電擊</Label>
+                  <p className="font-medium">{sacrifice.method_electrocution ? '是' : '否'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">放血</Label>
+                  <p className="font-medium">{sacrifice.method_bloodletting ? '是' : '否'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">其他方式</Label>
+                  <p className="font-medium">{sacrifice.method_other || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">採樣</Label>
+                  <p className="font-medium">{sacrifice.sampling || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">血液採樣 (ml)</Label>
+                  <p className="font-medium">{sacrifice.blood_volume_ml || '-'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* R53-5 廢棄物再利用紀錄（byproduct samples）— 僅 view 權限可見 */}
+      <ByproductSamplesPanel
+        animalId={animalId}
+        earTag={earTag}
+        animalSacrificed={Boolean(sacrifice?.confirmed_sacrifice)}
+      />
+
+      <SacrificeFormDialog
+        open={showDialog}
+        onOpenChange={setShowDialog}
+        animalId={animalId}
+        earTag={earTag}
+        sacrifice={sacrifice || undefined}
+      />
+    </>
+  )
+}

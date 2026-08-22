@@ -1,0 +1,157 @@
+/* iPig PDF 共用樣式 — Gotenberg (Chromium) 渲染 */
+
+/* 頁面設定 */
+@page {
+    size: A4;
+    margin: 15mm 20mm;
+}
+
+/* 全域字型與基礎 */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", "Heiti TC", sans-serif;
+    font-size: 10pt;
+    line-height: 1.5;
+    color: #000;
+}
+
+/* 頁首 */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9pt;
+    margin-bottom: 8mm;
+}
+
+.page-header .company-name {
+    font-weight: bold;
+    font-size: 11pt;
+}
+
+/* 文件標題 */
+.doc-title {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: bold;
+    margin-bottom: 6mm;
+}
+
+/* 表格基礎樣式 */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4mm;
+}
+
+th, td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    vertical-align: top;
+    font-size: 10pt;
+}
+
+th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* 資訊表格（key-value） */
+table.info-table td:first-child {
+    font-weight: bold;
+    width: 100px;
+    white-space: nowrap;
+}
+
+/* 分頁控制 */
+.page-break {
+    page-break-before: always;
+}
+
+.no-break {
+    page-break-inside: avoid;
+}
+
+/* 長表格分頁：允許跨頁，但每行不拆 */
+table.long-data {
+    page-break-inside: auto;
+}
+
+table.long-data tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+}
+
+/* 頁尾版權 */
+.copyright {
+    text-align: center;
+    font-size: 8pt;
+    margin-top: 8mm;
+    padding-top: 4mm;
+    border-top: 1px solid #000;
+}
+
+/* 勾選框 */
+.checkbox {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 1px solid #000;
+    vertical-align: middle;
+    margin-right: 4px;
+    text-align: center;
+    line-height: 12px;
+    font-size: 10px;
+}
+
+.checkbox.checked::after {
+    content: "✓";
+    font-weight: bold;
+}
+
+/* 狀態圓點（欄位巡視用） */
+.circle-empty {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 1px solid #000;
+    border-radius: 50%;
+}
+
+.circle-filled {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background: #000;
+    border-radius: 50%;
+}
+
+/* 簽章區域 */
+.signature-line {
+    display: inline-block;
+    width: 150px;
+    border-bottom: 1px solid #000;
+    margin: 0 8px;
+}
+
+/* 區段標題 */
+.section-title {
+    font-weight: bold;
+    font-size: 11pt;
+    border-bottom: 2px solid #000;
+    margin-bottom: 3mm;
+    padding-bottom: 1mm;
+}
+
+.subsection-title {
+    font-weight: bold;
+    font-size: 10pt;
+    margin-bottom: 2mm;
+    margin-top: 4mm;
+}

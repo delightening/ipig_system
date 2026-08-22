@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{#
+  IACUC 審查同意書（PIG-XXXXXX）— 單頁簡易版。
+  非 GLP 受控文件編號（不入 AD-XX-XX-XXX 體系）；
+  context schema: schemas/pig_approval.py::PigApprovalPayload
+#}
+
+{% block page_top_left %}"豬博士動物科技股份有限公司"{% endblock %}
+
+{% block extra_styles %}
+  body { font-size: 12pt; line-height: 1.7; }
+
+  h1.doc-title {
+    font-size: 20pt;
+    text-align: center;
+    letter-spacing: 6pt;
+    margin: 8pt 0 4pt 0;
+  }
+  .subtitle-en {
+    text-align: center;
+    font-size: 11pt;
+    color: #333;
+    margin-bottom: 14pt;
+    line-height: 1.5;
+  }
+  .declaration { margin: 14pt 0; }
+  .declaration .en { font-size: 10pt; color: #444; margin-top: 2pt; }
+
+  table.approval { width: 100%; border-collapse: collapse; margin: 10pt 0 14pt; }
+  table.approval th, table.approval td {
+    border: 0.75pt solid #000;
+    padding: 6pt 8pt;
+    font-size: 11pt;
+    vertical-align: top;
+  }
+  table.approval th {
+    background: #f0f0f0;
+    width: 28%;
+    font-weight: normal;
+    text-align: left;
+  }
+  table.approval td .en { display: block; font-size: 9.5pt; color: #444; margin-top: 1pt; }
+
+  .signature-row {
+    display: table;
+    width: 100%;
+    margin-top: 60pt;
+    border-spacing: 30pt 0;
+  }
+  .signature-row .cell {
+    display: table-cell;
+    width: 50%;
+    text-align: center;
+    font-size: 11pt;
+    vertical-align: top;
+  }
+  .signature-row .cell .role { font-weight: bold; }
+  .signature-row .cell .role .en { display: block; font-size: 9.5pt; color: #555; }
+  .signature-row .cell .line {
+    margin-top: 50pt;
+    border-top: 0.75pt solid #000;
+    padding-top: 4pt;
+  }
+{% endblock %}
+
+{% block content %}
+  <p style="font-size: 10pt; color: #555;">
+    計畫審核通過日期：{{ approval_date }}
+    <br>鑒請召集人簽核。
+  </p>
+
+  <h1 class="doc-title">實驗動物照護及使用小組審查同意書</h1>
+  <div class="subtitle-en">
+    Affidavit of Approval of Animal Use Protocol<br>
+    IACUC of Pigmodel Animal Technology Co., Ltd.
+  </div>
+
+  <div class="declaration">
+    該「動物實驗申請表」業經實驗動物照護及使用小組審查通過。
+    <div class="en">
+      The animal use protocol has been reviewed and approved by the
+      Institutional Animal Care and Use Committee (IACUC) of
+      Pigmodel Animal Technology Co., Ltd.
+    </div>
+  </div>
+
+  <p><strong>同意飼養應用之動物如下 (Approved Content)：</strong></p>
+
+  <table class="approval">
+    <tr>
+      <th>同意書編號<span class="en">(Approval No)</span></th>
+      <td>{{ approval_no }}</td>
+    </tr>
+    <tr>
+      <th>計畫主持人<span class="en">(PI)</span></th>
+      <td>{{ pi_name }}</td>
+    </tr>
+    <tr>
+      <th>委託單位<span class="en">(Sponsor)</span></th>
+      <td>{{ sponsor }}</td>
+    </tr>
+    <tr>
+      <th>研究名稱<span class="en">(Study Title)</span></th>
+      <td>
+        {{ study_title_zh }}
+        {% if study_title_en %}<span class="en">{{ study_title_en }}</span>{% endif %}
+      </td>
+    </tr>
+    <tr>
+      <th>飼養/應用地點<span class="en">(Housing/Experimental Institute)</span></th>
+      <td>{{ housing_location }}</td>
+    </tr>
+  </table>
+
+  <table class="approval">
+    <thead>
+      <tr>
+        <th style="background:#d8d8d8;text-align:center;">動物種別<br><span style="font-size:9pt;font-weight:normal;">(Species)</span></th>
+        <th style="background:#d8d8d8;text-align:center;width:22%">動物數量<br><span style="font-size:9pt;font-weight:normal;">(Amount)</span></th>
+        <th style="background:#d8d8d8;text-align:center;width:36%">計畫執行期間<br><span style="font-size:9pt;font-weight:normal;">(Period of Protocol)</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if animals %}
+        {% for a in animals %}
+          <tr>
+            <td style="text-align:center;">{{ a.species }}</td>
+            <td style="text-align:center;">{{ a.amount }}</td>
+            <td style="text-align:center;">{{ a.period_from }} - {{ a.period_to }}</td>
+          </tr>
+        {% endfor %}
+      {% else %}
+        <tr><td colspan="3" style="text-align:center;color:#888;">（無資料）</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <div class="signature-row">
+    <div class="cell">
+      <div class="role">
+        實驗動物照護及使用小組召集人
+        <span class="en">(Chair of IACUC)</span>
+      </div>
+      <div class="line">{{ chair_name }}</div>
+    </div>
+    <div class="cell">
+      <div class="role">
+        日期
+        <span class="en">(Date)</span>
+      </div>
+      <div class="line">{{ approval_date }}</div>
+    </div>
+  </div>
+{% endblock %}

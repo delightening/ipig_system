@@ -1,0 +1,462 @@
+//! 動物欄位修正申請服務
+//! 耳號、出生日期、性別、品種等欄位需經 admin 批准後才能修改
+
+use chrono::NaiveDate;
+use sqlx::{PgPool, Postgres, Transaction};
+use uuid::Uuid;
+use validator::Validate;
+
+use super::AnimalService;
+use crate::{
+    middleware::ActorContext,
+    models::{
+        audit_diff::DataDiff, Animal, AnimalBreed, AnimalFieldCorrectionRequestListItem,
+        AnimalGender, CreateAnimalFieldCorrectionRequest, ReviewAnimalFieldCorrectionRequest,
+        CORRECTABLE_FIELDS,
+    },
+    services::{
+        audit::{ActivityLogEntry, AuditEntity},
+        AuditService,
+    },
+    AppError, Result,
+};
+
+/// 動物欄位修正申請服務
+pub struct AnimalFieldCorrectionService;
+
+impl AnimalFieldCorrectionService {
+    /// 建立修正申請（staff 可呼叫）
+    pub async fn create_request(
+        pool: &PgPool,
+        animal_id: Uuid,
+        req: &CreateAnimalFieldCorrectionRequest,
+        requested_by: Uuid,
+    ) -> Result<Uuid> {
+        req.validate()?;
+
+        let field = req.field_name.as_str();
+        if !CORRECTABLE_FIELDS.contains(&field) {
+            return Err(AppError::Validation(format!(
+                "欄位 {} 不可申請修正，僅支援：{}",
+                field,
+                CORRECTABLE_FIELDS.join(", ")
+            )));
+        }
+
+        // 取得動物現有資料
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+
+        let old_value = match field {
+            "ear_tag" => Some(animal.ear_tag.clone()),
+            "birth_date" => animal.birth_date.map(|d| d.to_string()),
+            "gender" => Some(format!("{:?}", animal.gender).to_lowercase()),
+            "breed" => Some(Self::breed_to_db_value(&animal.breed)),
+            _ => None,
+        };
+
+        // 驗證 new_value 格式
+        Self::validate_new_value(field, &req.new_value)?;
+
+        let id = Uuid::new_v4();
+        sqlx::query(
+            r#"
+            INSERT INTO animal_field_correction_requests
+                (id, animal_id, field_name, old_value, new_value, reason, status, requested_by)
+            VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)
+            "#,
+        )
+        .bind(id)
+        .bind(animal_id)
+        .bind(field)
+        .bind(&old_value)
+        .bind(&req.new_value)
+        .bind(&req.reason)
+        .bind(requested_by)
+        .execute(pool)
+        .await?;
+
+        Ok(id)
+    }
+
+    fn breed_to_db_value(breed: &AnimalBreed) -> String {
+        match breed {
+            AnimalBreed::Minipig => "miniature".to_string(),
+            AnimalBreed::White => "white".to_string(),
+            AnimalBreed::LYD => "LYD".to_string(),
+            AnimalBreed::Other => "other".to_string(),
+        }
+    }
+
+    fn format_ear_tag(ear_tag: &str) -> String {
+        if let Ok(num) = ear_tag.parse::<u32>() {
+            if num < 100 {
+                return format!("{:03}", num);
+            }
+        }
+        ear_tag.to_string()
+    }
+
+    fn validate_new_value(field: &str, new_value: &str) -> Result<()> {
+        match field {
+            "ear_tag" => {
+                let formatted = Self::format_ear_tag(new_value);
+                if formatted.len() != 3 || !formatted.chars().all(|c| c.is_ascii_digit()) {
+                    return Err(AppError::Validation("耳號必須為三位數".to_string()));
+                }
+            }
+            "birth_date" => {
+                NaiveDate::parse_from_str(new_value, "%Y-%m-%d")
+                    .map_err(|_| AppError::Validation("出生日期格式須為 YYYY-MM-DD".to_string()))?;
+            }
+            "gender" if new_value != "male" && new_value != "female" => {
+                return Err(AppError::Validation("性別須為 male 或 female".to_string()));
+            }
+            "breed" => {
+                let valid = ["miniature", "minipig", "white", "LYD", "lyd", "other"];
+                if !valid.contains(&new_value) {
+                    return Err(AppError::Validation(
+                        "品種須為 minipig/miniature, white, LYD, other 之一".to_string(),
+                    ));
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// 列出待審核的修正申請（admin 用）
+    pub async fn list_pending(pool: &PgPool) -> Result<Vec<AnimalFieldCorrectionRequestListItem>> {
+        let rows = sqlx::query_as::<_, AnimalFieldCorrectionRequestListItem>(
+            r#"
+            SELECT
+                r.id, r.animal_id, r.field_name, r.old_value, r.new_value, r.reason, r.status,
+                r.requested_by, u.display_name as requested_by_name,
+                r.reviewed_by, r.reviewed_at, r.created_at,
+                a.ear_tag as animal_ear_tag
+            FROM animal_field_correction_requests r
+            JOIN animals a ON a.id = r.animal_id AND a.deleted_at IS NULL
+            LEFT JOIN users u ON u.id = r.requested_by
+            WHERE r.status = 'pending'
+            ORDER BY r.created_at ASC
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    /// 審核修正申請（核准/拒絕）。
+    ///
+    /// R71-1：收歸單一交易（悲觀鎖）以補齊三軸：
+    /// - `FOR UPDATE` 鎖申請列並重驗 pending（防兩個並發 approve 重複套用）
+    /// - 核准時「改動物欄位 + 標記申請」同一 tx（原子，解狀態漂移）
+    /// - `log_activity_tx` 記動物 before/after `DataDiff`（補稽核軌跡）
+    pub async fn review(
+        pool: &PgPool,
+        actor: &ActorContext,
+        request_id: Uuid,
+        req: &ReviewAnimalFieldCorrectionRequest,
+    ) -> Result<()> {
+        let user = actor.require_user()?;
+        let reviewed_by = user.id;
+
+        let mut tx = pool.begin().await?;
+
+        // 鎖申請列並重驗 pending（同一 tx 可見性，防並發重複核准）
+        let row: Option<(Uuid, String, String)> = sqlx::query_as(
+            r#"
+            SELECT animal_id, field_name, new_value
+            FROM animal_field_correction_requests
+            WHERE id = $1 AND status = 'pending'
+            FOR UPDATE
+            "#,
+        )
+        .bind(request_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        let (animal_id, field_name, new_value) =
+            row.ok_or_else(|| AppError::NotFound("找不到待審核的修正申請".to_string()))?;
+
+        if req.approved {
+            // 鎖動物列並取 before 快照
+            let before: Animal = sqlx::query_as(
+                "SELECT * FROM animals WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+            )
+            .bind(animal_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
+
+            // 套用修正（同一 tx）
+            Self::apply_correction(&mut tx, animal_id, &field_name, &new_value).await?;
+
+            // after 快照（同一 tx 可見已套用的變更）
+            let after: Animal = sqlx::query_as("SELECT * FROM animals WHERE id = $1")
+                .bind(animal_id)
+                .fetch_one(&mut *tx)
+                .await?;
+
+            // 標記申請已核准
+            sqlx::query(
+                r#"
+                UPDATE animal_field_correction_requests
+                SET status = 'approved', reviewed_by = $2, reviewed_at = NOW(), updated_at = NOW()
+                WHERE id = $1 AND status = 'pending'
+                "#,
+            )
+            .bind(request_id)
+            .bind(reviewed_by)
+            .execute(&mut *tx)
+            .await?;
+
+            // 稽核：記動物身分欄位 before/after diff（同一 tx，與資料變更原子）
+            AuditService::log_activity_tx(
+                &mut tx,
+                actor,
+                ActivityLogEntry {
+                    event_category: "ANIMAL",
+                    event_type: "FIELD_CORRECTION_APPROVE",
+                    entity: Some(AuditEntity::new("animal", animal_id, &after.ear_tag)),
+                    data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                    request_context: None,
+                },
+            )
+            .await?;
+        } else {
+            let reject_reason = req.reject_reason.as_deref().unwrap_or("未提供拒絕原因");
+
+            sqlx::query(
+                r#"
+                UPDATE animal_field_correction_requests
+                SET status = 'rejected', reviewed_by = $2, reviewed_at = NOW(),
+                    reason = COALESCE(reason, '') || E'\n[拒絕原因] ' || $3, updated_at = NOW()
+                WHERE id = $1 AND status = 'pending'
+                "#,
+            )
+            .bind(request_id)
+            .bind(reviewed_by)
+            .bind(reject_reason)
+            .execute(&mut *tx)
+            .await?;
+
+            // 稽核：拒絕不改動物，記在申請 entity 上
+            AuditService::log_activity_tx(
+                &mut tx,
+                actor,
+                ActivityLogEntry {
+                    event_category: "ANIMAL",
+                    event_type: "FIELD_CORRECTION_REJECT",
+                    entity: Some(AuditEntity::new(
+                        "animal_field_correction_request",
+                        request_id,
+                        &field_name,
+                    )),
+                    data_diff: None,
+                    request_context: None,
+                },
+            )
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn apply_correction(
+        tx: &mut Transaction<'_, Postgres>,
+        animal_id: Uuid,
+        field_name: &str,
+        new_value: &str,
+    ) -> Result<()> {
+        match field_name {
+            "ear_tag" => {
+                let formatted = Self::format_ear_tag(new_value);
+                sqlx::query("UPDATE animals SET ear_tag = $2, updated_at = NOW() WHERE id = $1")
+                    .bind(animal_id)
+                    .bind(&formatted)
+                    .execute(&mut **tx)
+                    .await?;
+            }
+            "birth_date" => {
+                let d = NaiveDate::parse_from_str(new_value, "%Y-%m-%d")
+                    .map_err(|_| AppError::Validation("日期格式錯誤".to_string()))?;
+                sqlx::query("UPDATE animals SET birth_date = $2, updated_at = NOW() WHERE id = $1")
+                    .bind(animal_id)
+                    .bind(d)
+                    .execute(&mut **tx)
+                    .await?;
+            }
+            "gender" => {
+                let gender: AnimalGender = match new_value {
+                    "male" => AnimalGender::Male,
+                    "female" => AnimalGender::Female,
+                    _ => return Err(AppError::Validation("性別值無效".to_string())),
+                };
+                sqlx::query("UPDATE animals SET gender = $2::animal_gender, updated_at = NOW() WHERE id = $1")
+                    .bind(animal_id)
+                    .bind(gender)
+                    .execute(&mut **tx)
+                    .await?;
+            }
+            "breed" => {
+                let breed_str = match new_value {
+                    "minipig" | "miniature" => "miniature",
+                    "white" => "white",
+                    "lyd" | "LYD" => "LYD",
+                    "other" => "other",
+                    _ => return Err(AppError::Validation("品種值無效".to_string())),
+                };
+                sqlx::query(
+                    "UPDATE animals SET breed = $2::animal_breed, updated_at = NOW() WHERE id = $1",
+                )
+                .bind(animal_id)
+                .bind(breed_str)
+                .execute(&mut **tx)
+                .await?;
+            }
+            _ => return Err(AppError::Validation("不支援的欄位".to_string())),
+        }
+        Ok(())
+    }
+
+    /// 取得某動物的修正申請列表
+    pub async fn list_by_animal(
+        pool: &PgPool,
+        animal_id: Uuid,
+    ) -> Result<Vec<AnimalFieldCorrectionRequestListItem>> {
+        let rows = sqlx::query_as::<_, AnimalFieldCorrectionRequestListItem>(
+            r#"
+            SELECT
+                r.id, r.animal_id, r.field_name, r.old_value, r.new_value, r.reason, r.status,
+                r.requested_by, u.display_name as requested_by_name,
+                r.reviewed_by, r.reviewed_at, r.created_at,
+                a.ear_tag as animal_ear_tag
+            FROM animal_field_correction_requests r
+            JOIN animals a ON a.id = r.animal_id AND a.deleted_at IS NULL
+            LEFT JOIN users u ON u.id = r.requested_by
+            WHERE r.animal_id = $1
+            ORDER BY r.created_at DESC
+            "#,
+        )
+        .bind(animal_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── validate_new_value: ear_tag ──
+
+    #[test]
+    fn test_ear_tag_valid_three_digits() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "001").is_ok());
+    }
+
+    #[test]
+    fn test_ear_tag_valid_single_digit_padded() {
+        // "5" → format_ear_tag → "005" → 3 digits OK
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "5").is_ok());
+    }
+
+    #[test]
+    fn test_ear_tag_valid_99() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "99").is_ok());
+    }
+
+    #[test]
+    fn test_ear_tag_three_digit_100() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "100").is_ok());
+    }
+
+    #[test]
+    fn test_ear_tag_rejects_non_numeric() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "abc").is_err());
+    }
+
+    #[test]
+    fn test_ear_tag_rejects_four_digits() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("ear_tag", "1000").is_err());
+    }
+
+    // ── validate_new_value: birth_date ──
+
+    #[test]
+    fn test_birth_date_valid() {
+        assert!(
+            AnimalFieldCorrectionService::validate_new_value("birth_date", "2025-01-15").is_ok()
+        );
+    }
+
+    #[test]
+    fn test_birth_date_invalid_format() {
+        assert!(
+            AnimalFieldCorrectionService::validate_new_value("birth_date", "01/15/2025").is_err()
+        );
+    }
+
+    #[test]
+    fn test_birth_date_invalid_date() {
+        assert!(
+            AnimalFieldCorrectionService::validate_new_value("birth_date", "2025-13-01").is_err()
+        );
+    }
+
+    // ── validate_new_value: gender ──
+
+    #[test]
+    fn test_gender_valid_male() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("gender", "male").is_ok());
+    }
+
+    #[test]
+    fn test_gender_valid_female() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("gender", "female").is_ok());
+    }
+
+    #[test]
+    fn test_gender_rejects_other() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("gender", "other").is_err());
+    }
+
+    #[test]
+    fn test_gender_rejects_uppercase() {
+        // 嚴格比對，不接受大寫
+        assert!(AnimalFieldCorrectionService::validate_new_value("gender", "Male").is_err());
+    }
+
+    // ── validate_new_value: breed ──
+
+    #[test]
+    fn test_breed_valid_miniature() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("breed", "miniature").is_ok());
+    }
+
+    #[test]
+    fn test_breed_valid_lyd_uppercase() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("breed", "LYD").is_ok());
+    }
+
+    #[test]
+    fn test_breed_valid_lyd_lowercase() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("breed", "lyd").is_ok());
+    }
+
+    #[test]
+    fn test_breed_rejects_unknown() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("breed", "Duroc").is_err());
+    }
+
+    // ── validate_new_value: unknown field passes ──
+
+    #[test]
+    fn test_unknown_field_always_ok() {
+        assert!(AnimalFieldCorrectionService::validate_new_value("remark", "anything").is_ok());
+    }
+}

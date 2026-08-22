@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{#
+  欄位狀態表（位置圖）— 對齊官方 xlsx 母檔 AD-05-01-02C。
+  ** 排版規則見 docs/VET_PATROL_LAYOUT_RULES.md（改字級/欄寬/列高/儲存格溢出處理前先讀）。**
+  spatial layout。
+
+  ## 怎麼維護
+
+  本 template 結構（cells / merges / col widths / 變數插槽）來自
+  `templates/vet_patrol_template.xlsx` 的 vet/QA 手調 layout。
+  `services/print-pdf/_tools/xlsx_to_html_vet_patrol.py` 是一次性的結構分析
+  工具，dump xlsx 給開發者看 merge 範圍 / col widths，**不是** runtime 依賴、
+  也**不是** 直接覆蓋 vet_patrol.html 的 codegen。本 template 已手動重構為
+  `{% for %}` loops 提升可讀性，所以 generator 重跑不會直接覆寫此檔。
+
+  ## xlsx 改了怎麼辦
+
+  vet/QA 在 xlsx 改了 merge cells / 加 pen / 改 col width → 開發者：
+  1. 重跑 generator (`python _tools/xlsx_to_html_vet_patrol.py`) 看差異
+  2. 比對 _tools/_grid.html 與本 template，手動把 delta 套到 `pen_rows` /
+     `c_rows` / `ab_rows` tuples 或 colspan/rowspan
+  3. render 後對比 reference PDF
+
+  Trade-off vs 舊 docxtpl runtime 讀 xlsx 架構：視覺 fidelity 高，但 xlsx
+  改動需 dev 端 rebuild + redeploy（非運維端即時生效）。R55-1 之後一併考慮
+  是否要 runtime 讀 xlsx 自動轉。
+
+  Context schema: schemas/vet_patrol.py::VetPatrolPayload
+    header.inspector_name / patrol_date / period (AM|PM)
+    pens: dict[pen_code, {ear_tags, status}]  pen_code e.g. "A01" / "D33" / "G06"
+    status: "○" (空/healthy) / "●" (在計畫中 / in_experiment)
+#}
+
+{% block page_top_left %}"文件編號 AD-05-01-02C"{% endblock %}
+{% block page_top_center %}"豬博士動物科技股份有限公司"{% endblock %}
+{% block page_top_right %}"頁次/總頁數 " counter(page) " of " counter(pages){% endblock %}
+
+{% block extra_styles %}
+  /* R66 pixel-match：嵌入真字型。數字/○●/A-G → Arial；中文標籤 → 標楷體(decompose 後 kaiu_flat)。
+     唯一 @font-face 名避開容器 fontconfig 的 Arial→Arimo / DFKai-SB→Noto alias 碰撞。 */
+  @font-face { font-family: "KaiEmbed"; src: url("file:///app/fonts/kaiu.ttf"); }
+  @font-face { font-family: "ArialEmbed"; font-weight: normal; font-style: normal; src: url("file:///app/fonts/arial.ttf"); }
+  @font-face { font-family: "ArialEmbed"; font-weight: bold;   font-style: normal; src: url("file:///app/fonts/arialbd.ttf"); }
+  @font-face { font-family: "ArialEmbed"; font-weight: normal; font-style: italic; src: url("file:///app/fonts/ariali.ttf"); }
+  @font-face { font-family: "ArialEmbed"; font-weight: bold;   font-style: italic; src: url("file:///app/fonts/arialbi.ttf"); }
+  @font-face { font-family: "TimesEmbed"; font-weight: normal; src: url("file:///app/fonts/times.ttf"); }
+  @font-face { font-family: "TimesEmbed"; font-weight: bold;   src: url("file:///app/fonts/timesbd.ttf"); }
+
+  @page {
+    /* 對齊 xlsx：A4直、L/R 0.7"≈18mm；上邊距讓 body 起點對齊 xlsx(0.75")、仍塞一頁 */
+    size: A4 portrait; margin: 1.7cm 1.8cm 1.2cm 1.8cm;
+    /* 頁眉頁尾 chrome 用真字型（覆寫 base.html @page 的 Noto） */
+    @top-left   { font-family: "KaiEmbed", "ArialEmbed", serif; }
+    @top-center { font-family: "KaiEmbed", "ArialEmbed", serif; }
+    @top-right  { font-family: "KaiEmbed", "ArialEmbed", serif; }
+    /* 版權改為內文（接在清單下方）→ 清空 base.html 的頁底版權，避免重複 */
+    @bottom-center { content: ""; }
+  }
+  /* 螢幕預覽對齊此模板較窄邊距（base.html @media screen 讀此變數） */
+  @media screen { body { --screen-page-padding: 1.4cm 1cm 1.6cm 1cm; } }
+  /* 預設西文/符號用 Arial，CJK per-glyph fallback 到標楷體 */
+  body { font-size: 10pt; font-family: "ArialEmbed", "KaiEmbed", serif; }
+
+  table.pen-grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin: 0;
+  }
+  /* row height 6.4mm 讓 39 rows × 18.14pt + footer 53pt ≈ 760pt 填滿 A4 content area 757pt */
+  table.pen-grid tr {
+    height: 6.0mm;
+  }
+  table.pen-grid td {
+    border: 0.4pt solid #000;
+    padding: 0;
+    text-align: center;
+    vertical-align: middle;
+    height: 6.0mm;
+    max-height: 6.0mm;
+    font-size: 12pt;
+    font-family: "ArialEmbed", "KaiEmbed", serif;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+  /* rowspan cell 的 max-height = rowspan × 6.4mm */
+  table.pen-grid td[rowspan="2"]  { max-height: 12.0mm; }
+  table.pen-grid td[rowspan="3"]  { max-height: 18.0mm; }
+  table.pen-grid td[rowspan="4"]  { max-height: 24.0mm; }
+  table.pen-grid td[rowspan="5"]  { max-height: 30.0mm; }
+  table.pen-grid td[rowspan="6"]  { max-height: 36.0mm; }
+  table.pen-grid td[rowspan="10"] { max-height: 60.0mm; }
+  table.pen-grid td[rowspan="15"] { max-height: 90.0mm; }
+  table.pen-grid td[rowspan="18"] { max-height: 108.0mm; }
+  table.pen-grid td[rowspan="25"] { max-height: 150.0mm; }
+
+  table.pen-grid td.tag-cell {
+    font-size: 12pt;
+    white-space: nowrap;   /* 不自動換行（820.821.822 一行）；<br> 仍保留 G/F 群組換行 */
+    line-height: 1;
+    overflow: hidden;
+    padding: 0 1.5px;      /* 留呼吸空間，文字不貼框 */
+  }
+  /* G 區 group cell — inner div 用 absolute positioning，從文檔流移除
+     → cell 在 layout 計算時「看不到」G 內容的高度，rowspan 不會撐高鄰列 */
+  table.pen-grid td[rowspan="3"][colspan="3"].tag-cell {
+    line-height: 1;
+    vertical-align: middle;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .g-inner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  /* span 包住 G 內容，避免 flex 把 <br> 拆成多個 flex item 平行分配寬度 */
+  .g-inner > span {
+    display: inline-block;
+    text-align: center;
+  }
+  table.pen-grid td.status-cell {
+    font-size: 25pt;     /* ○/● 圓圈放大 ~20px（Arial ○ 約 0.6em）*/
+    line-height: 0.62;   /* 壓低行框 ≤ 列高，避免大圓圈撐高列（td 忽略 max-height）*/
+    font-family: "ArialEmbed", "KaiEmbed", serif;
+    border: none;
+  }
+  /* F 區 status cell：強制 0.4pt 邊框（覆蓋 status-cell 的 border:none） */
+  table.pen-grid td.fzone {
+    border: 0.4pt solid #000;
+  }
+  /* Helper：抑制 specific cell 的單邊 border */
+  table.pen-grid td.no-right { border-right: none; }
+  table.pen-grid td.no-left { border-left: none; }
+  table.pen-grid td.no-bottom { border-bottom: none; }
+  /* Carrier cell：單一 rowspan/colspan cell 一次畫完一條長直線
+     避免多 cell 鄰格在 border-collapse 下分段重疊產生雙線視覺 */
+  table.pen-grid td.line-carrier-3sided {
+    background: #fff;
+    border-top: 0.4pt solid #000;
+    border-right: 0.4pt solid #000;
+    border-bottom-style: none;
+    border-left: 0.4pt solid #000;
+  }
+  table.pen-grid td.zone-label {
+    font-size: 14pt;
+    font-weight: bold;
+    font-family: "ArialEmbed", "KaiEmbed", serif;
+    letter-spacing: 1pt;
+    line-height: 1;
+  }
+  table.pen-grid td.header-label {
+    text-align: right;
+    font-size: 10pt;
+    padding-right: 4pt;
+    border: none;
+  }
+  table.pen-grid td.header-input {
+    text-align: left;
+    padding-left: 6pt;
+    border: none;
+    border-bottom: 0.4pt solid #000;
+  }
+  table.pen-grid td.ampm {
+    font-size: 9pt;
+    border: none;
+  }
+  table.pen-grid td.empty {
+    background: #fff;
+    border: none;
+  }
+  table.pen-grid td.footer {
+    text-align: left;
+    padding: 1.5mm 3mm;
+    font-size: 12pt;     /* 使用者指定 */
+    line-height: 1.4;
+    white-space: pre-line;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    border: none;
+  }
+  /* 清單前的 □ 方塊單獨放大（不動清單文字字級）*/
+  table.pen-grid td.footer .cb-box {
+    font-size: 20pt;         /* 使用者指定 */
+    line-height: 0;          /* 方塊放大但不撐高行（否則 footer 變高溢頁）*/
+    display: inline-block;
+    vertical-align: 0;       /* 使用者指定 */
+  }
+  /* 版權：接在清單下方的內文（取代頁底固定頁尾），對齊 expected 位置 */
+  .copyright {
+    text-align: center;
+    font-family: "TimesEmbed", "KaiEmbed", serif;
+    font-size: 9pt;        /* 使用者指定 */
+    font-weight: bold;     /* 使用者指定：版權粗體（英文用 timesbd、中文標楷體 faux-bold）*/
+    line-height: 1.35;
+    margin-top: 8pt;
+  }
+{% endblock %}
+
+{# DRY 抽 macro：避免 130+ 次重複 `pens.X if pens.X else '○'` #}
+{% macro pen_status(code) -%}{{ pens[code].status if pens[code] else '○' }}{%- endmacro %}
+
+{# pen_tags：耳號每 3 號自動換行（per-user G 區「760.763.766.773.759」要拆「760.763.766.<br>773.759」）。
+   每段 ear_tag 先 escape 再 join，避免 raw HTML 注入（gemini-bot PR #476）。 #}
+{% macro pen_tags(code) -%}
+{%- if pens[code] and pens[code].ear_tags -%}
+  {%- set parts = pens[code].ear_tags.split('.') | reject('equalto', '') | list -%}
+  {%- set lines = parts | batch(3) | map('join', '.') | list -%}
+  {#- 分隔字串標 |safe，否則 autoescape 下 join 會把 `<br>` 跳脫成 `&lt;br&gt;`
+     直接印在 PDF（各 ear_tag 段仍經 map('escape') 防注入，PR #476）。 -#}
+  {{ lines | map('escape') | join('.<br>' | safe) }}
+{%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+  {#- AM/PM 圈選由 header.period 決定（其餘維持 ○） -#}
+  {%- set am_mark = '●' if header.period == 'AM' else '○' -%}
+  {%- set pm_mark = '●' if header.period == 'PM' else '○' -%}
+
+
+  <table class="pen-grid">
+    <colgroup>
+      {# per-user 第五次調整：F 區移到 cols 12-14、F label 與 G label 都在 col 15 #}
+      <col style="width: 12.5%">    {# col 1: D/C/A 左 tag #}
+      <col style="width: 5.5%">     {# col 2: 左 status #}
+      <col style="width: 4.5%">     {# col 3: 走道 #}
+      <col style="width: 5.5%">     {# col 4: 右 status #}
+      <col style="width: 12.5%">    {# col 5: D/C/A 右 tag #}
+      <col style="width: 3.5%">     {# col 6: D / C label #}
+      <col style="width: 3.5%">     {# col 7: E label #}
+      <col style="width: 12.5%">    {# col 8: E 中央 tag / B 左 tag #}
+      <col style="width: 5.5%">     {# col 9: E / B 左 status #}
+      <col style="width: 4.5%">     {# col 10: 走道 #}
+      <col style="width: 5.5%">    {# col 11: G status #}
+      <col style="width: 7%">       {# col 12: F 區左 (F04/F01) #}
+      <col style="width: 7%">       {# col 13: F 區中 (F05/F02) #}
+      <col style="width: 7%">       {# col 14: F 區右 (F06/F03) #}
+      <col style="width: 3.5%">     {# col 15: F/G label #}
+    </colgroup>
+    <tbody>
+      <tr>
+        <td class="tag-cell">{{ pen_tags('D18') }}</td>
+        <td class="status-cell">{{ pen_status('D18') }}</td>
+        <td class="empty"></td>
+        <td colspan="2" class="header-label">巡視人:</td>
+        <td colspan="3" class="header-input">{{ header.inspector_name }}</td>
+        <td class="status-cell">{{ am_mark }}</td>
+        <td class="ampm">AM</td>
+        <td rowspan="3" class="status-cell">{{ pen_status('G06') }}</td>
+        <td rowspan="3" colspan="3" class="tag-cell"><div class="g-inner"><span>{{ pen_tags('G06') }}</span></div></td>
+        <td rowspan="18" class="zone-label">G</td>
+      </tr>
+      <tr>
+        <td class="tag-cell">{{ pen_tags('D17') }}</td>
+        <td class="status-cell">{{ pen_status('D17') }}</td>
+        <td class="empty"></td>
+        <td colspan="2" class="header-label">巡視日期:</td>
+        <td colspan="3" class="header-input">{{ header.patrol_date }}</td>
+        <td class="status-cell">{{ pm_mark }}</td>
+        <td class="ampm">PM</td>
+      </tr>
+      <tr>
+        <td class="tag-cell">{{ pen_tags('D16') }}</td>
+        <td class="status-cell">{{ pen_status('D16') }}</td>
+        <td class="empty"></td>
+        <td class="empty"></td>
+        <td class="empty"></td>
+        <td class="empty"></td>
+        <td class="empty"></td>
+        <td class="empty"></td>
+        <td class="empty"></td>
+        <td class="empty"></td>
+      </tr>
+      {#- D zone 主體 + 偶數列起 G zone group cells -#}
+      {%- set pen_rows = [
+        ('D15', 'D33', 'E25', 'G05', 3),
+        ('D14', 'D32', 'E24', None, 0),
+        ('D13', 'D31', 'E23', None, 0),
+        ('D12', 'D30', 'E22', 'G04', 3),
+        ('D11', 'D29', 'E21', None, 0),
+        ('D10', 'D28', 'E20', None, 0),
+        ('D09', 'D27', 'E19', 'G03', 3),
+        ('D08', 'D26', 'E18', None, 0),
+        ('D07', 'D25', 'E17', None, 0),
+        ('D06', 'D24', 'E16', 'G02', 3),
+        ('D05', 'D23', 'E15', None, 0),
+        ('D04', 'D22', 'E14', None, 0),
+        ('D03', 'D21', 'E13', 'G01', 3),
+        ('D02', 'D20', 'E12', None, 0),
+        ('D01', 'D19', 'E11', None, 0),
+      ] -%}
+      {%- for row in pen_rows %}
+        {%- set d_left, d_right, e_pen, g_pen, g_rowspan = row %}
+      <tr>
+        <td class="tag-cell">{{ pen_tags(d_left) }}</td>
+        <td class="status-cell">{{ pen_status(d_left) }}</td>
+        <td class="empty"></td>
+        <td class="status-cell">{{ pen_status(d_right) }}</td>
+        <td class="tag-cell">{{ pen_tags(d_right) }}</td>
+        {%- if loop.first %}
+        <td rowspan="15" class="zone-label">D</td>
+        <td rowspan="25" class="zone-label no-bottom">E</td>
+        {%- endif %}
+        <td class="tag-cell">{{ pen_tags(e_pen) }}</td>
+        <td class="status-cell">{{ pen_status(e_pen) }}</td>
+        <td class="empty"></td>
+        {%- if g_pen %}
+        <td rowspan="{{ g_rowspan }}" class="status-cell">{{ pen_status(g_pen) }}</td>
+        <td rowspan="{{ g_rowspan }}" colspan="3" class="tag-cell"><div class="g-inner"><span>{{ pen_tags(g_pen) }}</span></div></td>
+        {%- endif %}
+      </tr>
+      {%- endfor %}
+      {#- C zone rows 19-28，row 19 起 F zone 在右側交織 -#}
+      {%- set c_rows = [
+        ('C10', 'C20', 'E10'),
+        ('C09', 'C19', 'E09'),
+        ('C08', 'C18', 'E08'),
+        ('C07', 'C17', 'E07'),
+        ('C06', 'C16', 'E06'),
+        ('C05', 'C15', 'E05'),
+        ('C04', 'C14', 'E04'),
+        ('C03', 'C13', 'E03'),
+        ('C02', 'C12', 'E02'),
+        ('C01', 'C11', 'E01'),
+      ] -%}
+      {%- for row in c_rows %}
+        {%- set c_left, c_right, e_pen = row %}
+      <tr>
+        <td class="tag-cell">{{ pen_tags(c_left) }}</td>
+        <td class="status-cell">{{ pen_status(c_left) }}</td>
+        <td class="empty"></td>
+        <td class="status-cell">{{ pen_status(c_right) }}</td>
+        <td class="tag-cell">{{ pen_tags(c_right) }}</td>
+        {%- if loop.first %}
+        <td rowspan="10" class="zone-label no-bottom">C</td>
+        {%- endif %}
+        <td class="tag-cell">{{ pen_tags(e_pen) }}</td>
+        <td class="status-cell">{{ pen_status(e_pen) }}</td>
+        <td class="empty"></td>
+        {#- F zone interleave：row 19-24 為 F zone 主體，row 25-28 空白 -#}
+        {%- if loop.index == 1 %}
+        {#- row 19: F zone 起始
+           - col 11: rowspan=6 empty placeholder (F box 左邊 aisle)
+           - col 12-14: F04/F05/F06 ear_tag (rowspan=2)
+           - col 15: F label rowspan=6 — 與 G label 同欄 (col 15) -#}
+        <td rowspan="6" class="empty"></td>
+        <td rowspan="2" class="tag-cell">{{ pen_tags('F04') }}</td>
+        <td rowspan="2" class="tag-cell">{{ pen_tags('F05') }}</td>
+        <td rowspan="2" class="tag-cell">{{ pen_tags('F06') }}</td>
+        <td rowspan="6" class="zone-label">F</td>
+        {%- elif loop.index == 2 %}
+        {#- row 20: 全部 cells 都被 row 19 rowspan 占用，輸出 0 cell -#}
+        {%- elif loop.index == 3 %}
+        {#- row 21: F04-06 status（col 10 carrier 還在 rowspan，不輸出 col 10） -#}
+        <td class="status-cell fzone">{{ pen_status('F04') }}</td>
+        <td class="status-cell fzone">{{ pen_status('F05') }}</td>
+        <td class="status-cell fzone">{{ pen_status('F06') }}</td>
+        {%- elif loop.index == 4 %}
+        {#- row 22: F01-03 ear_tags rowspan=2（col 10 carrier 還在 rowspan） -#}
+        <td rowspan="2" class="tag-cell">{{ pen_tags('F01') }}</td>
+        <td rowspan="2" class="tag-cell">{{ pen_tags('F02') }}</td>
+        <td rowspan="2" class="tag-cell">{{ pen_tags('F03') }}</td>
+        {%- elif loop.index == 5 %}
+        {#- row 23: cols 12-14 spanned by F01-03，col 10 carrier 仍 rowspan，0 cell -#}
+        {%- elif loop.index == 6 %}
+        {#- row 24: F01-03 status（col 10 carrier 最後一列） -#}
+        <td class="status-cell fzone">{{ pen_status('F01') }}</td>
+        <td class="status-cell fzone">{{ pen_status('F02') }}</td>
+        <td class="status-cell fzone">{{ pen_status('F03') }}</td>
+        {%- elif loop.index == 7 %}
+        {#- row 25: col 11 empty + F-to-B box (cols 12-14 rowspan=4) + col 15 empty -#}
+        <td class="empty"></td>
+        <td rowspan="4" colspan="3"></td>
+        <td class="empty"></td>
+        {%- else %}
+        {#- row 26-28: col 11 empty + col 15 empty (cols 12-14 covered by F-to-B box) -#}
+        <td class="empty"></td>
+        <td class="empty"></td>
+        {%- endif %}
+      </tr>
+      {%- endfor %}
+      {#- A/B zone rows 29-38 -#}
+      {%- set ab_rows = [
+        ('A10', 'A20', 'B10', 'B20'),
+        ('A09', 'A19', 'B09', 'B19'),
+        ('A08', 'A18', 'B08', 'B18'),
+        ('A07', 'A17', 'B07', 'B17'),
+        ('A06', 'A16', 'B06', 'B16'),
+        ('A05', 'A15', 'B05', 'B15'),
+        ('A04', 'A14', 'B04', 'B14'),
+        ('A03', 'A13', 'B03', 'B13'),
+        ('A02', 'A12', 'B02', 'B12'),
+        ('A01', 'A11', 'B01', 'B11'),
+      ] -%}
+      {%- for row in ab_rows %}
+        {%- set a_left, a_right, b_left, b_right = row %}
+      <tr>
+        <td class="tag-cell">{{ pen_tags(a_left) }}</td>
+        <td class="status-cell">{{ pen_status(a_left) }}</td>
+        <td class="empty"></td>
+        <td class="status-cell">{{ pen_status(a_right) }}</td>
+        <td class="tag-cell no-right">{{ pen_tags(a_right) }}</td>
+        {%- if loop.first %}
+        {#- Carrier cell rowspan=10 colspan=2：一次畫完 A 右、B 左、C/E 下方三條線
+            （配合 col 5 .no-right、col 8 .no-left、C/E label .no-bottom） -#}
+        <td rowspan="10" colspan="2" class="line-carrier-3sided"></td>
+        {%- endif %}
+        <td class="tag-cell no-left">{{ pen_tags(b_left) }}</td>
+        <td class="status-cell">{{ pen_status(b_left) }}</td>
+        <td class="empty"></td>
+        <td class="empty"></td>
+        <td class="status-cell">{{ pen_status(b_right) }}</td>
+        <td colspan="2" class="tag-cell">{{ pen_tags(b_right) }}</td>
+        <td class="empty"></td>
+      </tr>
+      {%- endfor %}
+      {#- 區位標籤底列：A 7 cols (cols 1-7) / B 8 cols (cols 8-15) —
+          B 含 col 15 以避免 B label 右下角溢出多餘水平線（WeasyPrint
+          border-collapse 對 colspan=7 邊上 .empty cell 的 quirk） -#}
+      <tr>
+        <td colspan="7" class="zone-label">A</td>
+        <td colspan="8" class="zone-label">B</td>
+      </tr>
+      {#- 註腳 -#}
+      <tr>
+        <td colspan="15" class="footer"><span class="cb-box">□</span> 全場豬隻精神、食慾、活動力、外觀正常。
+<span class="cb-box">□</span> 豬隻異常，耳號_______________，請填寫「TU-03-04-01試驗豬隻異常狀況紀錄表」並依照「TU-03-04-00試驗豬隻異常之處理標準作業程序書」規範處理。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="copyright">版權為豬博士動物科技股份有限公司所有，禁止任何未經授權的使用<br>All Rights Reserved © DrPIG.  Unauthorized use in any form is prohibited.</div>
+
+  {#- 儲存格文字自適應：欄寬列高固定，文字太多則縮小字級塞進格子（不換行）。
+     Chromium 渲染前執行（WeasyPrint 無 JS 不支援此功能）。等字型載入後量測才準。 -#}
+  <script>
+    (function () {
+      // 量真實文字寬度：table-cell + overflow:hidden 時 scrollWidth 會等於 clientWidth
+      // （量不到溢出），改用 Range 量內容實際渲染寬度（不受裁切影響）。
+      function textWidth(el) {
+        var r = document.createRange();
+        r.selectNodeContents(el);
+        var rects = r.getClientRects(), w = 0;
+        for (var i = 0; i < rects.length; i++) { if (rects[i].width > w) w = rects[i].width; }
+        return w;
+      }
+      function fitCell(el) {
+        if (el.querySelector('.g-inner')) return;   // G 區寬格內容自然放得下，跳過
+        // 溢出格縮到只佔格寬 80%（留 20% 空隙），對齊官方對擁擠格用較小字級的觀感。
+        var avail = el.clientWidth * 0.80;
+        if (avail <= 0) return;
+        if (textWidth(el) <= avail) return;          // 放得下 → 維持原字級（不動其他格）
+        var size = parseFloat(getComputedStyle(el).fontSize);
+        var guard = 0;
+        while (textWidth(el) > avail && size > 4 && guard < 80) {
+          size -= 0.5;
+          el.style.fontSize = size + 'px';
+          guard++;
+        }
+      }
+      function run() {
+        document.querySelectorAll('table.pen-grid td.tag-cell').forEach(fitCell);
+        document.documentElement.setAttribute('data-fit-done', '1');
+      }
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(run);
+      } else {
+        run();
+      }
+    })();
+  </script>
+{% endblock %}

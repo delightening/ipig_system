@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{#
+  R45 Phase 3：實驗豬隻手術紀錄表（非 GLP，未來可能升級 GLP 見 R45-6）。
+  Context schema：SurgeryPayload — animal + surgery header + vital_signs +
+  post_op + pain_assessments (15 cols)
+#}
+
+{% block extra_styles %}
+    body { font-size: 11pt; line-height: 1.6; }
+
+    h1.doc-title {
+      font-size: 17pt;
+      text-align: center;
+      letter-spacing: 4pt;
+      margin: 10pt 0 12pt 0;
+    }
+    h2.section-h {
+      font-size: 13pt;
+      font-weight: bold;
+      margin: 12pt 0 6pt 0;
+      padding: 3pt 0;
+      border-bottom: 1pt solid #000;
+      page-break-after: avoid;
+    }
+
+    table.kv {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 4pt 0 10pt 0;
+    }
+    table.kv th, table.kv td {
+      border: 0.75pt solid #000;
+      padding: 5pt 7pt;
+      font-size: 10.5pt;
+      vertical-align: top;
+    }
+    table.kv th {
+      background: #f0f0f0;
+      width: 16%;
+      font-weight: normal;
+      text-align: left;
+    }
+    table.kv td {
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+
+    table.vitals, table.pain {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 4pt 0 10pt 0;
+      page-break-inside: auto;
+    }
+    table.vitals thead, table.pain thead { display: table-header-group; }
+    table.vitals tr, table.pain tr { page-break-inside: avoid; }
+    table.vitals th, table.vitals td,
+    table.pain th, table.pain td {
+      border: 0.5pt solid #000;
+      padding: 3pt 4pt;
+      font-size: 9.5pt;
+      text-align: center;
+      vertical-align: middle;
+    }
+    table.vitals th, table.pain th {
+      background: #d8d8d8;
+      font-weight: bold;
+    }
+    table.pain { table-layout: fixed; }
+    table.pain td.note { text-align: left; word-break: break-word; }
+
+    .footer-meta { margin-top: 12pt; text-align: right; font-size: 10pt; color: #555; }
+{% endblock %}
+
+{% block content %}
+  <h1 class="doc-title">實 驗 豬 隻 手 術 紀 錄 表</h1>
+
+  <h2 class="section-h">一、動物與手術基本資訊</h2>
+  <table class="kv">
+    <tr>
+      <th>耳號</th><td>{{ animal.ear_tag }}</td>
+      <th>IACUC 編號</th><td>{{ animal.iacuc_no or '—' }}</td>
+    </tr>
+    <tr>
+      <th>品種</th><td>{{ animal.breed_zh }}</td>
+      <th>性別</th><td>{{ animal.gender_zh }}</td>
+    </tr>
+    <tr>
+      <th>出生日期</th><td>{{ animal.birth_date or '—' }}</td>
+      <th>手術日期</th><td>{{ surgery.surgery_date }}</td>
+    </tr>
+    <tr>
+      <th>手術部位</th><td>{{ surgery.surgery_site }}</td>
+      <th>體重</th><td>{{ surgery.body_weight }}</td>
+    </tr>
+    <tr>
+      <th>術前觀察</th><td colspan="3">{{ surgery.pre_op_observation }}</td>
+    </tr>
+    <tr>
+      <th>誘導麻醉用藥</th><td colspan="3">{{ surgery.induction_anesthesia }}</td>
+    </tr>
+    <tr>
+      <th>術前給藥</th><td colspan="3">{{ surgery.pre_op_medication }}</td>
+    </tr>
+    <tr>
+      <th>固定姿勢</th><td>{{ surgery.posture }}</td>
+      <th>氣體麻醉</th><td>{{ surgery.gas_anesthesia }}</td>
+    </tr>
+    <tr>
+      <th>麻醉觀察</th><td colspan="3">{{ surgery.anesthesia_observation }}</td>
+    </tr>
+  </table>
+
+  <h2 class="section-h">二、麻醉時間軸生理數值</h2>
+  {% if vital_signs %}
+  <table class="vitals">
+    <thead>
+      <tr>
+        <th>呼吸方式</th>
+        <th>時間</th>
+        <th>心跳</th>
+        <th>呼吸</th>
+        <th>體溫 (°C)</th>
+        <th>SpO₂</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vital_signs %}
+      <tr>
+        <td>{{ v.respiration_method }}</td>
+        <td>{{ v.time }}</td>
+        <td>{{ v.heart_rate }}</td>
+        <td>{{ v.respiration_rate }}</td>
+        <td>{{ v.temperature }}</td>
+        <td>{{ v.spo2 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>（無生理數值紀錄）</p>{% endif %}
+
+  <h2 class="section-h">三、術後觀察</h2>
+  <table class="kv">
+    <tr>
+      <th>反射恢復</th><td>{{ post_op.reflex_recovery }}</td>
+      <th>自主呼吸 (次/分鐘)</th><td>{{ post_op.spontaneous_respiration_rate }}</td>
+    </tr>
+    <tr>
+      <th>術後給藥</th><td colspan="3">{{ post_op.post_op_medication }}</td>
+    </tr>
+    <tr>
+      <th>備註</th><td colspan="3">{{ post_op.remark }}</td>
+    </tr>
+  </table>
+
+  <h2 class="section-h">四、術後疼痛評估 / 照護給藥紀錄</h2>
+  {% if pain_assessments %}
+  <table class="pain">
+    <thead>
+      <tr>
+        <th style="width:8%">日期</th>
+        <th style="width:5%">術後日</th>
+        <th style="width:5%">時段</th>
+        <th style="width:4%">禁食</th>
+        <th style="width:5%">站立</th>
+        <th style="width:5%">行走</th>
+        <th style="width:7%">手術部位</th>
+        <th style="width:5%">傷口</th>
+        <th style="width:5%">行為</th>
+        <th style="width:5%">食慾</th>
+        <th style="width:5%">排便</th>
+        <th style="width:5%">排尿</th>
+        <th style="width:6%">疼痛分</th>
+        <th style="width:5%">總分</th>
+        <th style="width:25%">給藥/註記</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in pain_assessments %}
+      <tr>
+        <td>{{ p.record_date }}</td>
+        <td>{{ p.post_op_day }}</td>
+        <td>{{ p.time_period }}</td>
+        <td>{{ p.fasted }}</td>
+        <td>{{ p.standing }}</td>
+        <td>{{ p.walking }}</td>
+        <td>{{ p.wound_site }}</td>
+        <td>{{ p.wound_condition }}</td>
+        <td>{{ p.behavior }}</td>
+        <td>{{ p.appetite }}</td>
+        <td>{{ p.defecation }}</td>
+        <td>{{ p.urination }}</td>
+        <td>{{ p.pain_score }}</td>
+        <td><strong>{{ p.total_score }}</strong></td>
+        <td class="note">{{ p.medication_or_remark }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>（無疼痛評估紀錄）</p>{% endif %}
+
+  <div class="footer-meta">
+    記錄人員：{{ recorded_by }}
+</div>
+{% endblock %}

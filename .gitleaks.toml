@@ -1,0 +1,35 @@
+title = "iPig System — Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "開發用範本值與文件"
+regexes = [
+    '''CHANGE_THIS''',
+    '''your[-_]''',
+    '''example\.com''',
+    '''ipigsystem\.asia''',
+    '''localhost''',
+]
+paths = [
+    '''.env\.example''',
+    '''docs/.*''',
+    '''.*\.md''',
+    # JWT 金鑰格式契約測試的 fixture：同一把 P-256 金鑰的 SEC1／PKCS8 兩種編碼。
+    # 專為該測試產生、從未用於任何環境，且**必須是有效金鑰**測試才有鑑別力——
+    # 隨手打的無效 base64 會因為「解不開」而失敗，證明不了「格式不受支援」。
+    # ⚠️ 這是全檔豁免。gitleaks 的全域設定只認單數 [allowlist]，複數 [[allowlists]]
+    #    的 targetRules（可只豁免 private-key 一條規則）不生效——2026-08-21 用
+    #    CI 同一組參數實測確認，加了照樣 leaks found: 4。
+    #    （實測用本機 8.24.0；CI 當時實跑 8.24.3，同一 minor。該功能要 8.25.0 才有，
+    #    **CI 升到 8.25.0 以後就該回來把這裡改成 targetRules 只豁免 private-key**。）
+    #    因此範圍刻意壓到只有這一個純測試檔；`scripts/newprod/gen-secrets.sh`
+    #    雖然也被 private-key 規則誤判，但那兩處只是 PEM 標頭字面值而非金鑰，
+    #    已改寫該檔避開，**不放行**——它是產生 secrets 的腳本，全檔豁免
+    #    會讓日後真的被寫死的憑證溜過去。
+    # 🔴 **這個豁免的代價**：`jwt_key_format_contract.rs` 這個檔案裡的**任何** secret
+    #    都不會被回報，不限 private-key（單數 [allowlist] 的 path 條件會略過該檔的所有規則）。
+    #    在該檔新增內容時請自行留意，不要把真實憑證、token 或連線字串寫進去。
+    '''^backend/tests/jwt_key_format_contract\.rs$''',
+]

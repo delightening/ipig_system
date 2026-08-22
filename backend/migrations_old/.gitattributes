@@ -1,0 +1,2 @@
+# 強制 SQL migration 使用 LF 換行，避免 Windows CRLF 造成 checksum 不匹配
+*.sql text eol=lf

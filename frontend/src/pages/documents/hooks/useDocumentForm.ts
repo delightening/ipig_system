@@ -1,0 +1,353 @@
+/**
+ * 單據表單主 Hook
+ * 組合 useDocumentLines + useDocumentSubmit，管理表單資料與查詢
+ */
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import api, {
+  Document,
+  Product,
+  Partner,
+  Warehouse,
+  DocType,
+} from '@/lib/api'
+import { STALE_TIME } from '@/lib/query'
+import { useAssignableProtocols } from '@/hooks/useAssignableProtocols'
+import { formatQuantity, formatUnitPrice } from '@/lib/utils'
+import type { DocumentFormData } from '../types'
+import { useDocumentLines, generateLineId } from './useDocumentLines'
+import { useDocumentSubmit } from './useDocumentSubmit'
+
+export type { InputRefs } from './useDocumentLines'
+
+export interface UseDocumentFormOptions {
+  defaultType: DocType
+}
+
+export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const isCopy = searchParams.get('copy') === 'true'
+  const isEdit = !!id && id !== 'new'
+
+  const [formData, setFormData] = useState<DocumentFormData>({
+    doc_type: (defaultType as string) === 'new' ? ('' as DocType) : defaultType,
+    doc_date: new Date().toISOString().split('T')[0],
+    warehouse_id: '',
+    warehouse_from_id: '',
+    warehouse_to_id: '',
+    partner_id: '',
+    protocol_id: '',
+    protocol_no: '',
+    source_doc_id: '',
+    remark: '',
+    lines: [],
+  })
+
+  const [unsavedChanges, setUnsavedChanges] = useState(false)
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+
+  // --- Sub-hooks ---
+  const lines = useDocumentLines(formData, setFormData, setUnsavedChanges)
+
+  // --- Queries ---
+  const { data: document, isLoading: loadingDocument } = useQuery({
+    queryKey: ['document', id],
+    queryFn: async () => (await api.get<Document>(`/documents/${id}`)).data,
+    enabled: isEdit,
+    staleTime: STALE_TIME.LIST,
+  })
+
+  const { data: products } = useQuery({
+    queryKey: ['products', { keyword: lines.productSearch, category_code: lines.categoryCode }],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (lines.productSearch) params.append('keyword', lines.productSearch)
+      if (lines.categoryCode) params.append('category_code', lines.categoryCode)
+      params.append('is_active', 'true')
+      return (await api.get<Product[]>(`/products?${params.toString()}`)).data
+    },
+    enabled: lines.productSearchOpen,
+    staleTime: STALE_TIME.REFERENCE,
+  })
+
+  const { data: warehouses } = useQuery({
+    queryKey: ['warehouses', 'active'],
+    queryFn: async () => (await api.get<Warehouse[]>('/warehouses?is_active=true')).data || [],
+    staleTime: STALE_TIME.REFERENCE,
+    refetchOnMount: true,
+  })
+
+  const { data: partners } = useQuery({
+    queryKey: ['partners'],
+    queryFn: async () => (await api.get<Partner[]>('/partners')).data || [],
+    staleTime: STALE_TIME.REFERENCE,
+    refetchOnMount: true,
+  })
+
+  // 可指派計畫（SO 來源計劃下拉、批號回填）：後端 ?assignable=true 已過濾。
+  // SO 再帶 sd_only（2026-07-22 裁定）：只列「自己是 SD」的計畫（admin / 全域 SD
+  // 後端豁免仍列全部）；PO/PR 批號回填維持完整清單不收斂。
+  const { data: activeProtocols, isLoading: loadingProtocols } = useAssignableProtocols({
+    enabled: ['PO', 'PR', 'SO'].includes(formData.doc_type),
+    sdOnly: formData.doc_type === 'SO',
+  })
+
+  const { data: poReceiptStatus } = useQuery({
+    queryKey: ['po-receipt-status', formData.source_doc_id],
+    queryFn: async () => (await api.get(`/documents/${formData.source_doc_id}/receipt-status`)).data,
+    enabled: formData.doc_type === 'GRN' && !!formData.source_doc_id,
+    staleTime: STALE_TIME.LIST,
+  })
+
+  // --- Derived state ---
+  const needsPartner = ['PO', 'GRN', 'PR'].includes(formData.doc_type)
+  const needsProtocol = ['SO', 'DO'].includes(formData.doc_type)
+  const isTransfer = formData.doc_type === 'TR'
+  // needsShelf：是否「顯示」儲位欄位。PO（採購尚未入庫、無貨架可選）排除；其餘皆顯示，
+  // GRN 也顯示以供使用者填寫。
+  // 2026-05-20 (H1): PR 移出排除清單 — PR 已扣庫存（process_return_out），須指定貨架。
+  const needsShelf = !['PO'].includes(formData.doc_type)
+  // isShelfRequired：是否「硬性」必填（缺則擋下送出）。
+  // 2026-07-16: GRN 改軟擋（後端 DocType::requires_shelf 已移除 GRN）——採購入庫可缺儲位
+  // 核准、事後分配上架，缺儲位改由核准前的確認彈窗提醒，故 GRN 排除硬驗證。
+  const isShelfRequired = !['PO', 'GRN'].includes(formData.doc_type)
+  const iacucDisabled = ['GRN', 'STK', 'ADJ'].includes(formData.doc_type)
+
+  const filteredPartners = useMemo(() => {
+    if (!partners) return undefined
+    return partners.filter((p) => p.partner_type === 'supplier')
+  }, [partners])
+
+  const totalAmount = useMemo(() => {
+    // Sum in cents to avoid floating-point drift, then convert back
+    const totalCents = formData.lines.reduce((sum, line) => {
+      const cached = lines.lineAmounts[line.id]
+      const amount = cached !== undefined
+        ? cached
+        : Math.round((parseFloat(line.qty) || 0) * (parseFloat(line.unit_price) || 0) * 100) / 100
+      return sum + Math.round(amount * 100)
+    }, 0)
+    return totalCents / 100
+  }, [formData.lines, lines.lineAmounts])
+
+  // --- Submit hook ---
+  const { saveMutation, submitMutation } = useDocumentSubmit({
+    id, isEdit, formData,
+    collectLineValues: lines.collectLineValues,
+    collectAllLineValues: lines.collectAllLineValues,
+    setUnsavedChanges,
+    products,
+    isShelfRequired,
+    inputRefs: lines.inputRefs,
+  })
+
+  // --- Field update ---
+  const updateField = useCallback(
+    <K extends keyof DocumentFormData>(field: K, value: DocumentFormData[K]) => {
+      setFormData((prev) => ({ ...prev, [field]: value }))
+      setUnsavedChanges(true)
+    },
+    []
+  )
+
+  // --- Effects ---
+  useEffect(() => {
+    if (!document || !isEdit) return
+    const docLines = document.lines.map((line) => ({
+      id: line.id,
+      line_no: line.line_no,
+      product_id: line.product_id,
+      product_name: line.product_name,
+      product_sku: line.product_sku,
+      qty: formatQuantity(line.qty),
+      uom: line.uom,
+      unit_price: line.unit_price ? formatUnitPrice(line.unit_price) : '',
+      batch_no: line.batch_no || '',
+      expiry_date: line.expiry_date || '',
+      storage_location_id: line.storage_location_id || '',
+      storage_location_from_id: line.storage_location_from_id || '',
+      storage_location_to_id: line.storage_location_to_id || '',
+      warehouse_id: line.warehouse_id || '',
+      remark: line.remark || '',
+    }))
+    setFormData({
+      doc_type: document.doc_type,
+      doc_date: document.doc_date,
+      warehouse_id: document.warehouse_id || '',
+      warehouse_from_id: document.warehouse_from_id || '',
+      warehouse_to_id: document.warehouse_to_id || '',
+      partner_id: document.partner_id || '',
+      protocol_id: document.protocol_id || '',
+      protocol_no: document.protocol_no || '',
+      source_doc_id: document.source_doc_id || '',
+      remark: document.remark || '',
+      lines: docLines,
+    })
+    docLines.forEach((line) => {
+      if (!lines.inputRefs.current[line.id]) lines.inputRefs.current[line.id] = {}
+    })
+    if (['PO', 'GRN'].includes(document.doc_type)) {
+      const initialAmounts: Record<string, number> = {}
+      docLines.forEach((line) => {
+        initialAmounts[line.id] = (parseFloat(line.qty) || 0) * (parseFloat(line.unit_price) || 0)
+      })
+      lines.setLineAmounts(initialAmounts)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [document, isEdit, lines.inputRefs, lines.setLineAmounts])
+
+  // 複製單據：從 sessionStorage 載入資料
+  useEffect(() => {
+    if (isEdit || !isCopy) return
+    const raw = sessionStorage.getItem('document_copy_data')
+    if (!raw) return
+    sessionStorage.removeItem('document_copy_data')
+    try {
+      const parsed = JSON.parse(raw)
+      // M-02: 確認 parsed 為物件且 lines 為陣列，防止 sessionStorage 被竄改後注入非預期資料
+      if (typeof parsed !== 'object' || parsed === null) return
+      const copyData = parsed as DocumentFormData
+      setFormData({
+        doc_type: copyData.doc_type || defaultType,
+        doc_date: new Date().toISOString().split('T')[0],
+        warehouse_id: copyData.warehouse_id || '',
+        warehouse_from_id: copyData.warehouse_from_id || '',
+        warehouse_to_id: copyData.warehouse_to_id || '',
+        partner_id: copyData.partner_id || '',
+        protocol_id: copyData.protocol_id || '',
+        protocol_no: copyData.protocol_no || '',
+        source_doc_id: '',
+        remark: copyData.remark || '',
+        // 複製單據必須給每行新 id（不可用 server 原 id，否則被誤判為 update 而非 insert；
+        // 也不可用 undefined，否則 line-level update 函式找不到目標 → shelf/batch 選擇靜默失敗）
+        lines: (Array.isArray(copyData.lines) ? copyData.lines : []).map((line, idx) => ({
+          ...line,
+          id: generateLineId(),
+          line_no: idx + 1,
+        })),
+      })
+    } catch {
+      // ignore invalid JSON
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCopy, isEdit])
+
+  // Recompute lineAmounts synchronously when lines change (covers copy / re-mount).
+  // Document load 與 addLine 已分別自行初始化，這裡負責補齊複製單據與 doc_type 切換情境。
+  useEffect(() => {
+    if (!['PO', 'GRN'].includes(formData.doc_type)) return
+    const next: Record<string, number> = {}
+    formData.lines.forEach((line) => {
+      const qty = parseFloat(line.qty) || 0
+      const price = parseFloat(line.unit_price) || 0
+      next[line.id] = Math.round(qty * price * 100) / 100
+    })
+    lines.setLineAmounts((prev) => {
+      const prevKeys = Object.keys(prev)
+      const nextKeys = Object.keys(next)
+      if (prevKeys.length === nextKeys.length && nextKeys.every((k) => prev[k] === next[k])) return prev
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.doc_type, formData.lines])
+
+  useEffect(() => {
+    if (!isEdit) {
+      formData.lines.forEach((line) => {
+        if (!lines.inputRefs.current[line.id]) lines.inputRefs.current[line.id] = {}
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.lines.length, isEdit])
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (unsavedChanges) { e.preventDefault(); e.returnValue = '' }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [unsavedChanges])
+
+  // --- Navigation ---
+  const handleBack = useCallback(() => {
+    const targetPath = `/documents${formData.doc_type && formData.doc_type !== ('' as DocType) ? `?type=${formData.doc_type}` : ''}`
+    if (unsavedChanges) {
+      setPendingNavigation(targetPath)
+      setShowUnsavedDialog(true)
+    } else {
+      navigate(targetPath)
+    }
+  }, [formData.doc_type, unsavedChanges, navigate])
+
+  const confirmNavigation = useCallback(() => {
+    setShowUnsavedDialog(false)
+    if (pendingNavigation) navigate(pendingNavigation)
+  }, [pendingNavigation, navigate])
+
+  const handleProtocolSelect = useCallback(
+    (protocolId: string) => {
+      updateField('protocol_id', protocolId)
+      const protocol = activeProtocols?.find((p) => p.id === protocolId)
+      updateField('protocol_no', protocol?.iacuc_no || protocol?.protocol_no || '')
+    },
+    [activeProtocols, updateField]
+  )
+
+  const handleIacucNoSelect = useCallback(
+    (iacucNo: string) => updateField('protocol_no', iacucNo),
+    [updateField]
+  )
+
+  // Wrap handleBatchChange to pass activeProtocols
+  const handleBatchChangeWrapped = useCallback(
+    (lineId: string, batchNo: string, expiryDate?: string, sourceIacuc?: string) => {
+      lines.handleBatchChange(lineId, batchNo, expiryDate, sourceIacuc, activeProtocols)
+    },
+    [lines, activeProtocols]
+  )
+
+  return {
+    id, isEdit, formData, setFormData, updateField,
+    productSearchOpen: lines.productSearchOpen,
+    setProductSearchOpen: lines.setProductSearchOpen,
+    productSearch: lines.productSearch,
+    setProductSearch: lines.setProductSearch,
+    selectedLineId: lines.selectedLineId,
+    showUnsavedDialog, setShowUnsavedDialog, confirmNavigation,
+    lineAmounts: lines.lineAmounts,
+    inputRefs: lines.inputRefs,
+    loadingDocument, products, warehouses, partners,
+    activeProtocols, loadingProtocols,
+    filteredPartners, needsPartner, needsProtocol, isTransfer,
+    totalAmount, needsShelf, isShelfRequired, iacucDisabled,
+    collectLineValues: lines.collectLineValues,
+    collectAllLineValues: lines.collectAllLineValues,
+    addLine: lines.addLine,
+    removeLine: lines.removeLine,
+    selectProduct: lines.selectProduct,
+    openProductSearch: lines.openProductSearch,
+    handleBatchChange: handleBatchChangeWrapped,
+    handleLineBlur: lines.handleLineBlur,
+    handleBack, handleProtocolSelect, handleIacucNoSelect,
+    updateLineAmount: lines.updateLineAmount,
+    updateLineField: lines.updateLineField,
+    saveMutation, submitMutation,
+    showIacucWarning: lines.showIacucWarning,
+    setShowIacucWarning: lines.setShowIacucWarning,
+    iacucWarningData: lines.iacucWarningData,
+    batchStorageLocationId: lines.batchStorageLocationId,
+    batchStorageLocationFromId: lines.batchStorageLocationFromId,
+    batchStorageLocationToId: lines.batchStorageLocationToId,
+    handleBatchShelfSelect: lines.handleBatchShelfSelect,
+    handleBatchShelfSelectFrom: lines.handleBatchShelfSelectFrom,
+    handleBatchShelfSelectTo: lines.handleBatchShelfSelectTo,
+    poReceiptStatus,
+    source_doc_id: formData.source_doc_id,
+    categoryCode: lines.categoryCode,
+    setCategoryCode: lines.setCategoryCode,
+  }
+}

@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{#
+  R45 Phase 3：審查意見回覆表 HTML 版本（AD-04-01-04C）。
+  4 + 1 個審查 section：執行秘書、獸醫師、委員 1-4。
+  Context schema：ReviewReplyPayload
+#}
+
+{% block page_top_left %}"文 件 編 號  AD-04-01-04C"{% endblock %}
+
+{% block extra_styles %}
+    /* AD-04-01-04C 對齊 — LXGW WenKai 楷體 + Medium 字重作粗體 */
+    body {
+      font-size: 11pt;
+      line-height: 1.6;
+      font-family: "Noto Serif", "Noto Sans CJK TC", serif;
+    }
+
+    h1.doc-title {
+      font-size: 20pt;
+      text-align: center;
+      letter-spacing: 0;
+      margin: 16pt 0 18pt 0;
+      font-weight: bold;
+    }
+    /* main heading：初審紀錄 / 委員審查紀錄 */
+    h2.section {
+      font-size: 13pt;
+      font-weight: bold;
+      margin: 14pt 0 6pt 0;
+      padding: 3pt 0;
+      page-break-after: avoid;
+    }
+    /* sub heading：1.執行秘書 / 1.委員一 ... */
+    h3.subsec {
+      font-size: 12pt;
+      font-weight: bold;
+      margin: 10pt 0 4pt 0;
+      padding-left: 0.4em;
+      page-break-after: avoid;
+    }
+
+    table.basic {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8pt 0 14pt 0;
+    }
+    table.basic th, table.basic td {
+      border: 0.75pt solid #000;
+      padding: 6pt 8pt;
+      font-size: 11pt;
+    }
+    table.basic th {
+      background: #f0f0f0;
+      width: 18%;
+      text-align: left;
+      font-weight: normal;
+    }
+
+    table.review {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6pt 0;
+      page-break-inside: auto;
+    }
+    table.review thead { display: table-header-group; }
+    table.review tr { page-break-inside: avoid; }
+    table.review th, table.review td {
+      border: 0.75pt solid #000;
+      padding: 6pt 8pt;
+      font-size: 10.5pt;
+      vertical-align: top;
+    }
+    table.review th {
+      background: #e8e8e8;
+      text-align: center;
+      font-weight: bold;
+    }
+    table.review td.center {
+      text-align: center;
+    }
+    table.review td.opinion,
+    table.review td.reply {
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    /* 獸醫師審查表：用 HTML table 讓 thead 跨頁自動重複（修 CSS Grid 跨頁 bug） */
+    table.vet-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6pt 0;
+      page-break-inside: auto;
+    }
+    table.vet-table thead {
+      display: table-header-group;  /* 關鍵：跨頁自動重複 header */
+    }
+    table.vet-table tr {
+      page-break-inside: avoid;     /* 避免單列被切斷 */
+    }
+    table.vet-table th,
+    table.vet-table td {
+      border: 0.5pt solid #000;
+      padding: 4pt 6pt;
+      font-size: 10pt;
+      vertical-align: middle;
+    }
+    table.vet-table th {
+      background: #e8e8e8;
+      font-weight: bold;
+      text-align: center;
+      white-space: nowrap;
+    }
+    table.vet-table td.dim {
+      font-weight: bold;
+      background: #fafafa;
+      white-space: nowrap;
+      width: 32%;
+    }
+    table.vet-table td.status {
+      text-align: center;
+      font-family: "Noto Serif", "Noto Sans CJK TC", serif;
+      width: 14%;
+    }
+    table.vet-table td.body {
+      white-space: pre-wrap;
+      line-height: 1.6;
+      width: 27%;
+    }
+    /* 簽名列：橫跨整列，兩欄平均 */
+    table.vet-table td.sig-cell {
+      padding: 8pt 10pt;
+      background: #fafafa;
+    }
+
+    /* 符合狀態 legend（表格上方） */
+    .status-legend {
+      font-size: 10pt;
+      color: #333;
+      margin: 4pt 0 6pt 2pt;
+    }
+
+    /* 換頁前置：委員審查紀錄獨立新頁 */
+    h2.section.page-break-before {
+      page-break-before: always;
+    }
+
+    .empty-note {
+      font-style: italic;
+      color: #888;
+      font-size: 10.5pt;
+      padding: 10pt;
+      border: 0.5pt dashed #ccc;
+    }
+{% endblock %}
+
+{% macro review_table(rows, has_two_rounds=False) %}
+{% if rows %}
+<table class="review">
+  <thead>
+    <tr>
+      <th style="width:8%">項次</th>
+      {% if has_two_rounds %}
+      <th style="width:23%">一審意見</th>
+      <th style="width:23%">一審回覆</th>
+      <th style="width:23%">二審意見</th>
+      <th style="width:23%">二審回覆</th>
+      {% else %}
+      <th style="width:46%">審查意見</th>
+      <th style="width:46%">申請人回覆</th>
+      {% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td class="center">{{ r.section_no or r.item_no or loop.index }}</td>
+      {% if has_two_rounds %}
+      <td class="opinion">{{ r.opinion_1st }}</td>
+      <td class="reply">{{ r.reply_1st }}</td>
+      <td class="opinion">{{ r.opinion_2nd }}</td>
+      <td class="reply">{{ r.reply_2nd }}</td>
+      {% else %}
+      <td class="opinion">{{ r.opinion }}</td>
+      <td class="reply">{{ r.reply }}</td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-note">（本審查階段無資料）</div>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+  <h1 class="doc-title">審查意見回覆表</h1>
+
+  <table class="basic">
+    <tr><th>申請編號</th><td>{{ application_no }}</td></tr>
+    <tr><th>研究名稱</th><td>{{ study_title }}</td></tr>
+    <tr><th>計畫主持人</th><td>{{ pi_name }}</td></tr>
+  </table>
+
+  {# ============ 初審紀錄（執行秘書 + 獸醫師） ============ #}
+  <h2 class="section">初審紀錄</h2>
+
+  <h3 class="subsec">1.執行秘書</h3>
+  {{ review_table(secretary_items) }}
+
+  <h3 class="subsec">2.獸醫師</h3>
+  <p class="status-legend">狀態註解：<strong>V</strong> = 符合 ； <strong>X</strong> = 不符合 ； <strong>─</strong> = 不適用</p>
+  <table class="vet-table">
+    <thead>
+      <tr>
+        <th>審查項目</th>
+        <th>符合狀態</th>
+        <th>審查意見<br>(需補充說明之事項)</th>
+        <th>申請人回覆</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for label, dim in [
+        ('計畫基本資料', vet_review.basic_info),
+        ('簡述研究目的', vet_review.research_purpose),
+        ('說明動物實驗必要性', vet_review.necessity),
+        ('動物實驗試驗設計', vet_review.experiment_design),
+        ('實驗預期結束時機及人道終點', vet_review.endpoint),
+        ('實驗結束動物處置方式', vet_review.end_handling),
+        ('有無進行危害性物質實驗', vet_review.hazardous),
+        ('動物麻醉用藥及方法合理性', vet_review.anesthesia),
+        ('手術操作及術中動物觀察', vet_review.surgery),
+        ('手術後照護及術後給藥方式', vet_review.postop_care),
+        ('實驗動物資料', vet_review.animal_info),
+        ('動物實驗相關人員資料', vet_review.personnel),
+      ] %}
+      <tr>
+        <td class="dim">{{ label }}</td>
+        <td class="status">{{ dim.status or '—' }}</td>
+        <td class="body">{{ dim.opinion }}</td>
+        <td class="body">{{ dim.reply }}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td class="sig-cell" colspan="2">獸醫師簽名：</td>
+        <td class="sig-cell" colspan="2">日期：{{ vet_review.signature_date }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  {# ============ 委員審查紀錄（換頁顯示） ============ #}
+  <h2 class="section page-break-before">委員審查紀錄</h2>
+
+  <h3 class="subsec">1.委員一</h3>
+  {{ review_table(committee_1, has_two_rounds=True) }}
+
+  <h3 class="subsec">2.委員二</h3>
+  {{ review_table(committee_2, has_two_rounds=True) }}
+
+  <h3 class="subsec">3.委員三</h3>
+  {{ review_table(committee_3, has_two_rounds=True) }}
+
+  <h3 class="subsec">4.委員四</h3>
+  {{ review_table(committee_4, has_two_rounds=True) }}
+{% endblock %}

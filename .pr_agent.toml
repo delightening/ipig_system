@@ -1,0 +1,41 @@
+[github_app]
+# 2026-08-12 裁定：改純手動觸發（在 PR 留言打 /review），不再自動觸發。
+# 原因：PR 一開就自動跑，常搶在 qodo-code-review 之前完成，順序不如預期。
+# handle_pr_actions = [] 才是真正關掉自動觸發的鍵（預設含 opened/reopened/
+# ready_for_review）；pr_commands 只是「自動觸發時要跑什麼」，兩者是分開的鍵，
+# 只設 pr_commands 不會關掉自動觸發，故一併移除。
+# 手動 /review 留言不受此鍵影響，也不受其他機器人留言內容誤觸發（各機器人的
+# 留言解析都排除 bot 帳號本身、且指令需錨定在留言開頭，不是子字串比對）。
+handle_pr_actions = []
+
+[pr_reviewer]
+# 關掉「ticket compliance」子項目。
+#
+# 2026-08-20：該檢查用 regex `#\d+`（不需要 Closes/Fixes 等關鍵字）掃描整個
+# PR 說明文字，抓到任何裸的 `#數字` 就當成關聯 ticket，拉來比對這支 PR 是否
+# 符合「那個」ticket 的需求。PR #8 的說明裡因為敘述脈絡提到「PR #7」
+# 「修法在 #9」（純粹引用，不是本 PR 要實作的需求），結果被誤判成
+# `Not compliant`。
+#
+# 本 repo 的 PR template（.github/pull_request_template.md）已有專屬的
+# 「關聯 Issue／Closes #」欄位在管這件事，不需要 pr-agent 另外用全文掃描猜測。
+require_ticket_analysis_review = false
+
+[ignore]
+# 把制度檔的備份副本排除出 review 範圍。
+#
+# 2026-08-20：`MAINTENANCE.md` §1 要求改任何制度檔前先複製一份到
+# `docs/agents/backup/{檔名}.{日期}.bak`。這些是既有檔的**逐字副本**，本身沒有
+# 審查價值，但會實際傷害審查品質——pr-agent 是把整包 diff 塞進單一 prompt，
+# 組內按 token 數由大到小排序，體積大的 .bak 排在前面吃掉預算，把真正該審的
+# 小檔擠出尾端後截斷。
+#
+# PR #18 實例：3 個 .bak 合計 +359 行，結果 `MAINTENANCE.md`（**只改 +1 行**）
+# 與其中一個 .bak 被丟進留言末尾的
+# `⚠️ Review coverage: ... not included ... because of the token budget`，
+# 而四格評分照樣顯示 `No major issues detected`——典型的假綠。
+# 判準與處置見 `docs/agents/REVIEW_BOTS.md`「第三種假綠」。
+#
+# 比對方式：pr-agent 用 `fnmatch.translate()` 轉 regex 後 `re.match()`，
+# 因此本 pattern 命中 `docs/agents/backup/` 下所有檔案。
+glob = ['docs/agents/backup/**']

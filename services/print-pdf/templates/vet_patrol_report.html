@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>試驗豬場巡場報告</title>
+  {#
+    修復（見 backend/src/handlers/animal/pdf_export.rs 註解歷史）：先前的「像素級對齊官方
+    AD-02-02-01B 母表」版本用固定 mm 高度的絕對定位（每頁一個 .sheet div）刻版面，只能容納
+    「每類別剛好一筆」的資料；但實際資料模型（categories[].entries[]，每隻豬一筆觀察/建議/
+    追蹤改善）本來就允許多筆。絕對定位版面完全沒有迴圈 entries[]，導致：
+      1) 主表格永遠印出空白（只讀了 categories[].observation/suggestion 這兩個 backend
+         故意留空的彙總欄位，entries[] 內的實際文字從未被讀取）。
+      2) photo_groups 與 categories[].photos 是同一批照片的兩種呈現，範本卻把兩者都攤平
+         合併，造成每張照片重複計算、照片頁重複出現。
+      3) 「追蹤及改善」欄位被畫成整表單一合併空白格，遺漏了 entries[].follow_up 這個
+         使用者透過兩階段流程（獸醫填觀察/建議 → 陪同人員填追蹤改善）實際填寫的資料。
+    此版改回一般文件流排版（可依 entries 數量自動長高、跨頁），改用 Chromium 原生
+    page.pdf(header_template/footer_template) 取得跨頁頁首/頁尾（見 main.py
+    _html_to_pdf_paginated_async 註解 — CSS Paged Media @top-left/@bottom-center 是
+    WeasyPrint 專屬語法，Chromium 引擎不支援）。代價：多筆條目時版面不再與官方單列表單
+    像素對齊，但資料正確性優先（2026-07-10 與使用者確認採此方案）。
+  #}
+  <style>
+    @font-face { font-family: "KaiEmbed"; src: url("file:///app/fonts/kaiu.ttf"); }
+    @font-face { font-family: "TimesEmbed"; font-weight: normal; font-style: normal; src: url("file:///app/fonts/times.ttf"); }
+    @font-face { font-family: "TimesEmbed"; font-weight: bold;   font-style: normal; src: url("file:///app/fonts/timesbd.ttf"); }
+    @font-face { font-family: "TimesEmbed"; font-weight: normal; font-style: italic; src: url("file:///app/fonts/timesi.ttf"); }
+    @font-face { font-family: "TimesEmbed"; font-weight: bold;   font-style: italic; src: url("file:///app/fonts/timesbi.ttf"); }
+
+    @page { size: A4 landscape; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { font-family: "TimesEmbed", "KaiEmbed", serif; color: #000; font-size: 11pt; }
+
+    /* 一頁化量測的基準寬度。
+       頁尾 <script> 在 **screen** media 下量高度，但 page.pdf() 以 A4 橫式的內容寬排版
+       （297mm − 左右邊距各 10mm ＝ 277mm）。Playwright 預設 viewport 1280px 比它寬，
+       螢幕上換行較少 → 量到的高度系統性偏低，且偏差隨內容長度變動；實測會出現
+       「條目變多反而頁數變少」的非單調結果（2026-08-07）。把螢幕寬度釘成與列印
+       內容寬一致，量測才等價於列印。改 main.py 的左右邊距時，這裡要一起改。 */
+    @media screen { body { width: 277mm; } }
+
+    .title1, .title2 { text-align: center; font-family: "KaiEmbed"; font-weight: bold; font-size: 14pt; letter-spacing: 0.9pt; line-height: 1.5; }
+
+    /* 一頁化自適應的旋鈕（預設值＝壓縮前的原始值）。頁尾 <script> 量測
+       「表格 + 簽名區」實高，超過一頁就逐級改寫這四個變數，直到塞得下或觸及下限。
+
+       欄寬**刻意不列入旋鈕**：把「建議 / 追蹤及改善」改窄只會讓文字換行變多、
+       表格反而更高——欄寬只影響左右，不影響總高。真正縮短高度的是字級 / 行高 / padding。 */
+    :root {
+      --rpt-fs: 12pt;
+      --rpt-lh: 1.45;
+      --rpt-pad-v: 1.2mm;
+      --sign-gap: 6mm;
+    }
+
+    table.rpt { width: 100%; border-collapse: collapse; table-layout: fixed; font-family: "KaiEmbed"; margin-top: 5mm; }
+    table.rpt colgroup col.c-label { width: 13%; }
+    table.rpt colgroup col.c-obs   { width: 35%; }
+    table.rpt colgroup col.c-sug   { width: 27%; }
+    table.rpt colgroup col.c-foll  { width: 25%; }
+    table.rpt thead { display: table-header-group; }
+    table.rpt td, table.rpt th {
+      border: 0.5pt solid #000;
+      font-size: var(--rpt-fs); vertical-align: top; line-height: var(--rpt-lh);
+      padding: var(--rpt-pad-v) 1.9mm; overflow-wrap: anywhere; white-space: pre-wrap;
+    }
+    table.rpt tr { page-break-inside: avoid; }
+    table.rpt thead th { text-align: center; font-weight: bold; font-size: calc(var(--rpt-fs) + 1pt); vertical-align: middle; white-space: normal; line-height: 1.3; }
+    .hint { font-weight: normal; font-size: var(--rpt-fs); }
+    /* specificity 需 ≥ `table.rpt td`（0,1,2）才能讓 vertical-align:middle 蓋過該規則的
+       top，否則左欄「項目」標籤會靠上（豬隻狀況/防疫及消毒計畫/病歷紀錄/其他 上下置中）。 */
+    table.rpt td.cat { text-align: center; vertical-align: middle; white-space: nowrap; }
+    td.grp { text-align: center; vertical-align: middle; background: #d9d9d9; }
+
+    /* break-before: avoid —— 壓縮到下限仍溢頁時，簽名區不得自己起一個新頁
+       （舊版會產生「第 2 頁只有三行簽名、其餘全空白」，使用者 2026-08-07 回報）。
+       它會被拉回與前一列同頁；真的擠不下時 Chromium 才忽略此提示。 */
+    .sign {
+      margin-top: var(--sign-gap); font-family: "KaiEmbed"; font-size: var(--rpt-fs);
+      page-break-inside: avoid; break-inside: avoid; break-before: avoid;
+    }
+    .sign table { margin-left: auto; border-collapse: collapse; }
+    .sign td { padding: var(--rpt-pad-v) 0; white-space: nowrap; line-height: 1; }
+    .sign td.k { text-align: right; padding-right: 1mm; }
+    .sign td.v { text-align: left; min-width: 35mm; }
+
+    .photos-page { page-break-before: always; }
+
+    table.photo, table.grid { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 2mm; }
+    table.photo td, table.grid td { border: 0.5pt solid #000; }
+    table.photo td.pic { height: 150mm; text-align: center; vertical-align: middle; padding: 2mm; }
+    table.photo td.pic img { max-width: 100%; max-height: 148mm; object-fit: contain; }
+    /* 圖說兩行：第一行耳號，第二行該張照片的說明（沒填就只有耳號那行）。
+       `height` 對 td 是「最小高」而非固定高，兩行時會自然長高、不會裁字。
+       照片頁各自 page-break-before: always，不受主表格的一頁化壓縮影響。 */
+    table.photo td.cap, table.grid td.cap {
+      height: 6.5mm; text-align: center; vertical-align: middle;
+      font-family: "KaiEmbed"; font-size: 12pt; line-height: 1.3; padding: 1mm 2mm;
+    }
+    td.cap .cap-tags { display: block; }
+    td.cap .cap-desc { display: block; font-size: 10.5pt; }
+    table.grid td.pic { text-align: center; vertical-align: middle; padding: 2mm; }
+    table.grid td.pic img { max-width: 100%; object-fit: contain; }
+    table.grid.g2 td.pic { height: 130mm; }
+    table.grid.g2 td.pic img { max-height: 126mm; }
+    /* 4 格頁的照片格降到 60mm（原 66mm），把省下的 12mm 讓給圖說。
+       算式（單頁內容高 178mm）：
+         178 − 2(table margin-top) − 2×60(照片列) − 0.882(5 條 0.5pt 橫框) = 55.1mm
+         ÷ 2 個圖說列 = 每列 27.5mm
+       圖說列高 = 2(padding) + 5.50(耳號行 12pt×1.3) + 4.82×k(說明行 10.5pt×1.3)
+         耳號 1 行時 k ≤ 4；耳號折 2 行時 k ≤ 3。
+       原本 66mm 的預算只有 21.6mm/列 → 耳號 1 行時 k=3 就溢 0.78mm、
+       耳號折 2 行時 k=2 就溢 2.16mm（審查於 2026-08-08 算出，實測 caption 無長度上限）。
+
+       殘留限制：說明超過上述行數仍會溢頁。屆時 `tr.photo-row` 的
+       page-break-inside: avoid 會把該列組推到次頁 → 該頁只放 2 張。
+       是降級不是壞掉（不裁字），且已從「37 字就中」推遠到「約 144 字才中」。 */
+    table.grid.g4 td.pic { height: 60mm; }
+    table.grid.g4 td.pic img { max-height: 56mm; }
+    tr.photo-row { page-break-inside: avoid; }
+  </style>
+</head>
+<body>
+  {#- .autofit-root 圈出「應該塞進第一頁」的範圍：標題 + 主表格 + 簽名區。
+      照片頁在這個容器外（各自 page-break-before: always），不參與一頁化量測。
+      main.py 的 wait_for_function 靠這個 class 判斷本文件需不需要等 data-fit-done。 -#}
+  <div class="autofit-root">
+  <div class="title1">豬博士動物科技股份有限公司</div>
+  <div class="title2">試驗豬場巡場報告</div>
+
+  {% set bylabel = {} %}
+  {% for c in categories %}{% set _ = bylabel.update({c.label: c}) %}{% endfor %}
+  {% set pig = bylabel.get('豬隻狀況', {}) %}
+  {% set pig_entries = pig.get('entries', []) %}
+
+  <table class="rpt">
+    <colgroup>
+      <col class="c-label"><col class="c-obs"><col class="c-sug"><col class="c-foll">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>項目</th><th>觀察內容</th><th>建議</th>
+        <th>追蹤及改善<br><span class="hint">（請照護同仁扼要填寫）</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {# 豬隻狀況：官方母表固定的「試驗中」子標題列，資料模型未帶 group label，此版固定一組 #}
+      <tr>
+        <td class="cat" rowspan="{{ (pig_entries|length if pig_entries|length > 0 else 1) + 1 }}">豬隻狀況</td>
+        <td class="grp">試驗中</td>
+        <td class="grp">試驗中</td>
+        <td></td>
+      </tr>
+      {% if pig_entries|length > 0 %}
+        {% for e in pig_entries %}
+        <tr>
+          <td>{{ e.get('observation', '') }}</td>
+          <td>{{ e.get('suggestion', '') }}</td>
+          <td>{{ e.get('follow_up', '') }}</td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td>{{ pig.get('observation', '') }}</td>
+          <td>{{ pig.get('suggestion', '') }}</td>
+          <td>{{ pig.get('follow_up', '') }}</td>
+        </tr>
+      {% endif %}
+
+      {% for lbl in ['防疫及消毒計畫', '病歷紀錄', '其他'] %}
+      {% set c = bylabel.get(lbl, {}) %}
+      {% set ce = c.get('entries', []) %}
+      {% if ce|length > 0 %}
+        {% for e in ce %}
+        <tr>
+          {% if loop.first %}<td class="cat" rowspan="{{ ce|length }}">{{ lbl }}</td>{% endif %}
+          <td>{{ e.get('observation', '') }}</td>
+          <td>{{ e.get('suggestion', '') }}</td>
+          <td>{{ e.get('follow_up', '') }}</td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td class="cat">{{ lbl }}</td>
+          <td>{{ c.get('observation', '') }}</td>
+          <td>{{ c.get('suggestion', '') }}</td>
+          <td>{{ c.get('follow_up', '') }}</td>
+        </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="sign">
+    <table>
+      <tr><td class="k">陪同人員：</td><td class="v">{{ companion }}</td></tr>
+      <tr><td class="k">巡場獸醫師：</td><td class="v">{{ vet_name }}</td></tr>
+      <tr><td class="k">巡場日期：</td><td class="v">{{ patrol_date_display or patrol_date }}</td></tr>
+    </table>
+  </div>
+  </div>{# /.autofit-root #}
+
+  {#
+    照片：只用 photo_groups（backend R39-D2 已把 entry 照片按「同隻豬一組」+ report-level
+    整體環境照統一分組進這個欄位）。不要再併入 `photos` / `categories[].photos` —
+    那兩個欄位是同一批照片的重複表示法（backend 為了相容其他消費端才同時塞兩份），
+    併入會讓每張照片重複出現。
+
+    `g.photos`（新）vs `g.srcs`（舊）：srcs 是 list[str]，結構上放不下 per-photo caption，
+    所以同組每張照片的圖說只能共用 g.caption（＝耳號），使用者在前端填的圖片說明整個被丟掉。
+    g.photos 每筆帶自己的 caption，優先採用；backend 尚未同步部署時 photos 為空，退回 srcs。
+  #}
+  {% set ns = namespace(ph=[]) %}
+  {% for g in photo_groups %}
+    {% if g.photos %}
+      {% for p in g.photos %}
+        {% set ns.ph = ns.ph + [{'src': p.src, 'tags': g.caption, 'desc': p.caption}] %}
+      {% endfor %}
+    {% else %}
+      {% for s in g.srcs %}
+        {% set ns.ph = ns.ph + [{'src': s, 'tags': g.caption, 'desc': ''}] %}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+
+  {#- 圖說儲存格：耳號一行、說明一行。兩者皆空時輸出空格子（維持表格骨架）。 -#}
+  {% macro cap_cell(p) %}<td class="cap">{% if p.tags %}<span class="cap-tags">{{ p.tags }}</span>{% endif %}{% if p.desc %}<span class="cap-desc">{{ p.desc }}</span>{% endif %}</td>{% endmacro %}
+  {% set n = ns.ph|length %}
+  {% set pp = 1 if n <= 1 else (2 if n == 2 else 4) %}
+
+  {% if n == 1 %}
+  <div class="photos-page">
+    <table class="photo">
+      <colgroup><col style="width:100%"></colgroup>
+      <tr class="photo-row"><td class="pic">{% if ns.ph[0].src %}<img src="{{ ns.ph[0].src }}" alt="">{% endif %}</td></tr>
+      <tr class="photo-row">{{ cap_cell(ns.ph[0]) }}</tr>
+    </table>
+  </div>
+  {% elif n >= 2 %}
+  {% for page in ns.ph|batch(pp) %}
+  <div class="photos-page">
+    <table class="grid {{ 'g2' if pp == 2 else 'g4' }}">
+      <colgroup><col style="width:50%"><col style="width:50%"></colgroup>
+      {% for row in page|batch(2) %}
+      <tr class="photo-row">
+        {% for p in row %}<td class="pic">{% if p.src %}<img src="{{ p.src }}" alt="">{% endif %}</td>{% endfor %}
+        {% if row|length < 2 %}<td class="pic"></td>{% endif %}
+      </tr>
+      <tr class="photo-row">
+        {% for p in row %}{{ cap_cell(p) }}{% endfor %}
+        {% if row|length < 2 %}<td class="cap"></td>{% endif %}
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {#- 一頁化：量測「標題 + 主表格 + 簽名區」的實際高度，超過一頁就逐級壓縮字級 / 行高 /
+      儲存格 padding / 簽名區間距，直到塞得下或觸及下限。Chromium 渲染前執行
+      （WeasyPrint 無 JS，但本文件走 Chromium page.pdf，見 main.py）。
+      main.py `_html_to_pdf_paginated_async` 會等 data-fit-done 才 page.pdf()。 -#}
+  <script>
+    (function () {
+      // @page size 為 A4 landscape（210mm 高）；上下邊距由 main.py 的
+      // _VET_PATROL_REPORT_MARGIN 決定（各 16mm，頁首頁尾畫在那裡面）。
+      // 兩者相減即單頁可用內容高。改 margin 時這兩個常數要一起改。
+      var PAGE_H_MM = 210, MARGIN_MM = 16;
+      var LIMIT_PX = (PAGE_H_MM - MARGIN_MM * 2) * 96 / 25.4;
+      // 容差取**負值**。方向很重要：
+      //   取正 → 把「其實已經溢頁」判成塞得下 → 停止壓縮 → 簽名擠不進第一頁 → 原 bug 復發。
+      //   取負 → 最壞只是多降一級字級（0.5pt），看不太出來。
+      // 代價完全不對稱，所以往安全側偏。
+      //
+      // 為什麼不是 0：Chromium 內部會把紙張與邊距量化到整數 device unit，真實可用高度
+      // 落在 672.76~673.70 px 之間（純 mm 數學 / 邊距截整 pt / 紙高與邊距都截整 pt
+      // 三種假設），而本檔算出的 LIMIT_PX 是最小的那個。留 2px 負餘裕吸收這段不確定性。
+      var EPS = -2;
+
+      // 壓縮階梯（字級pt, 行高, 儲存格垂直padding mm, 簽名區間距 mm）。
+      // 下限 9pt：GLP 文件需長期歸檔判讀，再小會影響掃描辨識（2026-08-07 使用者確認）。
+      var STEPS = [
+        [12,   1.45, 1.2,  6],
+        [11.5, 1.38, 1.05, 5],
+        [11,   1.32, 0.9,  4.5],
+        [10.5, 1.28, 0.8,  4],
+        [10,   1.24, 0.7,  3.5],
+        [9.5,  1.20, 0.6,  3],
+        [9,    1.15, 0.5,  2.5]
+      ];
+
+      function apply(s) {
+        var r = document.documentElement.style;
+        r.setProperty('--rpt-fs', s[0] + 'pt');
+        r.setProperty('--rpt-lh', String(s[1]));
+        r.setProperty('--rpt-pad-v', s[2] + 'mm');
+        r.setProperty('--sign-gap', s[3] + 'mm');
+      }
+
+      // 量到簽名區底部為止＝第一頁該裝下的全部內容。
+      // 用 getBoundingClientRect().bottom + scrollY 而非 offsetHeight：
+      // 後者拿不到 margin 造成的位移。
+      function contentBottom(root) {
+        var sign = root.querySelector('.sign');
+        var last = sign || root;
+        return last.getBoundingClientRect().bottom + (window.scrollY || 0);
+      }
+
+      function run() {
+        var root = document.querySelector('.autofit-root');
+        if (root) {
+          var fitted = false;
+          for (var i = 0; i < STEPS.length; i++) {
+            apply(STEPS[i]);
+            void document.body.offsetHeight;   // 強制重新 layout 再量
+            if (contentBottom(root) <= LIMIT_PX + EPS) { fitted = true; break; }
+          }
+          // 全部級數都試過仍塞不下 → 一頁化本來就不可能達成，**復原原始字級**。
+          //
+          // 舊版沒有這條退路，跑完迴圈就停在 9pt 然後直接宣告完成 —— 結果是
+          // 既沒省到頁數、又把 GLP 歸檔文件的字級砍到下限，兩頭空。
+          // 2026-08-07 的掃描數據其實已經顯示了：n=12~15 印出 2 頁、n=18~20 印出 3 頁，
+          // 那些全都是「壓成 9pt 之後照樣跨頁」。當時沒看出來（審查於 2026-08-08 指出）。
+          //
+          // ⚠️ 已知限制（CodeAnt 於 2026-08-09 指出、經實測確認）：`break-before: avoid`
+          // 只是提示，不是保證。當前一頁的表格內容剛好填滿整頁空間、容不下簽名區塊時，
+          // Chromium 仍會把簽名推到獨立的新頁 —— 實測 n=16/17/26/27 條目會重現。
+          // 這是瀏覽器分頁演算法本身的既有限制，**不是本次復原邏輯引入的新問題**：
+          // 完全不做任何壓縮（prod 現行的固定 12pt 版面）在同樣的 n 值上有一模一樣的
+          // 行為（已用對照組實測驗證，兩者輸出完全相同）。要保證任何條目數都不孤立，
+          // 需要重新實作分頁演算法本身，超出本次「復原字級正確性」的範圍，留待後續。
+          if (!fitted) apply(STEPS[0]);
+        }
+        document.documentElement.setAttribute('data-fit-done', '1');
+      }
+
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(run);
+      } else {
+        run();
+      }
+    })();
+  </script>
+</body>
+</html>

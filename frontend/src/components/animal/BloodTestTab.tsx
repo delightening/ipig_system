@@ -1,0 +1,502 @@
+/**
+ * 血液檢查分頁元件
+ * 顯示在動物詳情頁 (AnimalDetailPage) 中
+ */
+import { useState } from 'react'
+import { GuestHide } from '@/components/ui/guest-hide'
+import { Can } from '@/components/auth'
+import { PERMISSIONS } from '@/lib/permissions.generated'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import api, {
+    BloodTestListItem,
+    CreateBloodTestRequest,
+    UpdateBloodTestRequest,
+    bloodTestApi,
+    bloodTestTemplateApi,
+    bloodTestPanelApi,
+} from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table'
+import { toast } from '@/components/ui/use-toast'
+import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
+import { Plus, Eye, Edit2, Trash2, AlertCircle, FileText, Download } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { TableEmptyRow } from '@/components/ui/empty-state'
+import { useTableSort } from '@/hooks/useTableSort'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
+
+import { LAB_OPTIONS } from './blood-test/constants'
+import { BloodTestFormDialog, type BloodTestFormData } from './blood-test/BloodTestFormDialog'
+import { BloodTestDetailDialog } from './blood-test/BloodTestDetailDialog'
+import { CorrectBloodTestItemDialog } from './blood-test/CorrectBloodTestItemDialog'
+import { BloodTestItemHistoryDialog } from './blood-test/BloodTestItemHistoryDialog'
+import type { AnimalBloodTestItem } from '@/types'
+
+interface BloodTestTabProps {
+    animalId: string
+    afterParam?: string
+}
+
+const INITIAL_FORM_DATA: BloodTestFormData = {
+    test_date: new Date().toISOString().split('T')[0],
+    lab_name: '',
+    remark: '',
+    items: [],
+}
+
+export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
+    const queryClient = useQueryClient()
+    const [showFormDialog, setShowFormDialog] = useState(false)
+    const [showDetailDialog, setShowDetailDialog] = useState(false)
+    const [editingId, setEditingId] = useState<string | null>(null)
+    const [viewingId, setViewingId] = useState<string | null>(null)
+    const [deleteTarget, setDeleteTarget] = useState<{ id: string; date: string } | null>(null)
+    const [labNameOption, setLabNameOption] = useState<string>('')
+    const [formData, setFormData] = useState<BloodTestFormData>({ ...INITIAL_FORM_DATA })
+    // R30-16: 修正單筆 item / 檢視修正歷史
+    const [correctingItem, setCorrectingItem] = useState<AnimalBloodTestItem | null>(null)
+    const [historyTestId, setHistoryTestId] = useState<string | null>(null)
+    /** R30-16: 編輯模式時保留 current items 完整 row（含 id），用於修正按鈕 */
+    const [editingItems, setEditingItems] = useState<AnimalBloodTestItem[]>([])
+
+    // 載入血液檢查列表
+    const { data: bloodTests = [], isLoading } = useQuery({
+        queryKey: ['animal-blood-tests', animalId, afterParam],
+        queryFn: async () => {
+            const res = await api.get<BloodTestListItem[]>(`/animals/${animalId}/blood-tests${afterParam}`)
+            return res.data
+        },
+        staleTime: 30_000,
+    })
+
+    const { sortedData: sortedBloodTests, sort, toggleSort } = useTableSort(bloodTests)
+
+    // 載入模板與組合
+    const { data: templates = [] } = useQuery({
+        queryKey: ['blood-test-templates'],
+        queryFn: async () => (await bloodTestTemplateApi.list()).data,
+        staleTime: 600_000,
+    })
+
+    const { data: panels = [] } = useQuery({
+        queryKey: ['blood-test-panels'],
+        queryFn: async () => (await bloodTestPanelApi.list()).data,
+        staleTime: 600_000,
+    })
+
+    // 載入單筆詳情（檢視用）
+    const { data: viewDetail } = useQuery({
+        queryKey: ['blood-test-detail', viewingId],
+        queryFn: async () => {
+            if (!viewingId) return null
+            return (await bloodTestApi.getById(viewingId)).data
+        },
+        enabled: !!viewingId,
+        staleTime: 30_000,
+    })
+
+    const resetForm = () => {
+        setFormData({ ...INITIAL_FORM_DATA, test_date: new Date().toISOString().split('T')[0] })
+        setLabNameOption('')
+        setEditingItems([])
+    }
+
+    // R32-A8h: 匯出血液檢查紀錄 PDF（後端 docxtpl + Word COM / Gotenberg LibreOffice）
+    const exportPdfMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.get(`/animals/${animalId}/export-blood-test-pdf`, {
+                responseType: 'blob',
+            })
+            const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `blood_test_${animalId}.pdf`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+        },
+        onError: () => {
+            toast({ title: '錯誤', description: 'PDF 下載失敗', variant: 'destructive' })
+        },
+    })
+
+    // Mutations
+    const createMutation = useMutation({
+        mutationFn: (data: CreateBloodTestRequest) => bloodTestApi.create(animalId, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['animal-blood-tests', animalId] })
+            setShowFormDialog(false)
+            resetForm()
+            toast({ title: '成功', description: '血液檢查紀錄已建立' })
+        },
+        onError: () => {
+            toast({ title: '錯誤', description: '建立失敗', variant: 'destructive' })
+        },
+    })
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: UpdateBloodTestRequest }) =>
+            bloodTestApi.update(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['animal-blood-tests', animalId] })
+            queryClient.invalidateQueries({ queryKey: ['blood-test-detail'] })
+            setShowFormDialog(false)
+            setEditingId(null)
+            resetForm()
+            toast({ title: '成功', description: '血液檢查紀錄已更新' })
+        },
+        onError: () => {
+            toast({ title: '錯誤', description: '更新失敗', variant: 'destructive' })
+        },
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+            bloodTestApi.delete(id, reason),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['animal-blood-tests', animalId] })
+            setDeleteTarget(null)
+            toast({ title: '成功', description: '血液檢查紀錄已刪除' })
+        },
+        onError: () => {
+            toast({ title: '錯誤', description: '刪除失敗', variant: 'destructive' })
+        },
+    })
+
+    const openCreateForm = () => {
+        resetForm()
+        setEditingId(null)
+        setShowFormDialog(true)
+    }
+
+    const loadEditDataMutation = useMutation({
+        mutationFn: (id: string) => bloodTestApi.getById(id),
+        onSuccess: (res, id) => {
+            const detail = res.data
+            // R30-16: 編輯時 items 唯讀；修改走 correctItem。仍寫進 formData.items 供 FormDialog 顯示。
+            setEditingItems(detail.items)
+            setFormData({
+                test_date: detail.blood_test.test_date,
+                lab_name: detail.blood_test.lab_name || '',
+                remark: detail.blood_test.remark || '',
+                items: detail.items.map((item) => ({
+                    template_id: item.template_id || undefined,
+                    item_name: item.item_name,
+                    result_value: item.result_value || '',
+                    result_unit: item.result_unit || '',
+                    reference_range: item.reference_range || '',
+                    is_abnormal: item.is_abnormal,
+                    remark: item.remark || '',
+                    sort_order: item.sort_order,
+                })),
+            })
+            const loadedLabName = detail.blood_test.lab_name || ''
+            if (LAB_OPTIONS.includes(loadedLabName as typeof LAB_OPTIONS[number])) {
+                setLabNameOption(loadedLabName)
+            } else if (loadedLabName) {
+                setLabNameOption('__other__')
+            } else {
+                setLabNameOption('')
+            }
+            setEditingId(id)
+            setShowFormDialog(true)
+        },
+        onError: () => {
+            toast({ title: '錯誤', description: '載入資料失敗', variant: 'destructive' })
+        },
+    })
+
+    const openEditForm = (id: string) => {
+        loadEditDataMutation.mutate(id)
+    }
+
+    const handleSubmit = () => {
+        if (!formData.test_date) {
+            toast({ title: '錯誤', description: '請填寫檢查日期', variant: 'destructive' })
+            return
+        }
+
+        if (editingId) {
+            // R30-16: 編輯只送主表三欄；items 修正改走 correctItem endpoint
+            const editPayload: UpdateBloodTestRequest = {
+                test_date: formData.test_date,
+                lab_name: formData.lab_name || undefined,
+                remark: formData.remark || undefined,
+            }
+            updateMutation.mutate({ id: editingId, data: editPayload })
+            return
+        }
+
+        if (formData.items.length === 0) {
+            toast({ title: '錯誤', description: '至少需要一個檢查項目', variant: 'destructive' })
+            return
+        }
+        if (formData.items.some((item) => !item.item_name.trim())) {
+            toast({ title: '錯誤', description: '所有檢查項目都需要填寫名稱', variant: 'destructive' })
+            return
+        }
+
+        createMutation.mutate({
+            test_date: formData.test_date,
+            lab_name: formData.lab_name || undefined,
+            remark: formData.remark || undefined,
+            items: formData.items,
+        })
+    }
+
+    const handleFormClose = () => {
+        setShowFormDialog(false)
+        setEditingId(null)
+        resetForm()
+    }
+
+    const isPending = createMutation.isPending || updateMutation.isPending
+
+    return (
+        <>
+            <Card className="overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>血液檢查紀錄</CardTitle>
+                        <CardDescription>記錄實驗動物的血液檢查結果與檢驗數據</CardDescription>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                        <Button
+                            variant="outline"
+                            onClick={() => exportPdfMutation.mutate()}
+                            disabled={exportPdfMutation.isPending || bloodTests.length === 0}
+                        >
+                            <Download className="h-4 w-4 mr-2" />
+                            {exportPdfMutation.isPending ? '匯出中…' : '下載 PDF'}
+                        </Button>
+                        <GuestHide>
+                            <Can permission={PERMISSIONS.ANIMAL_RECORD_CREATE}>
+                                <Button className="bg-destructive hover:bg-destructive/90" onClick={openCreateForm}>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    新增血液檢查
+                                </Button>
+                            </Can>
+                        </GuestHide>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="@container">
+
+                        {/* ── Table view: container ≥ 600px ── */}
+                        <div className="hidden @[600px]:block overflow-x-auto">
+                            <Table className="w-full" style={{ minWidth: 595 }}>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                        <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 100 }}>檢查日期</SortableTableHead>
+                                        <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 130 }}>檢驗機構</SortableTableHead>
+                                        <TableHead style={{ width: 70 }} className="text-center">項目數</TableHead>
+                                        <TableHead style={{ width: 85 }} className="text-center">異常項目</TableHead>
+                                        <TableHead style={{ width: 100 }}>建立者</TableHead>
+                                        <TableHead style={{ width: 110 }} className="text-right">操作</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoading ? (
+                                        <TableRow><TableCell colSpan={6} className="p-0"><TableSkeleton rows={5} cols={6} /></TableCell></TableRow>
+                                    ) : bloodTests.length === 0 ? (
+                                        <TableEmptyRow colSpan={6} icon={FileText} title="尚無血液檢查紀錄" />
+                                    ) : (
+                                        (sortedBloodTests ?? bloodTests).map((test) => (
+                                            <TableRow key={test.id}>
+                                                <TableCell style={{ width: 100 }} className="font-medium whitespace-nowrap">{test.test_date}</TableCell>
+                                                <TableCell style={{ width: 130 }} className="whitespace-normal break-words">{test.lab_name || '-'}</TableCell>
+                                                <TableCell style={{ width: 70 }} className="text-center">{test.item_count}</TableCell>
+                                                <TableCell style={{ width: 85 }} className="text-center">
+                                                    {test.abnormal_count > 0 ? (
+                                                        <Badge variant="destructive" className="gap-1">
+                                                            <AlertCircle className="h-3 w-3" />
+                                                            {test.abnormal_count}
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-status-success-text">0</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell style={{ width: 100 }} className="whitespace-normal break-words">{test.created_by_name || '-'}</TableCell>
+                                                <TableCell style={{ width: 110 }} className="text-right space-x-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => {
+                                                            setViewingId(test.id)
+                                                            setShowDetailDialog(true)
+                                                        }}
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                    <GuestHide>
+                                                        <Can permission={PERMISSIONS.ANIMAL_RECORD_EDIT}>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => openEditForm(test.id)}
+                                                            >
+                                                                <Edit2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </Can>
+                                                    </GuestHide>
+                                                    <GuestHide>
+                                                        <Can permission={PERMISSIONS.ANIMAL_RECORD_DELETE}>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-status-error-text"
+                                                                onClick={() => setDeleteTarget({ id: test.id, date: test.test_date })}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </Can>
+                                                    </GuestHide>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        {/* ── Card view: container < 600px ── */}
+                        <div className="@[600px]:hidden space-y-3 py-1">
+                            {isLoading ? (
+                                <TableSkeleton rows={3} cols={1} />
+                            ) : bloodTests.length === 0 ? (
+                                <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                                    <FileText className="h-8 w-8" />
+                                    <p className="text-sm">尚無血液檢查紀錄</p>
+                                </div>
+                            ) : (
+                                (sortedBloodTests ?? bloodTests).map((test) => (
+                                    <div key={test.id} className="rounded-lg border bg-card p-3 space-y-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-sm font-medium text-foreground">{test.test_date}</span>
+                                            <span className="text-xs text-muted-foreground">{test.lab_name || '-'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                            <span>{test.item_count} 項目</span>
+                                            {test.abnormal_count > 0 ? (
+                                                <Badge variant="destructive" className="gap-1">
+                                                    <AlertCircle className="h-3 w-3" />
+                                                    {test.abnormal_count} 異常
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-status-success-text">全部正常</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                                            <span className="text-xs text-muted-foreground">{test.created_by_name || '-'}</span>
+                                            <div className="flex gap-0.5">
+                                                <Button variant="ghost" size="icon" onClick={() => { setViewingId(test.id); setShowDetailDialog(true) }}>
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <GuestHide>
+                                                    <Can permission={PERMISSIONS.ANIMAL_RECORD_EDIT}>
+                                                        <Button variant="ghost" size="icon" onClick={() => openEditForm(test.id)}>
+                                                            <Edit2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </Can>
+                                                </GuestHide>
+                                                <GuestHide>
+                                                    <Can permission={PERMISSIONS.ANIMAL_RECORD_DELETE}>
+                                                        <Button variant="ghost" size="icon" className="text-status-error-text" onClick={() => setDeleteTarget({ id: test.id, date: test.test_date })}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </Can>
+                                                </GuestHide>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* 新增/編輯 Dialog */}
+            <BloodTestFormDialog
+                open={showFormDialog}
+                onOpenChange={setShowFormDialog}
+                editingId={editingId}
+                formData={formData}
+                setFormData={setFormData}
+                labNameOption={labNameOption}
+                setLabNameOption={setLabNameOption}
+                templates={templates}
+                panels={panels}
+                isPending={isPending}
+                onSubmit={handleSubmit}
+                onClose={handleFormClose}
+                editingItems={editingItems}
+                onCorrectItem={(item) => setCorrectingItem(item)}
+                onShowHistory={() => editingId && setHistoryTestId(editingId)}
+            />
+
+            {/* R30-16: 修正單筆 item Dialog（僅在 editingId + correctingItem 同時存在時 mount） */}
+            {editingId && correctingItem && (
+                <CorrectBloodTestItemDialog
+                    open={!!correctingItem}
+                    testId={editingId}
+                    item={correctingItem}
+                    onOpenChange={(open) => {
+                        if (!open) setCorrectingItem(null)
+                    }}
+                    onCorrected={() => {
+                        // R30-16: 重新載入 detail 同步 editingItems / formData.items，
+                        // 避免使用者對已 superseded 的舊 row 再次開 dialog
+                        if (editingId) loadEditDataMutation.mutate(editingId)
+                    }}
+                />
+            )}
+
+            {/* R30-16: 修正歷史時間軸 */}
+            <BloodTestItemHistoryDialog
+                open={!!historyTestId}
+                testId={historyTestId}
+                onOpenChange={(open) => {
+                    if (!open) setHistoryTestId(null)
+                }}
+            />
+
+            {/* 詳情 Dialog */}
+            <BloodTestDetailDialog
+                open={showDetailDialog}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setShowDetailDialog(false)
+                        setViewingId(null)
+                    }
+                }}
+                detail={viewDetail}
+            />
+
+            {/* 刪除確認 Dialog */}
+            {deleteTarget && (
+                <DeleteReasonDialog
+                    open={!!deleteTarget}
+                    onOpenChange={(open) => !open && setDeleteTarget(null)}
+                    onConfirm={(reason) => deleteMutation.mutate({ id: deleteTarget.id, reason })}
+                    copy={{
+                        title: '刪除血液檢查紀錄',
+                        description: `確定要刪除 ${deleteTarget.date} 的血液檢查紀錄嗎？此操作無法復原。`,
+                    }}
+                    isPending={deleteMutation.isPending}
+                />
+            )}
+        </>
+    )
+}

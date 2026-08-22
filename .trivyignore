@@ -1,0 +1,28 @@
+# 此檔案用於忽略已確認且無法修復或不影響安全性的漏洞
+# 格式：CVE-ID (每行一個編號)
+#
+# 2026-06-10 P4-6 清理：frontend 映像（georgjung/nginx-brotli:1.31.0-alpine3.23）原本
+# 抑制的 12 個 CVE（libpng / zlib / libxml2×4 / pcre2 / openssl×6）已全部修復——
+# georgjung base 2026 重建後自帶 pcre2 10.47 / openssl 3.5.6 / libpng 1.6.58 / zlib 1.3.2，
+# 加上 Dockerfile `apk upgrade ... libxml2`（2.13.9-r1）。Trivy 重掃應為 0，故全數移除。
+# 驗證：rebuild web 後 apk info 確認所有套件 ≥ 修復版（2026-06-10）。
+
+# CVE-2026-28390: libssl3 OpenSSL DoS via NULL pointer dereference
+# 適用：backend 映像（gcr.io/distroless/cc-debian12）
+# 原因：distroless base image 自帶 libssl3，無法透過 apt upgrade 修復；
+#       覆蓋 .so 會造成 ABI 不相容導致應用程式無法啟動
+# 風險：LOW — DoS 需特製 TLS 連線，API 位於反向代理後方
+# 下次檢查：distroless image 更新後移除
+CVE-2026-28390
+
+# CVE-2026-0861: glibc 整數溢位導致 memalign heap corruption
+# 適用：print-pdf 映像（python:3.12-slim debian12 base）— libc6 2.36-9+deb12u13
+# 原因：Trivy DB 已收到此 CVE，但 Debian 12 stable repo 尚未發布修補版本
+#       (2.36-9+deb12u14)。Dockerfile 已有 `apt-get update && apt-get upgrade -y`，
+#       一旦 Debian 上架修補版即自動納入下一次 build。
+# 風險：LOW — print-pdf 只在 backend network 內部運作（不對外曝光），R55-3 之後
+#       還需 X-Internal-Token 才能呼叫；touch heap corruption 路徑（memalign）
+#       需執行 native C code 配合 chosen alignment，WeasyPrint / Python 工作負載
+#       不會觸到。
+# 下次檢查：Debian 12 stable security feed / 觸發新 CI 失敗時優先處理
+CVE-2026-0861

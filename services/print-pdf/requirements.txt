@@ -1,0 +1,33 @@
+fastapi==0.136.1
+uvicorn[standard]==0.47.0
+jinja2==3.1.6
+# ⚠️ 必須與 Dockerfile 的 base image tag 同版
+# （`mcr.microsoft.com/playwright/python:v<版本>-jammy`）。base image 只預裝它
+# 自己那版的瀏覽器（路徑含版本號，如 chromium_headless_shell-1148），版本一旦
+# 對不上，啟動時 `chromium.launch()` 會以
+# 「Executable doesn't exist at /ms-playwright/...」失敗，整個服務進重啟迴圈。
+# 2026-08-06 prod 事故：#26 由 Dependabot 把 base image 升到 v1.62.0-jammy，
+# 本檔仍是 1.49.0 → print-pdf 部署後起不來。升級任一邊時務必同步另一邊。
+playwright==1.62.0
+pydantic==2.13.4
+python-multipart==0.0.31
+openpyxl==3.1.5
+# 6.15.0：修 GHSA-fp3f-mc75-235c 與 GHSA-fwg2-594c-jp42（皆 CVSS 4.8）——
+# 解析惡意 PDF 的 /ToUnicode 與 CID 字型寬度時資源耗盡（DoS）。
+# 本服務不受影響：pypdf 只用在 _aup_toc_pages（解析我們自己剛用 Chromium 產生的
+# PDF 以定位章節頁碼）與 project_medical 合併，兩者輸入皆為自產，
+# 沒有任何路徑讓外來 PDF 進到 pypdf。仍升版而非寫例外 —— 修補就在 upstream，
+# 為一個可直接修掉的問題累積永久例外不划算。
+pypdf==6.15.0
+Pillow==12.3.0
+
+# --- transitive 依賴的安全性下限（2026-08-04）---
+# 這兩個並非本服務直接 import，而是由 uvicorn[standard] / httpx 那條線帶進來。
+# 因為未在本檔列出，Dependabot 的 alert 清單看不到它們——是新增的
+# 「🔒 Security: Python 依賴掃描」job（osv-scanner）上線第一次跑才掃出來。
+#
+# 用 `>=` 而非本檔其他項目的 `==`：這裡要表達的是「不得低於修補版」，不是
+# 釘死某一版。實測 prod 容器已自然裝到 idna 3.18，若寫 `==3.15` 反而會在
+# 下次 rebuild 時把它降級，並擋掉之後的修補。上限交由上游套件的相依宣告決定。
+h11>=0.16.0   # PYSEC-2026-348 / GHSA-vqfr-h8mv-ghfj — CVSS 9.1
+idna>=3.15    # PYSEC-2026-215 / GHSA-65pc-fj4g-8rjx — CVSS 6.9

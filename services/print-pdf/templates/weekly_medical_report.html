@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}豬隻病歷週報{% endblock %}
+
+{% block extra_styles %}
+@page { size: A4 landscape; margin: 1.5cm 1.5cm 2.5cm 1.5cm; }
+
+table.data th, table.data td { font-size: 8.5pt; padding: 2pt 4pt; }
+table.data th { white-space: nowrap; }
+.event-type {
+  display: inline-block;
+  padding: 1pt 4pt;
+  border-radius: 2pt;
+  font-size: 7.5pt;
+  font-weight: bold;
+  color: #fff;
+}
+.event-type.obs  { background: #4a90d9; }
+.event-type.surg { background: #d94a4a; }
+.event-type.bt   { background: #d9a04a; }
+{% endblock %}
+
+{% block content %}
+<h1>豬隻病歷週報</h1>
+
+{% if date_range %}
+<p style="text-align:center; font-size:10pt; margin-top:-10pt; margin-bottom:10pt;">{{ date_range }}</p>
+{% endif %}
+
+<table class="data">
+  <thead>
+    <tr>
+      <th style="width:7%">日期</th>
+      <th style="width:5%">耳號</th>
+      <th style="width:7%">出生日期</th>
+      <th style="width:4%">體重</th>
+      <th style="width:5%">類別</th>
+      <th style="width:14%">試驗單位</th>
+      <th style="width:36%">試驗內容</th>
+      <th style="width:8%">特殊儀器</th>
+      <th style="width:5%">麻醉時數</th>
+      <th style="width:5%">麻醉起</th>
+      <th style="width:5%">麻醉迄</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for ev in events %}
+    <tr>
+      <td class="center">{{ ev.event_date or '' }}</td>
+      <td class="center">{{ ev.ear_tag or '' }}</td>
+      <td class="center">{{ ev.birth_date or '' }}</td>
+      <td class="num">{{ ev.latest_weight if ev.latest_weight is not none else '' }}</td>
+      <td class="center">
+        {% if ev.event_type == 'OBSERVATION' %}<span class="event-type obs">觀察</span>
+        {% elif ev.event_type == 'SURGERY' %}<span class="event-type surg">手術</span>
+        {% elif ev.event_type == 'BLOOD_TEST' %}<span class="event-type bt">血檢</span>
+        {% else %}{{ ev.event_type }}
+        {% endif %}
+      </td>
+      <td>{{ ev.iacuc_no or '' }}{% if ev.iacuc_no and ev.sponsor_name %}<br>{% endif %}{{ ev.sponsor_name or '' }}</td>
+      <td>{{ ev.details or ev.summary or '' }}</td>
+      <td>{{ ev.equipment_used or '' }}</td>
+      <td class="center">{{ ev.anesthesia_duration or '' }}</td>
+      <td class="center">{{ ev.anesthesia_start_display or '' }}</td>
+      <td class="center">{{ ev.anesthesia_end_display or '' }}</td>
+    </tr>
+    {% endfor %}
+    {% if not events %}
+    <tr><td colspan="11" style="text-align:center; padding:20pt;">查無符合條件的醫療事件</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}

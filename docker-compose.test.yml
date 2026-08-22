@@ -1,0 +1,101 @@
+services:
+  # =========================
+  # CI Test Database
+  # =========================
+  db-test:
+    image: postgres:16-alpine@sha256:20edbde7749f822887a1a022ad526fde0a47d6b2be9a8364433605cf65099416
+    container_name: ipig-db-test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ipig_db_test
+      POSTGRES_INITDB_ARGS: "--locale=C"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d ipig_db_test" ]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    # CI 環境不需要永久儲存
+    tmpfs:
+      - /var/lib/postgresql/data
+    # 本機複現 CI 測試時，host 需連接 localhost:5432（loopback only，不對 LAN 暴露）
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  # =========================
+  # CI Test Backend API
+  # =========================
+  api-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ipig-api-test
+    ports:
+      - "8000:8080"   # host:container（API 在容器內聽 8080，CI 用 localhost:8000）
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8080
+      # High-4 (#283)：CI 測試棧標記為非 production，避免 is_production() fail-safe 預設
+      # 讓 SEED_DEV_USERS / config 警告觸發啟動 fail-fast 而擋住 E2E。
+      APP_ENV: test
+      DATABASE_URL: postgres://postgres:password@db-test:5432/ipig_db_test
+      JWT_EC_PRIVATE_KEY: "${JWT_EC_PRIVATE_KEY}"
+      JWT_EC_PUBLIC_KEY: "${JWT_EC_PUBLIC_KEY}"
+      JWT_EXPIRATION_MINUTES: 60
+      SEED_DEV_USERS: "true"                              # 重要：CI 測試需要預設帳號
+      DEV_USER_PASSWORD: "${CI_DEV_PASSWORD:-ci_test_dev_password_for_local}"        # E2E 測試需要已知密碼
+      ADMIN_INITIAL_PASSWORD: "${CI_ADMIN_PASSWORD:-ci_test_admin_password_for_local}" # E2E 測試管理員密碼
+      CI: "true"                                            # seed.rs 用此判斷是否跳過強制改密
+      DISABLE_ACCOUNT_LOCKOUT: "true"                       # 與 CI backend-test 一致，避免登入失敗累積導致鎖定
+      COOKIE_SECURE: "false"                                # CI 中通常不使用 HTTPS
+      CORS_ALLOWED_ORIGINS: "http://localhost:8080"         # Playwright E2E 測試使用
+      # 抑制「啟動配置警告」對話框，避免 E2E 測試被擋住
+      TEST_USER_PASSWORD: "${CI_DEV_PASSWORD:-ci_test_dev_password_for_local}"       # config_check 檢查用（與 DEV_USER_PASSWORD 同值）
+      ALLOWED_CLOCK_IP_RANGES: "127.0.0.0/8"                # 地理圍籬：CI 用 localhost 通過
+      CLOCK_OFFICE_LATITUDE: "25.000000"                    # GPS 座標（與 IP 併用可消除警告）
+      CLOCK_OFFICE_LONGITUDE: "121.000000"
+    healthcheck:
+      test: ["CMD", "/app/healthcheck"]
+      interval: 5s
+      timeout: 5s
+      start_period: 45s
+      retries: 12
+    depends_on:
+      db-test:
+        condition: service_healthy
+
+  # =========================
+  # CI Test Frontend (Static Host)
+  # =========================
+  web-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # E2E 覆蓋率：production build 開 hidden source map，供 Playwright V8 coverage 對回 .ts
+        # local/dev 預設 0；CI 透過 .github/workflows/ci.yml 顯式 export VITE_E2E_COVERAGE=1
+        VITE_E2E_COVERAGE: "${VITE_E2E_COVERAGE:-0}"
+    container_name: ipig-web-test
+    ports:
+      - "8080:80"   # host:container（nginx 聽 80，CI/Playwright 用 localhost:8080）
+    volumes:
+      # 掛載 CI 專用 nginx 設定，將 /api 代理到正確的測試服務（api-test:8080）
+      - ./frontend/nginx-ci.conf:/etc/nginx/conf.d/default.conf:ro
+    environment:
+      VITE_API_URL: http://api-test:8080
+      API_BACKEND_URL: http://api-test:8080
+      # bind mount 已覆蓋 /etc/nginx/conf.d/default.conf (:ro)，
+      # 把 image 內 template 的 envsubst 輸出導去別處，避免 entrypoint
+      # 嘗試寫入 read-only 路徑導致 exit 1
+      NGINX_ENVSUBST_OUTPUT_DIR: /tmp/nginx-unused
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      start_period: 15s  # 增加到 15s，給 envsubst 和 nginx 足夠啟動時間
+      retries: 6
+    depends_on:
+      api-test:
+        condition: service_healthy
+

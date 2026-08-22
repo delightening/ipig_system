@@ -1,0 +1,11 @@
+# Clippy 設定檔
+# 文件：https://doc.rust-lang.org/clippy/configuration.html
+
+# 允許較長的函式（ERP 系統的 handler 與 service 函式通常較大）
+too-many-lines-threshold = 200
+
+# 允許較多函式參數
+too-many-arguments-threshold = 10
+
+# 認知複雜度閾值
+cognitive-complexity-threshold = 30

@@ -1,0 +1,9 @@
+# P2-R4-20: 排除 build context 無關檔案，加速 Docker build
+target/
+.git/
+.gitignore
+*.md
+tests/
+.env
+.env.*
+!.env.example

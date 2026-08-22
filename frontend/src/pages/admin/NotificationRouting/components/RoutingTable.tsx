@@ -1,0 +1,270 @@
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table'
+import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { TableEmptyRow } from '@/components/ui/empty-state'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useState } from 'react'
+import { Bell, Pencil, Trash2, FileCheck, PawPrint, Package, Users, Wrench, Link2, ChevronRight, ChevronDown } from 'lucide-react'
+
+import type { NotificationRouting, RoutingRuleRecipients } from '../types'
+import type { GroupKey } from '../constants'
+import { GROUP_KEYS, recipientLabel } from '../constants'
+import { ChannelBadge } from './ChannelBadge'
+import { ExpiryConfigPanel } from './ExpiryConfigPanel'
+import { useTableSort } from '@/hooks/useTableSort'
+
+const groupIcons: Record<GroupKey, typeof FileCheck> = {
+    AUP: FileCheck,
+    Animal: PawPrint,
+    ERP: Package,
+    HR: Users,
+    Equipment: Wrench,
+}
+
+interface RoutingTableProps {
+    rulesByGroup: Record<GroupKey, NotificationRouting[]>
+    eventNameMap: Record<string, string>
+    roleNameMap: Record<string, string>
+    recipientsByRuleId: Record<string, RoutingRuleRecipients>
+    onEdit: (rule: NotificationRouting) => void
+    onDelete: (rule: NotificationRouting) => void
+    onToggleActive: (id: string, isActive: boolean) => void
+}
+
+export function RoutingTable({
+    rulesByGroup,
+    eventNameMap,
+    roleNameMap,
+    recipientsByRuleId,
+    onEdit,
+    onDelete,
+    onToggleActive,
+}: RoutingTableProps) {
+    return (
+        <Tabs defaultValue="AUP" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:w-auto lg:inline-flex">
+                {GROUP_KEYS.map((key) => {
+                    const Icon = groupIcons[key]
+                    return (
+                        <TabsTrigger key={key} value={key} className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {key}
+                            <Badge variant="secondary" className="ml-1">
+                                {rulesByGroup[key].length}
+                            </Badge>
+                        </TabsTrigger>
+                    )
+                })}
+            </TabsList>
+            {GROUP_KEYS.map((groupKey) => (
+                <TabsContent key={groupKey} value={groupKey} className="mt-4">
+                    <GroupTable
+                        rules={rulesByGroup[groupKey]}
+                        eventNameMap={eventNameMap}
+                        roleNameMap={roleNameMap}
+                        recipientsByRuleId={recipientsByRuleId}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onToggleActive={onToggleActive}
+                    />
+                    {groupKey === 'ERP' && (
+                        <div className="mt-6">
+                            <ExpiryConfigPanel />
+                        </div>
+                    )}
+                </TabsContent>
+            ))}
+        </Tabs>
+    )
+}
+
+function GroupTable({
+    rules,
+    eventNameMap,
+    roleNameMap,
+    recipientsByRuleId,
+    onEdit,
+    onDelete,
+    onToggleActive,
+}: {
+    rules: NotificationRouting[]
+    eventNameMap: Record<string, string>
+    roleNameMap: Record<string, string>
+    recipientsByRuleId: Record<string, RoutingRuleRecipients>
+    onEdit: (rule: NotificationRouting) => void
+    onDelete: (rule: NotificationRouting) => void
+    onToggleActive: (id: string, isActive: boolean) => void
+}) {
+    const { sortedData, sort, toggleSort } = useTableSort(rules)
+
+    return (
+        <div className="rounded-lg border bg-card overflow-hidden">
+            <Table>
+                <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <SortableTableHead sortKey="event_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[200px]">事件類型</SortableTableHead>
+                        <SortableTableHead sortKey="target_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[180px]">收件人來源</SortableTableHead>
+                        <SortableTableHead sortKey="channel" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[160px]">通知管道</SortableTableHead>
+                        <TableHead className="w-[80px] text-center">啟用</TableHead>
+                        <TableHead>描述</TableHead>
+                        <TableHead className="w-[100px] text-right">操作</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rules.length > 0 ? (
+                        (sortedData ?? rules).map((rule) => (
+                            <RoutingRow
+                                key={rule.id}
+                                rule={rule}
+                                eventNameMap={eventNameMap}
+                                roleNameMap={roleNameMap}
+                                recipients={recipientsByRuleId[rule.id]}
+                                onEdit={onEdit}
+                                onDelete={onDelete}
+                                onToggleActive={onToggleActive}
+                            />
+                        ))
+                    ) : (
+                        <TableEmptyRow colSpan={6} icon={Bell} title="此分類尚無通知路由規則，可點擊「新增規則」建立" />
+                    )}
+                </TableBody>
+            </Table>
+        </div>
+    )
+}
+
+interface RoutingRowProps {
+    rule: NotificationRouting
+    eventNameMap: Record<string, string>
+    roleNameMap: Record<string, string>
+    recipients?: RoutingRuleRecipients
+    onEdit: (rule: NotificationRouting) => void
+    onDelete: (rule: NotificationRouting) => void
+    onToggleActive: (id: string, isActive: boolean) => void
+}
+
+function RoutingRow({
+    rule,
+    eventNameMap,
+    roleNameMap,
+    recipients,
+    onEdit,
+    onDelete,
+    onToggleActive,
+}: RoutingRowProps) {
+    const [expanded, setExpanded] = useState(false)
+    const isResolver = rule.target_kind === 'resolver'
+
+    return (
+        <>
+            <TableRow className={!rule.is_active ? 'bg-muted/40' : ''}>
+                <TableCell>
+                    <div className="flex items-center gap-2">
+                        <Bell className="h-4 w-4 text-primary shrink-0" />
+                        <div>
+                            <div className="font-medium">
+                                {eventNameMap[rule.event_type] || rule.event_type}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                                {rule.event_type}
+                            </div>
+                        </div>
+                    </div>
+                </TableCell>
+                <TableCell>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setExpanded((e) => !e)}
+                            className="text-muted-foreground hover:text-foreground shrink-0"
+                            aria-label={expanded ? '收合收件人' : '展開收件人'}
+                        >
+                            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                        {isResolver ? (
+                            <Badge variant="secondary" className="gap-1" title="關係型：收件人由事件動態決定，不可調整">
+                                <Link2 className="h-3 w-3" />
+                                {recipientLabel(rule, roleNameMap)}
+                            </Badge>
+                        ) : (
+                            <Badge variant="outline">
+                                {recipientLabel(rule, roleNameMap)}
+                            </Badge>
+                        )}
+                    </div>
+                </TableCell>
+                <TableCell>
+                    <ChannelBadge channel={rule.channel} />
+                </TableCell>
+                <TableCell className="text-center">
+                    <Switch
+                        checked={rule.is_active}
+                        onCheckedChange={(checked) => onToggleActive(rule.id, checked)}
+                    />
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                    {rule.description || '—'}
+                </TableCell>
+                <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => onEdit(rule)} aria-label="編輯">
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => onDelete(rule)} aria-label="刪除">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                    </div>
+                </TableCell>
+            </TableRow>
+            {expanded && (
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableCell colSpan={6} className="py-3">
+                        <RecipientDetail recipients={recipients} />
+                    </TableCell>
+                </TableRow>
+            )}
+        </>
+    )
+}
+
+function RecipientDetail({ recipients }: { recipients?: RoutingRuleRecipients }) {
+    if (!recipients) {
+        return <div className="pl-6 text-sm text-muted-foreground">載入收件人中…</div>
+    }
+    if (recipients.target_kind === 'resolver') {
+        return (
+            <div className="pl-6 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{recipients.label}</span>
+                {recipients.description ? `：${recipients.description}` : ''}
+                <span className="ml-2 text-xs">（關係型，依事件動態決定，不可調整）</span>
+            </div>
+        )
+    }
+    if (recipients.members.length === 0) {
+        return <div className="pl-6 text-sm text-muted-foreground">目前無持有此角色的使用者</div>
+    }
+    return (
+        <div className="pl-6 space-y-1">
+            <div className="text-xs text-muted-foreground">
+                實際收件人（{recipients.members.length} 人）：
+            </div>
+            <ul className="flex flex-wrap gap-x-4 gap-y-1">
+                {recipients.members.map((m) => (
+                    <li key={m.id} className="text-sm">
+                        <span className="font-medium">{m.display_name}</span>
+                        <span className="text-muted-foreground ml-1">{m.email}</span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    )
+}

@@ -1,0 +1,179 @@
+import { useForm } from 'react-hook-form'
+import { Plus } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { Textarea } from '@/components/ui/textarea'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import {
+    OVERTIME_TYPE_NAMES,
+    calculateOvertimeHours,
+    calculateCompTime,
+} from '../constants'
+import type { CreateOvertimeData } from '../constants'
+
+interface OvertimeRequestFormData {
+    overtimeDate: string
+    startTime: string
+    endTime: string
+    overtimeType: string
+    reason: string
+}
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const TIME_PATTERN = /^\d{2}:\d{2}$/
+
+interface CreateOvertimeDialogProps {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    onSubmit: (data: CreateOvertimeData) => void
+    isPending: boolean
+}
+
+export function CreateOvertimeDialog({
+    open,
+    onOpenChange,
+    onSubmit,
+    isPending,
+}: CreateOvertimeDialogProps) {
+    const {
+        register,
+        handleSubmit,
+        watch,
+        setValue,
+        reset,
+        formState: { errors },
+    } = useForm<OvertimeRequestFormData>({
+        defaultValues: {
+            overtimeDate: '',
+            startTime: '18:00',
+            endTime: '21:00',
+            overtimeType: 'A',
+            reason: '',
+        },
+    })
+
+    const startTime = watch('startTime')
+    const endTime = watch('endTime')
+    const overtimeType = watch('overtimeType')
+
+    const onValid = (data: OvertimeRequestFormData) => {
+        onSubmit({
+            overtime_date: data.overtimeDate,
+            start_time: data.startTime,
+            end_time: data.endTime,
+            overtime_type: data.overtimeType,
+            reason: data.reason,
+        })
+        reset()
+    }
+
+    const handleOpenChange = (newOpen: boolean) => {
+        if (!newOpen) reset()
+        onOpenChange(newOpen)
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>
+                <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    新增加班
+                </Button>
+            </DialogTrigger>
+            <DialogContent size="md">
+                <DialogHeader>
+                    <DialogTitle>新增加班申請</DialogTitle>
+                    <DialogDescription>填寫加班資訊後送出審核</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit(onValid)}>
+                    <div className="grid gap-4 py-4">
+                        <FormField label="加班日期" required error={errors.overtimeDate?.message}>
+                            <Input type="date" {...register('overtimeDate', {
+                                required: '請選擇加班日期',
+                                pattern: { value: DATE_PATTERN, message: '請選擇加班日期' },
+                            })} aria-label="加班日期" />
+                        </FormField>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="開始時間" required>
+                                <Input type="time" {...register('startTime', {
+                                    required: '請選擇開始時間',
+                                    pattern: { value: TIME_PATTERN, message: '請選擇開始時間' },
+                                })} aria-label="開始時間" />
+                            </FormField>
+                            <FormField label="結束時間" required error={errors.endTime?.message}>
+                                <Input type="time" {...register('endTime', {
+                                    required: '請選擇結束時間',
+                                    pattern: { value: TIME_PATTERN, message: '請選擇結束時間' },
+                                    validate: (value, formValues) => value > formValues.startTime || '結束時間必須晚於開始時間（不支援跨午夜）',
+                                })} aria-label="結束時間" />
+                            </FormField>
+                        </div>
+                        <FormField label="加班類型">
+                            <Select value={overtimeType} onValueChange={(v) => setValue('overtimeType', v)}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(OVERTIME_TYPE_NAMES).map(([code, name]) => (
+                                        <SelectItem key={code} value={code}>
+                                            {name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </FormField>
+                        <FormField label="加班事由" required error={errors.reason?.message}>
+                            <Textarea
+                                placeholder="請說明加班原因..."
+                                {...register('reason', {
+                                    required: '請輸入加班事由',
+                                    maxLength: { value: 500, message: '加班事由不得超過 500 字元' },
+                                })}
+                                rows={3}
+                            />
+                        </FormField>
+                        <div className="grid gap-2 p-3 bg-muted rounded-lg space-y-1">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">預估加班時數</span>
+                                <span className="text-lg font-semibold">
+                                    {calculateOvertimeHours(startTime, endTime).toFixed(1)} 小時
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">預估補休時數</span>
+                                <span className="text-lg font-semibold">
+                                    {calculateCompTime(overtimeType).toFixed(1)} 小時
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                            取消
+                        </Button>
+                        <Button type="submit" disabled={isPending}>
+                            建立
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    )
+}

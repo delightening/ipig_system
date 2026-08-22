@@ -1,0 +1,32 @@
+{
+  "name": "ipig-mcp",
+  "displayName": "豬博士 iPig MCP Server",
+  "description": "iPig 系統的 Model Context Protocol 端點，提供實驗動物、計畫書、進銷存、人事資料的工具呼叫與資源存取。",
+  "version": "1.0.0",
+  "transport": {
+    "type": "http",
+    "subtype": "json-rpc-2.0",
+    "endpoint": "https://ipigsystem.asia/api/v1/mcp"
+  },
+  "authentication": {
+    "type": "bearer",
+    "scheme": "Bearer",
+    "tokenPrefix": "mcp_",
+    "description": "由系統管理員於使用者管理頁面發放 MCP API Key（mcp_ 前綴），於 Authorization header 攜帶。"
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": false,
+    "sampling": false
+  },
+  "documentation": {
+    "openapi": "https://ipigsystem.asia/openapi.json",
+    "humanReadable": "https://ipigsystem.asia/llms.txt",
+    "agentCard": "https://ipigsystem.asia/.well-known/agent.json"
+  },
+  "rateLimit": {
+    "perMinute": 60,
+    "burst": 20
+  }
+}

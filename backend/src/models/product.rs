@@ -1,0 +1,346 @@
+use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use utoipa::ToSchema;
+use uuid::Uuid;
+use validator::Validate;
+
+/// 產品狀態
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type, Default, ToSchema)]
+#[sqlx(type_name = "VARCHAR", rename_all = "lowercase")]
+pub enum ProductStatus {
+    #[serde(rename = "active")]
+    #[default]
+    Active,
+    #[serde(rename = "inactive")]
+    Inactive,
+    #[serde(rename = "discontinued")]
+    Discontinued,
+}
+
+/// 保存條件
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum StorageCondition {
+    #[serde(rename = "RT")]
+    RoomTemperature, // 常溫 15-25°C
+    #[serde(rename = "RF")]
+    Refrigerated, // 冷藏 2-8°C
+    #[serde(rename = "FZ")]
+    Frozen, // 冷凍 -20°C 以下
+    #[serde(rename = "DK")]
+    Dark, // 避光
+    #[serde(rename = "DY")]
+    Dry, // 乾燥
+}
+
+// 產品主檔，無敏感欄位（SKU / 規格 / 庫存設定皆稽核項目）
+impl crate::models::audit_diff::AuditRedact for Product {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Product {
+    pub id: Uuid,
+    pub sku: String,
+    pub name: String,
+    pub spec: Option<String>,
+    pub category_id: Option<Uuid>,
+    pub category_code: Option<String>,
+    pub subcategory_code: Option<String>,
+    pub base_uom: String,
+    pub pack_unit: Option<String>,
+    pub pack_qty: Option<i32>,
+    pub track_batch: bool,
+    pub track_expiry: bool,
+    pub default_expiry_days: Option<i32>,
+    #[schema(value_type = String)]
+    pub safety_stock: Option<Decimal>,
+    pub safety_stock_uom: Option<String>,
+    #[schema(value_type = String)]
+    pub reorder_point: Option<Decimal>,
+    pub reorder_point_uom: Option<String>,
+    /// R35-16: 標準成本 / 最近採購均價。NULL = 尚未維護
+    #[serde(default)]
+    #[sqlx(default)]
+    #[schema(value_type = String)]
+    pub cost_price: Option<Decimal>,
+    /// R35-16: 目前對外定價。NULL = 尚未維護；庫存價值計算中不計入
+    #[serde(default)]
+    #[sqlx(default)]
+    #[schema(value_type = String)]
+    pub selling_price: Option<Decimal>,
+    pub barcode: Option<String>,
+    pub image_url: Option<String>,
+    pub license_no: Option<String>,
+    pub storage_condition: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub status: String,
+    pub remark: Option<String>,
+    pub is_active: bool,
+    pub created_by: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+// 產品類別，無敏感欄位
+impl crate::models::audit_diff::AuditRedact for ProductCategory {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct ProductCategory {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct ProductUomConversion {
+    pub id: Uuid,
+    pub product_id: Uuid,
+    pub uom: String,
+    #[schema(value_type = String)]
+    pub factor_to_base: Decimal,
+}
+
+/// 建立產品請求（SKU 可選填，未填時由系統自動生成）
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct CreateProductRequest {
+    /// 選填；匯入時可帶入，未填則自動生成
+    pub sku: Option<String>,
+    #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
+    pub name: String,
+    pub spec: Option<String>,
+    pub category_code: Option<String>,
+    pub subcategory_code: Option<String>,
+    #[validate(length(min = 1, max = 20, message = "Base UOM must be 1-20 characters"))]
+    pub base_uom: String,
+    pub pack_unit: Option<String>,
+    pub pack_qty: Option<i32>,
+    #[serde(default)]
+    pub track_batch: bool,
+    #[serde(default)]
+    pub track_expiry: bool,
+    pub default_expiry_days: Option<i32>,
+    pub safety_stock: Option<Decimal>,
+    pub safety_stock_uom: Option<String>,
+    pub reorder_point: Option<Decimal>,
+    pub reorder_point_uom: Option<String>,
+    /// R35-16: 標準成本 / 最近採購均價
+    pub cost_price: Option<Decimal>,
+    /// R35-16: 對外定價
+    pub selling_price: Option<Decimal>,
+    pub barcode: Option<String>,
+    pub image_url: Option<String>,
+    pub license_no: Option<String>,
+    pub storage_condition: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub remark: Option<String>,
+    #[serde(default)]
+    pub uom_conversions: Vec<UomConversionInput>,
+}
+
+/// 更新產品請求（SKU 不可修改）
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct UpdateProductRequest {
+    #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
+    pub name: Option<String>,
+    pub spec: Option<String>,
+    // 注意：category_code 和 subcategory_code 可更新，但不影響 SKU
+    pub category_code: Option<String>,
+    pub subcategory_code: Option<String>,
+    pub pack_unit: Option<String>,
+    pub pack_qty: Option<i32>,
+    pub track_batch: Option<bool>,
+    pub track_expiry: Option<bool>,
+    pub default_expiry_days: Option<i32>,
+    pub safety_stock: Option<Decimal>,
+    pub safety_stock_uom: Option<String>,
+    pub reorder_point: Option<Decimal>,
+    pub reorder_point_uom: Option<String>,
+    /// R35-16: 標準成本 / 最近採購均價
+    pub cost_price: Option<Decimal>,
+    /// R35-16: 對外定價
+    pub selling_price: Option<Decimal>,
+    pub barcode: Option<String>,
+    pub image_url: Option<String>,
+    pub license_no: Option<String>,
+    pub storage_condition: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub status: Option<String>,
+    pub remark: Option<String>,
+    pub is_active: Option<bool>,
+    pub uom_conversions: Option<Vec<UomConversionInput>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct UomConversionInput {
+    pub uom: String,
+    pub factor_to_base: Decimal,
+}
+
+/// 產品查詢參數
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
+pub struct ProductQuery {
+    pub keyword: Option<String>,
+    pub category_id: Option<Uuid>,
+    pub category_code: Option<String>,
+    pub subcategory_code: Option<String>,
+    pub status: Option<String>,
+    pub track_batch: Option<bool>,
+    pub track_expiry: Option<bool>,
+    pub storage_condition: Option<String>,
+    pub is_active: Option<bool>,
+    pub sort_by: Option<String>,
+    pub sort_order: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductWithUom {
+    #[serde(flatten)]
+    pub product: Product,
+    pub uom_conversions: Vec<ProductUomConversion>,
+    pub category_name: Option<String>,
+    pub subcategory_name: Option<String>,
+}
+
+/// 產品列表回應（含類別名稱）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ProductListItem {
+    pub id: Uuid,
+    pub sku: String,
+    pub name: String,
+    pub spec: Option<String>,
+    pub category_code: Option<String>,
+    pub category_name: Option<String>,
+    pub subcategory_code: Option<String>,
+    pub subcategory_name: Option<String>,
+    pub base_uom: String,
+    pub safety_stock: Option<Decimal>,
+    pub track_batch: bool,
+    pub track_expiry: bool,
+    pub status: String,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct CreateCategoryRequest {
+    #[validate(length(min = 1, max = 50, message = "Code must be 1-50 characters"))]
+    pub code: String,
+    #[validate(length(min = 1, max = 100, message = "Name must be 1-100 characters"))]
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+}
+
+/// 重複產品檢查請求
+#[derive(Debug, Deserialize)]
+pub struct CheckDuplicateRequest {
+    pub name: String,
+    pub spec: String,
+    pub category_code: String,
+    pub subcategory_code: String,
+}
+
+/// 重複產品檢查回應
+#[derive(Debug, Serialize)]
+pub struct CheckDuplicateResponse {
+    pub is_duplicate: bool,
+    pub similar_products: Vec<SimilarProduct>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SimilarProduct {
+    pub id: Uuid,
+    pub sku: String,
+    pub name: String,
+    pub spec: Option<String>,
+    pub similarity: f64,
+}
+
+/// 產品狀態變更請求
+#[derive(Debug, Deserialize)]
+pub struct ChangeProductStatusRequest {
+    pub status: String,
+}
+
+/// 產品圖片上傳回應
+#[derive(Debug, Serialize)]
+pub struct ProductImageUploadResponse {
+    pub image_url: String,
+}
+
+/// 產品匯入 CSV 列
+#[derive(Debug, Clone, Default)]
+pub struct ProductImportRow {
+    /// 選填；若為空則由系統自動產生
+    pub sku: Option<String>,
+    pub name: String,
+    pub spec: Option<String>,
+    pub category_code: Option<String>,
+    pub subcategory_code: Option<String>,
+    pub base_uom: String,
+    pub track_batch: bool,
+    pub track_expiry: bool,
+    pub safety_stock: Option<rust_decimal::Decimal>,
+    pub remark: Option<String>,
+}
+
+/// 產品匯入錯誤明細
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductImportErrorDetail {
+    pub row: i32,
+    pub sku: Option<String>,
+    pub error: String,
+}
+
+/// 產品匯入結果
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductImportResult {
+    pub success_count: i32,
+    pub error_count: i32,
+    pub errors: Vec<ProductImportErrorDetail>,
+}
+
+/// 匯入預檢：重複項目明細（名稱+規格與既有產品相同）
+#[derive(Debug, Serialize)]
+pub struct ProductImportDuplicateItem {
+    pub row: i32,
+    pub name: String,
+    pub spec: Option<String>,
+    pub existing_sku: String,
+    pub existing_id: Uuid,
+}
+
+/// 匯入預檢結果（規則一：名稱+規格重複警示）
+#[derive(Debug, Serialize)]
+pub struct ProductImportCheckResult {
+    pub total_rows: i32,
+    pub duplicate_count: i32,
+    pub duplicates: Vec<ProductImportDuplicateItem>,
+    /// 檔案是否包含 SKU 編碼欄位（若否，前端可提示使用者選擇是否由系統自動產生）
+    pub has_sku_column: bool,
+}
+
+/// 匯入預覽列（供前端「依序設定 SKU」使用）
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductImportPreviewRow {
+    /// 列號（1-based，對應 Excel/CSV 列）
+    pub row: i32,
+    pub name: String,
+    pub spec: Option<String>,
+    pub category_code: Option<String>,
+    pub subcategory_code: Option<String>,
+    pub base_uom: String,
+    pub track_batch: bool,
+    pub track_expiry: bool,
+    /// 安全庫存（JSON 以數值傳遞）
+    pub safety_stock: Option<f64>,
+    pub remark: Option<String>,
+}
+
+/// 匯入預覽結果
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductImportPreviewResult {
+    pub rows: Vec<ProductImportPreviewRow>,
+    pub has_sku_column: bool,
+}

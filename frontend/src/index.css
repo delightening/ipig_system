@@ -1,0 +1,579 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* Tailwind v4 dark mode 預設改用 prefers-color-scheme；
+   本專案使用 .dark class 切換主題，custom-variant 對齊 v3 行為 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 任何啟用內部捲軸的容器一律保留 scrollbar gutter，避免內容高度變動時 layout 抖動 1-2px。
+   `scrollbar-gutter: stable` 僅對實際有 overflow:auto/scroll 的元素生效，
+   不影響 overflow:hidden / visible / 強制 always-visible 的元素。
+   使用 :where() 維持 specificity 0，特殊情境可用 utility class 覆蓋 */
+:where([class*="overflow-auto"], [class*="overflow-y-auto"], [class*="overflow-y-scroll"]) {
+  scrollbar-gutter: stable;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 217.2 91.2% 59.8%;
+    --radius: 0.5rem;
+
+    /* SKU Segment Colors */
+    --sku-name: 263 70% 50%;
+    /* 紫色 - 名稱 */
+    --sku-spec: 187 91% 43%;
+    /* 青色 - 規格 */
+    --sku-unit: 38 92% 50%;
+    /* 琥珀色 - 單位 */
+    --sku-date: 160 84% 39%;
+    /* 翠綠色 - 日期 */
+    --sku-seq: 239 84% 67%;
+    /* 靛藍色 - 序號 */
+    --sku-chk: 330 81% 60%;
+    /* 粉紅色 - 檢查碼 */
+
+    /* Success color */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    /* ── Status Colors (語義化狀態色彩) ── */
+    --status-success-bg: 142 76% 95%;
+    --status-success-text: 142 76% 30%;
+    --status-success-border: 142 76% 85%;
+    --status-warning-bg: 38 92% 95%;
+    --status-warning-text: 38 92% 30%;
+    --status-warning-border: 38 92% 85%;
+    --status-error-bg: 0 84% 95%;
+    --status-error-text: 0 84% 40%;
+    --status-error-border: 0 84% 85%;
+    --status-info-bg: 217 91% 95%;
+    --status-info-text: 217 91% 40%;
+    --status-info-border: 217 91% 85%;
+    --status-neutral-bg: 215 16% 95%;
+    --status-neutral-text: 215 16% 46%;
+    --status-neutral-border: 215 16% 85%;
+    --status-purple-bg: 263 70% 95%;
+    --status-purple-text: 263 70% 40%;
+    --status-purple-border: 263 70% 85%;
+
+    /* ── Status Solid Colors (實心狀態色彩，用於 badge 背景) ── */
+    --status-success-solid: 142 76% 36%;
+    --status-warning-solid: 38 92% 50%;
+    --status-error-solid: 0 84% 60%;
+    --status-error-strong-solid: 347 77% 50%;
+    --status-info-solid: 217 91% 60%;
+    --status-neutral-solid: 215 16% 47%;
+    --status-purple-solid: 263 70% 50%;
+
+    /* ── Subsystem Hues (子系統色相識別) ── */
+    --subsystem-aup: 220 70% 50%;
+    --subsystem-erp: 200 70% 45%;
+    --subsystem-animal: 160 70% 40%;
+    --subsystem-hr: 260 60% 55%;
+    --subsystem-admin: 0 0% 45%;
+
+    /* ── Audit Log Subsystem Colors (稽核日誌子系統色彩) ── */
+    --audit-medical: 174 72% 34%;
+    --audit-protocol: 235 60% 52%;
+    --audit-sacrifice: 20 85% 48%;
+    --audit-data: 190 80% 40%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+
+    /* SKU Segment Colors (Dark) */
+    --sku-name: 263 70% 65%;
+    --sku-spec: 187 91% 55%;
+    --sku-unit: 38 92% 60%;
+    --sku-date: 160 84% 50%;
+    --sku-seq: 239 84% 75%;
+    --sku-chk: 330 81% 70%;
+
+    --success: 142 76% 46%;
+    --success-foreground: 0 0% 100%;
+
+    /* ── Status Colors (Dark) ── */
+    --status-success-bg: 142 76% 15%;
+    --status-success-text: 142 76% 70%;
+    --status-success-border: 142 76% 25%;
+    --status-warning-bg: 38 92% 15%;
+    --status-warning-text: 38 92% 70%;
+    --status-warning-border: 38 92% 25%;
+    --status-error-bg: 0 84% 15%;
+    --status-error-text: 0 84% 70%;
+    --status-error-border: 0 84% 25%;
+    --status-info-bg: 217 91% 15%;
+    --status-info-text: 217 91% 70%;
+    --status-info-border: 217 91% 25%;
+    --status-neutral-bg: 215 16% 20%;
+    --status-neutral-text: 215 16% 70%;
+    --status-neutral-border: 215 16% 30%;
+    --status-purple-bg: 263 70% 15%;
+    --status-purple-text: 263 70% 70%;
+    --status-purple-border: 263 70% 25%;
+
+    /* ── Status Solid Colors (Dark) ── */
+    --status-success-solid: 142 76% 46%;
+    --status-warning-solid: 38 92% 60%;
+    --status-error-solid: 0 84% 50%;
+    --status-error-strong-solid: 347 77% 60%;
+    --status-info-solid: 217 91% 65%;
+    --status-neutral-solid: 215 16% 55%;
+    --status-purple-solid: 263 70% 60%;
+
+    /* ── Subsystem Hues (Dark) ── */
+    --subsystem-aup: 220 70% 60%;
+    --subsystem-erp: 200 70% 55%;
+    --subsystem-animal: 160 70% 50%;
+    --subsystem-hr: 260 60% 65%;
+    --subsystem-admin: 0 0% 60%;
+
+    /* ── Audit Log Subsystem Colors (Dark) ── */
+    --audit-medical: 174 72% 50%;
+    --audit-protocol: 235 60% 65%;
+    --audit-sacrifice: 20 85% 60%;
+    --audit-data: 190 80% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+/* SKU Segment Animations */
+@keyframes segment-fill {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes segment-highlight {
+  0% {
+    background-color: hsl(var(--primary) / 0.3);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes skeleton-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes success-bounce {
+  0% {
+    transform: scale(0);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes draw-check {
+  0% {
+    stroke-dashoffset: 48;
+  }
+
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-left {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+}
+
+@keyframes blink-caret {
+
+  0%,
+  50% {
+    border-right-color: currentColor;
+  }
+
+  50.1%,
+  100% {
+    border-right-color: transparent;
+  }
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-segment-fill {
+  animation: segment-fill 0.3s ease forwards;
+}
+
+.animate-segment-highlight {
+  animation: segment-highlight 0.5s ease;
+}
+
+.animate-skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.animate-success-bounce {
+  animation: success-bounce 0.5s ease;
+}
+
+.animate-draw-check {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: draw-check 0.4s ease 0.2s forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease;
+}
+
+.animate-slide-out-left {
+  animation: slide-out-left 0.3s ease;
+}
+
+.animate-typing {
+  border-right: 2px solid currentColor;
+  animation: blink-caret 1s step-end infinite;
+}
+
+.animate-shake {
+  animation: shake 0.3s ease;
+}
+
+/* SKU Preview Styles */
+.sku-display {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', ui-monospace, monospace;
+  letter-spacing: 0.5px;
+}
+
+.sku-segment {
+  transition: all 0.2s ease;
+}
+
+.sku-segment:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Slider Styles */
+.slider-thumb {
+  cursor: grab;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+/* Quick Select Card */
+.quick-select-card {
+  transition: all 0.2s ease;
+}
+
+.quick-select-card:hover {
+  transform: translateY(-2px);
+}
+
+.quick-select-card:active {
+  transform: scale(0.98);
+}
+
+/* Smart Input Suggestion */
+.suggestion-item {
+  transition: background-color 0.15s ease;
+}
+
+/* Step Indicator */
+.step-circle {
+  transition: all 0.3s ease;
+}
+
+.step-line {
+  transition: background-color 0.3s ease;
+}
+
+/* ==================== */
+/* 響應式工具 (Responsive Utilities) */
+/* ==================== */
+
+/* 頁面標題：行動端縮小字體 */
+.page-title {
+  @apply text-xl font-bold tracking-tight;
+}
+
+@media (min-width: 768px) {
+  .page-title {
+    @apply text-2xl;
+  }
+}
+
+/* 表格容器：行動端可橫向捲動 */
+.table-responsive {
+  @apply overflow-x-auto -mx-3 md:mx-0;
+}
+
+/* 篩選列：行動端堆疊，桌面端並排 */
+.filter-row {
+  @apply flex flex-col gap-3;
+}
+
+@media (min-width: 768px) {
+  .filter-row {
+    @apply flex-row items-center gap-4;
+  }
+}
+
+/* 行動端隱藏 / 桌面端隱藏 */
+.hide-mobile {
+  @apply hidden md:block;
+}
+
+.hide-desktop {
+  @apply md:hidden;
+}
+
+/* ==================== */
+/* 手寫簽名元件 (Handwritten Signature Pad) */
+/* ==================== */
+
+.signature-pad-container {
+  @apply w-full min-w-0 overflow-hidden;
+}
+
+.signature-canvas-wrapper {
+  @apply relative w-full max-w-full rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/50 overflow-hidden;
+  transition: border-color 0.2s ease;
+  touch-action: none;
+}
+
+.signature-canvas-wrapper:hover {
+  @apply border-primary/50;
+}
+
+.signature-canvas {
+  @apply absolute inset-0 cursor-crosshair;
+  touch-action: none;
+}
+
+.signature-canvas-disabled {
+  @apply cursor-not-allowed opacity-60;
+}
+
+/* 簽名基線 */
+.signature-line {
+  @apply absolute left-4 right-4 border-b border-gray-300/60;
+  bottom: 30%;
+  pointer-events: none;
+}
+
+/* 空白狀態提示文字 */
+.signature-placeholder {
+  @apply absolute inset-0 flex items-center justify-center text-gray-400 text-sm pointer-events-none select-none;
+}
+
+/* 控制按鈕列 */
+.signature-controls {
+  @apply flex gap-2 mt-2 justify-end;
+}
+
+/* 已簽名預覽 */
+.signature-preview {
+  @apply w-full;
+}
+
+.signature-preview-image {
+  @apply rounded-lg border border-green-200 bg-green-50/30 p-2 flex items-center justify-center;
+}
+
+.signature-preview-image svg {
+  @apply max-w-full max-h-full;
+}
+
+/* 簽章狀態徽章 */
+.signature-status-badge {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
+}
+
+.signature-status-signed {
+  @apply bg-status-success-bg text-status-success-text;
+}
+
+.signature-status-unsigned {
+  @apply bg-status-warning-bg text-status-warning-text;
+}
+
+/* ==================== */
+/* 手機端 Dialog 適配 (Mobile Dialog) */
+/* ==================== */
+
+/* ── 字體大小 (Font Size Preference) ── */
+/* 桌面與行動一致：標準 16px（瀏覽器預設）/ 大 17px / 特大 18px。
+   原本行動端（≤768px）放大為 20/22/24，使用者回饋過大 → 2026-07-03 取消行動放大，
+   行動端直接繼承桌面尺寸（移除放大 media query）。 */
+
+html.font-size-large {
+  font-size: 17px;
+}
+
+html.font-size-xl {
+  font-size: 18px;
+}
+
+/* 防止 iOS Safari 在 input focus 時自動縮放：input 字體強制 ≥16px（iOS 縮放門檻）。
+   行動端根字體現為 16px，1rem=16px，此規則確保 input 恰達門檻不觸發縮放。 */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1rem);
+  }
+}
+
+/* Touch 裝置流暢捲動 */
+.dialog-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Dialog 開啟時禁止背景滾動 */
+body[data-scroll-locked] {
+  overflow: hidden !important;
+}
+
+/* 請假行事曆：審核中的假單。
+   底色透明度由 useLeaveCalendarEvents 帶入，這裡只補虛線邊框——
+   單靠透明度在色弱或低對比螢幕上分辨不出「已核准 vs 審核中」，
+   虛線提供不依賴顏色的第二重線索（a11y）。 */
+.ipig-leave-pending {
+  border-style: dashed !important;
+  border-width: 1.5px !important;
+}

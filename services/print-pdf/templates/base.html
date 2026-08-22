@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}{{ company_name|default('豬博士動物科技股份有限公司') }}{% endblock %}</title>
+  {% block head_extra %}{% endblock %}
+  <style>
+    {#
+      R45 Phase 0 共用骨架：
+      - @page 三段頁眉 + 雙語頁尾（\A + white-space:pre 真換行）
+      - GLP 受控文件透過 {% block page_top_left %} 注入「文件編號 AD-XX-XX-XXX」；
+        非 GLP 報表 override 為空或公司名
+      - 字型 fallback chain（per-glyph）：
+          英數 → Times New Roman → Liberation Serif (Linux 容器內 metric-compat 替代)
+          中文 → AR PL UKai TW (容器內標楷體 FOSS 替代) → DFKai-SB / 標楷體 (Windows 本機)
+          其他 → serif
+      - 表格 thead 自動跨頁重複、列不被切斷、隔行底色
+      子模板可 override：page_top_left / page_top_right / body class / 加 @page-specific 樣式
+    #}
+    @page {
+      size: A4;
+      margin: 2.5cm 2cm 2.8cm 2cm;
+
+      @top-left {
+        content: {% block page_top_left %}"{{ company_name|default('豬博士動物科技股份有限公司') }}"{% endblock %};
+        font-family: "Noto Sans CJK TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        font-size: 10pt;
+        color: #000;
+        letter-spacing: 0.5pt;
+        white-space: nowrap;
+      }
+      @top-center {
+        content: {% block page_top_center %}""{% endblock %};
+        font-family: "Noto Sans CJK TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        font-size: 10pt;
+        color: #000;
+      }
+      @top-right {
+        content: {% block page_top_right %}"頁次 / 總頁數  " counter(page) " of " counter(pages){% endblock %};
+        font-family: "Noto Sans CJK TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        font-size: 10pt;
+        letter-spacing: 0.5pt;
+      }
+      @bottom-center {
+        content: "版權為豬博士動物科技股份有限公司所有，禁止任何未經授權的使用\A All Rights Reserved © DrPIG.  Unauthorized use in any form is prohibited.";
+        white-space: pre;
+        font-family: "Noto Sans CJK TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        font-size: 10pt;
+        line-height: 1.3;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      font-family: "Noto Sans CJK TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      font-size: 11pt;
+      color: #000;
+      margin: 0;
+      padding: 0;
+      line-height: 1.4;
+    }
+
+    /*
+      螢幕預覽（iframe）留白：@page margin 僅作用於 PDF 分頁輸出，螢幕上不生效，
+      導致預覽內容貼齊邊緣、左右無留白。此處以 @media screen 補上與 @page 等寬的
+      留白並模擬 A4 頁寬置中，讓預覽與匯出 PDF 視覺一致。
+      WeasyPrint 以 print media 產 PDF，不套用 @media screen，故 PDF 不會疊加雙重邊距。
+
+      尺寸以 CSS 變數提供直式 A4 預設值；橫式或自訂邊距的子模板（如
+      vet_patrol_report.html landscape）可在 extra_styles 覆寫
+      --screen-page-width / --screen-page-padding，避免被直式尺寸壓縮變形。
+    */
+    @media screen {
+      body {
+        max-width: var(--screen-page-width, 21cm);
+        margin: 0 auto;
+        padding: var(--screen-page-padding, 2.5cm 2cm 2.8cm 2cm);
+        background: #fff;
+      }
+    }
+
+    h1 {
+      font-size: 16pt;
+      text-align: center;
+      margin: 0 0 16pt 0;
+      letter-spacing: 4pt;
+    }
+
+    .section-title {
+      font-size: 12pt;
+      font-weight: bold;
+      margin: 10pt 0 6pt 0;
+      padding-left: 4pt;
+      border-left: 4pt solid #333;
+    }
+
+    /* 共用表格樣式 */
+    table.data {
+      width: 100%;
+      border-collapse: collapse;
+      page-break-inside: auto;
+    }
+    table.data thead {
+      display: table-header-group;  /* 跨頁時表頭自動重複 */
+    }
+    table.data th,
+    table.data td {
+      border: 0.75pt solid #000;
+      padding: 3pt 5pt;
+      font-size: 10pt;
+      vertical-align: middle;
+    }
+    table.data th {
+      background: #d8d8d8;
+      font-weight: normal;
+      text-align: center;
+    }
+    table.data tr {
+      page-break-inside: avoid;  /* 列不要被切斷到下一頁 */
+    }
+    table.data td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    table.data td.center {
+      text-align: center;
+    }
+    table.data tbody tr:nth-child(even) td {
+      background: #fafafa;  /* 隔行底色，長明細閱讀友好 */
+    }
+
+    /* meta 表（無 thead，左欄標題） */
+    table.meta {
+      width: 100%;
+      margin-bottom: 14pt;
+      border-collapse: collapse;
+    }
+    table.meta th, table.meta td {
+      border: 1pt solid #000;
+      padding: 4pt 6pt;
+      font-size: 10.5pt;
+      text-align: left;
+    }
+    table.meta th {
+      background: #f0f0f0;
+      width: 18%;
+      font-weight: normal;
+    }
+
+    {% block extra_styles %}{% endblock %}
+  </style>
+</head>
+<body>
+  {% block content %}{% endblock %}
+</body>
+</html>

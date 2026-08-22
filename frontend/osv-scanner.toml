@@ -1,0 +1,23 @@
+# OSV 依賴漏洞掃描豁免清單（對應 CI job「🔒 Security: pnpm audit」）
+#
+# 政策：預設「任一已知漏洞即 fail」。僅在漏洞經評估**確定不適用本專案架構**、
+# 且修補需付出不成比例代價（例如僅有 major 版本才修）時才列入，並須：
+#   (1) 在此寫明適用範圍 / 原因 / 風險
+#   (2) 於 docs/security/security.md 留下完整評估紀錄
+#   (3) 設 ignoreUntil 強制到期複審（不設等於永久遺忘）
+
+# GHSA-qwww-vcr4-c8h2 — React Router: RSC Mode CSRF Bypass
+#   Allows Action Execution Before 400 Response（CVSS 4.0 / 7.1 High）
+#
+# 適用：react-router 7.12.0 ≤ v < 8.3.0（本專案 7.18.1，經 react-router-dom 引入）
+# 原因：漏洞僅存在於 **RSC（React Server Components）模式** 的 action 處理路徑。
+#       本專案前端是 Vite 打包的純 client-side SPA（見 frontend/vite.config.ts），
+#       不使用 RSC、無 server action、亦無 SSR entry，故此程式路徑不存在。
+# 修補：上游僅在 8.3.0 修復（無 7.x backport）。v7→v8 為 major bump，會牽動全站
+#       路由行為，風險遠高於此漏洞在本專案的實際暴露（等於零）。
+# 風險：LOW — 攻擊面不存在；另有 CSP、CSRF middleware 等既有防護。
+# 下次檢查：ignoreUntil 到期時，或評估 react-router v8 升級時一併移除本條。
+[[IgnoredVulns]]
+id = "GHSA-qwww-vcr4-c8h2"
+ignoreUntil = 2026-10-31
+reason = "RSC-mode only; 本專案為 Vite client-side SPA 未使用 RSC/server action，程式路徑不存在。修補僅在 react-router 8.3.0（major bump）。詳見 docs/security/security.md"

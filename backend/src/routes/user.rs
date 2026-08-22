@@ -1,0 +1,62 @@
+use axum::{
+    routing::{get, post, put},
+    Router,
+};
+
+use crate::{handlers, AppState};
+
+/// 使用者、角色、權限路由
+pub fn routes() -> Router<AppState> {
+    Router::new()
+        // Users
+        .route(
+            "/users",
+            get(handlers::list_users).post(handlers::create_user),
+        )
+        .route(
+            "/users/{id}",
+            get(handlers::get_user)
+                .put(handlers::update_user)
+                .delete(handlers::delete_user),
+        )
+        .route("/users/{id}/delete", post(handlers::delete_user))
+        .route("/users/{id}/password", put(handlers::reset_user_password))
+        .route("/users/{id}/impersonate", post(handlers::impersonate_user))
+        // Roles
+        .route(
+            "/roles",
+            get(handlers::list_roles).post(handlers::create_role),
+        )
+        .route(
+            "/roles/{id}",
+            get(handlers::get_role)
+                .put(handlers::update_role)
+                .delete(handlers::delete_role),
+        )
+        .route("/roles/{id}/delete", post(handlers::delete_role))
+        .route("/permissions", get(handlers::list_permissions))
+        // R30-27b：前端 UI 用 feature flag 端點（已登入即可，不需 admin）
+        .route(
+            "/system/features",
+            get(handlers::system_features::get_system_features),
+        )
+        // R30-27c：桌機 ↔ 手機簽名 bridge（authenticated；submit 走 public_routes）
+        .route(
+            "/signing-bridge/start",
+            post(handlers::signature_bridge::start_bridge),
+        )
+        .route(
+            "/signing-bridge/{id}/status",
+            get(handlers::signature_bridge::get_bridge_status),
+        )
+        .route(
+            "/signing-bridge/{id}/consume",
+            get(handlers::signature_bridge::consume_bridge),
+        )
+        // MCP API Keys（個人設定）
+        .route(
+            "/user/mcp-keys",
+            get(handlers::list_mcp_keys).post(handlers::create_mcp_key),
+        )
+        .route("/user/mcp-keys/{id}/revoke", post(handlers::revoke_mcp_key))
+}
