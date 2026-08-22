@@ -37,9 +37,20 @@ jobs:
   # 五個服務的建置步驟完全同構，差別只在 context / dockerfile / 映像名，故收斂成 matrix。
   # 新增服務時只要在 include 加一列，不必再複製一整個 job。
   #
-  # ⚠️ 這五個映像必須齊全：`docker-compose.yml` 對 api / outbox-worker / web /
-  # print-pdf / db-backup 五者都是 `build:`，若 CD 只建其中幾個，
-  # 目標機器下 `docker compose ... --no-build` 會因缺映像而失敗。
+  # `docker-compose.yml` 對 api / outbox-worker / web / print-pdf / db-backup
+  # 五者都是 `build:`。本 matrix 建其中**四個**，print-pdf 不建。
+  #
+  # ⚠️ **print-pdf 不能在 CI 建，這是授權決定不是疏漏。**
+  # `services/print-pdf/Dockerfile:31` 是 `COPY fonts ./fonts`，而
+  # `services/print-pdf/fonts/`（標楷體 DFKai-SB／Times New Roman／Arial）
+  # 被 `.gitignore:141` 排除——那些是商用專屬字型，**禁止隨 repo 散布**，
+  # build 主機必須自備。GitHub runner 上沒有、也不該有這些字型，
+  # 2026-08-22 實測失敗訊息即為 `failed to calculate checksum of ref ...: "/fonts": not found`。
+  #
+  # 因此目標機器**不要用 `--no-build`**：
+  #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+  # 這樣四個有 `image:` 覆寫的服務會用 GHCR 映像，print-pdf 在本機建
+  # （前提是該機器的 `services/print-pdf/fonts/` 已自備字型）。
   build:
     name: "Build & Push: ${{ matrix.name }}"
     runs-on: ubuntu-latest
@@ -66,10 +77,7 @@ jobs:
             context: ./backend
             dockerfile: ./backend/Dockerfile.outbox-worker
             version_args: true
-          - name: Print PDF
-            image: ipig-print-pdf
-            context: ./services/print-pdf
-            dockerfile: ./services/print-pdf/Dockerfile
+          # ⚠️ print-pdf 刻意不在此清單內，見下方註解。
           - name: DB Backup
             image: ipig-db-backup
             context: ./scripts/backup
@@ -138,9 +146,12 @@ jobs:
             echo ""
             echo "| Image | Tag |"
             echo "|-------|-----|"
-            for img in ipig-api ipig-web ipig-outbox-worker ipig-print-pdf ipig-db-backup; do
+            for img in ipig-api ipig-web ipig-outbox-worker ipig-db-backup; do
               echo "| \`${IMAGE_PREFIX}/${img}\` | \`${SHA}\`, \`latest\` |"
             done
+            echo ""
+            echo "> print-pdf 不在此清單——商用字型不可隨 repo 散布，須在目標機器本機建。"
+            echo "> 部署指令**不要**加 \`--no-build\`。"
           } >> "$GITHUB_STEP_SUMMARY"
         env:
           SHA: ${{ needs.gate.outputs.sha || github.sha }}

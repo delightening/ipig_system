@@ -2,7 +2,11 @@
 # Production override: GHCR images + Watchtower auto-update
 # ============================================
 # Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# ⚠️ **不要加 `--no-build`**：print-pdf 沒有 GHCR 映像（商用字型不可隨 repo 散布，
+#    CI 建不出來），必須在目標機器本機建。加了 `--no-build` 會因缺映像而失敗。
+#    其餘四個服務有 `image:` 覆寫，會直接拉 GHCR 映像不重建。
 #
 # Required env vars in .env:
 #   GHCR_OWNER  - GitHub username or org
@@ -79,16 +83,15 @@ services:
         max-size: "20m"
         max-file: "3"
 
-  # Override print-pdf to use GHCR image（同上，base compose 是 `build:`）
-  print-pdf:
-    image: ghcr.io/${GHCR_OWNER}/ipig-print-pdf:${IMAGE_TAG:-latest}
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+  # ⚠️ print-pdf **刻意沒有 image 覆寫**，它在目標機器本機建。
+  # 原因：`services/print-pdf/Dockerfile:31` 需要 `services/print-pdf/fonts/`，
+  # 而那些是商用專屬字型（標楷體 DFKai-SB／Times New Roman／Arial），
+  # 依 `.gitignore:141` 禁止隨 repo 散布，CI 上建不出來。
+  #
+  # ⚠️ 因此本 overlay **不可搭配 `--no-build`**：
+  #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+  # 四個有覆寫的服務會拉 GHCR 映像，print-pdf 在本機建。
+  # 目標機器必須自備 `services/print-pdf/fonts/` 底下的字型檔。
 
   # Database resource limits
   db:
