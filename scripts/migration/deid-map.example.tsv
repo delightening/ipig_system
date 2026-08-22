@@ -1,0 +1,22 @@
+# 去識別化對照表（範例）
+#
+# 複製成同目錄的 deid-map.local.tsv 並填入真實值後使用。
+# .local.tsv 已被 .gitignore 排除——真實值不進版控，否則等於在修補的同一個
+# commit 裡把要藏的東西重新公開一次。
+#
+# 欄位以 TAB 分隔（不是空白）。# 開頭與空行會被略過。
+#
+#   map	<真實值>	<代稱>    把 seed 裡的 SQL 字面值 '<真實值>' 換成 '<代稱>'，
+#                             且產出不得殘留 <真實值>
+#   deny	<字串>            只檢查不替換：產出若含 <字串> 就中止
+#
+# 用 deny 的時機：該字串不是單一 SQL 字面值（例如中文機構名散落在多個欄位），
+# 沒辦法機械替換，只能要求來源資料本身已經處理過。
+
+# --- 範例（值為佔位符，非真實資料）---
+map	REAL_SOURCE_CODE_1	SUPPLIER_A
+map	REAL_SOURCE_CODE_2	SUPPLIER_B
+map	REAL_SOURCE_CODE_3	SUPPLIER_C
+
+deny	某某牧場
+deny	某某繁殖場
