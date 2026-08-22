@@ -67,6 +67,29 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Override outbox-worker to use GHCR image
+  # base compose 對它是 `build:`，不覆寫的話 `--no-build` 會因缺映像而失敗
+  outbox-worker:
+    image: ghcr.io/${GHCR_OWNER}/ipig-outbox-worker:${IMAGE_TAG:-latest}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # Override print-pdf to use GHCR image（同上，base compose 是 `build:`）
+  print-pdf:
+    image: ghcr.io/${GHCR_OWNER}/ipig-print-pdf:${IMAGE_TAG:-latest}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # Database resource limits
   db:
     # P0-S3: 使用 Docker Secrets 提供資料庫密碼
@@ -91,7 +114,10 @@ services:
         max-file: "5"
 
   # Explicitly exclude db-backup from auto-update（High 5: Secret 提供密碼；High 7: 生產強制 GPG 加密）
+  # ⚠️ watchtower 維持 false（不自動更新備份容器），但 image 仍要覆寫——
+  # base compose 對它是 `build:`，缺了這一行 `--no-build` 一樣會失敗。
   db-backup:
+    image: ghcr.io/${GHCR_OWNER}/ipig-db-backup:${IMAGE_TAG:-latest}
     secrets:
       - db_password
     environment:
