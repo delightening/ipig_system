@@ -32,9 +32,9 @@ export default mergeConfig(resolvedViteConfig, defineConfig({
       thresholds: {
         autoUpdate: true,
         lines: 9.41,
-        functions: 6.07,
-        branches: 5.74,
-        statements: 9.14
+        functions: 6.08,
+        branches: 5.75,
+        statements: 9.15
       }
     },
     projects: [{
