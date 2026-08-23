@@ -241,14 +241,20 @@ jobs:
         # 規則：本 PR 新增的 backend/migrations/NNN_xxx.sql（NNN ≥ 041）必須同步附
         #       backend/migrations/down/NNN_xxx.sql。既有 001-040 在 ignore list。
         # 撰寫規範：見 backend/migrations/down/README.md
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          if [ -n "${GITHUB_BASE_REF:-}" ]; then
-            BASE="origin/${GITHUB_BASE_REF}"
-          else
-            BASE="origin/main"
+          # ⚠️ 這裡刻意不加 `--depth=1`：本 job 的 checkout 已設 `fetch-depth: 0`，
+          #    再用淺層 fetch 會把 repo **重新變成 shallow**，把剛取回的祖先鏈截斷，
+          #    之後所有 `A...HEAD`（三點＝需要 merge base）都會 `fatal: no merge base`。
+          #    2026-08-23 實測：連續合併四支 PR、CI 排隊 23 分鐘期間 main 前進，
+          #    `origin/main` 與 HEAD 已非同一 commit，加上淺層截斷即整批紅。
+          BASE="$(bash scripts/ci/resolve-diff-base.sh)"
+          if [ -z "$BASE" ]; then
+            echo "⏭  取不到 diff 基準，跳過（fail-open）"
+            exit 0
           fi
-          git fetch origin "${GITHUB_BASE_REF:-main}" --depth=1 || true
 
           MIN_NEW_VERSION=41
           ADDED=$(git diff --name-only --diff-filter=A "${BASE}...HEAD" \
@@ -414,6 +420,8 @@ jobs:
         #
         # Fail-open 僅限「本來就沒有 base」（首推 / workflow_dispatch）；
         # base 存在但 git 取用失敗時腳本回 exit 3，這一步會紅——不靜默放行。
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
           # 先跑守門自己的回歸測試：該擋 21 型 / 不該擋 12 型 / 兩模式一致 /
@@ -421,15 +429,16 @@ jobs:
           # 三輪審查每輪都在「已宣稱測過」的地方找到漏檢——所以測試要進 CI，
           # 不能只留在誰的本機。
           python3 scripts/test_check_doc_links.py
-          if [ -n "${GITHUB_BASE_REF:-}" ]; then
-            git fetch origin "$GITHUB_BASE_REF" --depth=1 || true
-            BASE="origin/${GITHUB_BASE_REF}"
-          elif git rev-parse origin/main >/dev/null 2>&1; then
-            BASE="origin/main"
-          else
+          # 基準解析也要有測試：2026-08-23 的事故不是守門邏輯錯，是「跟誰比」算錯，
+          # 而那條路徑當時零覆蓋。案例 4 直接重現「CI 排隊期間 main 前進 + 淺層截斷」。
+          bash scripts/ci/test-resolve-diff-base.sh
+          # 基準解析共用 scripts/ci/resolve-diff-base.sh，理由與事故紀錄見該檔檔頭。
+          BASE="$(bash scripts/ci/resolve-diff-base.sh)"
+          if [ -z "$BASE" ]; then
             echo "⏭  取不到 diff 基準，跳過（fail-open）"
             exit 0
           fi
+          echo "diff 基準：$BASE"
           python3 scripts/check-doc-links.py "$BASE"
 
   # =========================
