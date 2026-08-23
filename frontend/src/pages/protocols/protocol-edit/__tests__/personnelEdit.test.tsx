@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { vi } from 'vitest'
 import i18n from '@/lib/i18n'
-import { AddPersonnelDialog } from '../AddPersonnelDialog'
+import { AddPersonnelDialog, resolveStaffPosition } from '../AddPersonnelDialog'
 import { SectionPersonnel } from '../SectionPersonnel'
 import { defaultFormData } from '../constants'
 import type { ProtocolPerson } from '@/types/protocol'
@@ -90,6 +90,25 @@ describe('AddPersonnelDialog 編輯模式', () => {
 
     expect(screen.getByRole('button', { name: /確認新增/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^儲存$/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('resolveStaffPosition：職稱來自人事主檔', () => {
+  it('有設定就用 users.position，不再硬編固定職稱', () => {
+    expect(resolveStaffPosition({ position: '研究助理' })).toBe('研究助理')
+    expect(resolveStaffPosition({ position: '實習生' })).toBe('實習生')
+  })
+
+  it('未設定時留空，不在輸入階段塞 §8 預設值', () => {
+    // §8 的空值預設是顯示層的職責（SectionPersonnel / pdf_export），
+    // 在這裡塞值會讓「沒設定」與「剛好等於預設值」分不出來。
+    expect(resolveStaffPosition({})).toBe('')
+    expect(resolveStaffPosition({ position: undefined })).toBe('')
+  })
+
+  it('只有空白的職稱視同未設定', () => {
+    expect(resolveStaffPosition({ position: '   ' })).toBe('')
+    expect(resolveStaffPosition({ position: ' 獸醫師 ' })).toBe('獸醫師')
   })
 })
 

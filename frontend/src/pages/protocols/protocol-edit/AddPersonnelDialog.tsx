@@ -27,8 +27,23 @@ interface StaffMember {
   id: string
   display_name: string
   entry_date?: string
+  position?: string
   years_experience?: number
   trainings?: { code: string; certificate_no?: string }[]
+}
+
+/**
+ * 從人事主檔取職稱。`GET /hr/staff` 早就回傳 `users.position`
+ * （`backend/src/handlers/hr/dashboard.rs` 的 `StaffInfo`），先前卻硬編一個固定值。
+ *
+ * 未設定時**留空**，不在這裡塞預設值——§8 的職稱空值預設是**顯示層**的職責，
+ * 已經實作在 `SectionPersonnel.tsx`（內部 staff →「研究人員」／外部匯入 →「未填」）
+ * 與後端 `pdf_export.rs` 的 `apply_personnel_position_defaults`，網頁與 PDF 同步。
+ * 在輸入時就把預設值寫進資料，等於繞過那一層，還會讓「使用者真的沒設定職稱」
+ * 與「他的職稱剛好是預設值」變得分不出來。
+ */
+export function resolveStaffPosition(staff: Pick<StaffMember, 'position'>): string {
+  return staff.position?.trim() ?? ''
 }
 
 interface NewPersonnelData {
@@ -199,7 +214,7 @@ function NamePositionRow({ newPersonnel, setNewPersonnel, staffMembers, isIACUCS
                 setNewPersonnel((prev) => ({
                   ...prev,
                   name: staff.display_name,
-                  position: t('aup.personnel.defaults.researcher'),
+                  position: resolveStaffPosition(staff),
                   years_experience: years,
                   roles: ['b', 'c', 'd', 'f', 'g', 'h'],
                   trainings: (staff.trainings || []).map((tr) => tr.code),
