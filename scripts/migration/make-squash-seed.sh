@@ -129,6 +129,10 @@ cat <<'HEADER'
 -- 內容僅限**系統定義資料**：組織與設施結構、權限體系、主檔／參考資料、系統設定。
 -- 不含任何業務交易資料或個人資料。
 --
+-- ⚠️ 部分主檔的 code 為去識別化後的代稱（見 scripts/migration/make-squash-seed.sh
+--    的去識別化區塊）。實際營運資料庫維持真實代碼，因為動物匯入功能以 code 當
+--    比對 key，改了會讓既有匯入表格對不到來源。
+--
 -- 冪等：全部 ON CONFLICT DO NOTHING，可安全重跑。
 --
 -- 註：app 啟動時的 ensure_required_permissions() / ensure_all_role_permissions()
@@ -160,6 +164,69 @@ for t in "${SEED_TABLES[@]}"; do
   gen_table "$t"
 done
 } > "$OUT"
+
+# ---- 去識別化：把真實識別字串換掉，並在殘留時 fail-closed ----
+#
+# 2026-08-23 立這一段的原因：牧場「名稱」早在舊 migration 006 就換成代稱，
+# 但「代碼」當時漏了——而代碼是地名的羅馬拼音，看代碼即可反推是哪幾家，
+# 等於去識別化只做了一半，且沒有任何機制阻止下次重跑又倒回來。
+#
+# ⚠️ 對照表**刻意不進版控**：把「真實值 → 代稱」寫進公開 repo，等於在修補的
+#    同一個 commit 裡把要藏的東西重新公開一次。真實值放在下面這個 gitignore
+#    的檔案裡，repo 內只留 deid-map.example.tsv 說明格式。
+#
+# 為什麼不要求來源 DB 直接存假代碼：來源是營運資料庫，本來就該有真實代碼——
+# 動物匯入以 code 當比對 key（services/animal/import_export.rs 的
+# load_source_id_map）。要去識別化的是**進公開 repo 的 seed**，不是營運資料。
+#
+# 格式（TSV，# 開頭為註解）：
+#   map<TAB>真實值<TAB>代稱      → 把 SQL 字面值 '真實值' 換成 '代稱'
+#   deny<TAB>字串                → 產出若仍含該字串就中止
+DEID_MAP_FILE="${DEID_MAP_FILE:-$SCRIPT_DIR/deid-map.local.tsv}"
+
+if [ ! -f "$DEID_MAP_FILE" ]; then
+  echo "❌ 找不到去識別化對照表：$DEID_MAP_FILE"
+  echo "   這支腳本的產出會進公開 repo，缺對照表就無法保證已去識別化，故中止。"
+  echo "   請照 $SCRIPT_DIR/deid-map.example.tsv 的格式建立（該檔已被 .gitignore 排除）。"
+  exit 1
+fi
+
+deid_maps=0
+while IFS=$'\t' read -r kind a b; do
+  case "$kind" in
+    ''|'#'*) continue ;;
+    map)
+      [ -n "${a:-}" ] && [ -n "${b:-}" ] || { echo "❌ 對照表格式錯誤（map 需兩個欄位）"; exit 1; }
+      sed -i "s/'${a}'/'${b}'/g" "$OUT"
+      deid_maps=$((deid_maps + 1))
+      ;;
+  esac
+done < "$DEID_MAP_FILE"
+
+deid_failed=0
+deid_denies=0
+while IFS=$'\t' read -r kind a _; do
+  case "$kind" in
+    ''|'#'*) continue ;;
+    map|deny)
+      # map 的真實值同樣不得殘留（替換漏了要在這裡爆）
+      [ -n "${a:-}" ] || continue
+      deid_denies=$((deid_denies + 1))
+      if grep -q -- "$a" "$OUT"; then
+        echo "❌ 去識別化失敗：產出仍含對照表第 $deid_denies 項的真實值"
+        deid_failed=1
+      fi
+      ;;
+  esac
+done < "$DEID_MAP_FILE"
+
+if [ "$deid_failed" -ne 0 ]; then
+  echo "ERROR: 產出含未去識別化的真實資訊，已中止（未印出實際值，避免寫進 CI log）。"
+  echo "       請補齊 $DEID_MAP_FILE 後重跑。"
+  exit 1
+fi
+echo "✅ 去識別化完成：套用 $deid_maps 項替換、檢查 $deid_denies 項殘留，全部通過"
+
 
 echo "產出 $OUT（$(wc -l < "$OUT") 行）"
 echo ""

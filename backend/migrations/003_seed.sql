@@ -5,6 +5,10 @@
 -- 內容僅限**系統定義資料**：組織與設施結構、權限體系、主檔／參考資料、系統設定。
 -- 不含任何業務交易資料或個人資料。
 --
+-- ⚠️ 部分主檔的 code 為去識別化後的代稱（見 scripts/migration/make-squash-seed.sh
+--    的去識別化區塊）。實際營運資料庫維持真實代碼，因為動物匯入功能以 code 當
+--    比對 key，改了會讓既有匯入表格對不到來源。
+--
 -- 冪等：全部 ON CONFLICT DO NOTHING，可安全重跑。
 --
 -- 註：app 啟動時的 ensure_required_permissions() / ensure_all_role_permissions()
@@ -1049,10 +1053,10 @@ INSERT INTO "species" (id, code, name, name_en, icon, is_active, config, sort_or
 INSERT INTO "species" (id, code, name, name_en, icon, is_active, config, sort_order, parent_id, created_at, updated_at) VALUES ('a0000000-0000-0000-0000-000000000005', 'LYD', 'LYD', 'LYD', NULL, 'f', NULL, '3', 'a0000000-0000-0000-0000-000000000001', '2026-08-20 11:06:19.634338+00', '2026-08-20 11:06:19.634338+00') ON CONFLICT DO NOTHING;
 
 -- ============ animal_sources ============
-INSERT INTO "animal_sources" (id, code, name, address, contact, phone, phone_ext, is_active, sort_order, created_at, updated_at) VALUES ('ff63755e-2fe3-419a-a966-f7d98e6f1427', 'TAITUNG', '外部供應牧場A', NULL, NULL, NULL, NULL, 't', '1', '2026-08-20 11:06:14.566081+00', '2026-08-20 11:06:14.566081+00') ON CONFLICT DO NOTHING;
-INSERT INTO "animal_sources" (id, code, name, address, contact, phone, phone_ext, is_active, sort_order, created_at, updated_at) VALUES ('a97b8f11-fa1e-4e2a-b9c2-2a39cb4b7aad', 'QINGXIN', '外部供應牧場B', NULL, NULL, NULL, NULL, 't', '2', '2026-08-20 11:06:14.566081+00', '2026-08-20 11:06:14.566081+00') ON CONFLICT DO NOTHING;
+INSERT INTO "animal_sources" (id, code, name, address, contact, phone, phone_ext, is_active, sort_order, created_at, updated_at) VALUES ('ff63755e-2fe3-419a-a966-f7d98e6f1427', 'SUPPLIER_A', '外部供應牧場A', NULL, NULL, NULL, NULL, 't', '1', '2026-08-20 11:06:14.566081+00', '2026-08-20 11:06:14.566081+00') ON CONFLICT DO NOTHING;
+INSERT INTO "animal_sources" (id, code, name, address, contact, phone, phone_ext, is_active, sort_order, created_at, updated_at) VALUES ('a97b8f11-fa1e-4e2a-b9c2-2a39cb4b7aad', 'SUPPLIER_B', '外部供應牧場B', NULL, NULL, NULL, NULL, 't', '2', '2026-08-20 11:06:14.566081+00', '2026-08-20 11:06:14.566081+00') ON CONFLICT DO NOTHING;
 INSERT INTO "animal_sources" (id, code, name, address, contact, phone, phone_ext, is_active, sort_order, created_at, updated_at) VALUES ('69c86ce1-6e97-4d22-b1ac-d1b294b53be4', 'PIGMODEL', '豬博士畜牧場', NULL, NULL, NULL, NULL, 't', '3', '2026-08-20 11:06:14.566081+00', '2026-08-20 11:06:14.566081+00') ON CONFLICT DO NOTHING;
-INSERT INTO "animal_sources" (id, code, name, address, contact, phone, phone_ext, is_active, sort_order, created_at, updated_at) VALUES ('1256699f-827d-4c4d-9c80-77acb8167f22', 'PINGSHUN', '外部供應牧場C', NULL, NULL, NULL, NULL, 't', '4', '2026-08-20 11:06:14.566081+00', '2026-08-20 11:06:14.566081+00') ON CONFLICT DO NOTHING;
+INSERT INTO "animal_sources" (id, code, name, address, contact, phone, phone_ext, is_active, sort_order, created_at, updated_at) VALUES ('1256699f-827d-4c4d-9c80-77acb8167f22', 'SUPPLIER_C', '外部供應牧場C', NULL, NULL, NULL, NULL, 't', '4', '2026-08-20 11:06:14.566081+00', '2026-08-20 11:06:14.566081+00') ON CONFLICT DO NOTHING;
 
 -- ============ treatment_drug_options ============
 INSERT INTO "treatment_drug_options" (id, name, display_name, default_dosage_unit, available_units, default_dosage_value, erp_product_id, category, sort_order, is_active, created_by, created_at, updated_at) VALUES ('55f53bb4-969f-4f45-944c-34a27bb7841d', 'Atropine', 'Atropine（阿托品）', 'mg', '{mg,ml,mg/kg}', NULL, NULL, '麻醉', '10', 't', NULL, '2026-08-20 11:06:16.145327+00', '2026-08-20 11:06:16.145327+00') ON CONFLICT DO NOTHING;

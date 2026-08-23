@@ -188,3 +188,6 @@ docs/
 CLAUDE.md
 AGENTS.md
 .claude/
+
+# de-identification map: real values, must never be committed
+scripts/migration/deid-map.local.tsv
