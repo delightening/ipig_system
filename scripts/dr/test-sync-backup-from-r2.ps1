@@ -84,5 +84,36 @@ Assert-Equal "找得到 trap" $true ($posTrap -ge 0)
 Assert-Equal "找得到 checksum 計算" $true ($posHash -ge 0)
 Assert-Equal "trap 定義早於 checksum 計算" $true ($posTrap -lt $posHash)
 
+Write-Host "--- 案例 8：RetentionDays 下限（0 或負數會刪光本機備份）---"
+# 為什麼是靜態檢查而不是真跑：真跑要有 rclone 與遠端。這裡驗的是「param 上有沒有
+# 那道護欄」——沒有護欄時 PowerShell 會照收 0/-1，然後清除門檻變成現在或未來。
+$hasRange = $src -match '\[ValidateRange\(1,\s*\[int\]::MaxValue\)\]\s*\[int\]\$RetentionDays'
+Assert-Equal "RetentionDays 有 ValidateRange(1, MaxValue)" $true $hasRange
+
+# 同時證明「沒有護欄會出事」：直接算門檻，不依賴腳本
+foreach ($bad in @(0, -1)) {
+    $cutoff = (Get-Date).AddDays(-$bad)
+    $wouldDeleteEverything = $cutoff -ge (Get-Date).AddSeconds(-1)
+    Assert-Equal "RetentionDays=$bad 的清除門檻會刪光（故必須擋）" $true $wouldDeleteEverything
+}
+
+Write-Host "--- 案例 9：status=ok 必須同時要求「已驗證」與「本次於遠端可見」---"
+# CodeRabbit 指出的核心：rclone copy 不刪目的端多餘檔案，遠端清空時 copy 仍 exit 0，
+# 本機舊檔留著、checksum 照過，於是寫出帶新鮮 last_sync_run 的 "ok"。
+$hasRemoteSeen = $src -match '\$remoteSeen\s*=\s*\[System\.Collections\.Generic\.HashSet\[string\]\]'
+Assert-Equal "有建立 remoteSeen 集合" $true $hasRemoteSeen
+
+$hasLsf = $src -match 'rclone\s+lsf'
+Assert-Equal "有用 rclone lsf 列遠端" $true $hasLsf
+
+# 挑 latest 的那一行必須同時檢查兩個集合
+$latestLine = ($src -split "`n") | Where-Object { $_ -match '\$verifiedNames\.Contains\(\$_\.Name\)' } | Select-Object -First 1
+Assert-Equal "latest 篩選同時檢查 verifiedNames 與 remoteSeen" $true `
+    (($latestLine -match 'verifiedNames\.Contains') -and ($latestLine -match 'remoteSeen\.Contains'))
+
+# 遠端空了但本機有驗證過的檔 → 必須有專屬的失敗理由，不能沿用「本機沒有備份」那句
+Assert-Equal "有『本次在遠端一份都沒看到』的專屬失敗理由" $true `
+    ($src -match '本次在遠端一份都沒看到')
+
 Write-Host ""
 if ($script:fails -eq 0) { Write-Host "全部通過" } else { Write-Host "$script:fails 個案例失敗"; exit 1 }

@@ -20,7 +20,12 @@
 param(
     [Parameter(Mandatory)][string]$RcloneRemote,
     [Parameter(Mandatory)][string]$LocalDir,
-    [int]$RetentionDays = 14
+    # ⚠️ 下限必須是 1。給 0 或負數時，下方保留期清除的門檻
+    # `(Get-Date).AddDays(-$RetentionDays)` 會變成「現在」或「未來」，
+    # 於是**把本機所有備份與 checksum 檔全部刪掉**；負數還會讓月份前綴算出空集合，
+    # 連下載都不會發生——先清光再什麼都不抓，是這支腳本最壞的可能行為。
+    # （2026-08-23 CodeRabbit 於 PR #7 指出，成立。）
+    [ValidateRange(1, [int]::MaxValue)][int]$RetentionDays = 14
 )
 
 $ErrorActionPreference = "Stop"
@@ -116,9 +121,33 @@ while ($cursor -le $endMon) {
 }
 Log "保留期 $RetentionDays 天涵蓋 $($months.Count) 個月份前綴：$($months -join ', ')"
 
+# ⚠️ 本次實際在**遠端**看到的備份檔名。這份清單是「status=ok 代表遠端有備份」
+#    這個宣稱的唯一依據——沒有它，本腳本只證明得了「本機有一份 checksum 對的檔案」。
+#
+#    為什麼非有不可（2026-08-23 CodeRabbit 於 PR #7 指出，成立）：
+#    `rclone copy` **不會刪除目的端多餘的檔案**。若遠端該前綴已空（bucket 被清、
+#    生命週期規則刪掉、上傳端壞掉），copy 沒東西可複製**照樣 exit 0**；本機留著
+#    上次下載的舊檔，checksum 一樣過，於是寫出 `status="ok"` 加一個新鮮的
+#    `last_sync_run`——**遠端其實什麼都沒有，而呼叫端會據此認定 DR 就緒**。
+#    這正好推翻檔頭第 (1) 條「它保證的是遠端有一份通過驗證的備份」。
+$remoteSeen = [System.Collections.Generic.HashSet[string]]::new()
+
 foreach ($yearMonth in $months) {
     $remotePath = "$RcloneRemote/$yearMonth"
     Log "檢查 $remotePath ..."
+
+    # 先列遠端（lsf 只回檔名，不下載）。前綴不存在時 rclone 也可能回非 0，
+    # 那不算失敗——保留期內的月份本來就可能還沒有任何備份。
+    $listing = & rclone lsf $remotePath --include "ipig_*.sql.gz.gpg" --include "ipig_*.sha256" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        foreach ($n in $listing) {
+            $name = "$n".Trim()
+            if ($name) { [void]$remoteSeen.Add($name) }
+        }
+    } else {
+        Log "  （$remotePath 列不到內容，視為該月份無備份）"
+    }
+
     # --max-age 必須跟下面的保留期一致：否則會下載超過保留期的舊檔、隨即被清除，
     # 而下一輪又因本機不存在而重新下載——每天白白重傳一次（2026-08-21 首次實跑發現，
     # 當時下載 55 檔後刪掉 38 檔）。
@@ -132,6 +161,7 @@ foreach ($yearMonth in $months) {
         exit 1
     }
 }
+Log "本次於遠端觀察到 $($remoteSeen.Count) 個檔案"
 
 # =========================================================================
 # 完整性驗證——只驗證，不解密。**fail-closed**。
@@ -196,17 +226,35 @@ Get-ChildItem -Path $LocalDir -Filter "ipig_*" | Where-Object {
     Remove-Item $_.FullName -Force
 }
 
-# ⚠️ $latest **只能**從「已通過 checksum 驗證」的集合裡挑（原缺陷 1 的修正點）。
-# 保留期清除可能已刪掉部分檔案，故此處重新列檔並與 $verifiedNames 取交集。
+# ⚠️ $latest 必須同時滿足**兩個**條件，缺一不可：
+#   (a) 通過本次 checksum 驗證（$verifiedNames）——原缺陷 1 的修正點
+#   (b) **本次在遠端實際看到**（$remoteSeen）——否則 status="ok" 只證明了
+#       「本機有一份 checksum 對的舊檔」，而契約宣稱的是「遠端有一份可用備份」
+#
+# (b) 是 2026-08-23 CodeRabbit 於 PR #7 指出的：`rclone copy` 不刪目的端多餘檔案，
+# 遠端被清空時 copy 照樣 exit 0，本機舊檔留著、checksum 照過，於是寫出一個
+# 帶著新鮮 last_sync_run 的 "ok"。那是本腳本最不該有的失敗模式——**它的存在理由
+# 就是讓人判斷 DR 是否就緒，而它會在遠端已經沒東西時說就緒。**
 $latest = Get-ChildItem -Path $LocalDir -Filter "ipig_*.sql.gz.gpg" -File -ErrorAction SilentlyContinue |
-    Where-Object { $verifiedNames.Contains($_.Name) } |
+    Where-Object { $verifiedNames.Contains($_.Name) -and $remoteSeen.Contains($_.Name) } |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
 if (-not $latest) {
-    # 沒有任何「已驗證」的備份 = 沒有可用的 DR 快照。這同樣是失敗，不是警告：
-    # 回報 exit 0 會讓呼叫端以為異地備份就緒。
-    Write-SyncStatus -Status "failed" -Reasons @("本機沒有任何通過 checksum 驗證的備份檔（remote 上可能沒有檔案，或全數超過保留期被清除）")
-    Log "ERROR: 沒有任何已驗證的備份可用——不得視為 DR 就緒。"
+    # 沒有任何「已驗證且本次於遠端可見」的備份 = 沒有可用的 DR 快照。
+    # 這是失敗不是警告：回報 exit 0 會讓呼叫端以為異地備份就緒。
+    $localVerified = Get-ChildItem -Path $LocalDir -Filter "ipig_*.sql.gz.gpg" -File -ErrorAction SilentlyContinue |
+        Where-Object { $verifiedNames.Contains($_.Name) }
+    $reason = if ($localVerified) {
+        # 這一支才是新增的偵測：本機有通過驗證的檔，但遠端這次一個都沒看到。
+        "本機有 $($localVerified.Count) 份通過 checksum 驗證的備份，但**本次在遠端一份都沒看到**" +
+        "（遠端可能已被清空、生命週期規則刪除，或上傳端中斷）——本機這幾份是舊的下載結果，" +
+        "不能據以認定異地備份就緒"
+    } else {
+        "本機沒有任何通過 checksum 驗證的備份檔（remote 上可能沒有檔案，或全數超過保留期被清除）"
+    }
+    Write-SyncStatus -Status "failed" -Reasons @($reason)
+    Log "ERROR: $reason"
+    Log "ERROR: 不得視為 DR 就緒。"
     exit 1
 }
 
