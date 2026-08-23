@@ -52,17 +52,19 @@ got="$(run BEFORE_SHA=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef)"
 [ "$got" = "HEAD^" ] && pass "退回 HEAD^" || fail "退回 HEAD^" "HEAD^" "$got"
 
 echo "--- 案例 4（事故重現）：CI 排隊期間 main 前進，且 repo 被淺層化 ---"
-# 模擬：工作區停在 C3，但 origin/main 已被推到 C5；再用淺層 fetch 截斷祖先
+# ⚠️ 本案例**必須真的重現事故**才算數。第一版寫成「重現不出來就印個註解跳過」，
+#    等於測試可以綠著卻什麼都沒證明（CodeRabbit 於 PR #11 指出，成立）。
+#    現在改成：重現不出來就 FAIL——寧可測試環境問題被吵出來，也不要假綠。
 cd "$TMP/seed"
 for i in 4 5; do echo "$i" > "f$i.txt"; git add .; git commit -qm "c$i"; done
 git push -q origin main
 cd "$TMP/work"
 git fetch -q origin main --depth=1 2>/dev/null || true
-# 這正是舊寫法會做的事：拿 origin/main 當基準
 if git merge-base origin/main HEAD >/dev/null 2>&1; then
-  echo "        （註：本機 git 未產生淺層截斷，事故條件未完全重現）"
+  fail "事故前提未重現：origin/main...HEAD 仍算得出 merge base" "算不出" "算得出"
+  echo "        （淺層 fetch 沒有截斷祖先鏈，本案例無法證明任何事——先修測試環境）"
 else
-  pass "已重現：origin/main...HEAD 確實算不出 merge base"
+  pass "已重現：舊寫法的 origin/main...HEAD 確實算不出 merge base"
 fi
 # 新寫法應完全不受影響——它用 BEFORE_SHA，不碰 origin/main
 got="$(run BEFORE_SHA="$C2")"
@@ -71,6 +73,38 @@ got="$(run BEFORE_SHA="$C2")"
 echo "--- 案例 5：PR 事件（GITHUB_BASE_REF）→ 應回 origin/<base> ---"
 got="$(run GITHUB_BASE_REF=main)"
 [ "$got" = "origin/main" ] && pass "回 origin/main" || fail "回 origin/main" "origin/main" "$got"
+
+echo "--- 案例 5b：PR 事件時 origin/<base> 必須是 fetch 後的新值，不能是過期的 ---"
+# CodeRabbit 指出的核心：`git fetch origin <branch>` 在沒有預設 refspec 的 remote 上
+# 只更新 FETCH_HEAD、不更新 origin/<branch>，於是回傳過期 base 卻毫無錯誤。
+# 這裡把 refspec 拿掉來重現該環境（actions/checkout 某些設定就是如此）。
+git -c init.defaultBranch=main clone -q -b main "$TMP/up.git" "$TMP/norefspec" 2>/dev/null \
+  || git -c init.defaultBranch=main clone -q -b main "$TMP/upstream.git" "$TMP/norefspec"
+cd "$TMP/norefspec"; git config user.email t@t; git config user.name t
+git config --unset-all remote.origin.fetch
+STALE="$(git rev-parse origin/main)"
+cd "$TMP/seed"; echo 6 > f6.txt; git add .; git commit -qm c6; git push -q origin main
+cd "$TMP/norefspec"
+got="$( cd "$TMP/norefspec" && env -u BEFORE_SHA GITHUB_BASE_REF=main bash "$SCRIPT" )"
+FRESH="$(git rev-parse origin/main 2>/dev/null || echo none)"
+if [ "$got" != "origin/main" ]; then
+  fail "無 refspec 時仍回 origin/main" "origin/main" "$got"
+elif [ "$FRESH" = "$STALE" ]; then
+  fail "origin/main 沒被更新（會比錯對象）" "新的 commit" "仍是 $STALE"
+else
+  pass "明確 refspec 確實把 origin/main 更新到最新（不再回傳過期 base）"
+fi
+
+echo "--- 案例 5c：PR 事件但 base 分支不存在 → 必須 exit 3，不可退回 HEAD^ ---"
+set +e
+out="$( cd "$TMP/work" && env -u BEFORE_SHA GITHUB_BASE_REF=no-such-branch bash "$SCRIPT" 2>/dev/null )"
+rc=$?
+set -e 2>/dev/null || true
+if [ "$rc" -eq 3 ] && [ -z "$out" ]; then
+  pass "exit 3 且無輸出（不 fail-open）"
+else
+  fail "base 不存在應 exit 3" "rc=3 且無輸出" "rc=$rc out=[$out]"
+fi
 
 echo "--- 案例 6：什麼都沒有 → 應回空字串（呼叫端 fail-open）---"
 git -c init.defaultBranch=main init -q "$TMP/single"

@@ -27,13 +27,32 @@ ZERO="0000000000000000000000000000000000000000"
 have() { git rev-parse -q --verify "$1^{commit}" >/dev/null 2>&1; }
 
 # 1. PR：跟 base 分支比
+#
+# ⚠️ 必須帶**明確 refspec**寫進 refs/remotes/origin/<branch>，不能只 `git fetch origin <branch>`。
+#    後者是否順帶更新 remote-tracking ref，取決於該 remote 有沒有預設 refspec——
+#    2026-08-23 實測（CodeRabbit 於 PR #11 指出，成立）：
+#      有 `+refs/heads/*:refs/remotes/origin/*` → origin/main 會更新
+#      沒有（actions/checkout 某些設定就是如此）→ **只更新 FETCH_HEAD，origin/main 停在舊值**
+#    第二種情況下 `have origin/<branch>` 仍為真，於是回傳一個**過期的 base**，
+#    而且不會有任何錯誤——最壞的失敗模式：看起來成功、比錯對象。
+#
+# ⚠️ 這裡也**不可以 fail-open**。fail-open 只適用於「本來就沒有 base」（初始 commit）；
+#    PR 事件明明有 base 卻取不到，是環境出問題，靜默退回 HEAD^ 會讓守門比錯東西
+#    （PR 的 HEAD^ 通常是 base 分支的某個 commit，不是 merge base）。
+#    故此處失敗直接 exit 3，由呼叫端讓 CI 紅。
 if [ -n "${GITHUB_BASE_REF:-}" ]; then
   # 不帶 --depth，理由見檔頭
-  git fetch origin "$GITHUB_BASE_REF" >/dev/null 2>&1 || true
-  if have "origin/${GITHUB_BASE_REF}"; then
-    echo "origin/${GITHUB_BASE_REF}"
-    exit 0
+  if ! git fetch origin \
+       "+refs/heads/${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}" >/dev/null 2>&1; then
+    echo "ERROR: 取不到 PR base 分支 ${GITHUB_BASE_REF}（git fetch 失敗）" >&2
+    exit 3
   fi
+  if ! have "origin/${GITHUB_BASE_REF}"; then
+    echo "ERROR: fetch 後 origin/${GITHUB_BASE_REF} 仍不存在" >&2
+    exit 3
+  fi
+  echo "origin/${GITHUB_BASE_REF}"
+  exit 0
 fi
 
 # 2. push：跟推送前的 tip 比
