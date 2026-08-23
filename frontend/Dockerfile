@@ -1,12 +1,25 @@
 # ============================================
 # Stage 1: Build frontend (pnpm via corepack)
 # ============================================
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
 # 啟用 corepack 並啟用 package.json 中 "packageManager" 指定的 pnpm 版本
 # 避免 pnpm 版本漂移導致 lockfile 格式不相容
+#
+# ⚠️ Node 25 起 corepack **不再隨發行版附帶**（node 22/24 內建、26 沒有）。
+#    直接 `RUN corepack enable` 在 node 26 上會 `/bin/sh: corepack: not found`
+#    → exit 127，整個 build 掛掉（2026-08-23 PR #1 實測）。
+#
+#    這裡刻意寫成「有就用、沒有才裝」而不是無條件 `npm i -g corepack`：
+#    前者在仍內建 corepack 的版本上省一次網路安裝，且日後 base image 上下調
+#    都不用再改這行。
+#
+#    ⚠️ **不要改成 `npm i -g pnpm@<版本>`**——那會讓 pnpm 版本同時存在於
+#    `package.json` 的 `packageManager` 與這支 Dockerfile 兩處，正是上面那句
+#    註解要避免的「版本漂移」。corepack 的價值就是讓 `packageManager` 當唯一來源。
+RUN command -v corepack >/dev/null 2>&1 || npm install -g corepack
 RUN corepack enable
 
 # Copy package files first for layer caching
