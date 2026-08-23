@@ -111,6 +111,31 @@ async fn same_fingerprint_aggregates_instead_of_new_row() {
 
 #[tokio::test]
 #[serial]
+async fn concurrent_identical_reports_produce_one_alert() {
+    // PR #14 CodeRabbit review：check-then-insert 不是原子操作——兩筆同指紋的
+    // 「第一次」若同時進來，會各自 UPDATE 0 列然後各插一列。service 端已用
+    // transaction-scoped advisory lock 序列化，本測試釘住該行為。
+    let app = TestApp::spawn().await;
+    let source = unique_source("concurrent");
+    let body = format!(
+        r#"{{"csp-report":{{"document-uri":"https://ipigsystem.asia/",
+            "violated-directive":"script-src","blocked-uri":"eval","source-file":"{source}"}}}}"#
+    );
+
+    let (first, second) = tokio::join!(
+        post_csp(&app, CT_LEGACY, body.clone()),
+        post_csp(&app, CT_LEGACY, body.clone())
+    );
+    assert_eq!(first, 204);
+    assert_eq!(second, 204);
+
+    let (count, occ, _) = alerts_for_source(&app, &source).await;
+    assert_eq!(count, 1, "並行的同指紋第一筆也只能開一列");
+    assert_eq!(occ, 2, "兩次都要被算進 occurrence_count");
+}
+
+#[tokio::test]
+#[serial]
 async fn different_blocked_uri_opens_new_alert() {
     let app = TestApp::spawn().await;
     let source = unique_source("distinct");

@@ -51,6 +51,10 @@ const AGGREGATE_WINDOW: &str = "24 hours";
 /// 尚未結案的 alert 狀態（聚合只打這三種；已 resolved 的不復活，開新列）。
 const OPEN_STATUSES: [&str; 3] = ["open", "acknowledged", "investigating"];
 
+/// advisory lock 的 namespace（`pg_advisory_xact_lock(int4, int4)` 的第一個參數）。
+/// 取 R31-16 的編號當固定值，避免與其他功能的 advisory lock 撞號。
+const CSP_ADVISORY_LOCK_NAMESPACE: i32 = 3116;
+
 /// Prometheus counter 名（每一筆違規都加，含被 noise filter 略過與被聚合的）。
 pub const METRIC_CSP_VIOLATIONS: &str = "ipig_csp_violations_total";
 
@@ -184,6 +188,14 @@ fn clamp(v: Option<String>, max: usize) -> Option<String> {
 /// R31-16：同指紋（alert_type + violated_directive + blocked_uri + source_file）
 /// 在 [`AGGREGATE_WINDOW`] 內已有未結案 alert → 累加 `occurrence_count` + 推進
 /// `updated_at`；否則開新列。回傳 `true` = 開了新 alert，`false` = 併進既有 alert。
+///
+/// **原子性**（PR #14 CodeRabbit review）：check-then-insert 本身不是原子操作——
+/// 兩筆同指紋的「第一次」若同時進來，會各自 UPDATE 0 列然後各插一列，聚合契約當場破掉。
+/// 因此整段包在 transaction 內，並先取一把 **transaction-scoped advisory lock**
+/// （key = alert_type + 指紋）把同指紋序列化；不同指紋 hash 不同、互不阻塞。
+/// 外層 `UPDATE` 的 `WHERE` 另外再判一次 `status`——READ COMMITTED 下取得列鎖後會重評
+/// 條件，避免 subselect 選中後、被管理員並行結案的列又被加一次計數（該情況回落成開新列，
+/// 這正是期望行為：舊案已結，新發生的違規要重新浮出來）。
 pub async fn insert_csp_violation(pool: &PgPool, v: &CspViolation) -> Result<bool> {
     let alert_type = v.alert_type();
     // 指紋只取「同一個成因」的三個欄位；document_uri / user_agent 不進指紋，
@@ -193,6 +205,14 @@ pub async fn insert_csp_violation(pool: &PgPool, v: &CspViolation) -> Result<boo
         "blocked_uri": v.blocked_uri,
         "source_file": v.source_file,
     });
+
+    let mut tx = pool.begin().await?;
+
+    sqlx::query("SELECT pg_advisory_xact_lock($1, hashtext($2))")
+        .bind(CSP_ADVISORY_LOCK_NAMESPACE)
+        .bind(format!("{alert_type}|{fingerprint}"))
+        .execute(&mut *tx)
+        .await?;
 
     let aggregated = sqlx::query(
         r#"
@@ -213,16 +233,18 @@ pub async fn insert_csp_violation(pool: &PgPool, v: &CspViolation) -> Result<boo
             ORDER BY created_at DESC
             LIMIT 1
         )
+          AND status = ANY($2)
         "#,
     )
     .bind(alert_type)
     .bind(&OPEN_STATUSES[..])
     .bind(AGGREGATE_WINDOW)
     .bind(&fingerprint)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
 
     if aggregated.rows_affected() > 0 {
+        tx.commit().await?;
         return Ok(false);
     }
 
@@ -245,8 +267,9 @@ pub async fn insert_csp_violation(pool: &PgPool, v: &CspViolation) -> Result<boo
     .bind(alert_type)
     .bind(v.description())
     .bind(context)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(true)
 }
 
