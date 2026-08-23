@@ -19,7 +19,14 @@ WORKDIR /app
 #    ⚠️ **不要改成 `npm i -g pnpm@<版本>`**——那會讓 pnpm 版本同時存在於
 #    `package.json` 的 `packageManager` 與這支 Dockerfile 兩處，正是上面那句
 #    註解要避免的「版本漂移」。corepack 的價值就是讓 `packageManager` 當唯一來源。
-RUN command -v corepack >/dev/null 2>&1 || npm install -g corepack
+#
+#    corepack 本身**釘版本**：不釘的話 `npm i -g corepack` 每次 build 都可能拉到
+#    不同版，build 不可重現。選 0.35.0 的依據是實測（2026-08-24）——
+#    node:22-alpine 內建 0.34.6、node:24-alpine 內建 0.35.0、node:26-alpine 無，
+#    所以 0.35.0 是官方映像帶過的最新版，不是憑空挑的數字；
+#    並已在 node:26-alpine 上實測它能啟用 packageManager 指定的 pnpm 10.33.0。
+#    ⚠️ 這裡釘的是 **corepack 不是 pnpm**——pnpm 版本仍然只有 package.json 一個來源。
+RUN command -v corepack >/dev/null 2>&1 || npm install -g corepack@0.35.0
 RUN corepack enable
 
 # Copy package files first for layer caching

@@ -361,8 +361,11 @@ services:
     #    附帶。本服務目前釘在 node:22-alpine（仍內建）故現在不會壞，但升版時會——
     #    `frontend/Dockerfile` 就是這樣在 node 26 上炸掉的（2026-08-23 PR #1）。
     #    先加防呆，避免下一個人重新踩一次；本輪**刻意不升 web-dev 的版本**。
+    #    corepack 釘 0.35.0，與 `frontend/Dockerfile` 同版（依據見該檔註解：
+    #    0.35.0 是官方 node 映像帶過的最新版，且實測能啟用 pnpm 10.33.0）。
+    #    不釘的話每次起 dev 容器都可能拉到不同版的 corepack。
     command: >
-      sh -c "command -v corepack >/dev/null 2>&1 || npm install -g corepack;
+      sh -c "command -v corepack >/dev/null 2>&1 || npm install -g corepack@0.35.0;
       corepack enable && pnpm install --frozen-lockfile && pnpm run dev -- --host 0.0.0.0 --port 5173"
     networks:
       - frontend
