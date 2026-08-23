@@ -73,14 +73,50 @@ function Write-SyncStatus {
     $obj | ConvertTo-Json -Depth 4 | Set-Content -Path (Join-Path $LocalDir "sync-status.json") -Encoding UTF8
 }
 
+# ⚠️ 未預期的終止錯誤也必須留下 failed 狀態。
+#
+# `$ErrorActionPreference = "Stop"` 會讓 checksum 那段的 `Get-Content` / `Get-FileHash`
+# 一旦遇到 I/O 錯誤（檔案被鎖、磁碟問題、權限）就直接中止腳本——**在任何
+# Write-SyncStatus 之前**。於是 sync-status.json 停在上一次成功的 `status="ok"`，
+# 呼叫端讀到一個看似合理的舊狀態而誤判 DR 就緒。這與上方 (2) 是同一類「假健康」，
+# 差別在 (2) 是腳本沒被執行，這裡是腳本執行了但死在中途。
+#
+# trap 是 scope 層級的，涵蓋這行以後的所有終止錯誤，不必逐段包 try/catch。
+# 內層再各自 try/catch 是因為：連寫 log 或寫狀態檔本身都可能失敗（例如磁碟滿），
+# 那時仍要走到 exit 1，不能讓 trap 自己炸掉而回傳 0。
+trap {
+    $trapMsg = $_.Exception.Message
+    try { Log "ERROR: 未預期的終止錯誤：$trapMsg" } catch { Write-Host "ERROR: $trapMsg" }
+    try {
+        Write-SyncStatus -Status "failed" -Reasons @("腳本因未預期錯誤中止：$trapMsg——本次同步結果不可信")
+    } catch {
+        Write-Host "ERROR: 連 sync-status.json 都寫不出來：$($_.Exception.Message)"
+    }
+    exit 1
+}
+
 Log "=== 開始同步：$RcloneRemote -> $LocalDir ==="
 
-# 備份上傳路徑是 <remote>/YYYY/MM/（見 scripts/backup/pg_backup.sh 的 UPLOAD_DATE），
-# 只抓當月份即可涵蓋最新備份；跨月交界那幾天兩個月份都抓，rclone copy 對已存在的檔案是 no-op。
-$thisMonth = Get-Date -Format "yyyy/MM"
-$lastMonth = (Get-Date).AddMonths(-1).ToString("yyyy/MM")
+# 備份上傳路徑是 <remote>/YYYY/MM/（見 scripts/backup/pg_backup.sh 的 UPLOAD_DATE）。
+#
+# ⚠️ 必須涵蓋保留期內的**每一個**月份，不能只抓「上個月 + 當月」：
+# `RetentionDays` 跨兩個月界時中間那些月份會被整個跳過。
+# 例如 3/1 且 RetentionDays=31，1/30 的備份仍在保留期內卻永遠不會被複製
+# ——而下方的保留期清除又只看本機檔案，所以那份備份等於從 DR 視野裡消失。
+# （2026-08-23 CodeRabbit 於 PR #7 指出，實例成立。）
+#
+# rclone copy 對已存在的檔案是 no-op，多抓幾個月份的成本只有一次 list。
+$oldest = (Get-Date).AddDays(-$RetentionDays)
+$cursor = [datetime]::new($oldest.Year, $oldest.Month, 1)
+$endMon = [datetime]::new((Get-Date).Year, (Get-Date).Month, 1)
+$months = [System.Collections.Generic.List[string]]::new()
+while ($cursor -le $endMon) {
+    $months.Add($cursor.ToString("yyyy/MM"))
+    $cursor = $cursor.AddMonths(1)
+}
+Log "保留期 $RetentionDays 天涵蓋 $($months.Count) 個月份前綴：$($months -join ', ')"
 
-foreach ($yearMonth in @($lastMonth, $thisMonth) | Select-Object -Unique) {
+foreach ($yearMonth in $months) {
     $remotePath = "$RcloneRemote/$yearMonth"
     Log "檢查 $remotePath ..."
     # --max-age 必須跟下面的保留期一致：否則會下載超過保留期的舊檔、隨即被清除，
