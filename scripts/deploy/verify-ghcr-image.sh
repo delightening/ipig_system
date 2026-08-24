@@ -37,10 +37,15 @@ set -euo pipefail
 # Usage:
 #   bash scripts/deploy/verify-ghcr-image.sh [commit-sha] [service]
 #
+# commit-sha must be the 7-character short sha docker/metadata-action tags
+# images with (`type=sha` default) -- that's the only tag CD actually
+# pushes. A longer sha is truncated to 7 with a notice; anything else
+# (too short, non-hex) is rejected before we waste a pull attempt.
+#
 # Examples:
 #   bash scripts/deploy/verify-ghcr-image.sh                # HEAD, api
-#   bash scripts/deploy/verify-ghcr-image.sh 96cd21af        # specific sha
-#   bash scripts/deploy/verify-ghcr-image.sh 96cd21af web    # other service
+#   bash scripts/deploy/verify-ghcr-image.sh 3fb9922         # specific sha
+#   bash scripts/deploy/verify-ghcr-image.sh 3fb9922 web     # other service
 #
 # Requires GHCR_OWNER in .env (or exported) and a prior
 #   docker login ghcr.io
@@ -65,7 +70,20 @@ case "$SERVICE" in
 esac
 
 if [ -n "${1:-}" ]; then
-  TARGET_SHA="$1"
+  case "$1" in
+    [0-9a-fA-F]???????*)
+      # 8+ hex chars: CD only ever tags with the first 7, truncate to match.
+      TARGET_SHA="$(printf '%s' "$1" | cut -c1-7)"
+      echo "NOTE: truncating '$1' to '$TARGET_SHA' (CD tags images with 7-char short shas only)."
+      ;;
+    [0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])
+      TARGET_SHA="$1"
+      ;;
+    *)
+      echo "Invalid commit-sha '$1': expected 7 hex characters (CD's tag format)." >&2
+      exit 2
+      ;;
+  esac
 else
   TARGET_SHA="$(git -C "$PROJECT_DIR" rev-parse --short=7 HEAD)"
 fi
@@ -127,17 +145,21 @@ echo "[2/3] Checking baked-in GIT_SHA ..."
 # (`docker run --entrypoint sh` fails outright on distroless).
 # So checking this means extracting the binary and grepping it -- never
 # running it, never touching a shell inside the image.
-SHA_OK=0
+# SHA_STATE distinguishes "we checked and it matches" from "there was
+# nothing to check" -- collapsing both into one boolean is exactly what
+# let the final summary claim "GIT_SHA matches" for web/db-backup, where
+# no check ever ran. States: matched | skipped | mismatch | extract_failed.
+SHA_STATE="mismatch"
 if [ -z "$BIN_PATH_IN_IMAGE" ]; then
   echo "  SKIPPED: '$SERVICE' doesn't consume GIT_SHA at build time (cd.yml matrix.version_args"
   echo "  is only set for api / outbox-worker) -- nothing baked in to check."
-  SHA_OK=1
+  SHA_STATE="skipped"
 else
   CONTAINER_ID="$(docker create "$REMOTE_IMAGE")"
   if BIN_PATH="$(mktemp)" && docker cp "${CONTAINER_ID}:${BIN_PATH_IN_IMAGE}" "$BIN_PATH" 2>/dev/null; then
     if grep -qa "$TARGET_SHA" "$BIN_PATH"; then
       echo "  OK: binary contains the string '$TARGET_SHA' (GIT_SHA baked in as expected)."
-      SHA_OK=1
+      SHA_STATE="matched"
     else
       echo "  MISMATCH: binary does not contain '$TARGET_SHA'."
       echo "  Either GIT_SHA wasn't passed at build time, or this image was built from a different commit."
@@ -146,6 +168,7 @@ else
     rm -f "$BIN_PATH"
   else
     echo "  WARNING: could not extract $BIN_PATH_IN_IMAGE from the image."
+    SHA_STATE="extract_failed"
   fi
   docker rm "$CONTAINER_ID" >/dev/null
 fi
@@ -168,12 +191,19 @@ fi
 
 echo ""
 echo "============================================"
-if [ "${SHA_OK:-0}" = "1" ]; then
-  echo "Result: GHCR image for $TARGET_SHA verified (pulls, GIT_SHA matches)."
-  echo "NOT deployed -- prod is untouched. This only confirms the image is real and correct."
-else
-  echo "Result: GHCR image pulled but GIT_SHA could not be confirmed. See warnings above."
-fi
+case "$SHA_STATE" in
+  matched)
+    echo "Result: GHCR image for $TARGET_SHA verified (pulls, GIT_SHA matches)."
+    ;;
+  skipped)
+    echo "Result: GHCR image for $TARGET_SHA pulls successfully. GIT_SHA check N/A for '$SERVICE'"
+    echo "(not baked in for this service -- see step 2 above)."
+    ;;
+  *)
+    echo "Result: GHCR image pulled but GIT_SHA could not be confirmed. See warnings above."
+    ;;
+esac
+echo "NOT deployed -- prod is untouched. This only confirms the image is real and correct."
 echo "============================================"
 
-[ "${SHA_OK:-0}" = "1" ]
+[ "$SHA_STATE" = "matched" ] || [ "$SHA_STATE" = "skipped" ]
