@@ -106,10 +106,14 @@ Assert-Equal "有建立 remoteSeen 集合" $true $hasRemoteSeen
 $hasLsf = $src -match 'rclone\s+lsf'
 Assert-Equal "有用 rclone lsf 列遠端" $true $hasLsf
 
-# 挑 latest 的那一行必須同時檢查兩個集合
-$latestLine = ($src -split "`n") | Where-Object { $_ -match '\$verifiedNames\.Contains\(\$_\.Name\)' } | Select-Object -First 1
+# 挑 latest 的那一行必須同時檢查 verifiedNames 與 remoteSeen 兩個集合
+# ⚠️ 2026-08-24 改成多行 Where-Object 後（見案例 11），單行 regex 抓不到了，
+#    改成抓整個 Where-Object 區塊（從 Where-Object 開始到對應的 } 為止）再判斷。
+$srcLinesForLatest = $src -split "`n"
+$whereIdx = 0..($srcLinesForLatest.Count - 1) | Where-Object { $srcLinesForLatest[$_] -match '\$latest\s*=' } | Select-Object -First 1
+$latestBlock = ($srcLinesForLatest[$whereIdx..([Math]::Min($whereIdx + 8, $srcLinesForLatest.Count - 1))]) -join " "
 Assert-Equal "latest 篩選同時檢查 verifiedNames 與 remoteSeen" $true `
-    (($latestLine -match 'verifiedNames\.Contains') -and ($latestLine -match 'remoteSeen\.Contains'))
+    (($latestBlock -match 'verifiedNames\.Contains') -and ($latestBlock -match 'remoteSeen\.Contains'))
 
 # 遠端空了但本機有驗證過的檔 → 必須有專屬的失敗理由，不能沿用「本機沒有備份」那句
 Assert-Equal "有『本次在遠端一份都沒看到』的專屬失敗理由" $true `
@@ -144,6 +148,18 @@ Assert-Equal "rclone copy 也帶同樣的 --max-age" $true `
 # 反向驗證：確認這個檢測在「有事」時真的會叫——把 --max-age 從 lsf 拿掉後應該判為不通過
 $lsfWithout = $lsfBlock -replace '--max-age\s+"\$\{RetentionDays\}d"', ''
 Assert-Equal "檢測有效性：lsf 少了 --max-age 時本測試會失敗" $false ($lsfWithout -match '--max-age')
+
+Write-Host "--- 案例 11：latest 篩選必須同時要求 .gpg 與 .sha256 都在 remoteSeen 裡 ---"
+# CodeRabbit 第四輪指出：只查 remoteSeen.Contains($_.Name)（即 .gpg 本身），沒查
+# 對應的 .sha256。後果：遠端的 .sha256 被刪、本機還留著舊的一份，checksum 照樣過，
+# latest 照樣選中這對不完整的遠端配對。
+Assert-Equal "latest 篩選同時要求 .gpg 與 .sha256 都在 remoteSeen 裡" $true `
+    ($latestBlock -match 'remoteSeen\.Contains\("\$\(\$_\.Name\)\.sha256"\)')
+
+# 反向驗證：拿掉 .sha256 檢查後，這個斷言必須判為不通過
+$latestBlockWithoutSha = $latestBlock -replace 'remoteSeen\.Contains\("\$\(\$_\.Name\)\.sha256"\)\s*-?a?n?d?', ''
+Assert-Equal "檢測有效性：latest 少了 .sha256 檢查時本測試會失敗" $false `
+    ($latestBlockWithoutSha -match 'remoteSeen\.Contains\("\$\(\$_\.Name\)\.sha256"\)')
 
 Write-Host ""
 if ($script:fails -eq 0) { Write-Host "全部通過" } else { Write-Host "$script:fails 個案例失敗"; exit 1 }

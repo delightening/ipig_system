@@ -243,8 +243,18 @@ Get-ChildItem -Path $LocalDir -Filter "ipig_*" | Where-Object {
 # 遠端被清空時 copy 照樣 exit 0，本機舊檔留著、checksum 照過，於是寫出一個
 # 帶著新鮮 last_sync_run 的 "ok"。那是本腳本最不該有的失敗模式——**它的存在理由
 # 就是讓人判斷 DR 是否就緒，而它會在遠端已經沒東西時說就緒。**
+#
+# ⚠️ 上面這句只檢查了 .gpg 本身的 remoteSeen，沒檢查它的 .sha256（2026-08-24
+#    CodeRabbit 第四輪指出）。如果遠端的 .sha256 被刪、本機還留著舊的，
+#    這裡照樣會選中它——因為驗證用的 $verifiedNames 只看本機檔案，不看
+#    「這對檔案本次是否完整地存在於遠端」。$remoteSeen 必須同時包含兩個檔名，
+#    否則「遠端有可用備份」這句話其實只驗證了一半。
 $latest = Get-ChildItem -Path $LocalDir -Filter "ipig_*.sql.gz.gpg" -File -ErrorAction SilentlyContinue |
-    Where-Object { $verifiedNames.Contains($_.Name) -and $remoteSeen.Contains($_.Name) } |
+    Where-Object {
+        $verifiedNames.Contains($_.Name) -and
+        $remoteSeen.Contains($_.Name) -and
+        $remoteSeen.Contains("$($_.Name).sha256")
+    } |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
 if (-not $latest) {
