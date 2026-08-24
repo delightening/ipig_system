@@ -45,19 +45,44 @@ pub struct LoginResponse {
 /// 為空、直接放行——與 `birth_date` 給什麼無關。查詢條件與守衛本身完全一致
 /// （`deleted_at IS NULL AND status NOT IN ('euthanized','sudden_death')`）。
 ///
-/// `OFFSET` 帶 process 內遞增序號：同一個測試 binary 內平行執行的測試各自取到
-/// **不同**的空號，不會在雙方都還沒 INSERT 前拿到同一個。測試 binary 之間 cargo
-/// 是循序執行的，前一支的資料已 commit，故跨 binary 也安全。
+/// # 為什麼不用 `OFFSET` 分散並行呼叫者（2026-08-24 CodeRabbit 於 PR #17 指出）
+///
+/// 舊版用一個 process 內單調遞增的 `AtomicI64` 當 `OFFSET`，想讓並行呼叫者各自
+/// 取到不同空號。但**序號單調遞增、候選集合卻是遞減的**，兩者方向相反：
+/// 從 900 個全空的池子配了 450 次之後，`OFFSET 450` 打進只剩 450 列的集合會回
+/// `None`，於是 panic 說「耳號已用盡」——**而當下其實還有 450 個空號**。
+/// 那句錯誤訊息會把人導去重建 DB，找錯方向。
+///
+/// 移除 `OFFSET` 之後並行安全性沒有變差，因為它原本要防的事情已經由
+/// `create_animal_with_free_ear_tag` 的**撞號重試**接手：兩個呼叫者就算拿到
+/// 同一個空號，也只有一個能通過 DB 的唯一約束，輸的那個換一個再試。
+/// 重試對競爭者是誰無關，比 `OFFSET` 能涵蓋的範圍更大（`OFFSET` 對跨 process
+/// 本來就無效）。
+///
+/// ⚠️ 因此本函式**不該被直接呼叫**——請一律走 `create_animal_with_free_ear_tag`，
+/// 否則就會退回沒有重試保護的 TOCTOU 狀態。
+/// 耳號候選空間的**單一來源**：`validate_ear_tag`（`models/animal/requests.rs`）
+/// 限制耳號只能是三位數，即 100–999 共 900 個值。
+///
+/// 抽成常數是因為這個範圍原本同時寫死在兩個地方——`free_ear_tag` 的
+/// `generate_series(100, 999)` 與 `create_animal_with_free_ear_tag` 的重試上限。
+/// 兩者漂移的話，重試上限會小於候選空間，並行時就會在池子還有空號時誤報用盡
+/// （2026-08-24 CodeRabbit 於 PR #17 指出的正是這個失效模式）。
+pub const EAR_TAG_MIN: u32 = 100;
+pub const EAR_TAG_MAX: u32 = 999;
+/// 候選空間大小，同時是撞號重試的上限。
+pub const EAR_TAG_SPACE: usize = (EAR_TAG_MAX - EAR_TAG_MIN + 1) as usize;
+
 pub async fn free_ear_tag(pool: &PgPool) -> String {
-    use std::sync::atomic::{AtomicI64, Ordering};
-
-    static SEQ: AtomicI64 = AtomicI64::new(0);
-    let skip = SEQ.fetch_add(1, Ordering::Relaxed);
-
+    // ⚠️ 範圍用 bind 參數帶進去，不要用 format! 組 SQL——本專案有
+    // 「dynamic SQL strings should be audited for possible injections」的
+    // 編譯期守衛，format! 會直接編譯失敗。用 bind 同時達成兩件事：
+    // 過得了守衛，而且範圍真的來自 EAR_TAG_MIN/MAX 常數，不會與
+    // create_animal_with_free_ear_tag 的重試上限漂移。
     let tag: Option<String> = sqlx::query_scalar(
         r#"
         SELECT lpad(g::text, 3, '0')
-        FROM generate_series(100, 999) g
+        FROM generate_series($1::int, $2::int) g
         WHERE NOT EXISTS (
             SELECT 1 FROM animals a
             WHERE a.ear_tag = lpad(g::text, 3, '0')
@@ -65,17 +90,89 @@ pub async fn free_ear_tag(pool: &PgPool) -> String {
               AND a.status NOT IN ('euthanized', 'sudden_death')
         )
         ORDER BY g
-        OFFSET $1
         LIMIT 1
         "#,
     )
-    .bind(skip)
+    .bind(EAR_TAG_MIN as i32)
+    .bind(EAR_TAG_MAX as i32)
     .fetch_optional(pool)
     .await
     .expect("query free ear tag");
 
     // 用盡時明確報錯，好過讓呼叫端拿到神秘的 409。
+    // 移除 OFFSET 後這句話才真的成立：回 None 就是候選集合真的空了。
     tag.expect("測試 DB 已無可用的三位數耳號（100–999 全被非終態動物佔用），請重建測試 DB")
+}
+
+/// 建立測試動物：配置一個空耳號 → 送出建立請求 → **撞號就換一個重試**。
+/// 回傳建立成功後的動物 JSON。
+///
+/// `build_body` 收到配置好的耳號，回傳完整的建立請求 body——各測試檔的欄位
+/// 不盡相同（有的帶 `pen_location`、有的不帶），故由呼叫端自己組。
+///
+/// # 為什麼需要重試（2026-08-24，CodeRabbit 於 PR #17 指出）
+///
+/// `free_ear_tag` 只是「讀取當下沒人在用的耳號」，它與後續的建立請求之間存在
+/// TOCTOU 空隙：另一個 **process** 可以在這兩步之間搶走同一個耳號。
+/// `free_ear_tag` 的 `AtomicI64` 只序列化**同一個 process 內**的呼叫者，
+/// 對跨 process 無效。
+///
+/// ⚠️ 原本的 doc comment 主張「測試 binary 之間 cargo 是循序執行的，故跨 binary
+/// 也安全」——那句話對 `cargo test` 成立，但它是**對執行環境的假設**，不是對
+/// 機制的保證：換成 `cargo nextest`、或兩個開發者同時對同一顆共用測試 DB 跑測試，
+/// 假設就破了。
+///
+/// 修法刻意**不是**把配置做成 DB 層原子操作——動物建立走 HTTP API，交易無法
+/// 跨越那個邊界。改成讓 **DB 的唯一約束當最終仲裁者，輸了就換一個再試**：
+/// 這個機制對競爭者是誰完全無關（同 process 的另一條 task、另一個 process、
+/// 甚至另一台機器都一樣），因此比原本的環境假設更強。
+///
+/// 驗證方式見 `api_glp_record_lock.rs` 的
+/// `create_animal_survives_cross_process_ear_tag_theft`：它真的 spawn 一個
+/// **另一個 OS process** 在空隙中搶走耳號，確認本函式仍能完成建立。
+pub async fn create_animal_with_free_ear_tag(
+    app: &TestApp,
+    token: &str,
+    build_body: impl Fn(&str) -> serde_json::Value,
+) -> serde_json::Value {
+    // 上限必須是**整個候選空間**（三位數耳號 100–999 共 900 個），不能是小常數。
+    //
+    // ⚠️ 2026-08-24 CodeRabbit 於 PR #17 指出：移除 `OFFSET` 之後，`free_ear_tag`
+    // 永遠回傳「當下第一個空號」，所以並行呼叫者**每一輪都會撞在同一個耳號上**，
+    // 每輪只有一個人成功。原本設 8 的話，第 9 個並行呼叫者會連吃 8 次 409 然後
+    // panic 說「耳號用盡」——而當下還有 892 個空號可用，訊息完全誤導。
+    //
+    // 用 EAR_TAG_SPACE 是因為那就是撞光所有候選的次數上限：真的跑滿仍失敗，
+    // 代表池子確實空了，這時報「用盡」才是誠實的。這個迴圈不會白跑——
+    // 每一輪都有人成功佔走一個耳號，所以總次數受候選空間限制而非無界。
+    //
+    // ⚠️ 直接用 EAR_TAG_SPACE 而不是再寫一次 900：那個範圍同時被
+    // free_ear_tag 的 generate_series 使用，兩處各自寫死會漂移。
+    const MAX_ATTEMPTS: usize = EAR_TAG_SPACE;
+    let mut last_failure = String::new();
+
+    for attempt in 1..=MAX_ATTEMPTS {
+        let ear_tag = free_ear_tag(&app.db_pool).await;
+        let body = build_body(&ear_tag);
+        let res = app.auth_post("/api/v1/animals", &body, token).await;
+        let status = res.status();
+        let text = res.text().await.unwrap_or_default();
+
+        if status.is_success() {
+            return serde_json::from_str(&text).expect("parse created animal json");
+        }
+
+        // 只有「耳號重複」這一種 409 才重試。其他失敗（欄位驗證、權限…）
+        // 重試多少次都不會變好，直接讓測試紅燈並帶出原始訊息。
+        let is_ear_tag_conflict = status.as_u16() == 409 && text.contains("耳號");
+        last_failure = format!("attempt {attempt}: {status} body={text}");
+        assert!(
+            is_ear_tag_conflict,
+            "建立動物失敗（非耳號衝突，不重試）：{last_failure}"
+        );
+    }
+
+    panic!("建立動物連續 {MAX_ATTEMPTS} 次都撞到耳號衝突，最後一次：{last_failure}");
 }
 
 impl TestApp {

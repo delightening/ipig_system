@@ -16,26 +16,22 @@ async fn weight_enforce_active_blocks_euthanized_but_detail_page_allows() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    // 建立一隻存活動物。耳號用「配置」而非亂數：三位數只有 900 個值，抽籤在共用
-    // 測試 DB 上必然碰撞而回 409（force_create 跳不過重複守衛）。詳見
-    // common::free_ear_tag。
-    let ear_tag = common::free_ear_tag(&app.db_pool).await;
-    let create_body = serde_json::json!({
-        "ear_tag": ear_tag,
-        "breed": "white",
-        "gender": "female",
-        "entry_date": "2026-01-15",
-        "entry_weight": 25.5,
-        "pen_location": "A-01",
-        "force_create": true
-    });
-    let created = app.auth_post("/api/v1/animals", &create_body, &token).await;
-    assert!(
-        created.status() == 200 || created.status() == 201,
-        "建立動物失敗：{}",
-        created.status()
-    );
-    let created: serde_json::Value = created.json().await.expect("parse create response");
+    // 建立一隻存活動物。耳號用「配置 + 撞號重試」而非亂數：三位數只有 900 個值，
+    // 抽籤在共用測試 DB 上必然碰撞而回 409（force_create 跳不過重複守衛）；
+    // 而純配置與建立之間還有跨 process 的 TOCTOU 空隙。
+    // 詳見 common::create_animal_with_free_ear_tag。
+    let created = common::create_animal_with_free_ear_tag(&app, &token, |ear_tag| {
+        serde_json::json!({
+            "ear_tag": ear_tag,
+            "breed": "white",
+            "gender": "female",
+            "entry_date": "2026-01-15",
+            "entry_weight": 25.5,
+            "pen_location": "A-01",
+            "force_create": true
+        })
+    })
+    .await;
     let animal_id = created["id"]
         .as_str()
         .expect("created animal id")
