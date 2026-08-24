@@ -303,6 +303,12 @@ pub async fn upload_protocol_attachment(
 }
 
 /// 上傳動物照片
+///
+/// ⚠️ R110-1（2026-08-24）：`require_permission!` 只檔「有沒有這個功能的權限」，
+/// 不檔對象。少了下面這行，任何具 `animal.animal.edit` 的使用者都能把照片掛到
+/// **任意動物**，包含他看不到的計畫底下的動物——讀取路徑
+/// （`check_attachment_permission` 的 `"animal"` 分支）本來就有 `require_animal_access`，
+/// 寫入路徑原本沒有。
 pub async fn upload_animal_photo(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -310,6 +316,7 @@ pub async fn upload_animal_photo(
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.animal.edit");
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let results = handle_upload(
         &state.db,
         current_user.id,
@@ -323,6 +330,9 @@ pub async fn upload_animal_photo(
 }
 
 /// 上傳病理報告
+///
+/// ⚠️ R110-1（2026-08-24）：同 `upload_animal_photo`，讀取路徑（`check_attachment_permission`
+/// 的 `"pathology"` 分支）有 `require_animal_access`，寫入路徑原本沒有。
 pub async fn upload_pathology_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -330,6 +340,7 @@ pub async fn upload_pathology_report(
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.animal.edit");
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
     let results = handle_upload(
         &state.db,
         current_user.id,
@@ -377,6 +388,9 @@ pub async fn upload_observation_attachment(
 }
 
 /// 上傳請假附件（診斷證明等）
+///
+/// R110 稽核結論：不需要額外的物件層授權——`entity_id` 寫死 `current_user.id.to_string()`
+/// （見下方），使用者無論如何都只能把附件掛到自己的請假紀錄上，沒有可越權的對象參數。
 pub async fn upload_leave_attachment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -395,6 +409,11 @@ pub async fn upload_leave_attachment(
 }
 
 /// 上傳犧牲記錄照片（有額外的犧牲記錄驗證與不同的存表邏輯，不使用通用函式）
+///
+/// ⚠️ R110-2（2026-08-24）：下面的犧牲記錄存在性檢查只確認「這隻動物有犧牲記錄」，
+/// **不確認呼叫者能存取這隻動物**——存在性不等於授權。加
+/// `require_animal_access`，順序放在存在性檢查之前：物件層授權應該先於任何
+/// 資料庫查詢揭露「這筆記錄存不存在」，否則等於間接洩漏其他計畫的動物有無犧牲記錄。
 pub async fn upload_sacrifice_photo(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -402,6 +421,7 @@ pub async fn upload_sacrifice_photo(
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.record.create");
+    access::require_animal_access(&state.db, &current_user, animal_id).await?;
 
     // 檢查犧牲記錄是否存在（animal_sacrifices.id 為 UUID）
     let sacrifice_id: Uuid =
@@ -648,6 +668,12 @@ async fn save_animal_record_attachment(
 // ─────────────────────────────────────────────────────────────────
 
 /// 上傳 SOP 文件（PDF / Word），寫入檔案系統並更新 qa_sop_documents.file_path
+///
+/// R110-3（2026-08-24 查證結案）：`qa_sop_documents` 沒有物件層授權，這是**刻意的**，
+/// 不是漏檢。查過 schema（`002_schema.sql`）——該表沒有 `protocol_id`／`department_id`
+/// 之類的歸屬欄位，`category` 只是自由文字標籤。SOP 文件是全域 QAU 資源，不屬於
+/// 任何特定計畫，`qau.sop.manage` 這個全域權限就是正確且完整的授權模型。
+/// 下次稽核上傳端點時不必再把這個列進可疑清單。
 pub async fn upload_sop_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
