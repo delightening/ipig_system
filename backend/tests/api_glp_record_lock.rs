@@ -30,17 +30,22 @@ use uuid::Uuid;
 
 /// 建立一隻動物，回傳 animal_id (UUID 字串)。
 ///
-/// 重複偵測鍵 = (ear_tag, entry_date, alive) → 同時 randomize 兩者，
-/// 避免共享 DB 的多 test 連跑時撞到 `force_create=true` 仍未繞過的唯一性檢查。
+/// R109（2026-08-24）：原本用 `rand::random` 各自隨機挑 `ear_tag`（3 位數，
+/// 100–999 共 900 個值）與 `entry_date`（月中 28 天），組合空間只有 28,000，
+/// CI 上共用測試庫累積跑下來會生日碰撞——這個測試檔本身在 2026-08-24 就撞過一次
+/// （`create animal failed: 409 Conflict … 耳號 100 已存在同出生日期的存活動物`）。
+///
+/// 改用 `common::free_ear_tag`：它用「配置」而非「抽籤」，查詢當下保證該耳號
+/// **沒有任何非終態動物在用**，故不會撞。`entry_date` 改回固定值——保證不撞的是
+/// 耳號本身（守衛的查詢條件不含 birth_date），固定日期不影響正確性，且跟
+/// `api_animals.rs` / `api_vaccination_validation.rs` 等既有測試用同一套慣例。
 async fn create_test_animal(app: &TestApp, token: &str) -> String {
-    let ear_tag = format!("{:03}", rand::random::<u32>() % 1000);
-    let day = (rand::random::<u32>() % 28) + 1;
-    let entry_date = format!("2026-01-{:02}", day);
+    let ear_tag = common::free_ear_tag(&app.db_pool).await;
     let body = serde_json::json!({
         "ear_tag": ear_tag,
         "breed": "white",
         "gender": "female",
-        "entry_date": entry_date,
+        "entry_date": "2026-01-15",
         "entry_weight": 25.5,
         "pen_location": "A-01",
         "force_create": true
