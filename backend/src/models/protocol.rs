@@ -363,6 +363,10 @@ pub struct ReviewComment {
     #[sqlx(default)]
     pub reviewer_name: Option<String>,
     pub content: String,
+    /// 意見類型：`COMMENT`（一般意見，申請人需回覆）／`NO_OBJECTION`（無意見，不需回覆）。
+    /// 兩者都算「已發表意見」，核准閘門（`status.rs`）一視同仁。
+    #[sqlx(default)]
+    pub comment_type: String,
     pub is_resolved: bool,
     pub resolved_by: Option<Uuid>,
     pub resolved_at: Option<DateTime<Utc>>,
@@ -633,6 +637,10 @@ pub struct CreateCommentRequest {
     pub content: String,
     /// 審查階段（若未提供，自動根據 protocol status 決定）
     pub review_stage: Option<String>,
+    /// 意見類型：`COMMENT`（預設，一般意見）／`NO_OBJECTION`（無意見，申請人不需回覆）。
+    ///
+    /// ⚠️ 未提供時一律視為 `COMMENT`——舊客戶端不帶這個欄位，行為必須與改動前完全相同。
+    pub comment_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
@@ -749,6 +757,9 @@ pub struct ReviewCommentResponse {
     #[sqlx(default)]
     pub reviewer_email: Option<String>,
     pub content: String,
+    /// 意見類型：`COMMENT`（一般意見，申請人需回覆）／`NO_OBJECTION`（無意見，不需回覆）。
+    #[sqlx(default)]
+    pub comment_type: String,
     /// 對應計畫書項次（如 4.1.2，補登審查文件填寫）
     #[sqlx(default)]
     pub section_no: Option<String>,

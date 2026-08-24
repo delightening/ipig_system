@@ -23,7 +23,7 @@ interface ProtocolContentViewProps {
   onToggleCommentPanel?: () => void
   showReviewButton?: boolean
   showCommentPanel?: boolean
-  onSubmitComment?: (content: string) => void
+  onSubmitComment?: (content: string, commentType: 'COMMENT' | 'NO_OBJECTION') => void
   isSubmittingComment?: boolean
   sectionOptions?: string[]
 }

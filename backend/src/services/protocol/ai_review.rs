@@ -324,6 +324,8 @@ impl AiReviewService {
                 protocol_version_id: version_id,
                 content,
                 review_stage: Some("PRE_REVIEW".to_string()),
+                // 補件意見本來就是要求申請人修改的，一律為需回覆的一般意見。
+                comment_type: None,
             };
             ProtocolService::add_comment(db, &comment_req, operator_id).await?;
             created += 1;
@@ -340,6 +342,7 @@ impl AiReviewService {
                 protocol_version_id: version_id,
                 content: note.to_string(),
                 review_stage: Some("PRE_REVIEW".to_string()),
+                comment_type: None,
             };
             ProtocolService::add_comment(db, &comment_req, operator_id).await?;
             created += 1;

@@ -43,13 +43,26 @@ impl ProtocolService {
             }
         };
 
+        // 意見類型：未提供一律視為一般意見，讓舊客戶端行為完全不變。
+        // ⚠️ 在應用層先擋掉未知值，不要只靠 DB 的 CHECK——CHECK 觸發時回的是
+        // 資料庫層錯誤，使用者看到「內部錯誤」而不是「這個類型不存在」。
+        let comment_type = match req.comment_type.as_deref() {
+            None | Some("COMMENT") => "COMMENT",
+            Some("NO_OBJECTION") => "NO_OBJECTION",
+            Some(other) => {
+                return Err(AppError::Validation(format!(
+                    "未知的意見類型「{other}」，可用值：COMMENT、NO_OBJECTION"
+                )))
+            }
+        };
+
         let comment = sqlx::query_as::<_, ReviewComment>(
             r#"
             INSERT INTO review_comments (
                 id, protocol_version_id, protocol_id, reviewer_id,
-                content, review_stage, created_at, updated_at
+                content, review_stage, comment_type, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -59,6 +72,7 @@ impl ProtocolService {
         .bind(reviewer_id)
         .bind(&req.content)
         .bind(&review_stage)
+        .bind(comment_type)
         .fetch_one(pool)
         .await?;
 
@@ -89,7 +103,7 @@ impl ProtocolService {
             SELECT 
                 c.id, c.protocol_version_id, c.protocol_id, c.reviewer_id,
                 COALESCE(u.display_name, c.reviewer_name) as reviewer_name, u.email as reviewer_email,
-                c.content, c.section_no, c.is_resolved, c.resolved_by, c.resolved_at,
+                c.content, c.comment_type, c.section_no, c.is_resolved, c.resolved_by, c.resolved_at,
                 c.parent_comment_id, c.replied_by,
                 ru.display_name as replied_by_name, ru.email as replied_by_email,
                 c.draft_content, c.drafted_by,

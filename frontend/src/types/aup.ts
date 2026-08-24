@@ -179,6 +179,16 @@ export interface ReviewComment {
     /** 院外審查者姓名（補登，reviewer_id 為 null 時） */
     reviewer_name?: string
     content: string
+    /**
+     * 意見類型。`COMMENT` = 一般意見，申請人需要回覆；
+     * `NO_OBJECTION` = 無意見／無異議，申請人不需要回覆。
+     *
+     * ⚠️ 兩者都算「已發表意見」——審查委員選「無意見」仍然滿足後端
+     * 「每位被指派的委員都必須發表意見才能核准」的閘門條件。
+     *
+     * 選填是為了相容舊資料；缺漏時前端一律當作一般意見（保守側）。
+     */
+    comment_type?: 'COMMENT' | 'NO_OBJECTION'
     is_resolved: boolean
     resolved_by?: string
     resolved_at?: string

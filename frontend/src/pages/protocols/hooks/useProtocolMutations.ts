@@ -78,11 +78,18 @@ export function useProtocolMutations({
   })
 
   const addCommentMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({
+      content,
+      commentType,
+    }: {
+      content: string
+      commentType: 'COMMENT' | 'NO_OBJECTION'
+    }) => {
       if (!versions || versions.length === 0) throw new Error('No version found')
       return api.post('/reviews/comments', {
         protocol_version_id: versions[0].id,
         content,
+        comment_type: commentType,
       })
     },
     onSuccess: () => {

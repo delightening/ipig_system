@@ -169,7 +169,9 @@ export function ProtocolDetailPage() {
             sectionOptions={sectionOptions}
             isSubmittingComment={addCommentMutation.isPending}
             onToggleCommentPanel={handleToggleCommentPanel}
-            onSubmitComment={(content) => addCommentMutation.mutate(content)}
+            onSubmitComment={(content, commentType) =>
+              addCommentMutation.mutate({ content, commentType })
+            }
           />
         </PageTabs>
 
