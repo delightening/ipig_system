@@ -67,7 +67,7 @@
     "react-dom": "^19.2.8",
     "react-grid-layout": "^2.2.4",
     "react-hook-form": "^7.85.0",
-    "react-i18next": "^17.0.11",
+    "react-i18next": "^17.0.12",
     "react-resizable": "^4.0.2",
     "react-router-dom": "^7.18.2",
     "recharts": "^3.10.1",
