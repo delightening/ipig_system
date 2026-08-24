@@ -186,6 +186,99 @@ async fn read_access_missing_animal_is_not_found_for_animal_view_all() {
     );
 }
 
+/// 直接以 SQL 植入觀察紀錄（繞過 service guard）。
+/// `record_type` 取 `record_type` enum 的真值（`migrations/001_enums.sql:35`）。
+///
+/// ⚠️ `content` 收成參數而非寫死：本檔原本有**兩份**簽章相同、只差 content 字串的
+/// 同名 helper（R94-4 的 `scoped guard test` 與 R94-3 的 `soft delete guard test`），
+/// 移植時撞成 `E0428 redefined`。合併為一份並把辨識用的字串外提——兩個測試各自靠
+/// 那個字串辨識自己植入的資料，所以不能只留一份寫死的。
+async fn seed_observation_direct(
+    app: &TestApp,
+    animal_id: Uuid,
+    created_by: Uuid,
+    content: &str,
+) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO animal_observations \
+         (id, animal_id, event_date, record_type, content, created_by, created_at, updated_at) \
+         VALUES ($1, $2, '2024-01-01', 'observation'::record_type, $4, $3, NOW(), NOW())",
+    )
+    .bind(id)
+    .bind(animal_id)
+    .bind(created_by)
+    .bind(content)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert observation directly");
+    id
+}
+
+// ── R94-4：`Scoped::<AnimalRead|AnimalWrite>::from_observation` 的強度必須不同 ──
+//    這對測試存在的唯一理由是**釘住讀寫強度**：若有人把 Write 變體內部改成
+//    `require_animal_read_access`（或呼叫端把 turbofish 從 Write 誤寫成 Read），
+//    下面第二個斷言會立刻紅。缺這對測試時，強度互換不會被任何既有測試抓到。
+#[tokio::test]
+#[serial]
+async fn from_observation_read_allows_view_all_but_write_rejects() {
+    let app = TestApp::spawn().await;
+    let pi = seed_user(&app, "fo-pi").await;
+    let (_pid, iacuc) = seed_protocol(&app, pi).await;
+    let animal_id = seed_animal(&app, &iacuc, pi).await;
+    let obs_id = seed_observation_direct(&app, animal_id, pi, "scoped guard test").await;
+
+    // EXPERIMENT_STAFF 模型：非該計畫成員，但具 animal.animal.view_all
+    let staff = make_user(Uuid::new_v4(), &[], &["animal.animal.view_all"]);
+
+    // 讀取變體：跨計畫放行，且解析出的 id 必須是 animal_id（非 observation_id）
+    let read_scope =
+        access::Scoped::<access::AnimalRead>::from_observation(&app.db_pool, &staff, obs_id)
+            .await
+            .expect("AnimalRead::from_observation 應對 view_all 跨計畫放行");
+    assert_eq!(
+        read_scope.id(),
+        animal_id,
+        "Scoped 的 id 應為 animal_id，下游 service 依賴此語意"
+    );
+
+    // 寫入變體：同一使用者、同一紀錄必須被擋——這是讀寫強度差異的斷言點。
+    // 用 `.err().expect()` 而非 `.expect_err()`：後者要求 Ok 型別實作 Debug，
+    // 而 `Scoped<T>` 未實作（已授權證明不該被隨手印出）。
+    let err = access::Scoped::<access::AnimalWrite>::from_observation(&app.db_pool, &staff, obs_id)
+        .await
+        .err()
+        .expect("AnimalWrite::from_observation 不應對非計畫成員放行");
+    assert!(
+        matches!(err, AppError::Forbidden(_)),
+        "應為 Forbidden（寫入限自己計畫），實得：{err:?}"
+    );
+}
+
+// ── R94-4：不存在的 observation → NotFound，且訊息與 service 層一致 ──
+#[tokio::test]
+#[serial]
+async fn from_observation_missing_record_is_not_found() {
+    let app = TestApp::spawn().await;
+    let vet = make_user(Uuid::new_v4(), &["VET"], &[]);
+
+    let err =
+        access::Scoped::<access::AnimalRead>::from_observation(&app.db_pool, &vet, Uuid::new_v4())
+            .await
+            .err()
+            .expect("不存在的觀察紀錄應得 NotFound");
+
+    // 訊息需與 `services/animal/observation.rs` 的 get_by_id 同字串——
+    // access.rs 刻意讓各分支訊息一致，避免成為角色探測 / IDOR probe 訊號。
+    match err {
+        AppError::NotFound(msg) => assert_eq!(
+            msg, "Observation not found",
+            "訊息應與 service 層 get_by_id 一致"
+        ),
+        other => panic!("預期 NotFound，實得 {other:?}"),
+    }
+}
+
 /// 直接以 SQL 植入手術紀錄（繞過 service guard），供 copy 來源 IDOR 測試用。
 async fn seed_surgery_direct(app: &TestApp, animal_id: Uuid, created_by: Uuid) -> Uuid {
     let id = Uuid::new_v4();
@@ -285,25 +378,6 @@ async fn mark_vet_read_updates_vet_last_viewed_at() {
     );
 }
 
-/// 直接以 SQL 植入觀察紀錄（繞過 service guard）。
-/// `record_type` 取 `record_type` enum 的真值（`migrations/001_enums.sql:35`：
-/// `'abnormal' / 'experiment' / 'observation'`）。
-async fn seed_observation_direct(app: &TestApp, animal_id: Uuid, created_by: Uuid) -> Uuid {
-    let id = Uuid::new_v4();
-    sqlx::query(
-        "INSERT INTO animal_observations \
-         (id, animal_id, event_date, record_type, content, created_by, created_at, updated_at) \
-         VALUES ($1, $2, '2024-01-01', 'observation'::record_type, 'soft delete guard test', $3, NOW(), NOW())",
-    )
-    .bind(id)
-    .bind(animal_id)
-    .bind(created_by)
-    .execute(&app.db_pool)
-    .await
-    .expect("insert observation directly");
-    id
-}
-
 // ── R94-3：`get_observation_animal_id` **刻意不過濾軟刪除**（回歸鎖）──
 //    它是 IDOR 守衛而非存在性檢查：`get_observation_versions` 先靠它授權、再查
 //    `record_versions` 表（不受 animal_observations.deleted_at 影響），所以已刪紀錄的
@@ -319,7 +393,7 @@ async fn get_observation_animal_id_keeps_resolving_after_soft_delete() {
     let pi = seed_user(&app, "obs-sd-pi").await;
     let (_pid, iacuc) = seed_protocol(&app, pi).await;
     let animal_id = seed_animal(&app, &iacuc, pi).await;
-    let obs_id = seed_observation_direct(&app, animal_id, pi).await;
+    let obs_id = seed_observation_direct(&app, animal_id, pi, "soft delete guard test").await;
 
     // 前置：未刪除時可正常解析（確保後續斷言不是被 fixture 建錯所掩蓋）
     let resolved = access::get_observation_animal_id(&app.db_pool, obs_id)

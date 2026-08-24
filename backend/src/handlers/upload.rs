@@ -129,8 +129,20 @@ async fn check_attachment_permission(
         "observation" => {
             require_permission!(current_user, "animal.record.create");
             let observation_id = parse_entity_uuid(entity_id)?;
-            let animal_id = access::get_observation_animal_id(db, observation_id).await?;
-            access::require_animal_access(db, current_user, animal_id).await?;
+            // R94-4: 反查與授權收進同一入口。維持 Write 強度（原為 require_animal_access）。
+            //
+            // ⚠️ 本函式只被 `list_attachments` / `download_attachment`（**讀取**路徑）呼叫；
+            // `upload_observation_attachment` **不經過這裡**，它在自己的函式裡直接呼叫
+            // 同一個 `Scoped::<AnimalWrite>::from_observation`（2026-08-24 補上，
+            // 在此之前寫入路徑完全沒有物件層授權＝IDOR）。
+            // 此處用 Write 強度是沿用原判斷（附件內容敏感度等同紀錄本身），
+            // 不是因為它是上傳路徑——別被函式名誤導。
+            let _scope = access::Scoped::<access::AnimalWrite>::from_observation(
+                db,
+                current_user,
+                observation_id,
+            )
+            .await?;
         }
         "vet_recommendation" => {
             // entity_id 為 `{record_type}_{record_id}` 複合鍵（非 UUID）；此權限限 VET，
@@ -331,6 +343,12 @@ pub async fn upload_pathology_report(
 }
 
 /// 上傳觀察紀錄附件（照片與文件）
+///
+/// ⚠️ `require_permission!` 只檔「有沒有建立紀錄這個功能的權限」，**不檔對象**。
+/// 少了下面這行物件層授權，任何具 `animal.record.create` 的使用者都能把檔案掛到
+/// **別的計畫底下**的觀察紀錄（IDOR）。這不是理論：讀取路徑
+/// （`check_attachment_permission`）本來就有這層檢查，寫入路徑沒有——
+/// 等於「讀不到的附件反而寫得進去」，權限強度反轉。
 pub async fn upload_observation_attachment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -338,6 +356,14 @@ pub async fn upload_observation_attachment(
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.record.create");
+    // 物件層授權：在寫入任何檔案**之前**確認這筆觀察紀錄屬於使用者可存取的動物。
+    // 用 Write 強度與讀取路徑一致（附件內容敏感度等同紀錄本身）。
+    let _scope = access::Scoped::<access::AnimalWrite>::from_observation(
+        &state.db,
+        &current_user,
+        observation_id,
+    )
+    .await?;
     let results = handle_upload(
         &state.db,
         current_user.id,

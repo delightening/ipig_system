@@ -69,9 +69,12 @@ pub async fn get_animal_observation(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<AnimalObservation>> {
-    // R70-3: 免計畫路徑（IDOR 防護透過 get_observation_animal_id 解析仍存在）
-    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
-    access::require_animal_read_access(&state.db, &current_user, animal_id).await?;
+    // R70-3: 免計畫路徑（IDOR 防護仍在——由 record_id 反查 animal_id 後授權）。
+    // R94-4: 解析與授權收進單一入口，呼叫端無法只做前半而漏掉授權。
+    // 本端點的 service 不吃 scope，故只取其「已授權」語意、不使用回傳值。
+    let _scope =
+        access::Scoped::<access::AnimalRead>::from_observation(&state.db, &current_user, id)
+            .await?;
     let observation = AnimalObservationService::get_by_id(&state.db, id).await?;
     Ok(Json(observation))
 }
@@ -212,9 +215,9 @@ pub async fn update_animal_observation(
 ) -> Result<Json<AnimalObservation>> {
     require_permission!(current_user, "animal.record.edit");
     // R70-3: 免計畫路徑（record_id → animal_id 仍保留 IDOR 防護）
-    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    // R94-4: 由 record_id 一步取得證明，不再手動解析 animal_id
     let scope =
-        access::Scoped::<access::AnimalRead>::authorize(&state.db, &current_user, animal_id)
+        access::Scoped::<access::AnimalRead>::from_observation(&state.db, &current_user, id)
             .await?;
 
     // Audit 已收進 service 層（OBSERVATION_UPDATE with before/after diff，tx 內）
@@ -242,9 +245,9 @@ pub async fn delete_animal_observation(
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
     // R70-3: 免計畫路徑（record_id → animal_id 仍保留 IDOR 防護）
-    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    // R94-4: 由 record_id 一步取得證明，不再手動解析 animal_id
     let scope =
-        access::Scoped::<access::AnimalRead>::authorize(&state.db, &current_user, animal_id)
+        access::Scoped::<access::AnimalRead>::from_observation(&state.db, &current_user, id)
             .await?;
 
     // Audit 已收進 service 層（OBSERVATION_SOFT_DELETE with change_reasons，tx 內）
@@ -280,8 +283,14 @@ pub async fn copy_animal_observation(
             .await?;
     // High-5 (#237相關): 來源觀察紀錄也須驗證計畫存取權，否則具 copy 權者可指定他人計畫的
     // source_id，把跨計畫敏感觀察內容複製進自己可讀的新紀錄（cross-protocol read IDOR）。
-    let source_animal_id = access::get_observation_animal_id(&state.db, req.source_id).await?;
-    access::require_animal_access(&state.db, &current_user, source_animal_id).await?;
+    // R94-4: 來源沿用 Write 強度（`require_animal_access`，限計畫成員）——刻意不放寬成
+    // Read，否則具 `animal.animal.view_all` 者可跨計畫把他人觀察內容複製進自己的紀錄。
+    let _source_scope = access::Scoped::<access::AnimalWrite>::from_observation(
+        &state.db,
+        &current_user,
+        req.source_id,
+    )
+    .await?;
 
     let observation =
         AnimalObservationService::copy(&state.db, scope, req.source_id, current_user.id).await?;
@@ -296,9 +305,9 @@ pub async fn mark_observation_vet_read(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.vet.read");
     // SEC-IDOR: 由紀錄 id 反查 animal_id，驗證計畫歸屬
-    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
+    // R94-4: 反查與授權收進單一入口
     let scope =
-        access::Scoped::<access::AnimalWrite>::authorize(&state.db, &current_user, animal_id)
+        access::Scoped::<access::AnimalWrite>::from_observation(&state.db, &current_user, id)
             .await?;
 
     AnimalObservationService::mark_vet_read(&state.db, scope, id, current_user.id).await?;
@@ -312,8 +321,10 @@ pub async fn get_observation_versions(
     Path(id): Path<Uuid>,
 ) -> Result<Json<VersionHistoryResponse>> {
     // SEC-IDOR: v2 審計發現 — 版本歷程需驗證動物計畫歸屬
-    let animal_id = access::get_observation_animal_id(&state.db, id).await?;
-    access::require_animal_read_access(&state.db, &current_user, animal_id).await?;
+    // R94-4: 反查與授權收進單一入口；本端點的 service 不吃 scope，故不使用回傳值。
+    let _scope =
+        access::Scoped::<access::AnimalRead>::from_observation(&state.db, &current_user, id)
+            .await?;
     let versions = AnimalService::get_record_versions(&state.db, "observation", id).await?;
     Ok(Json(versions))
 }

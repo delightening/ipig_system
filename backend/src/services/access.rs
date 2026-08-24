@@ -504,6 +504,31 @@ impl Scoped<AnimalRead> {
             _marker: PhantomData,
         })
     }
+
+    /// 由**觀察紀錄 ID** 建立讀取證明（R94-4）。
+    ///
+    /// 存在理由：呼叫端過去必須自己跑「`get_observation_animal_id` 解析 → 再授權」兩步，
+    /// **漏掉第二步會造成跨計畫讀取（IDOR）且編譯得過**。本方法把兩步封在同一個入口內。
+    ///
+    /// ⚠️ **這是慣例保證，不是型別保證**：`get_observation_animal_id` 目前仍是 `pub`
+    /// （`create_care_record` 的歸屬比對需要它），所以「解析完忘了授權」仍然寫得出來也編譯得過。
+    /// 要升級成真正的結構性保證，得把 resolver 收私有、另開一支歸屬比對專用 helper。
+    ///
+    /// ⚠️ **呼叫時務必顯式寫出 turbofish**（`Scoped::<AnimalRead>::from_observation`）。
+    /// 本型別與 `Scoped<AnimalWrite>` 的同名方法簽章完全相同，只差型別參數；若省略
+    /// turbofish，型別推論會從**期望型別**倒推變體——當下游 service 收 `Scoped<AnimalRead>`
+    /// 時就會自動選到較弱的讀取授權。
+    ///
+    /// 回傳的 `id()` 仍是 **animal_id**（與 `authorize` 一致），故下游吃 `Scoped<AnimalRead>`
+    /// 的 service 不需改動。
+    pub async fn from_observation(
+        pool: &PgPool,
+        current_user: &CurrentUser,
+        observation_id: Uuid,
+    ) -> Result<Self> {
+        let animal_id = get_observation_animal_id(pool, observation_id).await?;
+        Self::authorize(pool, current_user, animal_id).await
+    }
 }
 
 impl Scoped<AnimalWrite> {
@@ -520,6 +545,22 @@ impl Scoped<AnimalWrite> {
             id: animal_id,
             _marker: PhantomData,
         })
+    }
+
+    /// 由**觀察紀錄 ID** 建立寫入證明（R94-4）。理由同
+    /// `Scoped::<AnimalRead>::from_observation`，但走較嚴格的 `require_animal_access`
+    /// （限動物所屬計畫成員 + view_all 角色）。
+    ///
+    /// ⚠️ 讀與寫刻意各留一條入口、不合併：兩者的授權判準不同
+    /// （讀放行具 `animal.animal.view_all` 的跨計畫人員，寫不放行），
+    /// 合併成單一入口會讓呼叫端有機會挑錯強度。
+    pub async fn from_observation(
+        pool: &PgPool,
+        current_user: &CurrentUser,
+        observation_id: Uuid,
+    ) -> Result<Self> {
+        let animal_id = get_observation_animal_id(pool, observation_id).await?;
+        Self::authorize(pool, current_user, animal_id).await
     }
 }
 
