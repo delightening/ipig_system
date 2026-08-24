@@ -6,7 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-/** 「無意見」時送出的固定內容——與 migration 005 回填既有 12 筆時比對的字串一致。 */
+/**
+ * 「無意見」時送出的固定內容。
+ *
+ * 必須與 migration 005 回填時比對的字串一字不差——回填是 `content = '無意見'`
+ * 的精準比對，這裡改字（哪怕只是多一個標點）都會讓新舊資料在任何以內容為準的
+ * 統計裡分成兩堆。真正的判別依據是 `comment_type`，這個字串只是給人看的呈現。
+ */
 const NO_OBJECTION_CONTENT = '無意見'
 
 interface ReviewCommentPanelProps {
@@ -71,6 +77,7 @@ export function ReviewCommentPanel({
             type="checkbox"
             className="mt-0.5"
             checked={noObjection}
+            disabled={isSubmitting}
             onChange={(e) => setNoObjection(e.target.checked)}
           />
           <span className="text-sm">

@@ -25,6 +25,20 @@ function parseCommentContent(content: string): { section: string | null; text: s
   return { section: null, text: content }
 }
 
+/**
+ * 這則意見是否為「無意見」——申請人不需要回覆。
+ *
+ * ⚠️ 判斷只看 `comment_type`，不比對內容文字。migration 005 之前的「無意見」
+ * 是打在自由文字欄裡的，那批已由 migration 回填成 NO_OBJECTION；之後再有人
+ * 手打「無意見」四個字，那就是一則真的一般意見，該照常要求回覆。
+ *
+ * 欄位缺漏時回 false（當作一般意見）——保守側：寧可多顯示一個回覆按鈕，
+ * 也不要把一則需要回覆的意見標成「不需回覆」而讓申請人漏掉。
+ */
+function isNoObjection(comment: ReviewCommentResponse): boolean {
+  return comment.comment_type === 'NO_OBJECTION'
+}
+
 interface CommentsTableViewProps {
   preReviewGroups: ReviewerGroup[]
   underReviewGroups: ReviewerGroup[]
@@ -71,6 +85,9 @@ function ReviewerSection({
                   </TableCell>
                   <TableCell style={{ minWidth: 180 }} className="align-top">
                     <p className="whitespace-pre-wrap text-sm">{parsed.text}</p>
+                    {isNoObjection(q.comment) && (
+                      <Badge variant="secondary" className="mt-1">{t('protocols.detail.tables.noObjection')}</Badge>
+                    )}
                     <p className="text-xs text-muted-foreground mt-1">{formatDateTime(q.comment.created_at)}</p>
                   </TableCell>
                   <TableCell style={{ minWidth: 180 }} className="align-top">
@@ -87,7 +104,12 @@ function ReviewerSection({
                         ))}
                       </div>
                     ) : (
-                      <span className="text-sm text-muted-foreground italic">{t('protocols.detail.tables.noReplyYet')}</span>
+                      <span className="text-sm text-muted-foreground italic">
+                        {/* 「無意見」本來就不用回覆，顯示「尚未回覆」會讓申請人以為還欠一筆 */}
+                        {t(isNoObjection(q.comment)
+                          ? 'protocols.detail.tables.noReplyNeeded'
+                          : 'protocols.detail.tables.noReplyYet')}
+                      </span>
                     )}
                     {q.comment.is_resolved && (
                       <Badge variant="success" className="mt-2">{t('protocols.detail.actions.resolved')}</Badge>
@@ -95,8 +117,14 @@ function ReviewerSection({
                   </TableCell>
                   {canReply && (
                     <TableCell style={{ width: 60 }} className="text-center align-top">
-                      {!q.comment.is_resolved && (
-                        <Button variant="ghost" size="sm" onClick={() => onReply(q.comment)}>
+                      {!q.comment.is_resolved && !isNoObjection(q.comment) && (
+                        // 只有 icon 沒有文字，要靠 aria-label 才有可存取名稱
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={t('protocols.detail.actions.reply')}
+                          onClick={() => onReply(q.comment)}
+                        >
                           <Reply className="h-4 w-4" />
                         </Button>
                       )}
@@ -117,8 +145,14 @@ function ReviewerSection({
             <div key={q.comment.id} className={`rounded-lg border p-3 space-y-2 ${q.comment.is_resolved ? 'bg-status-success-bg' : 'bg-card'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">{parsed.section ?? '-'}</span>
-                {canReply && !q.comment.is_resolved && (
-                  <Button variant="ghost" size="icon" onClick={() => onReply(q.comment)} title="回覆">
+                {canReply && !q.comment.is_resolved && !isNoObjection(q.comment) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t('protocols.detail.actions.reply')}
+                    title={t('protocols.detail.actions.reply')}
+                    onClick={() => onReply(q.comment)}
+                  >
                     <Reply className="h-4 w-4" />
                   </Button>
                 )}
@@ -126,6 +160,9 @@ function ReviewerSection({
               <div>
                 <div className="text-xs text-muted-foreground uppercase mb-0.5">{t('protocols.detail.tables.reviewOpinion')}</div>
                 <p className="whitespace-pre-wrap text-sm">{parsed.text}</p>
+                {isNoObjection(q.comment) && (
+                  <Badge variant="secondary" className="mt-1">{t('protocols.detail.tables.noObjection')}</Badge>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">{formatDateTime(q.comment.created_at)}</p>
               </div>
               <div>
@@ -143,7 +180,11 @@ function ReviewerSection({
                     ))}
                   </div>
                 ) : (
-                  <span className="text-sm text-muted-foreground italic">{t('protocols.detail.tables.noReplyYet')}</span>
+                  <span className="text-sm text-muted-foreground italic">
+                    {t(isNoObjection(q.comment)
+                      ? 'protocols.detail.tables.noReplyNeeded'
+                      : 'protocols.detail.tables.noReplyYet')}
+                  </span>
                 )}
                 {q.comment.is_resolved && (
                   <Badge variant="success" className="mt-2">{t('protocols.detail.actions.resolved')}</Badge>

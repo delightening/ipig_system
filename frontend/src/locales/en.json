@@ -589,6 +589,8 @@
         "reviewOpinion": "Review Opinion",
         "applicantReply": "Applicant Reply",
         "noReplyYet": "No reply yet",
+        "noReplyNeeded": "No reply needed",
+        "noObjection": "No objection",
         "executiveSecretary": "Executive Secretary",
         "compareVersions": "Compare Versions",
         "twoVersionsSelected": "Two versions selected for comparison",

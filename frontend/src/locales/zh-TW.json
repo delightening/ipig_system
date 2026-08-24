@@ -590,6 +590,8 @@
         "reviewOpinion": "審查意見",
         "applicantReply": "意見回覆",
         "noReplyYet": "尚未回覆",
+        "noReplyNeeded": "不需回覆",
+        "noObjection": "無意見",
         "executiveSecretary": "執行秘書",
         "compareVersions": "比較版本",
         "twoVersionsSelected": "已選擇兩個版本進行比較",

@@ -109,7 +109,11 @@ describe('ReviewCommentPanel — 無意見', () => {
 
   it('送出中時按鈕停用（避免重複送出）', () => {
     setup({ isSubmitting: true })
-    fireEvent.click(noObjectionCheckbox())
     expect(submitButton()).toBeDisabled()
+  })
+
+  it('送出中時「無意見」勾選框也停用——否則送出途中改主意會讓畫面與已送出的內容不一致', () => {
+    setup({ isSubmitting: true })
+    expect(noObjectionCheckbox()).toBeDisabled()
   })
 })
