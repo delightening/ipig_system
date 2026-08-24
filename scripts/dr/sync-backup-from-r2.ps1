@@ -138,7 +138,15 @@ foreach ($yearMonth in $months) {
 
     # 先列遠端（lsf 只回檔名，不下載）。前綴不存在時 rclone 也可能回非 0，
     # 那不算失敗——保留期內的月份本來就可能還沒有任何備份。
-    $listing = & rclone lsf $remotePath --include "ipig_*.sql.gz.gpg" --include "ipig_*.sha256" 2>&1
+    #
+    # ⚠️ `--max-age` 必須與下面的 `rclone copy` 一致（2026-08-24 CodeRabbit 於 PR #7 指出）。
+    #    少了它，`lsf` 會收錄 `copy` 因過期而跳過的物件，`$remoteSeen` 因此被汙染。
+    #    後果具體是：**遠端只剩過期備份時**（＝備份管線已死超過 $RetentionDays 天），
+    #    只要本機還留著同名的舊檔且 checksum 過得了，`$latest` 就會選中它並寫出
+    #    `status="ok"` 加一個全新的 `last_sync_run`——正是本腳本要防的那種假綠。
+    #    本腳本保證的是「遠端有一份**在保留期內**且通過驗證的備份」，不是「曾經有過」。
+    $listing = & rclone lsf $remotePath --include "ipig_*.sql.gz.gpg" --include "ipig_*.sha256" `
+        --max-age "${RetentionDays}d" 2>&1
     if ($LASTEXITCODE -eq 0) {
         foreach ($n in $listing) {
             $name = "$n".Trim()

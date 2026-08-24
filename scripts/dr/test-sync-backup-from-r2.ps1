@@ -115,5 +115,35 @@ Assert-Equal "latest 篩選同時檢查 verifiedNames 與 remoteSeen" $true `
 Assert-Equal "有『本次在遠端一份都沒看到』的專屬失敗理由" $true `
     ($src -match '本次在遠端一份都沒看到')
 
+Write-Host "--- 案例 10：lsf 與 copy 的 --max-age 必須一致（否則 remoteSeen 被過期物件汙染）---"
+# CodeRabbit 第三輪指出：lsf 若不帶 --max-age，會收錄 copy 因過期而跳過的物件。
+# 後果是「遠端只剩過期備份」（＝備份管線已死超過保留期）時，只要本機還留著同名舊檔
+# 且 checksum 過得了，就會寫出帶新鮮 last_sync_run 的 "ok"。
+# 本腳本保證的是「遠端有一份**在保留期內**且通過驗證的備份」，不是「曾經有過」。
+# ⚠️ 必須排除註解行：本腳本的說明文字裡就出現過 `rclone copy` / `rclone lsf`，
+#    不排除的話 -First 1 會抓到註解，測試就變成在檢查註解而不是指令（2026-08-24 實際踩到）。
+$srcLines = $src -split "`n"
+$isCode = { param($l) $l.TrimStart() -notmatch '^#' }
+$lsfCmd = $srcLines | Where-Object { $_ -match 'rclone\s+lsf' -and (& $isCode $_) } | Select-Object -First 1
+Assert-Equal "找得到非註解的 rclone lsf 指令行" $true ($null -ne $lsfCmd)
+$lsfIdx = $srcLines.IndexOf($lsfCmd)
+# lsf 的參數可能換行續接，取該行與其後 2 行一起判斷
+$lsfBlock = ($srcLines[$lsfIdx..([Math]::Min($lsfIdx + 2, $srcLines.Count - 1))]) -join " "
+Assert-Equal "rclone lsf 帶 --max-age" $true ($lsfBlock -match '--max-age')
+Assert-Equal "lsf 的 --max-age 用 RetentionDays（與 copy 同一個變數）" $true `
+    ($lsfBlock -match '--max-age\s+"\$\{RetentionDays\}d"')
+
+# 兩邊都必須有，且用同一個運算式——只改一邊等於沒改
+$copyCmd = $srcLines | Where-Object { $_ -match 'rclone\s+copy' -and (& $isCode $_) } | Select-Object -First 1
+Assert-Equal "找得到非註解的 rclone copy 指令行" $true ($null -ne $copyCmd)
+$copyIdx = $srcLines.IndexOf($copyCmd)
+$copyBlock = ($srcLines[$copyIdx..([Math]::Min($copyIdx + 2, $srcLines.Count - 1))]) -join " "
+Assert-Equal "rclone copy 也帶同樣的 --max-age" $true `
+    ($copyBlock -match '--max-age\s+"\$\{RetentionDays\}d"')
+
+# 反向驗證：確認這個檢測在「有事」時真的會叫——把 --max-age 從 lsf 拿掉後應該判為不通過
+$lsfWithout = $lsfBlock -replace '--max-age\s+"\$\{RetentionDays\}d"', ''
+Assert-Equal "檢測有效性：lsf 少了 --max-age 時本測試會失敗" $false ($lsfWithout -match '--max-age')
+
 Write-Host ""
 if ($script:fails -eq 0) { Write-Host "全部通過" } else { Write-Host "$script:fails 個案例失敗"; exit 1 }
