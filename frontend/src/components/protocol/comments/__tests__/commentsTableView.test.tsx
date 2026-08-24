@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { CommentsTableView } from '../CommentsTableView'
 import type { ReviewCommentResponse } from '@/types/aup'
 import type { ReviewerGroup } from '../useCommentsData'
