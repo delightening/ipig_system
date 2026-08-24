@@ -1,12 +1,32 @@
 # ============================================
 # Stage 1: Build frontend (pnpm via corepack)
 # ============================================
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
 # 啟用 corepack 並啟用 package.json 中 "packageManager" 指定的 pnpm 版本
 # 避免 pnpm 版本漂移導致 lockfile 格式不相容
+#
+# ⚠️ Node 25 起 corepack **不再隨發行版附帶**（node 22/24 內建、26 沒有）。
+#    直接 `RUN corepack enable` 在 node 26 上會 `/bin/sh: corepack: not found`
+#    → exit 127，整個 build 掛掉（2026-08-23 PR #1 實測）。
+#
+#    這裡刻意寫成「有就用、沒有才裝」而不是無條件 `npm i -g corepack`：
+#    前者在仍內建 corepack 的版本上省一次網路安裝，且日後 base image 上下調
+#    都不用再改這行。
+#
+#    ⚠️ **不要改成 `npm i -g pnpm@<版本>`**——那會讓 pnpm 版本同時存在於
+#    `package.json` 的 `packageManager` 與這支 Dockerfile 兩處，正是上面那句
+#    註解要避免的「版本漂移」。corepack 的價值就是讓 `packageManager` 當唯一來源。
+#
+#    corepack 本身**釘版本**：不釘的話 `npm i -g corepack` 每次 build 都可能拉到
+#    不同版，build 不可重現。選 0.35.0 的依據是實測（2026-08-24）——
+#    node:22-alpine 內建 0.34.6、node:24-alpine 內建 0.35.0、node:26-alpine 無，
+#    所以 0.35.0 是官方映像帶過的最新版，不是憑空挑的數字；
+#    並已在 node:26-alpine 上實測它能啟用 packageManager 指定的 pnpm 10.33.0。
+#    ⚠️ 這裡釘的是 **corepack 不是 pnpm**——pnpm 版本仍然只有 package.json 一個來源。
+RUN command -v corepack >/dev/null 2>&1 || npm install -g corepack@0.35.0
 RUN corepack enable
 
 # Copy package files first for layer caching
