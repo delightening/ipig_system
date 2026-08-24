@@ -136,6 +136,63 @@ async fn concurrent_identical_reports_produce_one_alert() {
 
 #[tokio::test]
 #[serial]
+async fn aggregation_backfills_missing_forensic_fields() {
+    // PR #14 CodeRabbit review 第 2 輪：先到的稀疏報告（例如 Firefox 不送
+    // script-sample）不可以把後到、帶完整取證欄位的同指紋報告吞掉——被吞掉的
+    // 正是本 PR 要撿回來的證據。聚合時對非指紋欄位「只補洞、不覆寫」。
+    let app = TestApp::spawn().await;
+    let source = unique_source("backfill");
+    let sparse = format!(
+        r#"{{"csp-report":{{"violated-directive":"script-src","blocked-uri":"eval","source-file":"{source}"}}}}"#
+    );
+    let enriched = format!(
+        r#"{{"csp-report":{{"document-uri":"https://ipigsystem.asia/animals",
+            "violated-directive":"script-src","blocked-uri":"eval","source-file":"{source}",
+            "line-number":77,"column-number":9,"script-sample":"var _0x=1"}}}}"#
+    );
+
+    assert_eq!(post_csp(&app, CT_LEGACY, sparse).await, 204);
+    assert_eq!(post_csp(&app, CT_LEGACY, enriched).await, 204);
+
+    let (count, occ, ctx) = alerts_for_source(&app, &source).await;
+    assert_eq!(count, 1, "同指紋仍然只留一列");
+    assert_eq!(occ, 2);
+    let ctx = ctx.expect("context_data present");
+    assert_eq!(ctx["line_number"], 77, "後到的行號要補進來");
+    assert_eq!(ctx["column_number"], 9);
+    assert_eq!(ctx["script_sample"], "var _0x=1", "後到的樣本要補進來");
+    assert_eq!(ctx["document_uri"], "https://ipigsystem.asia/animals");
+}
+
+#[tokio::test]
+#[serial]
+async fn aggregation_does_not_overwrite_existing_forensic_fields() {
+    // 只補洞、不覆寫：第一筆已有的值不能被後到的報告改掉（否則 alert 的
+    // 首次證據會被最後一筆蓋台，稽核上看不到最早發生時的樣貌）。
+    let app = TestApp::spawn().await;
+    let source = unique_source("nooverwrite");
+    let first = format!(
+        r#"{{"csp-report":{{"violated-directive":"script-src","blocked-uri":"eval","source-file":"{source}",
+            "line-number":1,"script-sample":"first"}}}}"#
+    );
+    let second = format!(
+        r#"{{"csp-report":{{"violated-directive":"script-src","blocked-uri":"eval","source-file":"{source}",
+            "line-number":999,"script-sample":"second"}}}}"#
+    );
+
+    assert_eq!(post_csp(&app, CT_LEGACY, first).await, 204);
+    assert_eq!(post_csp(&app, CT_LEGACY, second).await, 204);
+
+    let (count, occ, ctx) = alerts_for_source(&app, &source).await;
+    assert_eq!(count, 1);
+    assert_eq!(occ, 2);
+    let ctx = ctx.expect("context_data present");
+    assert_eq!(ctx["line_number"], 1, "既有值不可被覆寫");
+    assert_eq!(ctx["script_sample"], "first", "既有值不可被覆寫");
+}
+
+#[tokio::test]
+#[serial]
 async fn different_blocked_uri_opens_new_alert() {
     let app = TestApp::spawn().await;
     let source = unique_source("distinct");

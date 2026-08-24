@@ -186,8 +186,10 @@ fn clamp(v: Option<String>, max: usize) -> Option<String> {
 /// loud log，不可靜默吞）。
 ///
 /// R31-16：同指紋（alert_type + violated_directive + blocked_uri + source_file）
-/// 在 [`AGGREGATE_WINDOW`] 內已有未結案 alert → 累加 `occurrence_count` + 推進
-/// `updated_at`；否則開新列。回傳 `true` = 開了新 alert，`false` = 併進既有 alert。
+/// 在 [`AGGREGATE_WINDOW`] 內已有未結案 alert → 累加 `occurrence_count`、推進
+/// `updated_at`、並把既有列**缺漏的**取證欄位（document_uri / line_number /
+/// column_number / script_sample / user_agent）用本次報告補上（只補洞、不覆寫）；
+/// 否則開新列。回傳 `true` = 開了新 alert，`false` = 併進既有 alert。
 ///
 /// **原子性**（PR #14 CodeRabbit review）：check-then-insert 本身不是原子操作——
 /// 兩筆同指紋的「第一次」若同時進來，會各自 UPDATE 0 列然後各插一列，聚合契約當場破掉。
@@ -214,13 +216,33 @@ pub async fn insert_csp_violation(pool: &PgPool, v: &CspViolation) -> Result<boo
         .execute(&mut *tx)
         .await?;
 
+    // PR #14 CodeRabbit review 第 2 輪：聚合時若只加計數，先到的稀疏報告（例如
+    // Firefox 不送 script-sample）會把後到、帶完整取證欄位的報告蓋掉——被吞掉的正是
+    // 本 PR 要撿回來的證據。因此對「非指紋」的取證欄位做**只補洞、不覆寫**的合併：
+    // 既有值非 null 就留著，是 null 或缺鍵才用新報告的值。
+    //
+    // `NULLIF(..., 'null'::jsonb)` 不可省：`->` 對「鍵存在但值為 JSON null」回的是
+    // jsonb null 而非 SQL NULL，直接 COALESCE 永遠不會 fallthrough。
+    // 也**不可**改用 `jsonb_strip_nulls`：那會把值為 null 的鍵整個刪掉，
+    // `context_data @> '{"source_file": null}'` 的指紋比對就再也對不上（等於每筆都開新 alert）。
+    let merge_fields = json!({
+        "document_uri": v.document_uri,
+        "line_number": v.line_number,
+        "column_number": v.column_number,
+        "script_sample": v.script_sample,
+        "user_agent": v.user_agent,
+    });
+
     let aggregated = sqlx::query(
         r#"
         UPDATE security_alerts
-        SET context_data = jsonb_set(
-                context_data,
-                '{occurrence_count}',
-                to_jsonb(COALESCE((context_data->>'occurrence_count')::int, 1) + 1)
+        SET context_data = context_data || jsonb_build_object(
+                'occurrence_count', COALESCE((context_data->>'occurrence_count')::int, 1) + 1,
+                'document_uri',  COALESCE(NULLIF(context_data->'document_uri',  'null'::jsonb), $5->'document_uri'),
+                'line_number',   COALESCE(NULLIF(context_data->'line_number',   'null'::jsonb), $5->'line_number'),
+                'column_number', COALESCE(NULLIF(context_data->'column_number', 'null'::jsonb), $5->'column_number'),
+                'script_sample', COALESCE(NULLIF(context_data->'script_sample', 'null'::jsonb), $5->'script_sample'),
+                'user_agent',    COALESCE(NULLIF(context_data->'user_agent',    'null'::jsonb), $5->'user_agent')
             ),
             updated_at = NOW()
         WHERE id = (
@@ -240,6 +262,7 @@ pub async fn insert_csp_violation(pool: &PgPool, v: &CspViolation) -> Result<boo
     .bind(&OPEN_STATUSES[..])
     .bind(AGGREGATE_WINDOW)
     .bind(&fingerprint)
+    .bind(&merge_fields)
     .execute(&mut *tx)
     .await?;
 
