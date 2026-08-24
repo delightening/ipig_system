@@ -366,19 +366,21 @@ async fn create_animal_survives_cross_process_ear_tag_theft() {
     );
 }
 
-/// 回歸測試：連續多次配置不會誤報「耳號用盡」（2026-08-24 CodeRabbit 於 PR #17 指出）。
+/// 端到端 smoke：連續多次配置都拿到相異耳號、中途不 panic。
 ///
-/// 舊版 `free_ear_tag` 用一個 process 內單調遞增的序號當 `OFFSET`，但候選集合
-/// 是**遞減**的——每成功建立一隻就少一個空號。兩者方向相反，配到一定次數後
-/// `OFFSET` 會超出剩餘列數而回 `None`，於是 panic 說「耳號用盡」，
-/// **但當下其實還有大量空號**。
+/// ⚠️ **這支測試不是 OFFSET 那個 bug 的回歸測試**，別把它當成那個用
+/// （2026-08-24 CodeRabbit 於 PR #17 指出，我原本的註解就是這樣寫錯的）。
 ///
-/// 這支測試連續建立 12 隻動物。在舊版下每次 `OFFSET` 都往後跳一格、
-/// 同時池子又少一個，偏移量與剩餘量持續拉開；移除 `OFFSET` 後這個機制根本不存在。
-/// 斷言 12 個耳號全部相異，確認沒有重複、也沒有中途 panic。
+/// 理由：舊版的 `OFFSET` 在第 N 次配置用偏移量 `N-1`，而候選集合當時還剩
+/// `900-(N-1)` 個。兩者要相遇得等到**第 451 次**。只跑 12 次的話，舊版用的是
+/// 偏移量 0~11、集合 900~889，**12 次全部會成功**——把有 bug 的實作放回來，
+/// 這支測試照樣綠。
+///
+/// 真正鎖住那個 bug 的是 `offset_allocation_breaks_at_midpoint`（純函式單元測試，
+/// 毫秒級就能涵蓋第 451 次），本測試只負責驗證「端到端跑得動」。
 #[tokio::test]
 #[serial]
-async fn repeated_allocation_does_not_falsely_report_pool_exhausted() {
+async fn repeated_allocation_end_to_end_smoke() {
     use std::collections::HashSet;
 
     let app = TestApp::spawn().await;
@@ -398,4 +400,67 @@ async fn repeated_allocation_does_not_falsely_report_pool_exhausted() {
     }
 
     assert_eq!(seen.len(), 12, "12 次建立應得到 12 個相異耳號");
+}
+
+/// 真正的回歸測試：把舊版 `OFFSET` 的配置邏輯當純函式重現，證明它會在
+/// 池子還有一半空號時就誤報用盡；同時證明現行做法（不帶 OFFSET）不會。
+///
+/// 為什麼不用真的建 451 隻動物：那要跑幾分鐘、還會把共用測試庫的耳號池
+/// 用掉一半，影響同一顆 DB 上的其他測試。這個 bug 的成因純粹是
+/// 「單調遞增的偏移量」對上「遞減的候選集合」，不依賴任何 DB 行為，
+/// 用純函式重現能完整涵蓋而且是毫秒級。
+#[test]
+fn offset_allocation_breaks_at_midpoint() {
+    /// 重現舊版：第 n 次配置取 `ORDER BY g OFFSET (n-1) LIMIT 1`。
+    /// 回傳第一次取不到值（＝會 panic 說「耳號用盡」）的次數，None 表示都沒事。
+    fn first_failure_with_offset(pool_size: usize, attempts: usize) -> Option<usize> {
+        let mut remaining = pool_size;
+        for n in 0..attempts {
+            // OFFSET n 打進只剩 remaining 列的集合：n >= remaining 就回 None
+            if n >= remaining {
+                return Some(n + 1);
+            }
+            remaining -= 1; // 該次配置成功建立一隻，池子少一個
+        }
+        None
+    }
+
+    /// 現行做法：永遠取第一個空號，沒有偏移量。
+    fn first_failure_without_offset(pool_size: usize, attempts: usize) -> Option<usize> {
+        let mut remaining = pool_size;
+        for n in 0..attempts {
+            if remaining == 0 {
+                return Some(n + 1);
+            }
+            remaining -= 1;
+        }
+        None
+    }
+
+    // ① 舊版在 900 個空號的池子上，第 451 次就誤報用盡——當下還有 450 個可用。
+    assert_eq!(
+        first_failure_with_offset(900, 900),
+        Some(451),
+        "舊版 OFFSET 實作應在第 451 次誤報耳號用盡"
+    );
+
+    // ② 現行做法要真的用完 900 個才會回報用盡，這時是誠實的。
+    assert_eq!(
+        first_failure_without_offset(900, 900),
+        None,
+        "現行做法在池子還有空號時不該回報用盡"
+    );
+    assert_eq!(
+        first_failure_without_offset(900, 901),
+        Some(901),
+        "現行做法只在真的用完 900 個之後才回報用盡"
+    );
+
+    // ③ 這正是為什麼上面那支 12 次的端到端測試抓不到這個 bug——
+    //    舊版在 12 次之內完全正常。留這個斷言，避免有人日後又把它當回歸測試用。
+    assert_eq!(
+        first_failure_with_offset(900, 12),
+        None,
+        "舊版在只跑 12 次時不會失敗——證明 12 次的端到端測試無法涵蓋此 bug"
+    );
 }

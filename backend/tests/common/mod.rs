@@ -61,11 +61,28 @@ pub struct LoginResponse {
 ///
 /// ⚠️ 因此本函式**不該被直接呼叫**——請一律走 `create_animal_with_free_ear_tag`，
 /// 否則就會退回沒有重試保護的 TOCTOU 狀態。
+/// 耳號候選空間的**單一來源**：`validate_ear_tag`（`models/animal/requests.rs`）
+/// 限制耳號只能是三位數，即 100–999 共 900 個值。
+///
+/// 抽成常數是因為這個範圍原本同時寫死在兩個地方——`free_ear_tag` 的
+/// `generate_series(100, 999)` 與 `create_animal_with_free_ear_tag` 的重試上限。
+/// 兩者漂移的話，重試上限會小於候選空間，並行時就會在池子還有空號時誤報用盡
+/// （2026-08-24 CodeRabbit 於 PR #17 指出的正是這個失效模式）。
+pub const EAR_TAG_MIN: u32 = 100;
+pub const EAR_TAG_MAX: u32 = 999;
+/// 候選空間大小，同時是撞號重試的上限。
+pub const EAR_TAG_SPACE: usize = (EAR_TAG_MAX - EAR_TAG_MIN + 1) as usize;
+
 pub async fn free_ear_tag(pool: &PgPool) -> String {
+    // ⚠️ 範圍用 bind 參數帶進去，不要用 format! 組 SQL——本專案有
+    // 「dynamic SQL strings should be audited for possible injections」的
+    // 編譯期守衛，format! 會直接編譯失敗。用 bind 同時達成兩件事：
+    // 過得了守衛，而且範圍真的來自 EAR_TAG_MIN/MAX 常數，不會與
+    // create_animal_with_free_ear_tag 的重試上限漂移。
     let tag: Option<String> = sqlx::query_scalar(
         r#"
         SELECT lpad(g::text, 3, '0')
-        FROM generate_series(100, 999) g
+        FROM generate_series($1::int, $2::int) g
         WHERE NOT EXISTS (
             SELECT 1 FROM animals a
             WHERE a.ear_tag = lpad(g::text, 3, '0')
@@ -76,6 +93,8 @@ pub async fn free_ear_tag(pool: &PgPool) -> String {
         LIMIT 1
         "#,
     )
+    .bind(EAR_TAG_MIN as i32)
+    .bind(EAR_TAG_MAX as i32)
     .fetch_optional(pool)
     .await
     .expect("query free ear tag");
@@ -116,9 +135,20 @@ pub async fn create_animal_with_free_ear_tag(
     token: &str,
     build_body: impl Fn(&str) -> serde_json::Value,
 ) -> serde_json::Value {
-    // 900 個三位數耳號，重試 8 次仍全撞代表測試 DB 幾乎滿了或有別的問題，
-    // 此時明確報錯好過無限迴圈。
-    const MAX_ATTEMPTS: usize = 8;
+    // 上限必須是**整個候選空間**（三位數耳號 100–999 共 900 個），不能是小常數。
+    //
+    // ⚠️ 2026-08-24 CodeRabbit 於 PR #17 指出：移除 `OFFSET` 之後，`free_ear_tag`
+    // 永遠回傳「當下第一個空號」，所以並行呼叫者**每一輪都會撞在同一個耳號上**，
+    // 每輪只有一個人成功。原本設 8 的話，第 9 個並行呼叫者會連吃 8 次 409 然後
+    // panic 說「耳號用盡」——而當下還有 892 個空號可用，訊息完全誤導。
+    //
+    // 用 EAR_TAG_SPACE 是因為那就是撞光所有候選的次數上限：真的跑滿仍失敗，
+    // 代表池子確實空了，這時報「用盡」才是誠實的。這個迴圈不會白跑——
+    // 每一輪都有人成功佔走一個耳號，所以總次數受候選空間限制而非無界。
+    //
+    // ⚠️ 直接用 EAR_TAG_SPACE 而不是再寫一次 900：那個範圍同時被
+    // free_ear_tag 的 generate_series 使用，兩處各自寫死會漂移。
+    const MAX_ATTEMPTS: usize = EAR_TAG_SPACE;
     let mut last_failure = String::new();
 
     for attempt in 1..=MAX_ATTEMPTS {
