@@ -358,9 +358,12 @@ pub async fn upload_observation_attachment(
     require_permission!(current_user, "animal.record.create");
     // 物件層授權：在寫入任何檔案**之前**確認這筆觀察紀錄屬於使用者可存取的動物。
     // 用 Write 強度與讀取路徑一致（附件內容敏感度等同紀錄本身）。
-    let _scope =
-        access::Scoped::<access::AnimalWrite>::from_observation(&state.db, &current_user, observation_id)
-            .await?;
+    let _scope = access::Scoped::<access::AnimalWrite>::from_observation(
+        &state.db,
+        &current_user,
+        observation_id,
+    )
+    .await?;
     let results = handle_upload(
         &state.db,
         current_user.id,
