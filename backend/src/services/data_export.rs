@@ -76,6 +76,10 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     // 001 - users 需在 role_permissions, user_roles 之前
     "users",
     "departments",
+    // 004（R106-1）人員隸屬身分：類型主檔須在身分列之前（FK），
+    // 身分列同時依賴 users 與 departments，故排在兩者之後。
+    "affiliation_types",
+    "personnel_affiliations",
     "role_permissions",
     "user_roles",
     "user_preferences",
