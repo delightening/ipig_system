@@ -33,7 +33,11 @@ const SPECS: &[Spec] = &[
     Spec {
         handler: "upload_sacrifice_photo",
         object_check: "require_animal_access",
-        write_marker: "FileService::upload(",
+        // ⚠️ 不用 `FileService::upload(`——那是最後才發生的動作。真正該卡住的
+        // 是更早的「犧牲記錄是否存在」查詢：那個 SELECT 本身就會間接洩漏
+        // 「這隻動物有沒有犧牲記錄」，物件層授權必須在它之前，不是只要在
+        // 檔案真正寫入前就算數（2026-08-24 CodeRabbit 指出）。
+        write_marker: "FROM animal_sacrifices",
     },
     Spec {
         handler: "upload_observation_attachment",
@@ -154,24 +158,78 @@ fn guard_detects_missing_check_and_wrong_order() {
     );
 }
 
+/// 反向驗證第二格（2026-08-24 CodeRabbit 指出的真實漏檢）：下一個 handler 的
+/// doc comment 提到了物件層檢查的名稱（本檔案真的有這種情況——`upload_pathology_report`
+/// 的 doc comment 就寫了 `require_animal_access` 幾個字，因為在解釋跟誰同樣模式）。
+/// 前一個 handler 若真的漏做檢查，掃描**不能**被那段借來的文字騙過而誤判通過。
+#[test]
+fn guard_not_fooled_by_next_handlers_doc_comment() {
+    let vulnerable = "pub async fn upload_animal_photo(x: i32) -> i32 {\n    \
+        require_permission!(x);\n    \
+        handle_upload(x)\n\
+        }\n\n\
+        /// 上傳病理報告\n\
+        ///\n\
+        /// 同 upload_animal_photo，讀取路徑有 require_animal_access，寫入路徑原本沒有。\n\
+        pub async fn upload_pathology_report(x: i32) -> i32 {\n    \
+        require_permission!(x);\n    \
+        access::require_animal_access(x);\n    \
+        handle_upload(x)\n\
+        }\n";
+
+    let body = extract_fn_body(vulnerable, "upload_animal_photo").expect("測試 fixture 應能被抽取");
+    assert!(
+        body.find("require_animal_access").is_none(),
+        "guard 邏輯壞了：upload_animal_photo 明明沒有物件層檢查，\
+         卻在抽出的內容裡找到了 require_animal_access——\
+         代表邊界跨進了下一個 handler 的 doc comment，這正是 CodeRabbit 抓到的漏檢"
+    );
+}
+
 fn read_upload_rs() -> String {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/handlers/upload.rs");
     std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("guard: 無法讀取 {}: {e}", path.display()))
 }
 
-/// 抓「pub async fn <name>(」到下一個「pub async fn 」（或檔尾）之間的原始碼片段。
+/// 抓「pub async fn <name>(」到下一個 handler 的**真正邊界**之間的原始碼片段。
 /// 不含前面的 doc comment，只含函式簽章與函式本體——避免 doc comment 裡的說明文字
 /// 被誤判成「真的有呼叫這個檢查」（這正是 PR #7 那次踩過的坑：註解裡出現同樣的字串）。
+///
+/// ⚠️ 2026-08-24 CodeRabbit 指出的漏檢：舊版只找下一個「pub async fn」那一行，
+/// **沒有排除它前面連續的 `///` doc comment**。本檔案的 doc comment 常常會提到
+/// 別的 handler 或別的檢查函式名（例如 `upload_pathology_report` 的 doc comment
+/// 裡寫了 `require_animal_access` 這幾個字，是在解釋它跟誰同樣的模式）——
+/// 這段文字會被吃進**前一個** handler 的抽取範圍，導致就算真的把前一個 handler
+/// 的檢查拿掉，掃描仍會在「借來的」doc comment 文字裡找到同樣的字串而誤判通過。
+/// 用 mutation test 證實過：拿掉 `upload_animal_photo` 的
+/// `require_animal_access` 呼叫後，若不修這裡，掃描仍會判定「有檢查」。
+///
+/// 修法：改成逐行掃描；找到下一個 `pub async fn` 那一行後，**再往回跳過緊接在
+/// 它前面、連續的 `///` 行**，把邊界退到那段 doc comment的起點，而不是函式簽章本身。
 fn extract_fn_body(src: &str, fn_name: &str) -> Option<String> {
     let marker = format!("pub async fn {fn_name}(");
-    let start = src.find(&marker)?;
-    let rest = &src[start..];
-    let end = rest[marker.len()..]
-        .find("\npub async fn ")
-        .map(|i| i + marker.len())
-        .unwrap_or(rest.len());
-    Some(rest[..end].to_string())
+    let lines: Vec<&str> = src.lines().collect();
+    let start_line = lines.iter().position(|l| l.contains(&marker))?;
+
+    let mut end_line = lines.len();
+    for i in (start_line + 1)..lines.len() {
+        if lines[i].trim_start().starts_with("pub async fn ") {
+            let mut boundary = i;
+            let mut j = i;
+            while j > start_line {
+                j -= 1;
+                if lines[j].trim_start().starts_with("///") {
+                    boundary = j;
+                } else {
+                    break;
+                }
+            }
+            end_line = boundary;
+            break;
+        }
+    }
+    Some(lines[start_line..end_line].join("\n"))
 }
 
 /// 抓函式的 doc comment 加函式本體（用於檢查豁免理由是否寫在 doc comment 裡）。
