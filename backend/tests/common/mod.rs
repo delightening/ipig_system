@@ -78,6 +78,66 @@ pub async fn free_ear_tag(pool: &PgPool) -> String {
     tag.expect("測試 DB 已無可用的三位數耳號（100–999 全被非終態動物佔用），請重建測試 DB")
 }
 
+/// 建立測試動物：配置一個空耳號 → 送出建立請求 → **撞號就換一個重試**。
+/// 回傳建立成功後的動物 JSON。
+///
+/// `build_body` 收到配置好的耳號，回傳完整的建立請求 body——各測試檔的欄位
+/// 不盡相同（有的帶 `pen_location`、有的不帶），故由呼叫端自己組。
+///
+/// # 為什麼需要重試（2026-08-24，CodeRabbit 於 PR #17 指出）
+///
+/// `free_ear_tag` 只是「讀取當下沒人在用的耳號」，它與後續的建立請求之間存在
+/// TOCTOU 空隙：另一個 **process** 可以在這兩步之間搶走同一個耳號。
+/// `free_ear_tag` 的 `AtomicI64` 只序列化**同一個 process 內**的呼叫者，
+/// 對跨 process 無效。
+///
+/// ⚠️ 原本的 doc comment 主張「測試 binary 之間 cargo 是循序執行的，故跨 binary
+/// 也安全」——那句話對 `cargo test` 成立，但它是**對執行環境的假設**，不是對
+/// 機制的保證：換成 `cargo nextest`、或兩個開發者同時對同一顆共用測試 DB 跑測試，
+/// 假設就破了。
+///
+/// 修法刻意**不是**把配置做成 DB 層原子操作——動物建立走 HTTP API，交易無法
+/// 跨越那個邊界。改成讓 **DB 的唯一約束當最終仲裁者，輸了就換一個再試**：
+/// 這個機制對競爭者是誰完全無關（同 process 的另一條 task、另一個 process、
+/// 甚至另一台機器都一樣），因此比原本的環境假設更強。
+///
+/// 驗證方式見 `api_glp_record_lock.rs` 的
+/// `create_animal_survives_cross_process_ear_tag_theft`：它真的 spawn 一個
+/// **另一個 OS process** 在空隙中搶走耳號，確認本函式仍能完成建立。
+pub async fn create_animal_with_free_ear_tag(
+    app: &TestApp,
+    token: &str,
+    build_body: impl Fn(&str) -> serde_json::Value,
+) -> serde_json::Value {
+    // 900 個三位數耳號，重試 8 次仍全撞代表測試 DB 幾乎滿了或有別的問題，
+    // 此時明確報錯好過無限迴圈。
+    const MAX_ATTEMPTS: usize = 8;
+    let mut last_failure = String::new();
+
+    for attempt in 1..=MAX_ATTEMPTS {
+        let ear_tag = free_ear_tag(&app.db_pool).await;
+        let body = build_body(&ear_tag);
+        let res = app.auth_post("/api/v1/animals", &body, token).await;
+        let status = res.status();
+        let text = res.text().await.unwrap_or_default();
+
+        if status.is_success() {
+            return serde_json::from_str(&text).expect("parse created animal json");
+        }
+
+        // 只有「耳號重複」這一種 409 才重試。其他失敗（欄位驗證、權限…）
+        // 重試多少次都不會變好，直接讓測試紅燈並帶出原始訊息。
+        let is_ear_tag_conflict = status.as_u16() == 409 && text.contains("耳號");
+        last_failure = format!("attempt {attempt}: {status} body={text}");
+        assert!(
+            is_ear_tag_conflict,
+            "建立動物失敗（非耳號衝突，不重試）：{last_failure}"
+        );
+    }
+
+    panic!("建立動物連續 {MAX_ATTEMPTS} 次都撞到耳號衝突，最後一次：{last_failure}");
+}
+
 impl TestApp {
     /// Spawn the full application on a random OS-assigned port.
     ///

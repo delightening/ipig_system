@@ -28,20 +28,9 @@ use erp_backend::AppError;
 use serial_test::serial;
 use uuid::Uuid;
 
-/// 建立一隻動物，回傳 animal_id (UUID 字串)。
-///
-/// R109（2026-08-24）：原本用 `rand::random` 各自隨機挑 `ear_tag`（3 位數，
-/// 100–999 共 900 個值）與 `entry_date`（月中 28 天），組合空間只有 28,000，
-/// CI 上共用測試庫累積跑下來會生日碰撞——這個測試檔本身在 2026-08-24 就撞過一次
-/// （`create animal failed: 409 Conflict … 耳號 100 已存在同出生日期的存活動物`）。
-///
-/// 改用 `common::free_ear_tag`：它用「配置」而非「抽籤」，查詢當下保證該耳號
-/// **沒有任何非終態動物在用**，故不會撞。`entry_date` 改回固定值——保證不撞的是
-/// 耳號本身（守衛的查詢條件不含 birth_date），固定日期不影響正確性，且跟
-/// `api_animals.rs` / `api_vaccination_validation.rs` 等既有測試用同一套慣例。
-async fn create_test_animal(app: &TestApp, token: &str) -> String {
-    let ear_tag = common::free_ear_tag(&app.db_pool).await;
-    let body = serde_json::json!({
+/// 組出建立動物的請求 body（耳號由呼叫端配置後傳入）。
+fn animal_body(ear_tag: &str) -> serde_json::Value {
+    serde_json::json!({
         "ear_tag": ear_tag,
         "breed": "white",
         "gender": "female",
@@ -49,17 +38,20 @@ async fn create_test_animal(app: &TestApp, token: &str) -> String {
         "entry_weight": 25.5,
         "pen_location": "A-01",
         "force_create": true
-    });
-    let res = app.auth_post("/api/v1/animals", &body, token).await;
-    let status = res.status();
-    let body_text = res.text().await.unwrap_or_default();
-    assert!(
-        status.is_success(),
-        "create animal failed: {} body={}",
-        status,
-        body_text
-    );
-    let json: serde_json::Value = serde_json::from_str(&body_text).expect("parse animal json");
+    })
+}
+
+/// 建立一隻動物，回傳 animal_id (UUID 字串)。
+///
+/// R109（2026-08-24）：原本用 `rand::random` 各自隨機挑 `ear_tag`（3 位數，
+/// 100–999 共 900 個值）與 `entry_date`（月中 28 天），組合空間只有 28,000，
+/// CI 上共用測試庫累積跑下來會生日碰撞——這個測試檔本身在 2026-08-24 就撞過一次
+/// （`create animal failed: 409 Conflict … 耳號 100 已存在同出生日期的存活動物`）。
+///
+/// 改用 `common::create_animal_with_free_ear_tag`：配置空耳號、撞號就換一個重試。
+/// 為什麼是重試而不是只做配置，見該函式的 doc comment（跨 process 的 TOCTOU）。
+async fn create_test_animal(app: &TestApp, token: &str) -> String {
+    let json = common::create_animal_with_free_ear_tag(app, token, animal_body).await;
     json["id"].as_str().expect("animal id missing").to_string()
 }
 
@@ -262,5 +254,114 @@ async fn update_unlocked_observation_returns_200() {
         res.status().is_success(),
         "未鎖定 observation 的 PUT 應成功，實得 {}",
         res.status()
+    );
+}
+
+// ============================================================
+// Test 5: 跨 process 耳號競態（2026-08-24 CodeRabbit 於 PR #17 指出）
+// ============================================================
+
+/// 「競爭者」子進程用的環境變數：要搶走的耳號。
+const STEAL_ENV: &str = "IPIG_TEST_STEAL_EAR_TAG";
+
+/// ⚠️ 這不是一般測試，是上面那支測試 spawn 出來的**另一個 OS process** 的進入點。
+/// 標 `#[ignore]` 讓它不會在正常跑測試時被執行；只有被明確用
+/// `--ignored --exact` 點名時才跑。
+///
+/// 它做的事：把 `STEAL_ENV` 指定的耳號搶先建立成一隻存活動物，
+/// 藉此**真的**在主測試的「配置耳號」與「送出建立請求」之間製造衝突。
+#[tokio::test]
+#[ignore = "由 create_animal_survives_cross_process_ear_tag_theft spawn，不單獨執行"]
+async fn cross_process_ear_tag_thief() {
+    let Ok(tag) = std::env::var(STEAL_ENV) else {
+        panic!("{STEAL_ENV} 未設定——本測試只該由主測試 spawn，不該手動執行");
+    };
+    let url = std::env::var("TEST_DATABASE_URL")
+        .expect("TEST_DATABASE_URL 必須設定（子進程繼承自主測試）");
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&url)
+        .await
+        .expect("競爭者連不上測試 DB");
+
+    // 直接 INSERT，不走 HTTP——競爭者只需要「佔住這個耳號」，
+    // 用最少的必填欄位（ear_tag / breed / gender / entry_date）即可。
+    sqlx::query(
+        r#"INSERT INTO animals (ear_tag, status, breed, gender, entry_date)
+           VALUES ($1, 'in_experiment'::animal_status, 'white', 'female', '2026-01-15')"#,
+    )
+    .bind(&tag)
+    .execute(&pool)
+    .await
+    .expect("競爭者搶耳號失敗");
+}
+
+/// 真正的跨 process 回歸測試：確認 `create_animal_with_free_ear_tag` 在
+/// **另一個 OS process** 於空隙中搶走耳號時仍能完成建立。
+///
+/// # 為什麼要真的開一個 process，而不是用執行緒模擬
+///
+/// CodeRabbit 指出的競態就是「另一個 process」——`free_ear_tag` 的 `AtomicI64`
+/// 只序列化同 process 內的呼叫者，對跨 process 無效。用執行緒模擬會被那個
+/// atomic 擋掉，反而測不到要測的東西。
+///
+/// # 為什麼是確定性的，不是「跑很多次希望撞到」
+///
+/// 競爭注入點就在 `build_body` 這個 callback 裡：第一次拿到耳號時同步
+/// spawn 競爭者並**等它跑完**，再回傳 body。所以衝突必然發生、每次都發生，
+/// 不依賴時序運氣。
+#[tokio::test]
+#[serial]
+async fn create_animal_survives_cross_process_ear_tag_theft() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+
+    let attempts = AtomicUsize::new(0);
+    let stolen: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+    let animal = common::create_animal_with_free_ear_tag(&app, &token, |ear_tag| {
+        // 只在第一次注入競爭：模擬「配置到耳號後、送出請求前被搶走」。
+        if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+            *stolen.lock().expect("stolen lock") = Some(ear_tag.to_string());
+
+            let exe = std::env::current_exe().expect("取不到目前測試 binary 路徑");
+            let status = std::process::Command::new(exe)
+                .args(["--exact", "cross_process_ear_tag_thief", "--ignored"])
+                .env(STEAL_ENV, ear_tag)
+                .status()
+                .expect("spawn 競爭者 process 失敗");
+            assert!(
+                status.success(),
+                "競爭者 process 應成功搶走耳號，實得 {status}"
+            );
+        }
+        animal_body(ear_tag)
+    })
+    .await;
+
+    // ① 必須至少試了兩次——第一次被搶走、第二次才成功。
+    //    若這裡是 1，代表衝突根本沒發生，這個測試就沒有驗到任何東西。
+    let n = attempts.load(Ordering::SeqCst);
+    assert!(
+        n >= 2,
+        "應該至少重試過一次（第一次的耳號被另一個 process 搶走），實際只嘗試 {n} 次——\
+         代表競爭沒有真的發生，本測試失去意義"
+    );
+
+    // ② 最終真的建立成功，且用的不是被搶走的那個耳號。
+    let created_tag = animal["ear_tag"]
+        .as_str()
+        .expect("建立回應應含 ear_tag")
+        .to_string();
+    let stolen_tag = stolen
+        .lock()
+        .expect("stolen lock")
+        .clone()
+        .expect("應已記錄被搶的耳號");
+    assert_ne!(
+        created_tag, stolen_tag,
+        "最終建立用的耳號不該是被搶走的那個"
     );
 }

@@ -14,23 +14,20 @@ async fn vaccination_validation_rejects_blank_but_allows_custom_text() {
     let app = common::TestApp::spawn().await;
     let token = app.login_as_admin().await;
 
-    let ear_tag = common::free_ear_tag(&app.db_pool).await;
-    let create_body = serde_json::json!({
-        "ear_tag": ear_tag,
-        "breed": "white",
-        "gender": "female",
-        "entry_date": "2026-01-15",
-        "entry_weight": 25.5,
-        "pen_location": "A-01",
-        "force_create": true
-    });
-    let created = app.auth_post("/api/v1/animals", &create_body, &token).await;
-    assert!(
-        created.status() == 200 || created.status() == 201,
-        "建立動物失敗：{}",
-        created.status()
-    );
-    let created: serde_json::Value = created.json().await.expect("parse create response");
+    // 耳號用「配置 + 撞號重試」而非單純配置：配置與建立之間有跨 process 的
+    // TOCTOU 空隙，詳見 common::create_animal_with_free_ear_tag。
+    let created = common::create_animal_with_free_ear_tag(&app, &token, |ear_tag| {
+        serde_json::json!({
+            "ear_tag": ear_tag,
+            "breed": "white",
+            "gender": "female",
+            "entry_date": "2026-01-15",
+            "entry_weight": 25.5,
+            "pen_location": "A-01",
+            "force_create": true
+        })
+    })
+    .await;
     let animal_id = created["id"]
         .as_str()
         .expect("created animal id")
