@@ -365,3 +365,37 @@ async fn create_animal_survives_cross_process_ear_tag_theft() {
         "最終建立用的耳號不該是被搶走的那個"
     );
 }
+
+/// 回歸測試：連續多次配置不會誤報「耳號用盡」（2026-08-24 CodeRabbit 於 PR #17 指出）。
+///
+/// 舊版 `free_ear_tag` 用一個 process 內單調遞增的序號當 `OFFSET`，但候選集合
+/// 是**遞減**的——每成功建立一隻就少一個空號。兩者方向相反，配到一定次數後
+/// `OFFSET` 會超出剩餘列數而回 `None`，於是 panic 說「耳號用盡」，
+/// **但當下其實還有大量空號**。
+///
+/// 這支測試連續建立 12 隻動物。在舊版下每次 `OFFSET` 都往後跳一格、
+/// 同時池子又少一個，偏移量與剩餘量持續拉開；移除 `OFFSET` 後這個機制根本不存在。
+/// 斷言 12 個耳號全部相異，確認沒有重複、也沒有中途 panic。
+#[tokio::test]
+#[serial]
+async fn repeated_allocation_does_not_falsely_report_pool_exhausted() {
+    use std::collections::HashSet;
+
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+
+    let mut seen: HashSet<String> = HashSet::new();
+    for i in 1..=12 {
+        let animal = common::create_animal_with_free_ear_tag(&app, &token, animal_body).await;
+        let tag = animal["ear_tag"]
+            .as_str()
+            .unwrap_or_else(|| panic!("第 {i} 次建立的回應缺少 ear_tag"))
+            .to_string();
+        assert!(
+            seen.insert(tag.clone()),
+            "第 {i} 次配到重複的耳號 {tag}——配置機制失效"
+        );
+    }
+
+    assert_eq!(seen.len(), 12, "12 次建立應得到 12 個相異耳號");
+}

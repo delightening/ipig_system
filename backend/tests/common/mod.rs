@@ -45,15 +45,23 @@ pub struct LoginResponse {
 /// 為空、直接放行——與 `birth_date` 給什麼無關。查詢條件與守衛本身完全一致
 /// （`deleted_at IS NULL AND status NOT IN ('euthanized','sudden_death')`）。
 ///
-/// `OFFSET` 帶 process 內遞增序號：同一個測試 binary 內平行執行的測試各自取到
-/// **不同**的空號，不會在雙方都還沒 INSERT 前拿到同一個。測試 binary 之間 cargo
-/// 是循序執行的，前一支的資料已 commit，故跨 binary 也安全。
+/// # 為什麼不用 `OFFSET` 分散並行呼叫者（2026-08-24 CodeRabbit 於 PR #17 指出）
+///
+/// 舊版用一個 process 內單調遞增的 `AtomicI64` 當 `OFFSET`，想讓並行呼叫者各自
+/// 取到不同空號。但**序號單調遞增、候選集合卻是遞減的**，兩者方向相反：
+/// 從 900 個全空的池子配了 450 次之後，`OFFSET 450` 打進只剩 450 列的集合會回
+/// `None`，於是 panic 說「耳號已用盡」——**而當下其實還有 450 個空號**。
+/// 那句錯誤訊息會把人導去重建 DB，找錯方向。
+///
+/// 移除 `OFFSET` 之後並行安全性沒有變差，因為它原本要防的事情已經由
+/// `create_animal_with_free_ear_tag` 的**撞號重試**接手：兩個呼叫者就算拿到
+/// 同一個空號，也只有一個能通過 DB 的唯一約束，輸的那個換一個再試。
+/// 重試對競爭者是誰無關，比 `OFFSET` 能涵蓋的範圍更大（`OFFSET` 對跨 process
+/// 本來就無效）。
+///
+/// ⚠️ 因此本函式**不該被直接呼叫**——請一律走 `create_animal_with_free_ear_tag`，
+/// 否則就會退回沒有重試保護的 TOCTOU 狀態。
 pub async fn free_ear_tag(pool: &PgPool) -> String {
-    use std::sync::atomic::{AtomicI64, Ordering};
-
-    static SEQ: AtomicI64 = AtomicI64::new(0);
-    let skip = SEQ.fetch_add(1, Ordering::Relaxed);
-
     let tag: Option<String> = sqlx::query_scalar(
         r#"
         SELECT lpad(g::text, 3, '0')
@@ -65,16 +73,15 @@ pub async fn free_ear_tag(pool: &PgPool) -> String {
               AND a.status NOT IN ('euthanized', 'sudden_death')
         )
         ORDER BY g
-        OFFSET $1
         LIMIT 1
         "#,
     )
-    .bind(skip)
     .fetch_optional(pool)
     .await
     .expect("query free ear tag");
 
     // 用盡時明確報錯，好過讓呼叫端拿到神秘的 409。
+    // 移除 OFFSET 後這句話才真的成立：回 None 就是候選集合真的空了。
     tag.expect("測試 DB 已無可用的三位數耳號（100–999 全被非終態動物佔用），請重建測試 DB")
 }
 
