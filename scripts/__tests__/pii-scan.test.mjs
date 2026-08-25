@@ -70,10 +70,23 @@ describe('缺口 1：commit message 必須被掃', () => {
     })
   })
 
-  test('git 自動加的 # 註解行不算數（那些不會進最終訊息）', () => {
-    withTempMessage('fix: 調整權限\n\n# 這行是 git 的說明：陳測試\n', (f) => {
+  // ⚠️ 這支原本斷言相反的行為（「# 開頭的行不算數」），是錯的。
+  // CodeRabbit 於 PR #24 指出：commit-msg hook 拿到的是 **git cleanup 之前**的
+  // 緩衝內容，而 cleanup mode 為 whitespace／scissors／verbatim 時，`#` 行會
+  // 原封不動留在最終 message 裡——hook 無從得知會用哪個 mode。
+  test('🔴 `#` 開頭的行照樣要掃——cleanup mode 可能保留它們', () => {
+    withTempMessage('fix: 調整權限\n\n# 陳測試 8 份\n', (f) => {
+      const { code, out } = runScanner(['--commit-msg', f])
+      assert.equal(code, 1, '`#` 行被跳過的話，改用 --cleanup=verbatim 就能繞過')
+      assert.match(out, /系統內真實人名/)
+    })
+  })
+
+  test('🔴 已提交的訊息裡 `#` 行是真實內容，不是註解', () => {
+    // git commit -m $'fix: x\n\n# <個資>' 產生的 message 就長這樣
+    withTempMessage('fix: x\n\n# 林範例 3 份\n', (f) => {
       const { code } = runScanner(['--commit-msg', f])
-      assert.equal(code, 0)
+      assert.equal(code, 1)
     })
   })
 
@@ -129,6 +142,27 @@ describe('缺口 1b：--push 也要掃 message，不能只靠 commit-msg hook', 
     }
     assert.equal(result, 1, '--push 應該擋下含人名的 commit message')
   })
+})
+
+describe('git cleanup mode：`#` 行在各模式下都要被掃到', () => {
+  // CodeRabbit 於 PR #24 要求「add coverage for the relevant Git cleanup modes」。
+  // 這裡不去真的跑 git commit（那會污染 repo 且慢），而是驗證掃描器對
+  // 「cleanup 後可能留下 `#` 行」的那幾種訊息形狀都不放過。
+  // 掃描器不看 cleanup mode——它一律全掃，這正是要守住的行為。
+  const SHAPES = [
+    ['verbatim：整份原樣保留', 'fix: x\n\n# 陳測試\n'],
+    ['scissors：剪刀線之前的 # 行保留', 'fix: x\n\n# 林範例\n# ------------------------ >8 ------------------------\n# 以下不會進 message\n'],
+    ['whitespace：只去空白，# 行保留', 'fix: x\n\n#   王假名   \n'],
+    ['# 出現在行首以外（不受任何 cleanup 影響）', 'fix: x\n\n備註 # 甲乙丙\n'],
+  ]
+  for (const [label, msg] of SHAPES) {
+    test(label, () => {
+      withTempMessage(msg, (f) => {
+        const { code } = runScanner(['--commit-msg', f])
+        assert.equal(code, 1, `這個形狀應被擋下：${JSON.stringify(msg)}`)
+      })
+    })
+  }
 })
 
 describe('缺口 2：人名比對本身', () => {

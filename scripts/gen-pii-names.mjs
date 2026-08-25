@@ -12,7 +12,7 @@
 // 「資料庫沒開就不能 commit」。名單變動很慢，週期性重新產生就夠。
 
 import { execFileSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 const dryRun = process.argv.includes('--dry-run')
@@ -28,16 +28,29 @@ WHERE display_name IS NOT NULL
 ORDER BY display_name;
 `.trim()
 
-const PSQL_ARGS = ['psql', '-U', 'postgres', '-d', 'ipig_db', '-t', '-A', '-c', SQL]
+// ⚠️ 不寫死 `-U postgres -d ipig_db`：Compose 可以用 POSTGRES_USER／POSTGRES_DB
+// 覆寫這兩個值，寫死的話在覆寫過的環境上會直接連不上。
+// 改成在容器內展開容器自己的環境變數（`sh -c` 讓 $VAR 由容器的 shell 解析，
+// 不是由本機 shell），沒設時才退回預設值。
+const PSQL_IN_CONTAINER =
+  'psql -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-ipig_db}" -t -A -c "$1"'
 const env = { ...process.env, MSYS_NO_PATHCONV: '1' }
 
 // 先用固定容器名。
 // ⚠️ 不先試 `docker compose exec`：worktree 裡沒有 `.env`（它是 gitignore 的，
 // 只存在於主 checkout），compose 會在讀 env file 時就失敗。而容器名在
 // docker-compose.yml 裡是寫死的 `container_name: ipig-db`，跨 worktree 都一樣。
+// `sh -c '<script>' sh "<sql>"`：SQL 當位置參數 $1 傳進去，不做字串拼接，
+// 避免 SQL 內容被容器的 shell 再解析一次。
 const ATTEMPTS = [
-  { label: 'docker exec ipig-db', argv: ['exec', '-i', 'ipig-db', ...PSQL_ARGS] },
-  { label: 'docker compose exec db', argv: ['compose', 'exec', '-T', 'db', ...PSQL_ARGS] },
+  {
+    label: 'docker exec ipig-db',
+    argv: ['exec', '-i', 'ipig-db', 'sh', '-c', PSQL_IN_CONTAINER, 'sh', SQL],
+  },
+  {
+    label: 'docker compose exec db',
+    argv: ['compose', 'exec', '-T', 'db', 'sh', '-c', PSQL_IN_CONTAINER, 'sh', SQL],
+  },
 ]
 
 let raw = null
@@ -76,5 +89,12 @@ const header = [
   '',
 ].join('\n')
 
-writeFileSync(OUT, header + names.join('\n') + '\n', 'utf8')
+// ⚠️ 原子寫入：先寫暫存檔再 rename。
+// 直接 writeFileSync 到 OUT 的話，中途被打斷（Ctrl-C、磁碟滿、行程被殺）
+// 會留下一份**截斷的字典**，而 pii-scan 讀到它照樣正常運作——
+// 只是少了後半段的名字，於是那些人的姓名就悄悄通過檢查。
+// rename 在同一個檔案系統上是原子操作：要嘛舊的完整檔、要嘛新的完整檔。
+const tmp = OUT + '.tmp'
+writeFileSync(tmp, header + names.join('\n') + '\n', 'utf8')
+renameSync(tmp, OUT)
 console.log(`已寫入 ${path.relative(repoRoot, OUT)}：${names.length} 個名字`)

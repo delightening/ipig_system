@@ -89,9 +89,21 @@ jobs:
               # frontend / Trivy / E2E；changes / secret-scan / guards 仍會跑，
               # 讓純文件 PR 有 check-run 可供 branch protection 判定，並保有 secret 掃描。
               *.md|docs/*|LICENSE|.gitignore) ;;
+              # 開發工具鏈：不進任何映像、不被任何建置引用，所以改它們不需要
+              # 重跑 backend／frontend。2026-08-25 實查依據：
+              #   6 個 Dockerfile 全部沒有 COPY scripts/ 或 .husky/
+              #   frontend/package.json・vite.config.ts・backend/Cargo.toml・build.rs 皆無引用
+              # 效益：完整一輪 CI 實測 7085 秒 runner 時間，其中 6925 秒（98%）是
+              # backend／frontend stack 專屬（cargo test 單項就 1675 秒、4 個 coverage
+              # 分片合計 3120 秒）。只改 scripts/ 的 PR 原本要付這整份成本。
+              # ⚠️ 掃描器自己的測試（pii-scan-test）刻意不掛 changed-paths 過濾，
+              #    所以改 scripts/ 時它仍然會跑——這條分類不會讓工具鏈失去把關。
+              scripts/*|.husky/*) ;;
               backend/*) BACKEND=true ;;
               frontend/*) FRONTEND=true ;;
-              *) BACKEND=true; FRONTEND=true ;; # 未知領域 → 保守全跑
+              # 未知領域 → 保守全跑。`.github/` 也走這條：改 CI 本身就該用完整的
+              # CI 驗證一次，不要為了省時間而讓「改壞 CI」這件事延後才被發現。
+              *) BACKEND=true; FRONTEND=true ;;
             esac
           done <<< "$FILES"
           echo "backend=$BACKEND" >> "$GITHUB_OUTPUT"

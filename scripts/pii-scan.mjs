@@ -284,12 +284,25 @@ function findingsFromAddedLines(addedLines) {
 
 // 掃一段 commit message。回傳與 findingsFromAddedLines 相同形狀的 findings，
 // 讓 report() 不必分辨來源。
+//
+// ⚠️ **每一行都掃，包括 `#` 開頭的行。**
+//
+// 直覺會想跳過 `#`——「那是 git 自動加的說明，不會進最終 message」。這個假設錯兩次：
+//
+//   1. 對 `--push` 掃的**已提交** commit，`#` 開頭的行就是訊息的真實內容，
+//      跳過等於開一個後門：`git commit -m $'fix: x\n\n# <個資>'` 直接繞過。
+//   2. 對 commit-msg hook，拿到的是 **git cleanup 之前**的緩衝內容，
+//      而 cleanup mode 為 `whitespace` / `scissors` / `verbatim` 時
+//      `#` 行會原封不動留在最終 message 裡。hook 無從得知會用哪個 mode。
+//
+// 代價是 commit-msg 階段會掃到 git 自己寫的說明行（"On branch ..."、
+// "Changes to be committed:" 那些）。那些行只含分支名與檔名，命中個資樣式的
+// 機會極低，遠低於漏掉真個資的代價。
+//（2026-08-25 CodeRabbit 於 PR #24 指出第 2 點，第 1 點是連帶。）
 function findingsFromMessage(message, label) {
   const findings = []
   const lines = message.split('\n')
   for (let i = 0; i < lines.length; i++) {
-    // commit message 的註解行（git 自動加的 `#` 開頭說明）不會進入最終 message
-    if (lines[i].startsWith('#')) continue
     const hits = scanLine(lines[i].slice(0, MAX_LINE_SCAN_CHARS))
     if (hits.length) findings.push({ file: label, line: i + 1, hits })
   }
