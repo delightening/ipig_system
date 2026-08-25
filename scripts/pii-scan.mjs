@@ -490,6 +490,16 @@ function cmdFull() {
   }
   report(findings, { blocking: false })
   console.log(`\n[pii-scan --full] 掃描 ${files.length} 個 tracked 檔案，命中 ${findings.length} 處（此模式僅回報，不阻擋）。`)
+  // ⚠️ --full 是拿來做全庫稽核的，「掃完 0 命中」很容易被讀成「全庫乾淨」。
+  // 少了名單檔時人名那個維度根本沒跑，不講的話稽核結論就是錯的。
+  // report() 的提示只在 blocking 模式印（那裡是給 commit/push 看的），
+  // 所以這裡要自己補一次。（CodeRabbit 於 PR #24 指出。）
+  if (!loadNameDictionary().available) {
+    console.log(
+      `⚠️ 找不到 ${NAME_DICT_FILE} — **人名比對未啟用**，本次結果不涵蓋該維度。\n` +
+        `   要納入請先跑 \`pnpm run pii:names\` 產生名單後重掃。`
+    )
+  }
   process.exit(0)
 }
 

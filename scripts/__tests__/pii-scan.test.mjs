@@ -198,6 +198,22 @@ describe('缺口 2：人名比對本身', () => {
       assert.match(out, /陳\*\*/, '應顯示「陳**」而非整串 ***')
     })
   })
+
+  // --full 是拿來做全庫稽核的。「掃完 0 命中」若被讀成「全庫乾淨」，
+  // 而人名維度其實根本沒跑，那個稽核結論就是錯的。
+  test('🔴 --full 沒有名單時要明講人名比對未啟用', () => {
+    const { code, out } = runScanner(['--full'], {
+      names: path.join(tmpdir(), 'definitely-not-here.txt'),
+    })
+    assert.equal(code, 0, '--full 永遠不阻擋')
+    assert.match(out, /人名比對未啟用/)
+  })
+
+  test('--full 有名單時不印那則警告', () => {
+    const { code, out } = runScanner(['--full'])
+    assert.equal(code, 0)
+    assert.doesNotMatch(out, /人名比對未啟用/)
+  })
 })
 
 describe('既有偵測類別沒有被破壞', () => {
