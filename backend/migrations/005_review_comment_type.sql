@@ -19,14 +19,18 @@
 -- enum 加值要 migration 且無法回退，CHECK 改起來單純得多。本專案 `protocols.status`
 -- 那種需要嚴格型別的才用 enum，這裡是輕量標記。
 --
--- 實測依據（正式庫）：
---   2026-08-24  270 筆 review_comments，其中 12 筆內容正好是「無意見」
---   2026-08-25  269 筆，其中 11 筆——少的那一筆隨計畫 PIG-110005 一起被刪除，
---               它正是當初擋住該計畫刪不掉的那筆「無意見」
--- ⚠️ 這兩個數字會隨營運資料變動，不要拿來當驗收條件。不變的是它們的性質，
--- 這才是本 migration 的立論基礎：全部出自同一位執行祕書、全部在 PRE_REVIEW 階段、
--- 全部是 top-level、全部零回覆——沒有任何一筆被當成「需要申請人回覆」在使用。
--- 實際回填幾筆以下方 RAISE NOTICE 的輸出為準。
+-- 實測依據（2026-08-24 與 2026-08-25 兩次在正式庫上查證）。
+--
+-- 立論基礎是這批資料的**性質**，不是它的筆數：
+--   * 全部出自同一位使用者——是個人習慣，不是全體審查委員的通用做法
+--   * 全部在 PRE_REVIEW 階段
+--   * 全部是 top-level（parent_comment_id IS NULL）
+--   * 全部零回覆——沒有任何一筆被當成「需要申請人回覆」在使用
+--
+-- ⚠️ 刻意不寫筆數。營運資料的計數會隨時間漂移（兩次查證之間就少了一筆——
+-- 隨計畫 PIG-110005 被刪除而消失，那正是當初擋住該計畫刪不掉的那筆「無意見」），
+-- 寫死了只會讓日後的人拿一個過期數字去對帳。實際回填幾筆以下方 RAISE NOTICE
+-- 的輸出為準，那是部署當下的真值。
 
 ALTER TABLE public.review_comments
     ADD COLUMN comment_type character varying(30) NOT NULL DEFAULT 'COMMENT';
@@ -64,9 +68,9 @@ END $$;
 
 -- 供「哪些計畫收到過無意見」這類查詢使用。
 --
--- 刻意做成部分索引而非整欄索引：comment_type 只有兩個值，NO_OBJECTION 是極少數
--- （2026-08-25 實測 11/269，約 4%）。整欄 btree 對佔 96% 的 COMMENT 沒有選擇性，
--- planner 查那一側本來就會走 seq scan，索引只是白付寫入成本。
+-- 刻意做成部分索引而非整欄索引：comment_type 只有兩個值，而 NO_OBJECTION 實測
+-- 只佔個位數百分比。整欄 btree 對佔絕大多數的 COMMENT 沒有選擇性，planner 查
+-- 那一側本來就會走 seq scan，索引只是白付寫入成本。
 CREATE INDEX review_comments_no_objection_idx
     ON public.review_comments USING btree (protocol_id)
     WHERE comment_type = 'NO_OBJECTION';
