@@ -146,8 +146,12 @@ impl ProtocolService {
 
         // 計劃負責人（SD，選填）：客戶/PI 建立時通常留空，由執行秘書事後指派。
         // 有指定時驗證 + 授權（僅執秘/admin 可指派他人，其餘限本人）。
+        //
+        // 傳 `req.pi_user_id` 而非上面算好的 `pi_user_id`：後者在 PI 留空時
+        // 會退回 `created_by`（佔位），拿它比對 SD 會誤擋「執秘替沒有系統帳號的
+        // 外部 PI 建計畫、並自任 SD」——那是裁定 10／11 允許的操作。
         if let Some(sd_id) = req.study_director_user_id {
-            Self::validate_and_authorize_sd(&mut tx, actor, sd_id).await?;
+            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, req.pi_user_id).await?;
         }
 
         let protocol = sqlx::query_as::<_, Protocol>(
@@ -225,14 +229,47 @@ impl ProtocolService {
     }
 
     /// 驗證並授權「計劃負責人（SD）」指派：SD 必須是啟用中、本公司內部、具
-    /// EXPERIMENT_STAFF 角色者；且僅 IACUC_STAFF / 管理員可指派「他人」為 SD，
+    /// EXPERIMENT_STAFF 角色者，且**不得與該計畫的 PI 為同一人**（裁定 16）；
+    /// 授權上僅 IACUC_STAFF / 管理員可指派「他人」為 SD，
     /// 其餘登入者只能指派自己。System actor（維運/種子）不受限。
     /// 共用於 import_approved / create / update（DRY，CLAUDE.md §7 權限集中）。
     async fn validate_and_authorize_sd(
         conn: &mut sqlx::PgConnection,
         actor: &ActorContext,
         sd_id: Uuid,
+        pi_user_id: Option<Uuid>,
     ) -> Result<()> {
+        // 裁定 16：PI 不可兼任同一計畫的 SD。
+        //
+        // ⚠️ 這不是形式上的職稱分離，而是**結案雙簽的正確性前提**：
+        // 裁定 9 要求 PI 與 SD 各簽一次才能結案，同一人的話兩張簽章的
+        // signer_id 會是同一個 UUID——稽核鏈上看起來是「雙方認可」，
+        // 實際是自簽自證，正是 21 CFR §11.10(g) 職權分離要防的東西。
+        //
+        // 放在最前面而不是最後：先擋掉語意上不合法的組合，再談那個人有沒有
+        // 資格當 SD。錯誤訊息也因此更貼近使用者實際做錯的事——PI 通常是外部
+        // 人員、本來就沒有 EXPERIMENT_STAFF 角色，若讓角色檢查先跑，
+        // 使用者收到的會是「此人不具試驗工作人員角色」，完全看不出真正的問題。
+        //
+        // ⚠️ 為什麼參數是 `Option`：`create` 與 `import_approved` 都用
+        // `req.pi_user_id.unwrap_or(created_by)`——**外部 PI（沒有系統帳號）時，
+        // `protocols.pi_user_id` 記的是匯入者本人**，通常就是執行祕書。
+        // 拿那個佔位值做職責分離檢查在語意上是錯的：它不代表任何人是 PI，
+        // 而裁定 10／11 明確允許執秘自任 SD。所以只在 PI **被明確指定**
+        // （`req.pi_user_id.is_some()`）時才比對。
+        //
+        // 2026-08-25 實測正式庫：`pi_user_id = created_by` 有 5 筆，
+        // 其中同時 PI=SD 的只有 1 筆（即裁定 16 要處理的那筆存量），
+        // 所以這個放寬目前不會漏掉任何真實的違規案例。
+        if let Some(pi_id) = pi_user_id {
+            if sd_id == pi_id {
+                return Err(AppError::Validation(
+                    "計畫主持人（PI）不可兼任同一計畫的計劃負責人（Study Director）；請改指派其他試驗工作人員"
+                        .into(),
+                ));
+            }
+        }
+
         let sd_is_valid: bool = sqlx::query_scalar(
             r#"SELECT EXISTS(
                  SELECT 1 FROM users u
@@ -366,7 +403,11 @@ impl ProtocolService {
         }
 
         // 計劃負責人（SD）驗證 + 授權（共用 helper；外部協作者即使誤掛 EXPERIMENT_STAFF 也不得任 SD）
-        Self::validate_and_authorize_sd(&mut tx, actor, req.study_director_user_id).await?;
+        //
+        // 同 create：傳 `req.pi_user_id` 而非 `effective_pi_user_id`。
+        // 補登匯入的計畫多半是外部 PI，那時 effective 值等於匯入者本人（佔位）。
+        Self::validate_and_authorize_sd(&mut tx, actor, req.study_director_user_id, req.pi_user_id)
+            .await?;
         // 註：&mut tx 經 DerefMut 轉為 &mut PgConnection
 
         // 申請編號（選填）：trim 後空字串視為 NULL
@@ -1182,7 +1223,19 @@ impl ProtocolService {
         // 讀 `before.is_glp`（權威欄位）而非 working_content：後者是可編輯的表單內容，
         // 拿它當規則判定來源等於沒有規則。有了上面的雙向鎖，兩者也不可能再分歧。
         if let Some(sd_id) = req.study_director_user_id {
-            Self::validate_and_authorize_sd(&mut tx, actor, sd_id).await?;
+            // ⚠️ update 這條路徑與 create／import 不同：`UpdateProtocolRequest`
+            // 沒有 pi_user_id 欄位（PI 不可透過 update 變更），所以只能用
+            // `before.pi_user_id`——**而那個值可能是外部 PI 的佔位**（等於建立者）。
+            //
+            // 已知限制：若某計畫的 PI 是佔位、而佔位者本人要改任 SD，這裡會誤擋。
+            // 2026-08-25 實測正式庫，符合這個形狀的計畫只有 1 筆，
+            // 而那一筆正是裁定 16 要處理的存量（PI 與 SD 都是同一位、且她確實具 PI 角色），
+            // 所以現階段沒有誤擋。若日後出現真正的誤擋，正確的修法是讓
+            // protocols 明確記錄「PI 是外部人員」而不是靠佔位值推斷。
+            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, Some(before.pi_user_id)).await?;
+            // rebase 衝突解法（2026-08-25）：本分支原本在這裡從 working_content
+            // 重推 is_glp，而 #25（裁定 14）的整個重點就是**不要**那樣做——
+            // 判定來源必須是權威欄位 `before.is_glp`。取 main 的版本。
             if before.is_glp
                 && before.study_director_user_id.is_some()
                 && before.study_director_user_id != Some(sd_id)
