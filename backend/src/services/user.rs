@@ -523,6 +523,46 @@ impl UserService {
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
+        // 裁定 13：有未結案 GLP 計畫在身的 SD，不得停用其帳號。
+        //
+        // ⚠️ 這是裁定 12（「SD 離職前必須先把 GLP 案結案」）的**強制機制**。
+        // 沒有這道閘，那句話只是一個沒有人執行的約定：帳號一停用，該 GLP 案
+        // 就同時失去「能換 SD」（GLP 鎖，見 protocol/core.rs）與「能結案」
+        // （結案要 SD 簽章）兩條路，變成永久死鎖。
+        //
+        // 位置刻意放在**所有寫入之前**：`before_user` 已用 FOR UPDATE 鎖住該列，
+        // 此時擋下是乾淨的拒絕，不會留下半套變更。
+        // 對照 `handlers/user.rs` 的停用偵測——那個在 `UserService::update`
+        // **之後**才跑（用途是撤 session／token），拿它來擋就太遲了，帳號早已停用。
+        //
+        // 放在 service 而非 handler：這是資料層的不變式，不是 HTTP 層的規則。
+        // handler 只保護 HTTP 路徑，service 保護所有呼叫端（含日後新增的）。
+        if req.is_active == Some(false) && before_user.is_active {
+            // 「未結案」＝ 還需要 SD 負責的狀態。已結案／已刪除／已駁回的計畫
+            // 不再需要 SD，不該用它們擋住人事作業。
+            let blocking: Vec<String> = sqlx::query_scalar(
+                r#"SELECT protocol_no
+                   FROM protocols
+                   WHERE study_director_user_id = $1
+                     AND is_glp
+                     AND status NOT IN ('CLOSED', 'DELETED', 'REJECTED')
+                   ORDER BY protocol_no"#,
+            )
+            .bind(id)
+            .fetch_all(&mut *tx)
+            .await?;
+
+            if !blocking.is_empty() {
+                // ⚠️ 訊息必須列出計畫編號（裁定 13 明訂）。只說「此帳號無法停用」
+                // 的話，人事不知道要去找誰結案，這道閘就變成無法排除的障礙。
+                return Err(AppError::BusinessRule(format!(
+                    "此帳號是下列未結案 GLP 計畫的計劃負責人（Study Director），不得停用：{}。\
+                     GLP 計畫的 SD 不可更換，請先完成這些計畫的結案程序。",
+                    blocking.join("、")
+                )));
+            }
+        }
+
         // 如果要更新 email，檢查是否已被使用
         if let Some(ref new_email) = req.email {
             let exists: bool = sqlx::query_scalar(
