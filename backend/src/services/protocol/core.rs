@@ -4,14 +4,15 @@ use uuid::Uuid;
 
 use validator::Validate;
 
+use super::history::event_type_for;
 use super::ProtocolService;
 use crate::{
     middleware::ActorContext,
     models::{
-        audit_diff::DataDiff, CreatePartnerRequest, CreateProtocolRequest,
-        ImportApprovedProtocolRequest, PartnerType, Protocol, ProtocolActivityType,
-        ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolRole, ProtocolStatus,
-        UpdateProtocolRequest,
+        audit_diff::{AuditRedact, DataDiff},
+        CreatePartnerRequest, CreateProtocolRequest, ImportApprovedProtocolRequest, PartnerType,
+        Protocol, ProtocolActivityType, ProtocolListItem, ProtocolQuery, ProtocolResponse,
+        ProtocolRole, ProtocolStatus, UpdateProtocolRequest,
     },
     services::{
         access,
@@ -22,6 +23,23 @@ use crate::{
 };
 
 const CONFLICT_MSG: &str = "此記錄已被其他人修改，請重新載入後再試。";
+
+/// SD 變更專用的 focused audit diff（裁定 21）。
+///
+/// 存在理由：`DataDiff::compute` 吃 `Serialize + AuditRedact`，直接餵整個
+/// `Protocol` 會得到「整份快照」——`changed_fields` 裡雖然有
+/// `study_director_user_id`，但同時還有其他一起變動的欄位，
+/// 於是無法用它區分「這次改了 SD」與「這次改了一堆東西、SD 剛好也在裡面」。
+/// 只放這一個欄位，`changed_fields` 就恰好等於 `["study_director_user_id"]`。
+///
+/// 不含姓名、只存 UUID：稽核要查是誰，join `users` 即可；
+/// 把姓名複製進不可竄改的 audit row 等於在裡面固化個資。
+#[derive(serde::Serialize)]
+struct SdChangeAudit {
+    study_director_user_id: Option<Uuid>,
+}
+
+impl AuditRedact for SdChangeAudit {}
 
 /// 驗證匯入里程碑日期依時序遞增
 /// （申請→預審→獸醫→委員一審→補件→委員二審→核准）。只檢查有填的里程碑。
@@ -1233,6 +1251,77 @@ impl ProtocolService {
         .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::Conflict(CONFLICT_MSG.to_string()))?;
+
+        // ── SD 變更的專屬稽核事件（裁定 21）─────────────────────────────
+        //
+        // ⚠️ 為什麼不能只靠下面那個 PROTOCOL_UPDATE：
+        // 稽核報表上看不出「這次 update 改的是 SD」——它跟改標題、改日期長得
+        // 一模一樣，要靠人去比對 before/after 的 JSON 才知道。而 GLP 稽核會問
+        // 「這份計畫的 SD 換過幾次、誰換的」，那個問題現在答不出來。
+        //
+        // 實測（2026-08-25 正式庫）：`user_activity_logs` 裡 `changed_fields`
+        // 真的含 `study_director` 的只有 **1 筆**，其餘 153 筆是整份快照剛好
+        // 帶到這個欄位。也就是說現況連「換過幾次」都得靠人工判讀。
+        //
+        // 比對 before/updated 而非 before/req：`req.study_director_user_id`
+        // 為 None 時 UPDATE 走 COALESCE 保留原值，拿 req 判斷會把「沒帶」
+        // 誤當成「沒變」——雖然結論相同，但一旦日後改成可清空 SD 就會出錯。
+        // 比實際寫入結果最準。
+        if before.study_director_user_id != updated.study_director_user_id {
+            if let Some(new_sd) = updated.study_director_user_id {
+                // 裁定 11：執秘可以自我指派，但稽核要看得出來。
+                // 判定用 actor 而非 req——指派者就是這次操作的人。
+                let self_assigned = actor.actor_user_id() == Some(new_sd);
+                Self::record_activity_tx(
+                    &mut tx,
+                    actor,
+                    id,
+                    ProtocolActivityType::SdAssigned,
+                    before.study_director_user_id.map(|u| u.to_string()),
+                    Some(new_sd.to_string()),
+                    None,
+                    None,
+                    Some(serde_json::json!({
+                        "from_user_id": before.study_director_user_id,
+                        "to_user_id": new_sd,
+                        "assigned_by": actor.actor_user_id(),
+                        "self_assigned": self_assigned,
+                    })),
+                )
+                .await?;
+
+                // 🔴 `record_activity_tx` **不寫 `user_activity_logs`**（PR #269
+                // Option C，見 history.rs L91-96）——它只落 `protocol_activities`。
+                // 少了下面這段，SD 變更在全域稽核軸上仍然只有一筆 PROTOCOL_UPDATE，
+                // 裁定 21 等於沒做。而且 `protocol_activities` 不在 HMAC chain 上，
+                // 不可竄改的那條軸看不到 SD 換人這件事。
+                //
+                // 這裡刻意帶 focused diff 而非 `data_diff: None`（reviewer / vet
+                // 指派走 None 是因為那兩者本來就沒有 before/after）：SD 的 from→to
+                // 就是稽核要問的東西，放進 HMAC 保護的 row 才有意義，
+                // 且讓 `changed_fields = ["study_director_user_id"]` 可直接篩選——
+                // 正是上面實測指出「整份快照剛好帶到這個欄位」所缺的那個判準。
+                AuditService::log_activity_tx(
+                    &mut tx,
+                    actor,
+                    ActivityLogEntry {
+                        event_category: "AUP",
+                        event_type: event_type_for(ProtocolActivityType::SdAssigned),
+                        entity: Some(AuditEntity::new("protocol", id, &updated.title)),
+                        data_diff: Some(DataDiff::compute(
+                            Some(&SdChangeAudit {
+                                study_director_user_id: before.study_director_user_id,
+                            }),
+                            Some(&SdChangeAudit {
+                                study_director_user_id: Some(new_sd),
+                            }),
+                        )),
+                        request_context: None,
+                    },
+                )
+                .await?;
+            }
+        }
 
         // protocol_activities + user_activity_logs（同 tx，UPDATED 事件）
         Self::record_activity_tx(

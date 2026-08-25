@@ -194,6 +194,9 @@ pub enum ProtocolActivityType {
     StatusChanged,
     ReviewerAssigned,
     VetAssigned,
+    /// 指派／變更計劃負責人（SD）。裁定 21：SD 變更必須有專屬事件，
+    /// 不能混在通用的 PROTOCOL_UPDATE 裡——稽核報表上看不出「這次改的是 SD」。
+    SdAssigned,
     // CO_EDITOR 角色已拆除（R76-2），但保留下列活動類型供讀取歷史稽核紀錄（不再新寫）。
     CoeditorAssigned,
     CoeditorRemoved,
@@ -233,6 +236,7 @@ impl ProtocolActivityType {
             ProtocolActivityType::StatusChanged => "STATUS_CHANGED",
             ProtocolActivityType::ReviewerAssigned => "REVIEWER_ASSIGNED",
             ProtocolActivityType::VetAssigned => "VET_ASSIGNED",
+            ProtocolActivityType::SdAssigned => "SD_ASSIGNED",
             ProtocolActivityType::CoeditorAssigned => "COEDITOR_ASSIGNED",
             ProtocolActivityType::CoeditorRemoved => "COEDITOR_REMOVED",
             ProtocolActivityType::CommentAdded => "COMMENT_ADDED",
@@ -265,6 +269,7 @@ impl ProtocolActivityType {
             ProtocolActivityType::StatusChanged => "狀態變更",
             ProtocolActivityType::ReviewerAssigned => "指派審查委員",
             ProtocolActivityType::VetAssigned => "指派獸醫師",
+            ProtocolActivityType::SdAssigned => "指派計劃負責人",
             ProtocolActivityType::CoeditorAssigned => "指派共同編輯者",
             ProtocolActivityType::CoeditorRemoved => "移除共同編輯者",
             ProtocolActivityType::CommentAdded => "新增審查意見",
@@ -1006,7 +1011,7 @@ mod tests {
 
     #[test]
     fn test_activity_type_all_variants() {
-        // 確認所有 27 個變體都有對應字串
+        // 確認所有 28 個變體都有對應字串
         let variants = vec![
             ProtocolActivityType::Created,
             ProtocolActivityType::Updated,
@@ -1021,6 +1026,7 @@ mod tests {
             ProtocolActivityType::StatusChanged,
             ProtocolActivityType::ReviewerAssigned,
             ProtocolActivityType::VetAssigned,
+            ProtocolActivityType::SdAssigned,
             ProtocolActivityType::CoeditorAssigned,
             ProtocolActivityType::CoeditorRemoved,
             ProtocolActivityType::CommentAdded,
@@ -1040,7 +1046,10 @@ mod tests {
             assert!(!v.as_str().is_empty());
             assert!(!v.display_name().is_empty());
         }
-        assert_eq!(variants.len(), 27);
+        // 28：新增 SdAssigned（裁定 21）。加 variant 時這個數字要一起改——
+        // `as_str()` / `display_name()` 沒有 `_ =>`，編譯器會逼你處理那兩處，
+        // 但**不會**逼你把新 variant 加進上面的清單，這行是那個缺口的提醒。
+        assert_eq!(variants.len(), 28);
     }
 
     #[test]
