@@ -2,7 +2,9 @@
   "private": true,
   "scripts": {
     "prepare": "husky",
-    "scan:pii": "node scripts/pii-scan.mjs --full"
+    "scan:pii": "node scripts/pii-scan.mjs --full",
+    "pii:names": "node scripts/gen-pii-names.mjs",
+    "test:pii": "node --test scripts/__tests__/pii-scan.test.mjs"
   },
   "devDependencies": {
     "husky": "^9.0.11",

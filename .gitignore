@@ -185,6 +185,9 @@ docs/archive/
 # 列在這裡是為了讓它們在工作區保持「被忽略」而非「未追蹤」——未追蹤狀態下
 # 一次 `git add .` 就會把全部內容推上來，而這正是本條要防的事。
 docs/
+# pii-scan 人名字典（含個資，由 scripts/gen-pii-names.mjs 產生）
+scripts/pii-names.local.txt
+
 CLAUDE.md
 AGENTS.md
 .claude/
