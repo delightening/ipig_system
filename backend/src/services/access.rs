@@ -110,7 +110,24 @@ pub async fn is_assigned_vet(pool: &PgPool, protocol_id: Uuid, user_id: Uuid) ->
     Ok(exists)
 }
 
-/// 使用者是否與計畫有任何關聯（PI / Co-Editor / 審查委員 / 獸醫）
+/// 使用者是否與計畫有任何關聯（PI / **SD** / Co-Editor / 審查委員 / 獸醫）
+///
+/// ⚠️ **SD 是 2026-08-25 才補進來的**（CodeRabbit 於 PR #23 指出）。在那之前這個
+/// 查詢只看四張表，漏了 `protocols.study_director_user_id`——而 SD 是計畫負責人，
+/// 說他「與計畫無關」在語意上就是錯的。
+///
+/// 為什麼一直沒被發現：`require_protocol_related_access` 的第一行是
+/// `has_protocol_view_all` 短路，而 SD 必為 `EXPERIMENT_STAFF`、該角色具
+/// `aup.protocol.view_all`，所以實際上走不到這個查詢。**是被掩蓋，不是不存在。**
+/// 實測（`tests/api_sd_close_access_guard.rs`）：拿掉 view_all 之後，
+/// 只透過 SD 欄位關聯的人立刻拿到 403。
+///
+/// 補上之後**不會有任何人獲得新權限**（2026-08-25 實測正式庫）：
+/// 6 位 SD 中 5 位具 view_all（本來就能存取），剩下 1 位同時是該計畫的 PI
+/// （透過 `pi_user_id` 已有關聯）。這個改動移除的是隱性依賴，不是放寬授權。
+///
+/// 這也讓本函式與 `access.rs` 其餘 13 處已認 SD 的授權檢查一致
+/// （`is_protocol_sd`／`can_sign_notice`／補登授權…）——先前只有這一個漏掉。
 pub async fn has_any_protocol_role(
     pool: &PgPool,
     protocol_id: Uuid,
@@ -118,7 +135,8 @@ pub async fn has_any_protocol_role(
 ) -> Result<bool> {
     let (exists,): (bool,) = sqlx::query_as(
         r#"SELECT EXISTS(
-            SELECT 1 FROM protocols WHERE id = $1 AND pi_user_id = $2
+            SELECT 1 FROM protocols
+              WHERE id = $1 AND (pi_user_id = $2 OR study_director_user_id = $2)
             UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
             UNION SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
             UNION SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
@@ -131,15 +149,20 @@ pub async fn has_any_protocol_role(
     Ok(exists)
 }
 
-/// 回傳使用者「可存取」的計畫 id 集合（PI / 共編成員 / 指派審查委員 / 指派獸醫）。
+/// 回傳使用者「可存取」的計畫 id 集合（PI / **SD** / 共編成員 / 指派審查委員 / 指派獸醫）。
 ///
 /// 用途：列表 / 報表端點對「無 view_all 權限」的使用者做資料邊界收斂——把此集合
 /// 強制 AND 進查詢，避免送空 filter 即讀到跨計畫全量資料（IDOR）。
 /// view_all 角色不需呼叫（直接全量）。回傳空 vec 代表使用者不關聯任何計畫。
+///
+/// ⚠️ SD 於 2026-08-25 一併補上，理由與 [`has_any_protocol_role`] 相同——
+/// 兩者是同一個漏洞的兩個面向（一個管「單筆能不能存取」、一個管「列表看得到哪些」）。
+/// 只補其中一個會造成「能開單筆、卻不在自己的列表裡」這種更難解釋的狀態。
 pub async fn accessible_protocol_ids(pool: &PgPool, user_id: Uuid) -> Result<Vec<Uuid>> {
     let ids: Vec<Uuid> = sqlx::query_scalar(
         r#"
         SELECT id AS protocol_id FROM protocols WHERE pi_user_id = $1
+        UNION SELECT id AS protocol_id FROM protocols WHERE study_director_user_id = $1
         UNION SELECT protocol_id FROM user_protocols WHERE user_id = $1
         UNION SELECT protocol_id FROM review_assignments WHERE reviewer_id = $1
         UNION SELECT protocol_id FROM vet_review_assignments WHERE vet_id = $1

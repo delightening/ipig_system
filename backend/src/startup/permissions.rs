@@ -559,6 +559,26 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
                 "aup.protocol.view_all",
                 // 匯入已核准計畫（場內既有已通過計劃補登，跳過審查）
                 "aup.protocol.import_approved",
+                // R98-1（2026-08-25，使用者裁定 (a)）：結案自己擔任 SD 的計畫。
+                //
+                // SD 只存在於 `protocols.study_director_user_id`，指派資格由
+                // `validate_and_authorize_sd` 把關為 EXPERIMENT_STAFF——但這個角色
+                // 原本沒有 close_own，於是 `services/protocol/status.rs` 的順序
+                //（先驗權限碼、才驗擁有人）讓「只有 SD 身分」的人永遠停在第一關 403，
+                // 連同檔的 `study_director_user_id == u.id` 擁有人判定都走不到。
+                // 實測 6 位現任 SD 有 5 位卡在這裡，25 份已核准計畫的 SD 按不下結案。
+                //
+                // ⚠️ 授予範圍看似比實際能力大，那是刻意的取捨：權限碼給全體
+                // EXPERIMENT_STAFF，但實際能結案的範圍仍被 status.rs 的三道檢查鎖死
+                //——① 狀態必須是 APPROVED/APPROVED_WITH_CONDITIONS；
+                // ② 必須是該計畫的 pi_user_id / study_director_user_id 本人，或
+                // user_protocols 的委派 PI；③ 不符合就 403。所以持有此碼的人
+                // **只能結自己被指派為 SD 的那幾份**，不能碰別人的。
+                //
+                // 選這條而非「在 status.rs 對 SD 身分豁免權限碼檢查」，是為了維持
+                // 本 repo「權限碼是唯一授權來源」的慣例：豁免會在 service 層開一條
+                // 不經角色的授權路徑，日後稽核權限表時看不到這個能力。
+                "aup.protocol.close_own",
                 // 審查流程
                 "aup.review.view",
                 "aup.review.reply",
