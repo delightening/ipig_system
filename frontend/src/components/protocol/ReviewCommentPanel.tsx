@@ -15,9 +15,21 @@ import { Label } from '@/components/ui/label'
  */
 const NO_OBJECTION_CONTENT = '無意見'
 
+// 這個面板同一畫面只會出現一份（由 showCommentPanel 控制），所以固定 id 就夠，
+// 不需要 useId。改成可同時開多份時要換掉，否則 htmlFor 會指到第一份。
+const SECTION_SELECT_ID = 'review-comment-section'
+const CONTENT_TEXTAREA_ID = 'review-comment-content'
+
 interface ReviewCommentPanelProps {
   onClose: () => void
-  onSubmit: (content: string, commentType: 'COMMENT' | 'NO_OBJECTION') => void
+  /**
+   * 送出一則意見。回傳 Promise 時，面板會等它 resolve 才清空欄位——
+   * reject 就保留使用者的輸入。回傳 void 的呼叫端維持舊行為（送出即清空）。
+   */
+  onSubmit: (
+    content: string,
+    commentType: 'COMMENT' | 'NO_OBJECTION'
+  ) => void | Promise<unknown>
   isSubmitting: boolean
   currentSection?: string
   sectionOptions: string[]
@@ -41,24 +53,38 @@ export function ReviewCommentPanel({
     }
   }, [currentSection])
 
-  const handleSubmit = () => {
-    if (noObjection) {
-      // 「無意見」不掛章節前綴：它是對整份計畫書表態，不是針對某一節。
-      onSubmit(NO_OBJECTION_CONTENT, 'NO_OBJECTION')
+  /**
+   * ⚠️ 只有在送出**成功**之後才清空欄位。
+   *
+   * onSubmit 底下是 React Query 的 mutation。若在呼叫後立刻清空，一旦請求失敗
+   * （網路斷線、後端 4xx），使用者剛打完的意見就沒了，「無意見」的勾選也被還原，
+   * 得整個重來一次——而畫面上只會看到一個 toast 說失敗。
+   *
+   * 失敗時什麼都不動，讓他們直接按第二次就好。錯誤訊息由 mutation 的 onError
+   * 以 toast 呈現，這裡不重複處理，所以 catch 是刻意留空的。
+   */
+  const handleSubmit = async () => {
+    try {
+      if (noObjection) {
+        // 「無意見」不掛章節前綴：它是對整份計畫書表態，不是針對某一節。
+        await onSubmit(NO_OBJECTION_CONTENT, 'NO_OBJECTION')
+        setContent('')
+        setNoObjection(false)
+        return
+      }
+      if (!content.trim()) return
+      const prefix = selectedSection ? `[${selectedSection}] ` : ''
+      await onSubmit(`${prefix}${content.trim()}`, 'COMMENT')
       setContent('')
-      setNoObjection(false)
-      return
+    } catch {
+      // 保留使用者的輸入與已選型別，讓他們可以直接重試
     }
-    if (!content.trim()) return
-    const prefix = selectedSection ? `[${selectedSection}] ` : ''
-    onSubmit(`${prefix}${content.trim()}`, 'COMMENT')
-    setContent('')
   }
 
   return (
     <div className="bg-background border rounded-lg shadow-xs flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h3 className="font-semibold text-sm">審查意見</h3>
+        <h3 className="font-semibold text-sm">{t('protocols.detail.dialogs.comment.panel.title')}</h3>
         <Button variant="ghost" size="sm" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
@@ -81,23 +107,27 @@ export function ReviewCommentPanel({
             onChange={(e) => setNoObjection(e.target.checked)}
           />
           <span className="text-sm">
-            <span className="font-medium">無意見</span>
+            <span className="font-medium">{t('protocols.detail.dialogs.comment.panel.noObjectionLabel')}</span>
             <span className="block text-xs text-muted-foreground mt-0.5">
-              對本計畫書沒有需要修改之處。送出後仍計為已完成審查，申請人不需回覆。
+              {t('protocols.detail.dialogs.comment.panel.noObjectionHint')}
             </span>
           </span>
         </label>
 
         <div className={`space-y-4 ${noObjection ? 'opacity-50 pointer-events-none' : ''}`}>
           <div className="space-y-2">
-            <Label className="text-xs">針對章節</Label>
+            {/* htmlFor / id 成對：沒有這組關聯，螢幕閱讀器讀到的是一個沒有名稱的控制項 */}
+            <Label htmlFor={SECTION_SELECT_ID} className="text-xs">
+              {t('protocols.detail.dialogs.comment.panel.targetSection')}
+            </Label>
             <select
+              id={SECTION_SELECT_ID}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
               disabled={noObjection}
             >
-              <option value="">（不指定章節）</option>
+              <option value="">{t('protocols.detail.dialogs.comment.panel.noSection')}</option>
               {sectionOptions.map((name) => (
                 <option key={name} value={name}>{name}</option>
               ))}
@@ -105,11 +135,14 @@ export function ReviewCommentPanel({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs">意見內容</Label>
+            <Label htmlFor={CONTENT_TEXTAREA_ID} className="text-xs">
+              {t('protocols.detail.dialogs.comment.panel.contentLabel')}
+            </Label>
             <Textarea
+              id={CONTENT_TEXTAREA_ID}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="請輸入審查意見..."
+              placeholder={t('protocols.detail.dialogs.comment.panel.placeholder')}
               rows={6}
               className="resize-y"
               disabled={noObjection}
@@ -128,7 +161,9 @@ export function ReviewCommentPanel({
           ) : (
             <Send className="mr-2 h-4 w-4" />
           )}
-          {noObjection ? '送出「無意見」' : t('protocols.detail.dialogs.comment.submit')}
+          {noObjection
+            ? t('protocols.detail.dialogs.comment.panel.noObjectionSubmit')
+            : t('protocols.detail.dialogs.comment.submit')}
         </Button>
       </div>
     </div>

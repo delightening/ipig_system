@@ -282,7 +282,7 @@ export const CommentsTab = React.memo(function CommentsTab({
             <ReviewCommentPanel
               onClose={() => setShowCommentPanel(false)}
               onSubmit={(content, commentType) =>
-                addCommentMutation.mutate({ content, commentType })
+                addCommentMutation.mutateAsync({ content, commentType })
               }
               isSubmitting={addCommentMutation.isPending}
               sectionOptions={sectionOptions}

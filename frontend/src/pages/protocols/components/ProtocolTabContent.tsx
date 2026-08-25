@@ -39,7 +39,7 @@ interface ProtocolTabContentProps {
   sectionOptions: string[]
   isSubmittingComment: boolean
   onToggleCommentPanel: () => void
-  onSubmitComment: (content: string, commentType: 'COMMENT' | 'NO_OBJECTION') => void
+  onSubmitComment: (content: string, commentType: 'COMMENT' | 'NO_OBJECTION') => void | Promise<unknown>
 }
 
 export function ProtocolTabContent({

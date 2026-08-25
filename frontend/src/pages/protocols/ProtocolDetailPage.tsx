@@ -170,7 +170,7 @@ export function ProtocolDetailPage() {
             isSubmittingComment={addCommentMutation.isPending}
             onToggleCommentPanel={handleToggleCommentPanel}
             onSubmitComment={(content, commentType) =>
-              addCommentMutation.mutate({ content, commentType })
+              addCommentMutation.mutateAsync({ content, commentType })
             }
           />
         </PageTabs>
