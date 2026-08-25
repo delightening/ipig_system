@@ -380,3 +380,137 @@ async fn import_pending_is_also_locked() {
         "應被 GLP 屬性鎖擋下，實得：{err:?}"
     );
 }
+
+/// 🔴 字串 `"true"` 要跟 JSON 布林 `true` 得到同一個結論（CodeRabbit #25）。
+///
+/// migration 006 的回填用 `->> 'is_glp' = 'true'`，`->>` 回傳 text，
+/// 所以 JSON 布林 `true` 與字串 `"true"` 在那裡是**同一件事**。
+/// 若 Rust 端只認 `as_bool()`，同一份內容兩邊結論相反：欄位說非 GLP、
+/// 而前端 `basic.is_glp ? …` 走 JS truthiness 會把字串 `"true"` 顯示成 GLP。
+///
+/// 前端型別是 `is_glp: boolean` 送不出字串，但 `working_content` 在後端是
+/// 未驗證的 `serde_json::Value`——直接打 API 就進得來。
+#[tokio::test]
+#[serial]
+async fn string_true_is_treated_as_glp() {
+    let app = TestApp::spawn().await;
+    let secretary = seed_user(&app, "IACUC_STAFF").await;
+    let pi = seed_user(&app, "PI").await;
+    let actor = user_actor(secretary, &["IACUC_STAFF"]);
+
+    let mut req = create_req(pi, None, false);
+    req.working_content = Some(serde_json::json!({ "basic": { "is_glp": "true" } }));
+
+    let p = ProtocolService::create(&app.db_pool, &actor, &req, secretary)
+        .await
+        .expect("create");
+
+    let is_glp: bool = sqlx::query_scalar("SELECT is_glp FROM protocols WHERE id = $1")
+        .bind(p.id)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("query is_glp");
+    assert!(
+        is_glp,
+        "字串 \"true\" 應與 migration 的 ->> 判準一致，視為 GLP"
+    );
+}
+
+/// 不可辨識的值仍是「沒表態」，不是 false。
+///
+/// ⚠️ 這支釘住「不要為了寬容而多認」：判準是**與 migration 對齊**，
+/// 而 migration 的 `= 'true'` 不認 `"TRUE"` / `"1"` / `"yes"`。
+/// 多認就是在原本的分歧之外再造一條新的。
+/// 回 `None` 而非 `Some(false)` 也很重要——`update` 的雙向鎖靠 `None`
+/// 判斷「這次沒動 GLP」，若誤判成 `Some(false)`，GLP 案的任何編輯都會被鎖擋死。
+#[tokio::test]
+#[serial]
+async fn unrecognised_value_is_not_a_statement() {
+    let app = TestApp::spawn().await;
+    let secretary = seed_user(&app, "IACUC_STAFF").await;
+    let pi = seed_user(&app, "PI").await;
+    let actor = user_actor(secretary, &["IACUC_STAFF"]);
+
+    // GLP 計畫
+    let p = ProtocolService::create(&app.db_pool, &actor, &create_req(pi, None, true), secretary)
+        .await
+        .expect("create glp");
+
+    // 帶一個認不得的 is_glp 值 → 視為沒表態，鎖不該觸發
+    let req = UpdateProtocolRequest {
+        title: Some("改個標題".to_string()),
+        working_content: Some(serde_json::json!({ "basic": { "is_glp": "YES" } })),
+        start_date: None,
+        end_date: None,
+        study_director_user_id: None,
+        version: None,
+        source_form_version: None,
+    };
+    let scope = scope_for(&app, secretary, p.id).await;
+    ProtocolService::update(&app.db_pool, &actor, scope, &req)
+        .await
+        .expect("認不得的值＝沒表態，不該被鎖擋");
+
+    let is_glp: bool = sqlx::query_scalar("SELECT is_glp FROM protocols WHERE id = $1")
+        .bind(p.id)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("query is_glp");
+    assert!(is_glp, "欄位不該被動到");
+}
+
+/// 🔴 複製要繼承來源的**欄位**，不從 working_content 重新推導。
+///
+/// 情境：來源是 migration 006 回填來的——欄位 `is_glp = true`，
+/// 而 `working_content` 裡是字串 `"true"`（甚至根本沒有 is_glp）。
+/// 舊實作從 JSON 推導，複本會拿到 false，等於複製一份「同一個計畫但不是 GLP」。
+///
+/// 而裁定 14 的雙向鎖對 DRAFT 一樣生效，複本的 is_glp 一設下去就再也改不了——
+/// 錯了就得找管理員。
+#[tokio::test]
+#[serial]
+async fn copy_inherits_is_glp_column_not_json() {
+    let app = TestApp::spawn().await;
+    let secretary = seed_user(&app, "IACUC_STAFF").await;
+    let pi = seed_user(&app, "PI").await;
+    let actor = user_actor(secretary, &["IACUC_STAFF"]);
+
+    let p = ProtocolService::create(&app.db_pool, &actor, &create_req(pi, None, true), secretary)
+        .await
+        .expect("create glp");
+
+    // 模擬 migration 回填後的資料形狀：欄位 true，JSON 裡沒有 is_glp。
+    // 直接用 SQL 繞過應用層——這是既有資料的狀態，不是應用層造得出來的。
+    sqlx::query(
+        r#"UPDATE protocols
+           SET working_content = jsonb_set(
+                 working_content::jsonb, '{basic}', '{}'::jsonb
+               )::json
+           WHERE id = $1"#,
+    )
+    .bind(p.id)
+    .execute(&app.db_pool)
+    .await
+    .expect("清掉 JSON 裡的 is_glp");
+
+    let source_scope = access::Scoped::<access::ProtocolId>::authorize(
+        &app.db_pool,
+        &user_cu(secretary, &["IACUC_STAFF"]),
+        p.id,
+    )
+    .await
+    .expect("authorize copy source");
+    let copy = ProtocolService::copy(&app.db_pool, &actor, source_scope, secretary)
+        .await
+        .expect("copy");
+
+    let is_glp: bool = sqlx::query_scalar("SELECT is_glp FROM protocols WHERE id = $1")
+        .bind(copy.id)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("query copy is_glp");
+    assert!(
+        is_glp,
+        "複本應繼承來源欄位的 true，即使 working_content 裡沒有 is_glp"
+    );
+}

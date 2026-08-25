@@ -56,16 +56,40 @@ fn validate_import_milestone_order(
 /// 從 `working_content` 取出使用者填的 GLP 勾選值。
 ///
 /// 回 `None` 代表「這次沒有表態」（沒帶 working_content、沒有 basic 區段、
-/// 沒有 is_glp 欄位，或型別不是布林），呼叫端自行決定要沿用舊值還是視為 false。
+/// 沒有 is_glp 欄位，或值不是可辨識的布林表示），呼叫端自行決定要沿用舊值
+/// 還是視為 false。
 ///
 /// ⚠️ 這個函式**不是**判定「這份計畫是不是 GLP」的來源——那是
 /// `protocols.is_glp` 欄位（migration 006 / 裁定 14）。這裡取的是使用者在表單上
 /// 的輸入，只在寫入欄位時當作素材。混淆兩者正是裁定 14 要消除的問題。
+///
+/// 🔴 **字串 `"true"` / `"false"` 必須跟 JSON 布林一樣認**（CodeRabbit #25 指出）。
+/// migration 006 的回填用 `working_content -> 'basic' ->> 'is_glp' = 'true'`，
+/// 而 `->>` 回傳 text——JSON 布林 `true` 與字串 `"true"` 都得到 `'true'`。
+/// 若這裡只認 `as_bool()`，同一份內容在兩邊會得到相反結論：
+///
+/// | | 字串 `"true"` |
+/// |---|---|
+/// | migration `->>` | GLP |
+/// | `as_bool()` → `None` → `unwrap_or(false)` | 非 GLP |
+/// | 前端 `basic.is_glp ? …`（JS truthiness） | GLP |
+///
+/// 前端型別是 `is_glp: boolean`、送的一定是布林，但 `working_content` 在後端是
+/// 未驗證的 `serde_json::Value`——直接打 API 就能送字串進來，結果是欄位說非 GLP、
+/// 畫面說 GLP。那正是裁定 14 要消除的「JSON 與欄位打架」。
+///
+/// 只認這兩個字串、不認 `"TRUE"` / `"1"` / `"yes"`：因為判準是**與 migration 對齊**，
+/// 不是「盡量寬容」。migration 的 `= 'true'` 也不認那些，多認就又製造新的分歧。
 fn glp_flag_in_content(content: Option<&serde_json::Value>) -> Option<bool> {
-    content
+    let value = content
         .and_then(|c| c.get("basic"))
-        .and_then(|b| b.get("is_glp"))
-        .and_then(|v| v.as_bool())
+        .and_then(|b| b.get("is_glp"))?;
+    match value {
+        serde_json::Value::Bool(b) => Some(*b),
+        serde_json::Value::String(s) if s == "true" => Some(true),
+        serde_json::Value::String(s) if s == "false" => Some(false),
+        _ => None,
+    }
 }
 
 impl ProtocolService {
@@ -793,9 +817,17 @@ impl ProtocolService {
         .bind(source.start_date)
         .bind(source.end_date)
         .bind(copied_by)
-        // 複製：跟著被複製的 working_content 走，不繼承來源的欄位值——
-        // 複製出來的是新的 DRAFT，本來就還沒鎖定。
-        .bind(glp_flag_in_content(source.working_content.as_ref()).unwrap_or(false))
+        // 🔴 複製直接繼承來源的**欄位**，不從 working_content 重新推導。
+        //
+        // 原本寫的是 `glp_flag_in_content(source.working_content)`，理由是
+        // 「複製出來的是新 DRAFT、本來就還沒鎖定」。但裁定 14 之後那個理由不成立：
+        // 雙向鎖對 DRAFT 一樣生效，複本的 is_glp 一設下去就再也改不了。
+        // 既然如此，就該取權威來源——`protocols.is_glp` 欄位，而不是可能已經
+        // 跟欄位不一致的 JSON（裁定 14 的整個重點就是「欄位才是判準」）。
+        //
+        // 附帶好處：來源若是 migration 006 回填來的（JSON 是字串 "true"、
+        // 欄位是 true），複本直接拿 true，不必依賴上面那段字串解析也會對。
+        .bind(source.is_glp)
         .fetch_one(&mut *tx)
         .await?;
 
