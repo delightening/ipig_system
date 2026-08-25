@@ -113,6 +113,63 @@ describe('ReviewCommentPanel — 無意見', () => {
 })
 
 /**
+ * 送出中不讓使用者繼續編輯。
+ *
+ * 若送出期間還能打字，那段字並不在這次請求裡，但請求一 resolve，
+ * handleSubmit 的 setContent('') 會把它一起清掉——使用者會看到自己剛打的字
+ * 憑空消失，而且不知道為什麼。改成「成功才清空」之後這個視窗變得更長。
+ */
+describe('ReviewCommentPanel — 送出中不吃掉使用者的新輸入', () => {
+  it('🔴 送出中，章節選單與內容欄都停用', () => {
+    setup({ isSubmitting: true })
+    expect(screen.getByRole('combobox')).toBeDisabled()
+    expect(contentInput()).toBeDisabled()
+  })
+
+  /**
+   * ⚠️ 這支測的是「請求 pending 的整段期間，兩個控制項都是 disabled」，
+   * 而不是「打字打不進去」。
+   *
+   * 試過後者，測不準：`fireEvent.change` 直接設定 DOM 的 value 再派發事件，
+   * **完全繞過 disabled**——在 jsdom 裡 disabled 的 textarea 照樣會被改值、
+   * onChange 照樣被呼叫。要真的模擬使用者互動得用 @testing-library/user-event，
+   * 本專案沒有這個依賴，而為了一支測試加依賴不划算（且加依賴要先問使用者）。
+   *
+   * 所以驗證點放在 disabled 屬性本身：真實瀏覽器不讓使用者編輯 disabled 的控制項，
+   * 那正是要防的回歸。**不要**改用 fireEvent 去「模擬打字然後斷言值沒變」——
+   * 那支測試在移除 disabled 之後依然會過。
+   */
+  it('🔴 請求 pending 的整段期間，章節選單與內容欄都保持停用', async () => {
+    let resolveSubmit: (v?: unknown) => void = () => {}
+    const onSubmit = vi.fn(() => new Promise((resolve) => { resolveSubmit = resolve }))
+    const props = {
+      onClose: vi.fn(),
+      onSubmit,
+      sectionOptions: ['4.1 實驗設計'],
+    }
+    const { rerender } = render(<ReviewCommentPanel {...props} isSubmitting={false} />)
+
+    fireEvent.change(screen.getByPlaceholderText(PLACEHOLDER), {
+      target: { value: '請補充麻醉劑量' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+
+    // 呼叫端（mutation）進入 pending：面板收到 isSubmitting=true
+    rerender(<ReviewCommentPanel {...props} isSubmitting={true} />)
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeDisabled()
+    expect(screen.getByRole('combobox')).toBeDisabled()
+
+    // 請求完成 → 已送出的內容被清空，且只送出一次
+    resolveSubmit()
+    rerender(<ReviewCommentPanel {...props} isSubmitting={false} />)
+    await waitFor(() => expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveValue(''))
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeEnabled()
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
  * 送出失敗時的行為。onSubmit 底下是 React Query 的 mutation，
  * 面板要等它 resolve 才能清空欄位——否則請求一失敗，使用者剛打完的意見就沒了。
  */

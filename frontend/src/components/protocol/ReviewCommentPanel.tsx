@@ -47,6 +47,16 @@ export function ReviewCommentPanel({
   const [selectedSection, setSelectedSection] = useState('')
   const [noObjection, setNoObjection] = useState(false)
 
+  /**
+   * 章節與內容欄何時該停用。
+   *
+   * `noObjection`  勾了「無意見」就不看這兩欄。
+   * `isSubmitting` ⚠️ 送出中也要停用，否則會吃掉使用者的輸入：送出後才打的字
+   *                不在這次請求裡，但請求一 resolve，handleSubmit 的 setContent('')
+   *                會把它一起清掉。改成「成功才清空」之後這個視窗變長，更容易踩到。
+   */
+  const inputsDisabled = noObjection || isSubmitting
+
   useEffect(() => {
     if (currentSection) {
       setSelectedSection(currentSection)
@@ -125,7 +135,7 @@ export function ReviewCommentPanel({
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
-              disabled={noObjection}
+              disabled={inputsDisabled}
             >
               <option value="">{t('protocols.detail.dialogs.comment.panel.noSection')}</option>
               {sectionOptions.map((name) => (
@@ -145,7 +155,7 @@ export function ReviewCommentPanel({
               placeholder={t('protocols.detail.dialogs.comment.panel.placeholder')}
               rows={6}
               className="resize-y"
-              disabled={noObjection}
+              disabled={inputsDisabled}
             />
           </div>
         </div>
