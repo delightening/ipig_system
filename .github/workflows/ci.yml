@@ -878,11 +878,19 @@ jobs:
           # 測試會建一個游離 commit 驗證 --push 路徑，需要有 HEAD 可以當 parent
           fetch-depth: 1
 
-      # install: false —— 這支測試只用 node 內建模組（node:test / node:assert），
-      # 跑 pnpm install 會把一個秒級的 job 拖成分鐘級。
-      - uses: ./.github/actions/setup-node-pnpm
+      # ⚠️ 不用 ./.github/actions/setup-node-pnpm。
+      #
+      # 那個 composite action 的 setup-node 帶 `cache: "pnpm"`，而本 job 不跑
+      # `pnpm install`（只用 node 內建模組），pnpm store 路徑因此不存在——
+      # post-job 存快取時會 `Path Validation Error` 並把整個 job 判成 failure。
+      #
+      # 實測症狀很有誤導性：測試本身 `pass 19 / fail 0` 全過，job 卻是紅的，
+      # 失敗發生在 post-job cleanup。只看「有沒有測試失敗」會完全找不到原因。
+      #
+      # SHA 沿用該 composite action 裡的同一顆（供應鏈固定慣例），只是不開快取。
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          install: "false"
+          node-version: "24"
 
       - name: pii-scan 回歸測試
         run: node --test scripts/__tests__/pii-scan.test.mjs
