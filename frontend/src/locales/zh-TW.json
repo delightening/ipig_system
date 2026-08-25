@@ -548,7 +548,17 @@
           "submit": "提交意見",
           "success": "審查意見已新增",
           "failed": "新增意見失敗",
-          "firstComment": "新增第一條審查意見"
+          "firstComment": "新增第一條審查意見",
+          "panel": {
+            "title": "審查意見",
+            "targetSection": "針對章節",
+            "noSection": "（不指定章節）",
+            "contentLabel": "意見內容",
+            "placeholder": "請輸入審查意見...",
+            "noObjectionLabel": "無意見",
+            "noObjectionHint": "對本計畫書沒有需要修改之處。送出後仍計為已完成審查，申請人不需回覆。",
+            "noObjectionSubmit": "送出「無意見」"
+          }
         },
         "reply": {
           "title": "回覆審查意見",
@@ -590,6 +600,8 @@
         "reviewOpinion": "審查意見",
         "applicantReply": "意見回覆",
         "noReplyYet": "尚未回覆",
+        "noReplyNeeded": "不需回覆",
+        "noObjection": "無意見",
         "executiveSecretary": "執行秘書",
         "compareVersions": "比較版本",
         "twoVersionsSelected": "已選擇兩個版本進行比較",

@@ -103,11 +103,18 @@ export const CommentsTab = React.memo(function CommentsTab({
   })
 
   const addCommentMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({
+      content,
+      commentType,
+    }: {
+      content: string
+      commentType: 'COMMENT' | 'NO_OBJECTION'
+    }) => {
       if (!versions || versions.length === 0) throw new Error('No version found')
       return api.post('/reviews/comments', {
         protocol_version_id: versions[0].id,
         content,
+        comment_type: commentType,
       })
     },
     onSuccess: () => {
@@ -274,7 +281,9 @@ export const CommentsTab = React.memo(function CommentsTab({
           <div className="w-72 shrink-0 sticky top-4 self-start">
             <ReviewCommentPanel
               onClose={() => setShowCommentPanel(false)}
-              onSubmit={(content) => addCommentMutation.mutate(content)}
+              onSubmit={(content, commentType) =>
+                addCommentMutation.mutateAsync({ content, commentType })
+              }
               isSubmitting={addCommentMutation.isPending}
               sectionOptions={sectionOptions}
             />

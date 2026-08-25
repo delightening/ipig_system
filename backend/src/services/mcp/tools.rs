@@ -370,6 +370,8 @@ pub async fn batch_return_to_pi(
             protocol_version_id: version_id,
             content,
             review_stage: Some("PRE_REVIEW".to_string()),
+            // 補件意見本來就是要求申請人修改的，一律為需回覆的一般意見。
+            comment_type: None,
         };
         ProtocolService::add_comment(&state.db, &req, user.id).await?;
         created += 1;
@@ -383,6 +385,7 @@ pub async fn batch_return_to_pi(
                 protocol_version_id: version_id,
                 content: trimmed.to_string(),
                 review_stage: Some("PRE_REVIEW".to_string()),
+                comment_type: None,
             };
             ProtocolService::add_comment(&state.db, &req, user.id).await?;
             created += 1;

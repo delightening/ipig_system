@@ -548,7 +548,17 @@
           "submit": "Submit Comment",
           "success": "Review comment added",
           "failed": "Failed to add comment",
-          "firstComment": "Add the first review comment"
+          "firstComment": "Add the first review comment",
+          "panel": {
+            "title": "Review Comment",
+            "targetSection": "Target Section",
+            "noSection": "(No specific section)",
+            "contentLabel": "Comment",
+            "placeholder": "Enter your review comment...",
+            "noObjectionLabel": "No objection",
+            "noObjectionHint": "No changes needed for this protocol. This still counts as a completed review, and the applicant does not need to reply.",
+            "noObjectionSubmit": "Submit \"No objection\""
+          }
         },
         "reply": {
           "title": "Reply to Comment",
@@ -589,6 +599,8 @@
         "reviewOpinion": "Review Opinion",
         "applicantReply": "Applicant Reply",
         "noReplyYet": "No reply yet",
+        "noReplyNeeded": "No reply needed",
+        "noObjection": "No objection",
         "executiveSecretary": "Executive Secretary",
         "compareVersions": "Compare Versions",
         "twoVersionsSelected": "Two versions selected for comparison",
