@@ -144,6 +144,16 @@ pub struct Protocol {
     /// 計畫書表單版本鍵（C/D/E/F…）；驅動版本名冊 manifest 渲染；null=最新版，
     /// 變更升級最新版時更新。與 original_version_label（原版標籤自由文字）區分。
     pub source_form_version: Option<String>,
+    /// GLP 計畫。**判定的權威來源**（migration 006 / 裁定 14）。
+    ///
+    /// ⚠️ 不要改用 `working_content -> basic -> is_glp` 做規則判定——那是設計上
+    /// 就可編輯的工作中內容，拿它當判定來源等於沒有規則：分兩個 request
+    /// （先關掉 is_glp，再改 SD）就能繞過「GLP 案不可換 SD」。
+    ///
+    /// `working_content` 裡那份仍然存在，作為表單內容的一部分由使用者編輯；
+    /// 未鎖定時會同步到本欄位，鎖定後兩者可能不同，**一律以本欄位為準**。
+    #[serde(default)]
+    pub is_glp: bool,
 }
 
 /// Protocol 無敏感欄位需脫敏（GLP 稽核需要完整內容；working_content 雖為 jsonb

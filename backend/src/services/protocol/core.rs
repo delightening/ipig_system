@@ -53,6 +53,21 @@ fn validate_import_milestone_order(
     Ok(())
 }
 
+/// 從 `working_content` 取出使用者填的 GLP 勾選值。
+///
+/// 回 `None` 代表「這次沒有表態」（沒帶 working_content、沒有 basic 區段、
+/// 沒有 is_glp 欄位，或型別不是布林），呼叫端自行決定要沿用舊值還是視為 false。
+///
+/// ⚠️ 這個函式**不是**判定「這份計畫是不是 GLP」的來源——那是
+/// `protocols.is_glp` 欄位（migration 006 / 裁定 14）。這裡取的是使用者在表單上
+/// 的輸入，只在寫入欄位時當作素材。混淆兩者正是裁定 14 要消除的問題。
+fn glp_flag_in_content(content: Option<&serde_json::Value>) -> Option<bool> {
+    content
+        .and_then(|c| c.get("basic"))
+        .and_then(|b| b.get("is_glp"))
+        .and_then(|v| v.as_bool())
+}
+
 impl ProtocolService {
     /// 生成計畫編號
     /// 格式：Pre-{民國年}-{序號:03}
@@ -115,9 +130,9 @@ impl ProtocolService {
             r#"
             INSERT INTO protocols (
                 id, protocol_no, title, status, pi_user_id, study_director_user_id,
-                working_content, start_date, end_date, created_by, created_at, updated_at
+                working_content, start_date, end_date, created_by, is_glp, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -131,6 +146,9 @@ impl ProtocolService {
         .bind(req.start_date)
         .bind(req.end_date)
         .bind(created_by)
+        // 建立當下就把表單上的 GLP 勾選寫進權威欄位——否則新計畫的欄位
+        // 一律是 false，與 working_content 立刻不一致。
+        .bind(glp_flag_in_content(req.working_content.as_ref()).unwrap_or(false))
         .fetch_one(&mut *tx)
         .await?;
 
@@ -348,9 +366,9 @@ impl ProtocolService {
                 id, protocol_no, iacuc_no, application_no, title, status, import_pending,
                 pi_user_id, study_director_user_id, working_content,
                 start_date, end_date, submitted_at, approved_at, created_by,
-                source_form_version, imported_at, created_at, updated_at
+                source_form_version, is_glp, imported_at, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -370,6 +388,8 @@ impl ProtocolService {
         .bind(effective_approved_at)
         .bind(created_by)
         .bind(source_form_version)
+        // 補登匯入：以匯入內容為準（此時 import_pending=true，尚未鎖定）
+        .bind(glp_flag_in_content(req.working_content.as_ref()).unwrap_or(false))
         .fetch_one(&mut *tx)
         .await?;
 
@@ -758,9 +778,9 @@ impl ProtocolService {
             r#"
             INSERT INTO protocols (
                 id, protocol_no, title, status, pi_user_id, working_content,
-                start_date, end_date, created_by, created_at, updated_at
+                start_date, end_date, created_by, is_glp, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -773,6 +793,9 @@ impl ProtocolService {
         .bind(source.start_date)
         .bind(source.end_date)
         .bind(copied_by)
+        // 複製：跟著被複製的 working_content 走，不繼承來源的欄位值——
+        // 複製出來的是新的 DRAFT，本來就還沒鎖定。
+        .bind(glp_flag_in_content(source.working_content.as_ref()).unwrap_or(false))
         .fetch_one(&mut *tx)
         .await?;
 
@@ -1080,21 +1103,55 @@ impl ProtocolService {
             ));
         }
 
+        // ── GLP 屬性（裁定 14，migration 006）─────────────────────────────
+        //
+        // `protocols.is_glp` 是判定的權威來源。`working_content.basic.is_glp`
+        // 仍然是表單內容的一部分，未鎖定時同步到欄位，鎖定後以欄位為準。
+        //
+        // ⚠️ 為什麼需要獨立欄位：舊寫法直接讀 working_content，而那是**設計上就
+        // 可編輯**的內容。舊寫法已經防了同一 request 的繞過（取「更新後生效值」），
+        // 但擋不住跨 request：
+        //   request 1：只改 is_glp=false，不帶 study_director_user_id
+        //              → 底下 `if let Some(sd_id)` 整段不執行，鎖根本沒被檢查
+        //   request 2：改 SD（is_glp 已是 false，鎖不觸發）
+        // 判定來源可被任意編輯的話，規則寫得再嚴都只是裝飾。
+        //
+        // **建立後即固定，雙向皆不可變更**（使用者 2026-08-25 裁定）：
+        // GLP 不可改成非 GLP，非 GLP 也不可改成 GLP。
+        //
+        // ⚠️ 為什麼不是「核准後才鎖」——那個版本的有效範圍是空的。
+        // 上面 `:1070-1081` 早就規定只有 DRAFT／三種 RevisionRequired／
+        // APPROVED+import_pending 能編輯 working_content，所以「已核准且完成補登」
+        // 的計畫連 update 都進不去，鎖與不鎖沒有差別。
+        //
+        // 而繞過路徑正好落在**可編輯**的狀態裡，實測 3 個 request 走得通：
+        //   1. 只關掉 is_glp（不帶 SD）→ 下面的 GLP 鎖在 `if let Some(sd_id)` 內，不執行
+        //   2. 換 SD（此時已是非 GLP，鎖不觸發）
+        //   3. 把 is_glp 改回 true
+        // 把判定來源從 JSONB 搬到欄位並不能堵住它——問題不在來源可竄改，
+        // 而在「可編輯狀態下 is_glp 本來就能改」。雙向鎖直接斷掉第 1 步。
+        //
+        // 代價：起草階段勾錯要找管理員改。這是使用者權衡後接受的。
+        // admin 例外（裁定 3 的「可繞過但填理由 + 寫稽核」）**尚未實作**——
+        // 那需要在 UpdateProtocolRequest 加理由欄位，屬 API 契約變更。
+        if let Some(requested) = glp_flag_in_content(req.working_content.as_ref()) {
+            if requested != before.is_glp {
+                return Err(AppError::BusinessRule(
+                    "計畫的 GLP 屬性建立後不可變更（GLP 與非 GLP 皆不可互轉）。如需更正請聯繫管理員。"
+                        .into(),
+                ));
+            }
+        }
+
         // 計劃負責人（SD）變更（選填）：驗證 + 授權（僅執秘/admin 指派他人，其餘限本人）。
         // GLP 鎖：GLP 計劃一旦已指派 SD 即鎖定，不可變更（GLP Study Director 為法規正式角色）；
-        // 尚未指派（NULL）時仍可首次指派。is_glp 取自「更新後」生效內容（req 帶 working_content
-        // 則用之，否則沿用 before），防同一 request 翻 is_glp=true + 改 SD 繞過鎖。
+        // 尚未指派（NULL）時仍可首次指派。
+        //
+        // 讀 `before.is_glp`（權威欄位）而非 working_content：後者是可編輯的表單內容，
+        // 拿它當規則判定來源等於沒有規則。有了上面的雙向鎖，兩者也不可能再分歧。
         if let Some(sd_id) = req.study_director_user_id {
             Self::validate_and_authorize_sd(&mut tx, actor, sd_id).await?;
-            let is_glp = req
-                .working_content
-                .as_ref()
-                .or(before.working_content.as_ref())
-                .and_then(|c| c.get("basic"))
-                .and_then(|b| b.get("is_glp"))
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            if is_glp
+            if before.is_glp
                 && before.study_director_user_id.is_some()
                 && before.study_director_user_id != Some(sd_id)
             {
@@ -1123,6 +1180,9 @@ impl ProtocolService {
                 end_date = COALESCE($5, end_date),
                 study_director_user_id = COALESCE($7, study_director_user_id),
                 source_form_version = COALESCE($8, source_form_version),
+                -- ⚠️ 這裡**刻意沒有 is_glp**：它建立後即固定（見上方雙向鎖），
+                -- 任何變更請求在到達這裡之前就已被拒。把它放進 UPDATE 只會多開
+                -- 一條「有人日後改動繫結順序就悄悄能改」的路。
                 version = version + 1,
                 updated_at = NOW()
             WHERE id = $1
