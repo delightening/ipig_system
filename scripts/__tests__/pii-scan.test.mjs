@@ -93,12 +93,23 @@ describe('缺口 1b：--push 也要掃 message，不能只靠 commit-msg hook', 
   // 當初外洩就是 amend 之後 force-push。
   test('🔴 range 內某個 commit 的 message 含人名 → 擋下', () => {
     const repoRoot = path.join(HERE, '..', '..')
-    const head = execSync('git rev-parse HEAD', { cwd: repoRoot, encoding: 'utf8' }).trim()
-    const tree = execSync('git write-tree', { cwd: repoRoot, encoding: 'utf8' }).trim()
+    // ⚠️ 自帶 author/committer：CI runner 上沒有 git user.email／user.name，
+    // 少了這組 `git commit-tree` 會直接失敗，而失敗訊息看起來像「測試壞了」
+    // 而不是「環境缺設定」。不用 `git config` 是為了不污染 runner 的全域狀態。
+    const gitEnv = {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'pii-scan-test',
+      GIT_AUTHOR_EMAIL: 'pii-scan-test@example.com',
+      GIT_COMMITTER_NAME: 'pii-scan-test',
+      GIT_COMMITTER_EMAIL: 'pii-scan-test@example.com',
+    }
+    const head = execSync('git rev-parse HEAD', { cwd: repoRoot, encoding: 'utf8', env: gitEnv }).trim()
+    const tree = execSync('git write-tree', { cwd: repoRoot, encoding: 'utf8', env: gitEnv }).trim()
     // 游離 commit：不掛在任何分支上，測完隨 GC 消失
     const bad = execSync(`git commit-tree ${tree} -p ${head}`, {
       cwd: repoRoot,
       encoding: 'utf8',
+      env: gitEnv,
       input: 'chore: 測試\n\n陳測試 3 份\n',
     }).trim()
 

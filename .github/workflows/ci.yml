@@ -843,6 +843,39 @@ jobs:
           ./test-entrypoint.sh
 
   # =========================
+  # 🔑 個資掃描器的自我測試
+  # =========================
+  # 為什麼要有這個 job：pii-scan 是 commit message 個資外洩的**唯一**防線——
+  # 推出去之後 force-push 收不回來（commit 物件仍可用 SHA 存取，得請 GitHub
+  # Support 執行 GC）。2026-08-25 一則含 6 位同仁姓名的 commit message 連續三次
+  # push 全數通過，事後查出掃描器根本沒掃 commit message。沒有自動測試的話，
+  # 下一次重構同樣可能靜默關掉某條路徑，而症狀要等到再次外洩才會出現。
+  #
+  # 刻意**不掛 needs、不看 changed paths**：這支測試秒級完成、不需要資料庫、
+  # 不需要真人名字典（用版控內的假名單 fixture），沒有理由讓它被任何條件跳過。
+  # 設成「只在改到 scripts/ 時才跑」會漏掉「別處的改動意外影響它」的情況。
+  pii-scan-test:
+    name: "🔑 Security: pii-scan 自我測試"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # 測試會建一個游離 commit 驗證 --push 路徑，需要有 HEAD 可以當 parent
+          fetch-depth: 1
+
+      # install: false —— 這支測試只用 node 內建模組（node:test / node:assert），
+      # 跑 pnpm install 會把一個秒級的 job 拖成分鐘級。
+      - uses: ./.github/actions/setup-node-pnpm
+        with:
+          install: "false"
+
+      - name: pii-scan 回歸測試
+        run: node --test scripts/__tests__/pii-scan.test.mjs
+
+  # =========================
   # 🔒 前端依賴漏洞掃描（OSV）
   # =========================
   # npm 於 2026-07 下架 `pnpm audit` 依賴的 audit API 端點（回 410），連 pnpm 10.x
