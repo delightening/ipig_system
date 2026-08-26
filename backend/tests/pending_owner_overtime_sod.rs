@@ -200,10 +200,17 @@ async fn final_stage_restores_candidates_when_nobody_else_can_sign() {
     let pool = &app.db_pool;
 
     let applicant = seed_user_with_role(pool, "ot3-applicant", "EXPERIMENT_STAFF").await;
+    // 自己建足前提，不依賴種子資料裡剛好有管理員（CodeRabbit 於 #30 指出）。
+    // 原本是斷言「測試庫有管理員」——那不會假綠，但 fixture 一改就會紅在錯的地方，
+    // 讀的人會以為是 resolver 壞了。
+    let seeded_admin = seed_user_with_role(pool, "ot3-admin", ADMIN_ROLE).await;
     let ot = seed_pending_admin_overtime(pool, applicant, 3).await;
 
     let admins = all_admins_except(pool, applicant).await;
-    assert!(!admins.is_empty(), "測試庫沒有任何管理員，本測試前提不成立");
+    assert!(
+        admins.contains(&seeded_admin),
+        "自建的管理員必須被 all_admins_except 撈到，否則後面的「讓所有人都批過」不成立"
+    );
 
     // 讓「所有」合格終審者都批過前關 → 權威來源回空 → 必須退回全體。
     for admin in &admins {
@@ -213,9 +220,15 @@ async fn final_stage_restores_candidates_when_nobody_else_can_sign() {
     let eligible = HrService::final_stage_eligible_approvers(pool, &[ot])
         .await
         .expect("eligible");
-    assert!(
-        eligible.get(&ot).map(Vec::is_empty).unwrap_or(true),
-        "前提：所有人都批過之後，權威來源應回空"
+    // ⚠️ 是「有這個 key 且清單為空」，不是「沒有這個 key」。
+    // 兩者在解析器裡都會退回全體，所以行為看不出差別——但意思不同：
+    // 空清單＝判準跑過了、答案是沒人；缺席＝這筆不存在。權威來源必須表達前者，
+    // 否則「無人可簽」與「查無此單」會走到同一條路。
+    // （這個區分原本只寫在註解裡，mutation 打不到那條分支才發現。）
+    assert_eq!(
+        eligible.get(&ot).map(Vec::len),
+        Some(0),
+        "所有人都批過之後，權威來源應回**空清單**而非缺席"
     );
 
     let resolved = resolve_for_overtime(pool, &[ot]).await.expect("resolve");

@@ -114,12 +114,17 @@ pub(crate) async fn resolve_single_stage(
 /// 權限」，表達不了「這一筆，這個人已經簽過了」。
 ///
 /// `eligible` 語意：
-/// - 該 id **不在 map 裡** → 不套用逐筆判準，行為同 [`resolve_single_stage`]
 /// - 該 id 對應**非空**清單 → 只列出清單內的人
 /// - 該 id 對應**空**清單 → 權威判準說「沒有其他人可簽」，退回候選來源全體。
 ///   這對應「卡關代批」：SoD 只在真的還有別人時才收緊，否則單一審批人組織會卡死
 ///   （`services/hr/overtime.rs` 終審關、`services/hr/leave.rs` 負責人關都是這個規則）。
 ///   **退回而不是留空**——留空會讓「能簽但要動用代批」看起來跟「沒人能簽」一樣。
+/// - 該 id **不在 map 裡** → 不套用逐筆判準，行為同 [`resolve_single_stage`]
+///
+/// ⚠️ 後兩者的結果相同，但**理由不同,不可合併**：空清單是「判準跑過了,答案是沒人」，
+/// 缺席是「這一關沒有逐筆判準」。權威來源必須用空清單表達前者
+/// （`final_stage_eligible_approvers` 的 `LEFT JOIN LATERAL` 就是為此），
+/// 否則「無人可簽」與「查無此單」在這裡會走到同一條路,而它們該做的事不一樣。
 pub(crate) async fn resolve_single_stage_with_eligible(
     pool: &PgPool,
     stage: &'static str,

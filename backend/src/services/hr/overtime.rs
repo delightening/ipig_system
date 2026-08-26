@@ -651,27 +651,39 @@ impl HrService {
     /// 於是 pending_owner 手刻了一份而刻歪（CodeRabbit 於 #30 指出）。
     ///
     /// 一次算多筆：pending_owner 要對一整頁的加班單解析，逐筆 roundtrip 划不來。
-    /// 查無合法人選的 id **不會出現在回傳的 map 裡**。
+    ///
+    /// **回傳契約**：`overtime_records` 裡存在的 id **一律有一筆**，查無合法人選時
+    /// 對應**空 Vec**；不存在的 id 才會缺席。用 `LEFT JOIN LATERAL` 就是為了這個——
+    /// 若改成內層 JOIN，「無人可簽」會退化成「查無此單」，兩者在呼叫端的意思完全不同：
+    /// 前者要觸發卡關代批，後者什麼都不該做。
+    ///
+    /// ⚠️ 這個區分原本只存在於註解裡，而 `pending_owner` 的退回邏輯正好也接受
+    /// 缺席，所以**兩種寫法在當時都會通過測試**——mutation 打不到那條路才發現。
     /// `pub` 而非 `pub(crate)`：整合測試是獨立 crate，必須看得到它才能直接釘住
     /// 「守衛與名單同源」這個不變式（`tests/pending_owner_overtime_sod.rs`）。
     pub async fn final_stage_eligible_approvers(
         executor: impl sqlx::PgExecutor<'_>,
         overtime_ids: &[Uuid],
     ) -> Result<std::collections::HashMap<Uuid, Vec<Uuid>>> {
-        let rows: Vec<(Uuid, Uuid)> = sqlx::query_as(
+        let rows: Vec<(Uuid, Option<Uuid>)> = sqlx::query_as(
             r#"
-            SELECT DISTINCT o.id, u.id
+            SELECT o.id, eligible.user_id
             FROM overtime_records o
-            JOIN users u
-              ON u.is_active = true AND u.deleted_at IS NULL AND u.id <> o.user_id
-            JOIN user_roles ur ON ur.user_id = u.id
-            JOIN roles r ON r.id = ur.role_id AND r.code IN ($2, $3)
+            LEFT JOIN LATERAL (
+                SELECT DISTINCT u.id AS user_id
+                FROM users u
+                JOIN user_roles ur ON ur.user_id = u.id
+                JOIN roles r ON r.id = ur.role_id
+                WHERE r.code IN ($2, $3)
+                  AND u.is_active = true AND u.deleted_at IS NULL
+                  AND u.id <> o.user_id
+                  AND NOT EXISTS (
+                    SELECT 1 FROM overtime_approvals oa
+                    WHERE oa.overtime_record_id = o.id AND oa.approver_id = u.id
+                      AND oa.action = 'APPROVE'
+                  )
+            ) eligible ON true
             WHERE o.id = ANY($1)
-              AND NOT EXISTS (
-                SELECT 1 FROM overtime_approvals oa
-                WHERE oa.overtime_record_id = o.id AND oa.approver_id = u.id
-                  AND oa.action = 'APPROVE'
-              )
             "#,
         )
         .bind(overtime_ids)
@@ -682,7 +694,11 @@ impl HrService {
 
         let mut map: std::collections::HashMap<Uuid, Vec<Uuid>> = std::collections::HashMap::new();
         for (record_id, user_id) in rows {
-            map.entry(record_id).or_default().push(user_id);
+            // 單一 NULL 列＝這筆存在但無人可簽 → 留下空 Vec，不是缺席。
+            let entry = map.entry(record_id).or_default();
+            if let Some(user_id) = user_id {
+                entry.push(user_id);
+            }
         }
         Ok(map)
     }

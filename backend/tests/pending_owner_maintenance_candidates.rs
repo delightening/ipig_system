@@ -21,6 +21,32 @@ use uuid::Uuid;
 const NARROW: &str = "equipment.maintenance.manage";
 const BOTH: &[&str] = &["equipment.maintenance.manage", "equipment.manage"];
 
+async fn seed_user_with_role(pool: &PgPool, label: &str, role_code: &str) -> Uuid {
+    let id = Uuid::new_v4();
+    let suffix = Uuid::new_v4().simple().to_string();
+    sqlx::query(
+        "INSERT INTO users (id, email, display_name, password_hash, is_active, is_internal) \
+         VALUES ($1, $2, $3, 'x', true, true)",
+    )
+    .bind(id)
+    .bind(format!("{label}-{}@example.com", &suffix[..8]))
+    .bind(format!("{label}-{}", &suffix[..6]))
+    .execute(pool)
+    .await
+    .expect("seed user");
+
+    sqlx::query(
+        "INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE code = $2",
+    )
+    .bind(id)
+    .bind(role_code)
+    .execute(pool)
+    .await
+    .expect("grant role");
+
+    id
+}
+
 async fn seed_equipment(pool: &PgPool) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(
@@ -61,6 +87,11 @@ async fn pending_stage_lists_equipment_manage_holders_too() {
     let app = TestApp::spawn().await;
     let pool = &app.db_pool;
 
+    // 自己建出「只有 equipment.manage、沒有 equipment.maintenance.manage」的人，
+    // 不依賴種子資料裡剛好存在這種人（CodeRabbit 於 #30 指出）。
+    // ADMIN_STAFF 正是這個差：授予表給它 equipment.manage 但不給 maintenance.manage。
+    let manage_only = seed_user_with_role(pool, "maint-manage-only", "ADMIN_STAFF").await;
+
     let narrow = repo::list_users_with_permission(pool, NARROW)
         .await
         .expect("list narrow");
@@ -68,15 +99,16 @@ async fn pending_stage_lists_equipment_manage_holders_too() {
         .await
         .expect("list both");
 
-    // 前提：兩個來源的人數必須不同，否則這支測試量不到任何東西。
-    // 若哪天權限授予收斂成一致，這裡會要求重新檢視而不是靜默通過。
+    // 前提現在由上面那位使用者保證，但仍顯式驗一次——因為它依賴的是
+    // **授予表的內容**（ADMIN_STAFF 的權限組合），那是資料不是程式碼，會變。
     assert!(
-        both.len() > narrow.len(),
-        "前提消失：`equipment.manage` 的持有者已全部涵蓋於 `{NARROW}`，\n\
-         本測試分辨不出「只查一個」與「兩個都查」，請重新檢視或刪除。\n\
-         narrow={} both={}",
-        narrow.len(),
-        both.len()
+        both.iter().any(|(id, _)| *id == manage_only),
+        "只有 `equipment.manage` 的人必須出現在兩權限來源裡"
+    );
+    assert!(
+        !narrow.iter().any(|(id, _)| *id == manage_only),
+        "前提消失：ADMIN_STAFF 現在也有 `{NARROW}` 了，本測試分辨不出\n\
+         「只查一個」與「兩個都查」，請改用別的角色或刪除本測試。"
     );
 
     let equipment = seed_equipment(pool).await;
