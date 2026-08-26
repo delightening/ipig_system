@@ -965,6 +965,40 @@ pub async fn require_iacuc_protocol_access(
 }
 
 // ============================================
+// IACUC 行政方身分判定
+// ============================================
+
+/// IACUC 行政方（執行秘書 / 主席），或管理員。
+///
+/// 抽出來的理由是同一組判斷在 `handlers/protocol/ai_review.rs` 重複四次
+/// （`RULES_BACKEND.md` §3：同一權限檢查 ≥2 處 → `services/access.rs`），
+/// 而那四處**都漏了 legacy admin**。
+///
+/// ⚠️ **一律用 [`CurrentUser::is_admin`] 判管理員，不要自己比對 `ROLE_SYSTEM_ADMIN`。**
+/// `constants.rs` 有 `SYSTEM_ADMIN` 與 `admin` 兩個代碼，但 `roles` 表**只有 `admin`**
+/// （2026-08-26 實查正式庫 16 個角色 + `backend/migrations/` 全目錄 0 命中）。
+/// 單獨比對 `ROLE_SYSTEM_ADMIN` 的分支在任何從 migration 建起來的部署上都恆為 false。
+pub fn is_iacuc_staff_or_chair(current_user: &CurrentUser) -> bool {
+    current_user.is_admin()
+        || current_user.roles.iter().any(|r| {
+            [
+                crate::constants::ROLE_IACUC_STAFF,
+                crate::constants::ROLE_IACUC_CHAIR,
+            ]
+            .contains(&r.as_str())
+        })
+}
+
+/// 僅 IACUC 執行秘書（**不含主席**），或管理員。
+///
+/// 與 [`is_iacuc_staff_or_chair`] 刻意分開：`ai_review.rs::check_protocol_owner`
+/// 的原始清單就沒有主席。本次只補管理員 fallback，**不改變主席的有無**
+/// ——那是行為變更，需另外裁定。
+pub fn is_iacuc_staff(current_user: &CurrentUser) -> bool {
+    current_user.is_admin() || current_user.has_role(crate::constants::ROLE_IACUC_STAFF)
+}
+
+// ============================================
 // 設備驗收存取權限檢查
 // ============================================
 

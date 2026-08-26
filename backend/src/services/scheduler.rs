@@ -1630,9 +1630,7 @@ impl SchedulerService {
         let mut recipients = service
             .get_users_by_role(crate::constants::ROLE_WAREHOUSE_MANAGER)
             .await?;
-        let admins = service
-            .get_users_by_role(crate::constants::ROLE_SYSTEM_ADMIN)
-            .await?;
+        let admins = service.get_admin_users().await?;
         recipients.extend(admins);
         recipients.sort_by_key(|(id, _, _)| *id);
         recipients.dedup_by_key(|(id, _, _)| *id);
@@ -1698,11 +1696,12 @@ impl SchedulerService {
         let month = today.month();
 
         let service = NotificationService::new(db.clone());
-        let admins = service
-            .get_users_by_role(crate::constants::ROLE_SYSTEM_ADMIN)
-            .await?;
+        let admins = service.get_admin_users().await?;
+        // 這條防呆在修好角色代碼之前是**恆真**的（`get_users_by_role("SYSTEM_ADMIN")`
+        // 永遠回空），所以備份提醒從來沒發出去過。保留它——修好之後它才第一次
+        // 真正發揮作用（系統真的沒有管理員時才跳過）。
         if admins.is_empty() {
-            info!("[BackupReminder] no SYSTEM_ADMIN users to notify, skipping");
+            info!("[BackupReminder] no admin users to notify, skipping");
             return Ok(());
         }
 

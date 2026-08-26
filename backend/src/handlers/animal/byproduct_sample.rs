@@ -22,7 +22,6 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    constants::ROLE_SYSTEM_ADMIN,
     middleware::{ActorContext, CurrentUser},
     models::{CreateNotificationRequest, NotificationType},
     require_permission,
@@ -187,7 +186,7 @@ fn notify_admins_byproduct_change(
 ) {
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        let admins = match svc.get_users_by_role(ROLE_SYSTEM_ADMIN).await {
+        let admins = match svc.get_admin_users().await {
             Ok(a) => a,
             Err(e) => {
                 tracing::warn!("查詢 admin 失敗: {e}");

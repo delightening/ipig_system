@@ -398,24 +398,19 @@ fn has_write_scope(scopes: &[String]) -> bool {
 }
 
 fn is_write_role(user: &CurrentUser) -> bool {
-    user.roles.iter().any(|r| {
-        [
-            crate::constants::ROLE_IACUC_STAFF,
-            crate::constants::ROLE_IACUC_CHAIR,
-            crate::constants::ROLE_SYSTEM_ADMIN,
-        ]
-        .contains(&r.as_str())
-    })
+    crate::services::access::is_iacuc_staff_or_chair(user)
 }
 
 fn is_vet_role(user: &CurrentUser) -> bool {
     user.roles.iter().any(|r| r == crate::constants::ROLE_VET)
 }
 
+/// ⚠️ 用 [`CurrentUser::is_admin`]，不要自己比對 `ROLE_SYSTEM_ADMIN`。
+/// 原本只比對後者，而 `roles` 表裡沒有那個代碼（實查），所以這個閘對任何人都回 false
+/// ——管理員拿不到 `submit_vet_review` 工具。方向是 fail-closed（不是外人拿得到），
+/// 但功能是死的。
 fn is_admin_role(user: &CurrentUser) -> bool {
-    user.roles
-        .iter()
-        .any(|r| r == crate::constants::ROLE_SYSTEM_ADMIN)
+    user.is_admin()
 }
 
 /// SHA-256 雜湊 MCP key（明文只在建立時回傳一次，DB 僅存雜湊）。
