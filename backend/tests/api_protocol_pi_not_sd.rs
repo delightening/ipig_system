@@ -398,3 +398,109 @@ async fn pi_check_precedes_role_check() {
         "不該讓角色檢查先報，那會誤導使用者，實得：{msg}"
     );
 }
+
+/// 🔴 **已知缺口（CodeRabbit #26 第 3 輪指出，2026-08-27 查證後保留）**
+///
+/// 角色是**可變**的，而佔位判別讀的是「此刻有沒有 PI 角色」。所以計畫建立之後
+/// 才改角色，判別結果就會跟著變——本支與下一支各釘住一個方向。
+///
+/// 這個方向：**真 PI 事後失去 PI 角色 → 閘對他失效（fail open）**。
+/// 他自任 SD 會被放行，而裁定 16 本來要擋這件事。
+///
+/// ⚠️ 為什麼不修：CodeRabbit 建議「建立時存下不可變的外部 PI 標記」，
+/// 那是加 schema 欄位，而使用者 2026-08-26 已明確裁定**用角色啟發式、不加欄位**
+/// （理由：既有資料沒有 ground truth，加了欄位也只能用同一套啟發式回填，
+/// 對現存計畫的精確度完全一樣）。schema 變更屬必問項，不由本 PR 自行決定。
+///
+/// 所以這支**斷言現況而非期望**——把缺口變成明寫的、有測試釘住的東西，
+/// 而不是沒人知道的。日後若改用欄位，這支會紅，那正是它該做的事。
+#[tokio::test]
+#[serial]
+async fn known_gap_real_pi_losing_pi_role_makes_guard_fail_open() {
+    let app = TestApp::spawn().await;
+    let pi = seed_user(&app, "PI").await;
+    add_role(&app, pi, "EXPERIMENT_STAFF").await;
+    let actor = user_actor(pi, &["PI"]);
+
+    // 具 PI 角色時建立自己的計畫（此時若指派自己為 SD 會被擋——見
+    // update_still_blocks_when_self_created_pi_has_pi_role）
+    let p = ProtocolService::create(&app.db_pool, &actor, &create_req(None, None), pi)
+        .await
+        .expect("create");
+    assert_eq!(p.pi_user_id, pi);
+
+    // 事後被拔掉 PI 角色（人事異動、角色重整都會發生）
+    sqlx::query("DELETE FROM user_roles WHERE user_id = $1 AND role_id = (SELECT id FROM roles WHERE code = 'PI')")
+        .bind(pi)
+        .execute(&app.db_pool)
+        .await
+        .expect("remove PI role");
+
+    let req = UpdateProtocolRequest {
+        title: None,
+        working_content: None,
+        start_date: None,
+        end_date: None,
+        study_director_user_id: Some(pi),
+        version: None,
+        source_form_version: None,
+    };
+    let scope = scope_for(&app, pi, p.id).await;
+    ProtocolService::update(&app.db_pool, &actor, scope, &req)
+        .await
+        .expect(
+            "已知缺口：失去 PI 角色後，同一個人被判成佔位 → 自任 SD 被放行。\
+             這支斷言的是現況，不是期望——若這裡改成會擋，表示判別方式換了，請一併更新註解",
+        );
+}
+
+/// 🔴 **已知缺口的反方向：佔位建立者事後取得 PI 角色 → 被誤擋（fail closed）**
+///
+/// 執秘替外部 PI 建計畫（`pi_user_id` 佔位成自己）、之後才自任 SD，是裁定 10／11
+/// 允許的日常操作。但他若在這中間取得 PI 角色，佔位判別就不再成立，
+/// `effective_pi` 變成他本人 → PI == SD → **原本合法的指派被擋下**。
+///
+/// ⚠️ 影響範圍已量過，比初看小：
+/// - 這道閘**只在 `req.study_director_user_id` 為 `Some` 時才跑**（`core.rs` L1260），
+///   所以不會擋掉該計畫的其他欄位更新，只擋「設定 SD」這個動作。
+/// - 2026-08-27 正式庫實查：**同時具 PI 與 EXPERIMENT_STAFF 角色的使用者 0 人**，
+///   目前無法觸發。但角色指派是例行管理動作，數字隨時會變。
+/// - 可繞過：指派別人當 SD，或把 PI 欄位改成真正的外部 PI。不是死鎖。
+#[tokio::test]
+#[serial]
+async fn known_gap_placeholder_creator_gaining_pi_role_gets_blocked() {
+    let app = TestApp::spawn().await;
+    let secretary = seed_user(&app, "IACUC_STAFF").await;
+    add_role(&app, secretary, "EXPERIMENT_STAFF").await;
+    let actor = user_actor(secretary, &["IACUC_STAFF"]);
+
+    let p = ProtocolService::create(&app.db_pool, &actor, &create_req(None, None), secretary)
+        .await
+        .expect("create");
+    assert_eq!(p.pi_user_id, secretary, "PI 欄位是佔位值");
+    assert!(p.study_director_user_id.is_none());
+
+    // 事後取得 PI 角色
+    add_role(&app, secretary, "PI").await;
+
+    let req = UpdateProtocolRequest {
+        title: None,
+        working_content: None,
+        start_date: None,
+        end_date: None,
+        study_director_user_id: Some(secretary),
+        version: None,
+        source_form_version: None,
+    };
+    let scope = scope_for(&app, secretary, p.id).await;
+    let err = ProtocolService::update(&app.db_pool, &actor, scope, &req)
+        .await
+        .expect_err(
+            "已知缺口：取得 PI 角色後，同一筆佔位資料被重新判定成真 PI → 自任 SD 被擋。\
+             這支斷言的是現況，不是期望",
+        );
+    assert!(
+        matches!(&err, AppError::Validation(m) if m.contains("不可兼任")),
+        "應是「不可兼任」，實得：{err:?}"
+    );
+}

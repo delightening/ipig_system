@@ -160,8 +160,8 @@ impl ProtocolService {
         // 而 `update` 那邊的啟發式抓不到它（那人有 PI 角色，不算佔位），
         // 只會擋住之後的變更——但違規狀態已經在建立時就寫進去了。
         //
-        // 2026-08-26 實測正式庫：同時具兩個角色的使用者 **0 人**（有 PI 26、
-        // 有 EXPERIMENT_STAFF 11、交集 0），所以目前**無法觸發**。
+        // 2026-08-26 實測正式庫：**沒有**使用者同時具那兩個角色，
+        // 所以目前**無法觸發**。
         // 仍然修，因為角色指派是例行管理動作，而且 create 與 update 判準不一致
         // 本身就是遲早會咬人的東西。
         let effective_pi_for_check = match req.pi_user_id {
@@ -293,8 +293,8 @@ impl ProtocolService {
         // 而裁定 10／11 明確允許執秘自任 SD。所以只在 PI **被明確指定**
         // （`req.pi_user_id.is_some()`）時才比對。
         //
-        // 2026-08-25 實測正式庫：`pi_user_id = created_by` 有 5 筆，
-        // 其中同時 PI=SD 的只有 1 筆（即裁定 16 要處理的那筆存量），
+        // 2026-08-25 實測正式庫：存在 `pi_user_id = created_by` 的計畫，
+        // 其中同時 PI=SD 的是少數（即裁定 16 要處理的存量），
         // 所以這個放寬目前不會漏掉任何真實的違規案例。
         if let Some(pi_id) = pi_user_id {
             if sd_id == pi_id {
@@ -1265,8 +1265,8 @@ impl ProtocolService {
             //
             // 🔴 直接拿 `Some(before.pi_user_id)` 會誤擋（CodeRabbit #26 指出）。
             // 2026-08-26 正式庫實查：
-            //   `pi_user_id = created_by` 且尚未指派 SD 的計畫共 3 筆，
-            //   其中 2 筆的建立者角色是 EXPERIMENT_STAFF（正是擔任 SD 的必要角色），
+            //   存在「`pi_user_id = created_by` 且尚未指派 SD」的計畫，
+            //   其中有些的建立者角色是 EXPERIMENT_STAFF（正是擔任 SD 的必要角色），
             //   完全沒有 PI 角色——那不是「PI 開自己的計畫」，是佔位。
             //   把該建立者指派為 SD 是合理操作，卻會被 PI≠SD 擋掉。
             //
@@ -1277,10 +1277,26 @@ impl ProtocolService {
             // 差別在它的 PI **具 PI 角色**（DIRECTOR, PI）。只看形狀會把它一起放過，
             // 而它正是裁定 16 要處理的存量。
             //
-            // ⚠️ 已知代價：某位真 PI 若在系統裡沒被授予 PI 角色，這道閘對他失效。
+            // ⚠️ **已知缺口：角色是可變的，而這裡讀的是「此刻有沒有 PI 角色」。**
+            // 計畫建立之後才改角色，判別結果就會跟著變——**兩個方向都會出事**：
+            //
+            // | 事後的角色變動 | 後果 | 測試 |
+            // |---|---|---|
+            // | 真 PI **失去** PI 角色 | 被判成佔位 → 自任 SD 被放行（fail open） | `known_gap_real_pi_losing_pi_role_makes_guard_fail_open` |
+            // | 佔位建立者 **取得** PI 角色 | 被判成真 PI → 合法的自任 SD 被擋（fail closed） | `known_gap_placeholder_creator_gaining_pi_role_gets_blocked` |
+            //
+            // 影響範圍（2026-08-27 實測，比初看小）：
+            // - 本閘**只在 `req.study_director_user_id` 為 `Some` 時才跑**（見上面的 `if let`），
+            //   不會擋掉該計畫的其他欄位更新，只擋「設定 SD」這個動作。
+            // - 正式庫目前**沒有**使用者同時具 `PI` 與 `EXPERIMENT_STAFF` 角色，
+            //   所以 fail-closed 那個方向目前無法觸發。角色指派是例行管理動作，隨時會變。
+            // - fail-closed 可繞過（指派別人當 SD，或把 PI 欄位改成真正的外部 PI），不是死鎖。
+            //
             // 不改用 schema 欄位是因為——就算加了欄位，**既有資料也只能用同一套
             // 啟發式回填**（沒有 ground truth），對現存計畫的精確度完全一樣；
             // 欄位只對「未來新建時明確宣告」有意義，屬 API 契約變更，另案處理。
+            // （使用者 2026-08-26 裁定；CodeRabbit #26 第 3 輪建議加欄位，未採納，
+            //   改為把兩個方向都用測試釘住，讓缺口是明寫的而不是沒人知道的。）
             let pi_is_placeholder = before.pi_user_id == before.created_by
                 && !sqlx::query_scalar::<_, bool>(
                     r#"SELECT EXISTS(
