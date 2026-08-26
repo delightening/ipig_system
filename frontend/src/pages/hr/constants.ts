@@ -1,5 +1,4 @@
-import { parseDecimal, TAIWAN_TIMEZONE, uiLocale } from '@/lib/utils'
-import { logger } from '@/lib/logger'
+import { parseDecimal, uiLocale } from '@/lib/utils'
 import { LEAVE_STATUS_NAMES } from '@/types/hr'
 import type { StatusVariant } from '@/components/ui/status-badge'
 
@@ -69,41 +68,13 @@ export const formatLeaveHours = (leave: { total_hours?: number | string | null; 
     return `${hours} 小時`
 }
 
-/** 以台灣時區的「日」為單位取日期鍵（YYYY-MM-DD），避免跨時區差一天 */
-const taipeiDayKey = (date: Date): string =>
-    new Intl.DateTimeFormat('en-CA', {
-        timeZone: TAIWAN_TIMEZONE,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    }).format(date)
-
 /**
  * 假單自送審至今的等待天數；未送審回 null。
  *
- * `submittedAt` 來自 `leave_requests.submitted_at`（TIMESTAMPTZ，見 migrations/008），
- * 後端以 `sqlx::query_as` 直接對映到 `DateTime<Utc>`——沒有任何原始字串拼接路徑，
- * 型別系統保證這裡收到的值不是 `Invalid Date` 就是後端真的有 bug。仍保留
- * `Number.isNaN` 防呆並記錄，是為了「萬一真的發生」時看得見，而不是假設它會發生。
+ * 實作已上移到 `lib/waitingDays.ts`——待處理人徽章要對全站在途狀態顯示同一個
+ * 「已等待 N 天」，不能只服務假單。此處保留假單語意的別名，呼叫端不必改。
  */
-export const getLeaveWaitingDays = (submittedAt: string | null | undefined): number | null => {
-    if (!submittedAt) return null
-    const submitted = new Date(submittedAt)
-    if (Number.isNaN(submitted.getTime())) {
-        logger.warn('[getLeaveWaitingDays] 收到無法解析的 submitted_at，已略過顯示：', submittedAt)
-        return null
-    }
-    const from = Date.parse(`${taipeiDayKey(submitted)}T00:00:00Z`)
-    const to = Date.parse(`${taipeiDayKey(new Date())}T00:00:00Z`)
-    return Math.max(0, Math.round((to - from) / 86_400_000))
-}
-
-/** 等待天數的強調色：>14 天紅、>7 天橘，其餘維持次要文字色 */
-export const getWaitingDaysClass = (days: number): string => {
-    if (days > 14) return 'text-status-error-text font-medium'
-    if (days > 7) return 'text-status-warning-text font-medium'
-    return 'text-muted-foreground'
-}
+export { getWaitingDays as getLeaveWaitingDays, getWaitingDaysClass } from '@/lib/waitingDays'
 
 /** 取得請假狀態的 StatusBadge variant + label */
 export const getLeaveStatusVariant = (status: string): { variant: StatusVariant; label: string } => {

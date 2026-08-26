@@ -3419,5 +3419,19 @@
       "maintenance": "Under Maintenance",
       "disabled": "Disabled"
     }
+  },
+  "pendingOwner": {
+    "andOthers": "({{count}} total)",
+    "nobody": "Nobody can act on this step (separation of duties excluded all candidates)",
+    "reviewerCount": "{{count}} reviewers",
+    "stage": {
+      "doc_wm_approve": "Awaiting warehouse approval",
+      "doc_final_approve": "Awaiting final approval",
+      "doc_reverse_approve": "Awaiting admin approval of reversal"
+    },
+    "role": {
+      "SYSTEM_ADMIN": "System Administrator",
+      "WAREHOUSE_MANAGER": "Warehouse Manager"
+    }
   }
 }

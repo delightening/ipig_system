@@ -18,6 +18,7 @@ import { formatDate, formatCurrency } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
 import { useAuthIsAdmin } from '@/stores/auth'
 import { cn } from '@/lib/utils'
+import { PendingOwnerBadge, PendingOwnerInline } from '@/components/PendingOwnerBadge'
 import type { DocumentListItem, DocType } from '@/lib/api'
 
 const docTypeNames: Record<DocType, string> = {
@@ -60,7 +61,12 @@ function getStatusBadge(doc: DocumentListItem) {
       badges.push(<Badge key="base" variant="secondary">{statusNames[doc.status]}</Badge>)
       break
     case 'submitted':
-      badges.push(<Badge key="base" variant="warning">{statusNames[doc.status]}</Badge>)
+      // hover 顯示卡在誰手上（後端 pending_owner，僅 submitted 有值）。
+      badges.push(
+        <PendingOwnerBadge key="base" owner={doc.pending_owner}>
+          <Badge variant="warning">{statusNames[doc.status]}</Badge>
+        </PendingOwnerBadge>
+      )
       break
     case 'approved':
       badges.push(<Badge key="base" variant="success">{statusNames[doc.status]}</Badge>)
@@ -199,6 +205,8 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
                 {getStatusBadge(doc)}
               </div>
               <div className="text-xs text-muted-foreground space-y-0.5">
+                {/* 手機沒有 hover，「卡在誰」直接寫在卡片上 */}
+                <PendingOwnerInline owner={doc.pending_owner} />
                 {doc.partner_name && <div>對象：{doc.partner_name}</div>}
                 {doc.warehouse_name && <div>倉庫：{doc.warehouse_name}</div>}
                 {doc.total_amount && <div>金額：{formatCurrency(doc.total_amount)}</div>}
