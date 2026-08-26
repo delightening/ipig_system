@@ -16,10 +16,19 @@
 //! # 為什麼委員會審查不列名
 //!
 //! 2026-08-26 使用者裁定：IACUC 審查委員的身分**對所有人一律不揭露**，只給人數。
-//! 刻意用「狀態」擋而不是用「誰在看」擋——後者會出現 A 看得到 B 看不到的一致性問題，
-//! 而且擋不住任何東西（`services/protocol/comment.rs:105` 早就把 `reviewer_name`
-//! 與 `reviewer_email` 一起回給有 scope 的人，PI 也在內）。那個不一致是**既有的洞**，
-//! 另案處理，不在本檔的責任範圍。
+//!
+//! ⚠️ **2026-08-26 事實訂正**：本段原本寫「用狀態擋是因為系統反正已經到處洩漏委員身分
+//! （`comment.rs:105` 把 `reviewer_name` / `reviewer_email` 回給含 PI 的所有 scope 內使用者）」
+//! ——**那是錯的**。實查 `handlers/protocol/review.rs:242-248`，該端點在回傳前依
+//! `aup.review.identity_view` 裁剪：沒有該權限者拿到的是 `reviewer_name = "審查者"`、
+//! `reviewer_email = None`。正式庫實查該權限授予 `IACUC_CHAIR` / `IACUC_STAFF` /
+//! `REVIEWER` / `VET`（＋ admin 短路），**PI 不在內**。
+//! 另一條 `list_review_assignments`（`review.rs:88-138`）不裁剪，但靠 `:96-103` 的
+//! 守衛擋在門外（需 `view_all` / admin / 該案審查委員本人），PI 一樣進不來。
+//!
+//! 也就是說**系統既有行為本來就是「委員身分只給審查方、不給申請方」**。本檔目前的
+//! 一律不列名比它更嚴（連 IACUC 執行秘書也看不到名字），這一點待使用者裁定是否
+//! 改為比照 `aup.review.identity_view`。
 
 use std::collections::HashMap;
 
