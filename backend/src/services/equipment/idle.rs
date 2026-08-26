@@ -50,7 +50,7 @@ impl EquipmentService {
         .fetch_one(pool)
         .await?;
 
-        let data = sqlx::query_as::<_, IdleRequestWithDetails>(
+        let mut data = sqlx::query_as::<_, IdleRequestWithDetails>(
             r#"
             SELECT ir.id, ir.equipment_id, e.name AS equipment_name,
                    ir.request_type, ir.reason, ir.status,
@@ -73,6 +73,21 @@ impl EquipmentService {
         .bind(offset)
         .fetch_all(pool)
         .await?;
+
+        // 「卡在誰」整頁批次補算（僅待核准的那幾筆）。
+        let pending_ids: Vec<Uuid> = data
+            .iter()
+            .filter(|r| r.status == DisposalStatus::Pending)
+            .map(|r| r.id)
+            .collect();
+        if !pending_ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_idle_requests(pool, &pending_ids)
+                    .await?;
+            for row in &mut data {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
 
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }

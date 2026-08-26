@@ -65,6 +65,49 @@ pub async fn list_users_with_permission(
     Ok(rows)
 }
 
+/// 在職且**有效持有清單中任一權限碼**的使用者（含管理員短路）。
+///
+/// 有些守衛是「這個權限或那個權限」——例：維修驗收要
+/// `equipment.maintenance.review` **或** `equipment.manage`
+/// （`services/equipment/maintenance.rs:444-446`）。只查其中一個會漏列另一半的人。
+pub async fn list_users_with_any_permission(
+    pool: &PgPool,
+    permission_codes: &[&str],
+) -> Result<Vec<UserRef>, AppError> {
+    if permission_codes.is_empty() {
+        return Ok(Vec::new());
+    }
+    let codes: Vec<String> = permission_codes.iter().map(|c| (*c).to_string()).collect();
+
+    let rows = sqlx::query_as::<_, UserRef>(
+        r#"
+        SELECT DISTINCT u.id, u.display_name
+        FROM users u
+        WHERE u.is_active = true
+          AND u.deleted_at IS NULL
+          AND (
+              EXISTS (
+                  SELECT 1 FROM user_roles urp
+                  JOIN role_permissions rp ON urp.role_id = rp.role_id
+                  JOIN permissions p ON rp.permission_id = p.id
+                  WHERE urp.user_id = u.id AND p.code = ANY($1)
+              )
+              OR EXISTS (
+                  SELECT 1 FROM user_roles ura
+                  JOIN roles ra ON ura.role_id = ra.id
+                  WHERE ura.user_id = u.id AND ra.code = ANY($2)
+              )
+          )
+        "#,
+    )
+    .bind(codes)
+    .bind(admin_role_codes())
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows)
+}
+
 /// 在職、有效持有指定權限碼、**且**具備清單中任一角色的使用者。
 ///
 /// 存在的理由是有些關卡真的是兩個條件疊加，只查其中一個會列出點下去拿 403 的人：

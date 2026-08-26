@@ -126,7 +126,7 @@ impl AnimalFieldCorrectionService {
 
     /// 列出待審核的修正申請（admin 用）
     pub async fn list_pending(pool: &PgPool) -> Result<Vec<AnimalFieldCorrectionRequestListItem>> {
-        let rows = sqlx::query_as::<_, AnimalFieldCorrectionRequestListItem>(
+        let mut rows = sqlx::query_as::<_, AnimalFieldCorrectionRequestListItem>(
             r#"
             SELECT
                 r.id, r.animal_id, r.field_name, r.old_value, r.new_value, r.reason, r.status,
@@ -142,6 +142,16 @@ impl AnimalFieldCorrectionService {
         )
         .fetch_all(pool)
         .await?;
+
+        // 「卡在誰」批次補算。本查詢已限定 status='pending'，整批都在等人。
+        let ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+        if !ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_field_corrections(pool, &ids).await?;
+            for row in &mut rows {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
 
         Ok(rows)
     }

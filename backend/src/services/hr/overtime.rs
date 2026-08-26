@@ -252,6 +252,22 @@ impl HrService {
             };
         }
 
+        // 「卡在誰」整頁批次補算：只送待審中的 id 進去，候選名單每關只查一次
+        // （見 services/pending_owner）。與上面的 can_approve 同源——兩者都出自
+        // overtime.rs:247-249 的那組判準。
+        let pending_ids: Vec<Uuid> = data
+            .iter()
+            .filter(|r| r.status.starts_with("pending_admin"))
+            .map(|r| r.id)
+            .collect();
+        if !pending_ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_overtime(pool, &pending_ids).await?;
+            for row in &mut data {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
+
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
 

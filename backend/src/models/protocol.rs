@@ -751,6 +751,12 @@ pub struct ProtocolListItem {
     /// 當前 viewer 是否可編輯此計畫（PI / SD / admin）。供前端按鈕 gating，由列表查詢計算。
     #[sqlx(default)]
     pub can_edit: bool,
+    /// 這件現在卡在誰手上（目前僅行政受理 / 預審那幾關有值；委員會審查與需修正
+    /// 兩類的形狀不同，尚未涵蓋）。`skip` 而非 `default` 的理由同
+    /// `DocumentListItem::pending_owner`：`PendingOwner` 不是 DB 型別、沒有 `Decode`。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<crate::models::PendingOwner>,
 }
 
 /// 審查意見回應（含審查者資訊）

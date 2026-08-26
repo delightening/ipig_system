@@ -1039,4 +1039,11 @@ pub struct AnimalFieldCorrectionRequestListItem {
     pub reviewed_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub animal_ear_tag: Option<String>,
+    /// 這筆現在卡在誰手上（僅 `pending` 有值）。
+    ///
+    /// ⚠️ 必須是 `skip` 不是 `default`：`default` 仍會先嘗試 `try_get` 再 fallback，
+    /// 於是要求型別實作 `Decode`（`PendingOwner` 不是 DB 型別）。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<crate::models::PendingOwner>,
 }

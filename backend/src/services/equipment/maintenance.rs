@@ -85,8 +85,9 @@ impl EquipmentService {
 
         // order_by 來自白名單常數 + ASC/DESC，已稽核無注入風險，故 AssertSqlSafe。
         let order_by = resolve_maintenance_order_by(query);
-        let data = sqlx::query_as::<_, MaintenanceRecordWithDetails>(sqlx::AssertSqlSafe(format!(
-            r#"
+        let mut data =
+            sqlx::query_as::<_, MaintenanceRecordWithDetails>(sqlx::AssertSqlSafe(format!(
+                r#"
             SELECT m.id, m.equipment_id, e.name AS equipment_name,
                    m.maintenance_type, m.status, m.reported_at, m.completed_at,
                    m.problem_description, m.repair_content, m.repair_partner_id,
@@ -106,14 +107,34 @@ impl EquipmentService {
             ORDER BY {order_by}
             LIMIT $4 OFFSET $5
             "#
-        )))
-        .bind(query.equipment_id)
-        .bind(&query.maintenance_type)
-        .bind(&query.status)
-        .bind(per_page)
-        .bind(offset)
-        .fetch_all(pool)
-        .await?;
+            )))
+            .bind(query.equipment_id)
+            .bind(&query.maintenance_type)
+            .bind(&query.status)
+            .bind(per_page)
+            .bind(offset)
+            .fetch_all(pool)
+            .await?;
+
+        // 「卡在誰」整頁批次補算。待處理（等人開工）與待驗收（等人簽收）是兩個不同的關卡，
+        // 合法處理人也不同——解析器內部依 status 分流。
+        let pending_ids: Vec<Uuid> = data
+            .iter()
+            .filter(|m| {
+                matches!(
+                    m.status,
+                    MaintenanceStatus::Pending | MaintenanceStatus::PendingReview
+                )
+            })
+            .map(|m| m.id)
+            .collect();
+        if !pending_ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_maintenance(pool, &pending_ids).await?;
+            for row in &mut data {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
 
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
