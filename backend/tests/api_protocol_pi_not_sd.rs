@@ -504,3 +504,114 @@ async fn known_gap_placeholder_creator_gaining_pi_role_gets_blocked() {
         "應是「不可兼任」，實得：{err:?}"
     );
 }
+
+/// 🔴 **指派 SD 與停用帳號必須序列化**（CodeRabbit #27 第 3 輪指出，修在 #26）。
+///
+/// 競態：指派端讀到 `is_active = true`（無鎖）→ 停用端鎖住 users、檢查「有沒有
+/// 未結案 GLP 案以他為 SD」（此刻還沒寫入）→ 通過 → 停用 → 指派端才寫入。
+/// 結果是**已停用的人成為未結案 GLP 計畫的 SD，而兩邊的閘都通過了**。
+///
+/// # 這支測的是「我們的函數有沒有取鎖」，不是 Postgres 的鎖語意
+///
+/// 做法：外部先持有 `users` 那一列的鎖，然後呼叫真正的
+/// `ProtocolService::update`，斷言它卡住。
+///
+/// # 🔴 blocker 為什麼用 `FOR NO KEY UPDATE` 而不是 `FOR UPDATE`
+///
+/// 第一版用 `FOR UPDATE`，**mutation 驗證證明那樣寫沒有鑑別力**：
+/// 把 `validate_and_authorize_sd` 裡的 `FOR SHARE` 整句拿掉，測試**仍然綠**。
+///
+/// 原因是 `protocols.study_director_user_id` 有 FK 指向 `users`，
+/// 而 Postgres 在寫入 FK 參照時會自動對被參照列取 `FOR KEY SHARE`——
+/// 那把鎖與 `FOR UPDATE` 衝突。所以 update 其實是**卡在最後的寫入**，
+/// 跟驗證階段有沒有取鎖完全無關。測試看起來在測 A，實際上在測 B。
+///
+/// `FOR NO KEY UPDATE` 剛好切開這兩者：
+///
+/// | blocker 持有 | 與驗證的 `FOR SHARE` | 與 FK 寫入的 `FOR KEY SHARE` |
+/// |---|---|---|
+/// | `FOR UPDATE` | 衝突 | **也衝突** ← 分不出來 |
+/// | `FOR NO KEY UPDATE` | 衝突 | **不衝突** ← 分得出來 |
+///
+/// 所以現在：有那句 `FOR SHARE` → 卡住（綠）；拿掉 → 直接跑完（紅）。已實測兩邊。
+///
+/// ⚠️ 附帶修正了對這個競態的理解：實際的停用流程用的是 `FOR UPDATE`，
+/// 所以 FK 那把鎖**確實**提供了一部分保護——但只在兩個交易時間重疊時。
+/// 若停用端在指派端「驗證完、還沒寫入」的空檔整個 commit 完畢，FK 鎖無人可擋，
+/// 競態照樣成立。`FOR SHARE` 把取鎖時機提前到驗證那一刻，才真正關掉它。
+///
+/// 第二段（放鎖後應成功）是必要的對照：沒有它的話，`update` 因為**任何**原因失敗
+/// 都會讓第一段通過，測試就變成「只要它慢或壞掉就算過」。
+#[tokio::test]
+#[serial]
+async fn sd_assignment_blocks_while_user_row_is_locked_for_deactivation() {
+    use std::time::Duration;
+
+    let app = TestApp::spawn().await;
+    let secretary = seed_user(&app, "IACUC_STAFF").await;
+    let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+    let actor = user_actor(secretary, &["IACUC_STAFF"]);
+
+    // 指定 PI 為執秘、SD 先留空，之後才指派（走 update 那條路徑）
+    let p = ProtocolService::create(
+        &app.db_pool,
+        &actor,
+        &create_req(Some(secretary), None),
+        secretary,
+    )
+    .await
+    .expect("create");
+
+    let req = UpdateProtocolRequest {
+        title: None,
+        working_content: None,
+        start_date: None,
+        end_date: None,
+        study_director_user_id: Some(sd),
+        version: None,
+        source_form_version: None,
+    };
+
+    // ── 模擬「停用流程正持有該 users 列」──鎖的強度見上面的表 ──
+    let mut blocker = app.db_pool.begin().await.expect("begin blocker tx");
+    sqlx::query("SELECT is_active FROM users WHERE id = $1 FOR NO KEY UPDATE")
+        .bind(sd)
+        .fetch_one(&mut *blocker)
+        .await
+        .expect("blocker 取得 users 的 FOR NO KEY UPDATE");
+
+    // 此時指派應該卡在 validate_and_authorize_sd 的 FOR SHARE 上。
+    // ⚠️ 800ms 是「明顯超過正常耗時」而非精確門檻——正常路徑實測是毫秒級，
+    // 卡住時則會一直等到 blocker 結束。用 timeout 是為了不讓測試整個掛死。
+    let scope = scope_for(&app, secretary, p.id).await;
+    let blocked = tokio::time::timeout(
+        Duration::from_millis(800),
+        ProtocolService::update(&app.db_pool, &actor, scope, &req),
+    )
+    .await;
+    assert!(
+        blocked.is_err(),
+        "users 列被 FOR NO KEY UPDATE 持有時，指派 SD 應該卡住——\
+         沒卡住表示 validate_and_authorize_sd 沒有對該列取 FOR SHARE，競態仍在"
+    );
+
+    // ── 放掉鎖，同一個指派應該成功 ──
+    blocker.rollback().await.expect("rollback blocker");
+
+    let scope2 = scope_for(&app, secretary, p.id).await;
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        ProtocolService::update(&app.db_pool, &actor, scope2, &req),
+    )
+    .await
+    .expect("放鎖後不該再逾時")
+    .expect("放鎖後指派應成功——證明上面卡住的原因是那把鎖，不是別的錯誤");
+
+    let after: Option<Uuid> =
+        sqlx::query_scalar("SELECT study_director_user_id FROM protocols WHERE id = $1")
+            .bind(p.id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("read back");
+    assert_eq!(after, Some(sd));
+}

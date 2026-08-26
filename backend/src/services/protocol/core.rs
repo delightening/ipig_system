@@ -305,6 +305,39 @@ impl ProtocolService {
             }
         }
 
+        // 🔴 **與「停用帳號」序列化**（CodeRabbit #27 第 3 輪指出，2026-08-27）。
+        //
+        // 沒有這道鎖時的競態：
+        //   T1 指派 SD → 讀到該使用者 is_active = true（無鎖）
+        //   T2 停用該使用者 → 對 users 列 FOR UPDATE → 檢查「有沒有未結案 GLP 案
+        //      以他為 SD」→ 此刻 T1 還沒寫入 → 通過 → 停用
+        //   T1 寫入 protocols.study_director_user_id → commit
+        //   結果：**已停用的人成為未結案 GLP 計畫的 SD，而兩邊的閘都通過了**。
+        //
+        // 為什麼 FOR SHARE 就夠、而且不會死鎖（2026-08-27 實測確認前提）：
+        //   指派端鎖序 = protocols FOR UPDATE → users FOR SHARE
+        //   停用端鎖序 = users FOR UPDATE → 讀 protocols（**不加鎖**，
+        //     MVCC 下純 SELECT 不會等 FOR UPDATE）
+        //   停用端從不等待 protocols 上的鎖，所以沒有循環等待。
+        //
+        //   兩種先後都能擋住（isolation 為預設的 read committed）：
+        //   - 停用端先拿到 users 鎖 → 指派端卡在 FOR SHARE →
+        //     停用 commit 後指派端才讀 is_active → 讀到 false → 擋下。
+        //   - 指派端先拿到 FOR SHARE → 停用端卡在 FOR UPDATE →
+        //     指派 commit 後停用端才跑 GLP 檢查，那是**新的一句 SQL**，
+        //     read committed 會取新快照 → 看得到剛寫入的 SD → 擋下。
+        //
+        // ⚠️ 鎖獨立成一句，不併進下面的 EXISTS：帶 join 的 EXISTS 子查詢加鎖定子句
+        // 在 Postgres 有限制（且鎖到哪張表不明顯）。分開寫也讓「鎖的是 users 這一列」
+        // 這件事直接看得出來。
+        let sd_exists: Option<bool> =
+            sqlx::query_scalar("SELECT is_active FROM users WHERE id = $1 FOR SHARE")
+                .bind(sd_id)
+                .fetch_optional(&mut *conn)
+                .await?;
+        // 不存在就讓下面的資格查詢回同一句錯誤訊息，不另外分歧。
+        let _ = sd_exists;
+
         let sd_is_valid: bool = sqlx::query_scalar(
             r#"SELECT EXISTS(
                  SELECT 1 FROM users u
@@ -317,7 +350,7 @@ impl ProtocolService {
         )
         .bind(sd_id)
         .bind(crate::constants::ROLE_EXPERIMENT_STAFF)
-        .fetch_one(conn)
+        .fetch_one(&mut *conn)
         .await?;
         if !sd_is_valid {
             return Err(AppError::Validation(
