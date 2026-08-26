@@ -3533,6 +3533,7 @@
       "doc_reverse_approve": "待管理員核准沖銷"
     },
     "role": {
+      "admin": "系統管理員",
       "SYSTEM_ADMIN": "系統管理員",
       "WAREHOUSE_MANAGER": "倉庫管理員"
     }

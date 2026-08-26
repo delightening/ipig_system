@@ -3430,6 +3430,7 @@
       "doc_reverse_approve": "Awaiting admin approval of reversal"
     },
     "role": {
+      "admin": "System Administrator",
       "SYSTEM_ADMIN": "System Administrator",
       "WAREHOUSE_MANAGER": "Warehouse Manager"
     }
