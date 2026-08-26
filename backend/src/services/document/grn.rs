@@ -22,6 +22,8 @@ struct PoLineRow {
     uom: String,
     unit_price: Option<Decimal>,
     qty: Decimal,
+    /// 本行 `uom` 對 `base_uom` 的換算率，恆 > 0（SQL 端已把 NULL / 非正數收斂成 1）。
+    factor_to_base: Decimal,
 }
 
 use super::DocumentService;
@@ -70,14 +72,19 @@ impl DocumentService {
         .fetch_all(pool)
         .await?;
 
-        // 取得已入庫數量
+        // 取得已入庫數量（換算成 base_uom 再加總）。
+        // PO 與 GRN 對同一品項可以填不同單位（採購論箱、入庫論盒），直接 SUM(qty) 會把
+        // 箱與盒相加。查無換算列即代表該行就是 base_uom（factor 1）——這個推論由
+        // `DocumentService::assert_lines_uom_defined` 在建/改單時保證。
         let received_qty: Vec<(Uuid, Decimal)> = sqlx::query_as(
             r#"
-            SELECT dl.product_id, COALESCE(SUM(dl.qty), 0) as received
+            SELECT dl.product_id, COALESCE(SUM(dl.qty * CASE WHEN c.factor_to_base > 0 THEN c.factor_to_base ELSE 1 END), 0) as received
             FROM documents d
             JOIN document_lines dl ON d.id = dl.document_id
-            WHERE d.source_doc_id = $1 
-              AND d.doc_type = 'GRN' 
+            LEFT JOIN product_uom_conversions c
+                   ON c.product_id = dl.product_id AND c.uom = dl.uom
+            WHERE d.source_doc_id = $1
+              AND d.doc_type = 'GRN'
               AND d.status = 'approved'
             GROUP BY dl.product_id
             "#,
@@ -89,17 +96,34 @@ impl DocumentService {
         let received_map: std::collections::HashMap<Uuid, Decimal> =
             received_qty.into_iter().collect();
 
-        // 計算剩餘數量
+        // 逐 PO 明細行的換算率（同一品項可能在兩行用不同單位，故以 line id 為 key）
+        let po_factors: Vec<(Uuid, Decimal)> = sqlx::query_as(
+            r#"
+            SELECT dl.id, CASE WHEN c.factor_to_base > 0 THEN c.factor_to_base ELSE 1 END
+            FROM document_lines dl
+            LEFT JOIN product_uom_conversions c
+                   ON c.product_id = dl.product_id AND c.uom = dl.uom
+            WHERE dl.document_id = $1
+            "#,
+        )
+        .bind(po_id)
+        .fetch_all(pool)
+        .await?;
+        let po_factor_map: std::collections::HashMap<Uuid, Decimal> =
+            po_factors.into_iter().collect();
+
+        // 計算剩餘數量：兩邊都換到 base_uom 相減，再除回本行單位開立 GRN。
         let remaining_lines: Vec<_> = po_lines
             .iter()
             .filter_map(|line| {
-                let received = received_map
+                let factor = po_factor_map.get(&line.id).copied().unwrap_or(Decimal::ONE);
+                let received_base = received_map
                     .get(&line.product_id)
                     .copied()
                     .unwrap_or(Decimal::ZERO);
-                let remaining = line.qty - received;
-                if remaining > Decimal::ZERO {
-                    Some((line.clone(), remaining))
+                let remaining_base = line.qty * factor - received_base;
+                if remaining_base > Decimal::ZERO {
+                    Some((line.clone(), remaining_base / factor))
                 } else {
                     None
                 }
@@ -196,14 +220,22 @@ impl DocumentService {
             r#"
             SELECT product_id
             FROM (
-                SELECT pl.product_id, SUM(pl.qty) AS ordered, 0::numeric AS received
+                SELECT pl.product_id,
+                       SUM(pl.qty * CASE WHEN pc.factor_to_base > 0 THEN pc.factor_to_base ELSE 1 END) AS ordered,
+                       0::numeric AS received
                 FROM document_lines pl
+                LEFT JOIN product_uom_conversions pc
+                       ON pc.product_id = pl.product_id AND pc.uom = pl.uom
                 WHERE pl.document_id = $1
                 GROUP BY pl.product_id
                 UNION ALL
-                SELECT gl.product_id, 0::numeric AS ordered, SUM(gl.qty) AS received
+                SELECT gl.product_id,
+                       0::numeric AS ordered,
+                       SUM(gl.qty * CASE WHEN gc.factor_to_base > 0 THEN gc.factor_to_base ELSE 1 END) AS received
                 FROM documents g
                 JOIN document_lines gl ON g.id = gl.document_id
+                LEFT JOIN product_uom_conversions gc
+                       ON gc.product_id = gl.product_id AND gc.uom = gl.uom
                 WHERE g.source_doc_id = $1 AND g.doc_type = 'GRN' AND g.status = 'approved'
                 GROUP BY gl.product_id
             ) t
@@ -232,16 +264,20 @@ impl DocumentService {
         let row: (Decimal, Decimal) = sqlx::query_as(
             r#"
             SELECT
-                COALESCE(SUM(pl.qty), 0) AS total_ordered,
+                COALESCE(SUM(pl.qty * CASE WHEN pc.factor_to_base > 0 THEN pc.factor_to_base ELSE 1 END), 0) AS total_ordered,
                 COALESCE((
-                    SELECT SUM(gl.qty)
+                    SELECT SUM(gl.qty * CASE WHEN gc.factor_to_base > 0 THEN gc.factor_to_base ELSE 1 END)
                     FROM documents g
                     JOIN document_lines gl ON g.id = gl.document_id
+                    LEFT JOIN product_uom_conversions gc
+                           ON gc.product_id = gl.product_id AND gc.uom = gl.uom
                     WHERE g.source_doc_id = $1
                       AND g.doc_type = 'GRN'
                       AND g.status = 'approved'
                 ), 0) AS total_received
             FROM document_lines pl
+            LEFT JOIN product_uom_conversions pc
+                   ON pc.product_id = pl.product_id AND pc.uom = pl.uom
             WHERE pl.document_id = $1
             "#,
         )
@@ -273,9 +309,12 @@ impl DocumentService {
         // 取得採購單明細
         let po_lines: Vec<PoLineRow> = sqlx::query_as(
             r#"
-            SELECT dl.product_id, p.sku, p.name, p.base_uom, dl.uom, dl.unit_price, dl.qty
+            SELECT dl.product_id, p.sku, p.name, p.base_uom, dl.uom, dl.unit_price, dl.qty,
+                   CASE WHEN c.factor_to_base > 0 THEN c.factor_to_base ELSE 1 END AS factor_to_base
             FROM document_lines dl
             JOIN products p ON dl.product_id = p.id
+            LEFT JOIN product_uom_conversions c
+                   ON c.product_id = dl.product_id AND c.uom = dl.uom
             WHERE dl.document_id = $1
             ORDER BY dl.line_no
             "#,
@@ -284,14 +323,18 @@ impl DocumentService {
         .fetch_all(pool)
         .await?;
 
-        // 取得已入庫數量
+        // 取得已入庫數量（換算成 base_uom 再加總，理由同 create_additional_grn）
         let received: Vec<(Uuid, Decimal)> = sqlx::query_as(
             r#"
-            SELECT dl.product_id, COALESCE(SUM(dl.qty), 0)
+            SELECT dl.product_id,
+                   COALESCE(SUM(dl.qty * CASE WHEN c.factor_to_base > 0
+                                              THEN c.factor_to_base ELSE 1 END), 0)
             FROM documents d
             JOIN document_lines dl ON d.id = dl.document_id
-            WHERE d.source_doc_id = $1 
-              AND d.doc_type = 'GRN' 
+            LEFT JOIN product_uom_conversions c
+                   ON c.product_id = dl.product_id AND c.uom = dl.uom
+            WHERE d.source_doc_id = $1
+              AND d.doc_type = 'GRN'
               AND d.status = 'approved'
             GROUP BY dl.product_id
             "#,
@@ -302,13 +345,20 @@ impl DocumentService {
 
         let received_map: std::collections::HashMap<Uuid, Decimal> = received.into_iter().collect();
 
+        // 每行的數量以**該行的單位**呈現（採購論箱就顯示箱），但跨行加總與 status 判定
+        // 一律走 base_uom——否則 3 箱 + 2 盒會被加成 5。
+        let mut ordered_base = Decimal::ZERO;
+        let mut received_base_total = Decimal::ZERO;
         let items: Vec<PoReceiptItem> = po_lines
             .into_iter()
             .map(|row| {
-                let received_qty = received_map
+                let received_line_base = received_map
                     .get(&row.product_id)
                     .copied()
                     .unwrap_or(Decimal::ZERO);
+                ordered_base += row.qty * row.factor_to_base;
+                received_base_total += received_line_base;
+                let received_qty = received_line_base / row.factor_to_base;
                 PoReceiptItem {
                     product_id: row.product_id,
                     product_sku: row.sku,
@@ -323,10 +373,7 @@ impl DocumentService {
             })
             .collect();
 
-        let total_ordered: Decimal = items.iter().map(|i| i.ordered_qty).sum();
-        let total_received: Decimal = items.iter().map(|i| i.received_qty).sum();
-
-        let status = receipt_status_label(total_received, total_ordered).to_string();
+        let status = receipt_status_label(received_base_total, ordered_base).to_string();
 
         Ok(PoReceiptStatus {
             po_id,

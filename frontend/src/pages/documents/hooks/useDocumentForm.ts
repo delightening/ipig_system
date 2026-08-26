@@ -163,6 +163,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
       product_id: line.product_id,
       product_name: line.product_name,
       product_sku: line.product_sku,
+      base_uom: line.product_base_uom,
+      alt_uoms: line.product_alt_uoms,
       qty: formatQuantity(line.qty),
       uom: line.uom,
       unit_price: line.unit_price ? formatUnitPrice(line.unit_price) : '',

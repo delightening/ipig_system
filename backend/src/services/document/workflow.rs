@@ -896,6 +896,14 @@ impl DocumentService {
             .warehouse_id
             .ok_or_else(|| AppError::BusinessRule("盤點單缺少倉庫".to_string()))?;
 
+        // 盤點行可能以包裝單位計數（見 stocktake::counting_uom 的「整除才用盒」規則），
+        // 而 storage_location_inventory.on_hand_qty 恆為 base_uom。兩者相減前必須先換到
+        // 同一個單位，否則實盤「3 盒」會被當成 3 雙去減 150 雙，差異算成 −147，
+        // 開出一張把該貨架清空的盤虧 ADJ。
+        // 換算後 line.uom 已是 base_uom，下方 ADJ 明細沿用 line.uom 亦隨之正確。
+        let stk_lines = StockService::to_base_lines(tx, stk_lines).await?;
+        let stk_lines = stk_lines.as_slice();
+
         // 批次取相關貨架的系統現存量，避免逐盤點行查的 N+1。
         let loc_ids: Vec<Uuid> = stk_lines
             .iter()

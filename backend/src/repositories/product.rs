@@ -240,10 +240,17 @@ fn build_list_sql(query: &ProductQuery) -> String {
         conditions.join(" AND ")
     };
     // Dynamic SQL with bind params ($1, $2...) — no injection risk
+    // alt_uoms：單據明細的單位下拉要知道「這個品項還能填什麼」。以相關子查詢隨清單一起帶出，
+    // 免得前端每選一個品項就補一次 GET /products/{id}。依 factor_to_base 遞增排序，
+    // 下拉呈現順序即「小單位→大包裝」。
     [
-        "SELECT * FROM products WHERE ",
+        "SELECT p.*, ARRAY(\
+             SELECT c.uom FROM product_uom_conversions c \
+             WHERE c.product_id = p.id ORDER BY c.factor_to_base\
+         )::text[] AS alt_uoms \
+         FROM products p WHERE ",
         &where_clause,
-        " ORDER BY sku",
+        " ORDER BY p.sku",
     ]
     .concat()
 }

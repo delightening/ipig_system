@@ -15,6 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Plus, Trash2, Search } from 'lucide-react'
 import { formatNumber, formatUom } from '@/lib/utils'
 import type { DocumentFormData, DocumentLine } from '../types'
@@ -24,6 +31,52 @@ import { BatchNumberSelect } from './BatchNumberSelect'
 import { ProductSearchDialog, type ProductSelectExtraData } from './ProductSearchDialog'
 import { ShelfPickerDialog } from './ShelfPickerDialog'
 import { warehouseChipStyle, warehouseColor } from '../warehouseColors'
+
+/**
+ * 明細單位選擇器。
+ *
+ * 選項＝該品項的 base_uom + 換算表裡的其他單位（alt_uoms），與後端
+ * `assert_lines_uom_defined` 的判準同源——填不在這組裡的單位會被擋成 400，
+ * 所以這裡不提供自由輸入。
+ *
+ * 只有一個選項時（品項沒建任何換算率）退回純文字：一個選項的下拉只是噪音，
+ * 也維持既有版面高度不變。
+ */
+function UomSelect({
+  line,
+  lineId,
+  onChange,
+  className,
+}: {
+  line: DocumentLine
+  lineId: string
+  onChange: (lineId: string, uom: string) => void
+  className?: string
+}) {
+  const base = line.base_uom || line.uom
+  // 用 Set 去重：base_uom 理論上不會出現在 alt_uoms（換算表不存基本單位），
+  // 但舊資料若手動塞過一筆同名的換算列，重複的 SelectItem 會讓 Radix 出現重複 key。
+  const options = Array.from(new Set([base, ...(line.alt_uoms ?? [])].filter(Boolean)))
+
+  if (options.length <= 1) {
+    return <span className={className ?? 'text-sm'}>{formatUom(line.uom) || '-'}</span>
+  }
+
+  return (
+    <Select value={line.uom} onValueChange={(v) => onChange(lineId, v)}>
+      <SelectTrigger className="h-9" aria-label="單位">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((uom) => (
+          <SelectItem key={uom} value={uom}>
+            {formatUom(uom)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
 
 /** SO 跨倉儲位輔助資料（儲位→所屬倉映射 + 倉別 chip 顯示旗標） */
 export interface SoShelfContext {
@@ -153,6 +206,8 @@ export function DocumentLineEditor({
             product_sku: product.sku,
             product_name: product.name,
             uom: product.base_uom,
+            base_uom: product.base_uom,
+            alt_uoms: product.alt_uoms ?? [],
           }
 
           if (isPoLinkedGrn && extraData) {
@@ -464,7 +519,11 @@ function LineRow({
         />
       </TableCell>
       <TableCell>
-        <span className="text-sm">{formatUom(line.uom) || '-'}</span>
+        <UomSelect
+          line={line}
+          lineId={lineId}
+          onChange={(id, uom) => updateLineField(id, 'uom', uom)}
+        />
       </TableCell>
       {showPriceColumns && (
         <>
@@ -655,7 +714,12 @@ function LineCard({
         </div>
         <div>
           <Label className="text-xs text-muted-foreground">單位</Label>
-          <div className="h-9 flex items-center text-sm">{formatUom(line.uom) || '-'}</div>
+          <UomSelect
+            line={line}
+            lineId={lineId}
+            onChange={(id, uom) => updateLineField(id, 'uom', uom)}
+            className="h-9 flex items-center text-sm"
+          />
         </div>
       </div>
 

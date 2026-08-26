@@ -49,6 +49,15 @@ pub struct Product {
     pub base_uom: String,
     pub pack_unit: Option<String>,
     pub pack_qty: Option<i32>,
+    /// 除 `base_uom` 外，本品項在 `product_uom_conversions` 有換算率的單位，依換算率遞增。
+    /// 單據明細的單位下拉 = `base_uom` + 本欄；後端亦以同一組值驗證
+    /// （見 `DocumentService::assert_lines_uom_defined`），前後端判準同源。
+    ///
+    /// `#[sqlx(default)]`：`SELECT *` 的查詢（`find_product_by_id`、`UPDATE ... RETURNING *`）
+    /// 不含本欄，沿用 `cost_price` / `selling_price` 的既有寫法避免 `FromRow` 失敗。
+    #[serde(default)]
+    #[sqlx(default)]
+    pub alt_uoms: Vec<String>,
     pub track_batch: bool,
     pub track_expiry: bool,
     pub default_expiry_days: Option<i32>,
