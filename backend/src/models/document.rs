@@ -6,6 +6,8 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
+use super::pending_owner::PendingOwner;
+
 /// 單據類型
 ///
 /// ⚠️ DB 的 `doc_type` enum 另含 `'DO'`（銷貨出庫）、`'RM'`（退料單）、`'SR'`（銷貨退貨）、
@@ -307,6 +309,10 @@ pub struct DocumentWithLines {
     pub reversed_by_doc_no: Option<String>,
     /// 沖銷生效時間（沖銷單的 approved_at）；沖銷單尚未核准時為 None。
     pub reversed_at: Option<DateTime<Utc>>,
+    /// 這張單現在卡在誰手上（僅 `submitted` 有值）。前端「待核准」徽章 hover 用。
+    /// 計算來源見 `services/pending_owner.rs`。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<PendingOwner>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
@@ -363,6 +369,16 @@ pub struct DocumentListItem {
     /// 是否已產生會計傳票（核准後觸發過帳的類型：GRN, DO, PR）
     #[sqlx(default)]
     pub has_journal_entry: bool,
+    /// 這張單現在卡在誰手上（僅 `submitted` 有值）。前端「待核准」徽章 hover 用。
+    ///
+    /// 不由 SQL 直接產生（授權判準是程式邏輯不是欄位），由
+    /// `services/pending_owner.rs::resolve_for_documents` 在列表查詢後整頁批次補上。
+    ///
+    /// ⚠️ 必須是 `skip` 不是 `default`：`default` 仍會先嘗試 `try_get` 再 fallback，
+    /// 於是要求型別實作 `Decode`（`PendingOwner` 不是 DB 型別，沒有也不該有）。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<PendingOwner>,
 }
 
 /// 採購單入庫狀態

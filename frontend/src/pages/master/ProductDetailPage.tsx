@@ -6,6 +6,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Product, DocumentListItem } from '@/lib/api'
 import { DOC_TYPE_NAMES } from '@/pages/documents/types'
+import { PendingOwnerBadge } from '@/components/PendingOwnerBadge'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -459,12 +460,14 @@ export function ProductDetailPage() {
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <StatusBadge
-                          variant={DOC_STATUS_CONFIG[doc.status]?.variant ?? 'neutral'}
-                          tone="soft"
-                        >
-                          {DOC_STATUS_CONFIG[doc.status]?.label ?? doc.status}
-                        </StatusBadge>
+                        <PendingOwnerBadge owner={doc.pending_owner}>
+                          <StatusBadge
+                            variant={DOC_STATUS_CONFIG[doc.status]?.variant ?? 'neutral'}
+                            tone="soft"
+                          >
+                            {DOC_STATUS_CONFIG[doc.status]?.label ?? doc.status}
+                          </StatusBadge>
+                        </PendingOwnerBadge>
                       </TableCell>
                       <TableCell>{formatDate(doc.doc_date)}</TableCell>
                       <TableCell>{doc.partner_name ?? '-'}</TableCell>

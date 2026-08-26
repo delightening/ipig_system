@@ -36,7 +36,8 @@ describe('getLeaveWaitingDays', () => {
     it('無法解析的字串回傳 null，且記錄警告（不是完全靜默）', () => {
         expect(getLeaveWaitingDays('not-a-date')).toBeNull()
         expect(logger.warn).toHaveBeenCalledTimes(1)
-        expect(vi.mocked(logger.warn).mock.calls[0][0]).toContain('getLeaveWaitingDays')
+        // 實作已上移 lib/waitingDays.ts，log 前綴隨之改為泛用名稱（本別名仍是 HR 的入口）
+        expect(vi.mocked(logger.warn).mock.calls[0][0]).toContain('getWaitingDays')
         expect(vi.mocked(logger.warn).mock.calls[0][1]).toBe('not-a-date')
     })
 })
