@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Calendar, Clock } from 'lucide-react'
+import { BarChart3, Calendar, Clock } from 'lucide-react'
 
 import api from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -12,6 +12,7 @@ import type { PaginatedResponse } from '@/types/common'
 
 import { TodayClockTab } from './components/TodayClockTab'
 import { AttendanceHistoryTab } from './components/AttendanceHistoryTab'
+import { MonthlyReportTab } from './components/MonthlyReportTab'
 import { useAttendanceMutations, prewarmGpsPosition } from './hooks/useAttendanceMutations'
 
 export function HrAttendancePage() {
@@ -46,12 +47,13 @@ export function HrAttendancePage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader title="出勤管理" description="打卡與出勤記錄" />
+            <PageHeader title="出勤管理" description="打卡、補卡與工時月報" />
 
             <PageTabs
                 tabs={[
                     { value: 'today', label: '今日打卡', icon: Clock },
                     { value: 'history', label: '出勤記錄', icon: Calendar },
+                    { value: 'monthly', label: '工時月報', icon: BarChart3 },
                 ]}
                 defaultTab="today"
             >
@@ -68,6 +70,10 @@ export function HrAttendancePage() {
 
                 <PageTabContent value="history" className="space-y-4">
                     <AttendanceHistoryTab />
+                </PageTabContent>
+
+                <PageTabContent value="monthly" className="space-y-4">
+                    <MonthlyReportTab />
                 </PageTabContent>
             </PageTabs>
         </div>

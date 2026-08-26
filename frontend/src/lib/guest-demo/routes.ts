@@ -21,7 +21,7 @@ import {
   DEMO_PROTOCOL_DETAIL_P1, DEMO_PROTOCOL_DETAIL_P2, DEMO_PROTOCOL_DETAIL_P3,
 } from './protocols'
 import {
-  DEMO_BALANCE_SUMMARY, DEMO_LEAVES, DEMO_ATTENDANCE, DEMO_OVERTIME,
+  DEMO_BALANCE_SUMMARY, DEMO_LEAVES, DEMO_ATTENDANCE, DEMO_MONTHLY_REPORT, DEMO_OVERTIME,
 } from './hr'
 import {
   DEMO_PRODUCTS, DEMO_DOCUMENTS, DEMO_PARTNERS,
@@ -187,6 +187,7 @@ const exactRoutes: Record<string, unknown> = {
   '/hr/leaves': DEMO_LEAVES,
   '/hr/my-leaves': DEMO_LEAVES,
   '/hr/attendance': DEMO_ATTENDANCE,
+  '/hr/attendance/monthly-report': DEMO_MONTHLY_REPORT,
   '/hr/overtime': DEMO_OVERTIME,
   // These endpoints return plain arrays, not paginated objects
   '/hr/internal-users': DEMO_HR_INTERNAL_USERS,

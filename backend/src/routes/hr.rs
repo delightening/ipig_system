@@ -9,11 +9,22 @@ use crate::{handlers, AppState};
 pub fn routes() -> Router<AppState> {
     Router::new()
         // HR Attendance
-        .route("/hr/attendance", get(handlers::list_attendance))
+        .route(
+            "/hr/attendance",
+            get(handlers::list_attendance).post(handlers::backfill_attendance),
+        )
         .route("/hr/attendance/export", get(handlers::export_attendance))
         .route("/hr/attendance/clock-in", post(handlers::clock_in))
         .route("/hr/attendance/clock-out", post(handlers::clock_out))
         .route("/hr/attendance/stats", get(handlers::get_attendance_stats))
+        .route(
+            "/hr/attendance/monthly-report",
+            get(handlers::get_monthly_report),
+        )
+        .route(
+            "/hr/attendance/monthly-report/export",
+            get(handlers::export_monthly_report),
+        )
         .route("/hr/attendance/{id}", put(handlers::correct_attendance))
         // HR Overtime
         .route(
