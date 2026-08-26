@@ -14,8 +14,15 @@
 //! # 結構
 //!
 //! - [`document`]：ERP 單據三關（多關卡、判定較複雜，自成一支）
-//! - [`hr`] / [`equipment`] / [`animal`] / [`aup`]：其餘關卡，都是「單一關卡 +
-//!   單一候選來源 + 至多一位 SoD 排除對象」的形狀，共用 [`resolve_single_stage`]
+//! - [`hr`] / [`equipment`] / [`aup`]：其餘關卡，都是「單一關卡 + 單一候選來源 +
+//!   至多一位 SoD 排除對象」的形狀，共用 [`resolve_single_stage`]
+//!
+//! # 刻意不涵蓋
+//!
+//! - **動物欄位更正**：`animal.field_correction.review` 2026-08-26 實查**沒有授予
+//!   任何角色**，候選人恆為「靠短路取得權限的管理員」；而該頁路由本身就限
+//!   `role="admin"`（`App.tsx:526`）。看的人與能處理的人是同一群，零資訊量。
+//! - **PI 開通信**：同理，`handlers/protocol/pi_provision.rs:80` 限管理員檢視。
 //!
 //! # 效能
 //!
@@ -31,13 +38,11 @@ use crate::error::AppError;
 use crate::models::{PendingOwner, PendingOwnerKind};
 use crate::repositories::pending_owner as repo;
 
-pub mod animal;
 pub mod aup;
 pub mod document;
 pub mod equipment;
 pub mod hr;
 
-pub use animal::resolve_for_field_corrections;
 pub use aup::{resolve_for_amendments, resolve_for_protocols};
 pub use document::resolve_for_documents;
 pub use equipment::{resolve_for_disposals, resolve_for_idle_requests, resolve_for_maintenance};

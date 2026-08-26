@@ -11,6 +11,9 @@ import { Check, X, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 import { getDateFnsLocale } from '@/lib/utils'
 
+import { PendingOwnerBadge } from '@/components/PendingOwnerBadge'
+import type { PendingOwner } from '@/types/pendingOwner'
+
 import type { DisposalStatus } from '../types'
 import { DISPOSAL_STATUS_LABELS } from '../types'
 
@@ -30,6 +33,8 @@ export interface IdleRequestWithDetails {
   rejection_reason: string | null
   notes: string | null
   created_at: string
+  /** 這筆現在卡在誰手上；僅 pending 有值 */
+  pending_owner?: PendingOwner
 }
 
 const STATUS_VARIANT: Record<DisposalStatus, 'warning' | 'success' | 'error'> = {
@@ -75,9 +80,11 @@ export function IdleTabContent({
     {
       key: 'status', header: t('admin.idleTabContent.colStatus'),
       cell: (r) => (
-        <StatusBadge variant={STATUS_VARIANT[r.status]}>
-          {t(DISPOSAL_STATUS_LABELS[r.status])}
-        </StatusBadge>
+        <PendingOwnerBadge owner={r.pending_owner}>
+          <StatusBadge variant={STATUS_VARIANT[r.status]}>
+            {t(DISPOSAL_STATUS_LABELS[r.status])}
+          </StatusBadge>
+        </PendingOwnerBadge>
       ),
     },
     { key: 'reason', header: t('admin.idleTabContent.colReason'), className: 'max-w-[240px] whitespace-normal break-words', cell: (r) => r.reason },

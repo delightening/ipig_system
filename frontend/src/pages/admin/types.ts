@@ -2,6 +2,7 @@
  * 設備維護管理頁面共用型別
  */
 import type { StatusVariant } from '@/components/ui/status-badge'
+import type { PendingOwner } from '@/types/pendingOwner'
 
 export type EquipmentStatus = 'active' | 'inactive' | 'under_repair' | 'decommissioned'
 export type CalibrationType = 'calibration' | 'validation' | 'inspection'
@@ -162,6 +163,8 @@ export interface MaintenanceRecordWithDetails {
   reviewed_at: string | null
   review_notes: string | null
   created_at: string
+  /** 這筆現在卡在誰手上；僅 pending / pending_review 有值 */
+  pending_owner?: PendingOwner
 }
 
 export interface DisposalWithDetails {
@@ -180,6 +183,8 @@ export interface DisposalWithDetails {
   approved_at: string | null
   rejection_reason: string | null
   notes: string | null
+  /** 這筆現在卡在誰手上；僅 pending 有值 */
+  pending_owner?: PendingOwner
 }
 
 export interface AnnualPlanWithEquipment {

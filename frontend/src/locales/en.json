@@ -3427,11 +3427,21 @@
     "stage": {
       "doc_wm_approve": "Awaiting warehouse approval",
       "doc_final_approve": "Awaiting final approval",
-      "doc_reverse_approve": "Awaiting admin approval of reversal"
+      "doc_reverse_approve": "Awaiting admin approval of reversal",
+      "ot_admin_staff": "Awaiting administrative review",
+      "ot_admin": "Awaiting director review",
+      "equipment_disposal_approve": "Awaiting disposal approval",
+      "equipment_idle_approve": "Awaiting idle approval",
+      "equipment_maintenance_start": "Awaiting repair scheduling",
+      "equipment_maintenance_review": "Awaiting acceptance",
+      "aup_protocol_intake": "Awaiting administrative intake",
+      "aup_amendment_classify": "Awaiting classification",
+      "aup_amendment_to_review": "Awaiting submission to review"
     },
     "role": {
       "admin": "System Administrator",
       "SYSTEM_ADMIN": "System Administrator",
+      "ADMIN_STAFF": "Administrative Staff",
       "WAREHOUSE_MANAGER": "Warehouse Manager"
     }
   }

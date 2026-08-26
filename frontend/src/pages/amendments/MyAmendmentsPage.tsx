@@ -10,6 +10,7 @@ import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
+import { PendingOwnerBadge } from '@/components/PendingOwnerBadge'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import {
     Table,
@@ -156,9 +157,11 @@ export function MyAmendmentsPage() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={amendmentStatusColors[amendment.status]}>
-                                                    {t(`amendments.status.${amendment.status}`)}
-                                                </Badge>
+                                                <PendingOwnerBadge owner={amendment.pending_owner}>
+                                                    <Badge variant={amendmentStatusColors[amendment.status]}>
+                                                        {t(`amendments.status.${amendment.status}`)}
+                                                    </Badge>
+                                                </PendingOwnerBadge>
                                             </TableCell>
                                             <TableCell>
                                                 {amendment.submitted_at

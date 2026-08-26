@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { PendingOwnerInline } from '@/components/PendingOwnerBadge'
 import type { OvertimeWithUser } from '@/types/hr'
 
 import { OVERTIME_TYPE_NAMES, formatDate } from '../constants'
@@ -111,7 +112,7 @@ function DesktopRow({ ot }: { ot: OvertimeWithUser }) {
             <TableCell className="hidden @[900px]:table-cell">{compHoursText(ot)}</TableCell>
             <TableCell className="hidden @[1000px]:table-cell max-w-[200px] whitespace-normal break-words">{ot.reason}</TableCell>
             <TableCell>
-                <OvertimeStatusBadge status={ot.status} />
+                <OvertimeStatusBadge status={ot.status} pendingOwner={ot.pending_owner} />
                 {ot.void_reason && (
                     <div className="mt-1 text-xs text-muted-foreground whitespace-normal break-words">
                         作廢原因：{ot.void_reason}
@@ -153,7 +154,11 @@ function MobileCard({ ot }: { ot: OvertimeWithUser }) {
                     <div className="font-medium break-words">{ot.user_name}</div>
                     <div className="text-xs text-muted-foreground break-words">{ot.user_email}</div>
                 </div>
-                <OvertimeStatusBadge status={ot.status} />
+                <OvertimeStatusBadge status={ot.status} pendingOwner={ot.pending_owner} />
+            </div>
+            {/* 手機沒有 hover，「卡在誰」直接寫在卡片上 */}
+            <div className="text-xs text-muted-foreground">
+                <PendingOwnerInline owner={ot.pending_owner} />
             </div>
             <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
                 <span>{formatDate(ot.overtime_date)}</span>

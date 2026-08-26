@@ -4,6 +4,7 @@
  * 注意：ProtocolWorkingContent 已定義在 ./protocol.ts
  */
 
+import type { PendingOwner } from './pendingOwner'
 import { ProtocolWorkingContent } from './protocol'
 
 // 計畫狀態
@@ -95,6 +96,8 @@ export interface ProtocolListItem {
     imported_at?: string | null
     /** 當前使用者是否可編輯此計畫（PI / SD / admin）。後端列表計算，供按鈕 gating。 */
     can_edit?: boolean
+    /** 這件現在卡在誰手上；目前僅行政受理 / 預審那幾關有值 */
+    pending_owner?: PendingOwner
 }
 
 export interface VetReviewItem {
