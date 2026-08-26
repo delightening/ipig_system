@@ -272,11 +272,45 @@ function parseAddedLines(diffText) {
   return results
 }
 
+// 掃一行，超過 `MAX_LINE_SCAN_CHARS` 時的處理分兩種。
+//
+// 🔴 **阻擋模式（--commit-msg / --push）不得默默截斷**（CodeRabbit #24 指出）。
+// 原本一律 `slice(0, MAX_LINE_SCAN_CHARS)`，於是第 200,000 個字元之後的個資
+// 一律看不見，而檢查照樣印「通過」——這是最糟的失敗方式：
+// 有一道閘、閘說沒事、其實根本沒看。
+//
+// 但也不能改成「掃完整行」就算了：這個上限存在的理由是把 regex 的執行時間
+// 綁住（`PATTERNS` 裡有多條 regex，遇到病態長行可能極慢）。拿掉上限＝
+// 把「漏掉個資」換成「hook 掛住不動」，同樣是壞的。
+//
+// 折衷：**阻擋模式下，超長行本身就是一條 finding**（fail closed）。
+// 正常的 commit message 與程式碼不會有 20 萬字的單行；真的遇到，
+// 讓人自己看一眼比賭它乾淨好。`--full`（僅稽核、不阻擋）維持截斷，
+// 因為那裡的目的是掃全庫、不該被單一怪檔卡住。
+function scanLineBounded(text, { blocking }) {
+  if (text.length <= MAX_LINE_SCAN_CHARS) return scanLine(text)
+  if (!blocking) return scanLine(text.slice(0, MAX_LINE_SCAN_CHARS))
+  return [
+    {
+      key: 'oversized_line',
+      // ⚠️ 長度要放在 label，不能放 matched：report() 會遮蔽 matched（那是為了
+      // 不把個資回顯到終端機／CI log），放進去會被打成一整排星號，
+      // 看的人得不到「這行到底多長」這個唯一有用的資訊。
+      label: `單行 ${text.length} 字元，超過 ${MAX_LINE_SCAN_CHARS} 上限，無法完整掃描`,
+      // matched 只放一個不含內容的佔位——這一行的實際內容不該回顯，
+      // 它超長的原因很可能正是塞了一大坨東西進去。
+      matched: `<${text.length} chars>`,
+    },
+    // 前段仍照掃——超長本身要擋，但前段若有具體命中，一併報出來比較好處理
+    ...scanLine(text.slice(0, MAX_LINE_SCAN_CHARS)),
+  ]
+}
+
 function findingsFromAddedLines(addedLines) {
   const findings = []
   for (const { file, line, text } of addedLines) {
     if (shouldSkipPath(file)) continue
-    const hits = scanLine(text.slice(0, MAX_LINE_SCAN_CHARS))
+    const hits = scanLineBounded(text, { blocking: true })
     if (hits.length) findings.push({ file, line, hits })
   }
   return findings
@@ -303,7 +337,7 @@ function findingsFromMessage(message, label) {
   const findings = []
   const lines = message.split('\n')
   for (let i = 0; i < lines.length; i++) {
-    const hits = scanLine(lines[i].slice(0, MAX_LINE_SCAN_CHARS))
+    const hits = scanLineBounded(lines[i], { blocking: true })
     if (hits.length) findings.push({ file: label, line: i + 1, hits })
   }
   return findings
@@ -484,7 +518,8 @@ function cmdFull() {
     const text = stat.toString('utf8')
     const lines = text.split('\n')
     for (let i = 0; i < lines.length; i++) {
-      const hits = scanLine(lines[i].slice(0, MAX_LINE_SCAN_CHARS))
+      // --full 是全庫稽核、不阻擋，超長行維持截斷（見 scanLineBounded 的說明）
+      const hits = scanLineBounded(lines[i], { blocking: false })
       if (hits.length) findings.push({ file, line: i + 1, hits })
     }
   }

@@ -12,7 +12,7 @@
 // 「資料庫沒開就不能 commit」。名單變動很慢，週期性重新產生就夠。
 
 import { execFileSync } from 'node:child_process'
-import { renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 const dryRun = process.argv.includes('--dry-run')
@@ -94,7 +94,19 @@ const header = [
 // 會留下一份**截斷的字典**，而 pii-scan 讀到它照樣正常運作——
 // 只是少了後半段的名字，於是那些人的姓名就悄悄通過檢查。
 // rename 在同一個檔案系統上是原子操作：要嘛舊的完整檔、要嘛新的完整檔。
+// 權限收到 0600：這個檔就是一份**真實姓名清單**（CodeRabbit #24 指出）。
+// `writeFileSync` 的預設 mode 是 0o666，再經 umask（常見 022）過濾成 0644——
+// 同機器上的其他帳號讀得到。rename 之後 OUT 沿用 tmp 的 inode，mode 也跟著過去；
+// rename 後再 chmod 一次是為了「OUT 原本就存在、且權限較鬆」的情形。
+//
+// ⚠️ 誠實的但書：本專案實際跑在 **Windows**，而 Node 在 Windows 上的 `chmod`
+// 只切換唯讀旗標，不實作 POSIX 的 group/other 位元——這幾行在這台機器上
+// 幾乎沒有作用，真正擋住外流的是 `.gitignore`。仍然加上，是為了有人在
+// Linux 上跑時是對的。**不要因為「加了 chmod」就以為本機這個檔受保護了。**
 const tmp = OUT + '.tmp'
-writeFileSync(tmp, header + names.join('\n') + '\n', 'utf8')
+writeFileSync(tmp, header + names.join('\n') + '\n', { encoding: 'utf8', mode: 0o600 })
+// mode 只在「檔案被建立」時套用；tmp 若是上次中斷留下的殘檔就不會重設，故明確再 chmod
+chmodSync(tmp, 0o600)
 renameSync(tmp, OUT)
+chmodSync(OUT, 0o600)
 console.log(`已寫入 ${path.relative(repoRoot, OUT)}：${names.length} 個名字`)

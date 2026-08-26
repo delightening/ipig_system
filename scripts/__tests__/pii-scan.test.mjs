@@ -243,3 +243,50 @@ describe('既有偵測類別沒有被破壞', () => {
     assert.equal(code, 2)
   })
 })
+
+// CodeRabbit 於 PR #24 指出：超長的單行被 `slice(0, MAX_LINE_SCAN_CHARS)`
+// 默默截斷，第 200,000 字元之後的個資看不到，而檢查照樣印「通過」。
+//
+// 這是最糟的失敗方式——有一道閘、閘說沒事、其實根本沒看完。
+// 修法不是拿掉上限（那會把「漏掉個資」換成「hook 掛住」），
+// 而是**阻擋模式下把超長行本身當成 finding**。
+describe('超長行：阻擋模式必須 fail closed，不得默默截斷', () => {
+  const LIMIT = 200_000
+
+  test('🔴 人名藏在上限之後 → 仍被擋下', () => {
+    const msg = `fix: something\n\n${'x'.repeat(LIMIT + 10)}王大明`
+    withTempMessage(msg, (f) => {
+      const { code, out } = runScanner(['--commit-msg', f])
+      assert.equal(code, 1, `應被擋下，實得 exit ${code}\n${out}`)
+      assert.match(out, /超過 200000 上限/)
+    })
+  })
+
+  test('恰好等於上限的行不算超長（邊界：<= 不是 <）', () => {
+    const msg = `fix: something\n\n${'x'.repeat(LIMIT)}`
+    withTempMessage(msg, (f) => {
+      const { code, out } = runScanner(['--commit-msg', f])
+      assert.equal(code, 0, `剛好到上限應通過，實得 exit ${code}\n${out}`)
+      assert.doesNotMatch(out, /超過 200000 上限/)
+    })
+  })
+
+  test('超長但完全乾淨的行也擋——無法完整掃描時不賭它乾淨', () => {
+    const msg = `fix: something\n\n${'x'.repeat(LIMIT + 1)}`
+    withTempMessage(msg, (f) => {
+      const { code } = runScanner(['--commit-msg', f])
+      assert.equal(code, 1)
+    })
+  })
+
+  // ⚠️ 長度必須出現在**沒被遮蔽**的地方。report() 會把 `matched` 遮成星號
+  // （為了不回顯個資），實作時我一度把長度放在那裡，結果訊息只剩一排 `*`，
+  // 看的人完全不知道這行多長——等於報告了但沒說出唯一有用的資訊。
+  test('報告要看得出這行多長，且長度沒被遮蔽掉', () => {
+    const msg = `fix: something\n\n${'x'.repeat(LIMIT + 5)}`
+    withTempMessage(msg, (f) => {
+      const { out } = runScanner(['--commit-msg', f])
+      assert.match(out, new RegExp(`單行 ${LIMIT + 5} 字元`))
+    })
+  })
+})
