@@ -12,7 +12,7 @@
 
 use std::collections::HashMap;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -35,17 +35,28 @@ const PROTOCOL_INTAKE_STATUSES: &[&str] = &["SUBMITTED", "PRE_REVIEW", "RESUBMIT
 #[derive(Debug, sqlx::FromRow)]
 struct SubmittedStageRow {
     id: Uuid,
-    submitted_at: Option<DateTime<Utc>>,
+    /// ⚠️ `protocols.submitted_at` 是 **DATE** 不是 TIMESTAMPTZ（2026-08-26 實查）。
+    /// 宣告成 `DateTime<Utc>` 會在解列時噴 `ColumnDecode ... mismatched types`。
+    /// 精度只到「日」對本用途完全夠：前端只拿它算已等待幾天。
+    submitted_at: Option<NaiveDate>,
     updated_at: DateTime<Utc>,
 }
 
 impl SubmittedStageRow {
-    /// 進入本關的時間：優先用送審時間，沒有就退回最後一次寫入。
+    /// 進入本關的時間：優先用送審日，沒有就退回最後一次寫入。
+    ///
+    /// 送審日轉時間戳時取當日 00:00 UTC——前端 `getWaitingDays` 會換算回台灣時區的
+    /// 日期鍵，08:00+08:00 仍是同一天，不會差一天。
     fn to_pending_row(&self) -> PendingRow {
+        let since = self
+            .submitted_at
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+            .map(|dt| dt.and_utc())
+            .unwrap_or(self.updated_at);
         PendingRow {
             id: self.id,
             excluded: None,
-            since: Some(self.submitted_at.unwrap_or(self.updated_at)),
+            since: Some(since),
         }
     }
 }
@@ -66,9 +77,11 @@ pub async fn resolve_for_protocols(
 
     let rows = sqlx::query_as::<_, SubmittedStageRow>(
         r#"
+        -- protocols 沒有 deleted_at 欄位：軟刪除是把 status 設成 'DELETED'
+        -- （2026-08-26 實查 16 個 protocol_status 值）。狀態白名單本身已排除它。
         SELECT id, submitted_at, updated_at
         FROM protocols
-        WHERE id = ANY($1) AND status::text = ANY($2) AND deleted_at IS NULL
+        WHERE id = ANY($1) AND status::text = ANY($2)
         "#,
     )
     .bind(protocol_ids)
