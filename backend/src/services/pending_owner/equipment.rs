@@ -8,6 +8,25 @@
 //! | 閒置待核准 | `equipment.idle.approve`（`services/equipment/idle.rs:162`） | 申請人不得自核（`:196`） |
 //! | 維修待處理 | `equipment.maintenance.manage`（`services/equipment/maintenance.rs:345`） | 無——這關是「等人去修」不是「等人核准」 |
 //! | 維修待驗收 | `equipment.maintenance.review` **或** `equipment.manage`（`maintenance.rs:444-446`） | 登錄者不得自驗（`:466`） |
+//!
+//! # ⚠️ 這兩個關卡各有兩條寫入路徑，判準要抄對的那一條
+//!
+//! 2026-08-26 逐條掃過所有會改到該狀態的寫入點（不是只看單一 handler）：
+//!
+//! **維修驗收**——兩條路徑判準**一致**，所以用 `AnyPermission` 兩個都收：
+//! - `review_maintenance_record`（`maintenance.rs:444-446`）
+//! - `sign_maintenance_review_tx` → `access::require_equipment_review`（`access.rs:973-981`）
+//!
+//! **報廢核准**——兩條路徑判準**不一致**（既有落差，非本檔造成）：
+//! - `approve_disposal`（`disposal.rs:325`）只認 `equipment.disposal.approve`
+//! - `sign_disposal_approver_tx` → `require_equipment_disposal_approve`（`access.rs:995-1003`）
+//!   另外還認 `equipment.manage`
+//!
+//! 本檔取**前者**，因為真正把 `status` 改成 `approved` 的是 `approve_disposal`；
+//! 簽章那條只寫 `approver_signature_id`，狀態仍是 `pending`。
+//! ⚠️ 實務後果（超出本檔範圍，已回報）：`equipment.manage` 授予 ADMIN_STAFF /
+//! EQUIPMENT_MAINTENANCE / admin，而 `equipment.disposal.approve` 只授予後兩者——
+//! 差集 `ADMIN_STAFF` **簽得了核准章卻核准不了**。若流程是「先簽後核」，他們會卡住。
 
 use std::collections::HashMap;
 

@@ -30,6 +30,17 @@ const PERMISSION_CHANGE_STATUS: &str = "aup.protocol.change_status";
 /// 計畫停在「等行政作業」的三個狀態。
 ///
 /// `PRE_REVIEW`（行政預審中）也算——球仍在執行秘書手上，不在申請人手上。
+///
+/// ⚠️ **`PRE_REVIEW` 有第二條出口**：`handlers/protocol/ai_review.rs:163-177` 的
+/// `staff_batch_return`（批次退回補件）也會離開這個狀態，而它的守衛是**角色**
+/// （`IACUC_STAFF` / `IACUC_CHAIR` / `SYSTEM_ADMIN`，用 `roles.contains`）而非權限碼。
+/// 本檔取 `change_protocol_status` 的權限判準，涵蓋範圍是前者的超集
+/// （`aup.protocol.change_status` 授予 `IACUC_CHAIR` / `IACUC_STAFF` / `admin`），
+/// 方向是「可能多列一兩個做不了某個特定動作的人」而非漏列，可接受。
+///
+/// ⚠️ 另註（超出本檔範圍，已回報）：`staff_batch_return` 比對的是
+/// `ROLE_SYSTEM_ADMIN`＝`"SYSTEM_ADMIN"`，而 `roles` 表裡的管理員代碼是 `admin`
+/// （2026-08-26 實查 15 個角色）。那條管理員放行實際上永遠不成立。
 const PROTOCOL_INTAKE_STATUSES: &[&str] = &["SUBMITTED", "PRE_REVIEW", "RESUBMITTED"];
 
 #[derive(Debug, sqlx::FromRow)]
