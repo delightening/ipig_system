@@ -135,6 +135,37 @@ function isDsnCredential(addr, ctx) {
 const NAME_DICT_FILE = 'scripts/pii-names.local.txt'
 let nameDictCache = null
 
+/**
+ * 依 git 的 `i18n.commitEncoding` 解碼 commit message 位元組。
+ *
+ * - 未設定 → UTF-8（git 的預設）
+ * - 設定了但 TextDecoder 不支援 → 丟出，由呼叫端擋下 commit
+ * - 位元組不符該編碼 → `fatal: true` 會丟出，同樣擋下
+ *
+ * ⚠️ 三種情況一律**擋下而非放行**：掃不到內容時放行等於掃描器不存在，
+ * 而使用者會以為它掃過了。
+ */
+function decodeCommitMessage(buf) {
+  let enc = 'utf-8'
+  try {
+    const v = execFileSync('git', ['config', '--get', 'i18n.commitEncoding'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    if (v) enc = v
+  } catch {
+    // 未設定時 `git config --get` 以非零狀態結束——那是「沒設定」不是錯誤，
+    // 照 git 的預設用 UTF-8。
+  }
+  let decoder
+  try {
+    decoder = new TextDecoder(enc, { fatal: true })
+  } catch {
+    throw new Error(`不支援的 i18n.commitEncoding：${enc}`)
+  }
+  return decoder.decode(buf)
+}
+
 function loadNameDictionary() {
   if (nameDictCache !== null) return nameDictCache
   const repoRoot = (() => {
@@ -405,7 +436,17 @@ function cmdCommitMsg() {
   }
   let message
   try {
-    message = readFileSync(file, 'utf8')
+    // ⚠️ **先讀成 Buffer，再依 `i18n.commitEncoding` 解碼**
+    // （CodeRabbit #24 第 5 輪指出，2026-08-27）。
+    //
+    // 原本寫 `readFileSync(file, 'utf8')`。git 允許 commit message 用
+    // `i18n.commitEncoding` 指定的編碼（本專案是 zh-TW，Big5 完全可能被設）。
+    // 用 UTF-8 硬讀非 UTF-8 的位元組，Node 會**靜默**把它們換成 U+FFFD，
+    // 於是人名在比對之前就已經不見了——掃描器回報「乾淨」，而它根本沒讀到內容。
+    //
+    // 這是「工具回報通過，但它檢查的不是你以為的東西」那一類，
+    // 而且方向最糟：**資安掃描器的假陰性**。
+    message = decodeCommitMessage(readFileSync(file))
   } catch (err) {
     console.error(`[pii-scan] 讀不到 commit message 檔（${file}），為安全起見擋下：${err.message}`)
     process.exit(1)

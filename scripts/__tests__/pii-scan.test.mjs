@@ -338,3 +338,95 @@ describe('超長行：阻擋模式必須 fail closed，不得默默截斷', () =
     })
   })
 })
+
+describe('缺口 5：commit message 的編碼（CodeRabbit #24 第 5 輪）', () => {
+  // ⚠️ **不硬編 Big5 碼表**：記錯的話這支測到的就變成「無效位元組被擋下」，
+  // 那是另一條路徑，而測試名字仍然寫著 Big5——看起來測過了，其實沒有。
+  // 改成用 TextDecoder('big5') 反查：能解回目標字的位元組組合就是正解，
+  // 判準本身自帶驗證。
+  function big5Bytes(str) {
+    const dec = new TextDecoder('big5', { fatal: true })
+    const out = []
+    for (const ch of str) {
+      let found = null
+      for (let hi = 0xa1; hi <= 0xf9 && !found; hi++) {
+        for (let lo = 0x40; lo <= 0xfe; lo++) {
+          if (lo > 0x7e && lo < 0xa1) continue
+          try {
+            if (dec.decode(new Uint8Array([hi, lo])) === ch) {
+              found = [hi, lo]
+              break
+            }
+          } catch {
+            // 不是合法的 Big5 序列，換下一組
+          }
+        }
+      }
+      assert.ok(found, `找不到「${ch}」的 Big5 位元組——請改用別的測試字`)
+      out.push(...found)
+    }
+    return Uint8Array.from(out)
+  }
+
+  function withTempRepo(config, bytes, fn) {
+    const dir = mkdtempSync(path.join(tmpdir(), 'pii-enc-'))
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: dir })
+      for (const [k, v] of Object.entries(config)) {
+        execFileSync('git', ['config', k, v], { cwd: dir })
+      }
+      const file = path.join(dir, 'COMMIT_EDITMSG')
+      writeFileSync(file, bytes)
+      return fn(file, dir)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+
+  test('🔴 i18n.commitEncoding=big5 且訊息真的是 Big5 → 人名仍被抓到', () => {
+    // 先確認反查有效：解回去要等於原字串
+    const bytes = big5Bytes('陳測試')
+    assert.equal(new TextDecoder('big5').decode(bytes), '陳測試', '反查出來的位元組不對')
+
+    const head = Buffer.from('fix: ', 'latin1')
+    const msg = Buffer.concat([head, Buffer.from(bytes), Buffer.from('\n', 'latin1')])
+    withTempRepo({ 'i18n.commitEncoding': 'big5' }, msg, (f, dir) => {
+      const { code, out } = runScanner(['--commit-msg', f], { cwd: dir })
+      assert.equal(code, 1, `Big5 訊息裡的人名應被擋下，實際 exit ${code}\n${out}`)
+      assert.match(out, /系統內真實人名/)
+    })
+  })
+
+  test('🔴 宣告 UTF-8 但位元組不是 UTF-8 → 擋下，不得靜默替換後放行', () => {
+    // 0xFF 0xFE 在 UTF-8 下非法。舊版 `readFileSync(file,'utf8')` 會把它們
+    // 換成 U+FFFD 然後回報「乾淨」——**掃描器的假陰性**，正是本條要防的。
+    const msg = Buffer.concat([
+      Buffer.from('fix: ', 'latin1'),
+      Buffer.from([0xff, 0xfe, 0xff]),
+      Buffer.from('\n', 'latin1'),
+    ])
+    withTempRepo({}, msg, (f, dir) => {
+      const { code, out } = runScanner(['--commit-msg', f], { cwd: dir })
+      assert.equal(code, 1, `無法正確解碼時必須擋下，實際 exit ${code}\n${out}`)
+    })
+  })
+
+  test('🔴 i18n.commitEncoding 指定了不支援的編碼 → 擋下，不猜', () => {
+    withTempRepo(
+      { 'i18n.commitEncoding': 'definitely-not-a-real-encoding' },
+      Buffer.from('fix: 一般訊息\n', 'utf8'),
+      (f, dir) => {
+        const { code, out } = runScanner(['--commit-msg', f], { cwd: dir })
+        assert.equal(code, 1, `不支援的編碼必須擋下，實際 exit ${code}\n${out}`)
+      },
+    )
+  })
+
+  test('未設定 i18n.commitEncoding 的一般 UTF-8 訊息 → 照常通過', () => {
+    // 對照組：沒有它的話，上面三支「一律擋下」用一個永遠回 1 的實作也會全綠。
+    withTempRepo({}, Buffer.from('fix: 調整權限，細節見私有 docs\n', 'utf8'), (f, dir) => {
+      const { code, out } = runScanner(['--commit-msg', f], { cwd: dir })
+      assert.equal(code, 0, `乾淨的 UTF-8 訊息不該被擋，實際 exit ${code}\n${out}`)
+    })
+  })
+})
