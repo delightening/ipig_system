@@ -147,11 +147,46 @@ impl ProtocolService {
         // 計劃負責人（SD，選填）：客戶/PI 建立時通常留空，由執行秘書事後指派。
         // 有指定時驗證 + 授權（僅執秘/admin 可指派他人，其餘限本人）。
         //
-        // 傳 `req.pi_user_id` 而非上面算好的 `pi_user_id`：後者在 PI 留空時
-        // 會退回 `created_by`（佔位），拿它比對 SD 會誤擋「執秘替沒有系統帳號的
-        // 外部 PI 建計畫、並自任 SD」——那是裁定 10／11 允許的操作。
+        // 🔴 判準必須與 `update` 一致（CodeRabbit #26 第 2 輪指出）。
+        //
+        // 第一版直接傳 `req.pi_user_id`，理由是「PI 留空時退回 `created_by` 是佔位，
+        // 拿它比對 SD 會誤擋執秘自任 SD（裁定 10／11）」。那個理由對，但**不完整**：
+        // `req.pi_user_id` 為 `None` 時，`created_by` **不一定**是佔位——
+        // 他也可能是真的 PI 在建自己的計畫。
+        //
+        // 漏掉的攻擊路徑：同時具 `PI` 與 `EXPERIMENT_STAFF` 的人，建立計畫時
+        // 不填 pi_user_id、把自己設成 SD → 存進去的 `pi_user_id` 與
+        // `study_director_user_id` 都是他本人 → **裁定 16 被繞過**。
+        // 而 `update` 那邊的啟發式抓不到它（那人有 PI 角色，不算佔位），
+        // 只會擋住之後的變更——但違規狀態已經在建立時就寫進去了。
+        //
+        // 2026-08-26 實測正式庫：同時具兩個角色的使用者 **0 人**（有 PI 26、
+        // 有 EXPERIMENT_STAFF 11、交集 0），所以目前**無法觸發**。
+        // 仍然修，因為角色指派是例行管理動作，而且 create 與 update 判準不一致
+        // 本身就是遲早會咬人的東西。
+        let effective_pi_for_check = match req.pi_user_id {
+            Some(explicit) => Some(explicit),
+            // PI 留空：只有在建立者「沒有 PI 角色」時才視為外部 PI 的佔位
+            None => {
+                let creator_is_pi = sqlx::query_scalar::<_, bool>(
+                    r#"SELECT EXISTS(
+                         SELECT 1 FROM user_roles ur
+                         JOIN roles r ON r.id = ur.role_id
+                         WHERE ur.user_id = $1 AND r.code = 'PI'
+                       )"#,
+                )
+                .bind(created_by)
+                .fetch_one(&mut *tx)
+                .await?;
+                if creator_is_pi {
+                    Some(created_by)
+                } else {
+                    None
+                }
+            }
+        };
         if let Some(sd_id) = req.study_director_user_id {
-            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, req.pi_user_id).await?;
+            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, effective_pi_for_check).await?;
         }
 
         let protocol = sqlx::query_as::<_, Protocol>(

@@ -203,6 +203,60 @@ async fn create_allows_creator_as_sd_when_pi_is_external() {
     );
 }
 
+/// 🔴 **create 也要用角色判準，不能只看 `req.pi_user_id` 有沒有填**
+/// （CodeRabbit #26 第 2 輪指出，2026-08-26 修）。
+///
+/// 攻擊路徑：同時具 `PI` 與 `EXPERIMENT_STAFF` 的人，建立計畫時**不填**
+/// `pi_user_id`、把自己設成 SD。第一版的 create 直接傳 `req.pi_user_id`（= None），
+/// PI≠SD 檢查整個跳過，結果存進去的 `pi_user_id` 與 `study_director_user_id`
+/// 都是他本人——**裁定 16 在資料落地的那一刻就被繞過了**。
+///
+/// ⚠️ 而 `update` 的啟發式**抓不到它**：那人有 PI 角色、不算佔位，
+/// 所以 update 只會擋住之後的變更，違規狀態已經寫進去了。
+/// 這正是「同一個規則在兩條路徑上判準不一致」的典型後果。
+///
+/// 2026-08-26 實測正式庫：同時具兩個角色的使用者 0 人，所以目前無法觸發。
+/// 這支測試守的是「角色指派之後」——那是例行管理動作。
+#[tokio::test]
+#[serial]
+async fn create_blocks_pi_role_creator_naming_self_as_sd() {
+    let app = TestApp::spawn().await;
+    // 同時具 PI（所以不是佔位）與 EXPERIMENT_STAFF（所以有資格當 SD）
+    let pi = seed_user(&app, "PI").await;
+    add_role(&app, pi, "EXPERIMENT_STAFF").await;
+    let actor = user_actor(pi, &["PI"]);
+
+    // 關鍵：pi_user_id 留空，SD 填自己
+    let err = ProtocolService::create(&app.db_pool, &actor, &create_req(None, Some(pi)), pi)
+        .await
+        .expect_err("具 PI 角色者不填 pi_user_id、自任 SD，應被擋");
+
+    assert!(
+        matches!(&err, AppError::Validation(m) if m.contains("不可兼任")),
+        "應是「不可兼任」的驗證錯誤，實得：{err:?}"
+    );
+}
+
+/// 對照組：**沒有** PI 角色的建立者做同樣的事 → 放行。
+///
+/// 這支跟上面那支只差一個變因（建立者有沒有 PI 角色），
+/// 用來證明擋下的原因確實是角色判準，不是「留空 pi_user_id 一律擋」——
+/// 後者會擋掉執秘替外部 PI 建計畫並自任 SD，那是裁定 10／11 允許的日常操作。
+#[tokio::test]
+#[serial]
+async fn create_allows_non_pi_role_creator_naming_self_as_sd() {
+    let app = TestApp::spawn().await;
+    let staff = seed_user(&app, "EXPERIMENT_STAFF").await;
+    add_role(&app, staff, "IACUC_STAFF").await;
+    let actor = user_actor(staff, &["IACUC_STAFF"]);
+
+    let p = ProtocolService::create(&app.db_pool, &actor, &create_req(None, Some(staff)), staff)
+        .await
+        .expect("無 PI 角色的建立者自任 SD 應該可行（外部 PI 佔位）");
+
+    assert_eq!(p.study_director_user_id, Some(staff));
+}
+
 /// 🔴 **update 路徑也要放行佔位 PI**（CodeRabbit #26 指出，2026-08-26 修）。
 ///
 /// 上面那支只守 create。實際流程更常見的是「先建計畫、SD 之後再指派」——
