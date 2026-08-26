@@ -128,6 +128,45 @@ export interface AttendanceWithUser {
     is_corrected: boolean;
 }
 
+/**
+ * 補卡（補登缺漏日）。整天沒打卡的日子後端沒有 row，
+ * `PUT /hr/attendance/{id}` 會 404，只能走 `POST /hr/attendance` 建立。
+ */
+export interface AttendanceBackfillRequest {
+    user_id: string;
+    /** yyyy-MM-dd */
+    work_date: string;
+    /** ISO 8601（UTC）；至少要有上班或下班其中一個 */
+    clock_in_time: string | null;
+    clock_out_time: string | null;
+    reason: string;
+}
+
+/** 更正既有出勤紀錄的時間 */
+export interface AttendanceCorrectionRequest {
+    clock_in_time: string | null;
+    clock_out_time: string | null;
+    reason: string;
+}
+
+/**
+ * 工時月報單列＝某人在該月份的合計。
+ *
+ * 後端刻意不回遲到／早退計數：`status` 目前只由打卡寫死 `normal`，
+ * 那兩個數字會恆為 0，放進報表等於假資料。
+ */
+export interface MonthlyAttendanceSummary {
+    user_id: string;
+    user_name: string;
+    user_email: string;
+    work_days: number;
+    total_regular_hours: number;
+    total_overtime_hours: number;
+    /** 上下班卡只有一邊的天數——補卡的待辦清單 */
+    incomplete_days: number;
+    corrected_days: number;
+}
+
 export interface OvertimeWithUser {
     id: string;
     user_id: string;

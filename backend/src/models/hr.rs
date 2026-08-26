@@ -91,11 +91,53 @@ pub struct ClockOutRequest {
     pub longitude: Option<f64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AttendanceCorrectionRequest {
     pub clock_in_time: Option<DateTime<Utc>>,
     pub clock_out_time: Option<DateTime<Utc>>,
     pub reason: String,
+}
+
+/// 補登出勤（補卡）——為指定人員的**缺漏日**建立出勤紀錄。
+///
+/// 與 `AttendanceCorrectionRequest` 的差別是「建立」而非「更新」：整天沒打卡的日子
+/// 資料庫沒有 row，`PUT /hr/attendance/{id}` 會 404，那條路徑補不了，只能走這個。
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AttendanceBackfillRequest {
+    /// 被補卡的人員（不得為操作者自己，見 `HrService::backfill_attendance`）
+    pub user_id: Uuid,
+    pub work_date: NaiveDate,
+    pub clock_in_time: Option<DateTime<Utc>>,
+    pub clock_out_time: Option<DateTime<Utc>>,
+    pub reason: String,
+}
+
+/// 工時月報查詢。年月必填；`user_id` 未帶時，具 `hr.attendance.view_all` 者看全體、
+/// 其餘只看自己（由 handler 收斂，見 `resolve_monthly_report_scope`）。
+#[derive(Debug, Clone, Deserialize)]
+pub struct MonthlyAttendanceQuery {
+    pub year: i32,
+    pub month: u32,
+    pub user_id: Option<Uuid>,
+}
+
+/// 工時月報單列＝某人在該月份的合計。
+///
+/// 刻意不含遲到／早退計數：`status` 欄目前只由 `clock_in` 寫死 `'normal'`，
+/// 系統沒有上下班時間基準也沒有國定假日行事曆，那兩欄會是恆為 0 的假資料。
+#[derive(Debug, Serialize, FromRow)]
+pub struct MonthlyAttendanceSummary {
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub user_email: String,
+    /// 當月有「上班打卡時間」的天數
+    pub work_days: i64,
+    pub total_regular_hours: Decimal,
+    pub total_overtime_hours: Decimal,
+    /// 上下班卡只有一邊的天數——這些日子的工時不完整，是補卡的候選清單
+    pub incomplete_days: i64,
+    /// 當月經補登／更正的天數（`is_corrected`）
+    pub corrected_days: i64,
 }
 
 // ============================================

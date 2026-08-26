@@ -9,9 +9,11 @@ use crate::{
     error::AppError,
     middleware::ActorContext,
     models::{
-        audit_diff::DataDiff, AttendanceCorrectionRequest, AttendanceQuery, AttendanceRecord,
-        AttendanceWithUser, PaginatedResponse,
+        audit_diff::DataDiff, AttendanceBackfillRequest, AttendanceCorrectionRequest,
+        AttendanceQuery, AttendanceRecord, AttendanceWithUser, MonthlyAttendanceSummary,
+        PaginatedResponse,
     },
+    repositories::hr as hr_repo,
     services::{
         audit::{ActivityLogEntry, AuditEntity},
         AuditService,
@@ -77,6 +79,91 @@ fn compute_regular_hours(
 /// 將工時 f64 轉為 DB 用的 `Decimal`（NaN/inf 等異常值回傳 None）。
 fn regular_hours_decimal(hours: f64) -> Option<Decimal> {
     Decimal::from_f64_retain(hours)
+}
+
+/// 補卡／更正理由的長度界線。下限取 4 是為了讓「忘記打卡」這種最常見的正當理由過得了，
+/// 同時擋掉空字串與「.」；上限防 audit log 被灌爆。
+const MIN_CORRECTION_REASON_CHARS: usize = 4;
+const MAX_CORRECTION_REASON_CHARS: usize = 500;
+
+/// 補登紀錄的來源標記，與 `clock_in`/`clock_out` 寫的 `"web"` 區隔，
+/// 讓稽核能一眼分辨「本人現場打的」與「他人事後補的」。
+const BACKFILL_SOURCE: &str = "backfill";
+
+/// 校驗補卡／更正理由，回傳去頭尾空白後的字串。
+fn validate_correction_reason(reason: &str) -> Result<&str> {
+    let trimmed = reason.trim();
+    let len = trimmed.chars().count();
+    if len < MIN_CORRECTION_REASON_CHARS {
+        return Err(AppError::Validation(format!(
+            "補卡理由至少需 {MIN_CORRECTION_REASON_CHARS} 個字"
+        )));
+    }
+    if len > MAX_CORRECTION_REASON_CHARS {
+        return Err(AppError::Validation(format!(
+            "補卡理由不得超過 {MAX_CORRECTION_REASON_CHARS} 個字"
+        )));
+    }
+    Ok(trimmed)
+}
+
+/// 台灣時區的今日。補卡不得補到未來，判定基準與 `clock_in` 的 `work_date` 一致。
+fn taiwan_today() -> Result<NaiveDate> {
+    let offset = chrono::FixedOffset::east_opt(8 * 3600)
+        .ok_or_else(|| AppError::Internal("invalid timezone offset UTC+8".to_string()))?;
+    Ok(Utc::now().with_timezone(&offset).date_naive())
+}
+
+/// 把年月換算成 `(月初, 月底)` 的 inclusive 日期區間。
+///
+/// 月底一律用「下個月 1 號往前一天」求得，不查表也不寫死 28/30/31——
+/// 閏年二月與跨年（12 月 → 次年 1 月）都由 chrono 自己處理。
+fn month_bounds(year: i32, month: u32) -> Result<(NaiveDate, NaiveDate)> {
+    let invalid = || AppError::Validation("年月格式不正確".into());
+    let first_day = NaiveDate::from_ymd_opt(year, month, 1).ok_or_else(invalid)?;
+    let next_month = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1)
+    } else {
+        NaiveDate::from_ymd_opt(year, month + 1, 1)
+    }
+    .ok_or_else(invalid)?;
+    let last_day = next_month
+        .pred_opt()
+        .ok_or_else(|| AppError::Internal("failed to compute last day of month".to_string()))?;
+    Ok((first_day, last_day))
+}
+
+/// 把 `Decimal` 工時寫進 Excel 儲存格。
+///
+/// 轉 f64 失敗（理論上不會，欄位是 `numeric(5,2)`）時若寫 0 等於偽造工時，
+/// 故改寫文字標記，讓看報表的人知道那格要回查原始紀錄。
+fn write_hours_cell(
+    worksheet: &mut rust_xlsxwriter::Worksheet,
+    row: u32,
+    col: u16,
+    value: Decimal,
+) -> Result<()> {
+    use rust_decimal::prelude::ToPrimitive;
+    match value.to_f64() {
+        Some(v) => worksheet.write_number(row, col, v)?,
+        None => worksheet.write_string(row, col, "資料異常")?,
+    };
+    Ok(())
+}
+
+/// 補卡不得作用於自己（2026-08-26 使用者裁定）。
+///
+/// 行政的卡由負責人補、負責人的卡由行政或管理員補——任何人都不能改自己的工時。
+/// **admin 一併適用**：`has_permission` 對 admin 短路回 true（`middleware/auth.rs`），
+/// 不在此擋的話，系統管理員會是全場唯一能改自己工時的人，那正是最該防的那個洞。
+/// 目前 admin / ADMIN_STAFF / DIRECTOR 三個角色都持有補卡權，互補得動，不會鎖死。
+fn reject_self_correction(target_user_id: Uuid, operator_id: Uuid) -> Result<()> {
+    if target_user_id == operator_id {
+        return Err(AppError::Forbidden(
+            "不得補登或更正自己的出勤紀錄，請由其他具補卡權限者代為處理".into(),
+        ));
+    }
+    Ok(())
 }
 
 impl HrService {
@@ -451,6 +538,15 @@ impl HrService {
     ) -> Result<()> {
         let user = actor.require_user()?;
         let corrector_id = user.id;
+        let reason = validate_correction_reason(&payload.reason)?;
+
+        // 更正後若兩個時間都在、下班早於上班 → 擋在寫入前，不讓負工時進 DB
+        if let (Some(ci), Some(co)) = (payload.clock_in_time, payload.clock_out_time) {
+            if co <= ci {
+                return Err(AppError::Validation("下班時間必須晚於上班時間".into()));
+            }
+        }
+
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, AttendanceRecord>(
@@ -467,6 +563,8 @@ impl HrService {
         .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("出勤紀錄不存在".into()))?;
+
+        reject_self_correction(before.user_id, corrector_id)?;
 
         // 依更正後的最終上/下班時間重算工時（扣午休）。缺任一時間則保留原值。
         let final_in = payload.clock_in_time.or(before.clock_in_time);
@@ -505,12 +603,12 @@ impl HrService {
         .bind(payload.clock_in_time)
         .bind(payload.clock_out_time)
         .bind(corrector_id)
-        .bind(&payload.reason)
+        .bind(reason)
         .bind(regular_hours)
         .fetch_one(&mut *tx)
         .await?;
 
-        let display = format!("correct {} reason={}", after.work_date, payload.reason);
+        let display = format!("correct {} reason={}", after.work_date, reason);
         AuditService::log_activity_tx(
             &mut tx,
             actor,
@@ -528,11 +626,291 @@ impl HrService {
 
         Ok(())
     }
+
+    /// 補登出勤（補卡）——為**缺漏日**建立紀錄。
+    ///
+    /// `correct_attendance` 只 UPDATE 既有 row，整天沒打卡的日子在 DB 裡沒有 row、
+    /// 會直接 404；那才是補卡最常見的情境，所以另開這條建立路徑。
+    ///
+    /// 寫入時把 `is_corrected` 標為 true 並填 `corrected_by` / `correction_reason`，
+    /// 讓補登的紀錄在列表與月報上與本人現場打的卡可區分（來源另標 `backfill`）。
+    pub async fn backfill_attendance(
+        pool: &PgPool,
+        actor: &ActorContext,
+        payload: &AttendanceBackfillRequest,
+    ) -> Result<AttendanceRecord> {
+        let user = actor.require_user()?;
+        let operator_id = user.id;
+
+        reject_self_correction(payload.user_id, operator_id)?;
+        let reason = validate_correction_reason(&payload.reason)?;
+
+        // 兩個時間都沒有 → 補出一筆沒有工時的空紀錄，對月報毫無意義，直接擋掉
+        if payload.clock_in_time.is_none() && payload.clock_out_time.is_none() {
+            return Err(AppError::Validation(
+                "補卡至少需填寫上班或下班其中一個時間".into(),
+            ));
+        }
+        if let (Some(ci), Some(co)) = (payload.clock_in_time, payload.clock_out_time) {
+            if co <= ci {
+                return Err(AppError::Validation("下班時間必須晚於上班時間".into()));
+            }
+        }
+        if payload.work_date > taiwan_today()? {
+            return Err(AppError::Validation("不得補登未來日期的出勤".into()));
+        }
+
+        // 目標人員必須存在。刻意**不要求 is_active**：離職當月的工時常常要等
+        // 帳號停用之後才結算，要求在職會讓最後一份月報永遠補不齊。
+        let target_exists: Option<Uuid> =
+            sqlx::query_scalar("SELECT id FROM users WHERE id = $1")
+                .bind(payload.user_id)
+                .fetch_optional(pool)
+                .await?;
+        if target_exists.is_none() {
+            return Err(AppError::NotFound("指定人員不存在".into()));
+        }
+
+        let regular_hours = match (payload.clock_in_time, payload.clock_out_time) {
+            (Some(ci), Some(co)) => {
+                regular_hours_decimal(compute_regular_hours(ci, co, payload.work_date))
+            }
+            _ => None,
+        };
+
+        let mut tx = pool.begin().await?;
+
+        // UNIQUE (user_id, work_date)：該日已有紀錄就不是「補漏」而是「更正」，
+        // 走 PUT /{id}。這裡回 Conflict 而不是靜默覆蓋，避免既有打卡被無聲蓋掉。
+        let existing: Option<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM attendance_records WHERE user_id = $1 AND work_date = $2 FOR UPDATE",
+        )
+        .bind(payload.user_id)
+        .bind(payload.work_date)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if existing.is_some() {
+            return Err(AppError::Conflict(
+                "該日已有出勤紀錄，請改用更正功能修改時間".into(),
+            ));
+        }
+
+        let after = sqlx::query_as::<_, AttendanceRecord>(
+            r#"
+            INSERT INTO attendance_records (
+                id, user_id, work_date, clock_in_time, clock_out_time,
+                regular_hours, status, clock_in_source, clock_out_source,
+                is_corrected, corrected_by, corrected_at, correction_reason
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, 'normal', $7, $7, true, $8, NOW(), $9)
+            RETURNING id, user_id, work_date, clock_in_time, clock_out_time,
+                    regular_hours, overtime_hours, status, clock_in_source,
+                    clock_in_ip::TEXT, clock_out_source, clock_out_ip::TEXT,
+                    clock_in_latitude, clock_in_longitude,
+                    clock_out_latitude, clock_out_longitude,
+                    remark, is_corrected, corrected_by, corrected_at,
+                    correction_reason, created_at, updated_at
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(payload.user_id)
+        .bind(payload.work_date)
+        .bind(payload.clock_in_time)
+        .bind(payload.clock_out_time)
+        .bind(regular_hours)
+        .bind(BACKFILL_SOURCE)
+        .bind(operator_id)
+        .bind(reason)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let display = format!("backfill {} reason={}", after.work_date, reason);
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "HR",
+                event_type: "ATTENDANCE_BACKFILL",
+                entity: Some(AuditEntity::new("attendance_record", after.id, &display)),
+                // before = None：這筆紀錄在此之前不存在，diff 記的是「無中生有的整列」
+                data_diff: Some(DataDiff::compute(None::<&AttendanceRecord>, Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(after)
+    }
+
+    /// 工時月報：把某年月的出勤按人彙總。年月在此換算成月初 / 月底日期後交給 repository。
+    pub async fn monthly_attendance_report(
+        pool: &PgPool,
+        year: i32,
+        month: u32,
+        user_id: Option<Uuid>,
+    ) -> Result<Vec<MonthlyAttendanceSummary>> {
+        let (first_day, last_day) = month_bounds(year, month)?;
+        hr_repo::summarize_monthly_attendance(pool, first_day, last_day, user_id).await
+    }
+
+    /// 工時月報匯出 Excel。欄位與畫面上的月報表一致，最後一列為全體合計。
+    pub async fn export_monthly_report_to_excel(
+        pool: &PgPool,
+        year: i32,
+        month: u32,
+        user_id: Option<Uuid>,
+    ) -> Result<Vec<u8>> {
+        use rust_xlsxwriter::{Format, FormatAlign, Workbook};
+
+        let rows = Self::monthly_attendance_report(pool, year, month, user_id).await?;
+
+        let mut workbook = Workbook::new();
+        let header_format = Format::new()
+            .set_bold()
+            .set_background_color("#4472C4")
+            .set_font_color("#FFFFFF")
+            .set_align(FormatAlign::Center);
+        let total_format = Format::new().set_bold();
+
+        let worksheet = workbook.add_worksheet();
+        worksheet.set_name(format!("{year}-{month:02} 工時月報"))?;
+        worksheet.set_column_width(0, 25.0)?;
+        worksheet.set_column_width(1, 28.0)?;
+        for col in 2..=6 {
+            worksheet.set_column_width(col, 14.0)?;
+        }
+
+        for (col, title) in [
+            "人員名稱",
+            "Email",
+            "出勤天數",
+            "總工時",
+            "總加班時數",
+            "打卡不完整天數",
+            "補登／更正天數",
+        ]
+        .iter()
+        .enumerate()
+        {
+            worksheet.write_string_with_format(0, col as u16, *title, &header_format)?;
+        }
+
+        let mut total_regular = Decimal::ZERO;
+        let mut total_overtime = Decimal::ZERO;
+        let mut total_days: i64 = 0;
+
+        for (idx, r) in rows.iter().enumerate() {
+            let row = idx as u32 + 1;
+            worksheet.write_string(row, 0, &r.user_name)?;
+            worksheet.write_string(row, 1, &r.user_email)?;
+            worksheet.write_number(row, 2, r.work_days as f64)?;
+            write_hours_cell(worksheet, row, 3, r.total_regular_hours)?;
+            write_hours_cell(worksheet, row, 4, r.total_overtime_hours)?;
+            worksheet.write_number(row, 5, r.incomplete_days as f64)?;
+            worksheet.write_number(row, 6, r.corrected_days as f64)?;
+
+            total_days += r.work_days;
+            total_regular += r.total_regular_hours;
+            total_overtime += r.total_overtime_hours;
+        }
+
+        let total_row = rows.len() as u32 + 1;
+        worksheet.write_string_with_format(total_row, 0, "合計", &total_format)?;
+        worksheet.write_number(total_row, 2, total_days as f64)?;
+        write_hours_cell(worksheet, total_row, 3, total_regular)?;
+        write_hours_cell(worksheet, total_row, 4, total_overtime)?;
+
+        worksheet.set_freeze_panes(1, 0)?;
+        Ok(workbook.save_to_buffer()?)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{compute_regular_hours, format_clock_time, HrService};
+    use super::{
+        compute_regular_hours, format_clock_time, month_bounds, reject_self_correction,
+        validate_correction_reason, HrService, MAX_CORRECTION_REASON_CHARS,
+    };
+    use uuid::Uuid;
+
+    // --- 補卡：不得作用於自己 ---
+
+    /// 核心迴歸：補卡／更正一律不得改到自己的紀錄（2026-08-26 使用者裁定）。
+    /// 這條若退化，持有補卡權的人就能自己給自己補工時，稽核上是最嚴重的那個洞。
+    #[test]
+    fn self_correction_is_rejected() {
+        let me = Uuid::new_v4();
+        assert!(
+            reject_self_correction(me, me).is_err(),
+            "補自己的卡必須被擋下"
+        );
+    }
+
+    #[test]
+    fn correcting_someone_else_is_allowed() {
+        let me = Uuid::new_v4();
+        let colleague = Uuid::new_v4();
+        reject_self_correction(colleague, me).expect("補別人的卡應該放行");
+    }
+
+    // --- 補卡理由長度 ---
+
+    /// 下限刻意取 4，讓最常見的正當理由「忘記打卡」（4 字）過得了。
+    /// 這條是把該邊界釘住：改成 5 就會把最常見的案例擋在門外。
+    #[test]
+    fn four_character_reason_is_accepted() {
+        assert_eq!(validate_correction_reason("忘記打卡").expect("4 字應通過"), "忘記打卡");
+    }
+
+    #[test]
+    fn reason_is_trimmed_before_length_check() {
+        assert_eq!(
+            validate_correction_reason("  忘記打卡  ").expect("去空白後 4 字應通過"),
+            "忘記打卡",
+            "理由要去頭尾空白後才判長度，也才是寫進 DB 的值"
+        );
+        assert!(
+            validate_correction_reason("      ").is_err(),
+            "只有空白的理由等同沒填"
+        );
+    }
+
+    #[test]
+    fn too_short_or_too_long_reason_is_rejected() {
+        assert!(validate_correction_reason("").is_err());
+        assert!(validate_correction_reason("忘").is_err());
+        let too_long = "字".repeat(MAX_CORRECTION_REASON_CHARS + 1);
+        assert!(
+            validate_correction_reason(&too_long).is_err(),
+            "超過上限的理由會灌爆 audit log"
+        );
+    }
+
+    // --- 工時月報的月份邊界 ---
+
+    /// 月底用「下個月 1 號往前一天」求得，閏年二月與跨年都不能算錯，
+    /// 否則月報會漏掉當月最後一天的工時。
+    #[test]
+    fn month_bounds_handles_leap_year_and_year_rollover() {
+        let (first, last) = month_bounds(2028, 2).expect("2028 是閏年");
+        assert_eq!(first.to_string(), "2028-02-01");
+        assert_eq!(last.to_string(), "2028-02-29", "閏年二月是 29 天");
+
+        let (first, last) = month_bounds(2026, 12).expect("十二月");
+        assert_eq!(first.to_string(), "2026-12-01");
+        assert_eq!(last.to_string(), "2026-12-31", "十二月的下個月是次年一月");
+
+        let (_, last) = month_bounds(2027, 2).expect("平年二月");
+        assert_eq!(last.to_string(), "2027-02-28");
+    }
+
+    #[test]
+    fn month_bounds_rejects_invalid_month() {
+        assert!(month_bounds(2026, 0).is_err());
+        assert!(month_bounds(2026, 13).is_err());
+    }
 
     // --- compute_regular_hours（扣除午休工時）---
 

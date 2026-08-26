@@ -99,6 +99,8 @@ export const queryKeys = {
     staffForAttendance: ['hr-staff-for-attendance'] as const,
     allAttendanceHistory: ['hr-attendance-history'] as const,
     attendanceHistory: (filters: Record<string, unknown>) => ['hr-attendance-history', filters] as const,
+    allMonthlyReport: ['hr-attendance-monthly-report'] as const,
+    monthlyReport: (filters: Record<string, unknown>) => ['hr-attendance-monthly-report', filters] as const,
     balanceSummary: ['hr-balance-summary'] as const,
     staffForProxy: ['hr-staff-for-proxy'] as const,
     allLeaves: (filters: Record<string, unknown>) => ['hr-all-leaves', filters] as const,

@@ -4,7 +4,11 @@ use rust_decimal::prelude::ToPrimitive;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{constants::DEFAULT_TIMEZONE, models::LeaveStatus, AppError, Result};
+use crate::{
+    constants::DEFAULT_TIMEZONE,
+    models::{LeaveStatus, MonthlyAttendanceSummary},
+    AppError, Result,
+};
 
 /// 判斷使用者在指定日期是否「正在請假」（已核准且涵蓋該日的假單）。
 ///
@@ -106,4 +110,48 @@ pub async fn list_attendance_stats_by_date_range(
         .map_err(AppError::Database)?;
 
     Ok(rows.into_iter().map(row_to_attendance_stat).collect())
+}
+
+/// 工時月報：把某月份的出勤紀錄按人彙總成一列。
+///
+/// 日期區間 inclusive，由呼叫端算好月初 / 月底（`first_day` / `last_day`）傳入，
+/// SQL 內不做月份運算——避免時區與閏月在 SQL 與 Rust 兩邊各算一次而分歧。
+///
+/// `user_id` 為 `Some` 時只回那個人（一般員工看自己）；`None` 回全體有紀錄的人。
+/// 以 `attendance_records` 為主表 INNER JOIN `users`：當月完全沒有任何紀錄的人
+/// **不會出現在報表**，這是刻意的——月報講的是工時，零紀錄者沒有工時可報。
+pub async fn summarize_monthly_attendance(
+    pool: &PgPool,
+    first_day: NaiveDate,
+    last_day: NaiveDate,
+    user_id: Option<Uuid>,
+) -> Result<Vec<MonthlyAttendanceSummary>> {
+    let sql = r#"
+        SELECT
+            u.id                                              AS user_id,
+            u.display_name                                    AS user_name,
+            u.email                                           AS user_email,
+            COUNT(*) FILTER (WHERE a.clock_in_time IS NOT NULL)::bigint AS work_days,
+            COALESCE(SUM(a.regular_hours), 0)                 AS total_regular_hours,
+            COALESCE(SUM(a.overtime_hours), 0)                AS total_overtime_hours,
+            COUNT(*) FILTER (
+                WHERE (a.clock_in_time IS NULL) <> (a.clock_out_time IS NULL)
+            )::bigint                                         AS incomplete_days,
+            COUNT(*) FILTER (WHERE a.is_corrected)::bigint    AS corrected_days
+        FROM attendance_records a
+        INNER JOIN users u ON u.id = a.user_id
+        WHERE a.work_date >= $1
+          AND a.work_date <= $2
+          AND ($3::uuid IS NULL OR a.user_id = $3)
+        GROUP BY u.id, u.display_name, u.email
+        ORDER BY u.display_name
+    "#;
+
+    sqlx::query_as::<_, MonthlyAttendanceSummary>(sql)
+        .bind(first_day)
+        .bind(last_day)
+        .bind(user_id)
+        .fetch_all(pool)
+        .await
+        .map_err(AppError::Database)
 }
