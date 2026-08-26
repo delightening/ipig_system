@@ -412,6 +412,82 @@ async fn rejected_delete_leaves_refresh_tokens_intact() {
     );
 }
 
+/// 🔴 **已經停用的 SD 仍不得軟刪除**（CodeRabbit #27 第 2 輪指出，2026-08-26 修）。
+///
+/// 第一版三條路徑都寫成 `if before.is_active { guard }`。那個條件對
+/// `update` / `deactivate_self` 是對的（重複停用不該報錯），但**對 `delete` 是錯的**——
+/// 它除了停用還會把 email 匿名化，而一個**早就停用**、仍掛著未結案 GLP 案的 SD
+/// 會直接跳過閘門被匿名化。
+///
+/// ⚠️ 這種帳號會存在，不是假想：本閘門是新加的，上線前既有資料可能早就處於
+/// 「SD 已停用 + GLP 案未結案」的狀態。閘門擋得住新產生的，擋不住存量——
+/// 而 `delete` 正好是存量會走到的那條路。
+#[tokio::test]
+#[serial]
+async fn delete_is_blocked_even_when_sd_already_inactive() {
+    let app = TestApp::spawn().await;
+    let admin = seed_user(&app, "admin").await;
+    let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+    let protocol_no = seed_protocol(&app, sd, true, "APPROVED").await;
+
+    // 模擬存量：帳號早就停用了（繞過應用層，代表閘門上線前就存在的狀態）
+    sqlx::query("UPDATE users SET is_active = false WHERE id = $1")
+        .bind(sd)
+        .execute(&app.db_pool)
+        .await
+        .expect("預先停用");
+
+    let before_email: String = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
+        .bind(sd)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("read email");
+
+    let err = UserService::delete(&app.db_pool, &admin_actor(admin), sd)
+        .await
+        .expect_err("已停用但仍有未結案 GLP 案的 SD，軟刪除仍應被擋");
+
+    let msg = format!("{err:?}");
+    assert!(
+        matches!(&err, AppError::BusinessRule(_)),
+        "應為 BusinessRule，實得：{err:?}"
+    );
+    assert!(
+        msg.contains(&protocol_no),
+        "訊息要列出計畫編號，實得：{msg}"
+    );
+
+    // 🔴 核心斷言：email 不得被匿名化。這才是 delete 比另外兩條路徑嚴重的地方。
+    let after_email: String = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
+        .bind(sd)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("read back");
+    assert_eq!(after_email, before_email, "被拒之後 email 不得被匿名化");
+}
+
+/// 對照組：已停用、且**沒有**未結案 GLP 案 → 軟刪除照樣可行。
+///
+/// 這支證明上面那支擋下的原因是「有未結案 GLP 案」，
+/// 不是「已停用的帳號一律不能刪」——後者會讓離職清理流程整個卡死。
+#[tokio::test]
+#[serial]
+async fn delete_allows_inactive_user_without_open_glp() {
+    let app = TestApp::spawn().await;
+    let admin = seed_user(&app, "admin").await;
+    let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+    seed_protocol(&app, sd, true, "CLOSED").await;
+    sqlx::query("UPDATE users SET is_active = false WHERE id = $1")
+        .bind(sd)
+        .execute(&app.db_pool)
+        .await
+        .expect("預先停用");
+
+    UserService::delete(&app.db_pool, &admin_actor(admin), sd)
+        .await
+        .expect("已結案的 GLP 計畫不該擋住軟刪除");
+}
+
 /// 非 GLP 案的 SD 兩條路徑都放行——不要過度阻擋。
 #[tokio::test]
 #[serial]

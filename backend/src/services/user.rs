@@ -772,7 +772,16 @@ impl UserService {
     /// 呼叫端負責：
     /// 1. 先用 `SELECT ... FOR UPDATE` 鎖住該 user 列（避免併發下檢查與寫入之間被插隊）
     /// 2. 在**所有寫入之前**呼叫——擋下時要是乾淨的拒絕，不留半套變更
-    /// 3. 只在「原本是啟用中」時呼叫（已停用的帳號重複停用不該報錯）
+    /// 3. **是否要用 `if before.is_active` 包起來，取決於那條路徑做了什麼**：
+    ///    - 只做「停用」的路徑（`update` / `deactivate_self`）**要**包——
+    ///      重複停用一個已停用的帳號不該報錯。
+    ///    - `delete` **不可以**包——它除了停用還會把 email 匿名化，
+    ///      而「早就停用、但仍掛著未結案 GLP 案」的存量帳號正好會走這條。
+    ///
+    /// ⚠️ 第 3 點的第一版寫成「只在原本是啟用中時呼叫」，我把對前兩條路徑成立的
+    /// 條件當成通則套到第三條，於是 `delete` 對存量帳號整個失效
+    /// （CodeRabbit #27 第 2 輪指出）。**helper 的呼叫條件不能照抄，
+    /// 要按各路徑實際做的事重新判斷。**
     async fn ensure_not_glp_study_director_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         user_id: Uuid,
@@ -896,9 +905,24 @@ impl UserService {
         // 真正的理由只剩兩個，都比原本寫的弱：省掉一次不必要的寫入，
         // 以及讀的人看到「檢查在前」比較容易確認順序無誤。
         // **正確性是 transaction 保證的，不是這個位置。**
-        if before.is_active {
-            Self::ensure_not_glp_study_director_tx(&mut tx, id).await?;
-        }
+        //
+        // 🔴 **這裡不加 `if before.is_active`**（CodeRabbit #27 第 2 輪指出，成立）。
+        //
+        // 另外兩條路徑（`update` / `deactivate_self`）加那個條件是對的：
+        // 它們只做「停用」，而重複停用一個已停用的帳號不該報錯。
+        // **但 `delete` 做的事更多——它還把 email 匿名化。**
+        //
+        // 漏掉的情形：一個**早就停用**、但仍掛著未結案 GLP 案的 SD。
+        // 加了 `is_active` 條件的話，這道閘對他完全不生效，`delete` 照樣把他匿名化，
+        // 結果正是本註解開頭說要防的那件事——GLP 案的 SD 變成無法追溯的紀錄。
+        //
+        // ⚠️ 這種帳號存在嗎？**會存在**：本閘門是新加的，在它上線前既有資料可能
+        // 早就處於「SD 已停用 + GLP 案未結案」的狀態。閘門擋得住新產生的，
+        // 擋不住存量——而 `delete` 正好是存量會走到的那條路。
+        //
+        // 教訓：**helper 的呼叫條件不能照抄**。我在它的 doc comment 裡寫了
+        // 「只在原本是啟用中時呼叫」，那句對前兩條路徑成立，被我當成通則套到第三條。
+        Self::ensure_not_glp_study_director_tx(&mut tx, id).await?;
 
         // 撤銷所有 refresh tokens（登出）
         sqlx::query("DELETE FROM refresh_tokens WHERE user_id = $1")
