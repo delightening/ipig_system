@@ -319,6 +319,19 @@ impl EquipmentService {
             .execute(&mut **tx)
             .await?;
 
+        // 紀錄都刪了，驗收人已無事可做。不接這條就是 2026-08-07 巡場事故的同一個坑：
+        // 待辦綁在已消失的實體上、永久卡住，而使用者不能自己清掉待辦。
+        //
+        // 這裡不能用 `sync_stage_todos_tx`——它需要 `&NotificationService`（持 pool），
+        // 而本函式是純 tx 版、拿不到 pool。實體已刪 ⇒ 關卡必為 None ⇒ 同步的結果就是
+        // 全部解除，與直接呼叫解除等價。
+        crate::services::NotificationService::resolve_pinned_notifications_tx(
+            tx,
+            crate::services::StageEntity::MaintenanceRecord(before.id).entity_type(),
+            before.id,
+        )
+        .await?;
+
         let display = format!("maintenance {:?}", before.maintenance_type);
         AuditService::log_activity_tx(
             tx,
@@ -389,11 +402,27 @@ impl EquipmentService {
 
         let mut tx = pool.begin().await?;
         let record = Self::update_maintenance_record_tx(&mut tx, actor, id, payload).await?;
-        let existing_status = record.status.clone();
+
+        // 待驗收待辦：同步到這筆現在該有的樣子，**在同一個 tx 內**。
+        // 進入 pending_review 就建立、離開就解除（改回 pending / in_progress /
+        // unrepairable 都算離開），不必在這裡分辨自己是哪一種轉換——判準在
+        // `services/notification/stages.rs`，收件人與 SoD 也在那裡與授權判準同源。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::MaintenanceRecord(record.id),
+                Some(current_user.id),
+            )
+            .await?;
+
         tx.commit().await?;
 
+        // email 一律 commit 之後才寄——rollback 收不回已寄出的信。
+        notification_svc.send_stage_emails(stage_emails).await;
+
         // 無法維修通知（tx 外 side effect）
-        if existing_status == MaintenanceStatus::Unrepairable {
+        if record.status == MaintenanceStatus::Unrepairable {
             if let Ok(Some(equip)) =
                 repositories::equipment::find_equipment_by_id(pool, record.equipment_id).await
             {
@@ -496,6 +525,16 @@ impl EquipmentService {
         .bind(&payload.review_notes)
         .fetch_one(&mut *tx)
         .await?;
+
+        // 驗收通過或退回，這筆都不再等驗收人動作 → 同步後待辦自動消失（同一個 tx）。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::MaintenanceRecord(record.id),
+                Some(current_user.id),
+            )
+            .await?;
 
         let display = format!(
             "maintenance {:?} → {:?}",

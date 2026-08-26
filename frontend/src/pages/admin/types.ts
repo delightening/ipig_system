@@ -58,14 +58,21 @@ const REPAIR_STATUS_VARIANT: Record<MaintenanceStatus, StatusVariant> = {
 
 /**
  * 維修/保養紀錄合併「類型+狀態」徽章規則（Dashboard widget 與設備管理頁共用）：
- * - 保養：恆顯示藍色「保養」，不分狀態（完成與否由「完修日期」欄判讀）。
- * - 維修：依狀態上色（完修綠／無法維修紅／待驗收紫／進行中灰／待處理亮黃）。
+ * - **待驗收：不分類型一律顯示紫色「待驗收」**——這是唯一「還需要有人動作」的狀態，
+ *   蓋掉類型徽章是刻意的。原本保養類恆顯示藍色「保養」而不看 `status`，結果是
+ *   待驗收的保養紀錄與已完修的長得一模一樣，要點進去才知道還沒驗收；2026-08-26
+ *   一次驗收掉的 6 筆裡有 5 筆是保養類，最久一筆從完修到驗收擱了 44 天（R111-1）。
+ * - 保養（其餘狀態）：藍色「保養」，完成與否由「完修日期」欄判讀。
+ * - 維修（其餘狀態）：依狀態上色（完修綠／無法維修紅／進行中灰／待處理亮黃）。
  * 回傳 labelKey 為 i18n key，consumer 須以 t() 取顯示文字。
  */
 export function getMaintenanceBadge(
   type: MaintenanceType,
   status: MaintenanceStatus,
 ): { variant: StatusVariant; labelKey: string } {
+  if (status === 'pending_review') {
+    return { variant: 'purple', labelKey: MAINTENANCE_STATUS_LABELS.pending_review }
+  }
   if (type === 'maintenance') {
     return { variant: 'info', labelKey: MAINTENANCE_TYPE_LABELS.maintenance }
   }
