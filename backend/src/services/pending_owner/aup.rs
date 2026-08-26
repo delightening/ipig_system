@@ -116,6 +116,9 @@ struct AmendmentStageRow {
     id: Uuid,
     status: String,
     submitted_at: Option<DateTime<Utc>>,
+    /// 分類完成的時間。`CLASSIFIED` 是**分類之後**才開始等送審，用 `submitted_at`
+    /// 會把「送審到分類」那段也算進等待天數（CodeRabbit 於 #30 指出）。
+    classified_at: Option<DateTime<Utc>>,
     updated_at: DateTime<Utc>,
 }
 
@@ -130,7 +133,7 @@ pub async fn resolve_for_amendments(
 
     let rows = sqlx::query_as::<_, AmendmentStageRow>(
         r#"
-        SELECT id, status::text AS status, submitted_at, updated_at
+        SELECT id, status::text AS status, submitted_at, classified_at, updated_at
         FROM amendments
         WHERE id = ANY($1) AND status::text IN ('SUBMITTED', 'RESUBMITTED', 'CLASSIFIED')
         "#,
@@ -139,21 +142,29 @@ pub async fn resolve_for_amendments(
     .fetch_all(pool)
     .await?;
 
-    let to_pending_row = |r: &AmendmentStageRow| PendingRow {
+    // 「進入本關的時間」必須是**該關卡開始等待的時刻**，不是整件事的起點。
+    // 兩關的起點不同，共用同一個算式會讓已分類的件把「送審→分類」那段也算成等待
+    // （CodeRabbit 於 #30 指出；同樣的道理已套用在單據終審關與維修待驗收關）。
+    let since_submitted = |r: &AmendmentStageRow| PendingRow {
         id: r.id,
         excluded: None,
         since: Some(r.submitted_at.unwrap_or(r.updated_at)),
+    };
+    let since_classified = |r: &AmendmentStageRow| PendingRow {
+        id: r.id,
+        excluded: None,
+        since: Some(r.classified_at.unwrap_or(r.updated_at)),
     };
 
     let to_classify: Vec<PendingRow> = rows
         .iter()
         .filter(|r| r.status == "SUBMITTED" || r.status == "RESUBMITTED")
-        .map(to_pending_row)
+        .map(since_submitted)
         .collect();
     let to_review: Vec<PendingRow> = rows
         .iter()
         .filter(|r| r.status == "CLASSIFIED")
-        .map(to_pending_row)
+        .map(since_classified)
         .collect();
 
     let mut result = resolve_single_stage(
