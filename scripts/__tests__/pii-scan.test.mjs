@@ -142,6 +142,54 @@ describe('缺口 1b：--push 也要掃 message，不能只靠 commit-msg hook', 
     }
     assert.equal(result, 1, '--push 應該擋下含人名的 commit message')
   })
+
+  // CodeRabbit 於 #24 指出：git 會把 message 重編碼成 `i18n.logOutputEncoding`
+  // 指定的編碼，而掃描器一律以 UTF-8 解碼 stdout。兩者不一致 → 整段變亂碼 →
+  // 人名一個都對不上 → 印「通過」。
+  //
+  // ⚠️ 這支測試用 **Big5**，不是 ISO-8859-1。原因是實測發現：
+  // 中文轉 ISO-8859-1 時 iconv 失敗，而 git 在 iconv 失敗時**原封不動輸出**，
+  // 於是恰好是安全的——拿它當測資會得到「沒問題」的假結論。
+  // 會出事的是「轉得過去」的編碼，Big5 對台灣的專案來說正是最可能被設的那個。
+  test('🔴 i18n.logOutputEncoding=Big5 時仍要掃得到人名', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'pii-enc-'))
+    const gitEnv = {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'pii-scan-test',
+      GIT_AUTHOR_EMAIL: 'pii-scan-test@example.com',
+      GIT_COMMITTER_NAME: 'pii-scan-test',
+      GIT_COMMITTER_EMAIL: 'pii-scan-test@example.com',
+    }
+    const g = (cmd, opts = {}) =>
+      execSync(cmd, { cwd: dir, encoding: 'utf8', env: gitEnv, ...opts })
+    try {
+      g('git init -q .')
+      g('git commit --allow-empty -q -m "base"')
+      const head = g('git rev-parse HEAD').trim()
+      const tree = g('git write-tree').trim()
+      const bad = g(`git commit-tree ${tree} -p ${head}`, {
+        input: 'chore: 測試\n\n陳測試 3 份\n',
+      }).trim()
+      // 🔴 關鍵設定：讓 git 把 message 轉成 Big5 才輸出
+      g('git config i18n.logOutputEncoding Big5')
+
+      let result
+      try {
+        execFileSync(process.execPath, [SCANNER, '--push', 'origin'], {
+          encoding: 'utf8',
+          cwd: dir,
+          env: { ...gitEnv, PII_NAMES_FILE: FIXTURE },
+          input: `refs/heads/t ${bad} refs/heads/t ${head}\n`,
+        })
+        result = 0
+      } catch (err) {
+        result = err.status ?? 1
+      }
+      assert.equal(result, 1, 'Big5 輸出編碼下仍應擋下——不能因為亂碼就當作乾淨')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })
 
 describe('git cleanup mode：`#` 行在各模式下都要被掃到', () => {

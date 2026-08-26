@@ -483,7 +483,22 @@ async function cmdPush() {
     let messages
     try {
       // %x00 當分隔符：commit message 本身可能含任何可見字元，用不可見的 NUL 才安全
-      messages = git(['log', '--format=%H%x00%B%x00', `${base}..${localOid}`])
+      //
+      // 🔴 `--encoding=UTF-8` 不可省（CodeRabbit #24 指出，2026-08-26 實測重現）。
+      // git 會把 commit message 重新編碼成 `i18n.logOutputEncoding` 指定的編碼，
+      // 而 `git()` 一律以 UTF-8 解碼 stdout。兩者不一致時整段訊息變亂碼，
+      // 人名比對一個都對不上，掃描器照樣印「通過」。
+      //
+      // 實測（同一則含中文姓名的 commit）：
+      //   logOutputEncoding=Big5   → 掃不到（"chore: ï¿½ï¿½..."）
+      //   logOutputEncoding=GBK    → 掃不到
+      //   logOutputEncoding=UTF-16 → 掃不到
+      //   三者加上 --encoding=UTF-8 → 都掃得到
+      //
+      // ⚠️ 用 ISO-8859-1 測**測不出這個 bug**：中文轉不過去、iconv 失敗，
+      // 而 git 在 iconv 失敗時原封不動輸出原始位元組，於是恰好是安全的。
+      // 會出事的是「轉得過去」的編碼——對台灣的專案來說 Big5 正是最可能被設的那個。
+      messages = git(['log', '--encoding=UTF-8', '--format=%H%x00%B%x00', `${base}..${localOid}`])
     } catch {
       blockers.push(`${base.slice(0, 8)}..${localOid.slice(0, 8)} 無法取得 commit message，為安全起見擋下。`)
       continue
