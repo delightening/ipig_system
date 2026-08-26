@@ -203,6 +203,94 @@ async fn create_allows_creator_as_sd_when_pi_is_external() {
     );
 }
 
+/// 🔴 **update 路徑也要放行佔位 PI**（CodeRabbit #26 指出，2026-08-26 修）。
+///
+/// 上面那支只守 create。實際流程更常見的是「先建計畫、SD 之後再指派」——
+/// 而 update 拿不到 `req.pi_user_id`（PI 不可透過 update 變更），只能讀
+/// `before.pi_user_id`，那個值對外部 PI 的計畫就是建立者的佔位。
+/// 原本直接傳 `Some(before.pi_user_id)`，於是建立者之後想自任 SD 會被誤擋。
+///
+/// 正式庫實查（2026-08-26）：`pi_user_id = created_by` 且尚未指派 SD 的計畫共 3 筆，
+/// 其中 2 筆的建立者具 EXPERIMENT_STAFF（＝擔任 SD 的必要角色）且**無 PI 角色**。
+/// 也就是說這不是假想情境，是現存資料就會踩到的。
+#[tokio::test]
+#[serial]
+async fn update_allows_creator_as_sd_when_pi_is_external() {
+    let app = TestApp::spawn().await;
+    let secretary = seed_user(&app, "IACUC_STAFF").await;
+    add_role(&app, secretary, "EXPERIMENT_STAFF").await;
+    let actor = user_actor(secretary, &["IACUC_STAFF"]);
+
+    // 外部 PI（留空 → 佔位成建立者）且**先不指派 SD**
+    let p = ProtocolService::create(&app.db_pool, &actor, &create_req(None, None), secretary)
+        .await
+        .expect("create");
+    assert_eq!(p.pi_user_id, secretary, "PI 欄位是佔位值");
+    assert!(p.study_director_user_id.is_none(), "建立時尚未指派 SD");
+
+    // 之後才把建立者本人指派為 SD
+    let req = UpdateProtocolRequest {
+        title: None,
+        working_content: None,
+        start_date: None,
+        end_date: None,
+        study_director_user_id: Some(secretary),
+        version: None,
+        source_form_version: None,
+    };
+    let scope = scope_for(&app, secretary, p.id).await;
+    ProtocolService::update(&app.db_pool, &actor, scope, &req)
+        .await
+        .expect("佔位 PI 的計畫，建立者事後自任 SD 應該可行");
+
+    let after: Option<Uuid> =
+        sqlx::query_scalar("SELECT study_director_user_id FROM protocols WHERE id = $1")
+            .bind(p.id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("read back");
+    assert_eq!(after, Some(secretary));
+}
+
+/// 🔴 **判別靠的是「有沒有 PI 角色」，不是「形狀」——這支守住那個區別。**
+///
+/// 真 PI 自己開自己的計畫時，`pi_user_id` 同樣等於 `created_by`，形狀跟上面那支
+/// 一模一樣。若只用形狀判斷佔位，這種情形會被一起放過，而它正是裁定 16
+/// 要擋的東西（正式庫既有那筆 PI=SD 就是這個形狀，差別在 PI 具 PI 角色）。
+#[tokio::test]
+#[serial]
+async fn update_still_blocks_when_self_created_pi_has_pi_role() {
+    let app = TestApp::spawn().await;
+    // 具 PI 角色、同時具 EXPERIMENT_STAFF（否則會先被角色檢查擋掉，測不到重點）
+    let pi = seed_user(&app, "PI").await;
+    add_role(&app, pi, "EXPERIMENT_STAFF").await;
+    let actor = user_actor(pi, &["PI"]);
+
+    // PI 自己建自己的計畫 → pi_user_id == created_by == pi（形狀同佔位）
+    let p = ProtocolService::create(&app.db_pool, &actor, &create_req(None, None), pi)
+        .await
+        .expect("create");
+    assert_eq!(p.pi_user_id, pi);
+
+    let req = UpdateProtocolRequest {
+        title: None,
+        working_content: None,
+        start_date: None,
+        end_date: None,
+        study_director_user_id: Some(pi),
+        version: None,
+        source_form_version: None,
+    };
+    let scope = scope_for(&app, pi, p.id).await;
+    let err = ProtocolService::update(&app.db_pool, &actor, scope, &req)
+        .await
+        .expect_err("具 PI 角色者自任 SD 仍應被擋——形狀相同，靠角色區分");
+    assert!(
+        matches!(&err, AppError::Validation(m) if m.contains("不可兼任")),
+        "應是「不可兼任」，實得：{err:?}"
+    );
+}
+
 /// 正常情況：PI 與 SD 是不同人 → 放行。
 #[tokio::test]
 #[serial]

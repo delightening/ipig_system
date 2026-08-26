@@ -1225,14 +1225,44 @@ impl ProtocolService {
         if let Some(sd_id) = req.study_director_user_id {
             // ⚠️ update 這條路徑與 create／import 不同：`UpdateProtocolRequest`
             // 沒有 pi_user_id 欄位（PI 不可透過 update 變更），所以只能用
-            // `before.pi_user_id`——**而那個值可能是外部 PI 的佔位**（等於建立者）。
+            // `before.pi_user_id`——**而那個值可能是外部 PI 的佔位**（等於建立者，
+            // 因為 create 走 `req.pi_user_id.unwrap_or(created_by)`）。
             //
-            // 已知限制：若某計畫的 PI 是佔位、而佔位者本人要改任 SD，這裡會誤擋。
-            // 2026-08-25 實測正式庫，符合這個形狀的計畫只有 1 筆，
-            // 而那一筆正是裁定 16 要處理的存量（PI 與 SD 都是同一位、且她確實具 PI 角色），
-            // 所以現階段沒有誤擋。若日後出現真正的誤擋，正確的修法是讓
-            // protocols 明確記錄「PI 是外部人員」而不是靠佔位值推斷。
-            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, Some(before.pi_user_id)).await?;
+            // 🔴 直接拿 `Some(before.pi_user_id)` 會誤擋（CodeRabbit #26 指出）。
+            // 2026-08-26 正式庫實查：
+            //   `pi_user_id = created_by` 且尚未指派 SD 的計畫共 3 筆，
+            //   其中 2 筆的建立者角色是 EXPERIMENT_STAFF（正是擔任 SD 的必要角色），
+            //   完全沒有 PI 角色——那不是「PI 開自己的計畫」，是佔位。
+            //   把該建立者指派為 SD 是合理操作，卻會被 PI≠SD 擋掉。
+            //
+            // 判別方式（使用者 2026-08-26 裁定：用角色啟發式，不加 schema 欄位）：
+            //   佔位形狀（pi_user_id == created_by）**且該使用者沒有 PI 角色** → 視為佔位。
+            //
+            // 為什麼「佔位形狀」本身不夠：既有那筆真正該擋的 PI=SD 也是這個形狀，
+            // 差別在它的 PI **具 PI 角色**（DIRECTOR, PI）。只看形狀會把它一起放過，
+            // 而它正是裁定 16 要處理的存量。
+            //
+            // ⚠️ 已知代價：某位真 PI 若在系統裡沒被授予 PI 角色，這道閘對他失效。
+            // 不改用 schema 欄位是因為——就算加了欄位，**既有資料也只能用同一套
+            // 啟發式回填**（沒有 ground truth），對現存計畫的精確度完全一樣；
+            // 欄位只對「未來新建時明確宣告」有意義，屬 API 契約變更，另案處理。
+            let pi_is_placeholder = before.pi_user_id == before.created_by
+                && !sqlx::query_scalar::<_, bool>(
+                    r#"SELECT EXISTS(
+                         SELECT 1 FROM user_roles ur
+                         JOIN roles r ON r.id = ur.role_id
+                         WHERE ur.user_id = $1 AND r.code = 'PI'
+                       )"#,
+                )
+                .bind(before.pi_user_id)
+                .fetch_one(&mut *tx)
+                .await?;
+            let effective_pi = if pi_is_placeholder {
+                None
+            } else {
+                Some(before.pi_user_id)
+            };
+            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, effective_pi).await?;
             // rebase 衝突解法（2026-08-25）：本分支原本在這裡從 working_content
             // 重推 is_glp，而 #25（裁定 14）的整個重點就是**不要**那樣做——
             // 判定來源必須是權威欄位 `before.is_glp`。取 main 的版本。
