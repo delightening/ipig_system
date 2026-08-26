@@ -1,14 +1,25 @@
-//! AUP 計畫、變更申請、PI 開通信的待處理人解析（權限型關卡）。
+//! AUP 計畫與變更申請的待處理人解析。
 //!
-//! ⚠️ **本檔只涵蓋「行政受理 / 分類」那幾關**。委員會審查（`UNDER_REVIEW`）與獸醫審查
-//! （`VET_REVIEW`）卡在**被指派的特定人**、需修正類（`*_REVISION_REQUIRED`）卡在申請人，
-//! 三者的形狀都不是「權限型」，留給後續處理。
+//! 本檔涵蓋三種形狀，各自對應不同的 [`PendingOwnerKind`]：
 //!
-//! | 關卡 | 判準 |
-//! |---|---|
-//! | 計畫待行政受理（`SUBMITTED` / `PRE_REVIEW` / `RESUBMITTED`） | `aup.protocol.change_status`（`handlers/protocol/crud.rs:418`） |
-//! | 變更申請待分類（`SUBMITTED` / `RESUBMITTED`） | `aup.amendment.classify`（`handlers/amendment.rs:235`） |
-//! | 變更申請已分類待送審（`CLASSIFIED`） | `aup.protocol.change_status`（`handlers/amendment.rs:347`、`:405`） |
+//! | 關卡 | 判準 | kind |
+//! |---|---|---|
+//! | 計畫待行政受理（`SUBMITTED` / `PRE_REVIEW` / `RESUBMITTED`） | `aup.protocol.change_status`（`handlers/protocol/crud.rs:418`） | Role |
+//! | 計畫獸醫審查（`VET_REVIEW`） | `vet_review_assignments.vet_id`（`services/protocol/review.rs:209`） | Person |
+//! | 計畫委員會審查（`UNDER_REVIEW`） | `review_assignments`（`review.rs:119`） | **Anonymous** |
+//! | 計畫需修正（`*_REVISION_REQUIRED`） | 球在申請人身上 | Applicant |
+//! | 變更申請待分類（`SUBMITTED` / `RESUBMITTED`） | `aup.amendment.classify`（`handlers/amendment.rs:235`） | Role |
+//! | 變更申請已分類待送審（`CLASSIFIED`） | `aup.protocol.change_status`（`handlers/amendment.rs:347`、`:405`） | Role |
+//! | 變更申請委員會審查（`UNDER_REVIEW`） | `amendment_review_assignments` | **Anonymous** |
+//! | 變更申請需修正（`REVISION_REQUIRED`） | 球在申請人身上 | Applicant |
+//!
+//! # 為什麼委員會審查不列名
+//!
+//! 2026-08-26 使用者裁定：IACUC 審查委員的身分**對所有人一律不揭露**，只給人數。
+//! 刻意用「狀態」擋而不是用「誰在看」擋——後者會出現 A 看得到 B 看不到的一致性問題，
+//! 而且擋不住任何東西（`services/protocol/comment.rs:105` 早就把 `reviewer_name`
+//! 與 `reviewer_email` 一起回給有 scope 的人，PI 也在內）。那個不一致是**既有的洞**，
+//! 另案處理，不在本檔的責任範圍。
 
 use std::collections::HashMap;
 
@@ -17,15 +28,23 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::models::PendingOwner;
+use crate::models::{PendingOwner, PendingOwnerKind};
 
 use super::{resolve_single_stage, CandidateSource, PendingRow};
 
 const STAGE_PROTOCOL_INTAKE: &str = "aup_protocol_intake";
+const STAGE_PROTOCOL_VET_REVIEW: &str = "aup_protocol_vet_review";
+const STAGE_PROTOCOL_UNDER_REVIEW: &str = "aup_protocol_under_review";
+const STAGE_PROTOCOL_REVISION: &str = "aup_protocol_revision";
 const STAGE_AMENDMENT_CLASSIFY: &str = "aup_amendment_classify";
 const STAGE_AMENDMENT_TO_REVIEW: &str = "aup_amendment_to_review";
+const STAGE_AMENDMENT_UNDER_REVIEW: &str = "aup_amendment_under_review";
+const STAGE_AMENDMENT_REVISION: &str = "aup_amendment_revision";
 
 const PERMISSION_CHANGE_STATUS: &str = "aup.protocol.change_status";
+
+/// 委員會審查關對外顯示的角色（只給角色與人數，不給名字）。
+const ROLE_REVIEWER: &str = "REVIEWER";
 
 /// 計畫停在「等行政作業」的三個狀態。
 ///
@@ -42,6 +61,13 @@ const PERMISSION_CHANGE_STATUS: &str = "aup.protocol.change_status";
 /// `ROLE_SYSTEM_ADMIN`＝`"SYSTEM_ADMIN"`，而 `roles` 表裡的管理員代碼是 `admin`
 /// （2026-08-26 實查 15 個角色）。那條管理員放行實際上永遠不成立。
 const PROTOCOL_INTAKE_STATUSES: &[&str] = &["SUBMITTED", "PRE_REVIEW", "RESUBMITTED"];
+
+/// 計畫停在「等申請人補件」的三個狀態。三個都是把球踢回 PI，只是關卡不同。
+const PROTOCOL_REVISION_STATUSES: &[&str] = &[
+    "REVISION_REQUIRED",
+    "PRE_REVIEW_REVISION_REQUIRED",
+    "VET_REVISION_REQUIRED",
+];
 
 #[derive(Debug, sqlx::FromRow)]
 struct SubmittedStageRow {
@@ -72,15 +98,23 @@ impl SubmittedStageRow {
     }
 }
 
+/// 卡在特定人 / 申請人身上的計畫列。
+#[derive(Debug, sqlx::FromRow)]
+struct ProtocolAssigneeRow {
+    id: Uuid,
+    status: String,
+    /// 該關卡的負責人顯示名（獸醫 / 申請人）；查不到姓名時為 None。
+    assignee_name: Option<String>,
+    /// 委員會審查關的指派委員人數。
+    reviewer_count: i64,
+    since: Option<DateTime<Utc>>,
+}
+
 /// AUP 計畫：卡在行政受理 / 預審的那幾筆。
-pub async fn resolve_for_protocols(
+async fn resolve_protocol_intake(
     pool: &PgPool,
     protocol_ids: &[Uuid],
 ) -> Result<HashMap<Uuid, PendingOwner>, AppError> {
-    if protocol_ids.is_empty() {
-        return Ok(HashMap::new());
-    }
-
     let statuses: Vec<String> = PROTOCOL_INTAKE_STATUSES
         .iter()
         .map(|s| (*s).to_string())
@@ -109,6 +143,93 @@ pub async fn resolve_for_protocols(
         &pending,
     )
     .await
+}
+
+/// AUP 計畫：卡在獸醫 / 委員會 / 申請人身上的那幾筆。
+///
+/// 這三關的共通點是「負責人由資料決定、不是由權限決定」，所以走一支帶 JOIN 的查詢，
+/// 不經過 [`resolve_single_stage`]（那支是給權限型用的）。
+async fn resolve_protocol_assignees(
+    pool: &PgPool,
+    protocol_ids: &[Uuid],
+) -> Result<HashMap<Uuid, PendingOwner>, AppError> {
+    let revision_statuses: Vec<String> = PROTOCOL_REVISION_STATUSES
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
+
+    let rows = sqlx::query_as::<_, ProtocolAssigneeRow>(
+        r#"
+        SELECT p.id,
+               p.status::text AS status,
+               CASE
+                   WHEN p.status::text = 'VET_REVIEW' THEN vu.display_name
+                   WHEN p.status::text = ANY($2) THEN pi.display_name
+                   ELSE NULL
+               END AS assignee_name,
+               (SELECT COUNT(*) FROM review_assignments ra
+                 WHERE ra.protocol_id = p.id AND ra.completed_at IS NULL) AS reviewer_count,
+               COALESCE(p.submitted_at, p.updated_at) AS since
+        FROM protocols p
+        LEFT JOIN vet_review_assignments vra ON vra.protocol_id = p.id
+        LEFT JOIN users vu ON vu.id = vra.vet_id
+        LEFT JOIN users pi ON pi.id = p.pi_user_id
+        -- 同上：軟刪除靠 status='DELETED'，狀態白名單已排除。
+        WHERE p.id = ANY($1)
+          AND (p.status::text IN ('VET_REVIEW', 'UNDER_REVIEW') OR p.status::text = ANY($2))
+        "#,
+    )
+    .bind(protocol_ids)
+    .bind(&revision_statuses)
+    .fetch_all(pool)
+    .await?;
+
+    let mut result = HashMap::with_capacity(rows.len());
+    for row in rows {
+        let owner = match row.status.as_str() {
+            // 委員會審查：一律不列名，只給人數（2026-08-26 使用者裁定）。
+            "UNDER_REVIEW" => PendingOwner::anonymous(
+                STAGE_PROTOCOL_UNDER_REVIEW,
+                ROLE_REVIEWER,
+                row.reviewer_count,
+                row.since,
+            ),
+            // 獸醫審查：指派給特定一位獸醫，列名。
+            "VET_REVIEW" => PendingOwner::from_candidates(
+                STAGE_PROTOCOL_VET_REVIEW,
+                PendingOwnerKind::Person,
+                None,
+                row.assignee_name.into_iter().collect(),
+                row.since,
+            ),
+            // 需修正 / 補件：球回到申請人身上。這一關「卡在誰」的答案是 PI 自己，
+            // 顯示出來才不會讓人以為還在等審查。
+            _ => PendingOwner::from_candidates(
+                STAGE_PROTOCOL_REVISION,
+                PendingOwnerKind::Applicant,
+                None,
+                row.assignee_name.into_iter().collect(),
+                row.since,
+            ),
+        };
+        result.insert(row.id, owner);
+    }
+
+    Ok(result)
+}
+
+/// AUP 計畫：一次算出多筆的待處理人（涵蓋行政受理、獸醫、委員會、需修正四種形狀）。
+pub async fn resolve_for_protocols(
+    pool: &PgPool,
+    protocol_ids: &[Uuid],
+) -> Result<HashMap<Uuid, PendingOwner>, AppError> {
+    if protocol_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let mut result = resolve_protocol_intake(pool, protocol_ids).await?;
+    result.extend(resolve_protocol_assignees(pool, protocol_ids).await?);
+    Ok(result)
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -186,6 +307,68 @@ pub async fn resolve_for_amendments(
         )
         .await?,
     );
+
+    result.extend(resolve_amendment_assignees(pool, amendment_ids).await?);
+
+    Ok(result)
+}
+
+/// 卡在委員會 / 申請人身上的變更申請列。
+#[derive(Debug, sqlx::FromRow)]
+struct AmendmentAssigneeRow {
+    id: Uuid,
+    status: String,
+    /// 申請人顯示名（`REVISION_REQUIRED` 用）。
+    applicant_name: Option<String>,
+    /// 委員會審查關的指派委員人數。
+    reviewer_count: i64,
+    since: Option<DateTime<Utc>>,
+}
+
+/// 變更申請：委員會審查（不列名）與需修正（卡在申請人）。
+async fn resolve_amendment_assignees(
+    pool: &PgPool,
+    amendment_ids: &[Uuid],
+) -> Result<HashMap<Uuid, PendingOwner>, AppError> {
+    let rows = sqlx::query_as::<_, AmendmentAssigneeRow>(
+        r#"
+        SELECT a.id,
+               a.status::text AS status,
+               COALESCE(su.display_name, cu.display_name) AS applicant_name,
+               (SELECT COUNT(*) FROM amendment_review_assignments ara
+                 WHERE ara.amendment_id = a.id AND ara.decided_at IS NULL) AS reviewer_count,
+               COALESCE(a.submitted_at, a.updated_at) AS since
+        FROM amendments a
+        LEFT JOIN users su ON su.id = a.submitted_by
+        LEFT JOIN users cu ON cu.id = a.created_by
+        WHERE a.id = ANY($1)
+          AND a.status::text IN ('UNDER_REVIEW', 'REVISION_REQUIRED')
+        "#,
+    )
+    .bind(amendment_ids)
+    .fetch_all(pool)
+    .await?;
+
+    let mut result = HashMap::with_capacity(rows.len());
+    for row in rows {
+        let owner = if row.status == "UNDER_REVIEW" {
+            PendingOwner::anonymous(
+                STAGE_AMENDMENT_UNDER_REVIEW,
+                ROLE_REVIEWER,
+                row.reviewer_count,
+                row.since,
+            )
+        } else {
+            PendingOwner::from_candidates(
+                STAGE_AMENDMENT_REVISION,
+                PendingOwnerKind::Applicant,
+                None,
+                row.applicant_name.into_iter().collect(),
+                row.since,
+            )
+        };
+        result.insert(row.id, owner);
+    }
 
     Ok(result)
 }

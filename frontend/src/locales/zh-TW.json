@@ -3538,14 +3538,22 @@
       "equipment_maintenance_start": "待安排維修",
       "equipment_maintenance_review": "待驗收",
       "aup_protocol_intake": "待行政受理",
+      "aup_protocol_vet_review": "獸醫審查中",
+      "aup_protocol_under_review": "委員會審查中",
+      "aup_protocol_revision": "待申請人補件",
       "aup_amendment_classify": "待分類",
-      "aup_amendment_to_review": "待送交審查"
+      "aup_amendment_to_review": "待送交審查",
+      "aup_amendment_under_review": "委員會審查中",
+      "aup_amendment_revision": "待申請人補件",
+      "vet_patrol_acknowledge": "待追蹤者確認收到",
+      "vet_patrol_follow_up": "待追蹤者回覆改善"
     },
     "role": {
       "admin": "系統管理員",
       "SYSTEM_ADMIN": "系統管理員",
       "ADMIN_STAFF": "行政人員",
-      "WAREHOUSE_MANAGER": "倉庫管理員"
+      "WAREHOUSE_MANAGER": "倉庫管理員",
+      "REVIEWER": "審查委員"
     }
   }
 }

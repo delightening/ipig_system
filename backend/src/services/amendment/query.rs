@@ -76,6 +76,8 @@ impl AmendmentService {
                     AmendmentStatus::Submitted
                         | AmendmentStatus::Resubmitted
                         | AmendmentStatus::Classified
+                        | AmendmentStatus::UnderReview
+                        | AmendmentStatus::RevisionRequired
                 )
             })
             .map(|a| a.id)
