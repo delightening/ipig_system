@@ -82,6 +82,35 @@ impl NotificationService {
         Ok(users)
     }
 
+    /// 取得在職的系統管理員（站內通知對象）。
+    ///
+    /// ⚠️ **不要用 `get_users_by_role(ROLE_SYSTEM_ADMIN)` 拿管理員。**
+    /// `constants.rs` 有 `SYSTEM_ADMIN` 與 `admin` 兩個代碼，但 `roles` 表**只有 `admin`**
+    /// （2026-08-26 實查正式庫 16 個角色；`backend/migrations/` 全目錄 grep `SYSTEM_ADMIN`
+    /// 0 命中，`003_seed.sql:181` 只 seed `'admin'`）。用單一代碼查會**恆回空清單**，
+    /// 而空清單在通知路徑上不會報錯——管理員就是收不到，沒有任何訊號。
+    ///
+    /// 回傳 (user_id, email, display_name)，形狀同 [`Self::get_users_by_role`]。
+    pub async fn get_admin_users(&self) -> Result<Vec<(Uuid, String, String)>, AppError> {
+        let users: Vec<(Uuid, String, String)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT u.id, u.email, u.display_name
+            FROM users u
+            JOIN user_roles ur ON u.id = ur.user_id
+            JOIN roles r ON ur.role_id = r.id
+            WHERE u.is_active = true AND r.code = ANY($1)
+            "#,
+        )
+        .bind(vec![
+            crate::constants::ROLE_SYSTEM_ADMIN.to_string(),
+            crate::constants::ROLE_ADMIN_LEGACY.to_string(),
+        ])
+        .fetch_all(&self.db)
+        .await?;
+
+        Ok(users)
+    }
+
     /// 依事件類型從 notification_routing 表動態查詢收件者
     /// 回傳 (user_id, email, display_name, channel)
     pub async fn get_recipients_by_event(

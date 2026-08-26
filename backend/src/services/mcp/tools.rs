@@ -471,10 +471,9 @@ pub async fn submit_vet_review(
     .fetch_one(&state.db)
     .await?;
 
-    let is_admin = user
-        .roles
-        .iter()
-        .any(|r| r == crate::constants::ROLE_SYSTEM_ADMIN);
+    // ⚠️ `is_admin()` 而非自己比對 `ROLE_SYSTEM_ADMIN`：後者在 `roles` 表裡不存在
+    // （實查），原本的寫法讓管理員的 bypass 恆為 false。
+    let is_admin = user.is_admin();
     if !is_assigned && !is_admin {
         return Err(AppError::Forbidden("您未被指派審查此計畫書".to_string()));
     }
