@@ -58,6 +58,50 @@ async fn seed_equipment(app: &TestApp) -> Uuid {
     id
 }
 
+/// 授予角色。角色代碼真值來源：`migrations/003_seed.sql` 的
+/// `notification_routing` 列（`equipment_maintenance_review` → `EQUIPMENT_MAINTENANCE`）。
+async fn grant_role(app: &TestApp, user_id: Uuid, code: &str) {
+    sqlx::query(
+        "INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE code = $2",
+    )
+    .bind(user_id)
+    .bind(code)
+    .execute(&app.db_pool)
+    .await
+    .expect("grant role");
+}
+
+/// 種一筆尚未完修（pending）的維護紀錄，供「標記完修 → 轉待驗收」的流程測試用。
+async fn seed_pending_record(app: &TestApp, equipment_id: Uuid, created_by: Uuid) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO equipment_maintenance_records
+               (id, equipment_id, maintenance_type, status, reported_at, created_by)
+           VALUES ($1, $2, 'maintenance', 'pending', CURRENT_DATE, $3)"#,
+    )
+    .bind(id)
+    .bind(equipment_id)
+    .bind(created_by)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert pending maintenance record");
+    id
+}
+
+/// 某人身上、綁在這筆紀錄上的**未完成待辦**數（＝待處理清單的判準）。
+async fn open_todo_count(app: &TestApp, user_id: Uuid, record_id: Uuid) -> i64 {
+    sqlx::query_scalar(
+        r#"SELECT count(*) FROM notifications
+           WHERE user_id = $1 AND related_entity_type = 'maintenance_record'
+             AND related_entity_id = $2 AND kind = 'action' AND priority > 0"#,
+    )
+    .bind(user_id)
+    .bind(record_id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("count open todos")
+}
+
 /// 種一筆待驗收（pending_review）的維護紀錄，回傳紀錄 id。
 async fn seed_pending_review_record(app: &TestApp, equipment_id: Uuid, created_by: Uuid) -> Uuid {
     let id = Uuid::new_v4();
@@ -73,6 +117,125 @@ async fn seed_pending_review_record(app: &TestApp, equipment_id: Uuid, created_b
     .await
     .expect("insert maintenance record");
     id
+}
+
+// ── R111-2：轉入待驗收要建立待辦，且待辦不可發給登錄者 ──
+//
+// 修復前這條轉換（`update_maintenance_record_tx`，狀態轉 `PendingReview`）零 side effect：
+// routing 規則 `equipment_maintenance_review` 早就 seed 好了，但沒有任何程式碼觸發它，
+// 於是待驗收的紀錄不會出現在任何人的待處理清單裡。2026-08-26 prod 一次驗收掉 6 筆，
+// 最久一筆從完修到驗收擱了 44 天。
+#[tokio::test]
+#[serial]
+async fn marking_completed_creates_pending_review_todo_for_reviewer_not_creator() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let admin_id = admin_user_id(&app).await;
+
+    // 登錄者**也**具 EQUIPMENT_MAINTENANCE ——他本來就在路由收件人名單內，
+    // 唯一該把他排除掉的理由是 SoD（登錄者不得驗收自己的紀錄）。
+    // 若不給他這個角色，測試會因為「他本來就不是收件人」而假綠。
+    let creator = seed_internal_user(&app, "creator").await;
+    grant_role(&app, creator, "EQUIPMENT_MAINTENANCE").await;
+    let reviewer = seed_internal_user(&app, "reviewer").await;
+    grant_role(&app, reviewer, "EQUIPMENT_MAINTENANCE").await;
+
+    let equipment_id = seed_equipment(&app).await;
+    let record_id = seed_pending_record(&app, equipment_id, creator).await;
+
+    let res = app
+        .auth_put(
+            &format!("/api/v1/equipment-maintenance/{record_id}"),
+            &serde_json::json!({ "status": "completed" }),
+            &token,
+        )
+        .await;
+    assert_eq!(res.status().as_u16(), 200, "標記完修應成功");
+
+    let rec_status: String =
+        sqlx::query_scalar("SELECT status::text FROM equipment_maintenance_records WHERE id = $1")
+            .bind(record_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("fetch record status");
+    assert_eq!(
+        rec_status, "pending_review",
+        "標記完修應轉入待驗收，而非直接完修"
+    );
+
+    assert_eq!(
+        open_todo_count(&app, reviewer, record_id).await,
+        1,
+        "路由收件人應收到一則待辦，否則待驗收的紀錄不會出現在任何人的待處理清單"
+    );
+    assert_eq!(
+        open_todo_count(&app, creator, record_id).await,
+        0,
+        "登錄者受 SoD 限制不得驗收自己的紀錄，發待辦給他＝給一則他按下去必得 403 的事項"
+    );
+    assert_eq!(
+        open_todo_count(&app, admin_id, record_id).await,
+        0,
+        "觸發這次狀態轉換的人不必收到自己造成的待辦"
+    );
+}
+
+// ── R111-2：驗收後待辦要消失，但仍留在鈴鐺歷史 ──
+#[tokio::test]
+#[serial]
+async fn reviewing_maintenance_clears_todo_but_keeps_bell_history() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+
+    let creator = seed_internal_user(&app, "creator2").await;
+    let reviewer = seed_internal_user(&app, "reviewer2").await;
+    grant_role(&app, reviewer, "EQUIPMENT_MAINTENANCE").await;
+
+    let equipment_id = seed_equipment(&app).await;
+    let record_id = seed_pending_record(&app, equipment_id, creator).await;
+
+    let res = app
+        .auth_put(
+            &format!("/api/v1/equipment-maintenance/{record_id}"),
+            &serde_json::json!({ "status": "completed" }),
+            &token,
+        )
+        .await;
+    assert_eq!(res.status().as_u16(), 200);
+    assert_eq!(
+        open_todo_count(&app, reviewer, record_id).await,
+        1,
+        "前置條件：驗收前必須真的有一則待辦，否則後面的斷言測不到東西"
+    );
+
+    // 驗收人為 admin（≠ created_by），不觸發 SoD。
+    let res = app
+        .auth_post(
+            &format!("/api/v1/equipment-maintenance/{record_id}/review"),
+            &serde_json::json!({ "approved": true }),
+            &token,
+        )
+        .await;
+    assert_eq!(res.status().as_u16(), 200, "驗收應成功");
+
+    assert_eq!(
+        open_todo_count(&app, reviewer, record_id).await,
+        0,
+        "已驗收就不該再留在待處理清單——待辦依設計不可手動清除，漏解除＝永久卡死"
+    );
+
+    // 降級不是刪除：使用者事後仍能在鈴鐺裡回顧「我當初處理過哪些事」。
+    let history: i64 = sqlx::query_scalar(
+        r#"SELECT count(*) FROM notifications
+           WHERE user_id = $1 AND related_entity_type = 'maintenance_record'
+             AND related_entity_id = $2 AND kind = 'action' AND priority = 0"#,
+    )
+    .bind(reviewer)
+    .bind(record_id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("count resolved todos");
+    assert_eq!(history, 1, "解除待辦是降級不是刪除，紀錄要留在鈴鐺歷史裡");
 }
 
 // ── SEC-SoD（L-2）：登錄者不得驗收自己的維護保養紀錄 ──

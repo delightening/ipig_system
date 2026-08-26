@@ -10,13 +10,14 @@ use crate::{
     models::{
         audit_diff::DataDiff, CreateMaintenanceRequest, Equipment, EquipmentMaintenanceRecord,
         EquipmentStatus, MaintenanceQuery, MaintenanceRecordWithDetails, MaintenanceStatus,
-        MaintenanceType, PaginatedResponse, ReviewMaintenanceRequest, UpdateMaintenanceRequest,
+        MaintenanceType, NotificationType, PaginatedResponse, ReviewMaintenanceRequest,
+        UpdateMaintenanceRequest,
     },
     repositories,
     services::{
         access,
         audit::{ActivityLogEntry, AuditEntity},
-        AuditService, ElectronicSignature, SignatureService, SignatureType,
+        AuditService, ElectronicSignature, NotificationPayload, SignatureService, SignatureType,
     },
     Result,
 };
@@ -25,6 +26,20 @@ use super::{
     assert_not_self_approval, validate_status_transition, EquipmentService,
     MAINTENANCE_RESIGN_SUPERSEDE_REASON,
 };
+
+/// 維修/保養待驗收待辦的 `related_entity_type`。
+///
+/// ⚠️ **不可用 `"equipment"`**：`notify_equipment_maintenance_result` 已經拿 `"equipment"`
+/// 當 type 卻塞 maintenance record 的 id（`services/notification/equipment.rs`），
+/// 兩者疊在同一個 (type, id) 命名空間上，解除待辦時會互相誤傷。
+/// 值沿用 audit 既有的 entity 名稱（本檔 `AuditEntity::new("maintenance_record", …)`）。
+///
+/// 改這個常數要同步改三處：`services/notification/reconcile.rs` 的 `KNOWN_ENTITY_TYPES`
+/// 與其 UNION 分支、`frontend/src/lib/notificationRoute.ts` 的 case。
+pub(crate) const MAINTENANCE_PIN_ENTITY: &str = "maintenance_record";
+
+/// 待驗收待辦的通知事件碼。對應 routing 規則（`003_seed.sql`，EQUIPMENT_MAINTENANCE + admin）。
+const MAINTENANCE_REVIEW_EVENT: &str = "equipment_maintenance_review";
 
 /// 維修/保養紀錄可排序欄位白名單（query key → SQL 欄位）。
 const MAINTENANCE_SORT_COLUMNS: &[(&str, &str)] = &[
@@ -56,6 +71,36 @@ fn resolve_maintenance_order_by(query: &MaintenanceQuery) -> String {
 }
 
 impl EquipmentService {
+    /// 待驗收待辦的通知內容。
+    ///
+    /// 抽成一支而非內聯在呼叫點：標題／內容與 [`MAINTENANCE_PIN_ENTITY`] 必須一起改
+    /// （`related_entity_type` 錯了待辦就解不掉），放在一起才看得見這個耦合。
+    fn pending_review_payload(
+        equipment_name: &str,
+        record: &EquipmentMaintenanceRecord,
+    ) -> NotificationPayload {
+        let type_text = match record.maintenance_type {
+            MaintenanceType::Repair => "維修",
+            MaintenanceType::Maintenance => "保養",
+        };
+        // 維修看修復內容、保養看保養項目；兩者皆空才退回問題描述。
+        let detail = record
+            .repair_content
+            .as_deref()
+            .or(record.maintenance_items.as_deref())
+            .or(record.problem_description.as_deref())
+            .unwrap_or("-");
+        NotificationPayload {
+            notification_type: NotificationType::SystemAlert,
+            title: format!("[iPig] 設備{type_text}待驗收 - {equipment_name}"),
+            content: Some(format!(
+                "「{equipment_name}」的{type_text}紀錄已標記完修，待您驗收。\n\n內容：{detail}"
+            )),
+            related_entity_type: Some(MAINTENANCE_PIN_ENTITY.to_string()),
+            related_entity_id: Some(record.id),
+        }
+    }
+
     // ========== Maintenance Records (維修/保養) ==========
 
     pub async fn list_maintenance_records(
@@ -200,13 +245,17 @@ impl EquipmentService {
         Ok(record)
     }
 
-    /// Transaction 版本：更新維修紀錄
+    /// Transaction 版本：更新維修紀錄。
+    ///
+    /// 回傳 `(更新後的紀錄, 更新前的狀態)`。**前狀態是必要的回傳值不是方便**：
+    /// 待驗收待辦要在「進入 `PendingReview`」時建立、「離開」時解除，只看更新後的狀態
+    /// 分不出「本次剛轉入」與「本來就是」，重複呼叫會重複建立待辦。
     pub(in crate::services) async fn update_maintenance_record_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         actor: &ActorContext,
         id: Uuid,
         payload: &UpdateMaintenanceRequest,
-    ) -> Result<EquipmentMaintenanceRecord> {
+    ) -> Result<(EquipmentMaintenanceRecord, MaintenanceStatus)> {
         payload.validate()?;
 
         let existing = sqlx::query_as::<_, EquipmentMaintenanceRecord>(
@@ -292,7 +341,7 @@ impl EquipmentService {
         )
         .await?;
 
-        Ok(record)
+        Ok((record, existing.status))
     }
 
     /// Transaction 版本：刪除維修紀錄
@@ -318,6 +367,15 @@ impl EquipmentService {
             .bind(id)
             .execute(&mut **tx)
             .await?;
+
+        // 紀錄都刪了，驗收人已無事可做。不接這條就是 2026-08-07 巡場事故的同一個坑：
+        // 待辦綁在已消失的實體上、永久卡住，而使用者不能自己清掉待辦。
+        crate::services::NotificationService::resolve_pinned_notifications_tx(
+            tx,
+            MAINTENANCE_PIN_ENTITY,
+            before.id,
+        )
+        .await?;
 
         let display = format!("maintenance {:?}", before.maintenance_type);
         AuditService::log_activity_tx(
@@ -388,12 +446,67 @@ impl EquipmentService {
         }
 
         let mut tx = pool.begin().await?;
-        let record = Self::update_maintenance_record_tx(&mut tx, actor, id, payload).await?;
-        let existing_status = record.status.clone();
+        let (record, previous_status) =
+            Self::update_maintenance_record_tx(&mut tx, actor, id, payload).await?;
+
+        // 待驗收待辦：**建立與解除都在這個 tx 內**，理由見
+        // `NotificationService::dispatch_pinned_event_tx` 與 `resolve_pinned_notifications_tx`
+        // 的說明（commit 後才建立會留下無法自救的孤兒待辦）。
+        //
+        // 「離開待驗收」一併接上，不只接 happy path：改回 pending / in_progress /
+        // unrepairable 都讓這則待辦失效。2026-08-07 的巡場事故正是只接了正常完成那一條。
+        let entered_review = record.status == MaintenanceStatus::PendingReview
+            && previous_status != MaintenanceStatus::PendingReview;
+        let left_review = previous_status == MaintenanceStatus::PendingReview
+            && record.status != MaintenanceStatus::PendingReview;
+
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let mut pending_review_pin: Option<(NotificationPayload, Vec<Uuid>)> = None;
+
+        if entered_review {
+            let equipment =
+                repositories::equipment::find_equipment_by_id(pool, record.equipment_id)
+                    .await?
+                    .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
+            let notify_payload = Self::pending_review_payload(&equipment.name, &record);
+            // SoD：登錄者不得驗收自己的紀錄（見下方 review_maintenance_record 的
+            // assert_not_self_approval），發給他等於給一則他按下去必得 403 的待辦。
+            let ctx = crate::services::EventContext {
+                actor_id: Some(current_user.id),
+                entity_id: Some(record.id),
+                exclude_user_ids: vec![record.created_by],
+                ..Default::default()
+            };
+            let email_targets = notification_svc
+                .dispatch_pinned_event_tx(
+                    &mut tx,
+                    MAINTENANCE_REVIEW_EVENT,
+                    &ctx,
+                    &notify_payload,
+                    None,
+                )
+                .await?;
+            pending_review_pin = Some((notify_payload, email_targets));
+        } else if left_review {
+            crate::services::NotificationService::resolve_pinned_notifications_tx(
+                &mut tx,
+                MAINTENANCE_PIN_ENTITY,
+                record.id,
+            )
+            .await?;
+        }
+
         tx.commit().await?;
 
+        // email 一律 commit 之後才寄——rollback 收不回已寄出的信。
+        if let Some((notify_payload, email_targets)) = pending_review_pin {
+            notification_svc
+                .send_routed_emails(MAINTENANCE_REVIEW_EVENT, &notify_payload, &email_targets)
+                .await;
+        }
+
         // 無法維修通知（tx 外 side effect）
-        if existing_status == MaintenanceStatus::Unrepairable {
+        if record.status == MaintenanceStatus::Unrepairable {
             if let Ok(Some(equip)) =
                 repositories::equipment::find_equipment_by_id(pool, record.equipment_id).await
             {
@@ -495,6 +608,15 @@ impl EquipmentService {
         .bind(current_user.id)
         .bind(&payload.review_notes)
         .fetch_one(&mut *tx)
+        .await?;
+
+        // 驗收通過或退回，這筆都不再等驗收人動作 → 解除待辦（與建立同一個 tx，
+        // 見 `NotificationService::resolve_pinned_notifications_tx` 的競態說明）。
+        crate::services::NotificationService::resolve_pinned_notifications_tx(
+            &mut tx,
+            MAINTENANCE_PIN_ENTITY,
+            record.id,
+        )
         .await?;
 
         let display = format!(

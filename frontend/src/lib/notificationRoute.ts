@@ -50,6 +50,10 @@ export function notificationTargetPath(notification: {
             return '/inventory?filter=low_stock'
         case 'equipment':
             return '/equipment'
+        // 維修/保養待驗收的待辦。落在 `/equipment` 預設分頁等於要使用者自己找路——
+        // 那筆紀錄在「維修/保養」分頁裡，預設分頁上看不到它。
+        case 'maintenance_record':
+            return '/equipment?tab=maintenance'
         case 'vet_patrol_reports':
             return '/vet-patrol-reports'
         case 'report':

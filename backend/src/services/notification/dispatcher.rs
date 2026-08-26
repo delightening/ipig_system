@@ -12,11 +12,14 @@
 
 use std::collections::HashMap;
 
+use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::middleware::ActorContext;
-use crate::models::{CreateNotificationRequest, NotificationRouting, NotificationType};
+use crate::models::{
+    CreateNotificationRequest, NotificationRouting, NotificationType, PRIORITY_PINNED,
+};
 use crate::services::EmailService;
 
 use super::dispatch::StaffEmail;
@@ -36,6 +39,14 @@ pub struct EventContext {
     pub subject_user_id: Option<Uuid>,
     /// 通用實體 id（如 leave_request id）：供查詢型 resolver（`leave_request_approvers`）使用。
     pub entity_id: Option<Uuid>,
+    /// 額外排除的收件人：**用於職權分離（SoD）**，不是「不通知自己」。
+    ///
+    /// 兩者不同源，不可合併成一個欄位：`actor_id` 排除的是「這次動作的觸發者」，
+    /// 這裡排除的是「依規則本來就不得處理這筆的人」。設備維修驗收即為一例——
+    /// SoD 擋的是**登錄者**（`created_by`），而按下「完修」的人未必是登錄者
+    /// （見 `services/equipment/maintenance.rs` 的 `assert_not_self_approval`）。
+    /// 少了這一層，登錄者會收到一則自己按下去必得 403 的待辦，而待辦不可手動清除。
+    pub exclude_user_ids: Vec<Uuid>,
 }
 
 /// 一則待派送通知的內容（站內通知用；email 模板於後續 Phase 串接）。
@@ -103,14 +114,15 @@ impl NotificationService {
             .await
     }
 
-    async fn dispatch_event_inner(
+    /// 解析一個事件的收件人與其有效管道（user_id → 管道聯集）。
+    ///
+    /// 只讀 routing 與 resolver，不寫任何東西——因此 tx 版與 pool 版共用同一份判準。
+    /// 兩邊各寫一次的話，「誰該收到待辦」與「誰該收到通知」會各自漂移。
+    async fn resolve_targets(
         &self,
         event_type: &str,
         ctx: &EventContext,
-        payload: NotificationPayload,
-        pinned: bool,
-        recipient_role: Option<&'static str>,
-    ) -> Result<i32, AppError> {
+    ) -> Result<HashMap<Uuid, RecipientChannel>, AppError> {
         let rules = self.load_active_routing_rules(event_type).await?;
 
         // 收件人去重：user_id → 有效管道聯集。
@@ -120,9 +132,87 @@ impl NotificationService {
                 if ctx.actor_id == Some(uid) {
                     continue; // 不通知觸發者本人
                 }
+                if ctx.exclude_user_ids.contains(&uid) {
+                    continue; // SoD：本來就不得處理這筆的人
+                }
                 targets.entry(uid).or_default().merge(&rule.channel);
             }
         }
+        Ok(targets)
+    }
+
+    /// [`Self::dispatch_pinned_event`] 的 tx 版本：置頂待辦在**呼叫端的業務 tx 內**建立。
+    ///
+    /// 收件人解析仍走 pool（唯讀，不需與業務 tx 同一連線），只有 INSERT 進 tx。
+    ///
+    /// 為什麼要有這個：`crud.rs` 的 [`Self::resolve_pinned_notifications_tx`] 已寫明，
+    /// 解除在 tx 內、建立卻在 commit 之後的話，「送出 commit → 併發的終態轉換解除
+    /// （掃不到尚未建立的列）→ 建立」這條時序會留下永久孤兒待辦，而待辦不可手動清除。
+    /// 巡場流程已把建立搬進 tx，其餘流程接上置頂待辦時必須比照。
+    ///
+    /// **與 pool 版的另一個差異：單一收件人建立失敗不再 warn-and-continue，而是 `?` 傳播**——
+    /// 整個業務 tx 一起 rollback。best-effort 在這裡是錯的：待辦沒建成，使用者不會知道
+    /// 有事情等他做，而對帳作業只找殘留、不找漏建。
+    ///
+    /// 回傳「管道含 email 的收件人」，供呼叫端 **commit 之後**呼叫
+    /// [`Self::send_routed_emails`]。email 不進 tx——tx rollback 收不回已寄出的信。
+    pub async fn dispatch_pinned_event_tx(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        event_type: &str,
+        ctx: &EventContext,
+        payload: &NotificationPayload,
+        recipient_role: Option<&'static str>,
+    ) -> Result<Vec<Uuid>, AppError> {
+        let targets = self.resolve_targets(event_type, ctx).await?;
+
+        let mut email_targets = Vec::new();
+        for (uid, ch) in targets {
+            if ch.in_app {
+                Self::create_notification_tx_with_priority(
+                    tx,
+                    CreateNotificationRequest {
+                        user_id: uid,
+                        notification_type: payload.notification_type.clone(),
+                        title: payload.title.clone(),
+                        content: payload.content.clone(),
+                        related_entity_type: payload.related_entity_type.clone(),
+                        related_entity_id: payload.related_entity_id,
+                    },
+                    PRIORITY_PINNED,
+                    recipient_role,
+                )
+                .await?;
+            }
+            if ch.email {
+                email_targets.push(uid);
+            }
+        }
+        Ok(email_targets)
+    }
+
+    /// 對一批收件人寄出路由通知 email（[`Self::dispatch_pinned_event_tx`] 的 commit 後配套）。
+    /// 逐筆 best-effort，與 pool 版的 email 路徑同一支實作。
+    pub async fn send_routed_emails(
+        &self,
+        event_type: &str,
+        payload: &NotificationPayload,
+        user_ids: &[Uuid],
+    ) {
+        for uid in user_ids {
+            self.dispatch_routed_email(*uid, event_type, payload).await;
+        }
+    }
+
+    async fn dispatch_event_inner(
+        &self,
+        event_type: &str,
+        ctx: &EventContext,
+        payload: NotificationPayload,
+        pinned: bool,
+        recipient_role: Option<&'static str>,
+    ) -> Result<i32, AppError> {
+        let targets = self.resolve_targets(event_type, ctx).await?;
 
         let mut count = 0;
         for (uid, ch) in targets {

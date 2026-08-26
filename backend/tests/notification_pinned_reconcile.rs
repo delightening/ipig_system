@@ -195,6 +195,74 @@ async fn seed_pinned_leave_approval_notification(
     id
 }
 
+/// 建一台設備。欄位真值來源：`migrations/002_schema.sql:3045-3062`
+/// （NOT NULL 且無預設者只有 `name`）。
+async fn seed_equipment(pool: &PgPool) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query("INSERT INTO equipment (id, name) VALUES ($1, $2)")
+        .bind(id)
+        .bind(format!("pinned-reconcile-eq-{}", &id.to_string()[..8]))
+        .execute(pool)
+        .await
+        .expect("seed equipment");
+    id
+}
+
+/// 建一筆維修/保養紀錄。`status` 直接指定，供測試擺出待驗收與各種終態。
+///
+/// 欄位真值來源：`migrations/002_schema.sql:3178-3198`（NOT NULL 且無預設者為
+/// `equipment_id` / `maintenance_type` / `reported_at` / `created_by`）、
+/// `001_enums.sql` 的 `maintenance_type` / `maintenance_status`（值同
+/// `models/equipment.rs:64-84` 的 serde rename）。
+async fn seed_maintenance_record(
+    pool: &PgPool,
+    equipment_id: Uuid,
+    created_by: Uuid,
+    status: &str,
+) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO equipment_maintenance_records
+             (id, equipment_id, maintenance_type, status, reported_at, created_by)
+           VALUES ($1, $2, 'maintenance'::maintenance_type, $3::maintenance_status,
+                   CURRENT_DATE, $4)"#,
+    )
+    .bind(id)
+    .bind(equipment_id)
+    .bind(status)
+    .bind(created_by)
+    .execute(pool)
+    .await
+    .expect("seed maintenance record");
+    id
+}
+
+/// 建一則維修/保養「待驗收」置頂待辦，形狀對齊
+/// `EquipmentService::update_maintenance_record` 實際產生的那一則
+/// （`related_entity_type` = `maintenance_record`、`kind='action'`、`priority=1`）。
+async fn seed_pinned_maintenance_notification(
+    pool: &PgPool,
+    reviewer_id: Uuid,
+    record_id: Uuid,
+) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO notifications
+             (id, user_id, type, title, related_entity_type, related_entity_id,
+              priority, kind)
+           VALUES ($1, $2, 'system_alert'::notification_type,
+                   '[iPig] 設備保養待驗收 - 測試設備',
+                   'maintenance_record', $3, 1, 'action')"#,
+    )
+    .bind(id)
+    .bind(reviewer_id)
+    .bind(record_id)
+    .execute(pool)
+    .await
+    .expect("seed pinned maintenance notification");
+    id
+}
+
 // 本檔全部測試都對「整張 notifications 表」跑對帳＝共享狀態，必須序列化：
 // 併發下另一支測試的非 dry-run 對帳會把本測試的列一起降級，dry-run 那支尤其會偽紅。
 //
@@ -649,5 +717,134 @@ async fn reconcile_protects_approval_pin_when_proxy_is_also_current_approver() {
         priority_of(&pool, approval_notif).await,
         1,
         "在途的核准待辦 priority 必須維持 1，即使收件人剛好等於 proxy_user_id"
+    );
+}
+
+// ── 設備維修/保養：待驗收待辦（R111-2／R111-3 新增的待辦類型）──────────────
+//
+// 這一類的置頂待辦只在 `update_maintenance_record` 轉入 `pending_review` 時建立，
+// 故「仍需驗收人動作」等價於「status 仍是 pending_review」。驗收通過（completed）、
+// 退回（pending）、改判無法維修（unrepairable）、刪除，四條解除路徑業務端都已接上；
+// 以下測的是它們任一條漏接時的安全網。
+
+/// 已驗收通過（completed）→ 驗收人已無事可做，必須降級。
+#[tokio::test]
+#[serial]
+async fn reconcile_downgrades_pin_whose_maintenance_was_reviewed() {
+    let pool = setup_pool().await;
+    let creator = seed_user(&pool).await;
+    let reviewer = seed_user(&pool).await;
+    let equipment = seed_equipment(&pool).await;
+
+    let record = seed_maintenance_record(&pool, equipment, creator, "completed").await;
+    let notif = seed_pinned_maintenance_notification(&pool, reviewer, record).await;
+
+    let svc = NotificationService::new(pool.clone());
+    let report_out = svc
+        .reconcile_pinned_notifications(false)
+        .await
+        .expect("reconcile");
+
+    let hit = report_out.resolved.iter().find(|r| r.id == notif);
+    assert!(
+        hit.is_some(),
+        "紀錄已離開待驗收，其置頂待辦應被對帳作業降級"
+    );
+    assert!(
+        hit.expect("hit").reason.contains("待驗收"),
+        "降級理由應指出是離開待驗收，維運者才知道漏接的是哪條路徑"
+    );
+    assert_eq!(priority_of(&pool, notif).await, 0);
+}
+
+/// 紀錄已被刪除（row 不存在）→ 不可能再驗收，必須降級。
+#[tokio::test]
+#[serial]
+async fn reconcile_downgrades_pin_whose_maintenance_row_is_gone() {
+    let pool = setup_pool().await;
+    let reviewer = seed_user(&pool).await;
+    // 不建立對應的紀錄列，模擬硬刪後留下的孤兒待辦。
+    let phantom_record_id = Uuid::new_v4();
+    let notif = seed_pinned_maintenance_notification(&pool, reviewer, phantom_record_id).await;
+
+    let svc = NotificationService::new(pool.clone());
+    let report_out = svc
+        .reconcile_pinned_notifications(false)
+        .await
+        .expect("reconcile");
+
+    let hit = report_out.resolved.iter().find(|r| r.id == notif);
+    assert!(
+        hit.is_some(),
+        "關聯的維修/保養紀錄已不存在，置頂待辦應被降級"
+    );
+    assert!(
+        hit.expect("hit").reason.contains("不存在"),
+        "降級理由應指出實體已不存在"
+    );
+    assert_eq!(priority_of(&pool, notif).await, 0);
+}
+
+/// 對照組：紀錄仍是 `pending_review` ＝ 真的還在等人驗收，**絕不可**降級。
+///
+/// 這一例比上面兩例重要：少了它，上面兩個測試可以靠「只要是 maintenance_record
+/// 就降級」這種過寬的條件通過——那正是使用者無法自救的失效方向。
+#[tokio::test]
+#[serial]
+async fn reconcile_leaves_in_flight_maintenance_todo_untouched() {
+    let pool = setup_pool().await;
+    let creator = seed_user(&pool).await;
+    let reviewer = seed_user(&pool).await;
+    let equipment = seed_equipment(&pool).await;
+
+    let record = seed_maintenance_record(&pool, equipment, creator, "pending_review").await;
+    let notif = seed_pinned_maintenance_notification(&pool, reviewer, record).await;
+
+    let svc = NotificationService::new(pool.clone());
+    let report_out = svc
+        .reconcile_pinned_notifications(false)
+        .await
+        .expect("reconcile");
+
+    assert!(
+        !report_out.resolved.iter().any(|r| r.id == notif),
+        "紀錄仍在待驗收＝驗收人尚未動作，不得降級"
+    );
+    assert_eq!(
+        priority_of(&pool, notif).await,
+        1,
+        "在途的待驗收待辦 priority 必須維持 1"
+    );
+}
+
+/// `maintenance_record` 必須被對帳作業**認得**（進 `KNOWN_ENTITY_TYPES`）。
+///
+/// 沒有這一例的話，忘了把新類型加進白名單也不會紅：孤兒待辦會靜靜地被算進
+/// `unknown_entity_types`（＝「未做判斷」），排程每天印 warn 但**不降級**，
+/// 而使用者不能手動清除待辦——正是 R111-3 要擋的失效模式。
+#[tokio::test]
+#[serial]
+async fn reconcile_recognises_maintenance_entity_type() {
+    let pool = setup_pool().await;
+    let creator = seed_user(&pool).await;
+    let reviewer = seed_user(&pool).await;
+    let equipment = seed_equipment(&pool).await;
+
+    let record = seed_maintenance_record(&pool, equipment, creator, "pending_review").await;
+    seed_pinned_maintenance_notification(&pool, reviewer, record).await;
+
+    let svc = NotificationService::new(pool.clone());
+    let report_out = svc
+        .reconcile_pinned_notifications(true)
+        .await
+        .expect("reconcile dry-run");
+
+    assert!(
+        !report_out
+            .unknown_entity_types
+            .iter()
+            .any(|(ty, _)| ty == "maintenance_record"),
+        "maintenance_record 必須在 KNOWN_ENTITY_TYPES 內，否則卡死的待辦沒有安全網；實得 {:?}",
+        report_out.unknown_entity_types
     );
 }
