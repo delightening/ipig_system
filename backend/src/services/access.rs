@@ -990,12 +990,28 @@ pub fn require_equipment_manage(current_user: &CurrentUser) -> Result<()> {
     }
 }
 
-/// 設備報廢核准權限：`equipment.disposal.approve` 或 `equipment.manage`
-/// 與 `EquipmentService::approve_disposal` 一致，用於 sign handler。
+/// 設備報廢核准權限：`equipment.disposal.approve`。用於核准人簽章 handler。
+///
+/// 🔴 **2026-08-26 收緊**：原本還認 `equipment.manage`，與真正改狀態的
+/// `EquipmentService::approve_disposal`（`disposal.rs:325`，只認 `disposal.approve`）
+/// **不一致**，製造出一個半套狀態：
+///
+/// - `startup/permissions.rs` 授予 `equipment.manage` 給 ADMIN_STAFF 與
+///   EQUIPMENT_MAINTENANCE；授予 `equipment.disposal.approve` 只給 EQUIPMENT_MAINTENANCE
+/// - 差集裡的角色**簽得下核准人簽章、卻按不了核准鍵**
+///
+/// ⚠️ 差集可能比程式碼看起來更大：`sync_permissions` 全部是 `ON CONFLICT DO NOTHING`，
+/// 只增不減，所以既有部署上歷史授予的 `equipment.manage` 會一直留著，
+/// 而 `startup/permissions.rs` 不會把它收回。`tests/erp_approval_guard_consistency.rs`
+/// 因此**動態計算差集**而不寫死角色名單。
+///
+/// 而 `sign_disposal_approver_tx` 有「已簽章不得覆寫」的硬擋，所以他們簽完之後
+/// **真正有權核准的人反而簽不了章**，單子卡在「已簽章、仍待核准」。
+///
+/// 使用者 2026-08-26 裁定：**收緊本處**（選項 B），不放寬核准權——決定設備報廢的是
+/// 設備維護人員。收緊後簽章與核准同一批人，「先簽章後核准」的流程才走得通。
 pub fn require_equipment_disposal_approve(current_user: &CurrentUser) -> Result<()> {
-    if current_user.has_permission("equipment.disposal.approve")
-        || current_user.has_permission("equipment.manage")
-    {
+    if current_user.has_permission("equipment.disposal.approve") {
         Ok(())
     } else {
         Err(AppError::Forbidden("無權核准設備報廢".into()))
