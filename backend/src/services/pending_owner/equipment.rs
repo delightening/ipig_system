@@ -6,7 +6,7 @@
 //! |---|---|---|
 //! | 報廢待核准 | `equipment.disposal.approve`（`services/equipment/disposal.rs:325`） | 申請人不得自核（`:340`） |
 //! | 閒置待核准 | `equipment.idle.approve`（`services/equipment/idle.rs:162`） | 申請人不得自核（`:196`） |
-//! | 維修待處理 | `equipment.maintenance.manage`（`services/equipment/maintenance.rs:345`） | 無——這關是「等人去修」不是「等人核准」 |
+//! | 維修待處理 | `equipment.maintenance.manage` **或** `equipment.manage`（`maintenance.rs:384-386`） | 無——這關是「等人去修」不是「等人核准」 |
 //! | 維修待驗收 | `equipment.maintenance.review` **或** `equipment.manage`（`maintenance.rs:444-446`） | 登錄者不得自驗（`:466`） |
 //!
 //! # ⚠️ 這兩個關卡各有兩條寫入路徑，判準要抄對的那一條
@@ -47,6 +47,17 @@ const STAGE_MAINTENANCE_REVIEW: &str = "equipment_maintenance_review";
 /// 驗收關是「這個權限**或**那個權限」，只查其中一個會漏列另一半的人。
 const MAINTENANCE_REVIEW_PERMISSIONS: &[&str] =
     &["equipment.maintenance.review", "equipment.manage"];
+
+/// 待處理關同樣是「或」：`create_maintenance_record`（`maintenance.rs:345-347`）、
+/// `update_maintenance_record`（`:384-386`）、`delete`（`:424-426`）三條寫入路徑
+/// 判準一致，都收這兩個權限任一。
+///
+/// ⚠️ 我原本只查 `equipment.maintenance.manage`（CodeRabbit 於 #30 指出）。
+/// 只有 `equipment.manage` 的人**處理得了這筆維修單，卻不會出現在候選名單裡**——
+/// 方向是漏列。漏列比誤列輕（不會叫人去點一個 403），但一樣是名單與守衛分岔，
+/// 而那正是本模組唯一的硬規則。
+const MAINTENANCE_MANAGE_PERMISSIONS: &[&str] =
+    &["equipment.maintenance.manage", "equipment.manage"];
 
 /// 報廢與閒置的資料形狀相同（同樣的 `applied_by` / `applied_at` / `status`）。
 #[derive(Debug, sqlx::FromRow)]
@@ -184,7 +195,7 @@ pub async fn resolve_for_maintenance(
         pool,
         STAGE_MAINTENANCE_START,
         None,
-        CandidateSource::Permission("equipment.maintenance.manage"),
+        CandidateSource::AnyPermission(MAINTENANCE_MANAGE_PERMISSIONS),
         &to_start,
     )
     .await?;

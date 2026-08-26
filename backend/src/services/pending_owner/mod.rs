@@ -104,6 +104,30 @@ pub(crate) async fn resolve_single_stage(
     source: CandidateSource,
     rows: &[PendingRow],
 ) -> Result<HashMap<Uuid, PendingOwner>, AppError> {
+    resolve_single_stage_with_eligible(pool, stage, role_code, source, rows, &HashMap::new()).await
+}
+
+/// 同 [`resolve_single_stage`]，但額外接受**該關卡權威判準算出來的合法處理人**。
+///
+/// 用於守衛比「候選來源」更精確的關卡——典型是逐筆才知道的職務分離
+/// （例：加班終審不得由批過前關的人再批）。候選來源只能表達「哪些人有這個角色 /
+/// 權限」，表達不了「這一筆，這個人已經簽過了」。
+///
+/// `eligible` 語意：
+/// - 該 id **不在 map 裡** → 不套用逐筆判準，行為同 [`resolve_single_stage`]
+/// - 該 id 對應**非空**清單 → 只列出清單內的人
+/// - 該 id 對應**空**清單 → 權威判準說「沒有其他人可簽」，退回候選來源全體。
+///   這對應「卡關代批」：SoD 只在真的還有別人時才收緊，否則單一審批人組織會卡死
+///   （`services/hr/overtime.rs` 終審關、`services/hr/leave.rs` 負責人關都是這個規則）。
+///   **退回而不是留空**——留空會讓「能簽但要動用代批」看起來跟「沒人能簽」一樣。
+pub(crate) async fn resolve_single_stage_with_eligible(
+    pool: &PgPool,
+    stage: &'static str,
+    role_code: Option<&'static str>,
+    source: CandidateSource,
+    rows: &[PendingRow],
+    eligible: &HashMap<Uuid, Vec<Uuid>>,
+) -> Result<HashMap<Uuid, PendingOwner>, AppError> {
     if rows.is_empty() {
         return Ok(HashMap::new());
     }
@@ -112,11 +136,19 @@ pub(crate) async fn resolve_single_stage(
     let mut result = HashMap::with_capacity(rows.len());
 
     for row in rows {
-        let names: Vec<String> = candidates
+        let after_sod: Vec<&repo::UserRef> = candidates
             .iter()
             .filter(|(id, _)| Some(*id) != row.excluded)
-            .map(|(_, name)| name.clone())
             .collect();
+
+        let names: Vec<String> = match eligible.get(&row.id) {
+            Some(ids) if !ids.is_empty() => after_sod
+                .iter()
+                .filter(|(id, _)| ids.contains(id))
+                .map(|(_, name)| name.clone())
+                .collect(),
+            _ => after_sod.iter().map(|(_, name)| name.clone()).collect(),
+        };
 
         result.insert(
             row.id,
