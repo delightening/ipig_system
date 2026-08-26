@@ -316,7 +316,19 @@ impl DocumentService {
         )
         .await?;
 
+        // 單據關卡同步：送出→倉管核准關、倉管核准→終審關（或無）、駁回/作廢→清空。
+        // 逐關產生、逐關解除由 `stages.rs` 的 stage_of 判定，這裡不必分辨自己是哪一種轉換。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::Document(id),
+                actor.actor_user_id(),
+            )
+            .await?;
+
         tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         Self::get_by_id(pool, id).await
     }
@@ -428,7 +440,19 @@ impl DocumentService {
             )
             .await?;
 
+            // 單據關卡同步：送出→倉管核准關、倉管核准→終審關（或無）、駁回/作廢→清空。
+            // 逐關產生、逐關解除由 `stages.rs` 的 stage_of 判定，這裡不必分辨自己是哪一種轉換。
+            let notification_svc = crate::services::NotificationService::new(pool.clone());
+            let stage_emails = notification_svc
+                .sync_stage_todos_tx(
+                    &mut tx,
+                    crate::services::StageEntity::Document(id),
+                    actor.actor_user_id(),
+                )
+                .await?;
+
             tx.commit().await?;
+            notification_svc.send_stage_emails(stage_emails).await;
             tracing::info!(
                 "[ADJ Approval] Document {} approved by warehouse manager, awaiting admin approval",
                 id
@@ -548,7 +572,19 @@ impl DocumentService {
             }
         }
 
+        // 單據關卡同步：送出→倉管核准關、倉管核准→終審關（或無）、駁回/作廢→清空。
+        // 逐關產生、逐關解除由 `stages.rs` 的 stage_of 判定，這裡不必分辨自己是哪一種轉換。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::Document(id),
+                actor.actor_user_id(),
+            )
+            .await?;
+
         tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         // 採購入庫（GRN 核准）→ 解除該 PO 的「未入庫提醒」置頂（best-effort，失敗僅 warn）。
         // 與 erp.rs notify_po_pending_receipt 的置頂互為一組：建立時置頂、入庫後降級。
@@ -687,7 +723,19 @@ impl DocumentService {
         )
         .await?;
 
+        // 單據關卡同步：送出→倉管核准關、倉管核准→終審關（或無）、駁回/作廢→清空。
+        // 逐關產生、逐關解除由 `stages.rs` 的 stage_of 判定，這裡不必分辨自己是哪一種轉換。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::Document(id),
+                actor.actor_user_id(),
+            )
+            .await?;
+
         tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         tracing::info!(
             "[ADJ Admin Approval] Document {} approved by admin {}",
@@ -792,7 +840,19 @@ impl DocumentService {
         )
         .await?;
 
+        // 單據關卡同步：送出→倉管核准關、倉管核准→終審關（或無）、駁回/作廢→清空。
+        // 逐關產生、逐關解除由 `stages.rs` 的 stage_of 判定，這裡不必分辨自己是哪一種轉換。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::Document(id),
+                actor.actor_user_id(),
+            )
+            .await?;
+
         tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         tracing::info!(
             "[ADJ Admin Reject] Document {} rejected by admin {}. Reason: {}",
@@ -872,7 +932,19 @@ impl DocumentService {
         )
         .await?;
 
+        // 單據關卡同步：送出→倉管核准關、倉管核准→終審關（或無）、駁回/作廢→清空。
+        // 逐關產生、逐關解除由 `stages.rs` 的 stage_of 判定，這裡不必分辨自己是哪一種轉換。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::Document(id),
+                actor.actor_user_id(),
+            )
+            .await?;
+
         tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         Self::get_by_id(pool, id).await
     }

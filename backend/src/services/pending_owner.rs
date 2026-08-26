@@ -268,6 +268,49 @@ pub async fn resolve_for_documents(
     Ok(result)
 }
 
+/// 供**通知層**取得「這張單這一關的合法處理人」（已扣除 SoD），回傳
+/// `(關卡 key, 收件人 user_id)`。非 `submitted`（不在等任何人）→ `None`。
+///
+/// 與 [`resolve_for_documents`] 共用同一份 `stage_of` / `candidates` / `sod_excluded`，
+/// **這是刻意的**：待處理清單的收件人與列表頁顯示的「卡在誰」若各算各的，使用者會看到
+/// 「卡在王倉管」卻是李倉管收到待辦。本函式存在的唯一理由就是不讓那件事發生。
+///
+/// 回傳空的收件人清單也是有意義的結果（該關卡候選人被 SoD 排光＝沒有人能處理），
+/// 呼叫端據此把既有待辦解除，而不是留著一則沒有人能完成的事項。
+pub async fn stage_recipients_for_document(
+    pool: &PgPool,
+    document_id: Uuid,
+) -> Result<Option<(&'static str, Vec<Uuid>)>, AppError> {
+    let row = sqlx::query_as::<_, DocumentStageRow>(
+        r#"
+        SELECT id, doc_type, status, created_by, approved_by, system_generated,
+               reverses_doc_id, requires_manager_approval, manager_approval_status,
+               created_at, updated_at, approved_at
+        FROM documents
+        WHERE id = $1
+        "#,
+    )
+    .bind(document_id)
+    .fetch_optional(pool)
+    .await?;
+
+    let Some(row) = row else { return Ok(None) };
+    let Some(stage) = stage_of(&row) else {
+        return Ok(None);
+    };
+
+    let excluded = sod_excluded(&row, stage);
+    let recipients = stage
+        .candidates(pool)
+        .await?
+        .into_iter()
+        .map(|(id, _)| id)
+        .filter(|id| !excluded.contains(id))
+        .collect();
+
+    Ok(Some((stage.key(), recipients)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

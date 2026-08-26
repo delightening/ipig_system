@@ -103,6 +103,18 @@ impl ProtocolService {
         )
         .await?;
 
+        // 指派後同步待辦：計畫若已在 UNDER_REVIEW，這位委員立刻拿到一則待辦。
+        //
+        // ⚠️ actor 傳 `None`：這一關的收件人是**被指派的那些人**，不是一批角色。
+        // 傳指派者進去的話，「執秘把案子指派給自己審」時會被「不通知觸發者本人」
+        // 濾掉——結果是他自己看不到自己的待辦。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos(
+                crate::services::StageEntity::Protocol(req.protocol_id),
+                None,
+            )
+            .await?;
+
         Ok(assignment)
     }
 

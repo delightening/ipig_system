@@ -283,6 +283,19 @@ impl AmendmentService {
         )
         .await?;
 
+        // 關卡待辦同步：待分類（SUBMITTED/RESUBMITTED）與待送審（CLASSIFIED）兩關的
+        // 進出都靠這一句，不必分辨自己是哪一種轉換。
+        // pool 版而非 tx 版——本模組有數支函式不在 tx 內，為了掛通知把 AUP 合規流程
+        // 改寫成 tx 是另一件事，風險不混進來（見 `sync_stage_todos` 的說明）。
+        // ⚠️ 有 tx 的函式一律插在 commit **之後**：pool 版開的是另一個連線，
+        // 放在 commit 前會讀到舊狀態、同步出錯誤的結果。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos(
+                crate::services::StageEntity::Amendment(id),
+                Some(submitted_by),
+            )
+            .await?;
+
         Ok(amendment)
     }
 
@@ -348,6 +361,19 @@ impl AmendmentService {
         };
 
         tx.commit().await?;
+        // 關卡待辦同步：待分類（SUBMITTED/RESUBMITTED）與待送審（CLASSIFIED）兩關的
+        // 進出都靠這一句，不必分辨自己是哪一種轉換。
+        // pool 版而非 tx 版——本模組有數支函式不在 tx 內，為了掛通知把 AUP 合規流程
+        // 改寫成 tx 是另一件事，風險不混進來（見 `sync_stage_todos` 的說明）。
+        // ⚠️ 有 tx 的函式一律插在 commit **之後**：pool 版開的是另一個連線，
+        // 放在 commit 前會讀到舊狀態、同步出錯誤的結果。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos(
+                crate::services::StageEntity::Amendment(id),
+                actor.actor_user_id(),
+            )
+            .await?;
+
         Ok(amendment)
     }
 
@@ -597,6 +623,19 @@ impl AmendmentService {
         )
         .await?;
 
+        // 關卡待辦同步：待分類（SUBMITTED/RESUBMITTED）與待送審（CLASSIFIED）兩關的
+        // 進出都靠這一句，不必分辨自己是哪一種轉換。
+        // pool 版而非 tx 版——本模組有數支函式不在 tx 內，為了掛通知把 AUP 合規流程
+        // 改寫成 tx 是另一件事，風險不混進來（見 `sync_stage_todos` 的說明）。
+        // ⚠️ 有 tx 的函式一律插在 commit **之後**：pool 版開的是另一個連線，
+        // 放在 commit 前會讀到舊狀態、同步出錯誤的結果。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos(
+                crate::services::StageEntity::Amendment(id),
+                Some(changed_by),
+            )
+            .await?;
+
         Ok(amendment)
     }
 
@@ -692,6 +731,19 @@ impl AmendmentService {
         .await?;
 
         tx.commit().await?;
+        // 關卡待辦同步：待分類（SUBMITTED/RESUBMITTED）與待送審（CLASSIFIED）兩關的
+        // 進出都靠這一句，不必分辨自己是哪一種轉換。
+        // pool 版而非 tx 版——本模組有數支函式不在 tx 內，為了掛通知把 AUP 合規流程
+        // 改寫成 tx 是另一件事，風險不混進來（見 `sync_stage_todos` 的說明）。
+        // ⚠️ 有 tx 的函式一律插在 commit **之後**：pool 版開的是另一個連線，
+        // 放在 commit 前會讀到舊狀態、同步出錯誤的結果。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos(
+                crate::services::StageEntity::Amendment(amendment_id),
+                actor.actor_user_id(),
+            )
+            .await?;
+
         Ok(assignment)
     }
 
@@ -892,6 +944,19 @@ impl AmendmentService {
 
         tx.commit().await?;
 
+        // 關卡待辦同步：待分類（SUBMITTED/RESUBMITTED）與待送審（CLASSIFIED）兩關的
+        // 進出都靠這一句，不必分辨自己是哪一種轉換。
+        // pool 版而非 tx 版——本模組有數支函式不在 tx 內，為了掛通知把 AUP 合規流程
+        // 改寫成 tx 是另一件事，風險不混進來（見 `sync_stage_todos` 的說明）。
+        // ⚠️ 有 tx 的函式一律插在 commit **之後**：pool 版開的是另一個連線，
+        // 放在 commit 前會讀到舊狀態、同步出錯誤的結果。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos(
+                crate::services::StageEntity::Amendment(id),
+                Some(changed_by),
+            )
+            .await?;
+
         Ok(amendment)
     }
 
@@ -938,6 +1003,19 @@ impl AmendmentService {
         log_amendment_effective_tx(&mut tx, actor, id, &before, &after).await?;
 
         tx.commit().await?;
+        // 關卡待辦同步：待分類（SUBMITTED/RESUBMITTED）與待送審（CLASSIFIED）兩關的
+        // 進出都靠這一句，不必分辨自己是哪一種轉換。
+        // pool 版而非 tx 版——本模組有數支函式不在 tx 內，為了掛通知把 AUP 合規流程
+        // 改寫成 tx 是另一件事，風險不混進來（見 `sync_stage_todos` 的說明）。
+        // ⚠️ 有 tx 的函式一律插在 commit **之後**：pool 版開的是另一個連線，
+        // 放在 commit 前會讀到舊狀態、同步出錯誤的結果。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos(
+                crate::services::StageEntity::Amendment(id),
+                actor.actor_user_id(),
+            )
+            .await?;
+
         Ok(after)
     }
 }

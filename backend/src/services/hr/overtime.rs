@@ -600,7 +600,19 @@ impl HrService {
         )
         .await?;
 
+        // 送出後這筆卡在「行政人員關」→ 同步待辦（收件人判準見 notification/stages.rs，
+        // 與本檔 `can_approve` 同源；申請人本人已在那裡排除）。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::Overtime(id),
+                Some(user.id),
+            )
+            .await?;
+
         tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         Self::get_overtime_inner(pool, id).await
     }
@@ -791,7 +803,19 @@ impl HrService {
         )
         .await?;
 
+        // 逐關同步：中途核准 → 前一關的待辦消失、終審關的待辦出現；
+        // 終審核准 → 全部消失。一句呼叫涵蓋兩種情形，不必在這裡分辨 is_final。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::Overtime(id),
+                Some(approver_id),
+            )
+            .await?;
+
         tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         Self::get_overtime_inner(pool, id).await
     }
@@ -851,6 +875,16 @@ impl HrService {
             },
         )
         .await?;
+
+        // 作廢的是**已核准**的單，理論上不會有在途待辦；仍同步一次當防禦——
+        // 這正是冪等設計的用處：呼叫端不必先判斷「這條路徑有沒有待辦要清」。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::Overtime(id),
+                Some(user.id),
+            )
+            .await?;
 
         // 收回的補休餘額另記一筆——上面那筆 diff 只涵蓋 overtime_records，
         // 沒有這筆的話稽核者無法從日誌重建「究竟收回了幾小時、哪一批」。
@@ -1173,6 +1207,16 @@ impl HrService {
             },
         )
         .await?;
+
+        // 駁回＝終態，不再等任何人 → 同步後待辦消失。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::Overtime(id),
+                Some(rejecter_id),
+            )
+            .await?;
 
         tx.commit().await?;
 

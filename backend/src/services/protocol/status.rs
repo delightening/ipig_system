@@ -804,6 +804,12 @@ impl ProtocolService {
 
         tx.commit().await?;
 
+        // 送出後計畫進入行政受理／獸醫審查等關卡 → 同步待辦。
+        // pool 版：本函式的 tx 上面已 commit，這裡不能再用 tx 版。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos(crate::services::StageEntity::Protocol(id), None)
+            .await?;
+
         Ok(after)
     }
 
@@ -817,6 +823,12 @@ impl ProtocolService {
     ) -> Result<Protocol> {
         let mut tx = pool.begin().await?;
         let result = Self::change_status_tx(&mut tx, actor, id, req).await?;
+        // 待辦同步在 tx 內：進 VET_REVIEW / UNDER_REVIEW 時被指派者拿到待辦，
+        // 離開這兩個狀態時全部解除。收件人是被指派的人，故 actor 傳 None
+        // （理由見 `services/protocol/review.rs::assign_reviewer` 的註解）。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos_tx(&mut tx, crate::services::StageEntity::Protocol(id), None)
+            .await?;
         tx.commit().await?;
         Ok(result)
     }

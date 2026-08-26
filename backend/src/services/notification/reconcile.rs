@@ -34,6 +34,12 @@ const KNOWN_ENTITY_TYPES: &[&str] = &[
     "document",
     "leave_request",
     "maintenance_record",
+    "overtime_record",
+    "equipment_disposal",
+    "equipment_idle_request",
+    "euthanasia_order",
+    "amendment",
+    "protocol",
 ];
 
 /// 一筆待降級的置頂通知（供 dry-run 列印與 log）。
@@ -397,8 +403,148 @@ impl NotificationService {
             LEFT JOIN equipment_maintenance_records m ON m.id = n.related_entity_id
             WHERE n.priority > 0
               AND n.related_entity_type = 'maintenance_record'
+              AND n.recipient_role = 'approver'
               AND n.related_entity_id IS NOT NULL
               AND (m.id IS NULL OR m.status <> 'pending_review')
+
+            UNION ALL
+
+            -- ── 以下六支是 `services/notification/stages.rs` 的關卡待辦（R112）──
+            --
+            -- 共同形狀：實體不存在，或 status 已離開「這一關在等的那些值」→ 降級。
+            -- 判準與 stages.rs 的各 `*_stage` **必須一致**：那邊回 `Some` 的狀態集合，
+            -- 就是這裡不該降級的狀態集合。改一邊要改另一邊。
+            --
+            -- ⚠️ 全部帶 `recipient_role = 'approver'`：同一個 `document` id 上還掛著
+            -- 採購單未入庫提醒（`recipient_role` 為 NULL、綁的是**已核准**的 PO），
+            -- 少了這個條件，下面的單據分支會把它們全部誤判成「已離開送審中」而清掉。
+
+            -- 單據三關（`stages.rs::document_stage` → 僅 status='submitted' 有待辦）
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN d.id IS NULL THEN '關聯的單據已不存在'
+                     ELSE '關聯的單據已離開送審中（狀態：' || d.status::text || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN documents d ON d.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'document'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (d.id IS NULL OR d.status <> 'submitted')
+
+            UNION ALL
+
+            -- 加班兩關（`stages.rs::overtime_stage`）
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN o.id IS NULL THEN '關聯的加班申請已不存在'
+                     ELSE '關聯的加班申請已離開審核關卡（狀態：' || o.status || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN overtime_records o ON o.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'overtime_record'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (o.id IS NULL
+                   OR o.status NOT IN ('pending_admin_staff', 'pending_admin'))
+
+            UNION ALL
+
+            -- 設備報廢待核准（`stages.rs::disposal_stage`）
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN x.id IS NULL THEN '關聯的報廢申請已不存在'
+                     ELSE '關聯的報廢申請已處理（狀態：' || x.status::text || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN equipment_disposals x ON x.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'equipment_disposal'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (x.id IS NULL OR x.status <> 'pending')
+
+            UNION ALL
+
+            -- 設備閒置/復用待核准（`stages.rs::idle_stage`）
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN x.id IS NULL THEN '關聯的閒置/復用申請已不存在'
+                     ELSE '關聯的閒置/復用申請已處理（狀態：' || x.status::text || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN equipment_idle_requests x ON x.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'equipment_idle_request'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (x.id IS NULL OR x.status <> 'pending')
+
+            UNION ALL
+
+            -- 安樂死待 PI 決定（`stages.rs::euthanasia_stage`）。
+            -- ⚠️ 這一關漏解除的代價比其他關卡低（單子已離開 pending_pi 代表已有結論），
+            -- 但漏**建立**的代價最高——24 小時自動核准。對帳只管前者。
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN e.id IS NULL THEN '關聯的安樂死單已不存在'
+                     ELSE '關聯的安樂死單已離開待 PI 決定（狀態：' || e.status::text || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN euthanasia_orders e ON e.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'euthanasia_order'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (e.id IS NULL OR e.status <> 'pending_pi')
+
+            UNION ALL
+
+            -- 變更申請待分類 / 待送審（`stages.rs::amendment_stage`）
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN a.id IS NULL THEN '關聯的變更申請已不存在'
+                     ELSE '關聯的變更申請已離開待分類/待送審（狀態：' || a.status::text || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN amendments a ON a.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'amendment'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (a.id IS NULL
+                   OR a.status::text NOT IN ('SUBMITTED', 'RESUBMITTED', 'CLASSIFIED'))
+
+            UNION ALL
+
+            -- 計畫獸醫審查 / 委員審查（`stages.rs::protocol_stage`）。
+            --
+            -- ⚠️ 這一支**只看計畫狀態、不看該委員自己審完了沒**：委員 A 送出意見後
+            -- 計畫仍是 UNDER_REVIEW，他的待辦要靠 stages.rs 的同步清掉（他已不在
+            -- `completed_at IS NULL` 的名單裡），不是靠這裡。這裡是計畫整個離開審查
+            -- 狀態時的安全網——寫成「有人審完就降級」會把還沒審的委員一起清掉。
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN p.id IS NULL THEN '關聯的計畫已不存在'
+                     ELSE '關聯的計畫已離開審查狀態（狀態：' || p.status::text || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN protocols p ON p.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'protocol'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (p.id IS NULL
+                   OR p.status::text NOT IN ('VET_REVIEW', 'UNDER_REVIEW'))
 
             ORDER BY created_at
             "#,

@@ -138,6 +138,22 @@ impl EuthanasiaService {
         )
         .await?;
 
+        // 待 PI 決定 → 建立待辦（**與單據同一個 tx**）。
+        //
+        // ⚠️ 這一關與其他關卡的差別：它有 24 小時自動核准時鐘（`check_expired_orders`），
+        // PI 漏看等同預設同意。下面那則 `notify_euthanasia_order` 是 fire-and-forget 的
+        // 一般通知，只進鈴鐺、看過就沉底；合規路徑不能只靠那個。
+        // actor 傳 `None` 是刻意的：這一關的收件人是**指名的那位 PI**，不是一批角色。
+        // 若照其他關卡傳開單獸醫進去，遇到「獸醫本人恰好也是該計畫 PI」時會被
+        // 「不通知觸發者本人」濾掉——結果是沒有任何人拿到待辦，而 24 小時時鐘照跑。
+        NotificationService::new(pool.clone())
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EuthanasiaOrder(order.id),
+                None,
+            )
+            .await?;
+
         tx.commit().await?;
 
         // 通知 PI（commit 後 fire-and-forget）
@@ -335,6 +351,16 @@ impl EuthanasiaService {
         )
         .await?;
 
+        // 離開 pending_pi ⇒ PI 已無事可做（或已改由主席仲裁）→ 同步後待辦消失。
+        // 收件人為指名的 PI，故 actor 一律傳 None（理由見 create_order 的註解）。
+        NotificationService::new(pool.clone())
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EuthanasiaOrder(order_id),
+                None,
+            )
+            .await?;
+
         tx.commit().await?;
 
         // 通知獸醫（commit 後 fire-and-forget）
@@ -454,6 +480,16 @@ impl EuthanasiaService {
             },
         )
         .await?;
+
+        // 離開 pending_pi ⇒ PI 已無事可做（或已改由主席仲裁）→ 同步後待辦消失。
+        // 收件人為指名的 PI，故 actor 一律傳 None（理由見 create_order 的註解）。
+        NotificationService::new(pool.clone())
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EuthanasiaOrder(order_id),
+                None,
+            )
+            .await?;
 
         tx.commit().await?;
 
@@ -885,6 +921,16 @@ impl EuthanasiaService {
             },
         )
         .await?;
+
+        // 離開 pending_pi ⇒ PI 已無事可做（或已改由主席仲裁）→ 同步後待辦消失。
+        // 收件人為指名的 PI，故 actor 一律傳 None（理由見 create_order 的註解）。
+        NotificationService::new(pool.clone())
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EuthanasiaOrder(order_id),
+                None,
+            )
+            .await?;
 
         tx.commit().await?;
         Ok(true)

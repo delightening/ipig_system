@@ -246,13 +246,17 @@ async fn seed_pinned_maintenance_notification(
     record_id: Uuid,
 ) -> Uuid {
     let id = Uuid::new_v4();
+    // ⚠️ `recipient_role='approver'` 不可省：`stages.rs::sync_stage_todos_tx` 產出的
+    // 關卡待辦一律帶這個標記，而對帳的維修分支也照著篩。fixture 少了它，
+    // 「應降級」的兩例會紅（分支根本掃不到），而「不得降級」的兩例會**因為錯誤的理由變綠**
+    // ——那比紅還危險。2026-08-26 第一版就是這樣，靠兩支紅的才發現另外兩支是假綠。
     sqlx::query(
         r#"INSERT INTO notifications
              (id, user_id, type, title, related_entity_type, related_entity_id,
-              priority, kind)
+              priority, kind, recipient_role)
            VALUES ($1, $2, 'system_alert'::notification_type,
                    '[iPig] 設備保養待驗收 - 測試設備',
-                   'maintenance_record', $3, 1, 'action')"#,
+                   'maintenance_record', $3, 1, 'action', 'approver')"#,
     )
     .bind(id)
     .bind(reviewer_id)
@@ -260,6 +264,70 @@ async fn seed_pinned_maintenance_notification(
     .execute(pool)
     .await
     .expect("seed pinned maintenance notification");
+    id
+}
+
+/// 建一張單據。欄位真值來源：`documents` 的 NOT NULL 且無預設欄位為
+/// `id` / `doc_type` / `doc_no` / `doc_date` / `created_by`（2026-08-26 實查 schema）。
+async fn seed_document(pool: &PgPool, created_by: Uuid, status: &str) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO documents (id, doc_type, doc_no, doc_date, created_by, status)
+           VALUES ($1, 'PO', $2, CURRENT_DATE, $3, $4::doc_status)"#,
+    )
+    .bind(id)
+    .bind(format!("PIN-{}", &id.to_string()[..8]))
+    .bind(created_by)
+    .bind(status)
+    .execute(pool)
+    .await
+    .expect("seed document");
+    id
+}
+
+/// 建一張加班單。`status` 直接指定，供擺出待審與終態。
+///
+/// ⚠️ `start_time` / `end_time` 是 **timestamptz 不是 time**（2026-08-26 實查 schema），
+/// 寫 `'18:00'` 會轉型失敗；故用 `NOW()` 加間隔。
+///
+/// NOT NULL 且無預設的欄位（同日實查 `information_schema`）：`user_id` / `overtime_date` /
+/// `start_time` / `end_time` / `hours` / `overtime_type` / **`comp_time_hours`** /
+/// **`comp_time_expires_at`** / `reason`——後兩個很容易漏，第一版就漏了 `comp_time_hours`。
+async fn seed_overtime(pool: &PgPool, user_id: Uuid, status: &str) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO overtime_records
+             (id, user_id, overtime_date, start_time, end_time, hours, overtime_type,
+              comp_time_hours, comp_time_expires_at, reason, status)
+           VALUES ($1, $2, CURRENT_DATE, NOW(), NOW() + INTERVAL '2 hours', 2, 'A',
+                   0, CURRENT_DATE + 180, 'pinned reconcile test', $3)"#,
+    )
+    .bind(id)
+    .bind(user_id)
+    .bind(status)
+    .execute(pool)
+    .await
+    .expect("seed overtime record");
+    id
+}
+
+/// 建一則關卡待辦（`recipient_role='approver'`，形狀對齊 `stages.rs` 實際產生的）。
+async fn seed_stage_pin(pool: &PgPool, user_id: Uuid, entity_type: &str, entity_id: Uuid) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO notifications
+             (id, user_id, type, title, related_entity_type, related_entity_id,
+              priority, kind, recipient_role)
+           VALUES ($1, $2, 'system_alert'::notification_type, '關卡待辦（測試）',
+                   $3, $4, 1, 'action', 'approver')"#,
+    )
+    .bind(id)
+    .bind(user_id)
+    .bind(entity_type)
+    .bind(entity_id)
+    .execute(pool)
+    .await
+    .expect("seed stage pin");
     id
 }
 
@@ -814,6 +882,88 @@ async fn reconcile_leaves_in_flight_maintenance_todo_untouched() {
         priority_of(&pool, notif).await,
         1,
         "在途的待驗收待辦 priority 必須維持 1"
+    );
+}
+
+/// 🔴 **最重要的一例**：同一張單據上，關卡待辦與採購單未入庫提醒互不干擾。
+///
+/// `document` 這個 entity_type 現在同時掛兩種待辦：
+/// - 三關核准（`recipient_role='approver'`，完成條件是離開 `submitted`）
+/// - 採購單未入庫提醒（`recipient_role` 為 NULL，綁的是**已核准**的 PO，完成條件是入庫）
+///
+/// 兩者的完成條件完全相反：單據一核准，第一種該消失、第二種才剛開始。對帳的單據分支
+/// 若少了 `recipient_role = 'approver'` 這個條件，就會在 PO 核准後把倉管的未入庫待辦
+/// 全部誤清——而那正是目前 prod 上唯一大量存在的待辦（2026-08-26 實查 12 筆）。
+#[tokio::test]
+#[serial]
+async fn reconcile_does_not_clear_po_receipt_pin_when_document_leaves_submitted() {
+    let pool = setup_pool().await;
+    let creator = seed_user(&pool).await;
+    let warehouse = seed_user(&pool).await;
+
+    // 已核准的 PO：核准關卡已結束（stage pin 該降級），但入庫還沒發生（提醒該留著）。
+    let doc = seed_document(&pool, creator, "approved").await;
+    let stage_pin = seed_stage_pin(&pool, warehouse, "document", doc).await;
+
+    let receipt_pin = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO notifications
+             (id, user_id, type, title, related_entity_type, related_entity_id, priority, kind)
+           VALUES ($1, $2, 'document_approval'::notification_type,
+                   '[iPig] 採購單未入庫提醒 - PIN-TEST', 'document', $3, 1, 'action')"#,
+    )
+    .bind(receipt_pin)
+    .bind(warehouse)
+    .bind(doc)
+    .execute(&pool)
+    .await
+    .expect("seed po receipt pin");
+
+    let svc = NotificationService::new(pool.clone());
+    svc.reconcile_pinned_notifications(false)
+        .await
+        .expect("reconcile");
+
+    assert_eq!(
+        priority_of(&pool, stage_pin).await,
+        0,
+        "單據已離開送審中，核准關卡的待辦應降級"
+    );
+    assert_eq!(
+        priority_of(&pool, receipt_pin).await,
+        1,
+        "未入庫提醒的完成條件是入庫、不是核准——不得被核准關卡的規則一起清掉"
+    );
+}
+
+/// 加班：仍在審核關卡不得降級、已核准必須降級。
+#[tokio::test]
+#[serial]
+async fn reconcile_handles_overtime_stage_pins() {
+    let pool = setup_pool().await;
+    let applicant = seed_user(&pool).await;
+    let approver = seed_user(&pool).await;
+
+    let pending = seed_overtime(&pool, applicant, "pending_admin").await;
+    let pending_pin = seed_stage_pin(&pool, approver, "overtime_record", pending).await;
+
+    let done = seed_overtime(&pool, applicant, "approved").await;
+    let done_pin = seed_stage_pin(&pool, approver, "overtime_record", done).await;
+
+    let svc = NotificationService::new(pool.clone());
+    svc.reconcile_pinned_notifications(false)
+        .await
+        .expect("reconcile");
+
+    assert_eq!(
+        priority_of(&pool, pending_pin).await,
+        1,
+        "仍在 pending_admin＝真的還在等人審，不得降級"
+    );
+    assert_eq!(
+        priority_of(&pool, done_pin).await,
+        0,
+        "已核准就不該再留在待處理清單"
     );
 }
 

@@ -119,7 +119,7 @@ pub use messaging::{
 };
 pub use notification::{
     init_app_url as init_notification_app_url, EventContext, NotificationPayload,
-    NotificationService, OrphanPinnedRow, ReconcileReport,
+    NotificationService, OrphanPinnedRow, ReconcileReport, StageEntity,
 };
 pub use outbox::{ChannelAdapter, ChannelRegistry, EmailAdapter, OutboxEvent, OutboxService};
 pub use partner::PartnerService;

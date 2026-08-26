@@ -155,6 +155,12 @@ impl ProtocolService {
         .execute(pool)
         .await?;
 
+        // 上面那句同時設了 `completed_at = NOW()`——這位獸醫已審完，
+        // 他就不在 `stages.rs::protocol_stage` 的收件人名單裡了，同步後待辦消失。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos(crate::services::StageEntity::Protocol(protocol_id), None)
+            .await?;
+
         Ok(())
     }
 }

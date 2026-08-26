@@ -92,6 +92,9 @@ impl EquipmentService {
             .await?
             .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
 
+        // INSERT 進 tx：待辦要與申請本體同生共死（理由見下方同步呼叫的註解）。
+        let mut tx = pool.begin().await?;
+
         let record = sqlx::query_as::<_, DisposalWithDetails>(
             r#"
             WITH ins AS (
@@ -115,21 +118,29 @@ impl EquipmentService {
         .bind(&payload.disposal_method)
         .bind(current_user.id)
         .bind(&payload.notes)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 發送報廢申請通知
+        // 報廢申請待核准 → 建立待辦（**取代**原本的一般通知）。
+        //
+        // 原本這裡發的是 `send_equipment_disposal_notification`（一般通知，只進鈴鐺）。
+        // 「有人要核准」是需要動作、且系統判定得出完成的事，屬待處理清單而非提醒；
+        // 兩者並存會讓同一件事在兩個入口各出現一次。email 沒有因此消失——
+        // 收件人仍依 `equipment_disposal` 路由規則的管道決定（admin 為 `both`）。
+        //
+        // INSERT 之所以搬進 tx：待辦要與申請本體同生共死，commit 後才建立會留下
+        // 「申請已存在但沒有人被通知」與孤兒待辦兩種時序（見 stages.rs 模組註解）。
         let notification_svc = crate::services::NotificationService::new(pool.clone());
-        if let Err(e) = notification_svc
-            .send_equipment_disposal_notification(
-                &record.equipment_name,
-                &record.applicant_name,
-                &payload.reason,
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EquipmentDisposal(record.id),
+                Some(current_user.id),
             )
-            .await
-        {
-            tracing::warn!("發送報廢申請通知失敗: {e}");
-        }
+            .await?;
+
+        tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         Ok(record)
     }
@@ -423,6 +434,16 @@ impl EquipmentService {
             },
         )
         .await?;
+
+        // 核准或駁回都讓這筆離開 pending → 同步後待辦消失（同一個 tx）。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EquipmentDisposal(id),
+                Some(current_user.id),
+            )
+            .await?;
+
         tx.commit().await?;
 
         // 重新查詢完整紀錄
