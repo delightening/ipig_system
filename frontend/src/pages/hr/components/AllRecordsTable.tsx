@@ -156,10 +156,13 @@ function MobileCard({ ot }: { ot: OvertimeWithUser }) {
                 </div>
                 <OvertimeStatusBadge status={ot.status} pendingOwner={ot.pending_owner} />
             </div>
-            {/* 手機沒有 hover，「卡在誰」直接寫在卡片上 */}
-            <div className="text-xs text-muted-foreground">
-                <PendingOwnerInline owner={ot.pending_owner} />
-            </div>
+            {/* 手機沒有 hover，「卡在誰」直接寫在卡片上。
+                樣式用 className 傳進去，不包 wrapper——包了的話沒有待處理人時
+                會在 space-y-1 裡留下一份空白間距。 */}
+            <PendingOwnerInline
+                owner={ot.pending_owner}
+                className="text-xs text-muted-foreground"
+            />
             <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
                 <span>{formatDate(ot.overtime_date)}</span>
                 <span>{timeRange(ot)}</span>

@@ -92,6 +92,22 @@ describe('PendingOwnerInline 文案形狀', () => {
         const { container } = render(<PendingOwnerInline owner={null} />)
         expect(container).toBeEmptyDOMElement()
     })
+
+    // ⚠️ 這兩支釘的是「呼叫端不需要自己包 wrapper」。
+    // 包了的話，沒有待處理人時 wrapper 仍然存在，在 `space-y-*` 容器裡會多出
+    // 一份間距（CodeRabbit 於 #30 指出）。樣式必須進得了元件自己的根節點，
+    // 呼叫端才沒有理由包——這是把那個 bug 從「記得別包」變成「不需要包」。
+    it('className 落在元件自己的根節點上（呼叫端不必包 wrapper）', () => {
+        const { container } = render(
+            <PendingOwnerInline owner={{ ...base, candidates: ['王大明'] }} className="text-xs" />
+        )
+        expect(container.firstElementChild).toHaveClass('text-xs')
+    })
+
+    it('沒有待處理人時，即使給了 className 也不留任何節點', () => {
+        const { container } = render(<PendingOwnerInline owner={null} className="text-xs" />)
+        expect(container).toBeEmptyDOMElement()
+    })
 })
 
 describe('PendingOwnerInline 等待天數', () => {

@@ -528,9 +528,10 @@ export function DocumentDetailPage() {
               {docTypeNames[document.doc_type]} · 建立於 {formatDate(document.created_at)}
             </p>
             {/* 詳情頁不把「卡在誰」藏在 hover 後面：這裡是使用者來查進度的地方 */}
-            <div className="text-sm text-muted-foreground">
-              <PendingOwnerInline owner={document.pending_owner} />
-            </div>
+            <PendingOwnerInline
+              owner={document.pending_owner}
+              className="text-sm text-muted-foreground"
+            />
           </div>
         </div>
         <div className="flex gap-2">

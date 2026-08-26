@@ -102,12 +102,12 @@ export function PendingOwnerBadge({ owner, children }: PendingOwnerBadgeProps) {
     )
 }
 
-function PendingOwnerInlineBody({ owner }: { owner: PendingOwner }) {
+function PendingOwnerInlineBody({ owner, className }: { owner: PendingOwner; className?: string }) {
     const { t } = useTranslation()
     const line = useOwnerLine(owner)
     const days = getWaitingDays(owner.since)
     return (
-        <div>
+        <div className={className}>
             <span className="text-muted-foreground">
                 {t(`pendingOwner.stage.${owner.stage}`)}：
             </span>
@@ -124,8 +124,24 @@ function PendingOwnerInlineBody({ owner }: { owner: PendingOwner }) {
     )
 }
 
-/** 窄容器 / 卡片版：不靠 hover，直接把「卡在誰、等了幾天」寫在版面上。 */
-export function PendingOwnerInline({ owner }: { owner: PendingOwner | null | undefined }) {
+/**
+ * 窄容器 / 卡片版：不靠 hover，直接把「卡在誰、等了幾天」寫在版面上。
+ *
+ * ⚠️ **樣式用 `className` 傳進來，不要在外面包一層 wrapper。**
+ * 沒有待處理人時本元件回 `null`，但外層 wrapper 不會跟著消失——
+ * 放在 `space-y-*` 容器裡就會多出一份間距（CodeRabbit 於 #30 指出，
+ * `AllRecordsTable` 的手機卡片實例）。
+ *
+ * 呼叫端自己加 `{owner && <div>…</div>}` 也修得掉，但那會讓「有沒有東西可顯示」
+ * 這個判斷同時存在兩處——本 PR 一路在修的正是這種分岔。所以改成元件自己帶 box。
+ */
+export function PendingOwnerInline({
+    owner,
+    className,
+}: {
+    owner: PendingOwner | null | undefined
+    className?: string
+}) {
     if (!owner) return null
-    return <PendingOwnerInlineBody owner={owner} />
+    return <PendingOwnerInlineBody owner={owner} className={className} />
 }
