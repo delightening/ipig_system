@@ -524,43 +524,9 @@ impl UserService {
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
         // 裁定 13：有未結案 GLP 計畫在身的 SD，不得停用其帳號。
-        //
-        // ⚠️ 這是裁定 12（「SD 離職前必須先把 GLP 案結案」）的**強制機制**。
-        // 沒有這道閘，那句話只是一個沒有人執行的約定：帳號一停用，該 GLP 案
-        // 就同時失去「能換 SD」（GLP 鎖，見 protocol/core.rs）與「能結案」
-        // （結案要 SD 簽章）兩條路，變成永久死鎖。
-        //
-        // 位置刻意放在**所有寫入之前**：`before_user` 已用 FOR UPDATE 鎖住該列，
-        // 此時擋下是乾淨的拒絕，不會留下半套變更。
-        // 對照 `handlers/user.rs` 的停用偵測——那個在 `UserService::update`
-        // **之後**才跑（用途是撤 session／token），拿它來擋就太遲了，帳號早已停用。
-        //
-        // 放在 service 而非 handler：這是資料層的不變式，不是 HTTP 層的規則。
-        // handler 只保護 HTTP 路徑，service 保護所有呼叫端（含日後新增的）。
+        // 實作見 `ensure_not_glp_study_director_tx`（三條停用路徑共用）。
         if req.is_active == Some(false) && before_user.is_active {
-            // 「未結案」＝ 還需要 SD 負責的狀態。已結案／已刪除／已駁回的計畫
-            // 不再需要 SD，不該用它們擋住人事作業。
-            let blocking: Vec<String> = sqlx::query_scalar(
-                r#"SELECT protocol_no
-                   FROM protocols
-                   WHERE study_director_user_id = $1
-                     AND is_glp
-                     AND status NOT IN ('CLOSED', 'DELETED', 'REJECTED')
-                   ORDER BY protocol_no"#,
-            )
-            .bind(id)
-            .fetch_all(&mut *tx)
-            .await?;
-
-            if !blocking.is_empty() {
-                // ⚠️ 訊息必須列出計畫編號（裁定 13 明訂）。只說「此帳號無法停用」
-                // 的話，人事不知道要去找誰結案，這道閘就變成無法排除的障礙。
-                return Err(AppError::BusinessRule(format!(
-                    "此帳號是下列未結案 GLP 計畫的計劃負責人（Study Director），不得停用：{}。\
-                     GLP 計畫的 SD 不可更換，請先完成這些計畫的結案程序。",
-                    blocking.join("、")
-                )));
-            }
+            Self::ensure_not_glp_study_director_tx(&mut tx, id).await?;
         }
 
         // 如果要更新 email，檢查是否已被使用
@@ -790,6 +756,54 @@ impl UserService {
         Ok(UserResponse::from_user(&updated_user, roles, permissions))
     }
 
+    /// 裁定 13：有未結案 GLP 計畫在身的 SD，不得停用其帳號。
+    ///
+    /// ⚠️ 這是裁定 12（「SD 離職前必須先把 GLP 案結案」）的**強制機制**。
+    /// 沒有這道閘，那句話只是一個沒有人執行的約定：帳號一停用，該 GLP 案
+    /// 就同時失去「能換 SD」（GLP 鎖，見 protocol/core.rs）與「能結案」
+    /// （結案要 SD 簽章）兩條路，變成永久死鎖。
+    ///
+    /// 🔴 **必須被每一條把 `is_active` 設成 false 的路徑呼叫**。
+    /// 這支 helper 存在的理由就是這個——CodeRabbit 於 #27 指出，原本只有
+    /// `update` 有閘，而 `deactivate_self`（使用者自行停用）與 `delete`
+    /// （軟刪除 + email 匿名化）兩條路徑都能繞過。三條路各寫一份檢查遲早會漏，
+    /// 抽成共用函式之後，新增停用路徑時至少有一個明確的東西可以找。
+    ///
+    /// 呼叫端負責：
+    /// 1. 先用 `SELECT ... FOR UPDATE` 鎖住該 user 列（避免併發下檢查與寫入之間被插隊）
+    /// 2. 在**所有寫入之前**呼叫——擋下時要是乾淨的拒絕，不留半套變更
+    /// 3. 只在「原本是啟用中」時呼叫（已停用的帳號重複停用不該報錯）
+    async fn ensure_not_glp_study_director_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        user_id: Uuid,
+    ) -> Result<()> {
+        // 「未結案」＝ 還需要 SD 負責的狀態。已結案／已刪除／已駁回的計畫
+        // 不再需要 SD，不該用它們擋住人事作業。
+        let blocking: Vec<String> = sqlx::query_scalar(
+            r#"SELECT protocol_no
+               FROM protocols
+               WHERE study_director_user_id = $1
+                 AND is_glp
+                 AND status NOT IN ('CLOSED', 'DELETED', 'REJECTED')
+               ORDER BY protocol_no"#,
+        )
+        .bind(user_id)
+        .fetch_all(&mut **tx)
+        .await?;
+
+        if blocking.is_empty() {
+            return Ok(());
+        }
+
+        // ⚠️ 訊息必須列出計畫編號（裁定 13 明訂）。只說「此帳號無法停用」
+        // 的話，人事不知道要去找誰結案，這道閘就變成無法排除的障礙。
+        Err(AppError::BusinessRule(format!(
+            "此帳號是下列未結案 GLP 計畫的計劃負責人（Study Director），不得停用：{}。\
+             GLP 計畫的 SD 不可更換，請先完成這些計畫的結案程序。",
+            blocking.join("、")
+        )))
+    }
+
     /// GDPR：自帳號停用（軟刪除，is_active=false）— Service-driven audit
     pub async fn deactivate_self(pool: &PgPool, actor: &ActorContext, id: Uuid) -> Result<()> {
         let user = actor.require_user()?;
@@ -806,6 +820,14 @@ impl UserService {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        // 裁定 13：自行停用同樣要擋（CodeRabbit #27 指出這條路徑先前沒有閘）。
+        //
+        // ⚠️ 這條比管理員停用更該擋：SD 自己按下停用就走人，正是裁定 12
+        // 「SD 離職前必須先把 GLP 案結案」要防的情境本身。
+        if before.is_active {
+            Self::ensure_not_glp_study_director_tx(&mut tx, id).await?;
+        }
 
         // L-3（安全稽核 2026-07-04）：一併設 tokens_valid_after=NOW()，撤銷該使用者
         // 所有裝置未過期的 access token——auth middleware 的 enforce_tokens_valid_after
@@ -858,6 +880,25 @@ impl UserService {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        // 裁定 13：軟刪除同樣會停用帳號，同樣要擋（CodeRabbit #27 指出）。
+        //
+        // 🔴 這條是三者中**最嚴重**的：它不只停用，還把 email 匿名化。
+        // 讓進行中 GLP 計畫的 SD 變成匿名紀錄，等於毀掉該計畫的責任歸屬——
+        // 而 GLP 稽核的第一個問題就是「這份計畫的 SD 是誰」。
+        //
+        // 位置放在所有寫入之前（含下面刪 refresh_tokens 那步）。
+        //
+        // ⚠️ 訂正（2026-08-26）：第一版註解寫的是「否則會已經把人踢登出才發現不該刪」，
+        // **那是錯的**。整段在同一個 tx 裡，`?` 傳出 Err 就 rollback，DELETE 不會落地。
+        // 是 mutation 驗證抓到的：把這道閘搬到 DELETE 之後，測試仍然全綠。
+        //
+        // 真正的理由只剩兩個，都比原本寫的弱：省掉一次不必要的寫入，
+        // 以及讀的人看到「檢查在前」比較容易確認順序無誤。
+        // **正確性是 transaction 保證的，不是這個位置。**
+        if before.is_active {
+            Self::ensure_not_glp_study_director_tx(&mut tx, id).await?;
+        }
 
         // 撤銷所有 refresh tokens（登出）
         sqlx::query("DELETE FROM refresh_tokens WHERE user_id = $1")

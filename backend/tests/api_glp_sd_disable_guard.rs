@@ -273,3 +273,166 @@ async fn re_enabling_is_not_blocked() {
         .await
         .expect("重新啟用不該被擋");
 }
+
+// ── 以下守住「每一條停用路徑都要有閘」（CodeRabbit #27 指出）──
+//
+// 原本閘只裝在 `UserService::update`。實查 user.rs，把 `is_active` 設成 false
+// 的路徑共**三條**：update / deactivate_self / delete。後兩條都能整個繞過。
+//
+// ⚠️ 這類「規則只裝在其中一條路上」的漏洞，測試若只涵蓋自己剛改的那條，
+// 永遠測不出來。判準要改成：**先找出所有會改到該狀態的寫入點，
+// 再確認閘是不是每條都有。**
+
+/// 🔴 繞過路徑 1：使用者自行停用（`deactivate_self`）。
+///
+/// 這條比管理員停用**更**該擋——SD 自己按下停用就走人，
+/// 正是裁定 12「SD 離職前必須先把 GLP 案結案」要防的情境本身。
+#[tokio::test]
+#[serial]
+async fn deactivate_self_is_blocked_for_glp_sd() {
+    let app = TestApp::spawn().await;
+    let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+    let protocol_no = seed_protocol(&app, sd, true, "APPROVED").await;
+
+    // deactivate_self 要求 actor.id == 目標 id
+    let err = UserService::deactivate_self(&app.db_pool, &admin_actor(sd), sd)
+        .await
+        .expect_err("有未結案 GLP 案的 SD 不得自行停用");
+
+    let msg = format!("{err:?}");
+    assert!(
+        matches!(&err, AppError::BusinessRule(_)),
+        "應為 BusinessRule，實得：{err:?}"
+    );
+    assert!(
+        msg.contains(&protocol_no),
+        "錯誤訊息必須列出擋住它的計畫編號 {protocol_no}，實得：{msg}"
+    );
+
+    let still_active: bool = sqlx::query_scalar("SELECT is_active FROM users WHERE id = $1")
+        .bind(sd)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("read back");
+    assert!(still_active, "被拒之後帳號必須維持啟用");
+}
+
+/// 🔴 繞過路徑 2：軟刪除（`delete`）。
+///
+/// **三條路裡最嚴重的一條**：它不只停用，還把 email 匿名化
+/// （`deleted_<id>@…`）。讓進行中 GLP 計畫的 SD 變成無法追溯的紀錄，
+/// 而 GLP 稽核的第一個問題就是「這份計畫的 SD 是誰」。
+#[tokio::test]
+#[serial]
+async fn delete_is_blocked_for_glp_sd() {
+    let app = TestApp::spawn().await;
+    let admin = seed_user(&app, "admin").await;
+    let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+    let protocol_no = seed_protocol(&app, sd, true, "APPROVED").await;
+
+    let before_email: String = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
+        .bind(sd)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("read email");
+
+    let err = UserService::delete(&app.db_pool, &admin_actor(admin), sd)
+        .await
+        .expect_err("有未結案 GLP 案的 SD 不得軟刪除");
+
+    let msg = format!("{err:?}");
+    assert!(
+        matches!(&err, AppError::BusinessRule(_)),
+        "應為 BusinessRule，實得：{err:?}"
+    );
+    assert!(
+        msg.contains(&protocol_no),
+        "錯誤訊息必須列出擋住它的計畫編號 {protocol_no}，實得：{msg}"
+    );
+
+    // 🔴 email 必須沒被匿名化——閘要在所有寫入之前，不能是「刪到一半才發現」
+    let (still_active, after_email): (bool, String) =
+        sqlx::query_as("SELECT is_active, email FROM users WHERE id = $1")
+            .bind(sd)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("read back");
+    assert!(still_active, "被拒之後帳號必須維持啟用");
+    assert_eq!(after_email, before_email, "被拒之後 email 不得被匿名化");
+}
+
+/// 被拒的軟刪除不得留下任何副作用——`refresh_tokens` 必須原封不動。
+///
+/// ⚠️ **訂正（2026-08-26）：這支測的是 transaction rollback，不是閘的位置。**
+///
+/// 第一版的註解寫成「守住閘要在刪 refresh_tokens 之前」。mutation 驗證證明那是錯的：
+/// 把閘搬到 `DELETE FROM refresh_tokens` **之後**，這支測試**仍然全綠**——
+/// 因為整段在同一個 tx 裡，`?` 傳出 Err 就 rollback，DELETE 根本沒落地。
+///
+/// 所以它守的是「`delete` 的整條路徑維持在單一 transaction 內」。
+/// 那仍然值得守：哪天有人把 `DELETE FROM refresh_tokens` 拆出去自己開一個 tx、
+/// 或改成先 commit 再繼續，這支就會紅。**但它證不了閘的位置。**
+///
+/// 教訓：斷言「最終狀態正確」時，要先想清楚是什麼機制讓它正確。
+/// 我原本以為是程式碼順序，實際上是 transaction——兩者都能讓測試變綠，
+/// 而註解寫錯的那個版本會讓下一個人以為順序有保護作用。
+#[tokio::test]
+#[serial]
+async fn rejected_delete_leaves_refresh_tokens_intact() {
+    let app = TestApp::spawn().await;
+    let admin = seed_user(&app, "admin").await;
+    let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+    seed_protocol(&app, sd, true, "APPROVED").await;
+
+    // ⚠️ `family_id` 是 NOT NULL 且**沒有預設值**（token rotation 用的家族識別）。
+    // 漏了它會得到 23502，而錯誤訊息長得像「測試環境壞了」而不是「欄位沒填」。
+    // 查欄位名不夠，要查 nullability——第一版就是只看了 column 清單。
+    sqlx::query(
+        r#"INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, family_id)
+           VALUES ($1, $2, 'fake-hash', NOW() + INTERVAL '7 days', $3)"#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(sd)
+    .bind(Uuid::new_v4())
+    .execute(&app.db_pool)
+    .await
+    .expect("seed refresh token");
+
+    let _ = UserService::delete(&app.db_pool, &admin_actor(admin), sd).await;
+
+    let remaining: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM refresh_tokens WHERE user_id = $1")
+            .bind(sd)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("count tokens");
+    assert_eq!(
+        remaining, 1,
+        "被拒之後 refresh token 不得被刪——閘要在寫入之前"
+    );
+}
+
+/// 非 GLP 案的 SD 兩條路徑都放行——不要過度阻擋。
+#[tokio::test]
+#[serial]
+async fn non_glp_does_not_block_other_paths() {
+    // deactivate_self
+    {
+        let app = TestApp::spawn().await;
+        let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+        seed_protocol(&app, sd, false, "APPROVED").await;
+        UserService::deactivate_self(&app.db_pool, &admin_actor(sd), sd)
+            .await
+            .expect("非 GLP 案不該擋住自行停用");
+    }
+    // delete
+    {
+        let app = TestApp::spawn().await;
+        let admin = seed_user(&app, "admin").await;
+        let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+        seed_protocol(&app, sd, false, "APPROVED").await;
+        UserService::delete(&app.db_pool, &admin_actor(admin), sd)
+            .await
+            .expect("非 GLP 案不該擋住軟刪除");
+    }
+}
