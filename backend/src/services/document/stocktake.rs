@@ -35,10 +35,16 @@ impl DocumentService {
             AppError::BusinessRule("Warehouse is required for stocktake".to_string())
         })?;
 
-        let scope: Option<StocktakeScope> = if let Some(ref scope_json) = scope {
-            serde_json::from_value(scope_json.clone()).ok()
-        } else {
-            None
+        // 解析失敗一律報錯，**不可 `.ok()` 靜默降級成全盤**：盤點範圍是「這張單要盤什麼」的
+        // 唯一依據，形狀寫錯而默默全盤，使用者只會看到一份比預期長的底稿，
+        // 不會知道自己的篩選被丟掉了——盤完才發現等於白盤一次。
+        // `null` 與整個欄位缺席仍視為未指定（全盤），那是明確的「不限範圍」意圖。
+        let scope: Option<StocktakeScope> = match scope {
+            None => None,
+            Some(v) if v.is_null() => None,
+            Some(v) => Some(serde_json::from_value(v.clone()).map_err(|e| {
+                AppError::Validation(format!("盤點範圍格式錯誤：{e}"))
+            })?),
         };
 
         let (product_ids, category_codes) = match scope {

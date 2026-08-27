@@ -29,6 +29,8 @@ import { DocumentFormHeader } from './components/DocumentFormHeader'
 import { DocumentPreview } from './components/DocumentPreview'
 import { DocumentLineEditor } from './components/DocumentLineEditor'
 import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components/inventory/WarehouseShelfTreeSelect'
+import { SearchableMultiSelect } from '@/components/ui/searchable-multi-select'
+import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { useDocumentForm } from './hooks/useDocumentForm'
 import { DOC_TYPE_NAMES } from './types'
 
@@ -38,6 +40,8 @@ export function DocumentEditPage() {
   const [searchParams] = useSearchParams()
   const defaultType = (searchParams.get('type') as DocType) || ''
   const [adjMode, setAdjMode] = React.useState<AdjMode>('modify')
+  // 盤點品類選單的資料源，與新增/編輯產品、產品清單篩選同一份（GET /sku/categories）
+  const { categories: skuCategories } = useSkuCategories({ enabled: defaultType === 'STK' })
 
   const {
     isEdit,
@@ -265,6 +269,33 @@ export function DocumentEditPage() {
                     />
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 盤點單：限定品類（例：準備室只盤藥品，耗材不列入底稿）。
+                只在**建立**時顯示——改單時明細已存在，後端不會重新產生底稿，
+                此時給一個不生效的欄位只會誤導。 */}
+            {formData.doc_type === 'STK' && !isEdit && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>盤點品類 (選填)</Label>
+                  <SearchableMultiSelect
+                    options={skuCategories.map((c) => ({ value: c.code, label: `${c.name}（${c.code}）` }))}
+                    value={formData.stocktake_scope?.category_codes ?? []}
+                    onValueChange={(codes) =>
+                      updateField('stocktake_scope', {
+                        scope_type: codes.length > 0 ? 'partial' : 'full',
+                        category_codes: codes,
+                      })
+                    }
+                    placeholder="全部品類（全盤）"
+                    searchPlaceholder="搜尋品類..."
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    不選＝全盤。選了就只有該品類的品項會出現在盤點底稿。
+                  </p>
+                </div>
               </div>
             )}
 
