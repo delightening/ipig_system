@@ -32,6 +32,7 @@ import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components
 import { SearchableMultiSelect } from '@/components/ui/searchable-multi-select'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { useDocumentForm } from './hooks/useDocumentForm'
+import { buildStocktakeScope } from './stocktakeScope'
 import { DOC_TYPE_NAMES } from './types'
 
 export type AdjMode = 'add' | 'modify'
@@ -283,10 +284,7 @@ export function DocumentEditPage() {
                     options={skuCategories.map((c) => ({ value: c.code, label: `${c.name}（${c.code}）` }))}
                     value={formData.stocktake_scope?.category_codes ?? []}
                     onValueChange={(codes) =>
-                      updateField('stocktake_scope', {
-                        scope_type: codes.length > 0 ? 'partial' : 'full',
-                        category_codes: codes,
-                      })
+                      updateField('stocktake_scope', buildStocktakeScope(codes))
                     }
                     placeholder="全部品類（全盤）"
                     searchPlaceholder="搜尋品類..."

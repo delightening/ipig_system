@@ -42,9 +42,10 @@ impl DocumentService {
         let scope: Option<StocktakeScope> = match scope {
             None => None,
             Some(v) if v.is_null() => None,
-            Some(v) => Some(serde_json::from_value(v.clone()).map_err(|e| {
-                AppError::Validation(format!("盤點範圍格式錯誤：{e}"))
-            })?),
+            Some(v) => Some(
+                serde_json::from_value(v.clone())
+                    .map_err(|e| AppError::Validation(format!("盤點範圍格式錯誤：{e}")))?,
+            ),
         };
 
         let (product_ids, category_codes) = match scope {

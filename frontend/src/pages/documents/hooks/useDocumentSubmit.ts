@@ -9,6 +9,7 @@ import api, { Product } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
 import type { DocumentLine, DocumentFormData } from '../types'
+import { scopeForPayload } from '../stocktakeScope'
 import type { InputRefs } from './useDocumentLines'
 
 interface UseDocumentSubmitOptions {
@@ -143,13 +144,7 @@ export function useDocumentSubmit({
         protocol_id: mergedData.protocol_id?.trim() ? mergedData.protocol_id : null,
         source_doc_id: mergedData.source_doc_id?.trim() ? mergedData.source_doc_id : null,
         remark: mergedData.remark?.trim() ? mergedData.remark : null,
-        // 盤點範圍只對「建立 STK 且未帶明細」有意義——後端此時才會呼叫
-        // generate_stocktake_lines。其餘情況一律送 null，避免在單據上留下
-        // 一個不會被讀取、事後卻會被誤讀成「這張單當初盤了哪些類別」的欄位。
-        stocktake_scope:
-          mergedData.doc_type === 'STK' && mergedData.stocktake_scope
-            ? mergedData.stocktake_scope
-            : null,
+        stocktake_scope: scopeForPayload(mergedData.doc_type, mergedData.stocktake_scope),
         lines: validLines.map((line) => ({
           product_id: line.product_id,
           qty: parseFloat(line.qty) || 0,
