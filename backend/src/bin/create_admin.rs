@@ -59,18 +59,20 @@ async fn main() -> Result<()> {
         id
     };
 
-    let role_id: Option<Uuid> =
-        sqlx::query_scalar("SELECT id FROM roles WHERE code = 'SYSTEM_ADMIN'")
-            .fetch_optional(&pool)
-            .await?;
-
-    let role_id = if role_id.is_some() {
-        role_id
-    } else {
-        sqlx::query_scalar("SELECT id FROM roles WHERE code = 'admin'")
-            .fetch_optional(&pool)
-            .await?
-    };
+    // 兩個管理員角色代碼取其一，`SYSTEM_ADMIN` 優先。實務上 `roles` 表只有 `admin`
+    // （實查 + `backend/migrations/` 全目錄 0 命中），所以走到的一律是後者；
+    // 保留 `SYSTEM_ADMIN` 是為了「日後真的建了那個角色時本工具仍指到對的那個」。
+    //
+    // ⚠️ 原本寫成兩段查詢（先查 SYSTEM_ADMIN、`is_some()` 才不查第二次）。
+    // 那個寫法讓 fallback 落在**另一個敘述**裡，`tests/system_admin_role_code_guard.rs`
+    // 因此看不到它——守衛把第一段判成「比對 SYSTEM_ADMIN 卻沒有 fallback」。
+    // 合併成單一查詢之後例外消失，不需要豁免標記，也少一次 round-trip。
+    let role_id: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM roles WHERE code IN ('SYSTEM_ADMIN', 'admin') \
+         ORDER BY CASE code WHEN 'SYSTEM_ADMIN' THEN 0 ELSE 1 END LIMIT 1",
+    )
+    .fetch_optional(&pool)
+    .await?;
 
     if let Some(role_id) = role_id {
         sqlx::query(
