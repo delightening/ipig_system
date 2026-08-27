@@ -341,6 +341,16 @@ export function MyProjectsPage() {
                                 <div className="max-w-[400px] break-words" title={project.title}>
                                   {project.title}
                                 </div>
+                                {/* 600–949px 的空窗：表格已顯示（@[600px]）、審查狀態欄還沒出現
+                                    （@[950px]）、手機卡片已收起（@[600px]:hidden）——「卡在誰」
+                                    在這個區間整段消失（CodeRabbit 於 #30 指出）。
+                                    掛在恆常可見的標題欄底下補上，@[950px] 起交還給專屬欄位。
+                                    不改欄位斷點是刻意的：600px 時可見欄位已是
+                                    編號 + 進度(104px) + 標題(220px) + 操作，再塞一欄會擠爆。 */}
+                                <PendingOwnerInline
+                                  owner={project.pending_owner}
+                                  className="@[950px]:hidden mt-1 text-xs text-muted-foreground"
+                                />
                               </TableCell>
                               <TableCell className="hidden @[1100px]:table-cell">
                                 {project.start_date && project.end_date ? (
