@@ -662,11 +662,10 @@ impl HrService {
 
         // 目標人員必須存在。刻意**不要求 is_active**：離職當月的工時常常要等
         // 帳號停用之後才結算，要求在職會讓最後一份月報永遠補不齊。
-        let target_exists: Option<Uuid> =
-            sqlx::query_scalar("SELECT id FROM users WHERE id = $1")
-                .bind(payload.user_id)
-                .fetch_optional(pool)
-                .await?;
+        let target_exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE id = $1")
+            .bind(payload.user_id)
+            .fetch_optional(pool)
+            .await?;
         if target_exists.is_none() {
             return Err(AppError::NotFound("指定人員不存在".into()));
         }
@@ -861,7 +860,10 @@ mod tests {
     /// 這條是把該邊界釘住：改成 5 就會把最常見的案例擋在門外。
     #[test]
     fn four_character_reason_is_accepted() {
-        assert_eq!(validate_correction_reason("忘記打卡").expect("4 字應通過"), "忘記打卡");
+        assert_eq!(
+            validate_correction_reason("忘記打卡").expect("4 字應通過"),
+            "忘記打卡"
+        );
     }
 
     #[test]
