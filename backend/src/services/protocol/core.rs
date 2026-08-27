@@ -916,6 +916,18 @@ impl ProtocolService {
         // 失敗一律向上拋（不再 unwrap_or_default → []，避免授權/查詢錯誤被誤判為「無計畫」）。
         let mut protocols: Vec<ProtocolListItem> = qb.fetch_all(pool).await?;
         Self::backfill_apig_nos(pool, &mut protocols).await?;
+
+        // 「卡在誰」批次補算。目前只涵蓋行政受理 / 預審那幾關；委員會審查與需修正
+        // 兩類的形狀不同（前者卡在指派委員、後者卡在申請人），解析器會回空。
+        let ids: Vec<Uuid> = protocols.iter().map(|p| p.id).collect();
+        if !ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_protocols(pool, &ids).await?;
+            for row in &mut protocols {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
+
         Ok(protocols)
     }
 

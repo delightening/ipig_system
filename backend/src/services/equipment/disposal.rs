@@ -52,7 +52,7 @@ impl EquipmentService {
         .fetch_one(pool)
         .await?;
 
-        let data = sqlx::query_as::<_, DisposalWithDetails>(
+        let mut data = sqlx::query_as::<_, DisposalWithDetails>(
             r#"
             SELECT d.id, d.equipment_id, e.name AS equipment_name,
                    d.status, d.disposal_date, d.reason, d.disposal_method,
@@ -75,6 +75,20 @@ impl EquipmentService {
         .bind(offset)
         .fetch_all(pool)
         .await?;
+
+        // 「卡在誰」整頁批次補算（僅待核准的那幾筆）。
+        let pending_ids: Vec<Uuid> = data
+            .iter()
+            .filter(|d| d.status == DisposalStatus::Pending)
+            .map(|d| d.id)
+            .collect();
+        if !pending_ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_disposals(pool, &pending_ids).await?;
+            for row in &mut data {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
 
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }

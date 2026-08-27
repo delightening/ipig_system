@@ -11,6 +11,8 @@ import { Check, Plus, X, FileText, RotateCcw } from 'lucide-react'
 import { format } from 'date-fns'
 import { getDateFnsLocale } from '@/lib/utils'
 
+import { PendingOwnerBadge } from '@/components/PendingOwnerBadge'
+
 import type { DisposalWithDetails, DisposalStatus } from '../types'
 import { DISPOSAL_STATUS_LABELS } from '../types'
 
@@ -52,9 +54,11 @@ export function DisposalTabContent({
     {
       key: 'status', header: t('admin.disposalTabContent.status'),
       cell: (r) => (
-        <StatusBadge variant={STATUS_VARIANT[r.status]}>
-          {t(DISPOSAL_STATUS_LABELS[r.status])}
-        </StatusBadge>
+        <PendingOwnerBadge owner={r.pending_owner}>
+          <StatusBadge variant={STATUS_VARIANT[r.status]}>
+            {t(DISPOSAL_STATUS_LABELS[r.status])}
+          </StatusBadge>
+        </PendingOwnerBadge>
       ),
     },
     {

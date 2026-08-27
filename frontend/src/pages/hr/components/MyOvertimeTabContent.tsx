@@ -64,7 +64,7 @@ export function MyOvertimeTabContent({
         {
             key: 'status',
             header: '狀態',
-            cell: (ot) => <OvertimeStatusBadge status={ot.status} />,
+            cell: (ot) => <OvertimeStatusBadge status={ot.status} pendingOwner={ot.pending_owner} />,
         },
         {
             key: 'actions',
