@@ -200,8 +200,20 @@ impl EquipmentService {
         Ok(record)
     }
 
-    /// Transaction 版本：更新維修紀錄
-    pub(in crate::services) async fn update_maintenance_record_tx(
+    /// Transaction 版本：更新維修紀錄。
+    ///
+    /// ⚠️ **刻意收窄為模組私有**（其餘 `*_tx` 仍是 `pub(in crate::services)`）。
+    /// 本函式是唯一能讓紀錄**進入 `PendingReview`** 的路徑，而進入該狀態必須同時
+    /// 同步關卡待辦（`StageEntity::MaintenanceRecord`）——那個同步需要
+    /// `&NotificationService`（持 pool），本函式只有 tx，做不到。
+    ///
+    /// 所以契約是「呼叫端負責同步」，而契約靠註解維持不住：`pub(in crate::services)`
+    /// 的話，任何 service 都能繞過同步寫出待驗收紀錄，而漏掉時**沒有任何訊號**
+    /// （待辦不會出現，使用者只是看不到，不會報錯）。收窄可見性讓編譯器守這件事。
+    ///
+    /// 日後真的需要跨 service 呼叫時：放寬可見性的那個 commit **必須同時**在新呼叫端
+    /// 加上 `sync_stage_todos_tx`，或把同步搬進本函式（屆時得改成收 `&NotificationService`）。
+    async fn update_maintenance_record_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         actor: &ActorContext,
         id: Uuid,

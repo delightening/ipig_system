@@ -34,6 +34,7 @@ use std::collections::HashSet;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::constants::STAGE_TODO_SYNC_LOCK_PREFIX;
 use crate::error::AppError;
 use crate::models::{
     CreateNotificationRequest, NotificationType, PRIORITY_NORMAL, PRIORITY_PINNED,
@@ -270,6 +271,21 @@ impl NotificationService {
     ) -> Result<Option<StageEmailBatch>, AppError> {
         let entity_type = entity.entity_type();
         let entity_id = entity.id();
+
+        // 同一筆實體的同步必須序列化：下面是「先查既有、再補缺」的 read-then-write，
+        // 兩個併發 tx 會各自看到「沒有」而各插一筆待辦。業務端多半已對實體列
+        // `SELECT ... FOR UPDATE`（因而天然序列化），但那是**呼叫端的性質、不是本
+        // 函式的保證**——公開 API 不能靠呼叫端的巧合成立。
+        //
+        // 鎖是 xact-scoped，隨呼叫端的 tx 一起釋放；per-entity，不阻塞不相干的實體。
+        // 為什麼不用 partial unique index（正統解法）見 `STAGE_TODO_SYNC_LOCK_PREFIX`。
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+            .bind(format!(
+                "{STAGE_TODO_SYNC_LOCK_PREFIX}:{entity_type}:{entity_id}"
+            ))
+            .execute(&mut **tx)
+            .await?;
+
         let todo = resolve_stage(&self.db, tx, entity).await?;
 
         let desired: Vec<Uuid> = todo
