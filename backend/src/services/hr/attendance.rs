@@ -133,21 +133,48 @@ fn month_bounds(year: i32, month: u32) -> Result<(NaiveDate, NaiveDate)> {
     Ok((first_day, last_day))
 }
 
-/// 把 `Decimal` 工時寫進 Excel 儲存格。
+/// 工時月報的全體合計。
 ///
-/// 轉 f64 失敗（理論上不會，欄位是 `numeric(5,2)`）時若寫 0 等於偽造工時，
-/// 故改寫文字標記，讓看報表的人知道那格要回查原始紀錄。
-fn write_hours_cell(
-    worksheet: &mut rust_xlsxwriter::Worksheet,
-    row: u32,
-    col: u16,
-    value: Decimal,
+/// 抽成型別而不是散在匯出函式裡的五個區域變數，是為了讓「合計列必須蓋滿每一個數值欄」
+/// 這件事有地方可以測——CodeRabbit 在 PR #35 抓到的正是漏掉其中兩欄。
+#[derive(Debug, Default, PartialEq)]
+pub struct MonthlyReportTotals {
+    pub work_days: i64,
+    pub regular_hours: f64,
+    pub overtime_hours: f64,
+    pub incomplete_days: i64,
+    pub corrected_days: i64,
+}
+
+impl MonthlyReportTotals {
+    pub fn of(rows: &[MonthlyAttendanceSummary]) -> Self {
+        rows.iter().fold(Self::default(), |mut acc, r| {
+            acc.work_days += r.work_days;
+            acc.regular_hours += r.total_regular_hours;
+            acc.overtime_hours += r.total_overtime_hours;
+            acc.incomplete_days += r.incomplete_days;
+            acc.corrected_days += r.corrected_days;
+            acc
+        })
+    }
+}
+
+/// 校驗「更正後」的最終上下班時間順序。
+///
+/// ⚠️ 必須驗**合併後**的值，不能只驗 request 帶來的兩個欄位（CodeRabbit PR #35 指出）：
+/// 更正請求可以只帶一邊。只送 `clock_in_time=18:00`、而既有紀錄的
+/// `clock_out_time=17:00` 時，request 那兩欄的檢查根本不成立（另一邊是 None），
+/// 於是負區間被寫進 DB，`compute_regular_hours` 又把它算成 0.0——
+/// 資料庫留下一筆下班早於上班、工時 0 的紀錄，而且沒有任何錯誤訊息。
+fn validate_final_time_order(
+    final_in: Option<DateTime<Utc>>,
+    final_out: Option<DateTime<Utc>>,
 ) -> Result<()> {
-    use rust_decimal::prelude::ToPrimitive;
-    match value.to_f64() {
-        Some(v) => worksheet.write_number(row, col, v)?,
-        None => worksheet.write_string(row, col, "資料異常")?,
-    };
+    if let (Some(ci), Some(co)) = (final_in, final_out) {
+        if co <= ci {
+            return Err(AppError::Validation("下班時間必須晚於上班時間".into()));
+        }
+    }
     Ok(())
 }
 
@@ -540,13 +567,6 @@ impl HrService {
         let corrector_id = user.id;
         let reason = validate_correction_reason(&payload.reason)?;
 
-        // 更正後若兩個時間都在、下班早於上班 → 擋在寫入前，不讓負工時進 DB
-        if let (Some(ci), Some(co)) = (payload.clock_in_time, payload.clock_out_time) {
-            if co <= ci {
-                return Err(AppError::Validation("下班時間必須晚於上班時間".into()));
-            }
-        }
-
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, AttendanceRecord>(
@@ -569,6 +589,8 @@ impl HrService {
         // 依更正後的最終上/下班時間重算工時（扣午休）。缺任一時間則保留原值。
         let final_in = payload.clock_in_time.or(before.clock_in_time);
         let final_out = payload.clock_out_time.or(before.clock_out_time);
+        // 驗的是**合併後**的值，不是 request 帶來的那兩欄——理由見 validate_final_time_order
+        validate_final_time_order(final_in, final_out)?;
         let regular_hours = match (final_in, final_out) {
             (Some(ci), Some(co)) => {
                 regular_hours_decimal(compute_regular_hours(ci, co, before.work_date))
@@ -651,11 +673,9 @@ impl HrService {
                 "補卡至少需填寫上班或下班其中一個時間".into(),
             ));
         }
-        if let (Some(ci), Some(co)) = (payload.clock_in_time, payload.clock_out_time) {
-            if co <= ci {
-                return Err(AppError::Validation("下班時間必須晚於上班時間".into()));
-            }
-        }
+        // 補登沒有「合併既有值」這回事（該日本來就沒有 row），兩個時間都來自 request，
+        // 但仍走同一個校驗函式，避免兩條路徑日後各自漂移
+        validate_final_time_order(payload.clock_in_time, payload.clock_out_time)?;
         if payload.work_date > taiwan_today()? {
             return Err(AppError::Validation("不得補登未來日期的出勤".into()));
         }
@@ -796,30 +816,28 @@ impl HrService {
             worksheet.write_string_with_format(0, col as u16, *title, &header_format)?;
         }
 
-        let mut total_regular = Decimal::ZERO;
-        let mut total_overtime = Decimal::ZERO;
-        let mut total_days: i64 = 0;
+        let totals = MonthlyReportTotals::of(&rows);
 
         for (idx, r) in rows.iter().enumerate() {
             let row = idx as u32 + 1;
             worksheet.write_string(row, 0, &r.user_name)?;
             worksheet.write_string(row, 1, &r.user_email)?;
             worksheet.write_number(row, 2, r.work_days as f64)?;
-            write_hours_cell(worksheet, row, 3, r.total_regular_hours)?;
-            write_hours_cell(worksheet, row, 4, r.total_overtime_hours)?;
+            worksheet.write_number(row, 3, r.total_regular_hours)?;
+            worksheet.write_number(row, 4, r.total_overtime_hours)?;
             worksheet.write_number(row, 5, r.incomplete_days as f64)?;
             worksheet.write_number(row, 6, r.corrected_days as f64)?;
-
-            total_days += r.work_days;
-            total_regular += r.total_regular_hours;
-            total_overtime += r.total_overtime_hours;
         }
 
+        // 合計列要蓋滿每一個數值欄。漏掉 incomplete / corrected 兩欄會讓 Excel 的合計
+        // 與畫面上的合計不一致——看報表的人會以為那兩欄沒有值（CodeRabbit PR #35 指出）。
         let total_row = rows.len() as u32 + 1;
         worksheet.write_string_with_format(total_row, 0, "合計", &total_format)?;
-        worksheet.write_number(total_row, 2, total_days as f64)?;
-        write_hours_cell(worksheet, total_row, 3, total_regular)?;
-        write_hours_cell(worksheet, total_row, 4, total_overtime)?;
+        worksheet.write_number(total_row, 2, totals.work_days as f64)?;
+        worksheet.write_number(total_row, 3, totals.regular_hours)?;
+        worksheet.write_number(total_row, 4, totals.overtime_hours)?;
+        worksheet.write_number(total_row, 5, totals.incomplete_days as f64)?;
+        worksheet.write_number(total_row, 6, totals.corrected_days as f64)?;
 
         worksheet.set_freeze_panes(1, 0)?;
         Ok(workbook.save_to_buffer()?)
@@ -830,9 +848,91 @@ impl HrService {
 mod tests {
     use super::{
         compute_regular_hours, format_clock_time, month_bounds, reject_self_correction,
-        validate_correction_reason, HrService, MAX_CORRECTION_REASON_CHARS,
+        validate_correction_reason, validate_final_time_order, HrService, MonthlyAttendanceSummary,
+        MonthlyReportTotals, MAX_CORRECTION_REASON_CHARS,
     };
     use uuid::Uuid;
+
+    // --- 更正的時間順序：必須驗「合併後」的值 ---
+
+    fn utc(h: u32, m: u32) -> chrono::DateTime<chrono::Utc> {
+        use chrono::TimeZone;
+        chrono::Utc
+            .with_ymd_and_hms(2026, 8, 25, h, m, 0)
+            .single()
+            .expect("valid timestamp")
+    }
+
+    /// 核心迴歸（CodeRabbit PR #35 抓到的洞）：更正請求只帶一邊時，
+    /// 必須拿它與**既有紀錄的另一邊**合併後再驗順序。
+    /// 只驗 request 那兩欄的話，這個情境會靜默寫入負區間、工時被算成 0.0。
+    #[test]
+    fn partial_correction_with_inverted_merged_range_is_rejected() {
+        // request 只帶 clock_in=18:00，既有紀錄的 clock_out=17:00
+        let err = validate_final_time_order(Some(utc(18, 0)), Some(utc(17, 0)));
+        assert!(
+            err.is_err(),
+            "合併後下班早於上班必須擋下，否則 DB 會留下負區間 + 工時 0 的紀錄"
+        );
+    }
+
+    #[test]
+    fn equal_in_and_out_is_rejected() {
+        assert!(validate_final_time_order(Some(utc(9, 0)), Some(utc(9, 0))).is_err());
+    }
+
+    #[test]
+    fn normal_range_and_one_sided_values_are_allowed() {
+        validate_final_time_order(Some(utc(1, 0)), Some(utc(9, 0))).expect("正常區間應放行");
+        // 只有一邊 → 無從比較，放行（工時保留原值 / 標為不完整）
+        validate_final_time_order(Some(utc(1, 0)), None).expect("只有上班卡應放行");
+        validate_final_time_order(None, Some(utc(9, 0))).expect("只有下班卡應放行");
+        validate_final_time_order(None, None).expect("兩邊皆無應放行");
+    }
+
+    // --- 工時月報合計 ---
+
+    fn summary(
+        days: i64,
+        reg: f64,
+        ot: f64,
+        incomplete: i64,
+        corrected: i64,
+    ) -> MonthlyAttendanceSummary {
+        MonthlyAttendanceSummary {
+            user_id: Uuid::new_v4(),
+            user_name: "測試員一".into(),
+            user_email: "staff@example.com".into(),
+            work_days: days,
+            total_regular_hours: reg,
+            total_overtime_hours: ot,
+            incomplete_days: incomplete,
+            corrected_days: corrected,
+        }
+    }
+
+    /// 合計要蓋滿**每一個**數值欄。Excel 合計列漏欄會與畫面上的合計不一致，
+    /// 看報表的人會以為那兩欄沒有值（CodeRabbit PR #35 指出）。
+    #[test]
+    fn totals_cover_every_numeric_column() {
+        let totals = MonthlyReportTotals::of(&[
+            summary(21, 168.5, 6.0, 1, 2),
+            summary(22, 176.0, 0.0, 0, 3),
+        ]);
+        assert_eq!(totals.work_days, 43);
+        assert_eq!(totals.regular_hours, 344.5);
+        assert_eq!(totals.overtime_hours, 6.0);
+        assert_eq!(
+            totals.incomplete_days, 1,
+            "漏掉 incomplete_days 就是那個 bug"
+        );
+        assert_eq!(totals.corrected_days, 5, "漏掉 corrected_days 就是那個 bug");
+    }
+
+    #[test]
+    fn totals_of_empty_report_are_all_zero() {
+        assert_eq!(MonthlyReportTotals::of(&[]), MonthlyReportTotals::default());
+    }
 
     // --- 補卡：不得作用於自己 ---
 
