@@ -249,8 +249,10 @@ export function MonthlyReportTab() {
                                 <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
                                     <span>工時 {formatHours(r.total_regular_hours)}</span>
                                     <span>加班 {formatHours(r.total_overtime_hours)}</span>
-                                    <span>不完整 {r.incomplete_days} 天</span>
-                                    <span>補登 {r.corrected_days} 天</span>
+                                    {/* 標籤與桌機表頭一致：這個數字含「更正既有紀錄」，
+                                        只寫「補登」會漏掉一半語意（CodeRabbit PR #35） */}
+                                    <span>打卡不完整 {r.incomplete_days} 天</span>
+                                    <span>補登／更正 {r.corrected_days} 天</span>
                                 </div>
                             </div>
                         ))
