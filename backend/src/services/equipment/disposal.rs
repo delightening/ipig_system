@@ -245,7 +245,7 @@ impl EquipmentService {
     /// 流程（同一 tx 內）：
     ///   1. RBAC：`equipment.disposal.approve`（2026-08-26 起不再認 `equipment.manage`
     ///      ——見 `access::require_equipment_disposal_approve` 的說明；放寬會讓
-    ///      簽得了章卻核准不了的人把單子卡在下面第 3 步的「不得覆寫」）
+    ///      簽得了章卻核准不了的人把單子卡在下面第 2 步的「未簽過」硬擋）
     ///   2. SELECT FOR UPDATE 鎖 row + 狀態守衛（pending / 未簽過）+ 申請人不能自核
     ///      （applied_by != current_user.id；防止 self-approve 提權）
     ///   3. `SignatureService::sign_record_tx` 寫 electronic_signatures

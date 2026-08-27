@@ -21,9 +21,9 @@
 //! ## ② 設備報廢：三個角色簽得了核准章卻按不了核准鍵
 //!
 //! ```text
-//! 簽章  access.rs:995  disposal.approve || equipment.manage
-//! 核准  disposal.rs:325            只有 disposal.approve
-//! 差集  equipment.manage 有、disposal.approve 沒有的角色（見下方測試，動態算）
+//! 簽章  access.rs:1013  equipment.disposal.approve || equipment.manage
+//! 核准  disposal.rs:327  只有 equipment.disposal.approve
+//! 差集  equipment.manage 有、equipment.disposal.approve 沒有的角色（見下方測試，動態算）
 //! ```
 //!
 //! 差集刻意**不寫死**：`sync_permissions` 只增不減（`ON CONFLICT DO NOTHING`），

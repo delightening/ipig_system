@@ -993,8 +993,8 @@ pub fn require_equipment_manage(current_user: &CurrentUser) -> Result<()> {
 /// 設備報廢核准權限：`equipment.disposal.approve`。用於核准人簽章 handler。
 ///
 /// 🔴 **2026-08-26 收緊**：原本還認 `equipment.manage`，與真正改狀態的
-/// `EquipmentService::approve_disposal`（`disposal.rs:325`，只認 `disposal.approve`）
-/// **不一致**，製造出一個半套狀態：
+/// `EquipmentService::approve_disposal`（`disposal.rs:327`，只認
+/// `equipment.disposal.approve`）**不一致**，製造出一個半套狀態：
 ///
 /// - `startup/permissions.rs` 授予 `equipment.manage` 給 ADMIN_STAFF 與
 ///   EQUIPMENT_MAINTENANCE；授予 `equipment.disposal.approve` 只給 EQUIPMENT_MAINTENANCE
