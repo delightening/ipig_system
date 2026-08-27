@@ -41,16 +41,73 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// 已知且**刻意**只比對 `SYSTEM_ADMIN` 的位置，不算違規。
+/// 逐行豁免標記：候選行的前 3 行內出現它，就視為**刻意**只比對 `SYSTEM_ADMIN`。
 ///
-/// 這兩處的語意是「**只有 SYSTEM_ADMIN 能指派 SYSTEM_ADMIN**」——刻意區分兩個代碼，
-/// 不是漏 fallback。目前因該角色不存在而是惰性的，但無害（legacy admin 分支才是
-/// 實際生效的那條）。⚠️ 若日後採「刪掉常數」的根治方案，這兩段要重新設計，
-/// 無腦刪等於把該條授權規則一併刪掉。
-const INTENTIONAL: &[&str] = &[
-    "src/services/user.rs",   // assigns_system_admin && !actor_is_system_admin
-    "src/services/access.rs", // 同上，角色指派授權的另一半
-];
+/// ⚠️ **原本是用檔名清單豁免**（`src/services/user.rs` / `src/services/access.rs`），
+/// 那讓整個檔案跳過掃描——**豁免範圍大於它要豁免的那件事**。
+/// 那兩個檔各有一千多行，日後在裡面新增的任何一處未防護比對都會安靜通過，
+/// 而測試看起來仍然涵蓋它們（CodeRabbit 於 #32 指出）。
+///
+/// 改成標記之後，豁免與被豁免的那一行綁在一起：同檔案的其他比對照樣被掃，
+/// 而且理由寫在它旁邊，讀 code 的人看得到，不必翻到測試檔才知道為什麼。
+///
+/// 目前的使用者：角色指派授權「只有 SYSTEM_ADMIN 能指派 SYSTEM_ADMIN」
+/// （`services/user.rs` 與 `services/access.rs` 各一半）。該角色不存在使它目前是
+/// 惰性的但無害——legacy admin 分支才是實際生效的那條。
+/// 若日後採「刪掉常數」的根治方案，這幾段要重新設計，無腦刪等於把該授權規則一併刪掉。
+const INTENTIONAL_MARKER: &str = "SYSTEM_ADMIN-ONLY";
+
+/// 候選行所屬的**敘述**範圍（`[起, 迄)`，含註解行）。
+///
+/// ## 為什麼不能用「前後 N 行」
+///
+/// 本守衛原本判定「候選行 ±8 行內有沒有 fallback token」。2026-08-26 mutation 實測
+/// 發現那條規則有一整類假陰性：
+///
+/// ```text
+/// let assigns_system_admin = codes.iter().any(|c| c == ROLE_SYSTEM_ADMIN);   ← 候選
+/// let assigns_legacy_admin = codes.iter().any(|c| c == ROLE_ADMIN_LEGACY);   ← 不同變數
+/// ```
+///
+/// 第二行的 fallback token 屬於**另一個判斷**，跟第一行毫無關係，但落在 8 行內
+/// 就讓第一行通過。淨結果：**任何新增的未防護比對，只要寫在既有防護比對旁邊就滑過去**
+/// ——那正是本守衛存在理由的那種 bug。守衛看起來在守，實際上放行。
+///
+/// 收緊成敘述範圍之後，fallback 必須跟候選比對在**同一個運算式**裡才算數。
+/// 代價是 fallback 真的分散在多個敘述的地方（`bin/create_admin.rs` 的兩段式查詢）
+/// 需要顯式標記——那是好事：那種寫法本來就該讓讀的人看見。
+///
+/// 邊界判定：往前找到上一個以 `;` `{` `}` 結尾或空白的行，往後找到第一個以 `;` 結尾的行。
+/// 註解行不算邊界（會被跨過），但在比對 fallback 時會被濾掉——
+/// 否則標記註解裡的字就會被當成 fallback。
+fn statement_span(lines: &[&str], i: usize) -> (usize, usize) {
+    let mut lo = i;
+    while lo > 0 {
+        let prev = lines[lo - 1].trim_end();
+        if prev.trim_start().starts_with("//") {
+            lo -= 1;
+            continue;
+        }
+        if prev.is_empty()
+            || prev.ends_with(';')
+            || prev.ends_with('{')
+            || prev.ends_with('}')
+            || prev.ends_with(',')
+        {
+            break;
+        }
+        lo -= 1;
+    }
+    let mut hi = i + 1;
+    while hi < lines.len() {
+        let prev = lines[hi - 1].trim_end();
+        if prev.ends_with(';') || prev.ends_with('{') || prev.ends_with('}') {
+            break;
+        }
+        hi += 1;
+    }
+    (lo, hi.min(lines.len()))
+}
 
 /// 本檔自己會提到 SYSTEM_ADMIN（doc comment），不掃。
 fn is_self(path: &Path) -> bool {
@@ -88,9 +145,6 @@ fn no_system_admin_comparison_without_legacy_fallback() {
             .unwrap_or(path)
             .to_string_lossy()
             .replace('\\', "/");
-        if INTENTIONAL.iter().any(|i| rel.ends_with(i)) {
-            continue;
-        }
         let Ok(text) = fs::read_to_string(path) else {
             continue;
         };
@@ -125,10 +179,24 @@ fn no_system_admin_comparison_without_legacy_fallback() {
                 continue;
             }
 
-            // fallback 未必在同一行（`.bind(A)` / `.bind(B)` 相鄰、SQL 的 OR 分行寫）。
-            let lo = i.saturating_sub(8);
-            let hi = (i + 9).min(lines.len());
-            let window = lines[lo..hi].join("\n");
+            // 逐行豁免：標記必須就在這一行的正上方（3 行內），不是整個檔案。
+            let mark_lo = i.saturating_sub(3);
+            if lines[mark_lo..i]
+                .iter()
+                .any(|l| l.contains(INTENTIONAL_MARKER))
+            {
+                continue;
+            }
+
+            // fallback 未必在同一行（`.bind(A)` / `.bind(B)` 相鄰、SQL 的 OR 分行寫），
+            // 但**必須在同一個敘述內**——見 `statement_span` 的說明。
+            let (lo, hi) = statement_span(&lines, i);
+            let window = lines[lo..hi]
+                .iter()
+                .filter(|l| !l.trim_start().starts_with("//"))
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n");
             // ⚠️ 必須是 `.is_admin()` 這個**呼叫**，不能只找子字串 `is_admin`。
             // 2026-08-26 mutation 實測：把 `handlers/mcp.rs::is_admin_role` 改回壞寫法，
             // 本守衛仍是綠的——因為**函式自己的名字** `fn is_admin_role(` 含有 `is_admin`，
@@ -154,7 +222,8 @@ fn no_system_admin_comparison_without_legacy_fallback() {
          修法：用 `CurrentUser::is_admin()`；SQL 用 `code = ANY(...)` 或 `IN ('admin','SYSTEM_ADMIN')`；\n\
          取管理員收件人用 `NotificationService::get_admin_users()`，\n\
          **不要**用 `get_users_by_role(ROLE_SYSTEM_ADMIN)`（恆回空清單，且不會報錯）。\n\
-         若確實是「只有 SYSTEM_ADMIN 能做」的刻意區分，加進本檔的 INTENTIONAL 並說明理由。",
+         若確實是「只有 SYSTEM_ADMIN 能做」的刻意區分，在該行正上方加一行註解含\n\
+         `SYSTEM_ADMIN-ONLY` 並寫明理由——豁免綁在那一行，不是整個檔案。",
         offenders.join("\n")
     );
 }

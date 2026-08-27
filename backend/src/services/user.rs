@@ -116,6 +116,8 @@ impl UserService {
                 .await?;
         let assigns_system_admin = assigned_guarded_codes
             .iter()
+            // SYSTEM_ADMIN-ONLY：刻意只認 SYSTEM_ADMIN——語意是「只有 X 能指派 X」，
+            // 不是漏 legacy fallback；加上它等於把這條授權規則降級。
             .any(|c| c == crate::constants::ROLE_SYSTEM_ADMIN);
         let assigns_legacy_admin = assigned_guarded_codes
             .iter()
@@ -138,6 +140,8 @@ impl UserService {
                 .await?;
                 let actor_is_system_admin = actor_guarded_codes
                     .iter()
+                    // SYSTEM_ADMIN-ONLY：刻意只認 SYSTEM_ADMIN——語意是「只有 X 能指派 X」，
+                    // 不是漏 legacy fallback；加上它等於把這條授權規則降級。
                     .any(|c| c == crate::constants::ROLE_SYSTEM_ADMIN);
                 let actor_is_admin_tier = actor_guarded_codes.iter().any(|c| {
                     c == crate::constants::ROLE_SYSTEM_ADMIN
