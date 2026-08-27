@@ -31,10 +31,10 @@ export default mergeConfig(resolvedViteConfig, defineConfig({
       // 首次 main push 後 autoUpdate 會再收斂到含 storybook 覆蓋率貢獻的真實下限。
       thresholds: {
         autoUpdate: true,
-        lines: 9.75,
-        functions: 6.34,
+        lines: 9.76,
+        functions: 6.35,
         branches: 6.14,
-        statements: 9.46
+        statements: 9.47
       }
     },
     projects: [{
