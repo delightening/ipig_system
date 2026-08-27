@@ -159,21 +159,39 @@ impl MonthlyReportTotals {
     }
 }
 
-/// 校驗「更正後」的最終上下班時間順序。
+/// 單筆出勤的最長跨距。超過即視為填錯日期，不是超時工作。
+///
+/// 取 24 小時而**不是**「必須同一個日曆日」：夜班 22:00 → 隔天 06:00 是合法的，
+/// 同日限制會把它擋掉。24 小時足以容納任何真實班別（含加班），又能擋住填錯年月日。
+const MAX_ATTENDANCE_SPAN_HOURS: i64 = 24;
+
+/// 校驗「更正後」的最終上下班時間順序與跨距。
 ///
 /// ⚠️ 必須驗**合併後**的值，不能只驗 request 帶來的兩個欄位（CodeRabbit PR #35 指出）：
 /// 更正請求可以只帶一邊。只送 `clock_in_time=18:00`、而既有紀錄的
 /// `clock_out_time=17:00` 時，request 那兩欄的檢查根本不成立（另一邊是 None），
 /// 於是負區間被寫進 DB，`compute_regular_hours` 又把它算成 0.0——
 /// 資料庫留下一筆下班早於上班、工時 0 的紀錄，而且沒有任何錯誤訊息。
+///
+/// ⚠️ 上界同樣必要（CodeRabbit PR #35 第二輪指出）：只檢查「晚於」的話，
+/// `work_date` 是 8/25 而 `clock_out` 填成 8/27 會過關，而 `compute_regular_hours`
+/// 只扣 `work_date` 當天那一小時午休 → 單日存進 55 小時工時。
+/// 前端走 `<input type="time">` + 固定日期到不了這個狀態，但 API 直接打得到，
+/// 而補登本來就是「他人代填任意時間」的路徑。
 fn validate_final_time_order(
     final_in: Option<DateTime<Utc>>,
     final_out: Option<DateTime<Utc>>,
 ) -> Result<()> {
-    if let (Some(ci), Some(co)) = (final_in, final_out) {
-        if co <= ci {
-            return Err(AppError::Validation("下班時間必須晚於上班時間".into()));
-        }
+    let (Some(ci), Some(co)) = (final_in, final_out) else {
+        return Ok(());
+    };
+    if co <= ci {
+        return Err(AppError::Validation("下班時間必須晚於上班時間".into()));
+    }
+    if (co - ci).num_hours() > MAX_ATTENDANCE_SPAN_HOURS {
+        return Err(AppError::Validation(format!(
+            "單筆出勤的上下班間隔不得超過 {MAX_ATTENDANCE_SPAN_HOURS} 小時，請確認日期是否填錯"
+        )));
     }
     Ok(())
 }
@@ -879,6 +897,34 @@ mod tests {
     #[test]
     fn equal_in_and_out_is_rejected() {
         assert!(validate_final_time_order(Some(utc(9, 0)), Some(utc(9, 0))).is_err());
+    }
+
+    /// 上界迴歸（CodeRabbit PR #35 第二輪）：`work_date` 是 8/25、`clock_out` 卻填 8/27，
+    /// 只檢查「晚於」會放行，而 `compute_regular_hours` 只扣當天午休 → 單日 55 小時工時。
+    #[test]
+    fn multi_day_span_is_rejected() {
+        use chrono::TimeZone;
+        let ci = utc(0, 0); // 2026-08-25 00:00Z
+        let co = chrono::Utc
+            .with_ymd_and_hms(2026, 8, 27, 8, 0, 0)
+            .single()
+            .expect("valid timestamp");
+        assert!(
+            validate_final_time_order(Some(ci), Some(co)).is_err(),
+            "跨兩天以上必須擋下，否則單日會存進數十小時工時"
+        );
+    }
+
+    /// 但夜班（跨日、未超過 24 小時）必須放行——用「同一個日曆日」當判準會把它擋掉。
+    #[test]
+    fn overnight_shift_within_24h_is_allowed() {
+        use chrono::TimeZone;
+        let ci = utc(14, 0); // 2026-08-25 22:00 台灣時間
+        let co = chrono::Utc
+            .with_ymd_and_hms(2026, 8, 26, 0, 0, 0)
+            .single()
+            .expect("valid timestamp"); // 隔天 08:00 台灣時間
+        validate_final_time_order(Some(ci), Some(co)).expect("夜班跨日應放行");
     }
 
     #[test]
