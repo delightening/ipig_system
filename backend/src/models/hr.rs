@@ -132,8 +132,15 @@ pub struct MonthlyAttendanceSummary {
     pub user_email: String,
     /// 當月有「上班打卡時間」的天數
     pub work_days: i64,
-    pub total_regular_hours: Decimal,
-    pub total_overtime_hours: Decimal,
+    /// ⚠️ 型別是 `f64` 不是 `Decimal`（CodeRabbit PR #35 指出）：
+    /// `rust_decimal` 只開 `serde` feature 時會把 Decimal 序列化成**字串**，
+    /// 而前端 `MonthlyAttendanceSummary` 宣告的是 `number`。字串進到
+    /// `useTableSort` 的 `compareValues` 會走字串比較——`"9.5"` 排在 `"168.5"` 後面。
+    /// 改 Cargo.toml 加 `serde-float` 會全域改變所有 Decimal 欄位的序列化（等於動到
+    /// 既有 API contract），故改在 SQL 端 `::float8`，與同檔 `AttendanceStat.overtime_hours`
+    /// 的既有寫法一致。來源欄位是 `numeric(5,2)`，月度加總的精度遠在 f64 安全範圍內。
+    pub total_regular_hours: f64,
+    pub total_overtime_hours: f64,
     /// 上下班卡只有一邊的天數——這些日子的工時不完整，是補卡的候選清單
     pub incomplete_days: i64,
     /// 當月經補登／更正的天數（`is_corrected`）

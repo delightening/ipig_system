@@ -41,16 +41,20 @@ function parseMonthInput(value: string): { year: number; month: number } | null 
     return { year, month }
 }
 
+/**
+ * 後端的工時欄位在 SQL 端已 `::float8`，回來就是 JSON number（不是 rust_decimal
+ * 預設的字串），所以這裡不需要 parseFloat 的防禦分支——`AttendanceHistoryTab`
+ * 那份有，是因為它吃的 `regular_hours` 仍是 Decimal。見 `MonthlyAttendanceSummary`
+ * 的後端註解（CodeRabbit PR #35）。
+ */
 function formatHours(hours: number | null) {
-    if (hours === null || hours === undefined) return '-'
-    const value = typeof hours === 'string' ? parseFloat(hours) : hours
-    if (Number.isNaN(value)) return '-'
-    return `${value.toFixed(1)} 小時`
+    if (hours === null || hours === undefined || Number.isNaN(hours)) return '-'
+    return `${hours.toFixed(1)} 小時`
 }
 
-/** 合計列：以顯示中的資料相加，與後端匯出的 Excel 合計列同語意 */
+/** 合計列：以顯示中的資料相加，與後端匯出的 Excel 合計列同語意（含每一個數值欄） */
 function sumBy(rows: MonthlyAttendanceSummary[], pick: (r: MonthlyAttendanceSummary) => number) {
-    return rows.reduce((acc, r) => acc + (Number(pick(r)) || 0), 0)
+    return rows.reduce((acc, r) => acc + (pick(r) || 0), 0)
 }
 
 /**

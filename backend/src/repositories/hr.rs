@@ -132,8 +132,10 @@ pub async fn summarize_monthly_attendance(
             u.display_name                                    AS user_name,
             u.email                                           AS user_email,
             COUNT(*) FILTER (WHERE a.clock_in_time IS NOT NULL)::bigint AS work_days,
-            COALESCE(SUM(a.regular_hours), 0)                 AS total_regular_hours,
-            COALESCE(SUM(a.overtime_hours), 0)                AS total_overtime_hours,
+            -- ::float8 而非留在 numeric：numeric 會被 rust_decimal 序列化成 JSON 字串，
+            -- 前端排序就變成字串比較（"9.5" > "168.5"）。見 MonthlyAttendanceSummary 的註解。
+            COALESCE(SUM(a.regular_hours), 0)::float8         AS total_regular_hours,
+            COALESCE(SUM(a.overtime_hours), 0)::float8        AS total_overtime_hours,
             COUNT(*) FILTER (
                 WHERE (a.clock_in_time IS NULL) <> (a.clock_out_time IS NULL)
             )::bigint                                         AS incomplete_days,
