@@ -14,9 +14,24 @@
 
 mod common;
 use common::TestApp;
+use erp_backend::middleware::CurrentUser;
 use erp_backend::services::pending_owner;
 use serial_test::serial;
 use uuid::Uuid;
+
+/// 無委員身分檢視權的檢視者。本檔測的是「受理關的候選名單」與軟刪除排除，
+/// 與委員會姓名可見性無關，給空權限即可。
+fn viewer_without_committee_access() -> CurrentUser {
+    CurrentUser {
+        id: Uuid::new_v4(),
+        email: "no-perm@example.com".into(),
+        roles: vec![],
+        permissions: vec![],
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    }
+}
 
 #[tokio::test]
 #[serial]
@@ -49,12 +64,16 @@ async fn protocol_intake_query_runs_against_the_real_schema() {
     .await
     .expect("seed protocol");
 
-    let owners = pending_owner::resolve_for_protocols(&app.db_pool, &[protocol])
-        .await
-        .expect(
-            "解析器必須跑得起來。失敗多半是 SQL 引用了實際不存在的欄位——\
+    let owners = pending_owner::resolve_for_protocols(
+        &app.db_pool,
+        &[protocol],
+        &viewer_without_committee_access(),
+    )
+    .await
+    .expect(
+        "解析器必須跑得起來。失敗多半是 SQL 引用了實際不存在的欄位——\
              protocols 的軟刪除靠 status='DELETED'，沒有 deleted_at",
-        );
+    );
 
     let owner = owners
         .get(&protocol)
@@ -97,9 +116,13 @@ async fn soft_deleted_protocols_are_excluded_by_the_status_whitelist() {
     .await
     .expect("seed deleted protocol");
 
-    let owners = pending_owner::resolve_for_protocols(&app.db_pool, &[protocol])
-        .await
-        .expect("resolve");
+    let owners = pending_owner::resolve_for_protocols(
+        &app.db_pool,
+        &[protocol],
+        &viewer_without_committee_access(),
+    )
+    .await
+    .expect("resolve");
     assert!(
         !owners.contains_key(&protocol),
         "已刪除的計畫不該出現在待處理清單裡"

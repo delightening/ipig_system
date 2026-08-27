@@ -3526,7 +3526,6 @@
   "pendingOwner": {
     "andOthers": "等 {{count}} 人",
     "nobody": "目前無人可處理（職務分離已排除所有候選人）",
-    "reviewerCount": "{{count}} 位委員",
     "stage": {
       "doc_wm_approve": "待倉管核准",
       "doc_final_approve": "待負責人終審",

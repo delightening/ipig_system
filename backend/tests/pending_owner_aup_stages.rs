@@ -2,16 +2,20 @@
 //!
 //! ## 最重要的一條
 //!
-//! **委員會審查（`UNDER_REVIEW`）一律不列名。** 2026-08-26 使用者裁定：IACUC 審查委員
-//! 的身分對所有人一律不揭露，只給人數。
+//! **委員會審查（`UNDER_REVIEW`）的委員姓名只給 IACUC 行政方，其餘所有人
+//! 連 tooltip 都沒有。** 2026-08-27 使用者裁定，判準是 `aup.protocol.change_status`。
 //!
-//! 這條是用「狀態」擋而不是用「誰在看」擋——後者會出現 A 看得到 B 看不到的一致性問題。
-//! 正因為判準與觀看者無關，它**很容易在重構時被順手改掉**（例如有人把
-//! `PendingOwner::anonymous` 換成 `from_candidates` 讓文案「更一致」），而改掉之後
-//! 沒有任何既有測試會紅。本檔就是那道紅燈。
+//! ⚠️ 這條原本是「一律不列名、只給人數」，後來收斂成現在這樣。判準因此從
+//! 「與觀看者無關」變成「與觀看者有關」——**多了一個以前不存在的失敗模式**：
+//! 權限判斷寫錯的話，姓名會漏給不該看的人，而漏給誰取決於誰在看，
+//! 不會有任何一個固定的觀察點能發現。
+//!
+//! 所以本檔兩側都釘：有權者**必須**看得到姓名、無權者**必須**連 `pending_owner`
+//! 都拿不到（不是拿到空名單——那會讓前端仍然畫出一個空 tooltip）。
 
 mod common;
 use common::TestApp;
+use erp_backend::middleware::CurrentUser;
 use erp_backend::models::PendingOwnerKind;
 use erp_backend::services::pending_owner;
 use serial_test::serial;
@@ -80,31 +84,83 @@ async fn assign_reviewers(pool: &PgPool, protocol: Uuid, assigner: Uuid, n: usiz
     }
 }
 
+/// 造一個檢視者。`perms` 直接給權限碼——本檔測的是「解析器怎麼用權限」，
+/// 不是「哪個角色有那個權限」（後者由授予表與 `pending_owner_candidates.rs` 負責）。
+fn viewer(perms: &[&str]) -> CurrentUser {
+    CurrentUser {
+        id: Uuid::new_v4(),
+        email: "viewer@example.com".into(),
+        roles: vec![],
+        permissions: perms.iter().map(|p| (*p).to_string()).collect(),
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    }
+}
+
+const PERM_CHANGE_STATUS: &str = "aup.protocol.change_status";
+
 #[tokio::test]
 #[serial]
-async fn committee_review_never_names_the_reviewers() {
+async fn committee_review_names_reviewers_for_iacuc_staff() {
     let app = TestApp::spawn().await;
     let (protocol, pi) = seed_protocol(&app.db_pool, "UNDER_REVIEW").await;
     assign_reviewers(&app.db_pool, protocol, pi, 3).await;
 
-    let owners = pending_owner::resolve_for_protocols(&app.db_pool, &[protocol])
-        .await
-        .expect("resolve");
+    let owners = pending_owner::resolve_for_protocols(
+        &app.db_pool,
+        &[protocol],
+        &viewer(&[PERM_CHANGE_STATUS]),
+    )
+    .await
+    .expect("resolve");
     let owner = owners.get(&protocol).expect("審查中的計畫必須有待處理人");
 
+    assert_eq!(owner.kind, PendingOwnerKind::Role);
+    assert_eq!(owner.role_code.as_deref(), Some("REVIEWER"));
     assert_eq!(
-        owner.kind,
-        PendingOwnerKind::Anonymous,
-        "委員會審查關必須是 anonymous"
+        owner.candidates.len() + owner.overflow as usize,
+        3,
+        "已指派 3 位委員，總人數要對得上。實際 {:?} + overflow {}",
+        owner.candidates,
+        owner.overflow
     );
     assert!(
-        owner.candidates.is_empty(),
-        "🔴 委員身分外洩。2026-08-26 使用者裁定：IACUC 審查委員一律不列名，只給人數。\n\
-         實際列出：{:?}",
+        owner.candidates.iter().all(|n| n.starts_with("審查委員")),
+        "列出的應該是委員姓名。實際：{:?}",
         owner.candidates
     );
-    assert_eq!(owner.overflow, 3, "人數要給，且要正確（已指派 3 位）");
-    assert_eq!(owner.role_code.as_deref(), Some("REVIEWER"));
+}
+
+#[tokio::test]
+#[serial]
+async fn committee_review_gives_no_tooltip_at_all_to_everyone_else() {
+    let app = TestApp::spawn().await;
+    let (protocol, pi) = seed_protocol(&app.db_pool, "UNDER_REVIEW").await;
+    assign_reviewers(&app.db_pool, protocol, pi, 3).await;
+
+    // 獸醫與審查委員持有 `aup.review.identity_view`（審查流程內部彼此可見），
+    // 但 2026-08-27 裁定他們在這個 tooltip 上看不到委員名單——刻意拿它當反例：
+    // 帶著那個權限也不該過。
+    for perms in [
+        &[][..],
+        &["aup.review.identity_view"][..],
+        &["aup.protocol.view_all"][..],
+    ] {
+        let owners =
+            pending_owner::resolve_for_protocols(&app.db_pool, &[protocol], &viewer(perms))
+                .await
+                .expect("resolve");
+        assert!(
+            !owners.contains_key(&protocol),
+            "委員身分外洩給 perms={:?}。無 `{}` 者必須**完全拿不到** pending_owner\n\
+             ——不是拿到空名單（那會讓前端畫出一個空 tooltip），是整個不存在。\n\
+             實際：{:?}",
+            perms,
+            PERM_CHANGE_STATUS,
+            owners.get(&protocol)
+        );
+    }
 }
 
 #[tokio::test]
@@ -140,7 +196,7 @@ async fn vet_review_names_the_assigned_vet() {
     .await
     .expect("assign vet");
 
-    let owners = pending_owner::resolve_for_protocols(&app.db_pool, &[protocol])
+    let owners = pending_owner::resolve_for_protocols(&app.db_pool, &[protocol], &viewer(&[]))
         .await
         .expect("resolve");
     let owner = owners
@@ -173,7 +229,7 @@ async fn revision_required_points_back_at_the_applicant() {
             .await
             .expect("pi name");
 
-        let owners = pending_owner::resolve_for_protocols(&app.db_pool, &[protocol])
+        let owners = pending_owner::resolve_for_protocols(&app.db_pool, &[protocol], &viewer(&[]))
             .await
             .expect("resolve");
         let owner = owners
@@ -196,7 +252,7 @@ async fn settled_protocols_have_no_pending_owner() {
     let app = TestApp::spawn().await;
     for status in ["APPROVED", "REJECTED", "CLOSED", "DRAFT"] {
         let (protocol, _) = seed_protocol(&app.db_pool, status).await;
-        let owners = pending_owner::resolve_for_protocols(&app.db_pool, &[protocol])
+        let owners = pending_owner::resolve_for_protocols(&app.db_pool, &[protocol], &viewer(&[]))
             .await
             .expect("resolve");
         assert!(

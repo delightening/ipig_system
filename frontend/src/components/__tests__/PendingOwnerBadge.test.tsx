@@ -7,7 +7,7 @@ import type { PendingOwner } from '@/types/pendingOwner'
  * 鎖住 2026-08-26 使用者裁定的四種文案形狀：
  * - 綁角色 → 角色 + 人員
  * - 綁特定人員 → 只有人員，不提角色
- * - 委員會審查（anonymous）→ **一律不列名**，只給人數
+ * - 委員會審查 → 角色 + 委員姓名（**後端已擋掉無權檢視者**，前端不再判斷）
  * - 候選人被職務分離排空 → 明講「無人可處理」，不是空白
  *
  * i18n：t() 回 key 本身，帶 count 時附在後面；斷言比對 key 不比對文案，
@@ -65,21 +65,23 @@ describe('PendingOwnerInline 文案形狀', () => {
         expect(screen.queryByText(/pendingOwner\.role\./)).not.toBeInTheDocument()
     })
 
-    it('委員會審查：一律不列名，只給人數', () => {
+    // ⚠️ 2026-08-27 起委員會審查列出姓名。可見性由**後端**決定：
+    // 無 `aup.protocol.change_status` 者，`pending_owner` 整個是 null，
+    // 前端連 tooltip 都不會出現。前端不再有「不列名」這種形狀。
+    it('委員會審查：角色 + 委員姓名', () => {
         render(
             <PendingOwnerInline
                 owner={{
                     ...base,
                     stage: 'aup_under_review',
-                    kind: 'anonymous',
+                    kind: 'role',
                     role_code: 'REVIEWER',
-                    candidates: [],
-                    overflow: 3,
+                    candidates: ['王大明', '李小華'],
                 }}
             />
         )
         expect(
-            screen.getByText(/pendingOwner\.role\.REVIEWER：pendingOwner\.reviewerCount#3/)
+            screen.getByText(/pendingOwner\.role\.REVIEWER：王大明、李小華/)
         ).toBeInTheDocument()
     })
 

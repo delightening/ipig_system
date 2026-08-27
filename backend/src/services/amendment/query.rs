@@ -28,7 +28,11 @@ impl AmendmentService {
     /// `pending_owner` 後不得不改為執行期形式——那個巨集會依 SELECT 欄位逐一構造 struct，
     /// 不接受任何不在查詢裡的欄位，而 `pending_owner` 是程式算出來的、不可能出現在 SELECT。
     /// 改動後與下方 `list_for_user`（本來就是執行期形式）一致。
-    pub async fn list(pool: &PgPool, query: &AmendmentQuery) -> Result<Vec<AmendmentListItem>> {
+    pub async fn list(
+        pool: &PgPool,
+        query: &AmendmentQuery,
+        viewer: &crate::middleware::CurrentUser,
+    ) -> Result<Vec<AmendmentListItem>> {
         let mut amendments = sqlx::query_as::<_, AmendmentListItem>(
             r#"
             SELECT
@@ -59,7 +63,7 @@ impl AmendmentService {
         .fetch_all(pool)
         .await?;
 
-        Self::attach_pending_owners(pool, &mut amendments).await?;
+        Self::attach_pending_owners(pool, &mut amendments, viewer).await?;
         Ok(amendments)
     }
 
@@ -67,6 +71,7 @@ impl AmendmentService {
     async fn attach_pending_owners(
         pool: &PgPool,
         amendments: &mut [AmendmentListItem],
+        viewer: &crate::middleware::CurrentUser,
     ) -> Result<()> {
         let pending_ids: Vec<Uuid> = amendments
             .iter()
@@ -87,7 +92,8 @@ impl AmendmentService {
         }
 
         let mut owners =
-            crate::services::pending_owner::resolve_for_amendments(pool, &pending_ids).await?;
+            crate::services::pending_owner::resolve_for_amendments(pool, &pending_ids, viewer)
+                .await?;
         for row in amendments.iter_mut() {
             row.pending_owner = owners.remove(&row.id);
         }
@@ -109,6 +115,7 @@ impl AmendmentService {
         pool: &PgPool,
         query: &AmendmentQuery,
         user_id: Uuid,
+        viewer: &crate::middleware::CurrentUser,
     ) -> Result<Vec<AmendmentListItem>> {
         let mut amendments = sqlx::query_as::<_, AmendmentListItem>(
             r#"
@@ -142,7 +149,7 @@ impl AmendmentService {
         .fetch_all(pool)
         .await?;
 
-        Self::attach_pending_owners(pool, &mut amendments).await?;
+        Self::attach_pending_owners(pool, &mut amendments, viewer).await?;
         Ok(amendments)
     }
 
@@ -150,6 +157,7 @@ impl AmendmentService {
     pub async fn list_by_protocol(
         pool: &PgPool,
         protocol_id: Uuid,
+        viewer: &crate::middleware::CurrentUser,
     ) -> Result<Vec<AmendmentListItem>> {
         Self::list(
             pool,
@@ -158,6 +166,7 @@ impl AmendmentService {
                 status: None,
                 amendment_type: None,
             },
+            viewer,
         )
         .await
     }

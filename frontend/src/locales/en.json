@@ -3423,7 +3423,6 @@
   "pendingOwner": {
     "andOthers": "({{count}} total)",
     "nobody": "Nobody can act on this step (separation of duties excluded all candidates)",
-    "reviewerCount": "{{count}} reviewers",
     "stage": {
       "doc_wm_approve": "Awaiting warehouse approval",
       "doc_final_approve": "Awaiting final approval",
