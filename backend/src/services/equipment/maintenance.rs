@@ -221,8 +221,20 @@ impl EquipmentService {
         Ok(record)
     }
 
-    /// Transaction 版本：更新維修紀錄
-    pub(in crate::services) async fn update_maintenance_record_tx(
+    /// Transaction 版本：更新維修紀錄。
+    ///
+    /// ⚠️ **刻意收窄為模組私有**（其餘 `*_tx` 仍是 `pub(in crate::services)`）。
+    /// 本函式是唯一能讓紀錄**進入 `PendingReview`** 的路徑，而進入該狀態必須同時
+    /// 同步關卡待辦（`StageEntity::MaintenanceRecord`）——那個同步需要
+    /// `&NotificationService`（持 pool），本函式只有 tx，做不到。
+    ///
+    /// 所以契約是「呼叫端負責同步」，而契約靠註解維持不住：`pub(in crate::services)`
+    /// 的話，任何 service 都能繞過同步寫出待驗收紀錄，而漏掉時**沒有任何訊號**
+    /// （待辦不會出現，使用者只是看不到，不會報錯）。收窄可見性讓編譯器守這件事。
+    ///
+    /// 日後真的需要跨 service 呼叫時：放寬可見性的那個 commit **必須同時**在新呼叫端
+    /// 加上 `sync_stage_todos_tx`，或把同步搬進本函式（屆時得改成收 `&NotificationService`）。
+    async fn update_maintenance_record_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         actor: &ActorContext,
         id: Uuid,
@@ -340,6 +352,19 @@ impl EquipmentService {
             .execute(&mut **tx)
             .await?;
 
+        // 紀錄都刪了，驗收人已無事可做。不接這條就是 2026-08-07 巡場事故的同一個坑：
+        // 待辦綁在已消失的實體上、永久卡住，而使用者不能自己清掉待辦。
+        //
+        // 這裡不能用 `sync_stage_todos_tx`——它需要 `&NotificationService`（持 pool），
+        // 而本函式是純 tx 版、拿不到 pool。實體已刪 ⇒ 關卡必為 None ⇒ 同步的結果就是
+        // 全部解除，與直接呼叫解除等價。
+        crate::services::NotificationService::resolve_pinned_notifications_tx(
+            tx,
+            crate::services::StageEntity::MaintenanceRecord(before.id).entity_type(),
+            before.id,
+        )
+        .await?;
+
         let display = format!("maintenance {:?}", before.maintenance_type);
         AuditService::log_activity_tx(
             tx,
@@ -410,11 +435,27 @@ impl EquipmentService {
 
         let mut tx = pool.begin().await?;
         let record = Self::update_maintenance_record_tx(&mut tx, actor, id, payload).await?;
-        let existing_status = record.status.clone();
+
+        // 待驗收待辦：同步到這筆現在該有的樣子，**在同一個 tx 內**。
+        // 進入 pending_review 就建立、離開就解除（改回 pending / in_progress /
+        // unrepairable 都算離開），不必在這裡分辨自己是哪一種轉換——判準在
+        // `services/notification/stages.rs`，收件人與 SoD 也在那裡與授權判準同源。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::MaintenanceRecord(record.id),
+                Some(current_user.id),
+            )
+            .await?;
+
         tx.commit().await?;
 
+        // email 一律 commit 之後才寄——rollback 收不回已寄出的信。
+        notification_svc.send_stage_emails(stage_emails).await;
+
         // 無法維修通知（tx 外 side effect）
-        if existing_status == MaintenanceStatus::Unrepairable {
+        if record.status == MaintenanceStatus::Unrepairable {
             if let Ok(Some(equip)) =
                 repositories::equipment::find_equipment_by_id(pool, record.equipment_id).await
             {
@@ -517,6 +558,16 @@ impl EquipmentService {
         .bind(&payload.review_notes)
         .fetch_one(&mut *tx)
         .await?;
+
+        // 驗收通過或退回，這筆都不再等驗收人動作 → 同步後待辦自動消失（同一個 tx）。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::MaintenanceRecord(record.id),
+                Some(current_user.id),
+            )
+            .await?;
 
         let display = format!(
             "maintenance {:?} → {:?}",

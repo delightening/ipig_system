@@ -296,6 +296,28 @@ pub const WAREHOUSE_CODE_LOCK_KEY: &str = "warehouse_code_gen";
 /// `pg_advisory_xact_lock(hashtext($1))` by `partner.rs::acquire_code_lock`.
 pub const PARTNER_CODE_LOCK_KEY: &str = "partner_code_gen";
 
+/// 關卡待辦同步鎖（`services/notification/stages.rs::sync_stage_todos_tx`）。
+///
+/// ⚠️ **這是本表唯一的「前綴」而非完整 key**：實際 key 為
+/// `stage_todo:{entity_type}:{entity_id}`，per-entity 而非全域。
+///
+/// 為什麼偏離上面「一張表一把全域鎖」的慣例：那些是**取號**鎖，只在 INSERT 前
+/// 短暫持有；本鎖持有到呼叫端的業務 tx commit 為止，而那個 tx 可能很長
+/// （單據核准會連帶寫 audit、庫存、狀態日誌）。用全域鎖會讓不相干的兩筆單據
+/// 互相阻塞——序列化的範圍必須與「會互相干擾的範圍」一致，那是同一筆實體。
+///
+/// 解決的問題：`sync_stage_todos_tx` 先 SELECT 既有待辦再 INSERT，兩者之間
+/// 有 TOCTOU——兩個併發 tx 對同一筆實體同步時可能都看到「沒有」而各插一筆。
+/// 業務端多半已對實體列 `SELECT ... FOR UPDATE`（因而天然序列化），但那是
+/// **呼叫端的性質、不是本函式的保證**，不能依賴。
+///
+/// ⚠️ 正統解法是 `(user_id, related_entity_type, related_entity_id, recipient_role)`
+/// 的 partial unique index + `ON CONFLICT DO NOTHING`。**沒有採用是因為那需要
+/// migration，而下一號（007）被未合分支 `feat/sd-assign-audit` 佔用**——依
+/// `RULES_BACKEND.md` §9 不得自行跳號。待該分支落地後可改為索引，屆時本鎖可移除。
+/// `pg_advisory_xact_lock(hashtext($1))` by `notification/stages.rs::sync_stage_todos_tx`.
+pub const STAGE_TODO_SYNC_LOCK_PREFIX: &str = "stage_todo";
+
 /// 儲位代碼（`storage_locations.code`，`{A-Z}{:02}`）生成鎖。
 /// 唯一約束是 `(warehouse_id, code)`，但取號量極小，用單一鎖而非 per-warehouse，
 /// 避免 lock key 命名空間膨脹。
