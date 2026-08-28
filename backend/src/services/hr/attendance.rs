@@ -159,26 +159,26 @@ impl MonthlyReportTotals {
     }
 }
 
-/// 單筆出勤的最長跨距。超過即視為填錯日期，不是超時工作。
+/// 單筆出勤的最長跨距。這是「荒謬值防線」，不是班別規則。
 ///
-/// 取 24 小時而**不是**「必須同一個日曆日」：夜班 22:00 → 隔天 06:00 是合法的，
-/// 同日限制會把它擋掉。24 小時足以容納任何真實班別（含加班），又能擋住填錯年月日。
+/// 2026-08-27 使用者裁定：**不硬擋「時間戳必須落在 work_date 當天」**。正常跨夜
+/// （22:00 → 隔天 06:00）要過得了；出勤卡與加班卡的分工由報表層呈現，之後另開
+/// 一支 PR 做「系統自動分成兩張卡」。這裡只負責擋掉明顯填錯年月日的值。
 const MAX_ATTENDANCE_SPAN_HOURS: i64 = 24;
 
-/// 校驗「更正後」的最終上下班時間順序與跨距。
+/// 校驗「更正後」的最終上下班時間：順序 + 荒謬跨距。
 ///
-/// ⚠️ 必須驗**合併後**的值，不能只驗 request 帶來的兩個欄位（CodeRabbit PR #35 指出）：
+/// ⚠️ 必須驗**合併後**的值，不能只驗 request 帶來的兩個欄位（CodeRabbit PR #35 第一輪）：
 /// 更正請求可以只帶一邊。只送 `clock_in_time=18:00`、而既有紀錄的
 /// `clock_out_time=17:00` 時，request 那兩欄的檢查根本不成立（另一邊是 None），
 /// 於是負區間被寫進 DB，`compute_regular_hours` 又把它算成 0.0——
 /// 資料庫留下一筆下班早於上班、工時 0 的紀錄，而且沒有任何錯誤訊息。
 ///
-/// ⚠️ 上界同樣必要（CodeRabbit PR #35 第二輪指出）：只檢查「晚於」的話，
-/// `work_date` 是 8/25 而 `clock_out` 填成 8/27 會過關，而 `compute_regular_hours`
-/// 只扣 `work_date` 當天那一小時午休 → 單日存進 55 小時工時。
-/// 前端走 `<input type="time">` + 固定日期到不了這個狀態，但 API 直接打得到，
-/// 而補登本來就是「他人代填任意時間」的路徑。
-fn validate_final_time_order(
+/// ⚠️ 上界必要（CodeRabbit PR #35 第二輪）：只檢查「晚於」的話，`work_date` 是 8/25
+/// 而 `clock_out` 填成 8/27 會過關，而 `compute_regular_hours` 只扣 `work_date` 當天
+/// 那一小時午休 → 單日存進 55 小時工時。前端走 `<input type="time">` + 固定日期到不了，
+/// 但 API 直接打得到（HTTP 端點對任何持有權限的登入者開放，前端只是其中一個客戶端）。
+fn validate_attendance_times(
     final_in: Option<DateTime<Utc>>,
     final_out: Option<DateTime<Utc>>,
 ) -> Result<()> {
@@ -188,7 +188,10 @@ fn validate_final_time_order(
     if co <= ci {
         return Err(AppError::Validation("下班時間必須晚於上班時間".into()));
     }
-    if (co - ci).num_hours() > MAX_ATTENDANCE_SPAN_HOURS {
+    // ⚠️ 比 `Duration` 而不是 `num_hours()`（CodeRabbit PR #35 第三輪）：
+    // `num_hours()` 對正數是**截斷**，24 小時 1 分鐘會回 24，`> 24` 不成立就放行了——
+    // 這個上界原本有整整一小時寬的破口。
+    if co - ci > chrono::Duration::hours(MAX_ATTENDANCE_SPAN_HOURS) {
         return Err(AppError::Validation(format!(
             "單筆出勤的上下班間隔不得超過 {MAX_ATTENDANCE_SPAN_HOURS} 小時，請確認日期是否填錯"
         )));
@@ -607,8 +610,8 @@ impl HrService {
         // 依更正後的最終上/下班時間重算工時（扣午休）。缺任一時間則保留原值。
         let final_in = payload.clock_in_time.or(before.clock_in_time);
         let final_out = payload.clock_out_time.or(before.clock_out_time);
-        // 驗的是**合併後**的值，不是 request 帶來的那兩欄——理由見 validate_final_time_order
-        validate_final_time_order(final_in, final_out)?;
+        // 驗的是**合併後**的值，不是 request 帶來的那兩欄——理由見 validate_attendance_times
+        validate_attendance_times(final_in, final_out)?;
         let regular_hours = match (final_in, final_out) {
             (Some(ci), Some(co)) => {
                 regular_hours_decimal(compute_regular_hours(ci, co, before.work_date))
@@ -693,7 +696,7 @@ impl HrService {
         }
         // 補登沒有「合併既有值」這回事（該日本來就沒有 row），兩個時間都來自 request，
         // 但仍走同一個校驗函式，避免兩條路徑日後各自漂移
-        validate_final_time_order(payload.clock_in_time, payload.clock_out_time)?;
+        validate_attendance_times(payload.clock_in_time, payload.clock_out_time)?;
         if payload.work_date > taiwan_today()? {
             return Err(AppError::Validation("不得補登未來日期的出勤".into()));
         }
@@ -793,6 +796,12 @@ impl HrService {
     }
 
     /// 工時月報匯出 Excel。欄位與畫面上的月報表一致，最後一列為全體合計。
+    /// 工時月報匯出 Excel——**兩張卡分開**（2026-08-27 使用者裁定）。
+    ///
+    /// 畫面上的月報忠實呈現一整列，但**印出時加班歸加班、正常歸正常**：
+    /// 分成兩個工作表，「正常出勤」只放出勤卡的數字（出勤天數 / 總工時 / 打卡不完整 /
+    /// 補登更正），「加班」只放 `overtime_records` 的已核准時數。
+    /// 混在同一張表會讓拿去對帳的人把兩種性質的時數加在一起。
     pub async fn export_monthly_report_to_excel(
         pool: &PgPool,
         year: i32,
@@ -802,6 +811,7 @@ impl HrService {
         use rust_xlsxwriter::{Format, FormatAlign, Workbook};
 
         let rows = Self::monthly_attendance_report(pool, year, month, user_id).await?;
+        let totals = MonthlyReportTotals::of(&rows);
 
         let mut workbook = Workbook::new();
         let header_format = Format::new()
@@ -811,53 +821,70 @@ impl HrService {
             .set_align(FormatAlign::Center);
         let total_format = Format::new().set_bold();
 
-        let worksheet = workbook.add_worksheet();
-        worksheet.set_name(format!("{year}-{month:02} 工時月報"))?;
-        worksheet.set_column_width(0, 25.0)?;
-        worksheet.set_column_width(1, 28.0)?;
-        for col in 2..=6 {
-            worksheet.set_column_width(col, 14.0)?;
-        }
-
-        for (col, title) in [
-            "人員名稱",
-            "Email",
-            "出勤天數",
-            "總工時",
-            "總加班時數",
-            "打卡不完整天數",
-            "補登／更正天數",
-        ]
-        .iter()
-        .enumerate()
+        // ── 第一張卡：正常出勤 ──────────────────────────────
         {
-            worksheet.write_string_with_format(0, col as u16, *title, &header_format)?;
+            let ws = workbook.add_worksheet();
+            ws.set_name(format!("{year}-{month:02} 正常出勤"))?;
+            ws.set_column_width(0, 25.0)?;
+            ws.set_column_width(1, 28.0)?;
+            for col in 2..=5 {
+                ws.set_column_width(col, 14.0)?;
+            }
+            for (col, title) in [
+                "人員名稱",
+                "Email",
+                "出勤天數",
+                "總工時",
+                "打卡不完整天數",
+                "補登／更正天數",
+            ]
+            .iter()
+            .enumerate()
+            {
+                ws.write_string_with_format(0, col as u16, *title, &header_format)?;
+            }
+            for (idx, r) in rows.iter().enumerate() {
+                let row = idx as u32 + 1;
+                ws.write_string(row, 0, &r.user_name)?;
+                ws.write_string(row, 1, &r.user_email)?;
+                ws.write_number(row, 2, r.work_days as f64)?;
+                ws.write_number(row, 3, r.total_regular_hours)?;
+                ws.write_number(row, 4, r.incomplete_days as f64)?;
+                ws.write_number(row, 5, r.corrected_days as f64)?;
+            }
+            // 合計列要蓋滿每一個數值欄——漏欄會與畫面上的合計不一致（CodeRabbit PR #35）
+            let total_row = rows.len() as u32 + 1;
+            ws.write_string_with_format(total_row, 0, "合計", &total_format)?;
+            ws.write_number(total_row, 2, totals.work_days as f64)?;
+            ws.write_number(total_row, 3, totals.regular_hours)?;
+            ws.write_number(total_row, 4, totals.incomplete_days as f64)?;
+            ws.write_number(total_row, 5, totals.corrected_days as f64)?;
+            ws.set_freeze_panes(1, 0)?;
         }
 
-        let totals = MonthlyReportTotals::of(&rows);
-
-        for (idx, r) in rows.iter().enumerate() {
-            let row = idx as u32 + 1;
-            worksheet.write_string(row, 0, &r.user_name)?;
-            worksheet.write_string(row, 1, &r.user_email)?;
-            worksheet.write_number(row, 2, r.work_days as f64)?;
-            worksheet.write_number(row, 3, r.total_regular_hours)?;
-            worksheet.write_number(row, 4, r.total_overtime_hours)?;
-            worksheet.write_number(row, 5, r.incomplete_days as f64)?;
-            worksheet.write_number(row, 6, r.corrected_days as f64)?;
+        // ── 第二張卡：加班（來源為 overtime_records 的已核准時數）──
+        {
+            let ws = workbook.add_worksheet();
+            ws.set_name(format!("{year}-{month:02} 加班"))?;
+            ws.set_column_width(0, 25.0)?;
+            ws.set_column_width(1, 28.0)?;
+            ws.set_column_width(2, 16.0)?;
+            for (col, title) in ["人員名稱", "Email", "已核准加班時數"].iter().enumerate()
+            {
+                ws.write_string_with_format(0, col as u16, *title, &header_format)?;
+            }
+            for (idx, r) in rows.iter().enumerate() {
+                let row = idx as u32 + 1;
+                ws.write_string(row, 0, &r.user_name)?;
+                ws.write_string(row, 1, &r.user_email)?;
+                ws.write_number(row, 2, r.total_overtime_hours)?;
+            }
+            let total_row = rows.len() as u32 + 1;
+            ws.write_string_with_format(total_row, 0, "合計", &total_format)?;
+            ws.write_number(total_row, 2, totals.overtime_hours)?;
+            ws.set_freeze_panes(1, 0)?;
         }
 
-        // 合計列要蓋滿每一個數值欄。漏掉 incomplete / corrected 兩欄會讓 Excel 的合計
-        // 與畫面上的合計不一致——看報表的人會以為那兩欄沒有值（CodeRabbit PR #35 指出）。
-        let total_row = rows.len() as u32 + 1;
-        worksheet.write_string_with_format(total_row, 0, "合計", &total_format)?;
-        worksheet.write_number(total_row, 2, totals.work_days as f64)?;
-        worksheet.write_number(total_row, 3, totals.regular_hours)?;
-        worksheet.write_number(total_row, 4, totals.overtime_hours)?;
-        worksheet.write_number(total_row, 5, totals.incomplete_days as f64)?;
-        worksheet.write_number(total_row, 6, totals.corrected_days as f64)?;
-
-        worksheet.set_freeze_panes(1, 0)?;
         Ok(workbook.save_to_buffer()?)
     }
 }
@@ -866,74 +893,90 @@ impl HrService {
 mod tests {
     use super::{
         compute_regular_hours, format_clock_time, month_bounds, reject_self_correction,
-        validate_correction_reason, validate_final_time_order, HrService, MonthlyAttendanceSummary,
+        validate_attendance_times, validate_correction_reason, HrService, MonthlyAttendanceSummary,
         MonthlyReportTotals, MAX_CORRECTION_REASON_CHARS,
     };
     use uuid::Uuid;
 
-    // --- 更正的時間順序：必須驗「合併後」的值 ---
+    // --- 出勤時間校驗：順序 + 荒謬跨距（不做同日約束，見 validate_attendance_times）---
 
-    fn utc(h: u32, m: u32) -> chrono::DateTime<chrono::Utc> {
-        use chrono::TimeZone;
-        chrono::Utc
-            .with_ymd_and_hms(2026, 8, 25, h, m, 0)
-            .single()
-            .expect("valid timestamp")
+    /// 測試基準日 2026-08-25（週二）。以**台灣時間**的 HH:MM 造時間點——
+    /// 測試想表達的是使用者填的那個鐘點，不是 UTC 值。
+    fn tw_wd(h: u32, m: u32) -> chrono::DateTime<chrono::Utc> {
+        tw(weekday(), h, m)
     }
 
-    /// 核心迴歸（CodeRabbit PR #35 抓到的洞）：更正請求只帶一邊時，
+    /// 核心迴歸（CodeRabbit PR #35 第一輪）：更正請求只帶一邊時，
     /// 必須拿它與**既有紀錄的另一邊**合併後再驗順序。
     /// 只驗 request 那兩欄的話，這個情境會靜默寫入負區間、工時被算成 0.0。
     #[test]
     fn partial_correction_with_inverted_merged_range_is_rejected() {
-        // request 只帶 clock_in=18:00，既有紀錄的 clock_out=17:00
-        let err = validate_final_time_order(Some(utc(18, 0)), Some(utc(17, 0)));
         assert!(
-            err.is_err(),
+            validate_attendance_times(Some(tw_wd(18, 0)), Some(tw_wd(17, 0))).is_err(),
             "合併後下班早於上班必須擋下，否則 DB 會留下負區間 + 工時 0 的紀錄"
         );
     }
 
     #[test]
     fn equal_in_and_out_is_rejected() {
-        assert!(validate_final_time_order(Some(utc(9, 0)), Some(utc(9, 0))).is_err());
+        assert!(validate_attendance_times(Some(tw_wd(9, 0)), Some(tw_wd(9, 0))).is_err());
     }
 
-    /// 上界迴歸（CodeRabbit PR #35 第二輪）：`work_date` 是 8/25、`clock_out` 卻填 8/27，
+    /// 荒謬值防線（CodeRabbit PR #35 第二輪）：`work_date` 是 8/25、`clock_out` 卻填 8/27，
     /// 只檢查「晚於」會放行，而 `compute_regular_hours` 只扣當天午休 → 單日 55 小時工時。
     #[test]
     fn multi_day_span_is_rejected() {
-        use chrono::TimeZone;
-        let ci = utc(0, 0); // 2026-08-25 00:00Z
-        let co = chrono::Utc
-            .with_ymd_and_hms(2026, 8, 27, 8, 0, 0)
-            .single()
-            .expect("valid timestamp");
+        let ci = tw_wd(8, 30);
+        let co = tw(
+            chrono::NaiveDate::from_ymd_opt(2026, 8, 27).expect("valid date"),
+            16,
+            30,
+        );
         assert!(
-            validate_final_time_order(Some(ci), Some(co)).is_err(),
+            validate_attendance_times(Some(ci), Some(co)).is_err(),
             "跨兩天以上必須擋下，否則單日會存進數十小時工時"
         );
     }
 
-    /// 但夜班（跨日、未超過 24 小時）必須放行——用「同一個日曆日」當判準會把它擋掉。
+    /// 上界的邊界：剛好 24 小時放行、24 小時又 1 分鐘擋下。
+    /// 用 `num_hours()` 比較會在這裡破功——它對正數截斷，24h01m 回傳 24。
     #[test]
-    fn overnight_shift_within_24h_is_allowed() {
-        use chrono::TimeZone;
-        let ci = utc(14, 0); // 2026-08-25 22:00 台灣時間
-        let co = chrono::Utc
-            .with_ymd_and_hms(2026, 8, 26, 0, 0, 0)
-            .single()
-            .expect("valid timestamp"); // 隔天 08:00 台灣時間
-        validate_final_time_order(Some(ci), Some(co)).expect("夜班跨日應放行");
+    fn span_boundary_is_exact_not_truncated() {
+        let ci = tw_wd(0, 0);
+        validate_attendance_times(Some(ci), Some(ci + chrono::Duration::hours(24)))
+            .expect("剛好 24 小時應放行");
+        assert!(
+            validate_attendance_times(
+                Some(ci),
+                Some(ci + chrono::Duration::hours(24) + chrono::Duration::minutes(1))
+            )
+            .is_err(),
+            "24 小時又 1 分鐘必須擋下；num_hours() 會截斷成 24 而放行"
+        );
     }
 
+    /// 正常跨夜必須放行（2026-08-27 使用者裁定：不硬擋同日）。
+    /// 出勤卡與加班卡的分工由報表層呈現，不是靠寫入端擋下來。
     #[test]
-    fn normal_range_and_one_sided_values_are_allowed() {
-        validate_final_time_order(Some(utc(1, 0)), Some(utc(9, 0))).expect("正常區間應放行");
-        // 只有一邊 → 無從比較，放行（工時保留原值 / 標為不完整）
-        validate_final_time_order(Some(utc(1, 0)), None).expect("只有上班卡應放行");
-        validate_final_time_order(None, Some(utc(9, 0))).expect("只有下班卡應放行");
-        validate_final_time_order(None, None).expect("兩邊皆無應放行");
+    fn overnight_shift_within_24h_is_allowed() {
+        let next_day = weekday().succ_opt().expect("next day");
+        validate_attendance_times(Some(tw_wd(22, 0)), Some(tw(next_day, 6, 0)))
+            .expect("22:00 → 隔天 06:00 應放行");
+    }
+
+    /// 三種正常班別 + 只有一邊的情況都必須放行。
+    #[test]
+    fn normal_shifts_and_one_sided_values_are_allowed() {
+        validate_attendance_times(Some(tw_wd(8, 30)), Some(tw_wd(17, 30)))
+            .expect("平日 8:30-17:30");
+        validate_attendance_times(Some(tw_wd(7, 30)), Some(tw_wd(16, 30)))
+            .expect("平日 7:30-16:30");
+        validate_attendance_times(Some(tw_wd(7, 30)), Some(tw_wd(12, 0))).expect("假日 7:30-12:00");
+
+        // 只有一邊 → 無從比較，放行（工時保留原值 / 在月報標為「打卡不完整」）
+        validate_attendance_times(Some(tw_wd(8, 30)), None).expect("只有上班卡應放行");
+        validate_attendance_times(None, Some(tw_wd(17, 30))).expect("只有下班卡應放行");
+        validate_attendance_times(None, None).expect("兩邊皆無應放行");
     }
 
     // --- 工時月報合計 ---

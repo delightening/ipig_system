@@ -75,7 +75,11 @@ export function AttendanceCorrectionDialog({
     const trimmedReason = reason.trim()
     const reasonTooShort = trimmedReason.length < MIN_CORRECTION_REASON_LENGTH
     const missingTarget = !isCorrection && (!userId || !workDate)
-    const noTimeGiven = !isCorrection && !clockIn && !clockOut
+    // 兩種模式都要求至少一個時間。更正模式若不擋，使用者可以把兩欄清空後送出
+    // `clock_in_time: null, clock_out_time: null`——後端 COALESCE 回原值，等於什麼都沒改，
+    // 卻蓋上 is_corrected / corrected_by / correction_reason，污染稽核軌跡與月報的
+    //「補登／更正天數」（CodeRabbit PR #35 第三輪指出）
+    const noTimeGiven = !clockIn && !clockOut
     const pending = backfillMutation.isPending || correctMutation.isPending
     const canSubmit = !pending && !reasonTooShort && !missingTarget && !noTimeGiven
 

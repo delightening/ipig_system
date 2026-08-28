@@ -262,6 +262,8 @@ export function MonthlyReportTab() {
 
             <p className="text-xs text-muted-foreground">
                 「打卡不完整」指當日只有上班或只有下班卡，那些日子的工時不完整，是補卡的待辦清單。
+                加班時數來自加班卡的已核准紀錄，與總工時分開計算；匯出的 Excel 會分成
+                「正常出勤」與「加班」兩個工作表。
                 本報表不含遲到／早退計數：系統目前沒有上下班時間基準，那兩個數字會恆為 0。
             </p>
         </div>

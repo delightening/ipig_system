@@ -105,6 +105,20 @@ describe('補卡對話框', () => {
         )
     })
 
+    it('更正模式把兩個時間都清空時不得送出', () => {
+        renderDialog(mkRecord())
+
+        fireEvent.change(screen.getByLabelText('上班時間'), { target: { value: '' } })
+        fireEvent.change(screen.getByLabelText('下班時間'), { target: { value: '' } })
+        fireEvent.change(reasonBox(), { target: { value: '忘記打卡' } })
+
+        // 不擋的話會送出 null/null：後端 COALESCE 回原值＝什麼都沒改，
+        // 卻蓋上 is_corrected 與更正理由，污染稽核軌跡與月報的「補登／更正天數」
+        expect(screen.getByRole('button', { name: '確認更正' })).toBeDisabled()
+        fireEvent.click(screen.getByRole('button', { name: '確認更正' }))
+        expect(apiPut).not.toHaveBeenCalled()
+    })
+
     it('補登模式未選人員與日期時，送出鈕 disabled', () => {
         renderDialog(null)
         fireEvent.change(reasonBox(), { target: { value: '忘記打卡' } })
