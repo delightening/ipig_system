@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 import type { PendingOwner } from '@/types/pendingOwner'
 
@@ -174,5 +174,38 @@ describe('PendingOwnerBadge', () => {
         const trigger = screen.getByRole('button')
         expect(trigger.tagName).toBe('DIV')
         expect(trigger).toContainElement(screen.getByText('待核准'))
+    })
+
+    /**
+     * ⚠️ 在這支之前，**沒有任何測試斷言過 tooltip 打開後使用者看到什麼**。
+     *
+     * 既有測試全都在測 `PendingOwnerInline`（手機版）或這顆 trigger 本身，
+     * 而桌機使用者看到的是 tooltip 的內容——那是這整個功能存在的理由
+     *（「hover 待核准時顯示卡在誰那裡」）。`PendingOwnerBody` 因此一行都沒被執行過。
+     *
+     * Radix 的 tooltip 對鍵盤聚焦是**立即開啟**（`delayDuration` 只作用於 hover），
+     * 所以 focus 就夠，不需要 user-event 或假計時器。
+     */
+    it('打開 tooltip 後顯示關卡、負責人、已等待天數', async () => {
+        render(
+            <PendingOwnerBadge
+                owner={{
+                    ...base,
+                    candidates: ['王大明', '李小華'],
+                    since: '2026-08-21T03:00:00Z',
+                }}
+            >
+                <span>待核准</span>
+            </PendingOwnerBadge>
+        )
+        fireEvent.focus(screen.getByRole('button'))
+
+        expect(await screen.findByText('pendingOwner.stage.doc_wm_approve')).toBeInTheDocument()
+        expect(
+            screen.getByText(/pendingOwner\.role\.WAREHOUSE_MANAGER：王大明、李小華/)
+        ).toBeInTheDocument()
+        // 天數隨今天而變，只斷言形狀——釘住「有 since 就顯示天數」這條連接。
+        // 確切數字由上面「PendingOwnerInline 等待天數」那組用假計時器負責。
+        expect(screen.getByText(/common\.waitingDays#\d+/)).toBeInTheDocument()
     })
 })
