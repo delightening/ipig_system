@@ -135,7 +135,19 @@ pub async fn summarize_monthly_attendance(
             -- ::float8 而非留在 numeric：numeric 會被 rust_decimal 序列化成 JSON 字串，
             -- 前端排序就變成字串比較（"9.5" > "168.5"）。見 MonthlyAttendanceSummary 的註解。
             COALESCE(SUM(a.regular_hours), 0)::float8         AS total_regular_hours,
-            COALESCE(SUM(a.overtime_hours), 0)::float8        AS total_overtime_hours,
+            -- ⚠️ 加班時數取自 **overtime_records**，不是 attendance_records.overtime_hours。
+            -- 後者全 backend 只有 SELECT、沒有任何一處寫入，schema 預設 0
+            --（`002_schema.sql` attendance_records.overtime_hours），拿它加總會得到恆為 0 的
+            -- 假欄位。真正的加班在另一張表，這正是「加班歸加班、正常歸正常」的兩張卡。
+            -- 只計 status='approved'（小寫，見 services/hr/overtime.rs:155）：draft 尚未送審、
+            -- voided 已作廢，都不該進月報。
+            COALESCE((
+                SELECT SUM(o.hours) FROM overtime_records o
+                WHERE o.user_id = u.id
+                  AND o.status = 'approved'
+                  AND o.overtime_date >= $1
+                  AND o.overtime_date <= $2
+            ), 0)::float8                                     AS total_overtime_hours,
             COUNT(*) FILTER (
                 WHERE (a.clock_in_time IS NULL) <> (a.clock_out_time IS NULL)
             )::bigint                                         AS incomplete_days,
