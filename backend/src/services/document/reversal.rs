@@ -284,8 +284,15 @@ impl DocumentService {
         .fetch_all(&mut *tx)
         .await?;
 
+        // ⚠️ 這裡原本寫死「ADMIN 核准」。2026-08-26 放寬判準之後，DIRECTOR 也核准得了
+        //（那正是本 PR 修的東西），而稽核紀錄仍會說是 ADMIN——**稽核紀錄說謊**。
+        //
+        // 稽核紀錄在 GLP 系統裡的全部價值就是「事後能還原誰做了什麼」，
+        // 寫一個與事實不符的角色比不寫還糟。核准人身分已由 `approved_by` 欄位承載
+        //（本方法上方 `UPDATE ... approved_by = $2` 綁的是 `admin_id`），
+        // 這行顯示文字改為角色中立即可，不必再推導一次角色（那會是第二個事實來源）。
         let display = format!(
-            "沖銷單 {}（原單 {}，ADMIN 核准）",
+            "沖銷單 {}（原單 {}，已核准）",
             after_doc.doc_no, original.doc_no
         );
         let before_snap = DocumentAuditSnapshot {
