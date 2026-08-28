@@ -25,6 +25,7 @@ import {
 import { Plus, Trash2, Search } from 'lucide-react'
 import { formatNumber, formatUom } from '@/lib/utils'
 import type { DocumentFormData, DocumentLine } from '../types'
+import { buildUomOptions } from '../uomOptions'
 import type { InputRefs } from '../hooks/useDocumentForm'
 import type { AdjMode } from '../DocumentEditPage'
 import { BatchNumberSelect } from './BatchNumberSelect'
@@ -53,10 +54,7 @@ function UomSelect({
   onChange: (lineId: string, uom: string) => void
   className?: string
 }) {
-  const base = line.base_uom || line.uom
-  // 用 Set 去重：base_uom 理論上不會出現在 alt_uoms（換算表不存基本單位），
-  // 但舊資料若手動塞過一筆同名的換算列，重複的 SelectItem 會讓 Radix 出現重複 key。
-  const options = Array.from(new Set([base, ...(line.alt_uoms ?? [])].filter(Boolean)))
+  const options = buildUomOptions(line)
 
   if (options.length <= 1) {
     return <span className={className ?? 'text-sm'}>{formatUom(line.uom) || '-'}</span>
