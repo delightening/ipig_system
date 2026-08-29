@@ -531,3 +531,65 @@ async fn re_signing_is_allowed_after_existing_signature_invalidated() {
     let new_row = fetch_sig(&app, second_sig_id).await;
     assert!(new_row.is_valid, "重簽的新簽章應有效");
 }
+
+/// CodeRabbit #38 第二輪：不可作廢**已結案（CLOSED）計畫**的結案簽章。
+///
+/// `CLOSED` 是狀態機終態（`ProtocolStatus::is_terminal`），`sign_closure` 只接受
+/// `APPROVED` / `APPROVED_WITH_CONDITIONS`。若放行作廢已 CLOSED 計畫的結案簽章，
+/// `dual_signature_ready` 會變 false，但協定永遠簽不回去——「CLOSED ⇒ 雙簽有效」
+/// 這條稽核不變式會永久破損，且系統內沒有任何流程能修復它。
+#[tokio::test]
+#[serial]
+async fn invalidating_closure_signature_on_closed_protocol_is_rejected() {
+    let app = TestApp::spawn().await;
+    let (protocol_id, pi, sd) = seed_protocol(&app).await;
+
+    let after_pi = protocol_closure_sign(
+        &app.db_pool,
+        &actor(&app, pi).await,
+        protocol_id,
+        ClosureSigner::Pi,
+        pi,
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect("PI 簽應成功");
+    let pi_sig_id = after_pi.close_pi_signature_id.expect("PI 簽章欄應已寫入");
+
+    let after_sd = protocol_closure_sign(
+        &app.db_pool,
+        &actor(&app, sd).await,
+        protocol_id,
+        ClosureSigner::StudyDirector,
+        sd,
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect("SD 簽應成功並轉 CLOSED");
+    assert_eq!(
+        after_sd.status.as_str(),
+        "CLOSED",
+        "測試前提：協定必須已結案"
+    );
+
+    let err = SignatureService::invalidate(
+        &app.db_pool,
+        &actor(&app, pi).await,
+        pi_sig_id,
+        "想作廢已結案計畫的結案簽章",
+        TEST_PASSWORD,
+    )
+    .await
+    .expect_err("已結案計畫的結案簽章不可作廢");
+    assert!(
+        err.to_string().contains("CLOSED"),
+        "錯誤訊息應說明是因為計畫已結案（終態），實際：{err}"
+    );
+
+    let row = fetch_sig(&app, pi_sig_id).await;
+    assert!(row.is_valid, "作廢被擋下時，簽章應仍維持有效");
+}
