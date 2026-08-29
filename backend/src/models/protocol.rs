@@ -154,6 +154,15 @@ pub struct Protocol {
     /// 未鎖定時會同步到本欄位，鎖定後兩者可能不同，**一律以本欄位為準**。
     #[serde(default)]
     pub is_glp: bool,
+    /// 結案雙簽：PI 那一簽（migration 008 / 設計 A）。
+    ///
+    /// ⚠️ **非空不等於「PI 已有效簽署」。** 這是外鍵，只保證那一列簽章存在，
+    /// 不保證它是**這份計畫的**、**結案用的**、**還有效的**。判斷「可以結案了嗎」
+    /// 一律走 `services::protocol::closure::dual_signature_ready`（7 條條件），
+    /// 不要在別處自己寫 `is_some()` 判斷——那正是這個設計要防的繞過方式。
+    pub close_pi_signature_id: Option<Uuid>,
+    /// 結案雙簽：SD 那一簽。注意事項同 `close_pi_signature_id`。
+    pub close_sd_signature_id: Option<Uuid>,
 }
 
 /// Protocol 無敏感欄位需脫敏（GLP 稽核需要完整內容；working_content 雖為 jsonb
