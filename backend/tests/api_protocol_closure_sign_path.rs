@@ -48,7 +48,8 @@ use serial_test::serial;
 use uuid::Uuid;
 
 use erp_backend::middleware::{ActorContext, CurrentUser};
-use erp_backend::services::{protocol_closure_sign, AuthService, ClosureSigner};
+use erp_backend::models::AnimalStatus;
+use erp_backend::services::{protocol_closure_sign, AuthService, ClosureSigner, SignatureService};
 
 const TEST_PASSWORD: &str = "iPig$ecure1";
 
@@ -127,6 +128,47 @@ async fn seed_protocol(app: &TestApp) -> (Uuid, Uuid, Uuid) {
     .await
     .expect("insert protocol");
     (id, pi, sd)
+}
+
+/// 同 `seed_protocol`，但額外帶一個 `iacuc_no`——動物守門前置測試要用它
+/// 把動物掛到這份計畫下（`seed_protocol` 沒有設 `iacuc_no`，animal guard 查不到任何動物）。
+async fn seed_protocol_with_iacuc_no(app: &TestApp) -> (Uuid, Uuid, Uuid, String) {
+    let pi = seed_signer(app, "PI").await;
+    let sd = seed_signer(app, "EXPERIMENT_STAFF").await;
+    let id = Uuid::new_v4();
+    let unique = &Uuid::new_v4().to_string()[..8];
+    let iacuc_no = format!("IACUC-SP-{unique}");
+    sqlx::query(
+        r#"INSERT INTO protocols
+             (id, protocol_no, iacuc_no, title, status, pi_user_id, created_by,
+              study_director_user_id, import_pending)
+           VALUES ($1, $2, $3, $4, 'APPROVED'::protocol_status, $5, $5, $6, false)"#,
+    )
+    .bind(id)
+    .bind(format!("SIGNPATH-{unique}"))
+    .bind(&iacuc_no)
+    .bind("結案雙簽動物守門前置測試")
+    .bind(pi)
+    .bind(sd)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert protocol");
+    (id, pi, sd, iacuc_no)
+}
+
+/// 於指定 `iacuc_no` 下建立一隻仍在場（實驗中）的動物。
+async fn seed_live_animal(app: &TestApp, iacuc_no: &str) {
+    let unique = &Uuid::new_v4().to_string()[..6];
+    sqlx::query(
+        r#"INSERT INTO animals (id, ear_tag, status, breed, gender, entry_date, iacuc_no)
+           VALUES (gen_random_uuid(), $1, $2, 'miniature', 'male', NOW(), $3)"#,
+    )
+    .bind(format!("E{unique}"))
+    .bind(AnimalStatus::InExperiment)
+    .bind(iacuc_no)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert live animal");
 }
 
 /// 依這個使用者**實際被指派的角色**，從 DB 讀出他的角色碼與權限碼，
@@ -317,4 +359,175 @@ async fn same_side_cannot_sign_twice() {
         err.to_string().contains("重複簽"),
         "錯誤訊息應說明是重複簽，實際：{err}"
     );
+}
+
+/// CodeRabbit #38：動物守門必須排在**簽章寫入之前**（甚至密碼驗證之前），
+/// 而不是簽完才在 `change_status_tx` 被擋、把整個簽署嘗試（含密碼驗證、
+/// 簽章列建立）一起 rollback 掉。
+///
+/// 判別方式：故意帶**錯誤密碼**簽署。若動物守門真的排在密碼驗證之前，
+/// 回傳的錯誤會是「存活動物」；若像修復前那樣排在密碼驗證與簽章寫入之後，
+/// 程式碼會先因密碼錯誤（`Unauthorized`）中止，永遠走不到動物守門那一關，
+/// 這支測試就會失敗在「錯誤訊息不含存活動物」。
+#[tokio::test]
+#[serial]
+async fn animal_guard_blocks_signing_before_password_check() {
+    let app = TestApp::spawn().await;
+    let (protocol_id, pi, _sd, iacuc_no) = seed_protocol_with_iacuc_no(&app).await;
+    seed_live_animal(&app, &iacuc_no).await;
+
+    let err = protocol_closure_sign(
+        &app.db_pool,
+        &actor(&app, pi).await,
+        protocol_id,
+        ClosureSigner::Pi,
+        pi,
+        Some("wrong-password-on-purpose"),
+        None,
+        None,
+    )
+    .await
+    .expect_err("計畫下仍有存活動物時，即使密碼錯誤也該先被動物守門擋下");
+
+    assert!(
+        err.to_string().contains("存活動物"),
+        "動物守門應排在密碼驗證之前，錯誤訊息應提到存活動物，實際：{err}"
+    );
+
+    let close_pi_signature_id: Option<Uuid> =
+        sqlx::query_scalar("SELECT close_pi_signature_id FROM protocols WHERE id = $1")
+            .bind(protocol_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("query protocol");
+    assert!(
+        close_pi_signature_id.is_none(),
+        "動物守門擋下時不該有任何簽章欄位被寫入"
+    );
+}
+
+/// 動物離場後，原本被擋下的簽署應能正常走完 PI → SD → CLOSED。
+#[tokio::test]
+#[serial]
+async fn signing_succeeds_once_last_animal_leaves() {
+    let app = TestApp::spawn().await;
+    let (protocol_id, pi, sd, iacuc_no) = seed_protocol_with_iacuc_no(&app).await;
+    seed_live_animal(&app, &iacuc_no).await;
+
+    let blocked = protocol_closure_sign(
+        &app.db_pool,
+        &actor(&app, pi).await,
+        protocol_id,
+        ClosureSigner::Pi,
+        pi,
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await;
+    assert!(blocked.is_err(), "動物仍在場時應被擋下");
+
+    sqlx::query("UPDATE animals SET status = $1 WHERE iacuc_no = $2")
+        .bind(AnimalStatus::Euthanized)
+        .bind(&iacuc_no)
+        .execute(&app.db_pool)
+        .await
+        .expect("update animal status to euthanized");
+
+    let after_pi = protocol_closure_sign(
+        &app.db_pool,
+        &actor(&app, pi).await,
+        protocol_id,
+        ClosureSigner::Pi,
+        pi,
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect("動物離場後 PI 應可正常簽署");
+    assert_eq!(
+        after_pi.status.as_str(),
+        "APPROVED",
+        "只簽一邊不該轉 CLOSED"
+    );
+
+    let after_sd = protocol_closure_sign(
+        &app.db_pool,
+        &actor(&app, sd).await,
+        protocol_id,
+        ClosureSigner::StudyDirector,
+        sd,
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect("SD 簽署應成功並轉 CLOSED");
+    assert_eq!(after_sd.status.as_str(), "CLOSED");
+}
+
+/// CodeRabbit #38：`SignatureService::invalidate_tx` 只改
+/// `electronic_signatures.is_valid`，不會清空 `protocols.close_pi_signature_id` /
+/// `close_sd_signature_id`。若 `sign_closure` 判斷「已簽過」只看欄位是否非 NULL，
+/// 一張結案簽章被作廢後那個位置就永久卡死，連本人都補不回來。
+#[tokio::test]
+#[serial]
+async fn re_signing_is_allowed_after_existing_signature_invalidated() {
+    let app = TestApp::spawn().await;
+    let (protocol_id, pi, _sd) = seed_protocol(&app).await;
+
+    let after_first = protocol_closure_sign(
+        &app.db_pool,
+        &actor(&app, pi).await,
+        protocol_id,
+        ClosureSigner::Pi,
+        pi,
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect("第一次 PI 簽應成功");
+    let first_sig_id = after_first
+        .close_pi_signature_id
+        .expect("PI 簽章欄應已寫入");
+
+    SignatureService::invalidate(
+        &app.db_pool,
+        &actor(&app, pi).await,
+        first_sig_id,
+        "簽錯人，作廢重簽",
+        TEST_PASSWORD,
+    )
+    .await
+    .expect("作廢應成功");
+
+    // 修復前：這裡會被「已經簽過結案」擋下，即使上面那張已經作廢——
+    // `sign_closure` 只看欄位是否非 NULL，看不到 is_valid。
+    let after_resign = protocol_closure_sign(
+        &app.db_pool,
+        &actor(&app, pi).await,
+        protocol_id,
+        ClosureSigner::Pi,
+        pi,
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect("作廢後應可重簽，不該被「已經簽過」擋下");
+
+    let second_sig_id = after_resign
+        .close_pi_signature_id
+        .expect("PI 簽章欄應寫入新的簽章 id");
+    assert_ne!(
+        first_sig_id, second_sig_id,
+        "重簽後應是新的簽章列，不是覆用作廢那張的 id"
+    );
+
+    let old_row = fetch_sig(&app, first_sig_id).await;
+    assert!(!old_row.is_valid, "作廢的那張應仍是 is_valid=false");
+    let new_row = fetch_sig(&app, second_sig_id).await;
+    assert!(new_row.is_valid, "重簽的新簽章應有效");
 }

@@ -421,41 +421,11 @@ impl ProtocolService {
             }
         }
 
-        // 結案守門：計畫結案前，該計畫下所有動物必須皆已離場（安樂死 / 猝死 / 已轉讓）。
-        // 涵蓋兩類串接：
-        //   (1) 已分配 — animals.iacuc_no = protocols.iacuc_no 文字比對（無 FK；已分配才寫 iacuc_no）
-        //   (2) 已預約 earmark — animals.reserved_protocol_id = protocol.id
-        //       （預約只設 reserved_protocol_id、不寫 iacuc_no，故必須另條件涵蓋，
-        //        否則「有豬預約給此計畫」時仍可結案 → 預約懸空成孤兒）
-        // 若仍有存活動物（未分配 / 實驗中 / 實驗完成 / 已預約），拒絕結案。存活判定對齊
-        // AnimalStatus::is_active_in_facility：status NOT IN euthanized/sudden_death/transferred。
-        // 狀態值以 AnimalStatus enum 綁定為參數（單一事實來源），不硬編碼字面字串。
-        // 以 CTE FOR UPDATE 鎖住候選動物列，關閉「查完無存活 → 並發 assign 進來 → 結案」的
-        // TOCTOU 競態窗口（protocol 列已 FOR UPDATE，此處補鎖 animal 列）。
+        // 結案守門：見 `ensure_no_live_animals_for_closure` 的說明。抽成共用函式是因為
+        // `closure::sign_closure` 也要在簽章寫入之前呼叫同一道檢查（CodeRabbit #38
+        // 指出：第二簽若在這裡才被擋下，tx rollback 會連剛寫入的簽章一起消失）。
         if req.to_status == ProtocolStatus::Closed {
-            let alive_count: i64 = sqlx::query_scalar(
-                "WITH locked AS ( \
-                     SELECT id FROM animals \
-                     WHERE deleted_at IS NULL \
-                       AND status NOT IN ($2, $3, $4) \
-                       AND (iacuc_no = $1 OR reserved_protocol_id = $5) \
-                     FOR UPDATE \
-                 ) SELECT COUNT(*) FROM locked",
-            )
-            .bind(protocol.iacuc_no.as_deref())
-            .bind(AnimalStatus::Euthanized)
-            .bind(AnimalStatus::SuddenDeath)
-            .bind(AnimalStatus::Transferred)
-            .bind(id)
-            .fetch_one(&mut **tx)
-            .await?;
-
-            if alive_count > 0 {
-                return Err(AppError::BusinessRule(format!(
-                    "計畫下仍有 {alive_count} 隻存活動物（含已預約），須全部完成犧牲（安樂死）、\
-                     猝死或轉讓、或先解除預約後才能結案"
-                )));
-            }
+            ensure_no_live_animals_for_closure(tx, id, protocol.iacuc_no.as_deref()).await?;
         }
 
         // IACUC 編號生成規則：在 tx 內使用 _tx 版本（確保 advisory lock 同 tx 提交）
@@ -936,6 +906,53 @@ impl ProtocolService {
         tx.commit().await?;
         Ok(result)
     }
+}
+
+/// 結案守門：計畫結案前，該計畫下所有動物必須皆已離場（安樂死 / 猝死 / 已轉讓）。
+/// 涵蓋兩類串接：
+///   (1) 已分配 — animals.iacuc_no = protocols.iacuc_no 文字比對（無 FK；已分配才寫 iacuc_no）
+///   (2) 已預約 earmark — animals.reserved_protocol_id = protocol.id
+///       （預約只設 reserved_protocol_id、不寫 iacuc_no，故必須另條件涵蓋，
+///        否則「有豬預約給此計畫」時仍可結案 → 預約懸空成孤兒）
+/// 若仍有存活動物（未分配 / 實驗中 / 實驗完成 / 已預約），拒絕結案。存活判定對齊
+/// AnimalStatus::is_active_in_facility：status NOT IN euthanized/sudden_death/transferred。
+/// 狀態值以 AnimalStatus enum 綁定為參數（單一事實來源），不硬編碼字面字串。
+/// 以 CTE FOR UPDATE 鎖住候選動物列，關閉「查完無存活 → 並發 assign 進來 → 結案」的
+/// TOCTOU 競態窗口（呼叫端必須已經 `SELECT ... FOR UPDATE` 鎖住 protocol 列）。
+///
+/// ⚠️ `pub(super)`：`closure::sign_closure` 必須在簽章寫入**之前**呼叫這個函式一次
+/// （早期回饋，簽名前就告知還有動物在場），`change_status_tx` 的 CLOSED 分支則是
+/// 這個不變式在資料層真正的執行點（呼叫端不論從哪條路徑轉 CLOSED 都會經過它）。
+/// 兩處呼叫不是重複——前者是使用者體驗，後者是正確性保證。
+pub(super) async fn ensure_no_live_animals_for_closure(
+    tx: &mut Transaction<'_, Postgres>,
+    protocol_id: Uuid,
+    iacuc_no: Option<&str>,
+) -> Result<()> {
+    let alive_count: i64 = sqlx::query_scalar(
+        "WITH locked AS ( \
+             SELECT id FROM animals \
+             WHERE deleted_at IS NULL \
+               AND status NOT IN ($2, $3, $4) \
+               AND (iacuc_no = $1 OR reserved_protocol_id = $5) \
+             FOR UPDATE \
+         ) SELECT COUNT(*) FROM locked",
+    )
+    .bind(iacuc_no)
+    .bind(AnimalStatus::Euthanized)
+    .bind(AnimalStatus::SuddenDeath)
+    .bind(AnimalStatus::Transferred)
+    .bind(protocol_id)
+    .fetch_one(&mut **tx)
+    .await?;
+
+    if alive_count > 0 {
+        return Err(AppError::BusinessRule(format!(
+            "計畫下仍有 {alive_count} 隻存活動物（含已預約），須全部完成犧牲（安樂死）、\
+             猝死或轉讓、或先解除預約後才能結案"
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

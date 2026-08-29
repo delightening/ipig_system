@@ -16,6 +16,7 @@ use serde_json::Value as JsonValue;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
+use super::status::ensure_no_live_animals_for_closure;
 use super::ProtocolService;
 use crate::{
     middleware::ActorContext,
@@ -233,16 +234,35 @@ pub async fn sign_closure(
 
     ensure_closure_signable(before.status, before.import_pending)?;
 
-    // 各自擋重複簽（設計文件 §5.2，同 disposal.rs 的形狀）
+    // 動物守門前置（CodeRabbit #38）：與 `change_status_tx` 的 CLOSED 分支同一道檢查，
+    // 但在這裡先擋一次，讓簽署人在**簽之前**就知道還有動物在場——而不是簽完才發現
+    // 因為動物守門把整個 tx（含剛建立的簽章）一起 rollback 掉。
+    // `change_status_tx` 仍會在雙簽齊備轉狀態時再驗一次，真正的不變式保證在那裡。
+    ensure_no_live_animals_for_closure(&mut tx, before.id, before.iacuc_no.as_deref()).await?;
+
+    // 各自擋重複簽（設計文件 §5.2，同 disposal.rs 的形狀）。
+    //
+    // ⚠️ 只擋「仍然有效」的既有簽章（CodeRabbit #38）：`SignatureService::invalidate_tx`
+    // 只改 `electronic_signatures.is_valid`，不會清空這裡的 `close_pi_signature_id` /
+    // `close_sd_signature_id`。若只看欄位是否非 NULL，一旦某張結案簽章被作廢
+    // （簽錯人、行政撤銷），這個位置就永久卡死、連本人都補不回來，只能手動修資料。
     let already = match signer {
         ClosureSigner::Pi => before.close_pi_signature_id,
         ClosureSigner::StudyDirector => before.close_sd_signature_id,
     };
-    if already.is_some() {
-        return Err(AppError::BusinessRule(format!(
-            "{}已經簽過結案，不可重複簽署。",
-            signer.label()
-        )));
+    if let Some(existing_sig_id) = already {
+        let existing_is_valid: bool =
+            sqlx::query_scalar("SELECT is_valid FROM electronic_signatures WHERE id = $1")
+                .bind(existing_sig_id)
+                .fetch_one(&mut *tx)
+                .await?;
+        if existing_is_valid {
+            return Err(AppError::BusinessRule(format!(
+                "{}已經簽過結案，不可重複簽署。",
+                signer.label()
+            )));
+        }
+        // 既有簽章已作廢：視為未簽，讓下面的寫入覆蓋掉那個欄位。
     }
 
     // 簽章內容綁計畫識別 + 標題 + 狀態，與既有 `fetch_protocol_content` 同構，
