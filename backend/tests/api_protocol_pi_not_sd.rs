@@ -660,13 +660,33 @@ async fn end_to_end_pending_deactivation_is_rejected_after_concurrent_sd_assignm
         .await
         .expect("holder 取得 FOR SHARE");
 
+    // CodeRabbit #26 第 6 輪指出：`pg_stat_activity` 輪詢只比對 SQL 文字，沒有
+    // 綁定到 `deactivate_task` 實際使用的那條連線——`update`／`deactivate_self`／
+    // `delete` 三條路徑的鎖 SQL 文字完全相同，而 `#[serial]` 只序列化「同一個
+    // 測試執行檔內」的測試，擋不住 `cargo test` 底下其他執行檔同時跑、剛好也在
+    // 等同一句 SQL 的鎖，會造成偽陽性。修法：用專屬的單連線 pool 餵給
+    // `deactivate_self`，先在這條連線上查一次 `pg_backend_pid()`，因為
+    // `max_connections(1)` 保證之後 `pool.begin()` 拿到的一定是同一條實體連線，
+    // 所以這個 PID 就是 `deactivate_task` 真正會用的那條——輪詢時直接用
+    // `pid = $1` 鎖定，不再需要靠 SQL 文字比對去猜。
+    let deactivate_pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(
+            &std::env::var("TEST_DATABASE_URL")
+                .expect("TEST_DATABASE_URL 必須存在（TestApp::spawn 已驗證過）"),
+        )
+        .await
+        .expect("connect dedicated single-connection pool for deactivate_task");
+    let deactivate_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&deactivate_pool)
+        .await
+        .expect("query pg_backend_pid on dedicated pool");
+
     // 真的呼叫停用——此刻應該卡在 FOR UPDATE 上（與 holder 的 FOR SHARE 互斥）。
     let deactivate_actor = ActorContext::User(user_cu(sd, &["EXPERIMENT_STAFF"]));
-    let db_pool = app.db_pool.clone();
-    let deactivate_task =
-        tokio::spawn(
-            async move { UserService::deactivate_self(&db_pool, &deactivate_actor, sd).await },
-        );
+    let deactivate_task = tokio::spawn(async move {
+        UserService::deactivate_self(&deactivate_pool, &deactivate_actor, sd).await
+    });
 
     // CodeRabbit #26 第 5 輪指出：固定 sleep + is_finished() 只證明「task 還沒結束」，
     // 證明不了它已經送出 `FOR UPDATE` 並卡在鎖上——在 CI 負載高或排程延遲時，
@@ -677,9 +697,11 @@ async fn end_to_end_pending_deactivation_is_rejected_after_concurrent_sd_assignm
     loop {
         let waiting: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM pg_stat_activity
-               WHERE wait_event_type = 'Lock'
+               WHERE pid = $1
+                 AND wait_event_type = 'Lock'
                  AND query ILIKE '%FROM users WHERE id = $1 FOR UPDATE%'",
         )
+        .bind(deactivate_pid)
         .fetch_one(&app.db_pool)
         .await
         .expect("query pg_stat_activity");
