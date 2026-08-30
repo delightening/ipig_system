@@ -109,11 +109,16 @@ async fn create_sd_by_secretary_ok() {
 async fn create_sd_staff_self_ok() {
     let app = TestApp::spawn().await;
     let staff = seed_user(&app, "EXPERIMENT_STAFF").await;
+    // ⚠️ PI 必須是別人。本測試的受測點是**授權**（staff 只能把自己設為 SD），
+    // 原 fixture 讓 staff 同時當 PI 與 SD 只是圖方便；裁定 16 上線後那個組合
+    // 本身就不合法——PI 兼任 SD 會讓結案雙簽變成同一人簽兩次。
+    // 改成兩個人之後受測點反而更乾淨：只驗授權，不混進職責分離。
+    let pi = seed_user(&app, "PI").await;
     let actor = user_actor(staff, &["EXPERIMENT_STAFF"]);
     let p = ProtocolService::create(
         &app.db_pool,
         &actor,
-        &create_req(staff, Some(staff), false),
+        &create_req(pi, Some(staff), false),
         staff,
     )
     .await

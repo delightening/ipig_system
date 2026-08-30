@@ -164,8 +164,47 @@ impl ProtocolService {
 
         // 計劃負責人（SD，選填）：客戶/PI 建立時通常留空，由執行秘書事後指派。
         // 有指定時驗證 + 授權（僅執秘/admin 可指派他人，其餘限本人）。
+        //
+        // 🔴 判準必須與 `update` 一致（CodeRabbit #26 第 2 輪指出）。
+        //
+        // 第一版直接傳 `req.pi_user_id`，理由是「PI 留空時退回 `created_by` 是佔位，
+        // 拿它比對 SD 會誤擋執秘自任 SD（裁定 10／11）」。那個理由對，但**不完整**：
+        // `req.pi_user_id` 為 `None` 時，`created_by` **不一定**是佔位——
+        // 他也可能是真的 PI 在建自己的計畫。
+        //
+        // 漏掉的攻擊路徑：同時具 `PI` 與 `EXPERIMENT_STAFF` 的人，建立計畫時
+        // 不填 pi_user_id、把自己設成 SD → 存進去的 `pi_user_id` 與
+        // `study_director_user_id` 都是他本人 → **裁定 16 被繞過**。
+        // 而 `update` 那邊的啟發式抓不到它（那人有 PI 角色，不算佔位），
+        // 只會擋住之後的變更——但違規狀態已經在建立時就寫進去了。
+        //
+        // 2026-08-26 實測正式庫：**沒有**使用者同時具那兩個角色，
+        // 所以目前**無法觸發**。
+        // 仍然修，因為角色指派是例行管理動作，而且 create 與 update 判準不一致
+        // 本身就是遲早會咬人的東西。
+        let effective_pi_for_check = match req.pi_user_id {
+            Some(explicit) => Some(explicit),
+            // PI 留空：只有在建立者「沒有 PI 角色」時才視為外部 PI 的佔位
+            None => {
+                let creator_is_pi = sqlx::query_scalar::<_, bool>(
+                    r#"SELECT EXISTS(
+                         SELECT 1 FROM user_roles ur
+                         JOIN roles r ON r.id = ur.role_id
+                         WHERE ur.user_id = $1 AND r.code = 'PI'
+                       )"#,
+                )
+                .bind(created_by)
+                .fetch_one(&mut *tx)
+                .await?;
+                if creator_is_pi {
+                    Some(created_by)
+                } else {
+                    None
+                }
+            }
+        };
         if let Some(sd_id) = req.study_director_user_id {
-            Self::validate_and_authorize_sd(&mut tx, actor, sd_id).await?;
+            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, effective_pi_for_check).await?;
         }
 
         let protocol = sqlx::query_as::<_, Protocol>(
@@ -243,14 +282,80 @@ impl ProtocolService {
     }
 
     /// 驗證並授權「計劃負責人（SD）」指派：SD 必須是啟用中、本公司內部、具
-    /// EXPERIMENT_STAFF 角色者；且僅 IACUC_STAFF / 管理員可指派「他人」為 SD，
+    /// EXPERIMENT_STAFF 角色者，且**不得與該計畫的 PI 為同一人**（裁定 16）；
+    /// 授權上僅 IACUC_STAFF / 管理員可指派「他人」為 SD，
     /// 其餘登入者只能指派自己。System actor（維運/種子）不受限。
     /// 共用於 import_approved / create / update（DRY，CLAUDE.md §7 權限集中）。
     async fn validate_and_authorize_sd(
         conn: &mut sqlx::PgConnection,
         actor: &ActorContext,
         sd_id: Uuid,
+        pi_user_id: Option<Uuid>,
     ) -> Result<()> {
+        // 裁定 16：PI 不可兼任同一計畫的 SD。
+        //
+        // ⚠️ 這不是形式上的職稱分離，而是**結案雙簽的正確性前提**：
+        // 裁定 9 要求 PI 與 SD 各簽一次才能結案，同一人的話兩張簽章的
+        // signer_id 會是同一個 UUID——稽核鏈上看起來是「雙方認可」，
+        // 實際是自簽自證，正是 21 CFR §11.10(g) 職權分離要防的東西。
+        //
+        // 放在最前面而不是最後：先擋掉語意上不合法的組合，再談那個人有沒有
+        // 資格當 SD。錯誤訊息也因此更貼近使用者實際做錯的事——PI 通常是外部
+        // 人員、本來就沒有 EXPERIMENT_STAFF 角色，若讓角色檢查先跑，
+        // 使用者收到的會是「此人不具試驗工作人員角色」，完全看不出真正的問題。
+        //
+        // ⚠️ 為什麼參數是 `Option`：`create` 與 `import_approved` 都用
+        // `req.pi_user_id.unwrap_or(created_by)`——**外部 PI（沒有系統帳號）時，
+        // `protocols.pi_user_id` 記的是匯入者本人**，通常就是執行祕書。
+        // 拿那個佔位值做職責分離檢查在語意上是錯的：它不代表任何人是 PI，
+        // 而裁定 10／11 明確允許執秘自任 SD。所以只在 PI **被明確指定**
+        // （`req.pi_user_id.is_some()`）時才比對。
+        //
+        // 2026-08-25 實測正式庫：存在 `pi_user_id = created_by` 的計畫，
+        // 其中同時 PI=SD 的是少數（即裁定 16 要處理的存量），
+        // 所以這個放寬目前不會漏掉任何真實的違規案例。
+        if let Some(pi_id) = pi_user_id {
+            if sd_id == pi_id {
+                return Err(AppError::Validation(
+                    "計畫主持人（PI）不可兼任同一計畫的計劃負責人（Study Director）；請改指派其他試驗工作人員"
+                        .into(),
+                ));
+            }
+        }
+
+        // 🔴 **與「停用帳號」序列化**（CodeRabbit #27 第 3 輪指出，2026-08-27）。
+        //
+        // 沒有這道鎖時的競態：
+        //   T1 指派 SD → 讀到該使用者 is_active = true（無鎖）
+        //   T2 停用該使用者 → 對 users 列 FOR UPDATE → 檢查「有沒有未結案 GLP 案
+        //      以他為 SD」→ 此刻 T1 還沒寫入 → 通過 → 停用
+        //   T1 寫入 protocols.study_director_user_id → commit
+        //   結果：**已停用的人成為未結案 GLP 計畫的 SD，而兩邊的閘都通過了**。
+        //
+        // 為什麼 FOR SHARE 就夠、而且不會死鎖（2026-08-27 實測確認前提）：
+        //   指派端鎖序 = protocols FOR UPDATE → users FOR SHARE
+        //   停用端鎖序 = users FOR UPDATE → 讀 protocols（**不加鎖**，
+        //     MVCC 下純 SELECT 不會等 FOR UPDATE）
+        //   停用端從不等待 protocols 上的鎖，所以沒有循環等待。
+        //
+        //   兩種先後都能擋住（isolation 為預設的 read committed）：
+        //   - 停用端先拿到 users 鎖 → 指派端卡在 FOR SHARE →
+        //     停用 commit 後指派端才讀 is_active → 讀到 false → 擋下。
+        //   - 指派端先拿到 FOR SHARE → 停用端卡在 FOR UPDATE →
+        //     指派 commit 後停用端才跑 GLP 檢查，那是**新的一句 SQL**，
+        //     read committed 會取新快照 → 看得到剛寫入的 SD → 擋下。
+        //
+        // ⚠️ 鎖獨立成一句，不併進下面的 EXISTS：帶 join 的 EXISTS 子查詢加鎖定子句
+        // 在 Postgres 有限制（且鎖到哪張表不明顯）。分開寫也讓「鎖的是 users 這一列」
+        // 這件事直接看得出來。
+        let sd_exists: Option<bool> =
+            sqlx::query_scalar("SELECT is_active FROM users WHERE id = $1 FOR SHARE")
+                .bind(sd_id)
+                .fetch_optional(&mut *conn)
+                .await?;
+        // 不存在就讓下面的資格查詢回同一句錯誤訊息，不另外分歧。
+        let _ = sd_exists;
+
         let sd_is_valid: bool = sqlx::query_scalar(
             r#"SELECT EXISTS(
                  SELECT 1 FROM users u
@@ -263,7 +368,7 @@ impl ProtocolService {
         )
         .bind(sd_id)
         .bind(crate::constants::ROLE_EXPERIMENT_STAFF)
-        .fetch_one(conn)
+        .fetch_one(&mut *conn)
         .await?;
         if !sd_is_valid {
             return Err(AppError::Validation(
@@ -384,7 +489,11 @@ impl ProtocolService {
         }
 
         // 計劃負責人（SD）驗證 + 授權（共用 helper；外部協作者即使誤掛 EXPERIMENT_STAFF 也不得任 SD）
-        Self::validate_and_authorize_sd(&mut tx, actor, req.study_director_user_id).await?;
+        //
+        // 同 create：傳 `req.pi_user_id` 而非 `effective_pi_user_id`。
+        // 補登匯入的計畫多半是外部 PI，那時 effective 值等於匯入者本人（佔位）。
+        Self::validate_and_authorize_sd(&mut tx, actor, req.study_director_user_id, req.pi_user_id)
+            .await?;
         // 註：&mut tx 經 DerefMut 轉為 &mut PgConnection
 
         // 申請編號（選填）：trim 後空字串視為 NULL
@@ -1213,7 +1322,65 @@ impl ProtocolService {
         // 讀 `before.is_glp`（權威欄位）而非 working_content：後者是可編輯的表單內容，
         // 拿它當規則判定來源等於沒有規則。有了上面的雙向鎖，兩者也不可能再分歧。
         if let Some(sd_id) = req.study_director_user_id {
-            Self::validate_and_authorize_sd(&mut tx, actor, sd_id).await?;
+            // ⚠️ update 這條路徑與 create／import 不同：`UpdateProtocolRequest`
+            // 沒有 pi_user_id 欄位（PI 不可透過 update 變更），所以只能用
+            // `before.pi_user_id`——**而那個值可能是外部 PI 的佔位**（等於建立者，
+            // 因為 create 走 `req.pi_user_id.unwrap_or(created_by)`）。
+            //
+            // 🔴 直接拿 `Some(before.pi_user_id)` 會誤擋（CodeRabbit #26 指出）。
+            // 2026-08-26 正式庫實查：
+            //   存在「`pi_user_id = created_by` 且尚未指派 SD」的計畫，
+            //   其中有些的建立者角色是 EXPERIMENT_STAFF（正是擔任 SD 的必要角色），
+            //   完全沒有 PI 角色——那不是「PI 開自己的計畫」，是佔位。
+            //   把該建立者指派為 SD 是合理操作，卻會被 PI≠SD 擋掉。
+            //
+            // 判別方式（使用者 2026-08-26 裁定：用角色啟發式，不加 schema 欄位）：
+            //   佔位形狀（pi_user_id == created_by）**且該使用者沒有 PI 角色** → 視為佔位。
+            //
+            // 為什麼「佔位形狀」本身不夠：既有那筆真正該擋的 PI=SD 也是這個形狀，
+            // 差別在它的 PI **具 PI 角色**（DIRECTOR, PI）。只看形狀會把它一起放過，
+            // 而它正是裁定 16 要處理的存量。
+            //
+            // ⚠️ **已知缺口：角色是可變的，而這裡讀的是「此刻有沒有 PI 角色」。**
+            // 計畫建立之後才改角色，判別結果就會跟著變——**兩個方向都會出事**：
+            //
+            // | 事後的角色變動 | 後果 | 測試 |
+            // |---|---|---|
+            // | 真 PI **失去** PI 角色 | 被判成佔位 → 自任 SD 被放行（fail open） | `known_gap_real_pi_losing_pi_role_makes_guard_fail_open` |
+            // | 佔位建立者 **取得** PI 角色 | 被判成真 PI → 合法的自任 SD 被擋（fail closed） | `known_gap_placeholder_creator_gaining_pi_role_gets_blocked` |
+            //
+            // 影響範圍（2026-08-27 實測，比初看小）：
+            // - 本閘**只在 `req.study_director_user_id` 為 `Some` 時才跑**（見上面的 `if let`），
+            //   不會擋掉該計畫的其他欄位更新，只擋「設定 SD」這個動作。
+            // - 正式庫目前**沒有**使用者同時具 `PI` 與 `EXPERIMENT_STAFF` 角色，
+            //   所以 fail-closed 那個方向目前無法觸發。角色指派是例行管理動作，隨時會變。
+            // - fail-closed 可繞過（指派別人當 SD，或把 PI 欄位改成真正的外部 PI），不是死鎖。
+            //
+            // 不改用 schema 欄位是因為——就算加了欄位，**既有資料也只能用同一套
+            // 啟發式回填**（沒有 ground truth），對現存計畫的精確度完全一樣；
+            // 欄位只對「未來新建時明確宣告」有意義，屬 API 契約變更，另案處理。
+            // （使用者 2026-08-26 裁定；CodeRabbit #26 第 3 輪建議加欄位，未採納，
+            //   改為把兩個方向都用測試釘住，讓缺口是明寫的而不是沒人知道的。）
+            let pi_is_placeholder = before.pi_user_id == before.created_by
+                && !sqlx::query_scalar::<_, bool>(
+                    r#"SELECT EXISTS(
+                         SELECT 1 FROM user_roles ur
+                         JOIN roles r ON r.id = ur.role_id
+                         WHERE ur.user_id = $1 AND r.code = 'PI'
+                       )"#,
+                )
+                .bind(before.pi_user_id)
+                .fetch_one(&mut *tx)
+                .await?;
+            let effective_pi = if pi_is_placeholder {
+                None
+            } else {
+                Some(before.pi_user_id)
+            };
+            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, effective_pi).await?;
+            // rebase 衝突解法（2026-08-25）：本分支原本在這裡從 working_content
+            // 重推 is_glp，而 #25（裁定 14）的整個重點就是**不要**那樣做——
+            // 判定來源必須是權威欄位 `before.is_glp`。取 main 的版本。
             if before.is_glp
                 && before.study_director_user_id.is_some()
                 && before.study_director_user_id != Some(sd_id)
