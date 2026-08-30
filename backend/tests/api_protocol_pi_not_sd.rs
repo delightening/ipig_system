@@ -667,11 +667,36 @@ async fn end_to_end_pending_deactivation_is_rejected_after_concurrent_sd_assignm
         tokio::spawn(
             async move { UserService::deactivate_self(&db_pool, &deactivate_actor, sd).await },
         );
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    assert!(
-        !deactivate_task.is_finished(),
-        "停用應該卡在 users 列鎖上；還沒放鎖就結束了代表沒卡住，測試前提不成立"
-    );
+
+    // CodeRabbit #26 第 5 輪指出：固定 sleep + is_finished() 只證明「task 還沒結束」，
+    // 證明不了它已經送出 `FOR UPDATE` 並卡在鎖上——在 CI 負載高或排程延遲時，
+    // task 可能 200ms 後根本還沒開始執行那句 SQL，測試會在完全沒測到真正時序的
+    // 情況下通過。改成輪詢 `pg_stat_activity`，直接觀察那條連線是否真的
+    // `wait_event_type = 'Lock'` 卡在這句 SQL 上，而不是猜一個「應該夠久」的時間。
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let waiting: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM pg_stat_activity
+               WHERE wait_event_type = 'Lock'
+                 AND query ILIKE '%FROM users WHERE id = $1 FOR UPDATE%'",
+        )
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("query pg_stat_activity");
+        if waiting > 0 {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "等超過 5 秒仍沒有偵測到停用交易卡在 FOR UPDATE 上——\
+             測試前提不成立（要嘛鎖沒生效，要嘛停用提早失敗了）"
+        );
+        assert!(
+            !deactivate_task.is_finished(),
+            "停用在偵測到卡鎖之前就結束了，代表它根本沒被 holder 的 FOR SHARE 擋住"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
 
     // 真的呼叫指派——與 holder 的 FOR SHARE 相容，不受影響，應正常成功並 commit。
     let update_req = UpdateProtocolRequest {
