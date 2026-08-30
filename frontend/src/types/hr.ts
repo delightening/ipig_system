@@ -1,6 +1,8 @@
 // 前端 API 型別定義擴展
 // HR, Audit, Facility, Calendar 相關型別
 
+import type { PendingOwner } from './pendingOwner'
+
 // ============================================
 // Audit Types
 // ============================================
@@ -145,6 +147,8 @@ export interface OvertimeWithUser {
     void_reason?: string | null;
     /** R72-2：當前使用者是否可核准此列（後端依狀態 + 角色計算，後端固定回傳 bool） */
     can_approve: boolean;
+    /** 這筆現在卡在誰手上；僅 pending_admin_staff / pending_admin 有值 */
+    pending_owner?: PendingOwner;
 }
 
 export interface LeaveRequestWithUser {

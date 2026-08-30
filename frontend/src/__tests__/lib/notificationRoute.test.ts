@@ -82,6 +82,23 @@ describe('notificationTargetPath', () => {
         expect(notificationTargetPath({ related_entity_type: 'something_new' })).toBeNull()
     })
 
+    it('設備三種關卡待辦各自落在自己的分頁，不是 /equipment 預設分頁', () => {
+        // 落在預設分頁等於要使用者自己找路——那些紀錄在各自的分頁裡，預設分頁上看不到。
+        expect(notificationTargetPath({ related_entity_type: 'equipment' })).toBe('/equipment')
+        expect(notificationTargetPath({ related_entity_type: 'maintenance_record' })).toBe(
+            '/equipment?tab=maintenance',
+        )
+        // ⚠️ 分頁 id 是**複數** `disposals`（`EquipmentPage.tsx` 的 PageTabContent value），
+        // 與 entity type 的單數 `equipment_disposal` 不同。照抄 entity type 會導到不存在的分頁，
+        // 而那不會報錯、只會停在預設分頁——所以這一條要用字面值鎖住。
+        expect(notificationTargetPath({ related_entity_type: 'equipment_disposal' })).toBe(
+            '/equipment?tab=disposals',
+        )
+        expect(notificationTargetPath({ related_entity_type: 'equipment_idle_request' })).toBe(
+            '/equipment?tab=idle',
+        )
+    })
+
     it('巡場報告與排程報表（合併前通知中心漏掉的那兩個）', () => {
         expect(notificationTargetPath({ related_entity_type: 'vet_patrol_reports' })).toBe(
             '/vet-patrol-reports',

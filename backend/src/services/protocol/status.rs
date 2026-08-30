@@ -21,7 +21,11 @@ use validator::Validate;
 impl ProtocolService {
     /// Transaction 版本：在既有 transaction 內變更計畫狀態（R26-8 Phase 2 核心）
     /// 所有 DB 操作（驗證、狀態更新、編號生成、指派、客戶建立、稽核日誌）於單一 tx 內原子完成。
-    async fn change_status_tx(
+    /// ⚠️ `pub(super)`：`closure::sign_closure` 要呼叫它。
+    ///
+    /// 第二簽落地時**不能自己下 UPDATE 轉狀態**——那會跳過狀態機驗證、
+    /// 活動紀錄、稽核與通知。走這裡才是同一條路徑，也才吃得到上面那段雙簽 gate。
+    pub(super) async fn change_status_tx(
         tx: &mut Transaction<'_, Postgres>,
         actor: &ActorContext,
         id: Uuid,
@@ -95,6 +99,118 @@ impl ProtocolService {
                         ));
                     }
                 }
+            }
+
+            // ── 結案雙簽 gate（設計 A，裁定 9）─────────────────────────────
+            //
+            // 🔴 **這一段是唯一讓計畫轉 CLOSED 的授權來源，放在這裡不是為了方便。**
+            //
+            // 設計文件 §5.6a 明列：`change_status` / `change_status_tx` 的**所有**直接
+            // 呼叫路徑都必須套用同一套規則。實測直接呼叫者不只 handler——
+            // `services/mcp/tools.rs`、`services/protocol/ai_review.rs` 也會呼叫。
+            // 把 gate 放在 handler 那層等於留了兩條繞過。
+            //
+            // 也因此上面那整段 `close_own` 擁有人檢查**不再足以結案**：它現在只是
+            // 「誰可以嘗試」的粗篩，真正決定的是雙簽。這是刻意的降級，不是遺留——
+            // 沒有這一層，任何持有 `close_own` 的人都能在零簽章的情況下結案，
+            // 雙簽就只是裝飾。
+            //
+            // ⚠️ **已知的營運後果，使用者 2026-08-26 明確確認接受**：
+            // 實測正式庫 33 份已核准計畫中 **32 份仍 `import_pending`**，
+            // 而裁定 8 禁止補登期間簽結案。也就是說本功能上線後，
+            // 那 32 份在補登完成前**只能靠 admin 旁路結案**——
+            // 而它們在上線前是可以用單簽（`close_own`）結案的。
+            //
+            // 這是兩條裁定疊加的結果，**不是 bug，不要「修」它**：
+            //
+            // | 來源 | 日期 | 內容 |
+            // |---|---|---|
+            // | 設計文件 §8 **Q6** 的裁定 | 2026-08-26 | 雙簽**回溯適用全部**已核准計畫，不只新案 |
+            // | 設計文件 §2.2 **裁定 8** | 2026-08-25 | `import_pending` 期間**一律不得簽結案** |
+            //
+            // ⚠️ 引用編號要看清楚：文件裡的「**裁定** 6」講的是「SD 只能從
+            // EXPERIMENT_STAFF 中選」，跟回溯範圍無關。回溯那條是「**Q6** 的裁定」。
+            // （本註解第一版就寫成「裁定 6」，查的人會找到完全不同的東西。）
+            //
+            // 若日後有人回報「以前結得了現在結不了」，正確的回答是「請先完成補登」，
+            // 不是放寬這道 gate。要改變這個行為需要使用者重新裁定回溯範圍。
+            let closure_ready = super::closure::dual_signature_ready(
+                tx,
+                protocol.id,
+                protocol.pi_user_id,
+                protocol.study_director_user_id,
+                protocol.close_pi_signature_id,
+                protocol.close_sd_signature_id,
+            )
+            .await?;
+
+            if !closure_ready {
+                // admin 旁路（裁定 3 / 設計文件 §5.5）。
+                //
+                // ⚠️ 這條在 GLP 案是**唯一**的出口，不只是「方便」：GLP 案禁止交接
+                //（§6.0），SD 一旦離職就沒有人能簽第二簽，而「重新申請」開的是新計畫、
+                // 不會讓舊那份結案。§5.4 把這點列為本設計最尖銳的一處。
+                let is_admin_actor = match actor {
+                    ActorContext::System { .. } => true,
+                    ActorContext::User(u) => u.is_admin(),
+                    ActorContext::Anonymous => false,
+                };
+                if !is_admin_actor {
+                    return Err(AppError::BusinessRule(
+                        "計畫結案需要計畫主持人（PI）與計劃負責人（Study Director）雙方各自簽章。\
+                         請先完成雙簽；若有特殊情形（例如 SD 已離職）請聯繫系統管理員。"
+                            .to_string(),
+                    ));
+                }
+                // 沿用 status.rs 既有的「admin 動作必填理由」形狀
+                let reason = req.remark.as_deref().map(str::trim).unwrap_or("");
+                if reason.is_empty() {
+                    return Err(AppError::Validation(
+                        "繞過結案雙簽必須填寫理由（將留存於稽核紀錄）".to_string(),
+                    ));
+                }
+
+                // 專屬 audit action（設計文件 §5.5）。
+                //
+                // 🔴 **不能只靠底下那個通用的狀態轉移稽核。** 那筆記的是
+                // 「狀態從 X 變成 CLOSED」，跟正常雙簽結案長得一模一樣——
+                // 稽核員問「哪些結案是繞過雙簽的」時答不出來。
+                //
+                // ⚠️ 這條在 GLP 案是唯一出口（§5.4：GLP 禁止交接，SD 離職後沒人能簽
+                // 第二簽），所以它會被**常態使用**而不是緊急使用。正因如此更要留痕：
+                // 一個常態使用的旁路若查不出用過幾次、為什麼用，等於雙簽從未存在。
+                AuditService::log_activity_tx(
+                    tx,
+                    actor,
+                    ActivityLogEntry {
+                        event_category: "AUP",
+                        event_type: "PROTOCOL_CLOSE_ADMIN_OVERRIDE",
+                        entity: Some(AuditEntity::new("protocol", protocol.id, &protocol.title)),
+                        data_diff: None,
+                        request_context: None,
+                    },
+                )
+                .await?;
+
+                // 理由另外落 protocol_activities，讓計畫頁的時間軸看得到
+                //（audit chain 那筆是給稽核查詢用的，兩者讀者不同）
+                Self::record_activity_tx(
+                    tx,
+                    actor,
+                    protocol.id,
+                    ProtocolActivityType::StatusChanged,
+                    Some(protocol.status.as_str().to_string()),
+                    Some(ProtocolStatus::Closed.as_str().to_string()),
+                    None,
+                    Some(format!("管理員繞過結案雙簽：{reason}")),
+                    Some(serde_json::json!({
+                        "closure_override": true,
+                        "reason": reason,
+                        "had_pi_signature": protocol.close_pi_signature_id.is_some(),
+                        "had_sd_signature": protocol.close_sd_signature_id.is_some(),
+                    })),
+                )
+                .await?;
             }
         }
 
@@ -305,41 +421,11 @@ impl ProtocolService {
             }
         }
 
-        // 結案守門：計畫結案前，該計畫下所有動物必須皆已離場（安樂死 / 猝死 / 已轉讓）。
-        // 涵蓋兩類串接：
-        //   (1) 已分配 — animals.iacuc_no = protocols.iacuc_no 文字比對（無 FK；已分配才寫 iacuc_no）
-        //   (2) 已預約 earmark — animals.reserved_protocol_id = protocol.id
-        //       （預約只設 reserved_protocol_id、不寫 iacuc_no，故必須另條件涵蓋，
-        //        否則「有豬預約給此計畫」時仍可結案 → 預約懸空成孤兒）
-        // 若仍有存活動物（未分配 / 實驗中 / 實驗完成 / 已預約），拒絕結案。存活判定對齊
-        // AnimalStatus::is_active_in_facility：status NOT IN euthanized/sudden_death/transferred。
-        // 狀態值以 AnimalStatus enum 綁定為參數（單一事實來源），不硬編碼字面字串。
-        // 以 CTE FOR UPDATE 鎖住候選動物列，關閉「查完無存活 → 並發 assign 進來 → 結案」的
-        // TOCTOU 競態窗口（protocol 列已 FOR UPDATE，此處補鎖 animal 列）。
+        // 結案守門：見 `ensure_no_live_animals_for_closure` 的說明。抽成共用函式是因為
+        // `closure::sign_closure` 也要在簽章寫入之前呼叫同一道檢查（CodeRabbit #38
+        // 指出：第二簽若在這裡才被擋下，tx rollback 會連剛寫入的簽章一起消失）。
         if req.to_status == ProtocolStatus::Closed {
-            let alive_count: i64 = sqlx::query_scalar(
-                "WITH locked AS ( \
-                     SELECT id FROM animals \
-                     WHERE deleted_at IS NULL \
-                       AND status NOT IN ($2, $3, $4) \
-                       AND (iacuc_no = $1 OR reserved_protocol_id = $5) \
-                     FOR UPDATE \
-                 ) SELECT COUNT(*) FROM locked",
-            )
-            .bind(protocol.iacuc_no.as_deref())
-            .bind(AnimalStatus::Euthanized)
-            .bind(AnimalStatus::SuddenDeath)
-            .bind(AnimalStatus::Transferred)
-            .bind(id)
-            .fetch_one(&mut **tx)
-            .await?;
-
-            if alive_count > 0 {
-                return Err(AppError::BusinessRule(format!(
-                    "計畫下仍有 {alive_count} 隻存活動物（含已預約），須全部完成犧牲（安樂死）、\
-                     猝死或轉讓、或先解除預約後才能結案"
-                )));
-            }
+            ensure_no_live_animals_for_closure(tx, id, protocol.iacuc_no.as_deref()).await?;
         }
 
         // IACUC 編號生成規則：在 tx 內使用 _tx 版本（確保 advisory lock 同 tx 提交）
@@ -820,6 +906,53 @@ impl ProtocolService {
         tx.commit().await?;
         Ok(result)
     }
+}
+
+/// 結案守門：計畫結案前，該計畫下所有動物必須皆已離場（安樂死 / 猝死 / 已轉讓）。
+/// 涵蓋兩類串接：
+///   (1) 已分配 — animals.iacuc_no = protocols.iacuc_no 文字比對（無 FK；已分配才寫 iacuc_no）
+///   (2) 已預約 earmark — animals.reserved_protocol_id = protocol.id
+///       （預約只設 reserved_protocol_id、不寫 iacuc_no，故必須另條件涵蓋，
+///        否則「有豬預約給此計畫」時仍可結案 → 預約懸空成孤兒）
+/// 若仍有存活動物（未分配 / 實驗中 / 實驗完成 / 已預約），拒絕結案。存活判定對齊
+/// AnimalStatus::is_active_in_facility：status NOT IN euthanized/sudden_death/transferred。
+/// 狀態值以 AnimalStatus enum 綁定為參數（單一事實來源），不硬編碼字面字串。
+/// 以 CTE FOR UPDATE 鎖住候選動物列，關閉「查完無存活 → 並發 assign 進來 → 結案」的
+/// TOCTOU 競態窗口（呼叫端必須已經 `SELECT ... FOR UPDATE` 鎖住 protocol 列）。
+///
+/// ⚠️ `pub(super)`：`closure::sign_closure` 必須在簽章寫入**之前**呼叫這個函式一次
+/// （早期回饋，簽名前就告知還有動物在場），`change_status_tx` 的 CLOSED 分支則是
+/// 這個不變式在資料層真正的執行點（呼叫端不論從哪條路徑轉 CLOSED 都會經過它）。
+/// 兩處呼叫不是重複——前者是使用者體驗，後者是正確性保證。
+pub(super) async fn ensure_no_live_animals_for_closure(
+    tx: &mut Transaction<'_, Postgres>,
+    protocol_id: Uuid,
+    iacuc_no: Option<&str>,
+) -> Result<()> {
+    let alive_count: i64 = sqlx::query_scalar(
+        "WITH locked AS ( \
+             SELECT id FROM animals \
+             WHERE deleted_at IS NULL \
+               AND status NOT IN ($2, $3, $4) \
+               AND (iacuc_no = $1 OR reserved_protocol_id = $5) \
+             FOR UPDATE \
+         ) SELECT COUNT(*) FROM locked",
+    )
+    .bind(iacuc_no)
+    .bind(AnimalStatus::Euthanized)
+    .bind(AnimalStatus::SuddenDeath)
+    .bind(AnimalStatus::Transferred)
+    .bind(protocol_id)
+    .fetch_one(&mut **tx)
+    .await?;
+
+    if alive_count > 0 {
+        return Err(AppError::BusinessRule(format!(
+            "計畫下仍有 {alive_count} 隻存活動物（含已預約），須全部完成犧牲（安樂死）、\
+             猝死或轉讓、或先解除預約後才能結案"
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

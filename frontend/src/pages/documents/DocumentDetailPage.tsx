@@ -30,6 +30,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { useTableSort } from '@/hooks/useTableSort'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { PendingOwnerBadge, PendingOwnerInline } from '@/components/PendingOwnerBadge'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { documentChangeQueryKeys } from './queryInvalidation'
 import { ReversalNotice } from './components/ReversalNotice'
@@ -322,7 +323,11 @@ export function DocumentDetailPage() {
       case 'draft':
         return <Badge variant="secondary">{statusNames[status]}</Badge>
       case 'submitted':
-        return <Badge variant="warning">{statusNames[status]}</Badge>
+        return (
+          <PendingOwnerBadge owner={document?.pending_owner}>
+            <Badge variant="warning">{statusNames[status]}</Badge>
+          </PendingOwnerBadge>
+        )
       case 'approved':
         return <Badge variant="success">{statusNames[status]}</Badge>
       case 'cancelled':
@@ -522,6 +527,11 @@ export function DocumentDetailPage() {
             <p className="text-muted-foreground">
               {docTypeNames[document.doc_type]} · 建立於 {formatDate(document.created_at)}
             </p>
+            {/* 詳情頁不把「卡在誰」藏在 hover 後面：這裡是使用者來查進度的地方 */}
+            <PendingOwnerInline
+              owner={document.pending_owner}
+              className="text-sm text-muted-foreground"
+            />
           </div>
         </div>
         <div className="flex gap-2">

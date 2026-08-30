@@ -52,7 +52,7 @@ impl EquipmentService {
         .fetch_one(pool)
         .await?;
 
-        let data = sqlx::query_as::<_, DisposalWithDetails>(
+        let mut data = sqlx::query_as::<_, DisposalWithDetails>(
             r#"
             SELECT d.id, d.equipment_id, e.name AS equipment_name,
                    d.status, d.disposal_date, d.reason, d.disposal_method,
@@ -76,6 +76,20 @@ impl EquipmentService {
         .fetch_all(pool)
         .await?;
 
+        // 「卡在誰」整頁批次補算（僅待核准的那幾筆）。
+        let pending_ids: Vec<Uuid> = data
+            .iter()
+            .filter(|d| d.status == DisposalStatus::Pending)
+            .map(|d| d.id)
+            .collect();
+        if !pending_ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_disposals(pool, &pending_ids).await?;
+            for row in &mut data {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
+
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
 
@@ -91,6 +105,9 @@ impl EquipmentService {
         repositories::equipment::find_equipment_by_id(pool, payload.equipment_id)
             .await?
             .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
+
+        // INSERT 進 tx：待辦要與申請本體同生共死（理由見下方同步呼叫的註解）。
+        let mut tx = pool.begin().await?;
 
         let record = sqlx::query_as::<_, DisposalWithDetails>(
             r#"
@@ -115,21 +132,29 @@ impl EquipmentService {
         .bind(&payload.disposal_method)
         .bind(current_user.id)
         .bind(&payload.notes)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 發送報廢申請通知
+        // 報廢申請待核准 → 建立待辦（**取代**原本的一般通知）。
+        //
+        // 原本這裡發的是 `send_equipment_disposal_notification`（一般通知，只進鈴鐺）。
+        // 「有人要核准」是需要動作、且系統判定得出完成的事，屬待處理清單而非提醒；
+        // 兩者並存會讓同一件事在兩個入口各出現一次。email 沒有因此消失——
+        // 收件人仍依 `equipment_disposal` 路由規則的管道決定（admin 為 `both`）。
+        //
+        // INSERT 之所以搬進 tx：待辦要與申請本體同生共死，commit 後才建立會留下
+        // 「申請已存在但沒有人被通知」與孤兒待辦兩種時序（見 stages.rs 模組註解）。
         let notification_svc = crate::services::NotificationService::new(pool.clone());
-        if let Err(e) = notification_svc
-            .send_equipment_disposal_notification(
-                &record.equipment_name,
-                &record.applicant_name,
-                &payload.reason,
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EquipmentDisposal(record.id),
+                Some(current_user.id),
             )
-            .await
-        {
-            tracing::warn!("發送報廢申請通知失敗: {e}");
-        }
+            .await?;
+
+        tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         Ok(record)
     }
@@ -423,6 +448,16 @@ impl EquipmentService {
             },
         )
         .await?;
+
+        // 核准或駁回都讓這筆離開 pending → 同步後待辦消失（同一個 tx）。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EquipmentDisposal(id),
+                Some(current_user.id),
+            )
+            .await?;
+
         tx.commit().await?;
 
         // 重新查詢完整紀錄
@@ -505,6 +540,11 @@ impl EquipmentService {
         validate_status_transition(&equipment.status, &EquipmentStatus::Active)?;
 
         // 將報廢紀錄狀態改為 rejected（表示已撤銷）— status 守衛防並發重入
+        // 關卡待辦：這條**刻意不呼叫 sync_stage_todos_tx**，因為 `WHERE status = 'approved'`
+        // 保證起點不是 `pending`，終點 `rejected` 也不是——兩端的關卡都是 None，同步等於
+        // no-op。⚠️ **這個安全性來自那個 WHERE 條件**：哪天放寬成可從 `pending` 恢復，
+        // 待辦就會留在申請人以外的人清單裡永遠清不掉，屆時這裡必須補上同步。
+        // （2026-08-26 逐條掃過本表所有 status 寫入點後留的記號，見 R112。）
         let rows = sqlx::query(
             "UPDATE equipment_disposals SET status = 'rejected', rejection_reason = '管理員恢復設備', approved_by = $2, approved_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 'approved'",
         )

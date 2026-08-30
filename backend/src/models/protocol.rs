@@ -154,6 +154,15 @@ pub struct Protocol {
     /// 未鎖定時會同步到本欄位，鎖定後兩者可能不同，**一律以本欄位為準**。
     #[serde(default)]
     pub is_glp: bool,
+    /// 結案雙簽：PI 那一簽（migration 008 / 設計 A）。
+    ///
+    /// ⚠️ **非空不等於「PI 已有效簽署」。** 這是外鍵，只保證那一列簽章存在，
+    /// 不保證它是**這份計畫的**、**結案用的**、**還有效的**。判斷「可以結案了嗎」
+    /// 一律走 `services::protocol::closure::dual_signature_ready`（7 條條件），
+    /// 不要在別處自己寫 `is_some()` 判斷——那正是這個設計要防的繞過方式。
+    pub close_pi_signature_id: Option<Uuid>,
+    /// 結案雙簽：SD 那一簽。注意事項同 `close_pi_signature_id`。
+    pub close_sd_signature_id: Option<Uuid>,
 }
 
 /// Protocol 無敏感欄位需脫敏（GLP 稽核需要完整內容；working_content 雖為 jsonb
@@ -194,6 +203,9 @@ pub enum ProtocolActivityType {
     StatusChanged,
     ReviewerAssigned,
     VetAssigned,
+    /// 指派／變更計劃負責人（SD）。裁定 21：SD 變更必須有專屬事件，
+    /// 不能混在通用的 PROTOCOL_UPDATE 裡——稽核報表上看不出「這次改的是 SD」。
+    SdAssigned,
     // CO_EDITOR 角色已拆除（R76-2），但保留下列活動類型供讀取歷史稽核紀錄（不再新寫）。
     CoeditorAssigned,
     CoeditorRemoved,
@@ -233,6 +245,7 @@ impl ProtocolActivityType {
             ProtocolActivityType::StatusChanged => "STATUS_CHANGED",
             ProtocolActivityType::ReviewerAssigned => "REVIEWER_ASSIGNED",
             ProtocolActivityType::VetAssigned => "VET_ASSIGNED",
+            ProtocolActivityType::SdAssigned => "SD_ASSIGNED",
             ProtocolActivityType::CoeditorAssigned => "COEDITOR_ASSIGNED",
             ProtocolActivityType::CoeditorRemoved => "COEDITOR_REMOVED",
             ProtocolActivityType::CommentAdded => "COMMENT_ADDED",
@@ -265,6 +278,7 @@ impl ProtocolActivityType {
             ProtocolActivityType::StatusChanged => "狀態變更",
             ProtocolActivityType::ReviewerAssigned => "指派審查委員",
             ProtocolActivityType::VetAssigned => "指派獸醫師",
+            ProtocolActivityType::SdAssigned => "指派計劃負責人",
             ProtocolActivityType::CoeditorAssigned => "指派共同編輯者",
             ProtocolActivityType::CoeditorRemoved => "移除共同編輯者",
             ProtocolActivityType::CommentAdded => "新增審查意見",
@@ -751,6 +765,12 @@ pub struct ProtocolListItem {
     /// 當前 viewer 是否可編輯此計畫（PI / SD / admin）。供前端按鈕 gating，由列表查詢計算。
     #[sqlx(default)]
     pub can_edit: bool,
+    /// 這件現在卡在誰手上（目前僅行政受理 / 預審那幾關有值；委員會審查與需修正
+    /// 兩類的形狀不同，尚未涵蓋）。`skip` 而非 `default` 的理由同
+    /// `DocumentListItem::pending_owner`：`PendingOwner` 不是 DB 型別、沒有 `Decode`。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<crate::models::PendingOwner>,
 }
 
 /// 審查意見回應（含審查者資訊）
@@ -1006,7 +1026,7 @@ mod tests {
 
     #[test]
     fn test_activity_type_all_variants() {
-        // 確認所有 27 個變體都有對應字串
+        // 確認所有 28 個變體都有對應字串
         let variants = vec![
             ProtocolActivityType::Created,
             ProtocolActivityType::Updated,
@@ -1021,6 +1041,7 @@ mod tests {
             ProtocolActivityType::StatusChanged,
             ProtocolActivityType::ReviewerAssigned,
             ProtocolActivityType::VetAssigned,
+            ProtocolActivityType::SdAssigned,
             ProtocolActivityType::CoeditorAssigned,
             ProtocolActivityType::CoeditorRemoved,
             ProtocolActivityType::CommentAdded,
@@ -1040,7 +1061,10 @@ mod tests {
             assert!(!v.as_str().is_empty());
             assert!(!v.display_name().is_empty());
         }
-        assert_eq!(variants.len(), 27);
+        // 28：新增 SdAssigned（裁定 21）。加 variant 時這個數字要一起改——
+        // `as_str()` / `display_name()` 沒有 `_ =>`，編譯器會逼你處理那兩處，
+        // 但**不會**逼你把新 variant 加進上面的清單，這行是那個缺口的提醒。
+        assert_eq!(variants.len(), 28);
     }
 
     #[test]

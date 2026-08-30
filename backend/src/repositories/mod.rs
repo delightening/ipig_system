@@ -28,6 +28,7 @@ pub mod glp_compliance;
 pub mod hr;
 pub mod notification;
 pub mod pen;
+pub mod pending_owner;
 pub mod product;
 pub mod qa_plan;
 pub mod role;

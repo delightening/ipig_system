@@ -6,6 +6,7 @@ import { useAuthHasPermission } from '@/stores/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
 import { useTableSort } from '@/hooks/useTableSort'
 import { Badge } from '@/components/ui/badge'
+import { PendingOwnerBadge, PendingOwnerInline } from '@/components/PendingOwnerBadge'
 import { PageHeader } from '@/components/ui/page-header'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -149,13 +150,15 @@ export function MyProjectsPage() {
     }
   }
 
-  const getStatusBadge = (status: ProtocolStatus) => {
+  const getStatusBadge = (project: ProtocolListItem) => {
     return (
-      // max-w-full + whitespace-normal：審查狀態標籤最長 6 字（如「行政預審補件」），
-      // 欄寬足夠時維持單行，被擠窄時才讓 Badge 內文換行
-      <Badge variant={statusColors[status]} className="max-w-full whitespace-normal text-center leading-tight">
-        {t(`protocols.status.${status}`)}
-      </Badge>
+      <PendingOwnerBadge owner={project.pending_owner}>
+        {/* max-w-full + whitespace-normal：審查狀態標籤最長 6 字（如「行政預審補件」），
+            欄寬足夠時維持單行，被擠窄時才讓 Badge 內文換行 */}
+        <Badge variant={statusColors[project.status]} className="max-w-full whitespace-normal text-center leading-tight">
+          {t(`protocols.status.${project.status}`)}
+        </Badge>
+      </PendingOwnerBadge>
     )
   }
 
@@ -333,11 +336,21 @@ export function MyProjectsPage() {
                               </TableCell>
                               <TableCell className="hidden @[800px]:table-cell">{project.pi_name}</TableCell>
                               <TableCell className="hidden @[1100px]:table-cell">{project.pi_organization || '-'}</TableCell>
-                              <TableCell className="hidden @[950px]:table-cell">{getStatusBadge(project.status)}</TableCell>
+                              <TableCell className="hidden @[950px]:table-cell">{getStatusBadge(project)}</TableCell>
                               <TableCell className="min-w-[220px] whitespace-normal">
                                 <div className="max-w-[400px] break-words" title={project.title}>
                                   {project.title}
                                 </div>
+                                {/* 600–949px 的空窗：表格已顯示（@[600px]）、審查狀態欄還沒出現
+                                    （@[950px]）、手機卡片已收起（@[600px]:hidden）——「卡在誰」
+                                    在這個區間整段消失（CodeRabbit 於 #30 指出）。
+                                    掛在恆常可見的標題欄底下補上，@[950px] 起交還給專屬欄位。
+                                    不改欄位斷點是刻意的：600px 時可見欄位已是
+                                    編號 + 進度(104px) + 標題(220px) + 操作，再塞一欄會擠爆。 */}
+                                <PendingOwnerInline
+                                  owner={project.pending_owner}
+                                  className="@[950px]:hidden mt-1 text-xs text-muted-foreground"
+                                />
                               </TableCell>
                               <TableCell className="hidden @[1100px]:table-cell">
                                 {project.start_date && project.end_date ? (
@@ -396,8 +409,10 @@ export function MyProjectsPage() {
                           <div className="text-xs text-muted-foreground space-y-0.5">
                             <div>{project.pi_name}{project.pi_organization && ` · ${project.pi_organization}`}</div>
                             <div className="flex items-center gap-1">
-                              {t('protocols.columns.reviewStatus')}：{getStatusBadge(project.status)}
+                              {t('protocols.columns.reviewStatus')}：{getStatusBadge(project)}
                             </div>
+                            {/* 手機沒有 hover，「卡在誰」直接寫在卡片上 */}
+                            <PendingOwnerInline owner={project.pending_owner} />
                             {project.start_date && project.end_date && (
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />

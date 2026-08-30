@@ -132,12 +132,107 @@ async fn seed_reserved_animal(app: &TestApp, protocol_id: Uuid) {
     .expect("insert reserved animal");
 }
 
+/// 寫一張合格的結案簽章，回傳其 id。
+///
+/// 欄位值對齊 `services/protocol/closure.rs::dual_signature_ready` 的 7 條件：
+/// `entity_type='protocol_closure'`（**不是** 核准簽章的 `'protocol'`）、
+/// `entity_id` 為 protocol id 的字串、`signature_type='CONFIRM'`、`is_valid=true`。
+async fn insert_closure_signature(app: &TestApp, protocol_id: Uuid, signer_id: Uuid) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO electronic_signatures
+             (id, entity_type, entity_id, signer_id, signature_type,
+              content_hash, signature_data, signature_method, meaning, is_valid)
+           VALUES ($1, 'protocol_closure', $2, $3, 'CONFIRM', 'hash', 'data', 'password',
+                   'CONFIRM'::signature_meaning, true)"#,
+    )
+    .bind(id)
+    .bind(protocol_id.to_string())
+    .bind(signer_id)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert closure signature");
+    id
+}
+
+/// 讓計畫具備齊備且有效的結案雙簽。
+///
+/// ⚠️ **為什麼本檔的 `close_own` 案例需要這個。**
+/// 結案雙簽（#38）之後，`close_own` 擁有人檢查**不再足以結案**——它降級為
+/// 「誰可以嘗試」的粗篩，真正放行的是雙簽 gate。少了這個 fixture，
+/// R89-8 那幾條案例會倒在「需要 PI 與 SD 雙方各自簽章」，
+/// 驗不到它們真正的受測點（擁有人身分與 `close_own` 權限）。
+///
+/// 雙簽本身的 7 條件由 `api_protocol_closure_dual_sign.rs` 逐條各一支測試守，
+/// 本檔不重複驗，只需要一組合格的簽章把案例送到下一關。
+async fn seed_closure_dual_signatures(
+    app: &TestApp,
+    protocol_id: Uuid,
+    pi_user_id: Uuid,
+    sd_user_id: Uuid,
+) {
+    assert_ne!(
+        pi_user_id, sd_user_id,
+        "雙簽的兩張簽章必須是不同人（gate 條件 7），fixture 給同一人會讓案例失去意義"
+    );
+    let pi_sig = insert_closure_signature(app, protocol_id, pi_user_id).await;
+    let sd_sig = insert_closure_signature(app, protocol_id, sd_user_id).await;
+    sqlx::query(
+        "UPDATE protocols SET close_pi_signature_id = $2, close_sd_signature_id = $3 WHERE id = $1",
+    )
+    .bind(protocol_id)
+    .bind(pi_sig)
+    .bind(sd_sig)
+    .execute(&app.db_pool)
+    .await
+    .expect("link closure signatures to protocol");
+}
+
+/// 建一個測試用帳號，回傳 id。
+async fn seed_user(app: &TestApp, label: &str) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO users (id, email, password_hash, display_name, is_active, must_change_password) \
+         VALUES ($1, $2, 'fake', $3, true, false)",
+    )
+    .bind(id)
+    .bind(format!("r89-8-{label}-{}@test.local", &id.to_string()[..8]))
+    .bind(format!("r89-8 {label}"))
+    .execute(&app.db_pool)
+    .await
+    .expect("seed user");
+    id
+}
+
+/// ⚠️ `remark` 是必填的，不是裝飾。
+///
+/// 結案雙簽（#38）上線後，`SYSTEM_TEST` 這類 admin/System actor 結案走的是
+/// `status.rs` 的「繞過雙簽」那條路，而那條路**強制要求具名理由**
+/// （理由會落 audit 與 `protocol_activities`，讓稽核查得出哪些結案是繞過的）。
+/// 留 `None` 的話案例會倒在「繞過結案雙簽必須填寫理由」，
+/// **根本走不到本檔真正要驗的動物守門**——而錯誤訊息看起來會像動物守門壞了。
 fn close_req() -> ChangeStatusRequest {
     ChangeStatusRequest {
         to_status: ProtocolStatus::Closed,
-        remark: None,
+        remark: Some("動物守門回歸測試：以系統身分繞過結案雙簽".to_string()),
         reviewer_ids: None,
         vet_id: None,
+    }
+}
+
+/// 斷言這個錯誤**來自動物守門**，而不只是「某個 BusinessRule」。
+///
+/// ⚠️ 只寫 `matches!(err, AppError::BusinessRule(_))` 不夠。結案路徑上排在動物守門
+/// **之前**的還有結案雙簽 gate（`status.rs`，#38），它吐的也是 `BusinessRule`。
+/// 只驗型別的話，「案例根本沒走到動物守門就被雙簽擋下」會被判為通過——
+/// 本檔就會在完全沒有守到動物守門的情況下全綠。
+fn assert_blocked_by_animal_guard(err: &AppError) {
+    match err {
+        AppError::BusinessRule(msg) => assert!(
+            msg.contains("存活動物"),
+            "應被動物守門擋下，實得另一個 BusinessRule：{msg}"
+        ),
+        other => panic!("應為動物守門的 BusinessRule，實得：{other:?}"),
     }
 }
 
@@ -162,10 +257,7 @@ async fn close_blocked_when_animal_in_experiment() {
     let err = ProtocolService::change_status(&app.db_pool, &SYSTEM_TEST, protocol_id, &close_req())
         .await
         .expect_err("計畫下仍有存活動物時結案應被拒絕");
-    assert!(
-        matches!(err, AppError::BusinessRule(_)),
-        "應為 BusinessRule，實得：{err:?}"
-    );
+    assert_blocked_by_animal_guard(&err);
     assert_eq!(
         fetch_status(&app, protocol_id).await,
         "APPROVED",
@@ -188,10 +280,7 @@ async fn close_blocked_when_animal_completed_or_unassigned() {
             ProtocolService::change_status(&app.db_pool, &SYSTEM_TEST, protocol_id, &close_req())
                 .await
                 .expect_err(&format!("狀態 {label} 未離場，結案應被拒絕"));
-        assert!(
-            matches!(err, AppError::BusinessRule(_)),
-            "狀態 {label} 應為 BusinessRule，實得：{err:?}"
-        );
+        assert_blocked_by_animal_guard(&err);
         assert_eq!(
             fetch_status(&app, protocol_id).await,
             "APPROVED",
@@ -212,10 +301,7 @@ async fn close_blocked_when_animal_reserved() {
     let err = ProtocolService::change_status(&app.db_pool, &SYSTEM_TEST, protocol_id, &close_req())
         .await
         .expect_err("有動物預約給此計畫時結案應被拒絕");
-    assert!(
-        matches!(err, AppError::BusinessRule(_)),
-        "應為 BusinessRule，實得：{err:?}"
-    );
+    assert_blocked_by_animal_guard(&err);
     assert_eq!(
         fetch_status(&app, protocol_id).await,
         "APPROVED",
@@ -293,7 +379,11 @@ async fn owner_pi_can_close_own_approved_protocol_without_change_status_permissi
     .execute(&app.db_pool)
     .await
     .expect("seed pi user");
-    let protocol_id = seed_approved_protocol_owned_by(&app, pi_id, None).await;
+    // 計畫需要有 SD，否則雙簽在設計上永遠湊不齊（gate 條件 1 要求 SD 那一簽存在），
+    // 本案例的受測點會被雙簽擋在門外而驗不到。
+    let sd_id = seed_user(&app, "pi-case-sd").await;
+    let protocol_id = seed_approved_protocol_owned_by(&app, pi_id, Some(sd_id)).await;
+    seed_closure_dual_signatures(&app, protocol_id, pi_id, sd_id).await;
 
     ProtocolService::change_status(
         &app.db_pool,
@@ -367,6 +457,7 @@ async fn owner_study_director_can_close_own_approved_protocol() {
     .expect("seed sd user");
     // pi_user_id 刻意指向別人（admin），驗證 SD 身分本身即可通過（不必同時是 PI）。
     let protocol_id = seed_approved_protocol_owned_by(&app, admin_id, Some(sd_id)).await;
+    seed_closure_dual_signatures(&app, protocol_id, admin_id, sd_id).await;
 
     ProtocolService::change_status(
         &app.db_pool,
@@ -439,7 +530,12 @@ async fn delegate_pi_via_user_protocols_can_close_own_protocol() {
     .execute(&app.db_pool)
     .await
     .expect("seed delegate pi user");
-    let protocol_id = seed_approved_protocol_owned_by(&app, owner_id, None).await;
+    // 同上：雙簽要湊得齊，計畫得先有 SD。委派 PI 不是簽章的一方——
+    // 簽章仍是 protocols 上記的 PI 與 SD，這正是「委派 PI 只影響誰能按，
+    // 不影響誰要簽」的體現。
+    let sd_id = seed_user(&app, "delegate-case-sd").await;
+    let protocol_id = seed_approved_protocol_owned_by(&app, owner_id, Some(sd_id)).await;
+    seed_closure_dual_signatures(&app, protocol_id, owner_id, sd_id).await;
     // 與 /my-projects 的 can_edit 投影同一種委派 PI：user_protocols.role_in_protocol='PI'，
     // 不是 protocols.pi_user_id 本人。
     sqlx::query(

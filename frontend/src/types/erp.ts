@@ -2,6 +2,8 @@
  * ERP 型別（倉庫、產品、交易夥伴、單據、庫存、SKU）
  */
 
+import type { PendingOwner } from './pendingOwner'
+
 // 倉庫
 export interface Warehouse {
     id: string
@@ -238,6 +240,8 @@ export interface Document {
     manager_approved_by?: string
     manager_approved_at?: string
     manager_reject_reason?: string
+    /** 這張單現在卡在誰手上；僅 status='submitted' 有值（後端 services/pending_owner.rs） */
+    pending_owner?: PendingOwner
 }
 
 export interface DocumentListItem {
@@ -256,6 +260,8 @@ export interface DocumentListItem {
     total_amount?: string
     receipt_status?: string
     has_journal_entry: boolean
+    /** 這張單現在卡在誰手上；僅 status='submitted' 有值（後端 services/pending_owner.rs） */
+    pending_owner?: PendingOwner
 }
 
 // 庫存

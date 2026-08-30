@@ -955,10 +955,25 @@ impl DocumentService {
 
         qb.push(" GROUP BY d.id, w.name, d.partner_id, p.name, d.protocol_id, pr.protocol_no, u1.display_name, u2.display_name, d.doc_type, d.doc_no, d.status, d.doc_date, d.created_at, d.approved_at, d.iacuc_no, d.receipt_status ORDER BY d.created_at DESC");
 
-        let documents = qb
+        let mut documents = qb
             .build_query_as::<DocumentListItem>()
             .fetch_all(pool)
             .await?;
+
+        // 「卡在誰」整頁批次補算：只送待審中的 id 進去，且每個關卡的候選名單在
+        // 解析器內只查一次（見 pending_owner::CandidateCache），不做逐列 roundtrip。
+        let pending_ids: Vec<Uuid> = documents
+            .iter()
+            .filter(|d| d.status == DocStatus::Submitted)
+            .map(|d| d.id)
+            .collect();
+        if !pending_ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_documents(pool, &pending_ids).await?;
+            for doc in &mut documents {
+                doc.pending_owner = owners.remove(&doc.id);
+            }
+        }
 
         Ok(documents)
     }
@@ -991,6 +1006,10 @@ impl DocumentService {
 
         let names = Self::load_document_related_names(pool, &document).await?;
         let reversal = Self::load_reversal_links(pool, id, document.reverses_doc_id).await?;
+        // 待審中才需要算「卡在誰」；已核准 / 草稿 / 作廢的單解析器一律回空。
+        let pending_owner = crate::services::pending_owner::resolve_for_documents(pool, &[id])
+            .await?
+            .remove(&id);
 
         Ok(DocumentWithLines {
             document,
@@ -1006,6 +1025,7 @@ impl DocumentService {
             reversed_by_doc_id: reversal.reversed_by_doc_id,
             reversed_by_doc_no: reversal.reversed_by_doc_no,
             reversed_at: reversal.reversed_at,
+            pending_owner,
         })
     }
 

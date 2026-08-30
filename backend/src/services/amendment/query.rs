@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::{
     models::{
         Amendment, AmendmentListItem, AmendmentQuery, AmendmentReviewAssignmentResponse,
-        AmendmentStatus, AmendmentStatusHistory, AmendmentType, AmendmentVersion,
+        AmendmentStatus, AmendmentStatusHistory, AmendmentVersion,
     },
     Result,
 };
@@ -23,14 +23,17 @@ impl AmendmentService {
     }
 
     /// 列出變更申請
+    ///
+    /// ⚠️ 本查詢原為 `sqlx::query_as!`（編譯期檢查）。`AmendmentListItem` 加入
+    /// `pending_owner` 後不得不改為執行期形式——那個巨集會依 SELECT 欄位逐一構造 struct，
+    /// 不接受任何不在查詢裡的欄位，而 `pending_owner` 是程式算出來的、不可能出現在 SELECT。
+    /// 改動後與下方 `list_for_user`（本來就是執行期形式）一致。
     pub async fn list(pool: &PgPool, query: &AmendmentQuery) -> Result<Vec<AmendmentListItem>> {
-        let amendments = sqlx::query_as!(
-            AmendmentListItem,
+        let mut amendments = sqlx::query_as::<_, AmendmentListItem>(
             r#"
-            SELECT 
+            SELECT
                 a.id, a.protocol_id, a.amendment_no, a.revision_number,
-                a.amendment_type as "amendment_type: AmendmentType",
-                a.status as "status: AmendmentStatus",
+                a.amendment_type, a.status,
                 a.title, a.description, a.change_items,
                 a.submitted_at, a.classified_at,
                 a.created_at, a.updated_at,
@@ -43,34 +46,73 @@ impl AmendmentService {
             JOIN protocols p ON a.protocol_id = p.id
             LEFT JOIN users u ON a.submitted_by = u.id
             LEFT JOIN users c ON a.classified_by = c.id
-            WHERE 
+            WHERE
                 ($1::uuid IS NULL OR a.protocol_id = $1)
                 AND ($2::text IS NULL OR a.status::text = $2)
                 AND ($3::text IS NULL OR a.amendment_type::text = $3)
             ORDER BY a.created_at DESC
             "#,
-            query.protocol_id,
-            query.status.map(|s| s.as_str().to_string()),
-            query.amendment_type.map(|t| t.as_str().to_string()),
         )
+        .bind(query.protocol_id)
+        .bind(query.status.map(|s| s.as_str().to_string()))
+        .bind(query.amendment_type.map(|t| t.as_str().to_string()))
         .fetch_all(pool)
         .await?;
 
+        Self::attach_pending_owners(pool, &mut amendments).await?;
         Ok(amendments)
     }
 
+    /// 批次補上「卡在誰」。只送待分類 / 已分類待送審那幾筆進解析器。
+    async fn attach_pending_owners(
+        pool: &PgPool,
+        amendments: &mut [AmendmentListItem],
+    ) -> Result<()> {
+        let pending_ids: Vec<Uuid> = amendments
+            .iter()
+            .filter(|a| {
+                matches!(
+                    a.status,
+                    AmendmentStatus::Submitted
+                        | AmendmentStatus::Resubmitted
+                        | AmendmentStatus::Classified
+                )
+            })
+            .map(|a| a.id)
+            .collect();
+        if pending_ids.is_empty() {
+            return Ok(());
+        }
+
+        let mut owners =
+            crate::services::pending_owner::resolve_for_amendments(pool, &pending_ids).await?;
+        for row in amendments.iter_mut() {
+            row.pending_owner = owners.remove(&row.id);
+        }
+        Ok(())
+    }
+
     /// 列出使用者可見的變更申請（SQL 層過濾，避免取全部再客端 filter）
+    ///
+    /// 🔴 **既有 bug 修正（2026-08-26）**：本查詢原本沿用了 `sqlx::query_as!` 的
+    /// 型別標註語法 `as "amendment_type: AmendmentType"`，但它是**執行期** `query_as::<_, T>`
+    /// ——那串東西在執行期不是型別標註，是一個**欄位別名**。實測（測試庫）
+    /// `SELECT a.status as "status: AmendmentStatus"` 產生的欄位名就叫
+    /// `status: AmendmentStatus`，於是 `FromRow` 找不到 `status` / `amendment_type`。
+    ///
+    /// 影響：**沒有 `aup.protocol.view_all` 的使用者**（PI 本人、試驗工作人員）
+    /// 打 `GET /amendments` 會落到本函式（`handlers/amendment.rs:122`）並在解列時失敗。
+    /// 有該權限者走 `list()`，不受影響——所以這個洞只對計畫方可見，內部人員測不出來。
     pub async fn list_for_user(
         pool: &PgPool,
         query: &AmendmentQuery,
         user_id: Uuid,
     ) -> Result<Vec<AmendmentListItem>> {
-        let amendments = sqlx::query_as::<_, AmendmentListItem>(
+        let mut amendments = sqlx::query_as::<_, AmendmentListItem>(
             r#"
             SELECT
                 a.id, a.protocol_id, a.amendment_no, a.revision_number,
-                a.amendment_type as "amendment_type: AmendmentType",
-                a.status as "status: AmendmentStatus",
+                a.amendment_type, a.status,
                 a.title, a.description, a.change_items,
                 a.submitted_at, a.classified_at,
                 a.created_at, a.updated_at,
@@ -98,6 +140,7 @@ impl AmendmentService {
         .fetch_all(pool)
         .await?;
 
+        Self::attach_pending_owners(pool, &mut amendments).await?;
         Ok(amendments)
     }
 

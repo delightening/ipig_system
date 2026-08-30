@@ -408,6 +408,25 @@ pub fn routes() -> Router<AppState> {
             "/signatures/protocol/{id}",
             post(handlers::sign_protocol_review).get(handlers::get_protocol_signature_status),
         )
+        // 結案雙簽（設計 A）。
+        //
+        // ⚠️ **兩支分開，不合併成一支依角色分流的端點**（設計文件 §5.7 紅線 3）。
+        // 分開才能讓每支各自只有一種權責檢查、各自只寫一欄，
+        // 也才擋得住「PI 誤觸 SD 那一簽」。
+        //
+        // ⚠️ 路徑刻意不掛在 `/signatures/protocol/{id}` 底下：那支寫的是
+        // `entity_type='protocol'`（審查核准簽章），結案簽章用獨立的
+        // `'protocol_closure'`（裁定 5）。兩者語意完全不同——一個是審查方對申請方
+        // 的把關，一個是申請方對「試驗做完了」的具結。共用前綴會讓人以為是
+        // 同一種簽章的變體，進而寫出「查這份計畫的簽章」卻只查一種的程式碼。
+        .route(
+            "/signatures/protocol-closure/{id}/pi",
+            post(handlers::sign_protocol_closure_pi),
+        )
+        .route(
+            "/signatures/protocol-closure/{id}/sd",
+            post(handlers::sign_protocol_closure_sd),
+        )
         // R30-9b: 撤銷簽章（admin only，require signature.invalidate perm）
         .route(
             "/signatures/{id}/invalidate",
