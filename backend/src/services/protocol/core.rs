@@ -942,9 +942,9 @@ impl ProtocolService {
             r#"
             INSERT INTO protocols (
                 id, protocol_no, title, status, pi_user_id, working_content,
-                start_date, end_date, created_by, is_glp, created_at, updated_at
+                start_date, end_date, created_by, is_glp, pi_is_external, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -968,6 +968,19 @@ impl ProtocolService {
         // 附帶好處：來源若是 migration 006 回填來的（JSON 是字串 "true"、
         // 欄位是 true），複本直接拿 true，不必依賴上面那段字串解析也會對。
         .bind(source.is_glp)
+        // 🔴 CodeRabbit #40 指出：pi_user_id 是直接複製來源的值，
+        // pi_is_external 必須跟著複製，不能讓它落回欄位預設值 false。
+        //
+        // 複製不會改變「這個 pi_user_id 代表的是誰」這件事本身——它可能是
+        // 來源計畫真正的 PI，也可能是來源建立者的外部 PI 佔位值，複製只是把
+        // 同一個 pi_user_id 值搬到新計畫上，並沒有讓佔位變成真人。
+        //
+        // ⚠️ 若省略、讓它落回 DEFAULT false：來源若原本是外部 PI 佔位
+        // （`pi_is_external = true`，`pi_user_id` = 來源建立者），複本的
+        // `created_by` 是**複製者**（通常另有其人），於是複本會被誤判成
+        // 「pi_user_id 是真正的 PI」，之後若複製者想自任 SD，會被 PI≠SD
+        // 誤擋——而複製者根本不是那個 pi_user_id 代表的人。
+        .bind(source.pi_is_external)
         .fetch_one(&mut *tx)
         .await?;
 
