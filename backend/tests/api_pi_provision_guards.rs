@@ -206,6 +206,48 @@ async fn provision_relinks_to_external_pi_only_account() {
     assert_eq!(pi_user_id, existing, "應 relink 到既有外部 PI 帳號");
 }
 
+// ── migration 009：開通完帳號後 pi_is_external 應撥回 false ──
+//
+// 開通前這份計畫的 PI 是外部佔位（pi_user_id = importer，pi_is_external = true，
+// 見 import_approved）；provision_pi_account relink/新建真正的 PI 帳號後，
+// pi_user_id 已經是真實、可識別的人，若 pi_is_external 沒有一併撥回 false，
+// 裁定 16（PI≠SD）的比對會繼續把這份計畫當成「沒有真正的 PI」而略過，
+// 等於白開通——見 services/protocol/pi_provision.rs 的修復說明。
+#[tokio::test]
+#[serial]
+async fn provision_pi_account_clears_pi_is_external_flag() {
+    let app = TestApp::spawn().await;
+    let pi_email = format!(
+        "clears-flag-{}@external.example",
+        &Uuid::new_v4().to_string()[..8]
+    );
+    let protocol_id = seed_import_protocol(&app, &pi_email).await;
+
+    let before: bool = sqlx::query_scalar("SELECT pi_is_external FROM protocols WHERE id = $1")
+        .bind(protocol_id)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("read pi_is_external before provision");
+    assert!(
+        before,
+        "匯入的外部 PI 佔位計畫，開通前應標記為 pi_is_external = true"
+    );
+
+    ProtocolService::provision_pi_account(&app.db_pool, &SYSTEM_TEST, protocol_id)
+        .await
+        .expect("開通 PI 帳號應成功");
+
+    let after: bool = sqlx::query_scalar("SELECT pi_is_external FROM protocols WHERE id = $1")
+        .bind(protocol_id)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("read pi_is_external after provision");
+    assert!(
+        !after,
+        "開通真正的 PI 帳號後，pi_is_external 應撥回 false（否則裁定 16 的 PI≠SD 比對會繼續被跳過）"
+    );
+}
+
 // ── M4：finalize 後（import_pending=false）admin 仍可開通 PI 帳號 ──
 #[tokio::test]
 #[serial]

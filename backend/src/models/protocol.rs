@@ -163,6 +163,16 @@ pub struct Protocol {
     pub close_pi_signature_id: Option<Uuid>,
     /// 結案雙簽：SD 那一簽。注意事項同 `close_pi_signature_id`。
     pub close_sd_signature_id: Option<Uuid>,
+    /// PI 是否為外部人員（無系統帳號）。**權威來源**（migration 009），
+    /// 建立/匯入當下寫死，`UpdateProtocolRequest` 沒有對應欄位，不可變更。
+    ///
+    /// ⚠️ 不要用「`pi_user_id == created_by` 且該使用者現在有沒有 PI 角色」
+    /// 現查回推——角色會變動，兩個方向都會判錯（真 PI 事後失去角色變成
+    /// fail open；佔位建立者事後取得角色變成 fail closed）。裁定 16
+    /// （PI≠SD）判斷 PI 是否有效一律讀本欄位，見
+    /// `services::protocol::core::validate_and_authorize_sd`。
+    #[serde(default)]
+    pub pi_is_external: bool,
 }
 
 /// Protocol 無敏感欄位需脫敏（GLP 稽核需要完整內容；working_content 雖為 jsonb

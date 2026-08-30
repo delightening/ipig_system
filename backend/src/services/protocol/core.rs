@@ -207,13 +207,19 @@ impl ProtocolService {
             Self::validate_and_authorize_sd(&mut tx, actor, sd_id, effective_pi_for_check).await?;
         }
 
+        // 把上面判斷「PI 是不是外部人員的佔位值」的結果**寫死**進去（migration 009），
+        // 不要事後用「pi_user_id == created_by 現查角色」回推——那套啟發式的結果
+        // 會隨事後的角色異動漂移，`update` 之後只讀這個欄位。
+        let pi_is_external = effective_pi_for_check.is_none();
+
         let protocol = sqlx::query_as::<_, Protocol>(
             r#"
             INSERT INTO protocols (
                 id, protocol_no, title, status, pi_user_id, study_director_user_id,
-                working_content, start_date, end_date, created_by, is_glp, created_at, updated_at
+                working_content, start_date, end_date, created_by, is_glp, pi_is_external,
+                created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -230,6 +236,7 @@ impl ProtocolService {
         // 建立當下就把表單上的 GLP 勾選寫進權威欄位——否則新計畫的欄位
         // 一律是 false，與 working_content 立刻不一致。
         .bind(glp_flag_in_content(req.working_content.as_ref()).unwrap_or(false))
+        .bind(pi_is_external)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -496,6 +503,11 @@ impl ProtocolService {
             .await?;
         // 註：&mut tx 經 DerefMut 轉為 &mut PgConnection
 
+        // 把「PI 是不是外部人員的佔位值」寫死進去（migration 009），道理同 create：
+        // `req.pi_user_id` 為 `None` 時 `effective_pi_user_id` 就是匯入者本人的佔位，
+        // 之後 `update` 只讀這個欄位，不再現查角色。
+        let pi_is_external = req.pi_user_id.is_none();
+
         // 申請編號（選填）：trim 後空字串視為 NULL
         let application_no = req
             .application_no
@@ -517,9 +529,9 @@ impl ProtocolService {
                 id, protocol_no, iacuc_no, application_no, title, status, import_pending,
                 pi_user_id, study_director_user_id, working_content,
                 start_date, end_date, submitted_at, approved_at, created_by,
-                source_form_version, is_glp, imported_at, created_at, updated_at
+                source_form_version, is_glp, pi_is_external, imported_at, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -541,6 +553,7 @@ impl ProtocolService {
         .bind(source_form_version)
         // 補登匯入：以匯入內容為準（此時 import_pending=true，尚未鎖定）
         .bind(glp_flag_in_content(req.working_content.as_ref()).unwrap_or(false))
+        .bind(pi_is_external)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -929,9 +942,9 @@ impl ProtocolService {
             r#"
             INSERT INTO protocols (
                 id, protocol_no, title, status, pi_user_id, working_content,
-                start_date, end_date, created_by, is_glp, created_at, updated_at
+                start_date, end_date, created_by, is_glp, pi_is_external, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -955,6 +968,19 @@ impl ProtocolService {
         // 附帶好處：來源若是 migration 006 回填來的（JSON 是字串 "true"、
         // 欄位是 true），複本直接拿 true，不必依賴上面那段字串解析也會對。
         .bind(source.is_glp)
+        // 🔴 CodeRabbit #40 指出：pi_user_id 是直接複製來源的值，
+        // pi_is_external 必須跟著複製，不能讓它落回欄位預設值 false。
+        //
+        // 複製不會改變「這個 pi_user_id 代表的是誰」這件事本身——它可能是
+        // 來源計畫真正的 PI，也可能是來源建立者的外部 PI 佔位值，複製只是把
+        // 同一個 pi_user_id 值搬到新計畫上，並沒有讓佔位變成真人。
+        //
+        // ⚠️ 若省略、讓它落回 DEFAULT false：來源若原本是外部 PI 佔位
+        // （`pi_is_external = true`，`pi_user_id` = 來源建立者），複本的
+        // `created_by` 是**複製者**（通常另有其人），於是複本會被誤判成
+        // 「pi_user_id 是真正的 PI」，之後若複製者想自任 SD，會被 PI≠SD
+        // 誤擋——而複製者根本不是那個 pi_user_id 代表的人。
+        .bind(source.pi_is_external)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -1327,52 +1353,19 @@ impl ProtocolService {
             // `before.pi_user_id`——**而那個值可能是外部 PI 的佔位**（等於建立者，
             // 因為 create 走 `req.pi_user_id.unwrap_or(created_by)`）。
             //
-            // 🔴 直接拿 `Some(before.pi_user_id)` 會誤擋（CodeRabbit #26 指出）。
-            // 2026-08-26 正式庫實查：
-            //   存在「`pi_user_id = created_by` 且尚未指派 SD」的計畫，
-            //   其中有些的建立者角色是 EXPERIMENT_STAFF（正是擔任 SD 的必要角色），
-            //   完全沒有 PI 角色——那不是「PI 開自己的計畫」，是佔位。
-            //   把該建立者指派為 SD 是合理操作，卻會被 PI≠SD 擋掉。
+            // 是不是佔位，讀 `before.pi_is_external`（migration 009）—— 這是
+            // `create`／`import_approved` 在建立/匯入當下就寫死的權威欄位，
+            // 不是每次現查角色回推。
             //
-            // 判別方式（使用者 2026-08-26 裁定：用角色啟發式，不加 schema 欄位）：
-            //   佔位形狀（pi_user_id == created_by）**且該使用者沒有 PI 角色** → 視為佔位。
-            //
-            // 為什麼「佔位形狀」本身不夠：既有那筆真正該擋的 PI=SD 也是這個形狀，
-            // 差別在它的 PI **具 PI 角色**（DIRECTOR, PI）。只看形狀會把它一起放過，
-            // 而它正是裁定 16 要處理的存量。
-            //
-            // ⚠️ **已知缺口：角色是可變的，而這裡讀的是「此刻有沒有 PI 角色」。**
-            // 計畫建立之後才改角色，判別結果就會跟著變——**兩個方向都會出事**：
-            //
-            // | 事後的角色變動 | 後果 | 測試 |
-            // |---|---|---|
-            // | 真 PI **失去** PI 角色 | 被判成佔位 → 自任 SD 被放行（fail open） | `known_gap_real_pi_losing_pi_role_makes_guard_fail_open` |
-            // | 佔位建立者 **取得** PI 角色 | 被判成真 PI → 合法的自任 SD 被擋（fail closed） | `known_gap_placeholder_creator_gaining_pi_role_gets_blocked` |
-            //
-            // 影響範圍（2026-08-27 實測，比初看小）：
-            // - 本閘**只在 `req.study_director_user_id` 為 `Some` 時才跑**（見上面的 `if let`），
-            //   不會擋掉該計畫的其他欄位更新，只擋「設定 SD」這個動作。
-            // - 正式庫目前**沒有**使用者同時具 `PI` 與 `EXPERIMENT_STAFF` 角色，
-            //   所以 fail-closed 那個方向目前無法觸發。角色指派是例行管理動作，隨時會變。
-            // - fail-closed 可繞過（指派別人當 SD，或把 PI 欄位改成真正的外部 PI），不是死鎖。
-            //
-            // 不改用 schema 欄位是因為——就算加了欄位，**既有資料也只能用同一套
-            // 啟發式回填**（沒有 ground truth），對現存計畫的精確度完全一樣；
-            // 欄位只對「未來新建時明確宣告」有意義，屬 API 契約變更，另案處理。
-            // （使用者 2026-08-26 裁定；CodeRabbit #26 第 3 輪建議加欄位，未採納，
-            //   改為把兩個方向都用測試釘住，讓缺口是明寫的而不是沒人知道的。）
-            let pi_is_placeholder = before.pi_user_id == before.created_by
-                && !sqlx::query_scalar::<_, bool>(
-                    r#"SELECT EXISTS(
-                         SELECT 1 FROM user_roles ur
-                         JOIN roles r ON r.id = ur.role_id
-                         WHERE ur.user_id = $1 AND r.code = 'PI'
-                       )"#,
-                )
-                .bind(before.pi_user_id)
-                .fetch_one(&mut *tx)
-                .await?;
-            let effective_pi = if pi_is_placeholder {
+            // 🔴 舊版曾用「`pi_user_id == created_by` 且該使用者**現在**有沒有
+            // PI 角色」現查回推，角色是可變的，兩個方向都會判錯：真 PI 事後
+            // 失去 PI 角色會被誤判成佔位（fail open，自任 SD 被誤放行）；
+            // 佔位建立者事後取得 PI 角色會被誤判成真 PI（fail closed，合法的
+            // 自任 SD 被誤擋）。CodeRabbit #26 第 3 輪指出後改為本欄位——
+            // 建立/匯入當下的判斷結果一旦寫死，就不會再隨事後的角色異動漂移。
+            // 見 `role_change_after_creation_does_not_reopen_real_pi_guard` /
+            // `role_change_after_creation_does_not_reblock_placeholder_creator`。
+            let effective_pi = if before.pi_is_external {
                 None
             } else {
                 Some(before.pi_user_id)
