@@ -1213,12 +1213,23 @@ impl ProtocolService {
             }
         }
 
-        // 取得 PI 資訊
-        let pi_info: Option<(String, String, Option<String>)> =
-            sqlx::query_as("SELECT display_name, email, organization FROM users WHERE id = $1")
-                .bind(protocol.pi_user_id)
-                .fetch_optional(pool)
-                .await?;
+        // 取得 PI 資訊：以研究資料 basic.pi 為準，fallback FK 使用者（同 list()／
+        // my_protocols 等處，DRY）。
+        //
+        // 🔴 外部 PI（無系統帳號）時 `pi_user_id` 只是匯入者的佔位值——直接查
+        // FK 使用者會顯示匯入者本人的姓名/email/單位，而不是真正的外部 PI。
+        // 之前這裡沒走 `pi_sql` helper，是本檔唯一漏掉的一處（其餘顯示查詢都已用）。
+        let pi_info: Option<(String, String, Option<String>)> = sqlx::query_as(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {pi_name}, {pi_email}, {pi_org} FROM protocols p JOIN users u ON u.id = p.pi_user_id WHERE p.id = $1",
+                pi_name = crate::utils::pi_sql::pi_display_name("u.display_name"),
+                pi_email = crate::utils::pi_sql::pi_email("u.email"),
+                pi_org = crate::utils::pi_sql::pi_sponsor_org("u.organization"),
+            )),
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
 
         let (pi_name, pi_email, pi_organization) = pi_info.unwrap_or_default();
 
