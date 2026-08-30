@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use erp_backend::middleware::{ActorContext, CurrentUser};
 use erp_backend::models::{CreateProtocolRequest, UpdateProtocolRequest};
-use erp_backend::services::{access, ProtocolService};
+use erp_backend::services::{access, ProtocolService, UserService};
 use erp_backend::AppError;
 
 async fn seed_user(app: &TestApp, role_code: &str) -> Uuid {
@@ -614,4 +614,100 @@ async fn sd_assignment_blocks_while_user_row_is_locked_for_deactivation() {
             .await
             .expect("read back");
     assert_eq!(after, Some(sd));
+}
+
+/// CodeRabbit #26 第 4 輪建議：既有兩支測試各自只驗證半邊——上面那支驗證
+/// 「指派端會等 users 列的鎖」，`api_glp_sd_disable_guard.rs` 驗證「三條停用
+/// 路徑都會呼叫 GLP SD 防護」。沒有一支真正同時跑**真的指派**（`ProtocolService::update`）
+/// 與**真的停用**（`UserService::deactivate_self`），驗證完整時序：指派先
+/// commit、卡住等待的停用取得鎖之後正確被拒。本測試補上這個端對端情境。
+///
+/// 手法：第三方用 `FOR SHARE` 人工卡住時序——`FOR SHARE` 與指派端自己的
+/// `FOR SHARE`（`validate_and_authorize_sd`）相容、不會擋到它，但與停用端的
+/// `FOR UPDATE` 互斥、會擋住它。這樣才能保證停用端**確實**在指派 commit
+/// 之前就已經卡在鎖上，而不是純粹兩個 async task 恰好跑出這個順序。
+#[tokio::test]
+#[serial]
+async fn end_to_end_pending_deactivation_is_rejected_after_concurrent_sd_assignment_commits() {
+    use std::time::Duration;
+
+    let app = TestApp::spawn().await;
+    let secretary = seed_user(&app, "IACUC_STAFF").await;
+    let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+    let actor = user_actor(secretary, &["IACUC_STAFF"]);
+
+    let create_req_glp = CreateProtocolRequest {
+        title: "端對端併發測試計劃".to_string(),
+        pi_user_id: Some(secretary),
+        working_content: Some(serde_json::json!({ "basic": { "is_glp": true } })),
+        start_date: None,
+        end_date: None,
+        study_director_user_id: None,
+    };
+    let p = ProtocolService::create(&app.db_pool, &actor, &create_req_glp, secretary)
+        .await
+        .expect("create");
+    assert!(
+        p.is_glp,
+        "測試前提不成立：計畫必須是 GLP 案，否則停用防護不會擋"
+    );
+
+    // ── 第三方人工鎖：FOR SHARE，逼停用端先卡住等待 ──
+    let mut holder = app.db_pool.begin().await.expect("begin holder tx");
+    sqlx::query("SELECT is_active FROM users WHERE id = $1 FOR SHARE")
+        .bind(sd)
+        .fetch_one(&mut *holder)
+        .await
+        .expect("holder 取得 FOR SHARE");
+
+    // 真的呼叫停用——此刻應該卡在 FOR UPDATE 上（與 holder 的 FOR SHARE 互斥）。
+    let deactivate_actor = ActorContext::User(user_cu(sd, &["EXPERIMENT_STAFF"]));
+    let db_pool = app.db_pool.clone();
+    let deactivate_task =
+        tokio::spawn(
+            async move { UserService::deactivate_self(&db_pool, &deactivate_actor, sd).await },
+        );
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(
+        !deactivate_task.is_finished(),
+        "停用應該卡在 users 列鎖上；還沒放鎖就結束了代表沒卡住，測試前提不成立"
+    );
+
+    // 真的呼叫指派——與 holder 的 FOR SHARE 相容，不受影響，應正常成功並 commit。
+    let update_req = UpdateProtocolRequest {
+        title: None,
+        working_content: None,
+        start_date: None,
+        end_date: None,
+        study_director_user_id: Some(sd),
+        version: None,
+        source_form_version: None,
+    };
+    let scope = scope_for(&app, secretary, p.id).await;
+    ProtocolService::update(&app.db_pool, &actor, scope, &update_req)
+        .await
+        .expect("指派應成功（holder 的 FOR SHARE 不擋 FOR SHARE）");
+
+    // 放掉人工鎖，讓卡住的停用取得 FOR UPDATE；此時它應該看到剛 commit 的
+    // SD 指派，被 ensure_not_glp_study_director_tx 正確擋下。
+    holder.rollback().await.expect("release holder lock");
+
+    let result = tokio::time::timeout(Duration::from_secs(10), deactivate_task)
+        .await
+        .expect("停用不該逾時——代表放鎖後它仍然卡住")
+        .expect("deactivate_self 所在的 task 不該 panic");
+
+    let err = result
+        .expect_err("指派已經 commit，卡住的停用取得鎖之後應該被 GLP SD 防護擋下，而不是成功");
+    assert!(
+        matches!(err, AppError::BusinessRule(_)),
+        "應該是 GLP SD 防護的 BusinessRule 錯誤，實際：{err:?}"
+    );
+
+    let still_active: bool = sqlx::query_scalar("SELECT is_active FROM users WHERE id = $1")
+        .bind(sd)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("read back");
+    assert!(still_active, "被擋下的停用不該讓帳號真的變成 inactive");
 }
