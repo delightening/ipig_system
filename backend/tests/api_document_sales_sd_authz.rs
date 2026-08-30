@@ -141,6 +141,23 @@ fn so_request(
 
 /// 核心回歸：該計畫層級 SD（僅 EXPERIMENT_STAFF 角色）可替自己負責的計畫開立銷貨單。
 /// 修復前：被 handler 全域角色守門擋成 Forbidden。
+/// 無委員身分檢視權的檢視者。
+///
+/// 本檔測的是「SD 的計畫可見範圍」，與委員會審查的姓名可見性無關。
+/// 給空權限是最保守的選擇：若日後 `get_my_protocols` 又多依賴一個權限，
+/// 這裡會是最先紅的地方，而不是安靜地走進有權限的分支。
+fn viewer_without_committee_access() -> CurrentUser {
+    CurrentUser {
+        id: Uuid::new_v4(),
+        email: "no-perm@example.com".into(),
+        roles: vec![],
+        permissions: vec![],
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    }
+}
+
 #[tokio::test]
 #[serial]
 async fn plan_study_director_can_create_sales_order() {
@@ -378,6 +395,7 @@ async fn sd_only_protocol_list_excludes_member_only_protocols() {
         sd_id,
         &assignable_q,
         false,
+        &viewer_without_committee_access(),
     )
     .await
     .expect("get_my_protocols sd_only=false");
@@ -397,6 +415,7 @@ async fn sd_only_protocol_list_excludes_member_only_protocols() {
         sd_id,
         &assignable_q,
         true,
+        &viewer_without_committee_access(),
     )
     .await
     .expect("get_my_protocols sd_only=true");
@@ -426,9 +445,15 @@ async fn admin_list_with_date_filters_binds_all_params() {
         ..Default::default()
     };
     // is_admin=true、viewer_sees_all_drafts=true 走 build_list_sql；日期佔位符須全數綁定。
-    let res =
-        erp_backend::services::ProtocolService::list(&app.db_pool, &query, admin_id, true, true)
-            .await;
+    let res = erp_backend::services::ProtocolService::list(
+        &app.db_pool,
+        &query,
+        admin_id,
+        true,
+        true,
+        &viewer_without_committee_access(),
+    )
+    .await;
     assert!(
         res.is_ok(),
         "帶 start_date/end_date 的 list 應成功綁定所有參數，實得：{res:?}"

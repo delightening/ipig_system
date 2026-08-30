@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 import type { PendingOwner } from '@/types/pendingOwner'
 
@@ -7,7 +7,7 @@ import type { PendingOwner } from '@/types/pendingOwner'
  * 鎖住 2026-08-26 使用者裁定的四種文案形狀：
  * - 綁角色 → 角色 + 人員
  * - 綁特定人員 → 只有人員，不提角色
- * - 委員會審查（anonymous）→ **一律不列名**，只給人數
+ * - 委員會審查 → 角色 + 委員姓名（**後端已擋掉無權檢視者**，前端不再判斷）
  * - 候選人被職務分離排空 → 明講「無人可處理」，不是空白
  *
  * i18n：t() 回 key 本身，帶 count 時附在後面；斷言比對 key 不比對文案，
@@ -65,21 +65,23 @@ describe('PendingOwnerInline 文案形狀', () => {
         expect(screen.queryByText(/pendingOwner\.role\./)).not.toBeInTheDocument()
     })
 
-    it('委員會審查：一律不列名，只給人數', () => {
+    // ⚠️ 2026-08-27 起委員會審查列出姓名。可見性由**後端**決定：
+    // 無 `aup.protocol.change_status` 者，`pending_owner` 整個是 null，
+    // 前端連 tooltip 都不會出現。前端不再有「不列名」這種形狀。
+    it('委員會審查：角色 + 委員姓名', () => {
         render(
             <PendingOwnerInline
                 owner={{
                     ...base,
                     stage: 'aup_under_review',
-                    kind: 'anonymous',
+                    kind: 'role',
                     role_code: 'REVIEWER',
-                    candidates: [],
-                    overflow: 3,
+                    candidates: ['王大明', '李小華'],
                 }}
             />
         )
         expect(
-            screen.getByText(/pendingOwner\.role\.REVIEWER：pendingOwner\.reviewerCount#3/)
+            screen.getByText(/pendingOwner\.role\.REVIEWER：王大明、李小華/)
         ).toBeInTheDocument()
     })
 
@@ -172,5 +174,38 @@ describe('PendingOwnerBadge', () => {
         const trigger = screen.getByRole('button')
         expect(trigger.tagName).toBe('DIV')
         expect(trigger).toContainElement(screen.getByText('待核准'))
+    })
+
+    /**
+     * ⚠️ 在這支之前，**沒有任何測試斷言過 tooltip 打開後使用者看到什麼**。
+     *
+     * 既有測試全都在測 `PendingOwnerInline`（手機版）或這顆 trigger 本身，
+     * 而桌機使用者看到的是 tooltip 的內容——那是這整個功能存在的理由
+     *（「hover 待核准時顯示卡在誰那裡」）。`PendingOwnerBody` 因此一行都沒被執行過。
+     *
+     * Radix 的 tooltip 對鍵盤聚焦是**立即開啟**（`delayDuration` 只作用於 hover），
+     * 所以 focus 就夠，不需要 user-event 或假計時器。
+     */
+    it('打開 tooltip 後顯示關卡、負責人、已等待天數', async () => {
+        render(
+            <PendingOwnerBadge
+                owner={{
+                    ...base,
+                    candidates: ['王大明', '李小華'],
+                    since: '2026-08-21T03:00:00Z',
+                }}
+            >
+                <span>待核准</span>
+            </PendingOwnerBadge>
+        )
+        fireEvent.focus(screen.getByRole('button'))
+
+        expect(await screen.findByText('pendingOwner.stage.doc_wm_approve')).toBeInTheDocument()
+        expect(
+            screen.getByText(/pendingOwner\.role\.WAREHOUSE_MANAGER：王大明、李小華/)
+        ).toBeInTheDocument()
+        // 天數隨今天而變，只斷言形狀——釘住「有 since 就顯示天數」這條連接。
+        // 確切數字由上面「PendingOwnerInline 等待天數」那組用假計時器負責。
+        expect(screen.getByText(/common\.waitingDays#\d+/)).toBeInTheDocument()
     })
 })

@@ -16,15 +16,15 @@ import type { PendingOwner } from '@/types/pendingOwner'
  * - `role`：綁角色 → 角色 + 人員（「倉庫管理員：王大明、李小華 等 5 人」）
  * - `person`：綁特定人員 → 只給人員，不提角色
  * - `applicant`：球在申請人身上（補件），關卡名稱已表明，只給人名
- * - `anonymous`：IACUC 委員會審查 → **對所有人一律不列名**，只給人數
+ *
+ * ⚠️ 2026-08-27 移除第四種 `anonymous`（不列名、只給人數）。委員會審查改為
+ * 「IACUC 行政方看得到姓名、其餘所有人後端直接不回 `pending_owner`」，
+ * 沒有「知道幾位但不知道是誰」這個中間狀態，那條分支變成永遠走不到。
  */
 
 /** 姓名清單的顯示字串；`role` / `person` / `applicant` 共用。 */
 function useOwnerNames(owner: PendingOwner): string {
     const { t } = useTranslation()
-    if (owner.kind === 'anonymous') {
-        return t('pendingOwner.reviewerCount', { count: owner.overflow })
-    }
     if (owner.candidates.length === 0) {
         // 候選人被 SoD 排空（例：唯一的倉管就是建單者）。這是有意義的資訊，
         // 不能顯示成空白——那會讓卡死的單看起來跟正常待審的單一樣。
@@ -40,8 +40,7 @@ function useOwnerNames(owner: PendingOwner): string {
 function useOwnerLine(owner: PendingOwner): string {
     const { t } = useTranslation()
     const names = useOwnerNames(owner)
-    const showsRole =
-        (owner.kind === 'role' || owner.kind === 'anonymous') && owner.role_code !== null
+    const showsRole = owner.kind === 'role' && owner.role_code !== null
     if (!showsRole) return names
     return `${t(`pendingOwner.role.${owner.role_code}`)}：${names}`
 }

@@ -24,6 +24,7 @@
 
 mod common;
 use common::TestApp;
+use erp_backend::middleware::CurrentUser;
 use erp_backend::models::{AmendmentQuery, AmendmentStatus};
 use erp_backend::services::AmendmentService;
 use serial_test::serial;
@@ -88,6 +89,23 @@ async fn seed_amendment_visible_to_member(pool: &PgPool) -> (Uuid, Uuid) {
     (user_id, amendment_id)
 }
 
+/// 無任何權限的檢視者。
+///
+/// 本檔測的是「PI / 非成員看變更申請列表」，那正是**沒有** `aup.protocol.change_status`
+/// 的情境——委員會審查中的那幾筆對他們不該有 `pending_owner`。
+/// 用有權限的檢視者會讓這支迴歸測試偏離它原本要守的東西。
+fn viewer_without_committee_access() -> CurrentUser {
+    CurrentUser {
+        id: Uuid::new_v4(),
+        email: "no-perm@example.com".into(),
+        roles: vec![],
+        permissions: vec![],
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    }
+}
+
 #[tokio::test]
 #[serial]
 async fn list_for_user_decodes_status_and_type() {
@@ -102,6 +120,7 @@ async fn list_for_user_decodes_status_and_type() {
             amendment_type: None,
         },
         user_id,
+        &viewer_without_committee_access(),
     )
     .await
     .expect(
@@ -151,6 +170,7 @@ async fn list_for_user_still_scopes_to_member_protocols() {
             amendment_type: None,
         },
         outsider,
+        &viewer_without_committee_access(),
     )
     .await
     .expect("list_for_user");

@@ -905,6 +905,7 @@ impl ProtocolService {
         viewer_id: Uuid,
         is_admin: bool,
         viewer_sees_all_drafts: bool,
+        viewer: &crate::middleware::CurrentUser,
     ) -> Result<Vec<ProtocolListItem>> {
         // 固定參數：$1=viewer_id、$2=is_admin、$3=viewer_sees_all_drafts；可選過濾自 $4 起。
         let mut qb =
@@ -940,7 +941,7 @@ impl ProtocolService {
         let ids: Vec<Uuid> = protocols.iter().map(|p| p.id).collect();
         if !ids.is_empty() {
             let mut owners =
-                crate::services::pending_owner::resolve_for_protocols(pool, &ids).await?;
+                crate::services::pending_owner::resolve_for_protocols(pool, &ids, viewer).await?;
             for row in &mut protocols {
                 row.pending_owner = owners.remove(&row.id);
             }

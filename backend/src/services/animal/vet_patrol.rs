@@ -51,6 +51,15 @@ pub struct VetPatrolReport {
     /// 其餘查詢未 SELECT 此欄，靠 sqlx(default) 補 None。
     #[sqlx(default)]
     pub created_by_name: Option<String>,
+    /// 這份現在卡在誰手上（僅送出後、未完成的兩個狀態有值）。
+    ///
+    /// - `sqlx(skip)` 而非 `default`：`PendingOwner` 不是 DB 型別、沒有 `Decode`。
+    /// - `skip_deserializing`：本欄是伺服器算給前端看的，**永遠不從線上讀回來**。
+    ///   本結構有 `Deserialize`（audit snapshot 需要），不加這個就等於替一個
+    ///   純顯示欄位開了輸入路徑。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none", default, skip_deserializing)]
+    pub pending_owner: Option<crate::models::PendingOwner>,
 }
 
 // R26-9: 巡場報告含觀察、建議、後續追蹤等醫療紀錄內容，為 GLP 研究資料本身，
@@ -558,6 +567,23 @@ impl VetPatrolReportService {
                 .await?
             }
         };
+
+        // 「卡在誰」批次補算：送出後未完成的那幾份都在等指派的追蹤者。
+        let mut reports = reports;
+        let pending_ids: Vec<Uuid> = reports
+            .iter()
+            .filter(|r| r.status == status::AWAITING_ACK || r.status == status::AWAITING_FOLLOW_UP)
+            .map(|r| r.id)
+            .collect();
+        if !pending_ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_vet_patrol_reports(pool, &pending_ids)
+                    .await?;
+            for row in &mut reports {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
+
         Ok(reports)
     }
 

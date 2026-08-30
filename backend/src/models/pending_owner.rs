@@ -33,9 +33,18 @@ pub enum PendingOwnerKind {
     Person,
     /// 球在申請人自己身上（需修正 / 補件）→ 顯示「待申請人補件：某某」。
     Applicant,
-    /// 刻意不列名：IACUC 委員會審查中，委員身分對所有人一律不揭露，只給人數。
-    Anonymous,
 }
+
+// ⚠️ 這裡原本有第四個變體 `Anonymous`（不列名、只給人數），給 IACUC 委員會審查用。
+//
+// 2026-08-27 移除：使用者裁定收斂成「IACUC 行政方看得到委員姓名、其餘所有人
+// **完全沒有 tooltip**」，沒有「知道有幾位但不知道是誰」這個中間狀態，
+// 所以那個變體不再有任何產生者（`services/pending_owner/aup.rs` 改為在查詢層
+// 就把無權者的 `UNDER_REVIEW` 排除）。
+//
+// 留著它不會被編譯器抓到（`pub` enum 的未用變體不算 dead code），
+// 前端也會繼續保留一條永遠走不到的分支——那正是本次一連串修正在處理的形狀：
+// **看起來還活著的死路**。
 
 /// 某筆待處理單據 / 申請「現在卡在誰」。
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -44,13 +53,12 @@ pub struct PendingOwner {
     /// 例 `doc_wm_approve`。全站唯一，故一律帶模組前綴。
     pub stage: String,
     pub kind: PendingOwnerKind,
-    /// 角色代碼（`kind = Role` / `Anonymous` 才有意義），前端查
+    /// 角色代碼（`kind = Role` 才有意義），前端查
     /// `pendingOwner.role.<role_code>`，例 `WAREHOUSE_MANAGER`。
     pub role_code: Option<String>,
     /// 已列出的人名，至多 [`MAX_LISTED_CANDIDATES`] 個。
     pub candidates: Vec<String>,
     /// 未列出的人數。總人數 = `candidates.len() + overflow`。
-    /// `kind = Anonymous` 時 `candidates` 為空、總人數全記在這裡。
     pub overflow: i64,
     /// 進入本關的時間，前端用來算「已等待 N 天」。取不到時為 None（前端不顯示天數）。
     pub since: Option<DateTime<Utc>>,
@@ -77,23 +85,6 @@ impl PendingOwner {
             role_code,
             candidates: names,
             overflow,
-            since,
-        }
-    }
-
-    /// 刻意不列名的關卡（IACUC 委員會審查）：只給人數。
-    pub fn anonymous(
-        stage: impl Into<String>,
-        role_code: impl Into<String>,
-        count: i64,
-        since: Option<DateTime<Utc>>,
-    ) -> Self {
-        Self {
-            stage: stage.into(),
-            kind: PendingOwnerKind::Anonymous,
-            role_code: Some(role_code.into()),
-            candidates: Vec::new(),
-            overflow: count,
             since,
         }
     }
@@ -147,13 +138,5 @@ mod tests {
             a.candidates, b.candidates,
             "同一組人不論查詢順序，列出的人名必須一致"
         );
-    }
-
-    #[test]
-    fn anonymous_lists_nobody_but_keeps_the_count() {
-        let owner = PendingOwner::anonymous("aup_under_review", "REVIEWER", 3, None);
-        assert!(owner.candidates.is_empty(), "委員身分一律不列名");
-        assert_eq!(owner.overflow, 3);
-        assert_eq!(owner.kind, PendingOwnerKind::Anonymous);
     }
 }

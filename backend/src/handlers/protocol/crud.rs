@@ -242,7 +242,8 @@ pub async fn list_protocols(
     // 一起改為顯式的 `is_admin()`——若一邊改一邊沒改，下拉會列出送出後才被擋的計畫。
     let sd_only = query.sd_only && !current_user.is_admin();
     let mut protocols = if sd_only {
-        ProtocolService::get_my_protocols(&state.db, current_user.id, &query, true).await?
+        ProtocolService::get_my_protocols(&state.db, current_user.id, &query, true, &current_user)
+            .await?
     } else if current_user.is_admin() || has_view_all {
         ProtocolService::list(
             &state.db,
@@ -250,10 +251,12 @@ pub async fn list_protocols(
             current_user.id,
             current_user.is_admin(),
             viewer_sees_all_drafts,
+            &current_user,
         )
         .await?
     } else {
-        ProtocolService::get_my_protocols(&state.db, current_user.id, &query, false).await?
+        ProtocolService::get_my_protocols(&state.db, current_user.id, &query, false, &current_user)
+            .await?
     };
     if is_reviewer_only {
         protocols.retain(|p| {
@@ -584,6 +587,7 @@ pub async fn get_my_protocols(
         current_user.id,
         &ProtocolQuery::default(),
         false,
+        &current_user,
     )
     .await?;
     Ok(Json(protocols))

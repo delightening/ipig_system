@@ -42,11 +42,13 @@ pub mod aup;
 pub mod document;
 pub mod equipment;
 pub mod hr;
+pub mod vet_patrol;
 
 pub use aup::{resolve_for_amendments, resolve_for_protocols};
 pub use document::resolve_for_documents;
 pub use equipment::{resolve_for_disposals, resolve_for_idle_requests, resolve_for_maintenance};
 pub use hr::resolve_for_overtime;
+pub use vet_patrol::resolve_for_vet_patrol_reports;
 
 /// 一個關卡的合法處理人是怎麼查出來的。
 ///
