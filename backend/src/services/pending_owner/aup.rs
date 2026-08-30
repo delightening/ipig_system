@@ -208,7 +208,22 @@ async fn resolve_protocol_assignees(
                   FROM review_assignments ra
                   JOIN users ru ON ru.id = ra.reviewer_id
                  WHERE ra.protocol_id = p.id AND ra.completed_at IS NULL) AS reviewer_names,
-               COALESCE(p.submitted_at, p.updated_at) AS since
+               -- CodeRabbit #31：同 `resolve_amendment_assignees` 那條——`since` 要算
+               -- 「進入目前這一關的時間」。一份計畫可能在獸醫審查 / 委員會審查 / 補件
+               -- 之間繞好幾圈，`submitted_at` 是最初送審日，從頭到尾不變，拿它當
+               -- VET_REVIEW / UNDER_REVIEW / 需修正三關共用的起算點，等於每繞一圈就
+               -- 多算一圈的等待時間。改成「最後一次轉進目前 status 的時間」
+               -- （`record_status_change_tx` 是 `protocols.status` 唯一寫入路徑，
+               -- 每次轉移都會在 `protocol_activities` 留一筆 `to_value`）。
+               COALESCE(
+                 (SELECT pa.created_at
+                    FROM protocol_activities pa
+                   WHERE pa.protocol_id = p.id AND pa.to_value = p.status::text
+                   ORDER BY pa.created_at DESC
+                   LIMIT 1),
+                 p.submitted_at,
+                 p.updated_at
+               ) AS since
         FROM protocols p
         LEFT JOIN vet_review_assignments vra ON vra.protocol_id = p.id
         LEFT JOIN users vu ON vu.id = vra.vet_id
@@ -391,7 +406,21 @@ async fn resolve_amendment_assignees(
                   FROM amendment_review_assignments ara
                   JOIN users ru ON ru.id = ara.reviewer_id
                  WHERE ara.amendment_id = a.id AND ara.decided_at IS NULL) AS reviewer_names,
-               COALESCE(a.submitted_at, a.updated_at) AS since
+               -- CodeRabbit #31：`since` 要算「進入目前這一關的時間」，不是原始送審時間。
+               -- 一份變更申請可能被退回補件、重送、再退回好幾輪，`submitted_at` 從頭到尾
+               -- 不變——用它當 UNDER_REVIEW / REVISION_REQUIRED 的起算點，等於把「已經
+               -- 卡在這一關多久」算成「從最初送出到現在多久」，案子繞了幾圈就多算幾圈。
+               -- 改成「最後一次轉進目前 status 的時間」（同一 status 沒有查無記錄的問題，
+               -- 因為 `record_status_change` 是唯一寫入路徑，每次轉移都會留一筆）。
+               COALESCE(
+                 (SELECT ash.created_at
+                    FROM amendment_status_history ash
+                   WHERE ash.amendment_id = a.id AND ash.to_status = a.status
+                   ORDER BY ash.created_at DESC
+                   LIMIT 1),
+                 a.submitted_at,
+                 a.updated_at
+               ) AS since
         FROM amendments a
         LEFT JOIN users su ON su.id = a.submitted_by
         LEFT JOIN users cu ON cu.id = a.created_by

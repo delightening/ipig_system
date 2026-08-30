@@ -14,6 +14,7 @@
 //! 都拿不到（不是拿到空名單——那會讓前端仍然畫出一個空 tooltip）。
 
 mod common;
+use chrono::{Duration, Utc};
 use common::TestApp;
 use erp_backend::middleware::CurrentUser;
 use erp_backend::models::PendingOwnerKind;
@@ -243,6 +244,61 @@ async fn revision_required_points_back_at_the_applicant() {
         );
         assert_eq!(owner.candidates, vec![pi_name], "{status} 應指向 PI");
     }
+}
+
+/// CodeRabbit #31：`since` 要算「進入目前這一關的時間」，不是原始送審時間。
+///
+/// 造一份很久以前送審、但**最近**才轉進 `UNDER_REVIEW` 的計畫（模擬繞了一圈：
+/// 送審 → 審查 → 退回補件 → 重送 → 再進審查）。若 `since` 錯拿 `submitted_at`，
+/// 會顯示「已經等了 30 天」；正確答案是「剛進審查沒多久」。
+#[tokio::test]
+#[serial]
+async fn stage_aging_uses_last_transition_not_original_submission() {
+    let app = TestApp::spawn().await;
+    let (protocol, pi) = seed_protocol(&app.db_pool, "UNDER_REVIEW").await;
+
+    // seed_protocol 把 submitted_at 設成 NOW()；改成 30 天前，模擬案子拖了很久。
+    let long_ago = Utc::now() - Duration::days(30);
+    sqlx::query("UPDATE protocols SET submitted_at = $2 WHERE id = $1")
+        .bind(protocol)
+        .bind(long_ago.date_naive())
+        .execute(&app.db_pool)
+        .await
+        .expect("backdate submitted_at");
+
+    // 最近才轉進 UNDER_REVIEW 這一關。
+    let recent_transition = Utc::now() - Duration::hours(2);
+    sqlx::query(
+        "INSERT INTO protocol_activities (id, protocol_id, activity_type, actor_id, to_value, created_at) \
+         VALUES (gen_random_uuid(), $1, 'STATUS_CHANGED'::protocol_activity_type, $2, 'UNDER_REVIEW', $3)",
+    )
+    .bind(protocol)
+    .bind(pi)
+    .bind(recent_transition)
+    .execute(&app.db_pool)
+    .await
+    .expect("seed protocol_activities transition");
+
+    let owners = pending_owner::resolve_for_protocols(
+        &app.db_pool,
+        &[protocol],
+        &viewer(&[PERM_CHANGE_STATUS]),
+    )
+    .await
+    .expect("resolve");
+    let owner = owners.get(&protocol).expect("UNDER_REVIEW 必須有待處理人");
+
+    let since = owner.since.expect("since 應算得出來");
+    let diff_from_transition = (since - recent_transition).num_seconds().abs();
+    assert!(
+        diff_from_transition < 5,
+        "since 應該是最近一次轉進 UNDER_REVIEW 的時間，實際差了 {diff_from_transition} 秒：{since}"
+    );
+    let diff_from_submission = (since - long_ago).num_seconds().abs();
+    assert!(
+        diff_from_submission > 29 * 24 * 3600,
+        "since 不該算回 30 天前的原始送審時間：{since}"
+    );
 }
 
 /// 已核准 / 已結案的計畫不在等任何人。

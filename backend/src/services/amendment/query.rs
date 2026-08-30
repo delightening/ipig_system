@@ -11,10 +11,23 @@ use crate::{
 
 use super::AmendmentService;
 
-/// 「待處理」變更申請的狀態集合（待分類 SUBMITTED/RESUBMITTED + 待審查 CLASSIFIED/UNDER_REVIEW）。
-/// 抽為單一常數供 `get_pending_count` 與 `get_pending_count_for_user` 共用，防兩者定義分歧（CodeRabbit #772）。
-const PENDING_AMENDMENT_STATUSES: [&str; 4] =
+/// staff 需要動手的變更申請狀態（待分類 SUBMITTED/RESUBMITTED + 待審查 CLASSIFIED/UNDER_REVIEW）。
+/// 抽為單一常數供 `get_pending_count` 與 `get_pending_count_for_user` 共用其共同部分，
+/// 防兩者在這四個狀態上定義分歧（CodeRabbit #772）。
+const PENDING_AMENDMENT_STATUSES_STAFF: [&str; 4] =
     ["SUBMITTED", "RESUBMITTED", "CLASSIFIED", "UNDER_REVIEW"];
+
+/// 申請人角度多出來的待處理狀態：`REVISION_REQUIRED`。
+///
+/// ⚠️ **不能把它併進 `PENDING_AMENDMENT_STATUSES_STAFF` 本身**（CodeRabbit #31 指出）：
+/// `REVISION_REQUIRED` 時球在申請人手上，staff 不需要做任何事，不該算進 staff 的
+/// 全域 triage badge；但對申請人來說，那正是「我需要交修正版」的待辦，
+/// 沒算進去的話申請人自己的 badge 會漏算自己被退回補件的案子。
+///
+/// `get_pending_count_for_user` 用 `PENDING_AMENDMENT_STATUSES_STAFF` 加這一個
+/// 組成自己的清單（見下方），不是重新打一份四個狀態——共同的四個永遠只有一份
+/// 定義，不會重蹈 #772（兩份各自維護、在共同狀態上分歧）的覆轍。
+const PENDING_AMENDMENT_STATUS_REVISION_REQUIRED: &str = "REVISION_REQUIRED";
 
 impl AmendmentService {
     /// 取得單一變更申請（含關聯資訊）
@@ -251,7 +264,7 @@ impl AmendmentService {
             WHERE status::text = ANY($1)
             "#,
         )
-        .bind(&PENDING_AMENDMENT_STATUSES[..])
+        .bind(&PENDING_AMENDMENT_STATUSES_STAFF[..])
         .fetch_one(pool)
         .await?;
 
@@ -260,7 +273,14 @@ impl AmendmentService {
 
     /// R75-9：非 staff 的待處理數量——僅計使用者可見計畫（`user_protocols`）的 pending
     /// amendments，與 `list_for_user` 的可見範圍一致，避免全域工作量洩漏給 PI/CLIENT。
+    ///
+    /// ⚠️ 比 staff 版多算 `REVISION_REQUIRED`（CodeRabbit #31）：見上方常數的說明。
     pub async fn get_pending_count_for_user(pool: &PgPool, user_id: Uuid) -> Result<i64> {
+        let statuses: Vec<&str> = PENDING_AMENDMENT_STATUSES_STAFF
+            .iter()
+            .copied()
+            .chain(std::iter::once(PENDING_AMENDMENT_STATUS_REVISION_REQUIRED))
+            .collect();
         let count: (i64,) = sqlx::query_as(
             r#"
             SELECT COUNT(*) FROM amendments
@@ -268,7 +288,7 @@ impl AmendmentService {
               AND protocol_id IN (SELECT protocol_id FROM user_protocols WHERE user_id = $2)
             "#,
         )
-        .bind(&PENDING_AMENDMENT_STATUSES[..])
+        .bind(&statuses[..])
         .bind(user_id)
         .fetch_one(pool)
         .await?;
