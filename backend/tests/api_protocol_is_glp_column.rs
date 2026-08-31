@@ -42,6 +42,19 @@ async fn seed_user(app: &TestApp, role_code: &str) -> Uuid {
     id
 }
 
+/// 同時具備多個角色的使用者。
+async fn add_role(app: &TestApp, user_id: Uuid, role_code: &str) {
+    sqlx::query(
+        "INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE code = $2
+         ON CONFLICT DO NOTHING",
+    )
+    .bind(user_id)
+    .bind(role_code)
+    .execute(&app.db_pool)
+    .await
+    .expect("add role");
+}
+
 fn user_cu(id: Uuid, roles: &[&str]) -> CurrentUser {
     CurrentUser {
         id,
@@ -513,4 +526,71 @@ async fn copy_inherits_is_glp_column_not_json() {
         is_glp,
         "複本應繼承來源欄位的 true，即使 working_content 裡沒有 is_glp"
     );
+}
+
+/// 🔴 **複製要繼承來源的 `pi_is_external`，不能落回欄位預設值 false**
+/// （CodeRabbit #40 指出）。
+///
+/// `pi_user_id` 是直接複製來源的值，`pi_is_external` 必須跟著複製——複製
+/// 不會讓一個外部 PI 的佔位值變成真人。若省略、讓它落回 DEFAULT false：
+/// 來源是外部 PI 佔位（`pi_user_id` = 來源建立者）時，複本的 `created_by`
+/// 是**複製者**（另有其人），於是複本會被誤判成「pi_user_id 是真正的 PI」，
+/// 複製者之後想自任 SD 會被 PI≠SD（裁定 16）誤擋。
+#[tokio::test]
+#[serial]
+async fn copy_inherits_pi_is_external_flag() {
+    let app = TestApp::spawn().await;
+    // 執秘無 PI 角色，PI 留空 → pi_user_id 佔位成執秘本人，pi_is_external = true。
+    // 額外給執秘 EXPERIMENT_STAFF 角色，讓他之後有資格被指派為 SD
+    // （否則會先被角色檢查擋下，測不到本支要測的重點）。
+    let secretary = seed_user(&app, "IACUC_STAFF").await;
+    add_role(&app, secretary, "EXPERIMENT_STAFF").await;
+    let copier = seed_user(&app, "IACUC_STAFF").await;
+    let actor = user_actor(secretary, &["IACUC_STAFF"]);
+
+    let mut req = create_req(secretary, None, false);
+    req.pi_user_id = None; // 外部 PI 佔位
+    let p = ProtocolService::create(&app.db_pool, &actor, &req, secretary)
+        .await
+        .expect("create");
+    assert!(
+        p.pi_is_external,
+        "留空 PI 且建立者無 PI 角色，應標記為外部佔位"
+    );
+
+    // 由另一個人（copier）複製，複本的 created_by 會是 copier，而不是 secretary——
+    // 正是「pi_user_id == created_by」這個形狀在複製後被打破的情境。
+    let source_scope = access::Scoped::<access::ProtocolId>::authorize(
+        &app.db_pool,
+        &user_cu(copier, &["IACUC_STAFF"]),
+        p.id,
+    )
+    .await
+    .expect("authorize copy source");
+    let copier_actor = user_actor(copier, &["IACUC_STAFF"]);
+    let copy = ProtocolService::copy(&app.db_pool, &copier_actor, source_scope, copier)
+        .await
+        .expect("copy");
+
+    assert_eq!(copy.pi_user_id, secretary, "複本的 pi_user_id 應與來源相同");
+    assert!(
+        copy.pi_is_external,
+        "複本應繼承來源的 pi_is_external = true，不能落回欄位預設值 false"
+    );
+
+    // 行為驗證：複製者之後把「pi_user_id 代表的那個人（secretary）」指派為
+    // 這份複本的 SD，應該放行——因為那從頭到尾就是個外部佔位，不是真正的 PI。
+    let req = UpdateProtocolRequest {
+        title: None,
+        working_content: None,
+        start_date: None,
+        end_date: None,
+        study_director_user_id: Some(secretary),
+        version: None,
+        source_form_version: None,
+    };
+    let scope = scope_for(&app, copier, copy.id).await;
+    ProtocolService::update(&app.db_pool, &copier_actor, scope, &req)
+        .await
+        .expect("外部 PI 佔位的複本，指派佔位值本人為 SD 應該可行");
 }

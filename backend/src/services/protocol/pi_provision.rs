@@ -259,13 +259,18 @@ impl ProtocolService {
             .await?;
         }
 
-        // relink pi_user_id（若與現值不同）
-        if before.pi_user_id != pi_user_id {
-            sqlx::query("UPDATE protocols SET pi_user_id = $1, updated_at = NOW() WHERE id = $2")
-                .bind(pi_user_id)
-                .bind(protocol_id)
-                .execute(&mut *tx)
-                .await?;
+        // relink pi_user_id（若與現值不同）；不論 id 是否變更，本函式成功執行到這裡
+        // 就代表這份計畫已經有真正的 PI 帳號了，一併把 `pi_is_external` 撥成
+        // false（migration 009）——否則開通完帳號後這個權威欄位還留著「外部
+        // 佔位」，裁定 16（PI≠SD）的比對會繼續被跳過，等於白開通。
+        if before.pi_user_id != pi_user_id || before.pi_is_external {
+            sqlx::query(
+                "UPDATE protocols SET pi_user_id = $1, pi_is_external = false, updated_at = NOW() WHERE id = $2",
+            )
+            .bind(pi_user_id)
+            .bind(protocol_id)
+            .execute(&mut *tx)
+            .await?;
         }
 
         let after: Protocol =

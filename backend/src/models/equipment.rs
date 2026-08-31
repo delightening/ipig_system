@@ -405,6 +405,11 @@ pub struct MaintenanceRecordWithDetails {
     pub reviewed_at: Option<DateTime<Utc>>,
     pub review_notes: Option<String>,
     pub created_at: DateTime<Utc>,
+    /// 這筆現在卡在誰手上（僅 `pending` / `pending_review` 有值）。`skip` 而非
+    /// `default` 的理由同 `DocumentListItem::pending_owner`：`PendingOwner` 沒有 `Decode`。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<crate::models::PendingOwner>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -507,6 +512,11 @@ pub struct DisposalWithDetails {
     pub rejection_reason: Option<String>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
+    /// 這筆現在卡在誰手上（僅 `pending` 有值）。`skip` 而非 `default` 的理由同
+    /// `DocumentListItem::pending_owner`：`PendingOwner` 不是 DB 型別、沒有 `Decode`。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<crate::models::PendingOwner>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -555,6 +565,11 @@ pub struct IdleRequestWithDetails {
     pub rejection_reason: Option<String>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
+    /// 這筆現在卡在誰手上（僅 `pending` 有值）。`skip` 而非 `default` 的理由同
+    /// `DocumentListItem::pending_owner`：`PendingOwner` 不是 DB 型別、沒有 `Decode`。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<crate::models::PendingOwner>,
 }
 
 // 無敏感欄位；R71-3 audit before/after diff 用。

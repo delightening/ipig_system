@@ -53,7 +53,7 @@ regex = "1"
 rand = "0.10"
 
 # Excel generation
-rust_xlsxwriter = "0.98"
+rust_xlsxwriter = "0.99"
 
 # Excel/CSV parsing
 calamine = { version = "0.36", features = ["chrono"] }

@@ -10,6 +10,7 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { PendingOwnerBadge } from '@/components/PendingOwnerBadge'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import {
@@ -87,8 +88,10 @@ export function ProtocolListTab() {
 
   const hasFilters = search || (statusFilter && statusFilter !== 'all')
 
-  const getStatusBadge = (status: ProtocolStatus) => (
-    <Badge variant={statusColors[status]}>{getStatusName(status)}</Badge>
+  const getStatusBadge = (protocol: ProtocolListItem) => (
+    <PendingOwnerBadge owner={protocol.pending_owner}>
+      <Badge variant={statusColors[protocol.status]}>{getStatusName(protocol.status)}</Badge>
+    </PendingOwnerBadge>
   )
 
   // 可編輯狀態（草稿 / 各退回補件）；實際是否顯示編輯鈕再 AND 後端的 can_edit（PI / SD / admin）。
@@ -225,7 +228,7 @@ export function ProtocolListTab() {
                   </TableCell>
                   <TableCell>{protocol.pi_name}</TableCell>
                   <TableCell>{protocol.pi_organization || '-'}</TableCell>
-                  <TableCell>{getStatusBadge(protocol.status)}</TableCell>
+                  <TableCell>{getStatusBadge(protocol)}</TableCell>
                   <TableCell>{protocol.start_date && protocol.end_date ? `${formatDate(protocol.start_date)} ~ ${formatDate(protocol.end_date)}` : '-'}</TableCell>
                   <TableCell>{formatDate(protocol.created_at)}</TableCell>
                   <TableCell className="text-right">

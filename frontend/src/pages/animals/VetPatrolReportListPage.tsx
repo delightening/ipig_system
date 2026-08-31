@@ -17,6 +17,8 @@ import { useAuthHasPermission, useAuthUser, useAuthHasRole } from '@/stores/auth
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { PendingOwnerBadge } from '@/components/PendingOwnerBadge'
+import type { PendingOwner } from '@/types/pendingOwner'
 import { VetPatrolReportDialog } from '@/components/animal/VetPatrolReportDialog'
 import { VetPatrolReportView } from '@/components/animal/VetPatrolReportView'
 import { VetPatrolReportRowActions } from './VetPatrolReportRowActions'
@@ -37,6 +39,8 @@ interface ReportRow {
     submitted_at?: string | null
     updated_at: string
     last_message_at?: string
+    /** 這份現在卡在誰手上；僅送出後未完成的兩個狀態有值 */
+    pending_owner?: PendingOwner
 }
 
 // 單一列表的狀態篩選分類；'all' = 全部，其餘對應報告生命週期三段。
@@ -289,10 +293,13 @@ export default function VetPatrolReportListPage() {
                                         {r.accompanying_personnel || <span className="text-muted-foreground">—</span>}
                                     </td>
                                     <td className="px-4 py-3">
-                                        {/* awaiting_acknowledgement 與 awaiting_follow_up 皆歸「已送出」分類 */}
-                                        <span className={`inline-block px-2 py-0.5 rounded text-xs ${bucket.className}`}>
-                                            {bucket.label}
-                                        </span>
+                                        {/* awaiting_acknowledgement 與 awaiting_follow_up 皆歸「已送出」分類；
+                                            兩者在等的人與動作不同，靠 hover 補回被折疊掉的那層資訊 */}
+                                        <PendingOwnerBadge owner={r.pending_owner}>
+                                            <span className={`inline-block px-2 py-0.5 rounded text-xs ${bucket.className}`}>
+                                                {bucket.label}
+                                            </span>
+                                        </PendingOwnerBadge>
                                     </td>
                                     <td className="px-4 py-3 text-muted-foreground text-xs">
                                         {format(new Date(r.updated_at), 'yyyy-MM-dd HH:mm')}

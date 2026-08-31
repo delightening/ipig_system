@@ -16,15 +16,15 @@ import type { PendingOwner } from '@/types/pendingOwner'
  * - `role`：綁角色 → 角色 + 人員（「倉庫管理員：王大明、李小華 等 5 人」）
  * - `person`：綁特定人員 → 只給人員，不提角色
  * - `applicant`：球在申請人身上（補件），關卡名稱已表明，只給人名
- * - `anonymous`：IACUC 委員會審查 → **對所有人一律不列名**，只給人數
+ *
+ * ⚠️ 2026-08-27 移除第四種 `anonymous`（不列名、只給人數）。委員會審查改為
+ * 「IACUC 行政方看得到姓名、其餘所有人後端直接不回 `pending_owner`」，
+ * 沒有「知道幾位但不知道是誰」這個中間狀態，那條分支變成永遠走不到。
  */
 
 /** 姓名清單的顯示字串；`role` / `person` / `applicant` 共用。 */
 function useOwnerNames(owner: PendingOwner): string {
     const { t } = useTranslation()
-    if (owner.kind === 'anonymous') {
-        return t('pendingOwner.reviewerCount', { count: owner.overflow })
-    }
     if (owner.candidates.length === 0) {
         // 候選人被 SoD 排空（例：唯一的倉管就是建單者）。這是有意義的資訊，
         // 不能顯示成空白——那會讓卡死的單看起來跟正常待審的單一樣。
@@ -40,8 +40,7 @@ function useOwnerNames(owner: PendingOwner): string {
 function useOwnerLine(owner: PendingOwner): string {
     const { t } = useTranslation()
     const names = useOwnerNames(owner)
-    const showsRole =
-        (owner.kind === 'role' || owner.kind === 'anonymous') && owner.role_code !== null
+    const showsRole = owner.kind === 'role' && owner.role_code !== null
     if (!showsRole) return names
     return `${t(`pendingOwner.role.${owner.role_code}`)}：${names}`
 }
@@ -71,7 +70,18 @@ interface PendingOwnerBadgeProps {
 }
 
 /**
- * 用 tooltip 包住狀態徽章。Radix Trigger 本身是 button，鍵盤可聚焦，不是純 hover-only。
+ * 用 tooltip 包住狀態徽章。
+ *
+ * ⚠️ **必須用 `asChild` + `<div>` 包裝**，兩者缺一不可（CodeRabbit 於 PR #30 指出）：
+ *
+ * - 不加 `asChild`：Radix 自己渲染一顆 `<button>` 包住 children，而 `Badge`
+ *   （`components/ui/badge.tsx:36`）渲染的是 `<div>`——`<button><div>` 是無效巢狀。
+ * - 包裝元素**不能用 `<span>`**：`<span>` 是 phrasing content，一樣容不下 `<div>`。
+ *   `<div>` 則同時容得下 `Badge` 的 `<div>` 與 `StatusBadge` 的 `<span>`，
+ *   配 `inline-flex` 維持行內排版。
+ *
+ * `tabIndex={0}` + `role="button"` 補回原本「鍵盤可達、不是純 hover-only」的行為
+ * （Radix 預設 trigger 是 button，改 `asChild` 後那個特性要自己帶）。
  *
  * ⚠️ 手機沒有 hover，窄版面請改用 [`PendingOwnerInline`] 直接寫在版面上。
  */
@@ -79,7 +89,11 @@ export function PendingOwnerBadge({ owner, children }: PendingOwnerBadgeProps) {
     if (!owner) return <>{children}</>
     return (
         <Tooltip>
-            <TooltipTrigger className="cursor-help align-middle">{children}</TooltipTrigger>
+            <TooltipTrigger asChild>
+                <div className="cursor-help align-middle inline-flex" tabIndex={0} role="button">
+                    {children}
+                </div>
+            </TooltipTrigger>
             <TooltipContent>
                 <PendingOwnerBody owner={owner} />
             </TooltipContent>
@@ -87,12 +101,12 @@ export function PendingOwnerBadge({ owner, children }: PendingOwnerBadgeProps) {
     )
 }
 
-function PendingOwnerInlineBody({ owner }: { owner: PendingOwner }) {
+function PendingOwnerInlineBody({ owner, className }: { owner: PendingOwner; className?: string }) {
     const { t } = useTranslation()
     const line = useOwnerLine(owner)
     const days = getWaitingDays(owner.since)
     return (
-        <div>
+        <div className={className}>
             <span className="text-muted-foreground">
                 {t(`pendingOwner.stage.${owner.stage}`)}：
             </span>
@@ -109,8 +123,24 @@ function PendingOwnerInlineBody({ owner }: { owner: PendingOwner }) {
     )
 }
 
-/** 窄容器 / 卡片版：不靠 hover，直接把「卡在誰、等了幾天」寫在版面上。 */
-export function PendingOwnerInline({ owner }: { owner: PendingOwner | null | undefined }) {
+/**
+ * 窄容器 / 卡片版：不靠 hover，直接把「卡在誰、等了幾天」寫在版面上。
+ *
+ * ⚠️ **樣式用 `className` 傳進來，不要在外面包一層 wrapper。**
+ * 沒有待處理人時本元件回 `null`，但外層 wrapper 不會跟著消失——
+ * 放在 `space-y-*` 容器裡就會多出一份間距（CodeRabbit 於 #30 指出，
+ * `AllRecordsTable` 的手機卡片實例）。
+ *
+ * 呼叫端自己加 `{owner && <div>…</div>}` 也修得掉，但那會讓「有沒有東西可顯示」
+ * 這個判斷同時存在兩處——本 PR 一路在修的正是這種分岔。所以改成元件自己帶 box。
+ */
+export function PendingOwnerInline({
+    owner,
+    className,
+}: {
+    owner: PendingOwner | null | undefined
+    className?: string
+}) {
     if (!owner) return null
-    return <PendingOwnerInlineBody owner={owner} />
+    return <PendingOwnerInlineBody owner={owner} className={className} />
 }

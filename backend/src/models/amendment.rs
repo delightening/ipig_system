@@ -357,6 +357,12 @@ pub struct AmendmentListItem {
     pub submitted_by_name: Option<String>,
     #[sqlx(default)]
     pub classified_by_name: Option<String>,
+    /// 這件現在卡在誰手上（目前僅待分類 / 已分類待送審兩關有值）。
+    /// `skip` 而非 `default` 的理由同 `DocumentListItem::pending_owner`：
+    /// `PendingOwner` 不是 DB 型別、沒有 `Decode`。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<crate::models::PendingOwner>,
 }
 
 /// 審查委員指派回應（含用戶資訊）

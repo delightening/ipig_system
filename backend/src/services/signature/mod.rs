@@ -590,6 +590,40 @@ impl SignatureService {
             return Err(AppError::Conflict("簽章已作廢，無法重複作廢".into()));
         }
 
+        // CodeRabbit review（PR #38）：結案簽章（protocol_closure）作廢前的終態守門。
+        //
+        // `ProtocolStatus::is_terminal` 把 `CLOSED` 列為終態，`can_change_status_to`
+        // 對終態一律回 false——沒有任何路徑能把已結案的計畫轉回可簽狀態
+        // （`sign_closure` 也只接受 `APPROVED` / `APPROVED_WITH_CONDITIONS`）。
+        // 若在這裡放行作廢，`protocols.close_*_signature_id` 仍指向這張已作廢的簽章，
+        // `dual_signature_ready` 變 false，但協定永遠簽不回去——稽核要求的
+        // 「CLOSED ⇒ 雙簽有效」不變式從此永久破損，且無法透過本系統任何流程修復。
+        //
+        // 刻意不做「作廢時自動把協定轉回可簽狀態」：那是變更狀態機終態語意的產品決策，
+        // 不是簽章作廢這個通用函式該自己決定的。改為直接擋下這一種作廢，
+        // 需要更正時另走資料修復流程。
+        if before.entity_type == "protocol_closure" {
+            let closed_protocol: Option<Uuid> = sqlx::query_scalar(
+                r#"SELECT id FROM protocols
+                     WHERE id::text = $1
+                       AND status = 'CLOSED'::protocol_status
+                       AND (close_pi_signature_id = $2 OR close_sd_signature_id = $2)
+                     FOR UPDATE"#,
+            )
+            .bind(&before.entity_id)
+            .bind(signature_id)
+            .fetch_optional(&mut **tx)
+            .await?;
+            if closed_protocol.is_some() {
+                return Err(AppError::BusinessRule(
+                    "此簽章是已結案（CLOSED）計畫的結案簽章。CLOSED 為狀態機終態，\
+                     計畫無法轉回可簽狀態，故此簽章不可作廢——如需更正，\
+                     請改走資料修復流程，而非簽章作廢。"
+                        .into(),
+                ));
+            }
+        }
+
         // UPDATE 為作廢狀態
         let after = sqlx::query_as::<_, ElectronicSignature>(
             r#"

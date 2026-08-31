@@ -50,7 +50,7 @@ impl EquipmentService {
         .fetch_one(pool)
         .await?;
 
-        let data = sqlx::query_as::<_, IdleRequestWithDetails>(
+        let mut data = sqlx::query_as::<_, IdleRequestWithDetails>(
             r#"
             SELECT ir.id, ir.equipment_id, e.name AS equipment_name,
                    ir.request_type, ir.reason, ir.status,
@@ -73,6 +73,21 @@ impl EquipmentService {
         .bind(offset)
         .fetch_all(pool)
         .await?;
+
+        // 「卡在誰」整頁批次補算（僅待核准的那幾筆）。
+        let pending_ids: Vec<Uuid> = data
+            .iter()
+            .filter(|r| r.status == DisposalStatus::Pending)
+            .map(|r| r.id)
+            .collect();
+        if !pending_ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_idle_requests(pool, &pending_ids)
+                    .await?;
+            for row in &mut data {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
 
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
@@ -123,6 +138,8 @@ impl EquipmentService {
             ));
         }
 
+        let mut tx = pool.begin().await?;
+
         let record = sqlx::query_as::<_, IdleRequestWithDetails>(
             r#"
             WITH inserted AS (
@@ -146,8 +163,22 @@ impl EquipmentService {
         .bind(&payload.reason)
         .bind(current_user.id)
         .bind(&payload.notes)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
+
+        // 閒置/復用申請待核准 → 建立待辦。INSERT 搬進 tx 的理由同 disposal：
+        // 待辦要與申請本體同生共死（見 `services/notification/stages.rs` 模組註解）。
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        let stage_emails = notification_svc
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EquipmentIdle(record.id),
+                Some(current_user.id),
+            )
+            .await?;
+
+        tx.commit().await?;
+        notification_svc.send_stage_emails(stage_emails).await;
 
         Ok(record)
     }
@@ -302,6 +333,15 @@ impl EquipmentService {
             },
         )
         .await?;
+
+        // 核准或駁回都讓這筆離開 pending → 同步後待辦消失（同一個 tx）。
+        crate::services::NotificationService::new(pool.clone())
+            .sync_stage_todos_tx(
+                &mut tx,
+                crate::services::StageEntity::EquipmentIdle(after.id),
+                Some(current_user.id),
+            )
+            .await?;
 
         tx.commit().await?;
 

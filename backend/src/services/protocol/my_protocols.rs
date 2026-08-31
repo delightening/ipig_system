@@ -28,6 +28,7 @@ impl ProtocolService {
         user_id: Uuid,
         query: &ProtocolQuery,
         sd_only: bool,
+        viewer: &crate::middleware::CurrentUser,
     ) -> Result<Vec<ProtocolListItem>> {
         // 綁定順序須與 super::push_optional_protocol_filters 產生的佔位符一致：
         // $1=user_id，接著 status → keyword → pi_user_id → start_date → end_date。
@@ -52,7 +53,19 @@ impl ProtocolService {
         if let Some(ed) = query.end_date {
             q = q.bind(ed);
         }
-        let protocols = q.fetch_all(pool).await?;
+        let mut protocols = q.fetch_all(pool).await?;
+
+        // 「卡在誰」批次補算（同 `core::list`）。「我的計劃」正是 PI 最常來看
+        // 「我送審的案子卡在哪」的地方。
+        let ids: Vec<Uuid> = protocols.iter().map(|p| p.id).collect();
+        if !ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_protocols(pool, &ids, viewer).await?;
+            for row in &mut protocols {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
+
         Ok(protocols)
     }
 

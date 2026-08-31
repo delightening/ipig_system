@@ -4,14 +4,15 @@ use uuid::Uuid;
 
 use validator::Validate;
 
+use super::history::event_type_for;
 use super::ProtocolService;
 use crate::{
     middleware::ActorContext,
     models::{
-        audit_diff::DataDiff, CreatePartnerRequest, CreateProtocolRequest,
-        ImportApprovedProtocolRequest, PartnerType, Protocol, ProtocolActivityType,
-        ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolRole, ProtocolStatus,
-        UpdateProtocolRequest,
+        audit_diff::{AuditRedact, DataDiff},
+        CreatePartnerRequest, CreateProtocolRequest, ImportApprovedProtocolRequest, PartnerType,
+        Protocol, ProtocolActivityType, ProtocolListItem, ProtocolQuery, ProtocolResponse,
+        ProtocolRole, ProtocolStatus, UpdateProtocolRequest,
     },
     services::{
         access,
@@ -22,6 +23,23 @@ use crate::{
 };
 
 const CONFLICT_MSG: &str = "此記錄已被其他人修改，請重新載入後再試。";
+
+/// SD 變更專用的 focused audit diff（裁定 21）。
+///
+/// 存在理由：`DataDiff::compute` 吃 `Serialize + AuditRedact`，直接餵整個
+/// `Protocol` 會得到「整份快照」——`changed_fields` 裡雖然有
+/// `study_director_user_id`，但同時還有其他一起變動的欄位，
+/// 於是無法用它區分「這次改了 SD」與「這次改了一堆東西、SD 剛好也在裡面」。
+/// 只放這一個欄位，`changed_fields` 就恰好等於 `["study_director_user_id"]`。
+///
+/// 不含姓名、只存 UUID：稽核要查是誰，join `users` 即可；
+/// 把姓名複製進不可竄改的 audit row 等於在裡面固化個資。
+#[derive(serde::Serialize)]
+struct SdChangeAudit {
+    study_director_user_id: Option<Uuid>,
+}
+
+impl AuditRedact for SdChangeAudit {}
 
 /// 驗證匯入里程碑日期依時序遞增
 /// （申請→預審→獸醫→委員一審→補件→委員二審→核准）。只檢查有填的里程碑。
@@ -146,17 +164,62 @@ impl ProtocolService {
 
         // 計劃負責人（SD，選填）：客戶/PI 建立時通常留空，由執行秘書事後指派。
         // 有指定時驗證 + 授權（僅執秘/admin 可指派他人，其餘限本人）。
+        //
+        // 🔴 判準必須與 `update` 一致（CodeRabbit #26 第 2 輪指出）。
+        //
+        // 第一版直接傳 `req.pi_user_id`，理由是「PI 留空時退回 `created_by` 是佔位，
+        // 拿它比對 SD 會誤擋執秘自任 SD（裁定 10／11）」。那個理由對，但**不完整**：
+        // `req.pi_user_id` 為 `None` 時，`created_by` **不一定**是佔位——
+        // 他也可能是真的 PI 在建自己的計畫。
+        //
+        // 漏掉的攻擊路徑：同時具 `PI` 與 `EXPERIMENT_STAFF` 的人，建立計畫時
+        // 不填 pi_user_id、把自己設成 SD → 存進去的 `pi_user_id` 與
+        // `study_director_user_id` 都是他本人 → **裁定 16 被繞過**。
+        // 而 `update` 那邊的啟發式抓不到它（那人有 PI 角色，不算佔位），
+        // 只會擋住之後的變更——但違規狀態已經在建立時就寫進去了。
+        //
+        // 2026-08-26 實測正式庫：**沒有**使用者同時具那兩個角色，
+        // 所以目前**無法觸發**。
+        // 仍然修，因為角色指派是例行管理動作，而且 create 與 update 判準不一致
+        // 本身就是遲早會咬人的東西。
+        let effective_pi_for_check = match req.pi_user_id {
+            Some(explicit) => Some(explicit),
+            // PI 留空：只有在建立者「沒有 PI 角色」時才視為外部 PI 的佔位
+            None => {
+                let creator_is_pi = sqlx::query_scalar::<_, bool>(
+                    r#"SELECT EXISTS(
+                         SELECT 1 FROM user_roles ur
+                         JOIN roles r ON r.id = ur.role_id
+                         WHERE ur.user_id = $1 AND r.code = 'PI'
+                       )"#,
+                )
+                .bind(created_by)
+                .fetch_one(&mut *tx)
+                .await?;
+                if creator_is_pi {
+                    Some(created_by)
+                } else {
+                    None
+                }
+            }
+        };
         if let Some(sd_id) = req.study_director_user_id {
-            Self::validate_and_authorize_sd(&mut tx, actor, sd_id).await?;
+            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, effective_pi_for_check).await?;
         }
+
+        // 把上面判斷「PI 是不是外部人員的佔位值」的結果**寫死**進去（migration 009），
+        // 不要事後用「pi_user_id == created_by 現查角色」回推——那套啟發式的結果
+        // 會隨事後的角色異動漂移，`update` 之後只讀這個欄位。
+        let pi_is_external = effective_pi_for_check.is_none();
 
         let protocol = sqlx::query_as::<_, Protocol>(
             r#"
             INSERT INTO protocols (
                 id, protocol_no, title, status, pi_user_id, study_director_user_id,
-                working_content, start_date, end_date, created_by, is_glp, created_at, updated_at
+                working_content, start_date, end_date, created_by, is_glp, pi_is_external,
+                created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -173,6 +236,7 @@ impl ProtocolService {
         // 建立當下就把表單上的 GLP 勾選寫進權威欄位——否則新計畫的欄位
         // 一律是 false，與 working_content 立刻不一致。
         .bind(glp_flag_in_content(req.working_content.as_ref()).unwrap_or(false))
+        .bind(pi_is_external)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -225,14 +289,80 @@ impl ProtocolService {
     }
 
     /// 驗證並授權「計劃負責人（SD）」指派：SD 必須是啟用中、本公司內部、具
-    /// EXPERIMENT_STAFF 角色者；且僅 IACUC_STAFF / 管理員可指派「他人」為 SD，
+    /// EXPERIMENT_STAFF 角色者，且**不得與該計畫的 PI 為同一人**（裁定 16）；
+    /// 授權上僅 IACUC_STAFF / 管理員可指派「他人」為 SD，
     /// 其餘登入者只能指派自己。System actor（維運/種子）不受限。
     /// 共用於 import_approved / create / update（DRY，CLAUDE.md §7 權限集中）。
     async fn validate_and_authorize_sd(
         conn: &mut sqlx::PgConnection,
         actor: &ActorContext,
         sd_id: Uuid,
+        pi_user_id: Option<Uuid>,
     ) -> Result<()> {
+        // 裁定 16：PI 不可兼任同一計畫的 SD。
+        //
+        // ⚠️ 這不是形式上的職稱分離，而是**結案雙簽的正確性前提**：
+        // 裁定 9 要求 PI 與 SD 各簽一次才能結案，同一人的話兩張簽章的
+        // signer_id 會是同一個 UUID——稽核鏈上看起來是「雙方認可」，
+        // 實際是自簽自證，正是 21 CFR §11.10(g) 職權分離要防的東西。
+        //
+        // 放在最前面而不是最後：先擋掉語意上不合法的組合，再談那個人有沒有
+        // 資格當 SD。錯誤訊息也因此更貼近使用者實際做錯的事——PI 通常是外部
+        // 人員、本來就沒有 EXPERIMENT_STAFF 角色，若讓角色檢查先跑，
+        // 使用者收到的會是「此人不具試驗工作人員角色」，完全看不出真正的問題。
+        //
+        // ⚠️ 為什麼參數是 `Option`：`create` 與 `import_approved` 都用
+        // `req.pi_user_id.unwrap_or(created_by)`——**外部 PI（沒有系統帳號）時，
+        // `protocols.pi_user_id` 記的是匯入者本人**，通常就是執行祕書。
+        // 拿那個佔位值做職責分離檢查在語意上是錯的：它不代表任何人是 PI，
+        // 而裁定 10／11 明確允許執秘自任 SD。所以只在 PI **被明確指定**
+        // （`req.pi_user_id.is_some()`）時才比對。
+        //
+        // 2026-08-25 實測正式庫：存在 `pi_user_id = created_by` 的計畫，
+        // 其中同時 PI=SD 的是少數（即裁定 16 要處理的存量），
+        // 所以這個放寬目前不會漏掉任何真實的違規案例。
+        if let Some(pi_id) = pi_user_id {
+            if sd_id == pi_id {
+                return Err(AppError::Validation(
+                    "計畫主持人（PI）不可兼任同一計畫的計劃負責人（Study Director）；請改指派其他試驗工作人員"
+                        .into(),
+                ));
+            }
+        }
+
+        // 🔴 **與「停用帳號」序列化**（CodeRabbit #27 第 3 輪指出，2026-08-27）。
+        //
+        // 沒有這道鎖時的競態：
+        //   T1 指派 SD → 讀到該使用者 is_active = true（無鎖）
+        //   T2 停用該使用者 → 對 users 列 FOR UPDATE → 檢查「有沒有未結案 GLP 案
+        //      以他為 SD」→ 此刻 T1 還沒寫入 → 通過 → 停用
+        //   T1 寫入 protocols.study_director_user_id → commit
+        //   結果：**已停用的人成為未結案 GLP 計畫的 SD，而兩邊的閘都通過了**。
+        //
+        // 為什麼 FOR SHARE 就夠、而且不會死鎖（2026-08-27 實測確認前提）：
+        //   指派端鎖序 = protocols FOR UPDATE → users FOR SHARE
+        //   停用端鎖序 = users FOR UPDATE → 讀 protocols（**不加鎖**，
+        //     MVCC 下純 SELECT 不會等 FOR UPDATE）
+        //   停用端從不等待 protocols 上的鎖，所以沒有循環等待。
+        //
+        //   兩種先後都能擋住（isolation 為預設的 read committed）：
+        //   - 停用端先拿到 users 鎖 → 指派端卡在 FOR SHARE →
+        //     停用 commit 後指派端才讀 is_active → 讀到 false → 擋下。
+        //   - 指派端先拿到 FOR SHARE → 停用端卡在 FOR UPDATE →
+        //     指派 commit 後停用端才跑 GLP 檢查，那是**新的一句 SQL**，
+        //     read committed 會取新快照 → 看得到剛寫入的 SD → 擋下。
+        //
+        // ⚠️ 鎖獨立成一句，不併進下面的 EXISTS：帶 join 的 EXISTS 子查詢加鎖定子句
+        // 在 Postgres 有限制（且鎖到哪張表不明顯）。分開寫也讓「鎖的是 users 這一列」
+        // 這件事直接看得出來。
+        let sd_exists: Option<bool> =
+            sqlx::query_scalar("SELECT is_active FROM users WHERE id = $1 FOR SHARE")
+                .bind(sd_id)
+                .fetch_optional(&mut *conn)
+                .await?;
+        // 不存在就讓下面的資格查詢回同一句錯誤訊息，不另外分歧。
+        let _ = sd_exists;
+
         let sd_is_valid: bool = sqlx::query_scalar(
             r#"SELECT EXISTS(
                  SELECT 1 FROM users u
@@ -245,7 +375,7 @@ impl ProtocolService {
         )
         .bind(sd_id)
         .bind(crate::constants::ROLE_EXPERIMENT_STAFF)
-        .fetch_one(conn)
+        .fetch_one(&mut *conn)
         .await?;
         if !sd_is_valid {
             return Err(AppError::Validation(
@@ -366,8 +496,17 @@ impl ProtocolService {
         }
 
         // 計劃負責人（SD）驗證 + 授權（共用 helper；外部協作者即使誤掛 EXPERIMENT_STAFF 也不得任 SD）
-        Self::validate_and_authorize_sd(&mut tx, actor, req.study_director_user_id).await?;
+        //
+        // 同 create：傳 `req.pi_user_id` 而非 `effective_pi_user_id`。
+        // 補登匯入的計畫多半是外部 PI，那時 effective 值等於匯入者本人（佔位）。
+        Self::validate_and_authorize_sd(&mut tx, actor, req.study_director_user_id, req.pi_user_id)
+            .await?;
         // 註：&mut tx 經 DerefMut 轉為 &mut PgConnection
+
+        // 把「PI 是不是外部人員的佔位值」寫死進去（migration 009），道理同 create：
+        // `req.pi_user_id` 為 `None` 時 `effective_pi_user_id` 就是匯入者本人的佔位，
+        // 之後 `update` 只讀這個欄位，不再現查角色。
+        let pi_is_external = req.pi_user_id.is_none();
 
         // 申請編號（選填）：trim 後空字串視為 NULL
         let application_no = req
@@ -390,9 +529,9 @@ impl ProtocolService {
                 id, protocol_no, iacuc_no, application_no, title, status, import_pending,
                 pi_user_id, study_director_user_id, working_content,
                 start_date, end_date, submitted_at, approved_at, created_by,
-                source_form_version, is_glp, imported_at, created_at, updated_at
+                source_form_version, is_glp, pi_is_external, imported_at, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -414,6 +553,7 @@ impl ProtocolService {
         .bind(source_form_version)
         // 補登匯入：以匯入內容為準（此時 import_pending=true，尚未鎖定）
         .bind(glp_flag_in_content(req.working_content.as_ref()).unwrap_or(false))
+        .bind(pi_is_external)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -802,9 +942,9 @@ impl ProtocolService {
             r#"
             INSERT INTO protocols (
                 id, protocol_no, title, status, pi_user_id, working_content,
-                start_date, end_date, created_by, is_glp, created_at, updated_at
+                start_date, end_date, created_by, is_glp, pi_is_external, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -828,6 +968,19 @@ impl ProtocolService {
         // 附帶好處：來源若是 migration 006 回填來的（JSON 是字串 "true"、
         // 欄位是 true），複本直接拿 true，不必依賴上面那段字串解析也會對。
         .bind(source.is_glp)
+        // 🔴 CodeRabbit #40 指出：pi_user_id 是直接複製來源的值，
+        // pi_is_external 必須跟著複製，不能讓它落回欄位預設值 false。
+        //
+        // 複製不會改變「這個 pi_user_id 代表的是誰」這件事本身——它可能是
+        // 來源計畫真正的 PI，也可能是來源建立者的外部 PI 佔位值，複製只是把
+        // 同一個 pi_user_id 值搬到新計畫上，並沒有讓佔位變成真人。
+        //
+        // ⚠️ 若省略、讓它落回 DEFAULT false：來源若原本是外部 PI 佔位
+        // （`pi_is_external = true`，`pi_user_id` = 來源建立者），複本的
+        // `created_by` 是**複製者**（通常另有其人），於是複本會被誤判成
+        // 「pi_user_id 是真正的 PI」，之後若複製者想自任 SD，會被 PI≠SD
+        // 誤擋——而複製者根本不是那個 pi_user_id 代表的人。
+        .bind(source.pi_is_external)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -887,6 +1040,7 @@ impl ProtocolService {
         viewer_id: Uuid,
         is_admin: bool,
         viewer_sees_all_drafts: bool,
+        viewer: &crate::middleware::CurrentUser,
     ) -> Result<Vec<ProtocolListItem>> {
         // 固定參數：$1=viewer_id、$2=is_admin、$3=viewer_sees_all_drafts；可選過濾自 $4 起。
         let mut qb =
@@ -916,6 +1070,18 @@ impl ProtocolService {
         // 失敗一律向上拋（不再 unwrap_or_default → []，避免授權/查詢錯誤被誤判為「無計畫」）。
         let mut protocols: Vec<ProtocolListItem> = qb.fetch_all(pool).await?;
         Self::backfill_apig_nos(pool, &mut protocols).await?;
+
+        // 「卡在誰」批次補算。目前只涵蓋行政受理 / 預審那幾關；委員會審查與需修正
+        // 兩類的形狀不同（前者卡在指派委員、後者卡在申請人），解析器會回空。
+        let ids: Vec<Uuid> = protocols.iter().map(|p| p.id).collect();
+        if !ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_protocols(pool, &ids, viewer).await?;
+            for row in &mut protocols {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
+
         Ok(protocols)
     }
 
@@ -1047,12 +1213,23 @@ impl ProtocolService {
             }
         }
 
-        // 取得 PI 資訊
-        let pi_info: Option<(String, String, Option<String>)> =
-            sqlx::query_as("SELECT display_name, email, organization FROM users WHERE id = $1")
-                .bind(protocol.pi_user_id)
-                .fetch_optional(pool)
-                .await?;
+        // 取得 PI 資訊：以研究資料 basic.pi 為準，fallback FK 使用者（同 list()／
+        // my_protocols 等處，DRY）。
+        //
+        // 🔴 外部 PI（無系統帳號）時 `pi_user_id` 只是匯入者的佔位值——直接查
+        // FK 使用者會顯示匯入者本人的姓名/email/單位，而不是真正的外部 PI。
+        // 之前這裡沒走 `pi_sql` helper，是本檔唯一漏掉的一處（其餘顯示查詢都已用）。
+        let pi_info: Option<(String, String, Option<String>)> = sqlx::query_as(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {pi_name}, {pi_email}, {pi_org} FROM protocols p JOIN users u ON u.id = p.pi_user_id WHERE p.id = $1",
+                pi_name = crate::utils::pi_sql::pi_display_name("u.display_name"),
+                pi_email = crate::utils::pi_sql::pi_email("u.email"),
+                pi_org = crate::utils::pi_sql::pi_sponsor_org("u.organization"),
+            )),
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
 
         let (pi_name, pi_email, pi_organization) = pi_info.unwrap_or_default();
 
@@ -1182,7 +1359,32 @@ impl ProtocolService {
         // 讀 `before.is_glp`（權威欄位）而非 working_content：後者是可編輯的表單內容，
         // 拿它當規則判定來源等於沒有規則。有了上面的雙向鎖，兩者也不可能再分歧。
         if let Some(sd_id) = req.study_director_user_id {
-            Self::validate_and_authorize_sd(&mut tx, actor, sd_id).await?;
+            // ⚠️ update 這條路徑與 create／import 不同：`UpdateProtocolRequest`
+            // 沒有 pi_user_id 欄位（PI 不可透過 update 變更），所以只能用
+            // `before.pi_user_id`——**而那個值可能是外部 PI 的佔位**（等於建立者，
+            // 因為 create 走 `req.pi_user_id.unwrap_or(created_by)`）。
+            //
+            // 是不是佔位，讀 `before.pi_is_external`（migration 009）—— 這是
+            // `create`／`import_approved` 在建立/匯入當下就寫死的權威欄位，
+            // 不是每次現查角色回推。
+            //
+            // 🔴 舊版曾用「`pi_user_id == created_by` 且該使用者**現在**有沒有
+            // PI 角色」現查回推，角色是可變的，兩個方向都會判錯：真 PI 事後
+            // 失去 PI 角色會被誤判成佔位（fail open，自任 SD 被誤放行）；
+            // 佔位建立者事後取得 PI 角色會被誤判成真 PI（fail closed，合法的
+            // 自任 SD 被誤擋）。CodeRabbit #26 第 3 輪指出後改為本欄位——
+            // 建立/匯入當下的判斷結果一旦寫死，就不會再隨事後的角色異動漂移。
+            // 見 `role_change_after_creation_does_not_reopen_real_pi_guard` /
+            // `role_change_after_creation_does_not_reblock_placeholder_creator`。
+            let effective_pi = if before.pi_is_external {
+                None
+            } else {
+                Some(before.pi_user_id)
+            };
+            Self::validate_and_authorize_sd(&mut tx, actor, sd_id, effective_pi).await?;
+            // rebase 衝突解法（2026-08-25）：本分支原本在這裡從 working_content
+            // 重推 is_glp，而 #25（裁定 14）的整個重點就是**不要**那樣做——
+            // 判定來源必須是權威欄位 `before.is_glp`。取 main 的版本。
             if before.is_glp
                 && before.study_director_user_id.is_some()
                 && before.study_director_user_id != Some(sd_id)
@@ -1233,6 +1435,77 @@ impl ProtocolService {
         .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::Conflict(CONFLICT_MSG.to_string()))?;
+
+        // ── SD 變更的專屬稽核事件（裁定 21）─────────────────────────────
+        //
+        // ⚠️ 為什麼不能只靠下面那個 PROTOCOL_UPDATE：
+        // 稽核報表上看不出「這次 update 改的是 SD」——它跟改標題、改日期長得
+        // 一模一樣，要靠人去比對 before/after 的 JSON 才知道。而 GLP 稽核會問
+        // 「這份計畫的 SD 換過幾次、誰換的」，那個問題現在答不出來。
+        //
+        // 實測（2026-08-25 正式庫）：`user_activity_logs` 裡 `changed_fields`
+        // 真的含 `study_director` 的只有 **1 筆**，其餘 153 筆是整份快照剛好
+        // 帶到這個欄位。也就是說現況連「換過幾次」都得靠人工判讀。
+        //
+        // 比對 before/updated 而非 before/req：`req.study_director_user_id`
+        // 為 None 時 UPDATE 走 COALESCE 保留原值，拿 req 判斷會把「沒帶」
+        // 誤當成「沒變」——雖然結論相同，但一旦日後改成可清空 SD 就會出錯。
+        // 比實際寫入結果最準。
+        if before.study_director_user_id != updated.study_director_user_id {
+            if let Some(new_sd) = updated.study_director_user_id {
+                // 裁定 11：執秘可以自我指派，但稽核要看得出來。
+                // 判定用 actor 而非 req——指派者就是這次操作的人。
+                let self_assigned = actor.actor_user_id() == Some(new_sd);
+                Self::record_activity_tx(
+                    &mut tx,
+                    actor,
+                    id,
+                    ProtocolActivityType::SdAssigned,
+                    before.study_director_user_id.map(|u| u.to_string()),
+                    Some(new_sd.to_string()),
+                    None,
+                    None,
+                    Some(serde_json::json!({
+                        "from_user_id": before.study_director_user_id,
+                        "to_user_id": new_sd,
+                        "assigned_by": actor.actor_user_id(),
+                        "self_assigned": self_assigned,
+                    })),
+                )
+                .await?;
+
+                // 🔴 `record_activity_tx` **不寫 `user_activity_logs`**（PR #269
+                // Option C，見 history.rs L91-96）——它只落 `protocol_activities`。
+                // 少了下面這段，SD 變更在全域稽核軸上仍然只有一筆 PROTOCOL_UPDATE，
+                // 裁定 21 等於沒做。而且 `protocol_activities` 不在 HMAC chain 上，
+                // 不可竄改的那條軸看不到 SD 換人這件事。
+                //
+                // 這裡刻意帶 focused diff 而非 `data_diff: None`（reviewer / vet
+                // 指派走 None 是因為那兩者本來就沒有 before/after）：SD 的 from→to
+                // 就是稽核要問的東西，放進 HMAC 保護的 row 才有意義，
+                // 且讓 `changed_fields = ["study_director_user_id"]` 可直接篩選——
+                // 正是上面實測指出「整份快照剛好帶到這個欄位」所缺的那個判準。
+                AuditService::log_activity_tx(
+                    &mut tx,
+                    actor,
+                    ActivityLogEntry {
+                        event_category: "AUP",
+                        event_type: event_type_for(ProtocolActivityType::SdAssigned),
+                        entity: Some(AuditEntity::new("protocol", id, &updated.title)),
+                        data_diff: Some(DataDiff::compute(
+                            Some(&SdChangeAudit {
+                                study_director_user_id: before.study_director_user_id,
+                            }),
+                            Some(&SdChangeAudit {
+                                study_director_user_id: Some(new_sd),
+                            }),
+                        )),
+                        request_context: None,
+                    },
+                )
+                .await?;
+            }
+        }
 
         // protocol_activities + user_activity_logs（同 tx，UPDATED 事件）
         Self::record_activity_tx(

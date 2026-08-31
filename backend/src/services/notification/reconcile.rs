@@ -29,7 +29,14 @@ use super::NotificationService;
 /// 與 [`NotificationService::find_orphan_pinned`] 的 UNION 分支必須一致 ——
 /// 新增待辦類型時，這裡與那邊要同時改。`count_unknown_entity_types` 綁定此常數，
 /// 因此漏改會表現為「該類型被算成 unknown」而非靜默不一致。
-const KNOWN_ENTITY_TYPES: &[&str] = &["vet_patrol_reports", "document", "leave_request"];
+const KNOWN_ENTITY_TYPES: &[&str] = &[
+    "vet_patrol_reports",
+    "document",
+    "leave_request",
+    "maintenance_record",
+    "equipment_disposal",
+    "equipment_idle_request",
+];
 
 /// 一筆待降級的置頂通知（供 dry-run 列印與 log）。
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -368,6 +375,67 @@ impl NotificationService {
               AND n.related_entity_id IS NOT NULL
               AND n.recipient_role = 'approver'
               AND lr.status::text NOT IN ('PENDING_L1', 'PENDING_DIRECTOR')
+
+            UNION ALL
+
+            -- 設備維修/保養：紀錄已不存在，或已離開 pending_review → 驗收人已無事可做。
+            --
+            -- 這則置頂待辦只在 update_maintenance_record 轉入 PendingReview 時建立
+            -- （`services/equipment/maintenance.rs`），所以「仍需驗收人動作」等價於
+            -- 「status 仍是 pending_review」。驗收通過（completed）、退回（pending）、
+            -- 改判無法維修（unrepairable）、刪除，四條解除路徑業務端都已接上，
+            -- 本分支是它們任一條漏接時的安全網。
+            --
+            -- ⚠️ 用 LEFT JOIN 而非兩支分開寫：紀錄不存在與狀態已變都要命中，
+            -- 但 `related_entity_id IS NOT NULL` 這個條件不能少 —— 少了它
+            -- `m.id IS NULL` 會對所有 NULL entity 恆真而無條件降級（見上方 NULL 桶）。
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN m.id IS NULL THEN '關聯的維修/保養紀錄已不存在'
+                     ELSE '關聯的維修/保養紀錄已離開待驗收（狀態：' || m.status::text || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN equipment_maintenance_records m ON m.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'maintenance_record'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (m.id IS NULL OR m.status <> 'pending_review')
+
+            UNION ALL
+
+            -- 設備報廢待核准（`stages.rs::disposal_stage`）
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN x.id IS NULL THEN '關聯的報廢申請已不存在'
+                     ELSE '關聯的報廢申請已處理（狀態：' || x.status::text || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN equipment_disposals x ON x.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'equipment_disposal'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (x.id IS NULL OR x.status <> 'pending')
+
+            UNION ALL
+
+            -- 設備閒置/復用待核准（`stages.rs::idle_stage`）
+            SELECT n.id, n.title, n.related_entity_type, n.related_entity_id,
+                   n.user_id, n.created_at,
+                   CASE
+                     WHEN x.id IS NULL THEN '關聯的閒置/復用申請已不存在'
+                     ELSE '關聯的閒置/復用申請已處理（狀態：' || x.status::text || '）'
+                   END AS reason
+            FROM notifications n
+            LEFT JOIN equipment_idle_requests x ON x.id = n.related_entity_id
+            WHERE n.priority > 0
+              AND n.related_entity_type = 'equipment_idle_request'
+              AND n.recipient_role = 'approver'
+              AND n.related_entity_id IS NOT NULL
+              AND (x.id IS NULL OR x.status <> 'pending')
 
             ORDER BY created_at
             "#,
