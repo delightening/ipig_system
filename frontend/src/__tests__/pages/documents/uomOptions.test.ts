@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildUomOptions, isUomReadOnly, type UomOptionSource } from '@/pages/documents/uomOptions'
+import {
+  buildUomOptions,
+  isUomReadOnly,
+  selectedUomValue,
+  type UomOptionSource,
+} from '@/pages/documents/uomOptions'
 
 /** 乳膠手套：base_uom = 雙，換算表有盒(50)、箱(500) */
 const glove: UomOptionSource = {
@@ -73,5 +78,23 @@ describe('isUomReadOnly', () => {
 
   it('現值不在多選項清單內時同樣是下拉', () => {
     expect(isUomReadOnly({ base_uom: '雙', uom: '打', alt_uoms: ['盒'] })).toBe(false)
+  })
+})
+
+describe('selectedUomValue', () => {
+  it('現值在選項內就原樣傳給 Radix', () => {
+    expect(selectedUomValue(glove)).toBe('雙')
+    expect(selectedUomValue({ base_uom: '雙', uom: '盒', alt_uoms: ['盒'] })).toBe('盒')
+  })
+
+  it('🔴 現值不在選項內 → 空字串，否則 Radix trigger 會一片空白', () => {
+    // Radix: shouldShowPlaceholder(value) => value === '' || value === undefined
+    // 傳「打」這種不在選項內的非空值，placeholder 不顯示、也沒有 SelectItem
+    // 會把文字 portal 進 trigger，使用者只會看到空白。
+    expect(selectedUomValue({ base_uom: '雙', uom: '打', alt_uoms: ['盒'] })).toBe('')
+  })
+
+  it('新增行的空 uom 本來就是空字串', () => {
+    expect(selectedUomValue({ uom: '', alt_uoms: [] })).toBe('')
   })
 })

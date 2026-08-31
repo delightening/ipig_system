@@ -25,7 +25,7 @@ import {
 import { Plus, Trash2, Search } from 'lucide-react'
 import { formatNumber, formatUom } from '@/lib/utils'
 import type { DocumentFormData, DocumentLine } from '../types'
-import { buildUomOptions, isUomReadOnly } from '../uomOptions'
+import { buildUomOptions, isUomReadOnly, selectedUomValue } from '../uomOptions'
 import type { InputRefs } from '../hooks/useDocumentForm'
 import type { AdjMode } from '../DocumentEditPage'
 import { BatchNumberSelect } from './BatchNumberSelect'
@@ -62,10 +62,11 @@ function UomSelect({
   }
 
   return (
-    <Select value={line.uom} onValueChange={(v) => onChange(lineId, v)}>
+    <Select value={selectedUomValue(line)} onValueChange={(v) => onChange(lineId, v)}>
       <SelectTrigger className="h-9" aria-label="單位">
-        {/* 現值不在選項內（舊資料的無效單位）時 Radix 會顯示 placeholder：
-            照樣把原值秀出來，使用者才知道自己現在是什麼、要改成什麼。 */}
+        {/* value 經 selectedUomValue 正規化：現值不在選項內（舊資料的無效單位）時
+            傳空字串，Radix 才會顯示 placeholder。直接傳那個無效值的話 trigger
+            會是一片空白——理由見 selectedUomValue 的註解。 */}
         <SelectValue placeholder={formatUom(line.uom) || '請選擇單位'} />
       </SelectTrigger>
       <SelectContent>

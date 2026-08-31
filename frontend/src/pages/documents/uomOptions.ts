@@ -44,3 +44,19 @@ export function isUomReadOnly(line: UomOptionSource): boolean {
   const options = buildUomOptions(line)
   return options.length === 0 || (options.length === 1 && options[0] === line.uom)
 }
+
+/**
+ * 餵給 Radix `<Select value>` 的值。現值不在選項內（舊資料的無效單位）時回空字串。
+ *
+ * 為什麼不能直接把 `line.uom` 丟進去：Radix 的
+ * `shouldShowPlaceholder(value) { return value === "" || value === void 0 }`
+ * ——**只有空值才顯示 placeholder**；而 trigger 上的文字是由「被選中的那個
+ * `SelectItem`」透過 portal 注入的。給一個不在選項內的非空值（例如舊單據的
+ * 「打」），placeholder 不顯示、也沒有 Item 會注入文字，trigger 就是**一片空白**：
+ * 使用者看不出這行原本是什麼、也看不出為什麼要他重選。
+ *
+ * 回空字串則兩者都成立：placeholder 顯示得出原值，選單照樣能選。
+ */
+export function selectedUomValue(line: UomOptionSource): string {
+  return buildUomOptions(line).includes(line.uom) ? line.uom : ''
+}
