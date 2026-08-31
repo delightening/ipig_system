@@ -751,6 +751,58 @@ pub struct ProtocolResponse {
     /// `Scoped<AmendmentWrite>` 同一權威判斷；service 預設 false。
     #[serde(default)]
     pub can_write_amendment: bool,
+    /// 目前生效中的 PI 代理授權（外部 PI 尚未開通帳號前，由 SD 核准的代簽人）。
+    /// `pi_is_external = false`（PI 已有真帳號）或尚無生效授權時為 `None`。
+    /// 由 `get_protocol` handler 查 `protocol_pi_delegates` 計算後覆寫；service 預設 `None`。
+    #[serde(default)]
+    pub pi_delegate: Option<PiDelegateInfo>,
+    /// 當前 viewer 是否就是 `pi_delegate` 本人。供前端在簽署/提交後顯示「以代理人
+    /// 身分操作」徽章，避免讓人誤以為是 PI 本人做的；service 預設 false。
+    #[serde(default)]
+    pub is_pi_delegate: bool,
+}
+
+/// PI 代理授權（`protocol_pi_delegates`）唯讀顯示用投影。
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct PiDelegateInfo {
+    pub id: Uuid,
+    pub delegate_user_id: Uuid,
+    pub delegate_name: String,
+    pub authorized_by: Uuid,
+    pub authorized_by_name: String,
+    pub authorized_at: DateTime<Utc>,
+    pub reason: Option<String>,
+}
+
+/// `protocol_pi_delegates` 完整資料列，供 service 層核准/撤銷/授權檢查使用。
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct ProtocolPiDelegate {
+    pub id: Uuid,
+    pub protocol_id: Uuid,
+    pub delegate_user_id: Uuid,
+    pub authorized_by: Uuid,
+    pub authorized_at: DateTime<Utc>,
+    pub reason: Option<String>,
+    pub revoked_by: Option<Uuid>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub revoked_reason: Option<String>,
+}
+
+impl crate::models::audit_diff::AuditRedact for ProtocolPiDelegate {}
+
+/// 核准 PI 代理人請求。
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct AuthorizePiDelegateRequest {
+    pub delegate_user_id: Uuid,
+    #[validate(length(max = 1000))]
+    pub reason: Option<String>,
+}
+
+/// 撤銷 PI 代理人請求。
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct RevokePiDelegateRequest {
+    #[validate(length(max = 1000))]
+    pub reason: Option<String>,
 }
 
 /// 計畫列表項目

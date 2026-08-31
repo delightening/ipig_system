@@ -120,6 +120,10 @@ pub struct ElectronicSignature {
     /// R30-7: signature_data 編碼版本。1 = SHA-256 legacy（pre-R30-7），2 = HMAC-SHA256+secret。
     /// verify 時依此欄位 dispatch 計算演算法。
     pub hmac_version: i16,
+    /// 非 NULL = 這張簽章是依 `protocol_pi_delegates` 某筆生效授權代簽的
+    /// （見 migration 010）。`signer_id` 永遠是實際簽署人（代理人本人，自己密碼），
+    /// 這個欄位只補「代表誰、依何授權」這一層可歸責性，不影響簽章密碼學完整性。
+    pub delegation_id: Option<Uuid>,
 }
 
 // R30-9：作廢事件需 DataDiff::compute → 需 AuditRedact。signature_data / content_hash
@@ -887,6 +891,81 @@ impl SignatureService {
         handwriting_svg: Option<&str>,
         stroke_data: Option<&JsonValue>,
     ) -> Result<ElectronicSignature> {
+        Self::sign_record_tx_inner(
+            tx,
+            pool,
+            actor,
+            entity_type,
+            entity_id,
+            signer_id,
+            None,
+            sig_type,
+            content,
+            password,
+            handwriting_svg,
+            stroke_data,
+        )
+        .await
+    }
+
+    /// 代理人簽署（tx 版）：與 `sign_record_tx` 完全同構，唯一差異是多綁一欄
+    /// `delegation_id`（`protocol_pi_delegates.id`）進 `electronic_signatures`。
+    ///
+    /// ⚠️ `signer_id` 仍然必須是實際簽署人（代理人本人）——密碼驗證與
+    /// `signature_data` 的 HMAC 綁定對象都是 `signer_id`，不會、也不能把
+    /// `signer_id` 填成 PI 的 id。`delegation_id` 只補「代表誰、依何授權代簽」
+    /// 這一層可歸責性，call site（目前為 `closure::sign_closure` /
+    /// `euthanasia::pi_approve`；`notice::acknowledge_notice` 尚未接上，PI 代理人
+    /// 簽須知目前仍走 `access::can_sign_notice` 的 SD 路徑，見 migration 010 說明）
+    /// 必須自行先驗證這筆代理授權對本次操作有效（生效中、屬於本計畫、
+    /// `delegate_user_id == signer_id`）——本函式不重驗。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn sign_record_delegated_tx<'c>(
+        tx: &mut sqlx::Transaction<'c, sqlx::Postgres>,
+        pool: &PgPool,
+        actor: &ActorContext,
+        entity_type: &str,
+        entity_id: &str,
+        signer_id: Uuid,
+        delegation_id: Uuid,
+        sig_type: SignatureType,
+        content: &str,
+        password: Option<&str>,
+        handwriting_svg: Option<&str>,
+        stroke_data: Option<&JsonValue>,
+    ) -> Result<ElectronicSignature> {
+        Self::sign_record_tx_inner(
+            tx,
+            pool,
+            actor,
+            entity_type,
+            entity_id,
+            signer_id,
+            Some(delegation_id),
+            sig_type,
+            content,
+            password,
+            handwriting_svg,
+            stroke_data,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn sign_record_tx_inner<'c>(
+        tx: &mut sqlx::Transaction<'c, sqlx::Postgres>,
+        pool: &PgPool,
+        actor: &ActorContext,
+        entity_type: &str,
+        entity_id: &str,
+        signer_id: Uuid,
+        delegation_id: Option<Uuid>,
+        sig_type: SignatureType,
+        content: &str,
+        password: Option<&str>,
+        handwriting_svg: Option<&str>,
+        stroke_data: Option<&JsonValue>,
+    ) -> Result<ElectronicSignature> {
         // R30-10: 從 SignatureType 推導 §11.50 meaning（caller 不需新增參數）
         let meaning = SignatureMeaning::from_signature_type(sig_type);
         let has_password = password.is_some_and(|p| !p.is_empty());
@@ -934,9 +1013,10 @@ impl SignatureService {
             INSERT INTO electronic_signatures (
                 entity_type, entity_id, signer_id, signature_type,
                 content_hash, signature_data, ip_address, user_agent,
-                handwriting_svg, stroke_data, signature_method, meaning, hmac_version
+                handwriting_svg, stroke_data, signature_method, meaning, hmac_version,
+                delegation_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING *
             "#,
         )
@@ -953,6 +1033,7 @@ impl SignatureService {
         .bind(signature_method)
         .bind(meaning)
         .bind(hmac_version)
+        .bind(delegation_id)
         .fetch_one(&mut **tx)
         .await?;
 

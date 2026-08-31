@@ -222,7 +222,8 @@ pub async fn is_study_director_of_any_approved(pool: &PgPool, user_id: Uuid) -> 
     Ok(exists)
 }
 
-/// 須知簽署授權（PR-B）：計畫 PI（`pi_user_id` 或 `user_protocols` PI 角色）或 SD。
+/// 須知簽署授權（PR-B）：計畫 PI（`pi_user_id` 或 `user_protocols` PI 角色）或 SD，
+/// 或 SD 核准的生效中 PI 代理人（`protocol_pi_delegates`，見 migration 010）。
 pub async fn can_sign_notice(pool: &PgPool, protocol_id: Uuid, user_id: Uuid) -> Result<bool> {
     let (exists,): (bool,) = sqlx::query_as(
         r#"SELECT EXISTS(
@@ -231,6 +232,9 @@ pub async fn can_sign_notice(pool: &PgPool, protocol_id: Uuid, user_id: Uuid) ->
             UNION
             SELECT 1 FROM user_protocols
             WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol = 'PI'
+            UNION
+            SELECT 1 FROM protocol_pi_delegates
+            WHERE protocol_id = $1 AND delegate_user_id = $2 AND revoked_at IS NULL
         )"#,
     )
     .bind(protocol_id)
@@ -625,9 +629,11 @@ impl Scoped<NoticeSign> {
 /// 守衛：管理者短路，否則須為計畫 PI（`user_protocols` PI 角色）。
 pub struct AmendmentWrite;
 
-/// 是否可建立 / 更新 / 提交此計畫的變更申請：admin 或計畫 PI（沿用 `is_protocol_pi`，
-/// 含 `user_protocols` 成員 PI）。與 `can_edit_protocol` 不同——不含 SD／補登管理者，
-/// 修正案寫入權收得比一般編輯更緊。供 `require_amendment_write` 與
+/// 是否可建立 / 更新 / 提交此計畫的變更申請：admin、計畫 PI（沿用 `is_protocol_pi`，
+/// 含 `user_protocols` 成員 PI），或 SD 核准的生效中 PI 代理人（`protocol_pi_delegates`，
+/// 見 migration 010）。與 `can_edit_protocol` 不同——不含 SD／補登管理者本身，
+/// 修正案寫入權收得比一般編輯更緊；代理人是「代表 PI」而非「以 SD 身分」取得這項權限，
+/// 故仍需獨立檢查，不是靠放寬 SD 就自動涵蓋。供 `require_amendment_write` 與
 /// `ProtocolResponse.can_write_amendment`（前端按鈕 gating）共用同一權威判斷。
 pub async fn can_write_amendment(
     pool: &PgPool,
@@ -637,7 +643,32 @@ pub async fn can_write_amendment(
     if current_user.is_admin() {
         return Ok(true);
     }
-    is_protocol_pi(pool, protocol_id, current_user.id).await
+    if is_protocol_pi(pool, protocol_id, current_user.id).await? {
+        return Ok(true);
+    }
+    Ok(active_pi_delegate_id(pool, protocol_id, current_user.id)
+        .await?
+        .is_some())
+}
+
+/// 此計畫、此使用者的生效中 PI 代理授權 id（`protocol_pi_delegates.revoked_at IS NULL`），
+/// 沒有則 `None`。共用於 `can_write_amendment` / `can_sign_notice` 之外，各處硬性
+/// 要求「登入者 == pi_user_id」的簽署守衛（結案 PI 簽署、安樂死核准/暫緩）各自呼叫——
+/// 回傳的是授權記錄本身的 id，供簽章寫入時綁進 `electronic_signatures.delegation_id`。
+pub async fn active_pi_delegate_id(
+    pool: &PgPool,
+    protocol_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<Uuid>> {
+    let id: Option<Uuid> = sqlx::query_scalar(
+        r#"SELECT id FROM protocol_pi_delegates
+           WHERE protocol_id = $1 AND delegate_user_id = $2 AND revoked_at IS NULL"#,
+    )
+    .bind(protocol_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(id)
 }
 
 /// `can_write_amendment` 的 Result 版守衛：不可寫入時回 `Forbidden`（供

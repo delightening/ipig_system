@@ -55,11 +55,15 @@ interface AmendmentsTabProps {
     /** 目前使用者是否為本計劃的負責人 SD（protocol.study_director_user_id === user.id） */
     isStudyDirector?: boolean
     /** 後端權威：是否可建立/更新/提交此計畫的變更申請（= access::can_write_amendment：
-     * admin / PI，不含 SD）。供修正案建立·編輯·送審按鈕 gating。 */
+     * admin / PI，不含 SD；外部 PI 計畫另含 SD 核准的生效中代理人）。供修正案建立·編輯·
+     * 送審按鈕 gating。 */
     canWriteAmendment?: boolean
+    /** 當前使用者是否以 PI 代理人身分取得上面的 canWriteAmendment（而非本人是 PI/admin）。
+     * 純顯示徽章，不影響任何授權判斷——避免讓人誤以為是 PI 本人操作。 */
+    isPiDelegate?: boolean
 }
 
-export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyDirector, canWriteAmendment }: AmendmentsTabProps) {
+export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyDirector, canWriteAmendment, isPiDelegate }: AmendmentsTabProps) {
     const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { hasPermission } = useAuthStore()
@@ -247,10 +251,15 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                         </Button>
                     )}
                     {canCreateAmendment && canManageAmendment && (
-                        <Button onClick={() => dialogs.open('create')}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            {t('protocols.amendments.create')}
-                        </Button>
+                        <>
+                            {isPiDelegate && (
+                                <Badge variant="outline">以 PI 代理人身分操作</Badge>
+                            )}
+                            <Button onClick={() => dialogs.open('create')}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                {t('protocols.amendments.create')}
+                            </Button>
+                        </>
                     )}
                 </div>
             </CardHeader>
