@@ -15,6 +15,14 @@
 //! 涵蓋：
 //! - T1 沖銷後 `receipt_status` 回退，且可重開部分量的更正單（→ partial）
 //! - T2 沖銷後可重開**全量**更正單而不被超收守衛擋下（→ complete）
+//! - T3 沖銷後前端「採購入庫」按鈕的實際路徑（`create_additional_grn`）開得出更正單，
+//!   且入庫進度查詢（`get_po_receipt_status`）不再把已沖銷的量算進 `received_qty`
+//!
+//! ⚠️ T3 是 2026-09-01 補的：同一個 `received` 語意在 `grn.rs` 共有**四處**算式，
+//! 第一版修法只補了 `ensure_no_over_receipt` 與 `update_po_receipt_status` 兩處。
+//! 另兩處（`create_additional_grn` / `get_po_receipt_status`）未同步的後果是
+//! 「按鈕出現了、按下去卻回 All items have been received」——**補救路徑照樣斷**，
+//! 而 T1/T2 因為直接呼叫 `DocumentService::create` 建 GRN，完全繞過了那條路徑，測不出來。
 
 use rust_decimal::Decimal;
 use serial_test::serial;
@@ -309,5 +317,60 @@ async fn reversing_grn_allows_full_quantity_reopen_without_over_receipt_error() 
         receipt_status(&pool, po_id).await,
         "complete",
         "全量重開後應回到已入庫"
+    );
+}
+
+/// T3：走前端「採購入庫」按鈕的實際路徑。
+///
+/// `DocumentDetailPage.tsx` 的按鈕打 `POST /documents/{po}/create-grn`
+/// → `DocumentService::create_additional_grn`，該函式自己算一次 `received` 決定
+/// 「還剩多少可入庫」。這一處若未排除已沖銷的 GRN，remaining 會全為 0，
+/// 直接回 `BusinessRule("All items have been received")`——按鈕雖然因 T1 而重新出現，
+/// 使用者按下去仍舊開不出更正單。
+#[tokio::test]
+#[serial]
+async fn reversing_grn_allows_reopen_through_create_additional_grn() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let shelf = seed_shelf(&pool, wh).await;
+    let product = seed_product(&pool).await;
+    let admin = admin_actor(&pool).await;
+
+    let po_id = approved_po(&pool, wh, product, 100).await;
+    let grn_id = approved_grn_for_po(&pool, wh, shelf, product, po_id, 100).await;
+    reverse_grn(&pool, grn_id, &admin).await;
+
+    // 入庫進度查詢（GRN 表單靠它顯示 ordered / received / remaining）
+    let status = DocumentService::get_po_receipt_status(&pool, po_id)
+        .await
+        .expect("查詢 PO 入庫進度");
+    assert_eq!(status.status, "pending", "沖銷後整張 PO 應回到待入庫");
+    let item = status
+        .items
+        .iter()
+        .find(|i| i.product_id == product)
+        .expect("入庫進度應含該品項");
+    assert_eq!(
+        item.received_qty,
+        Decimal::ZERO,
+        "已沖銷的量不得再算進 received_qty"
+    );
+    assert_eq!(
+        item.remaining_qty,
+        Decimal::from(100),
+        "沖銷後剩餘可入庫量應回到全量"
+    );
+
+    // 前端按鈕的實際路徑：修復前這裡是 BusinessRule("All items have been received")
+    let draft = DocumentService::create_additional_grn(&pool, po_id, SYSTEM_USER_ID)
+        .await
+        .expect("沖銷後必須能從 PO 開出更正入庫單");
+    assert_eq!(draft.document.doc_type, DocType::GRN);
+    assert_eq!(draft.document.source_doc_id, Some(po_id));
+    assert_eq!(draft.lines.len(), 1, "更正單應只含該品項一列");
+    assert_eq!(
+        draft.lines[0].qty,
+        Decimal::from(100),
+        "預設帶入的數量應為沖銷後的剩餘全量"
     );
 }

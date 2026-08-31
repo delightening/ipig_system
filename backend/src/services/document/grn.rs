@@ -26,6 +26,30 @@ struct PoLineRow {
 
 use super::DocumentService;
 
+/// 「已被沖銷的 GRN 不計入 `received`」的排除述詞，供本檔**四處** `received` 算式共用。
+///
+/// R84-5 沖銷：原單被沖銷後**仍是 `approved`**，不排除的話已沖銷的量會一直被算進去，
+/// 「打錯 → 沖銷 → 重開正確的」這條唯一的補救路徑走不完。
+///
+/// `documents` **沒有** `reversed_by_doc_id` 欄位（見 `models/document.rs` 該欄說明），
+/// 沖銷關係只能由沖銷單的 `reverses_doc_id` 反查。
+///
+/// ⚠️ **四處的述詞必須完全一致**，所以收斂成單一巨集而不是各自複製一份：任一處漏掉都會
+/// 產生「入庫進度顯示 pending、守衛卻仍擋」或「按鈕出現、按下去卻說已全部入庫」這類
+/// 極難查的症狀（2026-08-27 第一版修法只補了其中兩處，補救路徑仍然斷）。
+///
+/// 使用前提：SQL 裡 `documents` 當 GRN 用的那個別名必須是 `g`。
+macro_rules! exclude_reversed_grn {
+    () => {
+        "
+              AND NOT EXISTS (
+                  SELECT 1 FROM documents r
+                  WHERE r.reverses_doc_id = g.id AND r.status = 'approved'
+              )
+        "
+    };
+}
+
 /// 依據已入庫量與採購量決定入庫狀態字串。
 pub(super) fn receipt_status_label(
     total_received: rust_decimal::Decimal,
@@ -70,18 +94,22 @@ impl DocumentService {
         .fetch_all(pool)
         .await?;
 
-        // 取得已入庫數量
-        let received_qty: Vec<(Uuid, Decimal)> = sqlx::query_as(
+        // 取得已入庫數量（排除已被沖銷的 GRN，否則沖銷後 remaining 全為 0，
+        // 這裡會回「All items have been received」而開不出更正單）
+        let received_qty: Vec<(Uuid, Decimal)> = sqlx::query_as(concat!(
             r#"
-            SELECT dl.product_id, COALESCE(SUM(dl.qty), 0) as received
-            FROM documents d
-            JOIN document_lines dl ON d.id = dl.document_id
-            WHERE d.source_doc_id = $1 
-              AND d.doc_type = 'GRN' 
-              AND d.status = 'approved'
-            GROUP BY dl.product_id
+            SELECT gl.product_id, COALESCE(SUM(gl.qty), 0) as received
+            FROM documents g
+            JOIN document_lines gl ON g.id = gl.document_id
+            WHERE g.source_doc_id = $1
+              AND g.doc_type = 'GRN'
+              AND g.status = 'approved'
             "#,
-        )
+            exclude_reversed_grn!(),
+            r#"
+            GROUP BY gl.product_id
+            "#
+        ))
         .bind(po_id)
         .fetch_all(pool)
         .await?;
@@ -186,8 +214,8 @@ impl DocumentService {
     /// R84-5 沖銷（2026-08-27 修）：`received` 必須排除**已被沖銷的 GRN**。原單被沖銷後
     /// 仍是 `approved`，不排除的話補開的更正單會被本守衛擋下（「入庫數量超過採購量」），
     /// 使「打錯 → 沖銷 → 重開」這條補救路徑走不完。
-    /// ⚠️ 排除述詞與 `update_po_receipt_status` **必須逐字相同**——兩者不同步會產生
-    /// 「入庫進度顯示 partial、守衛卻仍擋」這種極難查的症狀。改一邊就要改另一邊。
+    /// 排除述詞由 `exclude_reversed_grn!` 巨集提供，本檔四處 `received` 算式共用，
+    /// 見該巨集的說明。
     pub(crate) async fn ensure_no_over_receipt(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         po_id: Uuid,
@@ -198,7 +226,7 @@ impl DocumentService {
             .execute(&mut **tx)
             .await?;
 
-        let over: Option<(Uuid,)> = sqlx::query_as(
+        let over: Option<(Uuid,)> = sqlx::query_as(concat!(
             r#"
             SELECT product_id
             FROM (
@@ -211,17 +239,16 @@ impl DocumentService {
                 FROM documents g
                 JOIN document_lines gl ON g.id = gl.document_id
                 WHERE g.source_doc_id = $1 AND g.doc_type = 'GRN' AND g.status = 'approved'
-                  AND NOT EXISTS (
-                      SELECT 1 FROM documents r
-                      WHERE r.reverses_doc_id = g.id AND r.status = 'approved'
-                  )
+            "#,
+            exclude_reversed_grn!(),
+            r#"
                 GROUP BY gl.product_id
             ) t
             GROUP BY product_id
             HAVING SUM(received) > SUM(ordered)
             LIMIT 1
-            "#,
-        )
+            "#
+        ))
         .bind(po_id)
         .fetch_optional(&mut **tx)
         .await?;
@@ -240,12 +267,12 @@ impl DocumentService {
     /// PO 的入庫進度回退。`received` 排除已被沖銷的 GRN——原單沖銷後仍是 `approved`，
     /// 不排除的話 `receipt_status` 永遠停在 `complete`，前端「採購入庫」按鈕消失
     /// （`DocumentDetailPage.tsx` 要求 pending/partial），使用者開不出更正單。
-    /// ⚠️ 排除述詞與 `ensure_no_over_receipt` **必須逐字相同**，理由見該函式的說明。
+    /// 排除述詞由 `exclude_reversed_grn!` 巨集提供，本檔四處共用，見該巨集的說明。
     pub(crate) async fn update_po_receipt_status(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         po_id: Uuid,
     ) -> Result<()> {
-        let row: (Decimal, Decimal) = sqlx::query_as(
+        let row: (Decimal, Decimal) = sqlx::query_as(concat!(
             r#"
             SELECT
                 COALESCE(SUM(pl.qty), 0) AS total_ordered,
@@ -256,15 +283,14 @@ impl DocumentService {
                     WHERE g.source_doc_id = $1
                       AND g.doc_type = 'GRN'
                       AND g.status = 'approved'
-                      AND NOT EXISTS (
-                          SELECT 1 FROM documents r
-                          WHERE r.reverses_doc_id = g.id AND r.status = 'approved'
-                      )
+            "#,
+            exclude_reversed_grn!(),
+            r#"
                 ), 0) AS total_received
             FROM document_lines pl
             WHERE pl.document_id = $1
-            "#,
-        )
+            "#
+        ))
         .bind(po_id)
         .fetch_one(&mut **tx)
         .await?;
@@ -304,18 +330,22 @@ impl DocumentService {
         .fetch_all(pool)
         .await?;
 
-        // 取得已入庫數量
-        let received: Vec<(Uuid, Decimal)> = sqlx::query_as(
+        // 取得已入庫數量（排除已被沖銷的 GRN，否則沖銷後前端 GRN 表單仍顯示
+        // received_qty 含已沖銷量、remaining_qty 為 0）
+        let received: Vec<(Uuid, Decimal)> = sqlx::query_as(concat!(
             r#"
-            SELECT dl.product_id, COALESCE(SUM(dl.qty), 0)
-            FROM documents d
-            JOIN document_lines dl ON d.id = dl.document_id
-            WHERE d.source_doc_id = $1 
-              AND d.doc_type = 'GRN' 
-              AND d.status = 'approved'
-            GROUP BY dl.product_id
+            SELECT gl.product_id, COALESCE(SUM(gl.qty), 0)
+            FROM documents g
+            JOIN document_lines gl ON g.id = gl.document_id
+            WHERE g.source_doc_id = $1
+              AND g.doc_type = 'GRN'
+              AND g.status = 'approved'
             "#,
-        )
+            exclude_reversed_grn!(),
+            r#"
+            GROUP BY gl.product_id
+            "#
+        ))
         .bind(po_id)
         .fetch_all(pool)
         .await?;
