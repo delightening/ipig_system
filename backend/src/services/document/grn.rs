@@ -52,6 +52,24 @@ macro_rules! exclude_reversed_grn {
     };
 }
 
+// ## base_uom 一律 factor 1：本檔每個 `product_uom_conversions` 的 JOIN 都要帶
+// `AND <conv>.uom <> <products>.base_uom`
+//
+// Rust 端的 `ProductUomTable::factor`（`services/stock/uom.rs`）**先判斷 `uom == base_uom`
+// 就回 1，根本不查換算表**。SQL 端若照著 `c.uom = dl.uom` 去 join，遇到舊資料裡
+// `uom = base_uom, factor_to_base = 50` 這種同名列就會撿到 50——同一張單，兩邊算出的
+// 數量差 50 倍。
+//
+// 具體後果不只是顯示錯：`assert_no_over_receipt` 會把**完全正確的收貨**judge 成超收而擋下
+// （SQL 端 received 膨脹 50 倍），`create_additional_grn` 的剩餘量也跟著錯。
+//
+// 這個不對稱是本 PR 引進的——本 PR 之前 grn.rs 的 `SUM(qty)` 完全不看換算表，沒有兩端之分。
+// 同一個根因在盤點路徑上更兇（`document/stocktake.rs::counting_uom` 會開出把貨架清空的
+// 盤虧 ADJ），該處已用 `pack_unit != base_uom` 擋掉。
+//
+// ⚠️ 與 `exclude_reversed_grn!` 同理：**本檔每一處都要帶，漏一處就是一個算得出不同答案的
+// 路徑**。真正的根治是禁止這種列存在（DB 約束），但那需要 migration，不在本 PR 範圍。
+
 /// 依據已入庫量與採購量決定入庫狀態字串。
 pub(super) fn receipt_status_label(
     total_received: rust_decimal::Decimal,
@@ -105,6 +123,8 @@ impl DocumentService {
         //     就是 base_uom（factor 1）——這個推論由 `assert_lines_uom_defined` 保證。
         //
         // 別名必須維持 `g` / `gl`：`exclude_reversed_grn!` 的述詞寫死了 `g.id`（見該巨集）。
+        //
+        // `AND c.uom <> gp.base_uom`：見檔頭「base_uom 一律 factor 1」。
         let received_qty: Vec<(Uuid, Decimal)> = sqlx::query_as(concat!(
             r#"
             SELECT gl.product_id,
@@ -112,8 +132,10 @@ impl DocumentService {
                                               THEN c.factor_to_base ELSE 1 END), 0) as received
             FROM documents g
             JOIN document_lines gl ON g.id = gl.document_id
+            JOIN products gp ON gp.id = gl.product_id
             LEFT JOIN product_uom_conversions c
                    ON c.product_id = gl.product_id AND c.uom = gl.uom
+                  AND c.uom <> gp.base_uom
             WHERE g.source_doc_id = $1
               AND g.doc_type = 'GRN'
               AND g.status = 'approved'
@@ -130,13 +152,16 @@ impl DocumentService {
         let received_map: std::collections::HashMap<Uuid, Decimal> =
             received_qty.into_iter().collect();
 
-        // 逐 PO 明細行的換算率（同一品項可能在兩行用不同單位，故以 line id 為 key）
+        // 逐 PO 明細行的換算率（同一品項可能在兩行用不同單位，故以 line id 為 key）。
+        // `AND c.uom <> p.base_uom`：見檔頭「base_uom 一律 factor 1」。
         let po_factors: Vec<(Uuid, Decimal)> = sqlx::query_as(
             r#"
             SELECT dl.id, CASE WHEN c.factor_to_base > 0 THEN c.factor_to_base ELSE 1 END
             FROM document_lines dl
+            JOIN products p ON p.id = dl.product_id
             LEFT JOIN product_uom_conversions c
                    ON c.product_id = dl.product_id AND c.uom = dl.uom
+                  AND c.uom <> p.base_uom
             WHERE dl.document_id = $1
             "#,
         )
@@ -264,8 +289,10 @@ impl DocumentService {
                        SUM(pl.qty * CASE WHEN pc.factor_to_base > 0 THEN pc.factor_to_base ELSE 1 END) AS ordered,
                        0::numeric AS received
                 FROM document_lines pl
+                JOIN products pp ON pp.id = pl.product_id
                 LEFT JOIN product_uom_conversions pc
                        ON pc.product_id = pl.product_id AND pc.uom = pl.uom
+                      AND pc.uom <> pp.base_uom
                 WHERE pl.document_id = $1
                 GROUP BY pl.product_id
                 UNION ALL
@@ -274,8 +301,10 @@ impl DocumentService {
                        SUM(gl.qty * CASE WHEN gc.factor_to_base > 0 THEN gc.factor_to_base ELSE 1 END) AS received
                 FROM documents g
                 JOIN document_lines gl ON g.id = gl.document_id
+                JOIN products gp ON gp.id = gl.product_id
                 LEFT JOIN product_uom_conversions gc
                        ON gc.product_id = gl.product_id AND gc.uom = gl.uom
+                      AND gc.uom <> gp.base_uom
                 WHERE g.source_doc_id = $1 AND g.doc_type = 'GRN' AND g.status = 'approved'
             "#,
             exclude_reversed_grn!(),
@@ -318,8 +347,10 @@ impl DocumentService {
                     SELECT SUM(gl.qty * CASE WHEN gc.factor_to_base > 0 THEN gc.factor_to_base ELSE 1 END)
                     FROM documents g
                     JOIN document_lines gl ON g.id = gl.document_id
+                    JOIN products gp ON gp.id = gl.product_id
                     LEFT JOIN product_uom_conversions gc
                            ON gc.product_id = gl.product_id AND gc.uom = gl.uom
+                          AND gc.uom <> gp.base_uom
                     WHERE g.source_doc_id = $1
                       AND g.doc_type = 'GRN'
                       AND g.status = 'approved'
@@ -328,8 +359,10 @@ impl DocumentService {
             r#"
                 ), 0) AS total_received
             FROM document_lines pl
+            JOIN products pp ON pp.id = pl.product_id
             LEFT JOIN product_uom_conversions pc
                    ON pc.product_id = pl.product_id AND pc.uom = pl.uom
+                  AND pc.uom <> pp.base_uom
             WHERE pl.document_id = $1
             "#
         ))
@@ -358,7 +391,7 @@ impl DocumentService {
         .await?
         .ok_or_else(|| AppError::NotFound("Purchase order not found".to_string()))?;
 
-        // 取得採購單明細
+        // 取得採購單明細。`AND c.uom <> p.base_uom`：見檔頭「base_uom 一律 factor 1」。
         let po_lines: Vec<PoLineRow> = sqlx::query_as(
             r#"
             SELECT dl.product_id, p.sku, p.name, p.base_uom, dl.uom, dl.unit_price, dl.qty,
@@ -367,6 +400,7 @@ impl DocumentService {
             JOIN products p ON dl.product_id = p.id
             LEFT JOIN product_uom_conversions c
                    ON c.product_id = dl.product_id AND c.uom = dl.uom
+                  AND c.uom <> p.base_uom
             WHERE dl.document_id = $1
             ORDER BY dl.line_no
             "#,
@@ -385,8 +419,10 @@ impl DocumentService {
                                               THEN c.factor_to_base ELSE 1 END), 0)
             FROM documents g
             JOIN document_lines gl ON g.id = gl.document_id
+            JOIN products gp ON gp.id = gl.product_id
             LEFT JOIN product_uom_conversions c
                    ON c.product_id = gl.product_id AND c.uom = gl.uom
+                  AND c.uom <> gp.base_uom
             WHERE g.source_doc_id = $1
               AND g.doc_type = 'GRN'
               AND g.status = 'approved'
