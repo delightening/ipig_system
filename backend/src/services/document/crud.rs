@@ -1030,9 +1030,13 @@ impl DocumentService {
                 dl.id, dl.document_id, dl.line_no, dl.product_id,
                 p.sku as product_sku, p.name as product_name,
                 p.base_uom as product_base_uom,
+                -- factor_to_base > 0 與 StockService::load_uom_tables 的過濾一致：
+                -- 非正數 factor 的單位在後端形同未定義、必被擋成 400，列進下拉只會
+                -- 給出一個選了必然失敗的選項（同 repositories/product.rs 的 alt_uoms）。
                 ARRAY(
                     SELECT c.uom FROM product_uom_conversions c
-                    WHERE c.product_id = p.id ORDER BY c.factor_to_base
+                    WHERE c.product_id = p.id AND c.factor_to_base > 0
+                    ORDER BY c.factor_to_base
                 )::text[] AS product_alt_uoms,
                 dl.qty, dl.uom, dl.unit_price, dl.batch_no, dl.expiry_date, dl.remark,
                 dl.storage_location_id, dl.warehouse_id,

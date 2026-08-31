@@ -33,10 +33,20 @@ struct StocktakeShelfRow {
 ///
 /// 回傳的 uom 一定是 base_uom 或該品項換算表已定義的 `pack_unit`，因此產生的盤點單
 /// 通得過 `assert_lines_uom_defined`，核准時也換算得回 base（見 `uom::to_base_lines`）。
+///
+/// 🔴 `pack_unit == base_uom` 必須排除，否則會開出一張把貨架清空的盤虧 ADJ。
+/// 該品項若又有一列 `uom = base_uom` 且 `factor_to_base = 50` 的壞換算資料：
+/// 本函式會把 150 雙除成底稿上的「3 雙」，而核准時 `ProductUomTable::factor` 對
+/// base_uom 恆回 1（它先判斷 `uom == base_uom`，不看換算表），於是 3 被當成 3 雙
+/// 去減系統存量 150 雙，差異 −147。這正是本檔與 `workflow.rs` 註解警告的那個災難，
+/// 只是觸發條件不是「缺換算列」而是「同名列」。
+/// 兩端對 base_uom 的處理本來就不對稱（`factor()` 短路、SQL 不會），此處直接不進包裝分支。
 fn counting_uom(row: &StocktakeShelfRow) -> (Decimal, String) {
     match (&row.pack_unit, row.pack_factor) {
         (Some(pack_unit), Some(factor))
-            if factor > Decimal::ONE && (row.on_hand_qty % factor).is_zero() =>
+            if pack_unit != &row.base_uom
+                && factor > Decimal::ONE
+                && (row.on_hand_qty % factor).is_zero() =>
         {
             (row.on_hand_qty / factor, pack_unit.clone())
         }
@@ -183,6 +193,18 @@ mod tests {
         // factor = 1 的「包裝」等於沒有包裝，用它換算只會多一個名字不同的相同數字
         assert_eq!(
             counting_uom(&row(150, Some("個"), Some(1))),
+            (Decimal::from(150), "雙".to_string())
+        );
+    }
+
+    #[test]
+    fn pack_unit_equal_to_base_uom_never_divides() {
+        // 🔴 壞資料：pack_unit 與 base_uom 同名，且換算表給了 factor 50。
+        // 若照除下去，底稿會寫「3 雙」；核准時 ProductUomTable::factor 對 base_uom
+        // 恆回 1（先判斷 uom == base_uom，不看換算表），3 就被當 3 雙去減 150 雙，
+        // 差異 −147 —— 一張把整個貨架清空的盤虧 ADJ。必須原封不動退回 base_uom。
+        assert_eq!(
+            counting_uom(&row(150, Some("雙"), Some(50))),
             (Decimal::from(150), "雙".to_string())
         );
     }

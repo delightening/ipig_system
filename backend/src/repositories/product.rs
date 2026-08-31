@@ -243,10 +243,15 @@ fn build_list_sql(query: &ProductQuery) -> String {
     // alt_uoms：單據明細的單位下拉要知道「這個品項還能填什麼」。以相關子查詢隨清單一起帶出，
     // 免得前端每選一個品項就補一次 GET /products/{id}。依 factor_to_base 遞增排序，
     // 下拉呈現順序即「小單位→大包裝」。
+    //
+    // `factor_to_base > 0` 必須與 `StockService::load_uom_tables` 的過濾一致：那邊會略過
+    // 非正數 factor 的壞資料（乘上去會讓入庫變出庫或整行歸零），該單位因而形同未定義、
+    // 被 `assert_lines_uom_defined` 擋成 400。這裡若照列，下拉就會出現一個後端必定拒絕的
+    // 選項——「前後端判準同源」要成立，兩邊的過濾條件也必須一樣。
     [
         "SELECT p.*, ARRAY(\
              SELECT c.uom FROM product_uom_conversions c \
-             WHERE c.product_id = p.id ORDER BY c.factor_to_base\
+             WHERE c.product_id = p.id AND c.factor_to_base > 0 ORDER BY c.factor_to_base\
          )::text[] AS alt_uoms \
          FROM products p WHERE ",
         &where_clause,
