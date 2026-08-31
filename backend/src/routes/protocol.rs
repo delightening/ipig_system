@@ -90,6 +90,13 @@ pub fn routes() -> Router<AppState> {
             "/protocols/{id}/provision-pi",
             post(handlers::provision_pi_account),
         )
+        // PI 代理授權（migration 010）：核准/撤銷生效中代理人。查詢走
+        // `GET /protocols/{id}` 回應內的 `pi_delegate`/`is_pi_delegate`（已有 Scoped<ProtocolView>
+        // 存取控管），不另開一支無額外授權檢查的唯讀端點。
+        .route(
+            "/protocols/{id}/pi-delegate",
+            post(handlers::authorize_pi_delegate).delete(handlers::revoke_pi_delegate),
+        )
         // PI 開通信 admin 核准寄送
         .route(
             "/pi-account-invites",

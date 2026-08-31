@@ -1,6 +1,6 @@
 import api from './client'
 
-import type { ProtocolActivity } from '@/types'
+import type { PiDelegateInfo, ProtocolActivity } from '@/types'
 
 export const getProtocolActivities = async (id: string): Promise<ProtocolActivity[]> => {
   const response = await api.get<ProtocolActivity[]>(`/protocols/${id}/activities`)
@@ -126,4 +126,24 @@ export const listPiAccountInvites = async (status = 'pending'): Promise<PiAccoun
 export const approveSendPiInvite = async (inviteId: string) => {
   const response = await api.post(`/pi-account-invites/${inviteId}/approve-send`)
   return response.data
+}
+
+// ── PI 代理授權（外部 PI 尚未開通帳號前，由 SD 核准的代簽人）─────────────
+
+/** 核准 PI 代理人。核准他人限現任 SD；SD 指定自己須改由執秘/admin 核准。 */
+export const authorizePiDelegate = async (
+  protocolId: string,
+  delegateUserId: string,
+  reason?: string
+): Promise<PiDelegateInfo> => {
+  const response = await api.post(`/protocols/${protocolId}/pi-delegate`, {
+    delegate_user_id: delegateUserId,
+    reason: reason || null,
+  })
+  return response.data
+}
+
+/** 撤銷此計畫目前生效中的代理人。現任 SD 或執秘/admin 皆可。 */
+export const revokePiDelegate = async (protocolId: string, reason?: string) => {
+  await api.delete(`/protocols/${protocolId}/pi-delegate`, { data: { reason: reason || null } })
 }

@@ -12,6 +12,7 @@ import { ProtocolInfoCards } from './components/ProtocolInfoCards'
 import { ProtocolTabContent } from './components/ProtocolTabContent'
 import { StatusChangeDialog } from './components/StatusChangeDialog'
 import { NoticeAcknowledgementCard } from './components/application-notices/NoticeAcknowledgementCard'
+import { PiDelegateCard } from './components/PiDelegateCard'
 import { StaffReviewAssistPanel } from '@/components/protocol/StaffReviewAssistPanel'
 
 const STAFF_REVIEW_STATUSES = [
@@ -53,6 +54,7 @@ export function ProtocolDetailPage() {
     canReply,
     canEditProtocol,
     canWriteAmendment,
+    isPiDelegate,
     canAssignReviewer,
     canChangeStatus,
     isRevisionStatus,
@@ -137,6 +139,8 @@ export function ProtocolDetailPage() {
 
         {protocol.status === 'DRAFT' && <NoticeAcknowledgementCard protocolId={id} />}
 
+        <PiDelegateCard protocolId={id} />
+
         <ProtocolInfoCards
           protocol={protocol}
           piName={pi_name}
@@ -160,6 +164,7 @@ export function ProtocolDetailPage() {
             canAddComment={canAddComment}
             canReply={canReply}
             canWriteAmendment={canWriteAmendment}
+            isPiDelegate={isPiDelegate}
             canAssignReviewer={canAssignReviewer}
             canManageAttachments={canManageAttachments}
             shouldAnonymizeReviewers={shouldAnonymizeReviewers}

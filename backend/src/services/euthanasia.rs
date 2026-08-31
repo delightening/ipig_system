@@ -266,11 +266,12 @@ impl EuthanasiaService {
         req: &PiApproveEuthanasiaRequest,
     ) -> Result<EuthanasiaOrder, AppError> {
         let user = actor.require_user()?;
-        let pi_user_id = user.id;
+        let acting_user_id = user.id;
 
         let mut tx = pool.begin().await?;
 
-        let before = Self::lock_order_for_pi(&mut tx, order_id, pi_user_id).await?;
+        let (before, delegation_id) =
+            Self::lock_order_for_pi(&mut tx, order_id, acting_user_id).await?;
         if before.status != EuthanasiaOrderStatus::PendingPi {
             return Err(AppError::BadRequest(format!(
                 "單據狀態為「{}」，不可執行此操作",
@@ -318,22 +319,40 @@ impl EuthanasiaService {
         )
         .await?;
 
-        // 簽章 — PI 批准必須簽
+        // 簽章 — PI 批准必須簽（或持生效中代理授權的代理人代簽，見 lock_order_for_pi）
         let content = format!("euthanasia_pi_approve:{order_id}");
-        SignatureService::sign_record_tx(
-            &mut tx,
-            pool,
-            actor,
-            ORDER_ENTITY_TYPE,
-            &order_id.to_string(),
-            pi_user_id,
-            SignatureType::Approve,
-            &content,
-            req.password.as_deref(),
-            req.handwriting_svg.as_deref(),
-            req.stroke_data.as_ref(),
-        )
-        .await?;
+        if let Some(delegation_id) = delegation_id {
+            SignatureService::sign_record_delegated_tx(
+                &mut tx,
+                pool,
+                actor,
+                ORDER_ENTITY_TYPE,
+                &order_id.to_string(),
+                acting_user_id,
+                delegation_id,
+                SignatureType::Approve,
+                &content,
+                req.password.as_deref(),
+                req.handwriting_svg.as_deref(),
+                req.stroke_data.as_ref(),
+            )
+            .await?;
+        } else {
+            SignatureService::sign_record_tx(
+                &mut tx,
+                pool,
+                actor,
+                ORDER_ENTITY_TYPE,
+                &order_id.to_string(),
+                acting_user_id,
+                SignatureType::Approve,
+                &content,
+                req.password.as_deref(),
+                req.handwriting_svg.as_deref(),
+                req.stroke_data.as_ref(),
+            )
+            .await?;
+        }
 
         tx.commit().await?;
 
@@ -362,11 +381,15 @@ impl EuthanasiaService {
         req: &CreateEuthanasiaAppealRequest,
     ) -> Result<EuthanasiaAppeal, AppError> {
         let user = actor.require_user()?;
-        let pi_user_id = user.id;
+        // 代理人申請暫緩時，`euthanasia_appeals.pi_user_id` 記的是實際操作者
+        // （代理人自己），與 `euthanasia_orders.pi_user_id`（借位值/真 PI）不必然
+        // 相同——這欄本來就是「誰申請的」而非另一張授權快照，語意不變。
+        let acting_user_id = user.id;
 
         let mut tx = pool.begin().await?;
 
-        let before = Self::lock_order_for_pi(&mut tx, order_id, pi_user_id).await?;
+        let (before, _delegation_id) =
+            Self::lock_order_for_pi(&mut tx, order_id, acting_user_id).await?;
         if before.status != EuthanasiaOrderStatus::PendingPi {
             return Err(AppError::BadRequest(format!(
                 "單據狀態為「{}」，不可申請暫緩",
@@ -403,7 +426,7 @@ impl EuthanasiaService {
             "#,
         )
         .bind(order_id)
-        .bind(pi_user_id)
+        .bind(acting_user_id)
         .bind(&req.reason)
         .bind(&req.attachment_path)
         .bind(chair_user_id)
@@ -979,12 +1002,24 @@ impl EuthanasiaService {
     // ============================================================
 
     /// FOR UPDATE 鎖 order，並驗證 PI 身分。
+    /// 鎖定並回傳這張安樂死單，同時解出「操作者是 PI 本人還是代理人」——回傳的
+    /// `Option<Uuid>` 非 NULL 時是 `protocol_pi_delegates.id`，供呼叫端綁進
+    /// `sign_record_delegated_tx`（PI 本人操作則為 `None`）。
+    ///
+    /// ⚠️ 這仍是本服務唯一的 IDOR 防線（handler 層不重驗，見 `handlers/euthanasia.rs`
+    /// 的 `approve_order`/`appeal_order`）：對不上 `pi_user_id` 本人、也對不上
+    /// 任何生效中代理人時一律 `NotFound`（不是 `Forbidden`，避免洩漏單據存在與否）。
+    ///
+    /// `euthanasia_orders` 本身沒有 `protocol_id` 欄位，代理人比對需經
+    /// `animals.iacuc_no = protocols.iacuc_no` 解到計畫（與 `access.rs` 的
+    /// `get_animal_protocol_id` 同一個 join 路徑）。`FOR UPDATE OF eo` 只鎖單據列，
+    /// 不連帶鎖 animals/protocols/protocol_pi_delegates。
     async fn lock_order_for_pi(
         tx: &mut Transaction<'_, Postgres>,
         order_id: Uuid,
-        pi_user_id: Uuid,
-    ) -> Result<EuthanasiaOrder, AppError> {
-        sqlx::query_as::<_, EuthanasiaOrder>(
+        acting_user_id: Uuid,
+    ) -> Result<(EuthanasiaOrder, Option<Uuid>), AppError> {
+        let direct = sqlx::query_as::<_, EuthanasiaOrder>(
             r#"
             SELECT id, animal_id, vet_user_id, pi_user_id, reason,
                    status,
@@ -996,10 +1031,51 @@ impl EuthanasiaService {
             "#,
         )
         .bind(order_id)
-        .bind(pi_user_id)
+        .bind(acting_user_id)
         .fetch_optional(&mut **tx)
-        .await?
-        .ok_or_else(|| AppError::NotFound("找不到指定的安樂死單據".to_string()))
+        .await?;
+        if let Some(order) = direct {
+            return Ok((order, None));
+        }
+
+        // sqlx 的 tuple FromRow 是逐欄 Decode，不支援「巢狀 FromRow 結構 + 一個純量欄」
+        // 混在同一個 tuple 裡解——分兩句查：先確認代理資格（順帶拿 delegation id），
+        // 通過才對單據本身下 FOR UPDATE。
+        let delegation_id: Option<Uuid> = sqlx::query_scalar(
+            r#"
+            SELECT d.id
+            FROM protocol_pi_delegates d
+            JOIN protocols pr ON pr.id = d.protocol_id
+            JOIN animals a ON a.iacuc_no = pr.iacuc_no
+            JOIN euthanasia_orders eo ON eo.animal_id = a.id
+            WHERE eo.id = $1 AND d.delegate_user_id = $2 AND d.revoked_at IS NULL
+            "#,
+        )
+        .bind(order_id)
+        .bind(acting_user_id)
+        .fetch_optional(&mut **tx)
+        .await?;
+
+        let Some(delegation_id) = delegation_id else {
+            return Err(AppError::NotFound("找不到指定的安樂死單據".to_string()));
+        };
+
+        let order = sqlx::query_as::<_, EuthanasiaOrder>(
+            r#"
+            SELECT id, animal_id, vet_user_id, pi_user_id, reason,
+                   status,
+                   deadline_at, pi_responded_at, executed_at, executed_by,
+                   created_at, updated_at, version
+            FROM euthanasia_orders
+            WHERE id = $1
+            FOR UPDATE
+            "#,
+        )
+        .bind(order_id)
+        .fetch_one(&mut **tx)
+        .await?;
+
+        Ok((order, Some(delegation_id)))
     }
 
     fn spawn_notify(

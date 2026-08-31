@@ -51,7 +51,10 @@ export function useProtocolDetail() {
     enabled: !!id,
   })
 
-  const { protocol, pi_name, pi_email, pi_organization, sd_name, created_by_name, vet_review } = protocolResponse || {}
+  const {
+    protocol, pi_name, pi_email, pi_organization, sd_name, created_by_name, vet_review,
+    is_pi_delegate,
+  } = protocolResponse || {}
 
   const { data: allUsers } = useQuery({
     queryKey: queryKeys.users.all,
@@ -333,6 +336,7 @@ export function useProtocolDetail() {
     canReply: !!canReply,
     canEditProtocol: !!canEditProtocol,
     canWriteAmendment: !!canWriteAmendment,
+    isPiDelegate: !!is_pi_delegate,
     canAssignReviewer: !!canAssignReviewer,
     canChangeStatus,
     isRevisionStatus,

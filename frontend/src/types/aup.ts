@@ -77,6 +77,9 @@ export interface Protocol {
     imported_at?: string | null
     /** 計畫書表單版本鍵（C/D/E/F…）；驅動版本名冊 manifest 渲染；null=最新版 */
     source_form_version?: string | null
+    /** PI 是否為外部人員（無系統帳號）；true 時 pi_user_id 只是建立者/匯入者的
+     *  佔位值，不代表任何人是 PI。驅動 PI 代理授權卡片是否顯示。 */
+    pi_is_external?: boolean
 }
 
 export interface ProtocolListItem {
@@ -138,6 +141,22 @@ export interface ProtocolResponse {
     can_edit?: boolean
     /** 後端權威：當前使用者是否可建立/更新/提交此計畫的變更申請（admin / PI，不含 SD） */
     can_write_amendment?: boolean
+    /** 目前生效中的 PI 代理授權（外部 PI 尚未開通帳號前，由 SD 核准的代簽人）；
+     *  `pi_is_external=false` 或尚無生效授權時為 null。 */
+    pi_delegate?: PiDelegateInfo | null
+    /** 當前使用者是否就是 `pi_delegate` 本人；供顯示「以代理人身分操作」徽章。 */
+    is_pi_delegate?: boolean
+}
+
+/** PI 代理授權（`protocol_pi_delegates`）唯讀顯示用投影。 */
+export interface PiDelegateInfo {
+    id: string
+    delegate_user_id: string
+    delegate_name: string
+    authorized_by: string
+    authorized_by_name: string
+    authorized_at: string
+    reason?: string | null
 }
 
 export interface ProtocolVersion {

@@ -296,6 +296,13 @@ pub async fn get_protocol(
     // （或反之，讓 SD / EXPERIMENT_STAFF 看到必定 403 的按鈕）。
     response.can_write_amendment =
         access::can_write_amendment(&state.db, &current_user, id).await?;
+    // PI 代理授權（migration 010）：僅外部 PI 計畫需要顯示；is_pi_delegate 讓前端
+    // 知道當前 viewer 本人就是這位代理人，可顯示「以代理人身分操作」徽章。
+    response.pi_delegate = ProtocolService::active_pi_delegate(&state.db, id).await?;
+    response.is_pi_delegate = response
+        .pi_delegate
+        .as_ref()
+        .is_some_and(|d| d.delegate_user_id == current_user.id);
     Ok(Json(response))
 }
 
