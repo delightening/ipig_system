@@ -25,7 +25,7 @@ import {
 import { Plus, Trash2, Search } from 'lucide-react'
 import { formatNumber, formatUom } from '@/lib/utils'
 import type { DocumentFormData, DocumentLine } from '../types'
-import { buildUomOptions } from '../uomOptions'
+import { buildUomOptions, isUomReadOnly } from '../uomOptions'
 import type { InputRefs } from '../hooks/useDocumentForm'
 import type { AdjMode } from '../DocumentEditPage'
 import { BatchNumberSelect } from './BatchNumberSelect'
@@ -40,8 +40,9 @@ import { warehouseChipStyle, warehouseColor } from '../warehouseColors'
  * `assert_lines_uom_defined` 的判準同源——填不在這組裡的單位會被擋成 400，
  * 所以這裡不提供自由輸入。
  *
- * 只有一個選項時（品項沒建任何換算率）退回純文字：一個選項的下拉只是噪音，
- * 也維持既有版面高度不變。
+ * 唯一選項就是現值時（品項沒建任何換算率）退回純文字：一個選項的下拉只是噪音，
+ * 也維持既有版面高度不變。判準交給 `isUomReadOnly`——**不是**單純看選項數，
+ * 否則帶著舊自由字串單位的行會被鎖成唯讀而無法修正，理由見該函式註解。
  */
 function UomSelect({
   line,
@@ -56,14 +57,16 @@ function UomSelect({
 }) {
   const options = buildUomOptions(line)
 
-  if (options.length <= 1) {
+  if (isUomReadOnly(line)) {
     return <span className={className ?? 'text-sm'}>{formatUom(line.uom) || '-'}</span>
   }
 
   return (
     <Select value={line.uom} onValueChange={(v) => onChange(lineId, v)}>
       <SelectTrigger className="h-9" aria-label="單位">
-        <SelectValue />
+        {/* 現值不在選項內（舊資料的無效單位）時 Radix 會顯示 placeholder：
+            照樣把原值秀出來，使用者才知道自己現在是什麼、要改成什麼。 */}
+        <SelectValue placeholder={formatUom(line.uom) || '請選擇單位'} />
       </SelectTrigger>
       <SelectContent>
         {options.map((uom) => (

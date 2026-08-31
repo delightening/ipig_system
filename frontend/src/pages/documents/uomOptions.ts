@@ -24,3 +24,23 @@ export function buildUomOptions(line: UomOptionSource): string[] {
   const base = line.base_uom || line.uom
   return Array.from(new Set([base, ...(line.alt_uoms ?? [])].filter(Boolean)))
 }
+
+/**
+ * 單位欄要不要渲染成唯讀文字（而非下拉）。
+ *
+ * 「只有一個選項就顯示文字」這個直覺**不夠**：舊單據的 `uom` 可能是本 PR 之前
+ * 留下的自由字串（例如 base_uom 是「雙」而該行寫「打」）。那種行的選項只有
+ * 一個（base_uom），若照選項數就渲染成文字，畫面會顯示那個**無效的**「打」、
+ * 使用者卻改不動它——而後端 `assert_lines_uom_defined` 更新時必定回 400，
+ * 等於把人卡死在一張永遠存不了的單上，沒有任何補救途徑。
+ *
+ * 所以判準是「唯一的選項就是它現在的值」，不是「只有一個選項」：
+ * - 無選項（新增行 `uom` 還是空的）→ 文字，維持既有版面。
+ * - 一個選項且等於現值 → 文字，一個選項的下拉只是噪音。
+ * - 一個選項但不等於現值 → **下拉**，讓使用者把無效單位改回合法值。
+ * - 多個選項 → 下拉。
+ */
+export function isUomReadOnly(line: UomOptionSource): boolean {
+  const options = buildUomOptions(line)
+  return options.length === 0 || (options.length === 1 && options[0] === line.uom)
+}
