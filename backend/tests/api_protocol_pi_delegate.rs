@@ -440,6 +440,15 @@ async fn sd_change_auto_revokes_delegate() {
     let delegate = seed_user(&app, None).await;
     let staff = seed_user(&app, Some("IACUC_STAFF")).await;
     let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+    // `core.rs::update` 是全系統唯一會寫 `study_director_user_id` 的路徑，而它擋住
+    // 非 DRAFT/需修訂的計畫——唯一的例外是「APPROVED + import_pending」（補登中）。
+    // 外部 PI 計畫幾乎都是匯入進來的 APPROVED 件，補登期間換 SD 正是這條 fallback
+    // 存在的實際情境，所以 fixture 補上 import_pending 而不是把狀態改成 DRAFT。
+    sqlx::query("UPDATE protocols SET import_pending = true WHERE id = $1")
+        .bind(protocol)
+        .execute(&app.db_pool)
+        .await
+        .expect("set import_pending");
     ProtocolService::authorize_pi_delegate(
         &app.db_pool,
         &actor(sd, &["EXPERIMENT_STAFF"]),

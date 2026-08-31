@@ -159,6 +159,9 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "protocol_activities",
     "review_round_history",
     "protocol_ai_reviews",
+    // 010 - 外部 PI 代簽授權（FK → protocols + users）。必須排在 electronic_signatures
+    // 之前：後者的 delegation_id 反過來 FK → protocol_pi_delegates(id)。
+    "protocol_pi_delegates",
     // 004 - HR
     "attendance_records",
     "overtime_records",
