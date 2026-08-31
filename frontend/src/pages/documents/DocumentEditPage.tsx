@@ -41,8 +41,6 @@ export function DocumentEditPage() {
   const [searchParams] = useSearchParams()
   const defaultType = (searchParams.get('type') as DocType) || ''
   const [adjMode, setAdjMode] = React.useState<AdjMode>('modify')
-  // 盤點品類選單的資料源，與新增/編輯產品、產品清單篩選同一份（GET /sku/categories）
-  const { categories: skuCategories } = useSkuCategories({ enabled: defaultType === 'STK' })
 
   const {
     isEdit,
@@ -95,6 +93,12 @@ export function DocumentEditPage() {
     categoryCode,
     setCategoryCode,
   } = useDocumentForm({ defaultType })
+
+  // 盤點品類選單的資料源，與新增/編輯產品、產品清單篩選同一份（GET /sku/categories）。
+  // 條件看 formData.doc_type 而非 URL 的 defaultType——單別在頁內可由下拉切換
+  // （見下方 doc_type 的 Select），直接進 /documents/new 再選「盤點單」時 defaultType
+  // 是空的，若照它判斷就會出現「欄位顯示得出來、品類一個都選不到」的空清單。
+  const { categories: skuCategories } = useSkuCategories({ enabled: formData.doc_type === 'STK' })
 
   const { data: allDocuments } = useQuery({
     queryKey: ['documents', { doc_type: 'PO', status: 'approved' }],
