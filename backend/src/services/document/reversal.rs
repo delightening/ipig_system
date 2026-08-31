@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::{
     middleware::ActorContext,
     models::{
-        audit_diff::DataDiff, DocStatus, Document, DocumentAuditSnapshot, DocumentLine,
+        audit_diff::DataDiff, DocStatus, DocType, Document, DocumentAuditSnapshot, DocumentLine,
         DocumentWithLines,
     },
     services::{
@@ -259,6 +259,24 @@ impl DocumentService {
         .bind(reversal_id)
         .execute(&mut *tx)
         .await?;
+
+        // 沖銷一張採購入庫單 → 回退來源採購單的入庫進度（2026-08-27 修）。
+        //
+        // 原本這裡完全不碰來源 PO：GRN 沖銷後 `receipt_status` 仍停在 `complete`，
+        // 前端「採購入庫」按鈕（要求 pending/partial）消失，使用者開不出更正單；
+        // 就算硬開，`ensure_no_over_receipt` 也會把已沖銷的量算進 received 而擋下。
+        // 結果是「打錯 → 沖銷 → 重開」這條唯一的補救路徑走不完，PO 永久卡死。
+        //
+        // ⚠️ 必須在上面那個 UPDATE **之後**呼叫：`update_po_receipt_status` 的排除述詞
+        // 要求沖銷單本身已是 `approved`，才看得到「原單已被沖銷」。
+        //
+        // 只重算不 raise：`ensure_no_over_receipt` 刻意不在此呼叫，沖銷是把量減回去，
+        // 不可能造成超收，而對既有 legacy 超收資料炸錯只會擋住正當的沖銷。
+        if original.doc_type == DocType::GRN {
+            if let Some(po_id) = original.source_doc_id {
+                Self::update_po_receipt_status(&mut tx, po_id).await?;
+            }
+        }
 
         let after_doc = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
             .bind(reversal_id)
