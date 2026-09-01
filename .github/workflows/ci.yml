@@ -508,6 +508,12 @@ jobs:
       ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
       # 避免 login_with_wrong_password_returns_401 因平行測試累積 login_events 導致帳號鎖定（400）
       DISABLE_ACCOUNT_LOCKOUT: "true"
+      # 測試 binary 不帶 DWARF（2026-09-01 使用者裁定）：預設 debuginfo=2，84 支整合測試
+      # binary 加起來是本 job 磁碟用量的大宗，而 runner 餘裕早已在邊際（見下方清理步驟）。
+      # 只設在 CI，不寫進 Cargo.toml——本機除錯仍要行號。
+      # 代價：CI 的 panic backtrace 只有函式名、沒有行號。測試失敗訊息（assert 的
+      # 自訂訊息、panic message）不受影響，這是刻意選的取捨方向。
+      CARGO_PROFILE_TEST_DEBUG: "0"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -517,15 +523,23 @@ jobs:
         with:
           cache-key-suffix: test
 
-      # 釋放 runner 預裝 SDK 佔用：cargo test 要建 83 支整合測試 binary，在標準 runner
+      # 釋放 runner 預裝 SDK 佔用：cargo test 要建 84 支整合測試 binary，在標準 runner
       # 上磁碟邊際、偶爾 ENOSPC（本 session 實測 log 尾 "No space left" + cargo orphan）。
       # step 在 setup-rust 後 → 不影響已就緒的 rustup 工具鏈；postgres service 映像使用中不被 prune。
-      - name: 釋放 runner 磁碟空間（避免 83 binary build ENOSPC）
+      #
+      # 2026-09-01 加碼（PR #37）：原清單已刪 dotnet/ghc/android/hostedtoolcache/boost/jvm
+      # 仍不夠——runner 2.337.0 上連兩次同一位置失敗，annotation 為
+      # `No space left on device : '/home/runner/actions-runner/cached/2.337.0/_diag/Worker_*.log'`。
+      # 補刪 swift / powershell / miniconda / ghcup / chromium 與 apt 快取。
+      - name: 釋放 runner 磁碟空間（避免 84 binary build ENOSPC）
         run: |
           echo "清理前磁碟："; df -h /
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /opt/hostedtoolcache /usr/local/share/boost /usr/lib/jvm || true
+            /opt/hostedtoolcache /usr/local/share/boost /usr/lib/jvm \
+            /usr/share/swift /usr/local/share/powershell /usr/share/miniconda \
+            /usr/local/.ghcup /usr/local/share/chromium || true
           sudo docker image prune -af || true
+          sudo apt-get clean || true
           echo "清理後磁碟："; df -h /
 
       - name: 安裝 sqlx-cli
@@ -534,8 +548,11 @@ jobs:
       - name: 執行資料庫遷移
         run: sqlx migrate run
 
+      # 不帶 --verbose：它會把每一支 binary 的完整 rustc 指令列印出來，而 runner 把 job log
+      # 同步寫進 `_diag/Worker_*.log`——上述 ENOSPC 正是在寫那個檔時炸的，等於自己加速把磁碟寫滿。
+      # 移除後仍保留全部測試輸出與失敗訊息（--verbose 影響的只有編譯指令的回顯）。
       - name: cargo test
-        run: cargo test --locked --verbose -- --test-threads=1
+        run: cargo test --locked -- --test-threads=1
 
   # =========================
   # Rust 後端：Clippy 靜態分析
@@ -626,13 +643,20 @@ jobs:
           components: llvm-tools-preview
           cache-key-suffix: llvmcov-g${{ matrix.group }}
 
-      # 釋放 runner 預裝 SDK 佔用，增加分組磁碟餘裕（單組本就塞得進，此為保險）。
+      # 釋放 runner 預裝 SDK 佔用，增加分組磁碟餘裕。
+      # 2026-09-01（PR #37）：原註解寫「單組本就塞得進，此為保險」——實測不成立，
+      # 分片 1/4、2/4、3/4 各自撞過 `No space left on device`（與 backend-test 同根因、
+      # 同 runner 版本）。清單與 backend-test 對齊；本 job 不關 debuginfo，
+      # 覆蓋率映射寧可保守。
       - name: 釋放 runner 磁碟空間
         run: |
           echo "清理前磁碟："; df -h /
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /opt/hostedtoolcache /usr/local/share/boost /usr/lib/jvm || true
+            /opt/hostedtoolcache /usr/local/share/boost /usr/lib/jvm \
+            /usr/share/swift /usr/local/share/powershell /usr/share/miniconda \
+            /usr/local/.ghcup /usr/local/share/chromium || true
           sudo docker image prune -af || true
+          sudo apt-get clean || true
           echo "清理後磁碟："; df -h /
 
       - name: 安裝 cargo-llvm-cov
