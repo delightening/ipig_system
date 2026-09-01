@@ -24,15 +24,21 @@ export function buildStocktakeScope(categoryCodes: string[]): StocktakeScope {
 /**
  * 決定送出時 payload 要不要帶盤點範圍。
  *
- * 只有 STK **建立**時後端才會呼叫 `generate_stocktake_lines`；其餘單據型別帶了
- * 也不會被讀，卻會在單據上留下一個事後容易被誤讀成「這張單當初盤了哪些類別」
- * 的欄位。因此非 STK 一律回 null。
+ * 只有 STK **建立**時後端才會讀它（`generate_stocktake_lines` 產底稿、INSERT 寫欄位）；
+ * 其餘情況帶了也不會被讀，卻會在單據上留下一個事後容易被誤讀成「這張單當初盤了哪些
+ * 類別」的欄位。因此非 STK 一律回 null。
+ *
+ * `isEdit` 同理（CodeRabbit 於 PR #37 指出，Minor）：編輯走 PUT，後端**沒有任何
+ * UPDATE 路徑**會寫 `stocktake_scope`，所以送過去只是被忽略——但表單在編輯時帶的是
+ * 預設值 `{full, []}`，不是這張單真正的範圍，送出它等於在 payload 裡放一個看起來像
+ * 事實、其實是預設值的東西。不送最誠實。
  */
 export function scopeForPayload(
   docType: DocType,
   scope: StocktakeScope | undefined,
+  isEdit = false,
 ): StocktakeScope | null {
-  if (docType !== 'STK' || !scope) return null
+  if (docType !== 'STK' || isEdit || !scope) return null
   return scope
 }
 

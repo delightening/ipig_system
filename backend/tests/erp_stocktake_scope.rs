@@ -14,7 +14,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use erp_backend::middleware::CurrentUser;
-use erp_backend::models::{CreateDocumentRequest, DocType};
+use erp_backend::models::{CreateDocumentRequest, DocType, DocumentLineInput};
 use erp_backend::services::DocumentService;
 use erp_backend::{ActorContext, SYSTEM_USER_ID};
 
@@ -260,6 +260,46 @@ async fn unknown_scope_type_is_rejected() {
     assert!(
         msg.contains("scope_type"),
         "錯誤訊息應點出是 scope_type 的值有問題，實際為：{msg}"
+    );
+}
+
+/// 自帶明細的盤點單**不經過** `generate_stocktake_lines`，但 `stocktake_scope` 仍會被
+/// 原樣寫進單據。驗證若只掛在產生底稿那條路上，這條路就能把形狀非法的範圍存進資料庫——
+/// 同一個欄位、兩套規則。（CodeRabbit 於 PR #37 指出，Minor。）
+#[tokio::test]
+async fn malformed_scope_is_rejected_even_when_lines_are_provided() {
+    let pool = setup_pool().await;
+    let (wh_id, drug_sku, _) = seed_two_category_shelf(&pool).await;
+
+    let product_id: Uuid = sqlx::query_scalar("SELECT id FROM products WHERE sku = $1")
+        .bind(&drug_sku)
+        .fetch_one(&pool)
+        .await
+        .expect("取得測試品項 id");
+
+    // `1` 連 object 都不是——舊路徑會直接把它寫進 stocktake_scope 欄位
+    let mut req = stk_request(wh_id, Some(serde_json::json!(1)));
+    req.lines = vec![DocumentLineInput {
+        product_id,
+        qty: Decimal::new(1, 0),
+        uom: "pcs".into(),
+        unit_price: None,
+        batch_no: None,
+        expiry_date: None,
+        remark: None,
+        storage_location_id: None,
+        storage_location_from_id: None,
+        storage_location_to_id: None,
+    }];
+
+    let err = DocumentService::create(&pool, &wm_actor(), &req)
+        .await
+        .expect_err("自帶明細時，形狀錯誤的盤點範圍一樣必須報錯");
+
+    let msg = err.to_string();
+    assert!(
+        msg.contains("盤點範圍格式錯誤"),
+        "錯誤訊息應指出是盤點範圍的問題，實際為：{msg}"
     );
 }
 

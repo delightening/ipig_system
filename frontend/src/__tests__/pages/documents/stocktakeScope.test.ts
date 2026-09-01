@@ -47,6 +47,10 @@ describe('scopeForPayload', () => {
     expect(scopeForPayload('STK', undefined)).toBeNull()
   })
 
+  it('編輯 STK 時送 null——後端沒有 UPDATE 路徑會讀它，而表單帶的是預設值不是該單的真實範圍', () => {
+    expect(scopeForPayload('STK', scope, true)).toBeNull()
+  })
+
   it.each(['PO', 'GRN', 'PR', 'SO', 'TR', 'ADJ'] as const)(
     '%s 一律送 null——後端不會讀它，留著只會被誤讀成「這張單當初盤了哪些類別」',
     (docType) => {

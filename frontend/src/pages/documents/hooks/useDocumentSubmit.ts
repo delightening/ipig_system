@@ -144,7 +144,7 @@ export function useDocumentSubmit({
         protocol_id: mergedData.protocol_id?.trim() ? mergedData.protocol_id : null,
         source_doc_id: mergedData.source_doc_id?.trim() ? mergedData.source_doc_id : null,
         remark: mergedData.remark?.trim() ? mergedData.remark : null,
-        stocktake_scope: scopeForPayload(mergedData.doc_type, mergedData.stocktake_scope),
+        stocktake_scope: scopeForPayload(mergedData.doc_type, mergedData.stocktake_scope, isEdit),
         lines: validLines.map((line) => ({
           product_id: line.product_id,
           qty: parseFloat(line.qty) || 0,
@@ -159,7 +159,7 @@ export function useDocumentSubmit({
         })),
       }
     },
-    [collectLineValues, products, isShelfRequired, inputRefs]
+    [collectLineValues, products, isShelfRequired, inputRefs, isEdit]
   )
 
   const saveMutation = useMutation({

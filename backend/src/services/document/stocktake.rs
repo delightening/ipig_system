@@ -76,6 +76,38 @@ fn validate_scope(scope: &StocktakeScope) -> Result<()> {
 }
 
 impl DocumentService {
+    /// 解析並驗證盤點範圍，回傳解析後的結果（未指定時為 `None`）。
+    ///
+    /// **必須在「要不要自動產生底稿」那個分支之前呼叫。** 盤點單允許呼叫端自帶明細，
+    /// 那條路徑不會經過 `generate_stocktake_lines`，但 `stocktake_scope` 仍會被原樣
+    /// 寫進單據（`crud.rs` 的 INSERT）——驗證掛在產生底稿裡的話，
+    /// `{"lines":[…],"stocktake_scope":1}` 就會安靜地把一個形狀非法的值存進資料庫，
+    /// 而同一個欄位走另一條路是會報錯的。同一份資料不該因為走哪條路而有兩套規則。
+    /// （CodeRabbit 於 PR #37 指出，Minor。）
+    ///
+    /// `None` 與 JSON `null` 都是「不限範圍」，不是錯誤。
+    pub(crate) fn parse_and_validate_stocktake_scope(
+        scope: &Option<serde_json::Value>,
+    ) -> Result<Option<StocktakeScope>> {
+        // 解析失敗一律報錯，**不可 `.ok()` 靜默降級成全盤**：盤點範圍是「這張單要盤什麼」的
+        // 唯一依據，形狀寫錯而默默全盤，使用者只會看到一份比預期長的底稿，
+        // 不會知道自己的篩選被丟掉了——盤完才發現等於白盤一次。
+        let parsed: Option<StocktakeScope> = match scope {
+            None => None,
+            Some(v) if v.is_null() => None,
+            Some(v) => Some(
+                serde_json::from_value(v.clone())
+                    .map_err(|e| AppError::Validation(format!("盤點範圍格式錯誤：{e}")))?,
+            ),
+        };
+
+        if let Some(ref s) = parsed {
+            validate_scope(s)?;
+        }
+
+        Ok(parsed)
+    }
+
     /// 根據盤點範圍生成盤點項目（**貨架層級**）。
     ///
     /// 每個 (儲位 × 品項 × 批號 × 效期) 在 `storage_location_inventory` 有現存量者
@@ -90,22 +122,9 @@ impl DocumentService {
             AppError::BusinessRule("Warehouse is required for stocktake".to_string())
         })?;
 
-        // 解析失敗一律報錯，**不可 `.ok()` 靜默降級成全盤**：盤點範圍是「這張單要盤什麼」的
-        // 唯一依據，形狀寫錯而默默全盤，使用者只會看到一份比預期長的底稿，
-        // 不會知道自己的篩選被丟掉了——盤完才發現等於白盤一次。
-        // `null` 與整個欄位缺席仍視為未指定（全盤），那是明確的「不限範圍」意圖。
-        let scope: Option<StocktakeScope> = match scope {
-            None => None,
-            Some(v) if v.is_null() => None,
-            Some(v) => Some(
-                serde_json::from_value(v.clone())
-                    .map_err(|e| AppError::Validation(format!("盤點範圍格式錯誤：{e}")))?,
-            ),
-        };
-
-        if let Some(ref s) = scope {
-            validate_scope(s)?;
-        }
+        // `crud.rs` 在分支前已經驗過一次；這裡再解析一次是為了讓本函式自身完備
+        // （驗證是純函式、無副作用，重跑不影響結果），不依賴呼叫端記得先驗。
+        let scope = Self::parse_and_validate_stocktake_scope(scope)?;
 
         let (product_ids, category_codes) = match scope {
             Some(ref s) => (s.product_ids.clone(), s.category_codes.clone()),
