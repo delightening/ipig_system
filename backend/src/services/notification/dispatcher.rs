@@ -103,14 +103,15 @@ impl NotificationService {
             .await
     }
 
-    async fn dispatch_event_inner(
+    /// 解析一個事件的收件人與其有效管道（user_id → 管道聯集）。
+    ///
+    /// 只讀 routing 與 resolver，不寫任何東西——因此 tx 版與 pool 版共用同一份判準。
+    /// 兩邊各寫一次的話，「誰該收到待辦」與「誰該收到通知」會各自漂移。
+    async fn resolve_targets(
         &self,
         event_type: &str,
         ctx: &EventContext,
-        payload: NotificationPayload,
-        pinned: bool,
-        recipient_role: Option<&'static str>,
-    ) -> Result<i32, AppError> {
+    ) -> Result<HashMap<Uuid, RecipientChannel>, AppError> {
         let rules = self.load_active_routing_rules(event_type).await?;
 
         // 收件人去重：user_id → 有效管道聯集。
@@ -123,6 +124,50 @@ impl NotificationService {
                 targets.entry(uid).or_default().merge(&rule.channel);
             }
         }
+        Ok(targets)
+    }
+
+    /// 該事件依 `notification_routing` **管道含 email** 的收件人集合。
+    ///
+    /// 供關卡待辦（`stages.rs`）判斷「這個人要不要順便收信」用：那邊的收件人由授權判準
+    /// 決定，routing 只保留管道這一半。回傳的是 routing 自己算出來的收件人，呼叫端要
+    /// 與自己的名單取交集，不可直接當收件人用。
+    pub(super) async fn email_channel_users(
+        &self,
+        event_type: &str,
+        ctx: &EventContext,
+    ) -> Result<std::collections::HashSet<Uuid>, AppError> {
+        Ok(self
+            .resolve_targets(event_type, ctx)
+            .await?
+            .into_iter()
+            .filter(|(_, ch)| ch.email)
+            .map(|(uid, _)| uid)
+            .collect())
+    }
+
+    /// 對一批收件人寄出路由通知 email（[`Self::dispatch_pinned_event_tx`] 的 commit 後配套）。
+    /// 逐筆 best-effort，與 pool 版的 email 路徑同一支實作。
+    pub async fn send_routed_emails(
+        &self,
+        event_type: &str,
+        payload: &NotificationPayload,
+        user_ids: &[Uuid],
+    ) {
+        for uid in user_ids {
+            self.dispatch_routed_email(*uid, event_type, payload).await;
+        }
+    }
+
+    async fn dispatch_event_inner(
+        &self,
+        event_type: &str,
+        ctx: &EventContext,
+        payload: NotificationPayload,
+        pinned: bool,
+        recipient_role: Option<&'static str>,
+    ) -> Result<i32, AppError> {
+        let targets = self.resolve_targets(event_type, ctx).await?;
 
         let mut count = 0;
         for (uid, ch) in targets {

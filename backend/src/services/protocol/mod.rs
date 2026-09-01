@@ -1,6 +1,7 @@
 // AUP 計畫管理服務模組
 //
 // 將原 protocol.rs 拆分為以下子模組：
+// - closure: 結案雙簽 gate（設計 A）
 // - core: 計畫 CRUD、列表
 // - comment: 審查評論
 // - history: 活動紀錄與狀態歷程
@@ -10,6 +11,7 @@
 // - status: 計畫狀態管理
 
 pub mod ai_review;
+pub mod closure;
 mod comment;
 mod core;
 mod history;

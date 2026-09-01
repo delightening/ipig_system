@@ -13,8 +13,6 @@ export type PendingOwnerKind =
     | 'person'
     /** 球在申請人自己身上（需修正 / 補件） */
     | 'applicant'
-    /** 刻意不列名（IACUC 委員會審查），只給人數 */
-    | 'anonymous'
 
 export interface PendingOwner {
     /** i18n key 尾段，查 `pendingOwner.stage.<stage>`，例 `doc_wm_approve` */

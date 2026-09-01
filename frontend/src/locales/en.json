@@ -3423,7 +3423,6 @@
   "pendingOwner": {
     "andOthers": "({{count}} total)",
     "nobody": "Nobody can act on this step (separation of duties excluded all candidates)",
-    "reviewerCount": "{{count}} reviewers",
     "stage": {
       "doc_wm_approve": "Awaiting warehouse approval",
       "doc_final_approve": "Awaiting final approval",
@@ -3435,14 +3434,22 @@
       "equipment_maintenance_start": "Awaiting repair scheduling",
       "equipment_maintenance_review": "Awaiting acceptance",
       "aup_protocol_intake": "Awaiting administrative intake",
+      "aup_protocol_vet_review": "Under veterinary review",
+      "aup_protocol_under_review": "Under committee review",
+      "aup_protocol_revision": "Awaiting applicant revision",
       "aup_amendment_classify": "Awaiting classification",
-      "aup_amendment_to_review": "Awaiting submission to review"
+      "aup_amendment_to_review": "Awaiting submission to review",
+      "aup_amendment_under_review": "Under committee review",
+      "aup_amendment_revision": "Awaiting applicant revision",
+      "vet_patrol_acknowledge": "Awaiting follower acknowledgement",
+      "vet_patrol_follow_up": "Awaiting follower response"
     },
     "role": {
       "admin": "System Administrator",
       "SYSTEM_ADMIN": "System Administrator",
       "ADMIN_STAFF": "Administrative Staff",
-      "WAREHOUSE_MANAGER": "Warehouse Manager"
+      "WAREHOUSE_MANAGER": "Warehouse Manager",
+      "REVIEWER": "Review Committee"
     }
   }
 }

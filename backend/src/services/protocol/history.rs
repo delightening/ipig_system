@@ -35,10 +35,23 @@ pub(super) fn event_type_for(activity_type: ProtocolActivityType) -> &'static st
         ProtocolActivityType::CommentReplied => "PROTOCOL_COMMENT_REPLY",
         ProtocolActivityType::ReviewerAssigned => "PROTOCOL_REVIEWER_ASSIGN",
         ProtocolActivityType::VetAssigned => "PROTOCOL_VET_ASSIGN",
+        ProtocolActivityType::SdAssigned => "PROTOCOL_SD_ASSIGN",
         ProtocolActivityType::StatusChanged => "PROTOCOL_STATUS_CHANGE",
         // 歷史稽核紀錄（CO_EDITOR 角色已拆除，僅保留讀取既有事件）
         ProtocolActivityType::CoeditorAssigned => "PROTOCOL_COEDITOR_ASSIGN",
         ProtocolActivityType::CoeditorRemoved => "PROTOCOL_COEDITOR_REMOVE",
+        // ⚠️ 這個 catch-all 是本檔唯一沒有編譯器保護的地方。
+        //
+        // `ProtocolActivityType::as_str()` 與 `display_name()` 都沒有 `_ =>`，
+        // 所以新增 variant 時編譯器會強制你去處理。這裡有，於是**漏掉不會報錯**
+        // ——新事件會靜默落到 `PROTOCOL_ACTION`，稽核報表上看不出它是什麼，
+        // 而且要等到有人去查稽核紀錄才會發現，那通常是稽核當下。
+        //
+        // 不直接移除 catch-all 是因為多數 variant 本來就該落到通用事件
+        // （附件、版本、動物指派…），一一列出只是把噪音搬進這裡。
+        // 折衷：需要專屬 event_type 的 variant，一律補一支測試釘住
+        //（見 `tests/api_protocol_sd_assign_audit.rs` 的
+        //  `sd_assign_has_dedicated_event_type`）。
         _ => "PROTOCOL_ACTION",
     }
 }

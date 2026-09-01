@@ -16,3 +16,8 @@ pub fn pi_display_name(fallback: &str) -> String {
 pub fn pi_sponsor_org(fallback: &str) -> String {
     format!("COALESCE(NULLIF(p.working_content->'basic'->'sponsor'->>'name', ''), {fallback})")
 }
+
+/// PI 聯絡 email 片段：`COALESCE(NULLIF(basic.pi.email,''), <fallback>)`。
+pub fn pi_email(fallback: &str) -> String {
+    format!("COALESCE(NULLIF(p.working_content->'basic'->'pi'->>'email', ''), {fallback})")
+}

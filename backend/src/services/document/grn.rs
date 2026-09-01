@@ -22,9 +22,53 @@ struct PoLineRow {
     uom: String,
     unit_price: Option<Decimal>,
     qty: Decimal,
+    /// 本行 `uom` 對 `base_uom` 的換算率，恆 > 0（SQL 端已把 NULL / 非正數收斂成 1）。
+    factor_to_base: Decimal,
 }
 
 use super::DocumentService;
+
+/// 「已被沖銷的 GRN 不計入 `received`」的排除述詞，供本檔**四處** `received` 算式共用。
+///
+/// R84-5 沖銷：原單被沖銷後**仍是 `approved`**，不排除的話已沖銷的量會一直被算進去，
+/// 「打錯 → 沖銷 → 重開正確的」這條唯一的補救路徑走不完。
+///
+/// `documents` **沒有** `reversed_by_doc_id` 欄位（見 `models/document.rs` 該欄說明），
+/// 沖銷關係只能由沖銷單的 `reverses_doc_id` 反查。
+///
+/// ⚠️ **四處的述詞必須完全一致**，所以收斂成單一巨集而不是各自複製一份：任一處漏掉都會
+/// 產生「入庫進度顯示 pending、守衛卻仍擋」或「按鈕出現、按下去卻說已全部入庫」這類
+/// 極難查的症狀（2026-08-27 第一版修法只補了其中兩處，補救路徑仍然斷）。
+///
+/// 使用前提：SQL 裡 `documents` 當 GRN 用的那個別名必須是 `g`。
+macro_rules! exclude_reversed_grn {
+    () => {
+        "
+              AND NOT EXISTS (
+                  SELECT 1 FROM documents r
+                  WHERE r.reverses_doc_id = g.id AND r.status = 'approved'
+              )
+        "
+    };
+}
+
+// ## base_uom 一律 factor 1：本檔每個 `product_uom_conversions` 的 JOIN 都要帶
+// `AND <conv>.uom <> <products>.base_uom`
+//
+// Rust 端的 `ProductUomTable::factor`（`services/stock/uom.rs`）**先判斷 `uom == base_uom`
+// 就回 1，根本不查換算表**。SQL 端若照著 `c.uom = dl.uom` 去 join，遇到舊資料裡
+// `uom = base_uom, factor_to_base = 50` 這種同名列就會撿到 50——同一張單，兩邊算出的
+// 數量差 50 倍。
+//
+// 具體後果不只是顯示錯：`assert_no_over_receipt` 會把**完全正確的收貨**judge 成超收而擋下
+// （SQL 端 received 膨脹 50 倍），`create_additional_grn` 的剩餘量也跟著錯。
+//
+// 這個不對稱是本 PR 引進的——本 PR 之前 grn.rs 的 `SUM(qty)` 完全不看換算表，沒有兩端之分。
+// 同一個根因在盤點路徑上更兇（`document/stocktake.rs::counting_uom` 會開出把貨架清空的
+// 盤虧 ADJ），該處已用 `pack_unit != base_uom` 擋掉。
+//
+// ⚠️ 與 `exclude_reversed_grn!` 同理：**本檔每一處都要帶，漏一處就是一個算得出不同答案的
+// 路徑**。真正的根治是禁止這種列存在（DB 約束），但那需要 migration，不在本 PR 範圍。
 
 /// 依據已入庫量與採購量決定入庫狀態字串。
 pub(super) fn receipt_status_label(
@@ -70,18 +114,37 @@ impl DocumentService {
         .fetch_all(pool)
         .await?;
 
-        // 取得已入庫數量
-        let received_qty: Vec<(Uuid, Decimal)> = sqlx::query_as(
+        // 取得已入庫數量。兩件事疊在同一個算式上：
+        //
+        // (1) 排除已被沖銷的 GRN（#39）：原單被沖銷後仍是 `approved`，不排除的話已沖銷的量
+        //     會一直被算進去，這裡會回「All items have been received」而開不出更正單。
+        // (2) 換算成 base_uom 再加總（本 PR）：PO 與 GRN 對同一品項可以填不同單位
+        //     （採購論箱、入庫論盒），直接 SUM(qty) 會把箱與盒相加。查無換算列即代表該行
+        //     就是 base_uom（factor 1）——這個推論由 `assert_lines_uom_defined` 保證。
+        //
+        // 別名必須維持 `g` / `gl`：`exclude_reversed_grn!` 的述詞寫死了 `g.id`（見該巨集）。
+        //
+        // `AND c.uom <> gp.base_uom`：見檔頭「base_uom 一律 factor 1」。
+        let received_qty: Vec<(Uuid, Decimal)> = sqlx::query_as(concat!(
             r#"
-            SELECT dl.product_id, COALESCE(SUM(dl.qty), 0) as received
-            FROM documents d
-            JOIN document_lines dl ON d.id = dl.document_id
-            WHERE d.source_doc_id = $1 
-              AND d.doc_type = 'GRN' 
-              AND d.status = 'approved'
-            GROUP BY dl.product_id
+            SELECT gl.product_id,
+                   COALESCE(SUM(gl.qty * CASE WHEN c.factor_to_base > 0
+                                              THEN c.factor_to_base ELSE 1 END), 0) as received
+            FROM documents g
+            JOIN document_lines gl ON g.id = gl.document_id
+            JOIN products gp ON gp.id = gl.product_id
+            LEFT JOIN product_uom_conversions c
+                   ON c.product_id = gl.product_id AND c.uom = gl.uom
+                  AND c.uom <> gp.base_uom
+            WHERE g.source_doc_id = $1
+              AND g.doc_type = 'GRN'
+              AND g.status = 'approved'
             "#,
-        )
+            exclude_reversed_grn!(),
+            r#"
+            GROUP BY gl.product_id
+            "#
+        ))
         .bind(po_id)
         .fetch_all(pool)
         .await?;
@@ -89,17 +152,37 @@ impl DocumentService {
         let received_map: std::collections::HashMap<Uuid, Decimal> =
             received_qty.into_iter().collect();
 
-        // 計算剩餘數量
+        // 逐 PO 明細行的換算率（同一品項可能在兩行用不同單位，故以 line id 為 key）。
+        // `AND c.uom <> p.base_uom`：見檔頭「base_uom 一律 factor 1」。
+        let po_factors: Vec<(Uuid, Decimal)> = sqlx::query_as(
+            r#"
+            SELECT dl.id, CASE WHEN c.factor_to_base > 0 THEN c.factor_to_base ELSE 1 END
+            FROM document_lines dl
+            JOIN products p ON p.id = dl.product_id
+            LEFT JOIN product_uom_conversions c
+                   ON c.product_id = dl.product_id AND c.uom = dl.uom
+                  AND c.uom <> p.base_uom
+            WHERE dl.document_id = $1
+            "#,
+        )
+        .bind(po_id)
+        .fetch_all(pool)
+        .await?;
+        let po_factor_map: std::collections::HashMap<Uuid, Decimal> =
+            po_factors.into_iter().collect();
+
+        // 計算剩餘數量：兩邊都換到 base_uom 相減，再除回本行單位開立 GRN。
         let remaining_lines: Vec<_> = po_lines
             .iter()
             .filter_map(|line| {
-                let received = received_map
+                let factor = po_factor_map.get(&line.id).copied().unwrap_or(Decimal::ONE);
+                let received_base = received_map
                     .get(&line.product_id)
                     .copied()
                     .unwrap_or(Decimal::ZERO);
-                let remaining = line.qty - received;
-                if remaining > Decimal::ZERO {
-                    Some((line.clone(), remaining))
+                let remaining_base = line.qty * factor - received_base;
+                if remaining_base > Decimal::ZERO {
+                    Some((line.clone(), remaining_base / factor))
                 } else {
                     None
                 }
@@ -182,6 +265,12 @@ impl DocumentService {
     /// 為主體會漏掉）。
     /// 註：不在 `update_po_receipt_status`（被 recompute-all 迴圈共用）內 raise，避免對既有
     /// legacy 超收資料炸錯。
+    ///
+    /// R84-5 沖銷（2026-08-27 修）：`received` 必須排除**已被沖銷的 GRN**。原單被沖銷後
+    /// 仍是 `approved`，不排除的話補開的更正單會被本守衛擋下（「入庫數量超過採購量」），
+    /// 使「打錯 → 沖銷 → 重開」這條補救路徑走不完。
+    /// 排除述詞由 `exclude_reversed_grn!` 巨集提供，本檔四處 `received` 算式共用，
+    /// 見該巨集的說明。
     pub(crate) async fn ensure_no_over_receipt(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         po_id: Uuid,
@@ -192,26 +281,41 @@ impl DocumentService {
             .execute(&mut **tx)
             .await?;
 
-        let over: Option<(Uuid,)> = sqlx::query_as(
+        let over: Option<(Uuid,)> = sqlx::query_as(concat!(
             r#"
             SELECT product_id
             FROM (
-                SELECT pl.product_id, SUM(pl.qty) AS ordered, 0::numeric AS received
+                SELECT pl.product_id,
+                       SUM(pl.qty * CASE WHEN pc.factor_to_base > 0 THEN pc.factor_to_base ELSE 1 END) AS ordered,
+                       0::numeric AS received
                 FROM document_lines pl
+                JOIN products pp ON pp.id = pl.product_id
+                LEFT JOIN product_uom_conversions pc
+                       ON pc.product_id = pl.product_id AND pc.uom = pl.uom
+                      AND pc.uom <> pp.base_uom
                 WHERE pl.document_id = $1
                 GROUP BY pl.product_id
                 UNION ALL
-                SELECT gl.product_id, 0::numeric AS ordered, SUM(gl.qty) AS received
+                SELECT gl.product_id,
+                       0::numeric AS ordered,
+                       SUM(gl.qty * CASE WHEN gc.factor_to_base > 0 THEN gc.factor_to_base ELSE 1 END) AS received
                 FROM documents g
                 JOIN document_lines gl ON g.id = gl.document_id
+                JOIN products gp ON gp.id = gl.product_id
+                LEFT JOIN product_uom_conversions gc
+                       ON gc.product_id = gl.product_id AND gc.uom = gl.uom
+                      AND gc.uom <> gp.base_uom
                 WHERE g.source_doc_id = $1 AND g.doc_type = 'GRN' AND g.status = 'approved'
+            "#,
+            exclude_reversed_grn!(),
+            r#"
                 GROUP BY gl.product_id
             ) t
             GROUP BY product_id
             HAVING SUM(received) > SUM(ordered)
             LIMIT 1
-            "#,
-        )
+            "#
+        ))
         .bind(po_id)
         .fetch_optional(&mut **tx)
         .await?;
@@ -224,27 +328,44 @@ impl DocumentService {
         Ok(())
     }
 
-    /// GRN 核准後，重新計算並回寫 PO 的 receipt_status
+    /// GRN 核准後，重新計算並回寫 PO 的 receipt_status。
+    ///
+    /// R84-5 沖銷（2026-08-27 修）：也由 `approve_reversal` 呼叫，使 GRN 被沖銷後
+    /// PO 的入庫進度回退。`received` 排除已被沖銷的 GRN——原單沖銷後仍是 `approved`，
+    /// 不排除的話 `receipt_status` 永遠停在 `complete`，前端「採購入庫」按鈕消失
+    /// （`DocumentDetailPage.tsx` 要求 pending/partial），使用者開不出更正單。
+    /// 排除述詞由 `exclude_reversed_grn!` 巨集提供，本檔四處共用，見該巨集的說明。
     pub(crate) async fn update_po_receipt_status(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         po_id: Uuid,
     ) -> Result<()> {
-        let row: (Decimal, Decimal) = sqlx::query_as(
+        let row: (Decimal, Decimal) = sqlx::query_as(concat!(
             r#"
             SELECT
-                COALESCE(SUM(pl.qty), 0) AS total_ordered,
+                COALESCE(SUM(pl.qty * CASE WHEN pc.factor_to_base > 0 THEN pc.factor_to_base ELSE 1 END), 0) AS total_ordered,
                 COALESCE((
-                    SELECT SUM(gl.qty)
+                    SELECT SUM(gl.qty * CASE WHEN gc.factor_to_base > 0 THEN gc.factor_to_base ELSE 1 END)
                     FROM documents g
                     JOIN document_lines gl ON g.id = gl.document_id
+                    JOIN products gp ON gp.id = gl.product_id
+                    LEFT JOIN product_uom_conversions gc
+                           ON gc.product_id = gl.product_id AND gc.uom = gl.uom
+                          AND gc.uom <> gp.base_uom
                     WHERE g.source_doc_id = $1
                       AND g.doc_type = 'GRN'
                       AND g.status = 'approved'
+            "#,
+            exclude_reversed_grn!(),
+            r#"
                 ), 0) AS total_received
             FROM document_lines pl
+            JOIN products pp ON pp.id = pl.product_id
+            LEFT JOIN product_uom_conversions pc
+                   ON pc.product_id = pl.product_id AND pc.uom = pl.uom
+                  AND pc.uom <> pp.base_uom
             WHERE pl.document_id = $1
-            "#,
-        )
+            "#
+        ))
         .bind(po_id)
         .fetch_one(&mut **tx)
         .await?;
@@ -270,12 +391,16 @@ impl DocumentService {
         .await?
         .ok_or_else(|| AppError::NotFound("Purchase order not found".to_string()))?;
 
-        // 取得採購單明細
+        // 取得採購單明細。`AND c.uom <> p.base_uom`：見檔頭「base_uom 一律 factor 1」。
         let po_lines: Vec<PoLineRow> = sqlx::query_as(
             r#"
-            SELECT dl.product_id, p.sku, p.name, p.base_uom, dl.uom, dl.unit_price, dl.qty
+            SELECT dl.product_id, p.sku, p.name, p.base_uom, dl.uom, dl.unit_price, dl.qty,
+                   CASE WHEN c.factor_to_base > 0 THEN c.factor_to_base ELSE 1 END AS factor_to_base
             FROM document_lines dl
             JOIN products p ON dl.product_id = p.id
+            LEFT JOIN product_uom_conversions c
+                   ON c.product_id = dl.product_id AND c.uom = dl.uom
+                  AND c.uom <> p.base_uom
             WHERE dl.document_id = $1
             ORDER BY dl.line_no
             "#,
@@ -284,31 +409,49 @@ impl DocumentService {
         .fetch_all(pool)
         .await?;
 
-        // 取得已入庫數量
-        let received: Vec<(Uuid, Decimal)> = sqlx::query_as(
+        // 取得已入庫數量：排除已被沖銷的 GRN（否則沖銷後前端 GRN 表單仍顯示 received_qty
+        // 含已沖銷量、remaining_qty 為 0），並換算成 base_uom 再加總——理由同
+        // `create_additional_grn` 那一處，兩者是同一個 received 語意的兩個呼叫點。
+        let received: Vec<(Uuid, Decimal)> = sqlx::query_as(concat!(
             r#"
-            SELECT dl.product_id, COALESCE(SUM(dl.qty), 0)
-            FROM documents d
-            JOIN document_lines dl ON d.id = dl.document_id
-            WHERE d.source_doc_id = $1 
-              AND d.doc_type = 'GRN' 
-              AND d.status = 'approved'
-            GROUP BY dl.product_id
+            SELECT gl.product_id,
+                   COALESCE(SUM(gl.qty * CASE WHEN c.factor_to_base > 0
+                                              THEN c.factor_to_base ELSE 1 END), 0)
+            FROM documents g
+            JOIN document_lines gl ON g.id = gl.document_id
+            JOIN products gp ON gp.id = gl.product_id
+            LEFT JOIN product_uom_conversions c
+                   ON c.product_id = gl.product_id AND c.uom = gl.uom
+                  AND c.uom <> gp.base_uom
+            WHERE g.source_doc_id = $1
+              AND g.doc_type = 'GRN'
+              AND g.status = 'approved'
             "#,
-        )
+            exclude_reversed_grn!(),
+            r#"
+            GROUP BY gl.product_id
+            "#
+        ))
         .bind(po_id)
         .fetch_all(pool)
         .await?;
 
         let received_map: std::collections::HashMap<Uuid, Decimal> = received.into_iter().collect();
 
+        // 每行的數量以**該行的單位**呈現（採購論箱就顯示箱），但跨行加總與 status 判定
+        // 一律走 base_uom——否則 3 箱 + 2 盒會被加成 5。
+        let mut ordered_base = Decimal::ZERO;
+        let mut received_base_total = Decimal::ZERO;
         let items: Vec<PoReceiptItem> = po_lines
             .into_iter()
             .map(|row| {
-                let received_qty = received_map
+                let received_line_base = received_map
                     .get(&row.product_id)
                     .copied()
                     .unwrap_or(Decimal::ZERO);
+                ordered_base += row.qty * row.factor_to_base;
+                received_base_total += received_line_base;
+                let received_qty = received_line_base / row.factor_to_base;
                 PoReceiptItem {
                     product_id: row.product_id,
                     product_sku: row.sku,
@@ -323,10 +466,7 @@ impl DocumentService {
             })
             .collect();
 
-        let total_ordered: Decimal = items.iter().map(|i| i.ordered_qty).sum();
-        let total_received: Decimal = items.iter().map(|i| i.received_qty).sum();
-
-        let status = receipt_status_label(total_received, total_ordered).to_string();
+        let status = receipt_status_label(received_base_total, ordered_base).to_string();
 
         Ok(PoReceiptStatus {
             po_id,
