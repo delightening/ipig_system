@@ -13,7 +13,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::constants::{ROLE_ADMIN_LEGACY, ROLE_SYSTEM_ADMIN, ROLE_WAREHOUSE_MANAGER};
+use crate::constants::ROLE_WAREHOUSE_MANAGER;
 use crate::error::AppError;
 use crate::models::{DocStatus, DocType, PendingOwner, PendingOwnerKind};
 use crate::repositories::pending_owner as repo;
@@ -22,8 +22,10 @@ use super::CandidateSource;
 
 /// 倉管核准關的角色條件（`handlers/document.rs:213`）。
 const WAREHOUSE_ROLES: &[&str] = &[ROLE_WAREHOUSE_MANAGER];
-/// 沖銷核准關的角色條件＝`is_admin()`（`services/document/reversal.rs:196`）。
-const ADMIN_ROLES: &[&str] = &[ROLE_SYSTEM_ADMIN, ROLE_ADMIN_LEGACY];
+
+// ⚠️ 這裡原本有一個 `ADMIN_ROLES`，對應沖銷核准關的 `is_admin()` 條件。
+// 2026-08-26 `reversal.rs:196` 收斂成純權限判準之後它沒有使用者了，一併移除
+// ——留著一個「曾經對應某個守衛」的常數，下一個人會以為那個守衛還在。
 
 /// 單據倉管核准關的 i18n stage key。
 const STAGE_DOC_WM_APPROVE: &str = "doc_wm_approve";
@@ -76,13 +78,13 @@ impl DocumentStage {
         }
     }
 
-    /// 這一關對外顯示的角色代碼。終審關不綁單一角色（純看
-    /// `erp.document.final_approve`），故為 None。
+    /// 這一關對外顯示的角色代碼。**只有真的綁角色的關卡才回 Some**——
+    /// 終審關與沖銷關都是純權限判準（`final_approve` / `reverse_approve`），
+    /// 硬指一個角色會誤導（持有該權限的可能不只一種角色，例如沖銷關的 DIRECTOR）。
     fn role_code(self) -> Option<&'static str> {
         match self {
             Self::Warehouse => Some(ROLE_WAREHOUSE_MANAGER),
-            Self::Final => None,
-            Self::Reversal => Some(ROLE_SYSTEM_ADMIN),
+            Self::Final | Self::Reversal => None,
         }
     }
 
@@ -98,11 +100,14 @@ impl DocumentStage {
             // `handlers/document.rs:267` 只要 `erp.document.final_approve`
             // （刻意不再要求倉管階段的 approve 權，否則負責人會被擋在閘外）。
             Self::Final => CandidateSource::Permission("erp.document.final_approve"),
-            // `handlers/document.rs:343` 要 `erp.document.reverse_approve`，
-            // `services/document/reversal.rs:196` 再要 `is_admin()`。
-            Self::Reversal => {
-                CandidateSource::PermissionAndAnyRole("erp.document.reverse_approve", ADMIN_ROLES)
-            }
+            // `handlers/document.rs:343` 與 `services/document/reversal.rs:196` 都只要
+            // `erp.document.reverse_approve`。
+            //
+            // 🔴 2026-08-26 同步：`reversal.rs:196` 原本額外要求 `is_admin()`，本檔因此
+            // 曾用「權限 AND 管理員角色」比對。該處已收斂成純權限判準（DIRECTOR 原本
+            // 拿得到權限卻核准不了），**本檔必須跟著放寬**，否則候選名單會漏列 DIRECTOR
+            // ——那正是本模組最忌諱的「名單與守衛分岔」，只是方向是漏列而非誤列。
+            Self::Reversal => CandidateSource::Permission("erp.document.reverse_approve"),
         }
     }
 }
@@ -112,7 +117,7 @@ impl DocumentStage {
 /// ⚠️ **沖銷單必須先判**：`create_reversal` 建出的沖銷單同樣是
 /// `requires_manager_approval = true` + `manager_approval_status = 'wm_approved'`
 /// （`services/document/reversal.rs:93`），先判終審會把它歸錯關，
-/// 顯示的候選人也會錯（終審看 `final_approve`，沖銷看 `reverse_approve` + admin）。
+/// 顯示的候選人也會錯（終審看 `final_approve`，沖銷看 `reverse_approve`）。
 fn stage_of(row: &DocumentStageRow) -> Option<DocumentStage> {
     if row.status != DocStatus::Submitted {
         return None;

@@ -163,7 +163,7 @@ impl EquipmentService {
     ///
     /// 流程（同一 tx 內）：
     ///   1. RBAC：`equipment.manage`（同 create_disposal）
-    ///   2. SELECT FOR UPDATE 鎖 row + 狀態守衛（pending / 未簽過）+ 自簽檢查
+    ///   2. SELECT FOR UPDATE 鎖 row + 狀態守衛（pending / **已簽章不得覆寫**）+ 自簽檢查
     ///      （applied_by == current_user.id；申請人不能由他人代簽）
     ///   3. `SignatureService::sign_record_tx` 寫 electronic_signatures
     ///   4. UPDATE applicant_signature_id
@@ -254,8 +254,10 @@ impl EquipmentService {
     /// 為報廢申請建立核准人簽章，與 record UPDATE 同 tx 原子（21 CFR §11.10(e)(1)）。
     ///
     /// 流程（同一 tx 內）：
-    ///   1. RBAC：`equipment.disposal.approve` 或 `equipment.manage`
-    ///   2. SELECT FOR UPDATE 鎖 row + 狀態守衛（pending / 未簽過）+ 申請人不能自核
+    ///   1. RBAC：`equipment.disposal.approve`（2026-08-26 起不再認 `equipment.manage`
+    ///      ——見 `access::require_equipment_disposal_approve` 的說明；放寬會讓
+    ///      簽得了章卻核准不了的人把單子卡在下面第 2 步的「已簽章不得覆寫」硬擋）
+    ///   2. SELECT FOR UPDATE 鎖 row + 狀態守衛（pending / **已簽章不得覆寫**）+ 申請人不能自核
     ///      （applied_by != current_user.id；防止 self-approve 提權）
     ///   3. `SignatureService::sign_record_tx` 寫 electronic_signatures
     ///   4. UPDATE approver_signature_id

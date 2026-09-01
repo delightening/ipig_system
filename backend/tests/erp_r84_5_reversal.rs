@@ -10,7 +10,8 @@
 //! - T1 沖銷 GRN：ledger 反向列、SLI 退回、快照歸零，且會計傳票被鏡射
 //! - T2 重複沖銷同一張單 → 被擋（應用層先擋，DB partial unique index 為最後防線）
 //! - T3 沖銷單本身不可再被沖銷
-//! - T4 SoD：發起人自己不能核准；非 admin 不能核准
+//! - T4 SoD：發起人自己不能核准；不具 `erp.document.reverse_approve` 者不能核准
+//! - T4b 具該權限但非管理員者**可以**核准（2026-08-26 起；見下方 `permitted_approver`）
 //! - T5 庫存已被領用時沖銷入庫單 → 擋下（不可假裝把不存在的貨退回去）
 
 use rust_decimal::Decimal;
@@ -68,6 +69,34 @@ async fn admin_actor(pool: &PgPool) -> ActorContext {
         roles: vec!["admin".into()],
         permissions: vec![],
         jti: "test-admin".into(),
+        exp: 0,
+        impersonated_by: None,
+    })
+}
+
+/// 具 `erp.document.reverse_approve`、但**不是**管理員的核准人（現實中即 DIRECTOR）。
+///
+/// 刻意不給任何管理員角色：若守衛又退回 `is_admin()`，這個 actor 就會被擋，
+/// `permitted_non_admin_can_approve_reversal` 隨即轉紅。
+async fn permitted_approver(pool: &PgPool) -> ActorContext {
+    let id = Uuid::new_v4();
+    let s = Uuid::new_v4().simple().to_string();
+    let email = format!("director-r84-5-{}@example.com", &s[..8]);
+    sqlx::query(
+        "INSERT INTO users (id, email, display_name, password_hash, is_active) \
+         VALUES ($1, $2, '沖銷核准主管', 'x', true)",
+    )
+    .bind(id)
+    .bind(&email)
+    .execute(pool)
+    .await
+    .expect("seed director user");
+    ActorContext::User(CurrentUser {
+        id,
+        email,
+        roles: vec!["DIRECTOR".into()],
+        permissions: vec!["erp.document.reverse_approve".into()],
+        jti: "test-director".into(),
         exp: 0,
         impersonated_by: None,
     })
@@ -330,13 +359,16 @@ async fn reversal_enforces_separation_of_duties() {
         .await
         .expect("建立沖銷單");
 
-    // 非 admin 不能核准
+    // 不具 erp.document.reverse_approve 者不能核准。
+    // 2026-08-26 前這裡擋的是「非管理員」，與 handler 的 require_permission! 不同源，
+    // 導致唯一持有該權限的 DIRECTOR 反而過不了 service（見
+    // tests/erp_approval_guard_consistency.rs）。現在兩邊都認同一個權限碼。
     let err = DocumentService::approve_reversal(&pool, &wm_actor(), reversal.document.id)
         .await
         .expect_err("倉庫管理員不得核准沖銷單");
     assert!(
-        err.to_string().contains("管理員"),
-        "錯誤應說明僅管理員可核准，實際：{err}"
+        err.to_string().contains("erp.document.reverse_approve"),
+        "錯誤應指名所需權限，實際：{err}"
     );
 
     // 發起人即使具 admin 角色也不能自己核准（SoD）
@@ -355,6 +387,35 @@ async fn reversal_enforces_separation_of_duties() {
     assert!(
         err.to_string().contains("職務分離"),
         "錯誤應說明職務分離，實際：{err}"
+    );
+}
+
+/// T4b：具 `erp.document.reverse_approve` 但非管理員者，必須真的核准得了。
+///
+/// 這是 2026-08-26 修正的**正向**證明。上面那支只證明「沒權限的被擋」——
+/// 若守衛退回 `if !user.is_admin()`，沒權限的**照樣**被擋，那支不會變紅。
+/// 唯一能抓到退化的是這支：DIRECTOR 不具管理員角色，退回舊寫法就會 403。
+#[tokio::test]
+#[serial]
+async fn permitted_non_admin_can_approve_reversal() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let shelf = seed_shelf(&pool, wh).await;
+    let product = seed_product(&pool).await;
+    let director = permitted_approver(&pool).await;
+
+    let grn_id = approved_grn(&pool, wh, shelf, product, 10).await;
+    let reversal = DocumentService::create_reversal(&pool, &wm_actor(), grn_id)
+        .await
+        .expect("建立沖銷單");
+
+    let approved = DocumentService::approve_reversal(&pool, &director, reversal.document.id)
+        .await
+        .expect("具 erp.document.reverse_approve 的非管理員應能核准沖銷單");
+    assert_eq!(
+        approved.document.status,
+        DocStatus::Approved,
+        "核准後狀態應為 Approved"
     );
 }
 
