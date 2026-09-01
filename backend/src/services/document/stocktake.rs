@@ -26,7 +26,7 @@ struct StocktakeShelfRow {
 /// 的範圍，理由與上游那段「解析失敗不可 `.ok()` 靜默降級」完全相同：
 /// 使用者拿到的底稿與他要求的範圍不一致，而畫面上不會有任何跡象，盤完才發現。
 ///
-/// 三條規則，各自對應一種「靜默做出使用者沒要求的事」：
+/// 四條規則，各自對應一種「靜默做出使用者沒要求的事」：
 ///
 /// 1. `scope_type` 只能是 `full` / `partial`。看似多餘（下面兩條才是實質檢查），
 ///    但少了它，第 2 條就有洞：`"fulll"` 這種 typo 會落進「不是 full」而被當成
@@ -40,6 +40,9 @@ struct StocktakeShelfRow {
 /// 3. `warehouse_ids` 非空一律拒絕。這個欄位**從未被實作**：底稿只依函式參數的
 ///    `warehouse_id` 產生，帶了會被完全忽略。與其讓呼叫端以為自己指定了跨倉範圍、
 ///    拿到的卻是單倉底稿，不如明說尚未支援。
+/// 4. `partial` 必須真的給出篩選。第 2 條的鏡像：宣告「只盤一部分」卻一個條件都沒給，
+///    底稿會是全盤——同樣是宣告與結果不符，只是方向相反。前端的 `buildStocktakeScope`
+///    保證空清單一定送 `full`，所以這條擋的是直接打 API 的呼叫端。
 fn validate_scope(scope: &StocktakeScope) -> Result<()> {
     const FULL: &str = "full";
     const PARTIAL: &str = "partial";
@@ -62,12 +65,20 @@ fn validate_scope(scope: &StocktakeScope) -> Result<()> {
         ));
     }
 
-    if scope.scope_type == FULL
-        && (non_empty(&scope.category_codes) || non_empty_uuid(&scope.product_ids))
-    {
+    let has_filter = non_empty(&scope.category_codes) || non_empty_uuid(&scope.product_ids);
+
+    if scope.scope_type == FULL && has_filter {
         return Err(AppError::Validation(
             "盤點範圍格式錯誤：scope_type=full（全盤）不可同時指定 category_codes 或 product_ids。\
              要限定範圍請改用 scope_type=partial，要全盤請把篩選清空。"
+                .to_string(),
+        ));
+    }
+
+    if scope.scope_type == PARTIAL && !has_filter {
+        return Err(AppError::Validation(
+            "盤點範圍格式錯誤：scope_type=partial（循環盤點）必須指定 category_codes 或 product_ids，\
+             否則底稿會是全盤——與「只盤一部分」的宣告不符。要全盤請改用 scope_type=full。"
                 .to_string(),
         ));
     }

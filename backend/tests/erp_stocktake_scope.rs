@@ -240,6 +240,29 @@ async fn full_scope_with_category_filter_is_rejected() {
     );
 }
 
+/// 第 2 條規則的鏡像：宣告「只盤一部分」卻一個篩選都沒給，底稿會是全盤。
+/// 同樣是宣告與結果不符，只是方向相反。
+#[tokio::test]
+async fn partial_scope_without_any_filter_is_rejected() {
+    let pool = setup_pool().await;
+    let (wh_id, _, _) = seed_two_category_shelf(&pool).await;
+
+    let scope = serde_json::json!({
+        "scope_type": "partial",
+        "category_codes": [],
+    });
+
+    let err = DocumentService::create(&pool, &wm_actor(), &stk_request(wh_id, Some(scope)))
+        .await
+        .expect_err("partial 卻沒有任何篩選是矛盾的範圍，必須報錯");
+
+    let msg = err.to_string();
+    assert!(
+        msg.contains("必須指定"),
+        "錯誤訊息應點出 partial 缺少篩選，實際為：{msg}"
+    );
+}
+
 #[tokio::test]
 async fn unknown_scope_type_is_rejected() {
     let pool = setup_pool().await;
