@@ -1,5 +1,5 @@
 # Stage 1: Chef — pre-built image includes cargo-chef, no install step needed
-FROM lukemathwalker/cargo-chef:latest-rust-1.97 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.98 AS chef
 WORKDIR /app
 
 # Stage 2: Planner — cargo metadata requires src/ to resolve [[bin]] / default-run targets,
