@@ -82,6 +82,35 @@ const COMPARISON_SIGNALS: &[&str] = &[
     "ANY(",
 ];
 
+/// 去掉一行的 Rust 行註解（`//` 起至行尾），字串字面值內的 `//` 不算。
+///
+/// ⚠️ **沒有它，行尾註解會讓整套判定失效**（CodeRabbit 於 #32 第 4 輪指出）。
+/// `let a = r == ROLE_SYSTEM_ADMIN; // 說明` 這一行 `trim_end()` 之後不以 `;` 結尾，
+/// [`statement_span`] 因此把**下一個敘述**併進來；下一敘述若含 `ROLE_ADMIN_LEGACY`，
+/// 這個未防護的比對就白拿了不屬於它的豁免。形狀與 v1／v2／v3 是同一族：
+/// **豁免的作用範圍大於它要豁免的那一件事**，只是這次的成因在邊界判定而不在配對規則。
+///
+/// 同一個洞還有另外兩個出口，一併堵掉：
+/// - [`count_fallbacks`]：註解裡的 `"admin"` / `ROLE_ADMIN_LEGACY` 會被當成真的 fallback。
+/// - [`violations`] 的候選判定：`.bind(ROLE_ADMIN_LEGACY) // 對應 SYSTEM_ADMIN` 這種
+///   **只在註解裡提到**的行會被當成比對（假陽性）。
+fn strip_line_comment(line: &str) -> &str {
+    let bytes = line.as_bytes();
+    let mut in_str = false;
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            // 跳過跳脫字元，`\"` 不能被當成字串結束。
+            b'\\' if in_str => i += 1,
+            b'"' => in_str = !in_str,
+            b'/' if !in_str && bytes.get(i + 1) == Some(&b'/') => return &line[..i],
+            _ => {}
+        }
+        i += 1;
+    }
+    line
+}
+
 /// 候選行所屬的**敘述**範圍（`[起, 迄)`，含註解行）。
 ///
 /// ## 為什麼不能用「前後 N 行」
@@ -105,14 +134,15 @@ const COMPARISON_SIGNALS: &[&str] = &[
 /// 邊界判定：往前找到上一個以 `;` `{` `}` 結尾或空白的行，往後找到第一個以 `;` 結尾的行。
 /// 註解行不算邊界（會被跨過），但在比對 fallback 時會被濾掉——
 /// 否則標記註解裡的字就會被當成 fallback。
+/// **判定前先用 [`strip_line_comment`] 去掉行尾註解**，否則 `...; // 說明` 不算敘述結尾。
 fn statement_span(lines: &[&str], i: usize) -> (usize, usize) {
     let mut lo = i;
     while lo > 0 {
-        let prev = lines[lo - 1].trim_end();
-        if prev.trim_start().starts_with("//") {
+        if lines[lo - 1].trim_start().starts_with("//") {
             lo -= 1;
             continue;
         }
+        let prev = strip_line_comment(lines[lo - 1]).trim_end();
         if prev.is_empty()
             || prev.ends_with(';')
             || prev.ends_with('{')
@@ -125,7 +155,7 @@ fn statement_span(lines: &[&str], i: usize) -> (usize, usize) {
     }
     let mut hi = i + 1;
     while hi < lines.len() {
-        let prev = lines[hi - 1].trim_end();
+        let prev = strip_line_comment(lines[hi - 1]).trim_end();
         if prev.ends_with(';') || prev.ends_with('{') || prev.ends_with('}') {
             break;
         }
@@ -186,12 +216,15 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
         if trimmed.starts_with("//") || trimmed.starts_with("use ") {
             continue;
         }
-        if !line.contains("SYSTEM_ADMIN") {
+        // 行尾註解只是「提到」，一律先剝掉再判定——否則
+        // `.bind(ROLE_ADMIN_LEGACY) // 對應 SYSTEM_ADMIN` 會被當成一個比對。
+        let code = strip_line_comment(line);
+        if !code.contains("SYSTEM_ADMIN") {
             continue;
         }
         // 比對訊號：沒有這些的話（例如 `Some(ROLE_SYSTEM_ADMIN)` 這種顯示用回傳值）
         // 就不是一個「拿它跟使用者角色比對」的地方。
-        let is_comparison = COMPARISON_SIGNALS.iter().any(|sig| line.contains(sig));
+        let is_comparison = COMPARISON_SIGNALS.iter().any(|sig| code.contains(sig));
         if !is_comparison {
             continue;
         }
@@ -199,7 +232,7 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
         // ⚠️ 一行可以有**兩個**比對（`a == A || b == A`），所以要的是「幾個」豁免，
         // 不是「有沒有」豁免。這一點是本檔自己的回歸測試抓到的
         // ——先前版本逐行判斷，同一行的第二個比對會白拿第一個的豁免。
-        let need = line.matches("SYSTEM_ADMIN").count();
+        let need = code.matches("SYSTEM_ADMIN").count();
         let mut covered = 0usize;
 
         // ① 逐行標記，**且每個標記只能用一次**。往上最多 3 行找還沒被消耗的。
@@ -245,15 +278,19 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
 ///
 /// `"admin"` / `'admin'` 帶引號已足夠精確：權限碼字串是 `"admin.user.edit"`
 /// （含 `"admin.` 而非 `"admin"`），不會誤命中。
+///
+/// ⚠️ 整行註解與**行尾註解**都不算：只寫「日後再改用 `ROLE_ADMIN_LEGACY`」的註解
+/// 不是 fallback，卻能豁免掉旁邊那個真的未防護的比對。
 fn count_fallbacks(lines: &[&str]) -> usize {
     lines
         .iter()
         .filter(|l| !l.trim_start().starts_with("//"))
         .map(|l| {
-            l.matches("ROLE_ADMIN_LEGACY").count()
-                + l.matches("\"admin\"").count()
-                + l.matches("'admin'").count()
-                + l.matches(".is_admin()").count()
+            let code = strip_line_comment(l);
+            code.matches("ROLE_ADMIN_LEGACY").count()
+                + code.matches("\"admin\"").count()
+                + code.matches("'admin'").count()
+                + code.matches(".is_admin()").count()
         })
         .sum()
 }
@@ -362,6 +399,49 @@ fn mentions_without_comparison_are_not_candidates() {
     assert!(
         violations("t.rs", src).is_empty(),
         "只是提到、沒有比對的地方不該被判違規"
+    );
+}
+
+#[test]
+fn trailing_comment_does_not_merge_adjacent_statements() {
+    // CodeRabbit 於 #32 第 4 輪指出：行尾註解讓候選行不以 `;` 結尾，
+    // statement_span 於是把下一個敘述併進來，白拿它的 fallback token。
+    let src = "        let a = r == ROLE_SYSTEM_ADMIN; // 這裡刻意留個說明
+        let b = other == ROLE_ADMIN_LEGACY;
+";
+    let v = violations("t.rs", src);
+    assert_eq!(
+        v.len(),
+        1,
+        "下一個敘述的 fallback 不屬於這個比對，必須被抓到。實際：{v:?}"
+    );
+    assert!(v[0].contains("t.rs:1"), "被抓的應是第一行。實際：{v:?}");
+}
+
+#[test]
+fn fallback_token_inside_comment_does_not_count() {
+    // 只是「寫著日後要加 fallback」的註解，不是 fallback。
+    let src = "        let a = r == ROLE_SYSTEM_ADMIN; // TODO: 之後補 ROLE_ADMIN_LEGACY
+";
+    assert_eq!(
+        violations("t.rs", src).len(),
+        1,
+        "註解裡的 fallback token 不該豁免真的未防護比對"
+    );
+}
+
+#[test]
+fn comparison_mentioned_only_in_trailing_comment_is_not_a_candidate() {
+    // 反向：真正的比對已改掉，SYSTEM_ADMIN 只留在行尾註解裡。
+    //
+    // ⚠️ 程式碼側刻意**不含任何 fallback token**。原本寫的是 `user.is_admin()`，
+    // 那樣即使剝註解的邏輯壞掉，這行也會因為 `.is_admin()` 被算成 fallback 而過關
+    // ——測試是綠的，但綠的理由跟它要測的事無關（mutation 實測）。
+    let src = "        let ok = user.roles.iter().any(|r| r == ROLE_VET); // 取代原本的 r == ROLE_SYSTEM_ADMIN
+";
+    assert!(
+        violations("t.rs", src).is_empty(),
+        "只在行尾註解提到的比對不該被判違規"
     );
 }
 
