@@ -12,13 +12,24 @@ playwright==1.62.0
 pydantic==2.13.4
 python-multipart==0.0.31
 openpyxl==3.1.5
-# 6.15.0：修 GHSA-fp3f-mc75-235c 與 GHSA-fwg2-594c-jp42（皆 CVSS 4.8）——
-# 解析惡意 PDF 的 /ToUnicode 與 CID 字型寬度時資源耗盡（DoS）。
+# 6.16.1：修 GHSA-jp53-mhqp-8xcg（CVSS 6.9，修補版 6.16.0）與
+# GHSA-23w6-3w8w-8484 / GHSA-763m-79hh-57f2（皆 CVSS 4.8，修補版 6.16.1）；
+# 取三者所需的最大值。
+#
+# 先前 6.15.0 修的是 GHSA-fp3f-mc75-235c 與 GHSA-fwg2-594c-jp42（皆 CVSS 4.8）。
+# 整批同一類：解析惡意 PDF 時資源耗盡（DoS）。
+#
 # 本服務不受影響：pypdf 只用在 _aup_toc_pages（解析我們自己剛用 Chromium 產生的
 # PDF 以定位章節頁碼）與 project_medical 合併，兩者輸入皆為自產，
 # 沒有任何路徑讓外來 PDF 進到 pypdf。仍升版而非寫例外 —— 修補就在 upstream，
 # 為一個可直接修掉的問題累積永久例外不划算。
-pypdf==6.15.0
+#
+# ⚠️ 兩次升版**都不是因為我們改了什麼，是 OSV 收錄了新 advisory**：
+# 同一份 requirements.txt，PR #32 的 c102eed（2026-09-01T19:38Z）這一格還是綠的，
+# 同支 PR 的 0adf2f5（21:51Z）就轉紅。這個 job 是 gating，一轉紅會同時擋住
+# main 與**全部** open PR，不是哪一支 PR 的問題。
+# 下次看到某支 PR 莫名其妙掛在這一格，先查是不是又一批新 advisory。
+pypdf==6.16.1
 Pillow==12.3.0
 
 # --- transitive 依賴的安全性下限（2026-08-04）---
