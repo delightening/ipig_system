@@ -267,6 +267,32 @@ pub async fn sign_closure(
 
     ensure_closure_signable(before.status, before.import_pending)?;
 
+    // SD 不得以 PI 代理人身分簽 PI 那一欄（CodeRabbit #53）。
+    //
+    // `authorize_pi_delegate` 刻意允許「SD 自任代理人」這個組合（改由執秘/admin 核准，
+    // 避免自簽自證），那條決策對安樂死核准、修正案寫入等用途仍然成立——那些動作
+    // 只需要一個有權責的人，不要求兩人。**但結案雙簽要求兩人各自具結**
+    // （`dual_signature_ready` 條件 7：`pi_signer != sd_signer`），SD 若先以代理人
+    // 身分簽 PI 欄、再簽 SD 欄，兩張的 signer 是同一人，gate 永遠回 false，
+    // 計畫**再也進不了 `CLOSED`**。
+    //
+    // 擋在這裡而不是擋在核准端（CodeRabbit 的原始建議）：核准端一擋，SD 自任代理人
+    // 這個組合就整個消失，連用不到雙簽的那些用途也一併沒了。擋在簽署端只否決
+    // 真正衝突的那一個動作，其餘照舊。
+    //
+    // ⚠️ 必須擋在建立簽章**之前**：PI 欄的簽章一旦寫下去就佔住欄位，脫困要撤銷授權
+    // 加作廢簽章，是人工修資料等級的成本。
+    if matches!(signer, ClosureSigner::Pi)
+        && delegation_id.is_some()
+        && before.study_director_user_id == Some(signer_id)
+    {
+        return Err(AppError::BusinessRule(
+            "計劃負責人（SD）不可以 PI 代理人身分簽結案：結案雙簽要求兩人各自具結，\
+             同一人簽兩欄不構成雙簽。請改由 SD 以外的代理人簽 PI 那一欄。"
+                .into(),
+        ));
+    }
+
     // 動物守門前置（CodeRabbit #38）：與 `change_status_tx` 的 CLOSED 分支同一道檢查，
     // 但在這裡先擋一次，讓簽署人在**簽之前**就知道還有動物在場——而不是簽完才發現
     // 因為動物守門把整個 tx（含剛建立的簽章）一起 rollback 掉。

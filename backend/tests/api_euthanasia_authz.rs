@@ -465,3 +465,111 @@ async fn decide_appeal_admin_bypasses_without_chair_role() {
         "admin 繞過並核准暫緩後單據應轉為 cancelled"
     );
 }
+
+// ── 待處理清單要看得見生效中的 PI 代理人（migration 010）───────────
+//
+// `lock_order_for_pi` 允許代理人核准/暫緩，但清單若仍只查 `eo.pi_user_id`，
+// 代理人**永遠發現不了那張單**——而它有 24 小時期限、逾時由 `check_expired_orders`
+// 自動核准。權利給了卻沒有行使的管道，等於沒給。
+//
+// 這支測試同時釘住三件事，少任何一件都可能悄悄壞掉：看得到（核准後）、
+// 沒有把借位的 PI 帳號擠掉、撤銷後就看不到。
+
+/// 外部 PI 計畫 + 指定 SD + 掛在該計畫下的動物，回傳 (protocol_id, animal_id)。
+async fn seed_external_pi_protocol_and_animal(
+    app: &TestApp,
+    borrowed_pi_user_id: Uuid,
+    sd_user_id: Uuid,
+) -> (Uuid, Uuid) {
+    let pid = Uuid::new_v4();
+    let iacuc = format!("IACUC-EUD-{}", &pid.to_string()[..8]);
+    sqlx::query(
+        r#"INSERT INTO protocols
+             (id, protocol_no, iacuc_no, title, status, pi_user_id, created_by,
+              study_director_user_id, pi_is_external)
+           VALUES ($1, $2, $3, 'euthanasia delegate visibility', 'APPROVED', $4, $4, $5, true)"#,
+    )
+    .bind(pid)
+    .bind(format!("P-EUD-{}", &pid.to_string()[..8]))
+    .bind(&iacuc)
+    .bind(borrowed_pi_user_id)
+    .bind(sd_user_id)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert external-PI protocol");
+
+    let aid = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO animals (id, ear_tag, breed, gender, entry_date, iacuc_no, status, created_by)
+           VALUES ($1, $2, 'miniature', 'male', '2026-01-01', $3, 'in_experiment', $4)"#,
+    )
+    .bind(aid)
+    .bind(format!("EUD{}", &aid.to_string()[..5]))
+    .bind(&iacuc)
+    .bind(borrowed_pi_user_id)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert animal");
+    (pid, aid)
+}
+
+#[tokio::test]
+#[serial]
+async fn pending_orders_visible_to_active_pi_delegate() {
+    use erp_backend::middleware::{ActorContext, CurrentUser};
+    use erp_backend::services::{EuthanasiaService, ProtocolService};
+
+    let app = TestApp::spawn().await;
+    let (borrowed_pi, _) = seed_login_user(&app, "borrowed-pi", "PI").await;
+    let (sd, _) = seed_login_user(&app, "sd", "EXPERIMENT_STAFF").await;
+    let (delegate, _) = seed_login_user(&app, "delegate", "PI").await;
+    let (vet, _) = seed_login_user(&app, "vet", "VET").await;
+    let (protocol_id, animal_id) =
+        seed_external_pi_protocol_and_animal(&app, borrowed_pi, sd).await;
+    let order_id = seed_order(&app, animal_id, vet, borrowed_pi, "pending_pi").await;
+
+    let sd_actor = ActorContext::User(CurrentUser {
+        id: sd,
+        email: format!("{sd}@test.local"),
+        roles: vec!["EXPERIMENT_STAFF".to_string()],
+        permissions: vec![],
+        jti: "test".to_string(),
+        exp: 0,
+        impersonated_by: None,
+    });
+
+    async fn sees(app: &TestApp, user: Uuid, order_id: Uuid) -> bool {
+        EuthanasiaService::get_pending_orders_for_pi(&app.db_pool, user)
+            .await
+            .expect("list pending orders")
+            .iter()
+            .any(|o| o.id == order_id)
+    }
+
+    assert!(
+        !sees(&app, delegate, order_id).await,
+        "尚未核准代理授權前，這個人不該看得到別人的待處理單"
+    );
+
+    ProtocolService::authorize_pi_delegate(&app.db_pool, &sd_actor, protocol_id, delegate, None)
+        .await
+        .expect("SD 核准代理人");
+
+    assert!(
+        sees(&app, delegate, order_id).await,
+        "生效中代理人必須看得到待處理單——否則 24 小時期限只能眼睜睜等它逾時自動核准"
+    );
+    assert!(
+        sees(&app, borrowed_pi, order_id).await,
+        "代理人加進來不該把原本的 pi_user_id 擠掉"
+    );
+
+    ProtocolService::revoke_pi_delegate(&app.db_pool, &sd_actor, protocol_id, None)
+        .await
+        .expect("SD 撤銷代理人");
+
+    assert!(
+        !sees(&app, delegate, order_id).await,
+        "撤銷後就不該再看得到——可見範圍必須跟 lock_order_for_pi 的授權判準一致"
+    );
+}
