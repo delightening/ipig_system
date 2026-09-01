@@ -138,9 +138,31 @@ impl EuthanasiaService {
         )
         .await?;
 
+        // 生效中的 PI 代理人也要收到通知（migration 010）。**在 commit 前的同一個 tx 內
+        // 取**，拿到的才是與這張單同一個時間點的授權狀態。
+        //
+        // join 路徑與 `lock_order_for_pi` 的授權判準逐字相同——收得到通知的人，
+        // 正好就是按得下核准的人。用 `fetch_all` 而非 `fetch_optional`：
+        // 部分唯一索引只保證「一份計畫一位生效代理人」，`iacuc_no` 對到多份計畫時
+        // 仍可能解出多位，漏掉任何一位都是漏通知。
+        let delegate_user_ids: Vec<Uuid> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT d.delegate_user_id
+            FROM protocol_pi_delegates d
+            JOIN protocols pr ON pr.id = d.protocol_id
+            JOIN animals a ON a.iacuc_no = pr.iacuc_no
+            JOIN euthanasia_orders eo ON eo.animal_id = a.id
+            WHERE eo.id = $1 AND d.revoked_at IS NULL AND d.delegate_user_id <> $2
+            "#,
+        )
+        .bind(order.id)
+        .bind(pi_user_id)
+        .fetch_all(&mut *tx)
+        .await?;
+
         tx.commit().await?;
 
-        // 通知 PI（commit 後 fire-and-forget）
+        // 通知 PI 與生效中代理人（commit 後 fire-and-forget）
         let order_id = order.id;
         let reason = req.reason.clone();
         let ear_tag = animal_record.ear_tag.clone();
@@ -149,19 +171,27 @@ impl EuthanasiaService {
         let actor_clone = actor.clone();
         tokio::spawn(async move {
             let notification_service = NotificationService::new(pool_clone.clone());
-            if let Err(e) = notification_service
-                .notify_euthanasia_order(
-                    order_id,
-                    &ear_tag,
-                    iacuc_no.as_deref(),
-                    &reason,
-                    pi_user_id,
-                )
-                .await
-            {
-                tracing::error!("發送安樂死通知失敗: {e}");
-                Self::log_notification_failure(&pool_clone, &actor_clone, order_id, &e.to_string())
+            // 一位收件人失敗不影響其餘：每位各自記一筆失敗稽核，不 early-return。
+            for recipient in std::iter::once(pi_user_id).chain(delegate_user_ids) {
+                if let Err(e) = notification_service
+                    .notify_euthanasia_order(
+                        order_id,
+                        &ear_tag,
+                        iacuc_no.as_deref(),
+                        &reason,
+                        recipient,
+                    )
+                    .await
+                {
+                    tracing::error!("發送安樂死通知失敗（收件人 {recipient}）: {e}");
+                    Self::log_notification_failure(
+                        &pool_clone,
+                        &actor_clone,
+                        order_id,
+                        &e.to_string(),
+                    )
                     .await;
+                }
             }
         });
 
@@ -224,7 +254,17 @@ impl EuthanasiaService {
         Ok(order)
     }
 
-    /// 取得 PI 的待處理安樂死單據
+    /// 取得 PI 的待處理安樂死單據。
+    ///
+    /// 「PI」含**生效中的 PI 代理人**（`protocol_pi_delegates`，migration 010）：
+    /// 代理人既然被 `lock_order_for_pi` 允許核准/暫緩，就必須看得到單子，否則等於
+    /// 給了一個行使不了的權利——這張單有 24 小時期限且逾時自動核准
+    /// （`check_expired_orders`），看不到就只能眼睜睜等它過期。
+    ///
+    /// 代理人條件與 `lock_order_for_pi` 的授權判準**必須保持一致**（同一條
+    /// `animals.iacuc_no = protocols.iacuc_no` 路徑、同樣要求 `revoked_at IS NULL`）：
+    /// 看得到的集合與按得下去的集合不一致，就會變成列表有單但一點就 404，
+    /// 或反過來有權卻查不到。改一邊要記得改另一邊。
     pub async fn get_pending_orders_for_pi(
         pool: &PgPool,
         pi_user_id: Uuid,
@@ -244,7 +284,18 @@ impl EuthanasiaService {
             JOIN animals p ON eo.animal_id = p.id
             JOIN users uv ON eo.vet_user_id = uv.id
             JOIN users up ON eo.pi_user_id = up.id
-            WHERE eo.pi_user_id = $1 AND eo.status = 'pending_pi'
+            WHERE eo.status = 'pending_pi'
+              AND (
+                eo.pi_user_id = $1
+                OR EXISTS (
+                  SELECT 1
+                  FROM protocol_pi_delegates d
+                  JOIN protocols pr ON pr.id = d.protocol_id
+                  WHERE pr.iacuc_no = p.iacuc_no
+                    AND d.delegate_user_id = $1
+                    AND d.revoked_at IS NULL
+                )
+              )
             ORDER BY eo.deadline_at ASC
             "#,
         )

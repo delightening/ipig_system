@@ -837,3 +837,102 @@ async fn delegate_can_sign_pi_closure_slot_and_signature_carries_delegation_id()
         "雙簽齊備（代理人簽 PI + SD 本人簽 SD）應自動轉結案，證明代理簽章確實被 gate 接受"
     );
 }
+
+// ── SD 自任代理人：授權仍合法，但不得用來簽結案 PI 那一欄 ──────────
+//
+// `authorize_pi_delegate` 刻意允許「SD 自任代理人」（改由執秘/admin 核准）。
+// 那個組合對安樂死核准、修正案寫入等「只需要一個有權責的人」的用途仍然成立，
+// 但**結案雙簽要求兩人各自具結**（`dual_signature_ready` 條件 7）。若讓 SD 以
+// 代理人身分簽下 PI 那一欄，PI 欄被佔住、gate 卻永遠回 false，計畫再也進不了
+// `CLOSED`，脫困要撤銷授權 + 作廢簽章（人工修資料等級）。
+//
+// 下面兩支測試是一組，缺一不可：一支釘「擋得住」，一支釘「沒有連帶把合法用途
+// 一起擋掉」。只留前者的話，日後有人把守衛上移到核准端也會全綠。
+
+#[tokio::test]
+#[serial]
+async fn sd_as_own_delegate_cannot_sign_pi_closure_slot() {
+    let app = TestApp::spawn().await;
+    let creator = seed_signer(&app, None).await;
+    let sd = seed_signer(&app, Some("EXPERIMENT_STAFF")).await;
+    let staff = seed_user(&app, Some("IACUC_STAFF")).await;
+    let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+
+    // 前提：這個組合本身仍然核准得下去（不是靠核准端擋）。
+    let delegation_id = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(staff, &["IACUC_STAFF"]),
+        protocol,
+        sd,
+        None,
+    )
+    .await
+    .expect("執秘應可核准 SD 自任代理人")
+    .id;
+
+    let err = protocol_closure_sign(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        ClosureSigner::Pi,
+        sd,
+        Some(delegation_id),
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect_err("SD 以代理人身分簽 PI 欄應被擋下");
+    assert!(matches!(err, AppError::BusinessRule(_)), "{err:?}");
+
+    // 最關鍵的一條：被擋下時**不可以留下半張簽章**。留下就等於把 PI 欄卡死，
+    // 而 gate 又永遠不會齊備——那正是這個守衛要防的不可回復狀態。
+    let pi_slot: Option<Uuid> =
+        sqlx::query_scalar("SELECT close_pi_signature_id FROM protocols WHERE id = $1")
+            .bind(protocol)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("read protocol");
+    assert!(
+        pi_slot.is_none(),
+        "被擋下時不得寫入 PI 欄簽章，否則要人工撤銷授權 + 作廢簽章才脫得了困"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn sd_as_own_delegate_still_usable_outside_closure() {
+    let app = TestApp::spawn().await;
+    let creator = seed_user(&app, None).await;
+    let sd = seed_user(&app, Some("EXPERIMENT_STAFF")).await;
+    let staff = seed_user(&app, Some("IACUC_STAFF")).await;
+    let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(staff, &["IACUC_STAFF"]),
+        protocol,
+        sd,
+        None,
+    )
+    .await
+    .expect("執秘應可核准 SD 自任代理人");
+
+    // 修正案寫入權本來刻意不含 SD（見 access.rs），SD 取得這項權限只可能來自
+    // 那筆代理授權——所以這條同時證明「授權真的生效」而不只是資料列存在。
+    let sd_user = CurrentUser {
+        id: sd,
+        email: format!("{sd}@test.local"),
+        roles: vec!["EXPERIMENT_STAFF".into()],
+        permissions: vec![],
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    };
+    let can_write = access::can_write_amendment(&app.db_pool, &sd_user, protocol)
+        .await
+        .expect("can_write_amendment");
+    assert!(
+        can_write,
+        "結案雙簽的守衛只該擋結案那一個動作，不該讓 SD 自任代理人整個失效"
+    );
+}
