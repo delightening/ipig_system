@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildStocktakeScope, scopeForPayload } from '@/pages/documents/stocktakeScope'
+import {
+  buildStocktakeScope,
+  scopeForPayload,
+  stocktakeBlockReason,
+} from '@/pages/documents/stocktakeScope'
 import type { StocktakeScope } from '@/pages/documents/types'
 
 describe('buildStocktakeScope', () => {
@@ -49,4 +53,39 @@ describe('scopeForPayload', () => {
       expect(scopeForPayload(docType, scope)).toBeNull()
     },
   )
+})
+
+describe('stocktakeBlockReason', () => {
+  it('品類清單載入完成才准建單', () => {
+    expect(
+      stocktakeBlockReason({ needed: true, loading: false, error: false }),
+    ).toBeUndefined()
+  })
+
+  it('載入中要擋——空清單看起來就像「沒有品類可選」', () => {
+    expect(stocktakeBlockReason({ needed: true, loading: true, error: false })).toContain(
+      '載入中',
+    )
+  })
+
+  it('載入失敗要擋，且說明後果是會盤到全部品項', () => {
+    expect(stocktakeBlockReason({ needed: true, loading: false, error: true })).toContain(
+      '全部品項',
+    )
+  })
+
+  it('loading 與 error 同時為真時以 loading 的訊息為準（重試中就是這個狀態）', () => {
+    expect(stocktakeBlockReason({ needed: true, loading: true, error: true })).toContain(
+      '載入中',
+    )
+  })
+
+  it.each([
+    ['載入中', true, false],
+    ['載入失敗', false, true],
+  ] as [string, boolean, boolean][])('不需要品類清單時一律不擋（%s 也一樣）', (_label, loading, error) => {
+    // 改單與其他單別不會重新產生底稿，品類清單的狀態與它們無關；
+    // 在這裡擋下去只會讓不相干的單據也送不出去。
+    expect(stocktakeBlockReason({ needed: false, loading, error })).toBeUndefined()
+  })
 })

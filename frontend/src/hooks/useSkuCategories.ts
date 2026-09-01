@@ -14,7 +14,12 @@ import type {
 export function useSkuCategories(options?: { enabled?: boolean }) {
   const enabled = options?.enabled ?? true
 
-  const { data: categoriesData, isLoading: categoriesLoading } = useQuery({
+  const {
+    data: categoriesData,
+    isLoading: categoriesLoading,
+    isError: categoriesError,
+    refetch: refetchCategories,
+  } = useQuery({
     queryKey: ['sku-categories'],
     queryFn: async () => {
       const res = await api.get<SkuCategoriesResponse>('/sku/categories')
@@ -65,5 +70,12 @@ export function useSkuCategories(options?: { enabled?: boolean }) {
     categories,
     subcategoriesByCategory,
     isLoading,
+    // 品類清單**本身**的狀態，與 isLoading 分開給：後者含子類查詢，對「只需要品類」的
+    // 呼叫端太寬。呼叫端若把「清單是空的」直接當成「沒有品類可選」，載入中與載入失敗
+    // 都會被誤讀成一個空集合——盤點單就是這樣可能把使用者要的部分盤點變成全盤
+    // （CodeRabbit 於 PR #37 指出，Major）。
+    categoriesLoading,
+    categoriesError,
+    refetchCategories,
   }
 }

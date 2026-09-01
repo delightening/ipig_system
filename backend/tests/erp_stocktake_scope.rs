@@ -211,3 +211,77 @@ async fn malformed_scope_is_rejected_not_silently_full_counted() {
         "錯誤訊息應指出是盤點範圍的問題，實際為：{msg}"
     );
 }
+
+/// 以下三案鎖住 `validate_scope`——形狀合法但**自相矛盾**的範圍。
+///
+/// 與上面那案的差別：那案是 JSON 反序列化就失敗（缺必填欄位），這三案 serde 完全解得開，
+/// 錯的是意思。`generate_stocktake_lines` 從不讀 `scope_type`，所以在加上驗證之前，
+/// 這三種 payload 都會安靜地產生一份與請求不符的底稿。
+/// （CodeRabbit 於 PR #37 指出第一案，Minor；後兩案是查證時一併發現的同族問題。）
+#[tokio::test]
+async fn full_scope_with_category_filter_is_rejected() {
+    let pool = setup_pool().await;
+    let (wh_id, _, _) = seed_two_category_shelf(&pool).await;
+
+    // 宣告全盤卻又給篩選：驗證前會產生**部分**底稿，使用者以為自己全盤了
+    let scope = serde_json::json!({
+        "scope_type": "full",
+        "category_codes": ["DRG"],
+    });
+
+    let err = DocumentService::create(&pool, &wm_actor(), &stk_request(wh_id, Some(scope)))
+        .await
+        .expect_err("full + 非空篩選是矛盾的範圍，必須報錯");
+
+    let msg = err.to_string();
+    assert!(
+        msg.contains("不可同時指定"),
+        "錯誤訊息應點出 full 與篩選並存的矛盾，實際為：{msg}"
+    );
+}
+
+#[tokio::test]
+async fn unknown_scope_type_is_rejected() {
+    let pool = setup_pool().await;
+    let (wh_id, _, _) = seed_two_category_shelf(&pool).await;
+
+    // `fulll` 是 typo。若只檢查「等不等於 full」，它會被當成 partial 而套用篩選——
+    // 使用者本意全盤，拿到的卻是只有藥品的底稿。
+    let scope = serde_json::json!({
+        "scope_type": "fulll",
+        "category_codes": ["DRG"],
+    });
+
+    let err = DocumentService::create(&pool, &wm_actor(), &stk_request(wh_id, Some(scope)))
+        .await
+        .expect_err("未知的 scope_type 必須報錯，不可當成 partial 放行");
+
+    let msg = err.to_string();
+    assert!(
+        msg.contains("scope_type"),
+        "錯誤訊息應點出是 scope_type 的值有問題，實際為：{msg}"
+    );
+}
+
+#[tokio::test]
+async fn warehouse_ids_in_scope_is_rejected_because_unimplemented() {
+    let pool = setup_pool().await;
+    let (wh_id, _, _) = seed_two_category_shelf(&pool).await;
+
+    // `warehouse_ids` 從未被實作：底稿只依單據本身的 warehouse_id 產生。
+    // 帶了卻被靜默忽略 = 呼叫端以為指定了跨倉範圍，實際拿到單倉底稿。
+    let scope = serde_json::json!({
+        "scope_type": "partial",
+        "warehouse_ids": [Uuid::new_v4()],
+    });
+
+    let err = DocumentService::create(&pool, &wm_actor(), &stk_request(wh_id, Some(scope)))
+        .await
+        .expect_err("尚未支援的 warehouse_ids 必須報錯，不可靜默忽略");
+
+    let msg = err.to_string();
+    assert!(
+        msg.contains("warehouse_ids"),
+        "錯誤訊息應點名 warehouse_ids，實際為：{msg}"
+    );
+}

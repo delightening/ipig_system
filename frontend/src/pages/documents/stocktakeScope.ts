@@ -35,3 +35,26 @@ export function scopeForPayload(
   if (docType !== 'STK' || !scope) return null
   return scope
 }
+
+/**
+ * 品類清單沒成功載入時，擋下建單並說明原因；可以建單時回 `undefined`。
+ *
+ * 為什麼要擋，而不是讓他送出去：`useSkuCategories` 在「載入中」與「載入失敗」兩種
+ * 情況都回空陣列，而空清單在畫面上跟「這個系統沒有任何品類」完全無法區分。使用者
+ * 會以為沒得篩選而直接建單，後端收到空的 `category_codes` 即視為不限範圍——想要的
+ * 部分盤點就這樣變成全盤，而且**沒有任何跡象**，盤完才會發現。
+ *
+ * 這與後端那側「解析失敗不可 `.ok()` 靜默降級」是同一條原則，只是發生在前端。
+ * （CodeRabbit 於 PR #37 指出，Major。）
+ */
+export function stocktakeBlockReason(state: {
+  /** 只有「建立盤點單」需要品類清單；改單不重產底稿，其餘單別根本不用 */
+  needed: boolean
+  loading: boolean
+  error: boolean
+}): string | undefined {
+  if (!state.needed) return undefined
+  if (state.loading) return '盤點品類清單載入中，請稍候再建立盤點單。'
+  if (state.error) return '盤點品類清單載入失敗，現在建單會盤到全部品項。請重試後再建立。'
+  return undefined
+}
