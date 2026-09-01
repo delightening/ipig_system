@@ -43,6 +43,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     protocol_no: '',
     source_doc_id: '',
     remark: '',
+    // 預設全盤：不選任何品類時後端不加過濾，行為與本欄位存在之前完全相同。
+    stocktake_scope: { scope_type: 'full', category_codes: [] },
     lines: [],
   })
 

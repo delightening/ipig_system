@@ -29,7 +29,10 @@ import { DocumentFormHeader } from './components/DocumentFormHeader'
 import { DocumentPreview } from './components/DocumentPreview'
 import { DocumentLineEditor } from './components/DocumentLineEditor'
 import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components/inventory/WarehouseShelfTreeSelect'
+import { SearchableMultiSelect } from '@/components/ui/searchable-multi-select'
+import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { useDocumentForm } from './hooks/useDocumentForm'
+import { buildStocktakeScope, stocktakeBlockReason } from './stocktakeScope'
 import { DOC_TYPE_NAMES } from './types'
 
 export type AdjMode = 'add' | 'modify'
@@ -91,6 +94,25 @@ export function DocumentEditPage() {
     setCategoryCode,
   } = useDocumentForm({ defaultType })
 
+  // 盤點品類選單的資料源，與新增/編輯產品、產品清單篩選同一份（GET /sku/categories）。
+  // 條件看 formData.doc_type 而非 URL 的 defaultType——單別在頁內可由下拉切換
+  // （見下方 doc_type 的 Select），直接進 /documents/new 再選「盤點單」時 defaultType
+  // 是空的，若照它判斷就會出現「欄位顯示得出來、品類一個都選不到」的空清單。
+  const needsSkuCategories = formData.doc_type === 'STK' && !isEdit
+  const {
+    categories: skuCategories,
+    categoriesLoading: skuCategoriesLoading,
+    categoriesError: skuCategoriesError,
+    refetchCategories: refetchSkuCategories,
+  } = useSkuCategories({ enabled: needsSkuCategories })
+
+  // 清單沒成功載入之前不准建單（理由見 stocktakeBlockReason 的說明）
+  const stocktakeBlockedReason = stocktakeBlockReason({
+    needed: needsSkuCategories,
+    loading: skuCategoriesLoading,
+    error: skuCategoriesError,
+  })
+
   const { data: allDocuments } = useQuery({
     queryKey: ['documents', { doc_type: 'PO', status: 'approved' }],
     queryFn: async () => {
@@ -123,6 +145,7 @@ export function DocumentEditPage() {
         isSaving={saveMutation.isPending}
         isSubmitting={submitMutation.isPending}
         hasLines={formData.lines.length > 0}
+        blockedReason={stocktakeBlockedReason}
       />
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -265,6 +288,55 @@ export function DocumentEditPage() {
                     />
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 盤點單：限定品類（例：準備室只盤藥品，耗材不列入底稿）。
+                只在**建立**時顯示——改單時明細已存在，後端不會重新產生底稿，
+                此時給一個不生效的欄位只會誤導。 */}
+            {needsSkuCategories && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>盤點品類 (選填)</Label>
+                  {/* 載入中／失敗時一律停用：空清單與「沒有品類」在畫面上長得一樣，
+                      讓人以為無從篩選而直接送出，就是一次非預期的全盤。 */}
+                  <SearchableMultiSelect
+                    options={skuCategories.map((c) => ({ value: c.code, label: `${c.name}（${c.code}）` }))}
+                    value={formData.stocktake_scope?.category_codes ?? []}
+                    onValueChange={(codes) =>
+                      updateField('stocktake_scope', buildStocktakeScope(codes))
+                    }
+                    disabled={skuCategoriesLoading || skuCategoriesError}
+                    placeholder={
+                      skuCategoriesLoading
+                        ? '品類載入中…'
+                        : skuCategoriesError
+                          ? '品類載入失敗'
+                          : '全部品類（全盤）'
+                    }
+                    searchPlaceholder="搜尋品類..."
+                    className="w-full"
+                  />
+                  {skuCategoriesError ? (
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-destructive">
+                        品類清單載入失敗，暫時無法限定範圍。
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void refetchSkuCategories()}
+                      >
+                        重試
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      不選＝全盤。選了就只有該品類的品項會出現在盤點底稿。
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 

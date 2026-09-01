@@ -285,6 +285,11 @@ impl DocumentService {
 
         // 如果是盤點單，根據範圍自動生成盤點項目
         let lines_to_create = if req.doc_type == DocType::STK {
+            // 範圍驗證在分支**之前**：底稿自帶時不會經過 generate_stocktake_lines，
+            // 但下面的 INSERT 仍會把 stocktake_scope 原樣寫進單據。驗證若只掛在
+            // 產生底稿那條路上，自帶明細就能把形狀非法的範圍安靜地存進資料庫。
+            Self::parse_and_validate_stocktake_scope(&req.stocktake_scope)?;
+
             // 盤點單可以根據範圍自動生成，也可以手動提供
             if req.lines.is_empty() {
                 Self::generate_stocktake_lines(&mut tx, req.warehouse_id, &req.stocktake_scope)
