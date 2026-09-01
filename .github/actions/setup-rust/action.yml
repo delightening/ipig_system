@@ -16,6 +16,36 @@ inputs:
 runs:
   using: composite
   steps:
+    # 必須是本 action 的第一步（2026-09-02 新增）。
+    #
+    # ci.yml 裡本來就有「釋放 runner 磁碟空間」，但它排在 `uses: ./.github/actions/setup-rust`
+    # **之後**——而實測崩的位置就在 setup-rust 自己身上：下面那步還原 cargo cache
+    # （含數 GB 的 `backend/target/`）解壓時把磁碟寫爆，job 直接被 runner 帶走。
+    # 症狀很有誤導性：所有 step 的 conclusion 都是 null、沒有 `Complete job`，
+    # job log 裡一行錯誤都沒有，只有 annotation 看得到
+    # `No space left on device : '.../_diag/Worker_*.log'`（runner 連自己的 log 都寫不下）。
+    # 實測紀錄：2026-08-27 的 cargo check／clippy／coverage 1,3/4、2026-08-31 的 coverage 2/4、
+    # 2026-09-01 main 上的 coverage 4/4，全是這個形狀。
+    #
+    # 🔴 **這一段刻意不刪 `/opt/hostedtoolcache`**，ci.yml 那段（在 setup-rust 之後）才刪。
+    # 原本把清理放在 setup-rust 之後正是為了保護工具鏈，那個顧慮成立；前置這段因此只挑
+    # 「確定與 Rust 無關」的預裝 SDK，避開 toolchain 可能的安裝路徑。
+    #
+    # 放在 composite action 內而不是各 job 各寫一份：用 setup-rust 的 job 有 5 個以上，
+    # 複製五份必然漂移——2026-09-01 backend-test 修好了而 coverage 分片沒有，
+    # 正是因為那兩處各自維護一份清單。
+    - name: 釋放 runner 磁碟空間（cargo cache 還原前）
+      shell: bash
+      run: |
+        echo "清理前："; df -h / | tail -1
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+          /usr/local/lib/android /usr/share/swift /usr/local/share/powershell \
+          /usr/share/miniconda /usr/local/share/chromium /usr/local/share/boost \
+          /usr/lib/jvm || true
+        sudo docker image prune -af || true
+        sudo apt-get clean || true
+        echo "清理後："; df -h / | tail -1
+
     - name: 安裝 Rust toolchain
       # dtolnay/rust-toolchain pinned to specific SHA per supply-chain hardening (R52)
       #

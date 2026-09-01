@@ -523,23 +523,17 @@ jobs:
         with:
           cache-key-suffix: test
 
-      # 釋放 runner 預裝 SDK 佔用：cargo test 要建 84 支整合測試 binary，在標準 runner
-      # 上磁碟邊際、偶爾 ENOSPC（本 session 實測 log 尾 "No space left" + cargo orphan）。
-      # step 在 setup-rust 後 → 不影響已就緒的 rustup 工具鏈；postgres service 映像使用中不被 prune。
+      # 只刪 hostedtoolcache——其餘預裝 SDK 已由 setup-rust 的第一步清掉（2026-09-02 起）。
       #
-      # 2026-09-01 加碼（PR #37）：原清單已刪 dotnet/ghc/android/hostedtoolcache/boost/jvm
-      # 仍不夠——runner 2.337.0 上連兩次同一位置失敗，annotation 為
-      # `No space left on device : '/home/runner/actions-runner/cached/2.337.0/_diag/Worker_*.log'`。
-      # 補刪 swift / powershell / miniconda / ghcup / chromium 與 apt 快取。
-      - name: 釋放 runner 磁碟空間（避免 84 binary build ENOSPC）
+      # 為什麼分成兩處而不是併成一處：hostedtoolcache **不能**在 setup-rust 之前刪
+      # （那是 toolchain 可能的安裝路徑，原本把清理放在 setup-rust 之後就是為了保護它），
+      # 但其餘 SDK **必須**在之前刪，否則 cargo cache 還原就已經把磁碟寫爆——
+      # 2026-09-01 main 上的 coverage 4/4 正是這樣倒的，而當時這段清理排在後面、根本沒跑到。
+      # 兩者時機互斥，所以是兩段；清單不重疊，改動只需改對應的那一處。
+      - name: 釋放 runner 磁碟空間（hostedtoolcache）
         run: |
           echo "清理前磁碟："; df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /opt/hostedtoolcache /usr/local/share/boost /usr/lib/jvm \
-            /usr/share/swift /usr/local/share/powershell /usr/share/miniconda \
-            /usr/local/.ghcup /usr/local/share/chromium || true
-          sudo docker image prune -af || true
-          sudo apt-get clean || true
+          sudo rm -rf /opt/hostedtoolcache || true
           echo "清理後磁碟："; df -h /
 
       - name: 安裝 sqlx-cli
@@ -643,20 +637,13 @@ jobs:
           components: llvm-tools-preview
           cache-key-suffix: llvmcov-g${{ matrix.group }}
 
-      # 釋放 runner 預裝 SDK 佔用，增加分組磁碟餘裕。
-      # 2026-09-01（PR #37）：原註解寫「單組本就塞得進，此為保險」——實測不成立，
-      # 分片 1/4、2/4、3/4 各自撞過 `No space left on device`（與 backend-test 同根因、
-      # 同 runner 版本）。清單與 backend-test 對齊；本 job 不關 debuginfo，
-      # 覆蓋率映射寧可保守。
-      - name: 釋放 runner 磁碟空間
+      # 同 backend-test：只刪 hostedtoolcache，其餘已由 setup-rust 第一步清掉。
+      # 本 job 是 2026-09-01 那次 ENOSPC 的最後受害者（main 上的 coverage 4/4），
+      # 而它崩在 setup-rust 內、這段根本沒跑到——理由與分工見 backend-test 該段註解。
+      - name: 釋放 runner 磁碟空間（hostedtoolcache）
         run: |
           echo "清理前磁碟："; df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /opt/hostedtoolcache /usr/local/share/boost /usr/lib/jvm \
-            /usr/share/swift /usr/local/share/powershell /usr/share/miniconda \
-            /usr/local/.ghcup /usr/local/share/chromium || true
-          sudo docker image prune -af || true
-          sudo apt-get clean || true
+          sudo rm -rf /opt/hostedtoolcache || true
           echo "清理後磁碟："; df -h /
 
       - name: 安裝 cargo-llvm-cov
