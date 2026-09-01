@@ -38,15 +38,21 @@
 //!    同敘述內的 legacy fallback token，或正上方 3 行內的 `SYSTEM_ADMIN-ONLY` 標記。
 //!    **每個豁免只能用一次**，見 [`violations`] 的說明。
 //!
-//! ## ⚠️ 這支守衛自己壞過三次，而且是同一個錯
+//! ## ⚠️ 這支守衛自己壞過五次，而且每次都是同一個錯
 //!
-//! v1 用整個檔案豁免、v2 用「往下 3 行」與「同敘述有 token」豁免、
-//! v3 的第一版又用「這行有沒有豁免」的 boolean 判斷——**每一次都是
-//! 豁免的作用範圍大於它要豁免的那一件事**。
+//! **豁免的作用範圍大於它要豁免的那一件事。**
 //!
-//! 三次的發現方式都不同：檔案層是 CodeRabbit 指出、標記層是 CodeRabbit 指出、
-//! fallback token 層是照著「還有哪裡用範圍」自己掃出來的、
-//! 而 boolean 粒度那次是**本檔新增的回歸測試第一次跑就抓到**。
+//! | # | 豁免/判定單位 | 失效方式 | 誰發現 |
+//! |---|---|---|---|
+//! | v1 | 整個檔案（檔名清單） | 該檔日後新增的任何比對自動過關 | CodeRabbit 第 1 輪 |
+//! | v2 | 標記往下 3 行／同敘述有 token | 一個豁免蓋掉範圍內的**每一個**比對 | CodeRabbit 第 2 輪 + 自己掃 |
+//! | v3 | 逐行 boolean「有沒有豁免」 | 同一行的第二個比對白拿第一個的豁免 | 本檔的回歸測試 |
+//! | v4 | 判定直接吃整行（未剝 `//`） | 行尾註解讓敘述併吞下一個、註解裡的 token 被當 fallback | CodeRabbit 第 4 輪 |
+//! | v5 | 只剝了 `//`，沒剝 `/* */` | 同 v4，換成區塊註解就照樣成立 | CodeRabbit 第 5 輪 |
+//!
+//! v5 特別值得記：v4 的修正**看起來完整**（三個出口一起補、三支回歸測試、
+//! mutation 也驗過），但它只涵蓋了兩種 Rust 註解裡的一種。
+//! **補一半的修正與補完整的修正，在測試結果上完全一樣。**
 //!
 //! 所以本檔除了掃真實原始碼，還用合成輸入直接測判定函式——
 //! 「掃完沒找到違規」與「判定壞掉」在外觀上完全一樣，前者不能當成後者的證據。
@@ -82,33 +88,88 @@ const COMPARISON_SIGNALS: &[&str] = &[
     "ANY(",
 ];
 
-/// 去掉一行的 Rust 行註解（`//` 起至行尾），字串字面值內的 `//` 不算。
+/// 把整份原始碼變成「只剩程式碼」的逐行版本：`//` 行註解與 `/* … */` 區塊註解
+/// 都拿掉（區塊註解可跨行、可巢狀），字串字面值內的內容原樣保留。
 ///
-/// ⚠️ **沒有它，行尾註解會讓整套判定失效**（CodeRabbit 於 #32 第 4 輪指出）。
-/// `let a = r == ROLE_SYSTEM_ADMIN; // 說明` 這一行 `trim_end()` 之後不以 `;` 結尾，
-/// [`statement_span`] 因此把**下一個敘述**併進來；下一敘述若含 `ROLE_ADMIN_LEGACY`，
-/// 這個未防護的比對就白拿了不屬於它的豁免。形狀與 v1／v2／v3 是同一族：
-/// **豁免的作用範圍大於它要豁免的那一件事**，只是這次的成因在邊界判定而不在配對規則。
+/// 回傳長度與 `text.lines()` 相同，索引一一對應。
 ///
-/// 同一個洞還有另外兩個出口，一併堵掉：
-/// - [`count_fallbacks`]：註解裡的 `"admin"` / `ROLE_ADMIN_LEGACY` 會被當成真的 fallback。
-/// - [`violations`] 的候選判定：`.bind(ROLE_ADMIN_LEGACY) // 對應 SYSTEM_ADMIN` 這種
-///   **只在註解裡提到**的行會被當成比對（假陽性）。
-fn strip_line_comment(line: &str) -> &str {
-    let bytes = line.as_bytes();
-    let mut in_str = false;
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            // 跳過跳脫字元，`\"` 不能被當成字串結束。
-            b'\\' if in_str => i += 1,
-            b'"' => in_str = !in_str,
-            b'/' if !in_str && bytes.get(i + 1) == Some(&b'/') => return &line[..i],
-            _ => {}
+/// ## ⚠️ 為什麼判定一定要先過這一關
+///
+/// 註解只是「提到」，不是程式碼。直接吃整行會讓判定從三個方向壞掉，
+/// 而且**三個方向都是同一件事：豁免的作用範圍大於它要豁免的那一件事**：
+///
+/// | 出口 | 沒剝註解的後果 |
+/// |---|---|
+/// | [`statement_span`] 邊界 | `…; // 說明` 不以 `;` 結尾 → 併吞下一敘述，白拿它的 fallback |
+/// | [`count_fallbacks`] | 註解裡的 `"admin"` / `ROLE_ADMIN_LEGACY` 被當成真的 fallback |
+/// | [`violations`] 候選 | 只在註解裡提到 `SYSTEM_ADMIN` 的行被判成比對（假陽性） |
+///
+/// 兩輪各補一半：**行註解**是 CodeRabbit 於 #32 第 4 輪指出，
+/// **區塊註解**是第 5 輪指出——第 4 輪的修法只處理 `//`，
+/// `let a = r == ROLE_SYSTEM_ADMIN; /* ROLE_ADMIN_LEGACY */` 照樣過關。
+/// 補一半的修正在外觀上與補完整完全一樣（測試全綠），這正是本檔反覆在講的事。
+///
+/// ## 已知極限（刻意不做完美的 Rust lexer）
+///
+/// 字串追蹤只認雙引號與 `\` 跳脫。**raw string（`r#"…"#`）內若含單獨的 `"`
+/// 會讓引號配對錯位**，此時該行的 `//` 可能被誤剝。方向是**少看程式碼**＝
+/// 可能漏報而非誤報。本守衛掃的是 `backend/src`，該處目前沒有這種寫法
+/// （新增後若掃真實原始碼那支測試仍綠、但你確信該行該被抓，先查這裡）。
+fn strip_comments(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    // Rust 的區塊註解可巢狀（`/* /* */ */`），所以要記深度不是布林。
+    let mut depth = 0usize;
+    for line in text.lines() {
+        let b = line.as_bytes();
+        let mut kept = String::with_capacity(line.len());
+        let mut in_str = false;
+        let mut i = 0usize;
+        // 目前這段「要保留」的起點；遇到註解開頭就把 `[seg, i)` 收進 kept。
+        let mut seg = 0usize;
+        while i < b.len() {
+            if depth > 0 {
+                if b[i] == b'*' && b.get(i + 1) == Some(&b'/') {
+                    depth -= 1;
+                    i += 2;
+                    seg = i;
+                } else if b[i] == b'/' && b.get(i + 1) == Some(&b'*') {
+                    depth += 1;
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+                continue;
+            }
+            match b[i] {
+                // 跳過跳脫序列，`\"` 不能被當成字串結束。
+                // UTF-8 是自我同步的（後續位元組皆 >= 0x80），跳進多位元組字元中間
+                // 也不會誤命中任何 ASCII 標記，切片位置仍落在字元邊界上。
+                b'\\' if in_str => i += 2,
+                b'"' => {
+                    in_str = !in_str;
+                    i += 1;
+                }
+                b'/' if !in_str && b.get(i + 1) == Some(&b'/') => {
+                    kept.push_str(&line[seg..i]);
+                    seg = line.len();
+                    i = b.len();
+                }
+                b'/' if !in_str && b.get(i + 1) == Some(&b'*') => {
+                    kept.push_str(&line[seg..i]);
+                    depth += 1;
+                    i += 2;
+                    seg = i;
+                }
+                _ => i += 1,
+            }
         }
-        i += 1;
+        // 行尾仍在區塊註解內 → 尾巴整段是註解，不保留。
+        if depth == 0 && seg < line.len() {
+            kept.push_str(&line[seg..]);
+        }
+        out.push(kept);
     }
-    line
+    out
 }
 
 /// 候選行所屬的**敘述**範圍（`[起, 迄)`，含註解行）。
@@ -132,17 +193,18 @@ fn strip_line_comment(line: &str) -> &str {
 /// 需要顯式標記——那是好事：那種寫法本來就該讓讀的人看見。
 ///
 /// 邊界判定：往前找到上一個以 `;` `{` `}` 結尾或空白的行，往後找到第一個以 `;` 結尾的行。
-/// 註解行不算邊界（會被跨過），但在比對 fallback 時會被濾掉——
-/// 否則標記註解裡的字就會被當成 fallback。
-/// **判定前先用 [`strip_line_comment`] 去掉行尾註解**，否則 `...; // 說明` 不算敘述結尾。
-fn statement_span(lines: &[&str], i: usize) -> (usize, usize) {
+///
+/// 吃的是 [`strip_comments`] 產出的**無註解**版本；`comment_only[i]` 標記
+/// 「原本非空、剝完只剩空白」的行（整行都是註解）——那種行要**跨過**，
+/// 不能當成邊界，否則敘述中間插一行註解就會把敘述切斷。
+fn statement_span(code: &[String], comment_only: &[bool], i: usize) -> (usize, usize) {
     let mut lo = i;
     while lo > 0 {
-        if lines[lo - 1].trim_start().starts_with("//") {
+        if comment_only[lo - 1] {
             lo -= 1;
             continue;
         }
-        let prev = strip_line_comment(lines[lo - 1]).trim_end();
+        let prev = code[lo - 1].trim_end();
         if prev.is_empty()
             || prev.ends_with(';')
             || prev.ends_with('{')
@@ -154,14 +216,14 @@ fn statement_span(lines: &[&str], i: usize) -> (usize, usize) {
         lo -= 1;
     }
     let mut hi = i + 1;
-    while hi < lines.len() {
-        let prev = strip_line_comment(lines[hi - 1]).trim_end();
+    while hi < code.len() {
+        let prev = code[hi - 1].trim_end();
         if prev.ends_with(';') || prev.ends_with('{') || prev.ends_with('}') {
             break;
         }
         hi += 1;
     }
-    (lo, hi.min(lines.len()))
+    (lo, hi.min(code.len()))
 }
 
 /// 本檔自己會提到 SYSTEM_ADMIN（doc comment），不掃。
@@ -206,19 +268,24 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
         return Vec::new();
     }
     let lines: Vec<&str> = text.lines().collect();
+    // 一切判定都跑在無註解版本上；原始行只用於「找豁免標記」（標記本來就寫在註解裡）
+    // 與錯誤訊息的顯示。
+    let stripped = strip_comments(text);
+    let comment_only: Vec<bool> = lines
+        .iter()
+        .zip(&stripped)
+        .map(|(raw, c)| c.trim().is_empty() && !raw.trim().is_empty())
+        .collect();
     let mut out = Vec::new();
     let mut consumed_markers: HashSet<usize> = HashSet::new();
     let mut fallback_budget: HashMap<(usize, usize), usize> = HashMap::new();
 
     for (i, line) in lines.iter().enumerate() {
-        let trimmed = line.trim_start();
-        // 註解與 use 行只是「提到」，不是比對。
-        if trimmed.starts_with("//") || trimmed.starts_with("use ") {
+        let code = stripped[i].as_str();
+        // use 行只是「提到」，不是比對。（純註解行剝完是空的，自然不會進來。）
+        if code.trim_start().starts_with("use ") {
             continue;
         }
-        // 行尾註解只是「提到」，一律先剝掉再判定——否則
-        // `.bind(ROLE_ADMIN_LEGACY) // 對應 SYSTEM_ADMIN` 會被當成一個比對。
-        let code = strip_line_comment(line);
         if !code.contains("SYSTEM_ADMIN") {
             continue;
         }
@@ -249,10 +316,10 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
         }
 
         // ② 同一敘述內的 fallback token，**每個也只能保護一個比對**。
-        let span = statement_span(&lines, i);
+        let span = statement_span(&stripped, &comment_only, i);
         let budget = fallback_budget
             .entry(span)
-            .or_insert_with(|| count_fallbacks(&lines[span.0..span.1]));
+            .or_insert_with(|| count_fallbacks(&stripped[span.0..span.1]));
         while covered < need && *budget > 0 {
             *budget -= 1;
             covered += 1;
@@ -279,18 +346,17 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
 /// `"admin"` / `'admin'` 帶引號已足夠精確：權限碼字串是 `"admin.user.edit"`
 /// （含 `"admin.` 而非 `"admin"`），不會誤命中。
 ///
-/// ⚠️ 整行註解與**行尾註解**都不算：只寫「日後再改用 `ROLE_ADMIN_LEGACY`」的註解
-/// 不是 fallback，卻能豁免掉旁邊那個真的未防護的比對。
-fn count_fallbacks(lines: &[&str]) -> usize {
+/// ⚠️ 吃的是 [`strip_comments`] 的產出，所以**任何形式的註解都不算**——
+/// 只寫著「日後再改用 `ROLE_ADMIN_LEGACY`」的說明不是 fallback，
+/// 卻曾經能豁免掉旁邊那個真的未防護的比對（`//` 見第 4 輪、`/* */` 見第 5 輪）。
+fn count_fallbacks(lines: &[String]) -> usize {
     lines
         .iter()
-        .filter(|l| !l.trim_start().starts_with("//"))
         .map(|l| {
-            let code = strip_line_comment(l);
-            code.matches("ROLE_ADMIN_LEGACY").count()
-                + code.matches("\"admin\"").count()
-                + code.matches("'admin'").count()
-                + code.matches(".is_admin()").count()
+            l.matches("ROLE_ADMIN_LEGACY").count()
+                + l.matches("\"admin\"").count()
+                + l.matches("'admin'").count()
+                + l.matches(".is_admin()").count()
         })
         .sum()
 }
@@ -442,6 +508,47 @@ fn comparison_mentioned_only_in_trailing_comment_is_not_a_candidate() {
     assert!(
         violations("t.rs", src).is_empty(),
         "只在行尾註解提到的比對不該被判違規"
+    );
+}
+
+#[test]
+fn fallback_token_inside_block_comment_does_not_count() {
+    // CodeRabbit 於 #32 第 5 輪指出：第 4 輪只剝了 `//`，`/* */` 照樣被當成程式碼。
+    let src = "        let a = r == ROLE_SYSTEM_ADMIN; /* 之後補 ROLE_ADMIN_LEGACY */
+";
+    assert_eq!(
+        violations("t.rs", src).len(),
+        1,
+        "區塊註解裡的 fallback token 不該豁免真的未防護比對"
+    );
+}
+
+#[test]
+fn block_comment_does_not_merge_adjacent_statements() {
+    // 與行尾註解同一件事：行尾的 `/* */` 讓該行不以 `;` 結尾，敘述範圍就會併吞下一個。
+    let src = "        let a = r == ROLE_SYSTEM_ADMIN; /* 說明 */
+        let b = other == ROLE_ADMIN_LEGACY;
+";
+    let v = violations("t.rs", src);
+    assert_eq!(
+        v.len(),
+        1,
+        "下一個敘述的 fallback 不屬於這個比對，必須被抓到。實際：{v:?}"
+    );
+    assert!(v[0].contains("t.rs:1"), "被抓的應是第一行。實際：{v:?}");
+}
+
+#[test]
+fn code_inside_multi_line_block_comment_is_not_a_candidate() {
+    // 被整段註解掉的程式碼不是程式碼——區塊註解要能跨行，否則中間那行會被當成候選。
+    let src = "        /* 這段先關掉
+        let a = r == ROLE_SYSTEM_ADMIN;
+        */
+        let b = user.is_admin();
+";
+    assert!(
+        violations("t.rs", src).is_empty(),
+        "被註解掉的比對不該被判違規"
     );
 }
 
