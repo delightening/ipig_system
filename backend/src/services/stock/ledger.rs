@@ -54,6 +54,13 @@ impl StockService {
         document: &Document,
         lines: &[DocumentLine],
     ) -> Result<()> {
+        // 單位換算（唯一入口）：以下所有計算——庫存足量檢查、stock_ledger、
+        // storage_location_inventory 增減、inventory_snapshots 重算——一律以
+        // products.base_uom 進行。明細若以「盒」開立，在此換成「雙」再往下走。
+        // 換算表沒有該單位即 400，不靜默當 1（見 uom::to_base_lines）。
+        let base_lines = Self::to_base_lines(tx, lines).await?;
+        let lines = base_lines.as_slice();
+
         // 固定 (warehouse_id, product_id) 順序、且在**任何列鎖之前**先取 advisory lock：
         // 涉及重疊 (倉,品) 的並發核准在此先序列化。若等到逐行處理才鎖，
         // check_stock_available 的 FOR UPDATE 會照行順序取列鎖，兩張行序相反的

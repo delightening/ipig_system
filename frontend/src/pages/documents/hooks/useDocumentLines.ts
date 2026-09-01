@@ -153,7 +153,7 @@ export function useDocumentLines(
           ...prev,
           lines: currentLines.map((line) =>
             line.id === selectedLineId
-              ? { ...line, product_id: product.id, product_name: product.name, product_sku: product.sku, uom: product.base_uom }
+              ? { ...line, product_id: product.id, product_name: product.name, product_sku: product.sku, uom: product.base_uom, base_uom: product.base_uom, alt_uoms: product.alt_uoms ?? [] }
               : line
           ),
         }))

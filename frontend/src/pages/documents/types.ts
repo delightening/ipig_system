@@ -10,6 +10,10 @@ export interface DocumentLine {
   product_id: string
   product_name?: string
   product_sku?: string
+  /** 該品項的基本單位；單位下拉的第一個選項 */
+  base_uom?: string
+  /** 該品項換算表裡的其他單位（如「盒」）；與 base_uom 合成單位下拉的選項 */
+  alt_uoms?: string[]
   qty: string
   uom: string
   unit_price: string
