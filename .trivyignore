@@ -1,28 +1,46 @@
 # 此檔案用於忽略已確認且無法修復或不影響安全性的漏洞
 # 格式：CVE-ID (每行一個編號)
 #
+# ⚠️ **豁免是有保存期限的東西**：每一條的成立條件（哪個映像、哪個套件版本、上游修了沒）
+# 都會隨 base image 更新而失效，而失效的豁免不會自己報錯——它只會安靜地繼續抑制。
+# 新增條目時務必寫下「適用映像」「當時的套件版本」「解除條件」三件事，
+# 並在 base image 換掉時回來重驗；只寫「風險 LOW」對日後的人沒有任何幫助。
+#
 # 2026-06-10 P4-6 清理：frontend 映像（georgjung/nginx-brotli:1.31.0-alpine3.23）原本
 # 抑制的 12 個 CVE（libpng / zlib / libxml2×4 / pcre2 / openssl×6）已全部修復——
 # georgjung base 2026 重建後自帶 pcre2 10.47 / openssl 3.5.6 / libpng 1.6.58 / zlib 1.3.2，
 # 加上 Dockerfile `apk upgrade ... libxml2`（2.13.9-r1）。Trivy 重掃應為 0，故全數移除。
 # 驗證：rebuild web 後 apk info 確認所有套件 ≥ 修復版（2026-06-10）。
-
-# CVE-2026-28390: libssl3 OpenSSL DoS via NULL pointer dereference
-# 適用：backend 映像（gcr.io/distroless/cc-debian12）
-# 原因：distroless base image 自帶 libssl3，無法透過 apt upgrade 修復；
-#       覆蓋 .so 會造成 ABI 不相容導致應用程式無法啟動
-# 風險：LOW — DoS 需特製 TLS 連線，API 位於反向代理後方
-# 下次檢查：distroless image 更新後移除
-CVE-2026-28390
-
-# CVE-2026-0861: glibc 整數溢位導致 memalign heap corruption
-# 適用：print-pdf 映像（python:3.12-slim debian12 base）— libc6 2.36-9+deb12u13
-# 原因：Trivy DB 已收到此 CVE，但 Debian 12 stable repo 尚未發布修補版本
-#       (2.36-9+deb12u14)。Dockerfile 已有 `apt-get update && apt-get upgrade -y`，
-#       一旦 Debian 上架修補版即自動納入下一次 build。
-# 風險：LOW — print-pdf 只在 backend network 內部運作（不對外曝光），R55-3 之後
-#       還需 X-Internal-Token 才能呼叫；touch heap corruption 路徑（memalign）
-#       需執行 native C code 配合 chosen alignment，WeasyPrint / Python 工作負載
-#       不會觸到。
-# 下次檢查：Debian 12 stable security feed / 觸發新 CI 失敗時優先處理
-CVE-2026-0861
+#
+# 2026-09-02 清理：移除 CVE-2026-28390 與 CVE-2026-0861 兩條，兩者的上游修補都已到位，
+# 實測本機映像裝的就是修復版，繼續豁免只會遮住日後真正的回歸。逐條依據：
+#
+#   CVE-2026-28390（openssl，CMS EnvelopedData 的 NULL pointer dereference）
+#     原條目：「distroless base image 自帶 libssl3，無法透過 apt upgrade 修復；
+#             覆蓋 .so 會造成 ABI 不相容」，解除條件寫「distroless image 更新後移除」。
+#     實測：`ipig-api` 映像 `/var/lib/dpkg/status.d/libssl3` → **3.0.20-1~deb12u2**，
+#           而 Debian security tracker 標示 bookworm 的修復版正是 3.0.20-1~deb12u2。
+#           解除條件已達成（base 更新了），只是沒有人回來移除。
+#
+#   CVE-2026-0861（glibc，memalign 整數溢位導致 heap corruption，影響 2.30–2.42）
+#     原條目有**三處與現況不符**，不只是過期：
+#       (a) 適用對象寫「print-pdf 映像（python:3.12-slim debian12 base）」——
+#           該 Dockerfile 自 2026-06-26 起已是
+#           `mcr.microsoft.com/playwright/python:v1.62.0-jammy`，實測 OS 為
+#           **Ubuntu 22.04.5**、libc6 **2.35-0ubuntu3.13**，根本不是 Debian 12。
+#       (b) 解除條件寫「等 Debian 12 上架 2.36-9+deb12u14」——該映像不吃 Debian 套件庫，
+#           照這個條件等下去永遠等不到。
+#       (c) 風險論述寫「WeasyPrint / Python 工作負載不會觸到 memalign 路徑」——
+#           渲染引擎同樣在 2026-06-26 換成 Chromium（native C++），前提已不成立。
+#     實測結論：Ubuntu tracker 標 jammy 的修復版為 2.35-0ubuntu3.13，
+#           **print-pdf 裝的正是該版**；backend 的 libc6 為 2.36-9+deb12u14，
+#           也正是 Debian tracker 標的 bookworm 修復版。兩個映像都已修復。
+#
+#   ⚠️ 附帶查出、已另立待辦：**print-pdf 映像的 OS 層漏洞目前零掃描涵蓋**。
+#   `ci.yml` 的 Trivy job 只 build 並掃 `ipig-api:ci` 與 `ipig-web:ci` 兩個映像，
+#   而 `cd.yml` 明文記載 print-pdf 刻意不在 CI 建（商用字型不可隨 repo 散布）。
+#   `osv-scanner` 那條只掃 `requirements.txt` 的 Python 套件，不看 OS 套件。
+#   也就是說上面 CVE-2026-0861 那條豁免**在 CI 裡從來沒有生效過**——它防的是
+#   一個不會發生的失敗，而真正的缺口是那個映像沒有任何人在掃。
+#
+# 目前無豁免項目。新增時請照上方格式寫齊三件事。
