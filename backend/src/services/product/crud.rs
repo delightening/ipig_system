@@ -157,8 +157,15 @@ impl ProductService {
         let new_sku = Self::resolve_update_sku_tx(tx, &current, req).await?;
 
         // 單位以正規形式落地（同 insert_product_tx）。原 req 不動，稽核 diff 仍比對實際落地值。
+        //
+        // ⚠️ 請求沒帶 pack_unit 時**不能讓它落回 COALESCE 保留舊值**：舊值可能是 `BX` 這種
+        // 非正規寫法，而換算列一律以正規形式（`盒`）存。盤點底稿的
+        // `LEFT JOIN ... ON c.uom = p.pack_unit` 拿原值去比，兩者不同就永遠比不中，
+        // 底稿無聲退回 base_uom。所以這裡明確帶入「舊值的正規形式」，
+        // 讓每一次更新都把該品項往正規形式收斂（bulk 的部分由 migration 負責）。
         let canonical_req = UpdateProductRequest {
-            pack_unit: canonical_uom_opt(req.pack_unit.as_deref()),
+            pack_unit: canonical_uom_opt(req.pack_unit.as_deref())
+                .or_else(|| canonical_uom_opt(before.pack_unit.as_deref())),
             ..req.clone()
         };
         let after =

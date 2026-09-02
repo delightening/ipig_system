@@ -271,15 +271,15 @@ async fn reconcile_derived_pack_conversion_tx(
         after.pack_qty,
     );
 
-    if let Some(old) = plan.remove {
-        // WHERE 帶 factor：值不符即代表這一列已被人工改過，交給人負責，不代為刪除。
+    // WHERE 帶 factor：值不符即代表這一列已被人工改過，交給人負責，不代為刪除。
+    for row in [plan.remove, plan.remove_alias].into_iter().flatten() {
         sqlx::query(
             "DELETE FROM product_uom_conversions \
              WHERE product_id = $1 AND uom = $2 AND factor_to_base = $3",
         )
         .bind(product_id)
-        .bind(&old.uom)
-        .bind(old.factor_to_base)
+        .bind(&row.uom)
+        .bind(row.factor_to_base)
         .execute(&mut **tx)
         .await?;
     }

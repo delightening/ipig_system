@@ -782,7 +782,8 @@ impl SkuService {
         let final_sku = sku_result.sku;
 
         let mut tx = pool.begin().await?;
-        let product = Self::create_product_with_sku_tx(&mut tx, actor, req, &final_sku).await?;
+        let (product, uom_conversions) =
+            Self::create_product_with_sku_tx(&mut tx, actor, req, &final_sku).await?;
         tx.commit().await?;
 
         // tx 外取類別/子類別顯示名稱（pool-based 讀取，rollback 時不受影響）
@@ -799,7 +800,9 @@ impl SkuService {
 
         Ok(ProductWithUom {
             product,
-            uom_conversions: Vec::new(),
+            // 建立時若有包裝關係就會產生換算列，必須如實回報。回空陣列的話，
+            // 「成功建立了帶包裝的 SKU」與「建立了沒有包裝的 SKU」在回應上無法區分。
+            uom_conversions,
             category_name,
             subcategory_name,
         })
@@ -812,7 +815,7 @@ impl SkuService {
         actor: &ActorContext,
         req: &CreateProductWithSkuRequest,
         final_sku: &str,
-    ) -> Result<Product> {
+    ) -> Result<(Product, Vec<crate::models::ProductUomConversion>)> {
         let _user = actor.require_user()?;
 
         // 生成產品名稱（如果未提供）
@@ -871,8 +874,14 @@ impl SkuService {
             product.pack_unit.as_deref(),
             product.pack_qty,
         );
-        crate::services::insert_uom_conversions_tx(tx, product.id, &product.base_uom, &[], derived)
-            .await?;
+        let uom_conversions = crate::services::insert_uom_conversions_tx(
+            tx,
+            product.id,
+            &product.base_uom,
+            &[],
+            derived,
+        )
+        .await?;
 
         let display = format!("{} ({})", product.name, product.sku);
         AuditService::log_activity_tx(
@@ -888,7 +897,7 @@ impl SkuService {
         )
         .await?;
 
-        Ok(product)
+        Ok((product, uom_conversions))
     }
 
     /// 刪除子類（僅在無產品使用該子類時允許；僅 admin 可呼叫，由 handler 檢查）

@@ -181,6 +181,14 @@ pub fn merge_for_write(
 pub struct PackConversionPlan {
     /// 要刪掉的舊推導列。只有「值與舊推導完全一致」才刪，人工改過的不動。
     pub remove: Option<UomConversionInput>,
+    /// 🔴 舊資料以**非正規寫法**存的同一列（例：`pack_unit = 'BX'` 時代建的 `uom = 'BX'`）。
+    ///
+    /// 與 `remove` 分開，因為它的鍵不是正規值、比對不到。不刪它的後果是無聲的：
+    /// `pack_unit` 被正規化成「盒」之後，盤點底稿那句
+    /// `LEFT JOIN product_uom_conversions c ON c.uom = p.pack_unit` 拿「盒」去比「BX」
+    /// 永遠比不中 → `pack_factor` 為 NULL → 底稿退回 base_uom，
+    /// 症狀與「這個品項根本沒建換算列」完全一樣，查不出來。
+    pub remove_alias: Option<UomConversionInput>,
     /// 要寫入（或覆寫換算率）的新推導列。
     pub upsert: Option<UomConversionInput>,
 }
@@ -200,9 +208,12 @@ pub fn plan_pack_conversion_change(
 ) -> PackConversionPlan {
     let old = derive_pack_conversion(before_base_uom, before_pack_unit, before_pack_qty);
     let new = derive_pack_conversion(after_base_uom, after_pack_unit, after_pack_qty);
-    if old == new {
+    let alias = legacy_alias_row(before_pack_unit, before_pack_qty, old.as_ref());
+
+    if old == new && alias.is_none() {
         return PackConversionPlan {
             remove: None,
+            remove_alias: None,
             upsert: None,
         };
     }
@@ -213,8 +224,31 @@ pub fn plan_pack_conversion_change(
     };
     PackConversionPlan {
         remove,
+        remove_alias: alias,
         upsert: new,
     }
+}
+
+/// 舊資料可能以非正規寫法存了同一列（`pack_unit = 'BX'` 時代建的 `uom = 'BX'`）。
+///
+/// 只有在「原字串與正規形式不同」且「該包裝本來就推導得出換算列」時才算數——
+/// 前者代表它是別名，後者代表當初真的會有那一列。回傳的 `factor_to_base` 取自
+/// 當時的 `pack_qty`，供刪除時做值比對（值被人工改過就不刪，交給人負責）。
+fn legacy_alias_row(
+    before_pack_unit: Option<&str>,
+    before_pack_qty: Option<i32>,
+    old: Option<&UomConversionInput>,
+) -> Option<UomConversionInput> {
+    let old = old?;
+    let raw = before_pack_unit?.trim();
+    if raw.is_empty() || raw == canonical_uom(raw) {
+        return None;
+    }
+    Some(UomConversionInput {
+        uom: raw.to_string(),
+        factor_to_base: Decimal::from(before_pack_qty?),
+    })
+    .filter(|alias| alias.uom != old.uom)
 }
 
 #[cfg(test)]
@@ -338,18 +372,43 @@ mod tests {
     #[test]
     fn plan_is_empty_when_packaging_unchanged() {
         // 高頻路徑：改品名／安全庫存等欄位，包裝沒動 → 完全不碰換算表。
+        // 用正規寫法，因為 `update_tx` 會把 pack_unit 收斂成正規形式後才寫入。
         let plan =
-            plan_pack_conversion_change("支", Some("BX"), Some(50), "支", Some("BX"), Some(50));
+            plan_pack_conversion_change("支", Some("盒"), Some(50), "支", Some("盒"), Some(50));
         assert_eq!(plan.remove, None);
+        assert_eq!(plan.remove_alias, None);
         assert_eq!(plan.upsert, None);
     }
 
     #[test]
-    fn plan_is_empty_when_only_representation_changed() {
-        // 代碼換成中文但實質相同（BX → 盒），正規化後一致，不該產生任何動作。
+    fn plan_renames_legacy_alias_row_when_representation_normalized() {
+        // 🔴 CodeRabbit 於 PR #61 指出、實際成立的一條：
+        // 舊品項存 pack_unit='BX'，換算表也留著 uom='BX' 的列。本次更新把 pack_unit
+        // 正規化成「盒」，前後推導都是「盒」——若因此判定「無變化」，那列 BX 會留在原地，
+        // 而盤點底稿的 `c.uom = p.pack_unit` 之後拿「盒」去比「BX」永遠比不中。
+        // 正確行為是：刪掉別名列、寫入正規列。
         let plan =
             plan_pack_conversion_change("支", Some("BX"), Some(50), "支", Some("盒"), Some(50));
-        assert_eq!(plan.remove, None);
+        assert_eq!(plan.remove, None, "正規鍵沒變，不該刪正規列");
+        assert_eq!(plan.remove_alias, Some(conv("BX", 50)), "必須刪掉別名列");
+        assert_eq!(plan.upsert, Some(conv("盒", 50)), "必須確保正規列存在");
+    }
+
+    #[test]
+    fn plan_has_no_alias_when_old_packaging_had_no_row() {
+        // 舊的 pack_qty=1 本來就推導不出任何列，就沒有別名列存在的可能。
+        let plan =
+            plan_pack_conversion_change("支", Some("BX"), Some(1), "支", Some("BX"), Some(50));
+        assert_eq!(plan.remove_alias, None);
+        assert_eq!(plan.upsert, Some(conv("盒", 50)));
+    }
+
+    #[test]
+    fn plan_removes_alias_even_when_packaging_cleared() {
+        // 清掉包裝關係時，別名列也要一起清，否則它會永遠留著。
+        let plan = plan_pack_conversion_change("支", Some("BX"), Some(50), "支", None, None);
+        assert_eq!(plan.remove, Some(conv("盒", 50)));
+        assert_eq!(plan.remove_alias, Some(conv("BX", 50)));
         assert_eq!(plan.upsert, None);
     }
 
