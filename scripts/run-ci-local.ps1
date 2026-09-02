@@ -1,4 +1,4 @@
-# ============================================
+﻿# ============================================
 # 本機 CI 全域測試腳本
 # ============================================
 # 模擬 GitHub Actions CI，涵蓋以下項目：
@@ -65,7 +65,13 @@ if (-not $SkipSecurity) {
         Set-Location "$ProjectRoot\backend"
         cargo install cargo-audit --locked 2>$null
         cargo update 2>$null
-        cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2024-0370 2>&1 | Out-Null
+        # R104-3: 這份清單必須與 .github/workflows/ci.yml 的 cargo audit 步驟逐一相同。
+        # 對不齊的代價不是紅燈而是**假警報**：本機跑出 CI 不會有的 advisory，
+        # 久了就沒有人認真看本機的安全檢查。此前這裡停在 RUSTSEC-2024-0370
+        # （該 advisory 已於 2026-08-06 因 proc-macro-error 不在依賴樹而從 CI 移除），
+        # 卻少了 CI 已加入的 RUSTSEC-2026-0173 與 RUSTSEC-2026-0235。
+        # ⚠️ 改動任一邊都要同步另一邊；ci.yml 是權威來源，理由見該檔同段註解。
+        cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0173 --ignore RUSTSEC-2026-0235 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "cargo audit exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
     }

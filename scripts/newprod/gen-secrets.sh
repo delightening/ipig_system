@@ -13,11 +13,31 @@
 
 set -euo pipefail
 
+# R103-2：本腳本寫出的是 prod 的資料庫密碼、各服務 token 與 JWT 私鑰。
+# 預設 umask（多為 022）會讓這些檔案 group/world-readable，等於把 prod 金鑰
+# 攤給同機器上的任何使用者。改成 0600（目錄 0700）。
+#
+# ⚠️ 刻意**只**設 umask，不對既有的 `secrets/` 目錄或既有檔案下 chmod：
+# 容器可能以非 root 身分掛載讀取，收緊既有權限有機會讓服務讀不到 secret 而起不來。
+# 要調整既有檔案請先確認各服務的執行身分（見 docker-compose 的 user: 設定）。
+umask 077
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SECRETS_DIR="$REPO_ROOT/secrets"
 
 mkdir -p "$SECRETS_DIR"
+
+# ⚠️ 目錄權限要單獨設，不能放給 umask 決定。
+# `umask 077` 會讓上面這行建出 0700 的目錄，而 0700 對 other 沒有 execute，
+# **裡面的檔案再怎麼放寬都讀不到**——監控堆疊那幾個 bind mount（見檔案末尾）
+# 就是這樣被擋住的，實測 uid 472 連 0644 的檔案都開不起來。
+# 這也正是本檔案原始待辦（R103-2）警告過的「不要讓 secrets/ 變成 0700」，
+# 只是它經由 umask 間接發生，比直接下 chmod 700 更難察覺。
+#
+# 用 0711 而不是 0755：容器以完整路徑讀取，不需要列目錄；
+# 而檔名清單本身會透露「這台機器有哪些服務的憑證」，沒必要對外開放。
+chmod 0711 "$SECRETS_DIR"
 
 created=0
 skipped=0
@@ -69,19 +89,46 @@ echo "--- JWT EC 金鑰對（ES256）---"
 #     `BEGIN PRIVATE KEY` 不會命中 SEC1 的 `BEGIN EC PRIVATE KEY`（中間隔著 `EC `），
 #     配合 `head -1` 仍只看第一行。這樣本檔就不必列進 .gitleaks.toml 的豁免清單，
 #     日後若有人在這支產生 secrets 的腳本裡寫死憑證，掃描器照樣抓得到。
-if [ -e "$SECRETS_DIR/jwt_ec_private_key.pem" ]; then
-  echo "  skip   jwt_ec_private_key.pem（已存在）"
-  skipped=$((skipped + 2))
-else
-  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 \
-    -out "$SECRETS_DIR/jwt_ec_private_key.pem" 2>/dev/null
-  openssl pkey -in "$SECRETS_DIR/jwt_ec_private_key.pem" -pubout \
-    -out "$SECRETS_DIR/jwt_ec_public_key.pem" 2>/dev/null
-  # 驗證真的是 PKCS8，不是靠假設
-  if ! head -1 "$SECRETS_DIR/jwt_ec_private_key.pem" | grep -q 'BEGIN PRIVATE KEY'; then
-    echo "ERROR: 產出的 JWT 私鑰不是 PKCS8 格式，後端會拒絕啟動。" >&2
+# R103-3：這對金鑰是**兩個獨立的檔案**，所以要分四種狀態處理。
+# 舊版只看私鑰在不在，在就 `skipped += 2` 跳過兩個檔——於是「私鑰在、公鑰被刪或
+# 前次執行中斷」這個狀態下，重跑**不會**補出公鑰，secrets 集合殘缺而腳本回報成功。
+# 冪等的意思是「跑完之後狀態一致」，不是「跑過就不再看」。
+priv="$SECRETS_DIR/jwt_ec_private_key.pem"
+pub="$SECRETS_DIR/jwt_ec_public_key.pem"
+
+# 私鑰必須是 PKCS8（見上方註解）。抽成函式讓新產生與既有檔案走同一條驗證。
+assert_pkcs8() {
+  if ! head -1 "$priv" | grep -q 'BEGIN PRIVATE KEY'; then
+    echo "ERROR: $priv 不是 PKCS8 格式，後端會拒絕啟動。" >&2
+    echo "       （SEC1 的標頭是 BEGIN EC PRIVATE KEY，後端只認 PKCS8）" >&2
     exit 1
   fi
+}
+
+if [ -e "$priv" ] && [ -e "$pub" ]; then
+  echo "  skip   jwt_ec_private_key.pem / jwt_ec_public_key.pem（皆已存在）"
+  skipped=$((skipped + 2))
+elif [ -e "$priv" ] && [ ! -e "$pub" ]; then
+  # 公鑰是私鑰的函數，可以無損重建——這種狀態要修好，不是報錯。
+  assert_pkcs8
+  openssl pkey -in "$priv" -pubout -out "$pub" 2>/dev/null
+  echo "  skip   jwt_ec_private_key.pem（已存在）"
+  echo "  create jwt_ec_public_key.pem（由既有私鑰推導）"
+  skipped=$((skipped + 1))
+  created=$((created + 1))
+elif [ ! -e "$priv" ] && [ -e "$pub" ]; then
+  # 反過來不可修復：公鑰推不回私鑰。這種狀態多半代表私鑰被誤刪，
+  # 若逕自產生一對新的，既有已簽發的 token 會全部驗不過——要停下讓人決定。
+  echo "ERROR: 只有公鑰存在、私鑰不見了（$pub）。" >&2
+  echo "       公鑰無法推導回私鑰。請先確認私鑰是否還能從備份取回；" >&2
+  echo "       若確定要重新起算（既有 JWT 全數失效、使用者被登出），" >&2
+  echo "       請自行刪除該公鑰後重跑本腳本。" >&2
+  exit 1
+else
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 \
+    -out "$priv" 2>/dev/null
+  openssl pkey -in "$priv" -pubout -out "$pub" 2>/dev/null
+  assert_pkcs8
   echo "  create jwt_ec_private_key.pem（PKCS8）"
   echo "  create jwt_ec_public_key.pem"
   created=$((created + 2))
@@ -109,6 +156,49 @@ write_if_absent grafana_smtp_password.txt ""
 write_if_absent google-service-account.json '{}'
 write_if_absent rclone.conf               ""
 write_if_absent backup_gpg_pubkey.asc     ""
+
+echo ""
+echo "--- 監控堆疊的 bind mount 例外（見下方說明）---"
+# ⚠️ R103-2 的配套，不是可以順手刪掉的東西。
+#
+# `secrets/` 底下的檔案有**兩種**進容器的方式，權限語意完全不同：
+#
+#   (1) compose 的 `secrets:` 機制（api / web / outbox-worker 等多數服務）
+#       —— daemon 以 root 讀取宿主檔案再放進容器的 /run/secrets/，
+#          宿主端 0600 root-owned **不影響**容器內讀取。
+#
+#   (2) 直接 bind mount（`./secrets/x.txt:/run/secrets/x:ro`，監控堆疊在用）
+#       —— **宿主端的權限直接生效**。而 grafana 官方映像的 `USER` 實測為 `472`
+#          （`docker image inspect grafana/grafana:13.0.1 --format '{{.Config.User}}'`），
+#          prometheus / alertmanager 同樣以非 root 執行。
+#
+# 於是 `umask 077` 對 (2) 這幾個檔案就會變成「全新機器上監控堆疊讀不到密碼」。
+# 既有部署不受影響（檔案已存在，上面一律 skip），但新機器第一次部署就會中。
+#
+# 這裡明確把這幾個檔案放寬到 0644，並在輸出中講清楚代價；
+# 敏感度較高的 JWT 私鑰 / DB 密碼 / audit HMAC key / encryption key 仍是 0600。
+#
+# 🔴 這是**取捨不是解法**：0644 等於同機器上任何使用者都讀得到這幾個值，
+#    其中兩個是 SMTP 密碼。根治要把這幾個掛載改走 compose 的 `secrets:` 機制
+#    （或指定 group 並讓容器以該 group 執行），屬 prod compose 變更，已另立待辦。
+BIND_MOUNTED_SECRETS="
+metrics_token.txt
+prometheus_password.txt
+alert_smtp_password.txt
+grafana_pg_password.txt
+grafana_smtp_password.txt
+grafana_admin_password.txt
+"
+relaxed=0
+for name in $BIND_MOUNTED_SECRETS; do
+  f="$SECRETS_DIR/$name"
+  if [ -e "$f" ]; then
+    chmod 0644 "$f"
+    relaxed=$((relaxed + 1))
+  fi
+done
+echo "  已放寬 $relaxed 個檔案為 0644（監控堆疊以非 root 身分 bind mount 讀取）"
+echo "  其餘檔案為 0600。"
 
 echo ""
 echo "=== 完成：新增 $created 個、略過 $skipped 個 ==="
