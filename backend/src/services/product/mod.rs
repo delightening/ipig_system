@@ -271,7 +271,30 @@ async fn reconcile_derived_pack_conversion_tx(
         after.pack_qty,
     );
 
+    // 別名列（舊寫法 `BX`）要先判定：值一致才刪；被人工改過就擋下來，不能放著讓它與
+    // 正規列（`盒`）並存——兩者在單據的單位下拉裡長得一模一樣，換算率卻不同。
+    if let Some(alias) = plan.remove_alias.as_ref() {
+        let existing: Option<rust_decimal::Decimal> = sqlx::query_scalar(
+            "SELECT factor_to_base FROM product_uom_conversions \
+             WHERE product_id = $1 AND uom = $2",
+        )
+        .bind(product_id)
+        .bind(&alias.uom)
+        .fetch_optional(&mut **tx)
+        .await?;
+
+        let resolution = uom::resolve_alias(
+            Some(alias),
+            plan.upsert.as_ref().map(|u| u.uom.as_str()),
+            existing,
+        );
+        if let Some(msg) = resolution.conflict_message() {
+            return Err(AppError::Validation(msg));
+        }
+    }
+
     // WHERE 帶 factor：值不符即代表這一列已被人工改過，交給人負責，不代為刪除。
+    // （別名列走到這裡時已由上面確認值一致，或根本不存在。）
     for row in [plan.remove, plan.remove_alias].into_iter().flatten() {
         sqlx::query(
             "DELETE FROM product_uom_conversions \

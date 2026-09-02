@@ -229,6 +229,75 @@ pub fn plan_pack_conversion_change(
     }
 }
 
+/// 別名列在 DB 裡的實際狀態，決定要刪、要放過、還是要擋下。
+#[derive(Debug, PartialEq, Eq)]
+pub enum AliasResolution {
+    /// 沒有別名要處理。
+    NothingToDo,
+    /// 別名列存在且值與當初推導一致 → 安全刪除，改由正規列取代。
+    Delete(UomConversionInput),
+    /// 🔴 別名列存在但**換算率被人工改過**，與包裝數量不一致。
+    ///
+    /// 不能刪（會丟掉人設定的值），也不能放著不管——放著的話同一個正規單位會同時存在
+    /// 兩列（`BX=24` 與 `盒=50`）。它們在單據的單位下拉裡都顯示成「盒」
+    /// （`formatUom` 對兩者的輸出相同），使用者選到哪一個是碰運氣，
+    /// 而兩者算出的 `qty_base` 差一倍以上。所以擋下來要求人先清乾淨。
+    Conflict {
+        alias: String,
+        canonical: String,
+        existing: Decimal,
+        expected: Decimal,
+    },
+}
+
+impl AliasResolution {
+    /// 衝突時給使用者看的訊息。點名兩個寫法與兩個數字，讓人知道要去清哪一列。
+    pub fn conflict_message(&self) -> Option<String> {
+        match self {
+            AliasResolution::Conflict {
+                alias,
+                canonical,
+                existing,
+                expected,
+            } => Some(format!(
+                "此品項有一列以舊寫法「{alias}」存的換算率 {existing}，\
+                 與包裝數量推導出的「{canonical}」＝ {expected} 衝突。\
+                 兩者是同一個單位，請先在單位換算設定裡清掉舊的那一列，或修正包裝數量後再存檔。"
+            )),
+            _ => None,
+        }
+    }
+}
+
+/// 決定別名列該怎麼處理。純函式：DB 只負責把「那一列現在的換算率」查出來餵進來。
+///
+/// - `alias`：`plan_pack_conversion_change` 算出的別名列（含當初推導的換算率）
+/// - `existing_factor`：DB 裡該別名 uom 實際存的換算率，沒有該列則為 `None`
+pub fn resolve_alias(
+    alias: Option<&UomConversionInput>,
+    canonical_uom_value: Option<&str>,
+    existing_factor: Option<Decimal>,
+) -> AliasResolution {
+    let Some(alias) = alias else {
+        return AliasResolution::NothingToDo;
+    };
+    let Some(existing) = existing_factor else {
+        // 別名列根本不存在（多數情況）——沒事可做。
+        return AliasResolution::NothingToDo;
+    };
+    if existing == alias.factor_to_base {
+        return AliasResolution::Delete(alias.clone());
+    }
+    AliasResolution::Conflict {
+        alias: alias.uom.clone(),
+        canonical: canonical_uom_value
+            .unwrap_or(&canonical_uom(&alias.uom))
+            .to_string(),
+        existing,
+        expected: alias.factor_to_base,
+    }
+}
+
 /// 舊資料可能以非正規寫法存了同一列（`pack_unit = 'BX'` 時代建的 `uom = 'BX'`）。
 ///
 /// 只有在「原字串與正規形式不同」且「該包裝本來就推導得出換算列」時才算數——
@@ -401,6 +470,61 @@ mod tests {
             plan_pack_conversion_change("支", Some("BX"), Some(1), "支", Some("BX"), Some(50));
         assert_eq!(plan.remove_alias, None);
         assert_eq!(plan.upsert, Some(conv("盒", 50)));
+    }
+
+    #[test]
+    fn alias_resolution_does_nothing_without_alias_or_row() {
+        assert_eq!(
+            resolve_alias(None, Some("盒"), Some(Decimal::from(50))),
+            AliasResolution::NothingToDo
+        );
+        // 別名列不存在（絕大多數品項）——不該產生任何動作。
+        assert_eq!(
+            resolve_alias(Some(&conv("BX", 50)), Some("盒"), None),
+            AliasResolution::NothingToDo
+        );
+    }
+
+    #[test]
+    fn alias_resolution_deletes_when_value_matches() {
+        assert_eq!(
+            resolve_alias(Some(&conv("BX", 50)), Some("盒"), Some(Decimal::from(50))),
+            AliasResolution::Delete(conv("BX", 50))
+        );
+    }
+
+    #[test]
+    fn alias_resolution_blocks_when_value_was_edited() {
+        // 🔴 CodeRabbit 於 a241cd8 指出：BX=24（人工改過）配 pack_qty=50。
+        // 刪掉會丟失人設定的值，放著會讓「BX=24」與「盒=50」並存——
+        // 兩者在下拉裡都顯示成「盒」，選錯就寫進差一倍的 qty_base。
+        let r = resolve_alias(Some(&conv("BX", 50)), Some("盒"), Some(Decimal::from(24)));
+        assert_eq!(
+            r,
+            AliasResolution::Conflict {
+                alias: "BX".to_string(),
+                canonical: "盒".to_string(),
+                existing: Decimal::from(24),
+                expected: Decimal::from(50),
+            }
+        );
+        let msg = r.conflict_message().expect("衝突必須給得出訊息");
+        assert!(
+            msg.contains("BX") && msg.contains("盒"),
+            "訊息要點名兩個寫法：{msg}"
+        );
+        assert!(
+            msg.contains("24") && msg.contains("50"),
+            "訊息要點名兩個數字：{msg}"
+        );
+    }
+
+    #[test]
+    fn alias_resolution_message_is_none_unless_conflict() {
+        assert!(AliasResolution::NothingToDo.conflict_message().is_none());
+        assert!(AliasResolution::Delete(conv("BX", 50))
+            .conflict_message()
+            .is_none());
     }
 
     #[test]
