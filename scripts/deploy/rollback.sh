@@ -8,9 +8,10 @@ set -euo pipefail
 #   bash scripts/deploy/rollback.sh <commit-sha>
 #
 # This will:
-#   1. Pull the specified image versions
-#   2. Restart api + web with pinned versions
-#   3. Run health checks
+#   1. Set IMAGE_TAG to the target version
+#   2. Pull the specified image versions
+#   3. Restart api + web + outbox-worker with pinned versions
+#   4. Run health checks
 #
 # 2026-09-02：原步驟 1「Stop Watchtower」已移除——watchtower 服務本身已從
 # docker-compose.prod.yml 移除，部署改為人工執行，不再需要「先擋住自動更新」
