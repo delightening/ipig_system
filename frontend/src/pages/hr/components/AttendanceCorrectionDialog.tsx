@@ -14,7 +14,7 @@ import { formatDate } from '@/lib/utils'
 import type { AttendanceWithUser, StaffInfo } from '@/types/hr'
 
 import { useAttendanceCorrection } from '../hooks/useAttendanceCorrection'
-import { MIN_CORRECTION_REASON_LENGTH, isoToTaipeiTimeInput, taipeiTimeInputToIso } from '../attendanceTime'
+import { MIN_CORRECTION_REASON_LENGTH, attendanceTimesToIso, isoToTaipeiTimeInput } from '../attendanceTime'
 
 interface AttendanceCorrectionDialogProps {
     open: boolean
@@ -86,23 +86,27 @@ export function AttendanceCorrectionDialog({
     const handleSubmit = () => {
         if (!canSubmit) return
         if (isCorrection && record) {
+            // 夜班的下班時間要落到次日——兩種模式都走 attendanceTimesToIso，
+            // 換算規則只有一份（見該函式的說明）
+            const times = attendanceTimesToIso(record.work_date, clockIn, clockOut)
             correctMutation.mutate(
                 {
                     id: record.id,
-                    clock_in_time: taipeiTimeInputToIso(record.work_date, clockIn),
-                    clock_out_time: taipeiTimeInputToIso(record.work_date, clockOut),
+                    clock_in_time: times.clockInIso,
+                    clock_out_time: times.clockOutIso,
                     reason: trimmedReason,
                 },
                 { onSuccess: () => onOpenChange(false) },
             )
             return
         }
+        const times = attendanceTimesToIso(workDate, clockIn, clockOut)
         backfillMutation.mutate(
             {
                 user_id: userId,
                 work_date: workDate,
-                clock_in_time: taipeiTimeInputToIso(workDate, clockIn),
-                clock_out_time: taipeiTimeInputToIso(workDate, clockOut),
+                clock_in_time: times.clockInIso,
+                clock_out_time: times.clockOutIso,
                 reason: trimmedReason,
             },
             { onSuccess: () => onOpenChange(false) },
