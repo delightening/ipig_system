@@ -185,6 +185,18 @@ docs/archive/
 # 列在這裡是為了讓它們在工作區保持「被忽略」而非「未追蹤」——未追蹤狀態下
 # 一次 `git add .` 就會把全部內容推上來，而這正是本條要防的事。
 docs/
+# pii-scan 人名字典（含個資，由 scripts/gen-pii-names.mjs 產生）
+#
+# ⚠️ **用 glob 而不是精確檔名**（CodeRabbit #24 第 5 輪指出，2026-08-27）：
+# gen-pii-names.mjs 是先寫 `<檔名>.tmp` 再 renameSync，中途被打斷（Ctrl-C、
+# 磁碟滿、行程被殺）就會留下含原始人名的殘檔——而該腳本自己的註解就寫著
+# 「tmp 若是上次中斷留下的殘檔」，等於已知它會發生。
+#
+# 只寫精確檔名的話那個殘檔是**未追蹤**而非被忽略，一次 `git add .` 就會把
+# 原始人名推上公開 repo——正是上面第 185 行那段註解要防的事，
+# 被一個 `.tmp` 後綴繞過去。
+scripts/pii-names.local.txt*
+
 CLAUDE.md
 AGENTS.md
 .claude/

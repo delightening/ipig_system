@@ -1,18 +1,31 @@
 // 個資（PII）掃描器 — 阻擋含疑似個資的 git commit/push。
 //
 // 偵測類別：台灣身分證/居留證字號（含檢查碼驗證）、手機/市話號碼、Email、
-// 具體門牌地址（路/街+號）。regex + heuristic，會有誤判，遇到誤判用
+// 具體門牌地址（路/街+號）、**系統內真實人名**（字典比對，見 loadNameDictionary）。
+// regex + heuristic，會有誤判，遇到誤判用
 // `git commit --no-verify` / `git push --no-verify` 略過（git 內建機制）。
 //
 // 用法：
-//   node scripts/pii-scan.mjs --staged         掃 staged 內容新增的行（pre-commit 用）
-//   node scripts/pii-scan.mjs --push <remote> <url>  掃即將 push 的 commit range（pre-push 用，refs 從 stdin 讀）
+//   node scripts/pii-scan.mjs --staged          掃 staged 內容新增的行（pre-commit 用）
+//   node scripts/pii-scan.mjs --commit-msg <檔>  掃即將寫入的 commit message（commit-msg 用）
+//   node scripts/pii-scan.mjs --push <remote> <url>  掃即將 push 的 commit range（pre-push 用，
+//                                               refs 從 stdin 讀）**含該 range 內每個 commit 的 message**
 //   node scripts/pii-scan.mjs --full            掃整個目前 tracked 檔案（一次性歷史稽核用，不阻擋）
 //
-// Exit code：--staged / --push 有命中 → 1（阻擋）；--full 永遠 0（只回報）。
+// Exit code：--staged / --commit-msg / --push 有命中 → 1（阻擋）；--full 永遠 0（只回報）。
+//
+// ⚠️ 2026-08-25 補上「commit message」與「人名」兩個維度，事故驅動：
+//   當日一則 commit message 列出 6 位同仁姓名與各自負責的計畫份數，
+//   連續三次 push 全部回報「未發現疑似個資，通過」。事後查出兩個獨立缺口，
+//   缺一都擋不住：
+//     (1) 掃描來源只有 `git diff` 的新增行——**commit message 從來沒被掃過**。
+//         就算補了人名偵測也沒用，因為那段文字根本不在掃描範圍內。
+//     (2) 沒有任何人名類的樣式。
+//   force-push 收不回已推上去的 commit（物件仍可用 SHA 直接存取，要請 GitHub
+//   Support 執行 GC），所以推之前擋下來是唯一有效的防線。
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const EXCLUDE_PATH_RE = /(^|\/)(node_modules|dist|target|__pycache__|\.git|scripts\/trivy_bin|coverage|\.venv|venv)(\/|$)/
@@ -106,6 +119,88 @@ function isDsnCredential(addr, ctx) {
   return isUrlUserinfo(ctx.text, ctx.index)
 }
 
+// 系統內真實人名字典。
+//
+// 為什麼用字典而不是「中文姓名 regex」：中文姓名沒有可靠的字面特徵，
+// 用「百家姓 + 2~3 字」去猜，會把「王道」「李代桃僵」「陳述」這類一般詞彙
+// 全部擋下來，於是每次 commit 都得 --no-verify——那等於把整個掃描器關掉。
+// 字典比對零誤判，代價是要維護名單。
+//
+// ⚠️ **名單本身是個資，不進版控**。放在 scripts/pii-names.local.txt（已 gitignore），
+// 一行一個名字，`#` 開頭為註解。用 `pnpm run pii:names` 從資料庫重新產生。
+//
+// 找不到名單檔時**不擋、只提醒**：CI 與新 clone 沒有這個檔案是正常的，
+// 為此擋下所有 commit 會逼人用 --no-verify 繞過全部檢查，反而更糟。
+// 這條防線的定位是「在有名單的機器上（＝真正會接觸到真名的開發機）擋住」。
+const NAME_DICT_FILE = 'scripts/pii-names.local.txt'
+let nameDictCache = null
+
+/**
+ * 依 git 的 `i18n.commitEncoding` 解碼 commit message 位元組。
+ *
+ * - 未設定 → UTF-8（git 的預設）
+ * - 設定了但 TextDecoder 不支援 → 丟出，由呼叫端擋下 commit
+ * - 位元組不符該編碼 → `fatal: true` 會丟出，同樣擋下
+ *
+ * ⚠️ 三種情況一律**擋下而非放行**：掃不到內容時放行等於掃描器不存在，
+ * 而使用者會以為它掃過了。
+ */
+function decodeCommitMessage(buf) {
+  let enc = 'utf-8'
+  try {
+    const v = execFileSync('git', ['config', '--get', 'i18n.commitEncoding'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    if (v) enc = v
+  } catch {
+    // 未設定時 `git config --get` 以非零狀態結束——那是「沒設定」不是錯誤，
+    // 照 git 的預設用 UTF-8。
+  }
+  let decoder
+  try {
+    decoder = new TextDecoder(enc, { fatal: true })
+  } catch {
+    throw new Error(`不支援的 i18n.commitEncoding：${enc}`)
+  }
+  return decoder.decode(buf)
+}
+
+function loadNameDictionary() {
+  if (nameDictCache !== null) return nameDictCache
+  const repoRoot = (() => {
+    try {
+      return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
+    } catch {
+      return process.cwd()
+    }
+  })()
+  // PII_NAMES_FILE 讓測試指定假名單，不必動開發機上的真名單。
+  const file = process.env.PII_NAMES_FILE || path.join(repoRoot, NAME_DICT_FILE)
+  if (!existsSync(file)) {
+    nameDictCache = { names: [], available: false }
+    return nameDictCache
+  }
+  const names = readFileSync(file, 'utf8')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'))
+    // 一個字的「名字」比對起來必然滿地誤判，直接不收
+    .filter((l) => l.length >= 2)
+  nameDictCache = { names: [...new Set(names)], available: true }
+  return nameDictCache
+}
+
+// 字典命中：直接找子字串。中文沒有詞邊界，\b 在這裡無效。
+function findNameHits(text) {
+  const { names } = loadNameDictionary()
+  const hits = []
+  for (const name of names) {
+    if (text.includes(name)) hits.push(name)
+  }
+  return hits
+}
+
 const PATTERNS = [
   {
     key: 'tw_id',
@@ -141,6 +236,13 @@ function mask(s) {
   return s.slice(0, 2) + '*'.repeat(s.length - 4) + s.slice(-2)
 }
 
+// 人名要單獨處理：中文姓名多為 2~3 字，走 mask() 會整個變成 `***`，
+// 使用者看不出命中的是哪一個，也就無從判斷該改哪一句。
+// 留首字（姓）足以定位，又不完整揭露。
+function maskName(s) {
+  return s.slice(0, 1) + '*'.repeat(Math.max(s.length - 1, 1))
+}
+
 function scanLine(text) {
   const hits = []
   for (const p of PATTERNS) {
@@ -154,6 +256,9 @@ function scanLine(text) {
       if (p.exclude && p.exclude(matched, { text, index: m.index })) continue
       hits.push({ key: p.key, label: p.label, matched })
     }
+  }
+  for (const name of findNameHits(text)) {
+    hits.push({ key: 'person_name', label: '系統內真實人名', matched: name })
   }
   return hits
 }
@@ -198,33 +303,110 @@ function parseAddedLines(diffText) {
   return results
 }
 
+// 掃一行，超過 `MAX_LINE_SCAN_CHARS` 時的處理分兩種。
+//
+// 🔴 **阻擋模式（--commit-msg / --push）不得默默截斷**（CodeRabbit #24 指出）。
+// 原本一律 `slice(0, MAX_LINE_SCAN_CHARS)`，於是第 200,000 個字元之後的個資
+// 一律看不見，而檢查照樣印「通過」——這是最糟的失敗方式：
+// 有一道閘、閘說沒事、其實根本沒看。
+//
+// 但也不能改成「掃完整行」就算了：這個上限存在的理由是把 regex 的執行時間
+// 綁住（`PATTERNS` 裡有多條 regex，遇到病態長行可能極慢）。拿掉上限＝
+// 把「漏掉個資」換成「hook 掛住不動」，同樣是壞的。
+//
+// 折衷：**阻擋模式下，超長行本身就是一條 finding**（fail closed）。
+// 正常的 commit message 與程式碼不會有 20 萬字的單行；真的遇到，
+// 讓人自己看一眼比賭它乾淨好。`--full`（僅稽核、不阻擋）維持截斷，
+// 因為那裡的目的是掃全庫、不該被單一怪檔卡住。
+function scanLineBounded(text, { blocking }) {
+  if (text.length <= MAX_LINE_SCAN_CHARS) return scanLine(text)
+  if (!blocking) return scanLine(text.slice(0, MAX_LINE_SCAN_CHARS))
+  return [
+    {
+      key: 'oversized_line',
+      // ⚠️ 長度要放在 label，不能放 matched：report() 會遮蔽 matched（那是為了
+      // 不把個資回顯到終端機／CI log），放進去會被打成一整排星號，
+      // 看的人得不到「這行到底多長」這個唯一有用的資訊。
+      label: `單行 ${text.length} 字元，超過 ${MAX_LINE_SCAN_CHARS} 上限，無法完整掃描`,
+      // matched 只放一個不含內容的佔位——這一行的實際內容不該回顯，
+      // 它超長的原因很可能正是塞了一大坨東西進去。
+      matched: `<${text.length} chars>`,
+    },
+    // 前段仍照掃——超長本身要擋，但前段若有具體命中，一併報出來比較好處理
+    ...scanLine(text.slice(0, MAX_LINE_SCAN_CHARS)),
+  ]
+}
+
 function findingsFromAddedLines(addedLines) {
   const findings = []
   for (const { file, line, text } of addedLines) {
     if (shouldSkipPath(file)) continue
-    const hits = scanLine(text.slice(0, MAX_LINE_SCAN_CHARS))
+    const hits = scanLineBounded(text, { blocking: true })
     if (hits.length) findings.push({ file, line, hits })
+  }
+  return findings
+}
+
+// 掃一段 commit message。回傳與 findingsFromAddedLines 相同形狀的 findings，
+// 讓 report() 不必分辨來源。
+//
+// ⚠️ **每一行都掃，包括 `#` 開頭的行。**
+//
+// 直覺會想跳過 `#`——「那是 git 自動加的說明，不會進最終 message」。這個假設錯兩次：
+//
+//   1. 對 `--push` 掃的**已提交** commit，`#` 開頭的行就是訊息的真實內容，
+//      跳過等於開一個後門：`git commit -m $'fix: x\n\n# <個資>'` 直接繞過。
+//   2. 對 commit-msg hook，拿到的是 **git cleanup 之前**的緩衝內容，
+//      而 cleanup mode 為 `whitespace` / `scissors` / `verbatim` 時
+//      `#` 行會原封不動留在最終 message 裡。hook 無從得知會用哪個 mode。
+//
+// 代價是 commit-msg 階段會掃到 git 自己寫的說明行（"On branch ..."、
+// "Changes to be committed:" 那些）。那些行只含分支名與檔名，命中個資樣式的
+// 機會極低，遠低於漏掉真個資的代價。
+//（2026-08-25 CodeRabbit 於 PR #24 指出第 2 點，第 1 點是連帶。）
+function findingsFromMessage(message, label) {
+  const findings = []
+  const lines = message.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const hits = scanLineBounded(lines[i], { blocking: true })
+    if (hits.length) findings.push({ file: label, line: i + 1, hits })
   }
   return findings
 }
 
 function report(findings, { blocking }) {
   if (!findings.length) {
-    if (blocking) console.log('[pii-scan] 未發現疑似個資，通過。')
+    if (blocking) {
+      const { available } = loadNameDictionary()
+      console.log(
+        available
+          ? '[pii-scan] 未發現疑似個資，通過。'
+          : `[pii-scan] 未發現疑似個資，通過。（⚠️ 找不到 ${NAME_DICT_FILE}，人名比對未啟用）`
+      )
+    }
     return
   }
-  console.error(`\n[pii-scan] 發現 ${findings.length} 處疑似個資：\n`)
+  const hitCount = findings.reduce((n, f) => n + f.hits.length, 0)
+  console.error(`\n[pii-scan] 發現 ${hitCount} 處疑似個資（分佈在 ${findings.length} 行）：\n`)
   for (const f of findings) {
     for (const h of f.hits) {
-      console.error(`  ${f.file}:${f.line}  [${h.label}]  ${mask(h.matched)}`)
+      const shown = h.key === 'person_name' ? maskName(h.matched) : mask(h.matched)
+      console.error(`  ${f.file}:${f.line}  [${h.label}]  ${shown}`)
     }
   }
   if (blocking) {
     console.error(`
-這些內容符合台灣個資格式（身分證字號／電話／Email／門牌地址），已阻擋本次操作。
+這些內容符合台灣個資格式（身分證字號／電話／Email／門牌地址／系統內真實人名），
+已阻擋本次操作。
 - 若確實是真實個資 → 從變更中移除該內容（改用去識別化的假資料）再重新 commit/push。
+- 命中「系統內真實人名」時，**不要只是改寫這一句**：想清楚為什麼需要寫出誰是誰。
+  多數情況只要描述性質就夠（「多數現任 SD 沒有結案權限」勝過逐一列名冊），
+  真的需要對照到人的細節請放私有 docs repo。
 - 若確定是誤判（測試假資料、範例字串等）→ 可用 \`--no-verify\` 略過這次檢查
   （git commit --no-verify / git push --no-verify），但請先確認真的是誤判。
+
+⚠️ commit message 一旦推出去就收不回來：force-push 只移動 branch ref，
+   commit 物件仍可用 SHA 直接存取，要清除得請 GitHub Support 執行 GC。
 `)
   }
 }
@@ -240,6 +422,36 @@ function cmdStaged() {
     process.exit(1)
   }
   const findings = findingsFromAddedLines(parseAddedLines(diff))
+  report(findings, { blocking: true })
+  process.exit(findings.length ? 1 : 0)
+}
+
+// commit-msg hook：git 把訊息寫在一個暫存檔，路徑當參數傳進來。
+// 這一關擋的是「訊息還沒進 commit 物件」的最後時機——過了就只能 rewrite 歷史。
+function cmdCommitMsg() {
+  const file = process.argv[3]
+  if (!file) {
+    console.error('[pii-scan] --commit-msg 需要訊息檔路徑，為安全起見擋下。')
+    process.exit(1)
+  }
+  let message
+  try {
+    // ⚠️ **先讀成 Buffer，再依 `i18n.commitEncoding` 解碼**
+    // （CodeRabbit #24 第 5 輪指出，2026-08-27）。
+    //
+    // 原本寫 `readFileSync(file, 'utf8')`。git 允許 commit message 用
+    // `i18n.commitEncoding` 指定的編碼（本專案是 zh-TW，Big5 完全可能被設）。
+    // 用 UTF-8 硬讀非 UTF-8 的位元組，Node 會**靜默**把它們換成 U+FFFD，
+    // 於是人名在比對之前就已經不見了——掃描器回報「乾淨」，而它根本沒讀到內容。
+    //
+    // 這是「工具回報通過，但它檢查的不是你以為的東西」那一類，
+    // 而且方向最糟：**資安掃描器的假陰性**。
+    message = decodeCommitMessage(readFileSync(file))
+  } catch (err) {
+    console.error(`[pii-scan] 讀不到 commit message 檔（${file}），為安全起見擋下：${err.message}`)
+    process.exit(1)
+  }
+  const findings = findingsFromMessage(message, 'COMMIT_MSG')
   report(findings, { blocking: true })
   process.exit(findings.length ? 1 : 0)
 }
@@ -305,6 +517,41 @@ async function cmdPush() {
       continue
     }
     allFindings = allFindings.concat(findingsFromAddedLines(parseAddedLines(diff)))
+
+    // ⚠️ commit message 也要掃，而且**不能只靠 commit-msg hook**：
+    // amend / rebase / cherry-pick / `commit --no-verify` 產生的訊息都可能沒經過那一關，
+    // 從別處 fetch 進來再 push 的更是完全沒經過。push 是離開本機的最後一道關卡。
+    let messages
+    try {
+      // %x00 當分隔符：commit message 本身可能含任何可見字元，用不可見的 NUL 才安全
+      //
+      // 🔴 `--encoding=UTF-8` 不可省（CodeRabbit #24 指出，2026-08-26 實測重現）。
+      // git 會把 commit message 重新編碼成 `i18n.logOutputEncoding` 指定的編碼，
+      // 而 `git()` 一律以 UTF-8 解碼 stdout。兩者不一致時整段訊息變亂碼，
+      // 人名比對一個都對不上，掃描器照樣印「通過」。
+      //
+      // 實測（同一則含中文姓名的 commit）：
+      //   logOutputEncoding=Big5   → 掃不到（"chore: ï¿½ï¿½..."）
+      //   logOutputEncoding=GBK    → 掃不到
+      //   logOutputEncoding=UTF-16 → 掃不到
+      //   三者加上 --encoding=UTF-8 → 都掃得到
+      //
+      // ⚠️ 用 ISO-8859-1 測**測不出這個 bug**：中文轉不過去、iconv 失敗，
+      // 而 git 在 iconv 失敗時原封不動輸出原始位元組，於是恰好是安全的。
+      // 會出事的是「轉得過去」的編碼——對台灣的專案來說 Big5 正是最可能被設的那個。
+      messages = git(['log', '--encoding=UTF-8', '--format=%H%x00%B%x00', `${base}..${localOid}`])
+    } catch {
+      blockers.push(`${base.slice(0, 8)}..${localOid.slice(0, 8)} 無法取得 commit message，為安全起見擋下。`)
+      continue
+    }
+    const msgParts = messages.split('\0')
+    for (let i = 0; i + 1 < msgParts.length; i += 2) {
+      const sha = msgParts[i].trim()
+      if (!sha) continue
+      allFindings = allFindings.concat(
+        findingsFromMessage(msgParts[i + 1], `commit ${sha.slice(0, 8)} 的 message`)
+      )
+    }
   }
   report(allFindings, { blocking: true })
   for (const b of blockers) console.error(`[pii-scan] ${b}`)
@@ -327,20 +574,34 @@ function cmdFull() {
     const text = stat.toString('utf8')
     const lines = text.split('\n')
     for (let i = 0; i < lines.length; i++) {
-      const hits = scanLine(lines[i].slice(0, MAX_LINE_SCAN_CHARS))
+      // --full 是全庫稽核、不阻擋，超長行維持截斷（見 scanLineBounded 的說明）
+      const hits = scanLineBounded(lines[i], { blocking: false })
       if (hits.length) findings.push({ file, line: i + 1, hits })
     }
   }
   report(findings, { blocking: false })
   console.log(`\n[pii-scan --full] 掃描 ${files.length} 個 tracked 檔案，命中 ${findings.length} 處（此模式僅回報，不阻擋）。`)
+  // ⚠️ --full 是拿來做全庫稽核的，「掃完 0 命中」很容易被讀成「全庫乾淨」。
+  // 少了名單檔時人名那個維度根本沒跑，不講的話稽核結論就是錯的。
+  // report() 的提示只在 blocking 模式印（那裡是給 commit/push 看的），
+  // 所以這裡要自己補一次。（CodeRabbit 於 PR #24 指出。）
+  if (!loadNameDictionary().available) {
+    console.log(
+      `⚠️ 找不到 ${NAME_DICT_FILE} — **人名比對未啟用**，本次結果不涵蓋該維度。\n` +
+        `   要納入請先跑 \`pnpm run pii:names\` 產生名單後重掃。`
+    )
+  }
   process.exit(0)
 }
 
 const mode = process.argv[2]
 if (mode === '--staged') cmdStaged()
+else if (mode === '--commit-msg') cmdCommitMsg()
 else if (mode === '--push') cmdPush()
 else if (mode === '--full') cmdFull()
 else {
-  console.error('用法：node scripts/pii-scan.mjs --staged | --push <remote> <url> | --full')
+  console.error(
+    '用法：node scripts/pii-scan.mjs --staged | --commit-msg <檔> | --push <remote> <url> | --full'
+  )
   process.exit(2)
 }
