@@ -7,6 +7,23 @@ on:
     branches: [main]
   workflow_dispatch: {} # 允許手動觸發部署
 
+# =========================
+# CD 全域序列化（2026-09-02 補）
+#
+# 群組**不帶 ref**，因為這裡要保護的資源是 GHCR 上的 `latest` tag，那是全域唯一的，
+# 不是 per-branch。兩個 CD run 同時 build & push 同一組映像時會互相覆寫。
+#
+# `cancel-in-progress: false` 是刻意的：CD 正在做的是 push 映像到 registry，
+# 中途砍掉會留下「四個映像推了兩個」的半套狀態，比排隊等更糟。這裡要的是排隊不是取代。
+#
+# ⚠️ 光靠序列化**不足以**修好 `latest` 指向錯誤——排隊順序是 CI 完成順序，
+# 不是 commit 順序，舊 commit 仍可能最後才推。真正的修法是下面 gate 的
+# `is_main_head` 判斷，本區塊只是避免同時推。
+# =========================
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
@@ -24,12 +41,51 @@ jobs:
     # 過濾對 PR 觸發比對的是可偽造的來源分支名，故不足恃。
     # workflow_dispatch（需 repo 寫入權才能手動觸發）維持可用。
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') }}
+    permissions:
+      contents: read # 只讀 main 目前的 HEAD，不需要其他權限
     outputs:
-      sha: ${{ github.event.workflow_run.head_sha }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      is_main_head: ${{ steps.resolve.outputs.is_main_head }}
     steps:
-      - run: echo "CI passed for $SHA"
+      # 除了原本的「CI 過了沒」，這裡多解一件事：**這次要建的 commit 還是不是 main 的 HEAD**。
+      #
+      # 起因（2026-09-02 實測）：本 workflow 由 `workflow_run` 觸發，每一次 main 上的
+      # CI 完成都會觸發一輪，而下方 build 是用 `ref: needs.gate.outputs.sha` checkout
+      # 「觸發它的那次 CI 的 commit」。連續合併多支 PR 時就會有多輪 CD 同時在建**不同的
+      # commit**，卻全都推同一個 `latest`——當日抓到兩輪分別在建 e66ca1c(#63) 與
+      # 3229b2d(#64)。`latest` 最後指向誰取決於誰先跑完，與哪個 commit 比較新無關，
+      # 而 watchtower 拉的正是 `latest`，等於 prod 可能被自動換到一個舊 build。
+      #
+      # 判斷放在 gate、不放在 build：build 是 4 個 matrix job，放在那裡要各查一次 API，
+      # 而且四個 job 可能查到不同的答案（main 在中間被推了新 commit），
+      # 反而製造「有些映像貼了 latest、有些沒貼」的不一致。gate 只跑一次，四個 job 共用同一個結論。
+      - name: 解析要建的 commit，並判斷它是否為 main 目前的 HEAD
+        id: resolve
         env:
-          SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+          # workflow_run 走 head_sha；workflow_dispatch 沒有那個欄位，退回 GITHUB_SHA
+          # （＝手動觸發時所選 ref 的 HEAD）。原本此處為空字串，會讓下方 checkout
+          # 退化成「預設分支」而不是明確的 commit。
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          sha="${EVENT_SHA:-$GITHUB_SHA}"
+          head="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ "$sha" = "$head" ]; then
+            echo "is_main_head=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_main_head=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "CI passed for $sha"
+          echo "main 目前 HEAD  = $head"
+          if [ "$sha" = "$head" ]; then
+            echo "→ 這是 main HEAD，本輪會推 latest"
+          else
+            echo "::warning::$sha 已非 main HEAD（現為 $head），本輪只推 sha tag、不動 latest"
+          fi
 
   # =========================
   # Build and push all service images
@@ -102,9 +158,16 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          # ⚠️ `latest` 只在這次建的 commit 仍是 main HEAD 時才貼（判斷見 gate 的
+          # resolve step）。舊 commit 的 CD 照樣推它自己的 sha tag——那有保留價值、
+          # 也不會影響任何人——但不得覆寫 latest，否則 watchtower 會把 prod 換到舊 build。
+          #
+          # `enable` 只接受求值為 `true` / `false` 的字串，其他值會直接報
+          # `Invalid enable attribute value`。這裡的比較式必為兩者之一；
+          # 萬一 gate 的 output 是空的，結果是 `false`＝不貼 latest，方向是安全的那邊。
           tags: |
             type=sha,prefix=
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ needs.gate.outputs.is_main_head == 'true' }}
 
       - name: Build and push ${{ matrix.name }} image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -123,8 +186,13 @@ jobs:
           # 只有 backend/Dockerfile 與 Dockerfile.outbox-worker 宣告了這兩個 ARG，
           # 傳給其他三個會噴 "build-args were not consumed" 警告，故以 version_args 控制。
           # 未設 version_args 的 matrix 項目在此展開成空行，build-push-action 會忽略空行。
+          #
+          # ⚠️ 2026-09-02 訂正：`GIT_SHA` 原本填 `github.sha`，但本 workflow 由
+          # `workflow_run` 觸發時，`github.sha` 是**預設分支的 HEAD**，而上面的 checkout
+          # 用的是 `needs.gate.outputs.sha`（觸發它的那次 CI 的 commit）。兩者在連續合併
+          # 時不同值——映像的內容是 A、`/version` 回報的卻是 B。改為與 checkout 同一個來源。
           build-args: |
-            ${{ matrix.version_args && format('GIT_SHA={0}', github.sha) || '' }}
+            ${{ matrix.version_args && format('GIT_SHA={0}', needs.gate.outputs.sha) || '' }}
             ${{ matrix.version_args && format('BUILD_TIME={0}', steps.meta.outputs.created || github.event.head_commit.timestamp) || '' }}
 
   # =========================
@@ -142,12 +210,20 @@ jobs:
           {
             echo "## Deployment Summary"
             echo ""
-            echo "Images pushed to GHCR. Watchtower will auto-deploy."
+            if [ "$IS_MAIN_HEAD" = "true" ]; then
+              echo "Images pushed to GHCR，含 \`latest\`。Watchtower will auto-deploy."
+              tags="\`${SHA}\`, \`latest\`"
+            else
+              echo "⚠️ 本輪建的是 \`${SHA}\`，**已不是 main 的 HEAD**，故只推 sha tag、"
+              echo "**沒有動 \`latest\`**——watchtower 不會因為這一輪換版。"
+              echo "要讓 prod 換到最新版，等 main HEAD 那一輪 CD 跑完即可。"
+              tags="\`${SHA}\`（不含 \`latest\`）"
+            fi
             echo ""
             echo "| Image | Tag |"
             echo "|-------|-----|"
             for img in ipig-api ipig-web ipig-outbox-worker ipig-db-backup; do
-              echo "| \`${IMAGE_PREFIX}/${img}\` | \`${SHA}\`, \`latest\` |"
+              echo "| \`${IMAGE_PREFIX}/${img}\` | ${tags} |"
             done
             echo ""
             echo "> print-pdf 不在此清單——商用字型不可隨 repo 散布，須在目標機器本機建。"
@@ -155,6 +231,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
         env:
           SHA: ${{ needs.gate.outputs.sha || github.sha }}
+          IS_MAIN_HEAD: ${{ needs.gate.outputs.is_main_head }}
 
       - name: Deployment failed
         if: ${{ needs.build.result != 'success' }}
