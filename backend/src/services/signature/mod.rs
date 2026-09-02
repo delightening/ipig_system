@@ -731,6 +731,13 @@ impl SignatureService {
     /// - surgery → animal_surgeries
     /// - blood_test → animal_blood_tests
     /// - care_medication → care_medication_records
+    ///
+    /// **idempotent**：`AND is_locked = false` 讓已鎖定的紀錄不再被寫入。
+    /// 一筆紀錄可被多次簽章（CONFIRM / WITNESS / APPROVE 各一次，見
+    /// `handlers/signature/*` 每簽完都會呼叫本函式），原本第二簽會覆蓋
+    /// `locked_at` / `locked_by`——鎖定人因此變成「最後一個簽的人」，稽核上是錯的，
+    /// 而且鎖定欄位在 DB 層的 `check_locked_record_immutable` 觸發器內不可變更，
+    /// 覆寫會直接被擋成 DB 例外。改為只有「未鎖定 → 鎖定」那一次真的寫入。
     pub async fn lock_record_uuid(
         pool: &PgPool,
         record_type: &str,
@@ -740,7 +747,8 @@ impl SignatureService {
         let table_name = Self::lockable_table_uuid(record_type)?;
 
         let query = format!(
-            "UPDATE {} SET is_locked = true, locked_at = NOW(), locked_by = $2 WHERE id = $1",
+            "UPDATE {} SET is_locked = true, locked_at = NOW(), locked_by = $2 \
+             WHERE id = $1 AND is_locked = false",
             table_name
         );
 
