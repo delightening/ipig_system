@@ -174,8 +174,8 @@ pub(crate) async fn insert_uom_conversions_tx(
     for conv in &conversions {
         let uom = sqlx::query_as::<_, ProductUomConversion>(
             r#"
-            INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base, base_uom)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING *
             "#,
         )
@@ -183,6 +183,7 @@ pub(crate) async fn insert_uom_conversions_tx(
         .bind(product_id)
         .bind(&conv.uom)
         .bind(conv.factor_to_base)
+        .bind(base_uom)
         .fetch_one(&mut **tx)
         .await?;
         result.push(uom);
@@ -232,14 +233,15 @@ async fn sync_uom_conversions_tx(
     for conv in &conversions {
         sqlx::query(
             r#"
-            INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base, base_uom)
+            VALUES ($1, $2, $3, $4, $5)
             "#,
         )
         .bind(Uuid::new_v4())
         .bind(product_id)
         .bind(&conv.uom)
         .bind(conv.factor_to_base)
+        .bind(base_uom)
         .execute(&mut **tx)
         .await?;
     }
@@ -320,14 +322,15 @@ async fn reconcile_derived_pack_conversion_tx(
     //    數量；正規列被覆寫只是較新的明確陳述取代較舊的，不產生歧義選項。
     if let Some(new) = plan.upsert {
         sqlx::query(
-            "INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base) \
-             VALUES ($1, $2, $3, $4) \
+            "INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base, base_uom) \
+             VALUES ($1, $2, $3, $4, $5) \
              ON CONFLICT (product_id, uom) DO UPDATE SET factor_to_base = EXCLUDED.factor_to_base",
         )
         .bind(Uuid::new_v4())
         .bind(product_id)
         .bind(&new.uom)
         .bind(new.factor_to_base)
+        .bind(&after.base_uom)
         .execute(&mut **tx)
         .await?;
     }
