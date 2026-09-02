@@ -199,6 +199,54 @@ fn validate_attendance_times(
     Ok(())
 }
 
+/// 上下班時間戳必須落在 `work_date` 這個**台灣日曆日**上。
+///
+/// 🔴 CodeRabbit 於 PR #35 指出：先前只驗「下班晚於上班」「跨度不超過上限」「work_date 非未來」，
+/// **沒有任何一條把時間戳與 `work_date` 對照**。於是 `work_date: 2026-08-25` 配上 8/30 的時間戳
+/// 會被原樣寫入，月報與稽核資料把那天的工時記在錯誤的日期上。
+///
+/// 更隱蔽的是工時也會算錯：`compute_regular_hours` 以 `work_date` 當天 12:00–13:00 為午休窗，
+/// 時間戳若落在別的日子，午休重疊恆為 0——**八小時的班會被算成整整八小時**。
+///
+/// 規則：
+/// - **上班**必須在 `work_date` 當天。
+/// - **下班**可在 `work_date` 當天或**次日**——夜班（22:00 上班、次日 06:00 下班）是正常班別，
+///   前端 `attendanceTimesToIso` 也是照這個規則把下班掛到次日的。兩邊對「次日」的定義必須一致，
+///   只改一邊會讓夜班從「送不出去」變成「送出後被擋」。
+///
+/// ⚠️ 只有 `Some` 的那一邊才驗——補登允許只填單邊。
+fn validate_times_within_work_date(
+    work_date: NaiveDate,
+    clock_in: Option<DateTime<Utc>>,
+    clock_out: Option<DateTime<Utc>>,
+) -> Result<()> {
+    let tz = crate::time::taiwan_offset();
+    let taiwan_date = |t: DateTime<Utc>| t.with_timezone(&tz).date_naive();
+
+    if let Some(ci) = clock_in {
+        if taiwan_date(ci) != work_date {
+            return Err(AppError::Validation(format!(
+                "上班時間不在 {work_date} 當天（實際為 {}），請確認日期是否填錯",
+                taiwan_date(ci)
+            )));
+        }
+    }
+
+    let Some(co) = clock_out else {
+        return Ok(());
+    };
+    let out_date = taiwan_date(co);
+    let next_day = work_date
+        .succ_opt()
+        .ok_or_else(|| AppError::Internal("work_date 已達日期上限，無法求次日".to_string()))?;
+    if out_date != work_date && out_date != next_day {
+        return Err(AppError::Validation(format!(
+            "下班時間必須落在 {work_date} 或次日（夜班），實際為 {out_date}"
+        )));
+    }
+    Ok(())
+}
+
 /// 補卡不得作用於自己（2026-08-26 使用者裁定）。
 ///
 /// 行政的卡由負責人補、負責人的卡由行政或管理員補——任何人都不能改自己的工時。
@@ -612,6 +660,10 @@ impl HrService {
         let final_out = payload.clock_out_time.or(before.clock_out_time);
         // 驗的是**合併後**的值，不是 request 帶來的那兩欄——理由見 validate_attendance_times
         validate_attendance_times(final_in, final_out)?;
+        // 同一組時間戳也要真的屬於這筆紀錄的 work_date。
+        // ⚠️ 這裡同樣驗**合併後**的值：只送 clock_out 的更正若不驗，就能把下班改到別的日子，
+        // 而 work_date 是既有紀錄的、不會跟著變——結果是一筆時間與日期互相矛盾的紀錄。
+        validate_times_within_work_date(before.work_date, final_in, final_out)?;
         let regular_hours = match (final_in, final_out) {
             (Some(ci), Some(co)) => {
                 regular_hours_decimal(compute_regular_hours(ci, co, before.work_date))
@@ -700,6 +752,13 @@ impl HrService {
         if payload.work_date > taiwan_today()? {
             return Err(AppError::Validation("不得補登未來日期的出勤".into()));
         }
+        // 時間戳必須真的屬於 work_date（含夜班的次日下班）——見該函式的說明。
+        // 沒有這道驗證，8/25 的補登可以塞 8/30 的時間戳，且工時會因午休窗對不上而多算。
+        validate_times_within_work_date(
+            payload.work_date,
+            payload.clock_in_time,
+            payload.clock_out_time,
+        )?;
 
         // 目標人員必須存在。刻意**不要求 is_active**：離職當月的工時常常要等
         // 帳號停用之後才結算，要求在職會讓最後一份月報永遠補不齊。
@@ -722,19 +781,15 @@ impl HrService {
 
         // UNIQUE (user_id, work_date)：該日已有紀錄就不是「補漏」而是「更正」，
         // 走 PUT /{id}。這裡回 Conflict 而不是靜默覆蓋，避免既有打卡被無聲蓋掉。
-        let existing: Option<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM attendance_records WHERE user_id = $1 AND work_date = $2 FOR UPDATE",
-        )
-        .bind(payload.user_id)
-        .bind(payload.work_date)
-        .fetch_optional(&mut *tx)
-        .await?;
-        if existing.is_some() {
-            return Err(AppError::Conflict(
-                "該日已有出勤紀錄，請改用更正功能修改時間".into(),
-            ));
-        }
-
+        //
+        // 🔴 **靠 INSERT 本身的唯一約束判重，不先 SELECT**（CodeRabbit 於 PR #35 指出）。
+        // 原本是 `SELECT ... FOR UPDATE` 再 INSERT，但 **`FOR UPDATE` 鎖不住一列不存在的資料**
+        // ——並發的兩個請求都會讀到 None、都通過檢查，然後其中一個 INSERT 撞上
+        // `attendance_records_user_id_work_date_key`（`002_schema.sql:6925` 實查），
+        // 使用者拿到的是一句通用的資料庫錯誤，而不是「請改用更正功能」。
+        //
+        // `ON CONFLICT DO NOTHING` + `RETURNING` 把判重與寫入併成一個原子語句：
+        // 沒有回傳列就代表該日已有紀錄，此時才回 Conflict。
         let after = sqlx::query_as::<_, AttendanceRecord>(
             r#"
             INSERT INTO attendance_records (
@@ -743,6 +798,7 @@ impl HrService {
                 is_corrected, corrected_by, corrected_at, correction_reason
             )
             VALUES ($1, $2, $3, $4, $5, $6, 'normal', $7, $7, true, $8, NOW(), $9)
+            ON CONFLICT (user_id, work_date) DO NOTHING
             RETURNING id, user_id, work_date, clock_in_time, clock_out_time,
                     regular_hours, overtime_hours, status, clock_in_source,
                     clock_in_ip::TEXT, clock_out_source, clock_out_ip::TEXT,
@@ -761,8 +817,11 @@ impl HrService {
         .bind(BACKFILL_SOURCE)
         .bind(operator_id)
         .bind(reason)
-        .fetch_one(&mut *tx)
-        .await?;
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| {
+            AppError::Conflict("該日已有出勤紀錄，請改用更正功能修改時間".into())
+        })?;
 
         let display = format!("backfill {} reason={}", after.work_date, reason);
         AuditService::log_activity_tx(
@@ -893,8 +952,8 @@ impl HrService {
 mod tests {
     use super::{
         compute_regular_hours, format_clock_time, month_bounds, reject_self_correction,
-        validate_attendance_times, validate_correction_reason, HrService, MonthlyAttendanceSummary,
-        MonthlyReportTotals, MAX_CORRECTION_REASON_CHARS,
+        validate_attendance_times, validate_correction_reason, validate_times_within_work_date,
+        HrService, MonthlyAttendanceSummary, MonthlyReportTotals, MAX_CORRECTION_REASON_CHARS,
     };
     use uuid::Uuid;
 
@@ -920,6 +979,66 @@ mod tests {
     #[test]
     fn equal_in_and_out_is_rejected() {
         assert!(validate_attendance_times(Some(tw_wd(9, 0)), Some(tw_wd(9, 0))).is_err());
+    }
+
+    // --- 時間戳必須屬於 work_date（CodeRabbit PR #35 第四輪）---
+    //
+    // 先前三道驗證（順序、跨距、非未來日期）合起來仍放行「work_date 8/25 配 8/30 時間戳」：
+    // 跨距只看兩個時間戳的差、非未來只看 work_date 本身，沒有一條把兩者對照。
+    // 後果不只是日期記錯——`compute_regular_hours` 以 work_date 當天為午休窗，
+    // 時間戳落在別的日子時午休重疊恆為 0，八小時的班會被算成整整八小時。
+
+    #[test]
+    fn clock_in_on_another_day_is_rejected() {
+        let other_day = chrono::NaiveDate::from_ymd_opt(2026, 8, 30).expect("valid date");
+        assert!(
+            validate_times_within_work_date(weekday(), Some(tw(other_day, 9, 0)), None).is_err(),
+            "上班時間不在 work_date 當天必須擋下，否則工時會記在錯誤的日期上"
+        );
+    }
+
+    #[test]
+    fn same_day_shift_is_accepted() {
+        assert!(
+            validate_times_within_work_date(weekday(), Some(tw_wd(8, 30)), Some(tw_wd(17, 30)))
+                .is_ok()
+        );
+    }
+
+    /// 夜班是正常班別：22:00 上班、**次日** 06:00 下班。
+    /// 前端 `attendanceTimesToIso` 也是照這個規則把下班掛到次日——兩邊定義必須一致，
+    /// 只改一邊會讓夜班從「送不出去」變成「送出後被擋」。
+    #[test]
+    fn overnight_clock_out_on_next_day_is_accepted() {
+        let next_day = weekday().succ_opt().expect("valid next day");
+        assert!(
+            validate_times_within_work_date(
+                weekday(),
+                Some(tw_wd(22, 0)),
+                Some(tw(next_day, 6, 0))
+            )
+            .is_ok(),
+            "夜班的次日下班必須放行，否則夜班根本補登不了"
+        );
+    }
+
+    #[test]
+    fn clock_out_two_days_later_is_rejected() {
+        let two_days = weekday()
+            .succ_opt()
+            .and_then(|d| d.succ_opt())
+            .expect("valid date");
+        assert!(
+            validate_times_within_work_date(weekday(), Some(tw_wd(22, 0)), Some(tw(two_days, 6, 0)))
+                .is_err(),
+            "只放行次日；再往後就是日期填錯"
+        );
+    }
+
+    #[test]
+    fn absent_sides_are_not_validated() {
+        assert!(validate_times_within_work_date(weekday(), None, None).is_ok());
+        assert!(validate_times_within_work_date(weekday(), Some(tw_wd(9, 0)), None).is_ok());
     }
 
     /// 荒謬值防線（CodeRabbit PR #35 第二輪）：`work_date` 是 8/25、`clock_out` 卻填 8/27，

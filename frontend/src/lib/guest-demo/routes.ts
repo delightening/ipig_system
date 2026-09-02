@@ -187,7 +187,8 @@ const exactRoutes: Record<string, unknown> = {
   '/hr/leaves': DEMO_LEAVES,
   '/hr/my-leaves': DEMO_LEAVES,
   '/hr/attendance': DEMO_ATTENDANCE,
-  '/hr/attendance/monthly-report': DEMO_MONTHLY_REPORT,
+  // ⚠️ `/hr/attendance/monthly-report` **刻意不在這裡**——它要看 query 的 year/month，
+  // 見下方 `queryAwareRoutes`。放進 exactRoutes 會讓任何月份都回同一份 fixture。
   '/hr/overtime': DEMO_OVERTIME,
   // These endpoints return plain arrays, not paginated objects
   '/hr/internal-users': DEMO_HR_INTERNAL_USERS,
@@ -423,6 +424,28 @@ function isPassthrough(path: string): boolean {
  * 根據 URL 和 HTTP method 取得 guest demo data。
  * 回傳 undefined 表示不攔截（讓請求正常發出）。
  */
+/**
+ * 需要看 query 參數才能回答的 demo 路由。
+ *
+ * 🔴 CodeRabbit 於 PR #35 指出：月報把選到的 year/month 送進 query，但 demo 層
+ * **把 query 整段丟掉**，於是選任何月份都顯示同一份 fixture——畫面上的期間與資料不符。
+ *
+ * 處理方式是「fixture 屬於當月，其他月份回空」而不是「一律回 fixture」：
+ * 示範模式的資料本來就是假的，但**假資料也不該自相矛盾**。訪客預設看到的就是當月，
+ * 所以照樣有東西可看；切到別的月份得到空表，那是誠實的答案。
+ */
+const queryAwareRoutes: Record<string, (params: URLSearchParams) => unknown> = {
+  '/hr/attendance/monthly-report': (params) => {
+    const year = Number(params.get('year'))
+    const month = Number(params.get('month'))
+    // 沒帶參數就回 fixture——呼叫端沒指定期間，沒有「不符」可言
+    if (!year || !month) return DEMO_MONTHLY_REPORT
+    const now = new Date()
+    const isDemoPeriod = year === now.getFullYear() && month === now.getMonth() + 1
+    return isDemoPeriod ? DEMO_MONTHLY_REPORT : []
+  },
+}
+
 export function getGuestDemoData(url: string, method: string): unknown | undefined {
   // 去除 baseURL 前綴（interceptor 中 url 可能帶 /api/v1）
   let path = url
@@ -438,6 +461,11 @@ export function getGuestDemoData(url: string, method: string): unknown | undefin
 
   // ── GET：回傳 demo 靜態資料 ─────────────────────────────────────
   if (method === 'GET') {
+    // 要看 query 的路由先處理——它們刻意不在 exactRoutes 裡，只有一份定義
+    if (cleanPath in queryAwareRoutes) {
+      const search = qIdx >= 0 ? path.slice(qIdx + 1) : ''
+      return queryAwareRoutes[cleanPath](new URLSearchParams(search))
+    }
     if (cleanPath in exactRoutes) return exactRoutes[cleanPath]
     for (const [prefix, data] of prefixRoutes) {
       if (cleanPath.startsWith(prefix)) return data
