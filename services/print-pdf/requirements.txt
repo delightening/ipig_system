@@ -1,5 +1,5 @@
 fastapi==0.141.1
-uvicorn[standard]==0.47.0
+uvicorn[standard]==0.52.4
 jinja2==3.1.6
 # ⚠️ 必須與 Dockerfile 的 base image tag 同版
 # （`mcr.microsoft.com/playwright/python:v<版本>-jammy`）。base image 只預裝它
