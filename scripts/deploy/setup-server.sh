@@ -57,8 +57,15 @@ fi
 echo ""
 echo "[3/3] Pulling images and starting services..."
 cd "$PROJECT_DIR"
-docker compose -f docker-compose.yml -f docker-compose.prod.yml pull api web
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+# ⚠️ outbox-worker 必須一起拉。watchtower 原本自動更新的是 api / web /
+# outbox-worker 三個，移除它改人工之後，這裡少一個就會讓它留在舊映像。
+# （db-backup 雖然也有 image 覆寫，但原本就標 watchtower.enable=false、
+#  不在自動更新範圍，維持不動以保持與原行為一致。）
+docker compose -f docker-compose.yml -f docker-compose.prod.yml pull api web outbox-worker
+# 🔴 這裡**不可**加 --no-build：本行不指定服務＝作用於全部，而 print-pdf 沒有
+# GHCR 映像（商用字型不可隨 repo 散布，CI 建不出來），加了會因缺映像直接失敗。
+# 見 docker-compose.prod.yml 檔頭的同一條警告。
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 echo ""
 echo "============================================"

@@ -41,12 +41,17 @@ echo "[1/4] Setting IMAGE_TAG=$TARGET_TAG..."
 export IMAGE_TAG="$TARGET_TAG"
 
 # 2. Pull specific version
+# ⚠️ outbox-worker 必須一起回滾。watchtower 原本自動更新的是 api / web /
+# outbox-worker 三個（三者都標 watchtower.enable=true），移除它改人工之後，
+# 這裡少一個就會留下 split-version：api/web 回到舊版、outbox-worker 還在新版。
 echo "[2/4] Pulling images..."
-$COMPOSE pull api web
+$COMPOSE pull api web outbox-worker
 
 # 3. Restart services
+# 指定服務名時 --no-build 是安全的——這三個在 prod overlay 都有 image 覆寫。
+# （不指定服務時不可加 --no-build，print-pdf 沒有 GHCR 映像會失敗。）
 echo "[3/4] Restarting services..."
-$COMPOSE up -d --no-build api web
+$COMPOSE up -d --no-build api web outbox-worker
 
 # 4. Health check
 echo "[4/4] Running health checks..."
