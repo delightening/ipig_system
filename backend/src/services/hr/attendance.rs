@@ -819,9 +819,7 @@ impl HrService {
         .bind(reason)
         .fetch_optional(&mut *tx)
         .await?
-        .ok_or_else(|| {
-            AppError::Conflict("該日已有出勤紀錄，請改用更正功能修改時間".into())
-        })?;
+        .ok_or_else(|| AppError::Conflict("該日已有出勤紀錄，請改用更正功能修改時間".into()))?;
 
         let display = format!("backfill {} reason={}", after.work_date, reason);
         AuditService::log_activity_tx(
@@ -999,10 +997,12 @@ mod tests {
 
     #[test]
     fn same_day_shift_is_accepted() {
-        assert!(
-            validate_times_within_work_date(weekday(), Some(tw_wd(8, 30)), Some(tw_wd(17, 30)))
-                .is_ok()
-        );
+        assert!(validate_times_within_work_date(
+            weekday(),
+            Some(tw_wd(8, 30)),
+            Some(tw_wd(17, 30))
+        )
+        .is_ok());
     }
 
     /// 夜班是正常班別：22:00 上班、**次日** 06:00 下班。
@@ -1029,8 +1029,12 @@ mod tests {
             .and_then(|d| d.succ_opt())
             .expect("valid date");
         assert!(
-            validate_times_within_work_date(weekday(), Some(tw_wd(22, 0)), Some(tw(two_days, 6, 0)))
-                .is_err(),
+            validate_times_within_work_date(
+                weekday(),
+                Some(tw_wd(22, 0)),
+                Some(tw(two_days, 6, 0))
+            )
+            .is_err(),
             "只放行次日；再往後就是日期填錯"
         );
     }
