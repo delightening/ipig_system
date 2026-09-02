@@ -126,6 +126,11 @@ pub use partner::PartnerService;
 pub use pdf_service_client::PdfServiceClient;
 pub use planned_experiment::PlannedExperimentService;
 pub use product::ProductService;
+// 單位正規化與包裝換算推導：`sku.rs` 是 products 的第二個插入點，必須套用同一套規則，
+// 否則走該路徑建立的品項會留下英文代碼的單位、以及一段沒有換算列的包裝關係。
+pub(crate) use product::{
+    canonical_uom, canonical_uom_opt, derive_pack_conversion, insert_uom_conversions_tx,
+};
 pub use protocol::ai_review::validate_only as validate_protocol_content;
 pub use protocol::ai_review::AiReviewService;
 pub use protocol::ProtocolService;

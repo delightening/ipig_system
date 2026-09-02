@@ -1,5 +1,6 @@
 mod crud;
 mod import;
+pub(crate) mod uom;
 
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -8,6 +9,8 @@ use crate::{
     models::{CreateProductRequest, Product, ProductUomConversion, ProductWithUom},
     repositories, AppError, Result,
 };
+
+pub(crate) use uom::{canonical_uom, canonical_uom_opt, derive_pack_conversion};
 
 /// 允許的產品狀態值（與 DB chk_product_status 一致）
 const ALLOWED_STATUSES: [&str; 3] = ["active", "inactive", "discontinued"];
@@ -100,6 +103,15 @@ async fn insert_product_tx(
     category_code: &str,
     subcategory_code: &str,
 ) -> Result<Product> {
+    // 單位一律以正規形式落地（見 `uom` 模組）。前端的單位選單送的是 `EA`/`BX` 這類代碼，
+    // 而既有品項的 base_uom 是中文；不在寫入點收斂，新品項會持續產出第二套慣例，
+    // 之後任何依字串相等比對單位的 SQL（GRN 收貨對帳、盤點 JOIN）都會分裂成兩組。
+    let base_uom = canonical_uom(&req.base_uom);
+    if base_uom.is_empty() {
+        return Err(AppError::Validation("base_uom 不得為空".to_string()));
+    }
+    let pack_unit = canonical_uom_opt(req.pack_unit.as_deref());
+
     let product = sqlx::query_as::<_, Product>(
         r#"
         INSERT INTO products (
@@ -120,8 +132,8 @@ async fn insert_product_tx(
     .bind(&req.spec)
     .bind(category_code)
     .bind(subcategory_code)
-    .bind(&req.base_uom)
-    .bind(&req.pack_unit)
+    .bind(&base_uom)
+    .bind(&pack_unit)
     .bind(req.pack_qty)
     .bind(req.track_batch)
     .bind(req.track_expiry)
@@ -144,13 +156,22 @@ async fn insert_product_tx(
 }
 
 /// 批次建立單位換算記錄（tx 版本）。
-async fn insert_uom_conversions_tx(
+///
+/// **驗證寫在函式內部而不是呼叫端**：換算表的髒資料（同名列、非正數 factor）代價是
+/// 盤點開出清空貨架的盤虧 ADJ、GRN 把正確收貨判成超收，不能靠每個呼叫端記得先驗。
+/// 一併把包裝關係推導出的那一列併進來，讓 `products.pack_unit/pack_qty` 與換算表
+/// 在寫入的當下就一致（見 `uom::merge_for_write`）。
+pub(crate) async fn insert_uom_conversions_tx(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     product_id: Uuid,
-    conversions: &[crate::models::UomConversionInput],
+    base_uom: &str,
+    explicit: &[crate::models::UomConversionInput],
+    derived: Option<crate::models::UomConversionInput>,
 ) -> Result<Vec<ProductUomConversion>> {
+    let conversions =
+        uom::merge_for_write(base_uom, explicit, derived).map_err(AppError::Validation)?;
     let mut result = Vec::new();
-    for conv in conversions {
+    for conv in &conversions {
         let uom = sqlx::query_as::<_, ProductUomConversion>(
             r#"
             INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
@@ -194,17 +215,21 @@ async fn build_product_with_uom(
     })
 }
 
-/// 同步單位換算：刪除既有後重新建立（tx 版本）。
+/// 同步單位換算：刪除既有後重新建立（tx 版本）。驗證與併入推導列同 `insert_uom_conversions_tx`。
 async fn sync_uom_conversions_tx(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     product_id: Uuid,
-    conversions: &[crate::models::UomConversionInput],
+    base_uom: &str,
+    explicit: &[crate::models::UomConversionInput],
+    derived: Option<crate::models::UomConversionInput>,
 ) -> Result<()> {
+    let conversions =
+        uom::merge_for_write(base_uom, explicit, derived).map_err(AppError::Validation)?;
     sqlx::query("DELETE FROM product_uom_conversions WHERE product_id = $1")
         .bind(product_id)
         .execute(&mut **tx)
         .await?;
-    for conv in conversions {
+    for conv in &conversions {
         sqlx::query(
             r#"
             INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
@@ -218,6 +243,61 @@ async fn sync_uom_conversions_tx(
         .execute(&mut **tx)
         .await?;
     }
+    Ok(())
+}
+
+/// 只調整「由包裝關係推導出來的那一列」，不動其他換算列（tx 版本）。
+///
+/// 用於**沒有明確帶 `uom_conversions` 的更新**——這是實務上最常見的路徑：產品編輯表單
+/// 只送 `pack_unit` / `pack_qty`，從不送 `uom_conversions`。在本函式之前，這種更新會讓
+/// 換算表停留在舊的換算率，而盤點底稿的除數取自換算表
+/// （`document/stocktake.rs` 的 `LEFT JOIN product_uom_conversions ... ON c.uom = p.pack_unit`）
+/// ——把 `pack_qty` 由 50 改成 24，底稿仍然照 50 除，**而且不會有任何錯誤訊息**。
+///
+/// 保守做法：舊的推導列只有在「值仍與舊推導完全一致」時才刪，避免刪掉人工調整過的列；
+/// 新的推導列用 upsert，避免與既有同名列衝突（DB 有 `UNIQUE(product_id, uom)`）。
+async fn reconcile_derived_pack_conversion_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    product_id: Uuid,
+    before: &Product,
+    after: &Product,
+) -> Result<()> {
+    let plan = uom::plan_pack_conversion_change(
+        &before.base_uom,
+        before.pack_unit.as_deref(),
+        before.pack_qty,
+        &after.base_uom,
+        after.pack_unit.as_deref(),
+        after.pack_qty,
+    );
+
+    if let Some(old) = plan.remove {
+        // WHERE 帶 factor：值不符即代表這一列已被人工改過，交給人負責，不代為刪除。
+        sqlx::query(
+            "DELETE FROM product_uom_conversions \
+             WHERE product_id = $1 AND uom = $2 AND factor_to_base = $3",
+        )
+        .bind(product_id)
+        .bind(&old.uom)
+        .bind(old.factor_to_base)
+        .execute(&mut **tx)
+        .await?;
+    }
+
+    if let Some(new) = plan.upsert {
+        sqlx::query(
+            "INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base) \
+             VALUES ($1, $2, $3, $4) \
+             ON CONFLICT (product_id, uom) DO UPDATE SET factor_to_base = EXCLUDED.factor_to_base",
+        )
+        .bind(Uuid::new_v4())
+        .bind(product_id)
+        .bind(&new.uom)
+        .bind(new.factor_to_base)
+        .execute(&mut **tx)
+        .await?;
+    }
+
     Ok(())
 }
 

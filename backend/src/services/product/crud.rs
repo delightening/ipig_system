@@ -18,9 +18,10 @@ use crate::{
 };
 
 use super::{
-    build_product_with_uom, format_product_sku, get_next_sequence_tx, insert_product_tx,
-    insert_uom_conversions_tx, resolve_category_codes, resolve_sku_tx, sync_uom_conversions_tx,
-    validate_product_status, ProductService,
+    build_product_with_uom, canonical_uom_opt, derive_pack_conversion, format_product_sku,
+    get_next_sequence_tx, insert_product_tx, insert_uom_conversions_tx,
+    reconcile_derived_pack_conversion_tx, resolve_category_codes, resolve_sku_tx,
+    sync_uom_conversions_tx, validate_product_status, ProductService,
 };
 
 impl ProductService {
@@ -65,8 +66,20 @@ impl ProductService {
 
         let sku = resolve_sku_tx(tx, req.sku.as_deref(), category_code, subcategory_code).await?;
         let product = insert_product_tx(tx, &sku, req, category_code, subcategory_code).await?;
-        let uom_conversions =
-            insert_uom_conversions_tx(tx, product.id, &req.uom_conversions).await?;
+        // product 的 base_uom / pack_unit 已由 insert_product_tx 正規化，推導以落地值為準。
+        let derived = derive_pack_conversion(
+            &product.base_uom,
+            product.pack_unit.as_deref(),
+            product.pack_qty,
+        );
+        let uom_conversions = insert_uom_conversions_tx(
+            tx,
+            product.id,
+            &product.base_uom,
+            &req.uom_conversions,
+            derived,
+        )
+        .await?;
 
         let display = format!("{} ({})", product.name, product.sku);
         AuditService::log_activity_tx(
@@ -143,12 +156,30 @@ impl ProductService {
         ));
         let new_sku = Self::resolve_update_sku_tx(tx, &current, req).await?;
 
-        let after = repositories::product::update_product_tx(tx, id, new_sku.as_deref(), req)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
+        // 單位以正規形式落地（同 insert_product_tx）。原 req 不動，稽核 diff 仍比對實際落地值。
+        let canonical_req = UpdateProductRequest {
+            pack_unit: canonical_uom_opt(req.pack_unit.as_deref()),
+            ..req.clone()
+        };
+        let after =
+            repositories::product::update_product_tx(tx, id, new_sku.as_deref(), &canonical_req)
+                .await?
+                .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
-        if let Some(ref conversions) = req.uom_conversions {
-            sync_uom_conversions_tx(tx, id, conversions).await?;
+        match req.uom_conversions {
+            // 呼叫端明確指定整份換算表：以它為準，但仍併入包裝關係推導的那一列，
+            // 且兩者對同一單位給出不同換算率時擋下（見 `uom::merge_for_write`）。
+            Some(ref conversions) => {
+                let derived = derive_pack_conversion(
+                    &after.base_uom,
+                    after.pack_unit.as_deref(),
+                    after.pack_qty,
+                );
+                sync_uom_conversions_tx(tx, id, &after.base_uom, conversions, derived).await?;
+            }
+            // 沒帶換算表（產品編輯表單的實際行為）：只調整推導列，其餘不動。
+            // 少了這一段，改 pack_qty 會讓盤點底稿沿用舊除數且不報錯。
+            None => reconcile_derived_pack_conversion_tx(tx, id, &before, &after).await?,
         }
 
         let display = format!("{} ({})", after.name, after.sku);

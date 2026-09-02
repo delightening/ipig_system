@@ -831,6 +831,14 @@ impl SkuService {
             return Err(AppError::Conflict("SKU already exists".to_string()));
         }
 
+        // 單位一律以正規形式落地，與 `ProductService::create` 走同一組規則
+        // （`services::product::uom`）。這條路徑先前直接寫 req 原值，是第二套慣例的來源之一。
+        let base_uom = crate::services::canonical_uom(&req.base_uom);
+        if base_uom.is_empty() {
+            return Err(AppError::Validation("base_uom 不得為空".to_string()));
+        }
+        let pack_unit = crate::services::canonical_uom_opt(req.pack_unit.as_deref());
+
         let product = sqlx::query_as::<_, Product>(
             r#"
             INSERT INTO products (
@@ -846,8 +854,8 @@ impl SkuService {
         .bind(final_sku)
         .bind(&product_name)
         .bind(&req.spec)
-        .bind(&req.base_uom)
-        .bind(&req.pack_unit)
+        .bind(&base_uom)
+        .bind(&pack_unit)
         .bind(req.pack_qty)
         .bind(req.track_batch)
         .bind(req.track_expiry)
@@ -855,6 +863,16 @@ impl SkuService {
         .bind(req.reorder_point)
         .fetch_one(&mut **tx)
         .await?;
+
+        // 包裝關係若有換算意義，同 tx 建立換算列——否則這批品項會有 pack_qty 卻無換算率，
+        // 盤點底稿只能退回 base_uom，PR #36 的「領用論支、盤點論盒」對它們永遠不生效。
+        let derived = crate::services::derive_pack_conversion(
+            &product.base_uom,
+            product.pack_unit.as_deref(),
+            product.pack_qty,
+        );
+        crate::services::insert_uom_conversions_tx(tx, product.id, &product.base_uom, &[], derived)
+            .await?;
 
         let display = format!("{} ({})", product.name, product.sku);
         AuditService::log_activity_tx(
