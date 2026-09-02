@@ -20,7 +20,11 @@ runs:
 
     - name: 設定 Node.js
       # actions/setup-node pinned to specific SHA per supply-chain hardening (CSO-r3 #8)
-      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      # 2026-09-02：與 ci.yml 的獨立 setup-node 一起升到 v7.0.0。#70 只升了 ci.yml
+      # 那一處，因為本檔在 .github/actions/ 子目錄、不在當時 dependabot.yml 的
+      # github-actions 涵蓋範圍內（見該檔同日補的 directories 說明）——同一個 action
+      # 在同一個 repo 分成 v7 / v4 兩個版本，是那個缺口造成的，不是刻意的差異。
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: "24"
         cache: "pnpm"

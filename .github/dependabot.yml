@@ -185,8 +185,31 @@ updates:
       - dependency-name: "playwright"
 
   # GitHub Actions
+  # 2026-09-02 由 directory: "/" 改為 directories（複數）。
+  # 原設定只涵蓋 `.github/workflows/` 底下的 workflow 檔——這是 github-actions
+  # ecosystem 對 "/" 的定義，**不包含 `.github/actions/*/action.yml`**。要讓
+  # composite action 內的 `uses:` 也被掃到，必須把每個 action.yml 所在目錄逐一列出
+  # （與上面 docker ecosystem 改用 directories 是同一個道理、同一個坑）。
+  #
+  # 缺口的代價（2026-09-02 實查）：本 repo 建立以來，`.github/actions/` 底下五個
+  # 第三方 action 的 SHA pin **從未被自動更新過一次**，該目錄僅有的兩個 commit 是
+  # initial commit 與一次人工修 ENOSPC（#57）。當日實測落後情形：
+  #   actions/setup-node      v4      → 最新 v7.0.0（#70 只升到 ci.yml 那一處）
+  #   actions/cache           v5.0.5  → 最新 v6.1.0
+  #   pnpm/action-setup       v6.0.8  → 最新 v6.0.10
+  #   slsa-verifier           v2.7.1  → 已是最新
+  #   dtolnay/rust-toolchain  以分支 ref 發布，無 release tag 可比對
+  # 這批 pin 是供應鏈強化措施（R52 / CSO-r3 #8）刻意寫死的 SHA，鎖住版本是本意，
+  # 但「鎖住之後沒有任何機制通知有新版」不是——上游修掉的漏洞不會有人知道。
+  #
+  # ⚠️ 本次只補涵蓋範圍，不順手升 cache / pnpm-setup：讓 Dependabot 自己開 PR，
+  #    每支各自過一次 CI，比在這支 PR 裡一次改四個 action 好回溯。
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/" # .github/workflows/*.yml
+      - "/.github/actions/setup-node-pnpm" # pnpm/action-setup, actions/setup-node
+      - "/.github/actions/setup-osv-scanner" # slsa-framework/slsa-verifier
+      - "/.github/actions/setup-rust" # dtolnay/rust-toolchain, actions/cache
     schedule:
       interval: "monthly"
     labels:
