@@ -783,6 +783,7 @@
       "noAmendments": "No amendments",
       "noAmendmentsHint": "Click 'New Amendment' button to create your first amendment request",
       "notApproved": "Protocol must be approved before amendments can be submitted",
+      "piDelegateBadge": "Acting as PI delegate",
       "createSuccess": "Amendment request created",
       "createFailed": "Failed to create amendment request",
       "submitSuccess": "Amendment request submitted",

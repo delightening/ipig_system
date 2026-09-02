@@ -13,6 +13,7 @@ use crate::{
     },
     services::{
         audit::{ActivityLogEntry, AuditEntity},
+        signature::DelegationRef,
         AuditService, NotificationService, OutboxService, SignatureService, SignatureType,
     },
 };
@@ -321,7 +322,7 @@ impl EuthanasiaService {
 
         let mut tx = pool.begin().await?;
 
-        let (before, delegation_id) =
+        let (before, delegation) =
             Self::lock_order_for_pi(&mut tx, order_id, acting_user_id).await?;
         if before.status != EuthanasiaOrderStatus::PendingPi {
             return Err(AppError::BadRequest(format!(
@@ -372,7 +373,7 @@ impl EuthanasiaService {
 
         // 簽章 — PI 批准必須簽（或持生效中代理授權的代理人代簽，見 lock_order_for_pi）
         let content = format!("euthanasia_pi_approve:{order_id}");
-        if let Some(delegation_id) = delegation_id {
+        if let Some((delegation_id, delegation_protocol_id)) = delegation {
             SignatureService::sign_record_delegated_tx(
                 &mut tx,
                 pool,
@@ -380,7 +381,10 @@ impl EuthanasiaService {
                 ORDER_ENTITY_TYPE,
                 &order_id.to_string(),
                 acting_user_id,
-                delegation_id,
+                DelegationRef {
+                    id: delegation_id,
+                    protocol_id: delegation_protocol_id,
+                },
                 SignatureType::Approve,
                 &content,
                 req.password.as_deref(),
@@ -439,7 +443,7 @@ impl EuthanasiaService {
 
         let mut tx = pool.begin().await?;
 
-        let (before, _delegation_id) =
+        let (before, _delegation) =
             Self::lock_order_for_pi(&mut tx, order_id, acting_user_id).await?;
         if before.status != EuthanasiaOrderStatus::PendingPi {
             return Err(AppError::BadRequest(format!(
@@ -1054,8 +1058,11 @@ impl EuthanasiaService {
 
     /// FOR UPDATE 鎖 order，並驗證 PI 身分。
     /// 鎖定並回傳這張安樂死單，同時解出「操作者是 PI 本人還是代理人」——回傳的
-    /// `Option<Uuid>` 非 NULL 時是 `protocol_pi_delegates.id`，供呼叫端綁進
-    /// `sign_record_delegated_tx`（PI 本人操作則為 `None`）。
+    /// `Option` 非 NULL 時是 `(protocol_pi_delegates.id, protocol_id)`，兩者都要
+    /// 往下傳給 `sign_record_delegated_tx`（它會在同 tx 內對這筆授權下 `FOR UPDATE`
+    /// 逐項重驗，見該函式說明）；PI 本人操作則為 `None`。
+    /// `protocol_id` 一併回傳的理由：`euthanasia_orders` 沒有 protocol 欄位，
+    /// 而簽章端要驗「這筆授權屬於這份計畫」，從 `entity_id`（order id）推不出來。
     ///
     /// ⚠️ 這仍是本服務唯一的 IDOR 防線（handler 層不重驗，見 `handlers/euthanasia.rs`
     /// 的 `approve_order`/`appeal_order`）：對不上 `pi_user_id` 本人、也對不上
@@ -1069,7 +1076,7 @@ impl EuthanasiaService {
         tx: &mut Transaction<'_, Postgres>,
         order_id: Uuid,
         acting_user_id: Uuid,
-    ) -> Result<(EuthanasiaOrder, Option<Uuid>), AppError> {
+    ) -> Result<(EuthanasiaOrder, Option<(Uuid, Uuid)>), AppError> {
         let direct = sqlx::query_as::<_, EuthanasiaOrder>(
             r#"
             SELECT id, animal_id, vet_user_id, pi_user_id, reason,
@@ -1092,9 +1099,9 @@ impl EuthanasiaService {
         // sqlx 的 tuple FromRow 是逐欄 Decode，不支援「巢狀 FromRow 結構 + 一個純量欄」
         // 混在同一個 tuple 裡解——分兩句查：先確認代理資格（順帶拿 delegation id），
         // 通過才對單據本身下 FOR UPDATE。
-        let delegation_id: Option<Uuid> = sqlx::query_scalar(
+        let delegation: Option<(Uuid, Uuid)> = sqlx::query_as(
             r#"
-            SELECT d.id
+            SELECT d.id, d.protocol_id
             FROM protocol_pi_delegates d
             JOIN protocols pr ON pr.id = d.protocol_id
             JOIN animals a ON a.iacuc_no = pr.iacuc_no
@@ -1107,7 +1114,7 @@ impl EuthanasiaService {
         .fetch_optional(&mut **tx)
         .await?;
 
-        let Some(delegation_id) = delegation_id else {
+        let Some(delegation) = delegation else {
             return Err(AppError::NotFound("找不到指定的安樂死單據".to_string()));
         };
 
@@ -1126,7 +1133,7 @@ impl EuthanasiaService {
         .fetch_one(&mut **tx)
         .await?;
 
-        Ok((order, Some(delegation_id)))
+        Ok((order, Some(delegation)))
     }
 
     fn spawn_notify(

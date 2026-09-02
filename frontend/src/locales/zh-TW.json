@@ -784,6 +784,7 @@
       "noAmendments": "尚無變更申請",
       "noAmendmentsHint": "點擊「新增變更申請」按鈕來建立您的第一個變更申請",
       "notApproved": "計畫書須先核准後才能提出變更申請",
+      "piDelegateBadge": "以 PI 代理人身分操作",
       "createSuccess": "變更申請已建立",
       "createFailed": "建立變更申請失敗",
       "submitSuccess": "變更申請已提交",

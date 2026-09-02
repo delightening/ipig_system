@@ -130,6 +130,23 @@ pub struct ElectronicSignature {
 // 本身為雜湊（非明文），不含敏感欄位，沿用預設遮蔽（無）即可。
 impl AuditRedact for ElectronicSignature {}
 
+/// 代簽授權引用：一筆 `protocol_pi_delegates` 記錄，以及它所屬的計畫。
+///
+/// 兩個欄位包成一個型別而不是並排傳兩個 `Uuid`，是因為它們同型別、語意相反
+/// （一個是授權 id、一個是計畫 id），並排傳參數時**寫反了編譯器不會有意見**——
+/// 而寫反的後果是授權驗證比對到錯的計畫。包起來就不可能寫反。
+///
+/// `protocol_id` 必須另外帶而不能從簽章的 `entity_id` 推導：結案簽章的
+/// `entity_id` 確實是 protocol id，但安樂死是 order id、須知是 protocol id，
+/// 沒有一致規則。
+#[derive(Debug, Clone, Copy)]
+pub struct DelegationRef {
+    /// `protocol_pi_delegates.id`
+    pub id: Uuid,
+    /// 該筆授權所屬的 `protocols.id`
+    pub protocol_id: Uuid,
+}
+
 /// 簽章驗證結果
 #[derive(Debug, Serialize)]
 pub struct VerifyResult {
@@ -914,11 +931,32 @@ impl SignatureService {
     /// ⚠️ `signer_id` 仍然必須是實際簽署人（代理人本人）——密碼驗證與
     /// `signature_data` 的 HMAC 綁定對象都是 `signer_id`，不會、也不能把
     /// `signer_id` 填成 PI 的 id。`delegation_id` 只補「代表誰、依何授權代簽」
-    /// 這一層可歸責性，call site（目前為 `closure::sign_closure` /
-    /// `euthanasia::pi_approve`；`notice::acknowledge_notice` 尚未接上，PI 代理人
-    /// 簽須知目前仍走 `access::can_sign_notice` 的 SD 路徑，見 migration 010 說明）
-    /// 必須自行先驗證這筆代理授權對本次操作有效（生效中、屬於本計畫、
-    /// `delegate_user_id == signer_id`）——本函式不重驗。
+    /// 這一層可歸責性。
+    ///
+    /// # 為什麼這裡要再驗一次（CodeRabbit #53，🟠 Major）
+    ///
+    /// 本函式原本完全信任呼叫端的授權判斷，doc 也明寫「本函式不重驗」。那是錯的：
+    /// 呼叫端解出代理授權的時間點與簽章真正落地的時間點之間有空隙，而
+    /// **撤銷可以擠進那個空隙**。以結案為例，
+    /// `handlers/signature/protocol_closure.rs::authorize_closure_signer` 的查詢
+    /// 明文不加鎖（該檔註解自己寫了「只有這裡會有 TOCTOU」，並宣稱
+    /// 「`sign_closure` 內會再以 `FOR UPDATE` 讀一次權威值」）——但 `sign_closure`
+    /// 的 `FOR UPDATE` 讀的是 **protocols**，從頭到尾沒有再看過 `protocol_pi_delegates`。
+    /// 於是：授權檢查通過 → 撤銷交易鎖 protocol、撤銷、commit → 本交易才鎖 protocol
+    /// 並寫入簽章。簽出來的那張帶著一筆**已被撤銷**的 `delegation_id`。
+    ///
+    /// 而 `closure::dual_signature_ready` 條件 6 **刻意不檢查 `revoked_at IS NULL`**
+    /// （撤銷是「今後不能再用這筆授權簽新東西」，不該讓既有簽章事後失真）——
+    /// 那個設計本身沒問題，但它同時代表**撤銷後才簽出來的那張會被永久當成有效**。
+    /// 兩件事疊起來就是一個實質的授權繞過窗口，所以關門只能關在寫入這一側。
+    ///
+    /// 做法：在同一個 tx 內對那筆授權下 `FOR UPDATE`，逐項比對
+    /// `id` / `protocol_id` / `delegate_user_id` / `revoked_at IS NULL`。
+    /// READ COMMITTED 下 `FOR UPDATE` 會等前面的撤銷交易 commit 後**重新套用 WHERE**，
+    /// 所以「撤銷先 commit」必然被擋、「簽章先取得鎖」則撤銷排在後面——兩個方向都正確。
+    /// 鎖順序與 `revoke_pi_delegate`（protocol → delegate）一致，不會死鎖。
+    ///
+    /// 呼叫端的事前檢查**仍然要留著**：它給的是清楚的錯誤訊息，這裡給的是不變式。
     #[allow(clippy::too_many_arguments)]
     pub async fn sign_record_delegated_tx<'c>(
         tx: &mut sqlx::Transaction<'c, sqlx::Postgres>,
@@ -927,13 +965,16 @@ impl SignatureService {
         entity_type: &str,
         entity_id: &str,
         signer_id: Uuid,
-        delegation_id: Uuid,
+        delegation: DelegationRef,
         sig_type: SignatureType,
         content: &str,
         password: Option<&str>,
         handwriting_svg: Option<&str>,
         stroke_data: Option<&JsonValue>,
     ) -> Result<ElectronicSignature> {
+        Self::assert_delegation_still_valid_tx(tx, delegation, signer_id).await?;
+        let delegation_id = delegation.id;
+
         Self::sign_record_tx_inner(
             tx,
             pool,
@@ -1067,9 +1108,47 @@ impl SignatureService {
         Ok(signature)
     }
 
+    /// 在**簽章所屬的同一個 tx 內**確認這筆代理授權仍然有效，並鎖住它。
+    ///
+    /// 為什麼非得在 tx 內、非得下 `FOR UPDATE`，見 [`Self::sign_record_delegated_tx`]
+    /// 的說明。四個欄位逐項比對，缺一不可：
+    /// `id`（是這一筆）／`protocol_id`（屬於這份計畫）／`delegate_user_id`（就是簽署人本人）／
+    /// `revoked_at IS NULL`（此刻仍生效）。
+    async fn assert_delegation_still_valid_tx<'c>(
+        tx: &mut sqlx::Transaction<'c, sqlx::Postgres>,
+        delegation: DelegationRef,
+        signer_id: Uuid,
+    ) -> Result<()> {
+        let still_valid: Option<Uuid> = sqlx::query_scalar(
+            r#"SELECT id FROM protocol_pi_delegates
+               WHERE id = $1
+                 AND protocol_id = $2
+                 AND delegate_user_id = $3
+                 AND revoked_at IS NULL
+               FOR UPDATE"#,
+        )
+        .bind(delegation.id)
+        .bind(delegation.protocol_id)
+        .bind(signer_id)
+        .fetch_optional(&mut **tx)
+        .await?;
+        if still_valid.is_none() {
+            return Err(AppError::Forbidden(
+                "這筆 PI 代理授權已被撤銷、或不屬於本計畫／本人，無法代簽。".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// 手寫簽章（tx 版，無密碼）：寫入 `electronic_signatures` + SIGNATURE_CREATE chain
     /// entry，同 tx 原子。供「申請須知簽署」等手寫確認場景（`meaning` 可指定，如
     /// `Acknowledge`）。與 `sign_record_tx` 差異：不驗密碼（純手寫確認、低階簽章）。
+    ///
+    /// `delegation` 非 `None` 時代表這是代簽：`signer_id` 仍是實際落筆的人，額外把
+    /// 授權證據寫進 `delegation_id`（CodeRabbit #53）。本函式原本連這個欄位都沒有，
+    /// 於是 `can_sign_notice` 放行的代理人簽出來的須知章**看起來就是個人簽署**，
+    /// 授權證據整個消失——那正好抵銷掉 migration 010 想建立的可歸責性。
+    /// 有值時一樣要過 [`Self::assert_delegation_still_valid_tx`]。
     #[allow(clippy::too_many_arguments)]
     pub async fn sign_with_handwriting_tx<'c>(
         tx: &mut sqlx::Transaction<'c, sqlx::Postgres>,
@@ -1077,6 +1156,7 @@ impl SignatureService {
         entity_type: &str,
         entity_id: &str,
         signer_id: Uuid,
+        delegation: Option<DelegationRef>,
         sig_type: SignatureType,
         content: &str,
         handwriting_svg: &str,
@@ -1085,6 +1165,9 @@ impl SignatureService {
     ) -> Result<ElectronicSignature> {
         if handwriting_svg.is_empty() {
             return Err(AppError::Validation("請提供手寫簽名".into()));
+        }
+        if let Some(delegation) = delegation {
+            Self::assert_delegation_still_valid_tx(tx, delegation, signer_id).await?;
         }
 
         // R30-7: signature_data = HMAC-SHA256 v2（canonical input 不含 meaning）。
@@ -1102,9 +1185,10 @@ impl SignatureService {
             INSERT INTO electronic_signatures (
                 entity_type, entity_id, signer_id, signature_type,
                 content_hash, signature_data, ip_address, user_agent,
-                handwriting_svg, stroke_data, signature_method, meaning, hmac_version
+                handwriting_svg, stroke_data, signature_method, meaning, hmac_version,
+                delegation_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING *
             "#,
         )
@@ -1121,6 +1205,7 @@ impl SignatureService {
         .bind("handwriting")
         .bind(meaning)
         .bind(hmac_version)
+        .bind(delegation.map(|d| d.id))
         .fetch_one(&mut **tx)
         .await?;
 

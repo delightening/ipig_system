@@ -936,3 +936,119 @@ async fn sd_as_own_delegate_still_usable_outside_closure() {
         "結案雙簽的守衛只該擋結案那一個動作，不該讓 SD 自任代理人整個失效"
     );
 }
+
+// ── 簽章 tx 內重驗代理授權（TOCTOU）────────────────────────────────
+//
+// handler 解出授權的時間點與簽章落地的時間點之間有空隙，撤銷可以擠進去
+// （`handlers/signature/protocol_closure.rs` 的查詢明文不加鎖，而 `sign_closure`
+// 的 `FOR UPDATE` 讀的是 protocols，從頭到尾沒再看過 protocol_pi_delegates）。
+// 疊上 `dual_signature_ready` 條件 6 刻意不檢查 `revoked_at`，撤銷後才簽出來的
+// 那張會被永久當成有效——所以只能在寫入這一側關門。
+//
+// 下面兩支各驗守衛的一半：陳舊（已撤銷）與跨計畫。傳入「先前解出的」
+// delegation_id 正是在模擬 handler 早一步解析、之後狀態才改變的真實時序。
+
+#[tokio::test]
+#[serial]
+async fn revoked_delegation_cannot_sign_closure_even_if_resolved_earlier() {
+    let app = TestApp::spawn().await;
+    let creator = seed_signer(&app, None).await;
+    let sd = seed_signer(&app, Some("EXPERIMENT_STAFF")).await;
+    let delegate = seed_signer(&app, None).await;
+    let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+
+    // handler 在 T0 解出授權（此時確實生效中）
+    let delegation_id = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        delegate,
+        None,
+    )
+    .await
+    .expect("authorize")
+    .id;
+
+    // T1：授權在簽章落地之前被撤銷
+    ProtocolService::revoke_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        Some("測試：簽章落地前撤銷"),
+    )
+    .await
+    .expect("revoke");
+
+    // T2：帶著 T0 解出的那個 id 去簽——正是 handler 不加鎖會發生的事
+    let err = protocol_closure_sign(
+        &app.db_pool,
+        &actor(delegate, &[]),
+        protocol,
+        ClosureSigner::Pi,
+        delegate,
+        Some(delegation_id),
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect_err("已撤銷的授權不得簽出簽章");
+    assert!(matches!(err, AppError::Forbidden(_)), "{err:?}");
+
+    let pi_slot: Option<Uuid> =
+        sqlx::query_scalar("SELECT close_pi_signature_id FROM protocols WHERE id = $1")
+            .bind(protocol)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("read protocol");
+    assert!(
+        pi_slot.is_none(),
+        "撤銷後的代簽不得留下任何簽章——gate 條件 6 不看 revoked_at，留下就永遠算有效"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn delegation_from_another_protocol_cannot_sign_closure() {
+    let app = TestApp::spawn().await;
+    let creator = seed_signer(&app, None).await;
+    let sd = seed_signer(&app, Some("EXPERIMENT_STAFF")).await;
+    let delegate = seed_signer(&app, None).await;
+    let target = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+    let other = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+
+    // 授權只掛在 `other` 上
+    let other_delegation = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        other,
+        delegate,
+        None,
+    )
+    .await
+    .expect("authorize on other protocol")
+    .id;
+
+    let err = protocol_closure_sign(
+        &app.db_pool,
+        &actor(delegate, &[]),
+        target,
+        ClosureSigner::Pi,
+        delegate,
+        Some(other_delegation),
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect_err("別份計畫的授權不得用來簽這份計畫");
+    assert!(matches!(err, AppError::Forbidden(_)), "{err:?}");
+
+    let pi_slot: Option<Uuid> =
+        sqlx::query_scalar("SELECT close_pi_signature_id FROM protocols WHERE id = $1")
+            .bind(target)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("read protocol");
+    assert!(pi_slot.is_none(), "跨計畫代簽不得留下任何簽章");
+}
