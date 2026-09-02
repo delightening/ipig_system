@@ -13,6 +13,7 @@
 //! - T1 批號本身帳實相符 → `Balanced`
 //! - T2 批號不符，但品項總量相符（歷史 ledger-only 補帳的形狀）→ `AttributionOnly`
 //! - T3 批號不符，品項總量也對不上 → `Unbalanced`
+//! - T4 (R84-19) GRN 被沖銷後，鏡射列必須從 `received` 扣回，而不是不落任何一格
 
 use rust_decimal::Decimal;
 use serial_test::serial;
@@ -309,4 +310,58 @@ async fn lot_mismatch_with_unbalanced_product_total_is_unbalanced() {
         "品項總量應該也對不上"
     );
     assert_eq!(r.status, LotReconciliationStatus::Unbalanced);
+}
+
+/// R84-19：沖銷鏡射列沿用原單的 `doc_type`、只反轉 `direction`（`reverse_document_stock`），
+/// 所以 `doc_type='GRN' AND direction='in'` 這種單向述詞看不見它——`received` 不會扣回，
+/// 而該列又不屬於 `returned_to_supplier` 等任何一格，對帳憑空出現缺口。
+///
+/// 這個 case 在修好之前會失敗（`received` 停在 100、`derived_remaining` 100 對上
+/// `remaining` 0 而 `balanced` 為 false），故確實測得到本次改動，不是恆真的裝飾。
+#[tokio::test]
+#[serial]
+async fn reversed_grn_nets_out_of_lot_received() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let shelf = seed_shelf(&pool, wh).await;
+    let product = seed_product(&pool).await;
+
+    let (grn_id, _) = seed_lot_via_grn(&pool, wh, shelf, product, "LOT-R", 100).await;
+
+    let before = StockService::get_lot_movements(&pool, &query_for(product, "LOT-R"))
+        .await
+        .expect("get_lot_movements before reversal");
+    assert_eq!(
+        before.reconciliation.received,
+        Decimal::from(100),
+        "前置條件：沖銷前應已入庫 100"
+    );
+
+    // SoD：發起人與核准人必須是不同的人（`approve_reversal` 會擋自核）。
+    let reversal = DocumentService::create_reversal(&pool, &actor(), grn_id)
+        .await
+        .expect("建立沖銷單");
+    let approver = approver_actor(&pool).await;
+    DocumentService::approve_reversal(&pool, &approver, reversal.document.id)
+        .await
+        .expect("核准沖銷單");
+
+    let after = StockService::get_lot_movements(&pool, &query_for(product, "LOT-R"))
+        .await
+        .expect("get_lot_movements after reversal");
+    let r = after.reconciliation;
+
+    assert_eq!(
+        r.received,
+        Decimal::ZERO,
+        "沖銷鏡射列（GRN/out）必須從 received 扣回"
+    );
+    assert_eq!(r.remaining, Decimal::ZERO, "儲位實際量已被沖銷歸零");
+    assert_eq!(
+        r.derived_remaining,
+        Decimal::ZERO,
+        "推導量必須跟著歸零，否則與實際量分岔"
+    );
+    assert!(r.balanced, "沖銷把帳與實際同時歸零，應判為相符");
+    assert_eq!(r.status, LotReconciliationStatus::Balanced);
 }

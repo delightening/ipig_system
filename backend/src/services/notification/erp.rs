@@ -54,9 +54,16 @@ impl NotificationService {
     }
 
     /// 通知倉管人員：已核准的採購單尚未建立入庫單（未入庫提醒）
-    /// 每張 PO 只通知一次（以 notifications 表 dedup），入庫後自然不再出現
+    ///
+    /// 每張 PO **每一輪**只通知一次：dedup 只跳過置頂中（`priority > 0`）的既有通知，
+    /// 入庫核准時 hook 會把它降級（`document/workflow.rs` 的 `resolve_pinned_notifications`），
+    /// 該 PO 於是自然退出提醒；若之後入庫單被沖銷、PO 實質回到未入庫，就會重新提醒。
     pub async fn notify_po_pending_receipt(&self) -> Result<i32, AppError> {
-        let pending_pos: Vec<(Uuid, String, String, chrono::NaiveDate)> = sqlx::query_as(
+        // R84-18：`NOT EXISTS (有效 GRN)` 必須排除已被沖銷者——原單沖銷後**仍是 `approved`**，
+        // 不排除的話該 PO 永遠不會回到未入庫清單，倉管收不到「要重開一張正確的」的提醒。
+        // 述詞取自 `document/grn.rs` 的 `exclude_reversed_grn!`（別名固定為 `g` 是它的前提），
+        // 與入庫進度那四處同源。
+        let pending_pos: Vec<(Uuid, String, String, chrono::NaiveDate)> = sqlx::query_as(concat!(
             r#"
             SELECT po.id, po.doc_no, COALESCE(p.name, '-') as partner_name, po.doc_date
             FROM documents po
@@ -64,14 +71,17 @@ impl NotificationService {
             WHERE po.doc_type = 'PO'
               AND po.status = 'approved'
               AND NOT EXISTS (
-                  SELECT 1 FROM documents grn
-                  WHERE grn.source_doc_id = po.id
-                    AND grn.doc_type = 'GRN'
-                    AND grn.status = 'approved'
+                  SELECT 1 FROM documents g
+                  WHERE g.source_doc_id = po.id
+                    AND g.doc_type = 'GRN'
+                    AND g.status = 'approved'
+                "#,
+            crate::exclude_reversed_grn!(),
+            r#"
               )
             ORDER BY po.doc_date ASC
-            "#,
-        )
+            "#
+        ))
         .fetch_all(&self.db)
         .await?;
 
@@ -89,13 +99,23 @@ impl NotificationService {
         let po_ids: Vec<Uuid> = pending_pos.iter().map(|(id, ..)| *id).collect();
         let recipient_ids: Vec<Uuid> = recipients.iter().map(|(id, ..)| *id).collect();
 
+        // R84-18：dedup 的判準是「這一輪還在置頂嗎」，不是「這張 PO 這輩子通知過嗎」。
+        //
+        // 原本不帶 `priority > 0`，於是通知列一旦寫下去就永久擋住同一張 PO 的後續提醒——
+        // 即使上一則早已被入庫 hook 降級（`RESOLVE_PINNED_SQL` 只改 priority，列仍留著）。
+        // 沖銷之後 PO 實質回到未入庫，卻因為那筆歷史列而不再提醒，光修上面的 SQL 沒有用。
+        //
+        // 用 priority 而不是自己記一個時間基準：置頂與否本來就是「這件事還沒處理完」的
+        // 單一事實來源（`chk_notifications_priority`／`idx_notifications_action_pending`），
+        // 再造第二個判準就會有兩邊不同步的老問題。
         let already_notified: Vec<(Uuid, Uuid)> = sqlx::query_as(
             r#"SELECT user_id, related_entity_id
                FROM notifications
                WHERE user_id = ANY($1)
                  AND related_entity_type = 'document'
                  AND related_entity_id = ANY($2)
-                 AND title LIKE '%未入庫提醒%'"#,
+                 AND title LIKE '%未入庫提醒%'
+                 AND priority > 0"#,
         )
         .bind(&recipient_ids)
         .bind(&po_ids)
