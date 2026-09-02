@@ -21,6 +21,32 @@ on:
   # 反而更該掃 secret（2026-08 外洩事故中，外洩的正是「不是 code 的檔案」）。
   workflow_dispatch:
 
+# =========================
+# 同一個 ref 只保留最新一次 CI（2026-09-02 補）
+#
+# 此前完全沒有 concurrency 設定，於是「同一個 ref 上的每一次 push 都各自跑完整一輪」。
+# 平常不明顯，連續合併時就會爆——2026-09-02 連續合 7 支 Dependabot PR，main 上同時
+# 排了 7 個完整 run，每個含 25-30 分鐘的 `Backend: cargo test` 與 4 個 coverage 分片，
+# 全部競爭同一個 runner 池，後面的 PR（含當時待審的 #66、#71）跟著一起塞。
+# 而那 7 個 run 裡有 6 個當下就已經被後一個 commit 取代，跑完也沒有人會看。
+#
+# `cancel-in-progress: true` 對 main 也生效，是刻意的：
+#   - 對 PR 分支，這是純粹的好處，新 push 取代舊 push。
+#   - 對 main，代價是「被取代的中間 commit 不會留下自己的 CI 結果」。可以接受，因為
+#     每支 PR 合併前都已經單獨全綠過一輪，而 main 上真正需要被驗證、且會被部署的
+#     只有 HEAD。實務上 2026-09-02 那次也是人工把 6 個中間 run 取消掉，本設定只是
+#     把當時的人工判斷變成預設行為。
+#   - ⚠️ 反面：main 連續合併時，若某個中間 commit 單獨會壞、而 HEAD 剛好又修好了，
+#     這裡不會留下紀錄。要 bisect main 的歷史時記得中間 commit 可能是 cancelled
+#     而非 success，不要把 cancelled 讀成「當時是壞的」。
+#
+# `github.ref` 對 PR 是 `refs/pull/<n>/merge`、對 push 是 `refs/heads/<branch>`，
+# 兩者不會互相取消。加上 `github.workflow` 前綴，避免與 CD 之類其他 workflow 共用群組。
+# =========================
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   SQLX_OFFLINE: "true"
