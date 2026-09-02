@@ -41,4 +41,4 @@ Pillow==12.3.0
 # 釘死某一版。實測 prod 容器已自然裝到 idna 3.18，若寫 `==3.15` 反而會在
 # 下次 rebuild 時把它降級，並擋掉之後的修補。上限交由上游套件的相依宣告決定。
 h11>=0.16.0   # PYSEC-2026-348 / GHSA-vqfr-h8mv-ghfj — CVSS 9.1
-idna>=3.15    # PYSEC-2026-215 / GHSA-65pc-fj4g-8rjx — CVSS 6.9
+idna>=3.19    # PYSEC-2026-215 / GHSA-65pc-fj4g-8rjx — CVSS 6.9
