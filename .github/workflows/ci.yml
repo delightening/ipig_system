@@ -899,7 +899,7 @@ jobs:
       # 失敗發生在 post-job cleanup。只看「有沒有測試失敗」會完全找不到原因。
       #
       # SHA 沿用該 composite action 裡的同一顆（供應鏈固定慣例），只是不開快取。
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
 
