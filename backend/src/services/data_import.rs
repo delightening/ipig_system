@@ -880,6 +880,13 @@ const PARTIAL_UNIQUE_TABLES: &[&str] = &["pens", "zones", "buildings", "faciliti
 /// 使用 TRUNCATE ... CASCADE：IDXF 為全庫匯入語意，會一併連動清除參照這些表的子表
 /// （例如 animals.pen_id），子表資料會由後續 import 從備份重新填回。
 /// 純 DELETE 會被 FK 阻擋（如 animals_pen_id_fkey）。
+///
+/// 整段包在單一 transaction 內，是為了 `SET LOCAL` 的作用域：migration 013 為
+/// `animal_blood_test_items` 加上了 TRUNCATE 擋板，而上面的 CASCADE 會沿著
+/// `pens ← animals ← animal_blood_tests ← animal_blood_test_items` 遞移波及它，
+/// 裸跑會讓整句 TRUNCATE 被擋下（TRUNCATE 是單一 statement，任一目標被擋即全句 rollback）。
+/// IDXF 是全庫重灌語意，屬該擋板明訂的合法例外，故在同一個 tx 內具名放行；
+/// `SET LOCAL` 出了這個 tx 即失效，擋板本身也會 `RAISE NOTICE` 留下軌跡。
 async fn cleanup_partial_unique_tables(pool: &PgPool) -> Result<()> {
     // 表名來自常數白名單，非使用者輸入
     let table_list = PARTIAL_UNIQUE_TABLES
@@ -888,10 +895,20 @@ async fn cleanup_partial_unique_tables(pool: &PgPool) -> Result<()> {
         .collect::<Vec<_>>()
         .join(", ");
     let sql = format!("TRUNCATE TABLE {} RESTART IDENTITY CASCADE", table_list);
-    sqlx::query(sqlx::AssertSqlSafe(sql))
-        .execute(pool)
+
+    let fail = |e: sqlx::Error| AppError::Internal(format!("Cleanup partial-unique tables: {}", e));
+
+    let mut tx = pool.begin().await.map_err(fail)?;
+    sqlx::query("SET LOCAL app.bypass_blood_test_items_truncate = 'true'")
+        .execute(&mut *tx)
         .await
-        .map_err(|e| AppError::Internal(format!("Cleanup partial-unique tables: {}", e)))?;
+        .map_err(fail)?;
+    sqlx::query(sqlx::AssertSqlSafe(sql))
+        .execute(&mut *tx)
+        .await
+        .map_err(fail)?;
+    tx.commit().await.map_err(fail)?;
+
     Ok(())
 }
 

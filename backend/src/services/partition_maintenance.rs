@@ -145,6 +145,25 @@ impl PartitionMaintenanceJob {
 
         sqlx::query(sqlx::AssertSqlSafe(sql)).execute(db).await?;
 
+        // migration 013 的 TRUNCATE 擋板必須逐個分區補上：row-level trigger 建在 parent
+        // 上時 PostgreSQL 會自動套用到所有分區，但 **statement-level TRUNCATE trigger
+        // 沒有這個行為**。少了這段，每季新建的分區都是裸的，
+        // `TRUNCATE user_activity_logs_<新季度>` 可直接清空該季稽核紀錄而不觸發任何擋板。
+        // 用 CREATE OR REPLACE 維持與上面 IF NOT EXISTS 一致的冪等性。
+        let trigger_sql = format!(
+            r#"
+            CREATE OR REPLACE TRIGGER check_user_activity_logs_no_truncate_trigger
+                BEFORE TRUNCATE ON {}
+                FOR EACH STATEMENT
+                EXECUTE FUNCTION public.check_user_activity_logs_no_truncate()
+            "#,
+            partition_name
+        );
+
+        sqlx::query(sqlx::AssertSqlSafe(trigger_sql))
+            .execute(db)
+            .await?;
+
         // 為新分區建立必要的索引 (繼承自父表，但確認一下)
         info!(
             "Partition {} created successfully ({} to {})",
