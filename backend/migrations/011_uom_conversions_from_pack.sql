@@ -18,6 +18,172 @@
 -- 實查確認這一類的 pack_qty 全部 >= 2，靠 pack_qty 門檻濾不掉。
 
 -- ---------------------------------------------------------------------------
+-- 0. 別名正規化（必須在遷移之前）
+-- ---------------------------------------------------------------------------
+-- 🔴 沒有這一段，整支 migration 等於白做。
+--
+-- 盤點底稿取換算率的那一句是
+--   `LEFT JOIN product_uom_conversions c ON c.product_id = p.id AND c.uom = p.pack_unit`
+-- ——它拿 **`products.pack_unit` 的原值**去比。下面第 1 節寫進換算表的是**正規形式**
+-- （`BX` → `盒`），若不同時把 `pack_unit` 也收斂，兩邊永遠比不中：
+--
+--   products.pack_unit = 'BX'      product_uom_conversions.uom = '盒'   → join 不成立
+--
+-- 症狀與「這個品項根本沒建換算列」一模一樣：`pack_factor` 為 NULL、底稿退回 base_uom、
+-- 沒有任何錯誤訊息。換算表裡多出一堆沒人用得到的資料，而「盤點論盒」仍然不會生效。
+
+-- 0-pre. 記下所有將被改動的原值，讓本 migration 可還原。
+--
+-- 為什麼需要：0b 刪列、0c 改名、0d 改 `products.pack_unit` 都是**破壞性**的——
+-- `BX=50` 被改成 `盒=50` 之後，光看結果無從得知它原本叫什麼。沒有這三張表，
+-- 回退腳本只能把改名後的列當成「本 migration 新增的」刪掉，
+-- 等於把使用者原有的資料一併抹掉（丟棄庫實測已重現：4 列回退後只剩 1 列）。
+--
+-- 這三張表在 prod 上預期是**空的**（實查換算表目前 0 列）。
+-- 確認本 migration 不再需要回退後可自行 DROP。
+
+CREATE TABLE IF NOT EXISTS mig011_conversion_backup (
+    id             uuid PRIMARY KEY,
+    product_id     uuid NOT NULL,
+    uom            character varying(20) NOT NULL,
+    factor_to_base numeric(18,6) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mig011_pack_unit_backup (
+    product_id uuid PRIMARY KEY,
+    pack_unit  character varying(20) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mig011_inserted_conversion (
+    id uuid PRIMARY KEY
+);
+
+-- 備份「所有非正規寫法的換算列」（0b 會刪掉一部分、0c 會改名其餘）
+WITH uom_map(code, name) AS (
+    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
+           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
+           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
+           ('RL','卷'), ('SET','組'),
+           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
+)
+INSERT INTO mig011_conversion_backup (id, product_id, uom, factor_to_base)
+SELECT c.id, c.product_id, c.uom, c.factor_to_base
+FROM product_uom_conversions c
+JOIN uom_map m ON m.code = btrim(c.uom)
+WHERE c.uom <> m.name
+ON CONFLICT (id) DO NOTHING;
+
+-- 備份「所有非正規寫法的 pack_unit」（0d 會改掉）
+WITH uom_map(code, name) AS (
+    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
+           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
+           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
+           ('RL','卷'), ('SET','組'),
+           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
+)
+INSERT INTO mig011_pack_unit_backup (product_id, pack_unit)
+SELECT p.id, p.pack_unit
+FROM products p
+JOIN uom_map m ON m.code = btrim(p.pack_unit)
+WHERE p.pack_unit IS NOT NULL AND p.pack_unit <> m.name
+ON CONFLICT (product_id) DO NOTHING;
+
+-- 0a. 撞鍵且值不同 → 停止，交人裁定。
+--     同一品項同時有別名列（`BX`）與正規列（`盒`）而換算率不同時，兩個值都可能是對的，
+--     migration 不該替人選一個。與應用層 `uom::resolve_alias` 的 fail-closed 一致。
+DO $$
+DECLARE
+    conflicts text;
+BEGIN
+    WITH uom_map(code, name) AS (
+        VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
+               ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
+               ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
+               ('RL','卷'), ('SET','組'),
+               ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
+    ),
+    norm AS (
+        SELECT c.id, c.product_id, c.uom, c.factor_to_base,
+               COALESCE(m.name, btrim(c.uom)) AS canon
+        FROM product_uom_conversions c
+        LEFT JOIN uom_map m ON m.code = btrim(c.uom)
+    )
+    SELECT string_agg(
+               format('%s：%s=%s vs %s=%s', p.sku, a.uom, a.factor_to_base, b.uom, b.factor_to_base),
+               '；' ORDER BY p.sku)
+      INTO conflicts
+      FROM norm a
+      JOIN norm b ON b.product_id = a.product_id AND b.uom = a.canon AND b.id <> a.id
+      JOIN products p ON p.id = a.product_id
+     WHERE a.uom <> a.canon
+       AND a.factor_to_base <> b.factor_to_base;
+
+    IF conflicts IS NOT NULL THEN
+        RAISE EXCEPTION
+            '單位換算存在無法自動合併的別名衝突，請先人工清理再套用本 migration：%',
+            conflicts;
+    END IF;
+END $$;
+
+-- 0b. 撞鍵但值相同 → 刪掉別名列，保留正規列（資訊無損）。
+WITH uom_map(code, name) AS (
+    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
+           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
+           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
+           ('RL','卷'), ('SET','組'),
+           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
+),
+norm AS (
+    SELECT c.id, c.product_id, c.uom, c.factor_to_base,
+           COALESCE(m.name, btrim(c.uom)) AS canon
+    FROM product_uom_conversions c
+    LEFT JOIN uom_map m ON m.code = btrim(c.uom)
+),
+dup AS (
+    SELECT a.id
+    FROM norm a
+    JOIN norm b ON b.product_id = a.product_id AND b.uom = a.canon AND b.id <> a.id
+    WHERE a.uom <> a.canon
+      AND a.factor_to_base = b.factor_to_base
+)
+DELETE FROM product_uom_conversions c
+USING dup
+WHERE c.id = dup.id;
+
+-- 0c. 其餘別名列改名成正規形式（0a/0b 之後已無撞鍵可能）。
+WITH uom_map(code, name) AS (
+    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
+           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
+           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
+           ('RL','卷'), ('SET','組'),
+           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
+)
+UPDATE product_uom_conversions c
+   SET uom = m.name
+  FROM uom_map m
+ WHERE m.code = btrim(c.uom)
+   AND c.uom <> m.name;
+
+-- 0d. `products.pack_unit` 一併收斂——這是讓上面那句 join 接得上的另一半。
+WITH uom_map(code, name) AS (
+    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
+           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
+           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
+           ('RL','卷'), ('SET','組'),
+           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
+)
+UPDATE products p
+   SET pack_unit = m.name
+  FROM uom_map m
+ WHERE p.pack_unit IS NOT NULL
+   AND m.code = btrim(p.pack_unit)
+   AND p.pack_unit <> m.name;
+
+-- ⚠️ `products.base_uom` 刻意不動：它是庫存數量與所有既有單據明細的單位，
+-- 改它等於重新解釋既有數字（`document_lines.uom` 全部等於各自品項的 base_uom）。
+-- 那屬於另一件事，不在本 migration 範圍。
+
+-- ---------------------------------------------------------------------------
 -- 1. 資料遷移
 -- ---------------------------------------------------------------------------
 
@@ -43,13 +209,21 @@ candidate AS (
       AND p.pack_unit IS NOT NULL
       AND btrim(p.pack_unit) <> ''
       AND p.pack_qty >= 2
+),
+ins AS (
+    INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
+    SELECT gen_random_uuid(), c.product_id, c.uom, c.factor_to_base
+    FROM candidate c
+    WHERE c.uom <> c.base_canonical
+    -- 冪等：已存在的列一律不動。它可能是人工建的、換算率未必等於 pack_qty，不覆寫。
+    ON CONFLICT (product_id, uom) DO NOTHING
+    RETURNING id
 )
-INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
-SELECT gen_random_uuid(), c.product_id, c.uom, c.factor_to_base
-FROM candidate c
-WHERE c.uom <> c.base_canonical
--- 冪等：已存在的列一律不動。它可能是人工建的、換算率未必等於 pack_qty，不覆寫。
-ON CONFLICT (product_id, uom) DO NOTHING;
+-- 記下「本 migration 實際插入的是哪幾列」。回退時只刪這些 id，
+-- 不靠條件反推——條件在 0d 改過 pack_unit 之後已經不等價了。
+INSERT INTO mig011_inserted_conversion (id)
+SELECT id FROM ins
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 2. 約束：factor_to_base 必須為正
