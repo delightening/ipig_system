@@ -8,11 +8,13 @@ set -euo pipefail
 #   bash scripts/deploy/rollback.sh <commit-sha>
 #
 # This will:
-#   1. Stop Watchtower (prevent auto-update)
-#   2. Pull the specified image versions
-#   3. Restart api + web with pinned versions
-#   4. Run health checks
-#   5. Watchtower stays stopped until you resume
+#   1. Pull the specified image versions
+#   2. Restart api + web with pinned versions
+#   3. Run health checks
+#
+# 2026-09-02：原步驟 1「Stop Watchtower」已移除——watchtower 服務本身已從
+# docker-compose.prod.yml 移除，部署改為人工執行，不再需要「先擋住自動更新」
+# 這一步，回滾後也不會有任何東西把版本推回去。
 # ============================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,33 +36,31 @@ echo "iPig System: Rollback to $TARGET_TAG"
 echo "============================================"
 echo ""
 
-# 1. Stop Watchtower
-echo "[1/5] Stopping Watchtower..."
-$COMPOSE stop watchtower 2>/dev/null || true
-
-# 2. Set image tag
-echo "[2/5] Setting IMAGE_TAG=$TARGET_TAG..."
+# 1. Set image tag
+echo "[1/4] Setting IMAGE_TAG=$TARGET_TAG..."
 export IMAGE_TAG="$TARGET_TAG"
 
-# 3. Pull specific version
-echo "[3/5] Pulling images..."
+# 2. Pull specific version
+echo "[2/4] Pulling images..."
 $COMPOSE pull api web
 
-# 4. Restart services
-echo "[4/5] Restarting services..."
+# 3. Restart services
+echo "[3/4] Restarting services..."
 $COMPOSE up -d --no-build api web
 
-# 5. Health check
-echo "[5/5] Running health checks..."
+# 4. Health check
+echo "[4/4] Running health checks..."
 if bash "$SCRIPT_DIR/healthcheck.sh" 60 12; then
   echo ""
   echo "============================================"
   echo "Rollback to $TARGET_TAG successful!"
   echo ""
-  echo "Watchtower is STOPPED to prevent auto-update."
-  echo "To resume auto-updates:"
-  echo "  export IMAGE_TAG=latest"
-  echo "  $COMPOSE up -d watchtower"
+  echo "Deployment is manual (watchtower removed 2026-09-02)."
+  echo "Nothing will move this version on its own."
+  echo ""
+  echo "To go back to a newer build, pin its sha and re-run:"
+  echo "  export IMAGE_TAG=<target-sha>"
+  echo "  $COMPOSE pull api web && $COMPOSE up -d --no-build api web"
   echo "============================================"
 else
   echo ""
