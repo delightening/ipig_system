@@ -52,7 +52,8 @@ reviews:
     # 最後一次 commit；把「全部修完再請求一次」變成明確動作，反而比
     # 「每 push 都審、最後一次常撞牆」更容易拿到乾淨章。
     #
-    # 🔴 **怎麼觸發、可以觸發幾次，本檔不寫。** 權威來源只有兩處，動手前讀那兩處：
+    # 🔴 **可以觸發幾次、什麼時候才能觸發，本檔一律不複述**——那些是會變動的規則，
+    # 權威來源只有下面兩處，動手前讀那兩處。**本檔只釘死一件不會變的事：入口。**
     #   * `CLAUDE.md` §單一入口 —— 觸發一律經 `gate.mjs` 關口
     #     （`.claude/skills/coderabbit-quota/scripts/gate.mjs`，用法見 `/coderabbit-quota` §6）。
     #     **任何 session 不得自行 `gh pr comment ... @coderabbitai`**；關口故障就停下回報，
