@@ -4,11 +4,15 @@ use crate::{AppError, Result};
 /// 為廉價的指標 clone，而非複製整份 PDF bytes。
 type CachedRender = std::sync::Arc<(Vec<u8>, Option<String>)>;
 
-/// PDF Service (print-pdf, FastAPI + WeasyPrint) HTTP Client
+/// PDF Service (print-pdf, FastAPI + Chromium/Playwright) HTTP Client
 ///
 /// 呼叫 Python 端 FastAPI `print-pdf` 微服務，由其使用 Jinja2 HTML 模板
-/// 透過 WeasyPrint 直接 render 為 PDF（取代舊三件式 pdf-service + gotenberg
-/// + word-convert daemon stack）。
+/// 透過常駐 Chromium（Playwright `page.pdf`）render 為 PDF（取代舊三件式
+/// pdf-service + gotenberg + word-convert daemon stack）。
+///
+/// ⚠️ R81-9：2026-06 起引擎已由 WeasyPrint 改為 Chromium（WeasyPrint 的 fontTools
+/// subset 會破壞標楷體 DFKai-SB，見 `services/print-pdf/README.md`）。本處註解
+/// 直到訂正前仍寫 WeasyPrint，與該服務的實際實作相左。
 #[derive(Clone)]
 pub struct PdfServiceClient {
     base_url: String,
@@ -56,7 +60,7 @@ impl PdfServiceClient {
         );
         let body = serde_json::json!({"working_content": working_content});
 
-        // 快取僅針對 PDF：「計畫內容」分頁預覽每次都觸發 WeasyPrint 全量 render（~15s/份）
+        // 快取僅針對 PDF：「計畫內容」分頁預覽每次都觸發 Chromium 全量 render（~15s/份）
         // 且 render 序列化（cap=1）；同一份未修改計畫書反覆預覽是純重算浪費。key 綁「實際送出的
         // body」（含已內嵌照片）→ 同內容必同 PDF，內容一改即 miss 重算，無 staleness。
         let cache_key = match format {

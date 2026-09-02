@@ -35,7 +35,7 @@ pub const FORGOT_PASSWORD_RATE_WINDOW_SECS: u64 = 600; // 10 分鐘
 pub const PERMISSION_CACHE_TTL_SECS: u64 = 300; // 5 分鐘
 
 /// AUP 計畫書 PDF render 快取（`PdfServiceClient::render_aup_from_working_content`）。
-/// 「計畫內容」分頁預覽每次都觸發 WeasyPrint 全量 render（單份 ~15s），且 render 序列化
+/// 「計畫內容」分頁預覽每次都觸發 Chromium 全量 render（單份 ~15s），且 render 序列化
 /// （cap=1）；同一份未修改的計畫書反覆預覽時純屬重算浪費。以「送進 print-pdf 的 body
 /// （含已內嵌照片）的 sha256」為 key 快取 PDF bytes：同內容即命中、內容一改 hash 即變
 /// 自動失效，無 staleness 風險。

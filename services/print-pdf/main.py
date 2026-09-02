@@ -1,7 +1,10 @@
-"""print-pdf FastAPI app — HTML→PDF via Jinja2 + WeasyPrint.
+"""print-pdf FastAPI app — HTML→PDF via Jinja2 + Chromium (Playwright).
 
 取代 `services/word-convert` daemon + `services/gotenberg` + `pdf-service`
-docx/Chromium 路徑（自帶 WeasyPrint，無 Office COM / 無 LibreOffice / 無 Chromium）。
+docx 路徑（自帶常駐 Chromium，無 Office COM / 無 LibreOffice / 無 Gotenberg）。
+
+R81-9：本 docstring 原寫 "WeasyPrint ... 無 Chromium"，2026-06 換引擎後兩句都反了
+（見本檔 render 段落與 README「已取代」節）。
 
 schemas/ + adapters/ 從 `pdf-service/app/` 複製，shape 完全對齊，
 讓 backend 不需改 payload 即可切換到本服務。
