@@ -12,7 +12,9 @@ use crate::repositories::application_notice::{
     ApplicationNoticeRepository, NoticeAcknowledgementRepository,
 };
 use crate::services::access;
-use crate::services::signature::{SignatureMeaning, SignatureService, SignatureType};
+use crate::services::signature::{
+    DelegationRef, SignatureMeaning, SignatureService, SignatureType,
+};
 use crate::{AppError, Result};
 
 impl ProtocolService {
@@ -68,6 +70,15 @@ impl ProtocolService {
             ));
         }
 
+        // 代簽證據（migration 010 / CodeRabbit #53）：`can_sign_notice` 會放行 SD 核准的
+        // 生效中代理人，但這條路徑原本沒有把授權綁進簽章——代理人簽出來的章看起來
+        // 就是他本人的個人簽署，migration 010 想建立的可歸責性在須知這一段整個消失。
+        // 只有「沒有個人資格、純靠那筆授權才簽得下去」時才標記，見
+        // `access::notice_signer_delegation`。
+        let delegation = access::notice_signer_delegation(pool, protocol_id, user.id)
+            .await?
+            .map(|id| DelegationRef { id, protocol_id });
+
         // 手寫電子簽章（meaning=ACKNOWLEDGE）+ chain entry，同 tx
         let content = format!(
             "protocol_notice_ack:{}:{}:{}",
@@ -79,6 +90,7 @@ impl ProtocolService {
             "protocol_notice_ack",
             &protocol_id.to_string(),
             user.id,
+            delegation,
             SignatureType::Confirm,
             &content,
             handwriting_svg,

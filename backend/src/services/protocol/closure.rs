@@ -21,7 +21,7 @@ use super::ProtocolService;
 use crate::{
     middleware::ActorContext,
     models::{ChangeStatusRequest, Protocol, ProtocolStatus},
-    services::{SignatureService, SignatureType},
+    services::{signature::DelegationRef, SignatureService, SignatureType},
     AppError, Result,
 };
 
@@ -345,7 +345,10 @@ pub async fn sign_closure(
             CLOSURE_ENTITY_TYPE,
             &protocol_id.to_string(),
             signer_id,
-            delegation_id,
+            DelegationRef {
+                id: delegation_id,
+                protocol_id,
+            },
             SignatureType::Confirm,
             &content,
             password,

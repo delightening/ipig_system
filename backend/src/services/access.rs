@@ -244,6 +244,41 @@ pub async fn can_sign_notice(pool: &PgPool, protocol_id: Uuid, user_id: Uuid) ->
     Ok(exists)
 }
 
+/// 須知簽署時，這位簽署人是否**只**憑代理授權取得資格；是的話回傳該授權 id。
+///
+/// # 為什麼要分辨「只憑代理授權」而不是「有沒有代理授權」
+///
+/// [`can_sign_notice`] 有四條放行路徑，代理人是本次（migration 010）新加的那一條。
+/// 簽章要記的是「這個人是以什麼身分簽的」：本人有資格（`pi_user_id` / SD /
+/// `user_protocols` 的 PI）就該以個人名義落帳，`delegation_id` 留 NULL；
+/// 只有在**沒有任何個人資格、純粹靠那筆授權才簽得下去**時，才需要把授權證據綁進簽章。
+///
+/// 反過來寫（有授權就一律標記）會讓「本來就是 PI、順便也被指定為代理人」的人
+/// 簽出來的章看起來像代簽——那是假的可歸責資訊，比沒有更糟。
+pub async fn notice_signer_delegation(
+    pool: &PgPool,
+    protocol_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<Uuid>> {
+    let (personally_eligible,): (bool,) = sqlx::query_as(
+        r#"SELECT EXISTS(
+            SELECT 1 FROM protocols
+            WHERE id = $1 AND (pi_user_id = $2 OR study_director_user_id = $2)
+            UNION
+            SELECT 1 FROM user_protocols
+            WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol = 'PI'
+        )"#,
+    )
+    .bind(protocol_id)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await?;
+    if personally_eligible {
+        return Ok(None);
+    }
+    active_pi_delegate_id(pool, protocol_id, user_id).await
+}
+
 /// 使用者是否與計畫有關聯（any role in user_protocols）
 pub async fn has_protocol_membership(
     pool: &PgPool,

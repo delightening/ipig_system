@@ -253,7 +253,7 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                     {canCreateAmendment && canManageAmendment && (
                         <>
                             {isPiDelegate && (
-                                <Badge variant="outline">以 PI 代理人身分操作</Badge>
+                                <Badge variant="outline">{t('protocols.amendments.piDelegateBadge')}</Badge>
                             )}
                             <Button onClick={() => dialogs.open('create')}>
                                 <Plus className="mr-2 h-4 w-4" />
