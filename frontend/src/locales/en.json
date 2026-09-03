@@ -68,7 +68,7 @@
       "errorMaxFiles": "Maximum of {{maxFiles}} files allowed",
       "errorMaxSize": "File {{fileName}} exceeds {{maxSize}}MB limit",
       "errorUploadFailed": "Upload failed, please try again",
-      "errorUploadPartial": "Uploaded {{succeeded}} of {{total}} files; the rest failed. Please retry only the failed ones.",
+      "errorUploadPartial": "Uploaded {{succeeded}} of {{total}} files; the rest were not uploaded. Please re-select the files that did not succeed.",
       "hint": "Max {{maxSize}}MB, up to {{maxFiles}} files"
     },
     "email": "Email"

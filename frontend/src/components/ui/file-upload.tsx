@@ -191,12 +191,19 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
           }
         } catch (err) {
           // 部分成功時要說清楚，否則使用者無從判斷該不該重傳整批。
+          //
+          // ⚠️ 措辭刻意寫成「尚未上傳」而不是「失敗」：上面的迴圈是循序的，
+          // 第 N 個 reject 就 break，第 N+1 個之後**根本沒有送出過**。把它們
+          // 一律說成「失敗」會讓使用者以為只要重傳那一個出錯的就好，於是
+          // 從未嘗試的那幾個永遠不會上傳——而 `onChange` 只登記成功的檔案，
+          // 畫面上也看不出少了什麼。所以這裡不區分「失敗」與「未嘗試」，
+          // 統一請使用者重新選取「尚未成功」的檔案。
           setError(
             uploadedFiles.length > 0
               ? t('common.fileUpload.errorUploadPartial', {
                   succeeded: uploadedFiles.length,
                   total: fileArray.length,
-                  defaultValue: `已成功上傳 ${uploadedFiles.length} / ${fileArray.length} 個檔案，其餘失敗；請只重傳失敗的檔案。`,
+                  defaultValue: `已成功上傳 ${uploadedFiles.length} / ${fileArray.length} 個檔案，其餘尚未上傳；請重新選取尚未成功的檔案。`,
                 })
               : t('common.fileUpload.errorUploadFailed')
           )

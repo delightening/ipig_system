@@ -68,7 +68,7 @@
       "errorMaxFiles": "最多只能上傳 {{maxFiles}} 個檔案",
       "errorMaxSize": "檔案 {{fileName}} 超過 {{maxSize}}MB 限制",
       "errorUploadFailed": "上傳失敗，請重試",
-      "errorUploadPartial": "已成功上傳 {{succeeded}} / {{total}} 個檔案，其餘失敗；請只重傳失敗的檔案。",
+      "errorUploadPartial": "已成功上傳 {{succeeded}} / {{total}} 個檔案，其餘尚未上傳；請重新選取尚未成功的檔案。",
       "hint": "最大 {{maxSize}}MB，最多 {{maxFiles}} 個檔案"
     },
     "email": "Email"
