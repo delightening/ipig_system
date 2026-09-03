@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserCheck, UserCog, Loader2, X } from 'lucide-react'
 
@@ -31,6 +32,7 @@ interface Props {
  * 核准/撤銷的實際授權判斷在後端；這裡的顯示 gating 只是方便使用者，不是安全邊界。
  */
 export function PiDelegateCard({ protocolId }: Props) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const user = useAuthUser()
   const [selectedDelegate, setSelectedDelegate] = useState('')
@@ -57,20 +59,28 @@ export function PiDelegateCard({ protocolId }: Props) {
   const authorizeMutation = useMutation({
     mutationFn: (delegateUserId: string) => authorizePiDelegate(protocolId, delegateUserId),
     onSuccess: () => {
-      toast({ title: '成功', description: '已核准 PI 代理人' })
+      toast({ title: t('common.success'), description: t('protocols.piDelegate.authorizeSuccess') })
       qc.invalidateQueries({ queryKey: queryKeys.protocols.detail(protocolId) })
       setSelectedDelegate('')
     },
-    onError: (e) => toast({ title: '錯誤', description: getApiErrorMessage(e, '核准失敗'), variant: 'destructive' }),
+    onError: (e) => toast({
+      title: t('common.error'),
+      description: getApiErrorMessage(e, t('protocols.piDelegate.authorizeFailed')),
+      variant: 'destructive',
+    }),
   })
 
   const revokeMutation = useMutation({
     mutationFn: () => revokePiDelegate(protocolId),
     onSuccess: () => {
-      toast({ title: '成功', description: '已撤銷 PI 代理人' })
+      toast({ title: t('common.success'), description: t('protocols.piDelegate.revokeSuccess') })
       qc.invalidateQueries({ queryKey: queryKeys.protocols.detail(protocolId) })
     },
-    onError: (e) => toast({ title: '錯誤', description: getApiErrorMessage(e, '撤銷失敗'), variant: 'destructive' }),
+    onError: (e) => toast({
+      title: t('common.error'),
+      description: getApiErrorMessage(e, t('protocols.piDelegate.revokeFailed')),
+      variant: 'destructive',
+    }),
   })
 
   if (!protocolResponse?.protocol.pi_is_external) return null
@@ -82,13 +92,12 @@ export function PiDelegateCard({ protocolId }: Props) {
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <UserCog className="h-4 w-4" />
-          PI 代理授權
+          {t('protocols.piDelegate.title')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          此計畫的 PI 為外部人員，尚未開通系統帳號。由計劃負責人（SD）核准一位代理人，
-          代替 PI 簽署結案、安樂死核准、修正案等動作，並留有核可證據。
+          {t('protocols.piDelegate.description')}
         </p>
 
         {delegate ? (
@@ -96,13 +105,19 @@ export function PiDelegateCard({ protocolId }: Props) {
             <div className="flex items-center gap-2 text-sm">
               <UserCheck className="h-4 w-4 text-status-success-text" />
               <span>
-                目前代理人：<span className="font-medium">{delegate.delegate_name}</span>
+                {t('protocols.piDelegate.currentLabel')}
+                <span className="font-medium">{delegate.delegate_name}</span>
                 {protocolResponse.is_pi_delegate && (
-                  <Badge variant="outline" className="ml-2">以代理人身分操作中</Badge>
+                  <Badge variant="outline" className="ml-2">
+                    {t('protocols.piDelegate.actingBadge')}
+                  </Badge>
                 )}
               </span>
               <span className="text-muted-foreground">
-                （由 {delegate.authorized_by_name} 於 {formatDate(delegate.authorized_at)} 核准）
+                {t('protocols.piDelegate.authorizedBy', {
+                  name: delegate.authorized_by_name,
+                  date: formatDate(delegate.authorized_at),
+                })}
               </span>
             </div>
             {canManage && (
@@ -115,19 +130,21 @@ export function PiDelegateCard({ protocolId }: Props) {
                 {revokeMutation.isPending
                   ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   : <X className="h-4 w-4 mr-2" />}
-                撤銷
+                {t('protocols.piDelegate.revoke')}
               </Button>
             )}
           </div>
         ) : (
-          <div className="text-sm text-status-warning-text">尚未核准代理人。</div>
+          <div className="text-sm text-status-warning-text">
+            {t('protocols.piDelegate.none')}
+          </div>
         )}
 
         {canManage && !delegate && (
           <div className="flex items-center gap-2">
             <Select value={selectedDelegate} onValueChange={setSelectedDelegate}>
               <SelectTrigger className="max-w-xs">
-                <SelectValue placeholder="選擇代理人" />
+                <SelectValue placeholder={t('protocols.piDelegate.selectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {candidates?.map((c) => (
@@ -141,7 +158,7 @@ export function PiDelegateCard({ protocolId }: Props) {
               onClick={() => authorizeMutation.mutate(selectedDelegate)}
             >
               {authorizeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              核准為代理人
+              {t('protocols.piDelegate.authorize')}
             </Button>
           </div>
         )}

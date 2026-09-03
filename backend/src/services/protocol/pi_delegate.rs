@@ -111,6 +111,26 @@ impl ProtocolService {
         }
 
         // 資格：內部、啟用中帳號（比照 SD 資格門檻，見 core.rs::validate_and_authorize_sd）。
+        //
+        // 先鎖 users 那一列再讀 `is_active`（CodeRabbit #53）：不鎖的話「核准代理人」與
+        // 「停用帳號」兩個交易可以交錯成「資格檢查通過 → 停用 commit → 才 INSERT 授權」，
+        // 產出一筆掛在已停用帳號上的生效授權；那個帳號日後被重新啟用時，代理權就
+        // **不經任何重新核准**自己回來了。
+        //
+        // 鎖法與序列化理由與 `core.rs::validate_and_authorize_sd`（SD 指派）逐字相同，
+        // 那裡有兩種先後的完整推導；此處不重抄，只標明沿用同一套。鎖順序也一致
+        // （protocols FOR UPDATE → users FOR SHARE），不會與 SD 指派互相死鎖。
+        //
+        // ⚠️ 鎖獨立成一句、不併進下面的 EXISTS：帶 join 的 EXISTS 子查詢加鎖定子句在
+        // Postgres 有限制，且鎖到哪張表不明顯。
+        let delegate_locked: Option<bool> =
+            sqlx::query_scalar("SELECT is_active FROM users WHERE id = $1 FOR SHARE")
+                .bind(delegate_user_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        // 不存在就讓下面的資格查詢回同一句錯誤訊息，不另外分歧（同 core.rs 的處置）。
+        let _ = delegate_locked;
+
         let delegate_valid: bool = sqlx::query_scalar(
             r#"SELECT EXISTS(
                  SELECT 1 FROM users
