@@ -40,7 +40,15 @@
 #   `ci.yml` 的 Trivy job 只 build 並掃 `ipig-api:ci` 與 `ipig-web:ci` 兩個映像，
 #   而 `cd.yml` 明文記載 print-pdf 刻意不在 CI 建（商用字型不可隨 repo 散布）。
 #   `osv-scanner` 那條只掃 `requirements.txt` 的 Python 套件，不看 OS 套件。
-#   也就是說上面 CVE-2026-0861 那條豁免**在 CI 裡從來沒有生效過**——它防的是
-#   一個不會發生的失敗，而真正的缺口是那個映像沒有任何人在掃。
+#   所以那個映像的 OS 層是沒有任何人在掃的。
+#
+#   ⚠️ 這裡**不能**進一步推論成「CVE-2026-0861 那條豁免在 CI 裡從來沒有生效過」。
+#   本檔是**全域** CVE 清單（見開頭格式說明），沒有 per-image 限定；`ci.yml` 把
+#   `trivyignores: .trivyignore` 同時傳給掃 `ipig-api:ci` 與 `ipig-web:ci` 的四個
+#   Trivy step，且都帶 `vuln-type: "os,library"`。該 CVE 影響 glibc 2.30–2.42，
+#   而 api 映像的 libc6 是 2.36——落在範圍內。也就是說它在 api 的掃描上**具備生效條件**，
+#   條目註解寫「適用 print-pdf」並不會限制它的實際作用範圍。
+#   要斷言「曾經抑制過什麼」或「從未抑制過什麼」，都需要歷史掃描紀錄，而我們沒有留。
+#   可以確定的只有上一段：print-pdf 沒有任何人在掃。
 #
 # 目前無豁免項目。新增時請照上方格式寫齊三件事。
