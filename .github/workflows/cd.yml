@@ -54,7 +54,14 @@ jobs:
       # 「觸發它的那次 CI 的 commit」。連續合併多支 PR 時就會有多輪 CD 同時在建**不同的
       # commit**，卻全都推同一個 `latest`——當日抓到兩輪分別在建 e66ca1c(#63) 與
       # 3229b2d(#64)。`latest` 最後指向誰取決於誰先跑完，與哪個 commit 比較新無關，
-      # 而 watchtower 拉的正是 `latest`，等於 prod 可能被自動換到一個舊 build。
+      # 而部署預設拉的正是 `latest`（`docker-compose.prod.yml` 的 `${IMAGE_TAG:-latest}`），
+      # 等於部署可能拿到一個舊 build。
+      #
+      # ⚠️ 2026-09-03 訂正（PR #58 移除 watchtower 之後）：本段原本寫的危害是
+      # 「watchtower 拉 latest → prod 被**自動**換到舊 build」。watchtower 已移除、
+      # 部署改為人工執行，那個自動換版的路徑不存在了——**但本 job 的判斷仍然必要**：
+      # 危害只是從「自動換錯版」變成「人工部署時拉到錯的 latest」，機制照留。
+      # （最穩的做法仍是部署時把 IMAGE_TAG pin 成短 sha，不依賴 latest。）
       #
       # 判斷放在 gate、不放在 build：build 是 4 個 matrix job，放在那裡要各查一次 API，
       # 而且四個 job 可能查到不同的答案（main 在中間被推了新 commit），
@@ -160,7 +167,9 @@ jobs:
           images: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
           # ⚠️ `latest` 只在這次建的 commit 仍是 main HEAD 時才貼（判斷見 gate 的
           # resolve step）。舊 commit 的 CD 照樣推它自己的 sha tag——那有保留價值、
-          # 也不會影響任何人——但不得覆寫 latest，否則 watchtower 會把 prod 換到舊 build。
+          # 也不會影響任何人——但不得覆寫 latest，否則**任何拉 `latest` 的部署都會
+          # 拿到舊 build**。（2026-09-03 訂正：原文寫的是「watchtower 會把 prod 換到
+          # 舊 build」，watchtower 已於 PR #58 移除，改述為與部署方式無關的說法。）
           #
           # `enable` 只接受求值為 `true` / `false` 的字串，其他值會直接報
           # `Invalid enable attribute value`。這裡的比較式必為兩者之一；
@@ -211,12 +220,13 @@ jobs:
             echo "## Deployment Summary"
             echo ""
             if [ "$IS_MAIN_HEAD" = "true" ]; then
-              echo "Images pushed to GHCR，含 \`latest\`。Watchtower will auto-deploy."
+              echo "Images pushed to GHCR，含 \`latest\`。**部署為人工執行**——"
+              echo "見 \`scripts/deploy/setup-server.sh\` 與 \`rollback.sh\`（皆以 IMAGE_TAG 指定版本）。"
               tags="\`${SHA}\`, \`latest\`"
             else
               echo "⚠️ 本輪建的是 \`${SHA}\`，**已不是 main 的 HEAD**，故只推 sha tag、"
-              echo "**沒有動 \`latest\`**——watchtower 不會因為這一輪換版。"
-              echo "要讓 prod 換到最新版，等 main HEAD 那一輪 CD 跑完即可。"
+              echo "**沒有動 \`latest\`**——既有部署不受這一輪影響。"
+              echo "要部署最新版，等 main HEAD 那一輪 CD 跑完，再人工執行部署。"
               tags="\`${SHA}\`（不含 \`latest\`）"
             fi
             echo ""
