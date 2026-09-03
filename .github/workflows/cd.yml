@@ -211,7 +211,28 @@ jobs:
     name: "Summary"
     runs-on: ubuntu-latest
     needs: [gate, build]
-    if: always()
+    # gate 沒放行＝**預期中的不部署**，整個 run 應該顯示 skipped 而不是 failure。
+    #
+    # 舊寫法是 `if: always()`，於是 gate 被跳過時這個 job 照樣跑，而下面的
+    # 「Deployment failed」判斷是 `needs.build.result != 'success'`——build 因為
+    # `needs: gate` 而一併 skipped，`'skipped' != 'success'` 成立，就 `exit 1`。
+    # 結果是把「gate 判定不該部署」誤報成「build/push 失敗」。
+    #
+    # gate 的 if 條件（見上方 A4 資安修補）在三種情況下不成立，三者都不是失敗：
+    #   1. CI conclusion 非 success —— 含被 `cancel-in-progress` 取消的中間 commit
+    #   2. CI 不是 push 觸發
+    #   3. CI 的 head_branch 不是 main
+    # 第 1 種是常態：`ci.yml` 對 main 設了 `cancel-in-progress: true`，所以**每次連續
+    # 合併都必然產生一筆假紅**。2026-09-02 實測，當天 main 上就有三筆同形狀的假紅
+    # （其中一筆是合併 #73 時，前一顆 commit 76480fed 的 CI 被取消所致）。
+    #
+    # 假紅的代價不在那一筆，而在於它讓人養成忽略 CD 紅燈的習慣——真的壞掉時
+    # 同樣不會有人去看。
+    #
+    # ⚠️ **只排除 gate `skipped`，不要連 `failure` 一起排除。** gate 自己執行失敗
+    # （例如 resolve step 的 `gh api` 掛掉）時 result 是 `failure`，那要繼續走下面的
+    # 失敗路徑紅掉。把它一併排除會製造一個真正的誤放行。
+    if: ${{ always() && needs.gate.result != 'skipped' }}
     steps:
       - name: Deployment success
         if: ${{ needs.build.result == 'success' }}
