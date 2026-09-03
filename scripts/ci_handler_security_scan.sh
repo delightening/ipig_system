@@ -1,15 +1,21 @@
 #!/bin/bash
 # CI Security Guard: Handler Access Control Scan
 #
-# 原理：搜索 handlers/ 中所有 pub async fn，檢測三種危險模式：
-#   1. _current_user（底線 = 參數未使用）+ Path 參數 = IDOR
-#   2. Extension(current_user) 存在但函數體不含任何 access check = 可疑
-#   3. 新增 handler 不在已知白名單中 = 需要 review
+# 檢測三種形狀（前兩種會擋 CI，第三種只發警告）：
+#   [1/3] _current_user（底線 = 宣告了身分卻不用）+ Path 參數        → EXIT 1
+#   [3/3] _current_user + 接受 body（Json/Multipart）的寫入操作      → EXIT 1
+#   [2/3] 有 current_user + Path( 但全檔查無任何 access check        → 只警告
 #
-# 邊界條件：
-#   - 不依賴命名慣例（_current_user），也搜索 Extension<CurrentUser> 的實際使用
-#   - 覆蓋所有取得身分的方式（Extension、headers extract 等）
-#   - 白名單檔案缺失時 fail-open 但發出警告
+# ⚠️ **這支腳本能抓到什麼、抓不到什麼，講清楚比較安全**（R66-D3，2026-09-03 訂正）：
+#   - 抓得到：「宣告了 CurrentUser 卻加底線不用」這個字面信號，也就是粗心。
+#   - 抓不到：「用了 current_user，但沒有做物件層授權」——而那正是 R66-D2／R75
+#     那一整條線要防的東西。[2/3] 只是 file-level 的粗篩，不是保證。
+#   要真正在結構上擋住漏授權，得走型別層（`Scoped<T>`，見 TODO 的 R94-4），
+#   讓漏掉授權的程式碼編譯不過，而不是靠 grep。
+#
+# ⚠️ 本檔頭原本還寫著「3. 新增 handler 不在已知白名單中 = 需要 review」與
+#   「白名單檔案缺失時 fail-open 但發出警告」——**那個白名單機制從來沒有實作過**
+#   （全檔查無 whitelist／allowlist／known_handlers）。已刪除該敘述，不留假承諾。
 #
 # 用法：
 #   ./scripts/ci_handler_security_scan.sh
@@ -79,12 +85,39 @@ echo ""
 
 echo "[2/3] 搜索缺少 access check 的 handler（informational）..."
 
-# 簡化版：找「含 current_user（非底線）+ Path( 的檔案」但不含任何 access check 的檔案
-# 這是 file-level 檢查（非 function-level），速度快但精度稍低
-ACCESS_PATTERNS="require_permission|is_admin|has_permission|require_animal_access|require_protocol|check_resource_access|check_amendment_access|check_attachment_permission|require_calendar_admin|require_reauth_token"
+# ⚠️ R66-D3（2026-09-03）：這一格原本是空殼——只印上面那行標題，然後定義
+# ACCESS_PATTERNS 與 WARN_COUNT 就結束，兩個變數在全檔其餘地方一次都沒被用到。
+# 於是「handler 有沒有真的做授權檢查」這個問題從來沒有被問過。
+#
+# 現在補實，但刻意只發警告、不設 EXIT_CODE=1：這是 file-level 比對
+#（只問「這個檔案裡有沒有出現任何一種 access check」），誤報本來就多——
+# 例如 /me 這類端點合法地不需要物件層授權、或授權發生在 service 層而非 handler 檔內。
+# 直接當硬閘會製造大量假紅，那多半正是它當初被留空的原因。
+# 先讓數字浮出來，再依實際命中決定要不要收斂成 function-level 或升級為硬閘。
+#
+# 判準刻意保守：只看同時有 current_user 與 Path(（有身分、也有物件 id）的檔案，
+# 且該檔完全沒有任何一種 access check 字樣才報。
+ACCESS_PATTERNS="require_permission|is_admin|has_permission|require_animal_access|require_protocol|check_resource_access|check_amendment_access|check_attachment_permission|require_calendar_admin|require_reauth_token|Scoped::|authorize\("
 
 WARN_COUNT=0
-echo "  (file-level scan — informational only)"
+echo "  (file-level scan — informational only，不影響 exit code)"
+
+for file in $(grep -rl "current_user" "$HANDLERS_DIR" --include="*.rs" 2>/dev/null || true); do
+    # 沒有 Path( 就沒有「別人的資源」可被越權存取，跳過
+    if ! grep -q "Path(" "$file"; then
+        continue
+    fi
+    if ! grep -qE "$ACCESS_PATTERNS" "$file"; then
+        echo "  ⚠️  $file — 有 current_user + Path( 但全檔查無 access check"
+        WARN_COUNT=$((WARN_COUNT + 1))
+    fi
+done
+
+if [ "$WARN_COUNT" -eq 0 ]; then
+    echo "  ✅ 無檔案落入此形狀"
+else
+    echo "  ⚠️  $WARN_COUNT 個檔案值得人工看一眼（不擋 CI）"
+fi
 
 echo ""
 
