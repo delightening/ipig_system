@@ -37,14 +37,34 @@ const OK_WRITE_INTERVAL_MS = 60 * 60 * 1000;
 export default {
   async scheduled(_event, env, _ctx) {
     const now = Date.now();
-    const bootstrapAt = await ensureBootstrap(env, now);
 
-    const health = await checkHealth(env, now);
+    // ── 讀取階段 ────────────────────────────────────────────────────────────
+    // 這一段只讀不寫，所有 KV 寫入都在後面的 commit()。因此 KV 讀不到時直接讓
+    // KvUnavailable 往上拋，本輪就在「還沒動到任何狀態」的位置乾淨中止：
+    // 不寄信、不回寫、下一輪（5 分鐘後）重來。
+    //
+    // ⚠️ 代價是 KV 持續故障時看門狗會**安靜地瞎掉**，而它自己不會告警。
+    // 這是刻意選的：另一邊（沿用舊的 fail-open）是拿假資料做判斷，會同時製造
+    // 誤報與漏報（見 KvUnavailable 的說明）。用一個「延後偵測 5 分鐘」換掉
+    // 「講錯話」，對外部監控是划算的。KV 故障的可見性靠 Cloudflare 的 Workers
+    // 錯誤率與 `wrangler tail`——這個 throw 就是為了讓它出現在那裡。
+    let bootstrapAt;
+    let health;
     const heartbeats = [];
-    for (const [job, maxAgeMs] of Object.entries(HEARTBEAT_JOBS)) {
-      heartbeats.push(await checkHeartbeat(env, job, maxAgeMs, now, bootstrapAt));
+    try {
+      bootstrapAt = await ensureBootstrap(env, now);
+      health = await checkHealth(env, now);
+      for (const [job, maxAgeMs] of Object.entries(HEARTBEAT_JOBS)) {
+        heartbeats.push(await checkHeartbeat(env, job, maxAgeMs, now, bootstrapAt));
+      }
+    } catch (e) {
+      if (e instanceof KvUnavailable) {
+        console.error(`watchdog: KV 不可用，跳過本輪（不寄信、不回寫）— ${e.message}`);
+      }
+      throw e;
     }
 
+    // ── 判斷與寫入階段 ──────────────────────────────────────────────────────
     const alerts = [...health.alerts, ...heartbeats.flatMap((h) => h.alerts)];
     let sendError = null;
     if (alerts.length > 0) {
@@ -90,7 +110,16 @@ export default {
       if (!authorized(request, env)) {
         return new Response("forbidden", { status: 403 });
       }
-      return Response.json(await buildStatus(env, Date.now()));
+      // /status 是「人在查看門狗還活著嗎」的入口。KV 讀不到時回 503 並說清楚
+      // 是 KV 的問題，比丟一個空白 500 有用——後者會讓人以為是 Worker 掛了。
+      try {
+        return Response.json(await buildStatus(env, Date.now()));
+      } catch (e) {
+        if (e instanceof KvUnavailable) {
+          return Response.json({ error: "kv_unavailable", detail: e.message }, { status: 503 });
+        }
+        throw e;
+      }
     }
 
     return new Response("not found", { status: 404 });
@@ -100,6 +129,27 @@ export default {
 // ============================================================================
 // 探測（主動）
 // ============================================================================
+
+/*
+ * KV 的讀取→判斷→寫入不是原子的，兩輪重疊執行時會遺失更新。這裡**明確接受**
+ * 這個競態，不改用 Durable Object。理由是把後果算清楚之後它很小：
+ *
+ *   - `fails` 計數遺失一次 → 告警延後一輪（5 分鐘）。門檻本來就是 3 次 ≒ 15 分鐘，
+ *     多 5 分鐘不改變任何處置。
+ *   - `alerted` 兩邊都讀到 false → 同一件事寄兩封信。吵，但不會漏。
+ *   - `lastOkAt` 遺失一次回寫 → 只影響告警信裡「最後一次正常」這行的精度。
+ *
+ * 三種後果都是「慢一點」或「吵一點」，**沒有一種會讓系統掛掉而不告警**——
+ * 而那是本 Worker 唯一要守住的事。Durable Object 要付的是一個常駐計費物件、
+ * 一層新的失敗模式（DO 本身不可用時怎麼辦），換到的只有上面這三項的精度。
+ *
+ * ⚠️ 這個判斷有前提：`scheduled` 是唯一的寫入者，而 Cloudflare 的 Cron Trigger
+ * 對同一個排程不會刻意併發（重疊只可能來自重試）。**若哪天新增了第二個寫入者**
+ * （例如讓 /ping 也去改 `state:hb:*`，或加第二條 cron），上面的算式就不成立，
+ * 屆時要重新評估而不是沿用本註解。
+ *
+ * 相關：讀取**失敗**與「沒有資料」的區分是另一回事，那個必須修，見 KvUnavailable。
+ */
 
 /** @returns {Promise<{alerts: string[], commit: (delivered: boolean) => Promise<void>}>} */
 async function checkHealth(env, now) {
@@ -303,12 +353,39 @@ function timingSafeEqual(a, b) {
   return diff === 0;
 }
 
+/**
+ * KV 讀取失敗時丟出，用來跟「key 真的不存在」（`null`）區分開。
+ *
+ * 這個區分是必要的，不是潔癖：舊版把讀取失敗吞成 `null`，**兩個方向都會錯**——
+ *
+ *   - 心跳側**誤報**。`ping:<job>` 讀失敗 → `lastAt` fallback 到 bootstrapAt →
+ *     bootstrap 只要夠舊就判定 overdue；同一輪 `state:hb:<job>` 也讀失敗 →
+ *     `alerted` 當成 false → 沒有任何東西擋住，直接寄出「備份可能正在靜默失敗」。
+ *     KV 一次短暫抖動就能無中生有一封告警。
+ *   - 探測側**漏報**。`state:probe` 讀失敗 → `prev.fails` 歸零 → 連續失敗計數
+ *     被重置成 1，湊不到 FAIL_THRESHOLD。真的掛掉時反而不告警。
+ *
+ * 這兩個剛好是看門狗最不該犯的兩種錯，而且成因是同一行 `return null`。
+ */
+class KvUnavailable extends Error {
+  constructor(key, cause) {
+    super(`KV 讀取失敗 key=${key}: ${cause?.message ?? String(cause)}`);
+    this.name = "KvUnavailable";
+    this.key = key;
+    this.cause = cause;
+  }
+}
+
+/**
+ * @returns 解析後的值，或 `null`——**`null` 只代表 key 不存在**。
+ * @throws {KvUnavailable} KV 讀不到時。呼叫端必須跳過本輪，不得當成無資料。
+ */
 async function kvGetJSON(env, key) {
   try {
     return await env.WATCHDOG_KV.get(key, { type: "json" });
   } catch (e) {
     console.error(`watchdog: KV 讀取失敗 key=${key}`, e?.stack ?? String(e));
-    return null;
+    throw new KvUnavailable(key, e);
   }
 }
 
