@@ -12,7 +12,8 @@
 #
 # 冪等：已存在的檔案不覆蓋（要重產請先自行刪除該檔）。
 #
-# ⚠️ R103-5：目標目錄裡**只要有任何檔案**，預設就直接拒絕執行（fail-closed）。
+# ⚠️ R103-5：目標目錄裡**只要有任何東西**（一般檔案、dotfile、symlink、子目錄
+# 都算），預設就直接拒絕執行（fail-closed）。
 # 理由是這支腳本的落點在已部署的機器上就是現役 prod 的 secrets 目錄，
 # 而它對既有檔案也會下 chmod。要在既有部署上重跑須明確帶 `--allow-existing`，
 # 詳見下方守衛處的說明。
@@ -68,7 +69,7 @@ SECRETS_DIR="$REPO_ROOT/secrets"
 # `chmod 0711`、對那些**正被容器 bind-mount 的**檔下 `chmod 0644`
 # ——正是本守衛要擋的事，只是繞過了守衛。而殘缺狀態（R103-3 處理的那個主題）
 # 剛好就長這樣，等於同一支腳本裡兩處對「什麼算已佈建」的定義不一致。
-# 改用「有任何檔案就擋」除了補掉那個缺口，還消掉了**清單漂移**這個風險來源：
+# 改用「有任何東西就擋」除了補掉那個缺口，還消掉了**清單漂移**這個風險來源：
 # 白名單要跟著日後新增的 secret 一起維護，忘記維護就是靜默放行。
 # `secrets/` 在 `.gitignore` 是整個目錄排除、零版控檔案（實查），
 # 所以不會有 `.gitkeep` 這類無辜檔案被誤判。
@@ -85,13 +86,20 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$ALLOW_EXISTING" -ne 1 ] && [ -d "$SECRETS_DIR" ]; then
-  # 只看一般檔案；目錄本身為空則視為未佈建
-  existing_count=$(find "$SECRETS_DIR" -maxdepth 1 -type f | wc -l)
+  # ⚠️ 述詞是「目錄裡有任何**東西**」，刻意不加 `-type f`。
+  # 初版寫 `-type f`＝只看一般檔案，那是一份**只有一個項目的型態白名單**，
+  # 漏列的型態（子目錄、symlink）一樣全部落在「放行」那一邊——與前一版的
+  # 檔名白名單是同一個形狀的錯誤。實測（Linux 容器，見 E1–E3）：只含一個
+  # 子目錄或只含一個 symlink 時，`-type f` 數到 0 而放行。
+  # symlink 那個特別糟：`chmod(2)` 依 POSIX 跟隨 symlink 改到**目標**
+  # （無可攜的 `lchmod`），等於隔著連結去改目錄外的檔案權限。
+  # `-mindepth 1` 是為了不把目錄自己算進去。
+  existing_count=$(find "$SECRETS_DIR" -mindepth 1 -maxdepth 1 | wc -l)
   if [ "$existing_count" -gt 0 ]; then
     echo "ERROR: 目標目錄已經有東西了，本腳本拒絕在上面執行。" >&2
-    echo "       目標：$SECRETS_DIR（既有檔案 $existing_count 個）" >&2
+    echo "       目標：$SECRETS_DIR（既有項目 $existing_count 個）" >&2
     # 不用 `find -printf`：那是 GNU 專屬，busybox 沒有，會靜默少印這一段
-    find "$SECRETS_DIR" -maxdepth 1 -type f | head -8 | while read -r p; do
+    find "$SECRETS_DIR" -mindepth 1 -maxdepth 1 | head -8 | while read -r p; do
       echo "         - $(basename "$p")" >&2
     done
     if [ "$existing_count" -gt 8 ]; then
