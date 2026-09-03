@@ -18,7 +18,7 @@ scripts/
 ├── deploy/                   # 正式環境部署
 │   ├── healthcheck.sh        # 部署後健康檢查
 │   ├── rollback.sh           # 回滾至指定 image tag
-│   └── setup-server.sh       # 一次性生產環境設定（GHCR、Watchtower）
+│   └── setup-server.sh       # 一次性生產環境設定（GHCR 登入、.env）
 ├── k6/                       # 負載測試
 │   ├── README.md             # k6 安裝與執行說明
 │   └── load-test.js          # k6 腳本
@@ -76,7 +76,7 @@ scripts/
 
 | 腳本 | 說明 | 用法 |
 |------|------|------|
-| `deploy/setup-server.sh` | 生產環境一次性設定（GHCR 登入、Watchtower token、.env） | `bash scripts/deploy/setup-server.sh` |
+| `deploy/setup-server.sh` | 生產環境一次性設定（GHCR 登入、`.env` 的 `GHCR_OWNER`／`IMAGE_TAG`） | `bash scripts/deploy/setup-server.sh` |
 | `deploy/healthcheck.sh` | 部署後 API/Web 健康檢查 | `bash scripts/deploy/healthcheck.sh [MAX_WAIT_SECONDS] [RETRIES]` |
 | `deploy/rollback.sh` | 回滾至指定 commit 映像 | `bash scripts/deploy/rollback.sh <commit-sha>` |
 
