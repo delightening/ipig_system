@@ -105,8 +105,47 @@ assert_pkcs8() {
   fi
 }
 
+# ⚠️ 兩個檔都在時，只驗「存在」不夠——它們可能不是同一對。
+# 後端把兩者**各自獨立**載入（`backend/src/config.rs`：`EncodingKey::from_ec_pem(私鑰)`
+# 與 `DecodingKey::from_ec_pem(公鑰)`），中間沒有配對檢查，啟動路徑上也查無其他檢查
+# （`startup/security_checks.rs` 的 H7 只看私鑰檔的 unix mode）。於是一對「兩個檔都在、
+# 格式都對、但彼此不配對」的金鑰會讓服務**正常啟動**，卻是簽出來的 token 一律驗不過
+# ——全部使用者登入即失效，而本腳本原本會回報 skip 說一切正常。
+# 成因不必假設得很奇特：手動換過其中一個、從不同世代的備份還原、或上一次修復時
+# 弄錯方向（該補公鑰卻蓋了私鑰）都會造成。
+assert_pair_matches() {
+  local derived canonical
+  derived="$(mktemp)"
+  canonical="$(mktemp)"
+  # 兩邊都轉成 SPKI 公鑰的標準輸出再比，避免換行或編碼差異造成假不符
+  if ! openssl pkey -in "$priv" -pubout -out "$derived" 2>/dev/null; then
+    rm -f "$derived" "$canonical"
+    echo "ERROR: 無法從既有私鑰推導公鑰（$priv 可能已損壞）。" >&2
+    exit 1
+  fi
+  if ! openssl pkey -pubin -in "$pub" -pubout -out "$canonical" 2>/dev/null; then
+    rm -f "$derived" "$canonical"
+    echo "ERROR: 既有公鑰不是合法的 EC 公鑰 PEM（$pub）。" >&2
+    echo "       刪除它後重跑，本腳本會由既有私鑰重新推導。" >&2
+    exit 1
+  fi
+  if ! cmp -s "$derived" "$canonical"; then
+    rm -f "$derived" "$canonical"
+    echo "ERROR: 既有的 JWT 私鑰與公鑰不是同一對。" >&2
+    echo "       後端用私鑰簽、用公鑰驗，不配對＝簽出來的 token 一律驗不過。" >&2
+    echo "       請先確認哪一個才是要保留的：" >&2
+    echo "       - 私鑰是對的 → 刪掉 $pub 後重跑，本腳本會由私鑰推導出正確的公鑰" >&2
+    echo "       - 私鑰是錯的 → 從備份還原正確的私鑰後再跑" >&2
+    echo "       本腳本不自行猜測——猜錯的那一邊會讓既有已簽發的 token 全數失效。" >&2
+    exit 1
+  fi
+  rm -f "$derived" "$canonical"
+}
+
 if [ -e "$priv" ] && [ -e "$pub" ]; then
-  echo "  skip   jwt_ec_private_key.pem / jwt_ec_public_key.pem（皆已存在）"
+  assert_pkcs8
+  assert_pair_matches
+  echo "  skip   jwt_ec_private_key.pem / jwt_ec_public_key.pem（皆已存在且互相配對）"
   skipped=$((skipped + 2))
 elif [ -e "$priv" ] && [ ! -e "$pub" ]; then
   # 公鑰是私鑰的函數，可以無損重建——這種狀態要修好，不是報錯。
