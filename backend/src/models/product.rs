@@ -150,7 +150,10 @@ pub struct CreateProductRequest {
 }
 
 /// 更新產品請求（SKU 不可修改）
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+///
+/// `Clone`：service 層寫入前會做一份「單位已正規化」的副本（`ProductService::update_tx`），
+/// 原請求保持不動。
+#[derive(Debug, Clone, Deserialize, Validate, ToSchema)]
 pub struct UpdateProductRequest {
     #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
     pub name: Option<String>,
@@ -182,7 +185,9 @@ pub struct UpdateProductRequest {
     pub uom_conversions: Option<Vec<UomConversionInput>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+/// 單位換算的寫入輸入。`PartialEq` 供 `reconcile_derived_pack_conversion_tx` 比對
+/// 「舊包裝關係推導的列」與「新的」是否相同（相同就完全不動 DB）。
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 pub struct UomConversionInput {
     pub uom: String,
     pub factor_to_base: Decimal,
