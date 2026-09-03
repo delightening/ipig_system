@@ -10,8 +10,11 @@
 #   - 抓得到：「宣告了 CurrentUser 卻加底線不用」這個字面信號，也就是粗心。
 #   - 抓不到：「用了 current_user，但沒有做物件層授權」——而那正是 R66-D2／R75
 #     那一整條線要防的東西。[2/3] 只是 file-level 的粗篩，不是保證。
-#   要真正在結構上擋住漏授權，得走型別層（`Scoped<T>`，見 TODO 的 R94-4），
+#   要真正在結構上擋住漏授權，得走型別層（`Scoped::<T>::authorize(...)`，見 TODO 的 R94-4），
 #   讓漏掉授權的程式碼編譯不過，而不是靠 grep。
+#   （此處刻意寫 turbofish 而非 `Scoped<T>`：後者是描述型別時的自然寫法，但**實際 code 的
+#   syntax 是 `Scoped::<T>::authorize`**，而下面 [2/3] 的 `ACCESS_PATTERNS` 比對的是實際
+#   syntax。兩處寫法不一致會讓讀者以為 pattern 漏匹配——2026-09-03 CodeRabbit 即如此誤讀。）
 #
 # ⚠️ 本檔頭原本還寫著「3. 新增 handler 不在已知白名單中 = 需要 review」與
 #   「白名單檔案缺失時 fail-open 但發出警告」——**那個白名單機制從來沒有實作過**
@@ -97,6 +100,21 @@ echo "[2/3] 搜索缺少 access check 的 handler（informational）..."
 #
 # 判準刻意保守：只看同時有 current_user 與 Path(（有身分、也有物件 id）的檔案，
 # 且該檔完全沒有任何一種 access check 字樣才報。
+#
+# ⚠️ **不要把 `Scoped<` 加進這串**（2026-09-03，CodeRabbit 曾建議兩種形式都匹配）：
+# 這一格的語意是「檔案裡出現任一 access check 字樣 → 不警告」，所以每加一個字樣就是
+# 放寬一次。而 `Scoped<T>` 這種寫法在本 repo 只出現在**註解裡**（例如
+# `handlers/amendment.rs` 的「PI 寫入授權前移至 Scoped<AmendmentWrite>」），實際呼叫一律是
+# `access::Scoped::<T>::authorize(...)`。把 `Scoped<` 加進來，等於讓「註解提過型別授權但
+# 實際沒做」的檔案免於警告——那正是這一格要抓的東西。
+# 當日實測：8 個被警告的檔案裡**沒有任何一個**含 `Scoped<` 或 `Scoped::`，
+# 該建議要防的誤報一次都沒發生。
+#
+# ⚠️ 附帶查出：**`Scoped::` 這一項目前是冗餘的**（同日 mutation 驗證：把它從本串移除，
+# 警告數 8 → 8、一個都沒多）。原因是 `Scoped::<T>::authorize(...)` 同時命中後面的
+# `authorize\(`。保留它有兩個理由：一是讓「型別層授權也算 access check」這件事在
+# pattern 上看得見，二是萬一日後出現不叫 `authorize` 的 `Scoped::<T>::xxx()`，
+# 這一項才會接住。**但它現在不是防線，改動時不要把它當成有效的那一格。**
 ACCESS_PATTERNS="require_permission|is_admin|has_permission|require_animal_access|require_protocol|check_resource_access|check_amendment_access|check_attachment_permission|require_calendar_admin|require_reauth_token|Scoped::|authorize\("
 
 WARN_COUNT=0
