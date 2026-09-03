@@ -7,9 +7,15 @@
 # 稽核 HMAC 鏈亦重新起算（使用者裁定「舊資料只要存一個結果即可，不用可驗」）。
 #
 # 用法：
-#   ./scripts/newprod/gen-secrets.sh
+#   ./scripts/newprod/gen-secrets.sh                          # 初次佈建（目標目錄須為空）
+#   GEN_SECRETS_ALLOW_EXISTING=1 ./scripts/newprod/gen-secrets.sh   # 在既有部署上重跑
 #
 # 冪等：已存在的檔案不覆蓋（要重產請先自行刪除該檔）。
+#
+# ⚠️ R103-5：在**已佈建**的目標目錄上，預設會直接拒絕執行（fail-closed）。
+# 理由是這支腳本的落點在已部署的機器上就是現役 prod 的 secrets 目錄，
+# 而它對既有檔案也會下 chmod。要在既有部署上重跑須明確帶
+# `GEN_SECRETS_ALLOW_EXISTING=1`，詳見下方守衛處的說明。
 
 set -euo pipefail
 
@@ -25,6 +31,62 @@ umask 077
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SECRETS_DIR="$REPO_ROOT/secrets"
+
+# R103-5：這支腳本的定位是「初次佈建」，但它的落點 `$REPO_ROOT/secrets` 在**已部署的
+# 機器上就是現役 prod 正在用的那個目錄**（vet 實查 `ipig-api` 容器掛載確認）。
+# 檔名與所在目錄都叫 `newprod`，而 newprod stack 已確認不存在（R103-1）——
+# 名字指向一個不存在的東西，實際卻對著正式機。
+#
+# ⚠️ **它自己分不出「新機器」與「已在服務的機器」**，而誤跑的代價不只是產檔：
+# 本腳本對既有檔案也會下 chmod（目錄 0711、六個監控檔 0644），所以就算一個檔都
+# 沒新產生，也已經動到現役金鑰的權限。故此處 fail-closed。
+#
+# 判準為什麼是「已佈建」而不是「正在服務」：**檔案系統上沒有任何訊號能區分兩者**。
+# 唯一能區分的訊號是「這些檔案是否被執行中的容器 bind-mount」，但**不拿它當閘門**，
+# 兩個理由：
+#   (1) 它在最危險的情況下 fail-open——docker CLI 不在、沒權限、daemon 沒起來時
+#       一律放行，而「有人在正式機上手動跑這支腳本」正好常常是這個情境。
+#   (2) 要保護的那台是 Windows，容器 mount source 形如 `C:\...\secrets\x.txt`，
+#       而腳本在 Git Bash 算出的路徑是 `/c/...` 或 `C:/...`。正規化（大小寫、
+#       `\` vs `/`、磁碟機表示法）只要寫錯一點，就是**沉默地永遠不命中**——
+#       一個看起來有守衛、實際永遠放行的空殼，比沒有守衛更糟。
+# 因此閘門取保守的上位集合——目標目錄裡只要有任何一個核心 secret，就當作已佈建而拒絕；
+# docker 那個訊號寫進錯誤訊息當**診斷指引**，由人去確認。
+# 寧可擋下一次合法的重跑（帶旗標即可放行），也不要在正式機上默默改權限。
+#
+# ⚠️ **這條改變了原本的冪等用法**：在已佈建的目錄上重跑（例如補回被刪的公鑰、
+# 或讓權限套用到既有檔案）現在必須明確帶 `GEN_SECRETS_ALLOW_EXISTING=1`。
+# 這是刻意的——把「我知道這是既有部署」變成一個要打字的動作，而不是預設值。
+PROVISIONED_MARKERS="db_url.txt jwt_ec_private_key.pem audit_hmac_key.txt encryption_key.txt db_password.txt"
+if [ "${GEN_SECRETS_ALLOW_EXISTING:-}" != "1" ] && [ -d "$SECRETS_DIR" ]; then
+  found=""
+  for m in $PROVISIONED_MARKERS; do
+    if [ -e "$SECRETS_DIR/$m" ]; then
+      found="$found $m"
+    fi
+  done
+  if [ -n "$found" ]; then
+    echo "ERROR: 目標目錄看起來已經佈建過，本腳本拒絕在上面執行。" >&2
+    echo "       目標：$SECRETS_DIR" >&2
+    echo "       偵測到的既有核心 secret：$found" >&2
+    echo "" >&2
+    echo "       本腳本的定位是「初次佈建」。在已部署的機器上，這個路徑就是" >&2
+    echo "       現役 prod 正在使用的 secrets 目錄；即使一個檔都不新產生，" >&2
+    echo "       它仍會對既有檔案與目錄下 chmod，動到現役金鑰的權限。" >&2
+    echo "" >&2
+    echo "       要確認這批檔案是不是正在被服務使用（本腳本刻意不自己判斷，理由見下）：" >&2
+    echo "           docker ps --filter status=running --format '{{.Names}}'" >&2
+    echo "           docker inspect <容器> --format '{{range .Mounts}}{{.Source}}{{\"\\n\"}}{{end}}'" >&2
+    echo "       source 若落在上面那個目標路徑底下，就是現役 prod 在用。" >&2
+    echo "" >&2
+    echo "       依你的意圖選一個：" >&2
+    echo "       - 這台是新機器，上面那些是殘留 → 先把 $SECRETS_DIR 移到別處備份，再重跑" >&2
+    echo "       - 我就是要在既有部署上重跑（補回缺檔／套用權限）→" >&2
+    echo "           GEN_SECRETS_ALLOW_EXISTING=1 $0" >&2
+    echo "         ⚠️ 那會對既有檔案套用權限變更，動 prod 前請先確認影響範圍。" >&2
+    exit 1
+  fi
+fi
 
 mkdir -p "$SECRETS_DIR"
 
