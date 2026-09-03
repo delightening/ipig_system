@@ -60,9 +60,13 @@ impl PdfServiceClient {
         );
         let body = serde_json::json!({"working_content": working_content});
 
-        // 快取僅針對 PDF：「計畫內容」分頁預覽每次都觸發 Chromium 全量 render（~15s/份）
-        // 且 render 序列化（cap=1）；同一份未修改計畫書反覆預覽是純重算浪費。key 綁「實際送出的
+        // 快取僅針對 PDF 匯出：每次下載 PDF 都觸發 Chromium 全量 render（~15s/份）
+        // 且 render 序列化（cap=1）；同一份未修改計畫書反覆匯出是純重算浪費。key 綁「實際送出的
         // body」（含已內嵌照片）→ 同內容必同 PDF，內容一改即 miss 重算，無 staleness。
+        //
+        // ⚠️「計畫內容」分頁的預覽 iframe 走的是下面的 `render_aup_html`（format=html），
+        // print-pdf 端 `format=html` 直接回傳渲染前的 HTML、不觸發 Chromium render，
+        // 也不吃這份快取——預覽本身很快，慢的只有實際匯出 PDF 那個動作。
         let cache_key = match format {
             DocxRenderFormat::Pdf => render_cache_key("render-aup-pdf", &body),
             _ => None,
