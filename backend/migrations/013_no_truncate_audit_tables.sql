@@ -106,8 +106,16 @@ CREATE TRIGGER check_electronic_signatures_no_truncate_trigger
 --
 -- 解法沿用本表既有慣例：check_blood_test_items_no_delete 早就用同一個機制處理合法的
 -- cascade 場景。GUC 另取一個名字（不與 delete 那個共用），避免打開 DELETE 例外時
--- 連帶把 TRUNCATE 也放行。bypass 走 SET LOCAL，出了 transaction 自動失效，
--- 且每次都 RAISE NOTICE 留軌跡——它不是「取消擋板」，是具名、有紀錄、範圍限縮的例外。
+-- 連帶把 TRUNCATE 也放行。bypass 走 SET LOCAL，出了 transaction 自動失效——
+-- 它不是「取消擋板」，是具名、有紀錄、範圍限縮的例外。
+--
+-- ⚠️ 「有紀錄」指的是 **service 層**在同一個 tx 內寫進 user_activity_logs 的稽核事件
+-- （DATA_IMPORT_TRUNCATE，進 HMAC 雜湊鏈），不是下面那句 RAISE NOTICE。
+-- NOTICE 只是 DB 層的即時提示：PostgreSQL 預設 log_min_messages=warning，
+-- NOTICE **不會**寫進 server log（client_min_messages=notice 只讓它送到連線端，
+-- 而 sqlx 那端沒有 notice handler）。實測值見 PR #79 討論。
+-- 要留下持久且可驗證的軌跡，靠的是 cleanup_partial_unique_tables 內的
+-- AuditService::log_activity_tx，與 TRUNCATE 同生共死。
 
 CREATE FUNCTION public.check_blood_test_items_no_truncate() RETURNS trigger
     LANGUAGE plpgsql
@@ -130,7 +138,7 @@ SET LOCAL app.bypass_blood_test_items_truncate = ''true''.'
 END;
 $$;
 
-COMMENT ON FUNCTION public.check_blood_test_items_no_truncate() IS 'GLP §11.70：TRUNCATE 不觸發 row-level trigger，需獨立的 STATEMENT 層擋板。session GUC app.bypass_blood_test_items_truncate 為 escape hatch（IDXF 全庫匯入的 TRUNCATE ... CASCADE 會遞移波及本表），會 RAISE NOTICE 留軌跡。';
+COMMENT ON FUNCTION public.check_blood_test_items_no_truncate() IS 'GLP §11.70：TRUNCATE 不觸發 row-level trigger，需獨立的 STATEMENT 層擋板。session GUC app.bypass_blood_test_items_truncate 為 escape hatch（IDXF 全庫匯入的 TRUNCATE ... CASCADE 會遞移波及本表）。軌跡由 service 層在同 tx 寫入 user_activity_logs（DATA_IMPORT_TRUNCATE，進 HMAC 鏈）；函式內的 RAISE NOTICE 僅為即時提示，預設 log_min_messages=warning 下不進 server log。';
 
 CREATE TRIGGER check_blood_test_items_no_truncate_trigger
     BEFORE TRUNCATE ON public.animal_blood_test_items

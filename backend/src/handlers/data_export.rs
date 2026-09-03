@@ -120,7 +120,11 @@ pub async fn full_database_import(
     require_reauth_token(&headers, &state, &current_user)?;
 
     let (file_data, _file_name) = parse_import_file(&mut multipart).await?;
-    let result = import_idxf(&state.db, &file_data, ImportMode::Append).await?;
+    // actor 要在 import 之前就備好：匯入過程中的 TRUNCATE 清理會用它寫一筆同 tx 的
+    // 稽核事件（見 data_import::cleanup_partial_unique_tables），不能等到匯入完成後
+    // 才建——那時清空早已 commit。
+    let actor = ActorContext::User(current_user.clone());
+    let result = import_idxf(&state.db, &actor, &file_data, ImportMode::Append).await?;
 
     // 匯入後確保 admin 可登入（重設密碼為 ADMIN_INITIAL_PASSWORD）
     let _ = ensure_admin_user_after_import(&state.db, &state.config).await;
@@ -129,7 +133,6 @@ pub async fn full_database_import(
         "全庫匯入: {} 表, {} 筆新增, {} 筆略過",
         result.tables_processed, result.rows_inserted, result.rows_skipped
     );
-    let actor = ActorContext::User(current_user.clone());
     if let Err(e) = AuditService::log_activity_oneshot(
         &state.db,
         &actor,

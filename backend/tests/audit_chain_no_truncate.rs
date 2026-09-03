@@ -20,6 +20,8 @@
 //!    IDXF 全庫匯入的 `TRUNCATE ... CASCADE` 會遞移波及該表，escape hatch 壞掉
 //!    等於匯入功能壞掉，而那種壞法只會在跑匯入時才炸。
 
+use erp_backend::middleware::{ActorContext, CurrentUser};
+use erp_backend::services::{import_idxf, AuditService, ImportMode};
 use serial_test::serial;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
@@ -274,6 +276,109 @@ async fn blood_test_items_rejects_truncate() {
         1,
         "被擋下的 TRUNCATE 不得清空任何列"
     );
+}
+
+/// 清空設施鏈這件事，必須在 HMAC 稽核鏈裡留下自己的紀錄，**且不依賴匯入後續是否順利**。
+///
+/// # 為什麼不能靠 handler 那筆稽核
+///
+/// `full_database_import` handler 確實會寫一筆 `DATA_IMPORT`，但那是
+/// `log_activity_oneshot`、在整個匯入跑完之後才寫；而 `cleanup_partial_unique_tables`
+/// 的 TRUNCATE 在它自己的 tx 裡早就 commit 了。兩者之間任何一步回 `Err`
+/// （`fetch_fk_config`、`get_schema_version` 之後的流程等）都會讓 handler 那行不執行——
+/// 結果是資料庫已被清空（連 CASCADE 波及的表一起）而稽核鏈裡一筆都沒有。
+///
+/// 而且就算匯入完全成功，handler 那筆寫的是「N 表 N 筆」，不記「清空了設施鏈四表、
+/// 並具名 bypass 了血檢表的 append-only 擋板」——清空本身沒有任何紀錄。
+///
+/// 這裡餵的 IDXF 讓 pens 少掉 NOT NULL 的 `zone_id`，藉此走到「cleanup 已 commit、
+/// 後續匯入出錯」的狀態，驗清空的紀錄仍在、且責任人是真人。
+#[tokio::test]
+#[serial]
+async fn idxf_cleanup_audit_event_survives_a_failed_import() {
+    let pool = setup_pool().await;
+
+    // HMAC 密鑰是 OnceLock，設不進去代表同 binary 內已有人設過，兩種情況都能往下驗。
+    AuditService::init_hmac_key(Some(
+        "test-only-audit-hmac-key-at-least-44-chars-long-padding".to_string(),
+    ));
+
+    let uid = test_db::seed_other_user(&pool, "idxf-audit").await;
+    let actor = ActorContext::User(CurrentUser {
+        id: uid,
+        email: "idxf-audit@test.local".to_string(),
+        roles: vec!["system_admin".to_string()],
+        permissions: vec!["admin.data.import".to_string()],
+        jti: "test".to_string(),
+        exp: 0,
+        impersonated_by: None,
+    });
+
+    // pens 有一列就會觸發 cleanup；這一列缺 NOT NULL 的 zone_id，稍後匯入必定失敗。
+    //
+    // `columns` 不可省：IdxfTable 那個欄位沒有 #[serde(default)]，少了它整份 JSON 會在
+    // serde 解析就失敗，import_from_json 第一行就回 Err——cleanup 根本不會跑，而
+    // `outcome.is_err()` 仍然成立。這個 case 因此會「因為錯誤的理由」通過，
+    // 正是下面那條 assert 要擋的東西。
+    let idxf = serde_json::json!({
+        "meta": { "format": "ipig-idxf", "schema_version": "010" },
+        "tables": [{
+            "name": "pens",
+            "columns": ["id", "code"],
+            "rows": [{ "id": Uuid::new_v4().to_string(), "code": "NT-AUDIT-1" }]
+        }]
+    });
+    let bytes = serde_json::to_vec(&idxf).expect("serialize idxf fixture");
+
+    let before = count_truncate_audit_events(&pool).await;
+    let result = import_idxf(&pool, &actor, &bytes, ImportMode::Append)
+        .await
+        .expect("IDXF 應通過解析並跑完流程：單表錯誤會被收進 ImportResult.errors，不會中止匯入");
+
+    // 這條 assert 是本 case 的防呆，不是附帶檢查：它證明流程確實走過了 cleanup、
+    // 一路到 import_table 才因 pens 缺 NOT NULL 的 zone_id 出錯。
+    // 少了它，任何在 cleanup **之前**就中止的情況（IDXF 解析失敗、format 不符、
+    // get_schema_version 失敗）都會讓下面的稽核斷言拿到一個空的 before/after 差值，
+    // 而測試看起來仍然「有跑」。
+    assert!(
+        result.errors.iter().any(|e| e.contains("zone_id")),
+        "應在 cleanup 之後的 import_table 階段因 zone_id NOT NULL 失敗，實際 errors：{:?}",
+        result.errors
+    );
+
+    assert_eq!(
+        count_truncate_audit_events(&pool).await - before,
+        1,
+        "清空設施鏈必須留下一筆 DATA_IMPORT_TRUNCATE 稽核事件，即使之後匯入失敗"
+    );
+
+    let row = sqlx::query(
+        "SELECT actor_user_id, integrity_hash FROM user_activity_logs \
+         WHERE event_type = 'DATA_IMPORT_TRUNCATE' ORDER BY created_at DESC LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("fetch truncate audit event");
+
+    assert_eq!(
+        row.get::<Option<Uuid>, _>("actor_user_id"),
+        Some(uid),
+        "責任人必須是真正按下匯入的人，不是 SYSTEM"
+    );
+    assert!(
+        row.get::<Option<String>, _>("integrity_hash").is_some(),
+        "稽核事件必須進 HMAC 雜湊鏈（integrity_hash 不得為 NULL）"
+    );
+}
+
+async fn count_truncate_audit_events(pool: &PgPool) -> i64 {
+    sqlx::query(
+        "SELECT count(*) AS n FROM user_activity_logs WHERE event_type = 'DATA_IMPORT_TRUNCATE'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("count truncate audit events")
+    .get("n")
 }
 
 /// escape hatch 必須真的能開——否則 IDXF 全庫匯入會壞在一個只有跑匯入才會炸的地方。

@@ -10,7 +10,11 @@ use std::collections::{HashMap, HashSet};
 use std::io::{Cursor, Read};
 use zip::ZipArchive;
 
+use uuid::Uuid;
+
 use crate::constants::FILE_MAX_DATA_IMPORT;
+use crate::middleware::ActorContext;
+use crate::services::audit::{ActivityLogEntry, AuditEntity, AuditService};
 use crate::services::data_export::EXPORT_TABLE_ORDER;
 use crate::services::schema_mapping;
 use crate::{AppError, Result};
@@ -271,7 +275,16 @@ fn remap_foreign_keys(
 const ZIP_MAGIC: [u8; 2] = [0x50, 0x4B]; // PK
 
 /// 匯入 IDXF（自動偵測 JSON 或 Zip）
-pub async fn import_idxf(pool: &PgPool, bytes: &[u8], mode: ImportMode) -> Result<ImportResult> {
+///
+/// `actor` 一路傳到 [`cleanup_partial_unique_tables`]，那裡要用它寫一筆與 TRUNCATE
+/// 同 tx 的稽核事件。不能在下游自行造 `ActorContext::System`——清空資料庫是人按的，
+/// 記成系統等於在「誰做的」這個問題上交白卷。
+pub async fn import_idxf(
+    pool: &PgPool,
+    actor: &ActorContext,
+    bytes: &[u8],
+    mode: ImportMode,
+) -> Result<ImportResult> {
     if bytes.len() > FILE_MAX_DATA_IMPORT {
         return Err(AppError::Validation(format!(
             "檔案過大，最大 {} MB",
@@ -279,14 +292,19 @@ pub async fn import_idxf(pool: &PgPool, bytes: &[u8], mode: ImportMode) -> Resul
         )));
     }
     if bytes.starts_with(&ZIP_MAGIC) {
-        import_from_zip(pool, bytes, mode).await
+        import_from_zip(pool, actor, bytes, mode).await
     } else {
-        import_from_json(pool, bytes, mode).await
+        import_from_json(pool, actor, bytes, mode).await
     }
 }
 
 /// 匯入 Zip 分包格式
-async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Result<ImportResult> {
+async fn import_from_zip(
+    pool: &PgPool,
+    actor: &ActorContext,
+    bytes: &[u8],
+    _mode: ImportMode,
+) -> Result<ImportResult> {
     let cursor = Cursor::new(bytes);
     let mut archive =
         ZipArchive::new(cursor).map_err(|e| AppError::Validation(format!("無效的 Zip: {}", e)))?;
@@ -330,7 +348,7 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
         .iter()
         .any(|t| PARTIAL_UNIQUE_TABLES.contains(&t.name.as_str()));
     if has_partial_tables {
-        cleanup_partial_unique_tables(pool).await?;
+        cleanup_partial_unique_tables(pool, actor).await?;
     }
 
     let fk_config = fetch_fk_config(pool).await?;
@@ -484,6 +502,7 @@ fn parse_ndjson(bytes: &[u8]) -> Result<Vec<serde_json::Value>> {
 /// 匯入單一 JSON 檔
 async fn import_from_json(
     pool: &PgPool,
+    actor: &ActorContext,
     json_bytes: &[u8],
     _mode: ImportMode,
 ) -> Result<ImportResult> {
@@ -503,7 +522,7 @@ async fn import_from_json(
             && t.rows.as_array().is_some_and(|a| !a.is_empty())
     });
     if has_partial_tables {
-        cleanup_partial_unique_tables(pool).await?;
+        cleanup_partial_unique_tables(pool, actor).await?;
     }
 
     let fk_config = fetch_fk_config(pool).await?;
@@ -881,13 +900,26 @@ const PARTIAL_UNIQUE_TABLES: &[&str] = &["pens", "zones", "buildings", "faciliti
 /// （例如 animals.pen_id），子表資料會由後續 import 從備份重新填回。
 /// 純 DELETE 會被 FK 阻擋（如 animals_pen_id_fkey）。
 ///
-/// 整段包在單一 transaction 內，是為了 `SET LOCAL` 的作用域：migration 013 為
-/// `animal_blood_test_items` 加上了 TRUNCATE 擋板，而上面的 CASCADE 會沿著
+/// 整段包在單一 transaction 內，有兩個彼此獨立的理由：
+///
+/// **1. `SET LOCAL` 的作用域。** migration 013 為 `animal_blood_test_items` 加上了
+/// TRUNCATE 擋板，而上面的 CASCADE 會沿著
 /// `pens ← animals ← animal_blood_tests ← animal_blood_test_items` 遞移波及它，
 /// 裸跑會讓整句 TRUNCATE 被擋下（TRUNCATE 是單一 statement，任一目標被擋即全句 rollback）。
 /// IDXF 是全庫重灌語意，屬該擋板明訂的合法例外，故在同一個 tx 內具名放行；
-/// `SET LOCAL` 出了這個 tx 即失效，擋板本身也會 `RAISE NOTICE` 留下軌跡。
-async fn cleanup_partial_unique_tables(pool: &PgPool) -> Result<()> {
+/// `SET LOCAL` 出了這個 tx 即失效。
+///
+/// **2. 稽核事件必須與 TRUNCATE 同生共死。** `full_database_import` handler 確實有寫
+/// 一筆 `DATA_IMPORT` 稽核，但那是 `log_activity_oneshot`、在整個匯入**跑完之後**才寫，
+/// 而這裡的 TRUNCATE 早就 commit 了。匯入若在這之後、完成之前失敗（`import_table` 任何
+/// 一張表出錯都會往上傳），結果是**資料庫已被清空（連 CASCADE 波及的表一起）而稽核鏈
+/// 裡一筆紀錄都沒有**。所以在這裡先寫一筆進 HMAC 鏈、與 TRUNCATE 綁在同一個 tx：
+/// 要嘛兩者都留下，要嘛兩者都退掉。
+///
+/// 不在這裡自行造 `ActorContext::System`：清空資料庫是人按的，記成系統等於在
+/// 「誰做的」這個 GLP 最該回答的問題上交白卷，也會與 handler 那筆帶真實 actor 的
+/// 紀錄對不起來。
+async fn cleanup_partial_unique_tables(pool: &PgPool, actor: &ActorContext) -> Result<()> {
     // 表名來自常數白名單，非使用者輸入
     let table_list = PARTIAL_UNIQUE_TABLES
         .iter()
@@ -899,6 +931,26 @@ async fn cleanup_partial_unique_tables(pool: &PgPool) -> Result<()> {
     let fail = |e: sqlx::Error| AppError::Internal(format!("Cleanup partial-unique tables: {}", e));
 
     let mut tx = pool.begin().await.map_err(fail)?;
+
+    // 先寫稽核再動資料：稽核寫不進去就不該清空。
+    let display = format!(
+        "IDXF 匯入前清空 {}（RESTART IDENTITY CASCADE，連帶清除所有參照這些表的子表；\
+         含 animal_blood_test_items append-only 擋板的具名 bypass）",
+        PARTIAL_UNIQUE_TABLES.join(", ")
+    );
+    AuditService::log_activity_tx(
+        &mut tx,
+        actor,
+        ActivityLogEntry {
+            event_category: "ADMIN",
+            event_type: "DATA_IMPORT_TRUNCATE",
+            entity: Some(AuditEntity::new("database", Uuid::nil(), &display)),
+            data_diff: None,
+            request_context: None,
+        },
+    )
+    .await?;
+
     sqlx::query("SET LOCAL app.bypass_blood_test_items_truncate = 'true'")
         .execute(&mut *tx)
         .await
