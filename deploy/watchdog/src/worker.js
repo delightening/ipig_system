@@ -48,14 +48,14 @@ export default {
     // 誤報與漏報（見 KvUnavailable 的說明）。用一個「延後偵測 5 分鐘」換掉
     // 「講錯話」，對外部監控是划算的。KV 故障的可見性靠 Cloudflare 的 Workers
     // 錯誤率與 `wrangler tail`——這個 throw 就是為了讓它出現在那裡。
-    let bootstrapAt;
+    let bootstrap;
     let health;
     const heartbeats = [];
     try {
-      bootstrapAt = await ensureBootstrap(env, now);
+      bootstrap = await ensureBootstrap(env, now);
       health = await checkHealth(env, now);
       for (const [job, maxAgeMs] of Object.entries(HEARTBEAT_JOBS)) {
-        heartbeats.push(await checkHeartbeat(env, job, maxAgeMs, now, bootstrapAt));
+        heartbeats.push(await checkHeartbeat(env, job, maxAgeMs, now, bootstrap.at));
       }
     } catch (e) {
       if (e instanceof KvUnavailable) {
@@ -65,6 +65,9 @@ export default {
     }
 
     // ── 判斷與寫入階段 ──────────────────────────────────────────────────────
+    // 讀取階段全部成功，這裡才是第一個允許寫入的地方——bootstrap 的落地放最前面，
+    // 因為它是純追蹤資料，不受後面送信結果影響（跟 fails/lastOkAt 同一類）。
+    await bootstrap.commit();
     const alerts = [...health.alerts, ...heartbeats.flatMap((h) => h.alerts)];
     let sendError = null;
     if (alerts.length > 0) {
@@ -232,11 +235,27 @@ async function probeHealth(env) {
  * 否則部署當天就會誤報「backup 從未執行」。
  * 但基準一旦超過門檻仍會告警，所以「腳本改了卻沒生效」這種失敗也抓得到。
  */
+/**
+ * @returns {Promise<{at: number, commit: () => Promise<void>}>}
+ *   `at`：可以立即使用的 bootstrap 基準時間。
+ *   `commit`：真正把它寫進 KV 的動作，**延後到讀取階段全部成功之後才呼叫**。
+ *
+ * 為什麼要延後：這支函式在 `scheduled` 的讀取階段（見該處註解）被呼叫，
+ * 那段的保證是「只讀不寫、KV 讀不到就在還沒動到任何狀態的位置乾淨中止」。
+ * 若這裡在讀取階段當場 `put`，而同一輪後面的 `checkHealth`／`checkHeartbeat`
+ * 讀取又失敗拋出 `KvUnavailable`，`state:bootstrap` 已經被寫下且不會回滾——
+ * 一個「中止」的輪次卻推進了心跳的寬限基準時間，違反上面那段保證。
+ * 回傳 thunk 讓呼叫端自己決定何時真正落地。
+ */
 async function ensureBootstrap(env, now) {
   const rec = await kvGetJSON(env, KV_BOOTSTRAP);
-  if (rec?.at) return rec.at;
-  await env.WATCHDOG_KV.put(KV_BOOTSTRAP, JSON.stringify({ at: now }));
-  return now;
+  if (rec?.at) {
+    return { at: rec.at, commit: async () => {} };
+  }
+  return {
+    at: now,
+    commit: () => env.WATCHDOG_KV.put(KV_BOOTSTRAP, JSON.stringify({ at: now })),
+  };
 }
 
 /** @returns {Promise<{alerts: string[], commit: (delivered: boolean) => Promise<void>}>} */

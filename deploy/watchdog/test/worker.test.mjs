@@ -94,6 +94,32 @@ test("KV 讀取失敗時整輪中止：不寄信、不回寫任何狀態", async
   assert.deepEqual(kv.puts, [], "本輪不得回寫任何狀態，下一輪要能從乾淨的位置重來");
 });
 
+test("bootstrap 缺席時，後面的讀取失敗不得讓 bootstrap 先落地", async () => {
+  // 與上一支的差異：上一支 state:bootstrap 已存在（ensureBootstrap 讀到既有值，
+  // 不會嘗試寫入），測不到 ensureBootstrap 自己的寫入時機。這支刻意留空，
+  // 讓 ensureBootstrap 判定「首次啟動」而準備寫入——寫入是否真的被延後到
+  // 全部讀取成功之後，只有在這個情境下才驗證得到。
+  const kv = makeKv({
+    data: {}, // state:bootstrap 不存在
+    failOn: ["ping:backup"], // ensureBootstrap 之後的讀取才失敗
+  });
+  const env = makeEnv(kv);
+
+  await withHealth(true, async () => {
+    await assert.rejects(
+      () => worker.scheduled({}, env, {}),
+      (e) => e.name === "KvUnavailable" && e.key === "ping:backup",
+    );
+  });
+
+  assert.ok(
+    !kv.puts.some((p) => p.key === "state:bootstrap"),
+    "讀取階段中止後，本該延後的 bootstrap 落地必須真的沒發生——" +
+      "否則一個被判定為「中止」的輪次，會安靜地把心跳寬限基準往前推",
+  );
+  assert.deepEqual(kv.puts, [], "本輪不得回寫任何狀態");
+});
+
 test("舊語意重現：同一情境下，把讀取失敗吞成 null 會直接產生一封誤報", () => {
   // 這裡不是測 worker，而是把**舊版的錯誤語意**原樣寫下來並排比較，
   // 讓「這次到底修掉了什麼」變成可執行的斷言，而不是只寫在 commit message 裡。
