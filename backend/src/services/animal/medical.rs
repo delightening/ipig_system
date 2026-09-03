@@ -14,7 +14,7 @@ use crate::{
     services::{
         access,
         audit::{ActivityLogEntry, AuditEntity},
-        AuditService,
+        AuditService, SignatureService,
     },
     AppError, Result,
 };
@@ -348,6 +348,15 @@ impl AnimalMedicalService {
         .bind(animal_id)
         .fetch_optional(&mut *tx)
         .await?;
+
+        // C1 (GLP)：本函式是 upsert，`ON CONFLICT DO UPDATE` 會覆寫既有那一筆——
+        // 已簽章鎖定的犧牲紀錄必須擋下，否則就是「簽章後仍可改」。
+        // 其餘四張表的 update/delete 入口都有這道 guard，只有這裡漏掉
+        // （2026-09-02 補；DB 層的 check_animal_sacrifices_locked_immutable_trigger
+        // 也會擋，但那會是 500，這裡先擋才回得出 409）。
+        if let Some(ref existing) = before {
+            SignatureService::ensure_not_locked_uuid_tx(&mut tx, "sacrifice", existing.id).await?;
+        }
 
         let sacrifice = sqlx::query_as::<_, AnimalSacrifice>(
             r#"
