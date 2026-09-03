@@ -90,9 +90,12 @@ frontend/tmp-tw-test/
 /docs/notes/
 /*.pdf
 
-# 本機維運腳本（使用者選擇不進 git；移自根目錄）
+# 本機維運腳本（使用者選擇不進 git）。根目錄那份是排程實際執行的正本，
+# scripts/ 那份只是轉呼叫的 forwarder；.state 是執行期狀態檔（.log 由上方 *.log 涵蓋）。
 /scripts/rebuild-and-clean.ps1
 /scripts/auto-cleanup-guard.ps1
+/auto-cleanup-guard.ps1
+/auto-cleanup-guard.state
 
 # R32-A3 smoke_real_data 驗證輸出（可重複生成）
 templates/output/
