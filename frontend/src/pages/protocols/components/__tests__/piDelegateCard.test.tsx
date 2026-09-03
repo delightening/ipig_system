@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 
+import i18n from '@/lib/i18n'
 import type { ProtocolResponse } from '@/types'
 
 /**
@@ -92,6 +93,19 @@ function renderCard(response: ReturnType<typeof protocolResponse>) {
     </QueryClientProvider>
   )
 }
+
+// 元件的字串全部走 i18n；斷言用的是 zh-TW 的值，所以把語系釘死，
+// 不讓 LanguageDetector 依執行環境（localStorage / navigator）飄移。
+let previousLanguage: string
+
+beforeAll(async () => {
+  previousLanguage = i18n.language
+  await i18n.changeLanguage('zh-TW')
+})
+
+afterAll(async () => {
+  await i18n.changeLanguage(previousLanguage)
+})
 
 beforeEach(() => {
   apiGet.mockReset()
