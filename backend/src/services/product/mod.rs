@@ -307,6 +307,17 @@ async fn reconcile_derived_pack_conversion_tx(
         .await?;
     }
 
+    // ⚠️ 這裡**刻意**覆寫既有正規列的換算率，即使它曾被人工改成與 `pack_qty` 不同的值
+    // （2026-09-03 使用者裁定；CodeRabbit 曾建議改成「不符就回 400」）。三個理由：
+    //
+    // 1. `pack_qty` 是推導列的真相來源。本模組存在的理由之一就是「改了 `pack_qty` 卻不同步
+    //    換算表，盤點底稿照舊除數而且不報錯」。使用者改 `pack_qty` 就是對「1 盒 = 幾支」
+    //    下最新的明確陳述，讓它蓋掉一個與之矛盾的舊值，方向是對的。
+    // 2. 擋下來沒有出口：產品編輯表單從不送 `uom_conversions`，系統也沒有編輯單位換算的 UI。
+    //    回 400 等於要使用者去修一個他看不到的欄位，那個品項將永遠無法從 UI 存檔。
+    // 3. 與別名列（上面那段回 400）的不對稱是刻意的：別名列若不擋，結果是單位下拉出現兩個
+    //    都顯示「盒」的選項（`formatUom` 對 `BX` 與 `盒` 輸出相同），選錯會靜默寫進差一倍的
+    //    數量；正規列被覆寫只是較新的明確陳述取代較舊的，不產生歧義選項。
     if let Some(new) = plan.upsert {
         sqlx::query(
             "INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base) \
