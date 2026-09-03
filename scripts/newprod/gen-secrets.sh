@@ -7,15 +7,18 @@
 # 稽核 HMAC 鏈亦重新起算（使用者裁定「舊資料只要存一個結果即可，不用可驗」）。
 #
 # 用法：
-#   ./scripts/newprod/gen-secrets.sh                          # 初次佈建（目標目錄須為空）
-#   GEN_SECRETS_ALLOW_EXISTING=1 ./scripts/newprod/gen-secrets.sh   # 在既有部署上重跑
+#   ./scripts/newprod/gen-secrets.sh                    # 初次佈建（目標目錄須為空或不存在）
+#   ./scripts/newprod/gen-secrets.sh --allow-existing   # 在既有部署上重跑
 #
 # 冪等：已存在的檔案不覆蓋（要重產請先自行刪除該檔）。
 #
-# ⚠️ R103-5：在**已佈建**的目標目錄上，預設會直接拒絕執行（fail-closed）。
+# ⚠️ R103-5：目標目錄裡**只要有任何檔案**，預設就直接拒絕執行（fail-closed）。
 # 理由是這支腳本的落點在已部署的機器上就是現役 prod 的 secrets 目錄，
-# 而它對既有檔案也會下 chmod。要在既有部署上重跑須明確帶
-# `GEN_SECRETS_ALLOW_EXISTING=1`，詳見下方守衛處的說明。
+# 而它對既有檔案也會下 chmod。要在既有部署上重跑須明確帶 `--allow-existing`，
+# 詳見下方守衛處的說明。
+#
+# ⚠️ 刻意用**位置參數而非環境變數**：環境變數 `export` 一次之後，同一個 shell
+# 裡後續每一次執行都是無守衛的，而且從指令列看不出來。旗標每次都要重打。
 
 set -euo pipefail
 
@@ -55,26 +58,51 @@ SECRETS_DIR="$REPO_ROOT/secrets"
 # 寧可擋下一次合法的重跑（帶旗標即可放行），也不要在正式機上默默改權限。
 #
 # ⚠️ **這條改變了原本的冪等用法**：在已佈建的目錄上重跑（例如補回被刪的公鑰、
-# 或讓權限套用到既有檔案）現在必須明確帶 `GEN_SECRETS_ALLOW_EXISTING=1`。
+# 或讓權限套用到既有檔案）現在必須明確帶 `--allow-existing`。
 # 這是刻意的——把「我知道這是既有部署」變成一個要打字的動作，而不是預設值。
-PROVISIONED_MARKERS="db_url.txt jwt_ec_private_key.pem audit_hmac_key.txt encryption_key.txt db_password.txt"
-if [ "${GEN_SECRETS_ALLOW_EXISTING:-}" != "1" ] && [ -d "$SECRETS_DIR" ]; then
-  found=""
-  for m in $PROVISIONED_MARKERS; do
-    if [ -e "$SECRETS_DIR/$m" ]; then
-      found="$found $m"
+#
+# ⚠️ **判準是「目錄裡有任何檔案」，不是一份 marker 白名單。**
+# 初版寫成五個核心 secret 的白名單，那有一個具體缺口：`secrets/` 若只含
+# 監控堆疊那六個檔（`metrics_token.txt` 等，見檔案末尾 `BIND_MOUNTED_SECRETS`）、
+# 或任何不含那五個的子集，守衛會判定為空而放行，接著照樣對現役目錄下
+# `chmod 0711`、對那些**正被容器 bind-mount 的**檔下 `chmod 0644`
+# ——正是本守衛要擋的事，只是繞過了守衛。而殘缺狀態（R103-3 處理的那個主題）
+# 剛好就長這樣，等於同一支腳本裡兩處對「什麼算已佈建」的定義不一致。
+# 改用「有任何檔案就擋」除了補掉那個缺口，還消掉了**清單漂移**這個風險來源：
+# 白名單要跟著日後新增的 secret 一起維護，忘記維護就是靜默放行。
+# `secrets/` 在 `.gitignore` 是整個目錄排除、零版控檔案（實查），
+# 所以不會有 `.gitkeep` 這類無辜檔案被誤判。
+ALLOW_EXISTING=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --allow-existing) ALLOW_EXISTING=1; shift ;;
+    *)
+      echo "ERROR: 未知參數：$1" >&2
+      echo "用法：$0 [--allow-existing]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [ "$ALLOW_EXISTING" -ne 1 ] && [ -d "$SECRETS_DIR" ]; then
+  # 只看一般檔案；目錄本身為空則視為未佈建
+  existing_count=$(find "$SECRETS_DIR" -maxdepth 1 -type f | wc -l)
+  if [ "$existing_count" -gt 0 ]; then
+    echo "ERROR: 目標目錄已經有東西了，本腳本拒絕在上面執行。" >&2
+    echo "       目標：$SECRETS_DIR（既有檔案 $existing_count 個）" >&2
+    # 不用 `find -printf`：那是 GNU 專屬，busybox 沒有，會靜默少印這一段
+    find "$SECRETS_DIR" -maxdepth 1 -type f | head -8 | while read -r p; do
+      echo "         - $(basename "$p")" >&2
+    done
+    if [ "$existing_count" -gt 8 ]; then
+      echo "         …（其餘 $((existing_count - 8)) 個略）" >&2
     fi
-  done
-  if [ -n "$found" ]; then
-    echo "ERROR: 目標目錄看起來已經佈建過，本腳本拒絕在上面執行。" >&2
-    echo "       目標：$SECRETS_DIR" >&2
-    echo "       偵測到的既有核心 secret：$found" >&2
     echo "" >&2
     echo "       本腳本的定位是「初次佈建」。在已部署的機器上，這個路徑就是" >&2
     echo "       現役 prod 正在使用的 secrets 目錄；即使一個檔都不新產生，" >&2
     echo "       它仍會對既有檔案與目錄下 chmod，動到現役金鑰的權限。" >&2
     echo "" >&2
-    echo "       要確認這批檔案是不是正在被服務使用（本腳本刻意不自己判斷，理由見下）：" >&2
+    echo "       要確認這批檔案是不是正在被服務使用（本腳本刻意不自己判斷，理由見原始碼註解）：" >&2
     echo "           docker ps --filter status=running --format '{{.Names}}'" >&2
     echo "           docker inspect <容器> --format '{{range .Mounts}}{{.Source}}{{\"\\n\"}}{{end}}'" >&2
     echo "       source 若落在上面那個目標路徑底下，就是現役 prod 在用。" >&2
@@ -82,7 +110,7 @@ if [ "${GEN_SECRETS_ALLOW_EXISTING:-}" != "1" ] && [ -d "$SECRETS_DIR" ]; then
     echo "       依你的意圖選一個：" >&2
     echo "       - 這台是新機器，上面那些是殘留 → 先把 $SECRETS_DIR 移到別處備份，再重跑" >&2
     echo "       - 我就是要在既有部署上重跑（補回缺檔／套用權限）→" >&2
-    echo "           GEN_SECRETS_ALLOW_EXISTING=1 $0" >&2
+    echo "           $0 --allow-existing" >&2
     echo "         ⚠️ 那會對既有檔案套用權限變更，動 prod 前請先確認影響範圍。" >&2
     exit 1
   fi
