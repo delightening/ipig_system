@@ -252,6 +252,29 @@ ALTER TABLE product_uom_conversions
 -- 🔴 CHECK 兩邊都套 `uom_canonical()`：base_uom 本身可能仍是非正規寫法（本檔刻意不動它），
 -- 只比原字串的話，`uom='盒'` 配 `base_uom='BX'` 會通過——而那正是要禁止的同名列。
 
+-- 下面這條 UNIQUE 是靜態掃描（Squawk）每一輪都會報的兩條警告，刻意保留內嵌寫法。
+-- 它不會回應說明、下一輪還會再報一次，所以理由寫在這裡，不要再重審一次：
+--
+--   `constraint-missing-not-valid`：對 UNIQUE 不成立。實測 PostgreSQL 16 直接回
+--   `ERROR: UNIQUE constraints cannot be marked NOT VALID`——NOT VALID 只支援
+--   CHECK 與外鍵。這條警告本身就套錯約束型別。
+--
+--   `disallowed-unique-constraint`（改用 CREATE UNIQUE INDEX CONCURRENTLY）：
+--   三個理由不採用。
+--   (a) 順序上不可行。下面那條複合外鍵 REFERENCES products (id, base_uom)，
+--       要求這個唯一鍵**先存在**，故它只能在本檔之內或更早，不能拆成後面的 migration。
+--   (b) 拆了也擋不住寫入。整支 migration 跑在同一個交易裡（`sqlx::migrate!().run()`
+--       預設如此），鎖一律持有到 COMMIT。實測開著交易查 pg_locks：即使不算這條 UNIQUE，
+--       外鍵那句自己就在 products 上押 ShareRowExclusiveLock 到交易結束。拆走 UNIQUE
+--       只是把「連讀也擋」降成「擋寫」，而那個差別的長度實測是 8 ms（合成表 2 萬列）。
+--   (c) 代價是實的。CONCURRENTLY 不能在交易內跑（實測
+--       `ERROR: CREATE INDEX CONCURRENTLY cannot run inside a transaction block`），
+--       要拆就得給那支 migration 加 `-- no-transaction`；失敗時會留下 INVALID 索引
+--       與半套用狀態，得人工善後。本檔的資料改寫需要的正是「壞了就整個 rollback」。
+--
+-- 前提上也不需要：migration 在 app 啟動時跑（main.rs 綁 HTTP 埠之前），
+-- 部署是手動 build + up -d，這段期間本來就沒有應用流量，沒有 online DDL 的需求。
+
 ALTER TABLE products
     ADD CONSTRAINT products_id_base_uom_key UNIQUE (id, base_uom);
 
