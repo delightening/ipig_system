@@ -28,7 +28,8 @@ struct PoLineRow {
 
 use super::DocumentService;
 
-/// 「已被沖銷的 GRN 不計入 `received`」的排除述詞，供本檔**四處** `received` 算式共用。
+/// 「已被沖銷的 GRN 不算數」的排除述詞，供本檔**四處** `received` 算式與
+/// `services/notification/erp.rs::notify_po_pending_receipt`（R84-18）共用。
 ///
 /// R84-5 沖銷：原單被沖銷後**仍是 `approved`**，不排除的話已沖銷的量會一直被算進去，
 /// 「打錯 → 沖銷 → 重開正確的」這條唯一的補救路徑走不完。
@@ -41,6 +42,13 @@ use super::DocumentService;
 /// 極難查的症狀（2026-08-27 第一版修法只補了其中兩處，補救路徑仍然斷）。
 ///
 /// 使用前提：SQL 裡 `documents` 當 GRN 用的那個別名必須是 `g`。
+///
+/// `#[macro_export]`（R84-18 加）：跨檔呼叫端寫 `crate::exclude_reversed_grn!()`。
+/// 提升可見性而不是讓第五個呼叫點自己抄一份述詞——上面那段警告的就是這件事，
+/// 而未入庫提醒（`notification/erp.rs`）問的雖然是「有沒有有效 GRN」而非「入了多少量」，
+/// **判準必須同源**：兩邊對「這張 GRN 還算不算數」的答案不一致，就會出現
+/// 「提醒說未入庫、進度卻顯示已完成」這種互相打臉的畫面。
+#[macro_export]
 macro_rules! exclude_reversed_grn {
     () => {
         "

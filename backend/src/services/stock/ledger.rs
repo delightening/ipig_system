@@ -756,12 +756,33 @@ impl StockService {
         let categorized = sqlx::query_as::<_, LotCategorizedTotals>(
             r#"
             SELECT
-                COALESCE(SUM(CASE WHEN sl.doc_type = 'GRN' AND sl.direction = 'in' THEN sl.qty_base ELSE 0 END), 0) AS received,
+                -- R84-19：每一格都要收「同 doc_type 但方向相反」的列，否則沖銷鏡射列不落任何一格。
+                -- 沖銷鏡射（`reverse_document_stock`）沿用原單的 `doc_type`、只把 `direction` 反轉，
+                -- 所以單看 `doc_type='GRN' AND direction='in'` 會漏掉沖銷產生的 `GRN/out`：
+                -- received 不會扣回、又不屬於 returned_to_supplier，derived_remaining 因此永遠高估，
+                -- 對帳顯示 unbalanced 而查不出缺口在哪。
+                --
+                -- 以 `direction` 決定正負號（而非 JOIN documents 判斷是否沖銷單）是刻意的：
+                -- stock_ledger 是流水帳，`GRN/out` 語意上就是「這筆入庫被退回去了」，
+                -- 不論成因為何都該相減。這個寫法不依賴「沖銷是 GRN/out 的唯一來源」這個前提。
+                COALESCE(SUM(CASE
+                    WHEN sl.doc_type = 'GRN' AND sl.direction = 'in'  THEN sl.qty_base
+                    WHEN sl.doc_type = 'GRN' AND sl.direction = 'out' THEN -sl.qty_base
+                    ELSE 0
+                END), 0) AS received,
                 -- R84-13：SR/RTN 已封鎖新建（業務上不存在銷貨退貨），customer_returned 恆為 0
                 -- （保留欄位維持前端契約不變）。
                 0::NUMERIC AS customer_returned,
-                COALESCE(SUM(CASE WHEN sl.doc_type = 'SO' AND sl.direction = 'out' THEN sl.qty_base ELSE 0 END), 0) AS internal_consumed,
-                COALESCE(SUM(CASE WHEN sl.doc_type = 'PR' AND sl.direction = 'out' THEN sl.qty_base ELSE 0 END), 0) AS returned_to_supplier,
+                COALESCE(SUM(CASE
+                    WHEN sl.doc_type = 'SO' AND sl.direction = 'out' THEN sl.qty_base
+                    WHEN sl.doc_type = 'SO' AND sl.direction = 'in'  THEN -sl.qty_base
+                    ELSE 0
+                END), 0) AS internal_consumed,
+                COALESCE(SUM(CASE
+                    WHEN sl.doc_type = 'PR' AND sl.direction = 'out' THEN sl.qty_base
+                    WHEN sl.doc_type = 'PR' AND sl.direction = 'in'  THEN -sl.qty_base
+                    ELSE 0
+                END), 0) AS returned_to_supplier,
                 COALESCE(SUM(CASE
                     WHEN sl.doc_type = 'ADJ' AND sl.direction = 'adjust_in' THEN sl.qty_base
                     WHEN sl.doc_type = 'ADJ' AND sl.direction = 'adjust_out' THEN -sl.qty_base
@@ -968,9 +989,16 @@ impl StockService {
             SELECT
                 -- R84-13：SR/RTN 已封鎖新建，移除原本的 `WHEN sl.doc_type IN ('SR', 'RTN')` 分支
                 -- （業務上不存在銷貨退貨，該分支恆不成立）。
+                -- R84-19：同 `get_lot_movements` 的 categorized——每個 doc_type 都要收方向相反的
+                -- 鏡射列，否則沖銷後 derived_total 與實際庫存分岔，而 `lot_reconciliation_status`
+                -- 正是用這個值判斷「批號不平但品項總量相符」的 AttributionOnly 分級，
+                -- 漏收會讓一個已被沖銷抹平的批號被誤報成 Unbalanced。
                 COALESCE(SUM(CASE WHEN sl.doc_type = 'GRN' AND sl.direction = 'in' THEN sl.qty_base
+                    WHEN sl.doc_type = 'GRN' AND sl.direction = 'out' THEN -sl.qty_base
                     WHEN sl.doc_type = 'SO' AND sl.direction = 'out' THEN -sl.qty_base
+                    WHEN sl.doc_type = 'SO' AND sl.direction = 'in' THEN sl.qty_base
                     WHEN sl.doc_type = 'PR' AND sl.direction = 'out' THEN -sl.qty_base
+                    WHEN sl.doc_type = 'PR' AND sl.direction = 'in' THEN sl.qty_base
                     WHEN sl.doc_type = 'ADJ' AND sl.direction = 'adjust_in' THEN sl.qty_base
                     WHEN sl.doc_type = 'ADJ' AND sl.direction = 'adjust_out' THEN -sl.qty_base
                     ELSE 0 END), 0) AS derived_total,
