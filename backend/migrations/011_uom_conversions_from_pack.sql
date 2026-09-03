@@ -18,6 +18,47 @@
 -- 實查確認這一類的 pack_qty 全部 >= 2，靠 pack_qty 門檻濾不掉。
 
 -- ---------------------------------------------------------------------------
+-- 正規化函式（本檔唯一的映射來源）
+-- ---------------------------------------------------------------------------
+-- 為什麼做成函式而不是每段各寫一次 VALUES：本檔原本有六份重複的對照清單，而最後那條
+-- CHECK 約束根本沒用到映射、只比原字串——結果是「約束比它宣稱的弱」：
+-- `base_uom = 'BX'` 且換算列本來就是 `'BX'` 時，正規化把換算列改成「盒」而
+-- 複製過去的 base_uom 仍是 'BX'，`'盒' <> 'BX'` 就這樣通過了，
+-- 但它語意上正是要禁止的 base→base 同名列。函式化之後映射只有一份，約束也用得上它。
+--
+-- IMMUTABLE 是 CHECK 約束的硬性要求（PostgreSQL 只允許約束呼叫 immutable 函式）。
+-- 本函式純查表、無 I/O、對同一輸入永遠同一輸出，符合。
+--
+-- ⚠️ 必須與 `backend/src/services/product/uom.rs` 的 `UOM_CANONICAL`、
+-- `frontend/src/lib/utils.ts` 的 `UOM_MAP` 保持同一組值。三處分岔會讓
+-- 「畫面同一個單位、DB 存兩個字串」的假重複重新出現。
+
+CREATE OR REPLACE FUNCTION uom_canonical(raw character varying)
+RETURNS character varying
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+    SELECT COALESCE(
+        (SELECT m.name
+           FROM (VALUES
+                    ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
+                    ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
+                    ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
+                    ('RL','卷'), ('SET','組'),
+                    ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
+                ) AS m(code, name)
+          WHERE m.code = btrim(raw)),
+        btrim(raw)
+    )::character varying;
+$$;
+
+COMMENT ON FUNCTION uom_canonical(character varying) IS
+'單位字串的正規形式（英文代碼 → 中文顯示名）。與 services/product/uom.rs 的 UOM_CANONICAL
+及 frontend/src/lib/utils.ts 的 UOM_MAP 同一組值；查不到的原樣保留（例：桶、捲）。
+被 product_uom_conversions 的 chk_puc_uom_not_base 約束使用，故必須維持 IMMUTABLE。';
+
+-- ---------------------------------------------------------------------------
 -- 0. 別名正規化（必須在遷移之前）
 -- ---------------------------------------------------------------------------
 -- 🔴 沒有這一段，整支 migration 等於白做。
@@ -34,12 +75,12 @@
 
 -- 0-pre. 記下所有將被改動的原值，讓本 migration 可還原。
 --
--- 為什麼需要：0b 刪列、0c 改名、0d 改 `products.pack_unit` 都是**破壞性**的——
+-- 為什麼需要：下面的去重、改名、以及 `products.pack_unit` 的改寫都是**破壞性**的——
 -- `BX=50` 被改成 `盒=50` 之後，光看結果無從得知它原本叫什麼。沒有這三張表，
 -- 回退腳本只能把改名後的列當成「本 migration 新增的」刪掉，
 -- 等於把使用者原有的資料一併抹掉（丟棄庫實測已重現：4 列回退後只剩 1 列）。
 --
--- 這三張表在 prod 上預期是**空的**（實查換算表目前 0 列）。
+-- 這三張表在正式環境預期是**空的**（實查換算表目前 0 列）。
 -- 確認本 migration 不再需要回退後可自行 DROP。
 
 CREATE TABLE IF NOT EXISTS mig011_conversion_backup (
@@ -58,65 +99,45 @@ CREATE TABLE IF NOT EXISTS mig011_inserted_conversion (
     id uuid PRIMARY KEY
 );
 
--- 備份「所有非正規寫法的換算列」（0b 會刪掉一部分、0c 會改名其餘）
-WITH uom_map(code, name) AS (
-    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
-           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
-           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
-           ('RL','卷'), ('SET','組'),
-           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
-)
+-- 備份所有非正規寫法的換算列（下面會被去重刪掉或改名）
 INSERT INTO mig011_conversion_backup (id, product_id, uom, factor_to_base)
 SELECT c.id, c.product_id, c.uom, c.factor_to_base
 FROM product_uom_conversions c
-JOIN uom_map m ON m.code = btrim(c.uom)
-WHERE c.uom <> m.name
+WHERE c.uom <> uom_canonical(c.uom)
 ON CONFLICT (id) DO NOTHING;
 
--- 備份「所有非正規寫法的 pack_unit」（0d 會改掉）
-WITH uom_map(code, name) AS (
-    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
-           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
-           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
-           ('RL','卷'), ('SET','組'),
-           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
-)
+-- 備份所有非正規寫法的 pack_unit
 INSERT INTO mig011_pack_unit_backup (product_id, pack_unit)
 SELECT p.id, p.pack_unit
 FROM products p
-JOIN uom_map m ON m.code = btrim(p.pack_unit)
-WHERE p.pack_unit IS NOT NULL AND p.pack_unit <> m.name
+WHERE p.pack_unit IS NOT NULL
+  AND p.pack_unit <> uom_canonical(p.pack_unit)
 ON CONFLICT (product_id) DO NOTHING;
 
--- 0a. 撞鍵且值不同 → 停止，交人裁定。
---     同一品項同時有別名列（`BX`）與正規列（`盒`）而換算率不同時，兩個值都可能是對的，
---     migration 不該替人選一個。與應用層 `uom::resolve_alias` 的 fail-closed 一致。
+-- 0a. 同一品項、正規化後同一個單位、但換算率不一致 → 停止，交人裁定。
+--
+-- ⚠️ 這裡必須用 **(product_id, 正規形式) 分組**，不能拿「別名」去比對「已是正規值的那一列」。
+-- 本檔第一版就是後者，漏掉了 alias↔alias 的情形：`BOX=10` 與 `CTN=20` 都正規化成「箱」，
+-- 但兩列的 uom 都不等於「箱」，於是檢查放行、去重也不做，最後改名時兩列撞成同一個
+-- (product_id, uom) 而以原始 UNIQUE 違規中止——不是設計中的 fail-closed 訊息。
+--
+-- 兩個值都可能是對的，migration 不該替人選一個（與應用層 `uom::resolve_alias` 一致）。
 DO $$
 DECLARE
     conflicts text;
 BEGIN
-    WITH uom_map(code, name) AS (
-        VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
-               ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
-               ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
-               ('RL','卷'), ('SET','組'),
-               ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
-    ),
-    norm AS (
-        SELECT c.id, c.product_id, c.uom, c.factor_to_base,
-               COALESCE(m.name, btrim(c.uom)) AS canon
-        FROM product_uom_conversions c
-        LEFT JOIN uom_map m ON m.code = btrim(c.uom)
-    )
-    SELECT string_agg(
-               format('%s：%s=%s vs %s=%s', p.sku, a.uom, a.factor_to_base, b.uom, b.factor_to_base),
-               '；' ORDER BY p.sku)
-      INTO conflicts
-      FROM norm a
-      JOIN norm b ON b.product_id = a.product_id AND b.uom = a.canon AND b.id <> a.id
-      JOIN products p ON p.id = a.product_id
-     WHERE a.uom <> a.canon
-       AND a.factor_to_base <> b.factor_to_base;
+    SELECT string_agg(t.msg, '；' ORDER BY t.msg) INTO conflicts
+      FROM (
+          SELECT format('%s：%s 有 %s 種換算率（%s）',
+                        p.sku,
+                        uom_canonical(c.uom),
+                        count(DISTINCT c.factor_to_base),
+                        string_agg(DISTINCT c.uom || '=' || c.factor_to_base::text, ' / ')) AS msg
+            FROM product_uom_conversions c
+            JOIN products p ON p.id = c.product_id
+           GROUP BY p.sku, c.product_id, uom_canonical(c.uom)
+          HAVING count(DISTINCT c.factor_to_base) > 1
+      ) t;
 
     IF conflicts IS NOT NULL THEN
         RAISE EXCEPTION
@@ -125,86 +146,70 @@ BEGIN
     END IF;
 END $$;
 
--- 0b. 撞鍵但值相同 → 刪掉別名列，保留正規列（資訊無損）。
-WITH uom_map(code, name) AS (
-    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
-           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
-           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
-           ('RL','卷'), ('SET','組'),
-           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
-),
-norm AS (
-    SELECT c.id, c.product_id, c.uom, c.factor_to_base,
-           COALESCE(m.name, btrim(c.uom)) AS canon
-    FROM product_uom_conversions c
-    LEFT JOIN uom_map m ON m.code = btrim(c.uom)
-),
-dup AS (
-    SELECT a.id
-    FROM norm a
-    JOIN norm b ON b.product_id = a.product_id AND b.uom = a.canon AND b.id <> a.id
-    WHERE a.uom <> a.canon
-      AND a.factor_to_base = b.factor_to_base
+-- 0a2. 換算列正規化後與該品項的 base_uom 同名 → 停止。
+--
+-- 這是最危險的一類（見檔頭），而它不會被 0a 抓到：0a 比的是「同一組正規單位內的換算率」，
+-- 這裡比的是「換算列 vs 基本單位」。不先擋掉的話，最後那條 CHECK 會以原始約束違規中止，
+-- 訊息看不出是哪個品項。
+DO $$
+DECLARE
+    same_as_base text;
+BEGIN
+    SELECT string_agg(format('%s：%s（正規化後＝base_uom %s）',
+                             p.sku, c.uom, uom_canonical(p.base_uom)), '；' ORDER BY p.sku)
+      INTO same_as_base
+      FROM product_uom_conversions c
+      JOIN products p ON p.id = c.product_id
+     WHERE uom_canonical(c.uom) = uom_canonical(p.base_uom);
+
+    IF same_as_base IS NOT NULL THEN
+        RAISE EXCEPTION
+            '換算表存在與基本單位同名的列（正規化後），請先人工清理再套用本 migration：%',
+            same_as_base;
+    END IF;
+END $$;
+
+-- 0b. 同一組正規單位有多列且換算率一致 → 只留一列。
+--     優先保留「已經是正規寫法」的那一列（不必改名、id 不變）；
+--     全是別名時保留 id 最小的，讓結果與執行次序無關。
+WITH ranked AS (
+    SELECT c.id,
+           row_number() OVER (
+               PARTITION BY c.product_id, uom_canonical(c.uom)
+               ORDER BY (c.uom = uom_canonical(c.uom)) DESC, c.id
+           ) AS rn
+      FROM product_uom_conversions c
 )
 DELETE FROM product_uom_conversions c
-USING dup
-WHERE c.id = dup.id;
+USING ranked r
+WHERE c.id = r.id AND r.rn > 1;
 
--- 0c. 其餘別名列改名成正規形式（0a/0b 之後已無撞鍵可能）。
-WITH uom_map(code, name) AS (
-    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
-           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
-           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
-           ('RL','卷'), ('SET','組'),
-           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
-)
+-- 0c. 其餘非正規列改名成正規形式（0a/0a2/0b 之後已無撞鍵可能）。
 UPDATE product_uom_conversions c
-   SET uom = m.name
-  FROM uom_map m
- WHERE m.code = btrim(c.uom)
-   AND c.uom <> m.name;
+   SET uom = uom_canonical(c.uom)
+ WHERE c.uom <> uom_canonical(c.uom);
 
 -- 0d. `products.pack_unit` 一併收斂——這是讓上面那句 join 接得上的另一半。
-WITH uom_map(code, name) AS (
-    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
-           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
-           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
-           ('RL','卷'), ('SET','組'),
-           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
-)
 UPDATE products p
-   SET pack_unit = m.name
-  FROM uom_map m
+   SET pack_unit = uom_canonical(p.pack_unit)
  WHERE p.pack_unit IS NOT NULL
-   AND m.code = btrim(p.pack_unit)
-   AND p.pack_unit <> m.name;
+   AND p.pack_unit <> uom_canonical(p.pack_unit);
 
 -- ⚠️ `products.base_uom` 刻意不動：它是庫存數量與所有既有單據明細的單位，
 -- 改它等於重新解釋既有數字（`document_lines.uom` 全部等於各自品項的 base_uom）。
--- 那屬於另一件事，不在本 migration 範圍。
+-- 那屬於另一件事，不在本 migration 範圍。下面的 CHECK 因此用 `uom_canonical()` 兩邊都套，
+-- 而不是假設 base_uom 已經是正規形式。
 
 -- ---------------------------------------------------------------------------
 -- 1. 資料遷移
 -- ---------------------------------------------------------------------------
 
-WITH uom_map(code, name) AS (
-    -- 與 backend/src/services/product/uom.rs 的 UOM_CANONICAL、
-    -- frontend/src/lib/utils.ts 的 UOM_MAP 同一組值——三處必須一致，
-    -- 任一處分岔就會出現「畫面同一個單位、DB 存兩個字串」的假重複。
-    VALUES ('EA','個'), ('pcs','個'), ('PC','支'), ('PR','雙'),
-           ('TB','錠'), ('CP','膠囊'), ('BT','瓶'), ('AMP','安瓿'), ('VIA','小瓶'),
-           ('BX','盒'), ('BOX','箱'), ('CTN','箱'), ('PK','包'), ('CASE','件'),
-           ('RL','卷'), ('SET','組'),
-           ('G','g'), ('KG','kg'), ('MG','mg'), ('ML','mL'), ('L','L')
-),
-candidate AS (
-    SELECT p.id                                  AS product_id,
-           COALESCE(mp.name, btrim(p.pack_unit)) AS uom,
-           COALESCE(mb.name, btrim(p.base_uom))  AS base_canonical,
-           p.pack_qty::numeric(18,6)             AS factor_to_base
+WITH candidate AS (
+    SELECT p.id                          AS product_id,
+           uom_canonical(p.pack_unit)    AS uom,
+           uom_canonical(p.base_uom)     AS base_canonical,
+           p.pack_qty::numeric(18,6)     AS factor_to_base
     FROM products p
-    LEFT JOIN uom_map mp ON mp.code = btrim(p.pack_unit)
-    LEFT JOIN uom_map mb ON mb.code = btrim(p.base_uom)
     WHERE p.is_active
       AND p.pack_unit IS NOT NULL
       AND btrim(p.pack_unit) <> ''
@@ -243,6 +248,9 @@ ALTER TABLE product_uom_conversions
 -- 改 base_uom），漏掉後者就會留下一條「當初合法、改完 base_uom 之後變同名」的壞列。
 -- 宣告式版本由 ON UPDATE CASCADE 負責：base_uom 一改，本表的副本跟著改，
 -- 若因此與既有 uom 撞名，CHECK 會讓那次 UPDATE 直接失敗，而不是靜默留下壞資料。
+--
+-- 🔴 CHECK 兩邊都套 `uom_canonical()`：base_uom 本身可能仍是非正規寫法（本檔刻意不動它），
+-- 只比原字串的話，`uom='盒'` 配 `base_uom='BX'` 會通過——而那正是要禁止的同名列。
 
 ALTER TABLE products
     ADD CONSTRAINT products_id_base_uom_key UNIQUE (id, base_uom);
@@ -264,7 +272,8 @@ ALTER TABLE product_uom_conversions
     ON UPDATE CASCADE ON DELETE CASCADE;
 
 ALTER TABLE product_uom_conversions
-    ADD CONSTRAINT chk_puc_uom_not_base CHECK (uom <> base_uom);
+    ADD CONSTRAINT chk_puc_uom_not_base
+    CHECK (uom_canonical(uom) <> uom_canonical(base_uom));
 
 -- 既有的 product_id 單欄外鍵（ON DELETE CASCADE）與上面的複合外鍵語意重疊，
 -- 保留不動：多一條外鍵不影響正確性，移除它反而要處理相依的索引與既有 constraint 名稱。
