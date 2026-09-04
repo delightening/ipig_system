@@ -8,9 +8,9 @@ use crate::{
     require_permission,
     services::report::{
         BloodTestAnalysisQuery, BloodTestAnalysisRow, BloodTestCostReport, CostSummaryReport,
-        PurchaseLinesReport, PurchaseSalesCategorySummary, PurchaseSalesMonthlySummary,
-        PurchaseSalesPartnerSummary, ReportQuery, ReportService, SalesLinesReport,
-        StockLedgerReport, StockOnHandReport,
+        ProtocolConsumptionReport, PurchaseLinesReport, PurchaseSalesCategorySummary,
+        PurchaseSalesMonthlySummary, PurchaseSalesPartnerSummary, ReportQuery, ReportService,
+        SalesLinesReport, StockLedgerReport, StockOnHandReport,
     },
     AppState, Result,
 };
@@ -48,6 +48,26 @@ pub async fn get_purchase_lines_report(
 ) -> Result<Json<Vec<PurchaseLinesReport>>> {
     require_permission!(current_user, "erp.report.view");
     let report = ReportService::purchase_lines(&state.db, &query).await?;
+    Ok(Json(report))
+}
+
+/// 取得案件消耗報表
+///
+/// 權限沿用 `erp.report.view`，與其餘 ERP 報表一致。這道閘目前授予
+/// WAREHOUSE_MANAGER／PURCHASING／ADMIN_STAFF，**不含 PI**，所以不存在
+/// 「甲 PI 看到乙 PI 案件消耗」的外洩路徑。
+///
+/// 日後若要開放 PI 查自己的案子，不能只是把權限加給 PI——那會一次看到全部案件。
+/// 正確做法是照 `get_blood_test_analysis` 的樣板，依 `animal.animal.view_project`
+/// 與 `view_all` 決定要不要把查詢限縮到該使用者有份的計畫。
+#[utoipa::path(get, path = "/api/v1/reports/protocol-consumption", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
+pub async fn get_protocol_consumption_report(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(query): Query<ReportQuery>,
+) -> Result<Json<Vec<ProtocolConsumptionReport>>> {
+    require_permission!(current_user, "erp.report.view");
+    let report = ReportService::protocol_consumption(&state.db, &query).await?;
     Ok(Json(report))
 }
 
