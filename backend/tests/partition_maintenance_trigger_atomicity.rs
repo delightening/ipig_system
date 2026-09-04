@@ -34,6 +34,7 @@
 //! 這 12 個全都已存在，`create_quarterly_partition` 一次都不會被呼叫。所以測試要
 //! 先 drop 掉其中一個，才有東西可建。
 
+use chrono::{Datelike, Utc};
 use erp_backend::services::PartitionMaintenanceJob;
 use serial_test::serial;
 use sqlx::{PgPool, Row};
@@ -41,9 +42,19 @@ use sqlx::{PgPool, Row};
 #[path = "common/test_db.rs"]
 mod test_db;
 
-/// 拿來當實驗品的分區。挑最後一季是因為它離「現在」最遠，最不可能被其他測試
-/// 寫進資料（活動紀錄的 `partition_date` 預設是 `CURRENT_DATE`）。
-const VICTIM_PARTITION: &str = "user_activity_logs_2028_q4";
+/// 拿來當實驗品的分區：`ensure_partitions` 檢查範圍（當年 + 未來 2 年）的最後一季。
+///
+/// 挑最後一季是因為它離「現在」最遠，最不可能被其他測試寫進資料（活動紀錄的
+/// `partition_date` 預設是 `CURRENT_DATE`）。
+///
+/// ⚠️ **年份必須從當年推導，不能寫死**（CodeRabbit 於 head `414ca06` 指出，成立）。
+/// 寫死的話會變成定時炸彈：`ensure_partitions` 只看當年 +0/+1/+2，一旦寫死的年份
+/// 掉出這個窗，`create_quarterly_partition` 就不會被呼叫，`result.failed` 是空的、
+/// 下面的斷言失敗；更糟的是分區已經被 drop 而斷言先 panic，自我修復段跑不到，
+/// 共用測試庫會少一個分區。用 `current_year + 2` 讓實驗品隨年份自動前移。
+fn victim_partition() -> String {
+    format!("user_activity_logs_{}_q4", Utc::now().year() + 2)
+}
 
 /// 擋板函式的真名，與暫時搬走時用的名字。
 const GUARD_FN: &str = "check_user_activity_logs_no_truncate";
@@ -124,6 +135,7 @@ async fn partition_has_guard_trigger(pool: &PgPool, name: &str) -> bool {
 #[serial]
 async fn failed_trigger_creation_rolls_back_the_partition_table() {
     let pool = setup_pool().await;
+    let victim = victim_partition();
 
     // 上一輪若崩在中途，函式可能還停在暫存名字；先收斂回真名再開始。
     rename_function(&pool, GUARD_FN_PARKED, GUARD_FN).await;
@@ -134,7 +146,7 @@ async fn failed_trigger_creation_rolls_back_the_partition_table() {
 
     // 騰出空位（見檔頭坑 3）。DROP TABLE 會自動把分區從父表 detach。
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "DROP TABLE IF EXISTS public.{VICTIM_PARTITION}"
+        "DROP TABLE IF EXISTS public.{victim}"
     )))
     .execute(&pool)
     .await
@@ -147,20 +159,20 @@ async fn failed_trigger_creation_rolls_back_the_partition_table() {
     );
 
     let result = PartitionMaintenanceJob::trigger(&pool).await;
-    let victim_lingered = partition_exists(&pool, VICTIM_PARTITION).await;
+    let victim_lingered = partition_exists(&pool, &victim).await;
 
     // 🔴 還原一定要在任何斷言之前（見檔頭坑 2）。
     rename_function(&pool, GUARD_FN_PARKED, GUARD_FN).await;
 
     let result = result.expect("ensure_partitions 本身應回 Ok：個別分區失敗會被收進 result.failed");
     assert!(
-        result.failed.iter().any(|f| f == VICTIM_PARTITION),
-        "擋板函式不存在時，{VICTIM_PARTITION} 的建立應該要失敗並被記進 result.failed，實際：{:?}",
+        result.failed.iter().any(|f| f == &victim),
+        "擋板函式不存在時，{victim} 的建立應該要失敗並被記進 result.failed，實際：{:?}",
         result.failed
     );
     assert!(
         !victim_lingered,
-        "{VICTIM_PARTITION} 的 trigger 建立失敗了，但分區表還留在資料庫裡——\
+        "{victim} 的 trigger 建立失敗了，但分區表還留在資料庫裡——\
          CREATE TABLE 與 CREATE TRIGGER 沒有包在同一個 transaction 內，\
          裸分區沒有被 rollback，而 ensure_partitions 之後只會把它當成「已存在」而永遠略過"
     );
@@ -175,11 +187,11 @@ async fn failed_trigger_creation_rolls_back_the_partition_table() {
         repaired.failed
     );
     assert!(
-        partition_exists(&pool, VICTIM_PARTITION).await,
-        "還原後 {VICTIM_PARTITION} 應被重新建立"
+        partition_exists(&pool, &victim).await,
+        "還原後 {victim} 應被重新建立"
     );
     assert!(
-        partition_has_guard_trigger(&pool, VICTIM_PARTITION).await,
-        "重新建立的 {VICTIM_PARTITION} 必須帶 no_truncate 擋板，否則它就是個裸分區"
+        partition_has_guard_trigger(&pool, &victim).await,
+        "重新建立的 {victim} 必須帶 no_truncate 擋板，否則它就是個裸分區"
     );
 }
