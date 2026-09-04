@@ -178,17 +178,42 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
 
       if (onUpload) {
         setUploading(true)
+        // R88-1：`uploadedFiles` 必須宣告在 try 之外。
+        //
+        // 原本它在 try 內，於是多檔上傳時第 N 個失敗，前 N-1 個**已經上傳到後端**的檔案
+        // 就永遠不會走 onChange——伺服器留下一批沒有任何紀錄引用的孤兒檔，
+        // 而使用者只看到一句「上傳失敗」，會以為什麼都沒發生而重傳一次。
+        const uploadedFiles: FileInfo[] = []
         try {
-          const uploadedFiles: FileInfo[] = []
           for (const file of fileArray) {
             const uploadedFile = await onUpload(file)
             uploadedFiles.push(uploadedFile)
           }
-          onChange?.([...value, ...uploadedFiles])
         } catch (err) {
-          setError(t('common.fileUpload.errorUploadFailed'))
+          // 部分成功時要說清楚，否則使用者無從判斷該不該重傳整批。
+          //
+          // ⚠️ 措辭刻意寫成「尚未上傳」而不是「失敗」：上面的迴圈是循序的，
+          // 第 N 個 reject 就 break，第 N+1 個之後**根本沒有送出過**。把它們
+          // 一律說成「失敗」會讓使用者以為只要重傳那一個出錯的就好，於是
+          // 從未嘗試的那幾個永遠不會上傳——而 `onChange` 只登記成功的檔案，
+          // 畫面上也看不出少了什麼。所以這裡不區分「失敗」與「未嘗試」，
+          // 統一請使用者重新選取「尚未成功」的檔案。
+          setError(
+            uploadedFiles.length > 0
+              ? t('common.fileUpload.errorUploadPartial', {
+                  succeeded: uploadedFiles.length,
+                  total: fileArray.length,
+                  defaultValue: `已成功上傳 ${uploadedFiles.length} / ${fileArray.length} 個檔案，其餘尚未上傳；請重新選取尚未成功的檔案。`,
+                })
+              : t('common.fileUpload.errorUploadFailed')
+          )
           logger.error('Upload error:', err)
         } finally {
+          // 不論整批成功或中途失敗，**已經上傳成功的都要登記**。
+          // 空陣列時不呼叫，避免對「第一個就失敗」的情況送出無意義的 onChange。
+          if (uploadedFiles.length > 0) {
+            onChange?.([...value, ...uploadedFiles])
+          }
           setUploading(false)
         }
       } else {
