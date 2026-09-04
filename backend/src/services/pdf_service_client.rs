@@ -59,9 +59,10 @@ impl PdfServiceClient {
         // 快取僅針對 PDF：「計畫內容」分頁預覽每次都觸發 WeasyPrint 全量 render（~15s/份）
         // 且 render 序列化（cap=1）；同一份未修改計畫書反覆預覽是純重算浪費。key 綁「實際送出的
         // body」（含已內嵌照片）→ 同內容必同 PDF，內容一改即 miss 重算，無 staleness。
+        // `DocxRenderFormat` 移除 `Docx` 變體後只剩 Pdf，原本的 `_ => None` 會是
+        // unreachable pattern；這裡改成直接算 key，語意不變（只有 PDF 進快取）。
         let cache_key = match format {
             DocxRenderFormat::Pdf => render_cache_key("render-aup-pdf", &body),
-            _ => None,
         };
 
         if let Some(key) = &cache_key {
@@ -386,21 +387,31 @@ fn render_cache_key(tag: &str, body: &serde_json::Value) -> Option<String> {
     Some(hex::encode(hasher.finalize()))
 }
 
-/// R32-A4: docx render 回傳格式選擇。
+/// R32-A4: render 回傳格式選擇。
 ///
-/// 對應 pdf-service `/render-docx/{doc_type}?format={docx|pdf}` query 參數。
+/// ⚠️ **2026-09-04：`Docx` 變體已移除（使用者裁定，決策 89.1）。**
+///
+/// 移除的理由不是「用不到」，是**它從來沒有正確運作過**：print-pdf 的 13 條
+/// adapter route（除 `/render-aup/from-working-content` 外）在函式簽名上根本
+/// 沒有 `format` 參數，一律 `_render_pdf_async()` 後回 PDF bytes。所以送
+/// `?format=docx` 會被靜默忽略，而呼叫端仍照 `mime_type()`／`extension()`
+/// 把那份 PDF 標成 Word MIME 與 `.docx`——使用者拿到 Word 打不開的檔案。
+///
+/// 現在只剩 `Pdf` 一個變體。**這個型別暫時保留而不是整個拿掉**：所有
+/// `render_*` 方法的簽名都帶著它，一併移除會擴散到 6 個檔案，屬另一次改動；
+/// 保留單變體 enum 至少讓「這裡曾經是可選的、現在不是」在型別上看得見。
 #[derive(Debug, Clone, Copy)]
 pub enum DocxRenderFormat {
-    /// docxtpl fill 後的原始 .docx（OOXML 格式，使用者可在 Word 編輯）
-    Docx,
-    /// docx 經 Gotenberg LibreOffice 轉換後的 PDF（GLP 報表正式輸出）
+    /// Chromium（Playwright `page.pdf`）render 出的 PDF。
+    ///
+    /// （原註解寫「docx 經 Gotenberg LibreOffice 轉換」——Gotenberg 早已下線，
+    /// 現行渲染器只有 Chromium，print-pdf 全檔只發 `X-PDF-Renderer: chromium`。）
     Pdf,
 }
 
 impl DocxRenderFormat {
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
-            Self::Docx => "docx",
             Self::Pdf => "pdf",
         }
     }
@@ -408,7 +419,6 @@ impl DocxRenderFormat {
     /// 對應的 MIME type，handler 寫到 response Content-Type header。
     pub fn mime_type(&self) -> &'static str {
         match self {
-            Self::Docx => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             Self::Pdf => "application/pdf",
         }
     }
