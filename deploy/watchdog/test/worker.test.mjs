@@ -15,7 +15,26 @@ import assert from "node:assert/strict";
 import worker from "../src/worker.js";
 
 const HOUR = 60 * 60 * 1000;
-const NOW = Date.UTC(2026, 8, 3, 12, 0, 0);
+
+/**
+ * 🔴 **必須是執行當下的時間，不能寫死日期。**
+ *
+ * 這裡原本是 `Date.UTC(2026, 8, 3, 12, 0, 0)`，看起來像「固定時間讓測試可重現」，
+ * 實際上是顆定時炸彈：`worker.scheduled()` 內部用的是真實的 `Date.now()`，沒有可注入的
+ * 時鐘。所以寫死的 NOW 只固定了「餵進 KV 的資料」，比較對象仍是真實時間——
+ * 兩者的差距每過一天就多一天。
+ *
+ * 具體引爆點：下面「連續失敗達門檻」那支測試餵 `state:bootstrap = NOW`，而該測試沒有
+ * `ping:backup`，心跳的 `lastAt` 就 fallback 到 bootstrap。一旦真實時間超過
+ * NOW + 26h（BACKUP_MAX_AGE），第一次 `scheduled()` 就會判定心跳逾期而寄出告警，
+ * 於是「第 1 次失敗不該告警」的斷言被一封**心跳**告警打掛——與健康檢查門檻無關。
+ * 實測：把 NOW 往前推 12 小時（模擬過了引爆點），7 支測試裡剛好只有那一支轉紅。
+ *
+ * 改成 `Date.now()` 之後，所有測試資料都是相對於執行當下，永遠不會過期。
+ * 斷言本來就只依賴相對時間差、不依賴絕對時間值（沒有任何一支斷言格式化後的時間字串），
+ * 所以不損失可重現性。**不要為了「看起來比較確定」再改回寫死的日期。**
+ */
+const NOW = Date.now();
 /** 與 worker.js 的 HEARTBEAT_JOBS.backup 一致。 */
 const BACKUP_MAX_AGE = 26 * HOUR;
 
