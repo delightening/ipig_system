@@ -43,7 +43,7 @@ impl PdfServiceClient {
         }
     }
 
-    /// R32-A3 收尾：呼叫 `POST /render-aup/from-working-content?format={docx|pdf}`。
+    /// R32-A3 收尾：呼叫 `POST /render-aup/from-working-content?format=pdf`。
     pub async fn render_aup_from_working_content(
         &self,
         working_content: &serde_json::Value,
@@ -98,7 +98,7 @@ impl PdfServiceClient {
         String::from_utf8(bytes).map_err(|e| AppError::Internal(format!("AUP HTML 非 UTF-8: {e}")))
     }
 
-    /// R32-A8a：呼叫 `POST /render-medical-record/from-animal-data?format={docx|pdf}`。
+    /// R32-A8a：呼叫 `POST /render-medical-record/from-animal-data?format=pdf`。
     ///
     /// `data` 直接傳 `AnimalMedicalService::get_animal_medical_data` 的 JSON 結果
     /// （含 animal/observations/surgeries/weights/vaccinations/sacrifice），由
@@ -128,7 +128,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-project-medical").await
     }
 
-    /// R32-A8e：呼叫 `POST /render-review-reply/from-review-data?format={docx|pdf}`。
+    /// R32-A8e：呼叫 `POST /render-review-reply/from-review-data?format=pdf`。
     pub async fn render_review_reply_from_review_data(
         &self,
         data: &serde_json::Value,
@@ -142,7 +142,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-review-reply").await
     }
 
-    /// R32-A8c：呼叫 `POST /render-review-result/from-review-data?format={docx|pdf}`。
+    /// R32-A8c：呼叫 `POST /render-review-result/from-review-data?format=pdf`。
     pub async fn render_review_result_from_review_data(
         &self,
         data: &serde_json::Value,
@@ -156,7 +156,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-review-result").await
     }
 
-    /// R32-A8b：呼叫 `POST /render-surgery/from-surgery-data?format={docx|pdf}`。
+    /// R32-A8b：呼叫 `POST /render-surgery/from-surgery-data?format=pdf`。
     ///
     /// `data` 直接傳 `AnimalSurgeryService::get_surgery_export_data` 的 JSON
     /// 結果（含 surgery / animal / source_name / recorded_by_name /
@@ -174,7 +174,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-surgery").await
     }
 
-    /// R32-A8h：呼叫 `POST /render-blood-test/from-blood-test-data?format={docx|pdf}`。
+    /// R32-A8h：呼叫 `POST /render-blood-test/from-blood-test-data?format=pdf`。
     ///
     /// `data` 為扁平 payload：`{animal_ear_tag, animal_iacuc_no, export_date, tests[]}`。
     /// 取代 legacy `render("blood_test", ...)` (Jinja2 HTML registry) 路徑。
@@ -191,7 +191,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-blood-test").await
     }
 
-    /// R32-A8i：呼叫 `POST /render-audit-log/from-export-data?format={docx|pdf}`。
+    /// R32-A8i：呼叫 `POST /render-audit-log/from-export-data?format=pdf`。
     ///
     /// `data` 為 backend handler 組好的扁平 payload：`{meta, summary, entries[],
     /// signature}`。取代 legacy frontend client-side HTML + `window.print()` 路徑。
@@ -208,7 +208,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-audit-log").await
     }
 
-    /// R32-A8g：呼叫 `POST /render-warehouse/from-report-data?format={docx|pdf}`。
+    /// R32-A8g：呼叫 `POST /render-warehouse/from-report-data?format=pdf`。
     ///
     /// `data` 直接傳 `WarehouseService::get_report_data` 的 `WarehouseReportData`
     /// JSON serialize，pdf-service adapter 把 `inventory[]` 攤平成 `inventory_summary`
@@ -226,7 +226,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-warehouse").await
     }
 
-    /// R39：呼叫 `POST /render-vet-patrol-report/from-report-data?format={docx|pdf}`。
+    /// R39：呼叫 `POST /render-vet-patrol-report/from-report-data?format=pdf`。
     ///
     /// `data` 對齊 pdf-service `vet_patrol_report` adapter，含 categories[]
     /// 與 photos data URLs。取代 legacy `vet_patrol_report.html` + Gotenberg
