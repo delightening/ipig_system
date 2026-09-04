@@ -601,6 +601,11 @@ services:
       BACKUP_GPG_RECIPIENT: ${BACKUP_GPG_RECIPIENT:-}
       # R36-5/6/7: rclone 異地上傳目標（逗號分隔，如 r2:bucket-name,nas:share-name）
       BACKUP_RCLONE_REMOTES: ${BACKUP_RCLONE_REMOTES:-}
+      # R93-4: 是否強制要求異地上傳成功才算備份完成，形狀同上面的 BACKUP_REQUIRE_ENCRYPTION。
+      # ⚠️ 本服務有 env_file: - .env（見上方），.env 裡設的變數本來就會進容器，這行不是
+      # 必要的映射修正，只是讓「哪些變數會影響備份行為」在這個區塊集中可見——
+      # 跟同樣道理下面已經明列的 BACKUP_REQUIRE_ENCRYPTION／BACKUP_RCLONE_REMOTES 一致。
+      BACKUP_REQUIRE_OFFSITE: ${BACKUP_REQUIRE_OFFSITE:-false}
       # 過時：rsync over SSH（保留變數讓舊 deployment 不爆）
       RSYNC_TARGET: ${RSYNC_TARGET:-}
     volumes:
