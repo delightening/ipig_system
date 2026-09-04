@@ -597,7 +597,16 @@ pub struct UpdateStudyReportRequest {
     pub results: Option<String>,
     pub conclusions: Option<String>,
     pub deviations: Option<String>,
-    pub qau_statement: Option<String>,
+}
+
+/// QAU 品保聲明填寫，與報告本文分開授權（2026-09-05，見
+/// `docs/reviews/2026-09-03-code-side-issues.md` P0-1）：品保聲明是 GLP SoD 要求
+/// 「只有品保能寫」的欄位，過去與報告本文共用 `UpdateStudyReportRequest`，
+/// 等於同一個權限能同時寫兩者。
+#[derive(Debug, Deserialize, Validate)]
+pub struct QauStatementRequest {
+    #[validate(length(min = 1, message = "品保聲明內容為必填"))]
+    pub qau_statement: String,
 }
 
 #[derive(Debug, Deserialize, Default)]

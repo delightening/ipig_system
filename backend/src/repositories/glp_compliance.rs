@@ -655,9 +655,13 @@ pub async fn delete_training_requirement(pool: &PgPool, id: Uuid) -> Result<()> 
 // Study Final Reports
 // ============================================================================
 
+/// `restrict_to_sd`：呼叫端（service 層）若判定使用者不具 `study.report.view` /
+/// `qau.report_statement.write`，會傳入 `Some(user.id)`，只回傳該使用者擔任 SD 的
+/// 計畫底下的報告——SD 至少要能看到自己要簽的那份報告（見 P0-1，身分即授權）。
 pub async fn find_study_reports(
     pool: &PgPool,
     params: &StudyReportQuery,
+    restrict_to_sd: Option<Uuid>,
 ) -> Result<Vec<StudyFinalReport>> {
     let page = params.page.unwrap_or(1).max(1);
     let page_size = params.page_size.unwrap_or(20).min(100);
@@ -665,10 +669,13 @@ pub async fn find_study_reports(
 
     let rows = sqlx::query_as::<_, StudyFinalReport>(
         r#"
-        SELECT * FROM study_final_reports
-        WHERE ($1::text IS NULL OR status = $1)
-          AND ($2::uuid IS NULL OR protocol_id = $2)
-        ORDER BY created_at DESC
+        SELECT r.* FROM study_final_reports r
+        WHERE ($1::text IS NULL OR r.status = $1)
+          AND ($2::uuid IS NULL OR r.protocol_id = $2)
+          AND ($5::uuid IS NULL OR r.protocol_id IN (
+                SELECT id FROM protocols WHERE study_director_user_id = $5
+              ))
+        ORDER BY r.created_at DESC
         LIMIT $3 OFFSET $4
     "#,
     )
@@ -676,6 +683,7 @@ pub async fn find_study_reports(
     .bind(params.protocol_id)
     .bind(page_size)
     .bind(offset)
+    .bind(restrict_to_sd)
     .fetch_all(pool)
     .await?;
     Ok(rows)
@@ -690,40 +698,11 @@ pub async fn find_study_report_by_id(pool: &PgPool, id: Uuid) -> Result<Option<S
     Ok(row)
 }
 
-pub async fn update_study_report(
-    pool: &PgPool,
-    id: Uuid,
-    req: &UpdateStudyReportRequest,
-) -> Result<StudyFinalReport> {
-    let row = sqlx::query_as::<_, StudyFinalReport>(
-        r#"
-        UPDATE study_final_reports SET
-            title = COALESCE($2, title),
-            status = COALESCE($3, status),
-            summary = COALESCE($4, summary),
-            methods = COALESCE($5, methods),
-            results = COALESCE($6, results),
-            conclusions = COALESCE($7, conclusions),
-            deviations = COALESCE($8, deviations),
-            qau_statement = COALESCE($9, qau_statement),
-            updated_at = NOW()
-        WHERE id = $1
-        RETURNING *
-    "#,
-    )
-    .bind(id)
-    .bind(&req.title)
-    .bind(&req.status)
-    .bind(&req.summary)
-    .bind(&req.methods)
-    .bind(&req.results)
-    .bind(&req.conclusions)
-    .bind(&req.deviations)
-    .bind(&req.qau_statement)
-    .fetch_one(pool)
-    .await?;
-    Ok(row)
-}
+// 2026-09-05：移除本檔原有的 `update_study_report`——它從未被呼叫
+// （service 層 `GlpComplianceService::update_study_report` 自帶內嵌 SQL，是實際路徑），
+// 且其 SQL 綁定已移除的 `qau_statement` 欄位，移除 `UpdateStudyReportRequest.qau_statement`
+// 後這支死函式無法編譯。順手清掉而非留著讓它壞，詳見
+// docs/reviews/2026-09-03-code-side-issues.md P2-7（死碼清理）。
 
 // ============================================================================
 // Formulation Records
