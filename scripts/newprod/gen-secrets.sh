@@ -36,6 +36,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SECRETS_DIR="$REPO_ROOT/secrets"
 
+# CodeRabbit #83 PoC（Linux 容器實測重現，兩個都成立）：
+#   1. `$SECRETS_DIR` 本身是符號連結，指到目錄外一個空目錄 → 下面的既有內容
+#      守衛用 `find` 對連結目標算內容，空目錄算 0 而放行 → `chmod 0711` 隨後
+#      跟隨連結改到目錄外目標的權限（PoC 實測 700→711）。
+#   2. `--allow-existing` 時，目錄內第一層項目若是符號連結（含斷鏈）——既有
+#      內容守衛只計數不分型態，不會單獨擋下——監控檔迴圈的 `chmod 0644`
+#      或補公鑰的 `openssl -out` 會跟隨連結動到目錄外（PoC 實測 600→644）。
+# `-L` 對不存在的路徑回傳假，不影響首次佈建（路徑還不存在）。
+if [ -L "$SECRETS_DIR" ]; then
+  echo "ERROR: $SECRETS_DIR 本身是符號連結，拒絕執行。" >&2
+  echo "       連結目標：$(readlink "$SECRETS_DIR" 2>/dev/null || echo '（無法解析）')" >&2
+  echo "       本腳本接下來會對這個路徑下 chmod；若它是符號連結，改到的" >&2
+  echo "       是連結目標而非預期的 secrets 目錄，可能是目錄外任意位置。" >&2
+  echo "       請移除這個符號連結、改用真實目錄後再跑。" >&2
+  exit 1
+fi
+
 # R103-5：這支腳本的定位是「初次佈建」，但它的落點 `$REPO_ROOT/secrets` 在**已部署的
 # 機器上就是現役 prod 正在用的那個目錄**（vet 實查 `ipig-api` 容器掛載確認）。
 # 檔名與所在目錄都叫 `newprod`，而 newprod stack 已確認不存在（R103-1）——
@@ -125,6 +142,22 @@ if [ "$ALLOW_EXISTING" -ne 1 ] && [ -d "$SECRETS_DIR" ]; then
 fi
 
 mkdir -p "$SECRETS_DIR"
+
+# CodeRabbit #83 PoC 攻擊向量 2（見上方 SECRETS_DIR 符號連結檢查同一則說明）：
+# 第一層項目若是符號連結（含斷鏈），必須在任何 chmod／openssl 輸出**之前**擋下，
+# 否則那些操作會跟隨連結動到目錄外。`-type l` 用 lstat 判斷連結本身的型態，
+# 不需要解析目標，斷鏈符號連結一樣正確辨識為 `l`。
+symlink_children=$(find "$SECRETS_DIR" -mindepth 1 -maxdepth 1 -type l 2>/dev/null || true)
+if [ -n "$symlink_children" ]; then
+  echo "ERROR: $SECRETS_DIR 底下有符號連結，拒絕執行。" >&2
+  echo "       本腳本接下來會對目錄裡的既有檔案下 chmod／openssl 輸出；" >&2
+  echo "       若其中任何一個是符號連結，操作會跟隨連結動到目錄外的目標。" >&2
+  echo "$symlink_children" | while IFS= read -r p; do
+    echo "         - $(basename "$p") -> $(readlink "$p" 2>/dev/null || echo '（斷鏈）')" >&2
+  done
+  echo "       請移除這些符號連結（改成真實檔案）後再跑。" >&2
+  exit 1
+fi
 
 # ⚠️ 目錄權限要單獨設，不能放給 umask 決定。
 # `umask 077` 會讓上面這行建出 0700 的目錄，而 0700 對 other 沒有 execute，
