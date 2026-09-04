@@ -10,37 +10,12 @@
 
 use sqlx::PgPool;
 
-/// 只認 `TEST_DATABASE_URL`，未設時才收明顯是測試庫的 `DATABASE_URL`（名稱含 `test`）。
-/// 本測試會跑 migration；連錯 DB 的代價是對正式 schema 動手。
-fn test_database_url() -> String {
-    let (url, source) = match std::env::var("TEST_DATABASE_URL") {
-        Ok(url) => (url, "TEST_DATABASE_URL"),
-        Err(_) => (
-            std::env::var("DATABASE_URL").expect(
-                "TEST_DATABASE_URL 與 DATABASE_URL 皆未設定。本測試會跑 migration，\
-                 請指向獨立可丟棄的測試 DB。",
-            ),
-            "DATABASE_URL",
-        ),
-    };
-    let db_name = url
-        .rsplit('/')
-        .next()
-        .and_then(|tail| tail.split(['?', '#']).next())
-        .unwrap_or_default();
-    assert!(
-        db_name.contains("test"),
-        "{source} 指向的資料庫 `{db_name}` 不像測試庫（名稱不含 test）。\
-         本測試會跑 migration，拒絕在可能是 prod 的連線上執行。"
-    );
-    url
-}
+#[path = "common/test_db.rs"]
+mod test_db;
 
 async fn setup_pool() -> PgPool {
-    dotenvy::dotenv().ok();
-    let pool = PgPool::connect(&test_database_url())
-        .await
-        .expect("connect test db");
+    // 10 = sqlx `PgPool::connect` 的預設池大小，明寫以保留原行為。
+    let pool = test_db::connect_disposable(10).await;
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
