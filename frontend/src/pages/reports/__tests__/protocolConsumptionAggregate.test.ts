@@ -233,16 +233,23 @@ describe('taipeiDateStamp', () => {
 })
 
 describe('toCsv', () => {
-  it('品名含雙引號時按 RFC 4180 escape，欄位不會錯位', () => {
+  it('品名含雙引號時按 RFC 4180 §2.7 escape，欄位不會錯位', () => {
     // 實查有品項叫 `"太平洋" 10號導尿管`
     const csv = toCsv(['品名', '數量'], [['"太平洋" 10號導尿管', 5]])
-    expect(csv).toBe('"品名","數量"\n"""太平洋"" 10號導尿管","5"')
+    expect(csv).toBe('"品名","數量"\r\n"""太平洋"" 10號導尿管","5"')
     // 逗號數量必須是每列各 1 個分隔逗號，escape 壞掉會多出來
-    expect(csv.split('\n')[1].split('","')).toHaveLength(2)
+    expect(csv.split('\r\n')[1].split('","')).toHaveLength(2)
+  })
+
+  it('record 之間是 CRLF 而非 LF（RFC 4180 §2.1）', () => {
+    const csv = toCsv(['a'], [['1'], ['2']])
+    expect(csv).toBe('"a"\r\n"1"\r\n"2"')
+    // 不得出現落單的 LF——那代表某處用了 \n
+    expect(csv.replace(/\r\n/g, '')).not.toContain('\n')
   })
 
   it('含逗號的內容被引號包住不會被當成分隔', () => {
     const csv = toCsv(['a', 'b'], [['x,y', 'z']])
-    expect(csv.split('\n')[1]).toBe('"x,y","z"')
+    expect(csv.split('\r\n')[1]).toBe('"x,y","z"')
   })
 })

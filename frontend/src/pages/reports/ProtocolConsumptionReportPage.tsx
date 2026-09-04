@@ -93,9 +93,22 @@ export function ProtocolConsumptionReportPage() {
 
   const protocolOptions = useMemo(() => aggregateByProtocol(allRows), [allRows])
 
+  // 🔴 被截斷時計畫篩選必須停用，不能只是「照樣篩」。
+  //
+  // `allRows` 在截斷時只是全域排序（protocol_no, sku）的前 1000 組：排序在後面的
+  // 計畫整個不在裡面，剛好卡在切點的那個計畫則會少掉部分品項。此時篩選只是在一份
+  // **殘缺的陣列**上過濾，不會重新查後端——選了一個計畫看到的數字可能是不完整的，
+  // 而畫面看起來跟正常結果一模一樣。
+  //
+  // 唯一有效的補救是縮小日期範圍讓資料回到上限內。上一版的警告文案寫「或指定計畫」，
+  // 那是錯的：那個動作不會重查，等於叫使用者做一件沒有作用的事。
+  const filterEnabled = !truncated
+  const activeProtocolId = filterEnabled ? protocolId : ''
+
   const rows = useMemo(
-    () => (protocolId ? allRows.filter(r => r.protocol_id === protocolId) : allRows),
-    [allRows, protocolId]
+    () =>
+      activeProtocolId ? allRows.filter(r => r.protocol_id === activeProtocolId) : allRows,
+    [allRows, activeProtocolId]
   )
 
   const byProtocol = useMemo(() => aggregateByProtocol(rows), [rows])
@@ -182,11 +195,16 @@ export function ProtocolConsumptionReportPage() {
           <Input type="date" value={to} onChange={e => setTo(e.target.value)} />
         </div>
         <div className="space-y-1">
-          <Label>計畫</Label>
+          <Label>
+            計畫
+            {truncated && (
+              <span className="ml-1 font-normal text-muted-foreground">（資料截斷中不可用）</span>
+            )}
+          </Label>
           <Select
-            value={protocolId || ALL_VALUE}
+            value={activeProtocolId || ALL_VALUE}
             onValueChange={v => setProtocolId(v === ALL_VALUE ? '' : v)}
-            disabled={isError}
+            disabled={isError || !filterEnabled}
           >
             <SelectTrigger>
               <SelectValue placeholder="全部計畫" />
@@ -208,8 +226,10 @@ export function ProtocolConsumptionReportPage() {
         <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <span>
-            資料已達 {ROW_LIMIT} 組上限而被截斷，下面看到的<strong>不是全部</strong>。
-            請縮小日期範圍或指定計畫後重查。
+            資料已達 {ROW_LIMIT} 組上限而被截斷，下面看到的<strong>不是全部</strong>
+            ——排序在後面的計畫整個不在其中，卡在切點的計畫也可能少掉部分品項。
+            <strong>請縮小日期範圍後重查</strong>；計畫篩選在這個狀態下已停用，
+            因為它只會在這份殘缺資料上過濾，不會重新查詢。
           </span>
         </div>
       )}
