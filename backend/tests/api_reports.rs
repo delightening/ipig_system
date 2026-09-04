@@ -172,7 +172,7 @@ async fn protocol_consumption_nets_reversals_and_excludes_non_so() {
     assert_eq!(
         json_num(&row["qty_base"]),
         5.0,
-        "10 + 5 − 10（沖銷）= 5，沖銷沒被減掉的話會是 25"
+        "10 + 5 − 10（沖銷）= 5。沖銷若被忽略會是 15、若被當成領用加上去會是 25"
     );
     assert_eq!(
         row["doc_count"].as_i64().expect("doc_count 應為整數"),

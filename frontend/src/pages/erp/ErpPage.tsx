@@ -23,6 +23,7 @@ import {
     Wrench,
     TrendingUp,
     Search,
+    FlaskConical,
 } from 'lucide-react'
 
 interface ErpModuleItem {
@@ -150,6 +151,12 @@ const erpModules: ErpModule[] = [
                 href: '/sales-lines',
                 icon: <ShoppingCart className="h-4 w-4" />,
                 description: '銷貨項目明細統計',
+            },
+            {
+                title: '案件消耗報表',
+                href: '/protocol-consumption',
+                icon: <FlaskConical className="h-4 w-4" />,
+                description: '依計畫統計耗材領用',
             },
             {
                 title: '成本摘要報表',

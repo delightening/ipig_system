@@ -133,6 +133,31 @@ export interface ProfitLossSummary {
     net_income: string
 }
 
+/**
+ * 案件消耗報表：一列 = 一個案件 × 一個品項的淨消耗。
+ *
+ * 數量以品項的 `base_uom`（領用單位）計，不做包裝換算——倉庫側論箱盒是
+ * 庫存現況報表的事（2026-09-04 裁定）。
+ */
+export interface ProtocolConsumptionReport {
+    protocol_id: string
+    protocol_no: string
+    /** 核准編號。DRAFT 階段的計畫尚未取得，可為 null */
+    iacuc_no: string | null
+    protocol_title: string | null
+    product_id: string
+    product_sku: string
+    product_name: string
+    category_name: string | null
+    base_uom: string
+    /** 淨消耗量（已扣除沖銷），以 base_uom 計 */
+    qty_base: string
+    doc_count: number
+    first_trx_date: string
+    last_trx_date: string
+    total_cost: string | null
+}
+
 export interface BloodTestCostReport {
     iacuc_no: string | null
     ear_tag: string

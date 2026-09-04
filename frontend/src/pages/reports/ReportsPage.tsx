@@ -77,6 +77,14 @@ const reportItems: ReportItem[] = [
         section: 'erp',
     },
     {
+        title: '案件消耗報表',
+        href: '/protocol-consumption',
+        icon: <FlaskConical className="h-4 w-4" />,
+        description: '依計畫統計耗材領用',
+        role: 'admin',
+        section: 'erp',
+    },
+    {
         title: '成本摘要報表',
         href: '/cost-summary',
         icon: <BarChart3 className="h-4 w-4" />,

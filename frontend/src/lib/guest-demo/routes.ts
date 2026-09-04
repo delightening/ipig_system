@@ -50,6 +50,7 @@ import {
 } from './dashboard'
 import {
   DEMO_STOCK_ON_HAND, DEMO_STOCK_LEDGER, DEMO_PURCHASE_LINES, DEMO_SALES_LINES,
+  DEMO_PROTOCOL_CONSUMPTION,
   DEMO_COST_SUMMARY, DEMO_PS_MONTHLY, DEMO_PS_BY_PARTNER, DEMO_PS_BY_CATEGORY,
   DEMO_BLOOD_TEST_COST, DEMO_BLOOD_TEST_ANALYSIS,
   DEMO_TRIAL_BALANCE, DEMO_JOURNAL_ENTRIES, DEMO_AP_AGING, DEMO_AR_AGING, DEMO_PROFIT_LOSS,
@@ -346,6 +347,7 @@ const exactRoutes: Record<string, unknown> = {
   '/reports/stock-ledger': DEMO_STOCK_LEDGER,
   '/reports/sales-lines': DEMO_SALES_LINES,
   '/reports/purchase-lines': DEMO_PURCHASE_LINES,
+  '/reports/protocol-consumption': DEMO_PROTOCOL_CONSUMPTION,
   '/reports/cost-summary': DEMO_COST_SUMMARY,
   '/reports/blood-test-analysis': DEMO_BLOOD_TEST_ANALYSIS,
   '/reports/blood-test-cost': DEMO_BLOOD_TEST_COST,
