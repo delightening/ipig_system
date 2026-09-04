@@ -338,6 +338,7 @@ async fn acknowledge_notice_by_delegate_records_delegation_evidence() {
         protocol_id,
         delegate,
         None,
+        None,
     )
     .await
     .expect("SD 核准代理人");
@@ -387,9 +388,16 @@ async fn acknowledge_notice_in_person_leaves_delegation_null() {
 
     // 即使這個人同時也被指定為代理人，他本來就是 pi_user_id——本人身分優先，
     // 簽章不該標成代簽（假的可歸責資訊比沒有更糟）。
-    ProtocolService::authorize_pi_delegate(&app.db_pool, &user_actor(sd), protocol_id, pi, None)
-        .await
-        .expect("SD 核准代理人（本例中恰好就是 PI 本人）");
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &user_actor(sd),
+        protocol_id,
+        pi,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人（本例中恰好就是 PI 本人）");
 
     let scope = notice_scope(&app, pi, protocol_id).await;
     let ack =

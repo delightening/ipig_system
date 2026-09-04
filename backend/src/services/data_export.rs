@@ -108,7 +108,9 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "import_jobs",
     "export_jobs",
     "euthanasia_orders",
-    "euthanasia_appeals",
+    // ⚠️ `euthanasia_appeals` 不在這裡——migration 010 讓它多了
+    // `delegation_id → protocol_pi_delegates(id)`，還原順序必須排在那張表之後，
+    // 所以移到下方 AUP 區塊。沒有任何表 FK 指向 appeals（實查 migrations），移動安全。
     // R53-1 廢棄物再利用紀錄（FK → euthanasia_orders + animals + protocols + users）
     "euthanasia_byproduct_samples",
     "animal_import_batches",
@@ -136,6 +138,14 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "message_attachments",
     // 003 - AUP
     "protocols",
+    // 010 - 外部 PI 代簽授權（FK → protocols + users）。位置必須夾在 `protocols` 之後、
+    // 但在所有「反過來 FK 指向它」的表之前——目前有三張：`amendments`（下方，
+    // created/submitted_delegation_id）、`electronic_signatures`、`euthanasia_appeals`。
+    // 排在這裡是同時滿足三者的最早位置。
+    "protocol_pi_delegates",
+    // 010 - 暫緩申請（FK → euthanasia_orders + users + protocol_pi_delegates）。
+    // 從上方安樂死區塊搬下來，就是為了排在 protocol_pi_delegates 之後。
+    "euthanasia_appeals",
     // 117 - 動物預約與試驗規劃（FK → protocols + users；被 animals.reserved_planned_experiment_id 參照）
     "planned_experiments",
     "user_protocols",
@@ -159,9 +169,6 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "protocol_activities",
     "review_round_history",
     "protocol_ai_reviews",
-    // 010 - 外部 PI 代簽授權（FK → protocols + users）。必須排在 electronic_signatures
-    // 之前：後者的 delegation_id 反過來 FK → protocol_pi_delegates(id)。
-    "protocol_pi_delegates",
     // 004 - HR
     "attendance_records",
     "overtime_records",

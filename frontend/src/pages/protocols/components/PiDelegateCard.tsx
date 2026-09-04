@@ -36,6 +36,8 @@ export function PiDelegateCard({ protocolId }: Props) {
   const qc = useQueryClient()
   const user = useAuthUser()
   const [selectedDelegate, setSelectedDelegate] = useState('')
+  // 到期日（`<input type="date">` 的 yyyy-MM-dd）；空字串 = 不設期限。
+  const [expiresOn, setExpiresOn] = useState('')
 
   const { data: protocolResponse } = useQuery({
     queryKey: queryKeys.protocols.detail(protocolId),
@@ -57,11 +59,20 @@ export function PiDelegateCard({ protocolId }: Props) {
   })
 
   const authorizeMutation = useMutation({
-    mutationFn: (delegateUserId: string) => authorizePiDelegate(protocolId, delegateUserId),
+    mutationFn: (delegateUserId: string) =>
+      authorizePiDelegate(
+        protocolId,
+        delegateUserId,
+        undefined,
+        // 日期選到當天，語意是「那天結束前都有效」，所以送當天的 23:59:59 而不是 00:00。
+        // 送 00:00 會讓「有效到今天」的授權在使用者按下去的當下就已經過期。
+        expiresOn ? new Date(`${expiresOn}T23:59:59`).toISOString() : undefined
+      ),
     onSuccess: () => {
       toast({ title: t('common.success'), description: t('protocols.piDelegate.authorizeSuccess') })
       qc.invalidateQueries({ queryKey: queryKeys.protocols.detail(protocolId) })
       setSelectedDelegate('')
+      setExpiresOn('')
     },
     onError: (e) => toast({
       title: t('common.error'),
@@ -119,6 +130,13 @@ export function PiDelegateCard({ protocolId }: Props) {
                   date: formatDate(delegate.authorized_at),
                 })}
               </span>
+              <span className="text-muted-foreground">
+                {delegate.expires_at
+                  ? t('protocols.piDelegate.validUntil', {
+                      date: formatDate(delegate.expires_at),
+                    })
+                  : t('protocols.piDelegate.noExpiry')}
+              </span>
             </div>
             {canManage && (
               <Button
@@ -152,6 +170,17 @@ export function PiDelegateCard({ protocolId }: Props) {
                 ))}
               </SelectContent>
             </Select>
+            <label className="flex items-center gap-1 text-sm text-muted-foreground">
+              {t('protocols.piDelegate.expiresLabel')}
+              <input
+                type="date"
+                className="rounded border bg-background px-2 py-1 text-sm"
+                value={expiresOn}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setExpiresOn(e.target.value)}
+                aria-label={t('protocols.piDelegate.expiresLabel')}
+              />
+            </label>
             <Button
               size="sm"
               disabled={!selectedDelegate || authorizeMutation.isPending}

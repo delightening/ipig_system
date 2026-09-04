@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE amendments\n            SET\n                amendment_type = 'MAJOR'::amendment_type,\n                status = 'CLASSIFIED'::amendment_status,\n                classified_by = $2,\n                classified_at = NOW(),\n                classification_remark = $3,\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING\n                id, protocol_id, amendment_no, revision_number,\n                amendment_type as \"amendment_type: AmendmentType\",\n                status as \"status: AmendmentStatus\",\n                title, description, change_items,\n                changes_content, submitted_by, submitted_at,\n                classified_by, classified_at, classification_remark,\n                created_by, created_at, updated_at,\n                approved_signature_id, rejected_signature_id,\n                effective_from, version, is_historical\n            ",
+  "query": "\n            UPDATE amendments\n            SET\n                status = ($2::TEXT)::amendment_status,\n                submitted_by = $3,\n                submitted_delegation_id = $4,\n                submitted_at = NOW(),\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING\n                id, protocol_id, amendment_no, revision_number,\n                amendment_type as \"amendment_type: AmendmentType\",\n                status as \"status: AmendmentStatus\",\n                title, description, change_items,\n                changes_content, submitted_by, submitted_at,\n                classified_by, classified_at, classification_remark,\n                created_by, created_at, updated_at,\n                approved_signature_id, rejected_signature_id,\n                effective_from, version, is_historical\n            ",
   "describe": {
     "columns": [
       {
@@ -289,8 +289,9 @@
     "parameters": {
       "Left": [
         "Uuid",
+        "Text",
         "Uuid",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -319,5 +320,5 @@
       false
     ]
   },
-  "hash": "a5ed4eeb639365cd145dfd3e91230d1515c582c04a920d9056641a68e73d1ce4"
+  "hash": "517b3badc3e934c86c0d521106e1afd741f37a29555709b279921e508825b140"
 }

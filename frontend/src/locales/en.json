@@ -828,7 +828,10 @@
       "authorizeSuccess": "PI delegate approved",
       "authorizeFailed": "Approval failed",
       "revokeSuccess": "PI delegate revoked",
-      "revokeFailed": "Revocation failed"
+      "revokeFailed": "Revocation failed",
+      "expiresLabel": "Valid until",
+      "validUntil": "(valid until {{date}})",
+      "noExpiry": "(no expiry)"
     }
   },
   "language": {

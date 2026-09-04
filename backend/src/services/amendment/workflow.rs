@@ -214,11 +214,16 @@ async fn apply_terminal_decision_tx(
 
 impl AmendmentService {
     /// 提交變更申請
+    ///
+    /// `submitted_delegation`：非 `None` 時代表 `submitted_by` 是依該筆
+    /// `protocol_pi_delegates` 授權代為送審的代理人（migration 010）。與建立時的
+    /// `created_delegation_id` 分開記錄——建立與送審是兩個獨立時點，可能由不同的人做。
     pub async fn submit(
         pool: &PgPool,
         scope: Scoped<AmendmentWrite>,
         id: Uuid,
         submitted_by: Uuid,
+        submitted_delegation: Option<Uuid>,
     ) -> Result<Amendment> {
         let current = Self::get_by_id_raw(pool, id).await?;
         ensure_amendment_scope(&current, &scope)?;
@@ -243,6 +248,7 @@ impl AmendmentService {
             SET
                 status = ($2::TEXT)::amendment_status,
                 submitted_by = $3,
+                submitted_delegation_id = $4,
                 submitted_at = NOW(),
                 updated_at = NOW()
             WHERE id = $1
@@ -260,6 +266,7 @@ impl AmendmentService {
             id,
             new_status.as_str(),
             submitted_by,
+            submitted_delegation,
         )
         .fetch_one(pool)
         .await?;

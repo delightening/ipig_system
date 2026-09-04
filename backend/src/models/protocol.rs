@@ -771,6 +771,8 @@ pub struct PiDelegateInfo {
     pub authorized_by: Uuid,
     pub authorized_by_name: String,
     pub authorized_at: DateTime<Utc>,
+    /// 授權自動失效時點；`None` = 不設期限。供前端顯示「有效至 …」。
+    pub expires_at: Option<DateTime<Utc>>,
     pub reason: Option<String>,
 }
 
@@ -782,6 +784,10 @@ pub struct ProtocolPiDelegate {
     pub delegate_user_id: Uuid,
     pub authorized_by: Uuid,
     pub authorized_at: DateTime<Utc>,
+    /// 授權自動失效時點；`None` = 不設期限（migration 010）。
+    /// 過期後所有授權判準一律不放行，但**不追溯**否定過去已做成的行為
+    /// （同 `revoked_at` 的原則，見 `closure::dual_signature_ready` 條件 6）。
+    pub expires_at: Option<DateTime<Utc>>,
     pub reason: Option<String>,
     pub revoked_by: Option<Uuid>,
     pub revoked_at: Option<DateTime<Utc>>,
@@ -796,6 +802,8 @@ pub struct AuthorizePiDelegateRequest {
     pub delegate_user_id: Uuid,
     #[validate(length(max = 1000))]
     pub reason: Option<String>,
+    /// 授權到期時點；省略 = 不設期限。必須晚於現在（service 層驗）。
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 /// 撤銷 PI 代理人請求。

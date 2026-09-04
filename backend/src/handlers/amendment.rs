@@ -37,7 +37,12 @@ pub async fn create_amendment(
     .await?;
 
     req.validate()?;
-    let amendment = AmendmentService::create(&state.db, scope, &req, current_user.id).await?;
+    // 代簽證據（migration 010）：只有在「沒有任何個人資格、純靠代理授權才寫得下去」
+    // 時才標記，見 `access::amendment_writer_delegation`。
+    let delegation =
+        access::amendment_writer_delegation(&state.db, &current_user, req.protocol_id).await?;
+    let amendment =
+        AmendmentService::create(&state.db, scope, &req, current_user.id, delegation).await?;
     Ok(Json(amendment))
 }
 
@@ -182,7 +187,12 @@ pub async fn submit_amendment(
     )
     .await?;
 
-    let amendment = AmendmentService::submit(&state.db, scope, id, current_user.id).await?;
+    // 代簽證據（migration 010）：建立與送審是兩個獨立時點、可能由不同的人做，
+    // 所以各自解析、各自記錄，不共用一欄。
+    let delegation =
+        access::amendment_writer_delegation(&state.db, &current_user, current.protocol_id).await?;
+    let amendment =
+        AmendmentService::submit(&state.db, scope, id, current_user.id, delegation).await?;
 
     // 非同步通知 IACUC_STAFF
     let db = state.db.clone();

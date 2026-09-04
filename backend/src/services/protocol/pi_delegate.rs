@@ -18,6 +18,7 @@
 //! - 一份計畫同時最多一筆生效中授權（`revoked_at IS NULL`），換人須先撤銷再
 //!   重新核准，不做隱性覆蓋。
 
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -59,12 +60,17 @@ fn has_delegate_escalation_privilege(actor: &ActorContext) -> bool {
 
 impl ProtocolService {
     /// 核准一位 PI 代理人。授權規則見檔案頂端說明。
+    ///
+    /// `expires_at`：授權自動失效時點，`None` = 不設期限（沿用原本行為）。
+    /// 必須晚於現在。過期後所有授權判準一律不放行，但**不追溯**——見 migration 010
+    /// 該欄的說明。
     pub async fn authorize_pi_delegate(
         pool: &PgPool,
         actor: &ActorContext,
         protocol_id: Uuid,
         delegate_user_id: Uuid,
         reason: Option<&str>,
+        expires_at: Option<DateTime<Utc>>,
     ) -> Result<ProtocolPiDelegate> {
         let actor_id = match actor {
             ActorContext::User(u) => u.id,
@@ -146,27 +152,63 @@ impl ProtocolService {
             ));
         }
 
-        let existing: Option<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM protocol_pi_delegates WHERE protocol_id = $1 AND revoked_at IS NULL",
+        // 期限必須是未來（migration 010 的 expires_at）。允許 NULL＝不設期限。
+        if let Some(expires_at) = expires_at {
+            if expires_at <= Utc::now() {
+                return Err(AppError::Validation(
+                    "代理授權的到期時間必須晚於現在。".into(),
+                ));
+            }
+        }
+
+        // 「一份計畫同時只有一位生效代理人」這條約束由部分唯一索引（`revoked_at IS NULL`）
+        // 保證，而索引述詞不能用 `now()`，所以**已過期但未撤銷**的列仍然佔著那個位置。
+        //
+        // 已過期的授權在授權判準上已經一律不放行（各檢查點都帶
+        // `expires_at IS NULL OR expires_at > now()`），讓它繼續卡住新的核准沒有意義，
+        // 只會逼 SD 先手動撤銷一筆早就無效的紀錄。所以這裡自動把它關掉——
+        // 手法與 SD 變更時的自動撤銷（`revoke_pi_delegate_for_sd_change_tx`）相同，
+        // 一樣留下 `revoked_by` / `revoked_reason` 的可歸責痕跡，不是靜默刪除。
+        let existing: Option<(Uuid, bool)> = sqlx::query_as(
+            r#"SELECT id, (expires_at IS NOT NULL AND expires_at <= now()) AS is_expired
+               FROM protocol_pi_delegates
+               WHERE protocol_id = $1 AND revoked_at IS NULL"#,
         )
         .bind(protocol_id)
         .fetch_optional(&mut *tx)
         .await?;
-        if existing.is_some() {
-            return Err(AppError::BusinessRule(
-                "本計畫已有生效中的代理人，請先撤銷再重新核准。".into(),
-            ));
+        match existing {
+            Some((_, false)) => {
+                return Err(AppError::BusinessRule(
+                    "本計畫已有生效中的代理人，請先撤銷再重新核准。".into(),
+                ));
+            }
+            Some((expired_id, true)) => {
+                sqlx::query(
+                    r#"UPDATE protocol_pi_delegates
+                       SET revoked_by = $1, revoked_at = NOW(),
+                           revoked_reason = '授權已到期，因核准新代理人而自動關閉'
+                       WHERE id = $2 AND revoked_at IS NULL"#,
+                )
+                .bind(actor_id)
+                .bind(expired_id)
+                .execute(&mut *tx)
+                .await?;
+            }
+            None => {}
         }
 
         let delegate = sqlx::query_as::<_, ProtocolPiDelegate>(
-            r#"INSERT INTO protocol_pi_delegates (protocol_id, delegate_user_id, authorized_by, reason)
-               VALUES ($1, $2, $3, $4)
+            r#"INSERT INTO protocol_pi_delegates
+                 (protocol_id, delegate_user_id, authorized_by, reason, expires_at)
+               VALUES ($1, $2, $3, $4, $5)
                RETURNING *"#,
         )
         .bind(protocol_id)
         .bind(delegate_user_id)
         .bind(actor_id)
         .bind(reason)
+        .bind(expires_at)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -298,7 +340,8 @@ impl ProtocolService {
                FROM protocol_pi_delegates d
                JOIN users du ON du.id = d.delegate_user_id
                JOIN users au ON au.id = d.authorized_by
-               WHERE d.protocol_id = $1 AND d.revoked_at IS NULL"#,
+               WHERE d.protocol_id = $1 AND d.revoked_at IS NULL
+                 AND (d.expires_at IS NULL OR d.expires_at > now())"#,
         )
         .bind(protocol_id)
         .fetch_optional(pool)

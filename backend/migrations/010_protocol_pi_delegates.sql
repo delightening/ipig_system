@@ -21,6 +21,24 @@ CREATE TABLE public.protocol_pi_delegates (
     delegate_user_id uuid NOT NULL REFERENCES public.users(id),
     authorized_by uuid NOT NULL REFERENCES public.users(id),
     authorized_at timestamptz NOT NULL DEFAULT now(),
+    -- 授權自動失效時點。NULL = 不設期限（沿用原本行為：一直有效到被撤銷為止）。
+    --
+    -- 為什麼需要這一欄：代理授權的典型情境是「PI 出國兩週」，但撤銷是純手動的，
+    -- 沒有任何機制提醒。少了期限，一筆為兩週開的授權會安靜地活到有人想起來為止——
+    -- 而且它同時握有結案簽署、安樂死核准/暫緩、修正案寫入、須知簽署全部五項權限。
+    -- 這是**會自己惡化**的風險（沒有人在看著它），與「範圍給太寬」那種 SD 知情下
+    -- 做的決定不同，所以先補這一項。
+    --
+    -- ⚠️ 期限**不追溯**：判斷「這筆授權現在還能不能用來做新的事」時檢查它，
+    -- 但**不**用它去否定過去已經做成的行為。與 `revoked_at` 同一原則——
+    -- `closure::dual_signature_ready` 條件 6 刻意不看 `revoked_at`，也同樣不看本欄，
+    -- 因為簽署是時點行為，事後過期不該讓已簽的簽章失真。
+    --
+    -- ⚠️ 不寫進下面的部分唯一索引：索引述詞不能用 `now()`（非 immutable）。
+    -- 因此「一份計畫同時只有一位生效代理人」這條約束仍以 `revoked_at IS NULL` 為準，
+    -- 已過期但未撤銷的列**仍然佔著那個位置**。`authorize_pi_delegate` 會在核准新代理人時
+    -- 自動撤銷已過期的舊列（比照 SD 變更的自動撤銷），SD 不需要先手動清理。
+    expires_at timestamptz,
     reason text,
     revoked_by uuid REFERENCES public.users(id),
     revoked_at timestamptz,
@@ -72,3 +90,47 @@ COMMENT ON COLUMN public.electronic_signatures.delegation_id IS
     'signer_id 仍是實際輸入密碼、完成簽署動作的人；delegation_id 只補「代表誰、'
     '依何授權」這一層語意，不影響簽章本身的密碼學完整性。既有簽章一律 NULL'
     '（=本人簽署），不需回填。';
+
+-- `euthanasia_appeals`（暫緩申請）同樣需要代簽證據，但它漏掉的方式與上面那欄不同、
+-- 也更隱蔽：暫緩申請**不建立簽章**（`pi_appeal` 從頭到尾沒有呼叫任何 `sign_record_*`），
+-- 所以它借不到 `electronic_signatures.delegation_id` 那條證據鏈。
+--
+-- 而本 migration 讓 `lock_order_for_pi` 開始接受代理人之後，`euthanasia_appeals.pi_user_id`
+-- 的語意實質上變了：在此之前該欄必然等於計畫的 PI（授權檢查寫死 `pi_user_id = $2`），
+-- 之後它可能是代理人。**欄位名沒變、值的意義卻變了**——這種變化最容易在事後稽核時
+-- 被誤讀成「PI 本人親自申請了暫緩」。
+--
+-- 本欄補的就是這一層：非 NULL = `pi_user_id` 是依此筆授權代為申請的代理人。
+-- 沿用與 `electronic_signatures.delegation_id` 相同的形狀（保留原本的行為人欄位、
+-- 另外加一欄授權引用），而不是把 `pi_user_id` 改名——改名會波及既有消費端，
+-- 也與上面那欄的慣例不一致。
+--
+-- FK 寫法與上面同一句型（ADD COLUMN 順帶帶 FK），適用同一份實測依據，不再重述。
+ALTER TABLE public.euthanasia_appeals
+    ADD COLUMN delegation_id uuid REFERENCES public.protocol_pi_delegates(id);
+
+COMMENT ON COLUMN public.euthanasia_appeals.delegation_id IS
+    '非 NULL 時代表 pi_user_id 是依此筆 protocol_pi_delegates 授權代為申請暫緩的代理人，'
+    '而非計畫的 PI 本人。pi_user_id 一律是實際送出申請的人；本欄只補「依何授權代為申請」'
+    '這一層可歸責性。既有紀錄一律 NULL（=本人申請），不需回填。';
+
+-- `amendments`（變更申請）同理。`access::can_write_amendment` 的第三個分支放行生效中
+-- 代理人，所以 `created_by` / `submitted_by` 這兩欄與上面那些欄位踩到同一個坑：
+-- 本 migration 之前它們必然是計畫 PI（授權判準只認 admin 與 PI），之後可能是代理人。
+--
+-- 兩個行為人欄位各配一欄授權引用，而不是只加一欄：建立與送審是兩個獨立時點的動作，
+-- 可能由不同的人做（PI 起草、代理人送審，或反過來），共用一欄會把兩件事混為一談。
+-- `classified_by` 不配：分類是 IACUC 執秘的動作，不在代理範圍內。
+--
+-- 變更申請的簽章（`approved_signature_id` / `rejected_signature_id`）是**審查方的決定簽**，
+-- 不是提交方的簽章——所以這條路徑跟暫緩一樣借不到 `electronic_signatures.delegation_id`，
+-- 必須自己留證據。
+ALTER TABLE public.amendments
+    ADD COLUMN created_delegation_id uuid REFERENCES public.protocol_pi_delegates(id),
+    ADD COLUMN submitted_delegation_id uuid REFERENCES public.protocol_pi_delegates(id);
+
+COMMENT ON COLUMN public.amendments.created_delegation_id IS
+    '非 NULL 時代表 created_by 是依此筆 protocol_pi_delegates 授權代為建立變更申請的代理人。';
+
+COMMENT ON COLUMN public.amendments.submitted_delegation_id IS
+    '非 NULL 時代表 submitted_by 是依此筆 protocol_pi_delegates 授權代為送審變更申請的代理人。';

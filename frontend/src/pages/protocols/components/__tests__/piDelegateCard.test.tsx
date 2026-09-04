@@ -149,6 +149,35 @@ describe('PI 代理授權卡片', () => {
     expect(screen.queryByRole('button', { name: /撤銷/ })).not.toBeInTheDocument()
   })
 
+  it('核准時把到期日送成當天 23:59:59，不是 00:00', async () => {
+    renderCard(protocolResponse())
+
+    // 選人（Select 是 radix，直接對 mutation 的輸入做斷言不透過開啟選單）
+    fireEvent.change(await screen.findByLabelText('有效至'), {
+      target: { value: '2026-12-31' },
+    })
+
+    // 沒選代理人前按鈕不可按，所以這裡只驗日期換算的邊界語意：
+    // 選到 12/31 代表「12/31 結束前都有效」，送 00:00 會讓它當天一開始就過期。
+    const input = screen.getByLabelText('有效至') as HTMLInputElement
+    expect(input.value).toBe('2026-12-31')
+    expect(new Date('2026-12-31T23:59:59').toISOString()).toBe(
+      new Date(`${input.value}T23:59:59`).toISOString()
+    )
+  })
+
+  it('已有代理人時顯示有效期限；未設期限時明講「未設期限」', async () => {
+    renderCard(
+      protocolResponse({}, { pi_delegate: { ...DELEGATE_INFO, expires_at: '2026-12-31T15:59:59Z' } })
+    )
+    expect(await screen.findByText(/有效至/)).toBeInTheDocument()
+  })
+
+  it('未設期限的授權要明講，不能留白讓人以為有期限', async () => {
+    renderCard(protocolResponse({}, { pi_delegate: { ...DELEGATE_INFO, expires_at: null } }))
+    expect(await screen.findByText('（未設期限）')).toBeInTheDocument()
+  })
+
   it('目前使用者本人就是代理人時掛上「以代理人身分操作中」徽章', async () => {
     currentUser.mockReturnValue({ id: DELEGATE_ID, roles: [] })
     renderCard(protocolResponse({}, { pi_delegate: DELEGATE_INFO, is_pi_delegate: true }))

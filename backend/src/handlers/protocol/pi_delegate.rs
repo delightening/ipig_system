@@ -50,6 +50,7 @@ pub async fn authorize_pi_delegate(
         id,
         req.delegate_user_id,
         req.reason.as_deref(),
+        req.expires_at,
     )
     .await?;
     Ok(Json(delegate))

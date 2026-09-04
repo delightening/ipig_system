@@ -1113,8 +1113,16 @@ impl SignatureService {
     /// 為什麼非得在 tx 內、非得下 `FOR UPDATE`，見 [`Self::sign_record_delegated_tx`]
     /// 的說明。四個欄位逐項比對，缺一不可：
     /// `id`（是這一筆）／`protocol_id`（屬於這份計畫）／`delegate_user_id`（就是簽署人本人）／
-    /// `revoked_at IS NULL`（此刻仍生效）。
-    async fn assert_delegation_still_valid_tx<'c>(
+    /// `revoked_at IS NULL`（未被撤銷）／`expires_at`（未過期）。
+    ///
+    /// 期限與撤銷在這裡是同一個位階：兩者都回答「**此刻**還能不能用這筆授權做新的事」。
+    /// 但兩者都**不**用來否定過去已做成的行為——那是 `dual_signature_ready` 條件 6
+    /// 刻意不看它們的原因。
+    ///
+    /// `pub(crate)`：`euthanasia::pi_appeal` 也要用同一道。暫緩申請不建立簽章，
+    /// 但一樣是「代理人代替 PI 做一件會留紀錄的事」，同樣要防「授權剛被撤銷、
+    /// 卻還是寫進去了」——沒有理由讓它自己抄一份判準，抄了就會走鐘。
+    pub(crate) async fn assert_delegation_still_valid_tx<'c>(
         tx: &mut sqlx::Transaction<'c, sqlx::Postgres>,
         delegation: DelegationRef,
         signer_id: Uuid,
@@ -1125,6 +1133,7 @@ impl SignatureService {
                  AND protocol_id = $2
                  AND delegate_user_id = $3
                  AND revoked_at IS NULL
+                 AND (expires_at IS NULL OR expires_at > now())
                FOR UPDATE"#,
         )
         .bind(delegation.id)

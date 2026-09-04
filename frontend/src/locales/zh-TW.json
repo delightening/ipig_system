@@ -829,7 +829,10 @@
       "authorizeSuccess": "已核准 PI 代理人",
       "authorizeFailed": "核准失敗",
       "revokeSuccess": "已撤銷 PI 代理人",
-      "revokeFailed": "撤銷失敗"
+      "revokeFailed": "撤銷失敗",
+      "expiresLabel": "有效至",
+      "validUntil": "（有效至 {{date}}）",
+      "noExpiry": "（未設期限）"
     }
   },
   "language": {

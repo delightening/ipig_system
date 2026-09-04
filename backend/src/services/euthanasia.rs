@@ -154,6 +154,7 @@ impl EuthanasiaService {
             JOIN animals a ON a.iacuc_no = pr.iacuc_no
             JOIN euthanasia_orders eo ON eo.animal_id = a.id
             WHERE eo.id = $1 AND d.revoked_at IS NULL AND d.delegate_user_id <> $2
+              AND (d.expires_at IS NULL OR d.expires_at > now())
             "#,
         )
         .bind(order.id)
@@ -295,6 +296,7 @@ impl EuthanasiaService {
                   WHERE pr.iacuc_no = p.iacuc_no
                     AND d.delegate_user_id = $1
                     AND d.revoked_at IS NULL
+                    AND (d.expires_at IS NULL OR d.expires_at > now())
                 )
               )
             ORDER BY eo.deadline_at ASC
@@ -437,13 +439,18 @@ impl EuthanasiaService {
     ) -> Result<EuthanasiaAppeal, AppError> {
         let user = actor.require_user()?;
         // 代理人申請暫緩時，`euthanasia_appeals.pi_user_id` 記的是實際操作者
-        // （代理人自己），與 `euthanasia_orders.pi_user_id`（借位值/真 PI）不必然
-        // 相同——這欄本來就是「誰申請的」而非另一張授權快照，語意不變。
+        // （代理人自己），與 `euthanasia_orders.pi_user_id`（借位值/真 PI）不必然相同。
+        //
+        // ⚠️ 這一句「語意不變」原本寫得太寬鬆（CodeRabbit #53 第四輪指出的方向）：
+        // 在本次改動之前，授權檢查寫死 `pi_user_id = $2`，所以這欄**必然**是計畫 PI；
+        // 開放代理人之後它可能是代理人。欄位名沒變、值的意義變了——事後稽核很容易
+        // 誤讀成「PI 本人親自申請了暫緩」。所以下面把授權本身記進 `delegation_id`
+        // （migration 010），讓紀錄自己說得出是不是代簽。
         let acting_user_id = user.id;
 
         let mut tx = pool.begin().await?;
 
-        let (before, _delegation) =
+        let (before, delegation) =
             Self::lock_order_for_pi(&mut tx, order_id, acting_user_id).await?;
         if before.status != EuthanasiaOrderStatus::PendingPi {
             return Err(AppError::BadRequest(format!(
@@ -469,15 +476,36 @@ impl EuthanasiaService {
         let chair_user_id = chair.map(|c| c.0);
         let chair_deadline = Utc::now() + Duration::hours(24);
 
+        // 代簽授權在同一個 tx 內重驗並鎖住（與代簽簽章共用同一道判準，見
+        // `SignatureService::assert_delegation_still_valid_tx`）。
+        //
+        // `lock_order_for_pi` 解出授權時**沒有**對授權列下鎖，所以「撤銷交易在解出
+        // 之後、寫入之前 commit」這個時序是成立的——那正是第二輪在簽章側修掉的同一
+        // 個競態，暫緩這條路徑同樣要關門，否則會出現一筆「依已撤銷的授權提出」的
+        // 暫緩申請，而它還會據此改動單據狀態。
+        if let Some((delegation_id, delegation_protocol_id)) = delegation {
+            SignatureService::assert_delegation_still_valid_tx(
+                &mut tx,
+                DelegationRef {
+                    id: delegation_id,
+                    protocol_id: delegation_protocol_id,
+                },
+                acting_user_id,
+            )
+            .await?;
+        }
+
         // 建立暫緩申請
         let appeal = sqlx::query_as::<_, EuthanasiaAppeal>(
             r#"
             INSERT INTO euthanasia_appeals (
-                order_id, pi_user_id, reason, attachment_path, chair_user_id, chair_deadline_at
+                order_id, pi_user_id, reason, attachment_path, chair_user_id, chair_deadline_at,
+                delegation_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id, order_id, pi_user_id, reason, attachment_path, chair_user_id,
-                      chair_decision, chair_decided_at, chair_deadline_at, created_at, version
+                      chair_decision, chair_decided_at, chair_deadline_at, created_at, version,
+                      delegation_id
             "#,
         )
         .bind(order_id)
@@ -486,6 +514,7 @@ impl EuthanasiaService {
         .bind(&req.attachment_path)
         .bind(chair_user_id)
         .bind(chair_deadline)
+        .bind(delegation.map(|(id, _)| id))
         .fetch_one(&mut *tx)
         .await?;
 
@@ -580,7 +609,8 @@ impl EuthanasiaService {
         let appeal_before: EuthanasiaAppeal = sqlx::query_as::<_, EuthanasiaAppeal>(
             r#"
             SELECT id, order_id, pi_user_id, reason, attachment_path, chair_user_id,
-                   chair_decision, chair_decided_at, chair_deadline_at, created_at, version
+                   chair_decision, chair_decided_at, chair_deadline_at, created_at, version,
+                   delegation_id
             FROM euthanasia_appeals
             WHERE id = $1 AND chair_user_id = $2
             FOR UPDATE
@@ -638,7 +668,8 @@ impl EuthanasiaService {
               AND chair_decision IS NULL
               AND ($3::INT IS NULL OR version = $3)
             RETURNING id, order_id, pi_user_id, reason, attachment_path, chair_user_id,
-                      chair_decision, chair_decided_at, chair_deadline_at, created_at, version
+                      chair_decision, chair_decided_at, chair_deadline_at, created_at, version,
+                      delegation_id
             "#,
         )
         .bind(&req.decision)
@@ -1107,6 +1138,7 @@ impl EuthanasiaService {
             JOIN animals a ON a.iacuc_no = pr.iacuc_no
             JOIN euthanasia_orders eo ON eo.animal_id = a.id
             WHERE eo.id = $1 AND d.delegate_user_id = $2 AND d.revoked_at IS NULL
+              AND (d.expires_at IS NULL OR d.expires_at > now())
             "#,
         )
         .bind(order_id)
