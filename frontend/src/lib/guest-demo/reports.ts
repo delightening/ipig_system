@@ -133,44 +133,48 @@ export const DEMO_STOCK_LEDGER: StockLedgerReport[] = [
 // ============================================================
 // 刻意做成「兩個案件 × 三個品項」但只有 5 組有值，讓交叉表分頁在 demo 裡
 // 就能看到稀疏格（顯示「—」）而不是滿版數字。
+//
+// 計畫的 id／編號／名稱與 `./protocols` 的 DEMO_PROTOCOL_* 對齊——雖然報表頁的
+// 計畫下拉現在改由報表資料自己長出來、不再打 `/protocols`（見該頁註解），
+// 但示範模式下兩處對不上仍會讓人以為是資料錯亂。
+// `iacuc_no` 為 null 的情形由 protocolConsumptionAggregate 的單元測試涵蓋。
 
 export const DEMO_PROTOCOL_CONSUMPTION: ProtocolConsumptionReport[] = [
   {
-    protocol_id: 'demo-proto1', protocol_no: 'P-2025-001',
-    iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫 A',
+    protocol_id: 'demo-p1', protocol_no: 'AUP-2025-001',
+    iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫：心血管藥物安全性評估',
     product_id: 'demo-prod1', product_sku: 'MED-001', product_name: '範例藥品 A',
     category_name: '藥品', base_uom: '盒', qty_base: '12', doc_count: 3,
     first_trx_date: '2025-01-10T02:00:00Z', last_trx_date: '2025-03-18T06:30:00Z',
     total_cost: '6000.00',
   },
   {
-    protocol_id: 'demo-proto1', protocol_no: 'P-2025-001',
-    iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫 A',
+    protocol_id: 'demo-p1', protocol_no: 'AUP-2025-001',
+    iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫：心血管藥物安全性評估',
     product_id: 'demo-prod2', product_sku: 'SUP-001', product_name: '範例耗材 B',
     category_name: '耗材', base_uom: '包', qty_base: '40', doc_count: 5,
     first_trx_date: '2025-01-12T01:00:00Z', last_trx_date: '2025-04-02T08:15:00Z',
     total_cost: '4800.00',
   },
   {
-    protocol_id: 'demo-proto1', protocol_no: 'P-2025-001',
-    iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫 A',
+    protocol_id: 'demo-p1', protocol_no: 'AUP-2025-001',
+    iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫：心血管藥物安全性評估',
     product_id: 'demo-prod3', product_sku: 'CON-GLV-001', product_name: '範例手套',
     category_name: '耗材', base_uom: '雙', qty_base: '250', doc_count: 4,
     first_trx_date: '2025-02-01T03:00:00Z', last_trx_date: '2025-04-20T05:00:00Z',
     total_cost: '1250.00',
   },
   {
-    // 尚未取得核准編號的計畫：iacuc_no 為 null，畫面應顯示「—」而不是空白或崩掉
-    protocol_id: 'demo-proto2', protocol_no: 'P-2025-002',
-    iacuc_no: null, protocol_title: '範例研究計畫 B（審查中）',
+    protocol_id: 'demo-p2', protocol_no: 'AUP-2025-002',
+    iacuc_no: 'IACUC-2025-002', protocol_title: '範例研究計畫：骨科植入物生物相容性試驗',
     product_id: 'demo-prod2', product_sku: 'SUP-001', product_name: '範例耗材 B',
     category_name: '耗材', base_uom: '包', qty_base: '15', doc_count: 2,
     first_trx_date: '2025-03-05T02:30:00Z', last_trx_date: '2025-03-28T07:45:00Z',
     total_cost: '1800.00',
   },
   {
-    protocol_id: 'demo-proto2', protocol_no: 'P-2025-002',
-    iacuc_no: null, protocol_title: '範例研究計畫 B（審查中）',
+    protocol_id: 'demo-p2', protocol_no: 'AUP-2025-002',
+    iacuc_no: 'IACUC-2025-002', protocol_title: '範例研究計畫：骨科植入物生物相容性試驗',
     product_id: 'demo-prod3', product_sku: 'CON-GLV-001', product_name: '範例手套',
     category_name: '耗材', base_uom: '雙', qty_base: '80', doc_count: 1,
     first_trx_date: '2025-03-06T02:00:00Z', last_trx_date: '2025-03-06T02:00:00Z',

@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest'
 
 import type { ProtocolConsumptionReport } from '@/types/report'
 import {
+  ROW_LIMIT,
   aggregateByProduct,
   aggregateByProtocol,
   buildCrossTab,
   cellKey,
+  splitTruncationSignal,
+  taipeiDateStamp,
   toCsv,
   toNum,
 } from '../protocolConsumptionAggregate'
@@ -185,6 +188,47 @@ describe('buildCrossTab', () => {
     expect(tab.protocols).toEqual([])
     expect(tab.products).toEqual([])
     expect(tab.cells.size).toBe(0)
+  })
+})
+
+describe('splitTruncationSignal', () => {
+  const many = (n: number) =>
+    Array.from({ length: n }, (_, i) => row({ product_id: `p${i}`, product_sku: `SKU-${i}` }))
+
+  it('剛好 ROW_LIMIT 筆 = 沒被截斷（這正是 length >= limit 會誤判的那一格）', () => {
+    const r = splitTruncationSignal(many(ROW_LIMIT))
+    expect(r.truncated).toBe(false)
+    expect(r.rows).toHaveLength(ROW_LIMIT)
+  })
+
+  it('多一筆 = 確定被截斷，且那筆訊號列要被切掉不進畫面', () => {
+    const r = splitTruncationSignal(many(ROW_LIMIT + 1))
+    expect(r.truncated).toBe(true)
+    expect(r.rows).toHaveLength(ROW_LIMIT)
+  })
+
+  it('少於上限一律不截斷', () => {
+    expect(splitTruncationSignal(many(3)).truncated).toBe(false)
+    expect(splitTruncationSignal([]).truncated).toBe(false)
+  })
+})
+
+describe('taipeiDateStamp', () => {
+  it('回 YYYY-MM-DD', () => {
+    expect(taipeiDateStamp(new Date('2026-09-05T12:00:00Z'))).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('🔴 台灣時間凌晨用的是當天，不是 UTC 的前一天', () => {
+    // 2026-09-05 00:30 (UTC+8) === 2026-09-04 16:30 UTC
+    const earlyMorningTaipei = new Date('2026-09-04T16:30:00Z')
+    expect(taipeiDateStamp(earlyMorningTaipei)).toBe('2026-09-05')
+    // 對照：toISOString 會給出前一天，那正是本函式要避開的
+    expect(earlyMorningTaipei.toISOString().split('T')[0]).toBe('2026-09-04')
+  })
+
+  it('台灣時間深夜仍是當天', () => {
+    // 2026-09-05 23:30 (UTC+8) === 2026-09-05 15:30 UTC
+    expect(taipeiDateStamp(new Date('2026-09-05T15:30:00Z'))).toBe('2026-09-05')
   })
 })
 

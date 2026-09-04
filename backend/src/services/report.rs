@@ -531,7 +531,16 @@ impl ReportService {
             " HAVING SUM(CASE WHEN sl.direction = 'out' THEN sl.qty_base \
              ELSE -sl.qty_base END) <> 0",
         );
-        qb.push(" ORDER BY pr.protocol_no, p.sku LIMIT 1000");
+        // 🔴 取 1001 筆而不是 1000：多出來的那一筆是給呼叫端的**截斷訊號**。
+        //
+        // 只取 1000 的話，「剛好 1000 組」與「被截掉了」在回應上長得一模一樣，
+        // 前端無從分辨，只能用 `length >= 1000` 猜——而那會把前者誤報成後者。
+        // 多要一筆就能精確判定：拿到 1001 筆 ⇒ 確定有更多；1000 筆 ⇒ 確定剛好取完。
+        //
+        // 為什麼不改成回 `{ rows, has_more }`：ERP 報表的回應一律是裸陣列
+        // （見 `guest-demo/routes.ts` 的註解），為一支報表破例會讓前端的
+        // 報表資料流多一條分支。多帶一筆的成本是一列，換掉一個 API 形狀的例外。
+        qb.push(" ORDER BY pr.protocol_no, p.sku LIMIT 1001");
 
         let results = qb
             .build_query_as::<ProtocolConsumptionReport>()

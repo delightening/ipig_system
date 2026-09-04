@@ -7,7 +7,7 @@ import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useTabState } from '@/hooks/useTabState'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
-import { TableEmptyRow } from '@/components/ui/empty-state'
+import { EmptyState, TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -27,26 +27,21 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
-import { Download, FlaskConical } from 'lucide-react'
+import { AlertTriangle, Download, FlaskConical } from 'lucide-react'
 import {
+  ROW_LIMIT,
   aggregateByProduct,
   aggregateByProtocol,
   buildCrossTab,
   cellKey,
+  splitTruncationSignal,
+  taipeiDateStamp,
   toCsv,
-  toNum,
 } from './protocolConsumptionAggregate'
 
 const ALL_VALUE = '__all__'
 
 type TabKey = 'by-protocol' | 'by-product' | 'cross'
-
-interface ProtocolOption {
-  id: string
-  protocol_no: string
-  iacuc_no: string | null
-  title: string
-}
 
 function download(filename: string, csv: string) {
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -61,21 +56,28 @@ export function ProtocolConsumptionReportPage() {
   const [protocolId, setProtocolId] = useState('')
   const { activeTab, setActiveTab } = useTabState<TabKey>('by-protocol')
 
-  const { data: protocols } = useQuery<ProtocolOption[]>({
-    queryKey: ['protocols-for-consumption-report'],
-    queryFn: async () => {
-      const res = await api.get<ProtocolOption[]>('/protocols')
-      return res.data
-    },
-  })
-
-  const { data: report, isLoading } = useQuery<ProtocolConsumptionReport[]>({
-    queryKey: ['report-protocol-consumption', from, to, protocolId],
+  // 🔴 計畫篩選刻意做在前端，且下拉選項由報表資料自己長出來，不打 `/protocols`。
+  //
+  // 打 `/protocols` 有兩個問題：非管理員只會拿到自己有份的計畫（`get_my_protocols`，
+  // 不是 403），倉管拿著 `erp.report.view` 進來會看到一個只有「全部計畫」的空下拉；
+  // 而訪客示範模式的 `getGuestDemoData` 會先剝掉 query string 再查路由，
+  // 伺服器端篩選在那個模式下本來就不會生效。
+  //
+  // 改成前端篩之後兩個問題一起消失，還順帶少一次網路往返。選項一律取自
+  // **未篩選**的資料，否則選了一個計畫之後下拉會塌成只剩那一個、換不回去。
+  const {
+    data: report,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery<ProtocolConsumptionReport[]>({
+    queryKey: ['report-protocol-consumption', from, to],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (from) params.set('date_from', from)
       if (to) params.set('date_to', to)
-      if (protocolId) params.set('protocol_id', protocolId)
       const qs = params.toString()
       const response = await api.get<ProtocolConsumptionReport[]>(
         `/reports/protocol-consumption${qs ? '?' + qs : ''}`
@@ -84,14 +86,25 @@ export function ProtocolConsumptionReportPage() {
     },
   })
 
-  const rows = useMemo(() => report ?? [], [report])
+  const { rows: allRows, truncated } = useMemo(
+    () => splitTruncationSignal(report ?? []),
+    [report]
+  )
+
+  const protocolOptions = useMemo(() => aggregateByProtocol(allRows), [allRows])
+
+  const rows = useMemo(
+    () => (protocolId ? allRows.filter(r => r.protocol_id === protocolId) : allRows),
+    [allRows, protocolId]
+  )
+
   const byProtocol = useMemo(() => aggregateByProtocol(rows), [rows])
   const byProduct = useMemo(() => aggregateByProduct(rows), [rows])
   const cross = useMemo(() => buildCrossTab(rows), [rows])
 
-  const stamp = new Date().toISOString().split('T')[0]
-
   const exportCurrentTab = () => {
+    const stamp = taipeiDateStamp()
+
     if (activeTab === 'by-protocol') {
       download(
         `protocol_consumption_by_protocol_${stamp}.csv`,
@@ -173,15 +186,17 @@ export function ProtocolConsumptionReportPage() {
           <Select
             value={protocolId || ALL_VALUE}
             onValueChange={v => setProtocolId(v === ALL_VALUE ? '' : v)}
+            disabled={isError}
           >
             <SelectTrigger>
               <SelectValue placeholder="全部計畫" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_VALUE}>全部計畫</SelectItem>
-              {protocols?.map(p => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.protocol_no} - {p.title}
+              {protocolOptions.map(p => (
+                <SelectItem key={p.protocol_id} value={p.protocol_id}>
+                  {p.protocol_no}
+                  {p.protocol_title ? ` - ${p.protocol_title}` : ''}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -189,169 +204,211 @@ export function ProtocolConsumptionReportPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="by-protocol">依案件</TabsTrigger>
-          <TabsTrigger value="by-product">依品項</TabsTrigger>
-          <TabsTrigger value="cross">交叉表</TabsTrigger>
-        </TabsList>
+      {truncated && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>
+            資料已達 {ROW_LIMIT} 組上限而被截斷，下面看到的<strong>不是全部</strong>。
+            請縮小日期範圍或指定計畫後重查。
+          </span>
+        </div>
+      )}
 
-        {/* ── 依案件 ───────────────────────────────────────────────── */}
-        <TabsContent value="by-protocol">
-          <div className="rounded-lg border bg-card overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead>計畫編號</TableHead>
-                  <TableHead>核准編號</TableHead>
-                  <TableHead>計畫名稱</TableHead>
-                  <TableHead className="text-right">品項數</TableHead>
-                  <TableHead className="text-right">單據數</TableHead>
-                  <TableHead className="text-right">金額</TableHead>
-                  <TableHead>期間</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7}>
-                      <TableSkeleton rows={6} cols={7} />
-                    </TableCell>
+      {/* 🔴 查詢失敗必須跟「查成功但沒資料」分開呈現。
+          兩者在 react-query 底下都是 data === undefined，若只判斷 isLoading，
+          載入失敗會顯示成「這段期間沒有案件領用紀錄」——那是在報告一個
+          我們根本不知道的事實。 */}
+      {isError ? (
+        <EmptyState
+          icon={AlertTriangle}
+          title="報表載入失敗"
+          description={
+            error instanceof Error
+              ? `無法取得案件消耗資料：${error.message}`
+              : '無法取得案件消耗資料。這不代表這段期間沒有領用紀錄，只代表查詢沒有成功。'
+          }
+          action={{
+            label: isFetching ? '重試中…' : '重新載入',
+            onClick: () => void refetch(),
+          }}
+        />
+      ) : (
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="by-protocol">依案件</TabsTrigger>
+            <TabsTrigger value="by-product">依品項</TabsTrigger>
+            <TabsTrigger value="cross">交叉表</TabsTrigger>
+          </TabsList>
+
+          {/* ── 依案件 ───────────────────────────────────────────────── */}
+          <TabsContent value="by-protocol">
+            <div className="rounded-lg border bg-card overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead>計畫編號</TableHead>
+                    <TableHead>核准編號</TableHead>
+                    <TableHead>計畫名稱</TableHead>
+                    <TableHead className="text-right">品項數</TableHead>
+                    <TableHead className="text-right">單據數</TableHead>
+                    <TableHead className="text-right">金額</TableHead>
+                    <TableHead>期間</TableHead>
                   </TableRow>
-                ) : byProtocol.length === 0 ? (
-                  <TableEmptyRow colSpan={7} icon={FlaskConical} title="這段期間沒有案件領用紀錄" />
-                ) : (
-                  byProtocol.map(p => (
-                    <TableRow key={p.protocol_id}>
-                      <TableCell className="font-mono text-xs">{p.protocol_no}</TableCell>
-                      <TableCell className="font-mono text-xs">{p.iacuc_no ?? '—'}</TableCell>
-                      <TableCell>{p.protocol_title ?? '—'}</TableCell>
-                      <TableCell className="text-right">{p.product_count}</TableCell>
-                      <TableCell className="text-right">{p.doc_count}</TableCell>
-                      <TableCell className="text-right">{formatNumber(p.total_cost)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatDate(p.first_trx_date)} ~ {formatDate(p.last_trx_date)}
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7}>
+                        <TableSkeleton rows={6} cols={7} />
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            這一層刻意不顯示數量合計——一個案件會同時用到手套（雙）、滴管（包）、紗布（片），
-            把不同單位的數字加起來沒有意義。要看數量請切到「依品項」或「交叉表」。
-            單據數為下界（同一張領用單常同時領多種品項）。
-          </p>
-        </TabsContent>
+                  ) : byProtocol.length === 0 ? (
+                    <TableEmptyRow
+                      colSpan={7}
+                      icon={FlaskConical}
+                      title="這段期間沒有案件領用紀錄"
+                    />
+                  ) : (
+                    byProtocol.map(p => (
+                      <TableRow key={p.protocol_id}>
+                        <TableCell className="font-mono text-xs">{p.protocol_no}</TableCell>
+                        <TableCell className="font-mono text-xs">{p.iacuc_no ?? '—'}</TableCell>
+                        <TableCell>{p.protocol_title ?? '—'}</TableCell>
+                        <TableCell className="text-right">{p.product_count}</TableCell>
+                        <TableCell className="text-right">{p.doc_count}</TableCell>
+                        <TableCell className="text-right">{formatNumber(p.total_cost)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {formatDate(p.first_trx_date)} ~ {formatDate(p.last_trx_date)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              這一層刻意不顯示數量合計——一個案件會同時用到手套（雙）、滴管（包）、紗布（片），
+              把不同單位的數字加起來沒有意義。要看數量請切到「依品項」或「交叉表」。
+              單據數為下界（同一張領用單常同時領多種品項）。
+            </p>
+          </TabsContent>
 
-        {/* ── 依品項 ───────────────────────────────────────────────── */}
-        <TabsContent value="by-product">
-          <div className="rounded-lg border bg-card overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead>產品代碼</TableHead>
-                  <TableHead>產品名稱</TableHead>
-                  <TableHead>分類</TableHead>
-                  <TableHead className="text-right">案件數</TableHead>
-                  <TableHead className="text-right">消耗量</TableHead>
-                  <TableHead>單位</TableHead>
-                  <TableHead className="text-right">金額</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7}>
-                      <TableSkeleton rows={6} cols={7} />
-                    </TableCell>
+          {/* ── 依品項 ───────────────────────────────────────────────── */}
+          <TabsContent value="by-product">
+            <div className="rounded-lg border bg-card overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead>產品代碼</TableHead>
+                    <TableHead>產品名稱</TableHead>
+                    <TableHead>分類</TableHead>
+                    <TableHead className="text-right">案件數</TableHead>
+                    <TableHead className="text-right">消耗量</TableHead>
+                    <TableHead>單位</TableHead>
+                    <TableHead className="text-right">金額</TableHead>
                   </TableRow>
-                ) : byProduct.length === 0 ? (
-                  <TableEmptyRow colSpan={7} icon={FlaskConical} title="這段期間沒有案件領用紀錄" />
-                ) : (
-                  byProduct.map(p => (
-                    <TableRow key={p.product_id}>
-                      <TableCell className="font-mono text-xs">{p.product_sku}</TableCell>
-                      <TableCell>{p.product_name}</TableCell>
-                      <TableCell>{p.category_name ?? '—'}</TableCell>
-                      <TableCell className="text-right">{p.protocol_count}</TableCell>
-                      <TableCell className="text-right">{formatNumber(p.qty_base)}</TableCell>
-                      <TableCell>{formatUom(p.base_uom)}</TableCell>
-                      <TableCell className="text-right">{formatNumber(p.total_cost)}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-
-        {/* ── 交叉表 ───────────────────────────────────────────────── */}
-        <TabsContent value="cross">
-          {/* 品項多的時候會很寬，讓表格自己橫向捲，不要把整頁撐爆 */}
-          <div className="rounded-lg border bg-card overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="sticky left-0 bg-muted/50">計畫編號</TableHead>
-                  {cross.products.map(p => (
-                    <TableHead key={p.product_id} className="text-right whitespace-nowrap">
-                      {p.product_name}
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        {formatUom(p.base_uom)}
-                      </span>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={cross.products.length + 1}>
-                      <TableSkeleton rows={6} cols={4} />
-                    </TableCell>
-                  </TableRow>
-                ) : cross.protocols.length === 0 ? (
-                  <TableEmptyRow colSpan={2} icon={FlaskConical} title="這段期間沒有案件領用紀錄" />
-                ) : (
-                  cross.protocols.map(pr => (
-                    <TableRow key={pr.protocol_id}>
-                      <TableCell className="sticky left-0 bg-card font-mono text-xs whitespace-nowrap">
-                        {pr.protocol_no}
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7}>
+                        <TableSkeleton rows={6} cols={7} />
                       </TableCell>
-                      {cross.products.map(pd => {
-                        const qty = cross.cells.get(cellKey(pr.protocol_id, pd.product_id))
-                        return (
-                          <TableCell
-                            key={pd.product_id}
-                            className={
-                              qty === undefined
-                                ? 'text-right text-muted-foreground'
-                                : 'text-right'
-                            }
-                          >
-                            {qty === undefined ? '—' : formatNumber(qty)}
-                          </TableCell>
-                        )
-                      })}
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            「—」表示該案件沒有領用過這個品項，與領用後整筆沖銷（不會出現在報表裡）不同。
-            每一行的單位標在表頭，欄與欄之間不可相加。
-          </p>
-        </TabsContent>
-      </Tabs>
+                  ) : byProduct.length === 0 ? (
+                    <TableEmptyRow
+                      colSpan={7}
+                      icon={FlaskConical}
+                      title="這段期間沒有案件領用紀錄"
+                    />
+                  ) : (
+                    byProduct.map(p => (
+                      <TableRow key={p.product_id}>
+                        <TableCell className="font-mono text-xs">{p.product_sku}</TableCell>
+                        <TableCell>{p.product_name}</TableCell>
+                        <TableCell>{p.category_name ?? '—'}</TableCell>
+                        <TableCell className="text-right">{p.protocol_count}</TableCell>
+                        <TableCell className="text-right">{formatNumber(p.qty_base)}</TableCell>
+                        <TableCell>{formatUom(p.base_uom)}</TableCell>
+                        <TableCell className="text-right">{formatNumber(p.total_cost)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
 
-      {hasData && (
+          {/* ── 交叉表 ───────────────────────────────────────────────── */}
+          <TabsContent value="cross">
+            {/* 品項多的時候會很寬，讓表格自己橫向捲，不要把整頁撐爆 */}
+            <div className="rounded-lg border bg-card overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="sticky left-0 bg-muted/50">計畫編號</TableHead>
+                    {cross.products.map(p => (
+                      <TableHead key={p.product_id} className="text-right whitespace-nowrap">
+                        {p.product_name}
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {formatUom(p.base_uom)}
+                        </span>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={cross.products.length + 1}>
+                        <TableSkeleton rows={6} cols={4} />
+                      </TableCell>
+                    </TableRow>
+                  ) : cross.protocols.length === 0 ? (
+                    <TableEmptyRow
+                      colSpan={2}
+                      icon={FlaskConical}
+                      title="這段期間沒有案件領用紀錄"
+                    />
+                  ) : (
+                    cross.protocols.map(pr => (
+                      <TableRow key={pr.protocol_id}>
+                        <TableCell className="sticky left-0 bg-card font-mono text-xs whitespace-nowrap">
+                          {pr.protocol_no}
+                        </TableCell>
+                        {cross.products.map(pd => {
+                          const qty = cross.cells.get(cellKey(pr.protocol_id, pd.product_id))
+                          return (
+                            <TableCell
+                              key={pd.product_id}
+                              className={
+                                qty === undefined
+                                  ? 'text-right text-muted-foreground'
+                                  : 'text-right'
+                              }
+                            >
+                              {qty === undefined ? '—' : formatNumber(qty)}
+                            </TableCell>
+                          )
+                        })}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              「—」表示該案件沒有領用過這個品項，與領用後整筆沖銷（不會出現在報表裡）不同。
+              每一行的單位標在表頭，欄與欄之間不可相加。
+            </p>
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {!isError && hasData && (
         <p className="text-xs text-muted-foreground">
           共 {rows.length} 組（案件 × 品項）；{byProtocol.length} 個案件、{byProduct.length} 個品項。
-          數量已扣除沖銷，僅計已核准的領用。{toNum(String(rows.length)) >= 1000 && '⚠️ 已達 1000 筆上限，請縮小日期範圍。'}
+          數量已扣除沖銷，僅計已核准的領用。
         </p>
       )}
     </div>
