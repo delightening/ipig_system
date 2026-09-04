@@ -46,11 +46,17 @@ impl AmendmentService {
     }
 
     /// 建立變更申請
+    ///
+    /// `created_delegation`：非 `None` 時代表 `created_by` 是依該筆
+    /// `protocol_pi_delegates` 授權代為建立的代理人（migration 010）。由 handler 以
+    /// `access::amendment_writer_delegation` 解析後傳入——本函式不重解，因為
+    /// 「是不是以代理身分行事」屬於 HTTP 端點的語意，與 `sign_closure` 同一分工。
     pub async fn create(
         pool: &PgPool,
         scope: Scoped<AmendmentWrite>,
         req: &CreateAmendmentRequest,
         created_by: Uuid,
+        created_delegation: Option<Uuid>,
     ) -> Result<Amendment> {
         req.validate()?;
         // PI 寫入授權已由 `Scoped<AmendmentWrite>` 在 handler 層證明；以證明的 id 為計畫 id。
@@ -88,9 +94,9 @@ impl AmendmentService {
             INSERT INTO amendments (
                 id, protocol_id, amendment_no, revision_number,
                 amendment_type, status, title, description, 
-                change_items, changes_content, created_by
+                change_items, changes_content, created_by, created_delegation_id
             )
-            VALUES ($1, $2, $3, $4, 'PENDING', 'DRAFT', $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, 'PENDING', 'DRAFT', $5, $6, $7, $8, $9, $10)
             RETURNING 
                 id, protocol_id, amendment_no, revision_number,
                 amendment_type as "amendment_type: AmendmentType",
@@ -110,7 +116,8 @@ impl AmendmentService {
             req.description,
             req.change_items.as_deref(),
             req.changes_content,
-            created_by
+            created_by,
+            created_delegation
         )
         .fetch_one(pool)
         .await?;

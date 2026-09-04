@@ -95,6 +95,183 @@ async fn active_delegate_row(app: &TestApp, protocol_id: Uuid) -> Option<(Uuid, 
     .expect("query active delegate")
 }
 
+// ── 授權到期（migration 010 的 expires_at）─────────────────────────
+//
+// 代理授權的典型情境是「PI 出國兩週」，但撤銷是純手動、沒有任何提醒機制。
+// 少了期限，一筆為兩週開的授權會安靜地活到有人想起來為止——而它同時握有
+// 結案簽署、安樂死核准/暫緩、修正案寫入、須知簽署全部五項權限。
+//
+// ⚠️ 期限**不追溯**：只回答「此刻還能不能用它做新的事」，不用來否定過去已做成的
+// 行為（同 `revoked_at` 的原則，見 `dual_signature_ready` 條件 6）。
+
+/// 直接把某筆授權的 expires_at 改成過去（模擬「時間走到了」，不必真的等）。
+async fn expire_delegation(app: &TestApp, delegation_id: Uuid) {
+    sqlx::query(
+        "UPDATE protocol_pi_delegates SET expires_at = now() - interval '1 hour' WHERE id = $1",
+    )
+    .bind(delegation_id)
+    .execute(&app.db_pool)
+    .await
+    .expect("expire delegation");
+}
+
+#[tokio::test]
+#[serial]
+async fn expired_delegation_loses_all_authority() {
+    let app = TestApp::spawn().await;
+    let creator = seed_user(&app, None).await;
+    let sd = seed_user(&app, Some("EXPERIMENT_STAFF")).await;
+    let delegate = seed_user(&app, None).await;
+    let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+
+    let delegation_id = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("authorize")
+    .id;
+
+    let delegate_user = CurrentUser {
+        id: delegate,
+        email: format!("{delegate}@test.local"),
+        roles: vec![],
+        permissions: vec![],
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    };
+
+    // 過期前：兩條授權判準都放行
+    assert!(
+        access::can_write_amendment(&app.db_pool, &delegate_user, protocol)
+            .await
+            .expect("can_write_amendment"),
+        "未過期的代理人應有修正案寫入權"
+    );
+    assert!(
+        access::can_sign_notice(&app.db_pool, protocol, delegate)
+            .await
+            .expect("can_sign_notice"),
+        "未過期的代理人應可簽須知"
+    );
+
+    expire_delegation(&app, delegation_id).await;
+
+    // 過期後：全部收回，而且不需要任何人動手撤銷
+    assert!(
+        !access::can_write_amendment(&app.db_pool, &delegate_user, protocol)
+            .await
+            .expect("can_write_amendment"),
+        "過期後修正案寫入權應自動失效"
+    );
+    assert!(
+        !access::can_sign_notice(&app.db_pool, protocol, delegate)
+            .await
+            .expect("can_sign_notice"),
+        "過期後須知簽署權應自動失效"
+    );
+    assert!(
+        access::active_pi_delegate_id(&app.db_pool, protocol, delegate)
+            .await
+            .expect("active_pi_delegate_id")
+            .is_none(),
+        "過期後不該再被解析成生效中代理人"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn authorize_rejects_expiry_in_the_past() {
+    let app = TestApp::spawn().await;
+    let creator = seed_user(&app, None).await;
+    let sd = seed_user(&app, Some("EXPERIMENT_STAFF")).await;
+    let delegate = seed_user(&app, None).await;
+    let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+
+    let result = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        delegate,
+        None,
+        Some(chrono::Utc::now() - chrono::Duration::hours(1)),
+    )
+    .await;
+
+    assert!(
+        matches!(result, Err(AppError::Validation(_))),
+        "到期時間早於現在應被拒絕：{result:?}"
+    );
+    assert!(
+        active_delegate_row(&app, protocol).await.is_none(),
+        "被拒絕時不得留下授權列"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn expired_delegation_is_auto_revoked_when_approving_a_new_one() {
+    let app = TestApp::spawn().await;
+    let creator = seed_user(&app, None).await;
+    let sd = seed_user(&app, Some("EXPERIMENT_STAFF")).await;
+    let first = seed_user(&app, None).await;
+    let second = seed_user(&app, None).await;
+    let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+
+    let first_id = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        first,
+        None,
+        None,
+    )
+    .await
+    .expect("authorize first")
+    .id;
+    expire_delegation(&app, first_id).await;
+
+    // 「一份計畫一位生效代理人」的部分唯一索引以 revoked_at IS NULL 為準
+    // （索引述詞不能用 now()），所以已過期但未撤銷的列仍佔著位置。
+    // 核准新代理人時應自動把它關掉，而不是逼 SD 先手動撤銷一筆早就無效的紀錄。
+    let second_row = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        second,
+        None,
+        None,
+    )
+    .await
+    .expect("已過期的舊授權不應擋住新的核准");
+
+    assert_eq!(
+        active_delegate_row(&app, protocol).await.map(|(_, d)| d),
+        Some(second),
+        "生效中的應該是新代理人"
+    );
+
+    let (revoked_at, revoked_reason): (Option<chrono::DateTime<chrono::Utc>>, Option<String>) =
+        sqlx::query_as(
+            "SELECT revoked_at, revoked_reason FROM protocol_pi_delegates WHERE id = $1",
+        )
+        .bind(first_id)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("read first delegation");
+    assert!(revoked_at.is_some(), "過期的舊授權應被自動撤銷");
+    assert!(
+        revoked_reason.is_some_and(|r| r.contains("到期")),
+        "自動撤銷要留下可歸責的理由，不是靜默關閉"
+    );
+    assert_ne!(second_row.id, first_id);
+}
+
 // ── 核准 ──────────────────────────────────────────────────────────
 
 #[tokio::test]
@@ -111,6 +288,7 @@ async fn sd_can_authorize_other_as_delegate() {
         &actor(sd, &["EXPERIMENT_STAFF"]),
         protocol,
         delegate,
+        None,
         None,
     )
     .await;
@@ -133,6 +311,7 @@ async fn sd_cannot_self_authorize() {
         &actor(sd, &["EXPERIMENT_STAFF"]),
         protocol,
         sd,
+        None,
         None,
     )
     .await;
@@ -159,6 +338,7 @@ async fn iacuc_staff_can_authorize_sd_as_self_delegate() {
         protocol,
         sd,
         Some("SD 本人熟悉案情，執秘核准其兼任代理人"),
+        None,
     )
     .await;
 
@@ -181,6 +361,7 @@ async fn admin_can_authorize_sd_as_self_delegate() {
         &actor(admin_id, &["SYSTEM_ADMIN"]),
         protocol,
         sd,
+        None,
         None,
     )
     .await;
@@ -207,6 +388,7 @@ async fn iacuc_staff_cannot_authorize_other_as_delegate() {
         &actor(staff, &["IACUC_STAFF"]),
         protocol,
         delegate,
+        None,
         None,
     )
     .await;
@@ -237,6 +419,7 @@ async fn authorize_rejects_when_pi_not_external() {
         protocol,
         delegate,
         None,
+        None,
     )
     .await;
 
@@ -261,6 +444,7 @@ async fn authorize_rejects_when_no_sd() {
         &actor(admin_id, &["SYSTEM_ADMIN"]),
         protocol,
         delegate,
+        None,
         None,
     )
     .await;
@@ -291,6 +475,7 @@ async fn authorize_rejects_inactive_delegate() {
         protocol,
         inactive,
         None,
+        None,
     )
     .await;
 
@@ -316,6 +501,7 @@ async fn authorize_rejects_when_already_has_active_delegate() {
         protocol,
         delegate_a,
         None,
+        None,
     )
     .await
     .expect("first authorize should succeed");
@@ -325,6 +511,7 @@ async fn authorize_rejects_when_already_has_active_delegate() {
         &actor(sd, &["EXPERIMENT_STAFF"]),
         protocol,
         delegate_b,
+        None,
         None,
     )
     .await;
@@ -357,6 +544,7 @@ async fn revoke_by_current_sd_succeeds() {
         protocol,
         delegate,
         None,
+        None,
     )
     .await
     .expect("authorize");
@@ -386,6 +574,7 @@ async fn revoke_by_unrelated_user_rejected() {
         &actor(sd, &["EXPERIMENT_STAFF"]),
         protocol,
         delegate,
+        None,
         None,
     )
     .await
@@ -454,6 +643,7 @@ async fn sd_change_auto_revokes_delegate() {
         &actor(sd, &["EXPERIMENT_STAFF"]),
         protocol,
         delegate,
+        None,
         None,
     )
     .await
@@ -536,6 +726,7 @@ async fn dual_signature_ready_accepts_delegate_signature() {
         protocol,
         delegate,
         None,
+        None,
     )
     .await
     .expect("authorize")
@@ -589,6 +780,7 @@ async fn dual_signature_ready_rejects_delegation_from_another_protocol() {
         other_protocol,
         delegate,
         None,
+        None,
     )
     .await
     .expect("authorize on other protocol")
@@ -637,6 +829,7 @@ async fn can_write_amendment_includes_active_delegate() {
         protocol,
         delegate,
         None,
+        None,
     )
     .await
     .expect("authorize");
@@ -670,6 +863,148 @@ async fn can_write_amendment_includes_active_delegate() {
         .await
         .expect("can_write_amendment");
     assert!(!sd_can_write, "SD 本人不因代理人存在而取得修正案寫入權");
+}
+
+// ── 修正案寫入也要留下代簽證據（migration 010）───────────────────
+//
+// `can_write_amendment` 放行代理人，但 `amendments` 的 created_by / submitted_by
+// 與 `euthanasia_appeals.pi_user_id` 踩到同一個坑：本次改動之前它們必然是計畫 PI
+// （判準只認 admin 與 PI），之後可能是代理人。而變更申請的簽章是**審查方的決定簽**，
+// 不是提交方的簽章，所以借不到 `electronic_signatures.delegation_id` 那條證據鏈。
+
+async fn amendment_delegation_ids(
+    app: &TestApp,
+    amendment_id: Uuid,
+) -> (Option<Uuid>, Option<Uuid>) {
+    sqlx::query_as::<_, (Option<Uuid>, Option<Uuid>)>(
+        "SELECT created_delegation_id, submitted_delegation_id FROM amendments WHERE id = $1",
+    )
+    .bind(amendment_id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("read amendment")
+}
+
+async fn make_amendment(
+    app: &TestApp,
+    protocol: Uuid,
+    writer: Uuid,
+    writer_user: &CurrentUser,
+    title: &str,
+) -> erp_backend::models::Amendment {
+    use erp_backend::models::CreateAmendmentRequest;
+    use erp_backend::services::AmendmentService;
+
+    // `seed_external_pi_protocol` 不設 iacuc_no，而變更申請編號產生器要求要有。
+    // 這是 fixture 的附帶前提，不是本測試要驗的東西，所以就地補上。
+    sqlx::query("UPDATE protocols SET iacuc_no = COALESCE(iacuc_no, $2) WHERE id = $1")
+        .bind(protocol)
+        .bind(format!("IACUC-DLG-{}", &protocol.to_string()[..8]))
+        .execute(&app.db_pool)
+        .await
+        .expect("set iacuc_no");
+
+    let scope =
+        access::Scoped::<access::AmendmentWrite>::authorize(&app.db_pool, writer_user, protocol)
+            .await
+            .expect("authorize amendment write");
+    let delegation = access::amendment_writer_delegation(&app.db_pool, writer_user, protocol)
+        .await
+        .expect("resolve delegation");
+    AmendmentService::create(
+        &app.db_pool,
+        scope,
+        &CreateAmendmentRequest {
+            protocol_id: protocol,
+            title: title.to_string(),
+            description: None,
+            change_items: None,
+            changes_content: None,
+        },
+        writer,
+        delegation,
+    )
+    .await
+    .expect("create amendment")
+}
+
+#[tokio::test]
+#[serial]
+async fn amendment_created_by_delegate_records_delegation_evidence() {
+    let app = TestApp::spawn().await;
+    let creator = seed_user(&app, None).await;
+    let sd = seed_user(&app, Some("EXPERIMENT_STAFF")).await;
+    let delegate = seed_user(&app, None).await;
+    let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+
+    let delegation_id = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("authorize")
+    .id;
+
+    let delegate_user = CurrentUser {
+        id: delegate,
+        email: format!("{delegate}@test.local"),
+        roles: vec![],
+        permissions: vec![],
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    };
+    let amendment =
+        make_amendment(&app, protocol, delegate, &delegate_user, "代理人建立的變更").await;
+
+    assert_eq!(
+        amendment_delegation_ids(&app, amendment.id).await.0,
+        Some(delegation_id),
+        "代理人建立的變更申請必須綁上那筆授權，否則稽核上看起來就是 PI 本人提的"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn amendment_created_in_person_leaves_delegation_null() {
+    let app = TestApp::spawn().await;
+    let creator = seed_user(&app, None).await;
+    let sd = seed_user(&app, Some("EXPERIMENT_STAFF")).await;
+    let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+
+    // creator 就是借位的 pi_user_id，本人有資格；即使同時也被指定為代理人，
+    // 本人身分優先，不得標成代簽（假的可歸責資訊比沒有更糟）。
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        creator,
+        None,
+        None,
+    )
+    .await
+    .expect("authorize");
+
+    let pi_user = CurrentUser {
+        id: creator,
+        email: format!("{creator}@test.local"),
+        roles: vec![],
+        permissions: vec![],
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    };
+    let amendment = make_amendment(&app, protocol, creator, &pi_user, "PI 本人建立的變更").await;
+
+    assert_eq!(
+        amendment_delegation_ids(&app, amendment.id).await.0,
+        None,
+        "本人有資格時一律以個人名義落帳"
+    );
 }
 
 // ── 結案雙簽：真正的寫入端（不是只測讀取端的 gate）───────────────
@@ -764,6 +1099,7 @@ async fn delegate_can_sign_pi_closure_slot_and_signature_carries_delegation_id()
         &actor(sd, &["EXPERIMENT_STAFF"]),
         protocol,
         delegate,
+        None,
         None,
     )
     .await
@@ -865,6 +1201,7 @@ async fn sd_as_own_delegate_cannot_sign_pi_closure_slot() {
         protocol,
         sd,
         None,
+        None,
     )
     .await
     .expect("執秘應可核准 SD 自任代理人")
@@ -912,6 +1249,7 @@ async fn sd_as_own_delegate_still_usable_outside_closure() {
         &actor(staff, &["IACUC_STAFF"]),
         protocol,
         sd,
+        None,
         None,
     )
     .await
@@ -963,6 +1301,7 @@ async fn revoked_delegation_cannot_sign_closure_even_if_resolved_earlier() {
         &actor(sd, &["EXPERIMENT_STAFF"]),
         protocol,
         delegate,
+        None,
         None,
     )
     .await
@@ -1023,6 +1362,7 @@ async fn delegation_from_another_protocol_cannot_sign_closure() {
         &actor(sd, &["EXPERIMENT_STAFF"]),
         other,
         delegate,
+        None,
         None,
     )
     .await

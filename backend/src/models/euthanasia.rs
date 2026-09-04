@@ -69,6 +69,14 @@ pub struct EuthanasiaAppeal {
     pub created_at: DateTime<Utc>,
     /// R30-A：optimistic lock 版本號（migration 040）
     pub version: i32,
+    /// 非 NULL = `pi_user_id` 是依此筆 `protocol_pi_delegates` 授權**代為**申請暫緩的
+    /// 代理人，而非計畫的 PI 本人（migration 010）。
+    ///
+    /// ⚠️ 這一欄不是裝飾：`lock_order_for_pi` 接受代理人之後，`pi_user_id` 已不再
+    /// 保證等於計畫 PI，而暫緩申請又不建立簽章、借不到
+    /// `electronic_signatures.delegation_id` 那條證據鏈。少了本欄，事後就只能靠
+    /// 時間窗回推「當時他是不是代理人」——授權可撤銷可重發，那種回推不是可靠證據。
+    pub delegation_id: Option<Uuid>,
 }
 
 impl AuditRedact for EuthanasiaAppeal {}

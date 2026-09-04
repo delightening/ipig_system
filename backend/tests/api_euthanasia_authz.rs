@@ -551,9 +551,16 @@ async fn pending_orders_visible_to_active_pi_delegate() {
         "尚未核准代理授權前，這個人不該看得到別人的待處理單"
     );
 
-    ProtocolService::authorize_pi_delegate(&app.db_pool, &sd_actor, protocol_id, delegate, None)
-        .await
-        .expect("SD 核准代理人");
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &sd_actor,
+        protocol_id,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人");
 
     assert!(
         sees(&app, delegate, order_id).await,
@@ -572,4 +579,181 @@ async fn pending_orders_visible_to_active_pi_delegate() {
         !sees(&app, delegate, order_id).await,
         "撤銷後就不該再看得到——可見範圍必須跟 lock_order_for_pi 的授權判準一致"
     );
+}
+
+// ── 暫緩申請要留下代簽證據（migration 010）─────────────────────────
+//
+// `lock_order_for_pi` 開放代理人之後，`euthanasia_appeals.pi_user_id` 已不再保證
+// 等於計畫 PI。而暫緩申請**不建立簽章**，借不到 `electronic_signatures.delegation_id`
+// 那條證據鏈——少了 `euthanasia_appeals.delegation_id`，事後只能靠時間窗回推
+// 「當時他是不是代理人」，而授權可撤銷可重發，那種回推不是可靠證據。
+//
+// 三支一組：代理人申請要標、本人申請不得亂標、授權撤銷後不得再寫進去。
+
+async fn appeal_delegation_id(app: &TestApp, appeal_id: Uuid) -> Option<Uuid> {
+    sqlx::query_scalar::<_, Option<Uuid>>(
+        "SELECT delegation_id FROM euthanasia_appeals WHERE id = $1",
+    )
+    .bind(appeal_id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("read appeal")
+}
+
+fn user_actor_for(id: Uuid, role: &str) -> erp_backend::middleware::ActorContext {
+    use erp_backend::middleware::{ActorContext, CurrentUser};
+    ActorContext::User(CurrentUser {
+        id,
+        email: format!("{id}@test.local"),
+        roles: vec![role.to_string()],
+        permissions: vec![],
+        jti: "test".to_string(),
+        exp: 0,
+        impersonated_by: None,
+    })
+}
+
+#[tokio::test]
+#[serial]
+async fn appeal_by_delegate_records_delegation_evidence() {
+    use erp_backend::models::CreateEuthanasiaAppealRequest;
+    use erp_backend::services::{EuthanasiaService, ProtocolService};
+
+    let app = TestApp::spawn().await;
+    let (borrowed_pi, _) = seed_login_user(&app, "borrowed-pi", "PI").await;
+    let (sd, _) = seed_login_user(&app, "sd", "EXPERIMENT_STAFF").await;
+    let (delegate, _) = seed_login_user(&app, "delegate", "PI").await;
+    let (vet, _) = seed_login_user(&app, "vet", "VET").await;
+    let (protocol_id, animal_id) =
+        seed_external_pi_protocol_and_animal(&app, borrowed_pi, sd).await;
+    let order_id = seed_order(&app, animal_id, vet, borrowed_pi, "pending_pi").await;
+
+    let delegation_id = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &user_actor_for(sd, "EXPERIMENT_STAFF"),
+        protocol_id,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人")
+    .id;
+
+    let appeal = EuthanasiaService::pi_appeal(
+        &app.db_pool,
+        &user_actor_for(delegate, "PI"),
+        order_id,
+        &CreateEuthanasiaAppealRequest {
+            reason: "代理人代為申請暫緩".to_string(),
+            attachment_path: None,
+            version: None,
+        },
+    )
+    .await
+    .expect("代理人應可申請暫緩");
+
+    assert_eq!(
+        appeal.pi_user_id, delegate,
+        "pi_user_id 必須是實際送出申請的代理人本人"
+    );
+    assert_eq!(
+        appeal_delegation_id(&app, appeal.id).await,
+        Some(delegation_id),
+        "代理人提出的暫緩必須綁上那筆授權，否則稽核上看起來就是 PI 本人申請的"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn appeal_in_person_leaves_delegation_null() {
+    use erp_backend::models::CreateEuthanasiaAppealRequest;
+    use erp_backend::services::EuthanasiaService;
+
+    let app = TestApp::spawn().await;
+    let (pi, _) = seed_login_user(&app, "pi", "PI").await;
+    let (sd, _) = seed_login_user(&app, "sd", "EXPERIMENT_STAFF").await;
+    let (vet, _) = seed_login_user(&app, "vet", "VET").await;
+    let (_protocol_id, animal_id) = seed_external_pi_protocol_and_animal(&app, pi, sd).await;
+    let order_id = seed_order(&app, animal_id, vet, pi, "pending_pi").await;
+
+    let appeal = EuthanasiaService::pi_appeal(
+        &app.db_pool,
+        &user_actor_for(pi, "PI"),
+        order_id,
+        &CreateEuthanasiaAppealRequest {
+            reason: "PI 本人申請暫緩".to_string(),
+            attachment_path: None,
+            version: None,
+        },
+    )
+    .await
+    .expect("PI 本人應可申請暫緩");
+
+    assert_eq!(
+        appeal_delegation_id(&app, appeal.id).await,
+        None,
+        "本人申請不得標成代簽——假的可歸責資訊比沒有更糟"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn appeal_rejected_when_delegation_revoked() {
+    use erp_backend::models::CreateEuthanasiaAppealRequest;
+    use erp_backend::services::{EuthanasiaService, ProtocolService};
+    use erp_backend::AppError;
+
+    let app = TestApp::spawn().await;
+    let (borrowed_pi, _) = seed_login_user(&app, "borrowed-pi", "PI").await;
+    let (sd, _) = seed_login_user(&app, "sd", "EXPERIMENT_STAFF").await;
+    let (delegate, _) = seed_login_user(&app, "delegate", "PI").await;
+    let (vet, _) = seed_login_user(&app, "vet", "VET").await;
+    let (protocol_id, animal_id) =
+        seed_external_pi_protocol_and_animal(&app, borrowed_pi, sd).await;
+    let order_id = seed_order(&app, animal_id, vet, borrowed_pi, "pending_pi").await;
+
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &user_actor_for(sd, "EXPERIMENT_STAFF"),
+        protocol_id,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人");
+    ProtocolService::revoke_pi_delegate(
+        &app.db_pool,
+        &user_actor_for(sd, "EXPERIMENT_STAFF"),
+        protocol_id,
+        Some("測試：申請前撤銷"),
+    )
+    .await
+    .expect("SD 撤銷代理人");
+
+    let err = EuthanasiaService::pi_appeal(
+        &app.db_pool,
+        &user_actor_for(delegate, "PI"),
+        order_id,
+        &CreateEuthanasiaAppealRequest {
+            reason: "授權已撤銷仍嘗試申請".to_string(),
+            attachment_path: None,
+            version: None,
+        },
+    )
+    .await
+    .expect_err("授權已撤銷不得再提出暫緩");
+    assert!(
+        matches!(err, AppError::NotFound(_) | AppError::Forbidden(_)),
+        "實得：{err:?}"
+    );
+
+    let appeal_count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM euthanasia_appeals WHERE order_id = $1")
+            .bind(order_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("count appeals");
+    assert_eq!(appeal_count, 0, "被擋下時不得留下任何暫緩申請紀錄");
 }

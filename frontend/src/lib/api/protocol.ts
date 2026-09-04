@@ -134,11 +134,14 @@ export const approveSendPiInvite = async (inviteId: string) => {
 export const authorizePiDelegate = async (
   protocolId: string,
   delegateUserId: string,
-  reason?: string
+  reason?: string,
+  /** 授權到期時點（ISO 字串）；省略 = 不設期限。後端要求必須晚於現在。 */
+  expiresAt?: string
 ): Promise<PiDelegateInfo> => {
   const response = await api.post(`/protocols/${protocolId}/pi-delegate`, {
     delegate_user_id: delegateUserId,
     reason: reason || null,
+    expires_at: expiresAt || null,
   })
   return response.data
 }

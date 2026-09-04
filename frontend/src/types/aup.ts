@@ -156,6 +156,8 @@ export interface PiDelegateInfo {
     authorized_by: string
     authorized_by_name: string
     authorized_at: string
+    /** 授權自動失效時點；null = 不設期限。過期後代理權自動收回，不需手動撤銷。 */
+    expires_at?: string | null
     reason?: string | null
 }
 

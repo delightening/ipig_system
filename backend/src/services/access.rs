@@ -235,6 +235,7 @@ pub async fn can_sign_notice(pool: &PgPool, protocol_id: Uuid, user_id: Uuid) ->
             UNION
             SELECT 1 FROM protocol_pi_delegates
             WHERE protocol_id = $1 AND delegate_user_id = $2 AND revoked_at IS NULL
+              AND (expires_at IS NULL OR expires_at > now())
         )"#,
     )
     .bind(protocol_id)
@@ -277,6 +278,29 @@ pub async fn notice_signer_delegation(
         return Ok(None);
     }
     active_pi_delegate_id(pool, protocol_id, user_id).await
+}
+
+/// 變更申請寫入時，這位操作者是否**只**憑代理授權取得資格；是的話回傳該授權 id。
+///
+/// 與 [`notice_signer_delegation`] 同一個原則、但個人資格的判準不同：
+/// [`can_write_amendment`] 認的是 admin 與計畫 PI（**不含 SD**），所以這裡也只排除
+/// 這兩者。本人有資格就以個人名義落帳、`delegation_id` 留 NULL；只有「沒有任何
+/// 個人資格、純粹靠那筆授權才寫得下去」時才標記。
+///
+/// 反過來寫（有授權就一律標記）會讓「本來就是 PI、順便也被指定為代理人」的人
+/// 寫出來的變更申請看起來像代簽——那是假的可歸責資訊，比沒有更糟。
+pub async fn amendment_writer_delegation(
+    pool: &PgPool,
+    current_user: &CurrentUser,
+    protocol_id: Uuid,
+) -> Result<Option<Uuid>> {
+    if current_user.is_admin() {
+        return Ok(None);
+    }
+    if is_protocol_pi(pool, protocol_id, current_user.id).await? {
+        return Ok(None);
+    }
+    active_pi_delegate_id(pool, protocol_id, current_user.id).await
 }
 
 /// 使用者是否與計畫有關聯（any role in user_protocols）
@@ -697,7 +721,8 @@ pub async fn active_pi_delegate_id(
 ) -> Result<Option<Uuid>> {
     let id: Option<Uuid> = sqlx::query_scalar(
         r#"SELECT id FROM protocol_pi_delegates
-           WHERE protocol_id = $1 AND delegate_user_id = $2 AND revoked_at IS NULL"#,
+           WHERE protocol_id = $1 AND delegate_user_id = $2 AND revoked_at IS NULL
+             AND (expires_at IS NULL OR expires_at > now())"#,
     )
     .bind(protocol_id)
     .bind(user_id)

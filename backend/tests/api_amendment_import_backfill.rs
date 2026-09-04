@@ -362,6 +362,7 @@ async fn historical_numbering_continues_to_live() {
             changes_content: None,
         },
         sd,
+        None,
     )
     .await
     .expect("create live amendment");
@@ -388,6 +389,7 @@ async fn historical_finalize_rejects_live_amendment() {
             changes_content: None,
         },
         sd,
+        None,
     )
     .await
     .expect("create live amendment");
