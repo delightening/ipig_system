@@ -419,24 +419,34 @@ impl DocxRenderFormat {
     }
 }
 
-/// R32-A3b: xlsx render 回傳格式選擇。
+/// R32-A3b: 欄位巡視報告的 render 回傳格式。
+///
+/// ⚠️ **2026-09-04：`Xlsx` 變體已移除（使用者裁定，決策 95.1）。**
+///
+/// 與 `DocxRenderFormat::Docx`（決策 89.1）是同一個缺陷的第二個實例，
+/// 但**更容易踩到，因為壞掉的那條是預設值**：`/render-vet-patrol/from-animals`
+/// 在 print-pdf 的簽名裡沒有 `format` 參數，無條件 `_render_pdf_async()` 回 PDF
+/// bytes、檔名寫死 `.pdf`；而呼叫端原本 `Some("xlsx") | None => Xlsx`，
+/// 再照 `mime_type()`／`extension()` 把那份 PDF 標成 Excel MIME 與 `.xlsx`。
+/// 也就是說**不指定 format（最自然的用法）就會拿到 Excel 打不開的檔案**。
+///
+/// 現在只剩 `Pdf`。與 `DocxRenderFormat` 同樣保留單變體 enum 而不整個拿掉：
+/// `render_vet_patrol_from_animals` 的簽名帶著它，一併移除屬另一次改動。
 #[derive(Debug, Clone, Copy)]
 pub enum XlsxRenderFormat {
-    Xlsx,
+    /// Chromium（Playwright `page.pdf`）render 出的 PDF——print-pdf 端實際回傳的東西。
     Pdf,
 }
 
 impl XlsxRenderFormat {
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
-            Self::Xlsx => "xlsx",
             Self::Pdf => "pdf",
         }
     }
 
     pub fn mime_type(&self) -> &'static str {
         match self {
-            Self::Xlsx => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             Self::Pdf => "application/pdf",
         }
     }
