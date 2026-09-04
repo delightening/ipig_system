@@ -4,14 +4,21 @@
 -- 等於沒有生效。品項的包裝關係一直只存在 products.pack_unit / pack_qty，
 -- 那兩欄與換算表描述的是同一件事，卻互不校驗。
 --
--- 遷移條件（四個同時成立）：
---   is_active                    停用品項不進盤點底稿，範圍越小越好驗
---   pack_unit 非 NULL 且非空白
---   pack_qty >= 2                factor = 1 沒有換算意義，只會讓單位下拉多出等值選項，
---                                並讓依字串相等比對單位的收貨對帳 SQL 依填法產生不同結果
---   正規化後 <> base_uom         🔴 必須「正規化之後」才比
+-- 🔴 **本 migration 不做靜默跳過**（2026-09-04 使用者裁定）。
+-- 凡是「填了 pack_unit、卻遷不進換算表」的品項，0a3 一律 RAISE EXCEPTION 中止並列出 SKU。
+-- 早期版本用 `is_active`、`pack_qty >= 2`、`正規化後 <> base_uom` 三個條件把它們默默濾掉，
+-- 結果是**混合狀態**：有些品項有換算、有些沒有，而從結果看不出漏了誰，
+-- 也沒有任何訊號會提醒——這比整批不生效更難查。現在那三個排除全部轉成硬中止。
 --
--- 最後一條是本檔最容易寫錯的地方：base_uom 是「盒」而 pack_unit 填成 BX（正規化後也是
+-- 遷移範圍（停用品項一併遷入；它們不進盤點底稿，但日後重新啟用時不該再出現缺口）：
+--   pack_unit 非 NULL 且非空白    沒填的品項沒有包裝關係可遷，不算被跳過
+--   pack_qty >= 2                 由 0a3 保證，此處只是防禦
+--   正規化後 <> base_uom          由 0a3 保證，此處只是防禦。🔴 必須「正規化之後」才比
+--
+-- ⚠️ 代價要看清楚：主檔沒修完就部署，`run_migrations` 會失敗、API 起不來。
+-- 這是刻意的——部署順序必須是「先修主檔，再部署 011」，不能反過來。
+--
+-- 「正規化之後才比」是本檔最容易寫錯的地方：base_uom 是「盒」而 pack_unit 填成 BX（正規化後也是
 -- 「盒」）時，原字串不同、實質同名。只比原字串會整批漏掉這一類，而它們正是危險的那一類
 -- ——同名列會讓盤點端把貨架現存量除成極小的數字、核准時再以原值去減，開出把整個貨架
 -- 清空的盤虧調整單；收貨端則會讓已收量膨脹，把完全正確的收貨判成超收而擋下。
@@ -169,6 +176,59 @@ BEGIN
     END IF;
 END $$;
 
+-- 0a3. 🔴 完整性盤點：填了包裝單位卻遷不進換算表的品項 → 停止。
+--
+-- 這是「不做靜默跳過」（見檔頭）的落地點，也是三道 fail-closed 閘門的最後一道。
+-- 刻意放在 0b/0c/0d 這些改寫之前：一來還沒動到任何資料就先擋下，二來訊息裡的
+-- `pack_unit` 還是**現場填的原字串**（BX / PK），修主檔的人才知道要去改哪個值；
+-- 0d 之後它已經被改寫成正規形式，看到的會是兩個一模一樣的中文字。
+--
+-- 兩種擋下的理由，修法完全不同：
+--   撞名     `uom_canonical(pack_unit) = uom_canonical(base_uom)`，讀成「1 盒 = 100 盒」。
+--            主檔本身填錯：不是 pack_unit 該填外箱單位（型一），就是 base_uom 該是更小的
+--            單位（型二）。型二**不能直接改 base_uom**——`stock_ledger` 是 append-only、
+--            trigger 禁 UPDATE（GLP §11.10(e)），改標籤會讓歷史 qty_base 被錯誤重新解讀
+--            而且回不去。那要另走盤點／調整程序。
+--   無換算率 `pack_qty` 未填或 < 2。「1 箱 = 1 支」不帶任何包裝資訊，多半是只填了單位、
+--            沒填數量。要嘛補上真實數量，要嘛把 pack_unit 清成 NULL。
+DO $$
+DECLARE
+    blockers   text;
+    n_blockers integer;
+BEGIN
+    SELECT count(*), string_agg(t.msg, E'\n  ' ORDER BY t.msg)
+      INTO n_blockers, blockers
+      FROM (
+          SELECT format('%s%s %s：base_uom=%s pack_unit=%s（→%s）pack_qty=%s ← %s',
+                        p.sku,
+                        CASE WHEN p.is_active THEN '' ELSE '[停用]' END,
+                        p.name,
+                        p.base_uom,
+                        p.pack_unit,
+                        uom_canonical(p.pack_unit),
+                        COALESCE(p.pack_qty::text, 'NULL'),
+                        CASE
+                          WHEN uom_canonical(p.pack_unit) = uom_canonical(p.base_uom)
+                            THEN '撞名（正規化後與 base_uom 同字）'
+                          ELSE '無換算率（pack_qty 未填或 < 2）'
+                        END) AS msg
+            FROM products p
+           WHERE p.pack_unit IS NOT NULL
+             AND btrim(p.pack_unit) <> ''
+             AND (
+                    uom_canonical(p.pack_unit) = uom_canonical(p.base_uom)
+                 OR p.pack_qty IS NULL
+                 OR p.pack_qty < 2
+                 )
+      ) t;
+
+    IF n_blockers > 0 THEN
+        RAISE EXCEPTION
+            E'有 % 個品項填了包裝單位卻遷不進換算表。本 migration 不做靜默跳過：請先修主檔（走產品編輯 API）再套用。\n  %',
+            n_blockers, blockers;
+    END IF;
+END $$;
+
 -- 0b. 同一組正規單位有多列且換算率一致 → 只留一列。
 --     優先保留「已經是正規寫法」的那一列（不必改名、id 不變）；
 --     全是別名時保留 id 最小的，讓結果與執行次序無關。
@@ -210,15 +270,19 @@ WITH candidate AS (
            uom_canonical(p.base_uom)     AS base_canonical,
            p.pack_qty::numeric(18,6)     AS factor_to_base
     FROM products p
-    WHERE p.is_active
-      AND p.pack_unit IS NOT NULL
+    -- 🔴 沒有 `is_active` 條件：停用品項一併遷入（見檔頭）。它們不進盤點底稿，
+    -- 但日後重新啟用時不該再出現「有包裝卻沒有換算列」的缺口。
+    WHERE p.pack_unit IS NOT NULL
       AND btrim(p.pack_unit) <> ''
+      -- 下面這條由 0a3 保證成立，留著純粹是防禦：0a3 若哪天被改壞，這裡至少不會
+      -- 把 pack_qty=1 或 NULL 寫成換算率。它**不再是**排除品項的機制。
       AND p.pack_qty >= 2
 ),
 ins AS (
     INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
     SELECT gen_random_uuid(), c.product_id, c.uom, c.factor_to_base
     FROM candidate c
+    -- 同上：由 0a3 保證，留作防禦。原本這一行就是那個「靜默跳過撞名品項」的機制。
     WHERE c.uom <> c.base_canonical
     -- 冪等：已存在的列一律不動。它可能是人工建的、換算率未必等於 pack_qty，不覆寫。
     ON CONFLICT (product_id, uom) DO NOTHING
