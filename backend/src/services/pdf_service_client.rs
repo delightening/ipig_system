@@ -10,9 +10,9 @@ type CachedRender = std::sync::Arc<(Vec<u8>, Option<String>)>;
 /// 透過常駐 Chromium（Playwright `page.pdf`）render 為 PDF（取代舊三件式
 /// pdf-service + gotenberg + word-convert daemon stack）。
 ///
-/// ⚠️ R81-9：2026-06 起引擎已由 WeasyPrint 改為 Chromium（WeasyPrint 的 fontTools
-/// subset 會破壞標楷體 DFKai-SB，見 `services/print-pdf/README.md`）。本處註解
-/// 直到訂正前仍寫 WeasyPrint，與該服務的實際實作相左。
+/// ⚠️ R81-9：2026-06 起引擎已由 WeasyPrint 改為 Chromium——WeasyPrint 的 fontTools
+/// subset 會破壞標楷體 DFKai-SB（point-matching composite 字形），Chromium 原生處理
+/// 則乾淨。沿革見 `services/print-pdf/README.md` 與 `services/print-pdf/Dockerfile` 開頭。
 #[derive(Clone)]
 pub struct PdfServiceClient {
     base_url: String,

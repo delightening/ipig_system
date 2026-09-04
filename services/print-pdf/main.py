@@ -324,9 +324,15 @@ def _assert_fonts_present() -> None:
 
 
 async def _warmup_render() -> None:
-    """啟動暖機：跑一次極小的 HTML→PDF render，預先觸發 WeasyPrint 的 lazy import
-    與 Pango/Cairo/fontconfig 字型快取建立（含 CJK glyph shaping），讓第一個真實
-    請求不必承擔冷啟動成本。失敗為 non-fatal（僅記 log，不擋服務啟動）。
+    """啟動暖機：跑一次極小的 HTML→PDF render，把第一個真實請求的冷啟動成本先付掉。
+
+    browser 本身已由 lifespan 的 `_start_browser()` 拉起（暖機排在它之後），所以這裡暖的
+    是**每請求那條路徑**：開新 page、fontconfig 字型比對與快取、CJK glyph shaping、
+    以及 Chromium print-to-PDF 的首次初始化。
+    失敗為 non-fatal（僅記 log，不擋服務啟動）。
+
+    R81-9：原文寫「預先觸發 WeasyPrint 的 lazy import 與 Pango/Cairo 字型快取」，
+    那是 2026-06 換引擎前的實作——Chromium 走 Skia + HarfBuzz，不經 Pango/Cairo。
     """
     t0 = time.perf_counter()
     try:
@@ -728,8 +734,10 @@ async def render_aup_from_working_content(
     if not isinstance(wc, dict):
         raise HTTPException(400, 'Body must be {"working_content": {...}}')
     payload = _adapter_call(aup_ad.from_working_content, wc, "aup_protocol")
-    # format=html：回傳送進渲染前的同一份 HTML，供前端預覽 iframe，
-    # 確保「計畫內容」預覽與匯出 PDF 同源（同模板 + 同資料）一致。
+    # format=html：回傳同一組模板 + 同一份資料產生的 HTML，供前端預覽 iframe，
+    # 確保「計畫內容」預覽與匯出 PDF 同源。
+    # ⚠️ 同源不等於同一份：下面 PDF 那條走兩遍渲染，第二遍會多帶 toc_pages，
+    # 所以預覽這一版的目錄頁碼是空的。內文其餘部分一致。
     if output_format == "html":
         return HTMLResponse(_render_html_from_payload("aup_protocol", payload))
     # 兩遍渲染回填目錄頁碼（Chromium 無 target-counter）
