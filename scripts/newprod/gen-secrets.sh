@@ -147,7 +147,19 @@ mkdir -p "$SECRETS_DIR"
 # 第一層項目若是符號連結（含斷鏈），必須在任何 chmod／openssl 輸出**之前**擋下，
 # 否則那些操作會跟隨連結動到目錄外。`-type l` 用 lstat 判斷連結本身的型態，
 # 不需要解析目標，斷鏈符號連結一樣正確辨識為 `l`。
-symlink_children=$(find "$SECRETS_DIR" -mindepth 1 -maxdepth 1 -type l 2>/dev/null || true)
+#
+# ⚠️ CodeRabbit 第二輪抓到：原本 `2>/dev/null || true` 會把「find 掃描失敗」
+# 吞成空字串，跟「掃描成功、乾淨」長得一模一樣。實測（Linux 容器，非 root）：
+# `--allow-existing` 時若目錄權限是 0300（可寫可進、不可讀，例如手動改壞
+# 或某些網路檔案系統的邊界情況），`find` 對它 `Permission denied`、exit 1，
+# 而 `|| true` 讓守衛誤判為「沒有符號連結」而放行——掃描失敗和掃描乾淨
+# 必須是兩種不同的結果，此處失敗要 fail-closed 不是 fail-open。
+if ! symlink_children=$(find "$SECRETS_DIR" -mindepth 1 -maxdepth 1 -type l); then
+  echo "ERROR: 無法完整檢查 $SECRETS_DIR 的符號連結，拒絕執行。" >&2
+  echo "       find 掃描失敗（權限不足或其他 I/O 錯誤），不能區分「乾淨」與" >&2
+  echo "       「看不到危險」，故視同有風險而拒絕。" >&2
+  exit 1
+fi
 if [ -n "$symlink_children" ]; then
   echo "ERROR: $SECRETS_DIR 底下有符號連結，拒絕執行。" >&2
   echo "       本腳本接下來會對目錄裡的既有檔案下 chmod／openssl 輸出；" >&2
@@ -236,6 +248,24 @@ assert_pkcs8() {
   fi
 }
 
+# ⚠️ CodeRabbit 第二輪抓到：`assert_pkcs8` 只驗證**容器格式**（PKCS8 標頭），
+# 不驗證裡面裝的是什麼演算法／曲線——PKCS8 包一把 RSA 私鑰同樣有
+# `BEGIN PRIVATE KEY` 標頭。`assert_pair_matches` 用的 `openssl pkey` 操作也是
+# 泛用的，任何演算法只要私鑰公鑰真的互相配對就會過。實測：PKCS8 格式的 2048-bit
+# RSA 金鑰對能同時通過這兩項檢查，但後端 `jsonwebtoken` 的 `EncodingKey::from_ec_pem`
+# 只認 ES256（EC prime256v1），這種金鑰會在服務啟動時才被拒絕——本腳本原本會
+# 回報一切正常，錯誤延後到最壞的時機才浮現。
+# 用 `ASN1 OID: prime256v1` 而非只看 bit 長度：EC 金鑰的 `-text` 輸出在 256 bit
+# 長度上不只一種曲線（如 brainpoolP256r1），只有這個 OID 字串精確指向後端要的曲線。
+assert_p256() { # $1=金鑰路徑（私鑰或公鑰皆可）
+  if ! openssl pkey -in "$1" -noout -text 2>/dev/null | grep -q 'ASN1 OID: prime256v1'; then
+    echo "ERROR: $1 不是 EC prime256v1（P-256）金鑰。" >&2
+    echo "       後端的 JWT 簽章／驗證只認 ES256（EC P-256）；PKCS8 格式檢查" >&2
+    echo "       通不過演算法或曲線錯誤，必須另外驗證，否則要到服務啟動時才會炸。" >&2
+    exit 1
+  fi
+}
+
 # ⚠️ 兩個檔都在時，只驗「存在」不夠——它們可能不是同一對。
 # 後端把兩者**各自獨立**載入（`backend/src/config.rs`：`EncodingKey::from_ec_pem(私鑰)`
 # 與 `DecodingKey::from_ec_pem(公鑰)`），中間沒有配對檢查，啟動路徑上也查無其他檢查
@@ -275,12 +305,14 @@ assert_pair_matches() {
 
 if [ -e "$priv" ] && [ -e "$pub" ]; then
   assert_pkcs8
+  assert_p256 "$priv"
   assert_pair_matches
   echo "  skip   jwt_ec_private_key.pem / jwt_ec_public_key.pem（皆已存在且互相配對）"
   skipped=$((skipped + 2))
 elif [ -e "$priv" ] && [ ! -e "$pub" ]; then
   # 公鑰是私鑰的函數，可以無損重建——這種狀態要修好，不是報錯。
   assert_pkcs8
+  assert_p256 "$priv"
   openssl pkey -in "$priv" -pubout -out "$pub" 2>/dev/null
   echo "  skip   jwt_ec_private_key.pem（已存在）"
   echo "  create jwt_ec_public_key.pem（由既有私鑰推導）"
@@ -299,6 +331,7 @@ else
     -out "$priv" 2>/dev/null
   openssl pkey -in "$priv" -pubout -out "$pub" 2>/dev/null
   assert_pkcs8
+  assert_p256 "$priv"
   echo "  create jwt_ec_private_key.pem（PKCS8）"
   echo "  create jwt_ec_public_key.pem"
   created=$((created + 2))
