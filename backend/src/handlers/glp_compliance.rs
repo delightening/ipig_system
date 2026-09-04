@@ -487,8 +487,7 @@ pub async fn list_study_reports(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<StudyReportQuery>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "study.report.view");
-    let items = GlpComplianceService::list_study_reports(&state.db, &params).await?;
+    let items = GlpComplianceService::list_study_reports(&state.db, &current_user, &params).await?;
     Ok(Json(serde_json::json!({ "data": items })))
 }
 
@@ -497,31 +496,68 @@ pub async fn get_study_report(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "study.report.view");
-    let item = GlpComplianceService::get_study_report(&state.db, id).await?;
+    let item = GlpComplianceService::get_study_report(&state.db, &current_user, id).await?;
     Ok(Json(serde_json::json!(item)))
 }
 
+/// 2026-09-05 起不再檢查 `study.report.manage`——建立最終報告改走身分即授權
+/// （只有 `req.protocol_id` 對應計畫的 Study Director 或 admin 可建立），
+/// 見 `GlpComplianceService::require_study_director`。
 pub async fn create_study_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<CreateStudyReportRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
-    require_permission!(current_user, "study.report.manage");
     let actor = ActorContext::User(current_user);
     let item = GlpComplianceService::create_study_report(&state.db, &actor, &payload).await?;
     Ok((StatusCode::CREATED, Json(serde_json::json!(item))))
 }
 
+/// 同上，改走身分即授權；`qau_statement` 已移出本端點，走 `update_qau_statement`。
 pub async fn update_study_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateStudyReportRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "study.report.manage");
     let actor = ActorContext::User(current_user);
     let item = GlpComplianceService::update_study_report(&state.db, &actor, id, &payload).await?;
+    Ok(Json(serde_json::json!(item)))
+}
+
+/// SD 簽署最終報告。身分即授權，無 admin 例外——見
+/// `GlpComplianceService::sign_study_report`。
+pub async fn sign_study_report(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<SignRecordRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let actor = ActorContext::User(current_user);
+    let item = GlpComplianceService::sign_study_report(
+        &state.db,
+        &actor,
+        id,
+        req.password.as_deref(),
+        req.handwriting_svg.as_deref(),
+        req.stroke_data.as_ref(),
+    )
+    .await?;
+    Ok(Json(serde_json::json!(item)))
+}
+
+/// QAU 品保聲明填寫，與報告本文分開授權（P0-1）。
+pub async fn update_qau_statement(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<QauStatementRequest>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "qau.report_statement.write");
+    let actor = ActorContext::User(current_user);
+    let item =
+        GlpComplianceService::update_qau_statement(&state.db, &actor, id, &payload.qau_statement)
+            .await?;
     Ok(Json(serde_json::json!(item)))
 }
 

@@ -484,8 +484,30 @@ export const createStudyReport = async (payload: {
   return res.data
 }
 
-export const updateStudyReport = async (id: string, payload: Partial<StudyFinalReport>) => {
+export type UpdateStudyReportPayload = Partial<
+  Pick<StudyFinalReport, 'title' | 'status' | 'summary' | 'methods' | 'results' | 'conclusions' | 'deviations'>
+>
+
+// 2026-09-05：qau_statement 已移出報告本文編輯，走獨立的 updateQauStatement（P0-1，SoD）。
+export const updateStudyReport = async (id: string, payload: UpdateStudyReportPayload) => {
   const res = await api.put<StudyFinalReport>(`/admin/study-reports/${id}`, payload)
+  return res.data
+}
+
+/** SD 簽署最終報告，身分即授權（無 admin 例外）。 */
+export const signStudyReport = async (
+  id: string,
+  payload: { password?: string; handwriting_svg?: string; stroke_data?: unknown },
+) => {
+  const res = await api.post<StudyFinalReport>(`/admin/study-reports/${id}/sign`, payload)
+  return res.data
+}
+
+/** QAU 品保聲明填寫，與報告本文分開授權；服務層另擋「填寫者不得為本計畫 SD」。 */
+export const updateQauStatement = async (id: string, qau_statement: string) => {
+  const res = await api.put<StudyFinalReport>(`/admin/study-reports/${id}/qau-statement`, {
+    qau_statement,
+  })
   return res.data
 }
 

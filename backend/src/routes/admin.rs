@@ -339,6 +339,14 @@ pub fn routes() -> Router<AppState> {
             get(handlers::glp_compliance::get_study_report)
                 .put(handlers::glp_compliance::update_study_report),
         )
+        .route(
+            "/admin/study-reports/{id}/sign",
+            post(handlers::glp_compliance::sign_study_report),
+        )
+        .route(
+            "/admin/study-reports/{id}/qau-statement",
+            put(handlers::glp_compliance::update_qau_statement),
+        )
         // Formulation Records (配製紀錄)
         .route(
             "/admin/formulation-records",
