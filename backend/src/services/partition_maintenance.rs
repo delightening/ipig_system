@@ -143,7 +143,36 @@ impl PartitionMaintenanceJob {
             partition_name, start_date, end_date
         );
 
-        sqlx::query(sqlx::AssertSqlSafe(sql)).execute(db).await?;
+        // migration 013 的 TRUNCATE 擋板必須逐個分區補上：row-level trigger 建在 parent
+        // 上時 PostgreSQL 會自動套用到所有分區，但 **statement-level TRUNCATE trigger
+        // 沒有這個行為**。少了這段，每季新建的分區都是裸的，
+        // `TRUNCATE user_activity_logs_<新季度>` 可直接清空該季稽核紀錄而不觸發任何擋板。
+        //
+        // 兩句包在同一個 transaction 內是必要的，不是保守起見：`ensure_partitions` 判斷
+        // 一個分區「已存在」只看 `pg_tables`（見 `get_existing_partitions`），不檢查
+        // trigger 是否存在。若 CREATE TABLE 成功、下面這句建 trigger 失敗（連線中斷、
+        // 資料庫重啟），分區會被視為「已存在」而略過，trigger 永遠不會被補建——
+        // 裸分區會一直留到有人手動發現為止。包進 tx 讓失敗時兩句一起 rollback，
+        // 分區在 `pg_tables` 裡也不存在，下次排程跑 `ensure_partitions` 會照原路徑
+        // 從頭重建，不需要額外一套「修補既有分區」的邏輯。
+        let trigger_sql = format!(
+            r#"
+            CREATE OR REPLACE TRIGGER check_user_activity_logs_no_truncate_trigger
+                BEFORE TRUNCATE ON {}
+                FOR EACH STATEMENT
+                EXECUTE FUNCTION public.check_user_activity_logs_no_truncate()
+            "#,
+            partition_name
+        );
+
+        let mut tx = db.begin().await?;
+        sqlx::query(sqlx::AssertSqlSafe(sql))
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query(sqlx::AssertSqlSafe(trigger_sql))
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
 
         // 為新分區建立必要的索引 (繼承自父表，但確認一下)
         info!(
