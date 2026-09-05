@@ -323,6 +323,14 @@ pub struct DocumentLineWithProduct {
     pub product_id: Uuid,
     pub product_sku: String,
     pub product_name: String,
+    /// 品項基本單位。編輯既有單據時，單位下拉要能重建 `base_uom` + `alt_uoms` 這組選項，
+    /// 光有 `uom`（本行當初選的那一個）不夠。
+    #[sqlx(default)]
+    pub product_base_uom: String,
+    /// 同 `Product::alt_uoms`：本品項在 `product_uom_conversions` 有換算率的其他單位。
+    #[serde(default)]
+    #[sqlx(default)]
+    pub product_alt_uoms: Vec<String>,
     pub qty: Decimal,
     pub uom: String,
     pub unit_price: Option<Decimal>,

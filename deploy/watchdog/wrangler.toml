@@ -17,6 +17,7 @@ HEALTH_URL = "https://ipigsystem.asia/api/health"
 FAIL_THRESHOLD = "3"
 PROBE_TIMEOUT_MS = "10000"
 # 寄件地址必須屬於本 zone；收件地址必須已在 Cloudflare Email Routing 驗證過
+# 🔗 這個值與檔案末端 [[send_email]] 的 allowed_sender_addresses **必須一致**，見該處說明。
 ALERT_FROM = "watchdog@ipigsystem.asia"
 ALERT_TO = "<已在 Email Routing 驗證的收件信箱>"
 
@@ -28,7 +29,19 @@ id = "<wrangler kv namespace create WATCHDOG_KV 產生的 id>"
 # Cloudflare Email Routing 的 send_email binding：
 # destination_address 限定單一已驗證地址，Worker 無法拿它寄給任意人；
 # allowed_sender_addresses 限定寄件地址只能是 ALERT_FROM，收窄最小權限
+#
+# 🔴 **這裡的兩個值分別與上面 [vars] 的 ALERT_FROM／ALERT_TO 重複維護，wrangler 的 toml
+#    不支援變數插值，只能靠人同步。** 這個重複的代價不對稱，所以值得一條明文規則：
+#      · 改了 ALERT_FROM 卻忘了同步 allowed_sender_addresses
+#        → Email Routing 直接拒收，`send_email` binding 在 runtime 丟錯，
+#          **看門狗的告警信從此全部寄不出去，而它自己不會告訴你**（唯一的徵兆是
+#          Cloudflare Dashboard 上該次 cron 標記失敗，見 README §6）。
+#      · 改了 ALERT_TO 卻忘了同步 destination_address → 同上。
+#    也就是說：這個檔案裡打錯一個字，會讓「監控」這件事整個安靜地消失。
+#    改動任一邊時，把另一邊一起改，並依 README §5 的失敗演練實際收一封信確認。
+#    （Qodo 於 2026-08-11 merge main 後的追蹤 review 抓到；原始三輪 review 未提及。）
 [[send_email]]
 name = "ALERT_EMAIL"
 destination_address = "<同 ALERT_TO>"
+# ⚠️ 必須與 [vars] 的 ALERT_FROM 逐字相同
 allowed_sender_addresses = ["watchdog@ipigsystem.asia"]

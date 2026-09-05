@@ -138,6 +138,12 @@ export interface Product {
     spec?: string
     category_id?: string
     base_uom: string
+    /**
+     * 除 base_uom 外，本品項在換算表有換算率的單位（後端依換算率遞增排序）。
+     * 單據明細的單位下拉 = [base_uom, ...alt_uoms]；後端 assert_lines_uom_defined
+     * 以同一組值驗證，填了不在這組裡的單位會被擋成 400。
+     */
+    alt_uoms?: string[]
     track_batch: boolean
     track_expiry: boolean
     safety_stock?: string
@@ -178,6 +184,10 @@ export interface DocumentLine {
     product_id: string
     product_sku: string
     product_name: string
+    /** 品項基本單位（編輯既有單據時重建單位下拉用） */
+    product_base_uom?: string
+    /** 品項的其他可用單位，同 Product.alt_uoms */
+    product_alt_uoms?: string[]
     qty: string
     uom: string
     unit_price?: string

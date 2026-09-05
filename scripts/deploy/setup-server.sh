@@ -28,13 +28,13 @@ echo ""
 
 # 2. Login to GHCR
 echo ""
-echo "[1/4] Logging into GHCR..."
+echo "[1/3] Logging into GHCR..."
 echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_OWNER" --password-stdin
 echo "GHCR login successful."
 
 # 3. Add GHCR variables to .env
 echo ""
-echo "[2/4] Updating .env with GHCR config..."
+echo "[2/3] Updating .env with GHCR config..."
 if ! grep -q "^GHCR_OWNER=" "$PROJECT_DIR/.env" 2>/dev/null; then
   cat >> "$PROJECT_DIR/.env" <<EOF
 
@@ -49,32 +49,23 @@ else
   echo "  GHCR_OWNER already in .env, skipping."
 fi
 
-# 4. Generate Watchtower API token
-echo ""
-echo "[3/4] Generating Watchtower API token..."
-if ! grep -q "^WATCHTOWER_API_TOKEN=" "$PROJECT_DIR/.env" 2>/dev/null; then
-  WATCHTOWER_TOKEN=$(openssl rand -hex 32)
-  cat >> "$PROJECT_DIR/.env" <<EOF
+# 2026-09-02：原步驟「Generate Watchtower API token」已移除。watchtower 服務本身
+# 已從 docker-compose.prod.yml 移除（部署改為人工執行），該 token 不再有任何消費端，
+# 產生它只會在 .env 留下一個沒有用途的祕密。
 
-# =========================
-# Watchtower
-# =========================
-WATCHTOWER_API_TOKEN=$WATCHTOWER_TOKEN
-DEPLOY_NOTIFY_EMAIL=
-EOF
-  echo "  Watchtower API token generated and added to .env"
-  echo "  Token: $WATCHTOWER_TOKEN"
-  echo "  (save this for manual trigger use)"
-else
-  echo "  WATCHTOWER_API_TOKEN already in .env, skipping."
-fi
-
-# 5. Pull images and start
+# 4. Pull images and start
 echo ""
-echo "[4/4] Pulling images and starting services..."
+echo "[3/3] Pulling images and starting services..."
 cd "$PROJECT_DIR"
-docker compose -f docker-compose.yml -f docker-compose.prod.yml pull api web
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+# ⚠️ outbox-worker 必須一起拉。watchtower 原本自動更新的是 api / web /
+# outbox-worker 三個，移除它改人工之後，這裡少一個就會讓它留在舊映像。
+# （db-backup 雖然也有 image 覆寫，但原本就標 watchtower.enable=false、
+#  不在自動更新範圍，維持不動以保持與原行為一致。）
+docker compose -f docker-compose.yml -f docker-compose.prod.yml pull api web outbox-worker
+# 🔴 這裡**不可**加 --no-build：本行不指定服務＝作用於全部，而 print-pdf 沒有
+# GHCR 映像（商用字型不可隨 repo 散布，CI 建不出來），加了會因缺映像直接失敗。
+# 見 docker-compose.prod.yml 檔頭的同一條警告。
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 echo ""
 echo "============================================"
@@ -86,6 +77,8 @@ echo ""
 echo "Health check:"
 echo "  curl http://localhost:8000/api/health"
 echo ""
-echo "Manual trigger update:"
-echo "  curl -H 'Authorization: Bearer <WATCHTOWER_API_TOKEN>' http://localhost:8090/v1/update"
+echo "Deploy a new version (manual — no auto-update):"
+echo "  export IMAGE_TAG=<target-sha>"
+echo "  docker compose -f docker-compose.yml -f docker-compose.prod.yml pull api web"
+echo "  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d api web"
 echo "============================================"

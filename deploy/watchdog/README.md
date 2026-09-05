@@ -103,6 +103,11 @@ WATCHDOG_PING_TOKEN=<與 wrangler secret put PING_TOKEN 相同的值>
 # 語法檢查
 npm run check
 
+# 單元測試（判讀正確性）。不需要 wrangler、不連網、零額外依賴——
+# 用 Node 內建的 node:test，並以 test/loader.mjs 把 cloudflare:email 導到 stub。
+# ⚠️ 目前**不在 CI 裡跑**（加 workflow job 屬必問），改動 worker.js 後請手動跑一次。
+npm test
+
 # 本地跑（cron 不會自動觸發，用 __scheduled 端點手動打；純 `wrangler dev` 不會公開這個端點）
 npx wrangler dev --test-scheduled
 curl "http://localhost:8787/__scheduled"

@@ -252,6 +252,22 @@ impl HrService {
             };
         }
 
+        // 「卡在誰」整頁批次補算：只送待審中的 id 進去，候選名單每關只查一次
+        // （見 services/pending_owner）。與上面的 can_approve 同源——兩者都出自
+        // overtime.rs:247-249 的那組判準。
+        let pending_ids: Vec<Uuid> = data
+            .iter()
+            .filter(|r| r.status.starts_with("pending_admin"))
+            .map(|r| r.id)
+            .collect();
+        if !pending_ids.is_empty() {
+            let mut owners =
+                crate::services::pending_owner::resolve_for_overtime(pool, &pending_ids).await?;
+            for row in &mut data {
+                row.pending_owner = owners.remove(&row.id);
+            }
+        }
+
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
 
@@ -627,41 +643,83 @@ impl HrService {
         Ok(exists.0)
     }
 
-    /// 終審關是否還有「其他」合格核准者：在職、具 admin 權限、非申請人本人、
-    /// 且尚未核准過本單任何關卡。
+    /// 終審關目前的合法核准人：在職管理員、非申請人本人、且**未核准過本單任何關卡**。
+    ///
+    /// 這是「終審關卡在誰手上」的**權威來源**——`approve_overtime` 的 SoD 守衛與
+    /// `services/pending_owner/hr.rs` 的候選名單都建在這上面，不各寫一份條件。
+    /// 對照 `leave.rs::director_eligible_directors`，那邊早就是這個形狀；加班沒有，
+    /// 於是 pending_owner 手刻了一份而刻歪（CodeRabbit 於 #30 指出）。
+    ///
+    /// 一次算多筆：pending_owner 要對一整頁的加班單解析，逐筆 roundtrip 划不來。
+    ///
+    /// **回傳契約**：`overtime_records` 裡存在的 id **一律有一筆**，查無合法人選時
+    /// 對應**空 Vec**；不存在的 id 才會缺席。用 `LEFT JOIN LATERAL` 就是為了這個——
+    /// 若改成內層 JOIN，「無人可簽」會退化成「查無此單」，兩者在呼叫端的意思完全不同：
+    /// 前者要觸發卡關代批，後者什麼都不該做。
+    ///
+    /// ⚠️ 這個區分原本只存在於註解裡，而 `pending_owner` 的退回邏輯正好也接受
+    /// 缺席，所以**兩種寫法在當時都會通過測試**——mutation 打不到那條路才發現。
+    /// `pub` 而非 `pub(crate)`：整合測試是獨立 crate，必須看得到它才能直接釘住
+    /// 「守衛與名單同源」這個不變式（`tests/pending_owner_overtime_sod.rs`）。
+    pub async fn final_stage_eligible_approvers(
+        executor: impl sqlx::PgExecutor<'_>,
+        overtime_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, Vec<Uuid>>> {
+        let rows: Vec<(Uuid, Option<Uuid>)> = sqlx::query_as(
+            r#"
+            SELECT o.id, eligible.user_id
+            FROM overtime_records o
+            LEFT JOIN LATERAL (
+                SELECT DISTINCT u.id AS user_id
+                FROM users u
+                JOIN user_roles ur ON ur.user_id = u.id
+                JOIN roles r ON r.id = ur.role_id
+                WHERE r.code IN ($2, $3)
+                  AND u.is_active = true AND u.deleted_at IS NULL
+                  AND u.id <> o.user_id
+                  AND NOT EXISTS (
+                    SELECT 1 FROM overtime_approvals oa
+                    WHERE oa.overtime_record_id = o.id AND oa.approver_id = u.id
+                      AND oa.action = 'APPROVE'
+                  )
+            ) eligible ON true
+            WHERE o.id = ANY($1)
+            "#,
+        )
+        .bind(overtime_ids)
+        .bind(crate::constants::ROLE_SYSTEM_ADMIN)
+        .bind(crate::constants::ROLE_ADMIN_LEGACY)
+        .fetch_all(executor)
+        .await?;
+
+        let mut map: std::collections::HashMap<Uuid, Vec<Uuid>> = std::collections::HashMap::new();
+        for (record_id, user_id) in rows {
+            // 單一 NULL 列＝這筆存在但無人可簽 → 留下空 Vec，不是缺席。
+            let entry = map.entry(record_id).or_default();
+            if let Some(user_id) = user_id {
+                entry.push(user_id);
+            }
+        }
+        Ok(map)
+    }
+
+    /// 終審關是否還有「其他」合格核准者。
     ///
     /// 用途是判斷「SoD 能不能收緊」——有其他人可簽才擋；沒有就放行代批，
     /// 免得單一審批人組織把加班單卡死（對照 `leave.rs::director_has_eligible_approver`）。
+    ///
+    /// 只在呼叫端已確認 `current_approver_id` 批過前關時才呼叫，所以他必然已被
+    /// [`Self::final_stage_eligible_approvers`] 的 `NOT EXISTS` 排除；這裡仍顯式再排一次，
+    /// 讓本函式單獨看也成立。
     async fn final_stage_has_other_approver(
         conn: &mut sqlx::PgConnection,
         overtime_id: Uuid,
-        applicant_id: Uuid,
         current_approver_id: Uuid,
     ) -> Result<bool> {
-        let exists: (bool,) = sqlx::query_as(
-            r#"SELECT EXISTS(
-                SELECT 1 FROM users u
-                JOIN user_roles ur ON ur.user_id = u.id
-                JOIN roles r ON r.id = ur.role_id
-                WHERE r.code IN ($1, $2)
-                  AND u.is_active = true AND u.deleted_at IS NULL
-                  AND u.id <> $3
-                  AND u.id <> $4
-                  AND NOT EXISTS (
-                    SELECT 1 FROM overtime_approvals oa
-                    WHERE oa.overtime_record_id = $5 AND oa.approver_id = u.id
-                      AND oa.action = 'APPROVE'
-                  )
-            )"#,
-        )
-        .bind(crate::constants::ROLE_SYSTEM_ADMIN)
-        .bind(crate::constants::ROLE_ADMIN_LEGACY)
-        .bind(applicant_id)
-        .bind(current_approver_id)
-        .bind(overtime_id)
-        .fetch_one(conn)
-        .await?;
-        Ok(exists.0)
+        let eligible = Self::final_stage_eligible_approvers(conn, &[overtime_id]).await?;
+        Ok(eligible
+            .get(&overtime_id)
+            .is_some_and(|ids| ids.iter().any(|id| *id != current_approver_id)))
     }
 
     pub async fn approve_overtime(
@@ -710,8 +768,7 @@ impl HrService {
         // ——同 leave.rs 終審關的處理。放寬時仍保證是真人簽核且非申請人本人。
         if is_final
             && Self::has_prior_overtime_approval(&mut tx, id, approver_id).await?
-            && Self::final_stage_has_other_approver(&mut tx, id, before.user_id, approver_id)
-                .await?
+            && Self::final_stage_has_other_approver(&mut tx, id, approver_id).await?
         {
             return Err(AppError::BusinessRule(
                 "職責分離：您已核准本單前一關卡，終審請由其他負責人進行".to_string(),

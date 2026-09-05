@@ -116,10 +116,10 @@ pub async fn list_amendments(
     let is_staff = current_user.has_permission("aup.protocol.view_all");
 
     let amendments = if is_staff {
-        AmendmentService::list(&state.db, &query).await?
+        AmendmentService::list(&state.db, &query, &current_user).await?
     } else {
         // SQL 層直接過濾使用者可見的計畫（避免取全部再客端 filter）
-        AmendmentService::list_for_user(&state.db, &query, current_user.id).await?
+        AmendmentService::list_for_user(&state.db, &query, current_user.id, &current_user).await?
     };
 
     Ok(Json(amendments))
@@ -511,7 +511,8 @@ pub async fn list_protocol_amendments(
     Path(protocol_id): Path<Uuid>,
 ) -> Result<Json<Vec<AmendmentListItem>>> {
     access::require_protocol_related_access(&state.db, &current_user, protocol_id).await?;
-    let amendments = AmendmentService::list_by_protocol(&state.db, protocol_id).await?;
+    let amendments =
+        AmendmentService::list_by_protocol(&state.db, protocol_id, &current_user).await?;
     Ok(Json(amendments))
 }
 

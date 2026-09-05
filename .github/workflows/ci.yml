@@ -21,6 +21,32 @@ on:
   # 反而更該掃 secret（2026-08 外洩事故中，外洩的正是「不是 code 的檔案」）。
   workflow_dispatch:
 
+# =========================
+# 同一個 ref 只保留最新一次 CI（2026-09-02 補）
+#
+# 此前完全沒有 concurrency 設定，於是「同一個 ref 上的每一次 push 都各自跑完整一輪」。
+# 平常不明顯，連續合併時就會爆——2026-09-02 連續合 7 支 Dependabot PR，main 上同時
+# 排了 7 個完整 run，每個含 25-30 分鐘的 `Backend: cargo test` 與 4 個 coverage 分片，
+# 全部競爭同一個 runner 池，後面的 PR（含當時待審的 #66、#71）跟著一起塞。
+# 而那 7 個 run 裡有 6 個當下就已經被後一個 commit 取代，跑完也沒有人會看。
+#
+# `cancel-in-progress: true` 對 main 也生效，是刻意的：
+#   - 對 PR 分支，這是純粹的好處，新 push 取代舊 push。
+#   - 對 main，代價是「被取代的中間 commit 不會留下自己的 CI 結果」。可以接受，因為
+#     每支 PR 合併前都已經單獨全綠過一輪，而 main 上真正需要被驗證、且會被部署的
+#     只有 HEAD。實務上 2026-09-02 那次也是人工把 6 個中間 run 取消掉，本設定只是
+#     把當時的人工判斷變成預設行為。
+#   - ⚠️ 反面：main 連續合併時，若某個中間 commit 單獨會壞、而 HEAD 剛好又修好了，
+#     這裡不會留下紀錄。要 bisect main 的歷史時記得中間 commit 可能是 cancelled
+#     而非 success，不要把 cancelled 讀成「當時是壞的」。
+#
+# `github.ref` 對 PR 是 `refs/pull/<n>/merge`、對 push 是 `refs/heads/<branch>`，
+# 兩者不會互相取消。加上 `github.workflow` 前綴，避免與 CD 之類其他 workflow 共用群組。
+# =========================
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   SQLX_OFFLINE: "true"
@@ -89,9 +115,21 @@ jobs:
               # frontend / Trivy / E2E；changes / secret-scan / guards 仍會跑，
               # 讓純文件 PR 有 check-run 可供 branch protection 判定，並保有 secret 掃描。
               *.md|docs/*|LICENSE|.gitignore) ;;
+              # 開發工具鏈：不進任何映像、不被任何建置引用，所以改它們不需要
+              # 重跑 backend／frontend。2026-08-25 實查依據：
+              #   6 個 Dockerfile 全部沒有 COPY scripts/ 或 .husky/
+              #   frontend/package.json・vite.config.ts・backend/Cargo.toml・build.rs 皆無引用
+              # 效益：完整一輪 CI 實測 7085 秒 runner 時間，其中 6925 秒（98%）是
+              # backend／frontend stack 專屬（cargo test 單項就 1675 秒、4 個 coverage
+              # 分片合計 3120 秒）。只改 scripts/ 的 PR 原本要付這整份成本。
+              # ⚠️ 掃描器自己的測試（pii-scan-test）刻意不掛 changed-paths 過濾，
+              #    所以改 scripts/ 時它仍然會跑——這條分類不會讓工具鏈失去把關。
+              scripts/*|.husky/*) ;;
               backend/*) BACKEND=true ;;
               frontend/*) FRONTEND=true ;;
-              *) BACKEND=true; FRONTEND=true ;; # 未知領域 → 保守全跑
+              # 未知領域 → 保守全跑。`.github/` 也走這條：改 CI 本身就該用完整的
+              # CI 驗證一次，不要為了省時間而讓「改壞 CI」這件事延後才被發現。
+              *) BACKEND=true; FRONTEND=true ;;
             esac
           done <<< "$FILES"
           echo "backend=$BACKEND" >> "$GITHUB_OUTPUT"
@@ -508,6 +546,12 @@ jobs:
       ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
       # 避免 login_with_wrong_password_returns_401 因平行測試累積 login_events 導致帳號鎖定（400）
       DISABLE_ACCOUNT_LOCKOUT: "true"
+      # 測試 binary 不帶 DWARF（2026-09-01 使用者裁定）：預設 debuginfo=2，84 支整合測試
+      # binary 加起來是本 job 磁碟用量的大宗，而 runner 餘裕早已在邊際（見下方清理步驟）。
+      # 只設在 CI，不寫進 Cargo.toml——本機除錯仍要行號。
+      # 代價：CI 的 panic backtrace 只有函式名、沒有行號。測試失敗訊息（assert 的
+      # 自訂訊息、panic message）不受影響，這是刻意選的取捨方向。
+      CARGO_PROFILE_TEST_DEBUG: "0"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -517,15 +561,17 @@ jobs:
         with:
           cache-key-suffix: test
 
-      # 釋放 runner 預裝 SDK 佔用：cargo test 要建 83 支整合測試 binary，在標準 runner
-      # 上磁碟邊際、偶爾 ENOSPC（本 session 實測 log 尾 "No space left" + cargo orphan）。
-      # step 在 setup-rust 後 → 不影響已就緒的 rustup 工具鏈；postgres service 映像使用中不被 prune。
-      - name: 釋放 runner 磁碟空間（避免 83 binary build ENOSPC）
+      # 只刪 hostedtoolcache——其餘預裝 SDK 已由 setup-rust 的第一步清掉（2026-09-02 起）。
+      #
+      # 為什麼分成兩處而不是併成一處：hostedtoolcache **不能**在 setup-rust 之前刪
+      # （那是 toolchain 可能的安裝路徑，原本把清理放在 setup-rust 之後就是為了保護它），
+      # 但其餘 SDK **必須**在之前刪，否則 cargo cache 還原就已經把磁碟寫爆——
+      # 2026-09-01 main 上的 coverage 4/4 正是這樣倒的，而當時這段清理排在後面、根本沒跑到。
+      # 兩者時機互斥，所以是兩段；清單不重疊，改動只需改對應的那一處。
+      - name: 釋放 runner 磁碟空間（hostedtoolcache）
         run: |
           echo "清理前磁碟："; df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /opt/hostedtoolcache /usr/local/share/boost /usr/lib/jvm || true
-          sudo docker image prune -af || true
+          sudo rm -rf /opt/hostedtoolcache || true
           echo "清理後磁碟："; df -h /
 
       - name: 安裝 sqlx-cli
@@ -534,8 +580,11 @@ jobs:
       - name: 執行資料庫遷移
         run: sqlx migrate run
 
+      # 不帶 --verbose：它會把每一支 binary 的完整 rustc 指令列印出來，而 runner 把 job log
+      # 同步寫進 `_diag/Worker_*.log`——上述 ENOSPC 正是在寫那個檔時炸的，等於自己加速把磁碟寫滿。
+      # 移除後仍保留全部測試輸出與失敗訊息（--verbose 影響的只有編譯指令的回顯）。
       - name: cargo test
-        run: cargo test --locked --verbose -- --test-threads=1
+        run: cargo test --locked -- --test-threads=1
 
   # =========================
   # Rust 後端：Clippy 靜態分析
@@ -626,13 +675,13 @@ jobs:
           components: llvm-tools-preview
           cache-key-suffix: llvmcov-g${{ matrix.group }}
 
-      # 釋放 runner 預裝 SDK 佔用，增加分組磁碟餘裕（單組本就塞得進，此為保險）。
-      - name: 釋放 runner 磁碟空間
+      # 同 backend-test：只刪 hostedtoolcache，其餘已由 setup-rust 第一步清掉。
+      # 本 job 是 2026-09-01 那次 ENOSPC 的最後受害者（main 上的 coverage 4/4），
+      # 而它崩在 setup-rust 內、這段根本沒跑到——理由與分工見 backend-test 該段註解。
+      - name: 釋放 runner 磁碟空間（hostedtoolcache）
         run: |
           echo "清理前磁碟："; df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /opt/hostedtoolcache /usr/local/share/boost /usr/lib/jvm || true
-          sudo docker image prune -af || true
+          sudo rm -rf /opt/hostedtoolcache || true
           echo "清理後磁碟："; df -h /
 
       - name: 安裝 cargo-llvm-cov
@@ -841,6 +890,47 @@ jobs:
         run: |
           chmod +x test-entrypoint.sh
           ./test-entrypoint.sh
+
+  # =========================
+  # 🔑 個資掃描器的自我測試
+  # =========================
+  # 為什麼要有這個 job：pii-scan 是 commit message 個資外洩的**唯一**防線——
+  # 推出去之後 force-push 收不回來（commit 物件仍可用 SHA 存取，得請 GitHub
+  # Support 執行 GC）。2026-08-25 一則含 6 位同仁姓名的 commit message 連續三次
+  # push 全數通過，事後查出掃描器根本沒掃 commit message。沒有自動測試的話，
+  # 下一次重構同樣可能靜默關掉某條路徑，而症狀要等到再次外洩才會出現。
+  #
+  # 刻意**不掛 needs、不看 changed paths**：這支測試秒級完成、不需要資料庫、
+  # 不需要真人名字典（用版控內的假名單 fixture），沒有理由讓它被任何條件跳過。
+  # 設成「只在改到 scripts/ 時才跑」會漏掉「別處的改動意外影響它」的情況。
+  pii-scan-test:
+    name: "🔑 Security: pii-scan 自我測試"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # 測試會建一個游離 commit 驗證 --push 路徑，需要有 HEAD 可以當 parent
+          fetch-depth: 1
+
+      # ⚠️ 不用 ./.github/actions/setup-node-pnpm。
+      #
+      # 那個 composite action 的 setup-node 帶 `cache: "pnpm"`，而本 job 不跑
+      # `pnpm install`（只用 node 內建模組），pnpm store 路徑因此不存在——
+      # post-job 存快取時會 `Path Validation Error` 並把整個 job 判成 failure。
+      #
+      # 實測症狀很有誤導性：測試本身 `pass 19 / fail 0` 全過，job 卻是紅的，
+      # 失敗發生在 post-job cleanup。只看「有沒有測試失敗」會完全找不到原因。
+      #
+      # SHA 沿用該 composite action 裡的同一顆（供應鏈固定慣例），只是不開快取。
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: pii-scan 回歸測試
+        run: node --test scripts/__tests__/pii-scan.test.mjs
 
   # =========================
   # 🔒 前端依賴漏洞掃描（OSV）

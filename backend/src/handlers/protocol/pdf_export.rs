@@ -205,10 +205,16 @@ async fn embed_photo_datauri(photo: &mut serde_json::Value) {
     }
 }
 
-/// R32-A3 收尾 / A8j：AUP 計畫書匯出（print-pdf / WeasyPrint）。
+/// R32-A3 收尾 / A8j：AUP 計畫書匯出（print-pdf / Chromium）。
 ///
-/// `format=pdf`（預設）回 PDF；`format=html` 回送進 WeasyPrint 前的同一份 HTML，
+/// `format=pdf`（預設）回 PDF；`format=html` 回**同一組模板 + 同一份資料**產生的 HTML，
 /// 供「計畫內容」分頁預覽 iframe。docx 已移除（print-pdf 僅產 PDF，見 R74-1）。
+///
+/// ⚠️ 預覽的 HTML **不等於**最終送進 Chromium 產生 PDF 的那一份。PDF 那條走 print-pdf 的
+/// `_two_pass_aup_pdf`：第一遍先用空頁碼 render，從產出的 PDF 反查各章節起始頁，第二遍
+/// 才把 `toc_pages` 回填進模板（Chromium 沒有 CSS `target-counter()`，頁碼只能這樣拿）。
+/// `format=html` 走的是不帶 `toc_pages` 的那一版，所以**預覽裡的目錄頁碼是空的**；
+/// 內文其餘部分同源，預覽仍足以校對內容。
 #[utoipa::path(
     get,
     path = "/api/v1/protocols/{id}/export-aup-v3",
@@ -257,7 +263,7 @@ pub async fn export_aup_v3(
         return Ok(axum::response::Html(html).into_response());
     }
 
-    // 僅 PDF：print-pdf/WeasyPrint 只產 PDF，docx 路徑已移除（見 R74-1）。
+    // 僅 PDF：print-pdf/Chromium 只產 PDF，docx 路徑已移除（見 R74-1）。
     let (bytes, renderer) = state
         .pdf_service
         .render_aup_from_working_content(&working_content, DocxRenderFormat::Pdf)

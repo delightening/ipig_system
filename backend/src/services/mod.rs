@@ -42,7 +42,7 @@ pub mod permission_codegen;
 mod planned_experiment;
 mod product;
 pub(crate) mod product_parser;
-mod protocol;
+pub mod protocol;
 mod protocol_template_versions;
 mod qa_plan;
 mod qau;
@@ -118,17 +118,34 @@ pub use messaging::{
     ThreadParticipantSummary, ThreadSummary, ThreadWithMessages,
 };
 pub use notification::{
-    init_app_url as init_notification_app_url, NotificationService, OrphanPinnedRow,
-    ReconcileReport,
+    init_app_url as init_notification_app_url, EventContext, NotificationPayload,
+    NotificationService, OrphanPinnedRow, ReconcileReport, StageEntity,
 };
 pub use outbox::{ChannelAdapter, ChannelRegistry, EmailAdapter, OutboxEvent, OutboxService};
 pub use partner::PartnerService;
 pub use pdf_service_client::PdfServiceClient;
 pub use planned_experiment::PlannedExperimentService;
 pub use product::ProductService;
+// 單位正規化與包裝換算推導：`sku.rs` 是 products 的第二個插入點，必須套用同一套規則，
+// 否則走該路徑建立的品項會留下英文代碼的單位、以及一段沒有換算列的包裝關係。
+pub(crate) use product::{
+    canonical_uom, canonical_uom_opt, derive_pack_conversion, insert_uom_conversions_tx,
+};
 pub use protocol::ai_review::validate_only as validate_protocol_content;
 pub use protocol::ai_review::AiReviewService;
 pub use protocol::ProtocolService;
+// 結案雙簽（設計 A）的對外介面。
+//
+// ⚠️ 上面把 `mod protocol` 改成 `pub mod protocol` 是刻意的，代價也講清楚：
+// 這讓 core / status / history 等內部子模組一併對外可見，封裝變弱。
+// 換來的是整合測試可以 import `protocol::closure::dual_signature_ready`
+// **逐條驗 7 個 gate 條件**——那個函式只有在 caller 的 transaction 內才有意義
+//（它要對簽章列下 FOR UPDATE），沒辦法再包一層吃 pool 的版本給測試用。
+//
+// 這個取捨值得：gate 是整個功能唯一擋得住繞過的東西，
+// 而「gate 有沒有寫對」只能靠刻意違反單一條件的測試來證明。
+pub use protocol::closure::sign_closure as protocol_closure_sign;
+pub use protocol::closure::{ClosureSigner, CLOSURE_ENTITY_TYPE};
 pub use protocol_template_versions::ProtocolTemplateVersionService;
 pub use qa_plan::QaPlanService;
 pub use qau::{QauDashboard, QauService};

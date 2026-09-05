@@ -35,10 +35,14 @@ pub const FORGOT_PASSWORD_RATE_WINDOW_SECS: u64 = 600; // 10 分鐘
 pub const PERMISSION_CACHE_TTL_SECS: u64 = 300; // 5 分鐘
 
 /// AUP 計畫書 PDF render 快取（`PdfServiceClient::render_aup_from_working_content`）。
-/// 「計畫內容」分頁預覽每次都觸發 WeasyPrint 全量 render（單份 ~15s），且 render 序列化
-/// （cap=1）；同一份未修改的計畫書反覆預覽時純屬重算浪費。以「送進 print-pdf 的 body
+/// **匯出 PDF 且快取未命中時**才觸發 Chromium 全量 render（單份 ~15s，且 render
+/// 序列化 cap=1）；命中時直接回傳快取的 PDF bytes。沒有這層快取的話，同一份未修改的
+/// 計畫書反覆匯出就是純重算浪費——那正是它存在的理由。以「送進 print-pdf 的 body
 /// （含已內嵌照片）的 sha256」為 key 快取 PDF bytes：同內容即命中、內容一改 hash 即變
 /// 自動失效，無 staleness 風險。
+///
+/// ⚠️「計畫內容」分頁的預覽 iframe 不吃這份快取、也不觸發 Chromium render——
+/// 它走 `render_aup_html`（format=html），print-pdf 端直接回傳渲染前的 HTML。
 ///
 /// 容量以**位元組**計（moka weigher），避免少數大 PDF 撐爆 RAM（prod 跑在筆電）。
 pub const AUP_PDF_CACHE_MAX_BYTES: u64 = 64 * 1024 * 1024; // 64 MB
@@ -295,6 +299,28 @@ pub const WAREHOUSE_CODE_LOCK_KEY: &str = "warehouse_code_gen";
 /// 不值得為此再拆四把 key。
 /// `pg_advisory_xact_lock(hashtext($1))` by `partner.rs::acquire_code_lock`.
 pub const PARTNER_CODE_LOCK_KEY: &str = "partner_code_gen";
+
+/// 關卡待辦同步鎖（`services/notification/stages.rs::sync_stage_todos_tx`）。
+///
+/// ⚠️ **這是本表唯一的「前綴」而非完整 key**：實際 key 為
+/// `stage_todo:{entity_type}:{entity_id}`，per-entity 而非全域。
+///
+/// 為什麼偏離上面「一張表一把全域鎖」的慣例：那些是**取號**鎖，只在 INSERT 前
+/// 短暫持有；本鎖持有到呼叫端的業務 tx commit 為止，而那個 tx 可能很長
+/// （單據核准會連帶寫 audit、庫存、狀態日誌）。用全域鎖會讓不相干的兩筆單據
+/// 互相阻塞——序列化的範圍必須與「會互相干擾的範圍」一致，那是同一筆實體。
+///
+/// 解決的問題：`sync_stage_todos_tx` 先 SELECT 既有待辦再 INSERT，兩者之間
+/// 有 TOCTOU——兩個併發 tx 對同一筆實體同步時可能都看到「沒有」而各插一筆。
+/// 業務端多半已對實體列 `SELECT ... FOR UPDATE`（因而天然序列化），但那是
+/// **呼叫端的性質、不是本函式的保證**，不能依賴。
+///
+/// ⚠️ 正統解法是 `(user_id, related_entity_type, related_entity_id, recipient_role)`
+/// 的 partial unique index + `ON CONFLICT DO NOTHING`。**沒有採用是因為那需要
+/// migration，而下一號（007）被未合分支 `feat/sd-assign-audit` 佔用**——依
+/// `RULES_BACKEND.md` §9 不得自行跳號。待該分支落地後可改為索引，屆時本鎖可移除。
+/// `pg_advisory_xact_lock(hashtext($1))` by `notification/stages.rs::sync_stage_todos_tx`.
+pub const STAGE_TODO_SYNC_LOCK_PREFIX: &str = "stage_todo";
 
 /// 儲位代碼（`storage_locations.code`，`{A-Z}{:02}`）生成鎖。
 /// 唯一約束是 `(warehouse_id, code)`，但取號量極小，用單一鎖而非 per-warehouse，

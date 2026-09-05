@@ -1,7 +1,10 @@
-"""print-pdf FastAPI app — HTML→PDF via Jinja2 + WeasyPrint.
+"""print-pdf FastAPI app — HTML→PDF via Jinja2 + Chromium (Playwright).
 
 取代 `services/word-convert` daemon + `services/gotenberg` + `pdf-service`
-docx/Chromium 路徑（自帶 WeasyPrint，無 Office COM / 無 LibreOffice / 無 Chromium）。
+docx 路徑（自帶常駐 Chromium，無 Office COM / 無 LibreOffice / 無 Gotenberg）。
+
+R81-9：本 docstring 原寫 "WeasyPrint ... 無 Chromium"，2026-06 換引擎後兩句都反了
+（見本檔 render 段落與 README「已取代」節）。
 
 schemas/ + adapters/ 從 `pdf-service/app/` 複製，shape 完全對齊，
 讓 backend 不需改 payload 即可切換到本服務。
@@ -26,7 +29,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, sta
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from adapters import (
     audit_log as audit_log_ad,
@@ -321,9 +324,15 @@ def _assert_fonts_present() -> None:
 
 
 async def _warmup_render() -> None:
-    """啟動暖機：跑一次極小的 HTML→PDF render，預先觸發 WeasyPrint 的 lazy import
-    與 Pango/Cairo/fontconfig 字型快取建立（含 CJK glyph shaping），讓第一個真實
-    請求不必承擔冷啟動成本。失敗為 non-fatal（僅記 log，不擋服務啟動）。
+    """啟動暖機：跑一次極小的 HTML→PDF render，把第一個真實請求的冷啟動成本先付掉。
+
+    browser 本身已由 lifespan 的 `_start_browser()` 拉起（暖機排在它之後），所以這裡暖的
+    是**每請求那條路徑**：開新 page、fontconfig 字型比對與快取、CJK glyph shaping、
+    以及 Chromium print-to-PDF 的首次初始化。
+    失敗為 non-fatal（僅記 log，不擋服務啟動）。
+
+    R81-9：原文寫「預先觸發 WeasyPrint 的 lazy import 與 Pango/Cairo 字型快取」，
+    那是 2026-06 換引擎前的實作——Chromium 走 Skia + HarfBuzz，不經 Pango/Cairo。
     """
     t0 = time.perf_counter()
     try:
@@ -715,6 +724,72 @@ def _require_dict(body: Any) -> dict[str, Any]:
     return body
 
 
+# ─── R88-3: 報表端點的 payload schema 與儲存格淨化 ──────────────────────
+#
+# 這三個報表端點（weekly-medical-report 的 xlsx／pdf、byproduct-monthly）原本
+# 只檢查「頂層是 object」與「events/rows 是 list」，就直接對每個元素 `.get()`。
+# 少的是**元素本身的型別**：`{"events": ["x", 1]}` 這種 payload 會在渲染迴圈裡
+# 撞 `AttributeError: 'str' object has no attribute 'get'`，回 500 而不是 400——
+# 對呼叫端來說「我送錯格式」與「你壞了」變得無法區分。
+#
+# 用 pydantic 的 `list[dict[str, Any]]` 就能把這層補起來，而且**不必改動渲染邏輯**：
+# 驗證後拿到的仍是 list of dict，底下的 `.get()` 全部照舊。
+# 刻意不逐欄位定義 model：這些欄位幾乎全是 optional、由渲染端給預設值，
+# 列一份完整欄位表只會在後端加欄位時變成假的約束，真正有價值的是元素型別這一層。
+
+# 單次報表的列數上限。這是內部服務（需 X-Internal-Token）故不是對外攻擊面，
+# 但信任邊界的原則不因呼叫端是自己人而放寬——沒有上限，一個算錯範圍的查詢
+# 就能讓 openpyxl 把整台機器的記憶體吃光，而這台同時跑 prod。
+# 取 100000：實務上月結最多數百列，離上限有三個數量級，不會誤擋正常用量。
+MAX_REPORT_ROWS = 100_000
+
+
+class _WeeklyMedicalPayload(BaseModel):
+    """`/render-{xlsx,pdf}/weekly-medical-report` 的 payload。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    events: list[dict[str, Any]] = Field(max_length=MAX_REPORT_ROWS)
+    date_range: str = ""
+
+
+class _ByproductMonthlyPayload(BaseModel):
+    """`/render-xlsx/byproduct-monthly` 的 payload。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    rows: list[dict[str, Any]] = Field(max_length=MAX_REPORT_ROWS)
+
+
+def _parse_payload(model: type[BaseModel], raw: Any) -> Any:
+    """以 pydantic model 驗證 payload，失敗回 400。
+
+    刻意**不**改用 FastAPI 的自動 model 參數：那會讓驗證失敗變成 422，
+    而這三個端點既有的契約是 400（`_require_dict` 與 `events must be a list`
+    都是 400），呼叫端可能已依此判斷。維持狀態碼不變，只把驗證變嚴。
+    """
+    try:
+        return model.model_validate(raw)
+    except ValidationError as exc:
+        # 只回第一則錯誤的位置與類型，不回完整 payload（避免把送進來的內容原樣吐回去）。
+        first = exc.errors()[0] if exc.errors() else {}
+        loc = ".".join(str(p) for p in first.get("loc", ())) or "(root)"
+        raise HTTPException(400, f"Invalid payload at `{loc}`: {first.get('msg', 'validation failed')}") from exc
+
+
+def _xlsx_safe(v: Any) -> str:
+    """Excel formula injection 防護：`=`／`+`／`-`／`@` 開頭的儲存格值前綴單引號。
+
+    原本這是 weekly xlsx 端點內的巢狀函式，byproduct 端點因此**完全沒有這道防護**
+    （R88-3 順帶查出）——那個端點的 `sample_content`／`protocol_title` 等欄位一路
+    來自使用者輸入，開啟 xlsx 時會被 Excel 當公式執行。提升為模組級供兩處共用。
+    """
+    s = str(v) if v is not None else ""
+    if s and s[0] in ("=", "+", "-", "@"):
+        return "'" + s
+    return s
+
+
 @app.post("/render-aup/from-working-content", dependencies=[Depends(verify_internal_token)])
 async def render_aup_from_working_content(
     request: Request,
@@ -725,8 +800,10 @@ async def render_aup_from_working_content(
     if not isinstance(wc, dict):
         raise HTTPException(400, 'Body must be {"working_content": {...}}')
     payload = _adapter_call(aup_ad.from_working_content, wc, "aup_protocol")
-    # format=html：回傳送進渲染前的同一份 HTML，供前端預覽 iframe，
-    # 確保「計畫內容」預覽與匯出 PDF 同源（同模板 + 同資料）一致。
+    # format=html：回傳同一組模板 + 同一份資料產生的 HTML，供前端預覽 iframe，
+    # 確保「計畫內容」預覽與匯出 PDF 同源。
+    # ⚠️ 同源不等於同一份：下面 PDF 那條走兩遍渲染，第二遍會多帶 toc_pages，
+    # 所以預覽這一版的目錄頁碼是空的。內文其餘部分一致。
     if output_format == "html":
         return HTMLResponse(_render_html_from_payload("aup_protocol", payload))
     # 兩遍渲染回填目錄頁碼（Chromium 無 target-counter）
@@ -929,16 +1006,11 @@ async def render_weekly_medical_report_xlsx(request: Request) -> Response:
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from openpyxl.utils import get_column_letter
 
-    body = _require_dict(await request.json())
-    events = body.get("events")
-    if not isinstance(events, list):
-        raise HTTPException(400, "`events` must be a list")
-
-    def _safe(v: Any) -> str:
-        s = str(v) if v is not None else ""
-        if s and s[0] in ("=", "+", "-", "@"):
-            return "'" + s
-        return s
+    # R88-3：改走 payload schema。除了原本的「頂層是 object」「events 是 list」，
+    # 現在還保證**每個元素是 object**——底下整段 `ev.get(...)` 因此不會再對
+    # 字串或數字呼叫 `.get()` 而回 500。
+    events = _parse_payload(_WeeklyMedicalPayload, await request.json()).events
+    _safe = _xlsx_safe
 
     wb = Workbook()
     ws = wb.active
@@ -1021,10 +1093,10 @@ async def render_weekly_medical_report_xlsx(request: Request) -> Response:
 @app.post("/render-pdf/weekly-medical-report", dependencies=[Depends(verify_internal_token)])
 async def render_weekly_medical_report_pdf(request: Request) -> Response:
     """接收 MedicalTimelineEvent[] JSON，產出橫式 A4 PDF。"""
-    body = _require_dict(await request.json())
-    events = body.get("events")
-    if not isinstance(events, list):
-        raise HTTPException(400, "`events` must be a list")
+    # R88-3：同上。這個端點還會 `ev["..."] = ...` 寫回元素（見下方三行），
+    # 元素不是 dict 時是 TypeError 而非 AttributeError，一樣是 500。
+    payload = _parse_payload(_WeeklyMedicalPayload, await request.json())
+    events = payload.events
 
     for ev in events:
         start = ev.get("anesthesia_start")
@@ -1042,8 +1114,9 @@ async def render_weekly_medical_report_pdf(request: Request) -> Response:
             except (ValueError, TypeError):
                 pass
 
-    date_range = body.get("date_range", "")
-    html = _render_html("weekly_medical_report", {"events": events, "date_range": date_range})
+    html = _render_html(
+        "weekly_medical_report", {"events": events, "date_range": payload.date_range}
+    )
     pdf = await _render_pdf_async(html)
     return _pdf_response(pdf, "weekly_medical_report.pdf")
 
@@ -1056,10 +1129,10 @@ async def render_byproduct_monthly_xlsx(request: Request) -> Response:
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from openpyxl.utils import get_column_letter
 
-    body = await request.json()
-    rows = body.get("rows")
-    if not isinstance(rows, list):
-        raise HTTPException(400, "`rows` must be a list")
+    # R88-3：這個端點原本連 `_require_dict` 都沒有——body 是 JSON array 時
+    # `body.get("rows")` 直接 AttributeError 回 500。改走 payload schema 後，
+    # 頂層型別、`rows` 型別、每個元素型別三層一次補齊。
+    rows = _parse_payload(_ByproductMonthlyPayload, await request.json()).rows
 
     wb = Workbook()
     ws = wb.active
@@ -1091,13 +1164,16 @@ async def render_byproduct_monthly_xlsx(request: Request) -> Response:
                 if "T" in str(sampled):
                     sampled = str(sampled).split("T")[0]
         protocol = r.get("protocol_title") or r.get("iacuc_no") or ""
-        ws.cell(row=row_idx, column=1, value=sampled).border = thin_border
-        ws.cell(row=row_idx, column=2, value=protocol).border = thin_border
-        ws.cell(row=row_idx, column=3, value=r.get("ear_tag", "")).border = thin_border
-        ws.cell(row=row_idx, column=4, value=r.get("requester_display") or "").border = thin_border
-        ws.cell(row=row_idx, column=5, value=r.get("sample_content", "")).border = thin_border
+        # R88-3：這六欄一路來自使用者輸入（案子名稱、耳號、客戶、採樣內容、記錄者），
+        # 而這個端點原本完全沒有 formula injection 防護——weekly xlsx 端點有，
+        # 因為那道防護寫成了它的巢狀函式，這裡看不到也就沒人補。已提升為 `_xlsx_safe`。
+        ws.cell(row=row_idx, column=1, value=_xlsx_safe(sampled)).border = thin_border
+        ws.cell(row=row_idx, column=2, value=_xlsx_safe(protocol)).border = thin_border
+        ws.cell(row=row_idx, column=3, value=_xlsx_safe(r.get("ear_tag", ""))).border = thin_border
+        ws.cell(row=row_idx, column=4, value=_xlsx_safe(r.get("requester_display") or "")).border = thin_border
+        ws.cell(row=row_idx, column=5, value=_xlsx_safe(r.get("sample_content", ""))).border = thin_border
         ws.cell(row=row_idx, column=5).alignment = Alignment(wrap_text=True)
-        ws.cell(row=row_idx, column=6, value=r.get("collector_name") or "").border = thin_border
+        ws.cell(row=row_idx, column=6, value=_xlsx_safe(r.get("collector_name") or "")).border = thin_border
 
     ws.auto_filter.ref = f"A1:F{len(rows) + 1}"
     ws.freeze_panes = "A2"

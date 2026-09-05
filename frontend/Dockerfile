@@ -93,10 +93,18 @@ FROM georgjung/nginx-brotli:1.31.2-alpine3.23
 # - curl/libcurl: CVE-2026-5773 (HIGH, SMB 錯誤檔案傳輸), CVE-2026-6276 (HIGH, redirect
 #   時 cookie 洩漏) — 8.19.0-r0 → 8.20.0-r0。為 base 自帶（HEALTHCHECK 用 wget 非 curl、
 #   CLI 實際未用），比照上方 nghttp2/c-ares 的做法 binary 一併補以清 Trivy HIGH。（2026-07-15）
+# - libuuid: CVE-2026-53612 / 53613 / 53614 / 76642 / 78408 / 78409 / 78410（皆 HIGH，
+#   util-linux 的 mount/nsenter/bind-mount 一系列 TOCTOU 與權限提升問題）——
+#   2.42.1-r0 → 2.42.3-r0。這幾個洞全部發生在 `mount(8)`／`nsenter`／特權掛載流程，
+#   本映像不執行任何掛載或 namespace 操作（純 nginx 靜態檔服務 + Brotli），
+#   libuuid 只是 util-linux 拆出來的共用函式庫、被其他套件間接連結進來，
+#   本身不在任何可觸發路徑上；binary 仍在映像內，一併補以清 Trivy HIGH。（2026-09-05，
+#   同日 04:29 main 的 Trivy 掃描仍是綠的，07:35 起才出現——Alpine 安全公告即時新增，
+#   非本次改動造成）
 # 註：pcre2 (10.47-r0) 與 openssl (libcrypto3/libssl3 3.5.6-r0) 已由 georgjung base
 #     2026 重建涵蓋（CVE-2025-58050 / 6 個 openssl CVE 自動修復），無需額外升級。
 # 其他安全更新透過升級基底映像版號處理，見 docs/security.md。
-RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 nghttp2 nghttp2-libs libxml2 c-ares curl libcurl && rm -rf /var/cache/apk/*
+RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 nghttp2 nghttp2-libs libxml2 c-ares curl libcurl libuuid && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf

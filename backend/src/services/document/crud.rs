@@ -98,6 +98,42 @@ impl DocumentService {
         Ok(())
     }
 
+    /// 明細單位驗證：每行的 `uom` 必須是該品項的 `base_uom`，或 `product_uom_conversions`
+    /// 已定義的單位。
+    ///
+    /// 為什麼要在建/改單就擋，而不是留給核准時的 `StockService::to_base_lines`：
+    /// (a) 使用者填錯單位不該等到送審最後一步才知道；
+    /// (b) `document_lines.uom` 原本只驗 `!is_empty()`，是自由字串——GRN 與 SO 對同一品項
+    ///     各填不同單位時，PO/GRN 收貨比對那組 `SUM(qty)` 會把盒與雙直接相加。那些 SQL
+    ///     以「查無換算列 ⇒ 該行就是 base_uom ⇒ factor 1」推論，本函式正是那個推論的前提。
+    async fn assert_lines_uom_defined(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        lines: &[DocumentLineInput],
+    ) -> Result<()> {
+        if lines.is_empty() {
+            return Ok(());
+        }
+        let mut product_ids: Vec<Uuid> = lines.iter().map(|l| l.product_id).collect();
+        product_ids.sort_unstable();
+        product_ids.dedup();
+        let tables = crate::services::StockService::load_uom_tables(tx, &product_ids).await?;
+
+        for (idx, line) in lines.iter().enumerate() {
+            let table = tables.get(&line.product_id).ok_or_else(|| {
+                AppError::NotFound(format!("第 {} 行：找不到品項 {}", idx + 1, line.product_id))
+            })?;
+            if table.factor(&line.uom).is_none() {
+                return Err(AppError::Validation(format!(
+                    "第 {} 行：品項未定義單位「{}」的換算率，可用單位：{}",
+                    idx + 1,
+                    line.uom,
+                    table.accepted_uoms().join(" / ")
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// 跨倉錯配防護：single-warehouse 單據（GRN/DO/SO/ADJ/STK/SR/RTN/PR）的每行儲位
     /// 必須屬於單據倉庫。否則 stock_ledger.warehouse ≠ 儲位.warehouse，「未分配 / 已在儲位」
     /// 視圖對不上（倉庫級查 ledger、儲位級查 storage_location_inventory）。TR 調撥（from/to
@@ -249,6 +285,11 @@ impl DocumentService {
 
         // 如果是盤點單，根據範圍自動生成盤點項目
         let lines_to_create = if req.doc_type == DocType::STK {
+            // 範圍驗證在分支**之前**：底稿自帶時不會經過 generate_stocktake_lines，
+            // 但下面的 INSERT 仍會把 stocktake_scope 原樣寫進單據。驗證若只掛在
+            // 產生底稿那條路上，自帶明細就能把形狀非法的範圍安靜地存進資料庫。
+            Self::parse_and_validate_stocktake_scope(&req.stocktake_scope)?;
+
             // 盤點單可以根據範圍自動生成，也可以手動提供
             if req.lines.is_empty() {
                 Self::generate_stocktake_lines(&mut tx, req.warehouse_id, &req.stocktake_scope)
@@ -332,6 +373,7 @@ impl DocumentService {
         .await?;
 
         Self::validate_line_qty_price(req.doc_type, &lines_to_create)?;
+        Self::assert_lines_uom_defined(&mut tx, &lines_to_create).await?;
 
         // 驗證 protocol_id 對應的計畫存在且為已核准狀態
         if let Some(protocol_id) = req.protocol_id {
@@ -532,6 +574,7 @@ impl DocumentService {
                 }
             }
             Self::validate_line_qty_price(existing.doc_type, lines)?;
+            Self::assert_lines_uom_defined(&mut tx, lines).await?;
         }
 
         // 跨倉錯配防護（同 create）：即使本次不更新明細，只要倉庫可能變更，也要用「最終有效
@@ -991,6 +1034,15 @@ impl DocumentService {
             SELECT
                 dl.id, dl.document_id, dl.line_no, dl.product_id,
                 p.sku as product_sku, p.name as product_name,
+                p.base_uom as product_base_uom,
+                -- factor_to_base > 0 與 StockService::load_uom_tables 的過濾一致：
+                -- 非正數 factor 的單位在後端形同未定義、必被擋成 400，列進下拉只會
+                -- 給出一個選了必然失敗的選項（同 repositories/product.rs 的 alt_uoms）。
+                ARRAY(
+                    SELECT c.uom FROM product_uom_conversions c
+                    WHERE c.product_id = p.id AND c.factor_to_base > 0
+                    ORDER BY c.factor_to_base
+                )::text[] AS product_alt_uoms,
                 dl.qty, dl.uom, dl.unit_price, dl.batch_no, dl.expiry_date, dl.remark,
                 dl.storage_location_id, dl.warehouse_id,
                 dl.storage_location_from_id, dl.storage_location_to_id

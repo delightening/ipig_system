@@ -68,6 +68,7 @@
       "errorMaxFiles": "最多只能上傳 {{maxFiles}} 個檔案",
       "errorMaxSize": "檔案 {{fileName}} 超過 {{maxSize}}MB 限制",
       "errorUploadFailed": "上傳失敗，請重試",
+      "errorUploadPartial": "已成功上傳 {{succeeded}} / {{total}} 個檔案，其餘尚未上傳；請重新選取尚未成功的檔案。",
       "hint": "最大 {{maxSize}}MB，最多 {{maxFiles}} 個檔案"
     },
     "email": "Email"
@@ -3526,16 +3527,33 @@
   "pendingOwner": {
     "andOthers": "等 {{count}} 人",
     "nobody": "目前無人可處理（職務分離已排除所有候選人）",
-    "reviewerCount": "{{count}} 位委員",
     "stage": {
       "doc_wm_approve": "待倉管核准",
       "doc_final_approve": "待負責人終審",
-      "doc_reverse_approve": "待管理員核准沖銷"
+      "doc_reverse_approve": "待管理員核准沖銷",
+      "ot_admin_staff": "待行政審核",
+      "ot_admin": "待負責人審核",
+      "equipment_disposal_approve": "待核准報廢",
+      "equipment_idle_approve": "待核准閒置",
+      "equipment_maintenance_start": "待安排維修",
+      "equipment_maintenance_review": "待驗收",
+      "aup_protocol_intake": "待行政受理",
+      "aup_protocol_vet_review": "獸醫審查中",
+      "aup_protocol_under_review": "委員會審查中",
+      "aup_protocol_revision": "待申請人補件",
+      "aup_amendment_classify": "待分類",
+      "aup_amendment_to_review": "待送交審查",
+      "aup_amendment_under_review": "委員會審查中",
+      "aup_amendment_revision": "待申請人補件",
+      "vet_patrol_acknowledge": "待追蹤者確認收到",
+      "vet_patrol_follow_up": "待追蹤者回覆改善"
     },
     "role": {
       "admin": "系統管理員",
       "SYSTEM_ADMIN": "系統管理員",
-      "WAREHOUSE_MANAGER": "倉庫管理員"
+      "ADMIN_STAFF": "行政人員",
+      "WAREHOUSE_MANAGER": "倉庫管理員",
+      "REVIEWER": "審查委員"
     }
   }
 }

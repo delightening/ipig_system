@@ -20,6 +20,7 @@ mod report;
 mod resolvers;
 mod routing;
 mod send_window;
+mod stages;
 
 use std::sync::OnceLock;
 
@@ -31,6 +32,8 @@ pub use dispatch::{DispatchOutcome, StaffEmail};
 pub use dispatcher::{EventContext, NotificationPayload};
 // 置頂待辦對帳：供一次性修補 bin 與定期排程共用。
 pub use reconcile::{OrphanPinnedRow, ReconcileReport};
+// 關卡待辦：業務 service 在狀態寫入後用 StageEntity 指名要同步哪一筆。
+pub use stages::StageEntity;
 
 /// 程序級全域 app_url，供 dispatch_event 渲染通知 email（與 holiday::global 同風格，
 /// 避免將 config 逐層 thread 進只持有 db 的通知服務）。

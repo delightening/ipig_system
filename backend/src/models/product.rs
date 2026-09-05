@@ -49,6 +49,15 @@ pub struct Product {
     pub base_uom: String,
     pub pack_unit: Option<String>,
     pub pack_qty: Option<i32>,
+    /// 除 `base_uom` 外，本品項在 `product_uom_conversions` 有換算率的單位，依換算率遞增。
+    /// 單據明細的單位下拉 = `base_uom` + 本欄；後端亦以同一組值驗證
+    /// （見 `DocumentService::assert_lines_uom_defined`），前後端判準同源。
+    ///
+    /// `#[sqlx(default)]`：`SELECT *` 的查詢（`find_product_by_id`、`UPDATE ... RETURNING *`）
+    /// 不含本欄，沿用 `cost_price` / `selling_price` 的既有寫法避免 `FromRow` 失敗。
+    #[serde(default)]
+    #[sqlx(default)]
+    pub alt_uoms: Vec<String>,
     pub track_batch: bool,
     pub track_expiry: bool,
     pub default_expiry_days: Option<i32>,
@@ -141,7 +150,10 @@ pub struct CreateProductRequest {
 }
 
 /// 更新產品請求（SKU 不可修改）
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+///
+/// `Clone`：service 層寫入前會做一份「單位已正規化」的副本（`ProductService::update_tx`），
+/// 原請求保持不動。
+#[derive(Debug, Clone, Deserialize, Validate, ToSchema)]
 pub struct UpdateProductRequest {
     #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
     pub name: Option<String>,
@@ -173,7 +185,9 @@ pub struct UpdateProductRequest {
     pub uom_conversions: Option<Vec<UomConversionInput>>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+/// 單位換算的寫入輸入。`PartialEq` 供 `reconcile_derived_pack_conversion_tx` 比對
+/// 「舊包裝關係推導的列」與「新的」是否相同（相同就完全不動 DB）。
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 pub struct UomConversionInput {
     pub uom: String,
     pub factor_to_base: Decimal,

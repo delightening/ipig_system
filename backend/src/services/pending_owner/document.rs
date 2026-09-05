@@ -1,20 +1,10 @@
-//! 待處理人解析：把「這筆單現在卡在誰手上」算出來給前端顯示。
+//! ERP 單據的待處理人解析。
 //!
-//! # 為什麼要有這一層
+//! 單據是全站唯一「同一個狀態值會停在三個不同關卡」的模組——`submitted` 底下藏著
+//! 倉管核准、負責人終審、沖銷核准三種等待，各自的合法處理人完全不同。因此它不走
+//! [`super::resolve_single_stage`]，自成一支並帶自己的候選名單快取。
 //!
-//! 「待核准」徽章本身回答不了使用者真正的問題——要去催誰。這一層的職責是把各模組
-//! **已經寫在授權碼裡**的判準抽出來，轉成前端可統一呈現的 [`PendingOwner`]。
-//!
-//! # 唯一的硬規則
-//!
-//! **候選人名單必須與該關卡的授權判準同源。** 兩邊分岔的後果是使用者看到
-//! 「卡在王倉管」，王倉管點下去拿 403——比不顯示更糟。所以本檔每一個關卡的
-//! 權限碼 / 角色碼 / SoD 排除規則都標了它抄自哪一行，改動授權時請一併改這裡。
-//!
-//! # 效能
-//!
-//! 解析器一律接受**一整頁的 id**，內部每個關卡的候選名單只查一次
-//! （`OnceCell` 語意，見 `CandidateCache`），不做逐列 roundtrip。
+//! 硬規則同 [`super`]：候選名單必須與授權判準同源，每一條的出處都標在註解裡。
 
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
@@ -23,10 +13,19 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::constants::{ROLE_ADMIN_LEGACY, ROLE_SYSTEM_ADMIN, ROLE_WAREHOUSE_MANAGER};
+use crate::constants::ROLE_WAREHOUSE_MANAGER;
 use crate::error::AppError;
 use crate::models::{DocStatus, DocType, PendingOwner, PendingOwnerKind};
 use crate::repositories::pending_owner as repo;
+
+use super::CandidateSource;
+
+/// 倉管核准關的角色條件（`handlers/document.rs:213`）。
+const WAREHOUSE_ROLES: &[&str] = &[ROLE_WAREHOUSE_MANAGER];
+
+// ⚠️ 這裡原本有一個 `ADMIN_ROLES`，對應沖銷核准關的 `is_admin()` 條件。
+// 2026-08-26 `reversal.rs:196` 收斂成純權限判準之後它沒有使用者了，一併移除
+// ——留著一個「曾經對應某個守衛」的常數，下一個人會以為那個守衛還在。
 
 /// 單據倉管核准關的 i18n stage key。
 const STAGE_DOC_WM_APPROVE: &str = "doc_wm_approve";
@@ -79,45 +78,36 @@ impl DocumentStage {
         }
     }
 
-    /// 這一關對外顯示的角色代碼。終審關不綁單一角色（純看
-    /// `erp.document.final_approve`），故為 None。
+    /// 這一關對外顯示的角色代碼。**只有真的綁角色的關卡才回 Some**——
+    /// 終審關與沖銷關都是純權限判準（`final_approve` / `reverse_approve`），
+    /// 硬指一個角色會誤導（持有該權限的可能不只一種角色，例如沖銷關的 DIRECTOR）。
     fn role_code(self) -> Option<&'static str> {
         match self {
             Self::Warehouse => Some(ROLE_WAREHOUSE_MANAGER),
-            Self::Final => None,
-            Self::Reversal => Some(ROLE_SYSTEM_ADMIN),
+            Self::Final | Self::Reversal => None,
         }
     }
 
-    /// 這一關的合法處理人查詢。**權限碼 / 角色碼必須與 handler 的守衛完全一致**，
+    /// 這一關的合法處理人怎麼查。**權限碼 / 角色碼必須與 handler 的守衛完全一致**，
     /// 否則候選名單會列出點下去拿 403 的人。
-    async fn candidates(self, pool: &PgPool) -> Result<Vec<repo::UserRef>, AppError> {
+    fn candidate_source(self) -> CandidateSource {
         match self {
             // `handlers/document.rs:210` 要 `erp.document.approve`，
             // :213 再要 `WAREHOUSE_MANAGER` 角色——兩個條件都要滿足。
             Self::Warehouse => {
-                repo::list_users_with_permission_and_any_role(
-                    pool,
-                    "erp.document.approve",
-                    &[ROLE_WAREHOUSE_MANAGER.to_string()],
-                )
-                .await
+                CandidateSource::PermissionAndAnyRole("erp.document.approve", WAREHOUSE_ROLES)
             }
             // `handlers/document.rs:267` 只要 `erp.document.final_approve`
             // （刻意不再要求倉管階段的 approve 權，否則負責人會被擋在閘外）。
-            Self::Final => {
-                repo::list_users_with_permission(pool, "erp.document.final_approve").await
-            }
-            // `handlers/document.rs:343` 要 `erp.document.reverse_approve`，
-            // `services/document/reversal.rs:196` 再要 `is_admin()`。
-            Self::Reversal => {
-                repo::list_users_with_permission_and_any_role(
-                    pool,
-                    "erp.document.reverse_approve",
-                    &[ROLE_SYSTEM_ADMIN.to_string(), ROLE_ADMIN_LEGACY.to_string()],
-                )
-                .await
-            }
+            Self::Final => CandidateSource::Permission("erp.document.final_approve"),
+            // `handlers/document.rs:343` 與 `services/document/reversal.rs:196` 都只要
+            // `erp.document.reverse_approve`。
+            //
+            // 🔴 2026-08-26 同步：`reversal.rs:196` 原本額外要求 `is_admin()`，本檔因此
+            // 曾用「權限 AND 管理員角色」比對。該處已收斂成純權限判準（DIRECTOR 原本
+            // 拿得到權限卻核准不了），**本檔必須跟著放寬**，否則候選名單會漏列 DIRECTOR
+            // ——那正是本模組最忌諱的「名單與守衛分岔」，只是方向是漏列而非誤列。
+            Self::Reversal => CandidateSource::Permission("erp.document.reverse_approve"),
         }
     }
 }
@@ -127,7 +117,7 @@ impl DocumentStage {
 /// ⚠️ **沖銷單必須先判**：`create_reversal` 建出的沖銷單同樣是
 /// `requires_manager_approval = true` + `manager_approval_status = 'wm_approved'`
 /// （`services/document/reversal.rs:93`），先判終審會把它歸錯關，
-/// 顯示的候選人也會錯（終審看 `final_approve`，沖銷看 `reverse_approve` + admin）。
+/// 顯示的候選人也會錯（終審看 `final_approve`，沖銷看 `reverse_approve`）。
 fn stage_of(row: &DocumentStageRow) -> Option<DocumentStage> {
     if row.status != DocStatus::Submitted {
         return None;
@@ -204,7 +194,7 @@ impl CandidateCache {
         stage: DocumentStage,
     ) -> Result<&[repo::UserRef], AppError> {
         if let Entry::Vacant(slot) = self.by_stage.entry(stage) {
-            slot.insert(stage.candidates(pool).await?);
+            slot.insert(stage.candidate_source().resolve(pool).await?);
         }
         Ok(self.by_stage.get(&stage).map(Vec::as_slice).unwrap_or(&[]))
     }

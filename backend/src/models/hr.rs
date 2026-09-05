@@ -217,6 +217,13 @@ pub struct OvertimeWithUser {
     /// R72-2：當前使用者是否可核准此列（依狀態 + 角色於 service 計算，非 DB 欄位）
     #[sqlx(default)]
     pub can_approve: bool,
+    /// 這筆現在卡在誰手上（僅 `pending_admin_staff` / `pending_admin` 有值）。
+    ///
+    /// ⚠️ 必須是 `skip` 不是 `default`：`default` 仍會先嘗試 `try_get` 再 fallback，
+    /// 於是要求型別實作 `Decode`（`PendingOwner` 不是 DB 型別）。
+    #[sqlx(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_owner: Option<crate::models::PendingOwner>,
 }
 
 #[derive(Debug, Deserialize)]

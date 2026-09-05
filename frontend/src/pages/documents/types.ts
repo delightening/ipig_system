@@ -10,6 +10,10 @@ export interface DocumentLine {
   product_id: string
   product_name?: string
   product_sku?: string
+  /** 該品項的基本單位；單位下拉的第一個選項 */
+  base_uom?: string
+  /** 該品項換算表裡的其他單位（如「盒」）；與 base_uom 合成單位下拉的選項 */
+  alt_uoms?: string[]
   qty: string
   uom: string
   unit_price: string
@@ -27,6 +31,19 @@ export interface DocumentLine {
   remark: string
 }
 
+/**
+ * 盤點範圍（僅盤點單 STK 使用，且只在**建立**時生效）。
+ *
+ * 後端 `generate_stocktake_lines` 在建單且未帶明細時，依本設定過濾底稿；
+ * 空的 `category_codes` 等同全盤。改單時明細已存在、不會重新產生，故編輯畫面不顯示。
+ */
+export interface StocktakeScope {
+  /** 'full' 全盤 / 'partial' 循環盤點；對應後端 StocktakeScope.scope_type */
+  scope_type: 'full' | 'partial'
+  /** 只盤這些品類（例：準備室只盤 DRG 藥品），空/未給即不限 */
+  category_codes?: string[]
+}
+
 export interface DocumentFormData {
   doc_type: DocType
   doc_date: string
@@ -39,6 +56,8 @@ export interface DocumentFormData {
   protocol_no?: string
   source_doc_id?: string
   remark: string
+  /** 盤點範圍（僅 STK 建立時使用） */
+  stocktake_scope?: StocktakeScope
   lines: DocumentLine[]
 }
 

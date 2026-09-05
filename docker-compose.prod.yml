@@ -1,5 +1,5 @@
 # ============================================
-# Production override: GHCR images + Watchtower auto-update
+# Production override: GHCR images（部署為人工執行，2026-09-02 起不再自動換版）
 # ============================================
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
@@ -20,8 +20,6 @@ services:
   # Override api to use GHCR image
   api:
     image: ghcr.io/${GHCR_OWNER}/ipig-api:${IMAGE_TAG:-latest}
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     # P0-S3: 生產環境使用 Docker Secrets 取代環境變數中的明文機密
     secrets:
       - jwt_ec_private_key
@@ -55,8 +53,6 @@ services:
     image: ghcr.io/${GHCR_OWNER}/ipig-web:${IMAGE_TAG:-latest}
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:8080"
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     deploy:
       resources:
         limits:
@@ -75,8 +71,6 @@ services:
   # base compose 對它是 `build:`，不覆寫的話 `--no-build` 會因缺映像而失敗
   outbox-worker:
     image: ghcr.io/${GHCR_OWNER}/ipig-outbox-worker:${IMAGE_TAG:-latest}
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     logging:
       driver: json-file
       options:
@@ -100,8 +94,6 @@ services:
       - db_password
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
     deploy:
       resources:
         limits:
@@ -116,9 +108,10 @@ services:
         max-size: "20m"
         max-file: "5"
 
-  # Explicitly exclude db-backup from auto-update（High 5: Secret 提供密碼；High 7: 生產強制 GPG 加密）
-  # ⚠️ watchtower 維持 false（不自動更新備份容器），但 image 仍要覆寫——
-  # base compose 對它是 `build:`，缺了這一行 `--no-build` 一樣會失敗。
+  # db-backup（High 5: Secret 提供密碼；High 7: 生產強制 GPG 加密）
+  # ⚠️ image 覆寫這一行不能省——base compose 對它是 `build:`，
+  # 缺了它 `--no-build` 一樣會失敗。
+  # （原本此處另有 watchtower.enable=false，已隨 watchtower 服務一併移除。）
   db-backup:
     image: ghcr.io/${GHCR_OWNER}/ipig-db-backup:${IMAGE_TAG:-latest}
     secrets:
@@ -126,8 +119,6 @@ services:
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       BACKUP_REQUIRE_ENCRYPTION: "true"
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
     deploy:
       resources:
         limits:
@@ -151,8 +142,6 @@ services:
     volumes:
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
     deploy:
       resources:
         limits:
@@ -177,8 +166,6 @@ services:
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
     deploy:
       resources:
         limits:
@@ -192,47 +179,28 @@ services:
     restart: unless-stopped
 
   # =========================
-  # Watchtower: auto-update containers（High 1/2: API token 與 SMTP 密碼改由 Docker Secrets）
+  # Watchtower：已於 2026-09-02 移除（使用者裁定）
   # =========================
-  watchtower:
-    # M15: 使用固定版本號取代 latest，避免自動取得未知版本（digest 已 pin 確保不可置換）
-    image: containrrr/watchtower:1.7.1@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
-    container_name: ipig-watchtower
-    secrets:
-      - watchtower_api_token
-      - watchtower_smtp_password
-    entrypoint: ["/bin/sh", "/entrypoint.sh"]
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOME}/.docker/config.json:/config.json:ro
-      - ./scripts/watchtower-entrypoint.sh:/entrypoint.sh:ro
-    environment:
-      WATCHTOWER_LABEL_ENABLE: "true"
-      WATCHTOWER_POLL_INTERVAL: 3600
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_ROLLING_RESTART: "true"
-      WATCHTOWER_HTTP_API_UPDATE: "true"
-      WATCHTOWER_HTTP_API_METRICS: "true"
-      WATCHTOWER_NOTIFICATIONS: "email"
-      WATCHTOWER_NOTIFICATION_EMAIL_FROM: ${SMTP_FROM_EMAIL:-noreply@erp.local}
-      WATCHTOWER_NOTIFICATION_EMAIL_TO: ${DEPLOY_NOTIFY_EMAIL:-}
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER: ${SMTP_HOST:-}
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT: ${SMTP_PORT:-587}
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER: ${SMTP_USERNAME:-}
-      WATCHTOWER_NOTIFICATION_EMAIL_DELAY: 2
-    ports:
-      - "127.0.0.1:8090:8080"
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 128M
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
-    restart: unless-stopped
+  # 原本掛在這裡的 `watchtower` 服務會每 3600 秒輪詢 GHCR，自動拉新映像重啟
+  # api / web / outbox-worker（三者的 `watchtower.enable=true` 亦一併移除）。
+  #
+  # **移除理由不是它壞掉，是自動換版與本專案的部署現實衝突：**
+  # 部署後有必須由人執行的資料補救——`recalculate_all_po_receipt_status` 不在啟動
+  # 路徑上（#39），#34 收緊設備報廢簽章權後既有「已簽章、仍待核准」的單也不會自動
+  # 解開。watchtower 在無人值守時完成部署，那兩步不會有人做，使用者會在「code 已修好、
+  # 資料仍是壞的」狀態上操作，且沒有可指認的部署時間點（GLP 環境需要）。
+  #
+  # 連帶移除的暴露面：`/var/run/docker.sock`（root-equivalent）、`127.0.0.1:8090`
+  # 的 HTTP API（`WATCHTOWER_HTTP_API_UPDATE=true`）、兩個專用 secrets。
+  # 停用之後這些沒有用途，留著只是攻擊面。
+  #
+  # 部署改為人工執行，程序見 `docs/runbooks/handover/PROMPT-vet-20260902.md`：
+  #   docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+  #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+  #
+  # ⚠️ `scripts/watchtower-entrypoint.sh` 與 `secrets/watchtower_*.txt` 未在本次一併
+  # 刪除（前者現已無引用，後者屬 secrets 不在本 PR 範圍）。要恢復自動部署就是把本段
+  # 還原並把三個服務的 label 加回 `true`。
 
 # P0-S3: Docker Secrets for production
 # 建立方式（先在 Host 執行一次）:
@@ -252,7 +220,5 @@ secrets:
     file: ./secrets/db_password.txt
   smtp_password:
     file: ./secrets/smtp_password.txt
-  watchtower_api_token:
-    file: ./secrets/watchtower_api_token.txt
-  watchtower_smtp_password:
-    file: ./secrets/watchtower_smtp_password.txt
+  # watchtower_api_token / watchtower_smtp_password 隨 watchtower 服務一併移除
+  # （2026-09-02）。secrets 檔案本身留在各機器上，未在本 PR 處理。

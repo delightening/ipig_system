@@ -9,6 +9,13 @@ DB_USER="${DB_USER:-postgres}"
 DB_NAME="${POSTGRES_DB:-${DB_NAME:-ipig_db}}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 
+# R93-4：這兩個旗標記錄「這次實際做到哪裡」，末端的看門狗心跳依它們決定要不要送。
+# 舊版的心跳無條件送出，而註解宣稱「跑到這裡代表全鏈成功（dump + 驗證 + 加密 + 異地上傳）」
+# ——加密與異地上傳其實都是「沒設定就整段跳過」，跳過後心跳照送。
+# 於是「只剩本機明文備份」這個降級狀態，在外部監控眼裡跟全鏈成功長得一模一樣。
+ENCRYPTED=false
+OFFSITE_DONE=false
+
 mkdir -p "$BACKUP_DIR"
 
 # High 5: 優先從 Docker Secret 檔讀取密碼，避免 PGPASSWORD 暴露於 process listing
@@ -56,6 +63,14 @@ if [ -n "${BACKUP_REQUIRE_ENCRYPTION:-}" ] && [ "${BACKUP_REQUIRE_ENCRYPTION}" =
   fi
 fi
 
+# R93-4: 異地上傳的對應開關，刻意與上面的 BACKUP_REQUIRE_ENCRYPTION 同一形狀。
+# 預設 false（維持現行行為）——「要不要強制異地」屬部署政策，不由腳本替使用者決定。
+# 設為 true 時，「沒設 remotes」從靜默降級變成硬失敗，備份 cron 失敗即觸發既有告警。
+if [ "${BACKUP_REQUIRE_OFFSITE:-false}" = "true" ] && [ -z "${BACKUP_RCLONE_REMOTES:-}" ]; then
+  echo "ERROR: BACKUP_REQUIRE_OFFSITE=true 但 BACKUP_RCLONE_REMOTES 未設定——拒絕產生只有本機副本的備份。"
+  exit 1
+fi
+
 FINAL_FILE="$BACKUP_FILE"
 if [ -n "${BACKUP_GPG_RECIPIENT:-}" ]; then
   # H11: 先驗證 GPG 金鑰存在，防止金鑰 ID 錯誤時靜默產生未加密備份
@@ -70,6 +85,7 @@ if [ -n "${BACKUP_GPG_RECIPIENT:-}" ]; then
   }
   rm -f "$BACKUP_FILE"
   FINAL_FILE="${BACKUP_FILE}.gpg"
+  ENCRYPTED=true
 fi
 
 # Generate SHA256 checksum for final file
@@ -109,6 +125,9 @@ if [ -n "${BACKUP_RCLONE_REMOTES:-}" ]; then
         exit 1
     fi
     echo "  ✅ 異地上傳完成"
+    OFFSITE_DONE=true
+else
+    echo "  ⚠️ 未設定 BACKUP_RCLONE_REMOTES，跳過異地上傳——本次只有本機副本。"
 fi
 
 # R36-3: 寫 prometheus textfile metric（node-exporter --collector.textfile.directory 撿）
@@ -133,12 +152,41 @@ EOF
   mv "$METRICS_DIR/ipig_backup.prom.tmp" "$METRICS_DIR/ipig_backup.prom"
 fi
 
-# 外部看門狗心跳（deploy/watchdog）：跑到這裡代表全鏈成功（dump + 驗證 + 加密 + 異地上傳），
-# 才回報。上面那份 prometheus metric 在筆電掛掉時會跟 Alertmanager 一起消失；
-# 看門狗跑在筆電外面，才看得到「備份靜默失敗」——2026-05-09 事故正是這個形狀
-# （DB_NAME 打錯導致 cron 數週靜默失敗、/backups/ 空無一物，而外部毫無徵兆）。
+# 外部看門狗心跳（deploy/watchdog）。上面那份 prometheus metric 在筆電掛掉時會跟
+# Alertmanager 一起消失；看門狗跑在筆電外面，才看得到「備份靜默失敗」——2026-05-09
+# 事故正是這個形狀（DB_NAME 打錯導致 cron 數週靜默失敗、/backups/ 空無一物，而外部毫無徵兆）。
 # 心跳失敗絕不可讓備份失敗：監控不該反過來弄壞被監控的東西。
+#
+# ⚠️ 心跳到底擔保了什麼（R93-4 訂正）：
+#   舊註解寫的是「跑到這裡代表全鏈成功（dump + 驗證 + 加密 + 異地上傳）」，**這句是錯的**。
+#   加密與異地上傳都是「沒設定就整段跳過」，跳過之後心跳照送——「只剩本機明文備份」
+#   這個降級狀態，在外部監控眼裡跟全鏈成功長得一模一樣。
+#   現在的定義是：**心跳代表「本部署宣告為必要的每一環都成功」**。哪些環是必要的由
+#   BACKUP_REQUIRE_ENCRYPTION / BACKUP_REQUIRE_OFFSITE 宣告，宣告為必要卻缺席的環會在
+#   前面就硬失敗、根本走不到這裡。下面的 CHAIN 明細會進 cron log，讓事後可以查證
+#   某一晚的備份實際做到哪裡，而不是只看到一個「✅」。
+CHAIN_SUMMARY="dump+verify=yes encrypted=${ENCRYPTED} offsite=${OFFSITE_DONE}"
+echo "  鏈路實況：${CHAIN_SUMMARY}（required: encryption=${BACKUP_REQUIRE_ENCRYPTION:-false} offsite=${BACKUP_REQUIRE_OFFSITE:-false}）"
+
 if [ -n "${WATCHDOG_PING_URL:-}" ]; then
+  # R93-3: token 會被送到 WATCHDOG_PING_URL 指定的任意位址。這個值只有改得動 .env 的人
+  # 設得了（屆時他能做的事已遠不止竊取這個 token），所以這裡不假裝做得到來源鑑別；
+  # 只擋掉「打字就會發生、代價是 Bearer token 明文過網路」的那一種錯：非 https。
+  case "$WATCHDOG_PING_URL" in
+    https://*) ;;
+    *)
+      echo "  ⚠️ WATCHDOG_PING_URL 不是 https://，拒絕以明文送出心跳 token，略過心跳"
+      WATCHDOG_PING_URL=""
+      ;;
+  esac
+fi
+
+if [ -n "${WATCHDOG_PING_URL:-}" ]; then
+  # 記下 token 被送去哪個 host，讓 cron log 本身就是一份可稽核的紀錄
+  PING_HOST="${WATCHDOG_PING_URL#https://}"
+  PING_HOST="${PING_HOST%%/*}"
+  echo "  心跳目標：${PING_HOST}"
+
   PING_TOKEN=""
   if [ -n "${WATCHDOG_PING_TOKEN_FILE:-}" ] && [ -f "$WATCHDOG_PING_TOKEN_FILE" ]; then
     if ! PING_TOKEN=$(cat -- "$WATCHDOG_PING_TOKEN_FILE"); then

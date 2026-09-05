@@ -2,6 +2,8 @@
  * 修正案型別
  */
 
+import type { PendingOwner } from './pendingOwner'
+
 export type AmendmentType = 'MAJOR' | 'MINOR' | 'PENDING'
 export type AmendmentStatus =
     | 'DRAFT'
@@ -110,6 +112,8 @@ export interface AmendmentListItem extends Amendment {
     protocol_title?: string
     submitted_by_name?: string
     classified_by_name?: string
+    /** 這件現在卡在誰手上；僅待分類 / 已分類待送審有值 */
+    pending_owner?: PendingOwner
 }
 
 export interface CreateAmendmentRequest {

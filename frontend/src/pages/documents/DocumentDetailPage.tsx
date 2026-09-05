@@ -370,6 +370,11 @@ export function DocumentDetailPage() {
         product_id: line.product_id,
         product_name: line.product_name,
         product_sku: line.product_sku,
+        // 單位下拉的選項來源，與 useDocumentForm 載入既有單據時的 mapping 同源。
+        // 少了這兩個欄位，複製出來的單據 buildUomOptions 只剩當前 uom 一個選項，
+        // isUomReadOnly 會把該行判成唯讀 —— 複製後就再也改不了單位。
+        base_uom: line.product_base_uom,
+        alt_uoms: line.product_alt_uoms,
         qty: line.qty,
         uom: line.uom,
         unit_price: line.unit_price || '',
@@ -528,9 +533,10 @@ export function DocumentDetailPage() {
               {docTypeNames[document.doc_type]} · 建立於 {formatDate(document.created_at)}
             </p>
             {/* 詳情頁不把「卡在誰」藏在 hover 後面：這裡是使用者來查進度的地方 */}
-            <div className="text-sm text-muted-foreground">
-              <PendingOwnerInline owner={document.pending_owner} />
-            </div>
+            <PendingOwnerInline
+              owner={document.pending_owner}
+              className="text-sm text-muted-foreground"
+            />
           </div>
         </div>
         <div className="flex gap-2">

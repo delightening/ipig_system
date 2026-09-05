@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::{
     middleware::ActorContext,
     models::{
-        audit_diff::DataDiff, DocStatus, Document, DocumentAuditSnapshot, DocumentLine,
+        audit_diff::DataDiff, DocStatus, DocType, Document, DocumentAuditSnapshot, DocumentLine,
         DocumentWithLines,
     },
     services::{
@@ -193,9 +193,22 @@ impl DocumentService {
         reversal_id: Uuid,
     ) -> Result<DocumentWithLines> {
         let user = actor.require_user()?;
-        if !user.is_admin() {
+        // 判準與 handler 守衛同源（`handlers/document.rs:343` 的
+        // `require_permission!("erp.document.reverse_approve")`）。
+        //
+        // 🔴 2026-08-26 修正：原本這裡是 `if !user.is_admin()`，與 handler 不一致，
+        // 造成一個沒人發現的死結——`erp.document.reverse_approve` 實查**只授予 DIRECTOR**，
+        // DIRECTOR 過得了 handler 那關卻倒在這裡，而管理員的資格來自
+        // `has_permission()` 的短路而非該權限本身。**那個權限只發給了一個用不了它的人。**
+        // `tests/director_erp_authority_boundary.rs:39` 還明文斷言 DIRECTOR 必須具備它
+        // ——測試綠、權限有、功能做不到。
+        //
+        // 使用者 2026-08-26 裁定：放寬本處判準（選項 A），讓 DIRECTOR 真的能核准沖銷單。
+        // 與 `erp.document.final_approve`（大額調整單終審，同樣只給 DIRECTOR、
+        // 且沒有額外的 is_admin 關卡）的設計一致。
+        if !user.has_permission("erp.document.reverse_approve") {
             return Err(AppError::Forbidden(
-                "沖銷單須由管理員最終核准（發起人不得自行核准）".into(),
+                "無權核准沖銷單（需 erp.document.reverse_approve）".into(),
             ));
         }
         let admin_id = user.id;
@@ -260,6 +273,24 @@ impl DocumentService {
         .execute(&mut *tx)
         .await?;
 
+        // 沖銷一張採購入庫單 → 回退來源採購單的入庫進度（2026-08-27 修）。
+        //
+        // 原本這裡完全不碰來源 PO：GRN 沖銷後 `receipt_status` 仍停在 `complete`，
+        // 前端「採購入庫」按鈕（要求 pending/partial）消失，使用者開不出更正單；
+        // 就算硬開，`ensure_no_over_receipt` 也會把已沖銷的量算進 received 而擋下。
+        // 結果是「打錯 → 沖銷 → 重開」這條唯一的補救路徑走不完，PO 永久卡死。
+        //
+        // ⚠️ 必須在上面那個 UPDATE **之後**呼叫：`update_po_receipt_status` 的排除述詞
+        // 要求沖銷單本身已是 `approved`，才看得到「原單已被沖銷」。
+        //
+        // 只重算不 raise：`ensure_no_over_receipt` 刻意不在此呼叫，沖銷是把量減回去，
+        // 不可能造成超收，而對既有 legacy 超收資料炸錯只會擋住正當的沖銷。
+        if original.doc_type == DocType::GRN {
+            if let Some(po_id) = original.source_doc_id {
+                Self::update_po_receipt_status(&mut tx, po_id).await?;
+            }
+        }
+
         let after_doc = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
             .bind(reversal_id)
             .fetch_one(&mut *tx)
@@ -271,8 +302,15 @@ impl DocumentService {
         .fetch_all(&mut *tx)
         .await?;
 
+        // ⚠️ 這裡原本寫死「ADMIN 核准」。2026-08-26 放寬判準之後，DIRECTOR 也核准得了
+        //（那正是本 PR 修的東西），而稽核紀錄仍會說是 ADMIN——**稽核紀錄說謊**。
+        //
+        // 稽核紀錄在 GLP 系統裡的全部價值就是「事後能還原誰做了什麼」，
+        // 寫一個與事實不符的角色比不寫還糟。核准人身分已由 `approved_by` 欄位承載
+        //（本方法上方 `UPDATE ... approved_by = $2` 綁的是 `admin_id`），
+        // 這行顯示文字改為角色中立即可，不必再推導一次角色（那會是第二個事實來源）。
         let display = format!(
-            "沖銷單 {}（原單 {}，ADMIN 核准）",
+            "沖銷單 {}（原單 {}，已核准）",
             after_doc.doc_no, original.doc_no
         );
         let before_snap = DocumentAuditSnapshot {

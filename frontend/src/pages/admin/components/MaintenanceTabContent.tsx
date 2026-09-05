@@ -11,6 +11,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, History, Pencil, Plus, Trash2, Wrench, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn, getDateFnsLocale } from '@/lib/utils'
+import { PendingOwnerBadge } from '@/components/PendingOwnerBadge'
 
 import type { MaintenanceRecordWithDetails, MaintenanceStatus, MaintenanceType } from '../types'
 import { getMaintenanceBadge, MAINTENANCE_STATUS_LABELS, MAINTENANCE_TYPE_LABELS } from '../types'
@@ -107,7 +108,11 @@ export function MaintenanceTabContent({
         header: <SortHeader label={t('admin.maintenanceTabContent.colStatus')} field="status" sortField={filterSort.sortField} sortOrder={filterSort.sortOrder} onSort={filterSort.onSortChange} />,
         cell: (r) => {
           const badge = getMaintenanceBadge(r.maintenance_type, r.status)
-          return <StatusBadge variant={badge.variant}>{t(badge.labelKey)}</StatusBadge>
+          return (
+            <PendingOwnerBadge owner={r.pending_owner}>
+              <StatusBadge variant={badge.variant}>{t(badge.labelKey)}</StatusBadge>
+            </PendingOwnerBadge>
+          )
         },
       },
       {

@@ -4,11 +4,15 @@ use crate::{AppError, Result};
 /// 為廉價的指標 clone，而非複製整份 PDF bytes。
 type CachedRender = std::sync::Arc<(Vec<u8>, Option<String>)>;
 
-/// PDF Service (print-pdf, FastAPI + WeasyPrint) HTTP Client
+/// PDF Service (print-pdf, FastAPI + Chromium/Playwright) HTTP Client
 ///
 /// 呼叫 Python 端 FastAPI `print-pdf` 微服務，由其使用 Jinja2 HTML 模板
-/// 透過 WeasyPrint 直接 render 為 PDF（取代舊三件式 pdf-service + gotenberg
-/// + word-convert daemon stack）。
+/// 透過常駐 Chromium（Playwright `page.pdf`）render 為 PDF（取代舊三件式
+/// pdf-service + gotenberg + word-convert daemon stack）。
+///
+/// ⚠️ R81-9：2026-06 起引擎已由 WeasyPrint 改為 Chromium——WeasyPrint 的 fontTools
+/// subset 會破壞標楷體 DFKai-SB（point-matching composite 字形），Chromium 原生處理
+/// 則乾淨。沿革見 `services/print-pdf/README.md` 與 `services/print-pdf/Dockerfile` 開頭。
 #[derive(Clone)]
 pub struct PdfServiceClient {
     base_url: String,
@@ -43,7 +47,7 @@ impl PdfServiceClient {
         }
     }
 
-    /// R32-A3 收尾：呼叫 `POST /render-aup/from-working-content?format={docx|pdf}`。
+    /// R32-A3 收尾：呼叫 `POST /render-aup/from-working-content?format=pdf`。
     pub async fn render_aup_from_working_content(
         &self,
         working_content: &serde_json::Value,
@@ -56,12 +60,28 @@ impl PdfServiceClient {
         );
         let body = serde_json::json!({"working_content": working_content});
 
-        // 快取僅針對 PDF：「計畫內容」分頁預覽每次都觸發 WeasyPrint 全量 render（~15s/份）
-        // 且 render 序列化（cap=1）；同一份未修改計畫書反覆預覽是純重算浪費。key 綁「實際送出的
-        // body」（含已內嵌照片）→ 同內容必同 PDF，內容一改即 miss 重算，無 staleness。
+        // 快取僅針對 PDF 匯出：**快取未命中時**才會走下面的 post_binary 觸發 Chromium
+        // 全量 render（~15s/份，且 render 序列化 cap=1）；命中時直接回傳快取的 PDF bytes，
+        // 根本不進 print-pdf。沒有這層快取的話，同一份未修改計畫書反覆匯出就是純重算浪費
+        // ——那正是它存在的理由。key 綁「實際送出的 body」（含已內嵌照片）→ 同內容必同 PDF，
+        // **內容一改即 miss 重算**。
+        //
+        // ⚠️ 這個保證只涵蓋「內容變更」，不是「絕不 staleness」。`render_cache_key` 只雜湊
+        // tag + request body，**不含 Jinja2 模板、字型、Chromium／print-pdf 版本**。所以只更新
+        // print-pdf 那一側（改模板或換 renderer）而 api 容器沒重啟時，同一份未修改的計畫書
+        // 會在 TTL（`AUP_PDF_CACHE_TTL_SECS`，30 分）內繼續拿到舊版 PDF。
+        // 目前接受這個窗口：部署是手動 `docker compose build` + `up -d`，改模板通常連 api
+        // 一起重建，而 moka 是行程內記憶體快取、重啟即清空。若哪天改成只熱換 print-pdf，
+        // 就要把輸出版本（模板 hash 或 print-pdf 版本號）納入 key。
+        //
+        // ⚠️「計畫內容」分頁的預覽 iframe 走的是下面的 `render_aup_html`（format=html），
+        // print-pdf 端 `format=html` 直接回傳渲染前的 HTML、不觸發 Chromium render，
+        // 也不吃這份快取——預覽本身很快，慢的只有實際匯出 PDF 那個動作。
+        //
+        // `DocxRenderFormat` 移除 `Docx` 變體後只剩 Pdf，原本的 `_ => None` 會是
+        // unreachable pattern；這裡改成直接算 key，語意不變（只有 PDF 進快取）。
         let cache_key = match format {
             DocxRenderFormat::Pdf => render_cache_key("render-aup-pdf", &body),
-            _ => None,
         };
 
         if let Some(key) = &cache_key {
@@ -97,7 +117,7 @@ impl PdfServiceClient {
         String::from_utf8(bytes).map_err(|e| AppError::Internal(format!("AUP HTML 非 UTF-8: {e}")))
     }
 
-    /// R32-A8a：呼叫 `POST /render-medical-record/from-animal-data?format={docx|pdf}`。
+    /// R32-A8a：呼叫 `POST /render-medical-record/from-animal-data?format=pdf`。
     ///
     /// `data` 直接傳 `AnimalMedicalService::get_animal_medical_data` 的 JSON 結果
     /// （含 animal/observations/surgeries/weights/vaccinations/sacrifice），由
@@ -127,7 +147,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-project-medical").await
     }
 
-    /// R32-A8e：呼叫 `POST /render-review-reply/from-review-data?format={docx|pdf}`。
+    /// R32-A8e：呼叫 `POST /render-review-reply/from-review-data?format=pdf`。
     pub async fn render_review_reply_from_review_data(
         &self,
         data: &serde_json::Value,
@@ -141,7 +161,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-review-reply").await
     }
 
-    /// R32-A8c：呼叫 `POST /render-review-result/from-review-data?format={docx|pdf}`。
+    /// R32-A8c：呼叫 `POST /render-review-result/from-review-data?format=pdf`。
     pub async fn render_review_result_from_review_data(
         &self,
         data: &serde_json::Value,
@@ -155,7 +175,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-review-result").await
     }
 
-    /// R32-A8b：呼叫 `POST /render-surgery/from-surgery-data?format={docx|pdf}`。
+    /// R32-A8b：呼叫 `POST /render-surgery/from-surgery-data?format=pdf`。
     ///
     /// `data` 直接傳 `AnimalSurgeryService::get_surgery_export_data` 的 JSON
     /// 結果（含 surgery / animal / source_name / recorded_by_name /
@@ -173,7 +193,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-surgery").await
     }
 
-    /// R32-A8h：呼叫 `POST /render-blood-test/from-blood-test-data?format={docx|pdf}`。
+    /// R32-A8h：呼叫 `POST /render-blood-test/from-blood-test-data?format=pdf`。
     ///
     /// `data` 為扁平 payload：`{animal_ear_tag, animal_iacuc_no, export_date, tests[]}`。
     /// 取代 legacy `render("blood_test", ...)` (Jinja2 HTML registry) 路徑。
@@ -190,7 +210,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-blood-test").await
     }
 
-    /// R32-A8i：呼叫 `POST /render-audit-log/from-export-data?format={docx|pdf}`。
+    /// R32-A8i：呼叫 `POST /render-audit-log/from-export-data?format=pdf`。
     ///
     /// `data` 為 backend handler 組好的扁平 payload：`{meta, summary, entries[],
     /// signature}`。取代 legacy frontend client-side HTML + `window.print()` 路徑。
@@ -207,7 +227,7 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-audit-log").await
     }
 
-    /// R32-A8g：呼叫 `POST /render-warehouse/from-report-data?format={docx|pdf}`。
+    /// R32-A8g：呼叫 `POST /render-warehouse/from-report-data?format=pdf`。
     ///
     /// `data` 直接傳 `WarehouseService::get_report_data` 的 `WarehouseReportData`
     /// JSON serialize，pdf-service adapter 把 `inventory[]` 攤平成 `inventory_summary`
@@ -225,11 +245,11 @@ impl PdfServiceClient {
         self.post_binary(&url, data, "render-warehouse").await
     }
 
-    /// R39：呼叫 `POST /render-vet-patrol-report/from-report-data?format={docx|pdf}`。
+    /// R39：呼叫 `POST /render-vet-patrol-report/from-report-data?format=pdf`。
     ///
     /// `data` 對齊 pdf-service `vet_patrol_report` adapter，含 categories[]
     /// 與 photos data URLs。取代 legacy `vet_patrol_report.html` + Gotenberg
-    /// HTML→PDF 路徑。
+    /// HTML→PDF 路徑（Gotenberg 本身早已下線，此處僅為說明取代對象）。
     pub async fn render_vet_patrol_report_from_report_data(
         &self,
         data: &serde_json::Value,
@@ -244,11 +264,11 @@ impl PdfServiceClient {
             .await
     }
 
-    /// R32-A3b 收尾：呼叫 `POST /render-vet-patrol/from-animals?format={xlsx|pdf}`。
+    /// R32-A3b 收尾：呼叫 `POST /render-vet-patrol/from-animals?format=pdf`。
     ///
-    /// L2 (2026-05-12)：除 bytes 外回傳 `X-PDF-Renderer`（如 `excel_daemon`、
-    /// `gotenberg_fallback`）。handler 應將其貼到對外 response header，讓前端
-    /// 在降級時提示使用者。
+    /// L2 (2026-05-12)：除 bytes 外回傳 `X-PDF-Renderer`。
+    /// ⚠️ 2026-09-04 訂正：原列的 `excel_daemon` / `gotenberg_fallback` 已不存在，
+    /// print-pdf 現在只發 `"chromium"`（見 `post_binary` 的說明）。
     pub async fn render_vet_patrol_from_animals(
         &self,
         animals: &serde_json::Value,
@@ -305,10 +325,14 @@ impl PdfServiceClient {
             .await
     }
 
-    /// L2 (2026-05-12)：除 PDF/docx/xlsx bytes 外，回傳 pdf-service `X-PDF-Renderer`
-    /// header 值（記錄實際用的渲染器：`excel_daemon` / `word_daemon` /
-    /// `gotenberg_fallback` / `gotenberg_only`）。handler 應將其貼到對外 response
-    /// header，前端在降級時 toast 提示使用者。
+    /// L2 (2026-05-12)：除 bytes 外，回傳 pdf-service 的 `X-PDF-Renderer` header 值，
+    /// handler 應將其貼到對外 response header。
+    ///
+    /// ⚠️ 2026-09-04 訂正：此處原本列的 `excel_daemon` / `word_daemon` /
+    /// `gotenberg_fallback` / `gotenberg_only` **都已不存在**。print-pdf 現在全檔只發
+    /// 一個值——`"chromium"`（`main.py` 唯一的 `X-PDF-Renderer` 賦值處）。
+    /// 也就是說「前端在降級時 toast 提示」那個機制已經沒有降級可提示了；
+    /// 保留讀取 header 是為了日後真的多出第二種渲染器時不必再接線。
     async fn post_binary(
         &self,
         url: &str,
@@ -386,21 +410,31 @@ fn render_cache_key(tag: &str, body: &serde_json::Value) -> Option<String> {
     Some(hex::encode(hasher.finalize()))
 }
 
-/// R32-A4: docx render 回傳格式選擇。
+/// R32-A4: render 回傳格式選擇。
 ///
-/// 對應 pdf-service `/render-docx/{doc_type}?format={docx|pdf}` query 參數。
+/// ⚠️ **2026-09-04：`Docx` 變體已移除（使用者裁定，決策 89.1）。**
+///
+/// 移除的理由不是「用不到」，是**它從來沒有正確運作過**：print-pdf 的 13 條
+/// adapter route（除 `/render-aup/from-working-content` 外）在函式簽名上根本
+/// 沒有 `format` 參數，一律 `_render_pdf_async()` 後回 PDF bytes。所以送
+/// `?format=docx` 會被靜默忽略，而呼叫端仍照 `mime_type()`／`extension()`
+/// 把那份 PDF 標成 Word MIME 與 `.docx`——使用者拿到 Word 打不開的檔案。
+///
+/// 現在只剩 `Pdf` 一個變體。**這個型別暫時保留而不是整個拿掉**：所有
+/// `render_*` 方法的簽名都帶著它，一併移除會擴散到 6 個檔案，屬另一次改動；
+/// 保留單變體 enum 至少讓「這裡曾經是可選的、現在不是」在型別上看得見。
 #[derive(Debug, Clone, Copy)]
 pub enum DocxRenderFormat {
-    /// docxtpl fill 後的原始 .docx（OOXML 格式，使用者可在 Word 編輯）
-    Docx,
-    /// docx 經 Gotenberg LibreOffice 轉換後的 PDF（GLP 報表正式輸出）
+    /// Chromium（Playwright `page.pdf`）render 出的 PDF。
+    ///
+    /// （原註解寫「docx 經 Gotenberg LibreOffice 轉換」——Gotenberg 早已下線，
+    /// 現行渲染器只有 Chromium，print-pdf 全檔只發 `X-PDF-Renderer: chromium`。）
     Pdf,
 }
 
 impl DocxRenderFormat {
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
-            Self::Docx => "docx",
             Self::Pdf => "pdf",
         }
     }
@@ -408,7 +442,6 @@ impl DocxRenderFormat {
     /// 對應的 MIME type，handler 寫到 response Content-Type header。
     pub fn mime_type(&self) -> &'static str {
         match self {
-            Self::Docx => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             Self::Pdf => "application/pdf",
         }
     }
@@ -419,24 +452,34 @@ impl DocxRenderFormat {
     }
 }
 
-/// R32-A3b: xlsx render 回傳格式選擇。
+/// R32-A3b: 欄位巡視報告的 render 回傳格式。
+///
+/// ⚠️ **2026-09-04：`Xlsx` 變體已移除（使用者裁定，決策 95.1）。**
+///
+/// 與 `DocxRenderFormat::Docx`（決策 89.1）是同一個缺陷的第二個實例，
+/// 但**更容易踩到，因為壞掉的那條是預設值**：`/render-vet-patrol/from-animals`
+/// 在 print-pdf 的簽名裡沒有 `format` 參數，無條件 `_render_pdf_async()` 回 PDF
+/// bytes、檔名寫死 `.pdf`；而呼叫端原本 `Some("xlsx") | None => Xlsx`，
+/// 再照 `mime_type()`／`extension()` 把那份 PDF 標成 Excel MIME 與 `.xlsx`。
+/// 也就是說**不指定 format（最自然的用法）就會拿到 Excel 打不開的檔案**。
+///
+/// 現在只剩 `Pdf`。與 `DocxRenderFormat` 同樣保留單變體 enum 而不整個拿掉：
+/// `render_vet_patrol_from_animals` 的簽名帶著它，一併移除屬另一次改動。
 #[derive(Debug, Clone, Copy)]
 pub enum XlsxRenderFormat {
-    Xlsx,
+    /// Chromium（Playwright `page.pdf`）render 出的 PDF——print-pdf 端實際回傳的東西。
     Pdf,
 }
 
 impl XlsxRenderFormat {
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
-            Self::Xlsx => "xlsx",
             Self::Pdf => "pdf",
         }
     }
 
     pub fn mime_type(&self) -> &'static str {
         match self {
-            Self::Xlsx => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             Self::Pdf => "application/pdf",
         }
     }

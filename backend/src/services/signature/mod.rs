@@ -590,6 +590,40 @@ impl SignatureService {
             return Err(AppError::Conflict("簽章已作廢，無法重複作廢".into()));
         }
 
+        // CodeRabbit review（PR #38）：結案簽章（protocol_closure）作廢前的終態守門。
+        //
+        // `ProtocolStatus::is_terminal` 把 `CLOSED` 列為終態，`can_change_status_to`
+        // 對終態一律回 false——沒有任何路徑能把已結案的計畫轉回可簽狀態
+        // （`sign_closure` 也只接受 `APPROVED` / `APPROVED_WITH_CONDITIONS`）。
+        // 若在這裡放行作廢，`protocols.close_*_signature_id` 仍指向這張已作廢的簽章，
+        // `dual_signature_ready` 變 false，但協定永遠簽不回去——稽核要求的
+        // 「CLOSED ⇒ 雙簽有效」不變式從此永久破損，且無法透過本系統任何流程修復。
+        //
+        // 刻意不做「作廢時自動把協定轉回可簽狀態」：那是變更狀態機終態語意的產品決策，
+        // 不是簽章作廢這個通用函式該自己決定的。改為直接擋下這一種作廢，
+        // 需要更正時另走資料修復流程。
+        if before.entity_type == "protocol_closure" {
+            let closed_protocol: Option<Uuid> = sqlx::query_scalar(
+                r#"SELECT id FROM protocols
+                     WHERE id::text = $1
+                       AND status = 'CLOSED'::protocol_status
+                       AND (close_pi_signature_id = $2 OR close_sd_signature_id = $2)
+                     FOR UPDATE"#,
+            )
+            .bind(&before.entity_id)
+            .bind(signature_id)
+            .fetch_optional(&mut **tx)
+            .await?;
+            if closed_protocol.is_some() {
+                return Err(AppError::BusinessRule(
+                    "此簽章是已結案（CLOSED）計畫的結案簽章。CLOSED 為狀態機終態，\
+                     計畫無法轉回可簽狀態，故此簽章不可作廢——如需更正，\
+                     請改走資料修復流程，而非簽章作廢。"
+                        .into(),
+                ));
+            }
+        }
+
         // UPDATE 為作廢狀態
         let after = sqlx::query_as::<_, ElectronicSignature>(
             r#"
@@ -697,6 +731,13 @@ impl SignatureService {
     /// - surgery → animal_surgeries
     /// - blood_test → animal_blood_tests
     /// - care_medication → care_medication_records
+    ///
+    /// **idempotent**：`AND is_locked = false` 讓已鎖定的紀錄不再被寫入。
+    /// 一筆紀錄可被多次簽章（CONFIRM / WITNESS / APPROVE 各一次，見
+    /// `handlers/signature/*` 每簽完都會呼叫本函式），原本第二簽會覆蓋
+    /// `locked_at` / `locked_by`——鎖定人因此變成「最後一個簽的人」，稽核上是錯的，
+    /// 而且鎖定欄位在 DB 層的 `check_locked_record_immutable` 觸發器內不可變更，
+    /// 覆寫會直接被擋成 DB 例外。改為只有「未鎖定 → 鎖定」那一次真的寫入。
     pub async fn lock_record_uuid(
         pool: &PgPool,
         record_type: &str,
@@ -706,7 +747,8 @@ impl SignatureService {
         let table_name = Self::lockable_table_uuid(record_type)?;
 
         let query = format!(
-            "UPDATE {} SET is_locked = true, locked_at = NOW(), locked_by = $2 WHERE id = $1",
+            "UPDATE {} SET is_locked = true, locked_at = NOW(), locked_by = $2 \
+             WHERE id = $1 AND is_locked = false",
             table_name
         );
 
