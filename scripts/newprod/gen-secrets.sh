@@ -53,6 +53,52 @@ if [ -L "$SECRETS_DIR" ]; then
   exit 1
 fi
 
+# CodeRabbit #83 第四輪：既有目錄從不檢查擁有者是誰。
+#
+# 這條建議的原句提到「把 chmod 0711 移到掃描之前」——**這句話跟現行程式碼的
+# 實際順序對不上**：`chmod 0711` 在下面第 171 行左右，本來就在符號連結掃描
+# 之後，不是之前。我沒有照這句字面去搬動 chmod；但底下這句話點出的核心問題
+# 是真的，獨立 PoC 驗證過兩種情境：
+#   - 以非 root 使用者對「別人擁有的既有目錄」跑 --allow-existing：
+#     後面第 171 行的 `chmod 0711` 撞到 Linux 核心規則「只有擁有者或 root
+#     能 chmod」，以 EPERM 崩潰、`set -e` 中止——**這是意外擋下，不是本腳本
+#     刻意檢查的結果**，錯誤訊息是一句看不懂的核心層錯誤，不是清楚的診斷。
+#   - 以 root 執行對「別人擁有的既有目錄」跑 --allow-existing：
+#     **root 會繞過上面那條核心規則**，`chmod` 直接成功，腳本正常跑完、
+#     把真實 prod secrets 寫進一個目錄仍然掛在攻擊者名下（root 的 chmod
+#     只改權限位元，不改擁有者；沒呼叫過 chown）。PoC 實測：腳本 exit 0，
+#     `ls -la` 顯示 `secrets/` 目錄的擁有者維持 `attacker:attacker`。
+# 部署腳本以 root 執行是常見情境，故這個缺口在現實部署下是會發生的，
+# 不是理論案例。在既有的符號連結守衛之前先加一道擁有者檢查：不管是不是
+# root，既有目錄的擁有者都必須等於目前執行者，否則直接拒絕。
+#
+# ⚠️ **這修的是「別人先佔了這個路徑」，不是 TOCTOU race**：符號連結掃描
+# 與後面 `chmod 0711` 之間，仍有一個極窄的視窗——若攻擊者與這次執行剛好
+# 是同一個擁有者、但目錄權限在那個瞬間仍然寬鬆，理論上可以搶在掃描通過後、
+# chmod 生效前換一個符號連結進去。要徹底封死這個視窗需要整支腳本改寫成
+# 用檔案描述符操作（open with O_NOFOLLOW），而不是先檢查路徑再對路徑動作——
+# 對一支「單一操作者手動初次佈建」的腳本來說是不成比例的重寫，此處不做，
+# 誠實記在這裡而非略過不提。
+# ⚠️ **Windows／NTFS 上此檢查的實際效力需另外驗證**：NTFS 沒有 POSIX 擁有者
+# 位，`stat -c '%u'` 在 Git Bash 上的行為未必跟 Linux 一致（同 R103-5 對
+# vet 那台的既有警語——不可直接沿用 Linux 容器的量測結果）。
+if [ -d "$SECRETS_DIR" ]; then
+  dir_owner_uid=$(stat -c '%u' "$SECRETS_DIR" 2>/dev/null) || {
+    echo "ERROR: 無法讀取 $SECRETS_DIR 的擁有者資訊，拒絕執行。" >&2
+    exit 1
+  }
+  my_uid=$(id -u)
+  if [ "$dir_owner_uid" != "$my_uid" ]; then
+    echo "ERROR: $SECRETS_DIR 已存在，但擁有者（uid $dir_owner_uid）不是目前執行本腳本的" >&2
+    echo "       使用者（uid $my_uid），拒絕執行。" >&2
+    echo "       本腳本接下來會對這個目錄下 chmod、寫入 secrets——若擁有者是別人（無論" >&2
+    echo "       是無心的殘留還是刻意佈的局），以 root 執行會直接繞過 chmod 的擁有者限制，" >&2
+    echo "       把真實金鑰寫進一個仍然掛在別人名下的目錄。" >&2
+    echo "       請確認這個路徑的來源，必要時 chown 給目前使用者後再重跑。" >&2
+    exit 1
+  fi
+fi
+
 # R103-5：這支腳本的定位是「初次佈建」，但它的落點 `$REPO_ROOT/secrets` 在**已部署的
 # 機器上就是現役 prod 正在用的那個目錄**（vet 實查 `ipig-api` 容器掛載確認）。
 # 檔名與所在目錄都叫 `newprod`，而 newprod stack 已確認不存在（R103-1）——
