@@ -36,8 +36,32 @@ export function formatEarTag(earTag: string): string {
 /** 系統統一使用台灣時間 (Asia/Taipei) 顯示，可供元件內聯日期格式使用 */
 export const TAIWAN_TIMEZONE = 'Asia/Taipei'
 
-export function formatDate(date: string | Date, options?: { weekday?: boolean }) {
-  return new Date(date).toLocaleDateString(uiLocale(), {
+/** 日期類格式化函式在輸入無效時的預設顯示值 */
+export const INVALID_DATE_FALLBACK = '-'
+
+/**
+ * R90-1：把輸入轉成「確定有效」的 `Date`，無效一律回 `null`。
+ *
+ * 這裡不能靠 try/catch——`new Date('壞資料')` 不會 throw，而是產生一個
+ * `Invalid Date`，接著 `toLocaleDateString()` 也不 throw，直接把字面上的
+ * `Invalid Date` 顯示給使用者。唯一測得出來的判準是 `Number.isNaN(getTime())`。
+ *
+ * 本檔四個日期格式化函式全部走這裡，避免「有些擋、有些不擋」的不一致。
+ */
+function toValidDate(date: string | Date | null | undefined): Date | null {
+  if (date === null || date === undefined || date === '') return null
+  const parsed = date instanceof Date ? date : new Date(date)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+export function formatDate(
+  date: string | Date | null | undefined,
+  options?: { weekday?: boolean },
+  fallback = INVALID_DATE_FALLBACK
+) {
+  const parsed = toValidDate(date)
+  if (!parsed) return fallback
+  return parsed.toLocaleDateString(uiLocale(), {
     timeZone: TAIWAN_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
@@ -46,8 +70,13 @@ export function formatDate(date: string | Date, options?: { weekday?: boolean })
   })
 }
 
-export function formatDateTime(date: string | Date) {
-  return new Date(date).toLocaleString(uiLocale(), {
+export function formatDateTime(
+  date: string | Date | null | undefined,
+  fallback = INVALID_DATE_FALLBACK
+) {
+  const parsed = toValidDate(date)
+  if (!parsed) return fallback
+  return parsed.toLocaleString(uiLocale(), {
     timeZone: TAIWAN_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
@@ -176,25 +205,30 @@ export function splitMultiValue(value: string | null | undefined): string[] {
     .filter((s) => s.length > 0)
 }
 
-export function formatTime(dateStr: string | null): string {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleTimeString(uiLocale(), { timeZone: TAIWAN_TIMEZONE, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+export function formatTime(dateStr: string | Date | null | undefined): string {
+  const parsed = toValidDate(dateStr)
+  if (!parsed) return INVALID_DATE_FALLBACK
+  return parsed.toLocaleTimeString(uiLocale(), { timeZone: TAIWAN_TIMEZONE, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 }
 
 /**
  * 短時間格式（HH:mm，不含秒）— 供 dashboard widgets / 行事曆共用（R73-3 去重）。
  * 統一走 uiLocale() + TAIWAN_TIMEZONE + 24 小時制，對齊 formatTime；空值/解析失敗回 fallback。
+ *
+ * R90-1：原本用 try/catch 來實現上一行承諾的「解析失敗回 fallback」，但那條路徑
+ * **從來不會被走到**——`new Date('壞資料').toLocaleTimeString()` 不 throw，只會回傳
+ * 字面上的 `Invalid Date`。改走 `toValidDate` 後這個承諾才真的成立。
  */
-export function formatTimeShort(dateStr: string | null | undefined, fallback = '-'): string {
-  if (!dateStr) return fallback
-  try {
-    return new Date(dateStr).toLocaleTimeString(uiLocale(), {
-      timeZone: TAIWAN_TIMEZONE,
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-  } catch {
-    return fallback
-  }
+export function formatTimeShort(
+  dateStr: string | Date | null | undefined,
+  fallback = INVALID_DATE_FALLBACK
+): string {
+  const parsed = toValidDate(dateStr)
+  if (!parsed) return fallback
+  return parsed.toLocaleTimeString(uiLocale(), {
+    timeZone: TAIWAN_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
