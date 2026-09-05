@@ -12,6 +12,7 @@ use crate::{
     services::{
         access::{AmendmentWrite, Scoped},
         audit::{ActivityLogEntry, AuditEntity},
+        signature::DelegationRef,
         AuditService, SignatureService,
     },
     AppError, Result,
@@ -218,6 +219,11 @@ impl AmendmentService {
     /// `submitted_delegation`：非 `None` 時代表 `submitted_by` 是依該筆
     /// `protocol_pi_delegates` 授權代為送審的代理人（migration 010）。與建立時的
     /// `created_delegation_id` 分開記錄——建立與送審是兩個獨立時點，可能由不同的人做。
+    ///
+    /// 與 `create` 同理，授權的重驗必須落在寫入的同一個交易內：handler 解析時
+    /// 沒有鎖住該列，撤銷可能在解出之後、UPDATE 之前 commit，於是
+    /// `submitted_delegation_id` 記下一筆當下已失效的授權。詳見 `crud.rs::create`
+    /// 的 doc comment。
     pub async fn submit(
         pool: &PgPool,
         scope: Scoped<AmendmentWrite>,
@@ -225,9 +231,26 @@ impl AmendmentService {
         submitted_by: Uuid,
         submitted_delegation: Option<Uuid>,
     ) -> Result<Amendment> {
-        let current = Self::get_by_id_raw(pool, id).await?;
+        let mut tx = pool.begin().await?;
+
+        let current = Self::get_by_id_raw_conn(&mut tx, id).await?;
         ensure_amendment_scope(&current, &scope)?;
         ensure_live_amendment(&current)?;
+
+        // 代簽授權在同一 tx 內重驗並鎖列（撤銷與到期都算失效）。
+        // `current.protocol_id` 是這份修正案實際所屬的計畫——用它而不是 scope 的 id，
+        // 授權才是對「這一份修正案的計畫」成立的。
+        if let Some(delegation_id) = submitted_delegation {
+            SignatureService::assert_delegation_still_valid_tx(
+                &mut tx,
+                DelegationRef {
+                    id: delegation_id,
+                    protocol_id: current.protocol_id,
+                },
+                submitted_by,
+            )
+            .await?;
+        }
 
         // 只有草稿或需修訂狀態可以提交
         let (new_status, is_resubmit) = match current.status {
@@ -268,11 +291,11 @@ impl AmendmentService {
             submitted_by,
             submitted_delegation,
         )
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
         // 建立版本快照
-        Self::create_version_snapshot(pool, id, submitted_by).await?;
+        Self::create_version_snapshot_conn(&mut tx, id, submitted_by).await?;
 
         // 記錄狀態歷程
         let remark = if is_resubmit {
@@ -281,7 +304,7 @@ impl AmendmentService {
             "變更申請已提交"
         };
         Self::record_status_change(
-            pool,
+            &mut *tx,
             id,
             Some(current.status),
             new_status,
@@ -289,6 +312,8 @@ impl AmendmentService {
             Some(remark.to_string()),
         )
         .await?;
+
+        tx.commit().await?;
 
         Ok(amendment)
     }
