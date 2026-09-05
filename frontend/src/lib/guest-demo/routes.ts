@@ -440,8 +440,15 @@ const queryAwareRoutes: Record<string, (params: URLSearchParams) => unknown> = {
     const month = Number(params.get('month'))
     // 沒帶參數就回 fixture——呼叫端沒指定期間，沒有「不符」可言
     if (!year || !month) return DEMO_MONTHLY_REPORT
-    const now = new Date()
-    const isDemoPeriod = year === now.getFullYear() && month === now.getMonth() + 1
+    // ⚠️ 比對基準要用台灣時區，不能用瀏覽器本地時間（CodeRabbit PR #35 第二輪指出）：
+    // `MonthlyReportTab` 的預設月份是用 `taipeiCurrentMonth()` 算出來的（同檔 :30-32），
+    // 兩邊比較基準不一致時，跨時區的訪客（例：美西 UTC-7，台灣已跨日到 9/1
+    // 但當地仍是 8/31）預設查詢會被判成「非當月」而回空。與 `taipeiCurrentMonth()`
+    // 用同一招（`sv-SE` locale 產出 `yyyy-MM-dd`），不直接 import 該檔——
+    // 那是 pages/ 底下的元件，lib/ 不應該依賴它。
+    const taipeiMonth = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' }).slice(0, 7)
+    const requestedMonth = `${year}-${String(month).padStart(2, '0')}`
+    const isDemoPeriod = requestedMonth === taipeiMonth
     return isDemoPeriod ? DEMO_MONTHLY_REPORT : []
   },
 }
