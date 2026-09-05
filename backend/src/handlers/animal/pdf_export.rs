@@ -109,16 +109,22 @@ pub async fn export_animal_medical_pdf(
     }
 }
 
-/// R32-A8b：匯出單一手術紀錄 PDF（v3 docx → Word COM）。
+/// R32-A8b：匯出單一手術紀錄 PDF。
 ///
-/// `format` query：`docx` / `pdf`（預設 pdf）。route：
+/// `format` query：只接受 `pdf`（預設）。route：
 /// `GET /api/v1/surgeries/:id/export-pdf-v3?format=pdf`
+///
+/// ⚠️ 2026-09-04：原本還接受 `docx`，但那條路徑是壞的——print-pdf 的
+/// `/render-surgery/from-surgery-data` 沒有 `format` 參數，一律回 PDF bytes，
+/// 而本 handler 仍照 `mime_type()`／`extension()` 標成 Word MIME 與 `.docx`，
+/// 使用者拿到的是 Word 打不開的檔案。使用者裁定移除該選項（決策 89.1）：
+/// **靜默給壞檔改為明確回 400**。
 #[utoipa::path(
     get,
     path = "/api/v1/surgeries/{id}/export-pdf-v3",
     params(
         ("id" = Uuid, Path, description = "手術紀錄 ID"),
-        ("format" = Option<String>, Query, description = "docx / pdf（預設 pdf）"),
+        ("format" = Option<String>, Query, description = "pdf（預設 pdf；docx 已於 2026-09-04 移除）"),
     ),
     responses((status = 200, description = "手術紀錄檔案")),
     tag = "動物管理",
@@ -141,12 +147,14 @@ pub async fn export_surgery_pdf_v3(
     )
     .await?;
 
+    // ⚠️ `docx` 於 2026-09-04 移除（決策 89.1）：它從來沒有真的產出 docx，
+    // 只是把 PDF bytes 標成 Word MIME + `.docx` 副檔名送給使用者。
+    // 現在明確回 400——壞檔是靜默的錯，400 是看得見的錯。
     let format = match params.get("format").map(String::as_str) {
-        Some("docx") => DocxRenderFormat::Docx,
         Some("pdf") | None => DocxRenderFormat::Pdf,
         Some(other) => {
             return Err(AppError::BadRequest(format!(
-                "Invalid format: {other} (expected 'docx' or 'pdf')"
+                "Invalid format: {other} (expected 'pdf')"
             )));
         }
     };
