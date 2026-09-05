@@ -77,10 +77,15 @@ export default {
     // 因為它是純追蹤資料，不受後面送信結果影響（跟 fails/lastOkAt 同一類）。
     await bootstrap.commit();
     const alerts = [...health.alerts, ...heartbeats.flatMap((h) => h.alerts)];
+    // 哪些機制在這一輪有話要說。只用來組主旨，不影響判斷或內文。
+    const scopes = [
+      ...(health.alerts.length > 0 ? ["系統"] : []),
+      ...heartbeats.filter((h) => h.alerts.length > 0).map((h) => `心跳「${h.job}」`),
+    ];
     let sendError = null;
     if (alerts.length > 0) {
       try {
-        await sendAlert(env, alerts, now);
+        await sendAlert(env, alerts, now, scopes);
       } catch (e) {
         sendError = e;
       }
@@ -295,6 +300,7 @@ async function checkHeartbeat(env, job, maxAgeMs, now, bootstrapAt) {
   }
 
   return {
+    job,
     alerts,
     async commit(delivered) {
       // 送信失敗時保留原本的 alerted，下一輪重新嘗試通知
@@ -310,9 +316,12 @@ async function checkHeartbeat(env, job, maxAgeMs, now, bootstrapAt) {
 // 通知
 // ============================================================================
 
-async function sendAlert(env, lines, now) {
+async function sendAlert(env, lines, now, scopes) {
   const down = lines.some((l) => l.startsWith("🔴") || l.startsWith("🟠"));
-  const subject = down ? "[iPig 看門狗] 系統異常" : "[iPig 看門狗] 已恢復";
+  // 主旨必須帶機制別。2026-09-05 失敗演練實測：主動探測與心跳的告警主旨完全相同，
+  // Gmail 依主旨把兩封摺進同一個 thread——真實故障若接在別的告警之後，新的那封會被
+  // 埋在舊 thread 裡而不顯眼。這對一個「唯一的外部告警管道」是不能接受的失敗模式。
+  const subject = `[iPig 看門狗] ${down ? "異常" : "已恢復"}：${scopes.join(" + ")}`;
   const text = [
     ...lines,
     "",

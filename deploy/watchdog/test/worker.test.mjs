@@ -229,6 +229,85 @@ test("心跳逾期會告警——KvUnavailable 的修正沒有把這條路一起
 });
 
 // ---------------------------------------------------------------------------
+// 告警主旨帶機制別：2026-09-05 失敗演練實測發現，主動探測與心跳的告警主旨
+// 完全相同，Gmail 依主旨把兩封摺進同一個 thread，新告警會被埋在舊 thread 裡
+// ---------------------------------------------------------------------------
+
+/** 從 stub 收到的 EmailMessage 取回主旨（worker.js 依 RFC 2047 把中文主旨 base64 編碼）。 */
+function subjectOf(msg) {
+  const line = msg.raw.split("\r\n").find((l) => l.startsWith("Subject: "));
+  const encoded = line.match(/^Subject: =\?UTF-8\?B\?(.*)\?=$/)[1];
+  return Buffer.from(encoded, "base64").toString("utf8");
+}
+
+test("兩種機制的告警主旨必須不同——相同主旨會被郵件客戶端摺進同一個 thread", async () => {
+  // 情境一：心跳逾期，探測正常
+  const hbKv = makeKv({
+    data: {
+      "state:bootstrap": { at: NOW - 10 * 24 * HOUR },
+      "ping:backup": { at: NOW - 30 * HOUR },
+    },
+  });
+  const hbEnv = makeEnv(hbKv);
+  await withHealth(true, () => worker.scheduled({}, hbEnv, {}));
+
+  // 情境二：探測連續失敗達門檻，心跳正常
+  const probeKv = makeKv({
+    data: {
+      "state:bootstrap": { at: NOW },
+      "ping:backup": { at: NOW - 1 * HOUR },
+    },
+  });
+  const probeEnv = makeEnv(probeKv);
+  for (let i = 0; i < 3; i++) {
+    await withHealth(false, () => worker.scheduled({}, probeEnv, {}));
+  }
+
+  const hbSubject = subjectOf(hbEnv.sent[0]);
+  const probeSubject = subjectOf(probeEnv.sent[0]);
+
+  assert.equal(hbSubject, "[iPig 看門狗] 異常：心跳「backup」");
+  assert.equal(probeSubject, "[iPig 看門狗] 異常：系統");
+  assert.notEqual(
+    hbSubject,
+    probeSubject,
+    "這是本測試存在的唯一理由：兩者相同就會撞同一個 mail thread",
+  );
+});
+
+test("同一輪兩種機制都告警時，主旨並列兩者", async () => {
+  // 真實情境：筆電掛掉 → 探測連續失敗，同時備份也沒跑、心跳逾期
+  const kv = makeKv({
+    data: {
+      "state:bootstrap": { at: NOW - 10 * 24 * HOUR },
+      "state:probe": { fails: 2, alerted: false, lastOkAt: NOW - 3 * HOUR },
+      "ping:backup": { at: NOW - 30 * HOUR },
+    },
+  });
+  const env = makeEnv(kv);
+
+  await withHealth(false, () => worker.scheduled({}, env, {}));
+
+  assert.equal(env.sent.length, 1, "同一輪的多個告警應合併成一封信");
+  assert.equal(subjectOf(env.sent[0]), "[iPig 看門狗] 異常：系統 + 心跳「backup」");
+});
+
+test("恢復信的主旨同樣帶機制別", async () => {
+  const kv = makeKv({
+    data: {
+      "state:bootstrap": { at: NOW - 10 * 24 * HOUR },
+      "ping:backup": { at: NOW - 1 * HOUR }, // 已回報，不再逾期
+      "state:hb:backup": { alerted: true }, // 但先前告警過
+    },
+  });
+  const env = makeEnv(kv);
+
+  await withHealth(true, () => worker.scheduled({}, env, {}));
+
+  assert.equal(subjectOf(env.sent[0]), "[iPig 看門狗] 已恢復：心跳「backup」");
+});
+
+// ---------------------------------------------------------------------------
 // /ping 節流：token 外洩或用戶端重試迴圈失控時，不讓單一 job 打滿
 // 免費層每日 1000 次 KV 寫入額度（security review 發現，見 wrangler secret
 // PING_TOKEN 外洩即可無限觸發此路徑）
