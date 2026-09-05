@@ -852,6 +852,11 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
                 "hr.balance.view",
                 "hr.calendar.view",
                 "hr.leave.view_calendar",
+                // 2026-09-06（P0-1，使用者裁定）：撤銷電子簽章，與 QAU 同時授予。
+                // 理由見 QAU 那列的同名註解；負責人這一側的定位是「品保不在時的
+                // 第二個可執行者」，而不是把它變成日常操作——本碼的說明文字
+                // （`003_seed.sql:329`）本來就寫著「僅供稀有／緊急情境使用」。
+                "signature.invalidate",
                 // Dashboard
                 "dashboard.view",
             ],
@@ -875,6 +880,14 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
                 "qau.sop.manage",
                 "qau.schedule.view",
                 "qau.schedule.manage",
+                // 2026-09-06（P0-1，使用者裁定）：撤銷電子簽章。
+                // 此碼定義在 `003_seed.sql:329`（不在本檔的 required_permissions 清單），
+                // 在此之前**授予零角色**＝只有 admin 靠 has_permission 短路做得到，
+                // 而「簽章作廢的執行者＝系統管理員」在 GLP 稽核上站不住：作廢是品保
+                // 判斷（簽錯人、離職撤回、key compromise），不是有 root 權限的人該決定的事。
+                // 前端入口已存在（`AuditLogsPage` 的「撤銷簽章」鈕 → `InvalidateSignatureDialog`，
+                // 要求 signature id + 理由 + 密碼二次確認），授予後即可點得到。
+                "signature.invalidate",
                 // 跨模組唯讀
                 "aup.protocol.view_all",
                 "aup.review.view",
