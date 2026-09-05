@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import api, { ProtocolConsumptionReport } from '@/lib/api'
@@ -104,6 +104,15 @@ export function ProtocolConsumptionReportPage() {
   // 那是錯的：那個動作不會重查，等於叫使用者做一件沒有作用的事。
   const filterEnabled = !truncated
   const activeProtocolId = filterEnabled ? protocolId : ''
+
+  // 截斷一發生就把選擇清掉，不只是「忽略它」。
+  //
+  // 只靠 `activeProtocolId` 遮蔽的話，`protocolId` 還留著：使用者把日期放寬到截斷、
+  // 下拉顯示回「全部計畫」，之後再把日期縮回來——那個看不見的舊選擇會自己復活，
+  // 資料無聲變窄，而使用者從沒再選過。畫面上看得到的狀態必須就是實際生效的狀態。
+  useEffect(() => {
+    if (truncated && protocolId) setProtocolId('')
+  }, [truncated, protocolId])
 
   const rows = useMemo(
     () =>
