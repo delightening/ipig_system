@@ -227,3 +227,59 @@ test("心跳逾期會告警——KvUnavailable 的修正沒有把這條路一起
     "告警送出後應把 alerted 狀態寫回，避免每 5 分鐘重寄",
   );
 });
+
+// ---------------------------------------------------------------------------
+// /ping 節流：token 外洩或用戶端重試迴圈失控時，不讓單一 job 打滿
+// 免費層每日 1000 次 KV 寫入額度（security review 發現，見 wrangler secret
+// PING_TOKEN 外洩即可無限觸發此路徑）
+// ---------------------------------------------------------------------------
+
+function pingRequest(env) {
+  return new Request("https://w.invalid/ping/backup", {
+    method: "POST",
+    headers: { authorization: `Bearer ${env.PING_TOKEN}` },
+  });
+}
+
+test("/ping 首次觸發（無舊值）：照樣寫入", async () => {
+  const kv = makeKv();
+  const env = makeEnv(kv);
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204);
+  assert.equal(kv.puts.length, 1, "沒有舊值可比較，第一次必須寫入");
+  assert.equal(kv.puts[0].key, "ping:backup");
+});
+
+test("/ping 節流視窗內重複觸發：不重複寫入 KV", async () => {
+  const kv = makeKv({ data: { "ping:backup": { at: NOW - 1 * 60 * 1000 } } }); // 1 分鐘前
+  const env = makeEnv(kv);
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204, "節流不影響回應——呼叫端看不出差異，只是狀態沒真的回寫");
+  assert.deepEqual(kv.puts, [], "5 分鐘節流視窗內，第二次觸發不得再消耗一次 KV write 額度");
+});
+
+test("/ping 節流視窗外再次觸發：允許重新寫入", async () => {
+  const kv = makeKv({ data: { "ping:backup": { at: NOW - 6 * 60 * 1000 } } }); // 6 分鐘前，超過節流視窗
+  const env = makeEnv(kv);
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204);
+  assert.equal(kv.puts.length, 1, "已超過節流視窗，這次觸發應該真的落地");
+});
+
+test("/ping 節流檢查本身讀 KV 失敗：仍照樣寫入（心跳比節流精確度重要）", async () => {
+  const kv = makeKv({ failOn: ["ping:backup"] });
+  const env = makeEnv(kv);
+  // makeKv 的 get() 對 failOn 內的 key 一律丟例外，put() 不受影響——
+  // 這裡驗證的是「讀不到舊值時 fail-open 去寫」，不是「KV 整個不可用」。
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204);
+  assert.equal(kv.puts.length, 1, "讀不到舊值不該讓真正的心跳寫入被卡住");
+});

@@ -34,6 +34,14 @@ const hbStateKey = (job) => `state:hb:${job}`;
 /** 探測成功時，lastOkAt 最多這麼久才回寫一次 KV（免費層每日 1000 writes）。 */
 const OK_WRITE_INTERVAL_MS = 60 * 60 * 1000;
 
+/**
+ * /ping/<job> 同一 job 最多這麼久才真的回寫一次 KV。心跳本來就是低頻事件
+ * （backup 一天一次），這個節流只為了擋 token 外洩或用戶端重試迴圈失控時
+ * 打滿免費層每日 1000 writes 額度——不影響逾期判斷的正確性，因為視窗遠小於
+ * HEARTBEAT_JOBS 的門檻（最短 26 小時）。
+ */
+const PING_WRITE_MIN_INTERVAL_MS = 5 * 60 * 1000;
+
 export default {
   async scheduled(_event, env, _ctx) {
     const now = Date.now();
@@ -102,7 +110,17 @@ export default {
       if (!Object.hasOwn(HEARTBEAT_JOBS, job)) {
         return new Response("unknown job", { status: 404 });
       }
-      await env.WATCHDOG_KV.put(pingKey(job), JSON.stringify({ at: Date.now() }));
+      const now = Date.now();
+      let prevPing = null;
+      try {
+        prevPing = await kvGetJSON(env, pingKey(job));
+      } catch (e) {
+        if (!(e instanceof KvUnavailable)) throw e;
+        // 讀不到舊值就當作沒有節流依據——心跳本身比節流精確度重要，照樣寫入
+      }
+      if (!prevPing?.at || now - prevPing.at >= PING_WRITE_MIN_INTERVAL_MS) {
+        await env.WATCHDOG_KV.put(pingKey(job), JSON.stringify({ at: now }));
+      }
       return new Response(null, { status: 204 });
     }
 
