@@ -7,7 +7,11 @@ use crate::{
         Amendment, AmendmentStatus, AmendmentType, AmendmentVersion, CreateAmendmentRequest,
         UpdateAmendmentRequest,
     },
-    services::access::{AmendmentWrite, Scoped},
+    services::{
+        access::{AmendmentWrite, Scoped},
+        signature::DelegationRef,
+        SignatureService,
+    },
     AppError, Result,
 };
 
@@ -18,12 +22,22 @@ impl AmendmentService {
     /// 格式：{IACUC_NO}-R{序號:02}
     /// 例如：PIG-114001-R01, PIG-114001-R02
     pub async fn generate_amendment_no(pool: &PgPool, protocol_id: Uuid) -> Result<(String, i32)> {
+        let mut conn = pool.acquire().await?;
+        Self::generate_amendment_no_conn(&mut conn, protocol_id).await
+    }
+
+    /// `generate_amendment_no` 的連線版，供需要與後續寫入同屬一個交易的呼叫端使用
+    /// （`create` 要在同一 tx 內完成「重驗代理授權 → 取號 → INSERT」）。
+    pub(crate) async fn generate_amendment_no_conn(
+        conn: &mut sqlx::PgConnection,
+        protocol_id: Uuid,
+    ) -> Result<(String, i32)> {
         // 取得原計畫的 IACUC NO
         let protocol = sqlx::query!(
             r#"SELECT iacuc_no FROM protocols WHERE id = $1"#,
             protocol_id
         )
-        .fetch_optional(pool)
+        .fetch_optional(&mut *conn)
         .await?
         .ok_or_else(|| AppError::NotFound("Protocol not found".into()))?;
 
@@ -36,7 +50,7 @@ impl AmendmentService {
             r#"SELECT COALESCE(MAX(revision_number), 0) as "max!" FROM amendments WHERE protocol_id = $1"#,
             protocol_id
         )
-        .fetch_one(pool)
+        .fetch_one(&mut *conn)
         .await?;
 
         let new_revision = max_revision + 1;
@@ -51,6 +65,17 @@ impl AmendmentService {
     /// `protocol_pi_delegates` 授權代為建立的代理人（migration 010）。由 handler 以
     /// `access::amendment_writer_delegation` 解析後傳入——本函式不重解，因為
     /// 「是不是以代理身分行事」屬於 HTTP 端點的語意，與 `sign_closure` 同一分工。
+    ///
+    /// 但**解析與寫入之間的競態要在這裡關掉**：handler 解析授權時沒有對該列下鎖，
+    /// 所以「撤銷交易在解出之後、INSERT 之前 commit」是成立的時序。真的發生時，
+    /// `created_delegation_id` 會指向一筆當下已失效的授權——那是假的可歸責證據，
+    /// 比不記錄更糟。因此本函式改為單一交易，並在寫入前以
+    /// `SignatureService::assert_delegation_still_valid_tx` 重驗＋鎖列，
+    /// 與簽章／安樂死路徑共用同一道判準（撤銷與到期都算失效）。
+    ///
+    /// 鎖順序：本路徑**只取**代理列的 `FOR UPDATE`，計畫那筆是不加鎖的 SELECT。
+    /// `revoke_pi_delegate` / `authorize_pi_delegate` 的順序是 protocols → delegate，
+    /// 而本路徑不持有 protocols 的鎖，因此構不成循環等待。
     pub async fn create(
         pool: &PgPool,
         scope: Scoped<AmendmentWrite>,
@@ -67,12 +92,14 @@ impl AmendmentService {
             return Err(AppError::BadRequest("請求的計畫 ID 與授權證明不符".into()));
         }
 
+        let mut tx = pool.begin().await?;
+
         // 檢查計畫是否存在且為已核准狀態
         let protocol = sqlx::query!(
             r#"SELECT status::text as "status!" FROM protocols WHERE id = $1"#,
             protocol_id
         )
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Protocol not found".into()))?;
 
@@ -83,8 +110,21 @@ impl AmendmentService {
             ));
         }
 
+        // 代簽授權在同一 tx 內重驗並鎖列（見本函式 doc comment）。
+        if let Some(delegation_id) = created_delegation {
+            SignatureService::assert_delegation_still_valid_tx(
+                &mut tx,
+                DelegationRef {
+                    id: delegation_id,
+                    protocol_id,
+                },
+                created_by,
+            )
+            .await?;
+        }
+
         let (amendment_no, revision_number) =
-            Self::generate_amendment_no(pool, protocol_id).await?;
+            Self::generate_amendment_no_conn(&mut tx, protocol_id).await?;
 
         let id = Uuid::new_v4();
 
@@ -119,12 +159,12 @@ impl AmendmentService {
             created_by,
             created_delegation
         )
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
-        // 記錄狀態歷程
+        // 記錄狀態歷程（同一 tx：狀態歷程與 amendment 本體必須同生同滅）
         Self::record_status_change(
-            pool,
+            &mut *tx,
             id,
             None,
             AmendmentStatus::Draft,
@@ -132,6 +172,8 @@ impl AmendmentService {
             Some("變更申請草稿建立".to_string()),
         )
         .await?;
+
+        tx.commit().await?;
 
         Ok(amendment)
     }
@@ -242,9 +284,13 @@ impl AmendmentService {
         Ok(())
     }
 
-    /// 建立版本快照
-    pub(crate) async fn create_version_snapshot(
-        pool: &PgPool,
+    /// 建立版本快照。
+    ///
+    /// 只有連線版：唯一呼叫端 `submit` 必須讓快照與該次 UPDATE 同生同滅，
+    /// 否則會留下「送審失敗但版本已加一」的孤兒。沒有 pool 版是刻意的——
+    /// 留一個能在交易外呼叫的入口，等於把那個孤兒缺口再開回來。
+    pub(crate) async fn create_version_snapshot_conn(
+        conn: &mut sqlx::PgConnection,
         amendment_id: Uuid,
         submitted_by: Uuid,
     ) -> Result<AmendmentVersion> {
@@ -253,13 +299,13 @@ impl AmendmentService {
             r#"SELECT COALESCE(MAX(version_no), 0) as "max!" FROM amendment_versions WHERE amendment_id = $1"#,
             amendment_id
         )
-        .fetch_one(pool)
+        .fetch_one(&mut *conn)
         .await?;
 
         let new_version = max_version + 1;
 
         // 取得目前變更申請內容作為快照
-        let current = Self::get_by_id_raw(pool, amendment_id).await?;
+        let current = Self::get_by_id_raw_conn(&mut *conn, amendment_id).await?;
 
         let snapshot = serde_json::json!({
             "title": current.title,
@@ -281,7 +327,7 @@ impl AmendmentService {
             snapshot,
             submitted_by,
         )
-        .fetch_one(pool)
+        .fetch_one(&mut *conn)
         .await?;
 
         Ok(version)
@@ -289,6 +335,16 @@ impl AmendmentService {
 
     /// 取得單一變更申請（原始）
     pub(crate) async fn get_by_id_raw(pool: &PgPool, id: Uuid) -> Result<Amendment> {
+        let mut conn = pool.acquire().await?;
+        Self::get_by_id_raw_conn(&mut conn, id).await
+    }
+
+    /// `get_by_id_raw` 的連線版：`submit` 要在自己的交易內讀，否則讀到的狀態
+    /// 可能在 UPDATE 之前就被別的交易改掉。
+    pub(crate) async fn get_by_id_raw_conn(
+        conn: &mut sqlx::PgConnection,
+        id: Uuid,
+    ) -> Result<Amendment> {
         let amendment = sqlx::query_as!(
             Amendment,
             r#"
@@ -307,7 +363,7 @@ impl AmendmentService {
             "#,
             id
         )
-        .fetch_optional(pool)
+        .fetch_optional(&mut *conn)
         .await?
         .ok_or_else(|| AppError::NotFound("Amendment not found".into()))?;
 

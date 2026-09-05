@@ -1050,6 +1050,228 @@ async fn amendment_created_in_person_leaves_delegation_null() {
     );
 }
 
+// ── 修正案寫入：解析與寫入之間的競態（待決 53.3 的裁定）─────────────
+//
+// handler 解析授權時沒有對該列下鎖，所以「撤銷交易在解出之後、寫入之前 commit」
+// 是成立的時序。真的發生時，`created_delegation_id` / `submitted_delegation_id`
+// 會指向一筆當下已失效的授權——那是假的可歸責證據，比不記錄更糟。
+//
+// 下面四條把那個視窗做成確定性的：先取得 scope 與 delegation（模擬 handler 解析
+// 完成），**接著**才讓授權失效，然後才呼叫 service。這不是人為刁難——真實時序
+// 就是這樣，只是視窗窄。
+
+enum Invalidate {
+    Revoke,
+    Expire,
+}
+
+async fn invalidate_delegation(
+    app: &TestApp,
+    sd: Uuid,
+    protocol: Uuid,
+    delegation_id: Uuid,
+    how: Invalidate,
+) {
+    match how {
+        Invalidate::Revoke => {
+            ProtocolService::revoke_pi_delegate(
+                &app.db_pool,
+                &actor(sd, &["EXPERIMENT_STAFF"]),
+                protocol,
+                Some("測試：解析之後撤銷"),
+            )
+            .await
+            .expect("revoke");
+        }
+        Invalidate::Expire => expire_delegation(app, delegation_id).await,
+    }
+}
+
+/// 佈場：外部 PI 計畫 + 一位生效中的代理人，並把 iacuc_no 補上（編號產生器要求）。
+/// 回傳 (creator, sd, delegate, protocol, delegation_id, delegate_user)。
+async fn seed_delegate_amendment_scene(
+    app: &TestApp,
+) -> (Uuid, Uuid, Uuid, Uuid, Uuid, CurrentUser) {
+    let creator = seed_user(app, None).await;
+    let sd = seed_user(app, Some("EXPERIMENT_STAFF")).await;
+    let delegate = seed_user(app, None).await;
+    let protocol = seed_external_pi_protocol(app, creator, Some(sd)).await;
+
+    sqlx::query("UPDATE protocols SET iacuc_no = COALESCE(iacuc_no, $2) WHERE id = $1")
+        .bind(protocol)
+        .bind(format!("IACUC-TOC-{}", &protocol.to_string()[..8]))
+        .execute(&app.db_pool)
+        .await
+        .expect("set iacuc_no");
+
+    let delegation_id = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("authorize")
+    .id;
+
+    let delegate_user = CurrentUser {
+        id: delegate,
+        email: format!("{delegate}@test.local"),
+        roles: vec![],
+        permissions: vec![],
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    };
+
+    (
+        creator,
+        sd,
+        delegate,
+        protocol,
+        delegation_id,
+        delegate_user,
+    )
+}
+
+async fn amendment_count(app: &TestApp, protocol: Uuid) -> i64 {
+    sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM amendments WHERE protocol_id = $1")
+        .bind(protocol)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("count amendments")
+}
+
+async fn create_after_invalidation(app: &TestApp, how: Invalidate) {
+    use erp_backend::models::CreateAmendmentRequest;
+    use erp_backend::services::AmendmentService;
+
+    let (_creator, sd, delegate, protocol, delegation_id, delegate_user) =
+        seed_delegate_amendment_scene(app).await;
+
+    // ── handler 的解析步驟（此刻授權有效）
+    let scope =
+        access::Scoped::<access::AmendmentWrite>::authorize(&app.db_pool, &delegate_user, protocol)
+            .await
+            .expect("authorize amendment write");
+    let delegation = access::amendment_writer_delegation(&app.db_pool, &delegate_user, protocol)
+        .await
+        .expect("resolve delegation");
+    assert_eq!(
+        delegation,
+        Some(delegation_id),
+        "前提：解析當下授權有效，否則這條測不到競態"
+    );
+
+    // ── 競態視窗：解析之後、寫入之前失效
+    invalidate_delegation(app, sd, protocol, delegation_id, how).await;
+
+    let before = amendment_count(app, protocol).await;
+    let result = AmendmentService::create(
+        &app.db_pool,
+        scope,
+        &CreateAmendmentRequest {
+            protocol_id: protocol,
+            title: "解析後授權才失效".to_string(),
+            description: None,
+            change_items: None,
+            changes_content: None,
+        },
+        delegate,
+        delegation,
+    )
+    .await;
+
+    assert!(
+        matches!(result, Err(AppError::Forbidden(_))),
+        "授權在寫入前已失效，不得建立——實際：{result:?}"
+    );
+    assert_eq!(
+        amendment_count(app, protocol).await,
+        before,
+        "被拒的建立不得留下任何一列（交易要整個回滾）"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn amendment_create_rejects_delegation_revoked_after_resolution() {
+    let app = TestApp::spawn().await;
+    create_after_invalidation(&app, Invalidate::Revoke).await;
+}
+
+#[tokio::test]
+#[serial]
+async fn amendment_create_rejects_delegation_expired_after_resolution() {
+    let app = TestApp::spawn().await;
+    create_after_invalidation(&app, Invalidate::Expire).await;
+}
+
+async fn submit_after_invalidation(app: &TestApp, how: Invalidate) {
+    use erp_backend::services::AmendmentService;
+
+    let (_creator, sd, delegate, protocol, delegation_id, delegate_user) =
+        seed_delegate_amendment_scene(app).await;
+
+    // 先在授權有效時把草稿建起來——這一條要測的是送審，不是建立。
+    let amendment = make_amendment(app, protocol, delegate, &delegate_user, "待送審的變更").await;
+
+    let scope =
+        access::Scoped::<access::AmendmentWrite>::authorize(&app.db_pool, &delegate_user, protocol)
+            .await
+            .expect("authorize amendment write");
+    let delegation = access::amendment_writer_delegation(&app.db_pool, &delegate_user, protocol)
+        .await
+        .expect("resolve delegation");
+    assert_eq!(delegation, Some(delegation_id), "前提：解析當下授權有效");
+
+    invalidate_delegation(app, sd, protocol, delegation_id, how).await;
+
+    let result =
+        AmendmentService::submit(&app.db_pool, scope, amendment.id, delegate, delegation).await;
+
+    assert!(
+        matches!(result, Err(AppError::Forbidden(_))),
+        "授權在寫入前已失效，不得送審——實際：{result:?}"
+    );
+
+    // 狀態必須留在 DRAFT，且不得留下版本快照或狀態歷程的孤兒。
+    let (status, submitted_delegation): (String, Option<Uuid>) = sqlx::query_as(
+        "SELECT status::text, submitted_delegation_id FROM amendments WHERE id = $1",
+    )
+    .bind(amendment.id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("read amendment");
+    assert_eq!(status, "DRAFT", "被拒的送審不得改動狀態");
+    assert_eq!(submitted_delegation, None, "不得寫入已失效的授權作為證據");
+
+    let versions = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM amendment_versions WHERE amendment_id = $1",
+    )
+    .bind(amendment.id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("count versions");
+    assert_eq!(versions, 0, "送審被拒卻留下版本快照＝交易沒有整個回滾");
+}
+
+#[tokio::test]
+#[serial]
+async fn amendment_submit_rejects_delegation_revoked_after_resolution() {
+    let app = TestApp::spawn().await;
+    submit_after_invalidation(&app, Invalidate::Revoke).await;
+}
+
+#[tokio::test]
+#[serial]
+async fn amendment_submit_rejects_delegation_expired_after_resolution() {
+    let app = TestApp::spawn().await;
+    submit_after_invalidation(&app, Invalidate::Expire).await;
+}
+
 // ── 結案雙簽：真正的寫入端（不是只測讀取端的 gate）───────────────
 //
 // 同 `api_protocol_closure_sign_path.rs` 的理由：讀取端 gate 綠燈不代表寫入端
