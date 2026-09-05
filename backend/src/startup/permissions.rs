@@ -20,6 +20,18 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // 見 docs/audit/button-permission-gate-2026-08-07.md §6。
         ("animal.planning.view", "檢視動物預約與試驗規劃", "animal", "可檢視全場動物按試驗分組的分配清冊與缺口（唯讀）"),
         ("animal.planning.manage", "管理動物預約與試驗規劃", "animal", "可新增預定試驗、批次預約 / 解除預約、正式分配進實驗、編輯規劃頁備註"),
+        // 動物轉讓的協調段（發起 / 指定新計畫 / 完成 / 拒絕）。
+        //
+        // P0-3（2026-09-05 使用者裁定選項 B）：五段簽核原本有四段共用
+        // `animal.record.create`，任何持該碼又能存取該動物的人可獨力把流程從發起推到完成
+        // ——只有第 4 段（PI 同意）有職責分離。本碼把協調段從「登錄動物紀錄」的能力中分離
+        // 出來，授予執行秘書（IACUC_STAFF），與第 2 段（獸醫評估，`animal.vet.recommend`）
+        // 及第 4 段（簽署權責，`check_transfer_signing_authority`）形成三方分權。
+        //
+        // ⚠️ 這是**取代**而非疊加：原本持有 `animal.record.create` 的 EXPERIMENT_STAFF /
+        // INTERN 不再能推進轉讓流程。他們原本做得到只是權限發錯的副作用——這條流程
+        // 本來就該由執秘跑（見 docs/reviews/2026-09-03-code-side-issues.md §P0-3）。
+        ("animal.transfer.manage", "管理動物轉讓流程", "animal", "可發起動物轉讓、指定轉入計畫、完成或拒絕轉讓（獸醫評估與 PI 同意另有專屬權責，不含在內）"),
         // 血檢項目管理（模板、組合、常用組合）
         ("animal.blood_test_template.manage", "血檢項目管理", "animal", "可檢視與編輯血檢項目模板、組合、常用組合"),
         // 版本還原
@@ -506,6 +518,9 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
                 // 動物預約與試驗規劃：檢視 + 操作（執秘是唯一有操作權的角色）
                 "animal.planning.view",
                 "animal.planning.manage",
+                // 動物轉讓的協調段（發起 / 指定新計畫 / 完成 / 拒絕）。
+                // P0-3：執秘是這條流程的協調者，獸醫評估與 PI 同意各自另有權責把關。
+                "animal.transfer.manage",
                 // AUP 計畫管理：執秘對計畫內容唯讀（不含 edit / submit，對齊原始 spec §4.1
                 // 「編輯草稿 / 提交計畫 ✗」）；保留審查指派 / 核准 / 變更狀態等協調權。
                 "aup.protocol.view_all",

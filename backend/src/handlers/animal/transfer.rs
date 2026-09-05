@@ -88,7 +88,8 @@ pub async fn initiate_transfer(
     Path(animal_id): Path<Uuid>,
     Json(req): Json<CreateTransferRequest>,
 ) -> Result<Json<AnimalTransfer>> {
-    require_permission!(current_user, "animal.record.create");
+    // P0-3 SoD：協調段用 `animal.transfer.manage`（執秘），與獸醫評估、PI 同意分權。
+    require_permission!(current_user, "animal.transfer.manage");
     // SEC-IDOR: 驗證使用者有權存取該動物（與讀取端點一致；防跨計畫發起轉讓）
     let scope =
         access::Scoped::<access::AnimalWrite>::authorize(&state.db, &current_user, animal_id)
@@ -132,7 +133,8 @@ pub async fn assign_transfer_plan(
     Path(transfer_id): Path<Uuid>,
     Json(req): Json<AssignTransferPlanRequest>,
 ) -> Result<Json<AnimalTransfer>> {
-    require_permission!(current_user, "animal.record.create");
+    // P0-3 SoD：指定轉入計畫屬協調段，與發起 / 完成 / 拒絕同一把關。
+    require_permission!(current_user, "animal.transfer.manage");
     // SEC-IDOR: 經轉讓記錄反查 animal_id，驗證計畫存取權限
     let existing = AnimalTransferService::get_transfer(&state.db, transfer_id).await?;
     let scope = access::Scoped::<access::AnimalWrite>::authorize(
@@ -157,7 +159,6 @@ pub async fn approve_transfer(
     Extension(current_user): Extension<CurrentUser>,
     Path(transfer_id): Path<Uuid>,
 ) -> Result<Json<AnimalTransfer>> {
-    require_permission!(current_user, "animal.record.create");
     // SEC-IDOR: 經轉讓記錄反查 animal_id，驗證計畫存取權限
     let existing = AnimalTransferService::get_transfer(&state.db, transfer_id).await?;
     let scope = access::Scoped::<access::AnimalWrite>::authorize(
@@ -166,8 +167,15 @@ pub async fn approve_transfer(
         existing.animal_id,
     )
     .await?;
-    // #179 SoD：核准（PI 同意）須具轉讓簽署權責——VET 或轉出/入計劃 PI，而非僅
-    // animal.record.create。發起人自核另由 service 層擋。
+    // #179 SoD：核准（PI 同意）須具轉讓簽署權責——VET 或轉出/入計劃 PI。
+    // 發起人自核另由 service 層擋。
+    //
+    // P0-3（2026-09-05）：本處原本還疊了一道 `require_permission!("animal.record.create")`，
+    // 那是既有缺陷——VET 角色**沒有**該權限碼（`startup/permissions.rs` 的 VET 清單），
+    // 於是純獸醫（未兼 EXPERIMENT_STAFF）在走到本檢查之前就被 403 擋掉，
+    // 這個函式從來沒有被 VET-only 使用者真正通過過，與下方檢查自己的錯誤訊息
+    //「僅獸醫師或轉出 / 轉入計劃主持人可簽署此轉讓」直接矛盾。
+    // 簽署權責由 check_transfer_signing_authority 單獨認定，不再另加權限碼閘。
     crate::services::SignatureService::check_transfer_signing_authority(
         &state.db,
         transfer_id,
@@ -189,7 +197,8 @@ pub async fn complete_transfer(
     Extension(current_user): Extension<CurrentUser>,
     Path(transfer_id): Path<Uuid>,
 ) -> Result<Json<AnimalTransfer>> {
-    require_permission!(current_user, "animal.record.create");
+    // P0-3 SoD：完成轉讓（含 external 離場終態）屬協調段，由執秘按下。
+    require_permission!(current_user, "animal.transfer.manage");
     // SEC-IDOR: 經轉讓記錄反查 animal_id，驗證計畫存取權限
     let existing = AnimalTransferService::get_transfer(&state.db, transfer_id).await?;
     let scope = access::Scoped::<access::AnimalWrite>::authorize(
@@ -214,7 +223,8 @@ pub async fn reject_transfer(
     Path(transfer_id): Path<Uuid>,
     Json(req): Json<RejectTransferRequest>,
 ) -> Result<Json<AnimalTransfer>> {
-    require_permission!(current_user, "animal.record.create");
+    // P0-3 SoD：拒絕轉讓屬協調段，與發起 / 指定計畫 / 完成同一把關。
+    require_permission!(current_user, "animal.transfer.manage");
     // SEC-IDOR: 經轉讓記錄反查 animal_id，驗證計畫存取權限
     let existing = AnimalTransferService::get_transfer(&state.db, transfer_id).await?;
     let scope = access::Scoped::<access::AnimalWrite>::authorize(
