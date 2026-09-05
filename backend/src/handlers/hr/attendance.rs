@@ -414,7 +414,14 @@ fn resolve_monthly_report_scope(query: &mut MonthlyAttendanceQuery, current_user
 }
 
 /// 工時月報：某年月每人一列的工時合計
-#[utoipa::path(get, path = "/api/v1/hr/attendance/monthly-report", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+#[utoipa::path(
+    get,
+    path = "/api/v1/hr/attendance/monthly-report",
+    params(MonthlyAttendanceQuery),
+    responses((status = 200, description = "工時月報", body = Vec<MonthlyAttendanceSummary>)),
+    tag = "HR 出勤",
+    security(("bearer" = []))
+)]
 pub async fn get_monthly_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -429,7 +436,19 @@ pub async fn get_monthly_report(
 }
 
 /// 工時月報匯出 Excel
-#[utoipa::path(get, path = "/api/v1/hr/attendance/monthly-report/export", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+#[utoipa::path(
+    get,
+    path = "/api/v1/hr/attendance/monthly-report/export",
+    params(MonthlyAttendanceQuery),
+    responses((
+        status = 200,
+        description = "工時月報 Excel 檔",
+        content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        body = Vec<u8>
+    )),
+    tag = "HR 出勤",
+    security(("bearer" = []))
+)]
 pub async fn export_monthly_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

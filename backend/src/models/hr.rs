@@ -114,7 +114,7 @@ pub struct AttendanceBackfillRequest {
 
 /// 工時月報查詢。年月必填；`user_id` 未帶時，具 `hr.attendance.view_all` 者看全體、
 /// 其餘只看自己（由 handler 收斂，見 `resolve_monthly_report_scope`）。
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::IntoParams)]
 pub struct MonthlyAttendanceQuery {
     pub year: i32,
     pub month: u32,
@@ -125,7 +125,7 @@ pub struct MonthlyAttendanceQuery {
 ///
 /// 刻意不含遲到／早退計數：`status` 欄目前只由 `clock_in` 寫死 `'normal'`，
 /// 系統沒有上下班時間基準也沒有國定假日行事曆，那兩欄會是恆為 0 的假資料。
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct MonthlyAttendanceSummary {
     pub user_id: Uuid,
     pub user_name: String,
