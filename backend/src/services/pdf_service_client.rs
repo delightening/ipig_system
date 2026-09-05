@@ -264,7 +264,7 @@ impl PdfServiceClient {
             .await
     }
 
-    /// R32-A3b 收尾：呼叫 `POST /render-vet-patrol/from-animals?format={xlsx|pdf}`。
+    /// R32-A3b 收尾：呼叫 `POST /render-vet-patrol/from-animals?format=pdf`。
     ///
     /// L2 (2026-05-12)：除 bytes 外回傳 `X-PDF-Renderer`。
     /// ⚠️ 2026-09-04 訂正：原列的 `excel_daemon` / `gotenberg_fallback` 已不存在，
