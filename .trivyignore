@@ -51,4 +51,30 @@
 #   要斷言「曾經抑制過什麼」或「從未抑制過什麼」，都需要歷史掃描紀錄，而我們沒有留。
 #   可以確定的只有上一段：print-pdf 沒有任何人在掃。
 #
-# 目前無豁免項目。新增時請照上方格式寫齊三件事。
+# 2026-09-05 新增：util-linux/libuuid 一批 7 個 HIGH CVE（PR #97）。
+#
+#   適用映像：ipig-web:ci（frontend/Dockerfile 第二階段，
+#             georgjung/nginx-brotli:1.31.2-alpine3.23，實際 OS 為 Alpine 3.24.1）
+#   當時的套件版本：libuuid 2.42.1-r0
+#   解除條件：Alpine v3.24/main 發布 util-linux/libuuid ≥ 2.42.3-r0 後，
+#             frontend/Dockerfile 的 `apk upgrade ... libuuid` 會自動拉到修復版
+#             （該行已在本 PR 加入），屆時移除本段即可——**不需要等新版 base image**。
+#
+#   風險評估：CVE-2026-53612 / 53613 / 53614 / 76642 / 78408 / 78409 / 78410
+#   全部發生在 `mount(8)` / `nsenter` / 特權掛載流程（TOCTOU、cgroup 遷移權限洩漏、
+#   符號連結逃逸等）。`ipig-web:ci` 是純 nginx 靜態檔服務 + Brotli，容器內不執行
+#   任何掛載或 namespace 操作；libuuid 只是被其他套件間接連結進來的共用函式庫，
+#   不在任何可觸發路徑上。
+#
+#   為什麼現在必須豁免而不是等修復版：2026-09-05 實查
+#   https://pkgs.alpinelinux.org/package/v3.24/main/x86_64/util-linux 顯示
+#   v3.24/main 目前版本仍是 2.42.1-r0（build 2026-06-19），Alpine 尚未發布修補版；
+#   `apk upgrade` 無法安裝一個上游還沒發布的版本。該 job 是 gating，
+#   會同時擋住 main 與全部 open PR，等待時間不可控。
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-76642
+CVE-2026-78408
+CVE-2026-78409
+CVE-2026-78410
