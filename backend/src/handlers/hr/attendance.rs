@@ -427,6 +427,12 @@ pub async fn get_monthly_report(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<MonthlyAttendanceQuery>,
 ) -> Result<Json<Vec<MonthlyAttendanceSummary>>> {
+    // 🔴 CodeRabbit PR #35 指出：`resolve_monthly_report_scope` 只在**沒有** `view_all`
+    // 時把 `user_id` 收斂到自己，從未拒絕過請求——8/14 個角色（PI、VET、CLIENT 等
+    // 不屬於「內部員工」的角色）根本沒有 `hr.attendance.view`，但呼叫本端點只會拿到
+    // 自己（不存在）的紀錄，不會被 403。補上基準門檻，跟 `hr.attendance.correct`
+    // 在 backfill/correct 兩支的作法一致（同檔 :375/:394）。
+    require_permission!(current_user, "hr.attendance.view");
     let mut query = params;
     resolve_monthly_report_scope(&mut query, &current_user);
     let rows =
@@ -454,6 +460,9 @@ pub async fn export_monthly_report(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<MonthlyAttendanceQuery>,
 ) -> Result<Response> {
+    // 理由同 `get_monthly_report`——兩支端點是同一個查詢的 JSON／Excel 兩種輸出，
+    // 授權門檻要一致。
+    require_permission!(current_user, "hr.attendance.view");
     let mut query = params;
     resolve_monthly_report_scope(&mut query, &current_user);
 
