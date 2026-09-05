@@ -9,6 +9,8 @@ import {
   cellKey,
   crossTabCsv,
   exportFilename,
+  neutralizeFormula,
+  round4,
   splitTruncationSignal,
   taipeiDateStamp,
   toCsv,
@@ -231,6 +233,71 @@ describe('taipeiDateStamp', () => {
   it('台灣時間深夜仍是當天', () => {
     // 2026-09-05 23:30 (UTC+8) === 2026-09-05 15:30 UTC
     expect(taipeiDateStamp(new Date('2026-09-05T15:30:00Z'))).toBe('2026-09-05')
+  })
+})
+
+describe('neutralizeFormula（CSV 公式注入）', () => {
+  it('🔴 公式前綴開頭的字串前面加單引號', () => {
+    for (const evil of ['=1+1', '+1', '-1+1', '@SUM(A1)']) {
+      expect(neutralizeFormula(evil)).toBe(`'${evil}`)
+    }
+  })
+
+  it('🔴 前置空白不能當免死金牌——Excel 會忽略它再解讀公式', () => {
+    expect(neutralizeFormula('   =1+1')).toBe("'   =1+1")
+    expect(neutralizeFormula(' @SUM(A1)')).toBe("' @SUM(A1)")
+  })
+
+  it('🔴 tab / CR 開頭也要擋', () => {
+    expect(neutralizeFormula('\t=1+1')).toBe("'\t=1+1")
+    expect(neutralizeFormula('\rfoo')).toBe("'\rfoo")
+  })
+
+  it('一般文字原樣通過，不會被加引號', () => {
+    for (const ok of ['無菌手套 6號', 'CON-GLV-001', '"太平洋" 10號導尿管', '2026-09-05', '']) {
+      expect(neutralizeFormula(ok)).toBe(ok)
+    }
+  })
+
+  it('經 toCsv 之後，惡意品名被中和且仍正確跳脫', () => {
+    const csv = toCsv(['品名'], [['=HYPERLINK("http://evil","click")']])
+    // 表頭與資料列是兩筆 record，以 CRLF 分隔
+    expect(csv).toBe('"品名"\r\n"\'=HYPERLINK(""http://evil"",""click"")"')
+  })
+
+  it('🔴 數值欄位維持數值，負數不會被當公式加引號', () => {
+    // -5 是 number 不是 string；加了引號下游就沒辦法加總了
+    expect(toCsv(['金額'], [[-5]])).toBe('"金額"\r\n"-5"')
+  })
+})
+
+describe('round4（浮點累加雜訊）', () => {
+  it('消除 IEEE-754 的尾數', () => {
+    expect(round4(0.1 + 0.2)).toBe(0.3)
+    // 字面寫 1234.5678000000001 會被 no-loss-of-precision 擋，改成算出雜訊
+    expect(round4(1234.5678 + 1e-12)).toBe(1234.5678)
+  })
+
+  it('保留 4 位小數，不會誤砍有效位數', () => {
+    expect(round4(12.3456)).toBe(12.3456)
+    expect(round4(-7.0001)).toBe(-7.0001)
+  })
+
+  it('aggregateByProduct 的加總不會漏出浮點尾巴', () => {
+    const [p] = aggregateByProduct([
+      row({ qty_base: '0.1', total_cost: '0.1' }),
+      row({ protocol_id: PB, protocol_no: 'P-002', qty_base: '0.2', total_cost: '0.2' }),
+    ])
+    expect(p.qty_base).toBe(0.3)
+    expect(p.total_cost).toBe(0.3)
+  })
+
+  it('交叉表的格值同樣收斂', () => {
+    const tab = buildCrossTab([
+      row({ product_id: GLOVE, qty_base: '0.1' }),
+      row({ product_id: GLOVE, qty_base: '0.2' }),
+    ])
+    expect(tab.cells.get(cellKey(PA, GLOVE))).toBe(0.3)
   })
 })
 

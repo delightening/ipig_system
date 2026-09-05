@@ -181,7 +181,7 @@ export function ProtocolConsumptionReportPage() {
         title="案件消耗報表"
         description="依計畫統計內部領用的耗材消耗（已扣除沖銷，僅計已核准）"
         actions={
-          <Button size="sm" onClick={exportCurrentTab} disabled={!hasData}>
+          <Button size="sm" onClick={exportCurrentTab} disabled={isError || !hasData}>
             <Download className="mr-2 h-4 w-4" />
             匯出目前分頁
           </Button>
@@ -190,15 +190,25 @@ export function ProtocolConsumptionReportPage() {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <div className="space-y-1">
-          <Label>起始日期</Label>
-          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} />
+          <Label htmlFor="pc-date-from">起始日期</Label>
+          <Input
+            id="pc-date-from"
+            type="date"
+            value={from}
+            onChange={e => setFrom(e.target.value)}
+          />
         </div>
         <div className="space-y-1">
-          <Label>結束日期</Label>
-          <Input type="date" value={to} onChange={e => setTo(e.target.value)} />
+          <Label htmlFor="pc-date-to">結束日期</Label>
+          <Input
+            id="pc-date-to"
+            type="date"
+            value={to}
+            onChange={e => setTo(e.target.value)}
+          />
         </div>
         <div className="space-y-1">
-          <Label>
+          <Label htmlFor="pc-protocol">
             計畫
             {truncated && (
               <span className="ml-1 font-normal text-muted-foreground">（資料截斷中不可用）</span>
@@ -209,7 +219,7 @@ export function ProtocolConsumptionReportPage() {
             onValueChange={v => setProtocolId(v === ALL_VALUE ? '' : v)}
             disabled={isError || !filterEnabled}
           >
-            <SelectTrigger>
+            <SelectTrigger id="pc-protocol">
               <SelectValue placeholder="全部計畫" />
             </SelectTrigger>
             <SelectContent>

