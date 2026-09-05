@@ -14,6 +14,7 @@
 
 mod common;
 
+use chrono::{Duration, Utc};
 use common::TestApp;
 use serial_test::serial;
 use uuid::Uuid;
@@ -181,6 +182,48 @@ async fn expired_delegation_loses_all_authority() {
             .expect("active_pi_delegate_id")
             .is_none(),
         "過期後不該再被解析成生效中代理人"
+    );
+}
+
+/// `active_pi_delegate` 的 SELECT 投影必須涵蓋 `PiDelegateInfo` 的每一個欄位。
+///
+/// 這支查詢用的是 runtime 的 `sqlx::query_as::<_, PiDelegateInfo>`，不是編譯期巨集——
+/// SELECT 少一欄**不會編譯失敗**，只會在解碼時回 `ColumnNotFound`。而
+/// `GET /protocols/{id}` 一律呼叫它，所以少一欄的後果是「凡是有生效代理人的計畫
+/// 全部打不開」。既有測試都走 `access::active_pi_delegate_id`（另一支查詢），
+/// 這條路徑先前完全沒被覆蓋。
+#[tokio::test]
+#[serial]
+async fn active_pi_delegate_projects_every_field() {
+    let app = TestApp::spawn().await;
+    let creator = seed_user(&app, None).await;
+    let sd = seed_user(&app, Some("EXPERIMENT_STAFF")).await;
+    let delegate = seed_user(&app, None).await;
+    let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
+
+    let expires_at = Utc::now() + Duration::days(30);
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &actor(sd, &["EXPERIMENT_STAFF"]),
+        protocol,
+        delegate,
+        Some("代理出國期間事務"),
+        Some(expires_at),
+    )
+    .await
+    .expect("authorize");
+
+    let info = ProtocolService::active_pi_delegate(&app.db_pool, protocol)
+        .await
+        .expect("active_pi_delegate 必須能解碼——SELECT 漏欄會在這裡炸")
+        .expect("剛核准的代理應為生效中");
+
+    assert_eq!(info.delegate_user_id, delegate);
+    assert_eq!(info.authorized_by, sd);
+    assert_eq!(info.reason.as_deref(), Some("代理出國期間事務"));
+    assert!(
+        info.expires_at.is_some(),
+        "設了到期日就必須帶回前端；漏掉會讓畫面顯示成「未設期限」，比沒有這個欄位更糟"
     );
 }
 

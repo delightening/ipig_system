@@ -24,6 +24,19 @@ interface Props {
 }
 
 /**
+ * 本地日曆日的 `yyyy-MM-dd`，供 `<input type="date">` 的 `min` 使用。
+ *
+ * 不能用 `toISOString().slice(0, 10)`——那是 UTC 日期。台灣是 UTC+8，本地
+ * 00:00–08:00 之間 UTC 還停在昨天，`min` 會鬆掉一天讓使用者選得到已過期的日期
+ * （後端會擋，但使用者要按下去才知道）。負時區則相反，會把今天鎖掉。
+ */
+function localCalendarToday(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/**
  * PI 代理授權卡片：外部 PI（尚未開通系統帳號）計畫，由計劃負責人（SD）核准
  * 一位代理人，代替 PI 簽署結案 / 安樂死核准 / 修正案等動作，並留有核可證據
  * （見 backend/src/services/protocol/pi_delegate.rs）。
@@ -176,7 +189,7 @@ export function PiDelegateCard({ protocolId }: Props) {
                 type="date"
                 className="rounded border bg-background px-2 py-1 text-sm"
                 value={expiresOn}
-                min={new Date().toISOString().slice(0, 10)}
+                min={localCalendarToday()}
                 onChange={(e) => setExpiresOn(e.target.value)}
                 aria-label={t('protocols.piDelegate.expiresLabel')}
               />

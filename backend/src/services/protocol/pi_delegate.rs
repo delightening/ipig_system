@@ -327,6 +327,13 @@ impl ProtocolService {
     }
 
     /// 此計畫目前生效中的代理授權（唯讀，供 `GET /protocols/{id}` 與代理人管理端點顯示）。
+    ///
+    /// ⚠️ 這裡用的是 runtime 的 `query_as::<_, PiDelegateInfo>`（非編譯期巨集，因為
+    /// `COALESCE` 的 nullable 推斷會讓巨集判成 `Option<String>`）。**SELECT 少一欄不會
+    /// 編譯失敗**，只會在解碼時回 `ColumnNotFound`，而本函式是 `GET /protocols/{id}`
+    /// 的必經路徑——漏欄的後果是所有帶生效代理的計畫全部打不開。
+    /// 往 `PiDelegateInfo` 加欄位時，這裡的投影要同步加。
+    /// 防線是 `tests/api_protocol_pi_delegate.rs::active_pi_delegate_projects_every_field`。
     pub async fn active_pi_delegate(
         pool: &PgPool,
         protocol_id: Uuid,
@@ -336,7 +343,7 @@ impl ProtocolService {
                       COALESCE(du.display_name, '') AS delegate_name,
                       d.authorized_by,
                       COALESCE(au.display_name, '') AS authorized_by_name,
-                      d.authorized_at, d.reason
+                      d.authorized_at, d.expires_at, d.reason
                FROM protocol_pi_delegates d
                JOIN users du ON du.id = d.delegate_user_id
                JOIN users au ON au.id = d.authorized_by
