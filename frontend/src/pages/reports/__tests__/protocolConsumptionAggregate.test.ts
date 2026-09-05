@@ -7,6 +7,7 @@ import {
   aggregateByProtocol,
   buildCrossTab,
   cellKey,
+  crossTabCsv,
   splitTruncationSignal,
   taipeiDateStamp,
   toCsv,
@@ -229,6 +230,42 @@ describe('taipeiDateStamp', () => {
   it('台灣時間深夜仍是當天', () => {
     // 2026-09-05 23:30 (UTC+8) === 2026-09-05 15:30 UTC
     expect(taipeiDateStamp(new Date('2026-09-05T15:30:00Z'))).toBe('2026-09-05')
+  })
+})
+
+describe('crossTabCsv', () => {
+  const tab = buildCrossTab([
+    row({ protocol_id: PA, protocol_no: 'P-001', product_id: GLOVE, qty_base: '10' }),
+    row({
+      protocol_id: PB,
+      protocol_no: 'P-002',
+      product_id: DROPPER,
+      product_sku: 'CON-OTH-022',
+      product_name: '滴管',
+      base_uom: '包',
+      qty_base: '3',
+    }),
+  ])
+  const uom = (u: string) => u
+
+  it('🔴 沒有紀錄的格輸出空字串，不是 0', () => {
+    const lines = crossTabCsv(tab, uom).split('\r\n')
+    // 表頭 + 兩列案件
+    expect(lines).toHaveLength(3)
+    // P-001 用過手套(10)、沒用過滴管 → 第三欄必須是空字串
+    expect(lines[1]).toBe('"P-001","10",""')
+    // P-002 反過來
+    expect(lines[2]).toBe('"P-002","","3"')
+  })
+
+  it('表頭把單位標在品名後面', () => {
+    const header = crossTabCsv(tab, uom).split('\r\n')[0]
+    expect(header).toBe('"計畫編號","無菌手套 6號(雙)","滴管(包)"')
+  })
+
+  it('uomLabel 由呼叫端決定，模組本身不依賴 UI 工具', () => {
+    const header = crossTabCsv(tab, u => `<${u}>`).split('\r\n')[0]
+    expect(header).toContain('<雙>')
   })
 })
 

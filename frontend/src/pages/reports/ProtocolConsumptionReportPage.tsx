@@ -34,6 +34,7 @@ import {
   aggregateByProtocol,
   buildCrossTab,
   cellKey,
+  crossTabCsv,
   splitTruncationSignal,
   taipeiDateStamp,
   toCsv,
@@ -166,17 +167,9 @@ export function ProtocolConsumptionReportPage() {
       return
     }
 
-    // 交叉表：第一欄是案件，其餘每個品項一欄
-    download(
-      `protocol_consumption_cross_${stamp}.csv`,
-      toCsv(
-        ['計畫編號', ...cross.products.map(p => `${p.product_name}(${formatUom(p.base_uom)})`)],
-        cross.protocols.map(pr => [
-          pr.protocol_no,
-          ...cross.products.map(pd => cross.cells.get(cellKey(pr.protocol_id, pd.product_id)) ?? 0),
-        ])
-      )
-    )
+    // 交叉表：第一欄是案件，其餘每個品項一欄。
+    // 沒有紀錄的格輸出空字串而非 0——理由見 crossTabCsv 的註解。
+    download(`protocol_consumption_cross_${stamp}.csv`, crossTabCsv(cross, formatUom))
   }
 
   const hasData = rows.length > 0
