@@ -597,18 +597,25 @@ async fn log_blood_test_export(
     }
 }
 
-/// R32-A3b 收尾：欄位巡視 v3（xlsx 範本 + Gotenberg LibreOffice）匯出。
+/// R32-A3b 收尾：欄位巡視 v3 匯出（PDF）。
 ///
-/// 與 [`export_vet_patrol_report_pdf`] 並存（v2 走 legacy HTML，v3 走 xlsx），
+/// 與 [`export_vet_patrol_report_pdf`] 並存（v2 走 legacy HTML），
 /// 等 R32-A7 砍舊路徑後 v2 移除。
 ///
-/// `format=xlsx` 回 .xlsx；`format=pdf` 經 LibreOffice 轉 PDF。
+/// `format` query：只接受 `pdf`（預設）。
 /// Query：inspector_name / patrol_date（YYYY-MM-DD）/ period（AM|PM）。
+///
+/// ⚠️ 2026-09-04：原本 `xlsx` 是**預設值**，但那條路徑是壞的——print-pdf 的
+/// `/render-vet-patrol/from-animals` 沒有 `format` 參數，一律回 PDF bytes，
+/// 而本 handler 仍照 `mime_type()`／`extension()` 標成 Excel MIME 與 `.xlsx`，
+/// 使用者拿到的是 Excel 打不開的檔案。**而且它是預設值——不帶 format 就中招。**
+/// 使用者裁定移除該選項（決策 95.1，與 89.1 的 docx 同一條理由）：
+/// 不帶 format 者從壞檔變成正確 PDF；明確傳 xlsx 者從壞檔變成 400。
 #[utoipa::path(
     get,
     path = "/api/v1/animals/vet-patrol/export-v3",
     params(
-        ("format" = Option<String>, Query, description = "xlsx | pdf（預設 xlsx）"),
+        ("format" = Option<String>, Query, description = "pdf（預設 pdf；xlsx 已於 2026-09-04 移除）"),
         ("inspector_name" = Option<String>, Query, description = "巡視人姓名"),
         ("patrol_date" = Option<String>, Query, description = "巡視日期 YYYY-MM-DD"),
         ("period" = Option<String>, Query, description = "AM | PM"),
@@ -625,12 +632,15 @@ pub async fn export_vet_patrol_v3(
     // 對齊既有 export_pen_report 的權限與 active filter
     require_permission!(current_user, "animal.animal.view_all");
 
+    // ⚠️ `xlsx` 於 2026-09-04 移除（決策 95.1）：它從來沒有真的產出 xlsx，
+    // 只是把 PDF bytes 標成 Excel MIME + `.xlsx` 副檔名送給使用者。
+    // **它原本還是預設值**，所以不帶 format 的呼叫端一直拿到壞檔；
+    // 現在 `None` 對應 `Pdf`（那正是實際回傳的東西），明確傳 xlsx 則回 400。
     let format = match params.get("format").map(String::as_str) {
-        Some("pdf") => XlsxRenderFormat::Pdf,
-        Some("xlsx") | None => XlsxRenderFormat::Xlsx,
+        Some("pdf") | None => XlsxRenderFormat::Pdf,
         Some(other) => {
             return Err(AppError::BadRequest(format!(
-                "Invalid format: {other} (expected 'xlsx' or 'pdf')"
+                "Invalid format: {other} (expected 'pdf')"
             )));
         }
     };

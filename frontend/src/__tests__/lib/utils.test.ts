@@ -3,12 +3,15 @@ import {
   cn,
   formatDate,
   formatDateTime,
+  formatTime,
+  formatTimeShort,
   formatNumber,
   formatCurrency,
   formatFileSize,
   formatQuantity,
   formatUnitPrice,
   formatUom,
+  INVALID_DATE_FALLBACK,
   UOM_MAP,
 } from '@/lib/utils'
 
@@ -55,6 +58,63 @@ describe('formatDateTime', () => {
     expect(result).toMatch(/15/)
     // zh-TW locale may use 12h format (下午02:30) or 24h format (14:30)
     expect(result).toMatch(/30/)
+  })
+})
+
+/**
+ * R90-1：壞資料不得把字面上的 `Invalid Date` 顯示給使用者。
+ *
+ * 這幾個 case 在修好之前全部會失敗——`new Date('壞資料')` 不 throw，
+ * `toLocaleDateString()` 也不 throw，兩者串起來就是把 `Invalid Date` 印在畫面上。
+ * 所以這裡確實測得到本次改動，不是恆真的裝飾。
+ */
+describe('date formatters reject invalid input (R90-1)', () => {
+  const invalidInputs: Array<[string, string | Date | null | undefined]> = [
+    ['unparsable string', 'not-a-date'],
+    ['empty string', ''],
+    ['null', null],
+    ['undefined', undefined],
+    ['Invalid Date object', new Date('nope')],
+  ]
+
+  for (const [label, input] of invalidInputs) {
+    it(`formatDate returns the fallback for ${label}`, () => {
+      expect(formatDate(input)).toBe(INVALID_DATE_FALLBACK)
+    })
+
+    it(`formatDateTime returns the fallback for ${label}`, () => {
+      expect(formatDateTime(input)).toBe(INVALID_DATE_FALLBACK)
+    })
+
+    it(`formatTime returns the fallback for ${label}`, () => {
+      expect(formatTime(input)).toBe(INVALID_DATE_FALLBACK)
+    })
+
+    it(`formatTimeShort returns the fallback for ${label}`, () => {
+      expect(formatTimeShort(input)).toBe(INVALID_DATE_FALLBACK)
+    })
+  }
+
+  it('never leaks the literal string "Invalid Date"', () => {
+    for (const [, input] of invalidInputs) {
+      expect(formatDate(input)).not.toMatch(/Invalid Date/)
+      expect(formatDateTime(input)).not.toMatch(/Invalid Date/)
+      expect(formatTime(input)).not.toMatch(/Invalid Date/)
+      expect(formatTimeShort(input)).not.toMatch(/Invalid Date/)
+    }
+  })
+
+  it('honours a caller-supplied fallback', () => {
+    expect(formatDate('not-a-date', undefined, '未設定')).toBe('未設定')
+    expect(formatDateTime('not-a-date', '未設定')).toBe('未設定')
+    expect(formatTimeShort('not-a-date', '未設定')).toBe('未設定')
+  })
+
+  it('still formats valid input after the guard', () => {
+    expect(formatDate('2024-03-15')).toMatch(/2024/)
+    expect(formatDateTime('2024-03-15T14:30:00')).toMatch(/2024/)
+    expect(formatTime('2024-03-15T14:30:00')).toMatch(/\d{2}:\d{2}/)
+    expect(formatTimeShort('2024-03-15T14:30:00')).toMatch(/\d{2}:\d{2}/)
   })
 })
 
