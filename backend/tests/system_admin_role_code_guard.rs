@@ -32,25 +32,35 @@
 //! （6 個假陽性）。那是「用樣式直接產出結論」的老毛病。
 //!
 //! 1. **候選**：非註解行，且該行同時含 `SYSTEM_ADMIN` 與一個**比對訊號**
-//!    （`==` / `.contains(` / `get_users_by_role(` / `.bind(` / SQL 的 `= '` / `IN (` / `ANY(`）。
+//!    （`==` / `.contains(` / `get_users_by_role(` / `.bind(` / SQL 的 `= '` / `ANY(` /
+//!    大小寫與空白皆不拘的 SQL `IN`，見 [`contains_sql_in_operator`]）。
 //!    純粹「提到」它的行（註解、import、`Some(ROLE_SYSTEM_ADMIN)` 這種回傳值）不算。
 //! 2. **判定**：該行有幾個 `SYSTEM_ADMIN`，就要有幾個豁免——
-//!    同敘述內的 legacy fallback token，或正上方 3 行內的 `SYSTEM_ADMIN-ONLY` 標記。
-//!    **每個豁免只能用一次**，見 [`violations`] 的說明。
+//!    同敘述內的 legacy fallback token，或正上方 3 行內、**真的在註解裡**的
+//!    `SYSTEM_ADMIN-ONLY` 標記。**每個豁免只能用一次**，見 [`violations`] 的說明。
 //!
-//! ## ⚠️ 這支守衛自己壞過五次，而且每次都是同一個錯
+//! ## ⚠️ 這支守衛自己壞過六次——第 6 輪出現了第二種失效族群
 //!
-//! **豁免的作用範圍大於它要豁免的那一件事。**
+//! v1–v5 全部是同一個錯：**豁免的作用範圍大於它要豁免的那一件事。**
+//! v6 的兩條建議裡，一條（標記寫在字串字面值裡）仍是這個族群；另一條（`IN (`
+//! 的大小寫／空白）是不同的失效方式——**候選判定本身漏看了一種寫法**，
+//! 該行從一開始就沒被當成「拿 SYSTEM_ADMIN 跟什麼比對」，連豁免規則都還沒輪到
+//! 就已經看不見。
 //!
-//! | # | 豁免/判定單位 | 失效方式 | 誰發現 |
+//! | # | 判定/豁免單位 | 失效方式 | 誰發現 |
 //! |---|---|---|---|
 //! | v1 | 整個檔案（檔名清單） | 該檔日後新增的任何比對自動過關 | CodeRabbit 第 1 輪 |
 //! | v2 | 標記往下 3 行／同敘述有 token | 一個豁免蓋掉範圍內的**每一個**比對 | CodeRabbit 第 2 輪 + 自己掃 |
 //! | v3 | 逐行 boolean「有沒有豁免」 | 同一行的第二個比對白拿第一個的豁免 | 本檔的回歸測試 |
 //! | v4 | 判定直接吃整行（未剝 `//`） | 行尾註解讓敘述併吞下一個、註解裡的 token 被當 fallback | CodeRabbit 第 4 輪 |
 //! | v5 | 只剝了 `//`，沒剝 `/* */` | 同 v4，換成區塊註解就照樣成立 | CodeRabbit 第 5 輪 |
+//! | v6a | `IN (` 固定大小寫＋固定一個空白 | 小寫或無空白的 SQL `IN` 完全偵測不到候選——不是豁免太寬，是候選判定本身有洞 | CodeRabbit 第 6 輪 |
+//! | v6b | 標記比對吃原始行、未排除字串字面值 | `let x = "SYSTEM_ADMIN-ONLY";` 這種字串常值被當成刻意標記 | CodeRabbit 第 6 輪 |
 //!
-//! v5 特別值得記：v4 的修正**看起來完整**（三個出口一起補、三支回歸測試、
+//! v6a 提醒一件事：本檔前五次教訓都在講「豁免」，但守衛的第一道防線是**候選判定**——
+//! 候選判定漏看的寫法，連豁免規則都沒有機會出錯，因為它從來沒被列入判定。
+//!
+//! v5 也值得記：v4 的修正**看起來完整**（三個出口一起補、三支回歸測試、
 //! mutation 也驗過），但它只涵蓋了兩種 Rust 註解裡的一種。
 //! **補一半的修正與補完整的修正，在測試結果上完全一樣。**
 //!
@@ -78,15 +88,48 @@ use std::path::{Path, PathBuf};
 const INTENTIONAL_MARKER: &str = "SYSTEM_ADMIN-ONLY";
 
 /// 讓一行「提到 SYSTEM_ADMIN」升級成「拿它跟什麼比對」的訊號。
+///
+/// ⚠️ SQL 的 `IN` 不在這裡——它大小寫與空白都不固定，字面值清單表達不了，
+/// 另外用 [`contains_sql_in_operator`] 判定。
 const COMPARISON_SIGNALS: &[&str] = &[
     "==",
     ".contains(",
     "get_users_by_role(",
     ".bind(",
     "= '",
-    "IN (",
     "ANY(",
 ];
+
+/// 偵測 SQL 的 `IN` 運算子——不分大小寫、`IN` 與 `(` 之間可以有 0 個以上空白。
+///
+/// CodeRabbit 於 #32 第 6 輪指出：舊版 `COMPARISON_SIGNALS` 裡的 `"IN ("` 是固定
+/// 大小寫、固定一個空白的字面值，`WHERE code in ('SYSTEM_ADMIN')`（小寫）或
+/// `IN('SYSTEM_ADMIN')`（無空白）都偵測不到——沒有其他比對訊號的裸 SQL 行，
+/// 就完全不會被判定為候選，等於這條分支對守衛整個隱形（不是豁免太寬，
+/// 是候選判定本身有洞，見檔頭 v6a）。
+///
+/// 用「前一個字元不是英數字/底線」當單字邊界，避免誤配 `WITHIN(`、`MIXIN(`、
+/// `PIN(` 這類子字串。只比較 byte 值、不切片，多位元組字元混在裡面也不影響正確性。
+fn contains_sql_in_operator(code: &str) -> bool {
+    let bytes = code.as_bytes();
+    let is_word = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
+    let mut i = 0;
+    while i + 1 < bytes.len() {
+        let is_in = (bytes[i] | 0x20) == b'i' && (bytes[i + 1] | 0x20) == b'n';
+        let boundary_before = i == 0 || !is_word(bytes[i - 1]);
+        if is_in && boundary_before {
+            let mut j = i + 2;
+            while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                j += 1;
+            }
+            if j < bytes.len() && bytes[j] == b'(' {
+                return true;
+            }
+        }
+        i += 1;
+    }
+    false
+}
 
 /// 把整份原始碼變成「只剩程式碼」的逐行版本：`//` 行註解與 `/* … */` 區塊註解
 /// 都拿掉（區塊註解可跨行、可巢狀），字串字面值內的內容原樣保留。
@@ -291,7 +334,8 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
         }
         // 比對訊號：沒有這些的話（例如 `Some(ROLE_SYSTEM_ADMIN)` 這種顯示用回傳值）
         // 就不是一個「拿它跟使用者角色比對」的地方。
-        let is_comparison = COMPARISON_SIGNALS.iter().any(|sig| code.contains(sig));
+        let is_comparison = COMPARISON_SIGNALS.iter().any(|sig| code.contains(sig))
+            || contains_sql_in_operator(code);
         if !is_comparison {
             continue;
         }
@@ -303,12 +347,19 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
         let mut covered = 0usize;
 
         // ① 逐行標記，**且每個標記只能用一次**。往上最多 3 行找還沒被消耗的。
+        //
+        // ⚠️ 標記必須**真的在註解裡**（CodeRabbit 於 #32 第 6 輪指出，v6b）：
+        // 只檢查 raw line 含不含這個子字串，`let note = "SYSTEM_ADMIN-ONLY";`
+        // 這種字串字面值也會命中，把它當成刻意標記去豁免旁邊真的未防護的比對。
+        // 判準是「raw 有、stripped（無註解版）沒有」——代表這段文字是被
+        // strip_comments 剝掉的註解，不是留在程式碼裡的字串內容。
         let mark_lo = i.saturating_sub(3);
         while covered < need {
-            let Some(m) = (mark_lo..i)
-                .rev()
-                .find(|m| lines[*m].contains(INTENTIONAL_MARKER) && !consumed_markers.contains(m))
-            else {
+            let Some(m) = (mark_lo..i).rev().find(|m| {
+                lines[*m].contains(INTENTIONAL_MARKER)
+                    && !stripped[*m].contains(INTENTIONAL_MARKER)
+                    && !consumed_markers.contains(m)
+            }) else {
                 break;
             };
             consumed_markers.insert(m);
@@ -549,6 +600,54 @@ fn code_inside_multi_line_block_comment_is_not_a_candidate() {
     assert!(
         violations("t.rs", src).is_empty(),
         "被註解掉的比對不該被判違規"
+    );
+}
+
+#[test]
+fn sql_in_operator_detection_is_case_and_space_insensitive() {
+    // CodeRabbit 於 #32 第 6 輪指出：舊版 `"IN ("` 字面值偵測不到小寫或無空白的寫法。
+    assert!(contains_sql_in_operator("WHERE code IN ('SYSTEM_ADMIN')"));
+    assert!(contains_sql_in_operator("WHERE code in ('SYSTEM_ADMIN')"));
+    assert!(contains_sql_in_operator("WHERE code IN('SYSTEM_ADMIN')"));
+    assert!(contains_sql_in_operator(
+        "WHERE code   IN   (  'SYSTEM_ADMIN'  )"
+    ));
+}
+
+#[test]
+fn sql_in_operator_detection_respects_word_boundary() {
+    // 前一個字元是英數字/底線時不能算——否則 WITHIN(/MIXIN(/PIN( 都會誤判成 IN 運算子。
+    assert!(!contains_sql_in_operator("x.within(SYSTEM_ADMIN_RANGE)"));
+    assert!(!contains_sql_in_operator("MIXIN(Foo)"));
+    assert!(!contains_sql_in_operator("PIN(1234)"));
+}
+
+#[test]
+fn lowercase_sql_in_clause_is_a_candidate() {
+    // 端到端驗證：光有 helper 綠燈不夠，還要確認它真的接進 violations() 的判定路徑。
+    let src = "        let sql = \"WHERE code in ('SYSTEM_ADMIN')\";
+";
+    let v = violations("t.rs", src);
+    assert_eq!(
+        v.len(),
+        1,
+        "小寫、無 fallback 的 IN 子句必須被判為候選，不能因為大小寫而對守衛隱形。實際：{v:?}"
+    );
+}
+
+#[test]
+fn marker_inside_string_literal_is_not_recognized() {
+    // CodeRabbit 於 #32 第 6 輪指出（v6b）：標記比對只看 raw line 含不含子字串，
+    // 沒有排除字串字面值——`let note = "SYSTEM_ADMIN-ONLY";` 會被當成刻意標記，
+    // 豁免掉旁邊真的未防護的比對。
+    let src = "        let note = \"SYSTEM_ADMIN-ONLY\";
+        let a = codes.iter().any(|c| c == ROLE_SYSTEM_ADMIN);
+";
+    let v = violations("t.rs", src);
+    assert_eq!(
+        v.len(),
+        1,
+        "字串字面值裡的 SYSTEM_ADMIN-ONLY 不是標記，這個比對必須被抓到。實際：{v:?}"
     );
 }
 
