@@ -386,76 +386,81 @@ function App() {
                         <Route path="/admin/settings" element={<SettingsPage />} />
                         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
                         <Route path="/admin/audit" element={<AdminAuditPage />} />
-                        <Route path="/admin/qau" element={
-                          <RequirePermission permission="qau.dashboard.view">
-                            <QAUDashboardPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/qau/inspections" element={
-                          <RequirePermission permission="qau.inspection.view">
-                            <QAInspectionPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/qau/non-conformances" element={
-                          <RequirePermission permission="qau.nc.view">
-                            <QANonConformancePage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/qau/sop" element={
-                          <RequirePermission permission="qau.sop.view">
-                            <QASopPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/qau/schedules" element={
-                          <RequirePermission permission="qau.schedule.view">
-                            <QASchedulePage />
-                          </RequirePermission>
-                        } />
                         <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />
                         <Route path="/admin/treatment-drugs" element={<TreatmentDrugOptionsPage />} />
                         <Route path="/admin/facilities" element={<FacilitiesPage />} />
-                        {/* GLP Compliance Pages */}
-                        <Route path="/admin/document-control" element={
-                          <RequirePermission permission="dms.document.view">
-                            <DocumentControlPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/management-reviews" element={
-                          <RequirePermission permission="glp.management_review.view">
-                            <ManagementReviewPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/risk-register" element={
-                          <RequirePermission permission="risk.register.view">
-                            <RiskRegisterPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/change-control" element={
-                          <RequirePermission permission="change.request.view">
-                            <ChangeControlPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/environment-monitoring" element={
-                          <RequirePermission permission="env.monitoring.view">
-                            <EnvironmentMonitoringPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/competency-assessments" element={
-                          <RequirePermission permission="competency.assessment.view">
-                            <CompetencyAssessmentPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/study-reports" element={
-                          <RequirePermission permission="study.report.view">
-                            <StudyFinalReportPage />
-                          </RequirePermission>
-                        } />
-                        <Route path="/admin/formulation-records" element={
-                          <RequirePermission permission="formulation.record.view">
-                            <FormulationRecordsPage />
-                          </RequirePermission>
-                        } />
                     </Route>
+
+                    {/* QAU／GLP 業務頁面——2026-09-05（P0-2）移出 AdminRoute：
+                        這些頁面各自已用 RequirePermission 把關對應的 qau.*/dms.*/glp.*/risk.*/change.*/env.*/competency.*/study.*/formulation.* 權限碼，
+                        路徑不變，只是不再額外要求字面 admin 角色——QAU 等角色持有對應權限碼卻進不了頁面正是 P0-2 要修的問題。
+                        見 docs/reviews/2026-09-03-code-side-issues.md P0-2。 */}
+                    <Route path="/admin/qau" element={
+                      <RequirePermission permission="qau.dashboard.view">
+                        <QAUDashboardPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/qau/inspections" element={
+                      <RequirePermission permission="qau.inspection.view">
+                        <QAInspectionPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/qau/non-conformances" element={
+                      <RequirePermission permission="qau.nc.view">
+                        <QANonConformancePage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/qau/sop" element={
+                      <RequirePermission permission="qau.sop.view">
+                        <QASopPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/qau/schedules" element={
+                      <RequirePermission permission="qau.schedule.view">
+                        <QASchedulePage />
+                      </RequirePermission>
+                    } />
+                    {/* GLP Compliance Pages */}
+                    <Route path="/admin/document-control" element={
+                      <RequirePermission permission="dms.document.view">
+                        <DocumentControlPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/management-reviews" element={
+                      <RequirePermission permission="glp.management_review.view">
+                        <ManagementReviewPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/risk-register" element={
+                      <RequirePermission permission="risk.register.view">
+                        <RiskRegisterPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/change-control" element={
+                      <RequirePermission permission="change.request.view">
+                        <ChangeControlPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/environment-monitoring" element={
+                      <RequirePermission permission="env.monitoring.view">
+                        <EnvironmentMonitoringPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/competency-assessments" element={
+                      <RequirePermission permission="competency.assessment.view">
+                        <CompetencyAssessmentPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/study-reports" element={
+                      <RequirePermission permission="study.report.view">
+                        <StudyFinalReportPage />
+                      </RequirePermission>
+                    } />
+                    <Route path="/admin/formulation-records" element={
+                      <RequirePermission permission="formulation.record.view">
+                        <FormulationRecordsPage />
+                      </RequirePermission>
+                    } />
 
                     {/* 人員訓練 - admin 或 training.view/manage/manage_own 可存取 */}
                     <Route path="/hr/training-records" element={
