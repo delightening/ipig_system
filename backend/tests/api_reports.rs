@@ -188,6 +188,102 @@ async fn protocol_consumption_nets_reversals_and_excludes_non_so() {
     assert_eq!(json_num(&row["total_cost"]), 10.0, "5 × unit_cost 2");
 }
 
+/// 🔴 日期邊界錨在台灣時間，不是 session 時區（實際上是 UTC）。
+///
+/// 台灣時間 9/5 00:30 的領用，UTC 時戳是 9/4 16:30。若邊界用裸日期跟 timestamptz 比，
+/// PostgreSQL 會把 `date_from=2026-09-05` 解讀成 UTC 的 9/5 00:00（＝台灣 9/5 08:00），
+/// 這筆就會被排除在「9/5」之外、落到「9/4」——差整整 8 小時。
+///
+/// 這支報表給 IACUC 稽核查期間消耗用，邊界錯一天是會被追問的。
+#[tokio::test]
+#[serial]
+async fn protocol_consumption_date_boundary_is_taipei_not_utc() {
+    let app = common::TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let db = &app.db_pool;
+
+    let admin_id = admin_user_id(&app).await;
+    let tag = Uuid::new_v4().simple().to_string();
+    let short = &tag[..8];
+
+    let warehouse_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO warehouses (id, code, name) VALUES ($1, $2, $3)")
+        .bind(warehouse_id)
+        .bind(format!("W{short}"))
+        .bind("時區測試倉")
+        .execute(db)
+        .await
+        .expect("insert warehouse");
+
+    let product = insert_product(db, &format!("SKU-TZ-{short}"), "時區測試品", "支").await;
+
+    let protocol_id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO protocols (id, protocol_no, iacuc_no, title, pi_user_id, created_by)
+         VALUES ($1, $2, $3, $4, $5, $5)",
+    )
+    .bind(protocol_id)
+    .bind(format!("PTZ-{short}"))
+    .bind(format!("IACUC-TZ-{short}"))
+    .bind("時區測試計畫")
+    .bind(admin_id)
+    .execute(db)
+    .await
+    .expect("insert protocol");
+
+    let doc = insert_so_doc(db, admin_id, protocol_id, &format!("SO-TZ-{short}")).await;
+
+    // 台灣時間 2026-09-05 00:30 == UTC 2026-09-04 16:30
+    sqlx::query(
+        "INSERT INTO stock_ledger
+            (id, warehouse_id, product_id, trx_date, doc_type, doc_id, doc_no,
+             direction, qty_base, unit_cost)
+         VALUES ($1, $2, $3, '2026-09-04T16:30:00Z'::timestamptz, 'SO'::doc_type,
+                 $4, $5, 'out'::stock_direction, 9, 1)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(warehouse_id)
+    .bind(product)
+    .bind(doc)
+    .bind(format!("SO-TZ-{short}"))
+    .execute(db)
+    .await
+    .expect("insert stock_ledger");
+
+    let url_for = |from: &str, to: &str| {
+        format!(
+            "/api/v1/reports/protocol-consumption?protocol_id={protocol_id}&date_from={from}&date_to={to}"
+        )
+    };
+
+    // 台灣時間的 9/5 應該收得到這筆
+    let on_the_day: Vec<Value> = app
+        .auth_get(&url_for("2026-09-05", "2026-09-05"), &token)
+        .await
+        .json()
+        .await
+        .expect("parse report");
+    assert_eq!(
+        on_the_day.len(),
+        1,
+        "台灣時間 9/5 00:30 的領用必須落在 9/5。若邊界用 UTC，這裡會是 0——\
+         代表使用者查當天卻看不到凌晨的領用"
+    );
+
+    // 而 9/4 不該收到——它屬於台灣時間的 9/5
+    let day_before: Vec<Value> = app
+        .auth_get(&url_for("2026-09-04", "2026-09-04"), &token)
+        .await
+        .json()
+        .await
+        .expect("parse report");
+    assert_eq!(
+        day_before.len(),
+        0,
+        "這筆屬於台灣時間 9/5，不該出現在 9/4 的查詢裡。若邊界用 UTC，這裡會是 1"
+    );
+}
+
 async fn admin_user_id(app: &common::TestApp) -> Uuid {
     let email = std::env::var("ADMIN_EMAIL")
         .ok()

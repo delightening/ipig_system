@@ -509,15 +509,33 @@ impl ReportService {
             qb.push_bind(wid);
         }
         // 以異動時點篩，不是單據日期——單據日期可回填，扣帳時點不會。
+        //
+        // 🔴 日期邊界必須明確錨在台灣時間，不能讓裸日期直接跟 timestamptz 比。
+        //
+        // `sl.trx_date` 是 `timestamp with time zone`（002_schema.sql:5246），使用者送來的
+        // 則是不帶時區的日期。直接比較時 PostgreSQL 會用 **session 時區**把日期解讀成該時區
+        // 的午夜——而本專案沒有任何地方設過 session 時區（`startup/database.rs` 的
+        // after_connect 只設 statement_timeout，db 容器也沒給 TZ），實際上就是 UTC。
+        //
+        // 後果：使用者選 2026-09-05 想看台灣的 9/5，邊界卻落在台灣時間 9/5 08:00，
+        // **台灣時間 9/5 00:00–07:59 的領用會被算進 9/4**。這支報表是給 IACUC 稽核查
+        // 「這段期間消耗了什麼」用的，差 8 小時會被追問。
+        //
+        // `AT TIME ZONE 'Asia/Taipei'` 把「不帶時區的當地午夜」轉成正確的 timestamptz，
+        // 且由 tzdata 處理該時區的規則，不寫死 +08。
+        //
+        // ⚠️ 同檔的 `stock_ledger()`（:292-298）有一模一樣的問題，本 PR 不動它——
+        // 那是既有函式，改它要連帶重驗既有報表，屬於另一件事。
         if let Some(df) = query.date_from {
-            qb.push(" AND sl.trx_date >= ");
+            qb.push(" AND sl.trx_date >= (");
             qb.push_bind(df);
+            qb.push("::date::timestamp AT TIME ZONE 'Asia/Taipei')");
         }
         if let Some(dt) = query.date_to {
-            // 收單日當天要含在內，故比到隔天零時之前。
-            qb.push(" AND sl.trx_date < (");
+            // 結束日當天要含在內，故比到隔天台灣時間零時之前。
+            qb.push(" AND sl.trx_date < ((");
             qb.push_bind(dt);
-            qb.push("::date + 1)");
+            qb.push("::date + 1)::timestamp AT TIME ZONE 'Asia/Taipei')");
         }
 
         qb.push(

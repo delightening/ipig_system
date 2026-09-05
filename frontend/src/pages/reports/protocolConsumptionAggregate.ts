@@ -211,6 +211,19 @@ export function crossTabCsv(tab: CrossTab, uomLabel: (uom: string) => string): s
   )
 }
 
+/**
+ * 匯出檔名。
+ *
+ * 🔴 資料被截斷時檔名要帶 `_partial`。畫面上有黃色警示框說明殘缺，但**警示框不會
+ * 跟著 CSV 走**——檔案一旦寄給稽核或存檔，「這只是前 1000 組」這件事就無聲消失了。
+ * 檔名是唯一會跟著檔案一起移動的載體。
+ *
+ * 不在 CSV 內容裡加警告列：那會破壞欄位對齊，下游程式解析時反而更糟。
+ */
+export function exportFilename(kind: string, stamp: string, truncated: boolean): string {
+  return `protocol_consumption_${kind}${truncated ? '_partial' : ''}_${stamp}.csv`
+}
+
 /** RFC 4180 §2.1：record 之間以 CRLF 分隔，不是 LF。 */
 const CRLF = '\r\n'
 

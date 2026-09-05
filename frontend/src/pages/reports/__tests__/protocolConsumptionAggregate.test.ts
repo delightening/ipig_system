@@ -8,6 +8,7 @@ import {
   buildCrossTab,
   cellKey,
   crossTabCsv,
+  exportFilename,
   splitTruncationSignal,
   taipeiDateStamp,
   toCsv,
@@ -230,6 +231,28 @@ describe('taipeiDateStamp', () => {
   it('台灣時間深夜仍是當天', () => {
     // 2026-09-05 23:30 (UTC+8) === 2026-09-05 15:30 UTC
     expect(taipeiDateStamp(new Date('2026-09-05T15:30:00Z'))).toBe('2026-09-05')
+  })
+})
+
+describe('exportFilename', () => {
+  it('未截斷時不帶 _partial', () => {
+    expect(exportFilename('cross', '2026-09-05', false)).toBe(
+      'protocol_consumption_cross_2026-09-05.csv'
+    )
+  })
+
+  it('🔴 截斷時檔名帶 _partial——警示框不會跟著 CSV 走，檔名會', () => {
+    expect(exportFilename('cross', '2026-09-05', true)).toBe(
+      'protocol_consumption_cross_partial_2026-09-05.csv'
+    )
+  })
+
+  it('三個分頁各有自己的 kind', () => {
+    const names = (['by-protocol', 'by-product', 'cross'] as const).map(k =>
+      exportFilename(k, '2026-09-05', false)
+    )
+    expect(new Set(names).size).toBe(3)
+    expect(names.every(n => n.endsWith('.csv'))).toBe(true)
   })
 })
 

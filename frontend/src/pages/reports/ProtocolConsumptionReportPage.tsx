@@ -35,6 +35,7 @@ import {
   buildCrossTab,
   cellKey,
   crossTabCsv,
+  exportFilename,
   splitTruncationSignal,
   taipeiDateStamp,
   toCsv,
@@ -130,7 +131,7 @@ export function ProtocolConsumptionReportPage() {
 
     if (activeTab === 'by-protocol') {
       download(
-        `protocol_consumption_by_protocol_${stamp}.csv`,
+        exportFilename('by-protocol', stamp, truncated),
         toCsv(
           ['計畫編號', '核准編號', '計畫名稱', '品項數', '單據數(至少)', '金額', '最早', '最晚'],
           byProtocol.map(p => [
@@ -150,7 +151,7 @@ export function ProtocolConsumptionReportPage() {
 
     if (activeTab === 'by-product') {
       download(
-        `protocol_consumption_by_product_${stamp}.csv`,
+        exportFilename('by-product', stamp, truncated),
         toCsv(
           ['產品代碼', '產品名稱', '分類', '案件數', '消耗量', '單位', '金額'],
           byProduct.map(p => [
@@ -169,7 +170,7 @@ export function ProtocolConsumptionReportPage() {
 
     // 交叉表：第一欄是案件，其餘每個品項一欄。
     // 沒有紀錄的格輸出空字串而非 0——理由見 crossTabCsv 的註解。
-    download(`protocol_consumption_cross_${stamp}.csv`, crossTabCsv(cross, formatUom))
+    download(exportFilename('cross', stamp, truncated), crossTabCsv(cross, formatUom))
   }
 
   const hasData = rows.length > 0
@@ -388,7 +389,7 @@ export function ProtocolConsumptionReportPage() {
                     </TableRow>
                   ) : cross.protocols.length === 0 ? (
                     <TableEmptyRow
-                      colSpan={2}
+                      colSpan={cross.products.length + 1}
                       icon={FlaskConical}
                       title="這段期間沒有案件領用紀錄"
                     />
