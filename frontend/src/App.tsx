@@ -392,7 +392,10 @@ function App() {
                     </Route>
 
                     {/* QAU／GLP 業務頁面——2026-09-05（P0-2）移出 AdminRoute：
-                        這些頁面各自已用 RequirePermission 把關對應的 qau.*/dms.*/glp.*/risk.*/change.*/env.*/competency.*/study.*/formulation.* 權限碼，
+                        這些頁面各自已用 RequirePermission 把關對應模組的權限碼
+                        （qau / dms / glp / risk / change / env / competency / study / formulation），
+                        ⚠️ 這裡刻意不寫 glob 形式的權限碼：註解裡出現 `*` 接 `/` 會提前關閉 JSX 註解區塊，
+                        整段路由當場變成語法錯誤（2026-09-06 CI 實際踩到，tsc TS1003/TS1161）。
                         路徑不變，只是不再額外要求字面 admin 角色——QAU 等角色持有對應權限碼卻進不了頁面正是 P0-2 要修的問題。
                         見 docs/reviews/2026-09-03-code-side-issues.md P0-2。 */}
                     <Route path="/admin/qau" element={
