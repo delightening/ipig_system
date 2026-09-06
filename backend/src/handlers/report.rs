@@ -53,13 +53,35 @@ pub async fn get_purchase_lines_report(
 
 /// 取得案件消耗報表
 ///
-/// 權限沿用 `erp.report.view`，與其餘 ERP 報表一致。這道閘目前授予
-/// WAREHOUSE_MANAGER／PURCHASING／ADMIN_STAFF，**不含 PI**，所以不存在
-/// 「甲 PI 看到乙 PI 案件消耗」的外洩路徑。
+/// 權限沿用 `erp.report.view`，與其餘 ERP 報表一致。
 ///
-/// 日後若要開放 PI 查自己的案子，不能只是把權限加給 PI——那會一次看到全部案件。
-/// 正確做法是照 `get_blood_test_analysis` 的樣板，依 `animal.animal.view_project`
-/// 與 `view_all` 決定要不要把查詢限縮到該使用者有份的計畫。
+/// # 🔴 本端點沒有物件層授權
+///
+/// `query.protocol_id` 由呼叫端任意指定，`ReportService::protocol_consumption`
+/// 直接把它推進 WHERE（`services/report.rs`），**不檢查這個計畫與呼叫者有無關係**；
+/// 不帶 `protocol_id` 就是全部案件。
+///
+/// 現在沒有外洩，是因為 `erp.report.view` 目前只授予 WAREHOUSE_MANAGER／
+/// PURCHASING／ADMIN_STAFF——這三個角色本來就該看全廠。PI 的權限清單裡
+/// 零個 `erp.*`（`startup/permissions.rs` 的 PI 區塊），所以 PI 進不了這道閘。
+///
+/// ⚠️ **這是角色表的現況，不是程式碼給的保證。** 只要有人把 `erp.report.view`
+/// 加進任何「只該看自己案子」的角色，當天就會變成「甲 PI 看得到乙 PI」，
+/// 而這裡不會有任何東西擋下來，也不會有測試轉紅。
+///
+/// # 日後要開放給「只該看自己計畫」的身分時
+///
+/// 必須把查詢**綁回 `current_user`**：依實際的成員關係（計畫主持人／協同人員）
+/// 收斂 protocol 範圍，而不是相信呼叫端送來的 `protocol_id`。
+///
+/// 🔴 **不要照抄 `get_blood_test_analysis`。** 它看起來像樣板，其實不是：
+/// 它的 `restrict` 旗標（`animal.animal.view_project` 且非 `view_all`）傳進
+/// `ReportService::blood_test_analysis` 之後，實際只加一條
+/// `AND a.iacuc_no IS NOT NULL`——那排除的是**還沒掛計畫的動物**，
+/// 不是**不屬於我的計畫**。該函式的參數名 `restrict_to_project_animals`
+/// 與它的 doc 都是這樣寫的，它從未宣稱做後者。而且它的 `query.iacuc_no`
+/// 同樣由呼叫端指定，restrict 為真時也不阻止你填別人的編號。
+/// 照抄它不會解決「甲看到乙」，只會讓人以為解決了。
 #[utoipa::path(get, path = "/api/v1/reports/protocol-consumption", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_protocol_consumption_report(
     State(state): State<AppState>,
