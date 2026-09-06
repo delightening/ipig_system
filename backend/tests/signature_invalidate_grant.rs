@@ -20,6 +20,7 @@
 //! 少了前半段，這支測試在「授予其實來自 seed」時也會綠——那就證明不了
 //! `permissions.rs` 那兩行有在做事，日後有人刪掉它也不會紅。
 
+use serial_test::serial;
 use sqlx::PgPool;
 
 use erp_backend::startup::{ensure_all_role_permissions, ensure_required_permissions};
@@ -57,7 +58,11 @@ async fn roles_holding(pool: &PgPool, permission_code: &str) -> Vec<String> {
 }
 
 /// 跑完 startup 同步後，QAU 與 DIRECTOR 都持有 `signature.invalidate`。
+///
+/// `#[serial]`：與下面那支破壞性測試共用同一顆測試庫，不能與它並行
+/// （它會短暫清空本碼的授予列）。
 #[tokio::test]
+#[serial]
 async fn qau_and_director_hold_signature_invalidate() {
     let pool = migrated_pool().await;
     ensure_required_permissions(&pool)
@@ -78,21 +83,40 @@ async fn qau_and_director_hold_signature_invalidate() {
 
 /// 鑑別力測試：證明授予真的來自 `permissions.rs` 的 startup 同步，而不是 migration/seed。
 ///
-/// 這支同時也是「刪掉那兩行就會紅」的保險——若日後有人把授予從
-/// `ensure_all_role_permissions` 拿掉，後半段的斷言會失敗。
+/// # 初版是錯的，錯在哪裡（2026-09-06，CI 抓到）
+///
+/// 初版先斷言「只跑完 migration 時兩個角色**還沒有**這個權限」，再跑同步、斷言變成有。
+/// **那個前提在本專案不可能成立**：`common/test_db.rs::connect_disposable` 連的是
+/// `TEST_DATABASE_URL` 指向的**同一顆共用測試庫**（它做的是「確認這顆庫可安全丟棄」，
+/// 不是每次建一顆新的），而任何跑過 `TestApp::spawn()` 的測試都會執行完整 app 啟動、
+/// 連帶跑掉 `ensure_all_role_permissions`。輪到本檔時授予**早就存在**，
+/// 初版必然紅在前提斷言上——紅的是測試的假設，不是被測的程式。
+///
+/// # 改法：不假設初始狀態，自己造出來
+///
+/// 先把這個權限碼的所有 `role_permissions` 列清掉，再跑 startup 同步。
+/// 若同步後兩個角色又持有它，那就只可能來自 `permissions.rs`——migration 不會重跑。
+/// 這比「假設它一開始沒有」更強：它直接證明那兩行在做事，刪掉就會紅。
+///
+/// ⚠️ **破壞性操作 + 共用測試庫**：故標 `#[serial]`，且**清除與還原之間不放任何斷言**
+/// （斷言在中間 panic 會讓共用庫留在「少了這個授予」的狀態，害到後面的測試）。
+/// 這是本專案 2026-09-04b 記取過的教訓：mutation 驗證會留下殘骸，要主動保證還原。
 #[tokio::test]
+#[serial]
 async fn grant_comes_from_startup_sync_not_migrations() {
     let pool = migrated_pool().await;
 
-    let before = roles_holding(&pool, CODE).await;
-    for expected in EXPECTED_ROLES {
-        assert!(
-            !before.iter().any(|r| r == expected),
-            "測試前提不成立：只跑 migration 時 {expected} 就已持有 {CODE}，\
-             代表授予來源已改成 migration/seed，本檔的鑑別力假設要重寫（實際：{before:?}）"
-        );
-    }
+    // ── 破壞 ──（此後到還原完成之前，不得有任何 assert）
+    sqlx::query(
+        "DELETE FROM role_permissions \
+         WHERE permission_id = (SELECT id FROM permissions WHERE code = $1)",
+    )
+    .bind(CODE)
+    .execute(&pool)
+    .await
+    .expect("clear existing grants for the code under test");
 
+    // ── 還原 ──
     ensure_required_permissions(&pool)
         .await
         .expect("ensure_required_permissions");
@@ -100,11 +124,13 @@ async fn grant_comes_from_startup_sync_not_migrations() {
         .await
         .expect("ensure_all_role_permissions");
 
+    // ── 還原完成，才開始斷言 ──
     let after = roles_holding(&pool, CODE).await;
     for expected in EXPECTED_ROLES {
         assert!(
             after.iter().any(|r| r == expected),
-            "{expected} 應在 startup 同步後取得 {CODE}（實際：{after:?}）"
+            "把 {CODE} 的授予全部清掉後再跑 startup 同步，{expected} 應該要被重新授予。\
+             沒有被授予＝`ensure_all_role_permissions` 裡那一行不見了或失效了（實際：{after:?}）"
         );
     }
 }
@@ -114,7 +140,10 @@ async fn grant_comes_from_startup_sync_not_migrations() {
 /// ⚠️ 這裡刻意**不**斷言 holders 完全等於某個固定集合：`003_seed.sql` 可能已經
 /// 授予 admin／SYSTEM_ADMIN，且日後使用者可能再加人。本測試守的是
 /// 「一般作業角色不該拿到簽章作廢權」這條線。
+///
+/// `#[serial]`：理由同上，與破壞性測試共用同一顆測試庫。
 #[tokio::test]
+#[serial]
 async fn signature_invalidate_not_granted_to_operational_roles() {
     let pool = migrated_pool().await;
     ensure_required_permissions(&pool)
