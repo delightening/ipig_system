@@ -1805,7 +1805,22 @@ impl GlpComplianceService {
 
     /// QAU 品保聲明填寫。呼叫端（handler）已透過 `qau.report_statement.write`
     /// 權限碼把關；本函式另外擋「QAU 簽署人不得與該計畫 SD 為同一人」——
-    /// 這是結構性 SoD，不只依賴「記得別把兩個角色給同一人」（admin 除外）。
+    /// 這是結構性 SoD，不只依賴「記得別把兩個角色給同一人」。
+    ///
+    /// # 🔴 沒有 admin 例外（使用者 2026-09-06 裁定，待決事項 102.1）
+    ///
+    /// 初版寫成 `!user.is_admin() && sd == Some(user.id)`，於是**同時是該計畫 SD 的
+    /// admin 可以填自己計畫的品保聲明**，並被寫進 `qau_signed_by`——產出一張
+    /// 「簽署人＝被稽核對象本人」的品保聲明。那在 GLP 上沒有意義，與「admin 代簽
+    /// 最終報告」是同一種無意義；而同一支 PR 的 `sign_study_report` 本來就不給 admin
+    /// 例外。同一份報告上的兩個具結動作標準不一致，是初版的錯，不是 bot 誤解設計。
+    ///
+    /// ⚠️ **已知並接受的代價**：admin 完全無法代填品保聲明，連緊急情況也不行。
+    /// 唯一出路是改派該計畫 SD，或由另一位持 `qau.report_statement.write` 的人填。
+    ///
+    /// 📌 裁定時另有一個選項是「拿掉例外，另外比照 `protocol_closure` 的 admin 旁路
+    /// 設一條『強制填理由 + 專屬 audit action』的稽核式緊急路徑」，使用者看過但未選。
+    /// **那不等於被否決**——日後真的碰到緊急情境時，那是現成的樣板，不必重新設計。
     pub async fn update_qau_statement(
         pool: &PgPool,
         actor: &ActorContext,
@@ -1829,7 +1844,8 @@ impl GlpComplianceService {
                 .fetch_optional(&mut *tx)
                 .await?
                 .flatten();
-        if !user.is_admin() && sd == Some(user.id) {
+        // 無 admin 例外——理由見本函式的 doc comment（裁定 102.1）。
+        if sd == Some(user.id) {
             return Err(AppError::Forbidden(
                 "本計畫的 Study Director 不可同時填寫 QAU 品保聲明（職責分離）。".into(),
             ));

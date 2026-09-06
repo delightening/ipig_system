@@ -377,6 +377,60 @@ async fn qau_can_attest_but_reports_own_sd_cannot() {
     );
 }
 
+/// 🔴 **admin 身分不構成 SoD 例外**（使用者 2026-09-06 裁定，待決事項 102.1）。
+///
+/// # 為什麼要單獨一支，上面那支不夠
+///
+/// `qau_can_attest_but_reports_own_sd_cannot` 的 SD 是 `EXPERIMENT_STAFF`（非 admin），
+/// 所以它在**移除 admin 例外之前就已經是綠的**——它證明不了這次的改動。
+/// 舊碼寫的是 `!user.is_admin() && sd == Some(user.id)`，缺口只在「SD 同時是 admin」
+/// 這個交集上，要測到它就必須讓同一個人同時具備兩者。
+///
+/// 這支對舊碼會紅：admin 走 `!user.is_admin()` 短路繞過 SoD，`update_qau_statement`
+/// 會成功回傳，`expect_err` 因此失敗。
+#[tokio::test]
+#[serial]
+async fn admin_who_is_the_reports_sd_still_cannot_attest() {
+    let app = TestApp::spawn().await;
+    let pi = seed_user(&app, "PI").await;
+    // SD 資格來自 EXPERIMENT_STAFF；再疊上 SYSTEM_ADMIN 造出「SD 兼 admin」這個交集
+    let sd_admin = seed_user(&app, "EXPERIMENT_STAFF").await;
+    assign_role(&app, sd_admin, "SYSTEM_ADMIN").await;
+    let protocol_id = seed_protocol(&app, pi, Some(sd_admin)).await;
+
+    let report = GlpComplianceService::create_study_report(
+        &app.db_pool,
+        &actor(&app, sd_admin).await,
+        &create_req(protocol_id),
+    )
+    .await
+    .expect("SD（兼 admin）建立報告");
+
+    let err = GlpComplianceService::update_qau_statement(
+        &app.db_pool,
+        &actor(&app, sd_admin).await,
+        report.id,
+        "admin 想幫自己擔任 SD 的報告寫品保聲明。",
+    )
+    .await
+    .expect_err("admin 身分不得成為 SoD 例外——簽署人＝被稽核對象本人的品保聲明沒有意義");
+    assert!(
+        err.to_string().contains("職責分離"),
+        "錯誤訊息應說明是職責分離（SoD），實際：{err}"
+    );
+
+    // 擋下時不得留下任何簽署痕跡
+    let after: (Option<Uuid>, Option<String>) = sqlx::query_as(
+        "SELECT qau_signed_by, qau_statement FROM study_final_reports WHERE id = $1",
+    )
+    .bind(report.id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("query report");
+    assert!(after.0.is_none(), "被擋下時不該寫入 qau_signed_by");
+    assert!(after.1.is_none(), "被擋下時不該寫入 qau_statement");
+}
+
 /// 沒有 `study.report.view` / `qau.report_statement.write` 的一般使用者，
 /// 看不到別人計畫的報告；本人是 SD 的那份仍看得到（至少要能看到自己要簽的）。
 #[tokio::test]
