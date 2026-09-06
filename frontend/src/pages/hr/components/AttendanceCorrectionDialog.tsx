@@ -80,8 +80,16 @@ export function AttendanceCorrectionDialog({
     // 卻蓋上 is_corrected / corrected_by / correction_reason，污染稽核軌跡與月報的
     //「補登／更正天數」（CodeRabbit PR #35 第三輪指出）
     const noTimeGiven = !clockIn && !clockOut
+    // 更正模式下，清掉「原本有值」的那一欄一樣是無聲的假動作：`AttendanceCorrectionRequest`
+    // 把「沒帶欄位」與「明確傳 null」都序列化成 `None`，`correct_attendance` 用
+    // `or(既有值)` 合併，兩者在後端分不出來——清空送出後那一欄其實沒變，但仍蓋上
+    // is_corrected / audit log（CodeRabbit PR #35 第四輪指出）。在後端補上能分辨
+    // 「未提供」與「明確清空」的請求型別之前，這裡先擋下「已有值 → 清空」這個
+    // 唯一會被靜默吞掉的路徑；「原本沒有 → 填入」（補齊不完整的打卡）不受影響。
+    const wouldClearExistingTime =
+        isCorrection && ((Boolean(recordClockIn) && !clockIn) || (Boolean(recordClockOut) && !clockOut))
     const pending = backfillMutation.isPending || correctMutation.isPending
-    const canSubmit = !pending && !reasonTooShort && !missingTarget && !noTimeGiven
+    const canSubmit = !pending && !reasonTooShort && !missingTarget && !noTimeGiven && !wouldClearExistingTime
 
     const handleSubmit = () => {
         if (!canSubmit) return
@@ -187,6 +195,11 @@ export function AttendanceCorrectionDialog({
                     {noTimeGiven && (
                         <p className="text-sm text-muted-foreground">
                             上班與下班至少要填一個。
+                        </p>
+                    )}
+                    {wouldClearExistingTime && (
+                        <p className="text-sm text-muted-foreground">
+                            目前不支援清空已有打卡時間，清空後系統會保留原值——如需清空請聯絡系統管理員。
                         </p>
                     )}
 

@@ -4,6 +4,7 @@ import { BarChart3, Calendar, Clock } from 'lucide-react'
 import api from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { useGuestQuery } from '@/hooks/useGuestQuery'
+import { useAuthHasPermission } from '@/stores/auth'
 import { DEMO_ATTENDANCE } from '@/lib/guest-demo'
 import { PageHeader } from '@/components/ui/page-header'
 import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
@@ -20,6 +21,15 @@ export function HrAttendancePage() {
     useEffect(() => {
         prewarmGpsPosition()
     }, [])
+
+    // 與後端 get_monthly_report/export_monthly_report 的權限門檻對齊
+    // （CodeRabbit PR #35 指出）：沒有 hr.attendance.view 的角色（PI/VET/CLIENT 等，
+    // 見 backend/src/startup/permissions.rs）打這兩支端點會拿到 403，但分頁一直都
+    // 看得到、選得到——只隱藏分頁按鈕不夠，`?tab=monthly` 深連結仍可能讓內容掛載
+    // （PageTabs 的 `hidden` 只濾掉觸發按鈕，`activeTab` 仍可能解析成該值），
+    // 所以分頁清單與內容渲染都要各自擋一次。跟 HrLeavePage.tsx 的既有作法一致。
+    const hasPermission = useAuthHasPermission()
+    const canViewMonthly = hasPermission('hr.attendance.view')
 
     // 今日打卡狀態
     const { data: todayAttendance, refetch: refetchToday } = useGuestQuery(
@@ -53,7 +63,7 @@ export function HrAttendancePage() {
                 tabs={[
                     { value: 'today', label: '今日打卡', icon: Clock },
                     { value: 'history', label: '出勤記錄', icon: Calendar },
-                    { value: 'monthly', label: '工時月報', icon: BarChart3 },
+                    { value: 'monthly', label: '工時月報', icon: BarChart3, hidden: !canViewMonthly },
                 ]}
                 defaultTab="today"
             >
@@ -72,9 +82,11 @@ export function HrAttendancePage() {
                     <AttendanceHistoryTab />
                 </PageTabContent>
 
-                <PageTabContent value="monthly" className="space-y-4">
-                    <MonthlyReportTab />
-                </PageTabContent>
+                {canViewMonthly && (
+                    <PageTabContent value="monthly" className="space-y-4">
+                        <MonthlyReportTab />
+                    </PageTabContent>
+                )}
             </PageTabs>
         </div>
     )

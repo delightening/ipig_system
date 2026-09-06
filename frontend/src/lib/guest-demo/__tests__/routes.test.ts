@@ -24,7 +24,11 @@ describe('guest-demo monthly-report 的當月判斷（時區）', () => {
 
     afterEach(() => {
         vi.useRealTimers()
-        process.env.TZ = ORIGINAL_TZ
+        // ⚠️ 本機沒有明確設過 `TZ` 環境變數時 `ORIGINAL_TZ` 是 `undefined`——
+        // 直接指派給 `process.env.TZ` 會被強制轉成字串 `"undefined"`，
+        // 而不是清掉這個變數，汙染同一個 worker 裡跑在後面的測試（CodeRabbit 指出）。
+        if (ORIGINAL_TZ === undefined) delete process.env.TZ
+        else process.env.TZ = ORIGINAL_TZ
     })
 
     it('請求台灣當月（9 月）回傳 demo 資料，即使瀏覽器本地時間仍是 8 月', async () => {
