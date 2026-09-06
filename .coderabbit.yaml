@@ -2,6 +2,15 @@
 # 參考：https://docs.coderabbit.ai/reference/configuration
 #
 # 建立於 2026-08-04。此前本 repo 無設定檔，全部走預設值。
+#
+# 🔴 **本檔（以及各制度檔）裡 2026-08-22 之前的 PR 編號，指的是前一個 repo，
+# 在現行 repo 查不到、且會查到不相干的 PR。** 現行 repo 的 git 歷史起點是
+# `58e009d chore: initial commit — code-only public mirror`（2026-08-22），
+# PR 編號自該日重新計數。實例（2026-09-02 以 `gh pr view` 實查）：
+# 本檔敘述的「2026-08-07 PR #48（base=integration/*）」在現行 repo 是
+# 2026-08-31 的 axios bump；「2026-08-03 的 #14」是 2026-08-23 的 CSP 修補。
+# **看到舊編號不要點進去對照，那會得到錯的結論**——敘述的事件本身仍有效，
+# 失效的只是編號。此問題涵蓋 CLAUDE.md／docs/agents/*／PROGRESS.md，不限本檔。
 
 reviews:
   # 把制度檔的備份副本排除出審查範圍。
@@ -11,7 +20,10 @@ reviews:
   # 內容 100% 與被改的正本重疊，審它等於把同一份文字再審一次。
   #
   # 為什麼值得特地排除——本 repo 的 CodeRabbit 額度是浮動的 1–10 次／開發者／
-  # 小時（OSS 方案，rolling window，跨 session 共用），實測常落在 1。讓那唯一
+  # 小時（OSS 方案，rolling window，跨 session 共用；出處同下方 `ignore_usernames`
+  # 段：CodeRabbit 官方 2026-08-05 回信 + 官方 docs。⚠️ 該數字已被
+  # `docs/agents/REVIEW_TRIGGER.md` 標記為與本檔說法尚未對帳，**不是現行判準**，
+  # 判準一律回 `docs/agents/PARALLEL_SESSIONS.md` §7），實測常落在 1。讓那唯一
   # 一次額度分心去讀逐字副本，是真的有代價的。#19 實測：4 個檔的 PR 裡有 1 個
   # 是 207 行的 .bak，佔了超過一半的行數。
   #
@@ -51,7 +63,10 @@ reviews:
     # 官方訊息載明近期活動達 95 百分位時額度「隨舊 review 逐筆老化而更緩慢釋出」，
     # 實測倒數不減反增（12 分鐘 → 37 分鐘 → 55 分鐘），**等待與重試無法收斂**。
     #
-    # ⚠️ 這改變工作流，務必知道：修完 push 之後 **不會**自動重審，必須另外觸發一次。
+    # ⚠️ 這改變工作流，務必知道：修完 push 之後 **不會**自動重審，要另外觸發一次。
+    # 🔴 **但那一次不是你去下指令**——讀完這句最直覺的動作（自己
+    # `gh pr comment ... @coderabbitai full review`）正是下面那段明文禁止的事。
+    # 觸發由關口統一發配，先把下面 🔴 那段讀完再動。
     # 這其實更貼合 CLAUDE.md 授權節 (e) 的閘門——它要求 bot 的 review 必須晚於
     # 最後一次 commit；把「全部修完再請求一次」變成明確動作，反而比
     # 「每 push 都審、最後一次常撞牆」更容易拿到乾淨章。
