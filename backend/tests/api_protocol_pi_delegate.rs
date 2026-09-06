@@ -201,6 +201,17 @@ async fn active_pi_delegate_projects_every_field() {
     let delegate = seed_user(&app, None).await;
     let protocol = seed_external_pi_protocol(&app, creator, Some(sd)).await;
 
+    // 兩個名字給成可區分的確定值：查詢是兩個 JOIN（du 取代理人、au 取核准人），
+    // 兩邊接反了 id 仍然對得上，只有名字會互換。`seed_user` 的隨機名字驗不出這個。
+    for (uid, name) in [(delegate, "代理甲"), (sd, "核准乙")] {
+        sqlx::query("UPDATE users SET display_name = $2 WHERE id = $1")
+            .bind(uid)
+            .bind(name)
+            .execute(&app.db_pool)
+            .await
+            .expect("set display_name");
+    }
+
     let expires_at = Utc::now() + Duration::days(30);
     ProtocolService::authorize_pi_delegate(
         &app.db_pool,
@@ -224,6 +235,12 @@ async fn active_pi_delegate_projects_every_field() {
     assert!(
         info.expires_at.is_some(),
         "設了到期日就必須帶回前端；漏掉會讓畫面顯示成「未設期限」，比沒有這個欄位更糟"
+    );
+    // 前端直接把這兩個字串顯示出來，接反了就是「誰授權誰」整個顛倒。
+    assert_eq!(info.delegate_name, "代理甲", "delegate_name 必須取自代理人");
+    assert_eq!(
+        info.authorized_by_name, "核准乙",
+        "authorized_by_name 必須取自核准人"
     );
 }
 
@@ -1272,6 +1289,82 @@ async fn amendment_submit_rejects_delegation_expired_after_resolution() {
     submit_after_invalidation(&app, Invalidate::Expire).await;
 }
 
+/// `submit` 讀狀態時必須持有列鎖（CodeRabbit #53 第六輪）。
+///
+/// 交易化只保證「這批寫入同生同滅」，不保證「讀到的狀態還算數」。少了
+/// `FOR UPDATE`，狀態守衛讀到的 `Draft` 可能在 UPDATE 之前就被別人改掉，
+/// 而那個 UPDATE 只 match `id`、不帶狀態條件，於是照樣寫成 `Submitted`，
+/// 並再產一份版本快照與狀態歷程——守衛看似擋著，實際上擋不住。
+///
+/// ⚠️ **不用 `tokio::join!` 兩個 submit**：那樣寫過（第一版），mutation 存活。
+/// current-thread runtime 下兩個 future 只是交錯，未必在關鍵區間重疊——
+/// 第一個常常一路跑完，第二個才開始，於是守衛正常擋下、測試假通過。
+/// 改成由測試自己持有鎖、自己決定何時放開，時序就不再靠排程碰運氣：
+///   1. `tx1` 鎖住該列並**不** commit
+///   2. 另一個 task 呼叫 `submit`——有鎖版會停在它的 `FOR UPDATE`；
+///      無鎖版的普通 SELECT 不受阻，直接讀到尚未變更的 `Draft`
+///   3. `tx1` 把狀態推進到 `SUBMITTED` 後 commit
+///   4. 有鎖版這時才讀到 `SUBMITTED`，被守衛擋下；
+///      無鎖版早就過了守衛，UPDATE 一等到鎖就寫下去
+#[tokio::test]
+#[serial]
+async fn submit_reads_status_under_row_lock() {
+    use erp_backend::services::AmendmentService;
+    use std::time::Duration;
+
+    let app = TestApp::spawn().await;
+    let (_creator, _sd, delegate, protocol, _delegation_id, delegate_user) =
+        seed_delegate_amendment_scene(&app).await;
+    let amendment = make_amendment(&app, protocol, delegate, &delegate_user, "並發送審").await;
+    let amendment_id = amendment.id;
+
+    let scope =
+        access::Scoped::<access::AmendmentWrite>::authorize(&app.db_pool, &delegate_user, protocol)
+            .await
+            .expect("authorize amendment write");
+
+    // 1. 先鎖住該列，不放。
+    let mut tx1 = app.db_pool.begin().await.expect("begin tx1");
+    sqlx::query("SELECT id FROM amendments WHERE id = $1 FOR UPDATE")
+        .bind(amendment_id)
+        .fetch_one(&mut *tx1)
+        .await
+        .expect("lock row in tx1");
+
+    // 2. 讓 submit 在鎖被持有期間開始。
+    let pool = app.db_pool.clone();
+    let handle = tokio::spawn(async move {
+        AmendmentService::submit(&pool, scope, amendment_id, delegate, None).await
+    });
+    tokio::time::sleep(Duration::from_millis(400)).await;
+
+    // 3. 在 submit 還卡著（或已讀過舊值）時把狀態推進，然後放開鎖。
+    sqlx::query("UPDATE amendments SET status = 'SUBMITTED'::amendment_status WHERE id = $1")
+        .bind(amendment_id)
+        .execute(&mut *tx1)
+        .await
+        .expect("advance status in tx1");
+    tx1.commit().await.expect("commit tx1");
+
+    // 4. 有鎖才會讀到已提交的新狀態並被守衛擋下。
+    let result = handle.await.expect("join submit task");
+    assert!(
+        result.is_err(),
+        "狀態已被別的交易推進到 SUBMITTED，這次 submit 必須讀到新狀態並被擋下；\
+         成功代表它讀的是過期的 DRAFT（少了 FOR UPDATE）——實際：{result:?}"
+    );
+
+    // 而且不得留下任何送審副作用。
+    let versions = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM amendment_versions WHERE amendment_id = $1",
+    )
+    .bind(amendment_id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("count versions");
+    assert_eq!(versions, 0, "被擋下的 submit 不該留下版本快照");
+}
+
 // ── 結案雙簽：真正的寫入端（不是只測讀取端的 gate）───────────────
 //
 // 同 `api_protocol_closure_sign_path.rs` 的理由：讀取端 gate 綠燈不代表寫入端
@@ -1498,6 +1591,51 @@ async fn sd_as_own_delegate_cannot_sign_pi_closure_slot() {
     assert!(
         pi_slot.is_none(),
         "被擋下時不得寫入 PI 欄簽章，否則要人工撤銷授權 + 作廢簽章才脫得了困"
+    );
+}
+
+/// 同一個人同時是 `pi_user_id` 與 `study_director_user_id` 時，**本人直簽**也要擋。
+///
+/// 這條補的是上一支測試涵蓋不到的入口（CodeRabbit #53 第六輪）：守衛原本多了一個
+/// `delegation_id.is_some()`，只擋代理那條路；但 `dual_signature_ready` 的
+/// `pi_signer_authorized` 第一分支是 `pi_signer == pi_user_id`——本人直簽根本不需要
+/// 授權，`delegation_id` 是 `None`，守衛整個失效。於是繞遠路的被擋、最直接的放行。
+///
+/// 後果與代理那條完全相同：PI 欄被佔住、條件 7（兩簽不同人）永遠回 false，
+/// 計畫再也進不了 `CLOSED`。
+#[tokio::test]
+#[serial]
+async fn sd_who_is_also_pi_cannot_sign_pi_closure_slot_in_person() {
+    let app = TestApp::spawn().await;
+    let both = seed_signer(&app, Some("EXPERIMENT_STAFF")).await;
+    // pi_user_id 與 study_director_user_id 指向同一人（存量資料可能長成這樣，
+    // 見 `dual_signature_ready` 條件 7 的註解）。
+    let protocol = seed_external_pi_protocol(&app, both, Some(both)).await;
+
+    let err = protocol_closure_sign(
+        &app.db_pool,
+        &actor(both, &["EXPERIMENT_STAFF"]),
+        protocol,
+        ClosureSigner::Pi,
+        both,
+        None, // ← 本人直簽，沒有代理授權
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect_err("同時是 SD 的人本人直簽 PI 欄，一樣要被擋下");
+    assert!(matches!(err, AppError::BusinessRule(_)), "{err:?}");
+
+    let pi_slot: Option<Uuid> =
+        sqlx::query_scalar("SELECT close_pi_signature_id FROM protocols WHERE id = $1")
+            .bind(protocol)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("read protocol");
+    assert!(
+        pi_slot.is_none(),
+        "被擋下時不得寫入 PI 欄簽章——寫下去就是同一個不可回復的卡死狀態"
     );
 }
 

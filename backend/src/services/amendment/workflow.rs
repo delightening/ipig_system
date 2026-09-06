@@ -233,7 +233,12 @@ impl AmendmentService {
     ) -> Result<Amendment> {
         let mut tx = pool.begin().await?;
 
-        let current = Self::get_by_id_raw_conn(&mut tx, id).await?;
+        // ⚠️ 用 FOR UPDATE 讀，不是普通 SELECT（CodeRabbit #53 第六輪）：狀態守衛
+        // 讀到的值必須撐到 UPDATE 為止。否則兩個並行的 submit 都讀到 Draft，
+        // 而下面的 UPDATE 只 match id、不帶狀態條件，第二個會在第一個 commit 之後
+        // 照樣寫成 Submitted，並且再產一份版本快照與狀態歷程。
+        // 交易化只保證「這批寫入同生同滅」，不保證「讀到的狀態還算數」——後者要靠鎖。
+        let current = select_amendment_for_update_tx(&mut tx, id).await?;
         ensure_amendment_scope(&current, &scope)?;
         ensure_live_amendment(&current)?;
 
