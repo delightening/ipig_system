@@ -226,7 +226,9 @@ function StudyReportDetailDialog({
     conclusions: string
     deviations: string
   } | null>(null)
-  const [qauStatement, setQauStatement] = useState('')
+  // null = 使用者還沒動過這個欄位，畫面與送出都回落到報告現值；
+  // 空字串是「使用者刻意清空」，與 null 不同義，所以不能用 '' 當初始值。
+  const [qauStatement, setQauStatement] = useState<string | null>(null)
   const [signPassword, setSignPassword] = useState('')
 
   const { data: report, isLoading } = useQuery({
@@ -273,7 +275,9 @@ function StudyReportDetailDialog({
   })
 
   const qauMutation = useMutation({
-    mutationFn: () => updateQauStatement(id, qauStatement),
+    // 與 textarea 的 value、與按鈕的 disabled 用同一個 resolved 值：
+    // 三處若各自解讀 null，就會出現「畫面顯示 A、送出 B」的分歧。
+    mutationFn: () => updateQauStatement(id, qauStatement ?? report?.qau_statement ?? ''),
     onSuccess: () => {
       invalidate()
       toast({ title: 'QAU 品保聲明已儲存' })
@@ -383,9 +387,15 @@ function StudyReportDetailDialog({
               )}
               {canWriteQauStatement ? (
                 <div className="space-y-2">
+                  {/* 受控欄位 + 「草稿為 null 時回落到報告現值」（CodeRabbit 於 #102 指出）。
+                      改掉的是兩件事：
+                      ① `defaultValue` 只在首次掛載生效，報告在對話框開著時被 refetch
+                         （儲存後 invalidate 就會）不會反映到畫面；
+                      ② 舊寫法的 disabled 看的是空的草稿 state，於是**已經有品保聲明的報告
+                         打開後按鈕是灰的**，非得先打一個字才能存。 */}
                   <textarea
                     className={textareaClass}
-                    defaultValue={report.qau_statement ?? ''}
+                    value={qauStatement ?? report.qau_statement ?? ''}
                     onChange={(e) => setQauStatement(e.target.value)}
                     placeholder="品保稽核結論…"
                   />
@@ -393,7 +403,7 @@ function StudyReportDetailDialog({
                     <Button
                       size="sm"
                       onClick={() => qauMutation.mutate()}
-                      disabled={!qauStatement || qauMutation.isPending}
+                      disabled={!(qauStatement ?? report.qau_statement) || qauMutation.isPending}
                     >
                       儲存品保聲明
                     </Button>
