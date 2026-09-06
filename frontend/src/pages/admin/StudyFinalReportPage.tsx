@@ -283,7 +283,9 @@ function StudyReportDetailDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
+      {/* size="lg" 即 max-w-2xl（見 components/ui/dialogSize.ts）；
+          ⚠️ 不是 size="2xl"——那是 max-w-6xl。寬度一律走 size prop，禁止硬編 max-w-*（DESIGN.md）。 */}
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>{report ? `${report.report_number}｜${report.title}` : '最終報告'}</DialogTitle>
         </DialogHeader>

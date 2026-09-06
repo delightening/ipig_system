@@ -272,13 +272,12 @@ async fn admin_cannot_sign_on_behalf_of_sd() {
         "錯誤訊息應指出只有 SD 可以，實際：{err}"
     );
 
-    let after: (String, Option<Uuid>) = sqlx::query_as(
-        "SELECT status, signed_by FROM study_final_reports WHERE id = $1",
-    )
-    .bind(report.id)
-    .fetch_one(&app.db_pool)
-    .await
-    .expect("query report");
+    let after: (String, Option<Uuid>) =
+        sqlx::query_as("SELECT status, signed_by FROM study_final_reports WHERE id = $1")
+            .bind(report.id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("query report");
     assert_eq!(after.0, "draft", "被擋下時不該轉態");
     assert!(after.1.is_none(), "被擋下時不該寫入 signed_by");
 }

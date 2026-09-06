@@ -1468,7 +1468,8 @@ impl GlpComplianceService {
         user: &CurrentUser,
         protocol_id: Uuid,
     ) -> Result<bool> {
-        if user.has_permission("study.report.view") || user.has_permission("qau.report_statement.write")
+        if user.has_permission("study.report.view")
+            || user.has_permission("qau.report_statement.write")
         {
             return Ok(true);
         }
@@ -1532,7 +1533,11 @@ impl GlpComplianceService {
         repo::find_study_reports(pool, params, restrict_to_sd).await
     }
 
-    pub async fn get_study_report(pool: &PgPool, user: &CurrentUser, id: Uuid) -> Result<StudyFinalReport> {
+    pub async fn get_study_report(
+        pool: &PgPool,
+        user: &CurrentUser,
+        id: Uuid,
+    ) -> Result<StudyFinalReport> {
         let item = repo::find_study_report_by_id(pool, id)
             .await?
             .ok_or(AppError::NotFound("最終報告不存在".into()))?;
@@ -1696,15 +1701,18 @@ impl GlpComplianceService {
         .ok_or(AppError::NotFound("最終報告不存在".into()))?;
 
         if before.status == "signed" {
-            return Err(AppError::BusinessRule("此報告已簽署，不可重複簽署。".into()));
+            return Err(AppError::BusinessRule(
+                "此報告已簽署，不可重複簽署。".into(),
+            ));
         }
 
         // 身分即授權，無 admin 例外——鎖 protocols 該列，避免簽署期間 SD 被改派（TOCTOU）。
-        let protocol = sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1 FOR UPDATE")
-            .bind(before.protocol_id)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or_else(|| AppError::NotFound("找不到計劃書".into()))?;
+        let protocol =
+            sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1 FOR UPDATE")
+                .bind(before.protocol_id)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or_else(|| AppError::NotFound("找不到計劃書".into()))?;
         match protocol.study_director_user_id {
             Some(uid) if uid == user.id => {}
             Some(_) => {
