@@ -250,16 +250,19 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                             補登歷史變更
                         </Button>
                     )}
+                    {/* 徽章掛在操作區本身，不掛在建立按鈕旁（CodeRabbit #53 第六輪）：
+                        提交既有 DRAFT 的按鈕只看 canManageAmendment，不看
+                        canCreateAmendment（後者是「計畫狀態允許新增」）。綁在一起的話，
+                        代理人在計畫已離開 APPROVED 的情況下仍能提交，畫面卻沒有任何
+                        代理標記——而這個標記正是要讓操作者知道自己以誰的名義在動作。 */}
+                    {isPiDelegate && canManageAmendment && (
+                        <Badge variant="outline">{t('protocols.amendments.piDelegateBadge')}</Badge>
+                    )}
                     {canCreateAmendment && canManageAmendment && (
-                        <>
-                            {isPiDelegate && (
-                                <Badge variant="outline">{t('protocols.amendments.piDelegateBadge')}</Badge>
-                            )}
-                            <Button onClick={() => dialogs.open('create')}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                {t('protocols.amendments.create')}
-                            </Button>
-                        </>
+                        <Button onClick={() => dialogs.open('create')}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            {t('protocols.amendments.create')}
+                        </Button>
                     )}
                 </div>
             </CardHeader>

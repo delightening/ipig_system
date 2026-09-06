@@ -282,13 +282,19 @@ pub async fn sign_closure(
     //
     // ⚠️ 必須擋在建立簽章**之前**：PI 欄的簽章一旦寫下去就佔住欄位，脫困要撤銷授權
     // 加作廢簽章，是人工修資料等級的成本。
-    if matches!(signer, ClosureSigner::Pi)
-        && delegation_id.is_some()
-        && before.study_director_user_id == Some(signer_id)
-    {
+    //
+    // ⚠️ 判準**不看 `delegation_id`**（CodeRabbit #53 第六輪訂正）。原本多了一個
+    // `delegation_id.is_some()`，把守衛限縮成「只擋代理簽」——但代理不是唯一入口：
+    // `pi_signer == pi_user_id` 時本人直簽根本不需要授權（見 `dual_signature_ready`
+    // 的 `pi_signer_authorized` 第一分支），此時 `delegation_id` 是 `None`，守衛整個
+    // 失效。而 `pi_user_id == study_director_user_id` 這個組合**是可能出現的**——
+    // 條件 7 的註解自己就寫了「可能在指派之後才變成同一人（存量資料、或日後放寬
+    // 規則）」。等於原本擋掉了繞遠路的那條，卻放行了最直接的那條。
+    if matches!(signer, ClosureSigner::Pi) && before.study_director_user_id == Some(signer_id) {
         return Err(AppError::BusinessRule(
-            "計劃負責人（SD）不可以 PI 代理人身分簽結案：結案雙簽要求兩人各自具結，\
-             同一人簽兩欄不構成雙簽。請改由 SD 以外的代理人簽 PI 那一欄。"
+            "計劃負責人（SD）不可以簽結案的 PI 欄（不論本人直簽或以代理人身分）：\
+             結案雙簽要求兩人各自具結，同一人簽兩欄不構成雙簽。\
+             請改由 SD 以外的人簽 PI 那一欄。"
                 .into(),
         ));
     }

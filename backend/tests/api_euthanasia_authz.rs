@@ -668,14 +668,29 @@ async fn appeal_by_delegate_records_delegation_evidence() {
 #[serial]
 async fn appeal_in_person_leaves_delegation_null() {
     use erp_backend::models::CreateEuthanasiaAppealRequest;
-    use erp_backend::services::EuthanasiaService;
+    use erp_backend::services::{EuthanasiaService, ProtocolService};
 
     let app = TestApp::spawn().await;
     let (pi, _) = seed_login_user(&app, "pi", "PI").await;
     let (sd, _) = seed_login_user(&app, "sd", "EXPERIMENT_STAFF").await;
     let (vet, _) = seed_login_user(&app, "vet", "VET").await;
-    let (_protocol_id, animal_id) = seed_external_pi_protocol_and_animal(&app, pi, sd).await;
+    let (protocol_id, animal_id) = seed_external_pi_protocol_and_animal(&app, pi, sd).await;
     let order_id = seed_order(&app, animal_id, vet, pi, "pending_pi").await;
+
+    // ⚠️ 這一筆授權是本測試的重點，不是佈景（CodeRabbit #53 第六輪）：
+    // 少了它，`pi_appeal` 走本人路徑時 `delegation_id` 本來就只會是 NULL——
+    // 優先序邏輯整個寫反也照樣綠。要驗「本人身分優先於代理身分」，
+    // 場景就必須是「兩種身分同時成立」。
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &user_actor_for(sd, "EXPERIMENT_STAFF"),
+        protocol_id,
+        pi,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人（本例中恰好就是 PI 本人）");
 
     let appeal = EuthanasiaService::pi_appeal(
         &app.db_pool,
