@@ -23,7 +23,7 @@ pub const SYSTEM_USER_ID: Uuid = uuid::uuid!("00000000-0000-0000-0000-0000000000
 /// `User(CurrentUser)` 讓整個 enum 是 144 bytes，其餘兩個 variant 各 ≤16 bytes。
 /// **不裝箱的理由**：service 層一律以 `&ActorContext` 傳遞，胖 variant 不隨呼叫鏈複製；
 /// 改成 `User(Box<CurrentUser>)` 要動 277 處建構點，且每次建構多一次 heap 配置，
-/// 換到的只是 handler future 少 128 bytes——未實測到收益之前不做。
+/// 換到的只是 handler future 少 120 bytes（實測 144 → 24）——未實測到收益之前不做。
 /// 真正的成本在 `CurrentUser` 自己（`roles`/`permissions` 兩個 `Vec<String>`
 /// 每次 clone 都是 N 次獨立配置），那是另一個題目。
 #[derive(Debug, Clone)]

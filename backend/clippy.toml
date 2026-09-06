@@ -11,7 +11,9 @@ too-many-arguments-threshold = 10
 cognitive-complexity-threshold = 30
 
 # enum variant 大小門檻（clippy::large_enum_variant）
-# 預設 200 bytes 太寬：enum 的 size 由最大的 variant 決定（再加上判別式與對齊），
+# 預設 200 bytes 太寬：enum 的 size **至少**是最大 variant 的大小——判別式只有在塞不進
+# 既有 niche 時才額外佔空間（實測：ActorContext 144 bytes，與最大 variant CurrentUser 完全
+# 相等，判別式被塞進非空指標的 niche；對照組換成無 niche 可用的欄位才變 145）。
 # 所以一個胖 variant 會讓**用到這個 enum 的每個值**跟著變胖——包含以它當錯誤型別的
 # Result<T, E>，以及在 .await 之間仍然存活、因而被存進 future 狀態機的那些值。
 # 同時存在的這種值越多，代價疊得越高。
