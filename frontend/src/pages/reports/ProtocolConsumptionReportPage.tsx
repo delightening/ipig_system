@@ -46,11 +46,19 @@ const ALL_VALUE = '__all__'
 type TabKey = 'by-protocol' | 'by-product' | 'cross'
 
 function download(filename: string, csv: string) {
+  // BOM 前綴讓 Excel 認得 UTF-8，否則中文品名開起來是亂碼
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
+  link.href = url
   link.download = filename
   link.click()
+  // 🔴 用完要 revoke，否則每按一次匯出就把一整份 CSV 釘在記憶體裡到整頁卸載為止。
+  // 交叉表在品項多的時候一份就不小，反覆匯出會累積。
+  //
+  // 不能同步 revoke：部分瀏覽器在 click() 回傳時還沒真的開始讀這個 URL，
+  // 立刻撤銷會讓下載變成空檔。延到下一個 macrotask，讓下載先啟動。
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 export function ProtocolConsumptionReportPage() {
