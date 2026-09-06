@@ -7,17 +7,226 @@
 # 稽核 HMAC 鏈亦重新起算（使用者裁定「舊資料只要存一個結果即可，不用可驗」）。
 #
 # 用法：
-#   ./scripts/newprod/gen-secrets.sh
+#   ./scripts/newprod/gen-secrets.sh                    # 初次佈建（目標目錄須為空或不存在）
+#   ./scripts/newprod/gen-secrets.sh --allow-existing   # 在既有部署上重跑
 #
 # 冪等：已存在的檔案不覆蓋（要重產請先自行刪除該檔）。
+#
+# ⚠️ R103-5：目標目錄裡**只要有任何東西**（一般檔案、dotfile、symlink、子目錄
+# 都算），預設就直接拒絕執行（fail-closed）。
+# 理由是這支腳本的落點在已部署的機器上就是現役 prod 的 secrets 目錄，
+# 而它對既有檔案也會下 chmod。要在既有部署上重跑須明確帶 `--allow-existing`，
+# 詳見下方守衛處的說明。
+#
+# ⚠️ 刻意用**位置參數而非環境變數**：環境變數 `export` 一次之後，同一個 shell
+# 裡後續每一次執行都是無守衛的，而且從指令列看不出來。旗標每次都要重打。
 
 set -euo pipefail
+
+# R103-2：本腳本寫出的是 prod 的資料庫密碼、各服務 token 與 JWT 私鑰。
+# 預設 umask（多為 022）會讓這些檔案 group/world-readable，等於把 prod 金鑰
+# 攤給同機器上的任何使用者。改成 0600（目錄 0700）。
+#
+# ⚠️ 刻意**只**設 umask，不對既有的 `secrets/` 目錄或既有檔案下 chmod：
+# 容器可能以非 root 身分掛載讀取，收緊既有權限有機會讓服務讀不到 secret 而起不來。
+# 要調整既有檔案請先確認各服務的執行身分（見 docker-compose 的 user: 設定）。
+umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SECRETS_DIR="$REPO_ROOT/secrets"
 
+# CodeRabbit #83 PoC（Linux 容器實測重現，兩個都成立）：
+#   1. `$SECRETS_DIR` 本身是符號連結，指到目錄外一個空目錄 → 下面的既有內容
+#      守衛用 `find` 對連結目標算內容，空目錄算 0 而放行 → `chmod 0711` 隨後
+#      跟隨連結改到目錄外目標的權限（PoC 實測 700→711）。
+#   2. `--allow-existing` 時，目錄內第一層項目若是符號連結（含斷鏈）——既有
+#      內容守衛只計數不分型態，不會單獨擋下——監控檔迴圈的 `chmod 0644`
+#      或補公鑰的 `openssl -out` 會跟隨連結動到目錄外（PoC 實測 600→644）。
+# `-L` 對不存在的路徑回傳假，不影響首次佈建（路徑還不存在）。
+if [ -L "$SECRETS_DIR" ]; then
+  echo "ERROR: $SECRETS_DIR 本身是符號連結，拒絕執行。" >&2
+  echo "       連結目標：$(readlink "$SECRETS_DIR" 2>/dev/null || echo '（無法解析）')" >&2
+  echo "       本腳本接下來會對這個路徑下 chmod；若它是符號連結，改到的" >&2
+  echo "       是連結目標而非預期的 secrets 目錄，可能是目錄外任意位置。" >&2
+  echo "       請移除這個符號連結、改用真實目錄後再跑。" >&2
+  exit 1
+fi
+
+# CodeRabbit #83 第四輪：既有目錄從不檢查擁有者是誰。
+#
+# 這條建議的原句提到「把 chmod 0711 移到掃描之前」——**這句話跟現行程式碼的
+# 實際順序對不上**：`chmod 0711` 在下面第 171 行左右，本來就在符號連結掃描
+# 之後，不是之前。我沒有照這句字面去搬動 chmod；但底下這句話點出的核心問題
+# 是真的，獨立 PoC 驗證過兩種情境：
+#   - 以非 root 使用者對「別人擁有的既有目錄」跑 --allow-existing：
+#     後面第 171 行的 `chmod 0711` 撞到 Linux 核心規則「只有擁有者或 root
+#     能 chmod」，以 EPERM 崩潰、`set -e` 中止——**這是意外擋下，不是本腳本
+#     刻意檢查的結果**，錯誤訊息是一句看不懂的核心層錯誤，不是清楚的診斷。
+#   - 以 root 執行對「別人擁有的既有目錄」跑 --allow-existing：
+#     **root 會繞過上面那條核心規則**，`chmod` 直接成功，腳本正常跑完、
+#     把真實 prod secrets 寫進一個目錄仍然掛在攻擊者名下（root 的 chmod
+#     只改權限位元，不改擁有者；沒呼叫過 chown）。PoC 實測：腳本 exit 0，
+#     `ls -la` 顯示 `secrets/` 目錄的擁有者維持 `attacker:attacker`。
+# 部署腳本以 root 執行是常見情境，故這個缺口在現實部署下是會發生的，
+# 不是理論案例。在既有的符號連結守衛之前先加一道擁有者檢查：不管是不是
+# root，既有目錄的擁有者都必須等於目前執行者，否則直接拒絕。
+#
+# ⚠️ **這修的是「別人先佔了這個路徑」，不是 TOCTOU race**：符號連結掃描
+# 與後面 `chmod 0711` 之間，仍有一個極窄的視窗——若攻擊者與這次執行剛好
+# 是同一個擁有者、但目錄權限在那個瞬間仍然寬鬆，理論上可以搶在掃描通過後、
+# chmod 生效前換一個符號連結進去。要徹底封死這個視窗需要整支腳本改寫成
+# 用檔案描述符操作（open with O_NOFOLLOW），而不是先檢查路徑再對路徑動作——
+# 對一支「單一操作者手動初次佈建」的腳本來說是不成比例的重寫，此處不做，
+# 誠實記在這裡而非略過不提。
+# ⚠️ **Windows／NTFS 上此檢查的實際效力需另外驗證**：NTFS 沒有 POSIX 擁有者
+# 位，`stat -c '%u'` 在 Git Bash 上的行為未必跟 Linux 一致（同 R103-5 對
+# vet 那台的既有警語——不可直接沿用 Linux 容器的量測結果）。
+if [ -d "$SECRETS_DIR" ]; then
+  dir_owner_uid=$(stat -c '%u' "$SECRETS_DIR" 2>/dev/null) || {
+    echo "ERROR: 無法讀取 $SECRETS_DIR 的擁有者資訊，拒絕執行。" >&2
+    exit 1
+  }
+  my_uid=$(id -u)
+  if [ "$dir_owner_uid" != "$my_uid" ]; then
+    echo "ERROR: $SECRETS_DIR 已存在，但擁有者（uid $dir_owner_uid）不是目前執行本腳本的" >&2
+    echo "       使用者（uid $my_uid），拒絕執行。" >&2
+    echo "       本腳本接下來會對這個目錄下 chmod、寫入 secrets——若擁有者是別人（無論" >&2
+    echo "       是無心的殘留還是刻意佈的局），以 root 執行會直接繞過 chmod 的擁有者限制，" >&2
+    echo "       把真實金鑰寫進一個仍然掛在別人名下的目錄。" >&2
+    echo "       請確認這個路徑的來源，必要時 chown 給目前使用者後再重跑。" >&2
+    exit 1
+  fi
+fi
+
+# R103-5：這支腳本的定位是「初次佈建」，但它的落點 `$REPO_ROOT/secrets` 在**已部署的
+# 機器上就是現役 prod 正在用的那個目錄**（vet 實查 `ipig-api` 容器掛載確認）。
+# 檔名與所在目錄都叫 `newprod`，而 newprod stack 已確認不存在（R103-1）——
+# 名字指向一個不存在的東西，實際卻對著正式機。
+#
+# ⚠️ **它自己分不出「新機器」與「已在服務的機器」**，而誤跑的代價不只是產檔：
+# 本腳本對既有檔案也會下 chmod（目錄 0711、六個監控檔 0644），所以就算一個檔都
+# 沒新產生，也已經動到現役金鑰的權限。故此處 fail-closed。
+#
+# 判準為什麼是「已佈建」而不是「正在服務」：**檔案系統上沒有任何訊號能區分兩者**。
+# 唯一能區分的訊號是「這些檔案是否被執行中的容器 bind-mount」，但**不拿它當閘門**，
+# 兩個理由：
+#   (1) 它在最危險的情況下 fail-open——docker CLI 不在、沒權限、daemon 沒起來時
+#       一律放行，而「有人在正式機上手動跑這支腳本」正好常常是這個情境。
+#   (2) 要保護的那台是 Windows，容器 mount source 形如 `C:\...\secrets\x.txt`，
+#       而腳本在 Git Bash 算出的路徑是 `/c/...` 或 `C:/...`。正規化（大小寫、
+#       `\` vs `/`、磁碟機表示法）只要寫錯一點，就是**沉默地永遠不命中**——
+#       一個看起來有守衛、實際永遠放行的空殼，比沒有守衛更糟。
+# 因此閘門取保守的上位集合——目標目錄裡只要有任何一個核心 secret，就當作已佈建而拒絕；
+# docker 那個訊號寫進錯誤訊息當**診斷指引**，由人去確認。
+# 寧可擋下一次合法的重跑（帶旗標即可放行），也不要在正式機上默默改權限。
+#
+# ⚠️ **這條改變了原本的冪等用法**：在已佈建的目錄上重跑（例如補回被刪的公鑰、
+# 或讓權限套用到既有檔案）現在必須明確帶 `--allow-existing`。
+# 這是刻意的——把「我知道這是既有部署」變成一個要打字的動作，而不是預設值。
+#
+# ⚠️ **判準是「目錄裡有任何檔案」，不是一份 marker 白名單。**
+# 初版寫成五個核心 secret 的白名單，那有一個具體缺口：`secrets/` 若只含
+# 監控堆疊那六個檔（`metrics_token.txt` 等，見檔案末尾 `BIND_MOUNTED_SECRETS`）、
+# 或任何不含那五個的子集，守衛會判定為空而放行，接著照樣對現役目錄下
+# `chmod 0711`、對那些**正被容器 bind-mount 的**檔下 `chmod 0644`
+# ——正是本守衛要擋的事，只是繞過了守衛。而殘缺狀態（R103-3 處理的那個主題）
+# 剛好就長這樣，等於同一支腳本裡兩處對「什麼算已佈建」的定義不一致。
+# 改用「有任何東西就擋」除了補掉那個缺口，還消掉了**清單漂移**這個風險來源：
+# 白名單要跟著日後新增的 secret 一起維護，忘記維護就是靜默放行。
+# `secrets/` 在 `.gitignore` 是整個目錄排除、零版控檔案（實查），
+# 所以不會有 `.gitkeep` 這類無辜檔案被誤判。
+ALLOW_EXISTING=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --allow-existing) ALLOW_EXISTING=1; shift ;;
+    *)
+      echo "ERROR: 未知參數：$1" >&2
+      echo "用法：$0 [--allow-existing]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [ "$ALLOW_EXISTING" -ne 1 ] && [ -d "$SECRETS_DIR" ]; then
+  # ⚠️ 述詞是「目錄裡有任何**東西**」，刻意不加 `-type f`。
+  # 初版寫 `-type f`＝只看一般檔案，那是一份**只有一個項目的型態白名單**，
+  # 漏列的型態（子目錄、symlink）一樣全部落在「放行」那一邊——與前一版的
+  # 檔名白名單是同一個形狀的錯誤。實測（Linux 容器，見 E1–E3）：只含一個
+  # 子目錄或只含一個 symlink 時，`-type f` 數到 0 而放行。
+  # symlink 那個特別糟：`chmod(2)` 依 POSIX 跟隨 symlink 改到**目標**
+  # （無可攜的 `lchmod`），等於隔著連結去改目錄外的檔案權限。
+  # `-mindepth 1` 是為了不把目錄自己算進去。
+  existing_count=$(find "$SECRETS_DIR" -mindepth 1 -maxdepth 1 | wc -l)
+  if [ "$existing_count" -gt 0 ]; then
+    echo "ERROR: 目標目錄已經有東西了，本腳本拒絕在上面執行。" >&2
+    echo "       目標：$SECRETS_DIR（既有項目 $existing_count 個）" >&2
+    # 不用 `find -printf`：那是 GNU 專屬，busybox 沒有，會靜默少印這一段
+    find "$SECRETS_DIR" -mindepth 1 -maxdepth 1 | head -8 | while read -r p; do
+      echo "         - $(basename "$p")" >&2
+    done
+    if [ "$existing_count" -gt 8 ]; then
+      echo "         …（其餘 $((existing_count - 8)) 個略）" >&2
+    fi
+    echo "" >&2
+    echo "       本腳本的定位是「初次佈建」。在已部署的機器上，這個路徑就是" >&2
+    echo "       現役 prod 正在使用的 secrets 目錄；即使一個檔都不新產生，" >&2
+    echo "       它仍會對既有檔案與目錄下 chmod，動到現役金鑰的權限。" >&2
+    echo "" >&2
+    echo "       要確認這批檔案是不是正在被服務使用（本腳本刻意不自己判斷，理由見原始碼註解）：" >&2
+    echo "           docker ps --filter status=running --format '{{.Names}}'" >&2
+    echo "           docker inspect <容器> --format '{{range .Mounts}}{{.Source}}{{\"\\n\"}}{{end}}'" >&2
+    echo "       source 若落在上面那個目標路徑底下，就是現役 prod 在用。" >&2
+    echo "" >&2
+    echo "       依你的意圖選一個：" >&2
+    echo "       - 這台是新機器，上面那些是殘留 → 先把 $SECRETS_DIR 移到別處備份，再重跑" >&2
+    echo "       - 我就是要在既有部署上重跑（補回缺檔／套用權限）→" >&2
+    echo "           $0 --allow-existing" >&2
+    echo "         ⚠️ 那會對既有檔案套用權限變更，動 prod 前請先確認影響範圍。" >&2
+    exit 1
+  fi
+fi
+
 mkdir -p "$SECRETS_DIR"
+
+# CodeRabbit #83 PoC 攻擊向量 2（見上方 SECRETS_DIR 符號連結檢查同一則說明）：
+# 第一層項目若是符號連結（含斷鏈），必須在任何 chmod／openssl 輸出**之前**擋下，
+# 否則那些操作會跟隨連結動到目錄外。`-type l` 用 lstat 判斷連結本身的型態，
+# 不需要解析目標，斷鏈符號連結一樣正確辨識為 `l`。
+#
+# ⚠️ CodeRabbit 第二輪抓到：原本 `2>/dev/null || true` 會把「find 掃描失敗」
+# 吞成空字串，跟「掃描成功、乾淨」長得一模一樣。實測（Linux 容器，非 root）：
+# `--allow-existing` 時若目錄權限是 0300（可寫可進、不可讀，例如手動改壞
+# 或某些網路檔案系統的邊界情況），`find` 對它 `Permission denied`、exit 1，
+# 而 `|| true` 讓守衛誤判為「沒有符號連結」而放行——掃描失敗和掃描乾淨
+# 必須是兩種不同的結果，此處失敗要 fail-closed 不是 fail-open。
+if ! symlink_children=$(find "$SECRETS_DIR" -mindepth 1 -maxdepth 1 -type l); then
+  echo "ERROR: 無法完整檢查 $SECRETS_DIR 的符號連結，拒絕執行。" >&2
+  echo "       find 掃描失敗（權限不足或其他 I/O 錯誤），不能區分「乾淨」與" >&2
+  echo "       「看不到危險」，故視同有風險而拒絕。" >&2
+  exit 1
+fi
+if [ -n "$symlink_children" ]; then
+  echo "ERROR: $SECRETS_DIR 底下有符號連結，拒絕執行。" >&2
+  echo "       本腳本接下來會對目錄裡的既有檔案下 chmod／openssl 輸出；" >&2
+  echo "       若其中任何一個是符號連結，操作會跟隨連結動到目錄外的目標。" >&2
+  echo "$symlink_children" | while IFS= read -r p; do
+    echo "         - $(basename "$p") -> $(readlink "$p" 2>/dev/null || echo '（斷鏈）')" >&2
+  done
+  echo "       請移除這些符號連結（改成真實檔案）後再跑。" >&2
+  exit 1
+fi
+
+# ⚠️ 目錄權限要單獨設，不能放給 umask 決定。
+# `umask 077` 會讓上面這行建出 0700 的目錄，而 0700 對 other 沒有 execute，
+# **裡面的檔案再怎麼放寬都讀不到**——監控堆疊那幾個 bind mount（見檔案末尾）
+# 就是這樣被擋住的，實測 uid 472 連 0644 的檔案都開不起來。
+# 這也正是本檔案原始待辦（R103-2）警告過的「不要讓 secrets/ 變成 0700」，
+# 只是它經由 umask 間接發生，比直接下 chmod 700 更難察覺。
+#
+# 用 0711 而不是 0755：容器以完整路徑讀取，不需要列目錄；
+# 而檔名清單本身會透露「這台機器有哪些服務的憑證」，沒必要對外開放。
+chmod 0711 "$SECRETS_DIR"
 
 created=0
 skipped=0
@@ -69,19 +278,106 @@ echo "--- JWT EC 金鑰對（ES256）---"
 #     `BEGIN PRIVATE KEY` 不會命中 SEC1 的 `BEGIN EC PRIVATE KEY`（中間隔著 `EC `），
 #     配合 `head -1` 仍只看第一行。這樣本檔就不必列進 .gitleaks.toml 的豁免清單，
 #     日後若有人在這支產生 secrets 的腳本裡寫死憑證，掃描器照樣抓得到。
-if [ -e "$SECRETS_DIR/jwt_ec_private_key.pem" ]; then
-  echo "  skip   jwt_ec_private_key.pem（已存在）"
-  skipped=$((skipped + 2))
-else
-  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 \
-    -out "$SECRETS_DIR/jwt_ec_private_key.pem" 2>/dev/null
-  openssl pkey -in "$SECRETS_DIR/jwt_ec_private_key.pem" -pubout \
-    -out "$SECRETS_DIR/jwt_ec_public_key.pem" 2>/dev/null
-  # 驗證真的是 PKCS8，不是靠假設
-  if ! head -1 "$SECRETS_DIR/jwt_ec_private_key.pem" | grep -q 'BEGIN PRIVATE KEY'; then
-    echo "ERROR: 產出的 JWT 私鑰不是 PKCS8 格式，後端會拒絕啟動。" >&2
+# R103-3：這對金鑰是**兩個獨立的檔案**，所以要分四種狀態處理。
+# 舊版只看私鑰在不在，在就 `skipped += 2` 跳過兩個檔——於是「私鑰在、公鑰被刪或
+# 前次執行中斷」這個狀態下，重跑**不會**補出公鑰，secrets 集合殘缺而腳本回報成功。
+# 冪等的意思是「跑完之後狀態一致」，不是「跑過就不再看」。
+priv="$SECRETS_DIR/jwt_ec_private_key.pem"
+pub="$SECRETS_DIR/jwt_ec_public_key.pem"
+
+# 私鑰必須是 PKCS8（見上方註解）。抽成函式讓新產生與既有檔案走同一條驗證。
+assert_pkcs8() {
+  if ! head -1 "$priv" | grep -q 'BEGIN PRIVATE KEY'; then
+    echo "ERROR: $priv 不是 PKCS8 格式，後端會拒絕啟動。" >&2
+    echo "       （SEC1 的標頭是 BEGIN EC PRIVATE KEY，後端只認 PKCS8）" >&2
     exit 1
   fi
+}
+
+# ⚠️ CodeRabbit 第二輪抓到：`assert_pkcs8` 只驗證**容器格式**（PKCS8 標頭），
+# 不驗證裡面裝的是什麼演算法／曲線——PKCS8 包一把 RSA 私鑰同樣有
+# `BEGIN PRIVATE KEY` 標頭。`assert_pair_matches` 用的 `openssl pkey` 操作也是
+# 泛用的，任何演算法只要私鑰公鑰真的互相配對就會過。實測：PKCS8 格式的 2048-bit
+# RSA 金鑰對能同時通過這兩項檢查，但後端 `jsonwebtoken` 的 `EncodingKey::from_ec_pem`
+# 只認 ES256（EC prime256v1），這種金鑰會在服務啟動時才被拒絕——本腳本原本會
+# 回報一切正常，錯誤延後到最壞的時機才浮現。
+# 用 `ASN1 OID: prime256v1` 而非只看 bit 長度：EC 金鑰的 `-text` 輸出在 256 bit
+# 長度上不只一種曲線（如 brainpoolP256r1），只有這個 OID 字串精確指向後端要的曲線。
+assert_p256() { # $1=金鑰路徑（私鑰或公鑰皆可）
+  if ! openssl pkey -in "$1" -noout -text 2>/dev/null | grep -q 'ASN1 OID: prime256v1'; then
+    echo "ERROR: $1 不是 EC prime256v1（P-256）金鑰。" >&2
+    echo "       後端的 JWT 簽章／驗證只認 ES256（EC P-256）；PKCS8 格式檢查" >&2
+    echo "       通不過演算法或曲線錯誤，必須另外驗證，否則要到服務啟動時才會炸。" >&2
+    exit 1
+  fi
+}
+
+# ⚠️ 兩個檔都在時，只驗「存在」不夠——它們可能不是同一對。
+# 後端把兩者**各自獨立**載入（`backend/src/config.rs`：`EncodingKey::from_ec_pem(私鑰)`
+# 與 `DecodingKey::from_ec_pem(公鑰)`），中間沒有配對檢查，啟動路徑上也查無其他檢查
+# （`startup/security_checks.rs` 的 H7 只看私鑰檔的 unix mode）。於是一對「兩個檔都在、
+# 格式都對、但彼此不配對」的金鑰會讓服務**正常啟動**，卻是簽出來的 token 一律驗不過
+# ——全部使用者登入即失效，而本腳本原本會回報 skip 說一切正常。
+# 成因不必假設得很奇特：手動換過其中一個、從不同世代的備份還原、或上一次修復時
+# 弄錯方向（該補公鑰卻蓋了私鑰）都會造成。
+assert_pair_matches() {
+  local derived canonical
+  derived="$(mktemp)"
+  canonical="$(mktemp)"
+  # 兩邊都轉成 SPKI 公鑰的標準輸出再比，避免換行或編碼差異造成假不符
+  if ! openssl pkey -in "$priv" -pubout -out "$derived" 2>/dev/null; then
+    rm -f "$derived" "$canonical"
+    echo "ERROR: 無法從既有私鑰推導公鑰（$priv 可能已損壞）。" >&2
+    exit 1
+  fi
+  if ! openssl pkey -pubin -in "$pub" -pubout -out "$canonical" 2>/dev/null; then
+    rm -f "$derived" "$canonical"
+    echo "ERROR: 既有公鑰不是合法的 EC 公鑰 PEM（$pub）。" >&2
+    echo "       刪除它後重跑，本腳本會由既有私鑰重新推導。" >&2
+    exit 1
+  fi
+  if ! cmp -s "$derived" "$canonical"; then
+    rm -f "$derived" "$canonical"
+    echo "ERROR: 既有的 JWT 私鑰與公鑰不是同一對。" >&2
+    echo "       後端用私鑰簽、用公鑰驗，不配對＝簽出來的 token 一律驗不過。" >&2
+    echo "       請先確認哪一個才是要保留的：" >&2
+    echo "       - 私鑰是對的 → 刪掉 $pub 後重跑，本腳本會由私鑰推導出正確的公鑰" >&2
+    echo "       - 私鑰是錯的 → 從備份還原正確的私鑰後再跑" >&2
+    echo "       本腳本不自行猜測——猜錯的那一邊會讓既有已簽發的 token 全數失效。" >&2
+    exit 1
+  fi
+  rm -f "$derived" "$canonical"
+}
+
+if [ -e "$priv" ] && [ -e "$pub" ]; then
+  assert_pkcs8
+  assert_p256 "$priv"
+  assert_pair_matches
+  echo "  skip   jwt_ec_private_key.pem / jwt_ec_public_key.pem（皆已存在且互相配對）"
+  skipped=$((skipped + 2))
+elif [ -e "$priv" ] && [ ! -e "$pub" ]; then
+  # 公鑰是私鑰的函數，可以無損重建——這種狀態要修好，不是報錯。
+  assert_pkcs8
+  assert_p256 "$priv"
+  openssl pkey -in "$priv" -pubout -out "$pub" 2>/dev/null
+  echo "  skip   jwt_ec_private_key.pem（已存在）"
+  echo "  create jwt_ec_public_key.pem（由既有私鑰推導）"
+  skipped=$((skipped + 1))
+  created=$((created + 1))
+elif [ ! -e "$priv" ] && [ -e "$pub" ]; then
+  # 反過來不可修復：公鑰推不回私鑰。這種狀態多半代表私鑰被誤刪，
+  # 若逕自產生一對新的，既有已簽發的 token 會全部驗不過——要停下讓人決定。
+  echo "ERROR: 只有公鑰存在、私鑰不見了（$pub）。" >&2
+  echo "       公鑰無法推導回私鑰。請先確認私鑰是否還能從備份取回；" >&2
+  echo "       若確定要重新起算（既有 JWT 全數失效、使用者被登出），" >&2
+  echo "       請自行刪除該公鑰後重跑本腳本。" >&2
+  exit 1
+else
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 \
+    -out "$priv" 2>/dev/null
+  openssl pkey -in "$priv" -pubout -out "$pub" 2>/dev/null
+  assert_pkcs8
+  assert_p256 "$priv"
   echo "  create jwt_ec_private_key.pem（PKCS8）"
   echo "  create jwt_ec_public_key.pem"
   created=$((created + 2))
@@ -109,6 +405,49 @@ write_if_absent grafana_smtp_password.txt ""
 write_if_absent google-service-account.json '{}'
 write_if_absent rclone.conf               ""
 write_if_absent backup_gpg_pubkey.asc     ""
+
+echo ""
+echo "--- 監控堆疊的 bind mount 例外（見下方說明）---"
+# ⚠️ R103-2 的配套，不是可以順手刪掉的東西。
+#
+# `secrets/` 底下的檔案有**兩種**進容器的方式，權限語意完全不同：
+#
+#   (1) compose 的 `secrets:` 機制（api / web / outbox-worker 等多數服務）
+#       —— daemon 以 root 讀取宿主檔案再放進容器的 /run/secrets/，
+#          宿主端 0600 root-owned **不影響**容器內讀取。
+#
+#   (2) 直接 bind mount（`./secrets/x.txt:/run/secrets/x:ro`，監控堆疊在用）
+#       —— **宿主端的權限直接生效**。而 grafana 官方映像的 `USER` 實測為 `472`
+#          （`docker image inspect grafana/grafana:13.0.1 --format '{{.Config.User}}'`），
+#          prometheus / alertmanager 同樣以非 root 執行。
+#
+# 於是 `umask 077` 對 (2) 這幾個檔案就會變成「全新機器上監控堆疊讀不到密碼」。
+# 既有部署不受影響（檔案已存在，上面一律 skip），但新機器第一次部署就會中。
+#
+# 這裡明確把這幾個檔案放寬到 0644，並在輸出中講清楚代價；
+# 敏感度較高的 JWT 私鑰 / DB 密碼 / audit HMAC key / encryption key 仍是 0600。
+#
+# 🔴 這是**取捨不是解法**：0644 等於同機器上任何使用者都讀得到這幾個值，
+#    其中兩個是 SMTP 密碼。根治要把這幾個掛載改走 compose 的 `secrets:` 機制
+#    （或指定 group 並讓容器以該 group 執行），屬 prod compose 變更，已另立待辦。
+BIND_MOUNTED_SECRETS="
+metrics_token.txt
+prometheus_password.txt
+alert_smtp_password.txt
+grafana_pg_password.txt
+grafana_smtp_password.txt
+grafana_admin_password.txt
+"
+relaxed=0
+for name in $BIND_MOUNTED_SECRETS; do
+  f="$SECRETS_DIR/$name"
+  if [ -e "$f" ]; then
+    chmod 0644 "$f"
+    relaxed=$((relaxed + 1))
+  fi
+done
+echo "  已放寬 $relaxed 個檔案為 0644（監控堆疊以非 root 身分 bind mount 讀取）"
+echo "  其餘檔案為 0600。"
 
 echo ""
 echo "=== 完成：新增 $created 個、略過 $skipped 個 ==="
