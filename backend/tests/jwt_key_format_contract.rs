@@ -4,7 +4,7 @@
 //! 其底層 `p256` 只提供 `from_pkcs8_pem()`。餵 SEC1（`-----BEGIN EC PRIVATE KEY-----`）
 //! 會回 `InvalidKeyFormat`，而 api 在啟動時解析金鑰失敗會直接離開 → 無限重啟。
 //!
-//! 2026-08-20 實際踩過：`scripts/newprod/gen-secrets.sh` 原本用 `openssl ecparam -genkey`
+//! 2026-08-20 實際踩過：`scripts/deploy/gen-secrets.sh` 原本用 `openssl ecparam -genkey`
 //! 產出 SEC1，新環境的 api 因此起不來；當時 `config.rs` 的錯誤訊息還寫著
 //! 「SEC1 或 PKCS8 格式」，把排查方向帶偏。
 //!
@@ -75,7 +75,7 @@ fn sec1_private_key_is_rejected() {
     // 若這個 assertion 失敗，代表密碼學後端被換過（SEC1 變成可接受），
     // 此時請一併更新：
     //   - backend/src/config.rs 的 JWT_EC_PRIVATE_KEY 錯誤訊息
-    //   - scripts/newprod/gen-secrets.sh 的金鑰產生與格式檢查
+    //   - scripts/deploy/gen-secrets.sh 的金鑰產生與格式檢查
     assert!(
         EncodingKey::from_ec_pem(SEC1_PEM.as_bytes()).is_err(),
         "SEC1 私鑰應被拒絕（rust_crypto feature 下 p256 只支援 PKCS8）；\

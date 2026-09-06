@@ -24,7 +24,7 @@ paths = [
     #    CI 同一組參數實測確認，加了照樣 leaks found: 4。
     #    （實測用本機 8.24.0；CI 當時實跑 8.24.3，同一 minor。該功能要 8.25.0 才有，
     #    **CI 升到 8.25.0 以後就該回來把這裡改成 targetRules 只豁免 private-key**。）
-    #    因此範圍刻意壓到只有這一個純測試檔；`scripts/newprod/gen-secrets.sh`
+    #    因此範圍刻意壓到只有這一個純測試檔；`scripts/deploy/gen-secrets.sh`
     #    雖然也被 private-key 規則誤判，但那兩處只是 PEM 標頭字面值而非金鑰，
     #    已改寫該檔避開，**不放行**——它是產生 secrets 的腳本，全檔豁免
     #    會讓日後真的被寫死的憑證溜過去。
