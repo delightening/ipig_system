@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Label } from '@/components/ui/label'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 import type { JournalEntryResponse } from '@/types/accounting'
 
 function formatDate(d: string) {
@@ -69,6 +70,7 @@ export function JournalEntriesTab({
           />
         </div>
       </div>
+      <GuestDateNotice />
       {isLoading ? (
         <div className="rounded-lg border bg-card overflow-hidden">
           <Table>

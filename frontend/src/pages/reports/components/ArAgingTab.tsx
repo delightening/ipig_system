@@ -45,6 +45,7 @@ import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 import type { ArAgingRow, Partner } from '@/types/accounting'
 
 function CreateArReceiptDialog({
@@ -242,6 +243,7 @@ export function ArAgingTab({ asOfDate, onAsOfDateChange }: ArAgingTabProps) {
         </div>
         <CreateArReceiptDialog asOfDate={asOfDate} onSuccess={() => {}} />
       </div>
+      <GuestDateNotice />
       <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>

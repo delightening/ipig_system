@@ -2131,6 +2131,7 @@
     "demoMode": "示範模式",
     "demoSaveBlocked": "示範模式無法儲存草稿，僅供體驗操作流程",
     "demoSubmitBlocked": "示範模式無法送出審查，僅供體驗操作流程",
+    "dateFilterInactive": "示範資料為固定樣本，變更日期不會改變下方結果",
     "banner": {
       "title": "訪客試用模式 — 資料為展示用途，操作不會實際儲存",
       "startTour": "🎓 系統導覽",
