@@ -1489,17 +1489,27 @@ impl GlpComplianceService {
     /// - 簽署（`sign_study_report`，寫入 signed_by/signed_at/signature_id） → `false`：
     ///   比照 `protocol_closure` 的結案簽章——**代簽的簽章在稽核上沒有價值**。
     ///   SD 異動時應改派新 SD（既有的 protocol 編輯流程），不透過本函式繞過簽署。
+    /// # 為什麼收 `&mut PgConnection` 而不是 `&PgPool`（CodeRabbit 於 #102 指出）
+    ///
+    /// 初版收 `&PgPool`，於是 `update_study_report` 在**已經持有一條連線的 tx 內**
+    /// 又去池子要第二條——連線池吃緊時這會等到 acquire timeout 才回一個池子錯誤，
+    /// 是典型的自我死鎖向量。改收呼叫端的連線後，授權查詢與後續寫入共用同一條連線。
+    ///
+    /// 同時把讀取改成 `FOR UPDATE`：授權讀若不在 tx 內、又不上鎖，
+    /// 「舊 SD 通過授權 → SD 被改派並提交 → 本次更新才提交」這個順序是可能的，
+    /// 等於用已經失效的身分寫入。鎖住該列之後，改派必須排在本 tx 之後。
     async fn require_study_director(
-        pool: &PgPool,
+        conn: &mut sqlx::PgConnection,
         user: &CurrentUser,
         protocol_id: Uuid,
         allow_admin_escape: bool,
     ) -> Result<Protocol> {
-        let protocol = sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1")
-            .bind(protocol_id)
-            .fetch_optional(pool)
-            .await?
-            .ok_or_else(|| AppError::NotFound("找不到計劃書".into()))?;
+        let protocol =
+            sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1 FOR UPDATE")
+                .bind(protocol_id)
+                .fetch_optional(&mut *conn)
+                .await?
+                .ok_or_else(|| AppError::NotFound("找不到計劃書".into()))?;
 
         if allow_admin_escape && user.is_admin() {
             return Ok(protocol);
@@ -1553,10 +1563,15 @@ impl GlpComplianceService {
         req: &CreateStudyReportRequest,
     ) -> Result<StudyFinalReport> {
         let user = actor.require_user()?;
-        Self::require_study_director(pool, user, req.protocol_id, true).await?;
 
+        // ⚠️ 產號在 begin() **之前**：它自己要一條連線，放進 tx 之後就變成
+        // 「持有 tx 又向池子取第二條」——正是本輪要修掉的那個形狀。
         let number = Self::generate_report_number(pool).await?;
         let mut tx = pool.begin().await?;
+
+        // 授權移進 tx：與下面的 INSERT 共用同一條連線，且鎖住 protocols 該列，
+        // 避免「通過授權後、寫入前 SD 被改派」。
+        Self::require_study_director(&mut tx, user, req.protocol_id, true).await?;
 
         let after = sqlx::query_as::<_, StudyFinalReport>(r#"
             INSERT INTO study_final_reports
@@ -1613,7 +1628,7 @@ impl GlpComplianceService {
         .await?
         .ok_or(AppError::NotFound("最終報告不存在".into()))?;
 
-        Self::require_study_director(pool, user, before.protocol_id, true).await?;
+        Self::require_study_director(&mut tx, user, before.protocol_id, true).await?;
 
         // CSO-r2 #4: 「approved/signed」為簽署發布類狀態，不得由僅持編輯授權的泛型
         // update 直接設定（會跳過電子簽章、signature 欄位留 NULL），維持最終報告簽署權責分離（SoD）。

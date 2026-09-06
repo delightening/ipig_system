@@ -197,4 +197,32 @@ describe('QAU 品保聲明與本文分開授權', () => {
     expect(updateQauStatement).toHaveBeenCalledWith(DRAFT_REPORT.id, '已完成品保稽核')
     expect(updateStudyReport).not.toHaveBeenCalled()
   })
+
+  /**
+   * 迴歸：**已經有品保聲明的報告，打開後必須直接可以再存一次**。
+   *
+   * 舊寫法 textarea 用 `defaultValue`、按鈕看 `disabled={!qauStatement}`，
+   * 而 `qauStatement` 初始是空字串——於是畫面上看得到既有內容、按鈕卻是灰的，
+   * 非得先打一個字才能存（CodeRabbit 於 #102 指出）。
+   *
+   * 這支對舊寫法會紅：按鈕 disabled，click 不觸發 mutation，
+   * `updateQauStatement` 收不到呼叫。
+   */
+  it('已有品保聲明時不必先打字就能重存，且送出的是畫面上那份內容', async () => {
+    const withStatement = { ...DRAFT_REPORT, qau_statement: '既有的品保聲明' }
+    listStudyReports.mockResolvedValue([withStatement])
+    hasPermission.mockImplementation((code: string) => code === 'qau.report_statement.write')
+
+    renderPage()
+    await openDetail(withStatement)
+
+    // 受控欄位：畫面上看得到既有內容。⚠️ 這一條不是鑑別點——舊寫法用
+    // defaultValue 也看得到；鑑別點是下面那個 click。
+    expect(screen.getByDisplayValue('既有的品保聲明')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('儲存品保聲明'))
+
+    await waitFor(() => expect(updateQauStatement).toHaveBeenCalledTimes(1))
+    expect(updateQauStatement).toHaveBeenCalledWith(withStatement.id, '既有的品保聲明')
+  })
 })
