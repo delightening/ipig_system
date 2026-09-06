@@ -338,11 +338,25 @@ test("/ping 節流視窗內重複觸發：不重複寫入 KV", async () => {
   const res = await worker.fetch(pingRequest(env), env);
 
   assert.equal(res.status, 204, "節流不影響回應——呼叫端看不出差異，只是狀態沒真的回寫");
-  assert.deepEqual(kv.puts, [], "5 分鐘節流視窗內，第二次觸發不得再消耗一次 KV write 額度");
+  assert.deepEqual(kv.puts, [], "10 分鐘節流視窗內，第二次觸發不得再消耗一次 KV write 額度");
+});
+
+test("/ping 視窗下緣（9 分鐘前）仍在節流內：不寫入", async () => {
+  // 🔴 這條的用途是**釘住視窗長度本身**，不是再測一次「有節流」。
+  // 上面兩條（1 分鐘前節流、11 分鐘前寫入）在 5 分鐘與 10 分鐘的視窗下都成立——
+  // 2026-09-06 實測 mutation：把 PING_WRITE_MIN_INTERVAL_MS 改回 5 分鐘，14 項照樣全綠。
+  // 9 分鐘只有在視窗 >= 10 分鐘時才落在裡面，所以視窗被縮短時這條會紅。
+  const kv = makeKv({ data: { "ping:backup": { at: NOW - 9 * 60 * 1000 } } }); // 9 分鐘前
+  const env = makeEnv(kv);
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204);
+  assert.deepEqual(kv.puts, [], "9 分鐘 < 10 分鐘節流視窗，不得寫入——這條紅了代表視窗被改小了");
 });
 
 test("/ping 節流視窗外再次觸發：允許重新寫入", async () => {
-  const kv = makeKv({ data: { "ping:backup": { at: NOW - 6 * 60 * 1000 } } }); // 6 分鐘前，超過節流視窗
+  const kv = makeKv({ data: { "ping:backup": { at: NOW - 11 * 60 * 1000 } } }); // 11 分鐘前，超過節流視窗
   const env = makeEnv(kv);
 
   const res = await worker.fetch(pingRequest(env), env);

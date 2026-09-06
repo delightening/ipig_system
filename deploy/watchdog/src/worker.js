@@ -40,7 +40,7 @@ const OK_WRITE_INTERVAL_MS = 60 * 60 * 1000;
  * 打滿免費層每日 1000 writes 額度——不影響逾期判斷的正確性，因為視窗遠小於
  * HEARTBEAT_JOBS 的門檻（最短 26 小時）。
  */
-const PING_WRITE_MIN_INTERVAL_MS = 5 * 60 * 1000;
+const PING_WRITE_MIN_INTERVAL_MS = 10 * 60 * 1000;
 
 export default {
   async scheduled(_event, env, _ctx) {
