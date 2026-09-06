@@ -138,6 +138,17 @@ export const DEMO_STOCK_LEDGER: StockLedgerReport[] = [
 // 雖然報表頁的計畫下拉現在改由報表資料自己長出來、不再打 `/protocols`（見該頁註解），
 // 但示範模式下兩處對不上會讓人以為是資料錯亂。
 // demo-p4 是刻意的例外，理由寫在該筆旁邊。
+//
+// ⚠️ 同一條原則對**品項**一樣成立，而這裡原本漏了：`demo-prodN` 在整個 guest-demo
+// 目錄是共用身分，同一個 id 在各報表必須是同一組 SKU／名稱／分類／base_uom
+// （dashboard.ts / erp.ts / misc.ts / fixes.ts，以及本檔的 DEMO_STOCK_ON_HAND
+// 與 DEMO_COST_SUMMARY 都引用同一組）。
+//   - demo-prod2 = SUP-001 範例耗材 B，base_uom 是「瓶」不是「包」
+//     （單價也因此對得上：4800/40 = 1800/15 = 120 = stock-on-hand 的 avg_cost）
+//   - 手套用**新的 demo-prod6**，不借用 demo-prod3——後者在別處一律是 FED-001 範例飼料 C
+// 手套只出現在本報表、不在 DEMO_STOCK_ON_HAND，不算不一致：那張是「目前有庫存的品項」，
+// 這張是「歷史領用過的品項」，兩者本來就不是同一個集合。
+// 保留手套（而非改用既有的飼料）是因為「領用以雙、盤點以盒」正是本報表要示範的重點。
 
 export const DEMO_PROTOCOL_CONSUMPTION: ProtocolConsumptionReport[] = [
   {
@@ -152,14 +163,14 @@ export const DEMO_PROTOCOL_CONSUMPTION: ProtocolConsumptionReport[] = [
     protocol_id: 'demo-p1', protocol_no: 'AUP-2025-001',
     iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫：心血管藥物安全性評估',
     product_id: 'demo-prod2', product_sku: 'SUP-001', product_name: '範例耗材 B',
-    category_name: '耗材', base_uom: '包', qty_base: '40', doc_count: 5,
+    category_name: '耗材', base_uom: '瓶', qty_base: '40', doc_count: 5,
     first_trx_date: '2025-01-12T01:00:00Z', last_trx_date: '2025-04-02T08:15:00Z',
     total_cost: '4800.00',
   },
   {
     protocol_id: 'demo-p1', protocol_no: 'AUP-2025-001',
     iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫：心血管藥物安全性評估',
-    product_id: 'demo-prod3', product_sku: 'CON-GLV-001', product_name: '範例手套',
+    product_id: 'demo-prod6', product_sku: 'CON-GLV-001', product_name: '範例手套',
     category_name: '耗材', base_uom: '雙', qty_base: '250', doc_count: 4,
     first_trx_date: '2025-02-01T03:00:00Z', last_trx_date: '2025-04-20T05:00:00Z',
     total_cost: '1250.00',
@@ -168,14 +179,14 @@ export const DEMO_PROTOCOL_CONSUMPTION: ProtocolConsumptionReport[] = [
     protocol_id: 'demo-p2', protocol_no: 'AUP-2025-002',
     iacuc_no: 'IACUC-2025-002', protocol_title: '範例研究計畫：骨科植入物生物相容性試驗',
     product_id: 'demo-prod2', product_sku: 'SUP-001', product_name: '範例耗材 B',
-    category_name: '耗材', base_uom: '包', qty_base: '15', doc_count: 2,
+    category_name: '耗材', base_uom: '瓶', qty_base: '15', doc_count: 2,
     first_trx_date: '2025-03-05T02:30:00Z', last_trx_date: '2025-03-28T07:45:00Z',
     total_cost: '1800.00',
   },
   {
     protocol_id: 'demo-p2', protocol_no: 'AUP-2025-002',
     iacuc_no: 'IACUC-2025-002', protocol_title: '範例研究計畫：骨科植入物生物相容性試驗',
-    product_id: 'demo-prod3', product_sku: 'CON-GLV-001', product_name: '範例手套',
+    product_id: 'demo-prod6', product_sku: 'CON-GLV-001', product_name: '範例手套',
     category_name: '耗材', base_uom: '雙', qty_base: '80', doc_count: 1,
     first_trx_date: '2025-03-06T02:00:00Z', last_trx_date: '2025-03-06T02:00:00Z',
     total_cost: '400.00',
