@@ -248,9 +248,26 @@ describe('neutralizeFormula（CSV 公式注入）', () => {
     expect(neutralizeFormula(' @SUM(A1)')).toBe("' @SUM(A1)")
   })
 
-  it('🔴 tab / CR 開頭也要擋', () => {
+  it('🔴 tab / CR / LF 開頭也要擋', () => {
     expect(neutralizeFormula('\t=1+1')).toBe("'\t=1+1")
     expect(neutralizeFormula('\rfoo')).toBe("'\rfoo")
+    // LF 與 CR 是同一件事（換列注入），集合裡少一個等於沒擋
+    expect(neutralizeFormula('\nfoo')).toBe("'\nfoo")
+  })
+
+  it('🔴 前置空白要取最寬定義，不只半形空格與 NBSP', () => {
+    // 這些在「只剝 [ \u00a0]」的舊寫法下全部漏網：LF 不在觸發集合、也不被剝除
+    expect(neutralizeFormula('\n=1+1')).toBe("'\n=1+1")
+    expect(neutralizeFormula('\r\n=1+1')).toBe("'\r\n=1+1")
+    expect(neutralizeFormula('\n\t  @SUM(A1)')).toBe("'\n\t  @SUM(A1)")
+    expect(neutralizeFormula('\u00a0=1+1')).toBe("'\u00a0=1+1")
+    // 全形空格：JS 的 \s 涵蓋它，舊的 [ \u00a0] 不涵蓋
+    expect(neutralizeFormula('\u3000=1+1')).toBe("'\u3000=1+1")
+  })
+
+  it('🔴 含 LF 的惡意品名經 toCsv 後被中和（RFC 4180 引號擋不住公式）', () => {
+    const csv = toCsv(['品名'], [['\n=1+1']])
+    expect(csv).toBe('"品名"\r\n"' + "'" + '\n=1+1"')
   })
 
   it('一般文字原樣通過，不會被加引號', () => {

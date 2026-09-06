@@ -267,9 +267,10 @@ const CRLF = '\r\n'
  * 會被試算表當成公式起頭的字元。
  *
  * `-` 也在內：`-1+1` 這種看起來像負數的東西，Excel 一樣當公式算。
- * Tab 與 CR 本身也是觸發字元（某些解析器據此換欄／換列）。
+ * Tab、CR、LF 本身也是觸發字元（某些解析器據此換欄／換列）。
+ * ⚠️ CR 與 LF 必須成對放在這個集合裡——換列的字元是這兩個，只擋一個等於沒擋。
  */
-const FORMULA_TRIGGERS = /^[=+\-@\t\r]/
+const FORMULA_TRIGGERS = /^[=+\-@\t\r\n]/
 
 /**
  * 阻擋 CSV 公式注入（OWASP: CSV Injection / Formula Injection）。
@@ -284,12 +285,17 @@ const FORMULA_TRIGGERS = /^[=+\-@\t\r]/
  * 緩解方式是前面加一個單引號讓試算表當純文字。前置空白不能當免死金牌——
  * Excel 會忽略它再解讀後面的內容，所以要跳過空白之後再判斷一次。
  *
+ * ⚠️ 「空白」要取最寬的定義，不能只有半形空格與 NBSP：`\n=1+1` 這種值原本
+ * 兩道檢查都躲得過（LF 不在觸發集合裡，剝除也不處理 LF）。這裡改用 `\s`。
+ * `\s` 在 JS 已經包含 NBSP，仍明寫 `\u00a0` 是因為多數語言的 `\s` 不含它，
+ * 寫出來免得日後被當成贅字「簡化」掉。
+ *
  * ⚠️ 只處理字串。數值欄位維持數值型別，否則負數金額會被前置引號變成文字，
  * 下游拿去加總就壞了。
  */
 export function neutralizeFormula(cell: string): string {
-  const withoutLeadingSpaces = cell.replace(/^[ \u00a0]+/, '')
-  if (FORMULA_TRIGGERS.test(cell) || FORMULA_TRIGGERS.test(withoutLeadingSpaces)) {
+  const withoutLeadingWhitespace = cell.replace(/^[\s\u00a0]+/, '')
+  if (FORMULA_TRIGGERS.test(cell) || FORMULA_TRIGGERS.test(withoutLeadingWhitespace)) {
     return `'${cell}`
   }
   return cell
