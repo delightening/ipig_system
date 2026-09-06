@@ -372,7 +372,11 @@ function App() {
                         <Route path="/stock-ledger" element={<StockLedgerReportPage />} />
                         <Route path="/purchase-lines" element={<PurchaseLinesReportPage />} />
                         <Route path="/sales-lines" element={<SalesLinesReportPage />} />
-                        <Route path="/protocol-consumption" element={<ProtocolConsumptionReportPage />} />
+                        {/* 與 ReportsPage 的選單 gate 同一個權限：選單藏了、直打 URL 卻能渲染
+                          *  的話，沒權限的人只會看到後端擋下後的「報表載入失敗」。
+                          *  hasPermission 對 GUEST / admin / SYSTEM_ADMIN 短路放行，訪客示範與
+                          *  管理員不受影響（stores/auth.ts::hasPermission）。 */}
+                        <Route path="/protocol-consumption" element={<RequirePermission permission="erp.report.view" fallback="redirect"><ProtocolConsumptionReportPage /></RequirePermission>} />
                         <Route path="/cost-summary" element={<CostSummaryReportPage />} />
                         <Route path="/blood-test-cost" element={<BloodTestCostReportPage />} />
                         <Route path="/blood-test-analysis" element={<BloodTestAnalysisPage />} />
