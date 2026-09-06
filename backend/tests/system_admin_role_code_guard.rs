@@ -39,13 +39,11 @@
 //!    同敘述內的 legacy fallback token，或正上方 3 行內、**真的在註解裡**的
 //!    `SYSTEM_ADMIN-ONLY` 標記。**每個豁免只能用一次**，見 [`violations`] 的說明。
 //!
-//! ## ⚠️ 這支守衛自己壞過六次——第 6 輪出現了第二種失效族群
+//! ## ⚠️ 這支守衛自己壞過八次，分屬兩個失效族群
 //!
-//! v1–v5 全部是同一個錯：**豁免的作用範圍大於它要豁免的那一件事。**
-//! v6 的兩條建議裡，一條（標記寫在字串字面值裡）仍是這個族群；另一條（`IN (`
-//! 的大小寫／空白）是不同的失效方式——**候選判定本身漏看了一種寫法**，
-//! 該行從一開始就沒被當成「拿 SYSTEM_ADMIN 跟什麼比對」，連豁免規則都還沒輪到
-//! 就已經看不見。
+//! **族群一：豁免的作用範圍大於它要豁免的那一件事**（v1–v5、v6b、v8b）。
+//! **族群二：候選判定本身漏看了一種寫法**（v6a、v8a）——該處從一開始就沒被當成
+//! 「拿 SYSTEM_ADMIN 跟什麼比對」，連豁免規則都還沒輪到就已經看不見。
 //!
 //! | # | 判定/豁免單位 | 失效方式 | 誰發現 |
 //! |---|---|---|---|
@@ -54,11 +52,14 @@
 //! | v3 | 逐行 boolean「有沒有豁免」 | 同一行的第二個比對白拿第一個的豁免 | 本檔的回歸測試 |
 //! | v4 | 判定直接吃整行（未剝 `//`） | 行尾註解讓敘述併吞下一個、註解裡的 token 被當 fallback | CodeRabbit 第 4 輪 |
 //! | v5 | 只剝了 `//`，沒剝 `/* */` | 同 v4，換成區塊註解就照樣成立 | CodeRabbit 第 5 輪 |
-//! | v6a | `IN (` 固定大小寫＋固定一個空白 | 小寫或無空白的 SQL `IN` 完全偵測不到候選——不是豁免太寬，是候選判定本身有洞 | CodeRabbit 第 6 輪 |
-//! | v6b | 標記比對吃原始行、未排除字串字面值 | `let x = "SYSTEM_ADMIN-ONLY";` 這種字串常值被當成刻意標記 | CodeRabbit 第 6 輪 |
+//! | v6a | `IN (` 固定大小寫＋固定一個空白 | 小寫或無空白的 SQL `IN` 偵測不到候選 | CodeRabbit 第 6 輪 |
+//! | v6b | 標記比對吃原始行、未排除字串字面值 | `let x = "SYSTEM_ADMIN-ONLY";` 被當成刻意標記 | CodeRabbit 第 6 輪 |
+//! | v8a | 字串狀態只追雙引號，不認 char 字面值 | `'"'` 讓 `in_str` 翻轉，該行的 `//` 不再被當註解 | CodeRabbit 第 8 輪 |
+//! | v8b | 敘述邊界只在**行**邊界停 | 同一行兩個 `;` 敘述共用一份 fallback 預算 | CodeRabbit 第 8 輪 |
 //!
-//! v6a 提醒一件事：本檔前五次教訓都在講「豁免」，但守衛的第一道防線是**候選判定**——
-//! 候選判定漏看的寫法，連豁免規則都沒有機會出錯，因為它從來沒被列入判定。
+//! v6a／v8a 提醒同一件事：本檔多數教訓都在講「豁免」，但守衛的第一道防線是
+//! **輸入的切分與候選判定**——切錯或漏看的寫法，連豁免規則都沒有機會出錯，
+//! 因為它從來沒被列入判定。
 //!
 //! v5 也值得記：v4 的修正**看起來完整**（三個出口一起補、三支回歸測試、
 //! mutation 也驗過），但它只涵蓋了兩種 Rust 註解裡的一種。
@@ -131,6 +132,54 @@ fn contains_sql_in_operator(code: &str) -> bool {
     false
 }
 
+/// `b[start]` 是 `'` 時，判斷它開啟的是 **char 字面值**還是 **lifetime**；
+/// 是字面值就回傳結尾那個 `'` 的索引，是 lifetime 回傳 `None`。
+///
+/// ⚠️ **這個分辨不能省**（CodeRabbit 於 #32 第 8 輪指出）。
+/// [`strip_comments`] 原本只追雙引號，於是 `'"'` 這個合法的 char 字面值裡的雙引號
+/// 會把 `in_str` 翻成 true，該行後面的 `//` 就不再被視為註解開頭——
+/// `let q = '"'; let ok = r == ROLE_SYSTEM_ADMIN; // ROLE_ADMIN_LEGACY`
+/// 整段註解被當成程式碼，[`count_fallbacks`] 數到註解裡的 token，比對就白拿豁免。
+///
+/// 但**不能無腦把每個 `'` 都當字面值**——Rust 的 lifetime（`'a`、`'static`、
+/// `&'a str`）用的是同一個字元。把 lifetime 當成字面值開頭會吃掉後面一大段程式碼，
+/// 破壞得比原本的 bug 更嚴重。判準是「配對的 `'` 必須落在字面值文法允許的**確切位置**」，
+/// 不是「附近有沒有另一個 `'`」——後者會被 `&'a str = "it's"` 這種寫法騙過去。
+fn char_literal_end(b: &[u8], start: usize) -> Option<usize> {
+    let mut j = start + 1;
+    if j >= b.len() {
+        return None;
+    }
+    if b[j] == b'\\' {
+        // 跳脫序列：'\n' '\\' '\'' '\xNN' '\u{...}'
+        j += 1;
+        if j >= b.len() {
+            return None;
+        }
+        match b[j] {
+            b'x' => j += 3,
+            b'u' => {
+                while j < b.len() && b[j] != b'}' {
+                    j += 1;
+                }
+                j += 1;
+            }
+            _ => j += 1,
+        }
+    } else {
+        // 一般字元，可能是多位元組 UTF-8：跳過 lead byte 之後的所有 continuation byte
+        j += 1;
+        while j < b.len() && (b[j] & 0xC0) == 0x80 {
+            j += 1;
+        }
+    }
+    if j < b.len() && b[j] == b'\'' {
+        Some(j)
+    } else {
+        None
+    }
+}
+
 /// 把整份原始碼變成「只剩程式碼」的逐行版本：`//` 行註解與 `/* … */` 區塊註解
 /// 都拿掉（區塊註解可跨行、可巢狀），字串字面值內的內容原樣保留。
 ///
@@ -154,10 +203,10 @@ fn contains_sql_in_operator(code: &str) -> bool {
 ///
 /// ## 已知極限（刻意不做完美的 Rust lexer）
 ///
-/// 字串追蹤只認雙引號與 `\` 跳脫。**raw string（`r#"…"#`）內若含單獨的 `"`
-/// 會讓引號配對錯位**，此時該行的 `//` 可能被誤剝。方向是**少看程式碼**＝
-/// 可能漏報而非誤報。本守衛掃的是 `backend/src`，該處目前沒有這種寫法
-/// （新增後若掃真實原始碼那支測試仍綠、但你確信該行該被抓，先查這裡）。
+/// 字串追蹤只認雙引號、`\` 跳脫與 char 字面值（見 [`char_literal_end`]）。
+/// **raw string（`r#"…"#`）內若含單獨的 `"` 會讓引號配對錯位**，此時該行的 `//`
+/// 可能被誤剝。方向是**少看程式碼**＝可能漏報而非誤報。本守衛掃的是 `backend/src`，
+/// 該處目前沒有這種寫法（新增後若掃真實原始碼那支測試仍綠、但你確信該行該被抓，先查這裡）。
 fn strip_comments(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     // Rust 的區塊註解可巢狀（`/* /* */ */`），所以要記深度不是布林。
@@ -188,6 +237,12 @@ fn strip_comments(text: &str) -> Vec<String> {
                 // UTF-8 是自我同步的（後續位元組皆 >= 0x80），跳進多位元組字元中間
                 // 也不會誤命中任何 ASCII 標記，切片位置仍落在字元邊界上。
                 b'\\' if in_str => i += 2,
+                // char 字面值整段跳過，裡面的 `"` 不能翻轉字串狀態（見 char_literal_end）。
+                // lifetime 的 `'` 會回 None，當成普通字元前進一格。
+                b'\'' if !in_str => match char_literal_end(b, i) {
+                    Some(end) => i = end + 1,
+                    None => i += 1,
+                },
                 b'"' => {
                     in_str = !in_str;
                     i += 1;
@@ -211,6 +266,51 @@ fn strip_comments(text: &str) -> Vec<String> {
             kept.push_str(&line[seg..]);
         }
         out.push(kept);
+    }
+    out
+}
+
+/// 把一行（已剝註解）依 `;` 切成敘述片段；字串字面值與 char 字面值內的 `;` 不算分隔點。
+///
+/// ⚠️ **一行可以有兩個敘述**（CodeRabbit 於 #32 第 8 輪指出，標為 Major）。
+/// [`statement_span`] 只在行邊界停，於是
+/// `let label = "admin"; let x = r == ROLE_SYSTEM_ADMIN;`
+/// 這一行裡，前一個敘述的 `"admin"` 會被算進後一個比對的 fallback 預算——
+/// **前後兩個敘述共用一份豁免**。這是 v1–v6 那個老毛病的第七次變形：
+/// 豁免的作用範圍（整行）大於它要豁免的那一件事（單一敘述）。
+///
+/// 只有一個片段＝這行沒有行內分號，此時沿用原本的跨行 [`statement_span`]；
+/// 有多個片段才改用「片段內」的預算，避免影響既有的跨行 `.bind()` 配對寫法。
+fn split_statements(code: &str) -> Vec<String> {
+    let b = code.as_bytes();
+    let mut out = Vec::new();
+    let mut in_str = false;
+    let mut seg_start = 0usize;
+    let mut i = 0usize;
+    while i < b.len() {
+        match b[i] {
+            b'\\' if in_str => i += 2,
+            b'\'' if !in_str => match char_literal_end(b, i) {
+                Some(end) => i = end + 1,
+                None => i += 1,
+            },
+            b'"' => {
+                in_str = !in_str;
+                i += 1;
+            }
+            b';' if !in_str => {
+                out.push(code[seg_start..=i].to_string());
+                i += 1;
+                seg_start = i;
+            }
+            _ => i += 1,
+        }
+    }
+    if seg_start < code.len() {
+        out.push(code[seg_start..].to_string());
+    }
+    if out.is_empty() {
+        out.push(String::new());
     }
     out
 }
@@ -321,67 +421,91 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
         .collect();
     let mut out = Vec::new();
     let mut consumed_markers: HashSet<usize> = HashSet::new();
-    let mut fallback_budget: HashMap<(usize, usize), usize> = HashMap::new();
+    // key 的第三格區分兩種預算來源：true = 行內片段 (行號, 片段序號)，
+    // false = 跨行敘述範圍 (span.0, span.1)。兩者的前兩格意義不同，不能混用同一個 key 空間。
+    let mut fallback_budget: HashMap<(usize, usize, bool), usize> = HashMap::new();
 
     for (i, line) in lines.iter().enumerate() {
-        let code = stripped[i].as_str();
+        let line_code = stripped[i].as_str();
         // use 行只是「提到」，不是比對。（純註解行剝完是空的，自然不會進來。）
-        if code.trim_start().starts_with("use ") {
+        if line_code.trim_start().starts_with("use ") {
             continue;
         }
-        if !code.contains("SYSTEM_ADMIN") {
-            continue;
-        }
-        // 比對訊號：沒有這些的話（例如 `Some(ROLE_SYSTEM_ADMIN)` 這種顯示用回傳值）
-        // 就不是一個「拿它跟使用者角色比對」的地方。
-        let is_comparison = COMPARISON_SIGNALS.iter().any(|sig| code.contains(sig))
-            || contains_sql_in_operator(code);
-        if !is_comparison {
+        if !line_code.contains("SYSTEM_ADMIN") {
             continue;
         }
 
-        // ⚠️ 一行可以有**兩個**比對（`a == A || b == A`），所以要的是「幾個」豁免，
-        // 不是「有沒有」豁免。這一點是本檔自己的回歸測試抓到的
-        // ——先前版本逐行判斷，同一行的第二個比對會白拿第一個的豁免。
-        let need = code.matches("SYSTEM_ADMIN").count();
-        let mut covered = 0usize;
+        // 一行可能是多個以 `;` 分隔的敘述，每個敘述要各自算豁免預算（見 split_statements）。
+        // 只有一個片段時代表沒有行內分號，沿用原本的跨行 statement_span。
+        let segments = split_statements(line_code);
+        let multi = segments.len() > 1;
 
-        // ① 逐行標記，**且每個標記只能用一次**。往上最多 3 行找還沒被消耗的。
-        //
-        // ⚠️ 標記必須**真的在註解裡**（CodeRabbit 於 #32 第 6 輪指出，v6b）：
-        // 只檢查 raw line 含不含這個子字串，`let note = "SYSTEM_ADMIN-ONLY";`
-        // 這種字串字面值也會命中，把它當成刻意標記去豁免旁邊真的未防護的比對。
-        // 判準是「raw 有、stripped（無註解版）沒有」——代表這段文字是被
-        // strip_comments 剝掉的註解，不是留在程式碼裡的字串內容。
-        let mark_lo = i.saturating_sub(3);
-        while covered < need {
-            let Some(m) = (mark_lo..i).rev().find(|m| {
-                lines[*m].contains(INTENTIONAL_MARKER)
-                    && !stripped[*m].contains(INTENTIONAL_MARKER)
-                    && !consumed_markers.contains(m)
-            }) else {
-                break;
+        for (seg_idx, code) in segments.iter().enumerate() {
+            let code = code.as_str();
+            if !code.contains("SYSTEM_ADMIN") {
+                continue;
+            }
+            // 比對訊號：沒有這些的話（例如 `Some(ROLE_SYSTEM_ADMIN)` 這種顯示用回傳值）
+            // 就不是一個「拿它跟使用者角色比對」的地方。
+            let is_comparison = COMPARISON_SIGNALS.iter().any(|sig| code.contains(sig))
+                || contains_sql_in_operator(code);
+            if !is_comparison {
+                continue;
+            }
+
+            // ⚠️ 一個敘述可以有**兩個**比對（`a == A || b == A`），所以要的是「幾個」豁免，
+            // 不是「有沒有」豁免。這一點是本檔自己的回歸測試抓到的
+            // ——先前版本逐行判斷，同一行的第二個比對會白拿第一個的豁免。
+            let need = code.matches("SYSTEM_ADMIN").count();
+            let mut covered = 0usize;
+
+            // ① 逐行標記，**且每個標記只能用一次**。往上最多 3 行找還沒被消耗的。
+            //
+            // ⚠️ 標記必須**真的在註解裡**（CodeRabbit 於 #32 第 6 輪指出，v6b）：
+            // 只檢查 raw line 含不含這個子字串，`let note = "SYSTEM_ADMIN-ONLY";`
+            // 這種字串字面值也會命中，把它當成刻意標記去豁免旁邊真的未防護的比對。
+            // 判準是「raw 有、stripped（無註解版）沒有」——代表這段文字是被
+            // strip_comments 剝掉的註解，不是留在程式碼裡的字串內容。
+            let mark_lo = i.saturating_sub(3);
+            while covered < need {
+                let Some(m) = (mark_lo..i).rev().find(|m| {
+                    lines[*m].contains(INTENTIONAL_MARKER)
+                        && !stripped[*m].contains(INTENTIONAL_MARKER)
+                        && !consumed_markers.contains(m)
+                }) else {
+                    break;
+                };
+                consumed_markers.insert(m);
+                covered += 1;
+            }
+
+            // ② fallback token，**每個也只能保護一個比對**。
+            //
+            // 這一行有行內分號（多個敘述）時，預算只從**該片段**算——否則前一個敘述的
+            // `"admin"` 會保護到後一個敘述的比對（第 8 輪的 Major finding）。
+            // 沒有行內分號時沿用跨行 statement_span，維持既有的 `.bind()` 跨行配對行為。
+            let (key, initial) = if multi {
+                ((i, seg_idx, true), count_fallbacks_in(code))
+            } else {
+                let span = statement_span(&stripped, &comment_only, i);
+                (
+                    (span.0, span.1, false),
+                    count_fallbacks(&stripped[span.0..span.1]),
+                )
             };
-            consumed_markers.insert(m);
-            covered += 1;
-        }
+            let budget = fallback_budget.entry(key).or_insert(initial);
+            while covered < need && *budget > 0 {
+                *budget -= 1;
+                covered += 1;
+            }
 
-        // ② 同一敘述內的 fallback token，**每個也只能保護一個比對**。
-        let span = statement_span(&stripped, &comment_only, i);
-        let budget = fallback_budget
-            .entry(span)
-            .or_insert_with(|| count_fallbacks(&stripped[span.0..span.1]));
-        while covered < need && *budget > 0 {
-            *budget -= 1;
-            covered += 1;
-        }
-
-        if covered < need {
-            out.push(format!(
-                "{rel}:{}  ({covered}/{need} 有豁免)  {}",
-                i + 1,
-                line.trim()
-            ));
+            if covered < need {
+                out.push(format!(
+                    "{rel}:{}  ({covered}/{need} 有豁免)  {}",
+                    i + 1,
+                    line.trim()
+                ));
+            }
         }
     }
     out
@@ -401,15 +525,16 @@ fn violations(rel: &str, text: &str) -> Vec<String> {
 /// 只寫著「日後再改用 `ROLE_ADMIN_LEGACY`」的說明不是 fallback，
 /// 卻曾經能豁免掉旁邊那個真的未防護的比對（`//` 見第 4 輪、`/* */` 見第 5 輪）。
 fn count_fallbacks(lines: &[String]) -> usize {
-    lines
-        .iter()
-        .map(|l| {
-            l.matches("ROLE_ADMIN_LEGACY").count()
-                + l.matches("\"admin\"").count()
-                + l.matches("'admin'").count()
-                + l.matches(".is_admin()").count()
-        })
-        .sum()
+    lines.iter().map(|l| count_fallbacks_in(l)).sum()
+}
+
+/// 單一段文字裡的 fallback token 數。[`count_fallbacks`] 逐行呼叫它；
+/// 敘述片段（見 [`split_statements`]）則直接呼叫。
+fn count_fallbacks_in(code: &str) -> usize {
+    code.matches("ROLE_ADMIN_LEGACY").count()
+        + code.matches("\"admin\"").count()
+        + code.matches("'admin'").count()
+        + code.matches(".is_admin()").count()
 }
 
 #[test]
@@ -648,6 +773,61 @@ fn marker_inside_string_literal_is_not_recognized() {
         v.len(),
         1,
         "字串字面值裡的 SYSTEM_ADMIN-ONLY 不是標記，這個比對必須被抓到。實際：{v:?}"
+    );
+}
+
+#[test]
+fn char_literal_quote_does_not_break_comment_stripping() {
+    // CodeRabbit 於 #32 第 8 輪指出：'"' 這個合法 char 字面值裡的雙引號
+    // 會把 in_str 翻成 true，之後的 // 不再被當註解，註解裡的 token 就成了假 fallback。
+    let src = "        let q = '\"'; let ok = r == ROLE_SYSTEM_ADMIN; // ROLE_ADMIN_LEGACY
+";
+    let v = violations("t.rs", src);
+    assert_eq!(
+        v.len(),
+        1,
+        "char 字面值裡的雙引號不該讓行尾註解變成程式碼。實際：{v:?}"
+    );
+}
+
+#[test]
+fn lifetime_is_not_mistaken_for_char_literal() {
+    // 反向防護：char 字面值的判定不能把 lifetime 的 ' 吃掉，
+    // 否則會跳過後面一大段程式碼，破壞得比原本的 bug 更嚴重。
+    assert_eq!(char_literal_end(b"'a'", 0), Some(2), "'a' 是字面值");
+    assert_eq!(char_literal_end(b"'\\n'", 0), Some(3), "'\\n' 是字面值");
+    assert_eq!(char_literal_end(b"'static", 0), None, "'static 是 lifetime");
+    assert_eq!(char_literal_end(b"&'a str", 1), None, "&'a str 是 lifetime");
+
+    // 端到端：帶 lifetime 的簽章裡若有未防護比對，仍要抓得到。
+    let src = "        fn f<'a>(r: &'a str) -> bool { r == ROLE_SYSTEM_ADMIN }
+";
+    let v = violations("t.rs", src);
+    assert_eq!(v.len(), 1, "lifetime 不該讓這個比對隱形。實際：{v:?}");
+}
+
+#[test]
+fn two_statements_on_one_line_do_not_share_fallback() {
+    // CodeRabbit 於 #32 第 8 輪指出（Major）：statement_span 只在行邊界停，
+    // 前一個敘述的 "admin" 會被算進後一個比對的預算——豁免範圍大於它要豁免的那件事。
+    let src = "        let label = \"admin\"; let x = r == ROLE_SYSTEM_ADMIN;
+";
+    let v = violations("t.rs", src);
+    assert_eq!(
+        v.len(),
+        1,
+        "前一個敘述的 fallback 不該保護後一個敘述的比對。實際：{v:?}"
+    );
+}
+
+#[test]
+fn paired_fallback_within_same_inline_statement_is_clean() {
+    // 反向防護：分號切分不能把「同一個敘述內的正當配對」切斷而誤報。
+    let src = "        let a = 1; let x = r == ROLE_SYSTEM_ADMIN || r == ROLE_ADMIN_LEGACY;
+";
+    assert!(
+        violations("t.rs", src).is_empty(),
+        "同一敘述內的配對寫法不該被誤報"
     );
 }
 
