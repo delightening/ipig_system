@@ -493,6 +493,76 @@ impl StockService {
         Ok(())
     }
 
+    /// 組裝「儲位庫存不足」要回給前端的訊息。
+    ///
+    /// 與 DB 查詢分離成純函式，有兩個理由：
+    /// 1. 這段文字是現場唯一會看到的東西，也是使用者裁定的「異狀時才盤」的觸發點
+    ///    ——它該被測試釘住。埋在 async 的 DB 路徑裡就只能靠整合測試，
+    ///    而整合測試需要獨立測試庫，本機跑不了（禁止對 prod 跑）。
+    /// 2. 批號／效期的四種組合是純邏輯，容易寫錯，值得單獨測。
+    fn insufficient_stock_message(
+        loc_label: &str,
+        prod_label: &str,
+        batch_no: Option<&str>,
+        expiry_date: Option<chrono::NaiveDate>,
+        on_hand: Decimal,
+        required: Decimal,
+        uom: &str,
+    ) -> String {
+        let batch_hint = match (batch_no, expiry_date) {
+            (Some(b), Some(e)) => format!("（批號 {b}、效期 {e}）"),
+            (Some(b), None) => format!("（批號 {b}）"),
+            (None, Some(e)) => format!("（效期 {e}）"),
+            (None, None) => String::new(),
+        };
+        format!(
+            "{loc_label}的{prod_label}{batch_hint}帳面只有 {on_hand} {uom}，這張單要領 {required} {uom}。\
+             若架上實際有貨，這是帳面與實體不符、不是缺貨——請先對該儲位開盤點單校正，再重新開單。\
+             若架上確實沒有，才是真的缺貨，需要從其他倉庫調撥或採購。"
+        )
+    }
+
+    /// 錯誤訊息用的儲位標示；查不到就退回 UUID。
+    ///
+    /// ⚠️ 這裡刻意吞掉查詢錯誤（`.ok()`），與「解析失敗不可靜默降級」不是同一件事：
+    /// 這是**輔助資訊**，唯一用途是把錯誤訊息裡的 UUID 換成人看得懂的字。
+    /// 讓它的失敗蓋掉呼叫端原本要回報的業務錯誤，等於用次要問題掩蓋主要問題。
+    async fn storage_location_label(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> String {
+        let row: Option<(String, Option<String>)> =
+            sqlx::query_as("SELECT sl.code, sl.name FROM storage_locations sl WHERE sl.id = $1")
+                .bind(id)
+                .fetch_optional(&mut **tx)
+                .await
+                .ok()
+                .flatten();
+        match row {
+            Some((code, Some(name))) => format!("儲位「{code} {name}」"),
+            Some((code, None)) => format!("儲位「{code}」"),
+            None => format!("儲位 {id}"),
+        }
+    }
+
+    /// 錯誤訊息用的品項標示與其基本單位。查不到就退回 UUID、單位留空。
+    ///
+    /// 帶 `base_uom` 是因為訊息裡要講「帳面只有 5 雙」——沒有單位的數字在
+    /// 一盒五十雙的品項上會被誤讀成盒數，那正是這則訊息要避免的誤導。
+    async fn product_label_and_uom(
+        tx: &mut Transaction<'_, Postgres>,
+        id: Uuid,
+    ) -> (String, String) {
+        let row: Option<(String, String, String)> =
+            sqlx::query_as("SELECT p.sku, p.name, p.base_uom FROM products p WHERE p.id = $1")
+                .bind(id)
+                .fetch_optional(&mut **tx)
+                .await
+                .ok()
+                .flatten();
+        match row {
+            Some((sku, name, uom)) => (format!("「{sku} {name}」"), uom),
+            None => (format!("品項 {id}"), String::new()),
+        }
+    }
+
     /// 扣減儲位庫存 (PR/DO/SR/TR-out 出庫時使用；UPDATE-only，不 INSERT)。
     /// migration 069 起 PR/DO/SR/RTN/TR 都會呼叫，修復過去只增不減的 drift。
     ///
@@ -551,15 +621,57 @@ impl StockService {
 
             match existing_qty {
                 Some(on_hand) => {
-                    // 庫存不足 — 拒絕；不允許單一儲位扣成負數
-                    return Err(AppError::BusinessRule(format!(
-                        "儲位庫存不足：location={}, product={}, on_hand={}, required={}, batch={:?}, expiry={:?}",
-                        storage_location_id, product_id, on_hand, qty, batch_no, expiry_date,
+                    // 庫存不足 — 拒絕；不允許單一儲位扣成負數。
+                    //
+                    // 🔴 這則訊息會**原樣回給前端**（`error.rs` 的 BusinessRule → 422 + msg），
+                    // 現場看到的就是它。措辭因此要指向正確的下一步。
+                    //
+                    // 舊版寫的是「儲位庫存不足：location=<UUID>, product=<UUID>, …」，有兩個問題：
+                    // 1. 全是 UUID，現場看不出是哪個架子、哪個品項。
+                    // 2. 「庫存不足」在現場的意思是「東西沒了，要叫貨」——但在
+                    //    「儲藏室不做例行盤點」的規則下（見 014 migration），走到這裡最常見的
+                    //    成因是**帳面與實體不符**，東西其實就在架上。照舊訊息去理解，
+                    //    會有人下一張根本不需要的採購單。
+                    //
+                    // 這裡同時是使用者裁定的「異狀時才盤」的觸發點：擋下來的這一刻，
+                    // 就是該去盤那個儲位的時候。訊息必須把這件事講出來。
+                    //
+                    // 查名稱的兩次查詢只在錯誤路徑執行，正常扣帳走不到，不影響熱路徑。
+                    let loc_label = Self::storage_location_label(tx, storage_location_id).await;
+                    let (prod_label, uom) = Self::product_label_and_uom(tx, product_id).await;
+                    return Err(AppError::BusinessRule(Self::insufficient_stock_message(
+                        &loc_label,
+                        &prod_label,
+                        batch_no.as_deref(),
+                        expiry_date,
+                        on_hand,
+                        qty,
+                        &uom,
                     )));
                 }
                 None => {
                     // baseline 缺 row — 與舊行為一致 warn 通過
+                    //
+                    // 🔴 **這是一條靜默放行的路徑，已知有問題，本次刻意不改行為。**
+                    //
+                    // 儲位沒有對應 row 時這裡只寫 log 就放行，等於該儲位可以無限透支
+                    // （倉庫層級仍有 `check_stock_available` 守著，所以倉庫總量不會錯，
+                    // 但儲位層級的帳就此失真且無人知曉）。
+                    //
+                    // 為什麼現在不修：改成拒絕之後，**目前正在靜默通過的領用會開始被擋**。
+                    // prod 上若已累積不少缺 row 的儲位，上線當天可能大面積卡住現場。
+                    // 使用者裁定的順序是「先量測、再決定上線策略」，量測要等帳號恢復
+                    // 且經授權才能碰 prod DB。
+                    //
+                    // ⚠️ 這條與「儲藏室不做例行盤點」的新規則有直接衝突：SLI 的 row 靠
+                    // 入庫與**盤點**建立／校正，不盤點會讓缺 row 的機率上升，於是這條從
+                    // 「罕見的 baseline 遺留」變成常態路徑——而缺 row 的品項根本卡不住，
+                    // 使用者設計的「領不出來才去盤」就永遠不會被觸發。
+                    //
+                    // 下面的 `event` 標記是給量測用的：撈 `sli_decrement_missing_row`
+                    // 就能統計發生頻率與涉及哪些儲位／品項。
                     tracing::warn!(
+                        event = "sli_decrement_missing_row",
                         "storage_location_inventory decrement no-op: location={}, product={}, qty={}, batch={:?}, expiry={:?} \
                          — 可能 storage_inventory drift baseline 之前的單據對應，未影響 warehouse-level 庫存正確性",
                         storage_location_id, product_id, qty, batch_no, expiry_date,
@@ -1032,5 +1144,112 @@ impl StockService {
         } else {
             LotReconciliationStatus::Unbalanced
         }
+    }
+}
+
+
+#[cfg(test)]
+mod insufficient_stock_message_tests {
+    use super::*;
+    use rust_decimal::prelude::FromPrimitive;
+
+    fn dec(n: i64) -> Decimal {
+        Decimal::from_i64(n).unwrap()
+    }
+
+    fn msg(batch: Option<&str>, expiry: Option<chrono::NaiveDate>) -> String {
+        StockService::insufficient_stock_message(
+            "儲位「A-01 冷藏架」",
+            "「CON-GLV-001 無菌手套」",
+            batch,
+            expiry,
+            dec(5),
+            dec(10),
+            "雙",
+        )
+    }
+
+    #[test]
+    fn 無批號無效期時不出現括號() {
+        let m = msg(None, None);
+        assert!(!m.contains('（'), "不該有批號/效期括號：{m}");
+        assert!(m.contains("儲位「A-01 冷藏架」的「CON-GLV-001 無菌手套」帳面只有 5 雙"));
+        assert!(m.contains("這張單要領 10 雙"));
+    }
+
+    #[test]
+    fn 只有批號時只列批號() {
+        let m = msg(Some("LOT-2026-A"), None);
+        assert!(m.contains("（批號 LOT-2026-A）"), "{m}");
+        assert!(!m.contains("效期"), "{m}");
+    }
+
+    #[test]
+    fn 只有效期時只列效期() {
+        let d = chrono::NaiveDate::from_ymd_opt(2027, 3, 31).unwrap();
+        let m = msg(None, Some(d));
+        assert!(m.contains("（效期 2027-03-31）"), "{m}");
+        assert!(!m.contains("批號"), "{m}");
+    }
+
+    #[test]
+    fn 批號與效期都有時兩者都列() {
+        let d = chrono::NaiveDate::from_ymd_opt(2027, 3, 31).unwrap();
+        let m = msg(Some("LOT-2026-A"), Some(d));
+        assert!(m.contains("（批號 LOT-2026-A、效期 2027-03-31）"), "{m}");
+    }
+
+    /// 🔴 這條釘住的是本次修改的**目的**，不是格式。
+    ///
+    /// 舊訊息只說「儲位庫存不足」，現場會理解成「東西沒了，要叫貨」，
+    /// 於是去下一張其實不需要的採購單——而在「儲藏室不做例行盤點」的規則下
+    /// （見 014 migration），走到這裡最常見的成因是帳面與實體不符，東西就在架上。
+    ///
+    /// 這則訊息同時是使用者裁定的「異狀時才盤」的唯一觸發點。
+    /// 有人把引導語刪成一句「庫存不足」，整套規則就失去入口——這條會擋下來。
+    #[test]
+    fn 訊息必須指向盤點而不是只說缺貨() {
+        let m = msg(None, None);
+        assert!(
+            m.contains("帳面與實體不符"),
+            "必須點出這可能不是缺貨而是帳實不符：{m}"
+        );
+        assert!(m.contains("盤點單"), "必須指出下一步是開盤點單：{m}");
+        assert!(
+            m.contains("才是真的缺貨"),
+            "必須保留「架上真的沒有才是缺貨」這條分支，否則會變成一律當帳實不符：{m}"
+        );
+    }
+
+    /// 數量必須帶單位。一盒五十雙的品項上，沒有單位的「5」會被讀成 5 盒。
+    #[test]
+    fn 數量必須帶基本單位() {
+        let m = StockService::insufficient_stock_message(
+            "儲位「B-02」",
+            "「MED-001 範例藥品」",
+            None,
+            None,
+            dec(2),
+            dec(3),
+            "盒",
+        );
+        assert!(m.contains("帳面只有 2 盒"), "{m}");
+        assert!(m.contains("要領 3 盒"), "{m}");
+    }
+
+    /// 查不到名稱時退回 UUID 字樣，訊息本身仍要成立（不會變成空白或 panic）。
+    #[test]
+    fn 名稱查不到時訊息仍完整() {
+        let m = StockService::insufficient_stock_message(
+            "儲位 0f8b2c1e-0000-0000-0000-000000000000",
+            "品項 3a7d9e11-0000-0000-0000-000000000000",
+            None,
+            None,
+            dec(0),
+            dec(1),
+            "",
+        );
+        assert!(m.contains("帳面只有 0"), "{m}");
+        assert!(m.contains("盤點單"), "{m}");
     }
 }
