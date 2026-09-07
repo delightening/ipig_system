@@ -231,14 +231,18 @@ impl WarehouseService {
                 name = COALESCE($1, name),
                 address = COALESCE($2, address),
                 is_active = COALESCE($3, is_active),
+                exclude_from_alerts = COALESCE($4, exclude_from_alerts),
+                skip_routine_stocktake = COALESCE($5, skip_routine_stocktake),
                 updated_at = NOW()
-            WHERE id = $4
+            WHERE id = $6
             RETURNING *
             "#,
         )
         .bind(&req.name)
         .bind(&req.address)
         .bind(req.is_active)
+        .bind(req.exclude_from_alerts)
+        .bind(req.skip_routine_stocktake)
         .bind(id)
         .fetch_one(&mut **tx)
         .await?;

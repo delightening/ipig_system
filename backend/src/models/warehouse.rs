@@ -17,6 +17,17 @@ pub struct Warehouse {
     pub name: String,
     pub address: Option<String>,
     pub is_active: bool,
+    /// 排除於低庫存警報之外（migration 014）。
+    ///
+    /// 用於帳面準確度不受維護的倉庫（每天領用的儲藏室），或本來就不是庫存資產的
+    /// 地點（廢棄物處理區）。`v_low_stock_alerts` 直接讀這個欄位過濾。
+    pub exclude_from_alerts: bool,
+    /// 不納入例行盤點（migration 014）。
+    ///
+    /// 命名是 routine 而非 scheduled：本系統沒有盤點排程器，月盤是人工開單。
+    /// ⚠️ 目前**沒有任何後端邏輯讀它**——作用點在前端（開盤點單時提示）與人的流程。
+    /// 日後若做排程器，直接讀這個欄位即可。
+    pub skip_routine_stocktake: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -35,6 +46,10 @@ pub struct UpdateWarehouseRequest {
     pub name: Option<String>,
     pub address: Option<String>,
     pub is_active: Option<bool>,
+    /// 見 `Warehouse::exclude_from_alerts`。None = 不改動。
+    pub exclude_from_alerts: Option<bool>,
+    /// 見 `Warehouse::skip_routine_stocktake`。None = 不改動。
+    pub skip_routine_stocktake: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

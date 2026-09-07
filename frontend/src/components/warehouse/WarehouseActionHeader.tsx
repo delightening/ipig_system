@@ -56,6 +56,8 @@ interface WarehouseFormData {
     name: string
     address: string
     is_active: boolean
+    exclude_from_alerts: boolean
+    skip_routine_stocktake: boolean
 }
 
 const initialFormData: WarehouseFormData = {
@@ -63,6 +65,10 @@ const initialFormData: WarehouseFormData = {
     name: '',
     address: '',
     is_active: true,
+    // 新倉庫預設「照常盤點、照常警報」——與 migration 014 的欄位預設一致。
+    // 例外要由人明確勾選，不能靠預設值悄悄生效。
+    exclude_from_alerts: false,
+    skip_routine_stocktake: false,
 }
 
 export function WarehouseActionHeader({
@@ -181,6 +187,8 @@ export function WarehouseActionHeader({
             name: warehouse.name,
             address: warehouse.address || '',
             is_active: warehouse.is_active,
+            exclude_from_alerts: warehouse.exclude_from_alerts,
+            skip_routine_stocktake: warehouse.skip_routine_stocktake,
         })
         setShowWarehouseDialog(true)
     }
@@ -361,6 +369,40 @@ export function WarehouseActionHeader({
                                     />
                                     <span className="text-sm text-muted-foreground">
                                         {formData.is_active ? '已啟用' : '已停用'}
+                                    </span>
+                                </div>
+                            </div>
+                            {/* 盤點與警報政策（migration 014）。
+                              * 這兩項刻意分開而不是一個「倉庫類型」下拉：儲藏室是「有庫存但不維護
+                              * 帳面準確度」，廢棄物處理區是「根本不是庫存資產」——目前兩者的勾選
+                              * 剛好一樣，但語意不同，合併後日後出現「要盤但不要警報」的倉庫就回不去了。 */}
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="exclude_from_alerts" className="text-right pt-2">低庫存警報</Label>
+                                <div className="col-span-3 flex items-start gap-2">
+                                    <Switch
+                                        id="exclude_from_alerts"
+                                        checked={!formData.exclude_from_alerts}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, exclude_from_alerts: !checked })}
+                                    />
+                                    <span className="text-sm text-muted-foreground">
+                                        {formData.exclude_from_alerts
+                                            ? '不發警報（帳面數字不維護準確度，或非庫存資產）'
+                                            : '照常發警報'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="skip_routine_stocktake" className="text-right pt-2">例行盤點</Label>
+                                <div className="col-span-3 flex items-start gap-2">
+                                    <Switch
+                                        id="skip_routine_stocktake"
+                                        checked={!formData.skip_routine_stocktake}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, skip_routine_stocktake: !checked })}
+                                    />
+                                    <span className="text-sm text-muted-foreground">
+                                        {formData.skip_routine_stocktake
+                                            ? '不排例行盤點（仍可在缺貨或有異狀時單獨盤）'
+                                            : '納入例行盤點'}
                                     </span>
                                 </div>
                             </div>

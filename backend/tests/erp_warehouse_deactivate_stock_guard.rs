@@ -173,6 +173,10 @@ async fn update_to_inactive_blocked_when_stock_remains() {
         name: None,
         address: None,
         is_active: Some(false),
+        // migration 014 的政策旗標與本測試（停用倉庫時的存量守衛）無關，
+        // None 表示不改動。
+        exclude_from_alerts: None,
+        skip_routine_stocktake: None,
     };
     let err = WarehouseService::update(&pool, &actor, wh, &req, Some(request_ctx()))
         .await

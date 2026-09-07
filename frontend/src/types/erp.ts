@@ -11,6 +11,20 @@ export interface Warehouse {
     name: string
     address?: string
     is_active: boolean
+    /**
+     * 排除於低庫存警報之外（migration 014）。
+     *
+     * 用於帳面準確度不受維護的倉庫（每天領用的儲藏室），或本來就不是庫存資產的
+     * 地點（廢棄物處理區）。後端的 `v_low_stock_alerts` 直接讀它過濾。
+     */
+    exclude_from_alerts: boolean
+    /**
+     * 不納入例行盤點（migration 014）。
+     *
+     * 命名是 routine 而非 scheduled：本系統沒有盤點排程器，月盤是人工開單。
+     * ⚠️ 後端沒有任何邏輯讀它——作用點在開盤點單時的提示與人的流程。
+     */
+    skip_routine_stocktake: boolean
     created_at: string
     updated_at: string
 }
