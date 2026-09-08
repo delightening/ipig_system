@@ -70,6 +70,25 @@ pub enum AppError {
     #[error("Unsettled items: {message}")]
     UnsettledItems { message: String, items: Vec<String> },
 
+    /// 儲位庫存不足而擋下領用。對前端與 `BusinessRule` 完全一致（422 + 原訊息），
+    /// 差別只在額外攜帶結構化欄位。
+    ///
+    /// 為什麼需要這個變體，而不是沿用 `BusinessRule(String)`：
+    /// 「領不出來就通知倉管」的通知**只能在 transaction rollback 之後發**——
+    /// 擋下的當下整個 tx 會回滾，寫在裡面的通知會一起消失。呼叫端因此得等錯誤
+    /// 傳出來、tx 收掉之後才發，而那時它需要知道是哪個儲位、哪個品項、差多少。
+    ///
+    /// 不靠字串比對去認這件事：那段訊息是寫給現場看的，本來就會被改文案，
+    /// 而它一改，通知就會靜默停止發送且沒有任何徵兆。
+    #[error("Insufficient stock: {message}")]
+    InsufficientStock {
+        message: String,
+        storage_location_id: uuid::Uuid,
+        product_id: uuid::Uuid,
+        on_hand: rust_decimal::Decimal,
+        required: rust_decimal::Decimal,
+    },
+
     #[error("Business rule violation: {0}")]
     BusinessRule(String),
 
@@ -146,6 +165,11 @@ impl IntoResponse for AppError {
                 // LOW-03: 此分支已在上方 if let 提前 return，理論上不可達。
                 // 使用 unreachable! 使迴歸在 debug build 中立即 panic 而非靜默繼續。
                 unreachable!("DuplicateWarning 應在 IntoResponse 開頭的 if let 中處理")
+            }
+            // 與 BusinessRule 走同一個狀態碼與同一則訊息：結構化欄位只給
+            // commit 邊界外的通知用，前端看到的東西一個字都沒變。
+            AppError::InsufficientStock { message, .. } => {
+                (StatusCode::UNPROCESSABLE_ENTITY, message.clone())
             }
             AppError::BusinessRule(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg.clone()),
             AppError::TooManyRequests(msg) => (StatusCode::TOO_MANY_REQUESTS, msg.clone()),
@@ -318,6 +342,33 @@ mod tests {
         let (status, json) = extract_response(AppError::BusinessRule("rule violated".into())).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(json["error"]["code"], 422);
+    }
+
+    /// `InsufficientStock` 對前端必須與 `BusinessRule` **無法區分**。
+    ///
+    /// 這條釘住「加結構化欄位不動 API contract」這個前提。改動的目的只是讓
+    /// commit 邊界外的呼叫端拿得到 location/product 去發通知；若有人順手把它
+    /// 改成別的狀態碼、或在訊息外面多包一層，現場看到的錯誤就變了，
+    /// 而那不是這次改動的意圖。直接比對兩種變體的完整回應，不只比狀態碼。
+    #[tokio::test]
+    async fn test_insufficient_stock_is_indistinguishable_from_business_rule() {
+        let msg = "儲位「A18 貨架8」的「CON-GLV-003 7號無菌手套」帳面只有 5 盒，這張單要領 9 盒。";
+
+        let (status, json) = extract_response(AppError::InsufficientStock {
+            message: msg.to_string(),
+            storage_location_id: uuid::Uuid::nil(),
+            product_id: uuid::Uuid::nil(),
+            on_hand: rust_decimal::Decimal::from(5),
+            required: rust_decimal::Decimal::from(9),
+        })
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(json["error"]["code"], 422);
+        assert_eq!(json["error"]["message"], msg);
+
+        let (br_status, br_json) = extract_response(AppError::BusinessRule(msg.to_string())).await;
+        assert_eq!(status, br_status);
+        assert_eq!(json, br_json, "同一則訊息下，兩個變體的回應必須逐欄相同");
     }
 
     #[tokio::test]

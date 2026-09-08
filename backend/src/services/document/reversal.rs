@@ -19,10 +19,13 @@ use crate::{
     },
     services::{
         audit::{ActivityLogEntry, AuditEntity},
+        stock::StorageDriftEvent,
         AccountingService, AuditService, StockService,
     },
     AppError, Result,
 };
+
+use super::workflow::{notify_storage_drift_after_commit, rollback_then_notify_block};
 
 use super::DocumentService;
 
@@ -247,7 +250,18 @@ impl DocumentService {
 
         // 庫存鏡射：ledger 反向 + SLI 反向 + snapshot 重算（三者缺一即產生 drift，
         // 見 StockService::reverse_document_stock 的說明）。
-        StockService::reverse_document_stock(&mut tx, &original, &reversal).await?;
+        //
+        // 不用 `?`：反向扣減若因「原入庫的貨已被領走」而擋下，同樣要先回滾再通知倉管
+        // ——這種情況正是最該讓人知道的一種，東西不見了而沒有人開過單。
+        let stock_drift: Vec<StorageDriftEvent> =
+            match StockService::reverse_document_stock(&mut tx, &original, &reversal).await {
+                Ok(events) => events,
+                Err(e) => {
+                    return Err(
+                        rollback_then_notify_block(pool, tx, e, &reversal.doc_no, admin_id).await,
+                    )
+                }
+            };
 
         // 會計鏡射：借貸互換。刻意**不**用 best-effort SAVEPOINT——
         // 庫存退回但傳票沒鏡射成功會讓帳永久歪掉，屬合規路徑，失敗即整筆 rollback。
@@ -335,6 +349,10 @@ impl DocumentService {
         .await?;
 
         tx.commit().await?;
+
+        // 儲位帳失真 → commit 之後才通知（理由見 workflow.rs 的該函式說明）
+        notify_storage_drift_after_commit(pool, &stock_drift, admin_id).await;
+
         Self::get_by_id(pool, reversal_id).await
     }
 }
