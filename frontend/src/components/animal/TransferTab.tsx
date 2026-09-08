@@ -6,7 +6,8 @@ import { transferApi } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowRightLeft, Loader2, Plus } from 'lucide-react'
-import { useAuthUser } from '@/stores/auth'
+import { PERMISSIONS } from '@/lib/permissions.generated'
+import { useAuthHasPermission, useAuthUser } from '@/stores/auth'
 
 import { TransferInitiateForm } from './TransferInitiateForm'
 import { TransferActiveCard } from './TransferActiveCard'
@@ -50,16 +51,33 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
         ['completed', 'rejected'].includes(t.status)
     )
 
-    // 角色判斷
+    // 動作閘：與後端 `handlers/animal/transfer.rs` 逐段對齊（P0-3，2026-09-05）。
+    //
+    // ⚠️ 這裡原本全部用角色硬判，且 admin 那格寫的是 `roles.includes('ADMIN')`——
+    // 全 codebase 的角色代碼是 `'admin'` / `'SYSTEM_ADMIN'`（`constants.rs:188-189`），
+    // **沒有任何一處用大寫 `'ADMIN'`**，所以那個變數恆為 `false`：
+    // `canComplete = isAdmin && …` 代表「完成轉讓」按鈕從不出現，執行秘書也看不到
+    // 任何轉讓操作。改用權限碼後不必再自己判 admin——`hasPermission()` 已比照後端
+    // `is_admin()` 對 `admin` / `SYSTEM_ADMIN` 短路（`stores/auth.ts:261-263`）。
+    const hasPermission = useAuthHasPermission()
+
+    // 協調段（發起 / 指定新計畫 / 完成 / 拒絕）＝後端的 `animal.transfer.manage`。
+    const canManageTransfer = hasPermission(PERMISSIONS.ANIMAL_TRANSFER_MANAGE)
+    // 簽署權責（核准）在後端是 `check_transfer_signing_authority`：VET 角色**或**
+    // 轉出 / 轉入計畫的 `pi_user_id`，不是權限碼，所以這裡只能用角色近似。
+    // 前端拿不到「是不是這兩張計畫的 PI」，故 PI 角色一律顯示、由後端做最終判定；
+    // admin 若非 VET 也非兩造 PI 同樣會被後端擋，因此**刻意不放行 admin**，
+    // 免得出現「按鈕看得到、按下去 403」。
     const isVet = user?.roles?.includes('VET') ?? false
     const isPI = user?.roles?.includes('PI') ?? false
-    const isAdmin = user?.roles?.includes('ADMIN') ?? false
-    const canInitiate = (animalStatus === 'completed') && !activeTransfer
-    const canVetEvaluate = (isVet || isAdmin) && activeTransfer?.status === 'pending'
-    const canAssignPlan = (isAdmin || isPI) && activeTransfer?.status === 'vet_evaluated'
-    const canApprove = (isAdmin || isPI) && activeTransfer?.status === 'plan_assigned'
-    const canComplete = isAdmin && activeTransfer?.status === 'pi_approved'
-    const canReject = (isAdmin || isPI || isVet) && !!activeTransfer && !['completed', 'rejected'].includes(activeTransfer.status)
+
+    // 發起原本完全沒有權限判斷（只看動物狀態），任何人都看得到按鈕、按下去吃 403。
+    const canInitiate = canManageTransfer && (animalStatus === 'completed') && !activeTransfer
+    const canVetEvaluate = hasPermission(PERMISSIONS.ANIMAL_VET_RECOMMEND) && activeTransfer?.status === 'pending'
+    const canAssignPlan = canManageTransfer && activeTransfer?.status === 'vet_evaluated'
+    const canApprove = (isVet || isPI) && activeTransfer?.status === 'plan_assigned'
+    const canComplete = canManageTransfer && activeTransfer?.status === 'pi_approved'
+    const canReject = canManageTransfer && !!activeTransfer && !['completed', 'rejected'].includes(activeTransfer.status)
 
     if (isLoading) {
         return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>

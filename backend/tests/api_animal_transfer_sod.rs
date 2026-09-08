@@ -172,6 +172,8 @@ struct Scene {
     staff_token: String,
     /// 純獸醫（僅 VET，未兼 EXPERIMENT_STAFF）。
     vet_token: String,
+    /// 純獸醫的 user id（驗簽章落庫時的簽署者身分）。
+    vet_id: Uuid,
     /// 試驗工作人員（僅 EXPERIMENT_STAFF，持 animal.record.create）。
     worker_token: String,
     animal_id: Uuid,
@@ -183,7 +185,7 @@ struct Scene {
 async fn setup_scene(app: &TestApp) -> Scene {
     let (pi_id, _) = seed_login_user(app, "pi", &[ROLE_PI]).await;
     let (_staff_id, staff_email) = seed_login_user(app, "staff", &[ROLE_IACUC_STAFF]).await;
-    let (_vet_id, vet_email) = seed_login_user(app, "vet", &[ROLE_VET]).await;
+    let (vet_id, vet_email) = seed_login_user(app, "vet", &[ROLE_VET]).await;
     let (_worker_id, worker_email) = seed_login_user(app, "worker", &[ROLE_EXPERIMENT_STAFF]).await;
 
     let from_iacuc = seed_protocol(app, pi_id).await;
@@ -197,6 +199,7 @@ async fn setup_scene(app: &TestApp) -> Scene {
             .await
             .expect("staff login"),
         vet_token: app.login(&vet_email, PASSWORD).await.expect("vet login"),
+        vet_id,
         worker_token: app
             .login(&worker_email, PASSWORD)
             .await
@@ -568,6 +571,76 @@ async fn initiator_still_cannot_self_approve() {
     assert!(
         text.contains("發起轉讓者不得自行核准"),
         "應由 service 層的自核擋板攔下（證明它已通過簽署權責檢查），實得 body：{text}"
+    );
+}
+
+// ── 簽章端點：同型缺陷的修復與其把關 ──────────────────────────────────────────
+
+/// `POST /api/v1/signatures/transfer/{id}` 與 `approve_transfer` 是同一個形狀的缺陷：
+/// 權限碼閘排在 `check_transfer_signing_authority` 之前，而 VET 沒有那個碼。
+/// 改動前純 VET 必然 403，改動後應可簽署。
+#[tokio::test]
+#[serial]
+async fn vet_only_user_can_sign_transfer_record() {
+    let app = TestApp::spawn().await;
+    let scene = setup_scene(&app).await;
+    let transfer_id = advance_to_plan_assigned(&app, &scene).await;
+
+    let res = app
+        .auth_post(
+            &format!("/api/v1/signatures/transfer/{transfer_id}"),
+            &serde_json::json!({ "password": PASSWORD }),
+            &scene.vet_token,
+        )
+        .await;
+    assert!(
+        res.status().is_success(),
+        "純 VET（無 animal.record.create）應可簽署轉讓記錄，實得 {}",
+        res.status()
+    );
+
+    // 表名 / 欄位取自 `services/signature/mod.rs:942-945` 的 INSERT，非憑印象。
+    // `entity_id` 是 text（service 端以 `&transfer_id.to_string()` 傳入）。
+    let signer: Option<Uuid> = sqlx::query_scalar(
+        "SELECT signer_id FROM electronic_signatures \
+         WHERE entity_type = 'transfer' AND entity_id = $1",
+    )
+    .bind(transfer_id.to_string())
+    .fetch_optional(&app.db_pool)
+    .await
+    .expect("query electronic_signatures");
+    assert_eq!(
+        signer,
+        Some(scene.vet_id),
+        "簽章應落庫，且簽署者須是那位純 VET"
+    );
+}
+
+/// 刪掉權限碼閘之後，簽章端點**不得**因此變寬：
+/// 既非獸醫、也非兩造計畫 PI 的人仍應被 `check_transfer_signing_authority` 擋下。
+#[tokio::test]
+#[serial]
+async fn non_vet_non_party_pi_still_cannot_sign_transfer_record() {
+    let app = TestApp::spawn().await;
+    let scene = setup_scene(&app).await;
+    let transfer_id = advance_to_plan_assigned(&app, &scene).await;
+
+    let res = app
+        .auth_post(
+            &format!("/api/v1/signatures/transfer/{transfer_id}"),
+            &serde_json::json!({ "password": PASSWORD }),
+            &scene.worker_token,
+        )
+        .await;
+    assert_eq!(
+        res.status(),
+        403,
+        "試驗工作人員既非獸醫也非兩造 PI，不得簽署轉讓記錄"
+    );
+    let text = res.text().await.unwrap_or_default();
+    assert!(
+        text.contains("僅獸醫師或轉出 / 轉入計劃主持人可簽署此轉讓"),
+        "403 應來自 check_transfer_signing_authority（證明刪掉權限碼閘沒有讓端點失守），實得 body：{text}"
     );
 }
 

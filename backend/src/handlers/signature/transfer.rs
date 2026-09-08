@@ -8,7 +8,6 @@ use uuid::Uuid;
 
 use crate::{
     middleware::CurrentUser,
-    require_permission,
     services::{SignatureService, SignatureType},
     AppState, Result,
 };
@@ -39,8 +38,13 @@ pub async fn sign_transfer_record(
     Path(transfer_id): Path<Uuid>,
     Json(req): Json<SignRecordRequest>,
 ) -> Result<Json<SignRecordResponse>> {
-    require_permission!(current_user, "animal.record.create");
     // CSO #2：轉讓簽章須三方權責（VET 或 轉出/轉入計劃 PI），非僅計畫成員。
+    //
+    // P0-3（2026-09-05）：本處原本還疊了一道 `require_permission!("animal.record.create")`，
+    // 與 `handlers/animal/transfer.rs::approve_transfer` 是同一個既有缺陷——VET 角色
+    // **沒有**該權限碼（`startup/permissions.rs` 的 VET 清單），於是純獸醫（未兼
+    // EXPERIMENT_STAFF）在走到下面這道檢查之前就被 403 擋掉，而該檢查第一件事正是
+    // `has_role(VET) → Ok`。簽署權責由 check_transfer_signing_authority 單獨認定。
     SignatureService::check_transfer_signing_authority(&state.db, transfer_id, &current_user)
         .await?;
 
