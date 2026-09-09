@@ -77,6 +77,7 @@ export const PERMISSIONS = {
     ANIMAL_RECORD_VIEW: 'animal.record.view',
     ANIMAL_RECORD_WEIGHT: 'animal.record.weight',
     ANIMAL_SOURCE_MANAGE: 'animal.source.manage',
+    ANIMAL_TRANSFER_MANAGE: 'animal.transfer.manage',
     ANIMAL_VET_READ: 'animal.vet.read',
     ANIMAL_VET_RECOMMEND: 'animal.vet.recommend',
     ANIMAL_VET_UPLOAD_ATTACHMENT: 'animal.vet.upload_attachment',
