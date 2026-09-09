@@ -126,6 +126,28 @@ describe('最終報告列表', () => {
     renderPage()
     expect(await screen.findByText('新增報告')).toBeInTheDocument()
   })
+
+  /**
+   * a11y：整列是開啟詳情的唯一入口，必須能用鍵盤開。
+   *
+   * 舊寫法只在 `<tr>` 掛 `onClick`，沒有 `tabIndex` / `role` / `onKeyDown`——
+   * 該列不在 tab 順序內，鍵盤與讀屏使用者完全打不開詳情。
+   * CodeRabbit 於 MR !10 指出（2026-09-09）。
+   *
+   * 鑑別力：對舊寫法會紅——沒有 keyDown 處理器，`getStudyReport` 收不到呼叫。
+   * 刻意用 `keyDown` 而非 `click`：後者在新舊寫法都會過，證明不了鍵盤那條路徑。
+   */
+  it('列可用鍵盤開啟詳情（Enter），且在 tab 順序內', async () => {
+    renderPage()
+    const cell = await screen.findByText('第一份最終報告')
+    const row = cell.closest('tr')
+    expect(row).not.toBeNull()
+    expect(row).toHaveAttribute('tabindex', '0')
+    expect(row).toHaveAttribute('role', 'button')
+
+    fireEvent.keyDown(row!, { key: 'Enter' })
+    await waitFor(() => expect(getStudyReport).toHaveBeenCalledWith(DRAFT_REPORT.id))
+  })
 })
 
 describe('報告詳情對話框', () => {
@@ -170,6 +192,24 @@ describe('報告詳情對話框', () => {
 
     expect(screen.queryByText('編輯報告本文')).not.toBeInTheDocument()
     expect(screen.queryByText('簽署')).not.toBeInTheDocument()
+  })
+
+  /**
+   * 詳情查詢失敗要顯示錯誤，不能永遠停在「載入中…」。
+   *
+   * 舊寫法是 `{isLoading || !report ? <載入中…> : …}`：查詢 reject 時
+   * `isLoading` 變 false 而 `report` 仍是 undefined，於是落進同一格——
+   * 使用者看到的是**無限載入**而不是錯誤。CodeRabbit 於 MR !10 指出（Major）。
+   *
+   * 鑑別力：對舊寫法會紅——畫面上只會有「載入中…」，找不到錯誤訊息。
+   */
+  it('詳情查詢失敗時顯示錯誤，而不是卡在載入中', async () => {
+    getStudyReport.mockRejectedValue(new Error('boom'))
+    renderPage()
+    fireEvent.click(await screen.findByText(DRAFT_REPORT.title))
+
+    expect(await screen.findByText(/載入報告失敗|boom/)).toBeInTheDocument()
+    expect(screen.queryByText('載入中…')).not.toBeInTheDocument()
   })
 })
 

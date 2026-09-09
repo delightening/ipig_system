@@ -137,8 +137,19 @@ export function StudyFinalReportPage() {
                 reports.map((r) => (
                   <TableRow
                     key={r.id}
+                    // 整列是開啟詳情的唯一入口，所以它必須能用鍵盤操作：
+                    // 只掛 onClick 的 <tr> 不在 tab 順序內，鍵盤與讀屏使用者完全打不開詳情。
+                    // a11y 是 CLAUDE.md §精簡的底線 明列不可省的項目。
+                    role="button"
+                    tabIndex={0}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setDetailId(r.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault() // 空白鍵預設會捲動頁面
+                        setDetailId(r.id)
+                      }
+                    }}
                   >
                     <TableCell className="font-mono text-sm">{r.report_number}</TableCell>
                     <TableCell className="font-medium">{r.title}</TableCell>
@@ -231,7 +242,7 @@ function StudyReportDetailDialog({
   const [qauStatement, setQauStatement] = useState<string | null>(null)
   const [signPassword, setSignPassword] = useState('')
 
-  const { data: report, isLoading } = useQuery({
+  const { data: report, isLoading, isError, error } = useQuery({
     queryKey: ['study-report', id],
     queryFn: () => getStudyReport(id),
   })
@@ -294,7 +305,14 @@ function StudyReportDetailDialog({
           <DialogTitle>{report ? `${report.report_number}｜${report.title}` : '最終報告'}</DialogTitle>
         </DialogHeader>
 
-        {isLoading || !report ? (
+        {/* ⚠️ 失敗必須有自己的分支。原本只有 `isLoading || !report`：查詢 reject 時
+            isLoading 會變 false 而 report 仍是 undefined，於是落進同一格，
+            對話框**永遠停在「載入中…」**——使用者看到的是無限載入而不是錯誤。 */}
+        {isError ? (
+          <div className="py-8 text-center text-destructive">
+            {getApiErrorMessage(error, '載入報告失敗')}
+          </div>
+        ) : isLoading || !report ? (
           <div className="py-8 text-center text-muted-foreground">載入中…</div>
         ) : (
           <div className="space-y-6">

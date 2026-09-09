@@ -57,27 +57,35 @@ async fn seed_user(app: &TestApp, role_code: &str) -> Uuid {
     .execute(&app.db_pool)
     .await
     .expect("insert user");
-    sqlx::query(
-        "INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE code = $2",
-    )
-    .bind(id)
-    .bind(role_code)
-    .execute(&app.db_pool)
-    .await
-    .expect("assign role");
+    assign_role(app, id, role_code).await;
     id
 }
 
-/// 額外把某個既有使用者也指派一個角色（用於「SD 同時也是 QAU」的 SoD 測試）。
+/// 額外把某個既有使用者也指派一個角色（用於「SD 同時也是 QAU／admin」的 SoD 測試）。
+///
+/// 🔴 **一定要斷言 `rows_affected() == 1`。**
+/// 這是 `INSERT … SELECT … FROM roles WHERE code = $2`：角色碼不存在時它插入 0 列、
+/// 回傳 `Ok`，**完全不會報錯**。2026-09-09 因此踩到一次——本檔原本用 `"SYSTEM_ADMIN"`
+/// 造「SD 兼 admin」的交集，而 `003_seed.sql` 的 15 個角色裡**根本沒有 SYSTEM_ADMIN**
+///（只有 legacy 的 `admin`；`is_admin()` 兩個都認，見 `middleware/auth.rs:70-74`）。
+/// 結果是那個使用者從頭到尾都不是 admin，`admin_who_is_the_reports_sd_still_cannot_attest`
+/// 退化成它上面那支的複本——**對舊碼一樣是綠的，證明不了裁定 102.1 的改動**。
+/// 有了這道斷言，日後角色碼被改名或漏 seed 會立刻紅，而不是靜默把測試掏空。
 async fn assign_role(app: &TestApp, user_id: Uuid, role_code: &str) {
-    sqlx::query(
+    let res = sqlx::query(
         "INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE code = $2",
     )
     .bind(user_id)
     .bind(role_code)
     .execute(&app.db_pool)
     .await
-    .expect("assign extra role");
+    .expect("assign role");
+    assert_eq!(
+        res.rows_affected(),
+        1,
+        "角色 `{role_code}` 未被指派——`roles` 表沒有這個代碼（seed 漏了或被改名）。\
+         這會讓依賴該角色的測試靜默失去鑑別力，故直接失敗。"
+    );
 }
 
 /// 建一份 APPROVED 計畫，`study_director_user_id` 指向傳入的 `sd`。
@@ -246,7 +254,9 @@ async fn admin_cannot_sign_on_behalf_of_sd() {
     let app = TestApp::spawn().await;
     let pi = seed_user(&app, "PI").await;
     let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
-    let admin = seed_user(&app, "SYSTEM_ADMIN").await;
+    // ⚠️ 用 seed 真的有的 legacy `admin`，不是 `SYSTEM_ADMIN`——後者不在 `003_seed.sql`
+    // 的 15 個角色裡，指派會靜默插 0 列（`is_admin()` 兩個代碼都認，auth.rs:70-74）。
+    let admin = seed_user(&app, "admin").await;
     let protocol_id = seed_protocol(&app, pi, Some(sd)).await;
 
     let report = GlpComplianceService::create_study_report(
@@ -326,6 +336,89 @@ async fn signing_twice_is_rejected() {
     );
 }
 
+/// 🔴 已簽署的報告不得再改內容——否則電子簽章會掛在簽署後才被改過的內容上。
+///
+/// # 為什麼既有測試擋不住這個
+///
+/// `update_study_report` 原有的守衛只擋「把 `status` **設成** approved/signed」。
+/// 這條路徑完全繞過它：報告**已經**是 signed，請求只帶 `summary`、不帶 `status`，
+/// 於是 `status = COALESCE(NULL, status)` 讓它維持 signed，
+/// 而 `signed_by` / `signed_at` / `signature_id` 一個都不會被清掉。
+/// 2026-09-09 由 CodeRabbit 在 MR !10 指出（Data Integrity，Major）。
+///
+/// # 鑑別力
+///
+/// 對舊碼會紅：舊碼那次 update 會**成功**，`expect_err` 因此失敗。
+/// 下面同時斷言內容真的沒被改動，避免「擋下了但已經寫進去一半」。
+#[tokio::test]
+#[serial]
+async fn signed_report_content_cannot_be_edited() {
+    let app = TestApp::spawn().await;
+    let pi = seed_user(&app, "PI").await;
+    let sd = seed_user(&app, "EXPERIMENT_STAFF").await;
+    let protocol_id = seed_protocol(&app, pi, Some(sd)).await;
+
+    let report = GlpComplianceService::create_study_report(
+        &app.db_pool,
+        &actor(&app, sd).await,
+        &create_req(protocol_id),
+    )
+    .await
+    .expect("SD 建立報告");
+
+    let signed = GlpComplianceService::sign_study_report(
+        &app.db_pool,
+        &actor(&app, sd).await,
+        report.id,
+        Some(TEST_PASSWORD),
+        None,
+        None,
+    )
+    .await
+    .expect("SD 簽署");
+    assert_eq!(signed.status, "signed");
+    let signature_id_before = signed.signature_id;
+    assert!(signature_id_before.is_some(), "簽署後應留下 signature_id");
+
+    // 關鍵：不帶 status，只改內容——舊碼會讓它通過且 status 維持 signed。
+    let err = GlpComplianceService::update_study_report(
+        &app.db_pool,
+        &actor(&app, sd).await,
+        report.id,
+        &UpdateStudyReportRequest {
+            title: None,
+            status: None,
+            summary: Some("簽署之後偷改的摘要".to_string()),
+            methods: None,
+            results: None,
+            conclusions: None,
+            deviations: None,
+        },
+    )
+    .await
+    .expect_err("已簽署報告的內容不應可再編輯");
+    assert!(
+        err.to_string().contains("已簽署"),
+        "錯誤訊息應說明報告已簽署，實際：{err}"
+    );
+
+    // 被擋下時不得留下任何痕跡：內容、簽章欄位都要與簽署當下一致。
+    let after: (String, Option<String>, Option<Uuid>) = sqlx::query_as(
+        "SELECT status, summary, signature_id FROM study_final_reports WHERE id = $1",
+    )
+    .bind(report.id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("query report");
+    assert_eq!(after.0, "signed", "狀態應維持 signed");
+    assert_ne!(
+        after.1.as_deref(),
+        Some("簽署之後偷改的摘要"),
+        "被擋下的編輯不得落地"
+    );
+    assert_eq!(after.2, signature_id_before, "簽章不應被動到");
+}
+
 /// QAU（非本計畫 SD）可填寫品保聲明；本計畫 SD 即使同時具備 QAU 角色／權限，
 /// 仍不可填寫自己那份報告的品保聲明（結構性 SoD，不只依賴權限碼配置）。
 #[tokio::test]
@@ -393,9 +486,12 @@ async fn qau_can_attest_but_reports_own_sd_cannot() {
 async fn admin_who_is_the_reports_sd_still_cannot_attest() {
     let app = TestApp::spawn().await;
     let pi = seed_user(&app, "PI").await;
-    // SD 資格來自 EXPERIMENT_STAFF；再疊上 SYSTEM_ADMIN 造出「SD 兼 admin」這個交集
+    // SD 資格來自 EXPERIMENT_STAFF；再疊上 admin 造出「SD 兼 admin」這個交集。
+    // ⚠️ 這裡本來寫 `SYSTEM_ADMIN`，而 seed 沒有那個角色碼 → 指派靜默插 0 列，
+    // 這支測試因此**整整失去鑑別力**（2026-09-09 由 CodeRabbit 在 MR !10 指出）。
+    // `assign_role` 現在會斷言 rows_affected == 1，同一個錯不會再靜默發生。
     let sd_admin = seed_user(&app, "EXPERIMENT_STAFF").await;
-    assign_role(&app, sd_admin, "SYSTEM_ADMIN").await;
+    assign_role(&app, sd_admin, "admin").await;
     let protocol_id = seed_protocol(&app, pi, Some(sd_admin)).await;
 
     let report = GlpComplianceService::create_study_report(

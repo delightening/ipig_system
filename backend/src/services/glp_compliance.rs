@@ -1630,6 +1630,25 @@ impl GlpComplianceService {
 
         Self::require_study_director(&mut tx, user, before.protocol_id, true).await?;
 
+        // 🔴 已簽署的報告不得再改內容（GLP／21 CFR §11 記錄完整性）。
+        //
+        // 下面那道 CSO-r2 #4 守衛擋的是「把 status **設成** signed」，擋不住這條路徑：
+        // 報告已經是 signed → 只帶 `summary` 之類的欄位進來、`status` 不帶 →
+        // `status = COALESCE(NULL, status)` 讓它**維持** signed，而 `signed_by` /
+        // `signed_at` / `signature_id` 一個都不會被清掉。結果是那張電子簽章
+        // 掛在簽署之後才被改過的內容上，簽章因此不再代表任何東西。
+        //
+        // 📌 本專案對「簽章後鎖記錄」另有正規機制（`SignatureService::lock_record_uuid`
+        // ＋ `ensure_not_locked_uuid_tx`，見 observation／surgery／blood_test 等），但
+        // `study_final_reports` 沒有 `is_locked`／`locked_at`／`locked_by` 欄位
+        //（實查 `migrations/002_schema.sql` 建表），改用那套要加 migration＝schema 設計，
+        // 屬 CLAUDE.md §必問。這裡先用已存在的 `status` 擋住破口，遷移到正規機制另案。
+        if before.status == "signed" {
+            return Err(AppError::BusinessRule(
+                "報告已簽署，內容不可再修改；如需更正請先作廢簽章。".into(),
+            ));
+        }
+
         // CSO-r2 #4: 「approved/signed」為簽署發布類狀態，不得由僅持編輯授權的泛型
         // update 直接設定（會跳過電子簽章、signature 欄位留 NULL），維持最終報告簽署權責分離（SoD）。
         // 「signed」現已有正式流程（`sign_study_report`）；「approved」（審查核准後、SD 簽署前）
@@ -1838,12 +1857,19 @@ impl GlpComplianceService {
         .await?
         .ok_or(AppError::NotFound("最終報告不存在".into()))?;
 
-        let sd: Option<Uuid> =
-            sqlx::query_scalar("SELECT study_director_user_id FROM protocols WHERE id = $1")
-                .bind(before.protocol_id)
-                .fetch_optional(&mut *tx)
-                .await?
-                .flatten();
+        // 🔒 `FOR UPDATE`：上面鎖的是報告列，SoD 判準卻取自 protocol。少了這道鎖，
+        // 併發的「改派 SD」交易可以在本次讀取之後、commit 之前把 SD 換成現在這個人，
+        // 於是這段檢查是拿舊值下的結論（TOCTOU，CWE-367）。
+        // 鎖順序與 `update_study_report` 一致（先報告列、後 protocol 列，
+        // 後者在該函式是由 `require_study_director` 內的 `FOR UPDATE` 取得），
+        // 兩條路徑同序，不會互相死鎖。
+        let sd: Option<Uuid> = sqlx::query_scalar(
+            "SELECT study_director_user_id FROM protocols WHERE id = $1 FOR UPDATE",
+        )
+        .bind(before.protocol_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .flatten();
         // 無 admin 例外——理由見本函式的 doc comment（裁定 102.1）。
         if sd == Some(user.id) {
             return Err(AppError::Forbidden(
