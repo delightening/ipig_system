@@ -20,6 +20,23 @@ pub enum LocationType {
     Bin,  // 儲物格
 }
 
+/// 建 SO（領用/銷貨）時的儲位建議（migration 015）。
+///
+/// 只包含「該品項目前有貨、且倉庫被標為領用來源」的儲位，依先到期先出（FEFO）排序。
+/// 已過期的批號一律不入列——建議領用過期品是錯的，寧可不給建議讓人自己選。
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct IssueLocationSuggestion {
+    pub storage_location_id: Uuid,
+    pub storage_location_code: String,
+    pub storage_location_name: Option<String>,
+    pub warehouse_id: Uuid,
+    pub warehouse_code: String,
+    pub warehouse_name: String,
+    pub on_hand_qty: rust_decimal::Decimal,
+    pub batch_no: Option<String>,
+    pub expiry_date: Option<chrono::NaiveDate>,
+}
+
 /// 儲位/貨架資料結構
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct StorageLocation {

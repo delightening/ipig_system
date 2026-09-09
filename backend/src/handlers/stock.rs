@@ -6,14 +6,38 @@ use axum::{
 use crate::{
     middleware::{ActorContext, CurrentUser},
     models::{
-        AssignUnassignedRequest, InventoryOnHand, InventoryQuery, LotMovementsQuery,
-        LotMovementsResponse, LowStockTotal, StockLedgerDetail, StockLedgerQuery,
-        UnassignedInventory, UnassignedSourceDoc, UnassignedSourceQuery,
+        AssignUnassignedRequest, InventoryOnHand, InventoryQuery, IssueLocationSuggestion,
+        LotMovementsQuery, LotMovementsResponse, LowStockTotal, StockLedgerDetail,
+        StockLedgerQuery, UnassignedInventory, UnassignedSourceDoc, UnassignedSourceQuery,
     },
     require_permission,
     services::StockService,
     AppState, Result,
 };
+
+/// `suggest_issue_locations` 的查詢參數。`product_id` 必填——沒有品項就無從建議。
+#[derive(Debug, serde::Deserialize, utoipa::IntoParams)]
+pub struct SuggestIssueLocationQuery {
+    pub product_id: uuid::Uuid,
+}
+
+/// 建 SO 時的儲位建議：該品項目前有貨、且倉庫被標為領用來源的儲位（FEFO 排序，排除過期）。
+///
+/// 權限用 `erp.stock.view` 而非開單權限：這支只讀庫存、不建立任何東西，
+/// 回傳的也就是使用者本來就查得到的庫存現況，沒有理由要求更高的權限。
+///
+/// 回空陣列是正常結果，前端據此不預設任何儲位——沒有倉庫被勾為領用來源時
+/// （migration 015 的預設狀態）就是這個情況。
+pub async fn suggest_issue_locations(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(query): Query<SuggestIssueLocationQuery>,
+) -> Result<Json<Vec<IssueLocationSuggestion>>> {
+    require_permission!(current_user, "erp.stock.view");
+
+    let suggestions = StockService::suggest_issue_locations(&state.db, query.product_id).await?;
+    Ok(Json(suggestions))
+}
 
 /// 取得庫存現況
 pub async fn get_inventory_on_hand(

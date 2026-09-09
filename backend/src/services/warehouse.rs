@@ -233,8 +233,9 @@ impl WarehouseService {
                 is_active = COALESCE($3, is_active),
                 exclude_from_alerts = COALESCE($4, exclude_from_alerts),
                 skip_routine_stocktake = COALESCE($5, skip_routine_stocktake),
+                is_default_issue_source = COALESCE($6, is_default_issue_source),
                 updated_at = NOW()
-            WHERE id = $6
+            WHERE id = $7
             RETURNING *
             "#,
         )
@@ -243,6 +244,7 @@ impl WarehouseService {
         .bind(req.is_active)
         .bind(req.exclude_from_alerts)
         .bind(req.skip_routine_stocktake)
+        .bind(req.is_default_issue_source)
         .bind(id)
         .fetch_one(&mut **tx)
         .await?;

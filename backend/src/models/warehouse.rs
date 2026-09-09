@@ -28,6 +28,14 @@ pub struct Warehouse {
     /// ⚠️ 目前**沒有任何後端邏輯讀它**——作用點在前端（開盤點單時提示）與人的流程。
     /// 日後若做排程器，直接讀這個欄位即可。
     pub skip_routine_stocktake: bool,
+    /// 此倉庫是否為領用來源（migration 015）。
+    ///
+    /// 建 SO 時，若所選品項在這個倉庫有貨，儲位欄位會自動帶該倉的儲位。
+    /// **可同時有多個倉庫為 true**——藥品在準備室藥品櫃、耗材在儲藏室鐵櫃，
+    /// 兩者都是正當的領用點，系統再依品項實際庫存挑選。故刻意沒有唯一性約束。
+    ///
+    /// 排除的是「有庫存數字但不該從那裡領」的地點，廢棄物處理區必然為 false。
+    pub is_default_issue_source: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -50,6 +58,8 @@ pub struct UpdateWarehouseRequest {
     pub exclude_from_alerts: Option<bool>,
     /// 見 `Warehouse::skip_routine_stocktake`。None = 不改動。
     pub skip_routine_stocktake: Option<bool>,
+    /// 見 `Warehouse::is_default_issue_source`。None = 不改動。
+    pub is_default_issue_source: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
