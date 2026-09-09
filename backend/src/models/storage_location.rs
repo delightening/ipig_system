@@ -32,6 +32,11 @@ pub struct IssueLocationSuggestion {
     pub warehouse_id: Uuid,
     pub warehouse_code: String,
     pub warehouse_name: String,
+    /// ⚠️ `value_type = String` 不是裝飾：`rust_decimal` 的 serde 預設把 Decimal
+    /// 序列化成 **JSON 字串**，少了這行 OpenAPI 會宣告成 number，
+    /// 依它產生 client 的人就會拿到對不上的型別（CodeRabbit 於 MR !3 指出）。
+    /// 同 repo 的 `models/product.rs` 對每個 Decimal 欄位都這樣標，此處原本漏了。
+    #[schema(value_type = String)]
     pub on_hand_qty: rust_decimal::Decimal,
     pub batch_no: Option<String>,
     pub expiry_date: Option<chrono::NaiveDate>,

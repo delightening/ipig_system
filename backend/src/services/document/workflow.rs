@@ -86,7 +86,26 @@ pub(super) async fn notify_storage_drift_after_commit(
         return;
     }
     let notif = NotificationService::new(pool.clone());
+    // 先依 (儲位, 品項) 去重（CodeRabbit 於 MR !3 指出）。
+    //
+    // 一張單的多個明細行可能都缺 SLI row，同一組 (儲位, 品項) 於是出現好幾次。
+    // 每次 dispatch 都要查儲位與品項名稱、撈全體倉管、再跑一次 dedup 查詢，
+    // 而 `notify_storage_drift` 的標題只由 (SKU, 儲位) 決定——**第二次之後不會產生
+    // 任何新通知**，那些查詢純屬白做。
+    //
+    // ⚠️ CodeRabbit 同時點出反面，值得寫下來：去重也壓掉了「第一次 insert 失敗時，
+    // 後面的重複事件恰好構成重試」這個效果。這裡仍選擇去重，因為那個重試是偶然不是設計：
+    // 它只在「同一 (儲位,品項) 剛好有多行」時存在，而那不保證。把可靠性建立在這種巧合上
+    // 比沒有重試更糟——它會讓人以為有重試。真需要重試就該明確實作。
+    //
+    // 保留每組第一筆，qty 因此只反映第一行而非總和：這則通知要傳達的是
+    // 「這個儲位的帳失真了，去盤它」，精確數量本來就不是重點
+    //（真正的數量以盤點為準，而促成盤點正是這則通知的目的）。
+    let mut seen = std::collections::HashSet::new();
     for ev in drift {
+        if !seen.insert((ev.storage_location_id, ev.product_id)) {
+            continue;
+        }
         if let Err(e) = notif
             .notify_storage_drift(
                 ev.storage_location_id,
