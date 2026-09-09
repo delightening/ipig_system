@@ -30,6 +30,7 @@ import { useBloodTestAnalysis } from './hooks/useBloodTestAnalysis'
 import { AnalysisItemSelector } from './components/AnalysisItemSelector'
 import { AnalysisChartTabs } from './components/AnalysisChartTabs'
 import { EmptyState } from '@/components/ui/empty-state'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 
 export function BloodTestAnalysisPage() {
   const analysis = useBloodTestAnalysis()
@@ -76,6 +77,7 @@ export function BloodTestAnalysisPage() {
               <Input id="date_to" type="date" value={analysis.dateTo} onChange={(e) => analysis.setDateTo(e.target.value)} />
             </div>
           </div>
+          <GuestDateNotice />
         </CardContent>
       </Card>
 

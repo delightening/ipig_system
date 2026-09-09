@@ -30,6 +30,7 @@ import {
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Download, Truck } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 import type { Partner, Warehouse } from '@/types/erp'
 
 const ALL_VALUE = '__all__'
@@ -213,6 +214,7 @@ export function PurchaseLinesReportPage() {
           </Select>
         </div>
       </div>
+      <GuestDateNotice />
 
       <div className="rounded-lg border bg-card overflow-hidden">
         <Table>

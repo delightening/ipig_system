@@ -29,6 +29,7 @@ import {
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Download, TrendingUp, X } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 
 import type { StockLedgerReport } from '@/types/report'
 import { DOC_TYPE_NAMES as CANONICAL_DOC_TYPE_NAMES } from '@/pages/documents/types'
@@ -204,6 +205,7 @@ export function StockLedgerReportPage() {
           </div>
         )}
       </div>
+      <GuestDateNotice />
 
       <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
