@@ -85,6 +85,12 @@ const DRAFT_REPORT: StudyFinalReport = {
   updated_at: '2026-09-01T00:00:00Z',
 }
 
+/**
+ * 每支測試各自建一個 `QueryClient`，避免快取跨測試外洩。
+ *
+ * `retry: false` 不只是為了快：預設的重試會讓「查詢失敗要顯示錯誤」那支
+ * 等上好幾秒才進入 error 狀態，期間畫面仍停在載入中，斷言會在錯誤出現前就先失敗。
+ */
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(

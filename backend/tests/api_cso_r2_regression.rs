@@ -367,6 +367,12 @@ async fn seed_approved_protocol_with_sd(app: &TestApp) -> (Uuid, Uuid) {
     (id, sd)
 }
 
+/// 該計畫 SD 本人的 actor。
+///
+/// `roles` 與 `permissions` **刻意留空**：這正是身分即授權要證明的事——
+/// 一個角色與權限碼都沒有的人，只因為 `protocols.study_director_user_id` 指向他，
+/// 就能編輯自己那份最終報告。若這裡塞了角色，測試便無法區分
+/// 「靠身分過關」與「靠權限碼過關」，本檔的迴歸意義會消失。
 fn sd_actor(sd: Uuid) -> ActorContext {
     ActorContext::User(CurrentUser {
         id: sd,

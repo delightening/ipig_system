@@ -219,6 +219,15 @@ export function StudyFinalReportPage() {
   )
 }
 
+/**
+ * 最終報告詳情對話框：本文編輯、SD 簽署、QAU 品保聲明三塊在同一個畫面，
+ * 但**授權來源三者各異**（P0-1），所以顯示條件不共用：
+ *
+ * - 本文編輯與簽署：身分即授權（該計畫的 SD）。SD 是「該計畫的」身分，前端無從得知，
+ *   故**刻意不做前端權限判斷**，一律顯示、由後端回 403。前端若擅自擋，SD 本人也會點不到。
+ * - QAU 品保聲明：有對應權限碼，所以靠 `canWriteQauStatement` 決定可編輯或唯讀。
+ * - 已簽署（`status === 'signed'`）：本文編輯與簽署入口一律不顯示，後端另有守衛擋。
+ */
 function StudyReportDetailDialog({
   id,
   canWriteQauStatement,
@@ -247,6 +256,11 @@ function StudyReportDetailDialog({
     queryFn: () => getStudyReport(id),
   })
 
+  /**
+   * 進入編輯模式：把報告現值複製進表單狀態。
+   * `?? ''` 是刻意的——後端這些欄位可為 `null`，而受控 textarea 吃到 `null`
+   * 會被 React 當成非受控而噴警告，且游標行為會亂掉。
+   */
   const startEdit = (r: StudyFinalReport) =>
     setEdit({
       title: r.title,
@@ -257,6 +271,12 @@ function StudyReportDetailDialog({
       deviations: r.deviations ?? '',
     })
 
+  /**
+   * 三個 mutation 成功後都呼叫這支。**兩個 key 都要失效**：
+   * 詳情（`['study-report', id]`）與列表（`['study-reports']`）——
+   * 簽署會同時改變詳情內容與列表上的狀態徽章／簽署人欄，
+   * 只失效其一會讓另一邊停在舊值。
+   */
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['study-report', id] })
     queryClient.invalidateQueries({ queryKey: ['study-reports'] })

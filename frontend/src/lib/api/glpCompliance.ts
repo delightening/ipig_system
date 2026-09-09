@@ -488,7 +488,15 @@ export type UpdateStudyReportPayload = Partial<
   Pick<StudyFinalReport, 'title' | 'status' | 'summary' | 'methods' | 'results' | 'conclusions' | 'deviations'>
 >
 
-// 2026-09-05：qau_statement 已移出報告本文編輯，走獨立的 updateQauStatement（P0-1，SoD）。
+/**
+ * 編輯報告本文。授權走身分即授權（該計畫的 SD），不是權限碼。
+ *
+ * ⚠️ 兩件後端會擋、前端不重複判斷的事：
+ * - `qau_statement` **不在** payload 型別內——2026-09-05 起品保聲明走獨立的
+ *   {@link updateQauStatement}，共用同一個 payload 等於同一個權限能寫兩者（P0-1，SoD）。
+ * - 報告一旦 `status === 'signed'` 就整份不可再編輯，後端回 400；
+ *   前端只負責不顯示編輯入口，最終判準在服務層。
+ */
 export const updateStudyReport = async (id: string, payload: UpdateStudyReportPayload) => {
   const res = await api.put<StudyFinalReport>(`/admin/study-reports/${id}`, payload)
   return res.data

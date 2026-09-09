@@ -1543,6 +1543,15 @@ impl GlpComplianceService {
         repo::find_study_reports(pool, params, restrict_to_sd).await
     }
 
+    /// 取單一最終報告。**先查到再判權限**，兩者不可對調。
+    ///
+    /// 找不到回 `NotFound`、找得到但無權看回 `Forbidden`——所以「報告不存在」與
+    /// 「存在但你看不到」是可區分的。這是刻意的：最終報告的 id 由使用者自己的列表取得，
+    /// 不是可枚舉的公開資源，區分兩者對排錯有價值而不構成列舉風險。
+    ///
+    /// 可見範圍由 [`Self::can_view_study_report`] 決定（持 `study.report.view` 的廣泛檢視權
+    /// **或** 身為該計畫的 SD），與「能不能編輯／簽署」是兩回事——後者一律走
+    /// [`Self::require_study_director`]。
     pub async fn get_study_report(
         pool: &PgPool,
         user: &CurrentUser,

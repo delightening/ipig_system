@@ -27,6 +27,9 @@ struct SigRow {
     signer_id: Uuid,
 }
 
+/// 直接從 DB 撈簽章列——**不經 service**，因為要驗的正是 service 有沒有正確寫進去。
+/// 用 `fetch_one` 而非 `fetch_optional`：呼叫端都是「簽署成功之後」才查，
+/// 查不到就是缺陷，該在這裡當場炸，而不是回 `None` 讓後面的斷言拿空值繼續跑。
 async fn fetch_sig(app: &TestApp, id: Uuid) -> SigRow {
     sqlx::query_as::<_, SigRow>(
         "SELECT entity_type, entity_id, signature_type, is_valid, signer_id
@@ -141,10 +144,15 @@ async fn current_user(app: &TestApp, id: Uuid) -> CurrentUser {
     }
 }
 
+/// 包成 `ActorContext::User`。本組 service 一律 `actor.require_user()?`，
+/// 用 `ActorContext::System` 會直接回錯——身分即授權需要一個「人」，
+/// 系統身分沒有 SD 資格可言（`api_cso_r2_regression.rs` 就是為此改用 `sd_actor`）。
 async fn actor(app: &TestApp, id: Uuid) -> ActorContext {
     ActorContext::User(current_user(app, id).await)
 }
 
+/// 建立報告用的最小 payload：只填必要欄位，其餘留 `None`。
+/// 刻意不填滿——後續的編輯測試靠「這些欄位原本是 None」來斷言 `COALESCE` 的行為。
 fn create_req(protocol_id: Uuid) -> CreateStudyReportRequest {
     CreateStudyReportRequest {
         protocol_id,
