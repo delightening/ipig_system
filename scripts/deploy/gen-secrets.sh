@@ -1,14 +1,24 @@
 #!/usr/bin/env bash
-# 為「新 prod」stack 產生一套獨立的 secrets。
+# 為一套部署產生 secrets（JWT 金鑰對、DB 密碼、稽核 HMAC、加密金鑰、監控憑證等）。
 #
-# 背景：新 prod 與現行 prod 並行運作，兩者的金鑰完全隔離（使用者 2026-08-20 裁定）。
+# ⚠️ **落點就是現役 prod 的 `$REPO_ROOT/secrets`。** 它不是「新環境專用」的腳本——
+# 這支腳本 2026-09-06 之前叫 `scripts/newprod/gen-secrets.sh`，讓人以為它只會動到
+# 新機器。改名就是為了拿掉那個誤導；下方 R103-5 的 fail-closed 守衛是同一件事的另一半。
+#
+# ⚠️ **改名的理由不依賴「newprod 存不存在」這個未定前提。** 本 repo 查無 newprod 的
+# compose／env／volume（PROGRESS.md 2026-09-03 實查），但該紀錄**刻意不結案**——
+# 它可能已廢棄、也可能活在另一台機器上，兩種情況的處置完全相反。
+# 不管答案是哪個，**在「這台」上跑這支腳本就是動到現役 prod 的金鑰**，而舊名字會
+# 讓人以為不是。這就夠了。
+#
+# 歷史背景（2026-08-20 裁定，當時的計畫）：新 prod 與現行 prod 並行運作、金鑰完全隔離。
 # 實測影響：現行 prod 只有 1 筆 totp_secret_encrypted 且 totp_enabled=false、
 # signature_bridge_sessions 為 0 筆，故換金鑰無實質資料損失。
 # 稽核 HMAC 鏈亦重新起算（使用者裁定「舊資料只要存一個結果即可，不用可驗」）。
 #
 # 用法：
-#   ./scripts/newprod/gen-secrets.sh                    # 初次佈建（目標目錄須為空或不存在）
-#   ./scripts/newprod/gen-secrets.sh --allow-existing   # 在既有部署上重跑
+#   ./scripts/deploy/gen-secrets.sh                    # 初次佈建（目標目錄須為空或不存在）
+#   ./scripts/deploy/gen-secrets.sh --allow-existing   # 在既有部署上重跑
 #
 # 冪等：已存在的檔案不覆蓋（要重產請先自行刪除該檔）。
 #
@@ -101,8 +111,9 @@ fi
 
 # R103-5：這支腳本的定位是「初次佈建」，但它的落點 `$REPO_ROOT/secrets` 在**已部署的
 # 機器上就是現役 prod 正在用的那個目錄**（vet 實查 `ipig-api` 容器掛載確認）。
-# 檔名與所在目錄都叫 `newprod`，而 newprod stack 已確認不存在（R103-1）——
-# 名字指向一個不存在的東西，實際卻對著正式機。
+# ⚠️ 這支腳本原本叫 `scripts/newprod/gen-secrets.sh`——一個指向「新環境」的名字，
+# 實際卻對著正式機。2026-09-06 改名移出 `newprod/`，但**名稱不再誤導不等於落點變安全**，
+# 下面的守衛照樣是必要的。
 #
 # ⚠️ **它自己分不出「新機器」與「已在服務的機器」**，而誤跑的代價不只是產檔：
 # 本腳本對既有檔案也會下 chmod（目錄 0711、六個監控檔 0644），所以就算一個檔都
