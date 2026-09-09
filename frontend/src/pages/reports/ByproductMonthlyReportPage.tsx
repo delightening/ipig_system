@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 import {
   byproductMonthlyReportApi,
   type ByproductMonthlyFilter,
@@ -83,6 +84,7 @@ export function ByproductMonthlyReportPage() {
           </Button>
         </div>
       </div>
+      <GuestDateNotice />
 
       {isLoading && (
         <div className="flex justify-center py-8">

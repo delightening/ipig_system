@@ -20,6 +20,7 @@ import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { Download, Droplets, FlaskConical, DollarSign, Hash } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 
 // 血液檢查費用報表型別
 interface BloodTestCostReport {
@@ -164,6 +165,7 @@ export function BloodTestCostReportPage() {
                             />
                         </div>
                     </div>
+                    <GuestDateNotice />
                 </CardContent>
             </Card>
 

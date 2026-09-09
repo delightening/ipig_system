@@ -7,6 +7,7 @@ import { uiLocale } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 import {
   weeklyMedicalReportApi,
   type WeeklyMedicalReportFilter,
@@ -113,6 +114,7 @@ export function WeeklyMedicalReportPage() {
             <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
           </div>
         </div>
+        <GuestDateNotice />
         <div className="flex items-center gap-2 pt-1">
           <Button onClick={handleSearch} disabled={isLoading}>
             <Search className="h-4 w-4 mr-1" />

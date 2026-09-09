@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/table'
 import { Download, BarChart3 } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 
 function buildQs(from: string, to: string) {
   const params = new URLSearchParams()
@@ -115,6 +116,7 @@ export function PurchaseSalesSummaryPage() {
           <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" aria-label="結束日期" />
         </div>
       </div>
+      <GuestDateNotice />
 
       <PageTabs
         tabs={[

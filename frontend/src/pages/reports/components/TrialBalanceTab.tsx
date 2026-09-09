@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 import type { TrialBalanceRow } from '@/types/accounting'
 
 interface TrialBalanceTabProps {
@@ -71,6 +72,7 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
           匯出 CSV
         </Button>
       </div>
+      <GuestDateNotice />
       <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
