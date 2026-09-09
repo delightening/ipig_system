@@ -321,11 +321,18 @@ impl NotificationService {
         let (sku, product_name, loc_code) =
             self.blocked_labels(storage_location_id, product_id).await;
         let title = format!("[iPig] 儲位帳失真 - {} @ {}", sku, loc_code);
+        // `normalize()` 的理由同 `ledger.rs` 的 `insufficient_stock_message`：
+        // qty 來自 numeric 欄位，不去尾隨零會印成「領出了 3.0000 個單位」。
+        // 兩處都是給現場看的文字，要一起處理才不會只修一半（CodeRabbit 在 MR !3 同時點名兩處）。
         let content = format!(
             "單據 {} 從{}領出了 {} 個單位的「{} {}」，但系統在該儲位查無這個品項的庫存列，\
              領用仍照常放行（倉庫層級的總量檢查有守住，所以倉庫總數沒錯）。\n\n\
              這代表該儲位的帳與實體已經對不起來，且不會自己恢復。請安排盤點該儲位以建立正確的基準。",
-            doc_no, loc_code, qty, sku, product_name
+            doc_no,
+            loc_code,
+            qty.normalize(),
+            sku,
+            product_name
         );
         self.dispatch_storage_alert(storage_location_id, operator_id, title, content)
             .await

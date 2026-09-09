@@ -40,12 +40,27 @@ pub struct Warehouse {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 建立倉庫。
+///
+/// 🔴 三個政策旗標是 2026-09-09 補的（CodeRabbit 於 MR !3 指出）。在那之前它們只存在於
+/// `UpdateWarehouseRequest`，而**前端的建立表單一直顯示著那三個開關**：送出的 JSON 帶了
+/// 旗標，serde 靜默丟棄未宣告的欄位，請求回 200，值卻沒進 DB。使用者建了廢棄物處理區、
+/// 關掉警報、看到「建立成功」，而那個旗標是 false——**沒有任何錯誤訊息**。
+///
+/// 這是「成功回應 ≠ 工作完成」的實例。新增可設定的欄位時，**建立與更新兩條路徑要一起改**，
+/// 否則就會留下這種只在事後對帳才發現的洞。
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateWarehouseRequest {
     pub code: Option<String>,
     #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
     pub name: String,
     pub address: Option<String>,
+    /// 見 `Warehouse::exclude_from_alerts`。None = 用欄位預設（false）。
+    pub exclude_from_alerts: Option<bool>,
+    /// 見 `Warehouse::skip_routine_stocktake`。None = 用欄位預設（false）。
+    pub skip_routine_stocktake: Option<bool>,
+    /// 見 `Warehouse::is_default_issue_source`。None = 用欄位預設（false）。
+    pub is_default_issue_source: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]

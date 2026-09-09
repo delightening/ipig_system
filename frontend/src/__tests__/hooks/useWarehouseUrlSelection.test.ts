@@ -6,8 +6,18 @@ import {
 import type { StorageLocationWithWarehouse, Warehouse } from '@/lib/api'
 
 // 只造測試需要的欄位；其餘以 cast 補足（純函式僅讀 id/code）。
-const wh = (id: string, code: string) => ({ id, code }) as Warehouse
-const loc = (id: string, code: string) => ({ id, code }) as StorageLocationWithWarehouse
+//
+// `satisfies` 是 2026-09-09 加的（CodeRabbit 於 MR !3 指出裸 cast 完全繞過型別檢查）。
+// 它讓 id/code 仍受檢——欄位改名或改型別時這裡會紅——同時保留「不補無關欄位」的做法：
+// 把 Warehouse 的每個新欄位都抄進來，只會讓這個 helper 在主檔每次加欄位時都要改一次，
+// 而那些欄位與本測試無關（受測的是純函式，只讀 id 與 code）。那是雜訊，不是安全。
+const wh = (id: string, code: string) =>
+    ({ id, code }) satisfies Pick<Warehouse, 'id' | 'code'> as Warehouse
+const loc = (id: string, code: string) =>
+    ({ id, code }) satisfies Pick<
+        StorageLocationWithWarehouse,
+        'id' | 'code'
+    > as StorageLocationWithWarehouse
 
 const WAREHOUSES = [wh('uuid-a', '4'), wh('uuid-b', '7')]
 const LOCATIONS = [loc('loc-1', 'A11'), loc('loc-2', 'B02')]

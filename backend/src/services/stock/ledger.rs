@@ -579,6 +579,17 @@ impl StockService {
             (None, Some(e)) => format!("（效期 {e}）"),
             (None, None) => String::new(),
         };
+        // 🔴 `normalize()` 去掉資料庫帶來的尾隨零（CodeRabbit 於 MR !3 指出）。
+        //
+        // `on_hand_qty` / `qty_base` 是 numeric 欄位，Decimal 忠實保留它的 scale，
+        // 而 Display 又原樣印出——現場看到的會是「帳面只有 5.0000 雙」。
+        // 這則訊息的用意是讓人看懂並判斷下一步，多四個零只會讓人以為系統壞了。
+        //
+        // ⚠️ 本檔既有的單元測試**結構上驗不出這件事**：它們用 `Decimal::from_i64`
+        // 造值，scale 恆為 0。那些測試全綠不代表沒有這個 bug，只代表沒測到——
+        // 故一併補了 `數量不得帶出資料庫的尾隨零`，改用 scaled Decimal 進去。
+        let on_hand = on_hand.normalize();
+        let required = required.normalize();
         format!(
             "{loc_label}的{prod_label}{batch_hint}帳面只有 {on_hand} {uom}，這張單要領 {required} {uom}。\
              若架上實際有貨，這是帳面與實體不符、不是缺貨——請先對該儲位開盤點單校正，再重新開單。\
@@ -1279,6 +1290,43 @@ mod insufficient_stock_message_tests {
         assert!(!m.contains('（'), "不該有批號/效期括號：{m}");
         assert!(m.contains("儲位「A-01 冷藏架」的「CON-GLV-001 無菌手套」帳面只有 5 雙"));
         assert!(m.contains("這張單要領 10 雙"));
+    }
+
+    /// 🔴 數量不得帶出資料庫的 scale。
+    ///
+    /// `on_hand_qty` / `qty_base` 是 numeric 欄位，Decimal 保留 scale 而 Display 原樣印出，
+    /// 於是現場看到「帳面只有 5.0000 雙」。
+    ///
+    /// **這條存在的理由是上面那些測試驗不到它**：`dec()` 走 `Decimal::from_i64`，
+    /// scale 恆為 0，無論修不修都會通過。測試全綠只代表沒測到，不代表沒有 bug——
+    /// 所以這裡刻意用 `Decimal::new(50000, 4)` 造出真實 DB 會給的形狀。
+    /// （CodeRabbit 於 MR !3 指出，2026-09-09）
+    #[test]
+    fn 數量不得帶出資料庫的尾隨零() {
+        let on_hand = Decimal::new(50_000, 4); // 5.0000
+        let required = Decimal::new(100_000, 4); // 10.0000
+        assert_eq!(
+            on_hand.to_string(),
+            "5.0000",
+            "前提檢查：Decimal 確實會保留 scale，否則本測試證明不了任何事"
+        );
+
+        let m = StockService::insufficient_stock_message(
+            "儲位「A-01 冷藏架」",
+            "「CON-GLV-001 無菌手套」",
+            None,
+            None,
+            on_hand,
+            required,
+            "雙",
+        );
+        assert!(m.contains("帳面只有 5 雙"), "{m}");
+        assert!(m.contains("這張單要領 10 雙"), "{m}");
+        assert!(
+            !m.contains("5.0000"),
+            "不該把 DB 的 scale 帶到現場文字：{m}"
+        );
+        assert!(!m.contains("10.0000"), "{m}");
     }
 
     #[test]
