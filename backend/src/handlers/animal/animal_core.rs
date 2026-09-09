@@ -69,12 +69,27 @@ pub async fn list_animals(
 }
 
 /// 取得動物狀態統計
+///
+/// 權限與 `list_animals`／`list_available_pigs` 相同（`animal.animal.view_all`
+/// 或 `animal.animal.view_project`），**無權限一律回 403**。
+///
+/// 🔴 2026-09-10（P1-6）之前這裡回的是「全 0 的統計」+ 200。兩個問題：
+///
+/// 1. **與同一份權限判準的鄰居不一致**——`list_animals`（本檔 `:41`）與
+///    `list_available_pigs`（本檔 `:133`）用完全相同的兩個碼判斷，兩者都回 403。
+/// 2. **全 0 與「真的一隻都沒有」在回應上無法區分**：使用者看到 0 會以為自己有權限
+///    而場內確實沒豬；稽核時也看不出「這次查詢被降級過」。
+///
+/// 當初推測的理由是 UX（避免頁面整片壞掉），但查證後不成立：本端點的消費者是
+/// `frontend/src/pages/animals/hooks/useAnimalsQueries.ts:39`，**與 `list_animals` 同一頁**
+/// ——沒有權限的人在那一頁的主查詢早就拿到 403 了，統計回 0 救不了任何畫面。
 #[utoipa::path(
     get,
     path = "/api/v1/animals/stats",
     responses(
         (status = 200, description = "動物狀態統計", body = AnimalStatsResponse),
-        (status = 401, description = "未授權")
+        (status = 401, description = "未授權"),
+        (status = 403, description = "無權限")
     ),
     tag = "動物管理",
     security(("bearer" = []))
@@ -87,12 +102,9 @@ pub async fn get_animal_stats(
         || current_user.has_permission("animal.animal.view_project");
 
     if !has_view {
-        return Ok(Json(AnimalStatsResponse {
-            status_counts: std::collections::HashMap::new(),
-            pen_animals_count: 0,
-            pen_counts_by_building: std::collections::HashMap::new(),
-            total: 0,
-        }));
+        return Err(AppError::Forbidden(
+            "需要 animal.animal.view_all 或 animal.animal.view_project 權限".to_string(),
+        ));
     }
 
     let stats = AnimalService::stats(&state.db).await?;
