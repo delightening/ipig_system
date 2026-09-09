@@ -729,14 +729,9 @@ impl DocumentService {
             match StockService::process_document(&mut tx, &document, &lines).await {
                 Ok(events) => stock_drift = events,
                 Err(e) => {
-                    return Err(rollback_then_notify_block(
-                        pool,
-                        tx,
-                        e,
-                        &document.doc_no,
-                        admin_id,
+                    return Err(
+                        rollback_then_notify_block(pool, tx, e, &document.doc_no, admin_id).await,
                     )
-                    .await)
                 }
             }
         }

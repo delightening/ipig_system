@@ -1252,7 +1252,6 @@ impl StockService {
     }
 }
 
-
 #[cfg(test)]
 mod insufficient_stock_message_tests {
     use super::*;
