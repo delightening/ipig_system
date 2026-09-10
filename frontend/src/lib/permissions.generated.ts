@@ -224,6 +224,7 @@ export const PERMISSIONS = {
     QAU_NC_MANAGE: 'qau.nc.manage',
     QAU_NC_VIEW: 'qau.nc.view',
     QAU_PROTOCOL_VIEW: 'qau.protocol.view',
+    QAU_REPORT_STATEMENT_WRITE: 'qau.report_statement.write',
     QAU_SCHEDULE_MANAGE: 'qau.schedule.manage',
     QAU_SCHEDULE_VIEW: 'qau.schedule.view',
     QAU_SOP_MANAGE: 'qau.sop.manage',
