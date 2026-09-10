@@ -205,8 +205,8 @@ fn handle_tools_list(id: Option<Value>, user: &CurrentUser) -> JsonRpcResponse {
         ));
     }
 
-    // VET / ADMIN 有 submit_vet_review
-    if is_vet_role(user) || is_admin_role(user) {
+    // 只有 VET 有 submit_vet_review。管理員旁路已移除（2026-08-26 裁定 A，見下方說明）。
+    if is_vet_role(user) {
         tools.push(tool_def(
             "submit_vet_review",
             "填寫並提交獸醫查檢表",
@@ -385,9 +385,7 @@ fn check_tool_permission(user: &CurrentUser, scopes: &[String], tool: &str) -> b
         "create_review_flag" | "batch_return_to_pi" | "notify_secretary" => {
             has_write_scope(scopes) && is_write_role(user)
         }
-        "submit_vet_review" => {
-            has_write_scope(scopes) && (is_vet_role(user) || is_admin_role(user))
-        }
+        "submit_vet_review" => has_write_scope(scopes) && is_vet_role(user),
         _ => false,
     }
 }
@@ -398,25 +396,28 @@ fn has_write_scope(scopes: &[String]) -> bool {
 }
 
 fn is_write_role(user: &CurrentUser) -> bool {
-    user.roles.iter().any(|r| {
-        [
-            crate::constants::ROLE_IACUC_STAFF,
-            crate::constants::ROLE_IACUC_CHAIR,
-            crate::constants::ROLE_SYSTEM_ADMIN,
-        ]
-        .contains(&r.as_str())
-    })
+    crate::services::access::is_iacuc_staff_or_chair(user)
 }
 
 fn is_vet_role(user: &CurrentUser) -> bool {
     user.roles.iter().any(|r| r == crate::constants::ROLE_VET)
 }
 
-fn is_admin_role(user: &CurrentUser) -> bool {
-    user.roles
-        .iter()
-        .any(|r| r == crate::constants::ROLE_SYSTEM_ADMIN)
-}
+// ⚠️ 這裡原本有一個 `is_admin_role`，只比對 `ROLE_SYSTEM_ADMIN`。
+// 那個角色代碼在 `roles` 表裡不存在（實查），所以那個閘**對所有人回 false**
+// ——不是「少了 legacy fallback」，是整個閘從未放行過任何人。
+//
+// 本 PR 原本把它改成 `user.is_admin()`。那看似只是修好比對，實際上是
+// **啟用一條從未執行過的程式路徑**，而那條路徑是壞的：
+// `submit_vet_review` 的 UPDATE 綁 `WHERE vet_id = <呼叫者>`，未被指派的管理員
+// 會更新到 0 列，然後照樣回 `success: true`——整份獸醫審查靜默消失。
+//
+// 使用者 2026-08-26 裁定（選項 A）：**移除管理員旁路**，只有被指派的獸醫能送出。
+// 資料模型只有 `vet_review_assignments`（以 `vet_id` 為鍵）這一個位置可放，
+// 沒有非指派者的容身處；GLP 簽章歸屬也不該讓非獸醫簽獸醫查檢表
+// （送出內容帶 `vet_signature` 與 `signed_by`）。
+//
+// 這條旁路從未生效過，移除不會奪走任何人現有的能力。
 
 /// SHA-256 雜湊 MCP key（明文只在建立時回傳一次，DB 僅存雜湊）。
 /// `pub` 供整合測試重用同一雜湊邏輯播種測試用 key。

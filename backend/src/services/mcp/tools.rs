@@ -471,11 +471,18 @@ pub async fn submit_vet_review(
     .fetch_one(&state.db)
     .await?;
 
-    let is_admin = user
-        .roles
-        .iter()
-        .any(|r| r == crate::constants::ROLE_SYSTEM_ADMIN);
-    if !is_assigned && !is_admin {
+    // ⚠️ **沒有管理員旁路。** 這裡原本有一個 `user.is_admin()` 的 bypass，
+    // 但它比對的是 `roles` 表裡不存在的 `ROLE_SYSTEM_ADMIN`，所以**恆為 false**
+    // ——等價於本行，只是繞了一圈。
+    //
+    // 那個死分支正好蓋住了一個真的 bug：下方 UPDATE 綁 `WHERE vet_id = <呼叫者>`，
+    // 未被指派的人就算過得了本關，也會更新到 0 列而拿到 `success: true`。
+    //
+    // 2026-08-26 使用者裁定（選項 A）：不修好旁路，而是移除它。
+    // 資料模型只有 `vet_review_assignments`（以 `vet_id` 為鍵）這一個位置可放審查內容，
+    // 沒有非指派者的容身處；且送出內容帶 `vet_signature` 與 `signed_by`，
+    // 讓非獸醫簽獸醫查檢表是 GLP 簽章歸屬問題。
+    if !is_assigned {
         return Err(AppError::Forbidden("您未被指派審查此計畫書".to_string()));
     }
 
@@ -492,7 +499,7 @@ pub async fn submit_vet_review(
     });
 
     // 更新 vet_review_assignments
-    sqlx::query(
+    let result = sqlx::query(
         r#"
         UPDATE vet_review_assignments
         SET review_form = $1,
@@ -505,6 +512,18 @@ pub async fn submit_vet_review(
     .bind(user.id)
     .execute(&state.db)
     .await?;
+
+    // 🔴 更新到 0 列代表送出的審查內容**沒有落到任何地方**，此時回 `success: true`
+    // 等於靜默吞掉一份簽了名的獸醫查檢表。
+    //
+    // 上方的 `is_assigned` 檢查與這個 UPDATE 是兩次獨立查詢，中間指派可能被移除
+    // （TOCTOU）。授權判準本身已經同源，這裡守的是那個時間差——以及日後有人
+    // 再度放寬上方判準時，錯誤會**明確報出來**而不是變成資料遺失。
+    if result.rows_affected() == 0 {
+        return Err(AppError::Conflict(
+            "獸醫指派已不存在或已被移除，審查未寫入".to_string(),
+        ));
+    }
 
     Ok(serde_json::json!({
         "success": true,
