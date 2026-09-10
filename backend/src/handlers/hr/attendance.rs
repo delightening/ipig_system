@@ -14,15 +14,28 @@ use crate::{
     error::AppError,
     middleware::{extract_real_ip_with_trust, ActorContext, CurrentUser},
     models::{
-        audit_diff::DataDiff, AttendanceCorrectionRequest, AttendanceQuery, AttendanceWithUser,
-        ClockInRequest, ClockOutRequest, PaginatedResponse,
+        audit_diff::DataDiff, AttendanceBackfillRequest, AttendanceCorrectionRequest,
+        AttendanceQuery, AttendanceWithUser, ClockInRequest, ClockOutRequest,
+        MonthlyAttendanceQuery, MonthlyAttendanceSummary, PaginatedResponse,
     },
+    require_permission,
     services::{
         audit::{ActivityLogEntry, AuditEntity, RequestContext},
         AuditService, HrService,
     },
     AppState, Result,
 };
+
+// 權限碼一律以**字面字串**寫在檢查點上，不抽成 const：
+// `backend/tests/permission_codes_exist.rs` 靠 regex 掃 `require_permission!(_, "…")` /
+// `has_permission("…")` 的字面值來確認「被檢查的碼真的有定義」。抽成 const 之後
+// 那支防呆看不到這些檢查點，等於自願退出保護——這是全庫一致的寫法，不是疏漏。
+//
+// 補卡用的碼是 `hr.attendance.correct`。此前這裡檢查的是 `hr.attendance.manage`，
+// 但該碼**沒有授予任何角色**，而唯一被授予的 `hr.attendance.correct` **沒有任何
+// handler 檢查**——兩碼互不相交，行政拿著更正權按不動，實際只有 admin 靠
+// `has_permission` 短路做得到。2026-08-26 統一到 `correct`，`manage` 在
+// `startup/permissions.rs` 保留為標示過的死碼（不刪 DB 列）。
 
 /// 判斷 IP 是否屬於 Docker 內部網段 (172.16.0.0/12，即 172.16.x.x ~ 172.31.x.x)
 fn is_docker_internal_ip(ip: &str) -> bool {
@@ -349,24 +362,130 @@ pub async fn export_attendance(
         .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
-/// 更正出勤記錄
+/// 更正出勤記錄（既有紀錄改時間）。
+///
+/// 整天沒打卡的日子沒有 row，這條會 404——那種情況走 `POST /hr/attendance` 補登。
+#[utoipa::path(put, path = "/api/v1/hr/attendance/{id}", request_body = AttendanceCorrectionRequest, responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn correct_attendance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(payload): Json<AttendanceCorrectionRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    if !current_user.is_admin() && !current_user.has_permission("hr.attendance.manage") {
-        return Err(crate::error::AppError::Forbidden(
-            "僅管理員可更正出勤記錄".into(),
-        ));
-    }
+    require_permission!(current_user, "hr.attendance.correct");
     let actor = ActorContext::User(current_user.clone());
     HrService::correct_attendance(&state.db, &actor, id, &payload).await?;
     Ok(Json(serde_json::json!({
         "success": true,
         "message": "已更正出勤記錄"
     })))
+}
+
+/// 補登出勤記錄（補卡）——為缺漏日建立紀錄。
+///
+/// 「不得補自己的卡」由 service 判定（`HrService::backfill_attendance`），
+/// 不放這裡：那是業務規則，且更正路徑也要用同一條，集中在 service 才不會兩邊分歧。
+#[utoipa::path(post, path = "/api/v1/hr/attendance", request_body = AttendanceBackfillRequest, responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+pub async fn backfill_attendance(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(payload): Json<AttendanceBackfillRequest>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "hr.attendance.correct");
+    let actor = ActorContext::User(current_user.clone());
+    let record = HrService::backfill_attendance(&state.db, &actor, &payload).await?;
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "id": record.id,
+        "work_date": record.work_date,
+        "regular_hours": record.regular_hours,
+        "message": "已補登出勤記錄"
+    })))
+}
+
+/// 收斂工時月報的查詢範圍。
+///
+/// 無 `hr.attendance.view_all` → 一律只看自己（忽略請求帶的他人 user_id）；
+/// 具權限且未指定人員 → 看全體。與出勤列表不同，月報預設是管理視角，不預設收斂成自己。
+fn resolve_monthly_report_scope(query: &mut MonthlyAttendanceQuery, current_user: &CurrentUser) {
+    if !current_user.has_permission("hr.attendance.view_all") {
+        query.user_id = Some(current_user.id);
+    }
+}
+
+/// 工時月報：某年月每人一列的工時合計
+#[utoipa::path(
+    get,
+    path = "/api/v1/hr/attendance/monthly-report",
+    params(MonthlyAttendanceQuery),
+    responses((status = 200, description = "工時月報", body = Vec<MonthlyAttendanceSummary>)),
+    tag = "HR 出勤",
+    security(("bearer" = []))
+)]
+pub async fn get_monthly_report(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<MonthlyAttendanceQuery>,
+) -> Result<Json<Vec<MonthlyAttendanceSummary>>> {
+    // 🔴 CodeRabbit PR #35 指出：`resolve_monthly_report_scope` 只在**沒有** `view_all`
+    // 時把 `user_id` 收斂到自己，從未拒絕過請求——8/14 個角色（PI、VET、CLIENT 等
+    // 不屬於「內部員工」的角色）根本沒有 `hr.attendance.view`，但呼叫本端點只會拿到
+    // 自己（不存在）的紀錄，不會被 403。補上基準門檻，跟 `hr.attendance.correct`
+    // 在 backfill/correct 兩支的作法一致（同檔 :375/:394）。
+    require_permission!(current_user, "hr.attendance.view");
+    let mut query = params;
+    resolve_monthly_report_scope(&mut query, &current_user);
+    let rows =
+        HrService::monthly_attendance_report(&state.db, query.year, query.month, query.user_id)
+            .await?;
+    Ok(Json(rows))
+}
+
+/// 工時月報匯出 Excel
+#[utoipa::path(
+    get,
+    path = "/api/v1/hr/attendance/monthly-report/export",
+    params(MonthlyAttendanceQuery),
+    responses((
+        status = 200,
+        description = "工時月報 Excel 檔",
+        content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        body = Vec<u8>
+    )),
+    tag = "HR 出勤",
+    security(("bearer" = []))
+)]
+pub async fn export_monthly_report(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<MonthlyAttendanceQuery>,
+) -> Result<Response> {
+    // 理由同 `get_monthly_report`——兩支端點是同一個查詢的 JSON／Excel 兩種輸出，
+    // 授權門檻要一致。
+    require_permission!(current_user, "hr.attendance.view");
+    let mut query = params;
+    resolve_monthly_report_scope(&mut query, &current_user);
+
+    let data = HrService::export_monthly_report_to_excel(
+        &state.db,
+        query.year,
+        query.month,
+        query.user_id,
+    )
+    .await?;
+    let filename = format!("attendance_monthly_{}_{:02}.xlsx", query.year, query.month);
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        .header(
+            header::CONTENT_DISPOSITION,
+            crate::utils::http::content_disposition_header(&filename),
+        )
+        .body(Body::from(data))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
 #[cfg(test)]

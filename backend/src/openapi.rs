@@ -209,6 +209,10 @@ use utoipa::OpenApi;
         // === HR / 通知 / 稽核 ===
         crate::handlers::list_attendance,
         crate::handlers::clock_in,
+        crate::handlers::backfill_attendance,
+        crate::handlers::correct_attendance,
+        crate::handlers::get_monthly_report,
+        crate::handlers::export_monthly_report,
         crate::handlers::list_leaves,
         crate::handlers::create_leave,
         crate::handlers::get_leave_calendar,

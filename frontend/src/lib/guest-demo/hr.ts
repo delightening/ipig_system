@@ -2,6 +2,7 @@ import type { PaginatedResponse } from '@/types/common'
 import type {
   LeaveRequestWithUser,
   AttendanceWithUser,
+  MonthlyAttendanceSummary,
   OvertimeWithUser,
   BalanceSummary,
 } from '@/types/hr'
@@ -57,6 +58,19 @@ export const DEMO_ATTENDANCE: PaginatedResponse<AttendanceWithUser> = {
   ],
   total: 1, page: 1, per_page: 20, total_pages: 1,
 }
+
+export const DEMO_MONTHLY_REPORT: MonthlyAttendanceSummary[] = [
+  {
+    user_id: 'demo-u1', user_name: '範例員工 A', user_email: 'demo-a@example.com',
+    work_days: 21, total_regular_hours: 168.5, total_overtime_hours: 6,
+    incomplete_days: 1, corrected_days: 2,
+  },
+  {
+    user_id: 'demo-u2', user_name: '範例員工 B', user_email: 'demo-b@example.com',
+    work_days: 22, total_regular_hours: 176, total_overtime_hours: 0,
+    incomplete_days: 0, corrected_days: 0,
+  },
+]
 
 export const DEMO_OVERTIME: PaginatedResponse<OvertimeWithUser> = {
   data: [
