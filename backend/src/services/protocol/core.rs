@@ -1268,9 +1268,11 @@ impl ProtocolService {
             sd_name,
             created_by_name,
             vet_review,
-            // 由 get_protocol handler 依 current_user 覆寫；其餘呼叫端預設 false。
+            // 由 get_protocol handler 依 current_user 覆寫；其餘呼叫端預設 false / None。
             can_edit: false,
             can_write_amendment: false,
+            pi_delegate: None,
+            is_pi_delegate: false,
         })
     }
 
@@ -1504,6 +1506,13 @@ impl ProtocolService {
                     },
                 )
                 .await?;
+
+                // SD 換人：舊 SD 核准的既有 PI 代理授權（migration 010）自動撤銷——
+                // 那筆授權是舊 SD 個人對代理人的信任背書，不隨 SD 換人自動延續給
+                // 新 SD 承擔責任，新 SD 需重新核准。同一 tx 內處理，沒有生效中
+                // 代理人時安靜略過。
+                Self::revoke_pi_delegate_for_sd_change_tx(&mut tx, actor, id, &updated.title)
+                    .await?;
             }
         }
 

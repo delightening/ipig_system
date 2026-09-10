@@ -21,7 +21,7 @@ use super::ProtocolService;
 use crate::{
     middleware::ActorContext,
     models::{ChangeStatusRequest, Protocol, ProtocolStatus},
-    services::{SignatureService, SignatureType},
+    services::{signature::DelegationRef, SignatureService, SignatureType},
     AppError, Result,
 };
 
@@ -67,7 +67,7 @@ pub const CLOSURE_ENTITY_TYPE: &str = "protocol_closure";
 /// | 3 | `entity_id = 本 protocol.id` | 把**別份計畫**的結案簽章掛過來 |
 /// | 4 | `signature_type = 'CONFIRM'` | 語意錯置（§11.50 的 meaning） |
 /// | 5 | `is_valid = true` | 已被 `invalidate` 作廢的簽章仍放行 |
-/// | 6 | PI 那張的 signer 對得上 `pi_user_id`；SD 那張對得上 `study_director_user_id` | 兩欄互換、無關人員代簽 |
+/// | 6 | PI 那張的 signer 對得上 `pi_user_id`，或是持有指向本計畫的代理授權（`protocol_pi_delegates`，見 migration 010）代簽；SD 那張對得上 `study_director_user_id` | 兩欄互換、無關人員代簽 |
 /// | 7 | 兩張的 signer **不同人** | 自簽自證 |
 ///
 /// # ⚠️ 為什麼要對簽章列也下 `FOR UPDATE`
@@ -104,8 +104,8 @@ pub async fn dual_signature_ready(
     }
 
     // 條件 2/3/4/5 在 WHERE 裡驗；FOR UPDATE 鎖住這兩列直到本 tx 結束。
-    let rows: Vec<(Uuid, Uuid)> = sqlx::query_as(
-        r#"SELECT id, signer_id
+    let rows: Vec<(Uuid, Uuid, Option<Uuid>)> = sqlx::query_as(
+        r#"SELECT id, signer_id, delegation_id
            FROM electronic_signatures
            WHERE id = ANY($1)
              AND entity_type = $2
@@ -131,13 +131,41 @@ pub async fn dual_signature_ready(
     // SD 簽在 PI 欄也會過。要逐欄對應。
     let signer_of = |id: Uuid| {
         rows.iter()
-            .find(|(sig_id, _)| *sig_id == id)
-            .map(|(_, s)| *s)
+            .find(|(sig_id, _, _)| *sig_id == id)
+            .map(|(_, s, _)| *s)
+    };
+    let delegation_of = |id: Uuid| {
+        rows.iter()
+            .find(|(sig_id, _, _)| *sig_id == id)
+            .and_then(|(_, _, d)| *d)
     };
     let (Some(pi_signer), Some(sd_signer)) = (signer_of(pi_sig_id), signer_of(sd_sig_id)) else {
         return Ok(false);
     };
-    if pi_signer != pi_user_id || sd_signer != sd_user_id {
+
+    // PI 那欄：本人簽，或持有指向本計畫、指名這位 signer 的代理授權（migration 010）。
+    // ⚠️ 不檢查該筆授權是否仍生效中（`revoked_at IS NULL`）——撤銷是「今後不能再用
+    // 這筆授權簽新東西」，不是讓已經簽下的既有簽章事後失真。這裡只驗簽章當下
+    // 是否真的依這筆授權簽的（授權存在、屬於本計畫、代理人與 signer 一致）。
+    let pi_signer_authorized = if pi_signer == pi_user_id {
+        true
+    } else if let Some(delegation_id) = delegation_of(pi_sig_id) {
+        let (linked,): (bool,) = sqlx::query_as(
+            r#"SELECT EXISTS(
+                SELECT 1 FROM protocol_pi_delegates
+                WHERE id = $1 AND protocol_id = $2 AND delegate_user_id = $3
+            )"#,
+        )
+        .bind(delegation_id)
+        .bind(protocol_id)
+        .bind(pi_signer)
+        .fetch_one(&mut **tx)
+        .await?;
+        linked
+    } else {
+        false
+    };
+    if !pi_signer_authorized || sd_signer != sd_user_id {
         return Ok(false);
     }
 
@@ -209,8 +237,9 @@ pub fn ensure_closure_signable(status: ProtocolStatus, import_pending: bool) -> 
 ///
 /// **權責檢查不在這裡。** `sign_record_tx` 不驗權責（設計文件 §3.3），本函式也不驗——
 /// 呼叫端（兩支 handler）各自檢查 `actor.id == pi_user_id` 或
-/// `actor.id == study_director_user_id`。這是刻意的：權責屬 HTTP 端點的語意，
-/// 而這裡是共用流程。**新增呼叫端時必須自己補權責檢查。**
+/// `actor.id == study_director_user_id`（或 PI 那一支另外接受生效中的
+/// `protocol_pi_delegates` 代理人，見 `delegation_id` 參數）。這是刻意的：權責屬
+/// HTTP 端點的語意，而這裡是共用流程。**新增呼叫端時必須自己補權責檢查。**
 #[allow(clippy::too_many_arguments)]
 pub async fn sign_closure(
     pool: &PgPool,
@@ -218,6 +247,10 @@ pub async fn sign_closure(
     protocol_id: Uuid,
     signer: ClosureSigner,
     signer_id: Uuid,
+    // 非 NULL = `signer_id` 是依此筆 `protocol_pi_delegates` 授權代簽（僅
+    // `ClosureSigner::Pi` 有意義）。呼叫端必須已驗證這筆授權生效中、屬於本計畫、
+    // `delegate_user_id == signer_id`——本函式只負責把它綁進簽章紀錄。
+    delegation_id: Option<Uuid>,
     password: Option<&str>,
     handwriting_svg: Option<&str>,
     stroke_data: Option<&JsonValue>,
@@ -233,6 +266,38 @@ pub async fn sign_closure(
         .ok_or_else(|| AppError::NotFound("找不到計劃書".into()))?;
 
     ensure_closure_signable(before.status, before.import_pending)?;
+
+    // SD 不得以 PI 代理人身分簽 PI 那一欄（CodeRabbit #53）。
+    //
+    // `authorize_pi_delegate` 刻意允許「SD 自任代理人」這個組合（改由執秘/admin 核准，
+    // 避免自簽自證），那條決策對安樂死核准、修正案寫入等用途仍然成立——那些動作
+    // 只需要一個有權責的人，不要求兩人。**但結案雙簽要求兩人各自具結**
+    // （`dual_signature_ready` 條件 7：`pi_signer != sd_signer`），SD 若先以代理人
+    // 身分簽 PI 欄、再簽 SD 欄，兩張的 signer 是同一人，gate 永遠回 false，
+    // 計畫**再也進不了 `CLOSED`**。
+    //
+    // 擋在這裡而不是擋在核准端（CodeRabbit 的原始建議）：核准端一擋，SD 自任代理人
+    // 這個組合就整個消失，連用不到雙簽的那些用途也一併沒了。擋在簽署端只否決
+    // 真正衝突的那一個動作，其餘照舊。
+    //
+    // ⚠️ 必須擋在建立簽章**之前**：PI 欄的簽章一旦寫下去就佔住欄位，脫困要撤銷授權
+    // 加作廢簽章，是人工修資料等級的成本。
+    //
+    // ⚠️ 判準**不看 `delegation_id`**（CodeRabbit #53 第六輪訂正）。原本多了一個
+    // `delegation_id.is_some()`，把守衛限縮成「只擋代理簽」——但代理不是唯一入口：
+    // `pi_signer == pi_user_id` 時本人直簽根本不需要授權（見 `dual_signature_ready`
+    // 的 `pi_signer_authorized` 第一分支），此時 `delegation_id` 是 `None`，守衛整個
+    // 失效。而 `pi_user_id == study_director_user_id` 這個組合**是可能出現的**——
+    // 條件 7 的註解自己就寫了「可能在指派之後才變成同一人（存量資料、或日後放寬
+    // 規則）」。等於原本擋掉了繞遠路的那條，卻放行了最直接的那條。
+    if matches!(signer, ClosureSigner::Pi) && before.study_director_user_id == Some(signer_id) {
+        return Err(AppError::BusinessRule(
+            "計劃負責人（SD）不可以簽結案的 PI 欄（不論本人直簽或以代理人身分）：\
+             結案雙簽要求兩人各自具結，同一人簽兩欄不構成雙簽。\
+             請改由 SD 以外的人簽 PI 那一欄。"
+                .into(),
+        ));
+    }
 
     // 動物守門前置（CodeRabbit #38）：與 `change_status_tx` 的 CLOSED 分支同一道檢查，
     // 但在這裡先擋一次，讓簽署人在**簽之前**就知道還有動物在場——而不是簽完才發現
@@ -275,23 +340,44 @@ pub async fn sign_closure(
         before.status.as_str()
     );
 
-    let signature = SignatureService::sign_record_tx(
-        &mut tx,
-        pool,
-        actor,
-        CLOSURE_ENTITY_TYPE,
-        &protocol_id.to_string(),
-        signer_id,
-        // ⚠️ `Confirm` 不是 `Approve`（設計文件 §5.2）：結案雙簽的語意是雙方確認
-        // 試驗已完成（§11.50 "responsibility"），不是審查方核准（"approval"）。
-        // 用錯 meaning 會讓稽核報表把結案簽章與 IACUC 核准簽章混為一談。
-        SignatureType::Confirm,
-        &content,
-        password,
-        handwriting_svg,
-        stroke_data,
-    )
-    .await?;
+    // ⚠️ `Confirm` 不是 `Approve`（設計文件 §5.2）：結案雙簽的語意是雙方確認
+    // 試驗已完成（§11.50 "responsibility"），不是審查方核准（"approval"）。
+    // 用錯 meaning 會讓稽核報表把結案簽章與 IACUC 核准簽章混為一談。
+    let signature = if let Some(delegation_id) = delegation_id {
+        SignatureService::sign_record_delegated_tx(
+            &mut tx,
+            pool,
+            actor,
+            CLOSURE_ENTITY_TYPE,
+            &protocol_id.to_string(),
+            signer_id,
+            DelegationRef {
+                id: delegation_id,
+                protocol_id,
+            },
+            SignatureType::Confirm,
+            &content,
+            password,
+            handwriting_svg,
+            stroke_data,
+        )
+        .await?
+    } else {
+        SignatureService::sign_record_tx(
+            &mut tx,
+            pool,
+            actor,
+            CLOSURE_ENTITY_TYPE,
+            &protocol_id.to_string(),
+            signer_id,
+            SignatureType::Confirm,
+            &content,
+            password,
+            handwriting_svg,
+            stroke_data,
+        )
+        .await?
+    };
 
     let (pi_sig, sd_sig) = match signer {
         ClosureSigner::Pi => (Some(signature.id), before.close_sd_signature_id),

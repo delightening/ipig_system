@@ -295,3 +295,119 @@ async fn study_director_can_edit_own_protocol() {
         .expect("can_edit");
     assert!(!cannot, "無關使用者不應可編輯");
 }
+
+// ── PI 代理人簽須知要留下授權證據（migration 010 / CodeRabbit #53）──
+//
+// `can_sign_notice` 放行了 SD 核准的生效中代理人，但簽章路徑原本沒有 delegation
+// 欄位，代簽出來的章與本人簽署在稽核上完全分不出來——授權證據消失，正好抵銷掉
+// migration 010 的目的。這兩支一正一反：代理人簽要有證據、本人簽不得亂標。
+
+async fn seed_external_pi_protocol_with_sd(app: &TestApp, borrowed_pi: Uuid, sd: Uuid) -> Uuid {
+    let id = seed_protocol(app, borrowed_pi, Some(sd), "DRAFT").await;
+    sqlx::query("UPDATE protocols SET pi_is_external = true WHERE id = $1")
+        .bind(id)
+        .execute(&app.db_pool)
+        .await
+        .expect("mark external PI");
+    id
+}
+
+async fn signature_delegation_id(app: &TestApp, signature_id: Option<Uuid>) -> Option<Uuid> {
+    sqlx::query_scalar::<_, Option<Uuid>>(
+        "SELECT delegation_id FROM electronic_signatures WHERE id = $1",
+    )
+    .bind(signature_id.expect("應有簽章"))
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("read signature")
+}
+
+#[tokio::test]
+#[serial]
+async fn acknowledge_notice_by_delegate_records_delegation_evidence() {
+    let app = TestApp::spawn().await;
+    let borrowed_pi = seed_user(&app).await;
+    let sd = seed_user(&app).await;
+    let delegate = seed_user(&app).await;
+    seed_active_notice(&app, borrowed_pi).await;
+    let protocol_id = seed_external_pi_protocol_with_sd(&app, borrowed_pi, sd).await;
+
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &user_actor(sd),
+        protocol_id,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人");
+
+    let scope = notice_scope(&app, delegate, protocol_id).await;
+    let ack = ProtocolService::acknowledge_notice(
+        &app.db_pool,
+        &user_actor(delegate),
+        scope,
+        "<svg/>",
+        None,
+    )
+    .await
+    .expect("代理人簽須知應成功");
+
+    let found = NoticeAcknowledgementRepository::find_by_protocol(&app.db_pool, protocol_id)
+        .await
+        .expect("find")
+        .expect("ack exists");
+    assert_eq!(
+        found.signer_id, delegate,
+        "signer 必須是實際落筆的代理人本人，不是被借位的 pi_user_id"
+    );
+    assert_eq!(
+        signature_delegation_id(&app, ack.signature_id).await,
+        Some(
+            sqlx::query_scalar::<_, Uuid>(
+                "SELECT id FROM protocol_pi_delegates WHERE protocol_id = $1 AND revoked_at IS NULL"
+            )
+            .bind(protocol_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("delegation row")
+        ),
+        "代簽的須知簽章必須綁上那筆授權，否則稽核上看起來就是他本人簽的"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn acknowledge_notice_in_person_leaves_delegation_null() {
+    let app = TestApp::spawn().await;
+    let pi = seed_user(&app).await;
+    let sd = seed_user(&app).await;
+    seed_active_notice(&app, pi).await;
+    let protocol_id = seed_external_pi_protocol_with_sd(&app, pi, sd).await;
+
+    // 即使這個人同時也被指定為代理人，他本來就是 pi_user_id——本人身分優先，
+    // 簽章不該標成代簽（假的可歸責資訊比沒有更糟）。
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &user_actor(sd),
+        protocol_id,
+        pi,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人（本例中恰好就是 PI 本人）");
+
+    let scope = notice_scope(&app, pi, protocol_id).await;
+    let ack =
+        ProtocolService::acknowledge_notice(&app.db_pool, &user_actor(pi), scope, "<svg/>", None)
+            .await
+            .expect("PI 本人簽署應成功");
+
+    assert_eq!(
+        signature_delegation_id(&app, ack.signature_id).await,
+        None,
+        "本人有資格時一律以個人名義落帳，不得標成代簽"
+    );
+}

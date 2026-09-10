@@ -465,3 +465,310 @@ async fn decide_appeal_admin_bypasses_without_chair_role() {
         "admin 繞過並核准暫緩後單據應轉為 cancelled"
     );
 }
+
+// ── 待處理清單要看得見生效中的 PI 代理人（migration 010）───────────
+//
+// `lock_order_for_pi` 允許代理人核准/暫緩，但清單若仍只查 `eo.pi_user_id`，
+// 代理人**永遠發現不了那張單**——而它有 24 小時期限、逾時由 `check_expired_orders`
+// 自動核准。權利給了卻沒有行使的管道，等於沒給。
+//
+// 這支測試同時釘住三件事，少任何一件都可能悄悄壞掉：看得到（核准後）、
+// 沒有把借位的 PI 帳號擠掉、撤銷後就看不到。
+
+/// 外部 PI 計畫 + 指定 SD + 掛在該計畫下的動物，回傳 (protocol_id, animal_id)。
+async fn seed_external_pi_protocol_and_animal(
+    app: &TestApp,
+    borrowed_pi_user_id: Uuid,
+    sd_user_id: Uuid,
+) -> (Uuid, Uuid) {
+    let pid = Uuid::new_v4();
+    let iacuc = format!("IACUC-EUD-{}", &pid.to_string()[..8]);
+    sqlx::query(
+        r#"INSERT INTO protocols
+             (id, protocol_no, iacuc_no, title, status, pi_user_id, created_by,
+              study_director_user_id, pi_is_external)
+           VALUES ($1, $2, $3, 'euthanasia delegate visibility', 'APPROVED', $4, $4, $5, true)"#,
+    )
+    .bind(pid)
+    .bind(format!("P-EUD-{}", &pid.to_string()[..8]))
+    .bind(&iacuc)
+    .bind(borrowed_pi_user_id)
+    .bind(sd_user_id)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert external-PI protocol");
+
+    let aid = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO animals (id, ear_tag, breed, gender, entry_date, iacuc_no, status, created_by)
+           VALUES ($1, $2, 'miniature', 'male', '2026-01-01', $3, 'in_experiment', $4)"#,
+    )
+    .bind(aid)
+    .bind(format!("EUD{}", &aid.to_string()[..5]))
+    .bind(&iacuc)
+    .bind(borrowed_pi_user_id)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert animal");
+    (pid, aid)
+}
+
+#[tokio::test]
+#[serial]
+async fn pending_orders_visible_to_active_pi_delegate() {
+    use erp_backend::middleware::{ActorContext, CurrentUser};
+    use erp_backend::services::{EuthanasiaService, ProtocolService};
+
+    let app = TestApp::spawn().await;
+    let (borrowed_pi, _) = seed_login_user(&app, "borrowed-pi", "PI").await;
+    let (sd, _) = seed_login_user(&app, "sd", "EXPERIMENT_STAFF").await;
+    let (delegate, _) = seed_login_user(&app, "delegate", "PI").await;
+    let (vet, _) = seed_login_user(&app, "vet", "VET").await;
+    let (protocol_id, animal_id) =
+        seed_external_pi_protocol_and_animal(&app, borrowed_pi, sd).await;
+    let order_id = seed_order(&app, animal_id, vet, borrowed_pi, "pending_pi").await;
+
+    let sd_actor = ActorContext::User(CurrentUser {
+        id: sd,
+        email: format!("{sd}@test.local"),
+        roles: vec!["EXPERIMENT_STAFF".to_string()],
+        permissions: vec![],
+        jti: "test".to_string(),
+        exp: 0,
+        impersonated_by: None,
+    });
+
+    async fn sees(app: &TestApp, user: Uuid, order_id: Uuid) -> bool {
+        EuthanasiaService::get_pending_orders_for_pi(&app.db_pool, user)
+            .await
+            .expect("list pending orders")
+            .iter()
+            .any(|o| o.id == order_id)
+    }
+
+    assert!(
+        !sees(&app, delegate, order_id).await,
+        "尚未核准代理授權前，這個人不該看得到別人的待處理單"
+    );
+
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &sd_actor,
+        protocol_id,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人");
+
+    assert!(
+        sees(&app, delegate, order_id).await,
+        "生效中代理人必須看得到待處理單——否則 24 小時期限只能眼睜睜等它逾時自動核准"
+    );
+    assert!(
+        sees(&app, borrowed_pi, order_id).await,
+        "代理人加進來不該把原本的 pi_user_id 擠掉"
+    );
+
+    ProtocolService::revoke_pi_delegate(&app.db_pool, &sd_actor, protocol_id, None)
+        .await
+        .expect("SD 撤銷代理人");
+
+    assert!(
+        !sees(&app, delegate, order_id).await,
+        "撤銷後就不該再看得到——可見範圍必須跟 lock_order_for_pi 的授權判準一致"
+    );
+}
+
+// ── 暫緩申請要留下代簽證據（migration 010）─────────────────────────
+//
+// `lock_order_for_pi` 開放代理人之後，`euthanasia_appeals.pi_user_id` 已不再保證
+// 等於計畫 PI。而暫緩申請**不建立簽章**，借不到 `electronic_signatures.delegation_id`
+// 那條證據鏈——少了 `euthanasia_appeals.delegation_id`，事後只能靠時間窗回推
+// 「當時他是不是代理人」，而授權可撤銷可重發，那種回推不是可靠證據。
+//
+// 三支一組：代理人申請要標、本人申請不得亂標、授權撤銷後不得再寫進去。
+
+async fn appeal_delegation_id(app: &TestApp, appeal_id: Uuid) -> Option<Uuid> {
+    sqlx::query_scalar::<_, Option<Uuid>>(
+        "SELECT delegation_id FROM euthanasia_appeals WHERE id = $1",
+    )
+    .bind(appeal_id)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("read appeal")
+}
+
+fn user_actor_for(id: Uuid, role: &str) -> erp_backend::middleware::ActorContext {
+    use erp_backend::middleware::{ActorContext, CurrentUser};
+    ActorContext::User(CurrentUser {
+        id,
+        email: format!("{id}@test.local"),
+        roles: vec![role.to_string()],
+        permissions: vec![],
+        jti: "test".to_string(),
+        exp: 0,
+        impersonated_by: None,
+    })
+}
+
+#[tokio::test]
+#[serial]
+async fn appeal_by_delegate_records_delegation_evidence() {
+    use erp_backend::models::CreateEuthanasiaAppealRequest;
+    use erp_backend::services::{EuthanasiaService, ProtocolService};
+
+    let app = TestApp::spawn().await;
+    let (borrowed_pi, _) = seed_login_user(&app, "borrowed-pi", "PI").await;
+    let (sd, _) = seed_login_user(&app, "sd", "EXPERIMENT_STAFF").await;
+    let (delegate, _) = seed_login_user(&app, "delegate", "PI").await;
+    let (vet, _) = seed_login_user(&app, "vet", "VET").await;
+    let (protocol_id, animal_id) =
+        seed_external_pi_protocol_and_animal(&app, borrowed_pi, sd).await;
+    let order_id = seed_order(&app, animal_id, vet, borrowed_pi, "pending_pi").await;
+
+    let delegation_id = ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &user_actor_for(sd, "EXPERIMENT_STAFF"),
+        protocol_id,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人")
+    .id;
+
+    let appeal = EuthanasiaService::pi_appeal(
+        &app.db_pool,
+        &user_actor_for(delegate, "PI"),
+        order_id,
+        &CreateEuthanasiaAppealRequest {
+            reason: "代理人代為申請暫緩".to_string(),
+            attachment_path: None,
+            version: None,
+        },
+    )
+    .await
+    .expect("代理人應可申請暫緩");
+
+    assert_eq!(
+        appeal.pi_user_id, delegate,
+        "pi_user_id 必須是實際送出申請的代理人本人"
+    );
+    assert_eq!(
+        appeal_delegation_id(&app, appeal.id).await,
+        Some(delegation_id),
+        "代理人提出的暫緩必須綁上那筆授權，否則稽核上看起來就是 PI 本人申請的"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn appeal_in_person_leaves_delegation_null() {
+    use erp_backend::models::CreateEuthanasiaAppealRequest;
+    use erp_backend::services::{EuthanasiaService, ProtocolService};
+
+    let app = TestApp::spawn().await;
+    let (pi, _) = seed_login_user(&app, "pi", "PI").await;
+    let (sd, _) = seed_login_user(&app, "sd", "EXPERIMENT_STAFF").await;
+    let (vet, _) = seed_login_user(&app, "vet", "VET").await;
+    let (protocol_id, animal_id) = seed_external_pi_protocol_and_animal(&app, pi, sd).await;
+    let order_id = seed_order(&app, animal_id, vet, pi, "pending_pi").await;
+
+    // ⚠️ 這一筆授權是本測試的重點，不是佈景（CodeRabbit #53 第六輪）：
+    // 少了它，`pi_appeal` 走本人路徑時 `delegation_id` 本來就只會是 NULL——
+    // 優先序邏輯整個寫反也照樣綠。要驗「本人身分優先於代理身分」，
+    // 場景就必須是「兩種身分同時成立」。
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &user_actor_for(sd, "EXPERIMENT_STAFF"),
+        protocol_id,
+        pi,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人（本例中恰好就是 PI 本人）");
+
+    let appeal = EuthanasiaService::pi_appeal(
+        &app.db_pool,
+        &user_actor_for(pi, "PI"),
+        order_id,
+        &CreateEuthanasiaAppealRequest {
+            reason: "PI 本人申請暫緩".to_string(),
+            attachment_path: None,
+            version: None,
+        },
+    )
+    .await
+    .expect("PI 本人應可申請暫緩");
+
+    assert_eq!(
+        appeal_delegation_id(&app, appeal.id).await,
+        None,
+        "本人申請不得標成代簽——假的可歸責資訊比沒有更糟"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn appeal_rejected_when_delegation_revoked() {
+    use erp_backend::models::CreateEuthanasiaAppealRequest;
+    use erp_backend::services::{EuthanasiaService, ProtocolService};
+    use erp_backend::AppError;
+
+    let app = TestApp::spawn().await;
+    let (borrowed_pi, _) = seed_login_user(&app, "borrowed-pi", "PI").await;
+    let (sd, _) = seed_login_user(&app, "sd", "EXPERIMENT_STAFF").await;
+    let (delegate, _) = seed_login_user(&app, "delegate", "PI").await;
+    let (vet, _) = seed_login_user(&app, "vet", "VET").await;
+    let (protocol_id, animal_id) =
+        seed_external_pi_protocol_and_animal(&app, borrowed_pi, sd).await;
+    let order_id = seed_order(&app, animal_id, vet, borrowed_pi, "pending_pi").await;
+
+    ProtocolService::authorize_pi_delegate(
+        &app.db_pool,
+        &user_actor_for(sd, "EXPERIMENT_STAFF"),
+        protocol_id,
+        delegate,
+        None,
+        None,
+    )
+    .await
+    .expect("SD 核准代理人");
+    ProtocolService::revoke_pi_delegate(
+        &app.db_pool,
+        &user_actor_for(sd, "EXPERIMENT_STAFF"),
+        protocol_id,
+        Some("測試：申請前撤銷"),
+    )
+    .await
+    .expect("SD 撤銷代理人");
+
+    let err = EuthanasiaService::pi_appeal(
+        &app.db_pool,
+        &user_actor_for(delegate, "PI"),
+        order_id,
+        &CreateEuthanasiaAppealRequest {
+            reason: "授權已撤銷仍嘗試申請".to_string(),
+            attachment_path: None,
+            version: None,
+        },
+    )
+    .await
+    .expect_err("授權已撤銷不得再提出暫緩");
+    assert!(
+        matches!(err, AppError::NotFound(_) | AppError::Forbidden(_)),
+        "實得：{err:?}"
+    );
+
+    let appeal_count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM euthanasia_appeals WHERE order_id = $1")
+            .bind(order_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("count appeals");
+    assert_eq!(appeal_count, 0, "被擋下時不得留下任何暫緩申請紀錄");
+}

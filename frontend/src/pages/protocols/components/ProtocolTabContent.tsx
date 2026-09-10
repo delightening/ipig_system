@@ -30,6 +30,7 @@ interface ProtocolTabContentProps {
   canAddComment: boolean
   canReply: boolean
   canWriteAmendment: boolean
+  isPiDelegate: boolean
   canAssignReviewer: boolean
   canManageAttachments: boolean
   shouldAnonymizeReviewers: boolean
@@ -51,6 +52,7 @@ export function ProtocolTabContent({
   canAddComment,
   canReply,
   canWriteAmendment,
+  isPiDelegate,
   canAssignReviewer,
   canManageAttachments,
   shouldAnonymizeReviewers,
@@ -142,7 +144,7 @@ export function ProtocolTabContent({
       </PageTabContent>
 
       <PageTabContent value="amendments">
-        <AmendmentsTab protocolId={protocolId} protocolStatus={protocol.status as ProtocolStatus} isImported={!!protocol.imported_at} isStudyDirector={isStudyDirector} canWriteAmendment={canWriteAmendment} />
+        <AmendmentsTab protocolId={protocolId} protocolStatus={protocol.status as ProtocolStatus} isImported={!!protocol.imported_at} isStudyDirector={isStudyDirector} canWriteAmendment={canWriteAmendment} isPiDelegate={isPiDelegate} />
       </PageTabContent>
     </Suspense>
   )
