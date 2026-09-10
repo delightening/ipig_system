@@ -55,11 +55,15 @@ interface AmendmentsTabProps {
     /** 目前使用者是否為本計劃的負責人 SD（protocol.study_director_user_id === user.id） */
     isStudyDirector?: boolean
     /** 後端權威：是否可建立/更新/提交此計畫的變更申請（= access::can_write_amendment：
-     * admin / PI，不含 SD）。供修正案建立·編輯·送審按鈕 gating。 */
+     * admin / PI，不含 SD；外部 PI 計畫另含 SD 核准的生效中代理人）。供修正案建立·編輯·
+     * 送審按鈕 gating。 */
     canWriteAmendment?: boolean
+    /** 當前使用者是否以 PI 代理人身分取得上面的 canWriteAmendment（而非本人是 PI/admin）。
+     * 純顯示徽章，不影響任何授權判斷——避免讓人誤以為是 PI 本人操作。 */
+    isPiDelegate?: boolean
 }
 
-export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyDirector, canWriteAmendment }: AmendmentsTabProps) {
+export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyDirector, canWriteAmendment, isPiDelegate }: AmendmentsTabProps) {
     const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { hasPermission } = useAuthStore()
@@ -245,6 +249,14 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                             <History className="mr-2 h-4 w-4" />
                             補登歷史變更
                         </Button>
+                    )}
+                    {/* 徽章掛在操作區本身，不掛在建立按鈕旁（CodeRabbit #53 第六輪）：
+                        提交既有 DRAFT 的按鈕只看 canManageAmendment，不看
+                        canCreateAmendment（後者是「計畫狀態允許新增」）。綁在一起的話，
+                        代理人在計畫已離開 APPROVED 的情況下仍能提交，畫面卻沒有任何
+                        代理標記——而這個標記正是要讓操作者知道自己以誰的名義在動作。 */}
+                    {isPiDelegate && canManageAmendment && (
+                        <Badge variant="outline">{t('protocols.amendments.piDelegateBadge')}</Badge>
                     )}
                     {canCreateAmendment && canManageAmendment && (
                         <Button onClick={() => dialogs.open('create')}>
