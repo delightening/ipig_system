@@ -56,6 +56,9 @@ interface WarehouseFormData {
     name: string
     address: string
     is_active: boolean
+    exclude_from_alerts: boolean
+    skip_routine_stocktake: boolean
+    is_default_issue_source: boolean
 }
 
 const initialFormData: WarehouseFormData = {
@@ -63,6 +66,13 @@ const initialFormData: WarehouseFormData = {
     name: '',
     address: '',
     is_active: true,
+    // 新倉庫預設「照常盤點、照常警報」——與 migration 014 的欄位預設一致。
+    // 例外要由人明確勾選，不能靠預設值悄悄生效。
+    exclude_from_alerts: false,
+    skip_routine_stocktake: false,
+    // 同理（migration 015）：新倉庫預設不是領用來源。勾錯的代價是開單時
+    // 自動帶到不該領貨的地點，所以寧可預設不帶、由人明確指定。
+    is_default_issue_source: false,
 }
 
 export function WarehouseActionHeader({
@@ -181,6 +191,9 @@ export function WarehouseActionHeader({
             name: warehouse.name,
             address: warehouse.address || '',
             is_active: warehouse.is_active,
+            exclude_from_alerts: warehouse.exclude_from_alerts,
+            skip_routine_stocktake: warehouse.skip_routine_stocktake,
+            is_default_issue_source: warehouse.is_default_issue_source,
         })
         setShowWarehouseDialog(true)
     }
@@ -361,6 +374,59 @@ export function WarehouseActionHeader({
                                     />
                                     <span className="text-sm text-muted-foreground">
                                         {formData.is_active ? '已啟用' : '已停用'}
+                                    </span>
+                                </div>
+                            </div>
+                            {/* 盤點與警報政策（migration 014）。
+                              * 這兩項刻意分開而不是一個「倉庫類型」下拉：儲藏室是「有庫存但不維護
+                              * 帳面準確度」，廢棄物處理區是「根本不是庫存資產」——目前兩者的勾選
+                              * 剛好一樣，但語意不同，合併後日後出現「要盤但不要警報」的倉庫就回不去了。 */}
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="exclude_from_alerts" className="text-right pt-2">低庫存警報</Label>
+                                <div className="col-span-3 flex items-start gap-2">
+                                    <Switch
+                                        id="exclude_from_alerts"
+                                        checked={!formData.exclude_from_alerts}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, exclude_from_alerts: !checked })}
+                                    />
+                                    <span className="text-sm text-muted-foreground">
+                                        {formData.exclude_from_alerts
+                                            ? '不發警報（帳面數字不維護準確度，或非庫存資產）'
+                                            : '照常發警報'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="skip_routine_stocktake" className="text-right pt-2">例行盤點</Label>
+                                <div className="col-span-3 flex items-start gap-2">
+                                    <Switch
+                                        id="skip_routine_stocktake"
+                                        checked={!formData.skip_routine_stocktake}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, skip_routine_stocktake: !checked })}
+                                    />
+                                    <span className="text-sm text-muted-foreground">
+                                        {formData.skip_routine_stocktake
+                                            ? '不排例行盤點（仍可在缺貨或有異狀時單獨盤）'
+                                            : '納入例行盤點'}
+                                    </span>
+                                </div>
+                            </div>
+                            {/* 領用來源（migration 015）。與上面兩項不同，這個開關是「正向」的
+                              * ——勾起來才生效，因為它會主動改變開單時的預設值。
+                              * 可以多個倉庫同時勾：藥品在準備室、耗材在儲藏室都是正當領用點，
+                              * 後端再依該品項實際哪裡有貨去挑，故沒有唯一性約束。 */}
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="is_default_issue_source" className="text-right pt-2">領用來源</Label>
+                                <div className="col-span-3 flex items-start gap-2">
+                                    <Switch
+                                        id="is_default_issue_source"
+                                        checked={formData.is_default_issue_source}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, is_default_issue_source: checked })}
+                                    />
+                                    <span className="text-sm text-muted-foreground">
+                                        {formData.is_default_issue_source
+                                            ? '開單時，品項在此倉有貨就自動帶這裡的儲位'
+                                            : '不自動帶（廢棄區這類不該領貨的地點請維持關閉）'}
                                     </span>
                                 </div>
                             </div>

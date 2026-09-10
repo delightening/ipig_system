@@ -20,6 +20,28 @@ pub enum LocationType {
     Bin,  // 儲物格
 }
 
+/// 建 SO（領用/銷貨）時的儲位建議（migration 015）。
+///
+/// 只包含「該品項目前有貨、且倉庫被標為領用來源」的儲位，依先到期先出（FEFO）排序。
+/// 已過期的批號一律不入列——建議領用過期品是錯的，寧可不給建議讓人自己選。
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct IssueLocationSuggestion {
+    pub storage_location_id: Uuid,
+    pub storage_location_code: String,
+    pub storage_location_name: Option<String>,
+    pub warehouse_id: Uuid,
+    pub warehouse_code: String,
+    pub warehouse_name: String,
+    /// ⚠️ `value_type = String` 不是裝飾：`rust_decimal` 的 serde 預設把 Decimal
+    /// 序列化成 **JSON 字串**，少了這行 OpenAPI 會宣告成 number，
+    /// 依它產生 client 的人就會拿到對不上的型別（CodeRabbit 於 MR !3 指出）。
+    /// 同 repo 的 `models/product.rs` 對每個 Decimal 欄位都這樣標，此處原本漏了。
+    #[schema(value_type = String)]
+    pub on_hand_qty: rust_decimal::Decimal,
+    pub batch_no: Option<String>,
+    pub expiry_date: Option<chrono::NaiveDate>,
+}
+
 /// 儲位/貨架資料結構
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct StorageLocation {

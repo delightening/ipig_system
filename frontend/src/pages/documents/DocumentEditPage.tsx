@@ -30,6 +30,7 @@ import { DocumentPreview } from './components/DocumentPreview'
 import { DocumentLineEditor } from './components/DocumentLineEditor'
 import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components/inventory/WarehouseShelfTreeSelect'
 import { SearchableMultiSelect } from '@/components/ui/searchable-multi-select'
+import { StocktakeExemptNotice } from '@/components/warehouse/StocktakeExemptNotice'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { useDocumentForm } from './hooks/useDocumentForm'
 import { buildStocktakeScope, stocktakeBlockReason } from './stocktakeScope'
@@ -287,6 +288,12 @@ export function DocumentEditPage() {
                       placeholder="選擇儲位"
                     />
                   </div>
+                )}
+                {/* 盤點單選到「不排例行盤點」的倉庫（如儲藏室）時說明一句。
+                    只提示不阻擋——那些倉庫正是要在缺貨或異狀時單獨盤，
+                    擋下來會把唯一的校正路徑一起封死。 */}
+                {formData.doc_type === 'STK' && (
+                  <StocktakeExemptNotice warehouseId={formData.warehouse_id} />
                 )}
               </div>
             )}

@@ -30,6 +30,44 @@ struct LedgerEntryParams<'a> {
     storage_location_id: Option<Uuid>,
 }
 
+/// `decrement_storage_location_inventory` 的參數。
+///
+/// 用結構而非展開參數：補上 `doc_no`（通知要講是哪張單擋的）與 drift 收集器之後，
+/// 展開寫法會有 8 個參數，超過 clippy `too_many_arguments` 的門檻 7，而本檔的
+/// clippy 門檻是 `-D warnings`（`RULES_BACKEND.md` §8）。同檔的 `LedgerEntryParams`
+/// 已是同一個做法。
+struct DecrementParams<'a> {
+    storage_location_id: Uuid,
+    product_id: Uuid,
+    qty: Decimal,
+    batch_no: Option<String>,
+    expiry_date: Option<chrono::NaiveDate>,
+    /// 單號，只用於通知內容——現場看到「哪張單卡住」比看到 UUID 有用。
+    doc_no: &'a str,
+}
+
+/// 儲位帳失真事件：`decrement_storage_location_inventory` 走到「儲位根本沒有 row」
+/// 那條路徑時記一筆，交給 `process_document` 的呼叫端在 **commit 之後**通知倉管。
+///
+/// 為什麼要這個結構、而不是就地建通知：
+/// 這條路徑是**成功路徑**——它靜默放行，tx 會繼續跑下去，而後面的會計過帳、
+/// 狀態更新任何一步失敗都會把整張核准回滾。就地發通知會在那種情況下留下一則
+/// 描述「已經沒有發生的事」的假警報。所以事件先收集，等 tx 真的 commit 再發。
+///
+/// 與「擋下領用」（`AppError::InsufficientStock`）互補：那條是失敗路徑、錯誤帶得出去；
+/// 這條是成功路徑、沒有錯誤可搭，只能自己開一個通道。兩條合起來才涵蓋使用者要的
+/// 「領不出來就通知」——因為缺 row 的品項**根本卡不住**，只看擋下來的那條
+/// 會漏掉一整類情況（`ledger.rs` 的 None 分支註解記載了這個缺口的成因）。
+#[derive(Debug, Clone)]
+pub struct StorageDriftEvent {
+    pub storage_location_id: Uuid,
+    pub product_id: Uuid,
+    pub qty: Decimal,
+    pub batch_no: Option<String>,
+    pub expiry_date: Option<chrono::NaiveDate>,
+    pub doc_no: String,
+}
+
 /// R84-6 批號對帳：依單據類型/方向分類加總的中繼結果（見 `get_lot_movements`）
 #[derive(sqlx::FromRow)]
 struct LotCategorizedTotals {
@@ -48,12 +86,19 @@ struct LotProductTotals {
 }
 
 impl StockService {
-    /// 處理單據核准後的庫存變動
+    /// 處理單據核准後的庫存變動。
+    ///
+    /// 回傳的 `Vec<StorageDriftEvent>` 是**待通知事項**，不是錯誤：呼叫端必須在
+    /// `tx.commit()` **之後**才據以發通知。空 Vec 是正常情況（絕大多數單據）。
+    ///
+    /// 為什麼不在這裡就把通知發掉：本函式全程在 tx 內，而 tx 之後還有會計過帳、
+    /// 單據狀態更新等步驟，任何一步失敗都會回滾整張核准。就地發通知會在那種情況下
+    /// 留下描述「已經沒有發生的事」的假警報。
     pub async fn process_document(
         tx: &mut Transaction<'_, Postgres>,
         document: &Document,
         lines: &[DocumentLine],
-    ) -> Result<()> {
+    ) -> Result<Vec<StorageDriftEvent>> {
         // 單位換算（唯一入口）：以下所有計算——庫存足量檢查、stock_ledger、
         // storage_location_inventory 增減、inventory_snapshots 重算——一律以
         // products.base_uom 進行。明細若以「盒」開立，在此換成「雙」再往下走。
@@ -79,14 +124,15 @@ impl StockService {
         // 兩行各自檢查都可能通過，實際加總卻已超賣（確定性重現，非低機率 race）。
         // update_inventory_snapshot 是從 stock_ledger 全量 SUM 重算（冪等），
         // 同一 (倉,品) 被多行命中時重複呼叫沒有正確性風險，只多一點 DB 往返。
+        let mut drift: Vec<StorageDriftEvent> = Vec::new();
         for line in lines {
-            Self::process_single_line(tx, document, line).await?;
+            Self::process_single_line(tx, document, line, &mut drift).await?;
             for (warehouse_id, product_id) in Self::affected_items_for_line(document, line) {
                 Self::update_inventory_snapshot(tx, warehouse_id, product_id).await?;
             }
         }
 
-        Ok(())
+        Ok(drift)
     }
 
     /// 處理單一明細行的庫存變動
@@ -94,13 +140,14 @@ impl StockService {
         tx: &mut Transaction<'_, Postgres>,
         document: &Document,
         line: &DocumentLine,
+        drift: &mut Vec<StorageDriftEvent>,
     ) -> Result<()> {
         match document.doc_type {
             DocType::GRN => Self::process_grn(tx, document, line).await?,
-            DocType::PR => Self::process_return_out(tx, document, line).await?,
-            DocType::SO => Self::process_sales_out(tx, document, line).await?,
-            DocType::TR => Self::process_transfer(tx, document, line).await?,
-            DocType::ADJ => Self::process_adjustment(tx, document, line).await?,
+            DocType::PR => Self::process_return_out(tx, document, line, drift).await?,
+            DocType::SO => Self::process_sales_out(tx, document, line, drift).await?,
+            DocType::TR => Self::process_transfer(tx, document, line, drift).await?,
+            DocType::ADJ => Self::process_adjustment(tx, document, line, drift).await?,
             // R84-13：原本此處還有 `SR | RTN => process_return_in`。SR/RTN 已從 DocType
             // 移除（業務上不存在銷貨退貨），此分支成為不可能路徑，一併清除。
             _ => {} // PO, STK 等不直接影響庫存
@@ -156,11 +203,12 @@ impl StockService {
         tx: &mut Transaction<'_, Postgres>,
         document: &Document,
         line: &DocumentLine,
+        drift: &mut Vec<StorageDriftEvent>,
     ) -> Result<()> {
         let warehouse_id = document
             .warehouse_id
             .ok_or_else(|| AppError::BusinessRule("Warehouse is required for PR".to_string()))?;
-        Self::process_out_from_warehouse(tx, document, line, warehouse_id).await
+        Self::process_out_from_warehouse(tx, document, line, warehouse_id, drift).await
     }
 
     /// SO 一段式銷貨出庫（migration 136）：倉庫**逐行**取自該行 `warehouse_id`
@@ -170,11 +218,12 @@ impl StockService {
         tx: &mut Transaction<'_, Postgres>,
         document: &Document,
         line: &DocumentLine,
+        drift: &mut Vec<StorageDriftEvent>,
     ) -> Result<()> {
         let warehouse_id = line.warehouse_id.ok_or_else(|| {
             AppError::BusinessRule("SO 明細缺少倉庫（應於建/改單時由儲位反推回填）".to_string())
         })?;
-        Self::process_out_from_warehouse(tx, document, line, warehouse_id).await
+        Self::process_out_from_warehouse(tx, document, line, warehouse_id, drift).await
     }
 
     /// 出庫扣帳共用 body（PR/DO 取表頭倉、SO 取逐行倉）：檢查庫存 → 寫 out 流水 → 扣儲位庫存。
@@ -183,6 +232,7 @@ impl StockService {
         document: &Document,
         line: &DocumentLine,
         warehouse_id: Uuid,
+        drift: &mut Vec<StorageDriftEvent>,
     ) -> Result<()> {
         Self::check_stock_available(tx, warehouse_id, line.product_id, line.qty).await?;
         Self::create_ledger_entry(
@@ -203,11 +253,15 @@ impl StockService {
         if let Some(storage_location_id) = line.storage_location_id {
             Self::decrement_storage_location_inventory(
                 tx,
-                storage_location_id,
-                line.product_id,
-                line.qty,
-                line.batch_no.clone(),
-                line.expiry_date,
+                DecrementParams {
+                    storage_location_id,
+                    product_id: line.product_id,
+                    qty: line.qty,
+                    batch_no: line.batch_no.clone(),
+                    expiry_date: line.expiry_date,
+                    doc_no: &document.doc_no,
+                },
+                drift,
             )
             .await?;
         }
@@ -222,6 +276,7 @@ impl StockService {
         tx: &mut Transaction<'_, Postgres>,
         document: &Document,
         line: &DocumentLine,
+        drift: &mut Vec<StorageDriftEvent>,
     ) -> Result<()> {
         let from_warehouse = document.warehouse_from_id.ok_or_else(|| {
             AppError::BusinessRule("Source warehouse is required for transfer".to_string())
@@ -264,11 +319,15 @@ impl StockService {
         if let Some(from_loc) = line.storage_location_from_id {
             Self::decrement_storage_location_inventory(
                 tx,
-                from_loc,
-                line.product_id,
-                line.qty,
-                line.batch_no.clone(),
-                line.expiry_date,
+                DecrementParams {
+                    storage_location_id: from_loc,
+                    product_id: line.product_id,
+                    qty: line.qty,
+                    batch_no: line.batch_no.clone(),
+                    expiry_date: line.expiry_date,
+                    doc_no: &document.doc_no,
+                },
+                drift,
             )
             .await?;
         }
@@ -291,6 +350,7 @@ impl StockService {
         tx: &mut Transaction<'_, Postgres>,
         document: &Document,
         line: &DocumentLine,
+        drift: &mut Vec<StorageDriftEvent>,
     ) -> Result<()> {
         let warehouse_id = document.warehouse_id.ok_or_else(|| {
             AppError::BusinessRule("Warehouse is required for adjustment".to_string())
@@ -347,11 +407,15 @@ impl StockService {
                 // qty == 0 為 no-op，不觸發多餘 UPDATE 與誤導性 drift warning（gemini review）。
                 Self::decrement_storage_location_inventory(
                     tx,
-                    storage_location_id,
-                    line.product_id,
-                    -line.qty,
-                    line.batch_no.clone(),
-                    line.expiry_date,
+                    DecrementParams {
+                        storage_location_id,
+                        product_id: line.product_id,
+                        qty: -line.qty,
+                        batch_no: line.batch_no.clone(),
+                        expiry_date: line.expiry_date,
+                        doc_no: &document.doc_no,
+                    },
+                    drift,
                 )
                 .await?;
             }
@@ -493,6 +557,87 @@ impl StockService {
         Ok(())
     }
 
+    /// 組裝「儲位庫存不足」要回給前端的訊息。
+    ///
+    /// 與 DB 查詢分離成純函式，有兩個理由：
+    /// 1. 這段文字是現場唯一會看到的東西，也是使用者裁定的「異狀時才盤」的觸發點
+    ///    ——它該被測試釘住。埋在 async 的 DB 路徑裡就只能靠整合測試，
+    ///    而整合測試需要獨立測試庫，本機跑不了（禁止對 prod 跑）。
+    /// 2. 批號／效期的四種組合是純邏輯，容易寫錯，值得單獨測。
+    fn insufficient_stock_message(
+        loc_label: &str,
+        prod_label: &str,
+        batch_no: Option<&str>,
+        expiry_date: Option<chrono::NaiveDate>,
+        on_hand: Decimal,
+        required: Decimal,
+        uom: &str,
+    ) -> String {
+        let batch_hint = match (batch_no, expiry_date) {
+            (Some(b), Some(e)) => format!("（批號 {b}、效期 {e}）"),
+            (Some(b), None) => format!("（批號 {b}）"),
+            (None, Some(e)) => format!("（效期 {e}）"),
+            (None, None) => String::new(),
+        };
+        // 🔴 `normalize()` 去掉資料庫帶來的尾隨零（CodeRabbit 於 MR !3 指出）。
+        //
+        // `on_hand_qty` / `qty_base` 是 numeric 欄位，Decimal 忠實保留它的 scale，
+        // 而 Display 又原樣印出——現場看到的會是「帳面只有 5.0000 雙」。
+        // 這則訊息的用意是讓人看懂並判斷下一步，多四個零只會讓人以為系統壞了。
+        //
+        // ⚠️ 本檔既有的單元測試**結構上驗不出這件事**：它們用 `Decimal::from_i64`
+        // 造值，scale 恆為 0。那些測試全綠不代表沒有這個 bug，只代表沒測到——
+        // 故一併補了 `數量不得帶出資料庫的尾隨零`，改用 scaled Decimal 進去。
+        let on_hand = on_hand.normalize();
+        let required = required.normalize();
+        format!(
+            "{loc_label}的{prod_label}{batch_hint}帳面只有 {on_hand} {uom}，這張單要領 {required} {uom}。\
+             若架上實際有貨，這是帳面與實體不符、不是缺貨——請先對該儲位開盤點單校正，再重新開單。\
+             若架上確實沒有，才是真的缺貨，需要從其他倉庫調撥或採購。"
+        )
+    }
+
+    /// 錯誤訊息用的儲位標示；查不到就退回 UUID。
+    ///
+    /// ⚠️ 這裡刻意吞掉查詢錯誤（`.ok()`），與「解析失敗不可靜默降級」不是同一件事：
+    /// 這是**輔助資訊**，唯一用途是把錯誤訊息裡的 UUID 換成人看得懂的字。
+    /// 讓它的失敗蓋掉呼叫端原本要回報的業務錯誤，等於用次要問題掩蓋主要問題。
+    async fn storage_location_label(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> String {
+        let row: Option<(String, Option<String>)> =
+            sqlx::query_as("SELECT sl.code, sl.name FROM storage_locations sl WHERE sl.id = $1")
+                .bind(id)
+                .fetch_optional(&mut **tx)
+                .await
+                .ok()
+                .flatten();
+        match row {
+            Some((code, Some(name))) => format!("儲位「{code} {name}」"),
+            Some((code, None)) => format!("儲位「{code}」"),
+            None => format!("儲位 {id}"),
+        }
+    }
+
+    /// 錯誤訊息用的品項標示與其基本單位。查不到就退回 UUID、單位留空。
+    ///
+    /// 帶 `base_uom` 是因為訊息裡要講「帳面只有 5 雙」——沒有單位的數字在
+    /// 一盒五十雙的品項上會被誤讀成盒數，那正是這則訊息要避免的誤導。
+    async fn product_label_and_uom(
+        tx: &mut Transaction<'_, Postgres>,
+        id: Uuid,
+    ) -> (String, String) {
+        let row: Option<(String, String, String)> =
+            sqlx::query_as("SELECT p.sku, p.name, p.base_uom FROM products p WHERE p.id = $1")
+                .bind(id)
+                .fetch_optional(&mut **tx)
+                .await
+                .ok()
+                .flatten();
+        match row {
+            Some((sku, name, uom)) => (format!("「{sku} {name}」"), uom),
+            None => (format!("品項 {id}"), String::new()),
+        }
+    }
+
     /// 扣減儲位庫存 (PR/DO/SR/TR-out 出庫時使用；UPDATE-only，不 INSERT)。
     /// migration 069 起 PR/DO/SR/RTN/TR 都會呼叫，修復過去只增不減的 drift。
     ///
@@ -504,12 +649,17 @@ impl StockService {
     /// 3. row 不存在（drift baseline 之前的單據對應）→ warn 不 fail；warehouse 級已守
     async fn decrement_storage_location_inventory(
         tx: &mut Transaction<'_, Postgres>,
-        storage_location_id: Uuid,
-        product_id: Uuid,
-        qty: Decimal,
-        batch_no: Option<String>,
-        expiry_date: Option<chrono::NaiveDate>,
+        params: DecrementParams<'_>,
+        drift: &mut Vec<StorageDriftEvent>,
     ) -> Result<()> {
+        let DecrementParams {
+            storage_location_id,
+            product_id,
+            qty,
+            batch_no,
+            expiry_date,
+            doc_no,
+        } = params;
         let result = sqlx::query(
             r#"
             UPDATE storage_location_inventory
@@ -551,15 +701,83 @@ impl StockService {
 
             match existing_qty {
                 Some(on_hand) => {
-                    // 庫存不足 — 拒絕；不允許單一儲位扣成負數
-                    return Err(AppError::BusinessRule(format!(
-                        "儲位庫存不足：location={}, product={}, on_hand={}, required={}, batch={:?}, expiry={:?}",
-                        storage_location_id, product_id, on_hand, qty, batch_no, expiry_date,
-                    )));
+                    // 庫存不足 — 拒絕；不允許單一儲位扣成負數。
+                    //
+                    // 🔴 這則訊息會**原樣回給前端**（`error.rs` 的 BusinessRule → 422 + msg），
+                    // 現場看到的就是它。措辭因此要指向正確的下一步。
+                    //
+                    // 舊版寫的是「儲位庫存不足：location=<UUID>, product=<UUID>, …」，有兩個問題：
+                    // 1. 全是 UUID，現場看不出是哪個架子、哪個品項。
+                    // 2. 「庫存不足」在現場的意思是「東西沒了，要叫貨」——但在
+                    //    「儲藏室不做例行盤點」的規則下（見 014 migration），走到這裡最常見的
+                    //    成因是**帳面與實體不符**，東西其實就在架上。照舊訊息去理解，
+                    //    會有人下一張根本不需要的採購單。
+                    //
+                    // 這裡同時是使用者裁定的「異狀時才盤」的觸發點：擋下來的這一刻，
+                    // 就是該去盤那個儲位的時候。訊息必須把這件事講出來。
+                    //
+                    // 查名稱的兩次查詢只在錯誤路徑執行，正常扣帳走不到，不影響熱路徑。
+                    let loc_label = Self::storage_location_label(tx, storage_location_id).await;
+                    let (prod_label, uom) = Self::product_label_and_uom(tx, product_id).await;
+                    // 用 InsufficientStock 而非 BusinessRule：兩者對前端一模一樣（422 + 同訊息，
+                    // `error.rs` 有測試釘住），差別是這個變體把儲位與品項帶得出去，
+                    // 讓 `workflow.rs` 能在 tx 回滾之後通知倉管與操作者。
+                    // 訊息寫在 tx 裡、通知發在 tx 外，是因為 rollback 會吃掉前者救不了後者。
+                    return Err(AppError::InsufficientStock {
+                        message: Self::insufficient_stock_message(
+                            &loc_label,
+                            &prod_label,
+                            batch_no.as_deref(),
+                            expiry_date,
+                            on_hand,
+                            qty,
+                            &uom,
+                        ),
+                        storage_location_id,
+                        product_id,
+                        on_hand,
+                        required: qty,
+                    });
                 }
                 None => {
                     // baseline 缺 row — 與舊行為一致 warn 通過
+                    //
+                    // 🔴 **這是一條靜默放行的路徑，已知有問題，本次刻意不改行為。**
+                    //
+                    // 儲位沒有對應 row 時這裡只寫 log 就放行，等於該儲位可以無限透支
+                    // （倉庫層級仍有 `check_stock_available` 守著，所以倉庫總量不會錯，
+                    // 但儲位層級的帳就此失真且無人知曉）。
+                    //
+                    // 為什麼現在不修：改成拒絕之後，**目前正在靜默通過的領用會開始被擋**。
+                    // prod 上若已累積不少缺 row 的儲位，上線當天可能大面積卡住現場。
+                    // 使用者裁定的順序是「先量測、再決定上線策略」，量測要等帳號恢復
+                    // 且經授權才能碰 prod DB。
+                    //
+                    // ⚠️ 這條與「儲藏室不做例行盤點」的新規則有直接衝突：SLI 的 row 靠
+                    // 入庫與**盤點**建立／校正，不盤點會讓缺 row 的機率上升，於是這條從
+                    // 「罕見的 baseline 遺留」變成常態路徑——而缺 row 的品項根本卡不住，
+                    // 使用者設計的「領不出來才去盤」就永遠不會被觸發。
+                    //
+                    // 2026-09-09：**行為仍然不變**（照樣放行），但改為額外記一筆事件，
+                    // 由 commit 之後的呼叫端通知倉管。使用者裁定「要通知，但不改放行行為」——
+                    // 通知不會擋住任何人，所以沒有「上線當天大面積卡住現場」的風險，
+                    // 而它本身就是上面說的那個量測：真實發生頻率會直接反映在通知量上。
+                    //
+                    // 這條補的正是下面那個缺口：缺 row 的品項卡不住，
+                    // 「領不出來才去盤」對它們永遠不會觸發，於是儲位帳一路失真且無人知曉。
+                    drift.push(StorageDriftEvent {
+                        storage_location_id,
+                        product_id,
+                        qty,
+                        batch_no: batch_no.clone(),
+                        expiry_date,
+                        doc_no: doc_no.to_string(),
+                    });
+
+                    // 下面的 `event` 標記是給量測用的：撈 `sli_decrement_missing_row`
+                    // 就能統計發生頻率與涉及哪些儲位／品項。
                     tracing::warn!(
+                        event = "sli_decrement_missing_row",
                         "storage_location_inventory decrement no-op: location={}, product={}, qty={}, batch={:?}, expiry={:?} \
                          — 可能 storage_inventory drift baseline 之前的單據對應，未影響 warehouse-level 庫存正確性",
                         storage_location_id, product_id, qty, batch_no, expiry_date,
@@ -870,13 +1088,17 @@ impl StockService {
     /// - `inventory_snapshots`：從 ledger 全量 SUM 重算（冪等），寫完鏡射列後重算即自動對齊。
     ///
     /// 反向扣減 SLI 時若庫存不足（例如原入庫的貨已被領用），
-    /// `decrement_storage_location_inventory` 會回 `BusinessRule` 錯誤使整筆 tx rollback——
-    /// 這是正確行為：東西已經不在了就不能假裝退回去。
+    /// `decrement_storage_location_inventory` 會回 `AppError::InsufficientStock` 使整筆 tx
+    /// rollback——這是正確行為：東西已經不在了就不能假裝退回去。
+    ///
+    /// 與 `process_document` 一樣回傳待通知的 `StorageDriftEvent`：沖銷同樣會走到
+    /// 「儲位沒有 row」那條靜默放行的路徑，沒有理由讓這條路徑上的帳失真比較不值得知道。
+    /// 呼叫端須在 commit 之後才據以通知。
     pub async fn reverse_document_stock(
         tx: &mut Transaction<'_, Postgres>,
         original: &Document,
         reversal: &Document,
-    ) -> Result<()> {
+    ) -> Result<Vec<StorageDriftEvent>> {
         let rows = sqlx::query_as::<_, StockLedger>(
             "SELECT * FROM stock_ledger WHERE doc_id = $1 ORDER BY created_at",
         )
@@ -885,8 +1107,10 @@ impl StockService {
         .await?;
 
         if rows.is_empty() {
-            return Ok(()); // 原單未影響庫存（如 PO / STK），無庫存面可沖銷
+            return Ok(Vec::new()); // 原單未影響庫存（如 PO / STK），無庫存面可沖銷
         }
+
+        let mut drift: Vec<StorageDriftEvent> = Vec::new();
 
         // 先依序取所有涉及 (倉,品) 的 advisory lock，與 process_document 同一套防死鎖策略
         let mut affected: Vec<(Uuid, Uuid)> = rows
@@ -934,11 +1158,15 @@ impl StockService {
                 if Self::is_inbound(row.direction) {
                     Self::decrement_storage_location_inventory(
                         tx,
-                        location_id,
-                        row.product_id,
-                        row.qty_base,
-                        row.batch_no.clone(),
-                        row.expiry_date,
+                        DecrementParams {
+                            storage_location_id: location_id,
+                            product_id: row.product_id,
+                            qty: row.qty_base,
+                            batch_no: row.batch_no.clone(),
+                            expiry_date: row.expiry_date,
+                            doc_no: &reversal.doc_no,
+                        },
+                        &mut drift,
                     )
                     .await?;
                 } else {
@@ -959,7 +1187,7 @@ impl StockService {
             Self::update_inventory_snapshot(tx, *warehouse_id, *product_id).await?;
         }
 
-        Ok(())
+        Ok(drift)
     }
 
     /// 沖銷用的方向反轉；in↔out、transfer_in↔transfer_out、adjust_in↔adjust_out。
@@ -1032,5 +1260,148 @@ impl StockService {
         } else {
             LotReconciliationStatus::Unbalanced
         }
+    }
+}
+
+#[cfg(test)]
+mod insufficient_stock_message_tests {
+    use super::*;
+    use rust_decimal::prelude::FromPrimitive;
+
+    fn dec(n: i64) -> Decimal {
+        Decimal::from_i64(n).expect("i64 一定轉得成 Decimal")
+    }
+
+    fn msg(batch: Option<&str>, expiry: Option<chrono::NaiveDate>) -> String {
+        StockService::insufficient_stock_message(
+            "儲位「A-01 冷藏架」",
+            "「CON-GLV-001 無菌手套」",
+            batch,
+            expiry,
+            dec(5),
+            dec(10),
+            "雙",
+        )
+    }
+
+    #[test]
+    fn 無批號無效期時不出現括號() {
+        let m = msg(None, None);
+        assert!(!m.contains('（'), "不該有批號/效期括號：{m}");
+        assert!(m.contains("儲位「A-01 冷藏架」的「CON-GLV-001 無菌手套」帳面只有 5 雙"));
+        assert!(m.contains("這張單要領 10 雙"));
+    }
+
+    /// 🔴 數量不得帶出資料庫的 scale。
+    ///
+    /// `on_hand_qty` / `qty_base` 是 numeric 欄位，Decimal 保留 scale 而 Display 原樣印出，
+    /// 於是現場看到「帳面只有 5.0000 雙」。
+    ///
+    /// **這條存在的理由是上面那些測試驗不到它**：`dec()` 走 `Decimal::from_i64`，
+    /// scale 恆為 0，無論修不修都會通過。測試全綠只代表沒測到，不代表沒有 bug——
+    /// 所以這裡刻意用 `Decimal::new(50000, 4)` 造出真實 DB 會給的形狀。
+    /// （CodeRabbit 於 MR !3 指出，2026-09-09）
+    #[test]
+    fn 數量不得帶出資料庫的尾隨零() {
+        let on_hand = Decimal::new(50_000, 4); // 5.0000
+        let required = Decimal::new(100_000, 4); // 10.0000
+        assert_eq!(
+            on_hand.to_string(),
+            "5.0000",
+            "前提檢查：Decimal 確實會保留 scale，否則本測試證明不了任何事"
+        );
+
+        let m = StockService::insufficient_stock_message(
+            "儲位「A-01 冷藏架」",
+            "「CON-GLV-001 無菌手套」",
+            None,
+            None,
+            on_hand,
+            required,
+            "雙",
+        );
+        assert!(m.contains("帳面只有 5 雙"), "{m}");
+        assert!(m.contains("這張單要領 10 雙"), "{m}");
+        assert!(
+            !m.contains("5.0000"),
+            "不該把 DB 的 scale 帶到現場文字：{m}"
+        );
+        assert!(!m.contains("10.0000"), "{m}");
+    }
+
+    #[test]
+    fn 只有批號時只列批號() {
+        let m = msg(Some("LOT-2026-A"), None);
+        assert!(m.contains("（批號 LOT-2026-A）"), "{m}");
+        assert!(!m.contains("效期"), "{m}");
+    }
+
+    #[test]
+    fn 只有效期時只列效期() {
+        let d = chrono::NaiveDate::from_ymd_opt(2027, 3, 31).expect("2027-03-31 是合法日期");
+        let m = msg(None, Some(d));
+        assert!(m.contains("（效期 2027-03-31）"), "{m}");
+        assert!(!m.contains("批號"), "{m}");
+    }
+
+    #[test]
+    fn 批號與效期都有時兩者都列() {
+        let d = chrono::NaiveDate::from_ymd_opt(2027, 3, 31).expect("2027-03-31 是合法日期");
+        let m = msg(Some("LOT-2026-A"), Some(d));
+        assert!(m.contains("（批號 LOT-2026-A、效期 2027-03-31）"), "{m}");
+    }
+
+    /// 🔴 這條釘住的是本次修改的**目的**，不是格式。
+    ///
+    /// 舊訊息只說「儲位庫存不足」，現場會理解成「東西沒了，要叫貨」，
+    /// 於是去下一張其實不需要的採購單——而在「儲藏室不做例行盤點」的規則下
+    /// （見 014 migration），走到這裡最常見的成因是帳面與實體不符，東西就在架上。
+    ///
+    /// 這則訊息同時是使用者裁定的「異狀時才盤」的唯一觸發點。
+    /// 有人把引導語刪成一句「庫存不足」，整套規則就失去入口——這條會擋下來。
+    #[test]
+    fn 訊息必須指向盤點而不是只說缺貨() {
+        let m = msg(None, None);
+        assert!(
+            m.contains("帳面與實體不符"),
+            "必須點出這可能不是缺貨而是帳實不符：{m}"
+        );
+        assert!(m.contains("盤點單"), "必須指出下一步是開盤點單：{m}");
+        assert!(
+            m.contains("才是真的缺貨"),
+            "必須保留「架上真的沒有才是缺貨」這條分支，否則會變成一律當帳實不符：{m}"
+        );
+    }
+
+    /// 數量必須帶單位。一盒五十雙的品項上，沒有單位的「5」會被讀成 5 盒。
+    #[test]
+    fn 數量必須帶基本單位() {
+        let m = StockService::insufficient_stock_message(
+            "儲位「B-02」",
+            "「MED-001 範例藥品」",
+            None,
+            None,
+            dec(2),
+            dec(3),
+            "盒",
+        );
+        assert!(m.contains("帳面只有 2 盒"), "{m}");
+        assert!(m.contains("要領 3 盒"), "{m}");
+    }
+
+    /// 查不到名稱時退回 UUID 字樣，訊息本身仍要成立（不會變成空白或 panic）。
+    #[test]
+    fn 名稱查不到時訊息仍完整() {
+        let m = StockService::insufficient_stock_message(
+            "儲位 0f8b2c1e-0000-0000-0000-000000000000",
+            "品項 3a7d9e11-0000-0000-0000-000000000000",
+            None,
+            None,
+            dec(0),
+            dec(1),
+            "",
+        );
+        assert!(m.contains("帳面只有 0"), "{m}");
+        assert!(m.contains("盤點單"), "{m}");
     }
 }

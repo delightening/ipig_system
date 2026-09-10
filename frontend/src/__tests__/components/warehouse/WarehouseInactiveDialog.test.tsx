@@ -22,6 +22,11 @@ function makeWarehouse(overrides: Partial<Warehouse> = {}): Warehouse {
     code: '2',
     name: '儲藏室',
     is_active: false,
+    // migration 014/015 的政策旗標。這支測試的樣本剛好是儲藏室——現實中三項都會是
+    // true，但本測試驗的是停用／復原流程，與政策無關，用欄位預設值即可。
+    exclude_from_alerts: false,
+    skip_routine_stocktake: false,
+    is_default_issue_source: false,
     created_at: '2026-03-18T02:20:11Z',
     updated_at: '2026-08-05T08:06:55Z',
     ...overrides,
