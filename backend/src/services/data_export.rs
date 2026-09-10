@@ -289,6 +289,19 @@ const INTENTIONALLY_EXCLUDED_TABLES: &[&str] = &[
     // migration 006 建立，migration 130 已 DROP TABLE（vet_recommendations 功能退役，獸醫建議
     // 單一來源改為 animal_vet_advice_records）；此處保留讓測試掃描器略過 006 的 CREATE TABLE 宣告。
     "vet_recommendations",
+    // migration 011 的回退用鷹架，不是業務資料：記下該次遷移改寫掉的單位別名原值
+    // （`BX` → `盒`）、被去重刪掉的列，以及實際插入的列 id，供人工回退腳本精確還原。
+    //
+    // 為什麼排除而不是匯出：它們存的是**遷移當下的暫態副本**。匯出後還原會把過期的舊寫法
+    // 帶回一個已經正規化過的資料庫，反而製造出正規列與別名列並存的髒資料
+    // ——那正是 011 要消滅的東西。
+    //
+    // ⚠️ 已知代價：整庫還原之後這三張表會是空的，屆時 011 的回退腳本只刪得掉它插入的列、
+    // 還原不了別名原值。這個順序（先整庫還原、再回退 011）極罕見，且實查正式環境的換算表
+    // 本身就是空的、備份內容為空。011 確認不再需要回退後，這三張表可自行 DROP。
+    "mig011_conversion_backup",
+    "mig011_pack_unit_backup",
+    "mig011_inserted_conversion",
 ];
 
 /// 從 _sqlx_migrations 讀取最新 schema 版本，格式為 "001".."010"
