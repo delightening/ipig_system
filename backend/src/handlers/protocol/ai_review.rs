@@ -7,7 +7,6 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    constants::{ROLE_IACUC_CHAIR, ROLE_IACUC_STAFF, ROLE_SYSTEM_ADMIN},
     middleware::CurrentUser,
     models::ai_review::{
         AiReviewResponse, BatchReturnRequest, BatchReturnResponse, ValidationResult,
@@ -101,14 +100,7 @@ pub async fn staff_review_assist(
     Path(id): Path<Uuid>,
 ) -> Result<Json<AiReviewResponse>> {
     // 權限：IACUC_STAFF 或 IACUC_CHAIR
-    if !current_user.roles.iter().any(|r| {
-        [
-            crate::constants::ROLE_IACUC_STAFF,
-            crate::constants::ROLE_IACUC_CHAIR,
-            crate::constants::ROLE_SYSTEM_ADMIN,
-        ]
-        .contains(&r.as_str())
-    }) {
+    if !access::is_iacuc_staff_or_chair(&current_user) {
         return Err(AppError::Forbidden(
             "僅限 IACUC 執行秘書或主委使用".to_string(),
         ));
@@ -141,14 +133,7 @@ pub async fn get_latest_staff_review(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Option<AiReviewResponse>>> {
-    if !current_user.roles.iter().any(|r| {
-        [
-            crate::constants::ROLE_IACUC_STAFF,
-            crate::constants::ROLE_IACUC_CHAIR,
-            crate::constants::ROLE_SYSTEM_ADMIN,
-        ]
-        .contains(&r.as_str())
-    }) {
+    if !access::is_iacuc_staff_or_chair(&current_user) {
         return Err(AppError::Forbidden(
             "僅限 IACUC 執行秘書或主委使用".to_string(),
         ));
@@ -166,10 +151,7 @@ pub async fn staff_batch_return(
     Path(protocol_id): Path<Uuid>,
     Json(req): Json<BatchReturnRequest>,
 ) -> Result<Json<BatchReturnResponse>> {
-    let is_staff = current_user
-        .roles
-        .iter()
-        .any(|r| [ROLE_IACUC_STAFF, ROLE_IACUC_CHAIR, ROLE_SYSTEM_ADMIN].contains(&r.as_str()));
+    let is_staff = access::is_iacuc_staff_or_chair(&current_user);
     if !is_staff {
         return Err(AppError::Forbidden(
             "僅限 IACUC 執行秘書或主委使用".to_string(),
@@ -188,14 +170,7 @@ async fn check_protocol_access(
     protocol_id: Uuid,
     current_user: &CurrentUser,
 ) -> Result<()> {
-    let is_staff = current_user.roles.iter().any(|r| {
-        [
-            crate::constants::ROLE_IACUC_STAFF,
-            crate::constants::ROLE_IACUC_CHAIR,
-            crate::constants::ROLE_SYSTEM_ADMIN,
-        ]
-        .contains(&r.as_str())
-    });
+    let is_staff = access::is_iacuc_staff_or_chair(current_user);
     if is_staff {
         return Ok(());
     }
@@ -218,13 +193,7 @@ async fn check_protocol_owner(
 ) -> Result<()> {
     let is_owner =
         access::is_pi_sd_or_client_member(&state.db, protocol_id, current_user.id).await?;
-    let is_staff = current_user.roles.iter().any(|r| {
-        [
-            crate::constants::ROLE_IACUC_STAFF,
-            crate::constants::ROLE_SYSTEM_ADMIN,
-        ]
-        .contains(&r.as_str())
-    });
+    let is_staff = access::is_iacuc_staff(current_user);
     if !is_owner && !is_staff {
         return Err(AppError::Forbidden(
             "只有計畫主持人可以使用 AI 預審".to_string(),
