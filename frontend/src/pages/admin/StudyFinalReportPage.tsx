@@ -5,6 +5,11 @@ import { useAuthHasPermission } from '@/stores/auth'
 import {
   listStudyReports,
   createStudyReport,
+  getStudyReport,
+  updateStudyReport,
+  signStudyReport,
+  updateQauStatement,
+  type StudyFinalReport,
 } from '@/lib/api/glpCompliance'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,14 +50,20 @@ const STATUS_VARIANTS: Record<
 
 const INITIAL_FORM = { protocol_id: '', title: '', summary: '', methods: '' }
 
+const textareaClass =
+  'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring'
+
 export function StudyFinalReportPage() {
   const queryClient = useQueryClient()
   const hasPermission = useAuthHasPermission()
-  const canManage = hasPermission('study.report.manage')
+  // 2026-09-05：study.report.manage 已改走身分即授權（P0-1）——按鈕永遠顯示，
+  // 是否真的能建立／編輯／簽署由後端依「本人是不是該計畫 SD」判定，未授權時 toast 顯示 403 訊息。
+  const canWriteQauStatement = hasPermission('qau.report_statement.write')
 
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState(INITIAL_FORM)
+  const [detailId, setDetailId] = useState<string | null>(null)
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['study-reports', filterStatus],
@@ -83,12 +94,10 @@ export function StudyFinalReportPage() {
           <h1 className="text-2xl font-bold tracking-tight">研究最終報告</h1>
           <p className="text-muted-foreground">GLP 最終報告管理</p>
         </div>
-        {canManage && (
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            新增報告
-          </Button>
-        )}
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          新增報告
+        </Button>
       </div>
 
       <Card>
@@ -126,7 +135,22 @@ export function StudyFinalReportPage() {
                 <TableEmptyRow colSpan={6} icon={FileText} title="尚無報告" />
               ) : (
                 reports.map((r) => (
-                  <TableRow key={r.id}>
+                  <TableRow
+                    key={r.id}
+                    // 整列是開啟詳情的唯一入口，所以它必須能用鍵盤操作：
+                    // 只掛 onClick 的 <tr> 不在 tab 順序內，鍵盤與讀屏使用者完全打不開詳情。
+                    // a11y 是 CLAUDE.md §精簡的底線 明列不可省的項目。
+                    role="button"
+                    tabIndex={0}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setDetailId(r.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault() // 空白鍵預設會捲動頁面
+                        setDetailId(r.id)
+                      }
+                    }}
+                  >
                     <TableCell className="font-mono text-sm">{r.report_number}</TableCell>
                     <TableCell className="font-medium">{r.title}</TableCell>
                     <TableCell>
@@ -152,6 +176,7 @@ export function StudyFinalReportPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">實驗計畫 ID *</label>
               <Input value={form.protocol_id} onChange={(e) => setForm((f) => ({ ...f, protocol_id: e.target.value }))} placeholder="Protocol UUID" />
+              <p className="text-xs text-muted-foreground">只有該計畫的計劃負責人（Study Director）本人可以建立報告。</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">標題 *</label>
@@ -160,7 +185,7 @@ export function StudyFinalReportPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">摘要</label>
               <textarea
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                className={textareaClass}
                 value={form.summary}
                 onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))}
               />
@@ -168,7 +193,7 @@ export function StudyFinalReportPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">方法</label>
               <textarea
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                className={textareaClass}
                 value={form.methods}
                 onChange={(e) => setForm((f) => ({ ...f, methods: e.target.value }))}
               />
@@ -182,6 +207,257 @@ export function StudyFinalReportPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {detailId && (
+        <StudyReportDetailDialog
+          id={detailId}
+          canWriteQauStatement={canWriteQauStatement}
+          onClose={() => setDetailId(null)}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * 最終報告詳情對話框：本文編輯、SD 簽署、QAU 品保聲明三塊在同一個畫面，
+ * 但**授權來源三者各異**（P0-1），所以顯示條件不共用：
+ *
+ * - 本文編輯與簽署：身分即授權（該計畫的 SD）。SD 是「該計畫的」身分，前端無從得知，
+ *   故**刻意不做前端權限判斷**，一律顯示、由後端回 403。前端若擅自擋，SD 本人也會點不到。
+ * - QAU 品保聲明：有對應權限碼，所以靠 `canWriteQauStatement` 決定可編輯或唯讀。
+ * - 已簽署（`status === 'signed'`）：本文編輯與簽署入口一律不顯示，後端另有守衛擋。
+ */
+function StudyReportDetailDialog({
+  id,
+  canWriteQauStatement,
+  onClose,
+}: {
+  id: string
+  canWriteQauStatement: boolean
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [edit, setEdit] = useState<{
+    title: string
+    summary: string
+    methods: string
+    results: string
+    conclusions: string
+    deviations: string
+  } | null>(null)
+  // null = 使用者還沒動過這個欄位，畫面與送出都回落到報告現值；
+  // 空字串是「使用者刻意清空」，與 null 不同義，所以不能用 '' 當初始值。
+  const [qauStatement, setQauStatement] = useState<string | null>(null)
+  const [signPassword, setSignPassword] = useState('')
+
+  const { data: report, isLoading, isError, error } = useQuery({
+    queryKey: ['study-report', id],
+    queryFn: () => getStudyReport(id),
+  })
+
+  /**
+   * 進入編輯模式：把報告現值複製進表單狀態。
+   * `?? ''` 是刻意的——後端這些欄位可為 `null`，而受控 textarea 吃到 `null`
+   * 會被 React 當成非受控而噴警告，且游標行為會亂掉。
+   */
+  const startEdit = (r: StudyFinalReport) =>
+    setEdit({
+      title: r.title,
+      summary: r.summary ?? '',
+      methods: r.methods ?? '',
+      results: r.results ?? '',
+      conclusions: r.conclusions ?? '',
+      deviations: r.deviations ?? '',
+    })
+
+  /**
+   * 三個 mutation 成功後都呼叫這支。**兩個 key 都要失效**：
+   * 詳情（`['study-report', id]`）與列表（`['study-reports']`）——
+   * 簽署會同時改變詳情內容與列表上的狀態徽章／簽署人欄，
+   * 只失效其一會讓另一邊停在舊值。
+   */
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['study-report', id] })
+    queryClient.invalidateQueries({ queryKey: ['study-reports'] })
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      if (!edit) throw new Error('no edit state')
+      return updateStudyReport(id, edit)
+    },
+    onSuccess: () => {
+      invalidate()
+      setEdit(null)
+      toast({ title: '報告已更新' })
+    },
+    onError: (err: unknown) => toast({ title: '更新失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+  })
+
+  const signMutation = useMutation({
+    mutationFn: () => signStudyReport(id, { password: signPassword }),
+    onSuccess: () => {
+      invalidate()
+      setSignPassword('')
+      toast({ title: '已簽署最終報告' })
+    },
+    onError: (err: unknown) => toast({ title: '簽署失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+  })
+
+  const qauMutation = useMutation({
+    // 與 textarea 的 value、與按鈕的 disabled 用同一個 resolved 值：
+    // 三處若各自解讀 null，就會出現「畫面顯示 A、送出 B」的分歧。
+    mutationFn: () => updateQauStatement(id, qauStatement ?? report?.qau_statement ?? ''),
+    onSuccess: () => {
+      invalidate()
+      toast({ title: 'QAU 品保聲明已儲存' })
+    },
+    onError: (err: unknown) => toast({ title: '儲存失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+  })
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      {/* size="lg" 即 max-w-2xl（見 components/ui/dialogSize.ts）；
+          ⚠️ 不是 size="2xl"——那是 max-w-6xl。寬度一律走 size prop，禁止硬編 max-w-*（DESIGN.md）。 */}
+      <DialogContent size="lg">
+        <DialogHeader>
+          <DialogTitle>{report ? `${report.report_number}｜${report.title}` : '最終報告'}</DialogTitle>
+        </DialogHeader>
+
+        {/* ⚠️ 失敗必須有自己的分支。原本只有 `isLoading || !report`：查詢 reject 時
+            isLoading 會變 false 而 report 仍是 undefined，於是落進同一格，
+            對話框**永遠停在「載入中…」**——使用者看到的是無限載入而不是錯誤。 */}
+        {isError ? (
+          <div className="py-8 text-center text-destructive">
+            {getApiErrorMessage(error, '載入報告失敗')}
+          </div>
+        ) : isLoading || !report ? (
+          <div className="py-8 text-center text-muted-foreground">載入中…</div>
+        ) : (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2">
+              <Badge variant={STATUS_VARIANTS[report.status] ?? 'secondary'}>
+                {STATUS_OPTIONS.find((s) => s.value === report.status)?.label ?? report.status}
+              </Badge>
+              {report.signed_at && (
+                <span className="text-xs text-muted-foreground">
+                  主持人已於 {new Date(report.signed_at).toLocaleString(uiLocale())} 簽署
+                </span>
+              )}
+            </div>
+
+            {/* 報告本文：身分即授權，只有本計畫 SD 能編輯／簽署，未授權時後端會回 403 */}
+            {edit ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">標題</label>
+                  <Input value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">摘要</label>
+                  <textarea className={textareaClass} value={edit.summary} onChange={(e) => setEdit({ ...edit, summary: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">方法</label>
+                  <textarea className={textareaClass} value={edit.methods} onChange={(e) => setEdit({ ...edit, methods: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">結果</label>
+                  <textarea className={textareaClass} value={edit.results} onChange={(e) => setEdit({ ...edit, results: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">結論</label>
+                  <textarea className={textareaClass} value={edit.conclusions} onChange={(e) => setEdit({ ...edit, conclusions: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">偏離事項</label>
+                  <textarea className={textareaClass} value={edit.deviations} onChange={(e) => setEdit({ ...edit, deviations: e.target.value })} />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setEdit(null)}>取消</Button>
+                  <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>儲存</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  <div><span className="font-medium">摘要：</span>{report.summary || '—'}</div>
+                  <div><span className="font-medium">方法：</span>{report.methods || '—'}</div>
+                  <div><span className="font-medium">結果：</span>{report.results || '—'}</div>
+                  <div><span className="font-medium">結論：</span>{report.conclusions || '—'}</div>
+                  <div><span className="font-medium">偏離事項：</span>{report.deviations || '—'}</div>
+                </div>
+                {report.status !== 'signed' && (
+                  <Button variant="outline" size="sm" onClick={() => startEdit(report)}>編輯報告本文</Button>
+                )}
+              </div>
+            )}
+
+            {/* SD 簽署：無 admin 例外，僅本計畫 SD 本人可簽 */}
+            {report.status !== 'signed' && (
+              <div className="space-y-2 border-t pt-4">
+                <label className="text-sm font-medium">簽署最終報告（僅本計畫計劃負責人 Study Director 可簽）</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder="密碼確認身分"
+                    value={signPassword}
+                    onChange={(e) => setSignPassword(e.target.value)}
+                  />
+                  <Button
+                    onClick={() => signMutation.mutate()}
+                    disabled={!signPassword || signMutation.isPending}
+                  >
+                    簽署
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* QAU 品保聲明：與報告本文分開授權，且不得為本計畫 SD 本人（服務層強制） */}
+            <div className="space-y-2 border-t pt-4">
+              <label className="text-sm font-medium">QAU 品保聲明</label>
+              {report.qau_signed_at && (
+                <p className="text-xs text-muted-foreground">
+                  已於 {new Date(report.qau_signed_at).toLocaleString(uiLocale())} 出具
+                </p>
+              )}
+              {canWriteQauStatement ? (
+                <div className="space-y-2">
+                  {/* 受控欄位 + 「草稿為 null 時回落到報告現值」（CodeRabbit 於 #102 指出）。
+                      改掉的是兩件事：
+                      ① `defaultValue` 只在首次掛載生效，報告在對話框開著時被 refetch
+                         （儲存後 invalidate 就會）不會反映到畫面；
+                      ② 舊寫法的 disabled 看的是空的草稿 state，於是**已經有品保聲明的報告
+                         打開後按鈕是灰的**，非得先打一個字才能存。 */}
+                  <textarea
+                    className={textareaClass}
+                    value={qauStatement ?? report.qau_statement ?? ''}
+                    onChange={(e) => setQauStatement(e.target.value)}
+                    placeholder="品保稽核結論…"
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      onClick={() => qauMutation.mutate()}
+                      disabled={!(qauStatement ?? report.qau_statement) || qauMutation.isPending}
+                    >
+                      儲存品保聲明
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{report.qau_statement || '尚無品保聲明'}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>關閉</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

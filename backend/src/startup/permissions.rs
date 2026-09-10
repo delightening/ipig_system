@@ -134,6 +134,11 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("invitation.resend", "重新發送邀請", "invitation", "可重新發送邀請 Email"),
         // GLP 合規模組 (Migration 016)
         ("glp.study_director.designate", "指定 Study Director", "glp", "可指定研究之 Study Director"),
+        // 2026-09-05：本碼從未接上任何檢查（見 docs/reviews/2026-09-03-code-side-issues.md P0-1）。
+        // 最終報告簽署已改走身分即授權（actor.id == protocol.study_director_user_id，
+        // 見 GlpComplianceService::sign_study_report），比照 protocol_closure 不設 admin 例外——
+        // SD 不是全域角色，任何角色授予都表達不出「該報告的 SD 才能簽」。
+        // 保留此定義供歷史追溯，實際不再由任何 handler 檢查；待 P2-7 死碼清理一併移除。
         ("glp.study_report.sign", "簽署最終報告", "glp", "Study Director 簽署最終研究報告"),
         ("glp.compliance.overview", "GLP 遵循總覽", "glp", "查看 GLP 遵循狀態儀表板"),
         ("glp.management_review.view", "查看管理審查", "glp", "檢視管理審查紀錄"),
@@ -156,8 +161,11 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("competency.assessment.view", "查看能力評鑑", "competency", "檢視能力評鑑紀錄"),
         ("competency.assessment.manage", "管理能力評鑑", "competency", "建立、執行能力評鑑"),
         // 最終報告
-        ("study.report.view", "查看最終報告", "study", "檢視研究最終報告"),
+        ("study.report.view", "查看最終報告", "study", "檢視研究最終報告（無此權限者仍可檢視本人擔任 SD 的計畫報告，見 can_view_study_report）"),
+        // 2026-09-05：撰寫／編輯報告本文改走身分即授權（見 glp.study_report.sign 的同一則註解），
+        // 不再由任何 handler 檢查此碼；保留定義待 P2-7 死碼清理一併移除。
         ("study.report.manage", "管理最終報告", "study", "建立、編輯研究最終報告"),
+        ("qau.report_statement.write", "填寫 QAU 品保聲明", "qau", "GLP 最終報告 QAU 品保聲明填寫，與報告本文分開授權；同時要求填寫者不得為該計畫 SD 本人"),
         // 配製紀錄
         ("formulation.record.view", "查看配製紀錄", "formulation", "檢視試驗物質配製紀錄"),
         ("formulation.record.manage", "管理配製紀錄", "formulation", "建立、編輯配製紀錄"),
@@ -930,6 +938,10 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
                 // 前端入口已存在（`AuditLogsPage` 的「撤銷簽章」鈕 → `InvalidateSignatureDialog`，
                 // 要求 signature id + 理由 + 密碼二次確認），授予後即可點得到。
                 "signature.invalidate",
+                // 2026-09-05：GLP 最終報告——QAU 需要看到報告才能出具品保聲明，
+                // 且聲明填寫與報告本文分開授權（study.report.manage 已改走身分即授權，見上）
+                "study.report.view",
+                "qau.report_statement.write",
                 // 跨模組唯讀
                 "aup.protocol.view_all",
                 "aup.review.view",
