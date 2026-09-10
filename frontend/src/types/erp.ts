@@ -11,8 +11,52 @@ export interface Warehouse {
     name: string
     address?: string
     is_active: boolean
+    /**
+     * 排除於低庫存警報之外（migration 014）。
+     *
+     * 用於帳面準確度不受維護的倉庫（每天領用的儲藏室），或本來就不是庫存資產的
+     * 地點（廢棄物處理區）。後端的 `v_low_stock_alerts` 直接讀它過濾。
+     */
+    exclude_from_alerts: boolean
+    /**
+     * 不納入例行盤點（migration 014）。
+     *
+     * 命名是 routine 而非 scheduled：本系統沒有盤點排程器，月盤是人工開單。
+     * ⚠️ 後端沒有任何邏輯讀它——作用點在開盤點單時的提示與人的流程。
+     */
+    skip_routine_stocktake: boolean
+    /**
+     * 此倉庫是否為領用來源（migration 015）。
+     *
+     * 建 SO 時，若所選品項在這個倉庫有貨，儲位欄位會自動帶該倉的儲位。
+     * **可同時有多個倉庫為 true**——藥品在準備室藥品櫃、耗材在儲藏室鐵櫃，
+     * 兩者都是正當的領用點，後端再依品項實際庫存挑選。故沒有唯一性約束。
+     *
+     * 排除的是「有庫存數字但不該從那裡領」的地點，廢棄物處理區必然為 false。
+     */
+    is_default_issue_source: boolean
     created_at: string
     updated_at: string
+}
+
+/**
+ * 建 SO 時的儲位建議（migration 015）。
+ *
+ * 只含「該品項目前有貨、且倉庫被標為領用來源」的儲位，依先到期先出（FEFO）排序。
+ * 已過期的批號不會出現在這裡——自動帶一個過期批號等於系統背書錯誤選項。
+ * 空陣列是正常結果（沒有倉庫被勾為領用來源時就是如此），此時不預設任何儲位。
+ */
+export interface IssueLocationSuggestion {
+    storage_location_id: string
+    storage_location_code: string
+    storage_location_name: string | null
+    warehouse_id: string
+    warehouse_code: string
+    warehouse_name: string
+    /** Decimal 以字串傳遞，避免 JS number 的精度問題 */
+    on_hand_qty: string
+    batch_no: string | null
+    expiry_date: string | null
 }
 
 // 倉庫樹節點（含貨架）

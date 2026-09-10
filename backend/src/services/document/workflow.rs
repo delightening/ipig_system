@@ -1,6 +1,6 @@
 use rust_decimal::Decimal;
 use serde::Serialize;
-use sqlx::{Acquire, PgPool};
+use sqlx::{Acquire, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{
@@ -11,7 +11,8 @@ use crate::{
     },
     services::{
         audit::{ActivityLogEntry, AuditEntity},
-        AccountingService, AuditService, StockService,
+        stock::StorageDriftEvent,
+        AccountingService, AuditService, NotificationService, StockService,
     },
     AppError, Result,
 };
@@ -27,6 +28,98 @@ struct GrnUnshelvedAudit {
     unshelved_qty_total: Decimal,
 }
 impl AuditRedact for GrnUnshelvedAudit {}
+
+/// 領用被儲位庫存擋下時：先確實收掉 transaction，再通知倉管與操作者，最後把原錯誤原樣傳回。
+///
+/// 🔴 順序是這個函式存在的**唯一**理由。擋下的當下 tx 一定會回滾，
+/// 通知若寫在 tx 裡會跟著消失——所以必須先 rollback、再用 pool 另開連線寫通知。
+///
+/// 顯式 `rollback().await` 而不是靠 `drop`：drop 的回滾是丟到背景做的，
+/// 不等它結束就去搶同一批資料的鎖，等於自己跟自己競爭。
+///
+/// 通知失敗只 warn 不改回傳：**操作者該看到的是庫存錯誤本身**。
+/// 讓通知的失敗蓋掉它，等於用次要問題掩蓋主要問題。
+pub(super) async fn rollback_then_notify_block(
+    pool: &PgPool,
+    tx: Transaction<'_, Postgres>,
+    err: AppError,
+    doc_no: &str,
+    operator_id: Uuid,
+) -> AppError {
+    if let Err(e) = tx.rollback().await {
+        tracing::warn!("領用卡關後回滾 transaction 失敗 doc={doc_no}: {e}");
+    }
+    if let AppError::InsufficientStock {
+        message,
+        storage_location_id,
+        product_id,
+        ..
+    } = &err
+    {
+        let notif = NotificationService::new(pool.clone());
+        if let Err(e) = notif
+            .notify_stock_blocked(
+                *storage_location_id,
+                *product_id,
+                message,
+                doc_no,
+                Some(operator_id),
+            )
+            .await
+        {
+            tracing::warn!("領用卡關通知失敗 doc={doc_no}: {e}");
+        }
+    }
+    err
+}
+
+/// 儲位帳失真事件的通知（best-effort）。**只在 `tx.commit()` 成功之後呼叫。**
+///
+/// 提早發會在「核准後續步驟失敗、整張回滾」時留下一則描述根本沒發生的事的假警報，
+/// 而收到的人無從分辨真假——一則不可信的警示比沒有警示更糟。
+pub(super) async fn notify_storage_drift_after_commit(
+    pool: &PgPool,
+    drift: &[StorageDriftEvent],
+    operator_id: Uuid,
+) {
+    if drift.is_empty() {
+        return;
+    }
+    let notif = NotificationService::new(pool.clone());
+    // 先依 (儲位, 品項) 去重（CodeRabbit 於 MR !3 指出）。
+    //
+    // 一張單的多個明細行可能都缺 SLI row，同一組 (儲位, 品項) 於是出現好幾次。
+    // 每次 dispatch 都要查儲位與品項名稱、撈全體倉管、再跑一次 dedup 查詢，
+    // 而 `notify_storage_drift` 的標題只由 (SKU, 儲位) 決定——**第二次之後不會產生
+    // 任何新通知**，那些查詢純屬白做。
+    //
+    // ⚠️ CodeRabbit 同時點出反面，值得寫下來：去重也壓掉了「第一次 insert 失敗時，
+    // 後面的重複事件恰好構成重試」這個效果。這裡仍選擇去重，因為那個重試是偶然不是設計：
+    // 它只在「同一 (儲位,品項) 剛好有多行」時存在，而那不保證。把可靠性建立在這種巧合上
+    // 比沒有重試更糟——它會讓人以為有重試。真需要重試就該明確實作。
+    //
+    // 保留每組第一筆，qty 因此只反映第一行而非總和：這則通知要傳達的是
+    // 「這個儲位的帳失真了，去盤它」，精確數量本來就不是重點
+    //（真正的數量以盤點為準，而促成盤點正是這則通知的目的）。
+    let mut seen = std::collections::HashSet::new();
+    for ev in drift {
+        if !seen.insert((ev.storage_location_id, ev.product_id)) {
+            continue;
+        }
+        if let Err(e) = notif
+            .notify_storage_drift(
+                ev.storage_location_id,
+                ev.product_id,
+                ev.qty,
+                &ev.doc_no,
+                Some(operator_id),
+            )
+            .await
+        {
+            tracing::warn!("儲位帳失真通知失敗 doc={}: {e}", ev.doc_no);
+        }
+    }
+}
 
 /// 盤點差異比對用：某貨架上某品項（含批號/效期維度）的系統現存量。
 #[derive(sqlx::FromRow)]
@@ -438,8 +531,24 @@ impl DocumentService {
         }
 
         // 檢查庫存並寫入流水（同 tx；stock ledger 為此次 approve 的 side effect）
+        //
+        // 不用 `?`：領用被儲位庫存擋下時要先回滾、再通知倉管與操作者，
+        // 而 `?` 會立刻 return，讓 tx 在背景 drop、通知也就沒機會發出去。
+        let mut stock_drift: Vec<StorageDriftEvent> = Vec::new();
         if document.doc_type.affects_stock() {
-            StockService::process_document(&mut tx, &document, &lines).await?;
+            match StockService::process_document(&mut tx, &document, &lines).await {
+                Ok(events) => stock_drift = events,
+                Err(e) => {
+                    return Err(rollback_then_notify_block(
+                        pool,
+                        tx,
+                        e,
+                        &document.doc_no,
+                        approved_by,
+                    )
+                    .await)
+                }
+            }
         }
 
         // 會計過帳（GRN/SO 等產生傳票分錄）— 以 SAVEPOINT 隔離；非銷貨類失敗不阻擋核准，
@@ -550,6 +659,9 @@ impl DocumentService {
 
         tx.commit().await?;
 
+        // 儲位帳失真 → commit 之後才通知（缺 row 的靜默放行路徑；行為不變，只是讓它出聲）。
+        notify_storage_drift_after_commit(pool, &stock_drift, approved_by).await;
+
         // 採購入庫（GRN 核准）→ 解除該 PO 的「未入庫提醒」置頂（best-effort，失敗僅 warn）。
         // 與 erp.rs notify_po_pending_receipt 的置頂互為一組：建立時置頂、入庫後降級。
         if document.doc_type == DocType::GRN {
@@ -630,9 +742,17 @@ impl DocumentService {
         .await?;
         let before_doc = document.clone();
 
-        // 寫入庫存流水
+        // 寫入庫存流水（不用 `?` 的理由同 `approve`：擋下時要先回滾才發得出通知）
+        let mut stock_drift: Vec<StorageDriftEvent> = Vec::new();
         if document.doc_type.affects_stock() {
-            StockService::process_document(&mut tx, &document, &lines).await?;
+            match StockService::process_document(&mut tx, &document, &lines).await {
+                Ok(events) => stock_drift = events,
+                Err(e) => {
+                    return Err(
+                        rollback_then_notify_block(pool, tx, e, &document.doc_no, admin_id).await,
+                    )
+                }
+            }
         }
 
         // 會計過帳 — 以 SAVEPOINT 隔離，失敗不阻擋核准
@@ -688,6 +808,9 @@ impl DocumentService {
         .await?;
 
         tx.commit().await?;
+
+        // 儲位帳失真 → commit 之後才通知（理由同 `approve`）
+        notify_storage_drift_after_commit(pool, &stock_drift, admin_id).await;
 
         tracing::info!(
             "[ADJ Admin Approval] Document {} approved by admin {}",

@@ -273,6 +273,178 @@ impl NotificationService {
         Ok(count)
     }
 
+    /// 領用被儲位庫存擋下 → 通知倉管與當下操作的人。
+    ///
+    /// 🔴 **只能在 `tx.commit()`／rollback 之後呼叫。** 擋下的當下整張核准會回滾，
+    /// 寫在那個 tx 裡的通知會一起消失——這正是本函式獨立於 `StockService` 存在的理由。
+    ///
+    /// 為什麼要通知而不是只回錯誤給操作者：使用者裁定的規則是「儲藏室平常不盤，
+    /// 缺貨或有異狀時才盤」，而**領不出來就是那個異狀**。只有操作者看到錯誤的話，
+    /// 這件事止於他當下的挫折；倉管要知道才會去盤那個儲位。
+    ///
+    /// dedup：同一 (儲位, 品項) 24 小時內只發一則。不去重的話同一個人連按三次就三則，
+    /// 倉管會被淹沒而不再看——那等於這則通知沒有存在過。
+    pub async fn notify_stock_blocked(
+        &self,
+        storage_location_id: Uuid,
+        product_id: Uuid,
+        message: &str,
+        doc_no: &str,
+        operator_id: Option<Uuid>,
+    ) -> Result<i32, AppError> {
+        let (sku, product_name, loc_code) =
+            self.blocked_labels(storage_location_id, product_id).await;
+        let title = format!("[iPig] 領用卡關 - {} @ {}", sku, loc_code);
+        let content = format!(
+            "{}\n\n單據：{}\n品項：{} {}\n儲位：{}",
+            message, doc_no, sku, product_name, loc_code
+        );
+        self.dispatch_storage_alert(storage_location_id, operator_id, title, content)
+            .await
+    }
+
+    /// 儲位帳失真（領用時該儲位根本沒有庫存列，系統靜默放行）→ 通知倉管與操作者。
+    ///
+    /// 🔴 同樣只能在 commit 之後呼叫，理由與 `notify_stock_blocked` 相同。
+    ///
+    /// 這條補的是「領不出來就通知」的另一半：缺 row 的品項**根本卡不住**，
+    /// 領用照樣過，於是儲位帳一路失真而沒有任何人會發現。行為刻意不改
+    /// （不擋，避免上線當天大面積卡住現場），改成讓它出聲。
+    pub async fn notify_storage_drift(
+        &self,
+        storage_location_id: Uuid,
+        product_id: Uuid,
+        qty: rust_decimal::Decimal,
+        doc_no: &str,
+        operator_id: Option<Uuid>,
+    ) -> Result<i32, AppError> {
+        let (sku, product_name, loc_code) =
+            self.blocked_labels(storage_location_id, product_id).await;
+        let title = format!("[iPig] 儲位帳失真 - {} @ {}", sku, loc_code);
+        // `normalize()` 的理由同 `ledger.rs` 的 `insufficient_stock_message`：
+        // qty 來自 numeric 欄位，不去尾隨零會印成「領出了 3.0000 個單位」。
+        // 兩處都是給現場看的文字，要一起處理才不會只修一半（CodeRabbit 在 MR !3 同時點名兩處）。
+        let content = format!(
+            "單據 {} 從{}領出了 {} 個單位的「{} {}」，但系統在該儲位查無這個品項的庫存列，\
+             領用仍照常放行（倉庫層級的總量檢查有守住，所以倉庫總數沒錯）。\n\n\
+             這代表該儲位的帳與實體已經對不起來，且不會自己恢復。請安排盤點該儲位以建立正確的基準。",
+            doc_no,
+            loc_code,
+            qty.normalize(),
+            sku,
+            product_name
+        );
+        self.dispatch_storage_alert(storage_location_id, operator_id, title, content)
+            .await
+    }
+
+    /// 兩則儲位警示共用：查人看得懂的標示。查不到就退回 UUID——
+    /// 這是輔助資訊，不該讓它的失敗蓋掉「有東西不對勁」這件事本身。
+    async fn blocked_labels(
+        &self,
+        storage_location_id: Uuid,
+        product_id: Uuid,
+    ) -> (String, String, String) {
+        let prod: Option<(String, String)> =
+            sqlx::query_as("SELECT sku, name FROM products WHERE id = $1")
+                .bind(product_id)
+                .fetch_optional(&self.db)
+                .await
+                .ok()
+                .flatten();
+        let loc: Option<(String, Option<String>)> =
+            sqlx::query_as("SELECT code, name FROM storage_locations WHERE id = $1")
+                .bind(storage_location_id)
+                .fetch_optional(&self.db)
+                .await
+                .ok()
+                .flatten();
+        let (sku, product_name) =
+            prod.unwrap_or_else(|| (product_id.to_string(), String::from("(查無品項)")));
+        let loc_code = match loc {
+            Some((code, Some(name))) => format!("{code} {name}"),
+            Some((code, None)) => code,
+            None => storage_location_id.to_string(),
+        };
+        (sku, product_name, loc_code)
+    }
+
+    /// 兩則儲位警示共用的派送：收件人 = 全體倉管 + 當下操作的人（去重），
+    /// 同一 (儲位, 品項) 24 小時內只發一則。
+    ///
+    /// dedup 用 `title` 精確比對而非 `LIKE`：title 已含 SKU 與儲位，本身就是那組 key
+    /// 的唯一表示。用 `LIKE '%...%'` 會在某個 SKU 恰為另一個的前綴時把兩者當成同一則，
+    /// 於是其中一個永遠收不到通知。
+    async fn dispatch_storage_alert(
+        &self,
+        storage_location_id: Uuid,
+        operator_id: Option<Uuid>,
+        title: String,
+        content: String,
+    ) -> Result<i32, AppError> {
+        let managers = self
+            .get_users_by_role(crate::constants::ROLE_WAREHOUSE_MANAGER)
+            .await?;
+        let mut recipients: Vec<Uuid> = managers.iter().map(|(id, ..)| *id).collect();
+        // 操作者也要收到——他才是站在架子前面的人。他可能同時是倉管，故去重。
+        if let Some(op) = operator_id {
+            if !recipients.contains(&op) {
+                recipients.push(op);
+            }
+        }
+        if recipients.is_empty() {
+            tracing::warn!("[Notification] 儲位警示無收件者（查無倉管且無操作者），跳過：{title}");
+            return Ok(0);
+        }
+
+        let already: Vec<(Uuid,)> = sqlx::query_as(
+            r#"SELECT user_id
+               FROM notifications
+               WHERE user_id = ANY($1)
+                 AND related_entity_type = 'storage_location'
+                 AND related_entity_id = $2
+                 AND title = $3
+                 AND created_at > NOW() - INTERVAL '24 hours'"#,
+        )
+        .bind(&recipients)
+        .bind(storage_location_id)
+        .bind(&title)
+        .fetch_all(&self.db)
+        .await?;
+        let notified: std::collections::HashSet<Uuid> =
+            already.into_iter().map(|(id,)| id).collect();
+
+        let mut count = 0;
+        for user_id in &recipients {
+            if notified.contains(user_id) {
+                continue;
+            }
+            if let Err(e) = self
+                .create_notification(CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: NotificationType::SystemAlert,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("storage_location".to_string()),
+                    related_entity_id: Some(storage_location_id),
+                })
+                .await
+            {
+                tracing::warn!("建立儲位警示通知失敗 user={user_id}: {e}");
+                continue;
+            }
+            count += 1;
+        }
+
+        tracing::info!(
+            "[Notification] {title}：{} 筆新通知（收件者 {} 位，24 小時內已通知過 {} 位）",
+            count,
+            recipients.len(),
+            notified.len()
+        );
+        Ok(count)
+    }
+
     /// 通知採購單已審核/駁回（給建立者，非路由表管理）
     pub async fn notify_document_decided(
         &self,

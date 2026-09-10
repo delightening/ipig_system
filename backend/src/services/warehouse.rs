@@ -127,10 +127,17 @@ impl WarehouseService {
             None => Self::generate_code_tx(&mut tx).await?,
         };
 
+        // ⚠️ 三個政策旗標必須逐一抄過去。這裡是「靜默丟棄」的第三個藏身處：
+        // 就算 `CreateWarehouseRequest` 宣告了欄位、`create_tx` 也 INSERT 了，
+        // 只要這個中繼結構漏抄，值一樣會在這一行悄悄變回 None，而且一樣不會報錯。
+        // （CodeRabbit 在 MR !3 只指出前兩處，這處是實查呼叫鏈時才發現的。）
         let req_with_code = CreateWarehouseRequest {
             code: Some(code),
             name: req.name.clone(),
             address: req.address.clone(),
+            exclude_from_alerts: req.exclude_from_alerts,
+            skip_routine_stocktake: req.skip_routine_stocktake,
+            is_default_issue_source: req.is_default_issue_source,
         };
 
         let result = Self::create_tx(&mut tx, actor, &req_with_code, ctx).await?;
@@ -175,8 +182,14 @@ impl WarehouseService {
 
         let warehouse = sqlx::query_as::<_, Warehouse>(
             r#"
-            INSERT INTO warehouses (id, code, name, address, is_active, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, true, NOW(), NOW())
+            INSERT INTO warehouses (
+                id, code, name, address, is_active,
+                exclude_from_alerts, skip_routine_stocktake, is_default_issue_source,
+                created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, true,
+                    COALESCE($5, false), COALESCE($6, false), COALESCE($7, false),
+                    NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -184,6 +197,12 @@ impl WarehouseService {
         .bind(&code)
         .bind(&req.name)
         .bind(&req.address)
+        // COALESCE 而非直接 bind：None 要落回欄位預設（false），
+        // 語意是「呼叫端沒表示意見」，不是「呼叫端要求 false」——雖然兩者結果相同，
+        // 但寫清楚可避免日後把預設值改成 true 時，這裡默默把它蓋回 false。
+        .bind(req.exclude_from_alerts)
+        .bind(req.skip_routine_stocktake)
+        .bind(req.is_default_issue_source)
         .fetch_one(&mut **tx)
         .await?;
 
@@ -231,14 +250,20 @@ impl WarehouseService {
                 name = COALESCE($1, name),
                 address = COALESCE($2, address),
                 is_active = COALESCE($3, is_active),
+                exclude_from_alerts = COALESCE($4, exclude_from_alerts),
+                skip_routine_stocktake = COALESCE($5, skip_routine_stocktake),
+                is_default_issue_source = COALESCE($6, is_default_issue_source),
                 updated_at = NOW()
-            WHERE id = $4
+            WHERE id = $7
             RETURNING *
             "#,
         )
         .bind(&req.name)
         .bind(&req.address)
         .bind(req.is_active)
+        .bind(req.exclude_from_alerts)
+        .bind(req.skip_routine_stocktake)
+        .bind(req.is_default_issue_source)
         .bind(id)
         .fetch_one(&mut **tx)
         .await?;
@@ -638,6 +663,12 @@ impl WarehouseService {
                 code: row.code.clone().filter(|s| !s.trim().is_empty()),
                 name: row.name.trim().to_string(),
                 address: row.address.clone().filter(|s| !s.trim().is_empty()),
+                // 匯入的 CSV 沒有政策旗標欄位，一律沿用欄位預設（全部 false）。
+                // 匯入一批倉庫後要調政策，走倉庫管理頁逐一勾選——這是刻意的：
+                // 旗標會改變警報與領用行為，不該由一份沒有該欄位的 CSV 靜默決定。
+                exclude_from_alerts: None,
+                skip_routine_stocktake: None,
+                is_default_issue_source: None,
             };
 
             // 匯入路徑的 IP / UA 尚未從 handler 串下來（`import_warehouses` 簽名不收），
