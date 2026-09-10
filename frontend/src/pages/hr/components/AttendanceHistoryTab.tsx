@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Clock, Download, RefreshCw, Users } from 'lucide-react'
+import { Clock, Download, Pencil, Plus, RefreshCw, Users } from 'lucide-react'
 
 import api from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -29,6 +29,7 @@ import { formatDate, formatTime } from '@/lib/utils'
 import type { AttendanceWithUser, StaffInfo } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 import { useAttendanceMutations } from '../hooks/useAttendanceMutations'
+import { AttendanceCorrectionDialog } from './AttendanceCorrectionDialog'
 
 function formatHours(hours: number | string | null) {
     if (hours === null || hours === undefined) return '-'
@@ -55,6 +56,24 @@ export function AttendanceHistoryTab() {
     const queryClient = useQueryClient()
     const hasPermission = useAuthHasPermission()
     const canViewAll = hasPermission('hr.attendance.view_all')
+    // 補卡權限（`hr.attendance.correct`）：無權限者整個「操作」欄不渲染，不佔欄寬。
+    // 後端 `require_permission!` 才是真正的閘門，這裡只是不給按不動的按鈕。
+    const canCorrect = hasPermission('hr.attendance.correct')
+
+    // 對話框：`editingRecord === null` 且 dialogOpen ＝ 補登模式；有值＝更正該列
+    const [dialogOpen, setDialogOpen] = useState(false)
+    const [editingRecord, setEditingRecord] = useState<AttendanceWithUser | null>(null)
+
+    const openBackfill = () => {
+        setEditingRecord(null)
+        setDialogOpen(true)
+    }
+    const openCorrection = (record: AttendanceWithUser) => {
+        setEditingRecord(record)
+        setDialogOpen(true)
+    }
+
+    const columnCount = canCorrect ? 9 : 8
 
     const { data: staffList } = useQuery({
         queryKey: queryKeys.hr.staffForAttendance,
@@ -62,7 +81,8 @@ export function AttendanceHistoryTab() {
             const res = await api.get<StaffInfo[]>('/hr/staff')
             return res.data
         },
-        enabled: canViewAll,
+        // 補卡對話框的人員下拉也吃這份清單，故 canCorrect 也要拉
+        enabled: canViewAll || canCorrect,
     })
 
     const { data: attendanceHistory, isLoading: loadingHistory } = useGuestQuery(DEMO_ATTENDANCE, {
@@ -135,6 +155,14 @@ export function AttendanceHistoryTab() {
                         {exportExcelMutation.isPending ? '匯出中...' : '匯出 Excel'}
                     </Button>
                 </GuestHide>
+                {canCorrect && (
+                    <GuestHide>
+                        <Button onClick={openBackfill}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            補卡
+                        </Button>
+                    </GuestHide>
+                )}
             </div>
 
             <Card className="@container overflow-hidden">
@@ -150,15 +178,16 @@ export function AttendanceHistoryTab() {
                                 <SortableTableHead className="hidden @[900px]:table-cell" sortKey="overtime_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>加班時數</SortableTableHead>
                                 <SortableTableHead sortKey="status" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>狀態</SortableTableHead>
                                 <TableHead className="hidden @[1050px]:table-cell">備註</TableHead>
+                                {canCorrect && <TableHead className="w-20">操作</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loadingHistory ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} /></TableCell>
+                                    <TableCell colSpan={columnCount} className="p-0"><TableSkeleton rows={5} cols={columnCount} /></TableCell>
                                 </TableRow>
                             ) : sortedHistory?.length === 0 ? (
-                                <TableEmptyRow colSpan={8} icon={Clock} title="沒有出勤記錄" />
+                                <TableEmptyRow colSpan={columnCount} icon={Clock} title="沒有出勤記錄" />
                             ) : (
                                 sortedHistory?.map((record) => (
                                     <TableRow key={record.id}>
@@ -173,6 +202,20 @@ export function AttendanceHistoryTab() {
                                             {record.is_corrected && <Badge variant="outline">已更正</Badge>}
                                             {record.remark && <span className="text-muted-foreground text-sm">{record.remark}</span>}
                                         </TableCell>
+                                        {canCorrect && (
+                                            <TableCell>
+                                                <GuestHide>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`更正 ${record.user_name} ${record.work_date} 的出勤記錄`}
+                                                        onClick={() => openCorrection(record)}
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                </GuestHide>
+                                            </TableCell>
+                                        )}
                                     </TableRow>
                                 ))
                             )}
@@ -212,11 +255,32 @@ export function AttendanceHistoryTab() {
                                         {record.remark && <span className="text-muted-foreground break-words">{record.remark}</span>}
                                     </div>
                                 )}
+                                {canCorrect && (
+                                    <GuestHide>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            aria-label={`更正 ${record.user_name} ${record.work_date} 的出勤記錄`}
+                                            onClick={() => openCorrection(record)}
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                    </GuestHide>
+                                )}
                             </div>
                         ))
                     )}
                 </div>
             </Card>
+
+            {canCorrect && (
+                <AttendanceCorrectionDialog
+                    open={dialogOpen}
+                    onOpenChange={setDialogOpen}
+                    record={editingRecord}
+                    staffList={staffList}
+                />
+            )}
         </div>
     )
 }

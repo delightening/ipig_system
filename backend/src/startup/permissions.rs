@@ -187,7 +187,21 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("admin.treatment_drug.delete", "刪除治療用藥", "admin", "可刪除治療用藥主檔項目"),
         ("erp.product.delete", "刪除產品", "erp", "可刪除產品主檔"),
         ("erp.partner.delete", "刪除夥伴", "erp", "可刪除夥伴主檔"),
-        ("hr.attendance.manage", "管理出勤紀錄", "hr", "可代員工新增 / 修改出勤紀錄"),
+        // 補卡（2026-08-26 統一為單一權限碼）。此前是兩個互不相交的碼：
+        // `hr.attendance.manage` 被 handler 檢查但**沒授予任何角色**；
+        // `hr.attendance.correct` 授予了 admin / ADMIN_STAFF 但**沒有任何 handler 檢查**。
+        // 兩者疊起來的實際效果是「只有 admin 做得到」——靠的是 `has_permission` 對
+        // admin 短路，不是任何一個權限本身。行政拿著更正權按不動整整一段時間沒人發現，
+        // 正是 `permission_codes_exist` 那份稽核講的同一種病。
+        //
+        // 保留 `correct` 作為唯一的補卡權限碼（既有授予不動，行政無縫接上）；
+        // `manage` 依 `erp.adj.approve` 的先例保留為死碼、改名標示，不刪 DB 列。
+        ("hr.attendance.correct", "補卡（補登 / 更正出勤）", "hr", "可代員工補登缺漏日的出勤、或更正既有打卡時間；不得作用於自己的紀錄"),
+        // ⚠️ 死碼：2026-08-26 前由 `correct_attendance` handler 檢查，但從未授予任何角色
+        //（`003_seed.sql` 只 INSERT permission、`role_permissions` 零筆，本檔角色清單零命中）。
+        // 補卡請用上方的 `hr.attendance.correct`，不要復用本碼。
+        // 保留是為了不動任何既有部署的 permissions 列與前端 generated 常數，清除另案。
+        ("hr.attendance.manage", "管理出勤紀錄（死碼）", "hr", "⚠️ 未被任何 handler 檢查、未授予任何角色。補卡請用 hr.attendance.correct"),
         ("animal.euthanasia.create", "開立安樂死單", "animal", "可開立安樂死單據"),
         ("aup.review.reply", "回覆審查意見", "aup", "可回覆被指派的審查意見（非計畫擁有者亦可）"),
         // 同一批漏補：這兩個碼同樣寫在 PI / IACUC_STAFF / EXPERIMENT_STAFF /
@@ -863,6 +877,19 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
                 // 自身出勤 / 餘額 / 行事曆
                 "hr.attendance.view",
                 "hr.attendance.clock",
+                // 補卡（2026-08-26 使用者裁定）。
+                //
+                // 這一項**看似**違反本角色上方的 R97-1c 原則（負責人是監督與終審，不是操作者），
+                // 實際不違反：補卡在本系統是「不得作用於自己」的操作
+                //（`services/hr/attendance.rs::reject_self_correction`），
+                // 所以負責人拿到它只能補**別人**的卡，仍然不是在替自己操作。
+                //
+                // 為什麼非給不可：使用者裁定「行政也只能找 director 補卡」——
+                // 行政補全體、負責人補行政，兩邊互補才不會有人的卡永遠補不了。
+                // `view_all` 是必要配套而非額外放寬：補別人的卡之前要先查得到那個人的紀錄，
+                // 少了它負責人在補卡畫面上一列都看不到。
+                "hr.attendance.view_all",
+                "hr.attendance.correct",
                 "hr.overtime.create",
                 "hr.balance.view",
                 "hr.calendar.view",

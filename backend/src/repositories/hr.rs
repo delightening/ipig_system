@@ -4,7 +4,11 @@ use rust_decimal::prelude::ToPrimitive;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{constants::DEFAULT_TIMEZONE, models::LeaveStatus, AppError, Result};
+use crate::{
+    constants::DEFAULT_TIMEZONE,
+    models::{LeaveStatus, MonthlyAttendanceSummary},
+    AppError, Result,
+};
 
 /// 判斷使用者在指定日期是否「正在請假」（已核准且涵蓋該日的假單）。
 ///
@@ -106,4 +110,92 @@ pub async fn list_attendance_stats_by_date_range(
         .map_err(AppError::Database)?;
 
     Ok(rows.into_iter().map(row_to_attendance_stat).collect())
+}
+
+/// 工時月報：把某月份的出勤紀錄按人彙總成一列。
+///
+/// 日期區間 inclusive，由呼叫端算好月初 / 月底（`first_day` / `last_day`）傳入，
+/// SQL 內不做月份運算——避免時區與閏月在 SQL 與 Rust 兩邊各算一次而分歧。
+///
+/// `user_id` 為 `Some` 時只回那個人（一般員工看自己）；`None` 回全體有紀錄的人。
+///
+/// 🔴 **使用者集合 = 有出勤紀錄的人 ∪ 有已核准加班的人**（CodeRabbit 於 PR #35 指出）。
+///
+/// 原本以 `attendance_records` 為主表 INNER JOIN `users`，理由寫的是「零紀錄者沒有工時可報」
+/// ——那句話本身沒錯，錯在**把「沒有出勤列」等同於「沒有工時」**：
+/// `overtime_records.attendance_id` 可為 NULL（`002_schema.sql:4100`），而 `create_overtime`
+/// 的 INSERT 根本沒有這個欄位、整個 `overtime.rs` 也從不寫 `attendance_records`（實查 0 處）。
+/// 所以「假日到場加班、沒打卡」的人**有工時卻沒有出勤列**，在舊查詢下整列消失——
+/// 不是加班時數少算，是那個人根本不出現在月報上。
+///
+/// 改成先用 CTE 取兩邊的使用者聯集，再 LEFT JOIN 出勤明細。聚合式全部沿用：
+/// 沒有出勤列的人 `a.*` 皆為 NULL，`FILTER` 條件不成立故計為 0、`SUM` 由 `COALESCE` 補 0，
+/// 語意與原本一致，不需要為新情況另寫分支。
+pub async fn summarize_monthly_attendance(
+    pool: &PgPool,
+    first_day: NaiveDate,
+    last_day: NaiveDate,
+    user_id: Option<Uuid>,
+) -> Result<Vec<MonthlyAttendanceSummary>> {
+    let sql = r#"
+        WITH report_users AS (
+            -- 有出勤紀錄的人
+            SELECT DISTINCT a.user_id
+              FROM attendance_records a
+             WHERE a.work_date >= $1
+               AND a.work_date <= $2
+               AND ($3::uuid IS NULL OR a.user_id = $3)
+            UNION
+            -- 有已核准加班、但可能完全沒有出勤列的人（overtime_records.attendance_id 可為 NULL）
+            SELECT DISTINCT o.user_id
+              FROM overtime_records o
+             WHERE o.status = 'approved'
+               AND o.overtime_date >= $1
+               AND o.overtime_date <= $2
+               AND ($3::uuid IS NULL OR o.user_id = $3)
+        )
+        SELECT
+            u.id                                              AS user_id,
+            u.display_name                                    AS user_name,
+            u.email                                           AS user_email,
+            COUNT(*) FILTER (WHERE a.clock_in_time IS NOT NULL)::bigint AS work_days,
+            -- ::float8 而非留在 numeric：numeric 會被 rust_decimal 序列化成 JSON 字串，
+            -- 前端排序就變成字串比較（"9.5" > "168.5"）。見 MonthlyAttendanceSummary 的註解。
+            COALESCE(SUM(a.regular_hours), 0)::float8         AS total_regular_hours,
+            -- ⚠️ 加班時數取自 **overtime_records**，不是 attendance_records.overtime_hours。
+            -- 後者全 backend 只有 SELECT、沒有任何一處寫入，schema 預設 0
+            --（`002_schema.sql` attendance_records.overtime_hours），拿它加總會得到恆為 0 的
+            -- 假欄位。真正的加班在另一張表，這正是「加班歸加班、正常歸正常」的兩張卡。
+            -- 只計 status='approved'（小寫，見 services/hr/overtime.rs:155）：draft 尚未送審、
+            -- voided 已作廢，都不該進月報。
+            COALESCE((
+                SELECT SUM(o.hours) FROM overtime_records o
+                WHERE o.user_id = u.id
+                  AND o.status = 'approved'
+                  AND o.overtime_date >= $1
+                  AND o.overtime_date <= $2
+            ), 0)::float8                                     AS total_overtime_hours,
+            COUNT(*) FILTER (
+                WHERE (a.clock_in_time IS NULL) <> (a.clock_out_time IS NULL)
+            )::bigint                                         AS incomplete_days,
+            COUNT(*) FILTER (WHERE a.is_corrected)::bigint    AS corrected_days
+        FROM report_users ru
+        INNER JOIN users u ON u.id = ru.user_id
+        -- ⚠️ 日期範圍放在 ON 而不是 WHERE：放 WHERE 會把「沒有出勤列」那些人的 NULL 列濾掉，
+        -- LEFT JOIN 就退化回 INNER JOIN，這個修正等於沒做。
+        LEFT JOIN attendance_records a
+               ON a.user_id = u.id
+              AND a.work_date >= $1
+              AND a.work_date <= $2
+        GROUP BY u.id, u.display_name, u.email
+        ORDER BY u.display_name
+    "#;
+
+    sqlx::query_as::<_, MonthlyAttendanceSummary>(sql)
+        .bind(first_day)
+        .bind(last_day)
+        .bind(user_id)
+        .fetch_all(pool)
+        .await
+        .map_err(AppError::Database)
 }
