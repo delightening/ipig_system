@@ -77,6 +77,19 @@ const reportItems: ReportItem[] = [
         section: 'erp',
     },
     {
+        title: '案件消耗報表',
+        href: '/protocol-consumption',
+        icon: <FlaskConical className="h-4 w-4" />,
+        description: '依計畫統計耗材領用',
+        // 用 permission 而非 role：後端這支的閘就是 erp.report.view，而該權限授予
+        // WAREHOUSE_MANAGER / PURCHASING / ADMIN_STAFF——他們呼叫得到 API，卻會被
+        // `role: 'admin'` 擋在選單外。hasPermission 對 SYSTEM_ADMIN / admin / GUEST
+        // 一律短路放行（比照後端 is_admin()），所以管理員與訪客示範不受影響。
+        // ⚠️ 同區其他 ERP 報表仍是 role: 'admin'，那是既有的前後端不一致，另案處理。
+        permission: 'erp.report.view',
+        section: 'erp',
+    },
+    {
         title: '成本摘要報表',
         href: '/cost-summary',
         icon: <BarChart3 className="h-4 w-4" />,

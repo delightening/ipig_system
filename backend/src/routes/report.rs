@@ -28,6 +28,10 @@ pub fn routes() -> Router<AppState> {
             get(handlers::get_sales_lines_report),
         )
         .route(
+            "/reports/protocol-consumption",
+            get(handlers::get_protocol_consumption_report),
+        )
+        .route(
             "/reports/cost-summary",
             get(handlers::get_cost_summary_report),
         )

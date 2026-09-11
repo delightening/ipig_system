@@ -16,6 +16,7 @@ import type {
   StockOnHandReport,
   StockLedgerReport,
   PurchaseLinesReport,
+  ProtocolConsumptionReport,
   SalesLinesReport,
   CostSummaryReport,
   PurchaseSalesMonthlySummary,
@@ -124,6 +125,89 @@ export const DEMO_STOCK_LEDGER: StockLedgerReport[] = [
     product_sku: 'SUP-001', product_name: '範例耗材 B',
     doc_type: 'GRN', doc_no: 'GRN-2025-0003', direction: 'in',
     qty_base: '20', unit_cost: '120.00',
+  },
+]
+
+// ============================================================
+// 案件消耗報表 — GET /reports/protocol-consumption（ProtocolConsumptionReport[]）
+// ============================================================
+// 刻意做成稀疏的：三個案件 × 三個品項，只有 6 組有值，讓交叉表分頁在 demo 裡
+// 就能看到「—」而不是滿版數字。
+//
+// demo-p1 / demo-p2 的 id／編號／名稱與 `./protocols` 的 DEMO_PROTOCOL_* 對齊——
+// 雖然報表頁的計畫下拉現在改由報表資料自己長出來、不再打 `/protocols`（見該頁註解），
+// 但示範模式下兩處對不上會讓人以為是資料錯亂。
+// demo-p4 是刻意的例外，理由寫在該筆旁邊。
+//
+// ⚠️ 同一條原則對**品項**一樣成立，而這裡原本漏了：`demo-prodN` 在整個 guest-demo
+// 目錄是共用身分，同一個 id 在各報表必須是同一組 SKU／名稱／分類／base_uom
+// （dashboard.ts / erp.ts / misc.ts / fixes.ts，以及本檔的 DEMO_STOCK_ON_HAND
+// 與 DEMO_COST_SUMMARY 都引用同一組）。
+//   - demo-prod2 = SUP-001 範例耗材 B，base_uom 是「瓶」不是「包」
+//     （單價也因此對得上：4800/40 = 1800/15 = 120 = stock-on-hand 的 avg_cost）
+//   - 手套用**新的 demo-prod6**，不借用 demo-prod3——後者在別處一律是 FED-001 範例飼料 C
+// 手套只出現在本報表、不在 DEMO_STOCK_ON_HAND，不算不一致：那張是「目前有庫存的品項」，
+// 這張是「歷史領用過的品項」，兩者本來就不是同一個集合。
+// 保留手套（而非改用既有的飼料）是因為「領用以雙、盤點以盒」正是本報表要示範的重點。
+
+export const DEMO_PROTOCOL_CONSUMPTION: ProtocolConsumptionReport[] = [
+  {
+    protocol_id: 'demo-p1', protocol_no: 'AUP-2025-001',
+    iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫：心血管藥物安全性評估',
+    product_id: 'demo-prod1', product_sku: 'MED-001', product_name: '範例藥品 A',
+    category_name: '藥品', base_uom: '盒', qty_base: '12', doc_count: 3,
+    first_trx_date: '2025-01-10T02:00:00Z', last_trx_date: '2025-03-18T06:30:00Z',
+    total_cost: '6000.00',
+  },
+  {
+    protocol_id: 'demo-p1', protocol_no: 'AUP-2025-001',
+    iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫：心血管藥物安全性評估',
+    product_id: 'demo-prod2', product_sku: 'SUP-001', product_name: '範例耗材 B',
+    category_name: '耗材', base_uom: '瓶', qty_base: '40', doc_count: 5,
+    first_trx_date: '2025-01-12T01:00:00Z', last_trx_date: '2025-04-02T08:15:00Z',
+    total_cost: '4800.00',
+  },
+  {
+    protocol_id: 'demo-p1', protocol_no: 'AUP-2025-001',
+    iacuc_no: 'IACUC-2025-001', protocol_title: '範例研究計畫：心血管藥物安全性評估',
+    product_id: 'demo-prod6', product_sku: 'CON-GLV-001', product_name: '範例手套',
+    category_name: '耗材', base_uom: '雙', qty_base: '250', doc_count: 4,
+    first_trx_date: '2025-02-01T03:00:00Z', last_trx_date: '2025-04-20T05:00:00Z',
+    total_cost: '1250.00',
+  },
+  {
+    protocol_id: 'demo-p2', protocol_no: 'AUP-2025-002',
+    iacuc_no: 'IACUC-2025-002', protocol_title: '範例研究計畫：骨科植入物生物相容性試驗',
+    product_id: 'demo-prod2', product_sku: 'SUP-001', product_name: '範例耗材 B',
+    category_name: '耗材', base_uom: '瓶', qty_base: '15', doc_count: 2,
+    first_trx_date: '2025-03-05T02:30:00Z', last_trx_date: '2025-03-28T07:45:00Z',
+    total_cost: '1800.00',
+  },
+  {
+    protocol_id: 'demo-p2', protocol_no: 'AUP-2025-002',
+    iacuc_no: 'IACUC-2025-002', protocol_title: '範例研究計畫：骨科植入物生物相容性試驗',
+    product_id: 'demo-prod6', product_sku: 'CON-GLV-001', product_name: '範例手套',
+    category_name: '耗材', base_uom: '雙', qty_base: '80', doc_count: 1,
+    first_trx_date: '2025-03-06T02:00:00Z', last_trx_date: '2025-03-06T02:00:00Z',
+    total_cost: '400.00',
+  },
+  {
+    // 附條件核准、核准編號尚未下來的計畫：iacuc_no 為 null，畫面該顯示「—」。
+    // 這是真實會發生的狀態——領用單只要計畫是 Approved / ApprovedWithConditions
+    // 就開得出來（document/crud.rs），而附條件核准時 IACUC 編號可能還沒核發。
+    //
+    // ⚠️ 這個計畫在 ./protocols 沒有對應的 fixture。本報表頁不讀 /protocols
+    // （計畫下拉由報表資料自己長出來），所以功能上不會不一致；補一份完整的
+    // ProtocolResponse 屬於另一個模組的 demo 夾具，不在本次範圍。
+    //
+    // ⚠️ 必須是**獨立的計畫**，不能只是在既有計畫底下追加一筆 null 的列——
+    // aggregateByProtocol 取的是該組第一筆的 iacuc_no，追加在後面不會生效。
+    protocol_id: 'demo-p4', protocol_no: 'AUP-2026-002',
+    iacuc_no: null, protocol_title: '範例研究計畫：附條件核准（編號待核發）',
+    product_id: 'demo-prod1', product_sku: 'MED-001', product_name: '範例藥品 A',
+    category_name: '藥品', base_uom: '盒', qty_base: '3', doc_count: 1,
+    first_trx_date: '2025-04-10T01:00:00Z', last_trx_date: '2025-04-10T01:00:00Z',
+    total_cost: '1500.00',
   },
 ]
 

@@ -142,6 +142,35 @@ pub struct BloodTestAnalysisQuery {
     pub date_to: Option<NaiveDate>,
 }
 
+/// 案件消耗報表：一列 = 一個案件 × 一個品項的淨消耗。
+///
+/// 前端用同一份資料轉三種聚合軸（案件→品項、品項→案件、交叉表），
+/// 所以這裡回的是最細的顆粒度，不在後端先聚合掉任何一軸。
+///
+/// 數量一律以 `base_uom` 計——2026-09-04 裁定：**案件側論領用單位、倉庫側才論包裝單位**。
+/// 倉庫側的呈現是另一支報表（`stock_on_hand`）的事，本報表不做包裝換算。
+#[derive(Debug, FromRow, serde::Serialize)]
+pub struct ProtocolConsumptionReport {
+    pub protocol_id: Uuid,
+    pub protocol_no: String,
+    /// 核准編號。DRAFT 階段的計畫尚未取得，故可為 NULL。
+    pub iacuc_no: Option<String>,
+    pub protocol_title: Option<String>,
+    pub product_id: Uuid,
+    pub product_sku: String,
+    pub product_name: String,
+    pub category_name: Option<String>,
+    pub base_uom: String,
+    /// 淨消耗量（`SO/out` 減去沖銷產生的 `SO/in` 鏡射列），以 `base_uom` 計。
+    pub qty_base: Decimal,
+    /// 貢獻此消耗的單據張數（沖銷單也算一張）。
+    pub doc_count: i64,
+    pub first_trx_date: chrono::DateTime<chrono::Utc>,
+    pub last_trx_date: chrono::DateTime<chrono::Utc>,
+    /// 依 `stock_ledger.unit_cost` 加總。未維護成本的異動以 0 計，故可能低估。
+    pub total_cost: Option<Decimal>,
+}
+
 /// 報表查詢參數
 #[derive(Debug, serde::Deserialize)]
 pub struct ReportQuery {
@@ -154,6 +183,10 @@ pub struct ReportQuery {
     pub iacuc_no: Option<String>,
     pub lab_name: Option<String>,
     pub customer_category: Option<String>,
+    /// 案件消耗報表用。⚠️ 不要改用 `iacuc_no` 篩領用——領用單（SO）只填
+    /// `protocol_id`，`iacuc_no` 在該單別是停用欄位（`useDocumentForm.ts:120`），
+    /// 按它篩會一筆都抓不到。
+    pub protocol_id: Option<Uuid>,
 }
 
 impl ReportService {
@@ -393,6 +426,142 @@ impl ReportService {
 
         let results = qb
             .build_query_as::<SalesLinesReport>()
+            .fetch_all(pool)
+            .await?;
+        Ok(results)
+    }
+
+    /// 案件消耗報表（依計畫 × 品項統計內部領用）
+    ///
+    /// ## 為什麼讀 `stock_ledger` 而不是 `documents + document_lines`
+    ///
+    /// 其他明細報表（`purchase_lines` / `sales_lines`）讀單據明細，那是「開了哪些單」。
+    /// 本報表要回答的是「實際消耗了多少」，兩者在兩個地方會分歧：
+    ///
+    /// 1. **未核准的單**：`document_lines` 含 draft／submitted，但那些還沒扣帳。
+    ///    `stock_ledger` 只在核准時寫入，天然排除。
+    /// 2. **沖銷**：沖銷是**另一張單**（`documents.reverses_doc_id`），讀明細會把
+    ///    已沖銷的領用照算。而沖銷在 ledger 裡是沿用原 `doc_type`、只反轉 `direction`
+    ///    的鏡射列（`reverse_document_stock` / `reverse_direction`），所以在這裡減得掉。
+    ///
+    /// ## 消耗的定義
+    ///
+    /// `doc_type = 'SO' AND direction = 'out'` 加，`'SO' AND 'in'` 減。
+    /// 這與 `stock::ledger` 的 `internal_consumed` 是**同一個定義**，刻意不另立一套
+    /// ——兩處若分岔，同一筆消耗會在對帳頁與本報表算出不同答案。
+    ///
+    /// ERP 的出庫全為內部耗材領用，`SO` 從不認列收入（見 `models::document` 的說明），
+    /// 所以「銷貨單」在語意上就是領用單。
+    ///
+    /// ## 分組鍵是 `protocol_id`，不是 `iacuc_no`
+    ///
+    /// 領用單只填 `protocol_id`；`iacuc_no` 對 SO 是停用欄位，只有 PO／PR 的費用歸屬
+    /// 會填。按 `iacuc_no` 分組會一筆領用都抓不到。`iacuc_no` 在此只作顯示，
+    /// 且 DRAFT 階段的計畫還沒有，故為 `Option`。
+    pub async fn protocol_consumption(
+        pool: &PgPool,
+        query: &ReportQuery,
+    ) -> Result<Vec<ProtocolConsumptionReport>> {
+        let mut qb = sqlx::QueryBuilder::new(
+            r#"
+            SELECT
+                d.protocol_id,
+                pr.protocol_no,
+                pr.iacuc_no,
+                pr.title as protocol_title,
+                p.id as product_id,
+                p.sku as product_sku,
+                p.name as product_name,
+                pc.name as category_name,
+                p.base_uom,
+                SUM(CASE WHEN sl.direction = 'out' THEN sl.qty_base ELSE -sl.qty_base END)
+                    as qty_base,
+                COUNT(DISTINCT sl.doc_id) as doc_count,
+                MIN(sl.trx_date) as first_trx_date,
+                MAX(sl.trx_date) as last_trx_date,
+                SUM(
+                    CASE WHEN sl.direction = 'out' THEN sl.qty_base ELSE -sl.qty_base END
+                    * COALESCE(sl.unit_cost, 0)
+                ) as total_cost
+            FROM stock_ledger sl
+            INNER JOIN documents d ON d.id = sl.doc_id
+            INNER JOIN protocols pr ON pr.id = d.protocol_id
+            INNER JOIN products p ON p.id = sl.product_id
+            LEFT JOIN product_categories pc ON pc.id = p.category_id
+            WHERE sl.doc_type = 'SO'
+            "#,
+        );
+
+        if let Some(pid) = query.protocol_id {
+            qb.push(" AND d.protocol_id = ");
+            qb.push_bind(pid);
+        }
+        if let Some(prod) = query.product_id {
+            qb.push(" AND p.id = ");
+            qb.push_bind(prod);
+        }
+        if let Some(cid) = query.category_id {
+            qb.push(" AND p.category_id = ");
+            qb.push_bind(cid);
+        }
+        if let Some(wid) = query.warehouse_id {
+            qb.push(" AND sl.warehouse_id = ");
+            qb.push_bind(wid);
+        }
+        // 以異動時點篩，不是單據日期——單據日期可回填，扣帳時點不會。
+        //
+        // 🔴 日期邊界必須明確錨在台灣時間，不能讓裸日期直接跟 timestamptz 比。
+        //
+        // `sl.trx_date` 是 `timestamp with time zone`（002_schema.sql:5246），使用者送來的
+        // 則是不帶時區的日期。直接比較時 PostgreSQL 會用 **session 時區**把日期解讀成該時區
+        // 的午夜——而本專案沒有任何地方設過 session 時區（`startup/database.rs` 的
+        // after_connect 只設 statement_timeout，db 容器也沒給 TZ），實際上就是 UTC。
+        //
+        // 後果：使用者選 2026-09-05 想看台灣的 9/5，邊界卻落在台灣時間 9/5 08:00，
+        // **台灣時間 9/5 00:00–07:59 的領用會被算進 9/4**。這支報表是給 IACUC 稽核查
+        // 「這段期間消耗了什麼」用的，差 8 小時會被追問。
+        //
+        // `AT TIME ZONE 'Asia/Taipei'` 把「不帶時區的當地午夜」轉成正確的 timestamptz，
+        // 且由 tzdata 處理該時區的規則，不寫死 +08。
+        //
+        // ⚠️ 同檔的 `stock_ledger()`（:292-298）有一模一樣的問題，本 PR 不動它——
+        // 那是既有函式，改它要連帶重驗既有報表，屬於另一件事。
+        if let Some(df) = query.date_from {
+            qb.push(" AND sl.trx_date >= (");
+            qb.push_bind(df);
+            qb.push("::date::timestamp AT TIME ZONE 'Asia/Taipei')");
+        }
+        if let Some(dt) = query.date_to {
+            // 結束日當天要含在內，故比到隔天台灣時間零時之前。
+            qb.push(" AND sl.trx_date < ((");
+            qb.push_bind(dt);
+            qb.push("::date + 1)::timestamp AT TIME ZONE 'Asia/Taipei')");
+        }
+
+        qb.push(
+            r#"
+            GROUP BY d.protocol_id, pr.protocol_no, pr.iacuc_no, pr.title,
+                     p.id, p.sku, p.name, pc.name, p.base_uom
+            "#,
+        );
+        // 淨額為 0 = 領了又整筆沖掉，對「消耗了多少」這個問題沒有資訊，只會佔版面。
+        qb.push(
+            " HAVING SUM(CASE WHEN sl.direction = 'out' THEN sl.qty_base \
+             ELSE -sl.qty_base END) <> 0",
+        );
+        // 🔴 取 1001 筆而不是 1000：多出來的那一筆是給呼叫端的**截斷訊號**。
+        //
+        // 只取 1000 的話，「剛好 1000 組」與「被截掉了」在回應上長得一模一樣，
+        // 前端無從分辨，只能用 `length >= 1000` 猜——而那會把前者誤報成後者。
+        // 多要一筆就能精確判定：拿到 1001 筆 ⇒ 確定有更多；1000 筆 ⇒ 確定剛好取完。
+        //
+        // 為什麼不改成回 `{ rows, has_more }`：ERP 報表的回應一律是裸陣列
+        // （見 `guest-demo/routes.ts` 的註解），為一支報表破例會讓前端的
+        // 報表資料流多一條分支。多帶一筆的成本是一列，換掉一個 API 形狀的例外。
+        qb.push(" ORDER BY pr.protocol_no, p.sku LIMIT 1001");
+
+        let results = qb
+            .build_query_as::<ProtocolConsumptionReport>()
             .fetch_all(pool)
             .await?;
         Ok(results)

