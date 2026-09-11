@@ -10,6 +10,42 @@ SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/resolve-diff-base.sh"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# ── 🔴 三道護欄：暫存目錄不可用時必須 fail-closed ───────────────────────────
+#
+# 本檔刻意不用 `set -e`——測試要靠指令失敗來記 FAIL，開了 -e 第一個預期失敗就中止。
+# 代價是**任何一個 `cd` 失敗，腳本都會繼續往下跑**，而後面每一個 git 指令就落在
+# 當下的工作目錄，也就是**呼叫者的 repo 本身**。
+#
+# 2026-09-11 實害（Windows／Git Bash）：`mktemp -d` 給出 POSIX 路徑 `/tmp/tmp.XXXX`，
+# 下面兩行交給 `git.exe` 時被 MSYS 轉成 Windows 路徑、目錄實際建在別處，於是 bash
+# 這一側 `cd "$TMP/seed"` 找不到目錄。腳本沒有中止，接著的身分設定
+# 與三次 `git commit` 全部打進呼叫者的 worktree——兩個 worktree 各被塞進 6 顆 commit
+# （c1–c6／f1.txt–f6.txt），主 repo 的 `.git/config` 身分被改成 `t/t@t`，而那份設定
+# **所有 worktree 共用**，導致其後 3 顆真實 commit 全部署名錯誤並推上了遠端。
+# `main` 沒被改寫純屬僥倖：`git branch -f main` 撞到 worktree 鎖而被拒。
+#
+# ⚠️ Linux 沒有這層路徑轉換，所以 CI 從來都是綠的——**這個缺陷在 CI 裡看不見**。
+
+# 護欄一：暫存目錄建完，先確認 bash 這一側真的看得到，再做任何 git 操作。
+[ -d "$TMP" ] || { echo "FATAL: mktemp -d 回傳的 $TMP 不存在，中止。" >&2; exit 3; }
+
+# 護欄二：cd 一律 fail-closed。進不去就中止，不在呼叫者的 repo 留下任何東西。
+cdx() {
+  cd "$1" || {
+    echo "FATAL: 進不了暫存目錄 $1，中止（不在呼叫者的 repo 留下任何東西）。" >&2
+    echo "       若在 Windows／Git Bash：mktemp 給的 POSIX 路徑與 git.exe 實際使用的" >&2
+    echo "       Windows 路徑不一致，本測試需要兩者一致才跑得起來。" >&2
+    exit 3
+  }
+}
+
+# 護欄三：作者身分改用 GIT_* 環境變數，**不再呼叫 `git config`**。
+# 原本每個暫存 repo 都跑一次身分設定指令——那是**寫檔**動作，cwd 一旦不對
+# 就會改掉呼叫者 repo 的設定，而且是持久的（下次開 shell 依然在）。
+# 環境變數只影響本行程與其子行程，改不到任何檔案——即使護欄一二都失效也傷不到人。
+export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t
+export GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+
 fails=0
 pass() { echo "  PASS  $1"; }
 fail() { echo "  FAIL  $1"; echo "        預期 [$2] 實得 [$3]"; fails=1; }
@@ -19,16 +55,14 @@ fail() { echo "  FAIL  $1"; echo "        預期 [$2] 實得 [$3]"; fails=1; }
 #    nonexistent ref, unable to checkout」——工作區沒有 HEAD，整批測試假失敗。
 git -c init.defaultBranch=main init -q --bare "$TMP/upstream.git"
 git -c init.defaultBranch=main init -q "$TMP/seed"
-cd "$TMP/seed"
-git config user.email t@t; git config user.name t
+cdx "$TMP/seed"
 for i in 1 2 3; do echo "$i" > "f$i.txt"; git add .; git commit -qm "c$i"; done
 git branch -M main
 git remote add origin "$TMP/upstream.git"
 git push -q origin main
 
 git clone -q -b main "$TMP/upstream.git" "$TMP/work"
-cd "$TMP/work"
-git config user.email t@t; git config user.name t
+cdx "$TMP/work"
 
 C3="$(git rev-parse HEAD)"
 C2="$(git rev-parse HEAD^)"
@@ -55,10 +89,10 @@ echo "--- 案例 4（事故重現）：CI 排隊期間 main 前進，且 repo �
 # ⚠️ 本案例**必須真的重現事故**才算數。第一版寫成「重現不出來就印個註解跳過」，
 #    等於測試可以綠著卻什麼都沒證明（CodeRabbit 於 PR #11 指出，成立）。
 #    現在改成：重現不出來就 FAIL——寧可測試環境問題被吵出來，也不要假綠。
-cd "$TMP/seed"
+cdx "$TMP/seed"
 for i in 4 5; do echo "$i" > "f$i.txt"; git add .; git commit -qm "c$i"; done
 git push -q origin main
-cd "$TMP/work"
+cdx "$TMP/work"
 git fetch -q origin main --depth=1 2>/dev/null || true
 if git merge-base origin/main HEAD >/dev/null 2>&1; then
   fail "事故前提未重現：origin/main...HEAD 仍算得出 merge base" "算不出" "算得出"
@@ -80,11 +114,11 @@ echo "--- 案例 5b：PR 事件時 origin/<base> 必須是 fetch 後的新值，
 # 這裡把 refspec 拿掉來重現該環境（actions/checkout 某些設定就是如此）。
 git -c init.defaultBranch=main clone -q -b main "$TMP/up.git" "$TMP/norefspec" 2>/dev/null \
   || git -c init.defaultBranch=main clone -q -b main "$TMP/upstream.git" "$TMP/norefspec"
-cd "$TMP/norefspec"; git config user.email t@t; git config user.name t
+cdx "$TMP/norefspec"
 git config --unset-all remote.origin.fetch
 STALE="$(git rev-parse origin/main)"
-cd "$TMP/seed"; echo 6 > f6.txt; git add .; git commit -qm c6; git push -q origin main
-cd "$TMP/norefspec"
+cdx "$TMP/seed"; echo 6 > f6.txt; git add .; git commit -qm c6; git push -q origin main
+cdx "$TMP/norefspec"
 got="$( cd "$TMP/norefspec" && env -u BEFORE_SHA GITHUB_BASE_REF=main bash "$SCRIPT" )"
 FRESH="$(git rev-parse origin/main 2>/dev/null || echo none)"
 if [ "$got" != "origin/main" ]; then
@@ -108,7 +142,7 @@ fi
 
 echo "--- 案例 6：什麼都沒有 → 應回空字串（呼叫端 fail-open）---"
 git -c init.defaultBranch=main init -q "$TMP/single"
-cd "$TMP/single"; git config user.email t@t; git config user.name t
+cdx "$TMP/single"
 echo x > a.txt; git add .; git commit -qm only
 got="$( cd "$TMP/single" && env -u GITHUB_BASE_REF -u BEFORE_SHA bash "$SCRIPT" )"
 [ -z "$got" ] && pass "回空字串" || fail "回空字串" "(空)" "$got"
