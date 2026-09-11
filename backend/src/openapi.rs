@@ -264,6 +264,7 @@ use utoipa::OpenApi;
         crate::handlers::get_stock_ledger_report,
         crate::handlers::get_purchase_lines_report,
         crate::handlers::get_sales_lines_report,
+        crate::handlers::get_protocol_consumption_report,
         crate::handlers::get_cost_summary_report,
         crate::handlers::get_blood_test_cost_report,
         crate::handlers::get_blood_test_analysis,

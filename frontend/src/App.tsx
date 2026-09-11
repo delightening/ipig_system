@@ -88,6 +88,7 @@ const StockOnHandReportPage = lazy(() => import('@/pages/reports/StockOnHandRepo
 const StockLedgerReportPage = lazy(() => import('@/pages/reports/StockLedgerReportPage').then(m => ({ default: m.StockLedgerReportPage })))
 const PurchaseLinesReportPage = lazy(() => import('@/pages/reports/PurchaseLinesReportPage').then(m => ({ default: m.PurchaseLinesReportPage })))
 const SalesLinesReportPage = lazy(() => import('@/pages/reports/SalesLinesReportPage').then(m => ({ default: m.SalesLinesReportPage })))
+const ProtocolConsumptionReportPage = lazy(() => import('@/pages/reports/ProtocolConsumptionReportPage').then(m => ({ default: m.ProtocolConsumptionReportPage })))
 const CostSummaryReportPage = lazy(() => import('@/pages/reports/CostSummaryReportPage').then(m => ({ default: m.CostSummaryReportPage })))
 const BloodTestCostReportPage = lazy(() => import('@/pages/reports/BloodTestCostReportPage').then(m => ({ default: m.BloodTestCostReportPage })))
 const BloodTestAnalysisPage = lazy(() => import('@/pages/reports/BloodTestAnalysisPage').then(m => ({ default: m.BloodTestAnalysisPage })))
@@ -245,6 +246,7 @@ function App() {
                         () => import('@/pages/reports/StockLedgerReportPage'),
                         () => import('@/pages/reports/PurchaseLinesReportPage'),
                         () => import('@/pages/reports/SalesLinesReportPage'),
+                        () => import('@/pages/reports/ProtocolConsumptionReportPage'),
                         () => import('@/pages/reports/CostSummaryReportPage'),
                         () => import('@/pages/reports/BloodTestCostReportPage'),
                         () => import('@/pages/reports/BloodTestAnalysisPage'),
@@ -370,6 +372,11 @@ function App() {
                         <Route path="/stock-ledger" element={<StockLedgerReportPage />} />
                         <Route path="/purchase-lines" element={<PurchaseLinesReportPage />} />
                         <Route path="/sales-lines" element={<SalesLinesReportPage />} />
+                        {/* 與 ReportsPage 的選單 gate 同一個權限：選單藏了、直打 URL 卻能渲染
+                          *  的話，沒權限的人只會看到後端擋下後的「報表載入失敗」。
+                          *  hasPermission 對 GUEST / admin / SYSTEM_ADMIN 短路放行，訪客示範與
+                          *  管理員不受影響（stores/auth.ts::hasPermission）。 */}
+                        <Route path="/protocol-consumption" element={<RequirePermission permission="erp.report.view" fallback="redirect"><ProtocolConsumptionReportPage /></RequirePermission>} />
                         <Route path="/cost-summary" element={<CostSummaryReportPage />} />
                         <Route path="/blood-test-cost" element={<BloodTestCostReportPage />} />
                         <Route path="/blood-test-analysis" element={<BloodTestAnalysisPage />} />

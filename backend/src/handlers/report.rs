@@ -8,9 +8,9 @@ use crate::{
     require_permission,
     services::report::{
         BloodTestAnalysisQuery, BloodTestAnalysisRow, BloodTestCostReport, CostSummaryReport,
-        PurchaseLinesReport, PurchaseSalesCategorySummary, PurchaseSalesMonthlySummary,
-        PurchaseSalesPartnerSummary, ReportQuery, ReportService, SalesLinesReport,
-        StockLedgerReport, StockOnHandReport,
+        ProtocolConsumptionReport, PurchaseLinesReport, PurchaseSalesCategorySummary,
+        PurchaseSalesMonthlySummary, PurchaseSalesPartnerSummary, ReportQuery, ReportService,
+        SalesLinesReport, StockLedgerReport, StockOnHandReport,
     },
     AppState, Result,
 };
@@ -48,6 +48,77 @@ pub async fn get_purchase_lines_report(
 ) -> Result<Json<Vec<PurchaseLinesReport>>> {
     require_permission!(current_user, "erp.report.view");
     let report = ReportService::purchase_lines(&state.db, &query).await?;
+    Ok(Json(report))
+}
+
+/// 取得案件消耗報表
+///
+/// 權限沿用 `erp.report.view`，與其餘 ERP 報表一致。
+///
+/// # 🔴 本端點沒有物件層授權
+///
+/// `query.protocol_id` 由呼叫端任意指定，`ReportService::protocol_consumption`
+/// 直接把它推進 WHERE（`services/report.rs`），**不檢查這個計畫與呼叫者有無關係**；
+/// 不帶 `protocol_id` 就是全部案件。
+///
+/// 現在沒有外洩，是因為 `erp.report.view` 目前只授予 WAREHOUSE_MANAGER／
+/// PURCHASING／ADMIN_STAFF——這三個角色本來就該看全廠。PI 的權限清單裡
+/// 零個 `erp.*`（`startup/permissions.rs` 的 PI 區塊），所以 PI 進不了這道閘。
+///
+/// ⚠️ **這是角色表的現況，不是程式碼給的保證。** 只要有人把 `erp.report.view`
+/// 加進任何「只該看自己案子」的角色，當天就會變成「甲 PI 看得到乙 PI」，
+/// 而這裡不會有任何東西擋下來，也不會有測試轉紅。
+///
+/// # 日後要開放給「只該看自己計畫」的身分時
+///
+/// 必須把查詢**綁回 `current_user`**：依實際的成員關係（計畫主持人／協同人員）
+/// 收斂 protocol 範圍，而不是相信呼叫端送來的 `protocol_id`。
+///
+/// 🔴 **不要照抄 `get_blood_test_analysis`。** 它看起來像樣板，其實不是：
+/// 它的 `restrict` 旗標（`animal.animal.view_project` 且非 `view_all`）傳進
+/// `ReportService::blood_test_analysis` 之後，實際只加一條
+/// `AND a.iacuc_no IS NOT NULL`——那排除的是**還沒掛計畫的動物**，
+/// 不是**不屬於我的計畫**。該函式的參數名 `restrict_to_project_animals`
+/// 與它的 doc 都是這樣寫的，它從未宣稱做後者。而且它的 `query.iacuc_no`
+/// 同樣由呼叫端指定，restrict 為真時也不阻止你填別人的編號。
+/// 照抄它不會解決「甲看到乙」，只會讓人以為解決了。
+/// # 回傳上限與截斷訊號（🔴 消費端必讀）
+///
+/// 本端點最多回 **1001** 筆，而第 1001 筆是**哨兵不是資料**：
+///
+/// - 收到 **1001 筆** → 結果被截斷，來源還有更多。第 1001 筆必須**捨棄**，
+///   並向使用者提示「這不是全部」。
+/// - 收到 **≤ 1000 筆** → 就是全部，沒有遺漏。
+///
+/// 用 `LIMIT 1001` 而不是 `LIMIT 1000` 的理由：只取 1000 筆的話，拿到剛好 1000 筆時
+/// **分不出**「剛好取完」與「還有更多」。多取一筆就把這兩種狀態分開了。
+/// （見 `ReportService::protocol_consumption` 的 `LIMIT 1001`。）
+///
+/// ⚠️ **這段規則原本只寫在前端的註解裡，不在本契約上**（CodeRabbit 於 MR !15 指出，
+/// 2026-09-11，判斷成立）。後果是：本 repo 的前端知道規則所以處理正確，而**任何其他
+/// 消費端拿到 1001 筆會當成 1001 筆資料**——多顯示一筆哨兵，且完全不知道資料殘缺。
+/// 錯的方向特別壞：使用者看到的是一份**看起來完整、實際少了一大截**的報表。
+///
+/// 本次選擇把哨兵寫進契約，而不是把回傳改成 `{ rows, truncated }`：訊號本身可靠且
+/// 無歧義（1001 就是截斷），真正的缺陷是它沒有被寫下來。改變回傳形狀要同步動
+/// handler／service／openapi／前端型別／guest-demo 五處，屬 API contract 改動——
+/// **日後若要做，應另開 MR 走完整審查，不要夾帶在別的變更裡。**
+#[utoipa::path(
+    get,
+    path = "/api/v1/reports/protocol-consumption",
+    responses((status = 200, description = "\
+        最多回 1001 筆。回滿 1001 筆代表結果被截斷，第 1001 筆是哨兵不是資料，\
+        消費端須捨棄該筆並向使用者提示資料殘缺；≤ 1000 筆代表結果完整。")),
+    tag = "報表",
+    security(("bearer" = []))
+)]
+pub async fn get_protocol_consumption_report(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(query): Query<ReportQuery>,
+) -> Result<Json<Vec<ProtocolConsumptionReport>>> {
+    require_permission!(current_user, "erp.report.view");
+    let report = ReportService::protocol_consumption(&state.db, &query).await?;
     Ok(Json(report))
 }
 
