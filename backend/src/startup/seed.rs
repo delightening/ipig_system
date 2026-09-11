@@ -192,15 +192,30 @@ struct DevUser {
 
 /// 確保開發環境預設帳號存在（僅在 Docker 開發環境使用）
 pub async fn seed_dev_users(pool: &sqlx::PgPool, config: &Config) -> Result<()> {
-    // SEC-26: 密碼從 Config 讀取，不再硬編碼弱密碼
-    let password = config.dev_user_password.clone().unwrap_or_else(|| {
-        let generated = Uuid::new_v4().to_string();
-        tracing::warn!(
-            "[DevUser] DEV_USER_PASSWORD 未設定，使用隨機密碼: {}",
-            generated
-        );
-        generated
-    });
+    // SEC-26: 密碼從 Config 讀取，不再硬編碼弱密碼。
+    //
+    // 🔴 CWE-532（CodeRabbit 於 MR !4 指出）：這裡原本在 `DEV_USER_PASSWORD` 未設定時
+    // 產生一組隨機密碼，並用 `tracing::warn!` 把**密碼原文印進啟動日誌**。
+    // 本 stack 有 Loki + promtail，那行會被收走並保留——等於任何拿得到日誌的人
+    // 都握有這些帳號的可用憑證。
+    //
+    // ⚠️ 「隨機」不等於「不可猜」：隨機只保證猜不到，不保證沒被寫下來。
+    //
+    // 改為**不建立帳號並回錯誤**，而不是改成「產生但不印」：
+    //   - 產生而不印 → 帳號存在卻沒有任何人知道密碼，是一批誰也用不到、
+    //     卻真實可登入的帳號，比不建立更糟。
+    //   - 呼叫端（`main.rs:64`）已經把本函式的錯誤當**非致命**處理，
+    //     所以回錯誤不會擋住啟動，只會少建帳號並留下一則說明。
+    //   - CI 與 E2E 不受影響：`docker-compose.test.yml:47` 一律明設
+    //     `DEV_USER_PASSWORD`，走不到這條分支。
+    let Some(password) = config.dev_user_password.clone() else {
+        return Err(anyhow::anyhow!(
+            "SEED_DEV_USERS=true 但 DEV_USER_PASSWORD 未設定，因此不建立開發帳號。\
+             請在 .env 設定 DEV_USER_PASSWORD（並讓 TEST_USER_PASSWORD 同值）後重啟；\
+             正式環境請改為 SEED_DEV_USERS=false。"
+        )
+        .into());
+    };
 
     // 使用 AuthService 生成正確的密碼 hash
     let password_hash = services::AuthService::hash_password(&password)
