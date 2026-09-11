@@ -54,14 +54,48 @@ const OK_WRITE_INTERVAL_MS = 60 * 60 * 1000;
  *   - PING_TOKEN 外洩後被平行濫用 → **擋不住**，攻擊者可以同時發。
  *
  * ⚠️ 本段原本把「擋 token 外洩」也寫成節流的存在理由——那是它結構上做不到的事。
- * 對付濫用的防線是**輪換 token** ＋ **Cloudflare 邊緣的 Rate Limiting 規則**
- * （在 Dashboard 對 /ping/* 設每 IP 上限）：那一層在請求進到本 Worker 之前就
- * 強制執行，才是真正原子的，而且不必在這支 Worker 裡多養一個有狀態元件。
+ *
+ * 🔴 **zone 層的 WAF／Rate limiting rules 不適用，不要去 Dashboard 找那個設定。**
+ * 那類規則綁在 **zone** 上，而本 Worker 刻意只掛在 `*.workers.dev`、不綁
+ * `ipigsystem.asia` 的路由（見 README §3「刻意用 workers.dev」）——`workers.dev`
+ * 不是本帳戶的 zone，所以那條路走不通。要能設就得把心跳端點綁進 zone，而那正是
+ * 設計上刻意拒絕的：看門狗的入口不能跟被監控對象共用故障點。
+ *
+ * ⚠️ **但這不等於「沒有任何 rate limit 可用」。**（2026-09-11 二次訂正。）
+ * Cloudflare 另有 **Workers Rate Limiting API**——在 `wrangler.toml` 宣告
+ * `[[ratelimits]]` binding、在 Worker 內部呼叫，**不需要 zone、不需要路由**。
+ * 它跟 zone 層的 WAF 是兩個不同的東西，`workers.dev` 上照樣能用。
+ * **本設定目前沒有宣告該 binding**（`wrangler.toml.example` 裡沒有），所以現況是
+ * **「沒有用」而不是「用不了」**——那是待辦事項，不是架構限制。
+ *
+ * 這段話今天被寫錯兩次，兩次同一個毛病——**沒查就把結論往外推**：
+ *   第一版：「防線是邊緣 Rate Limiting 規則」→ 查證後發現 zone 層設不了。
+ *   第二版：「所以 rate limit 在本架構下不適用」→ 從「WAF 不行」推到「全都不行」，
+ *           而 Workers Rate Limiting API 從頭到尾沒被查過。（CodeRabbit 於 MR !22 指出。）
+ * 訂正一個錯誤敘述時，**訂正本身一樣要查證**——反方向的斷言不會因為它在否定而免驗。
+ *
+ * 所以 token 外洩時實際靠的是兩件事，外加一個做得到而還沒做的：
+ *   1. **輪換 PING_TOKEN**（`npx wrangler secret put PING_TOKEN`，並同步更新備份
+ *      腳本讀的 `secrets/watchdog_ping_token`）。這是目前唯一的主動處置。
+ *   2. **最壞情況會吵，不會啞**——這點才是它可接受的關鍵。
+ *      ⚠️ **前提是「KV 寫入配額耗盡、但讀取仍可用」**。讀寫配額是分開的（免費層
+ *      寫入每日 1000、讀取每日 10 萬），所以這是常見的那一種。此時 `/ping` 的寫入
+ *      失敗 → `ping:<job>` 不再更新 → 逾期判定成立（本檔
+ *      `overdue = now - lastAt > maxAgeMs`）→ **送出「心跳逾期」告警**，
+ *      降級成**誤報**而不是沉默。
+ *      🔴 **若連 KV 讀取也失敗就不是這樣**：`scheduled()` 會在讀取階段直接中止、
+ *      不寄任何信（見上方 KvUnavailable 的說明），那才是真正的沉默。這兩種要分開
+ *      講，不能用「配額被打滿」一句話概括——本段前一版就是這樣概括的。
+ *      （`state:hb:<job>` 的回寫若一起失敗，會讓它每輪重複告警——更吵，
+ *      但方向仍然是對的。）
+ *   3. **（待辦）宣告 `[[ratelimits]]` binding，在 `/ping` 的權杖檢查後先過它。**
+ *      那是真正在請求層做限制、且不依賴 KV 的機制，跟本常數的 best-effort 節流
+ *      是兩件不同的事。
  *
  * 刻意不用 Durable Object：它確實做得到原子，但本 Worker 是整套監控唯一跑在
  * 那台筆電外面的一層，**它自己壞掉沒有任何東西會通知你**（見 scheduled() 裡
  * 關於 KV 故障時看門狗會安靜地瞎掉的說明）。為了守一個免費額度而給這道最外層
- * 防線增加一個故障點，不划算。
+ * 防線增加一個故障點，不划算——尤其在最壞情況只是誤報的前提下。
  */
 const PING_WRITE_MIN_INTERVAL_MS = 10 * 60 * 1000;
 
