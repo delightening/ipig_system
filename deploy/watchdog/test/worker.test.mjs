@@ -227,3 +227,152 @@ test("心跳逾期會告警——KvUnavailable 的修正沒有把這條路一起
     "告警送出後應把 alerted 狀態寫回，避免每 5 分鐘重寄",
   );
 });
+
+// ---------------------------------------------------------------------------
+// 告警主旨帶機制別：2026-09-05 失敗演練實測發現，主動探測與心跳的告警主旨
+// 完全相同，Gmail 依主旨把兩封摺進同一個 thread，新告警會被埋在舊 thread 裡
+// ---------------------------------------------------------------------------
+
+/** 從 stub 收到的 EmailMessage 取回主旨（worker.js 依 RFC 2047 把中文主旨 base64 編碼）。 */
+function subjectOf(msg) {
+  const line = msg.raw.split("\r\n").find((l) => l.startsWith("Subject: "));
+  const encoded = line.match(/^Subject: =\?UTF-8\?B\?(.*)\?=$/)[1];
+  return Buffer.from(encoded, "base64").toString("utf8");
+}
+
+test("兩種機制的告警主旨必須不同——相同主旨會被郵件客戶端摺進同一個 thread", async () => {
+  // 情境一：心跳逾期，探測正常
+  const hbKv = makeKv({
+    data: {
+      "state:bootstrap": { at: NOW - 10 * 24 * HOUR },
+      "ping:backup": { at: NOW - 30 * HOUR },
+    },
+  });
+  const hbEnv = makeEnv(hbKv);
+  await withHealth(true, () => worker.scheduled({}, hbEnv, {}));
+
+  // 情境二：探測連續失敗達門檻，心跳正常
+  const probeKv = makeKv({
+    data: {
+      "state:bootstrap": { at: NOW },
+      "ping:backup": { at: NOW - 1 * HOUR },
+    },
+  });
+  const probeEnv = makeEnv(probeKv);
+  for (let i = 0; i < 3; i++) {
+    await withHealth(false, () => worker.scheduled({}, probeEnv, {}));
+  }
+
+  const hbSubject = subjectOf(hbEnv.sent[0]);
+  const probeSubject = subjectOf(probeEnv.sent[0]);
+
+  assert.equal(hbSubject, "[iPig 看門狗] 異常：心跳「backup」");
+  assert.equal(probeSubject, "[iPig 看門狗] 異常：系統");
+  assert.notEqual(
+    hbSubject,
+    probeSubject,
+    "這是本測試存在的唯一理由：兩者相同就會撞同一個 mail thread",
+  );
+});
+
+test("同一輪兩種機制都告警時，主旨並列兩者", async () => {
+  // 真實情境：筆電掛掉 → 探測連續失敗，同時備份也沒跑、心跳逾期
+  const kv = makeKv({
+    data: {
+      "state:bootstrap": { at: NOW - 10 * 24 * HOUR },
+      "state:probe": { fails: 2, alerted: false, lastOkAt: NOW - 3 * HOUR },
+      "ping:backup": { at: NOW - 30 * HOUR },
+    },
+  });
+  const env = makeEnv(kv);
+
+  await withHealth(false, () => worker.scheduled({}, env, {}));
+
+  assert.equal(env.sent.length, 1, "同一輪的多個告警應合併成一封信");
+  assert.equal(subjectOf(env.sent[0]), "[iPig 看門狗] 異常：系統 + 心跳「backup」");
+});
+
+test("恢復信的主旨同樣帶機制別", async () => {
+  const kv = makeKv({
+    data: {
+      "state:bootstrap": { at: NOW - 10 * 24 * HOUR },
+      "ping:backup": { at: NOW - 1 * HOUR }, // 已回報，不再逾期
+      "state:hb:backup": { alerted: true }, // 但先前告警過
+    },
+  });
+  const env = makeEnv(kv);
+
+  await withHealth(true, () => worker.scheduled({}, env, {}));
+
+  assert.equal(subjectOf(env.sent[0]), "[iPig 看門狗] 已恢復：心跳「backup」");
+});
+
+// ---------------------------------------------------------------------------
+// /ping 節流：token 外洩或用戶端重試迴圈失控時，不讓單一 job 打滿
+// 免費層每日 1000 次 KV 寫入額度（security review 發現，見 wrangler secret
+// PING_TOKEN 外洩即可無限觸發此路徑）
+// ---------------------------------------------------------------------------
+
+function pingRequest(env) {
+  return new Request("https://w.invalid/ping/backup", {
+    method: "POST",
+    headers: { authorization: `Bearer ${env.PING_TOKEN}` },
+  });
+}
+
+test("/ping 首次觸發（無舊值）：照樣寫入", async () => {
+  const kv = makeKv();
+  const env = makeEnv(kv);
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204);
+  assert.equal(kv.puts.length, 1, "沒有舊值可比較，第一次必須寫入");
+  assert.equal(kv.puts[0].key, "ping:backup");
+});
+
+test("/ping 節流視窗內重複觸發：不重複寫入 KV", async () => {
+  const kv = makeKv({ data: { "ping:backup": { at: NOW - 1 * 60 * 1000 } } }); // 1 分鐘前
+  const env = makeEnv(kv);
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204, "節流不影響回應——呼叫端看不出差異，只是狀態沒真的回寫");
+  assert.deepEqual(kv.puts, [], "10 分鐘節流視窗內，第二次觸發不得再消耗一次 KV write 額度");
+});
+
+test("/ping 視窗下緣（9 分鐘前）仍在節流內：不寫入", async () => {
+  // 🔴 這條的用途是**釘住視窗長度本身**，不是再測一次「有節流」。
+  // 上面兩條（1 分鐘前節流、11 分鐘前寫入）在 5 分鐘與 10 分鐘的視窗下都成立——
+  // 2026-09-06 實測 mutation：把 PING_WRITE_MIN_INTERVAL_MS 改回 5 分鐘，14 項照樣全綠。
+  // 9 分鐘只有在視窗 >= 10 分鐘時才落在裡面，所以視窗被縮短時這條會紅。
+  const kv = makeKv({ data: { "ping:backup": { at: NOW - 9 * 60 * 1000 } } }); // 9 分鐘前
+  const env = makeEnv(kv);
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204);
+  assert.deepEqual(kv.puts, [], "9 分鐘 < 10 分鐘節流視窗，不得寫入——這條紅了代表視窗被改小了");
+});
+
+test("/ping 節流視窗外再次觸發：允許重新寫入", async () => {
+  const kv = makeKv({ data: { "ping:backup": { at: NOW - 11 * 60 * 1000 } } }); // 11 分鐘前，超過節流視窗
+  const env = makeEnv(kv);
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204);
+  assert.equal(kv.puts.length, 1, "已超過節流視窗，這次觸發應該真的落地");
+});
+
+test("/ping 節流檢查本身讀 KV 失敗：仍照樣寫入（心跳比節流精確度重要）", async () => {
+  const kv = makeKv({ failOn: ["ping:backup"] });
+  const env = makeEnv(kv);
+  // makeKv 的 get() 對 failOn 內的 key 一律丟例外，put() 不受影響——
+  // 這裡驗證的是「讀不到舊值時 fail-open 去寫」，不是「KV 整個不可用」。
+
+  const res = await worker.fetch(pingRequest(env), env);
+
+  assert.equal(res.status, 204);
+  assert.equal(kv.puts.length, 1, "讀不到舊值不該讓真正的心跳寫入被卡住");
+});

@@ -50,6 +50,10 @@ Prometheus、Alertmanager、Grafana、Loki 全部跑在 prod 筆電的 Docker �
 cd deploy/watchdog
 npm install
 
+# 0) wrangler.toml 含真實收件信箱與 KV namespace id，不進版控（R104 最小揭露原則）。
+#    從樣板複製一份本機專用的（.gitignore 已排除 wrangler.toml 本體，只追蹤 .example）：
+cp wrangler.toml.example wrangler.toml
+
 # 1) 建 KV namespace，把印出來的 id 填進 wrangler.toml 的 <...>
 npx wrangler kv namespace create WATCHDOG_KV
 
