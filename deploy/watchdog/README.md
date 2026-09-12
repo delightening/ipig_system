@@ -125,126 +125,79 @@ repo 的 `.git` 目錄有關，未查到根因（`wrangler deploy --autoconfig`
 的說明：`Enables framework detection and automatic configuration when
 deploying`，預設 `true`）。
 
-**繞法**（PowerShell 與 Git Bash 兩版實測有效；**WSL 那版未實測**，見該節警語）：
-把 `src/worker.js` 與 `wrangler.toml`（含真實值那份）
-複製到本 repo 之外的乾淨目錄（維持 `src/worker.js` 的相對路徑結構，因為
-`wrangler.toml` 的 `main = "src/worker.js"` 是相對路徑），從那裡跑
-`wrangler deploy`。Cloudflare 認的是 `wrangler.toml` 裡的 `name = "ipig-watchdog"`，
-不是本機執行目錄，所以這樣部署完全等效：
+**繞法**：把 `src/worker.js` 與 `wrangler.toml`（含真實值那份）複製到本 repo 之外的
+乾淨目錄，從那裡部署。Cloudflare 認的是 `wrangler.toml` 裡的 `name = "ipig-watchdog"`，
+不是本機執行目錄，所以完全等效。
 
-下面有**三種**寫法，依你用的 shell 挑一種。⚠️ **前兩種與第三種的前提不同，別混用**：
+**這個繞法已經寫成腳本，不要手抄指令：**
 
-| shell | 工作目錄 | 來源路徑 | 用哪份 `node_modules` |
-|---|---|---|---|
-| **PowerShell** | `deploy/watchdog/` | 相對 | §3 在 Windows 裝的那份 |
-| **Git Bash** | `deploy/watchdog/` | 相對 | 同上（Windows 那份） |
-| **WSL** | 任意 | **絕對**（`/mnt/c/…`） | 🔴 **要在 WSL 內自己重裝一份** |
-
-前兩種承接上面 §3 的 `cd deploy/watchdog`，來源路徑一律相對於該目錄。
-WSL 不能沿用 Windows 的 `node_modules`（原因見該節），所以它連來源路徑都得寫絕對的。
-三者的目的地都只要不在 `ipig_system` repo 底下即可，路徑本身不重要。
-
-🔴 **前兩種一定要用本專案安裝的那支 wrangler，不能在乾淨目錄裡直接打 `npx wrangler`。**
-乾淨目錄底下沒有 `node_modules`，`npx` 會轉去外面解析——可能跑到全域快取裡的某個版本、
-也可能當場下載最新版，總之**不是 §3 裝的那一支**。所以下面先把本地執行檔的絕對路徑
-記起來，再切換目錄。（WSL 那一種不適用：它在目的地自己跑 `npm ci`，`npx` 取到的
-就是剛裝好的本地版本。）
-
-**PowerShell**（本問題只發生在 Windows，故列為預設）：
-
-```powershell
-$ErrorActionPreference = 'Stop'   # ← 任何一步失敗就停，不要帶著舊檔繼續部署
-
-# 仍在 deploy/watchdog 底下：先把本地 wrangler 的絕對路徑記住
-$wrangler = (Resolve-Path '.\node_modules\.bin\wrangler.cmd').Path
-$dst = Join-Path $env:TEMP 'watchdog-deploy'
-
-# 🔴 先整個刪掉再建。New-Item -Force 只保證目錄存在，**不會清掉裡面的舊檔**——
-#    重用目的地時，上一次部署留下的 worker.js 會原地不動。
-#    ⚠️ 只在「目錄不存在」時忽略錯誤。若是權限不足或檔案被佔用而刪不掉，
-#    必須停下來——吞掉那個錯就等於帶著一個沒清乾淨的目錄繼續部署。
-if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }   # 失敗會因 ErrorActionPreference 中止
-New-Item -ItemType Directory -Force -Path (Join-Path $dst 'src') | Out-Null
-
-Copy-Item 'src\worker.js' (Join-Path $dst 'src\worker.js') -Force
-Copy-Item 'wrangler.toml' (Join-Path $dst 'wrangler.toml')  -Force
-try {
-  Set-Location $dst
-  & $wrangler deploy
-  if ($LASTEXITCODE -ne 0) { throw "wrangler deploy 失敗（exit $LASTEXITCODE）" }
-} finally {
-  # 🔒 wrangler.toml 含真實收件信箱與 KV namespace id（R104 最小揭露原則），
-  #    用完就刪，不留在 TEMP。worker.js 不刪——它本來就在公開 repo 裡。
-  #    ⚠️ 這裡的 SilentlyContinue 是對的：部署失敗時可能根本還沒複製過去，
-  #    而 finally 不該用「清理失敗」去蓋掉原本那個錯。
-  Remove-Item (Join-Path $dst 'wrangler.toml') -Force -ErrorAction SilentlyContinue
-}
-```
-
-**Git Bash**（沿用 §3 在 Windows 上裝好的那份 `node_modules`）：
+⚠️ **下面兩種寫法的工作目錄不一樣**，不要混著抄。原本這裡寫「在 deploy/watchdog
+底下（或任何地方）」——**兩個都錯**：`bash deploy/watchdog/…` 只有從 repo 根目錄才叫得到，
+而 `npm run` 只有在 `package.json` 所在的 `deploy/watchdog` 底下才叫得到。
+（CodeRabbit 於 MR !23 指出，成立。）**腳本自己會定位來源**，所以它跑起來之後不在乎
+cwd；但「你怎麼叫到它」仍然取決於你人在哪，那是兩件事。
 
 ```bash
-set -euo pipefail   # ← 任何一步失敗就停，不要帶著舊檔繼續部署
+# ① 從 repo 根目錄
+bash deploy/watchdog/deploy-from-clean-dir.sh
 
-# 仍在 deploy/watchdog 底下
-wrangler="$PWD/node_modules/.bin/wrangler"
-dst=/tmp/watchdog-deploy
-rm -rf "$dst"       # 🔴 先刪。mkdir -p 只保證目錄存在，不會清掉上次留下的舊檔
-mkdir -p "$dst/src"
-# 🔒 wrangler.toml 含真實收件信箱與 KV namespace id（R104 最小揭露原則），
-#    不論成功失敗都在離開時刪掉，不留在 /tmp。worker.js 不刪——它本來就公開。
-trap 'rm -f "$dst/wrangler.toml"' EXIT
-cp src/worker.js "$dst/src/worker.js"
-cp wrangler.toml "$dst/wrangler.toml"
-cd "$dst"
-"$wrangler" deploy
+# ② 從 deploy/watchdog 底下（npm script 寫的是相對路徑）
+npm run deploy:clean
+npm run deploy:clean -- --dry-run   # 只印出會做什麼，不動檔案也不部署
 ```
 
-**WSL**——🔴 **不能沿用 Windows 裝的 `node_modules`**（2026-09-11 訂正，原文把 WSL 與
-Git Bash 並列成同一種做法，那是錯的）：
+| 情境 | 指令（從 repo 根目錄） |
+|---|---|
+| Windows（PowerShell 使用者請開 Git Bash 跑）、macOS、Linux | `bash deploy/watchdog/deploy-from-clean-dir.sh` |
+| **WSL** | 同上，但**必須加 `--reinstall`**；腳本會偵測並在漏加時停下來說明 |
+| 想先確認它會做什麼 | 加 `--dry-run` |
 
-wrangler 依賴 `workerd`，那是**平台原生的二進位檔**。在 Windows 上裝到的是 Windows 版，
-而 WSL 跑的是 Linux Node——直接指向那支執行檔會失敗。WSL 要在自己的環境裡重裝一份：
+腳本負責的事：清空目的地（不只是「確保存在」）、只複製該複製的、用**本專案安裝的**
+wrangler 而不是 `npx`、**預設**在離開時刪掉複製出去的 `wrangler.toml`（內含真實收件信箱
+與 KV namespace id），以及任何一步失敗就停。細節與理由寫在腳本自己的檔頭。
 
-```bash
-set -euo pipefail   # ← 任何一步失敗就停。npm ci 失敗卻照樣 deploy，等於部署上一次的舊檔
+⚠️ **`--keep` 是那個刪除行為的唯一例外**，而且是刻意的：加了它，含真實值的
+`wrangler.toml` 會**留在目的地**，腳本結束時會印警告告訴你檔案在哪。用完自己清掉。
+（原文寫「一律刪掉」，跟 `--keep` 互相矛盾；CodeRabbit 於 MR !23 指出，成立。）
+刪不掉的時候腳本會**以非零碼結束**，不會一邊回報成功一邊把真實值留在磁碟上。
 
-# 在 WSL 內，用 Linux 的 Node 裝到 repo 之外的乾淨目錄
-dst=~/watchdog-deploy
-rm -rf "$dst"       # 🔴 先刪。mkdir -p 不會清掉舊檔，連 node_modules 也會殘留
-mkdir -p "$dst/src"
-# 🔒 同上：wrangler.toml 含真實值，離開時刪掉。
-#    只刪它、不刪整個 $dst——那裡的 node_modules 重裝一次很慢。
-trap 'rm -f "$dst/wrangler.toml"' EXIT
-src="/mnt/c/<repo 路徑>/deploy/watchdog"   # ← 引號不能省。路徑含空格時 bash 會在
-                                          #   賦值處就斷開，後面每個 cp 都拿不到值。
-                                          #   （上面的 <repo 路徑> 這個佔位符本身就含
-                                          #   空格，照抄不加引號一定斷。）
-cp "$src/src/worker.js"      "$dst/src/worker.js"
-cp "$src/wrangler.toml"      "$dst/wrangler.toml"
-cp "$src/package.json"       "$dst/package.json"
-cp "$src/package-lock.json"  "$dst/package-lock.json"
-cd "$dst"
-npm ci --include=dev   # ← Linux 版的 workerd 在這一步才裝進來。
-                       #   --include=dev 同上：wrangler 在 devDependencies
+### 🔴 為什麼是腳本，而不是把指令寫在這裡
 
-# 🔴 WSL 要自己登入一次。wrangler 的憑證存在 Linux 這側的設定目錄／keyring，
-#    **Windows shell 裡的登入狀態不會共用**。跳過這步會在 deploy 時才失敗。
-#    開不了瀏覽器（純終端機的 WSL）就用 --device。
-./node_modules/.bin/wrangler login          # 或 login --device
-./node_modules/.bin/wrangler whoami         # 確認登入的是預期的帳號
-./node_modules/.bin/wrangler deploy         # 用本地執行檔，不走 npx
-```
+這段繞法原本就是 README 裡的三段程式碼區塊，前後被審查訂正了**十二輪**。最後幾輪的
+findings 全部是**前一輪加的守衛長出來的交互作用**：
 
-🔴 **WSL 這一版從頭到尾未實測**（手上沒有 WSL 環境），請把它當**起點而不是步驟表**。
+- `set -euo pipefail` 寫在文件區塊裡 → 讀者貼進現有 shell 後它會**留著**，
+  後面本來可以單獨跑的驗收指令一失敗就把整個 shell 關掉
+- `trap ... EXIT` 綁的是 **shell 的生命週期**而不是那段指令 → 貼進互動式 shell 時，
+  含真實值的 `wrangler.toml` 會留在暫存目錄直到視窗關閉
+- 為了讓「目錄不存在」不報錯而加的錯誤抑制 → 連「刪不掉」也一起吞掉
 
-PowerShell 與 Git Bash 兩版是實際跑過的。WSL 這版的每一步都是推導出來的：
-`workerd` 是平台原生二進位 → 要重裝；wrangler 憑證在 Linux 側 → 要重新登入。
-推導不等於驗證——2026-09-11 的審查在這一段連續補了「絕對路徑要引號」「`npm ci`
-要 `--include=dev`」「WSL 要自己登入」三項，每一項都是原本漏掉的。**很可能還有第四項。**
+**問題不在於改得不夠仔細，在於 README 的程式碼區塊是給人「挑著複製」的，
+不是一支會從頭跑到尾的程式。** 想讓它像程式一樣穩健，是搞錯了東西的性質。
 
-第一個真的在 WSL 上跑成功的人，請把實際步驟覆蓋掉這一段，並把這個警語刪掉。
-在那之前，能用 PowerShell 或 Git Bash 就別走這條。
+在腳本裡這三件事全部消失：它有自己的行程，`set -e` 不污染呼叫者、`trap EXIT` 綁的
+就是這一次執行、錯誤處理可以寫完整。**而且腳本可以真的被執行與測試**——
+`npm run test:deploy-script`。**不連網、不需要 wrangler 或 Cloudflare 登入**，
+也不碰 `deploy/watchdog/wrangler.toml` 那份真實設定——測試自己在暫存目錄造假來源。
+
+涵蓋的：參數處理、路徑判斷、各道前置檢查、「dry-run 真的什麼都不動」，以及用一支
+wrangler stub 走完**非 dry-run** 那條路（複製部署物、寫標記檔、離開時清掉 `wrangler.toml`、
+`--keep` 時保留它）。**沒涵蓋的**：真正的 `wrangler deploy` 與 `npm ci`——那需要真的部署；
+還有「清不掉敏感檔要回非零碼」那條，在 Windows 上造不出情境（chmod 是 no-op），
+測試會印 `⏭ SKIP` 並在總結加警告，**不會假裝通過**。
+所以綠燈的意思是「**該擋的有擋、該清的有清**」，不是「部署一定會成功」。
+
+那十二輪的病根就是「文件裡寫了沒人跑過的步驟」。腳本第一版寫完，它自己的測試
+立刻抓到一個真 bug：目的地檢查用字串前綴比對，於是 `/tmp/x/../out`（實際在外面）
+被誤判成「在 repo 裡」。那正是文件形式下不會被抓到的東西。
+
+### ⚠️ WSL 仍然沒有被實測
+
+腳本的 `--reinstall` 路徑是**推導**出來的（`workerd` 是平台原生二進位 → 要重裝；
+wrangler 憑證在 Linux 側 → 要重新登入），手上沒有 WSL 環境可驗。
+第一個真的在 WSL 上跑成功的人，請回來把這段警語刪掉；跑失敗的話請補進腳本。
+能用 Git Bash 就別走那條。
+
 
 ⚠️ **「用哪一支 wrangler」與「卡死的成因」是兩件事**（本段 2026-09-11 訂正，原文把兩者
 寫成同一件，結論因此只對了一半）：
