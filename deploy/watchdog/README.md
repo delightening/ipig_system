@@ -44,13 +44,50 @@ Prometheus、Alertmanager、Grafana、Loki 全部跑在 prod 筆電的 Docker �
 
 ## 3. 首次部署
 
-需要 Cloudflare 帳號登入（`npx wrangler login`），以及 `ipigsystem.asia` zone 的 Email Routing 已啟用。
+前置條件：`ipigsystem.asia` zone 的 Email Routing 已啟用。Cloudflare 帳號登入是
+**下面流程的第一步**，不是事前準備——⚠️ 它必須排在 `npm ci` **之後**，理由見該步註解。
 
 ```bash
-cd deploy/watchdog
-npm install
+set -euo pipefail   # ← 與下面三段繞法同一道守衛。npm ci 失敗卻繼續往下跑，
+                    #   等於帶著一個殘缺的 node_modules 去登入與部署。
 
-# 0) wrangler.toml 含真實收件信箱與 KV namespace id，不進版控（R104 最小揭露原則）。
+cd deploy/watchdog
+npm ci --include=dev   # 本目錄是獨立的 npm 專案，有自己的 package-lock.json。
+                       # 🔴 --include=dev 不能省：wrangler 在 devDependencies，
+                       #    而 NODE_ENV=production 時 npm ci 會跳過 devDependencies，
+                       #    於是 node_modules/.bin/wrangler 根本不存在。
+                       # 用 ci 不是 install 的理由見本節末尾。
+
+# 0) 登入 Cloudflare。
+#    🔴 **必須在 npm ci 之後**——乾淨 checkout 上先跑 `npx wrangler login` 的話，
+#       本地還沒有 wrangler，npx 會從快取或 registry 抓一個**不受本 lockfile 約束**
+#       的版本來跑。用本地執行檔就沒有這個問題。
+#
+#    ⚠️ 本檔的 `npx wrangler` 與 `./node_modules/.bin/wrangler` 是**刻意混用**的，
+#       判準只有一條：**npx 只在「cwd 底下有裝好的 node_modules」時才安全**
+#       （那時它優先用本地那支）。所以
+#         - 本節後面的 kv／secret／dev／tail 用 npx —— 它們都在 deploy/watchdog
+#           底下、且都在 npm ci 之後，本地一定裝好了
+#         - 「已知問題」那節的三種繞法用明確路徑 —— 它們的 cwd 是**沒有
+#           node_modules 的乾淨目錄**，npx 在那裡會轉去 registry
+#         - 這一步（登入）在 npm ci 之後，**npx 其實也安全**；仍然寫死路徑是因為
+#           「登入排在 npm ci 前面」正是前一版的錯。寫死之後這個順序要求就不必靠
+#           讀者記得——真的搬到前面去跑，路徑不存在會當場失敗，而不是默默抓一個
+#           別的版本裝作沒事
+#    ⚠️ 開不了瀏覽器時（SSH、無桌面環境）改用 `login --device`。
+#
+#    🔒 **憑證儲存位置是個已知的未處理項**（CodeRabbit 於 MR !19 以 CWE-522 提出）：
+#       `wrangler login` 完成後，OAuth 憑證預設寫在本機的 wrangler 設定檔裡，
+#       同機的其他程序或使用者讀得到，而那組憑證可以部署 Worker。
+#       ⚠️ 它建議加 `--use-keyring` 並設 `CLOUDFLARE_AUTH_USE_KEYRING=true` 改存
+#       作業系統金鑰圈。**本文件刻意不寫那兩個旗標——因為沒有人在這裡驗證過它們存在。**
+#       這一節的其餘內容已經因為「寫了沒跑過的步驟」被連續訂正過三輪，不再多添一筆。
+#       要處理的人請先 `wrangler login --help` 確認旗標名稱與該版本的行為，
+#       實測通過再寫進來，並把這段警語換掉。
+./node_modules/.bin/wrangler login
+./node_modules/.bin/wrangler whoami   # 確認登入的是預期的帳號
+
+# 1) wrangler.toml 含真實收件信箱與 KV namespace id，不進版控（R104 最小揭露原則）。
 #    從樣板複製一份本機專用的（.gitignore 已排除 wrangler.toml 本體，只追蹤 .example）：
 cp wrangler.toml.example wrangler.toml
 
@@ -66,10 +103,180 @@ npx wrangler secret put PING_TOKEN
 #       否則 send() 會被拒。
 
 # 4) 部署
-npx wrangler deploy
+#    🔴 **Windows 使用者不要跑下面這行**——已知會卡死（wrangler 4.128.0／4.129.0 實測）。
+#       直接跳到下一節「已知問題」，用那裡的 PowerShell 或 Git Bash 繞法。
+#       這一行只適用 macOS／Linux。
+#    （同樣用本地執行檔而非 npx，理由見第 0 步。）
+./node_modules/.bin/wrangler deploy
 ```
 
 部署後 Worker 會有一個 `https://ipig-watchdog.<你的子網域>.workers.dev` 位址。
+
+### ⚠️ 已知問題：在本目錄直接 `wrangler deploy` 常會卡死
+
+2026-09-09 實測（wrangler 4.128.0／4.129.0，Windows）：在 `deploy/watchdog/`
+這個目錄下直接跑 `wrangler deploy`，不管加 `--no-autoconfig`／`--dry-run`／
+`--no-bundle`／換版本，都會印完版本橫幅後卡住，行程最終以不正常的方式結束
+（曾在錯誤路徑上看到 `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING),
+file src\win\async.c`，是 wrangler 在 Windows 上一個底層 libuv 當機的 bug，
+不是本專案的設定或程式碼問題）。`Glob(".git/hooks/*")` 在本 repo 也會逾時，
+懷疑跟 wrangler 4.129+ 預設開啟的 `autoconfig`（會掃描 git 資訊）卡在這個
+repo 的 `.git` 目錄有關，未查到根因（`wrangler deploy --autoconfig`
+的說明：`Enables framework detection and automatic configuration when
+deploying`，預設 `true`）。
+
+**繞法**（PowerShell 與 Git Bash 兩版實測有效；**WSL 那版未實測**，見該節警語）：
+把 `src/worker.js` 與 `wrangler.toml`（含真實值那份）
+複製到本 repo 之外的乾淨目錄（維持 `src/worker.js` 的相對路徑結構，因為
+`wrangler.toml` 的 `main = "src/worker.js"` 是相對路徑），從那裡跑
+`wrangler deploy`。Cloudflare 認的是 `wrangler.toml` 裡的 `name = "ipig-watchdog"`，
+不是本機執行目錄，所以這樣部署完全等效：
+
+下面有**三種**寫法，依你用的 shell 挑一種。⚠️ **前兩種與第三種的前提不同，別混用**：
+
+| shell | 工作目錄 | 來源路徑 | 用哪份 `node_modules` |
+|---|---|---|---|
+| **PowerShell** | `deploy/watchdog/` | 相對 | §3 在 Windows 裝的那份 |
+| **Git Bash** | `deploy/watchdog/` | 相對 | 同上（Windows 那份） |
+| **WSL** | 任意 | **絕對**（`/mnt/c/…`） | 🔴 **要在 WSL 內自己重裝一份** |
+
+前兩種承接上面 §3 的 `cd deploy/watchdog`，來源路徑一律相對於該目錄。
+WSL 不能沿用 Windows 的 `node_modules`（原因見該節），所以它連來源路徑都得寫絕對的。
+三者的目的地都只要不在 `ipig_system` repo 底下即可，路徑本身不重要。
+
+🔴 **前兩種一定要用本專案安裝的那支 wrangler，不能在乾淨目錄裡直接打 `npx wrangler`。**
+乾淨目錄底下沒有 `node_modules`，`npx` 會轉去外面解析——可能跑到全域快取裡的某個版本、
+也可能當場下載最新版，總之**不是 §3 裝的那一支**。所以下面先把本地執行檔的絕對路徑
+記起來，再切換目錄。（WSL 那一種不適用：它在目的地自己跑 `npm ci`，`npx` 取到的
+就是剛裝好的本地版本。）
+
+**PowerShell**（本問題只發生在 Windows，故列為預設）：
+
+```powershell
+$ErrorActionPreference = 'Stop'   # ← 任何一步失敗就停，不要帶著舊檔繼續部署
+
+# 仍在 deploy/watchdog 底下：先把本地 wrangler 的絕對路徑記住
+$wrangler = (Resolve-Path '.\node_modules\.bin\wrangler.cmd').Path
+$dst = Join-Path $env:TEMP 'watchdog-deploy'
+
+# 🔴 先整個刪掉再建。New-Item -Force 只保證目錄存在，**不會清掉裡面的舊檔**——
+#    重用目的地時，上一次部署留下的 worker.js 會原地不動。
+#    ⚠️ 只在「目錄不存在」時忽略錯誤。若是權限不足或檔案被佔用而刪不掉，
+#    必須停下來——吞掉那個錯就等於帶著一個沒清乾淨的目錄繼續部署。
+if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }   # 失敗會因 ErrorActionPreference 中止
+New-Item -ItemType Directory -Force -Path (Join-Path $dst 'src') | Out-Null
+
+Copy-Item 'src\worker.js' (Join-Path $dst 'src\worker.js') -Force
+Copy-Item 'wrangler.toml' (Join-Path $dst 'wrangler.toml')  -Force
+try {
+  Set-Location $dst
+  & $wrangler deploy
+  if ($LASTEXITCODE -ne 0) { throw "wrangler deploy 失敗（exit $LASTEXITCODE）" }
+} finally {
+  # 🔒 wrangler.toml 含真實收件信箱與 KV namespace id（R104 最小揭露原則），
+  #    用完就刪，不留在 TEMP。worker.js 不刪——它本來就在公開 repo 裡。
+  #    ⚠️ 這裡的 SilentlyContinue 是對的：部署失敗時可能根本還沒複製過去，
+  #    而 finally 不該用「清理失敗」去蓋掉原本那個錯。
+  Remove-Item (Join-Path $dst 'wrangler.toml') -Force -ErrorAction SilentlyContinue
+}
+```
+
+**Git Bash**（沿用 §3 在 Windows 上裝好的那份 `node_modules`）：
+
+```bash
+set -euo pipefail   # ← 任何一步失敗就停，不要帶著舊檔繼續部署
+
+# 仍在 deploy/watchdog 底下
+wrangler="$PWD/node_modules/.bin/wrangler"
+dst=/tmp/watchdog-deploy
+rm -rf "$dst"       # 🔴 先刪。mkdir -p 只保證目錄存在，不會清掉上次留下的舊檔
+mkdir -p "$dst/src"
+# 🔒 wrangler.toml 含真實收件信箱與 KV namespace id（R104 最小揭露原則），
+#    不論成功失敗都在離開時刪掉，不留在 /tmp。worker.js 不刪——它本來就公開。
+trap 'rm -f "$dst/wrangler.toml"' EXIT
+cp src/worker.js "$dst/src/worker.js"
+cp wrangler.toml "$dst/wrangler.toml"
+cd "$dst"
+"$wrangler" deploy
+```
+
+**WSL**——🔴 **不能沿用 Windows 裝的 `node_modules`**（2026-09-11 訂正，原文把 WSL 與
+Git Bash 並列成同一種做法，那是錯的）：
+
+wrangler 依賴 `workerd`，那是**平台原生的二進位檔**。在 Windows 上裝到的是 Windows 版，
+而 WSL 跑的是 Linux Node——直接指向那支執行檔會失敗。WSL 要在自己的環境裡重裝一份：
+
+```bash
+set -euo pipefail   # ← 任何一步失敗就停。npm ci 失敗卻照樣 deploy，等於部署上一次的舊檔
+
+# 在 WSL 內，用 Linux 的 Node 裝到 repo 之外的乾淨目錄
+dst=~/watchdog-deploy
+rm -rf "$dst"       # 🔴 先刪。mkdir -p 不會清掉舊檔，連 node_modules 也會殘留
+mkdir -p "$dst/src"
+# 🔒 同上：wrangler.toml 含真實值，離開時刪掉。
+#    只刪它、不刪整個 $dst——那裡的 node_modules 重裝一次很慢。
+trap 'rm -f "$dst/wrangler.toml"' EXIT
+src="/mnt/c/<repo 路徑>/deploy/watchdog"   # ← 引號不能省。路徑含空格時 bash 會在
+                                          #   賦值處就斷開，後面每個 cp 都拿不到值。
+                                          #   （上面的 <repo 路徑> 這個佔位符本身就含
+                                          #   空格，照抄不加引號一定斷。）
+cp "$src/src/worker.js"      "$dst/src/worker.js"
+cp "$src/wrangler.toml"      "$dst/wrangler.toml"
+cp "$src/package.json"       "$dst/package.json"
+cp "$src/package-lock.json"  "$dst/package-lock.json"
+cd "$dst"
+npm ci --include=dev   # ← Linux 版的 workerd 在這一步才裝進來。
+                       #   --include=dev 同上：wrangler 在 devDependencies
+
+# 🔴 WSL 要自己登入一次。wrangler 的憑證存在 Linux 這側的設定目錄／keyring，
+#    **Windows shell 裡的登入狀態不會共用**。跳過這步會在 deploy 時才失敗。
+#    開不了瀏覽器（純終端機的 WSL）就用 --device。
+./node_modules/.bin/wrangler login          # 或 login --device
+./node_modules/.bin/wrangler whoami         # 確認登入的是預期的帳號
+./node_modules/.bin/wrangler deploy         # 用本地執行檔，不走 npx
+```
+
+🔴 **WSL 這一版從頭到尾未實測**（手上沒有 WSL 環境），請把它當**起點而不是步驟表**。
+
+PowerShell 與 Git Bash 兩版是實際跑過的。WSL 這版的每一步都是推導出來的：
+`workerd` 是平台原生二進位 → 要重裝；wrangler 憑證在 Linux 側 → 要重新登入。
+推導不等於驗證——2026-09-11 的審查在這一段連續補了「絕對路徑要引號」「`npm ci`
+要 `--include=dev`」「WSL 要自己登入」三項，每一項都是原本漏掉的。**很可能還有第四項。**
+
+第一個真的在 WSL 上跑成功的人，請把實際步驟覆蓋掉這一段，並把這個警語刪掉。
+在那之前，能用 PowerShell 或 Git Bash 就別走這條。
+
+⚠️ **「用哪一支 wrangler」與「卡死的成因」是兩件事**（本段 2026-09-11 訂正，原文把兩者
+寫成同一件，結論因此只對了一半）：
+
+- **在實測過的兩個版本上，換版本沒有用。** 4.128.0 與 4.129.0 都會卡，而換目錄兩者都好。
+  所以本節**不釘**特定版本號——在已知的證據下，釘版本解決不了問題，只會把注意力
+  導向一個沒被證實的變因。
+  ⚠️ **但這不等於「卡死與版本無關」。** 只測了兩個相鄰版本，推不出通則；
+  上段也明說根因未查到。若哪天在某個版本上「同一個目錄卻不卡」，那就是反例，
+  這條要跟著改。
+- **但執行哪一支 wrangler 必須是確定的。** 這跟卡死無關，是可重現性的問題：不確定就等於
+  每次部署都在賭一個沒測過的版本。原文只講了前者，於是留下一行會去外面抓版本的指令。
+
+`deploy/watchdog/package.json` 是**獨立的 npm 專案根目錄**——repo 根目錄的 lockfile 鎖不到
+它的依賴，所以本目錄有自己的 `package-lock.json`。
+
+§3 用 `npm ci` 而不是 `npm install`，理由是**失敗方式**不同，不是「install 不看 lockfile」
+（⚠️ 本段 2026-09-11 訂正——原文是這樣寫的，而那是錯的。CodeRabbit 於 MR !19 指出）：
+
+| | package.json 與 lockfile 相容時 | 不相容時 |
+|---|---|---|
+| `npm install` | 照 lockfile 裝 | **自行重新解析並改寫 lockfile**，不報錯 |
+| `npm ci` | 照 lockfile 裝 | **直接失敗** |
+
+兩者在正常情況下裝出來的東西是一樣的。差別在出問題的時候：`install` 會**靜默地**把
+lockfile 改成它自己算出來的版本——於是你以為部署用的是版控裡那一份，實際上不是，
+而且工作區還多出一個沒人注意到的未提交變更。`ci` 會當場停下來告訴你兩者對不上。
+
+部署流程要的是後者：**寧可明確失敗，也不要靜默換版本。**
+
+改完 `worker.js` 要部署時，重新做一次上面的複製再部署即可；不用嘗試在
+`deploy/watchdog/` 本機目錄修這個問題。
 
 > **刻意用 workers.dev、不綁 `ipigsystem.asia` 的路由。**
 > 心跳端點若掛在同一個 zone，DNS 或 tunnel 出問題時備份腳本就 ping 不到，
@@ -102,6 +309,10 @@ WATCHDOG_PING_TOKEN=<與 wrangler secret put PING_TOKEN 相同的值>
 所以第一次要 `docker compose build db-backup` 再 `up -d`。
 
 ## 5. 驗收與演練
+
+> ⚠️ 本節與下面的演練區塊是**各自獨立、挑著跑**的指令，不是一串流程——所以
+> **刻意沒有** §3 與繞法那幾段的 `set -euo pipefail`。那道守衛的用途是「前一步失敗
+> 就別做下一步」，對一份清單加上去，等於把「這些你可以跑」變成「照順序跑完」。
 
 ```bash
 # 語法檢查
