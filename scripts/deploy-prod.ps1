@@ -111,9 +111,15 @@ if ($UseGhcr) {
     # GHCR_OWNER 缺了的話 image 會解析成 ghcr.io//ipig-api:...，錯誤訊息完全看不出原因
     $ghcrOwner = $env:GHCR_OWNER
     if (-not $ghcrOwner -and (Test-Path '.env')) {
-        $match = Select-String -Path '.env' -Pattern '^\s*GHCR_OWNER\s*=\s*(\S+)' | Select-Object -First 1
+        # \S* 而非 \S+：`GHCR_OWNER=` 這種空值也要match得到，才輪得到下面的正規化把它判空。
+        # 停在第一個空白 = 順帶切掉 `GHCR_OWNER=foo # 註解` 的行尾註解（compose 也是這樣解的）。
+        $match = Select-String -Path '.env' -Pattern '^\s*GHCR_OWNER\s*=\s*(\S*)' | Select-Object -First 1
         if ($match) { $ghcrOwner = $match.Matches[0].Groups[1].Value }
     }
+    # 先剝引號再判空：`GHCR_OWNER=""` 的字面值是兩個字元、對 PowerShell 而言為真，
+    # 但 docker compose 會剝掉引號得到空字串，於是 image 名變成 ghcr.io//ipig-api，
+    # 錯誤要拖到 pull 階段才浮現。這個守衛的意義就是不讓它拖到那時候。
+    $ghcrOwner = "$ghcrOwner".Trim().Trim('"').Trim("'").Trim()
     if (-not $ghcrOwner) {
         Abort "-UseGhcr 需要 GHCR_OWNER，但 .env 與環境變數皆查無。" `
               "見 TODO.md R114-1：.env 加 GHCR_OWNER / IMAGE_TAG + docker login ghcr.io（屬必問項，由使用者執行）"
