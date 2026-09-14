@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
 import type { DocumentLine, DocumentFormData } from '../types'
 import { scopeForPayload } from '../stocktakeScope'
+import { lineQtyError } from '../lineQtyRules'
 import type { InputRefs } from './useDocumentLines'
 
 interface UseDocumentSubmitOptions {
@@ -66,8 +67,13 @@ export function useDocumentSubmit({
       for (let idx = 0; idx < validLines.length; idx++) {
         const line = validLines[idx]
         if (!line.product_id?.trim()) throw new Error(`第 ${idx + 1} 行：請選擇產品`)
-        const qty = parseFloat(line.qty)
-        if (isNaN(qty) || qty <= 0) throw new Error(`第 ${idx + 1} 行：數量必須大於 0`)
+        // 數量規則依單據類型分流（STK 收 0 拒負／ADJ 收正負拒 0／其餘須 > 0），
+        // 規則本體在 lineQtyRules.ts，與後端 crud.rs::validate_line_qty_price 對齊。
+        // 2026-09-14：原本這裡一律「qty <= 0 即擋」，沒有任何 doc_type 分支，比後端嚴——
+        //   · STK 盤到 0 送不出去，而 0 正是盤點最該登記的結果（系統有、現場沒有＝全數短少）；
+        //   · ADJ 的調減（負數）一併被擋，而 payload 全程不轉正負號，等於調減開不出單。
+        const qtyError = lineQtyError(mergedData.doc_type, line.qty, idx + 1)
+        if (qtyError) throw new Error(qtyError)
         if (!line.uom?.trim()) throw new Error(`第 ${idx + 1} 行：請輸入單位`)
         if (isShelfRequired) {
           // 調撥單 (TR) 用的是 from/to 兩欄；其他單據用單一 storage_location_id。

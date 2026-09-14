@@ -80,7 +80,17 @@ impl DocumentService {
                     idx + 1
                 )));
             }
+            // STK 盤點：實盤數恆 >= 0。
+            // 0 是合法且重要的結果——「系統有、現場沒有」＝全數短少，擋掉它等於無法登記。
+            // 但負數在盤點語意下不存在（2026-09-14 使用者裁定）。原本此處直接 `continue`
+            // 跳過所有數量檢查，連 -5 的實盤數都會收下。
             if doc_type == DocType::STK {
+                if line.qty < Decimal::ZERO {
+                    return Err(AppError::Validation(format!(
+                        "第 {} 行：盤點數量不可為負數",
+                        idx + 1
+                    )));
+                }
                 continue;
             }
             let qty_invalid = if doc_type == DocType::ADJ {
@@ -1323,10 +1333,18 @@ mod tests {
         assert!(DocumentService::validate_line_qty_price(DocType::ADJ, &zero).is_err());
     }
 
+    /// 盤點的實盤數恆 >= 0：
+    /// · 0 合法且必要——「系統有、現場沒有」＝全數短少，是盤點最該登記的結果之一；
+    /// · 負數在盤點語意下不存在（2026-09-14 使用者裁定）。本檔原本對 STK 直接
+    ///   `continue` 跳過整段數量檢查，連 -5 的實盤數都會收下。
     #[test]
-    fn stocktake_allows_zero_qty() {
+    fn stocktake_allows_zero_but_rejects_negative_qty() {
         let zero = [line(Decimal::ZERO, None)];
         assert!(DocumentService::validate_line_qty_price(DocType::STK, &zero).is_ok());
+        let pos = [line(Decimal::from(7), None)];
+        assert!(DocumentService::validate_line_qty_price(DocType::STK, &pos).is_ok());
+        let neg = [line(Decimal::from(-1), None)];
+        assert!(DocumentService::validate_line_qty_price(DocType::STK, &neg).is_err());
     }
 
     #[test]
