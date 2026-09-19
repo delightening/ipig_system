@@ -7319,7 +7319,7 @@
         "noteName": "The \"{{name}}\" column is required",
         "noteUnit": "The \"{{unit}}\" column is required (default: PCS)",
         "noteCategory": "The \"{{category}}\" and \"{{subcategory}}\" columns are optional and default to GEN-OTH when left blank. After changing the category on the edit page, a new SKU is generated automatically (only GEN-OTH products can have their SKU changed)",
-        "noteTrack": "The \"{{trackBatch}}\" and \"{{trackExpiry}}\" columns: true/false or {{yesNo}}",
+        "noteTrack": "The \"{{trackBatch}}\" and \"{{trackExpiry}}\" columns: true/false or yes/no",
         "noteColumns": "CSV column order: {{columns}} (SKU may be left blank to be generated automatically)"
       },
       "partner": {

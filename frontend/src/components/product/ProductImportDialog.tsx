@@ -179,7 +179,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
                 <li>{t('erpMaster.import.product.noteName', { name: IMPORT_HEADERS.name })}</li>
                 <li>{t('erpMaster.import.product.noteUnit', { unit: IMPORT_HEADERS.unit })}</li>
                 <li>{t('erpMaster.import.product.noteCategory', { category: IMPORT_HEADERS.category, subcategory: IMPORT_HEADERS.subcategory })}</li>
-                <li>{t('erpMaster.import.product.noteTrack', { trackBatch: IMPORT_HEADERS.trackBatch, trackExpiry: IMPORT_HEADERS.trackExpiry, yesNo: '是/否' })}</li>
+                <li>{t('erpMaster.import.product.noteTrack', { trackBatch: IMPORT_HEADERS.trackBatch, trackExpiry: IMPORT_HEADERS.trackExpiry })}</li>
                 <li>{t('erpMaster.import.product.noteColumns', { columns: Object.values(IMPORT_HEADERS).join(t('erpMaster.common.listSeparator')) })}</li>
               </ul>
             </div>

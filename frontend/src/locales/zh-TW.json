@@ -7319,7 +7319,7 @@
         "noteName": "{{name}}為必填欄位",
         "noteUnit": "{{unit}}為必填欄位（預設 PCS）",
         "noteCategory": "{{category}}、{{subcategory}}可選，未填時預設為 GEN-OTH；於編輯頁變更分類後將自動產生新 SKU（僅 GEN-OTH 可改動 SKU）",
-        "noteTrack": "{{trackBatch}}、{{trackExpiry}}：true/false 或 {{yesNo}}",
+        "noteTrack": "{{trackBatch}}、{{trackExpiry}}：true/false 或 是/否",
         "noteColumns": "CSV 欄位順序：{{columns}}（SKU 可留空由系統自動產生）"
       },
       "partner": {
