@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -19,29 +20,18 @@ import { useTableSort } from '@/hooks/useTableSort'
 import { useAuthIsAdmin } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 import { PendingOwnerBadge, PendingOwnerInline } from '@/components/PendingOwnerBadge'
+import type { TFunction } from 'i18next'
 import type { DocumentListItem, DocType } from '@/lib/api'
+import { DOC_STATUS_NAMES, DOC_TYPE_NAMES } from '../types'
 
-const docTypeNames: Record<DocType, string> = {
-  PO: '採購單',
-  GRN: '採購入庫',
-  PR: '採購退貨',
-  SO: '銷貨單',
-  TR: '調撥單',
-  STK: '盤點單',
-  ADJ: '調整單',
-}
+const docTypeNames = DOC_TYPE_NAMES
+const statusNames = DOC_STATUS_NAMES
 
-const statusNames: Record<string, string> = {
-  draft: '草稿',
-  submitted: '待核准',
-  approved: '已核准',
-  cancelled: '已作廢',
-}
-
-const receiptStatusConfig: Record<string, { label: string; variant: 'warning' | 'info' | 'success' }> = {
-  pending: { label: '未入庫', variant: 'warning' },
-  partial: { label: '部分入庫', variant: 'info' },
-  complete: { label: '已入庫', variant: 'success' },
+// label 存 i18n 鍵，渲染時才 t()（語言切換才會即時更新）
+const receiptStatusConfig: Record<string, { labelKey: string; variant: 'warning' | 'info' | 'success' }> = {
+  pending: { labelKey: 'erpDocs.documents.table.receipt.pending', variant: 'warning' },
+  partial: { labelKey: 'erpDocs.documents.table.receipt.partial', variant: 'info' },
+  complete: { labelKey: 'erpDocs.documents.table.receipt.complete', variant: 'success' },
 }
 
 // SO 一段式（#1004）核准即過帳 → 併入「已過帳」badge 判斷
@@ -53,7 +43,7 @@ interface DocumentTableProps {
   onDeleteClick: (doc: DocumentListItem) => void
 }
 
-function getStatusBadge(doc: DocumentListItem) {
+function getStatusBadge(doc: DocumentListItem, t: TFunction) {
   const badges = []
 
   switch (doc.status) {
@@ -81,7 +71,7 @@ function getStatusBadge(doc: DocumentListItem) {
   if (ACCOUNTING_DOC_TYPES.includes(doc.doc_type) && doc.has_journal_entry) {
     badges.push(
       <Badge key="journal" variant="outline" className="ml-1 text-xs border-status-success-text/30 text-status-success-text">
-        已過帳
+        {t('erpDocs.documents.table.posted')}
       </Badge>
     )
   }
@@ -89,15 +79,16 @@ function getStatusBadge(doc: DocumentListItem) {
   return <div className="flex flex-wrap items-center gap-1">{badges}</div>
 }
 
-function getReceiptStatusBadge(doc: DocumentListItem) {
+function getReceiptStatusBadge(doc: DocumentListItem, t: TFunction) {
   if (doc.doc_type !== 'PO') return <span className="text-muted-foreground">-</span>
   if (doc.status !== 'approved') return <span className="text-muted-foreground">-</span>
   const cfg = doc.receipt_status ? receiptStatusConfig[doc.receipt_status] : null
   if (!cfg) return <span className="text-muted-foreground">-</span>
-  return <StatusBadge variant={cfg.variant} dot>{cfg.label}</StatusBadge>
+  return <StatusBadge variant={cfg.variant} dot>{t(cfg.labelKey)}</StatusBadge>
 }
 
 export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentTableProps) {
+  const { t } = useTranslation()
   const { sortedData, sort, toggleSort } = useTableSort(documents)
   const isAdmin = useAuthIsAdmin()
 
@@ -108,13 +99,13 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
     const canDelete = doc.status === 'draft' || isAdmin
     return (
       <>
-        <Button variant="ghost" size="icon" asChild title="檢視" aria-label="檢視">
+        <Button variant="ghost" size="icon" asChild title={t('common.view')} aria-label={t('common.view')}>
           <Link to={`/documents/${doc.id}`}>
             <Eye className="h-4 w-4" />
           </Link>
         </Button>
         {doc.status === 'draft' && (
-          <Button variant="ghost" size="icon" asChild title="編輯" aria-label="編輯">
+          <Button variant="ghost" size="icon" asChild title={t('common.edit')} aria-label={t('common.edit')}>
             <Link to={`/documents/${doc.id}/edit`}>
               <Edit className="h-4 w-4" />
             </Link>
@@ -125,8 +116,8 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
             variant="ghost"
             size="icon"
             onClick={() => onDeleteClick(doc)}
-            title="刪除"
-            aria-label="刪除"
+            title={t('common.delete')}
+            aria-label={t('common.delete')}
             className="text-destructive hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
@@ -142,16 +133,16 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單號</SortableTableHead>
-              <SortableTableHead sortKey="doc_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
-              <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
-              <SortableTableHead className="hidden @[900px]:table-cell" sortKey="receipt_status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>入庫進度</SortableTableHead>
-              <SortableTableHead className="hidden @[750px]:table-cell" sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>對象</SortableTableHead>
-              <SortableTableHead className="hidden @[900px]:table-cell" sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
-              <SortableTableHead sortKey="doc_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據日期</SortableTableHead>
-              <SortableTableHead className="hidden @[750px]:table-cell text-right" sortKey="total_amount" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>金額</SortableTableHead>
-              <SortableTableHead className="hidden @[900px]:table-cell" sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立人</SortableTableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.documents.table.docNo')}</SortableTableHead>
+              <SortableTableHead sortKey="doc_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.type')}</SortableTableHead>
+              <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.status')}</SortableTableHead>
+              <SortableTableHead className="hidden @[900px]:table-cell" sortKey="receipt_status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.documents.table.receiptProgress')}</SortableTableHead>
+              <SortableTableHead className="hidden @[750px]:table-cell" sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.partner')}</SortableTableHead>
+              <SortableTableHead className="hidden @[900px]:table-cell" sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.warehouse')}</SortableTableHead>
+              <SortableTableHead sortKey="doc_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.docDate')}</SortableTableHead>
+              <SortableTableHead className="hidden @[750px]:table-cell text-right" sortKey="total_amount" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.amount')}</SortableTableHead>
+              <SortableTableHead className="hidden @[900px]:table-cell" sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.createdBy')}</SortableTableHead>
+              <TableHead className="text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -166,8 +157,8 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
                 <TableRow key={doc.id} className={cn(doc.status === 'cancelled' && 'bg-destructive/5')}>
                   <TableCell className="font-mono font-medium">{doc.doc_no}</TableCell>
                   <TableCell>{docTypeNames[doc.doc_type]}</TableCell>
-                  <TableCell>{getStatusBadge(doc)}</TableCell>
-                  <TableCell className="hidden @[900px]:table-cell">{getReceiptStatusBadge(doc)}</TableCell>
+                  <TableCell>{getStatusBadge(doc, t)}</TableCell>
+                  <TableCell className="hidden @[900px]:table-cell">{getReceiptStatusBadge(doc, t)}</TableCell>
                   <TableCell className="hidden @[750px]:table-cell">{doc.partner_name || '-'}</TableCell>
                   <TableCell className="hidden @[900px]:table-cell">{doc.warehouse_name || '-'}</TableCell>
                   <TableCell>{formatDate(doc.doc_date)}</TableCell>
@@ -183,7 +174,7 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={10} icon={FileText} title="尚無單據資料" />
+              <TableEmptyRow colSpan={10} icon={FileText} title={t('erpDocs.documents.table.empty')} />
             )}
           </TableBody>
         </Table>
@@ -202,17 +193,23 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
                     {docTypeNames[doc.doc_type]} · {formatDate(doc.doc_date)}
                   </div>
                 </div>
-                {getStatusBadge(doc)}
+                {getStatusBadge(doc, t)}
               </div>
               <div className="text-xs text-muted-foreground space-y-0.5">
                 {/* 手機沒有 hover，「卡在誰」直接寫在卡片上 */}
                 <PendingOwnerInline owner={doc.pending_owner} />
-                {doc.partner_name && <div>對象：{doc.partner_name}</div>}
-                {doc.warehouse_name && <div>倉庫：{doc.warehouse_name}</div>}
-                {doc.total_amount && <div>金額：{formatCurrency(doc.total_amount)}</div>}
-                {doc.created_by_name && <div>建立：{doc.created_by_name}</div>}
+                {doc.partner_name && <div>{t('erpDocs.documents.table.partnerLine', { name: doc.partner_name })}</div>}
+                {doc.warehouse_name && <div>{t('erpDocs.documents.table.warehouseLine', { name: doc.warehouse_name })}</div>}
+                {doc.total_amount && <div>{t('erpDocs.documents.table.amountLine', { amount: formatCurrency(doc.total_amount) })}</div>}
+                {doc.created_by_name && <div>{t('erpDocs.documents.table.createdByLine', { name: doc.created_by_name })}</div>}
                 {doc.doc_type === 'PO' && doc.status === 'approved' && doc.receipt_status && (
-                  <div>入庫進度：{receiptStatusConfig[doc.receipt_status]?.label || doc.receipt_status}</div>
+                  <div>
+                    {t('erpDocs.documents.table.receiptLine', {
+                      status: receiptStatusConfig[doc.receipt_status]
+                        ? t(receiptStatusConfig[doc.receipt_status].labelKey)
+                        : doc.receipt_status,
+                    })}
+                  </div>
                 )}
               </div>
               <div className="flex justify-end gap-1 pt-1 border-t">
@@ -223,7 +220,7 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
         ) : (
           <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
             <FileText className="h-8 w-8" />
-            <p className="text-sm">尚無單據資料</p>
+            <p className="text-sm">{t('erpDocs.documents.table.empty')}</p>
           </div>
         )}
       </div>

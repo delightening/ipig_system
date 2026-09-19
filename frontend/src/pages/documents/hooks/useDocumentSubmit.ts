@@ -5,6 +5,7 @@
 import { useCallback, type MutableRefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { Product } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -30,11 +31,15 @@ export function useDocumentSubmit({
   collectLineValues, collectAllLineValues,
   setUnsavedChanges, products, isShelfRequired, inputRefs,
 }: UseDocumentSubmitOptions) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const buildPayload = useCallback(
     (data: DocumentFormData) => {
+      // 明細層級的錯誤訊息＝「第 N 行：」前綴＋規則本體；前綴永遠在句首，兩種語言語序一致。
+      const lineMessage = (lineNo: number, message: string) =>
+        `${t('erpDocs.documents.validation.linePrefix', { lineNo })}${message}`
       const mergedLines = data.lines.map((line) => {
         const values = collectLineValues(line.id)
         return Object.keys(values).length > 0 ? { ...line, ...values } : line
@@ -44,15 +49,19 @@ export function useDocumentSubmit({
       const needsProtocolRef = mergedData.doc_type === 'SO'
       const isTransfer = mergedData.doc_type === 'TR'
 
-      if (needsSupplier && !mergedData.partner_id?.trim()) throw new Error('請選擇供應商')
-      if (needsProtocolRef && !mergedData.protocol_id?.trim()) throw new Error('請選擇銷貨計畫')
+      if (needsSupplier && !mergedData.partner_id?.trim()) {
+        throw new Error(t('erpDocs.documents.validation.selectSupplier'))
+      }
+      if (needsProtocolRef && !mergedData.protocol_id?.trim()) {
+        throw new Error(t('erpDocs.documents.validation.selectSalesProtocol'))
+      }
       // SO 跨倉（#1004）：表頭倉庫改選填（每行倉庫＝儲位所屬倉），不再強制。
       if (!mergedData.warehouse_id?.trim() && !isTransfer && mergedData.doc_type !== 'SO') {
-        throw new Error('請選擇倉庫')
+        throw new Error(t('validation.selectWarehouse'))
       }
       if (isTransfer) {
         if (!mergedData.warehouse_from_id?.trim() || !mergedData.warehouse_to_id?.trim()) {
-          throw new Error('調撥單需要選擇來源倉庫和目標倉庫')
+          throw new Error(t('validation.transferWarehouseRequired'))
         }
         // 2026-06-09: 開放同倉庫調撥（A 倉儲位1 → A 倉儲位2）。
         // 原 H3 規則「同倉庫即擋」立於 migration 069 之前（當時 TR 僅倉庫層級，
@@ -62,11 +71,11 @@ export function useDocumentSubmit({
       }
 
       const validLines = mergedData.lines.filter((line) => line.product_id && line.product_id.trim() !== '')
-      if (mergedData.doc_type !== 'STK' && validLines.length === 0) throw new Error('請至少新增一項產品明細')
+      if (mergedData.doc_type !== 'STK' && validLines.length === 0) throw new Error(t('validation.atLeastOneItem'))
 
       for (let idx = 0; idx < validLines.length; idx++) {
         const line = validLines[idx]
-        if (!line.product_id?.trim()) throw new Error(`第 ${idx + 1} 行：請選擇產品`)
+        if (!line.product_id?.trim()) throw new Error(lineMessage(idx + 1, t('validation.selectProduct')))
         // 數量規則依單據類型分流（STK 收 0 拒負／ADJ 收正負拒 0／其餘須 > 0），
         // 規則本體在 lineQtyRules.ts，與後端 crud.rs::validate_line_qty_price 對齊。
         // 2026-09-14：原本這裡一律「qty <= 0 即擋」，沒有任何 doc_type 分支，比後端嚴——
@@ -74,7 +83,7 @@ export function useDocumentSubmit({
         //   · ADJ 的調減（負數）一併被擋，而 payload 全程不轉正負號，等於調減開不出單。
         const qtyError = lineQtyError(mergedData.doc_type, line.qty, idx + 1)
         if (qtyError) throw new Error(qtyError)
-        if (!line.uom?.trim()) throw new Error(`第 ${idx + 1} 行：請輸入單位`)
+        if (!line.uom?.trim()) throw new Error(lineMessage(idx + 1, t('validation.unitRequired')))
         if (isShelfRequired) {
           // 調撥單 (TR) 用的是 from/to 兩欄；其他單據用單一 storage_location_id。
           // 2026-05-20 fix: 原本所有 doc_type 都只檢查 storage_location_id，導致
@@ -82,20 +91,20 @@ export function useDocumentSubmit({
           if (isTransfer) {
             // 拆兩條檢查 → 錯誤訊息明確指出哪個欄位缺
             if (!line.storage_location_from_id?.trim()) {
-              throw new Error(`第 ${idx + 1} 行：來源儲位為必填項`)
+              throw new Error(lineMessage(idx + 1, t('erpDocs.documents.validation.sourceLocationRequired')))
             }
             if (!line.storage_location_to_id?.trim()) {
-              throw new Error(`第 ${idx + 1} 行：目標儲位為必填項`)
+              throw new Error(lineMessage(idx + 1, t('erpDocs.documents.validation.targetLocationRequired')))
             }
             // 2026-06-09: 同倉庫調撥時，來源/目標儲位必須不同，否則為無效搬移
             if (
               mergedData.warehouse_from_id === mergedData.warehouse_to_id &&
               line.storage_location_from_id === line.storage_location_to_id
             ) {
-              throw new Error(`第 ${idx + 1} 行：同倉調撥的來源與目標儲位不能相同`)
+              throw new Error(lineMessage(idx + 1, t('erpDocs.documents.validation.sameLocationTransfer')))
             }
           } else if (!line.storage_location_id?.trim()) {
-            throw new Error(`第 ${idx + 1} 行：儲位/貨架為必填項`)
+            throw new Error(lineMessage(idx + 1, t('erpDocs.documents.validation.storageLocationRequired')))
           }
         }
         // GRN 單價必填且必須大於 0（與後端 validate_line_qty_price 一致）。
@@ -106,7 +115,7 @@ export function useDocumentSubmit({
           const priceStr = line.unit_price?.trim() || domPrice
           const price = priceStr ? parseFloat(priceStr) : 0
           if (!priceStr || isNaN(price) || price <= 0) {
-            throw new Error(`第 ${idx + 1} 行：採購入庫的單價為必填，且必須大於 0`)
+            throw new Error(lineMessage(idx + 1, t('erpDocs.documents.validation.grnPriceRequired')))
           }
         }
 
@@ -128,10 +137,10 @@ export function useDocumentSubmit({
           const hasBatch = !!(line.batch_no?.trim() || domBatch)
 
           if (product?.track_batch && !hasBatch) {
-            throw new Error(`第 ${idx + 1} 行：該品項有管理批號，批號為必填項`)
+            throw new Error(lineMessage(idx + 1, t('erpDocs.documents.validation.batchRequired')))
           }
           if (product?.track_expiry && !hasExpiry) {
-            throw new Error(`第 ${idx + 1} 行：該品項有管理效期，效期為必填項`)
+            throw new Error(lineMessage(idx + 1, t('erpDocs.documents.validation.expiryRequired')))
           }
 
           // 確保 payload 帶上 DOM 讀到的值
@@ -165,7 +174,7 @@ export function useDocumentSubmit({
         })),
       }
     },
-    [collectLineValues, products, isShelfRequired, inputRefs, isEdit]
+    [collectLineValues, products, isShelfRequired, inputRefs, isEdit, t]
   )
 
   const saveMutation = useMutation({
@@ -178,11 +187,14 @@ export function useDocumentSubmit({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       setUnsavedChanges(false)
-      toast({ title: '成功', description: isEdit ? '單據已更新' : '單據已建立' })
+      toast({
+        title: t('common.success'),
+        description: isEdit ? t('erpDocs.documents.save.updated') : t('erpDocs.documents.save.created'),
+      })
       navigate(`/documents?type=${formData.doc_type}`)
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(error, '儲存失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(error, t('erpDocs.documents.save.saveFailed')), variant: 'destructive' })
     },
   })
 
@@ -206,11 +218,11 @@ export function useDocumentSubmit({
         await queryClient.invalidateQueries({ queryKey: ['document', response.documentId] })
       }
       setUnsavedChanges(false)
-      toast({ title: '成功', description: '單據已送審' })
+      toast({ title: t('common.success'), description: t('erpDocs.documents.toast.submitted') })
       navigate(`/documents/${response.documentId}`)
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(error, '送審失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(error, t('erpDocs.documents.toast.submitFailed')), variant: 'destructive' })
     },
   })
 

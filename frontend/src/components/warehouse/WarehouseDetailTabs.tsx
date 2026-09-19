@@ -2,7 +2,6 @@ import api, {
     Warehouse,
     StorageLocationWithWarehouse,
     StorageLocationInventoryItem,
-    storageLocationTypeNames,
     UnassignedInventoryItem,
 } from '@/lib/api'
 import { Can } from '@/components/auth'
@@ -21,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { cn, formatUom } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
@@ -54,6 +54,7 @@ export function WarehouseDetailTabs({
     onTabChange,
     onEditLocationClick,
 }: WarehouseDetailTabsProps) {
+    const { t } = useTranslation()
     const filteredLocations = locations.filter(loc => !['wall', 'door', 'window'].includes(loc.location_type))
 
     const { sortedData: sortedInventory, sort: invSort, toggleSort: toggleInvSort } = useTableSort(inventoryItems)
@@ -67,10 +68,10 @@ export function WarehouseDetailTabs({
             className="space-y-4"
         >
             <TabsList>
-                <TabsTrigger value="location-inventory">儲位庫存</TabsTrigger>
-                <TabsTrigger value="location-list">儲位列表</TabsTrigger>
+                <TabsTrigger value="location-inventory">{t('erpDocs.warehouse.tabs.locationInventory')}</TabsTrigger>
+                <TabsTrigger value="location-list">{t('erpDocs.warehouse.tabs.locationList')}</TabsTrigger>
                 <TabsTrigger value="unassigned">
-                    未分配庫存
+                    {t('erpDocs.warehouse.tabs.unassigned')}
                     {unassignedItems && unassignedItems.length > 0 && (
                         <span className="ml-1 inline-flex items-center justify-center rounded-full bg-status-warning-solid text-white text-[10px] px-1.5 min-w-[18px] h-[18px]">
                             {unassignedItems.length}
@@ -85,8 +86,8 @@ export function WarehouseDetailTabs({
                         <CardTitle className="text-base flex items-center gap-2">
                             <Package className="h-4 w-4" />
                             {selectedLocation
-                                ? `儲位庫存：${selectedLocation.name || selectedLocation.code}`
-                                : '儲位庫存'}
+                                ? t('erpDocs.warehouse.tabs.locationInventoryTitle', { name: selectedLocation.name || selectedLocation.code })
+                                : t('erpDocs.warehouse.tabs.locationInventory')}
                         </CardTitle>
                         {selectedLocation && (
                             <Can permission={PERMISSIONS.ERP_STORAGE_EDIT}>
@@ -96,7 +97,7 @@ export function WarehouseDetailTabs({
                                   onClick={() => onEditLocationClick(selectedLocation)}
                               >
                                   <Edit3 className="h-4 w-4 mr-1" />
-                                  編輯儲位
+                                  {t('erpDocs.warehouse.tabs.editLocation')}
                               </Button>
                             </Can>
                         )}
@@ -105,7 +106,7 @@ export function WarehouseDetailTabs({
                         {!selectedLocation ? (
                             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground bg-muted border border-dashed rounded-lg">
                                 <Package className="h-10 w-10 mb-2 opacity-20" />
-                                <p className="text-sm">請從上方佈局圖或「儲位列表」中選擇一個儲位以檢視庫存。</p>
+                                <p className="text-sm">{t('erpDocs.warehouse.tabs.selectPrompt')}</p>
                             </div>
                         ) : loadingInventory ? (
                             <div className="flex justify-center py-12">
@@ -116,10 +117,10 @@ export function WarehouseDetailTabs({
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-muted z-10">
                                         <TableRow>
-                                            <SortableTableHead sortKey="product_name" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort}>產品</SortableTableHead>
-                                            <SortableTableHead sortKey="on_hand_qty" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort} className="text-right">數量</SortableTableHead>
-                                            <SortableTableHead sortKey="batch_no" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort}>批號</SortableTableHead>
-                                            <SortableTableHead sortKey="expiry_date" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort}>效期</SortableTableHead>
+                                            <SortableTableHead sortKey="product_name" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort}>{t('erpDocs.shared.product')}</SortableTableHead>
+                                            <SortableTableHead sortKey="on_hand_qty" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort} className="text-right">{t('erpDocs.shared.quantity')}</SortableTableHead>
+                                            <SortableTableHead sortKey="batch_no" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort}>{t('erpDocs.shared.batchNo')}</SortableTableHead>
+                                            <SortableTableHead sortKey="expiry_date" currentSort={invSort.column} currentDirection={invSort.direction} onSort={toggleInvSort}>{t('erpDocs.shared.expiryDate')}</SortableTableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -152,7 +153,7 @@ export function WarehouseDetailTabs({
                             </div>
                         ) : (
                             <div className="text-center py-12 text-muted-foreground bg-muted/50 rounded-lg">
-                                <p className="text-sm">此儲位目前尚無庫存。</p>
+                                <p className="text-sm">{t('erpDocs.warehouse.tabs.noStockAtLocation')}</p>
                             </div>
                         )}
                     </CardContent>
@@ -164,7 +165,7 @@ export function WarehouseDetailTabs({
                     <CardHeader>
                         <CardTitle className="text-base flex items-center gap-2">
                              <Edit3 className="h-4 w-4" />
-                             儲位列表
+                             {t('erpDocs.warehouse.tabs.locationList')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -177,11 +178,11 @@ export function WarehouseDetailTabs({
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-muted z-10">
                                         <TableRow>
-                                            <SortableTableHead sortKey="name" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort}>名稱</SortableTableHead>
-                                            <SortableTableHead sortKey="code" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort}>代碼</SortableTableHead>
-                                            <SortableTableHead sortKey="location_type" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort}>類型</SortableTableHead>
-                                            <SortableTableHead sortKey="current_count" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort} className="text-right">產品數量</SortableTableHead>
-                                            <SortableTableHead sortKey="capacity" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort} className="text-right">容量</SortableTableHead>
+                                            <SortableTableHead sortKey="name" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort}>{t('erpDocs.shared.name')}</SortableTableHead>
+                                            <SortableTableHead sortKey="code" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort}>{t('erpDocs.shared.code')}</SortableTableHead>
+                                            <SortableTableHead sortKey="location_type" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort}>{t('erpDocs.shared.type')}</SortableTableHead>
+                                            <SortableTableHead sortKey="current_count" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort} className="text-right">{t('erpDocs.warehouse.tabs.productCount')}</SortableTableHead>
+                                            <SortableTableHead sortKey="capacity" currentSort={locSort.column} currentDirection={locSort.direction} onSort={toggleLocSort} className="text-right">{t('erpDocs.shared.capacity')}</SortableTableHead>
                                             <TableHead className="w-16" />
                                         </TableRow>
                                     </TableHeader>
@@ -204,7 +205,7 @@ export function WarehouseDetailTabs({
                                                         {loc.code}
                                                     </TableCell>
                                                     <TableCell className="text-xs">
-                                                        {storageLocationTypeNames[loc.location_type]}
+                                                        {t(`erpDocs.warehouse.locationType.${loc.location_type}`)}
                                                     </TableCell>
                                                     <TableCell className="text-right text-sm">
                                                         {loc.current_count}
@@ -235,7 +236,7 @@ export function WarehouseDetailTabs({
                             </div>
                         ) : (
                             <div className="text-center py-12 text-muted-foreground bg-muted rounded-lg">
-                                <p className="text-sm">此倉庫尚未建立儲位。</p>
+                                <p className="text-sm">{t('erpDocs.warehouse.tabs.noLocations')}</p>
                             </div>
                         )}
                     </CardContent>
@@ -247,7 +248,7 @@ export function WarehouseDetailTabs({
                     <CardHeader>
                         <CardTitle className="text-base flex items-center gap-2 text-status-warning-text">
                              <Package className="h-4 w-4" />
-                             未分配庫存
+                             {t('erpDocs.warehouse.tabs.unassigned')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -257,18 +258,18 @@ export function WarehouseDetailTabs({
                             </div>
                         ) : !sortedUnassigned || sortedUnassigned.length === 0 ? (
                             <div className="text-center py-12 text-muted-foreground bg-muted rounded-lg border-dashed border">
-                                <p className="text-sm text-status-success-text font-medium">✨ 所有庫存均已分配至具體儲位。</p>
+                                <p className="text-sm text-status-success-text font-medium">{t('erpDocs.warehouse.tabs.allAssigned')}</p>
                             </div>
                         ) : (
                             <div className="border rounded-md max-h-[400px] overflow-y-auto">
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-muted z-10">
                                         <TableRow>
-                                            <SortableTableHead sortKey="product_name" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort}>產品</SortableTableHead>
-                                            <SortableTableHead sortKey="qty_on_warehouse" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">倉庫總庫存</SortableTableHead>
-                                            <SortableTableHead sortKey="qty_on_shelves" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">已在儲位</SortableTableHead>
-                                            <SortableTableHead sortKey="qty_unassigned" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">未分配數量</SortableTableHead>
-                                            <TableHead className="w-[120px] text-right">操作</TableHead>
+                                            <SortableTableHead sortKey="product_name" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort}>{t('erpDocs.shared.product')}</SortableTableHead>
+                                            <SortableTableHead sortKey="qty_on_warehouse" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">{t('erpDocs.warehouse.tabs.warehouseTotal')}</SortableTableHead>
+                                            <SortableTableHead sortKey="qty_on_shelves" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">{t('erpDocs.warehouse.tabs.onShelves')}</SortableTableHead>
+                                            <SortableTableHead sortKey="qty_unassigned" currentSort={unaSort.column} currentDirection={unaSort.direction} onSort={toggleUnaSort} className="text-right">{t('erpDocs.warehouse.tabs.unassignedQty')}</SortableTableHead>
+                                            <TableHead className="w-[120px] text-right">{t('common.actions')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -287,6 +288,7 @@ export function WarehouseDetailTabs({
 }
 
 function UnassignedRow({ item }: { item: UnassignedInventoryItem }) {
+    const { t } = useTranslation()
     const [open, setOpen] = useState(false)
     const [sourcesOpen, setSourcesOpen] = useState(false)
     const unassignedQty = parseFloat(item.qty_unassigned)
@@ -299,8 +301,8 @@ function UnassignedRow({ item }: { item: UnassignedInventoryItem }) {
                             type="button"
                             onClick={() => setSourcesOpen((v) => !v)}
                             className="mt-0.5 text-muted-foreground/60 hover:text-foreground"
-                            title="查看來源單據"
-                            aria-label="查看來源單據"
+                            title={t('erpDocs.warehouse.tabs.viewSources')}
+                            aria-label={t('erpDocs.warehouse.tabs.viewSources')}
                         >
                             <ChevronRight className={cn('h-4 w-4 transition-transform', sourcesOpen && 'rotate-90')} />
                         </button>
@@ -326,7 +328,7 @@ function UnassignedRow({ item }: { item: UnassignedInventoryItem }) {
                     <Can permission={PERMISSIONS.ERP_STOCK_ADJUST}>
                       <Button size="sm" variant="outline" className="h-7 gap-1.5" onClick={() => setOpen(true)}>
                           <PackagePlus className="h-3.5 w-3.5" />
-                          分配
+                          {t('erpDocs.warehouse.tabs.assign')}
                       </Button>
                     </Can>
                 </TableCell>
@@ -363,6 +365,7 @@ function UnassignedSourceRows({
     productId: string
     baseUom: string
 }) {
+    const { t } = useTranslation()
     const { data, isLoading, isError } = useQuery({
         queryKey: ['inventory', 'unassigned', 'sources', warehouseId, productId],
         queryFn: async () => {
@@ -378,7 +381,7 @@ function UnassignedSourceRows({
             <TableRow className="bg-muted/20">
                 <TableCell colSpan={5} className="py-2 pl-10 text-xs text-muted-foreground">
                     <Loader2 className="inline h-3 w-3 animate-spin mr-1.5" />
-                    載入來源單據...
+                    {t('erpDocs.warehouse.tabs.loadingSources')}
                 </TableCell>
             </TableRow>
         )
@@ -387,7 +390,7 @@ function UnassignedSourceRows({
         return (
             <TableRow className="bg-muted/20">
                 <TableCell colSpan={5} className="py-2 pl-10 text-xs text-destructive">
-                    來源單據載入失敗，請稍後重試
+                    {t('erpDocs.warehouse.tabs.sourcesFailed')}
                 </TableCell>
             </TableRow>
         )
@@ -396,7 +399,7 @@ function UnassignedSourceRows({
         return (
             <TableRow className="bg-muted/20">
                 <TableCell colSpan={5} className="py-2 pl-10 text-xs text-muted-foreground">
-                    查無可追溯的來源採購入庫單（可能為早期匯入 / 調整，來源不明）
+                    {t('erpDocs.warehouse.tabs.noSources')}
                 </TableCell>
             </TableRow>
         )
@@ -408,12 +411,12 @@ function UnassignedSourceRows({
                     <TableCell colSpan={2} className="pl-10">
                         <span className="font-mono font-medium text-primary">{s.doc_no}</span>
                         <span className="text-muted-foreground ml-2">
-                            第 {s.line_no} 行 · {s.doc_date}
+                            {t('erpDocs.warehouse.tabs.sourceLine', { lineNo: s.line_no, date: s.doc_date })}
                         </span>
                         {s.partner_name && <span className="text-muted-foreground ml-2">· {s.partner_name}</span>}
                     </TableCell>
                     <TableCell colSpan={2} className="text-right text-muted-foreground">
-                        {s.batch_no ? `批號 ${s.batch_no}` : ''}
+                        {s.batch_no ? t('erpDocs.shared.batchLabel', { batchNo: s.batch_no }) : ''}
                     </TableCell>
                     <TableCell className="text-right font-medium text-status-warning-text">
                         {parseFloat(s.remaining_unshelved).toLocaleString()} {formatUom(baseUom)}

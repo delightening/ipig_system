@@ -3,6 +3,7 @@ import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, {
     deleteResource,
     Warehouse,
@@ -81,6 +82,7 @@ export function WarehouseActionHeader({
     onImportClick,
     onExportClick,
 }: WarehouseActionHeaderProps) {
+    const { t } = useTranslation()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const { dialogState, confirm } = useConfirmDialog()
@@ -121,13 +123,13 @@ export function WarehouseActionHeader({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['all-warehouses'] })
             queryClient.invalidateQueries({ queryKey: ['warehouses'] })
-            toast({ title: '成功', description: '倉庫已建立' })
+            toast({ title: t('common.success'), description: t('erpDocs.warehouse.header.created') })
             setShowWarehouseDialog(false)
         },
         onError: (error: Error) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '建立失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('erpDocs.warehouse.header.createFailed')),
                 variant: 'destructive',
             })
         },
@@ -141,13 +143,13 @@ export function WarehouseActionHeader({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['all-warehouses'] })
             queryClient.invalidateQueries({ queryKey: ['warehouses'] })
-            toast({ title: '成功', description: '倉庫已更新' })
+            toast({ title: t('common.success'), description: t('erpDocs.warehouse.header.updated') })
             setShowWarehouseDialog(false)
         },
         onError: (error: Error) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '更新失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('erpDocs.warehouse.header.updateFailed')),
                 variant: 'destructive',
             })
         },
@@ -164,13 +166,13 @@ export function WarehouseActionHeader({
             if (selectedWarehouseId === editingWarehouse?.id) {
                 onWarehouseChange('')
             }
-            toast({ title: '成功', description: '倉庫已停用' })
+            toast({ title: t('common.success'), description: t('erpDocs.warehouse.header.deactivated') })
             setShowWarehouseDialog(false)
         },
         onError: (error: Error) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '刪除失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('erpDocs.shared.deleteFailed')),
                 variant: 'destructive',
             })
         },
@@ -212,10 +214,10 @@ export function WarehouseActionHeader({
         // 刪除是軟刪除（is_active = false），原文案寫「無法復原」是錯的；
         // 現在有「已停用倉庫」入口可復原，文案照實描述。
         const ok = await confirm({
-            title: '停用倉庫',
-            description: `確定要停用倉庫「${editingWarehouse.name}」嗎？停用後不會出現在倉庫清單與庫存查詢，可從「已停用倉庫」復原。`,
+            title: t('erpDocs.warehouse.header.deactivateTitle'),
+            description: t('erpDocs.warehouse.header.deactivateDescription', { name: editingWarehouse.name }),
             variant: 'destructive',
-            confirmLabel: '確認停用',
+            confirmLabel: t('erpDocs.warehouse.header.deactivateLabel'),
         })
         if (ok) {
             deleteMutation.mutate(editingWarehouse.id)
@@ -226,20 +228,20 @@ export function WarehouseActionHeader({
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">倉庫</h1>
-                    <p className="text-muted-foreground">管理倉庫資料、貨架佈局與儲位庫存</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{t('nav.erpWarehouses')}</h1>
+                    <p className="text-muted-foreground">{t('erpDocs.warehouse.header.subtitle')}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-end">
                     <Can permission={PERMISSIONS.ERP_WAREHOUSE_CREATE}>
                       <Button variant="outline" size="sm" onClick={onImportClick}>
                           <Upload className="mr-2 h-4 w-4" />
-                          匯入倉庫
+                          {t('erpDocs.warehouse.importWarehouses')}
                       </Button>
                     </Can>
                     <Can permission={PERMISSIONS.ERP_WAREHOUSE_VIEW}>
                       <Button variant="outline" size="sm" onClick={onExportClick} disabled={activeWarehouses.length === 0}>
                           <Download className="mr-2 h-4 w-4" />
-                          匯出倉庫
+                          {t('erpDocs.warehouse.header.exportWarehouses')}
                       </Button>
                     </Can>
                     <Can permission={PERMISSIONS.ERP_WAREHOUSE_VIEW}>
@@ -250,7 +252,7 @@ export function WarehouseActionHeader({
                           disabled={!selectedWarehouseId}
                       >
                           <Printer className="mr-2 h-4 w-4" />
-                          列印現況
+                          {t('erpDocs.warehouse.header.printStatus')}
                       </Button>
                     </Can>
                 </div>
@@ -260,7 +262,7 @@ export function WarehouseActionHeader({
                 <CardHeader className="pb-3 flex-row items-center justify-between space-y-0">
                     <CardTitle className="text-base flex items-center gap-2">
                         <WarehouseIcon className="h-4 w-4" />
-                        選擇倉庫
+                        {t('erpDocs.shared.selectWarehouse')}
                     </CardTitle>
                     <div className="flex gap-2">
                     <Can permission={PERMISSIONS.ERP_WAREHOUSE_EDIT}>
@@ -271,7 +273,7 @@ export function WarehouseActionHeader({
                                   onClick={() => setShowInactiveDialog(true)}
                               >
                                   <Archive className="h-4 w-4 mr-1" />
-                                  已停用倉庫
+                                  {t('erpDocs.warehouse.header.inactiveWarehouses')}
                                   <span className="ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold text-destructive-foreground">
                                       {inactiveWarehouses.length}
                                   </span>
@@ -281,7 +283,7 @@ export function WarehouseActionHeader({
                         <Can permission={PERMISSIONS.ERP_WAREHOUSE_CREATE}>
                           <Button variant="ghost" size="sm" onClick={handleOpenCreate}>
                               <Plus className="h-4 w-4 mr-1" />
-                              新增倉庫
+                              {t('erpDocs.warehouse.header.addWarehouse')}
                           </Button>
                         </Can>
                         <Can permission={PERMISSIONS.ERP_WAREHOUSE_EDIT}>
@@ -292,7 +294,7 @@ export function WarehouseActionHeader({
                               disabled={!selectedWarehouseId}
                           >
                               <Edit3 className="h-4 w-4 mr-1" />
-                              編輯倉庫
+                              {t('erpDocs.warehouse.header.editWarehouse')}
                           </Button>
                         </Can>
                     </div>
@@ -303,7 +305,7 @@ export function WarehouseActionHeader({
                         onValueChange={onWarehouseChange}
                     >
                         <SelectTrigger className="w-[300px]">
-                            <SelectValue placeholder="請選擇倉庫..." />
+                            <SelectValue placeholder={t('erpDocs.warehouse.header.selectPlaceholder')} />
                         </SelectTrigger>
                         <SelectContent>
                             {loadingWarehouses ? (
@@ -325,38 +327,38 @@ export function WarehouseActionHeader({
             <Dialog open={showWarehouseDialog} onOpenChange={setShowWarehouseDialog}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{editingWarehouse ? '編輯倉庫' : '新增倉庫'}</DialogTitle>
+                        <DialogTitle>{editingWarehouse ? t('erpDocs.warehouse.header.editWarehouse') : t('erpDocs.warehouse.header.addWarehouse')}</DialogTitle>
                         <DialogDescription>
-                            填寫倉庫基本資訊
+                            {t('erpDocs.warehouse.header.dialogDescription')}
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit}>
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="code" className="text-right">代碼 *</Label>
+                                <Label htmlFor="code" className="text-right">{t('erpDocs.warehouse.header.codeRequired')}</Label>
                                 <Input
                                     id="code"
                                     value={formData.code}
                                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                                     className="col-span-3"
-                                    placeholder="如 WH001"
+                                    placeholder={t('erpDocs.warehouse.header.codePlaceholder')}
                                     required
                                     disabled={!!editingWarehouse}
                                 />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="wh-name" className="text-right">名稱 *</Label>
+                                <Label htmlFor="wh-name" className="text-right">{t('erpDocs.shared.nameRequired')}</Label>
                                 <Input
                                     id="wh-name"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                     className="col-span-3"
-                                    placeholder="如 大倉庫"
+                                    placeholder={t('erpDocs.warehouse.header.namePlaceholder')}
                                     required
                                 />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="address" className="text-right">地址</Label>
+                                <Label htmlFor="address" className="text-right">{t('erpDocs.shared.address')}</Label>
                                 <Input
                                     id="address"
                                     value={formData.address}
@@ -365,7 +367,7 @@ export function WarehouseActionHeader({
                                 />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="is_active" className="text-right">啟用狀態</Label>
+                                <Label htmlFor="is_active" className="text-right">{t('erpDocs.warehouse.header.activeStatus')}</Label>
                                 <div className="col-span-3 flex items-center gap-2">
                                     <Switch
                                         id="is_active"
@@ -373,7 +375,7 @@ export function WarehouseActionHeader({
                                         onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                                     />
                                     <span className="text-sm text-muted-foreground">
-                                        {formData.is_active ? '已啟用' : '已停用'}
+                                        {formData.is_active ? t('erpDocs.warehouse.header.enabled') : t('erpDocs.warehouse.header.disabled')}
                                     </span>
                                 </div>
                             </div>
@@ -382,7 +384,7 @@ export function WarehouseActionHeader({
                               * 帳面準確度」，廢棄物處理區是「根本不是庫存資產」——目前兩者的勾選
                               * 剛好一樣，但語意不同，合併後日後出現「要盤但不要警報」的倉庫就回不去了。 */}
                             <div className="grid grid-cols-4 items-start gap-4">
-                                <Label htmlFor="exclude_from_alerts" className="text-right pt-2">低庫存警報</Label>
+                                <Label htmlFor="exclude_from_alerts" className="text-right pt-2">{t('erpDocs.warehouse.header.lowStockAlert')}</Label>
                                 <div className="col-span-3 flex items-start gap-2">
                                     <Switch
                                         id="exclude_from_alerts"
@@ -391,13 +393,13 @@ export function WarehouseActionHeader({
                                     />
                                     <span className="text-sm text-muted-foreground">
                                         {formData.exclude_from_alerts
-                                            ? '不發警報（帳面數字不維護準確度，或非庫存資產）'
-                                            : '照常發警報'}
+                                            ? t('erpDocs.warehouse.header.alertOff')
+                                            : t('erpDocs.warehouse.header.alertOn')}
                                     </span>
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-start gap-4">
-                                <Label htmlFor="skip_routine_stocktake" className="text-right pt-2">例行盤點</Label>
+                                <Label htmlFor="skip_routine_stocktake" className="text-right pt-2">{t('erpDocs.warehouse.header.routineStocktake')}</Label>
                                 <div className="col-span-3 flex items-start gap-2">
                                     <Switch
                                         id="skip_routine_stocktake"
@@ -406,8 +408,8 @@ export function WarehouseActionHeader({
                                     />
                                     <span className="text-sm text-muted-foreground">
                                         {formData.skip_routine_stocktake
-                                            ? '不排例行盤點（仍可在缺貨或有異狀時單獨盤）'
-                                            : '納入例行盤點'}
+                                            ? t('erpDocs.warehouse.header.stocktakeOff')
+                                            : t('erpDocs.warehouse.header.stocktakeOn')}
                                     </span>
                                 </div>
                             </div>
@@ -416,7 +418,7 @@ export function WarehouseActionHeader({
                               * 可以多個倉庫同時勾：藥品在準備室、耗材在儲藏室都是正當領用點，
                               * 後端再依該品項實際哪裡有貨去挑，故沒有唯一性約束。 */}
                             <div className="grid grid-cols-4 items-start gap-4">
-                                <Label htmlFor="is_default_issue_source" className="text-right pt-2">領用來源</Label>
+                                <Label htmlFor="is_default_issue_source" className="text-right pt-2">{t('erpDocs.warehouse.header.issueSource')}</Label>
                                 <div className="col-span-3 flex items-start gap-2">
                                     <Switch
                                         id="is_default_issue_source"
@@ -425,8 +427,8 @@ export function WarehouseActionHeader({
                                     />
                                     <span className="text-sm text-muted-foreground">
                                         {formData.is_default_issue_source
-                                            ? '開單時，品項在此倉有貨就自動帶這裡的儲位'
-                                            : '不自動帶（廢棄區這類不該領貨的地點請維持關閉）'}
+                                            ? t('erpDocs.warehouse.header.issueSourceOn')
+                                            : t('erpDocs.warehouse.header.issueSourceOff')}
                                     </span>
                                 </div>
                             </div>
@@ -445,13 +447,13 @@ export function WarehouseActionHeader({
                                         ) : (
                                             <Trash2 className="h-4 w-4 mr-1" />
                                         )}
-                                        刪除
+                                        {t('common.delete')}
                                     </Button>
                                 )}
                             </div>
                             <div className="flex gap-2">
                                 <Button type="button" variant="outline" onClick={() => setShowWarehouseDialog(false)}>
-                                    取消
+                                    {t('common.cancel')}
                                 </Button>
                                 <Button
                                     type="submit"
@@ -460,7 +462,7 @@ export function WarehouseActionHeader({
                                     {(createMutation.isPending || updateMutation.isPending) && (
                                         <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                                     )}
-                                    {editingWarehouse ? '更新' : '建立'}
+                                    {editingWarehouse ? t('common.update') : t('erpDocs.warehouse.header.createButton')}
                                 </Button>
                             </div>
                         </DialogFooter>

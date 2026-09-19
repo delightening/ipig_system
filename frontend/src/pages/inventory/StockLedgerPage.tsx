@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import api, { StockLedgerDetail } from '@/lib/api'
 import { useTableSort } from '@/hooks/useTableSort'
 import { Badge } from '@/components/ui/badge'
@@ -18,16 +20,28 @@ import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { formatDateTime, formatNumber, formatCurrency } from '@/lib/utils'
 
-const directionNames: Record<string, string> = {
-  in: '入庫',
-  out: '出庫',
-  transfer_in: '調入',
-  transfer_out: '調出',
-  adjust_in: '調增',
-  adjust_out: '調減',
+/** 異動方向顯示名稱；未知方向原樣顯示。 */
+function directionLabel(t: TFunction, direction: string): string {
+  switch (direction) {
+    case 'in':
+      return t('erpDocs.inventory.direction.in')
+    case 'out':
+      return t('erpDocs.inventory.direction.out')
+    case 'transfer_in':
+      return t('erpDocs.inventory.direction.transferIn')
+    case 'transfer_out':
+      return t('erpDocs.inventory.direction.transferOut')
+    case 'adjust_in':
+      return t('erpDocs.inventory.direction.adjustIn')
+    case 'adjust_out':
+      return t('erpDocs.inventory.direction.adjustOut')
+    default:
+      return direction
+  }
 }
 
 export function StockLedgerPage() {
+  const { t } = useTranslation()
   const { data: ledger, isLoading } = useQuery({
     queryKey: ['stock-ledger'],
     queryFn: async () => {
@@ -41,14 +55,24 @@ export function StockLedgerPage() {
   const exportToCSV = () => {
     if (!ledger) return
 
-    const headers = ['時間', '倉庫', '品項代碼', '品項名稱', '單據編號', '方向', '數量', '單位成本', '批號']
+    const headers = [
+      t('erpDocs.shared.time'),
+      t('erpDocs.shared.warehouse'),
+      t('erpDocs.inventory.ledger.itemCode'),
+      t('erpDocs.shared.itemName'),
+      t('erpDocs.inventory.ledger.docNo'),
+      t('erpDocs.shared.directionLabel'),
+      t('erpDocs.shared.quantity'),
+      t('erpDocs.inventory.ledger.unitCost'),
+      t('erpDocs.shared.batchNo'),
+    ]
     const rows = ledger.map(item => [
       item.trx_date,
       item.warehouse_name,
       item.product_sku,
       item.product_name,
       item.doc_no,
-      directionNames[item.direction] || item.direction,
+      directionLabel(t, item.direction),
       item.qty_base,
       item.unit_cost || '',
       item.batch_no || '',
@@ -69,7 +93,7 @@ export function StockLedgerPage() {
     const isInbound = ['in', 'transfer_in', 'adjust_in'].includes(direction)
     return (
       <Badge variant={isInbound ? 'success' : 'destructive'}>
-        {directionNames[direction] || direction}
+        {directionLabel(t, direction)}
       </Badge>
     )
   }
@@ -77,19 +101,19 @@ export function StockLedgerPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="庫存流水"
-        description="查看所有庫存異動記錄"
+        title={t('nav.erpInventoryLedger')}
+        description={t('erpDocs.inventory.ledger.description')}
         actions={
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" asChild>
               <Link to="/stock-ledger">
                 <ExternalLink className="mr-2 h-4 w-4" />
-                報表中心（進階篩選）
+                {t('erpDocs.inventory.ledger.reportCenter')}
               </Link>
             </Button>
             <Button size="sm" onClick={exportToCSV} disabled={!ledger?.length}>
               <Download className="mr-2 h-4 w-4" />
-              匯出 CSV
+              {t('erpDocs.inventory.ledger.exportCsv')}
             </Button>
           </div>
         }
@@ -99,14 +123,14 @@ export function StockLedgerPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="trx_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
-              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
-              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>品項</SortableTableHead>
-              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據</SortableTableHead>
-              <SortableTableHead sortKey="direction" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>方向</SortableTableHead>
-              <SortableTableHead sortKey="qty_base" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">數量</SortableTableHead>
-              <SortableTableHead sortKey="unit_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">單位成本</SortableTableHead>
-              <SortableTableHead sortKey="batch_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>批號</SortableTableHead>
+              <SortableTableHead sortKey="trx_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.time')}</SortableTableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.warehouse')}</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.item')}</SortableTableHead>
+              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.doc')}</SortableTableHead>
+              <SortableTableHead sortKey="direction" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.directionLabel')}</SortableTableHead>
+              <SortableTableHead sortKey="qty_base" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('erpDocs.shared.quantity')}</SortableTableHead>
+              <SortableTableHead sortKey="unit_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('erpDocs.inventory.ledger.unitCost')}</SortableTableHead>
+              <SortableTableHead sortKey="batch_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.batchNo')}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -143,7 +167,7 @@ export function StockLedgerPage() {
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={8} icon={FileText} title="尚無庫存流水資料" />
+              <TableEmptyRow colSpan={8} icon={FileText} title={t('erpDocs.inventory.ledger.empty')} />
             )}
           </TableBody>
         </Table>

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   buildStocktakeScope,
@@ -6,6 +6,14 @@ import {
   stocktakeBlockReason,
 } from '@/pages/documents/stocktakeScope'
 import type { StocktakeScope } from '@/pages/documents/types'
+
+// stocktakeBlockReason 的訊息走 i18n.t()：mock 成回傳 key，斷言比對 key 而非任何語言的譯文。
+vi.mock('@/lib/i18n', () => ({
+  default: { t: (key: string) => key },
+}))
+
+const KEY_LOADING = 'erpDocs.documents.stocktake.blockLoading'
+const KEY_ERROR = 'erpDocs.documents.stocktake.blockError'
 
 describe('buildStocktakeScope', () => {
   it('一個品類都沒選＝全盤，行為與本功能存在之前相同', () => {
@@ -67,20 +75,21 @@ describe('stocktakeBlockReason', () => {
   })
 
   it('載入中要擋——空清單看起來就像「沒有品類可選」', () => {
-    expect(stocktakeBlockReason({ needed: true, loading: true, error: false })).toContain(
-      '載入中',
+    expect(stocktakeBlockReason({ needed: true, loading: true, error: false })).toBe(
+      KEY_LOADING,
     )
   })
 
   it('載入失敗要擋，且說明後果是會盤到全部品項', () => {
-    expect(stocktakeBlockReason({ needed: true, loading: false, error: true })).toContain(
-      '全部品項',
+    // 「會盤到全部品項」這句後果說明在 zh-TW／en 譯文裡；這裡只鎖定走的是 error 那條訊息
+    expect(stocktakeBlockReason({ needed: true, loading: false, error: true })).toBe(
+      KEY_ERROR,
     )
   })
 
   it('loading 與 error 同時為真時以 loading 的訊息為準（重試中就是這個狀態）', () => {
-    expect(stocktakeBlockReason({ needed: true, loading: true, error: true })).toContain(
-      '載入中',
+    expect(stocktakeBlockReason({ needed: true, loading: true, error: true })).toBe(
+      KEY_LOADING,
     )
   })
 

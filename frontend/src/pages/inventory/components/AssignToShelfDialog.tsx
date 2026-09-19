@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import type { UnassignedSourceDoc } from '@/types/erp'
 import { Button } from '@/components/ui/button'
@@ -61,6 +62,7 @@ export function AssignToShelfDialog({
   unassignedQty,
   baseUom,
 }: AssignToShelfDialogProps) {
+  const { t } = useTranslation()
   const [storageLocationId, setStorageLocationId] = useState('')
   const [batchKey, setBatchKey] = useState(ALL_BATCHES)
   const [qty, setQty] = useState(String(unassignedQty))
@@ -90,8 +92,10 @@ export function AssignToShelfDialog({
       if (existing) {
         existing.remaining += remaining
       } else {
-        const parts = [s.batch_no ? `批號 ${s.batch_no}` : '無批號']
-        if (s.expiry_date) parts.push(`效期 ${s.expiry_date}`)
+        const parts = [
+          s.batch_no ? t('erpDocs.shared.batchLabel', { batchNo: s.batch_no }) : t('erpDocs.shared.noBatch'),
+        ]
+        if (s.expiry_date) parts.push(t('erpDocs.shared.expiryLabel', { date: s.expiry_date }))
         map.set(key, {
           key,
           batchNo: s.batch_no,
@@ -102,7 +106,7 @@ export function AssignToShelfDialog({
       }
     }
     return Array.from(map.values())
-  }, [sources])
+  }, [sources, t])
 
   const selectedBatch = batchOptions.find((b) => b.key === batchKey)
   const maxQty = batchKey === ALL_BATCHES ? unassignedQty : (selectedBatch?.remaining ?? 0)
@@ -116,11 +120,11 @@ export function AssignToShelfDialog({
   const mutation = useMutation({
     mutationFn: async () => {
       const parsedQty = parseFloat(qty)
-      if (isNaN(parsedQty) || parsedQty <= 0) throw new Error('分配數量必須大於 0')
+      if (isNaN(parsedQty) || parsedQty <= 0) throw new Error(t('erpDocs.inventory.assign.errQtyPositive'))
       if (parsedQty > maxQty) {
-        throw new Error(`分配數量不可超過可分配量 ${maxQty}`)
+        throw new Error(t('erpDocs.inventory.assign.errQtyExceeds', { max: maxQty }))
       }
-      if (!storageLocationId) throw new Error('請選擇目標儲位')
+      if (!storageLocationId) throw new Error(t('erpDocs.inventory.assign.errSelectLocation'))
       await api.post('/inventory/unassigned/assign', {
         warehouse_id: warehouseId,
         product_id: productId,
@@ -132,7 +136,7 @@ export function AssignToShelfDialog({
       })
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '已分配至儲位' })
+      toast({ title: t('common.success'), description: t('erpDocs.inventory.assign.assigned') })
       // 庫存查詢頁（InventoryPage / WarehouseDetailTabs）：bare ['inventory'] 前綴涵蓋主清單
       // ['inventory', locationFilter…] / ['inventory','unassigned'…] / ['inventory','batch-detail'…]
       //（同 queryInvalidation.ts 慣例，避免逐一列 key 又漏掉；原 ['inventory','on-hand'] 為死 key）。
@@ -149,8 +153,8 @@ export function AssignToShelfDialog({
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '分配失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.inventory.assign.assignFailed')),
         variant: 'destructive',
       })
     },
@@ -168,27 +172,27 @@ export function AssignToShelfDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>分配未分配庫存至儲位</DialogTitle>
+          <DialogTitle>{t('erpDocs.inventory.assign.title')}</DialogTitle>
           <DialogDescription>
-            將倉庫層級的未分配庫存指派到具體貨架
+            {t('erpDocs.inventory.assign.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="rounded-md border bg-muted/30 p-3 space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">倉庫</span>
+              <span className="text-muted-foreground">{t('erpDocs.shared.warehouse')}</span>
               <span className="font-medium">{warehouseName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">品項</span>
+              <span className="text-muted-foreground">{t('erpDocs.shared.item')}</span>
               <span className="font-medium text-right">
                 {productName}
                 <span className="block text-xs font-mono text-muted-foreground/70">{productSku}</span>
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">可分配量</span>
+              <span className="text-muted-foreground">{t('erpDocs.inventory.assign.assignableQty')}</span>
               <span className="font-bold text-status-warning-text">
                 {maxQty} {baseUom}
               </span>
@@ -197,40 +201,40 @@ export function AssignToShelfDialog({
 
           {batchOptions.length > 0 && (
             <div className="space-y-2">
-              <Label>批號 / 效期</Label>
+              <Label>{t('erpDocs.shared.batchExpiry')}</Label>
               <Select value={batchKey} onValueChange={handleBatchChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_BATCHES}>全部（依 FIFO 自動分批）</SelectItem>
+                  <SelectItem value={ALL_BATCHES}>{t('erpDocs.inventory.assign.allBatchesFifo')}</SelectItem>
                   {batchOptions.map((b) => (
                     <SelectItem key={b.key} value={b.key}>
-                      {b.label}（{b.remaining} {baseUom}）
+                      {t('erpDocs.inventory.assign.batchOption', { label: b.label, qty: b.remaining, uom: baseUom })}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                指定批號時，上架庫存會沿用該批號；選「全部」則依來源先進先出自動分批上架。
+                {t('erpDocs.inventory.assign.batchHint')}
               </p>
             </div>
           )}
 
           <div className="space-y-2">
-            <Label>目標儲位 *</Label>
+            <Label>{t('erpDocs.inventory.assign.targetLocationRequired')}</Label>
             <WarehouseShelfTreeSelect
               value={storageLocationId ? `loc:${storageLocationId}` : ''}
               onValueChange={handleShelfSelect}
               selectLevel="shelf"
               allowAll={false}
               parentId={warehouseId}
-              placeholder="選擇目標儲位"
+              placeholder={t('erpDocs.shared.selectTargetLocation')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>分配數量 *</Label>
+            <Label>{t('erpDocs.inventory.assign.qtyRequired')}</Label>
             <Input
               type="number"
               value={qty}
@@ -240,17 +244,17 @@ export function AssignToShelfDialog({
               step="any"
             />
             <p className="text-xs text-muted-foreground">
-              最大 {maxQty} {baseUom}
+              {t('erpDocs.inventory.assign.max', { max: maxQty, uom: baseUom })}
             </p>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-            {mutation.isPending ? '分配中...' : '確認分配'}
+            {mutation.isPending ? t('erpDocs.inventory.assign.assigning') : t('erpDocs.inventory.assign.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Save, Send, Loader2 } from 'lucide-react'
@@ -30,14 +31,16 @@ export function DocumentFormHeader({
   hasLines,
   blockedReason,
 }: DocumentFormHeaderProps) {
+  const { t } = useTranslation()
   const blocked = Boolean(blockedReason)
+  const typeLabel = docTypeName || t('erpDocs.shared.doc')
 
   return (
     <PageHeader
-      title={isEdit ? '編輯單據' : '新增單據'}
+      title={isEdit ? t('erpDocs.documents.header.editTitle') : t('erpDocs.documents.newDocument')}
       description={isEdit
-        ? `編輯現有的 ${docTypeName || '單據'}`
-        : `建立新的 ${docTypeName || '單據'}`}
+        ? t('erpDocs.documents.header.editDescription', { type: typeLabel })
+        : t('erpDocs.documents.header.newDescription', { type: typeLabel })}
       actions={
         <div className="flex flex-col items-end gap-1">
           <div className="flex gap-2">
@@ -53,7 +56,7 @@ export function DocumentFormHeader({
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              儲存草稿
+              {t('erpDocs.documents.header.saveDraft')}
             </Button>
             <Button
               size="sm"
@@ -66,7 +69,7 @@ export function DocumentFormHeader({
               ) : (
                 <Send className="mr-2 h-4 w-4" />
               )}
-              儲存並送審
+              {t('erpDocs.documents.header.saveAndSubmit')}
             </Button>
           </div>
           {blocked && (

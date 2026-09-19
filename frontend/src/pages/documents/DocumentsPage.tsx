@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { deleteResource } from '@/lib/api'
 import type { DocType, DocumentListItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ import { useAuthIsAdmin } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 import { DocumentTable } from './components/DocumentTable'
 import { useDocumentCategory, type DocCategory } from './hooks/useDocumentCategory'
+import { DOC_STATUS_NAMES, DOC_TYPE_NAMES } from './types'
 
 
 // R84-13：sales 分類原含 'SR'/'RTN'（銷貨退貨），業務上不存在銷貨退貨，已從 DocType 移除。
@@ -40,42 +42,27 @@ const CATEGORY_TYPES: Record<DocCategory, DocType[]> = {
   warehouse: ['TR', 'STK', 'ADJ'],
 }
 
-const CATEGORY_CONFIG: Record<DocCategory, { label: string; icon: React.ReactNode; desc: string }> = {
+// label / desc 存 i18n 鍵，渲染時才 t()（語言切換才會即時更新）
+const CATEGORY_CONFIG: Record<DocCategory, { labelKey: string; icon: React.ReactNode; descKey: string }> = {
   purchasing: {
-    label: '採購類',
+    labelKey: 'erpDocs.documents.list.category.purchasing.label',
     icon: <Truck className="h-4 w-4" />,
-    desc: '採購單、採購入庫、採購退貨',
+    descKey: 'erpDocs.documents.list.category.purchasing.desc',
   },
   sales: {
-    label: '銷貨類',
+    labelKey: 'erpDocs.documents.list.category.sales.label',
     icon: <ShoppingCart className="h-4 w-4" />,
-    desc: '銷貨單、銷貨退貨、退貨單',
+    descKey: 'erpDocs.documents.list.category.sales.desc',
   },
   warehouse: {
-    label: '倉儲類',
+    labelKey: 'erpDocs.documents.list.category.warehouse.label',
     icon: <Warehouse className="h-4 w-4" />,
-    desc: '調撥單、盤點單、調整單',
+    descKey: 'erpDocs.documents.list.category.warehouse.desc',
   },
-}
-
-const TYPE_NAMES: Record<DocType, string> = {
-  PO: '採購單',
-  GRN: '採購入庫',
-  PR: '採購退貨',
-  SO: '銷貨單',
-  TR: '調撥單',
-  STK: '盤點單',
-  ADJ: '調整單',
-}
-
-const STATUS_NAMES: Record<string, string> = {
-  draft: '草稿',
-  submitted: '待核准',
-  approved: '已核准',
-  cancelled: '已作廢',
 }
 
 export function DocumentsPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const typeFilter = searchParams.get('type') || ''
   const [search, setSearch] = useState('')
@@ -129,8 +116,10 @@ export function DocumentsPage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       toast({
-        title: '成功',
-        description: variables.hard ? '單據已永久刪除' : '單據已刪除',
+        title: t('common.success'),
+        description: variables.hard
+          ? t('erpDocs.documents.list.toast.hardDeleted')
+          : t('erpDocs.documents.list.toast.deleted'),
       })
 
       setDeleteDialogOpen(false)
@@ -138,8 +127,8 @@ export function DocumentsPage() {
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '刪除失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.shared.deleteFailed')),
         variant: 'destructive',
       })
     },
@@ -173,20 +162,24 @@ export function DocumentsPage() {
   const hasFilters = search || (statusFilter && statusFilter !== 'all') || dateFrom || dateTo || subTypeFilter !== 'all'
 
   const title = isLegacyMode
-    ? TYPE_NAMES[typeFilter as DocType] || '單據管理'
-    : '單據管理'
+    ? DOC_TYPE_NAMES[typeFilter as DocType] || t('nav.erpDocuments')
+    : t('nav.erpDocuments')
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={title}
-        description={isLegacyMode ? `管理${TYPE_NAMES[typeFilter as DocType]}` : '採購、銷貨、倉儲單據統一管理'}
+        description={
+          isLegacyMode
+            ? t('erpDocs.documents.list.manageType', { type: DOC_TYPE_NAMES[typeFilter as DocType] ?? typeFilter })
+            : t('erpDocs.documents.list.description')
+        }
         actions={
           <GuestHide>
             <Button size="sm" asChild>
               <Link to={isLegacyMode ? `/documents/new?type=${typeFilter}` : (subTypeFilter !== 'all' ? `/documents/new?type=${subTypeFilter}` : '/documents/new')}>
                 <Plus className="mr-2 h-4 w-4" />
-                新增單據
+                {t('erpDocs.documents.newDocument')}
               </Link>
             </Button>
           </GuestHide>
@@ -210,7 +203,7 @@ export function DocumentsPage() {
                 )}
               >
                 {cfg.icon}
-                {cfg.label}
+                {t(cfg.labelKey)}
               </button>
             )
           })}
@@ -221,9 +214,9 @@ export function DocumentsPage() {
       {!isLegacyMode && !activeCategory && !isLoadingPref && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <FileText className="h-16 w-16 mb-4 text-muted-foreground opacity-40" />
-          <p className="text-lg font-medium text-muted-foreground">請選擇上方的類別以開始查詢</p>
+          <p className="text-lg font-medium text-muted-foreground">{t('erpDocs.documents.list.emptyPrompt')}</p>
           <p className="text-sm text-muted-foreground mt-1">
-            採購類包含採購單、採購入庫、採購退貨；銷貨類包含銷貨單、銷貨退貨、退貨單
+            {t('erpDocs.documents.list.emptyHint')}
           </p>
         </div>
       )}
@@ -235,7 +228,7 @@ export function DocumentsPage() {
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="搜尋單號..."
+                placeholder={t('erpDocs.documents.list.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -255,11 +248,11 @@ export function DocumentsPage() {
                 }}
               >
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="全部類型" />
+                  <SelectValue placeholder={t('erpDocs.documents.list.allTypes')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">全部類型</SelectItem>
-                  {Object.entries(TYPE_NAMES).map(([key, name]) => (
+                  <SelectItem value="all">{t('erpDocs.documents.list.allTypes')}</SelectItem>
+                  {Object.entries(DOC_TYPE_NAMES).map(([key, name]) => (
                     <SelectItem key={key} value={key}>{name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -267,12 +260,12 @@ export function DocumentsPage() {
             ) : activeCategory ? (
               <Select value={subTypeFilter} onValueChange={(v) => setSubTypeFilter(v as DocType | 'all')}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="全部子類型" />
+                  <SelectValue placeholder={t('erpDocs.documents.list.allSubTypes')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">全部子類型</SelectItem>
-                  {CATEGORY_TYPES[activeCategory].map((t) => (
-                    <SelectItem key={t} value={t}>{TYPE_NAMES[t]}</SelectItem>
+                  <SelectItem value="all">{t('erpDocs.documents.list.allSubTypes')}</SelectItem>
+                  {CATEGORY_TYPES[activeCategory].map((docType) => (
+                    <SelectItem key={docType} value={docType}>{DOC_TYPE_NAMES[docType]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -280,11 +273,11 @@ export function DocumentsPage() {
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40">
-                <SelectValue placeholder="全部狀態" />
+                <SelectValue placeholder={t('common.allStatus')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全部狀態</SelectItem>
-                {Object.entries(STATUS_NAMES).map(([key, name]) => (
+                <SelectItem value="all">{t('common.allStatus')}</SelectItem>
+                {Object.entries(DOC_STATUS_NAMES).map(([key, name]) => (
                   <SelectItem key={key} value={key}>{name}</SelectItem>
                 ))}
               </SelectContent>
@@ -292,7 +285,7 @@ export function DocumentsPage() {
 
             <div className="flex items-center gap-2">
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">起始日期</Label>
+                <Label className="text-xs text-muted-foreground">{t('erpDocs.documents.list.dateFrom')}</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -305,7 +298,7 @@ export function DocumentsPage() {
               </div>
               <span className="text-muted-foreground mt-5">~</span>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">結束日期</Label>
+                <Label className="text-xs text-muted-foreground">{t('erpDocs.documents.list.dateTo')}</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -321,7 +314,7 @@ export function DocumentsPage() {
             {hasFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="mt-5">
                 <X className="h-4 w-4 mr-1" />
-                清除篩選
+                {t('common.clearFilters')}
               </Button>
             )}
           </div>
@@ -339,17 +332,17 @@ export function DocumentsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {isAdmin ? '管理員權限：永久刪除單據' : '確認刪除'}
+              {isAdmin ? t('erpDocs.documents.list.deleteDialog.adminTitle') : t('common.confirmDelete')}
             </DialogTitle>
             <DialogDescription>
               {isAdmin
-                ? `警告：具有管理員權限，刪除單據「${documentToDelete?.doc_no}」將永久從資料庫中移除資料（包含明細與庫存異動紀錄），此操作無法復原。確定要執行硬刪除嗎？`
-                : `確定要刪除單據「${documentToDelete?.doc_no}」嗎？此操作無法復原。`}
+                ? t('erpDocs.documents.list.deleteDialog.adminDescription', { docNo: documentToDelete?.doc_no ?? '' })
+                : t('erpDocs.documents.list.deleteDialog.description', { docNo: documentToDelete?.doc_no ?? '' })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -357,7 +350,7 @@ export function DocumentsPage() {
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {isAdmin ? '執行硬刪除' : '確認刪除'}
+              {isAdmin ? t('erpDocs.documents.list.deleteDialog.hardDelete') : t('common.confirmDelete')}
             </Button>
           </DialogFooter>
         </DialogContent>

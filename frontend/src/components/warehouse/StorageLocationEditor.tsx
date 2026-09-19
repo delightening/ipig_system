@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
 import {
     StorageLocationWithWarehouse,
     StorageLocationType,
     StorageLayoutItem,
-    storageLocationTypeNames,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -78,6 +78,7 @@ export function StorageLocationEditor({
     selectedLocationId,
     onLocationClick,
 }: StorageLocationEditorProps) {
+    const { t } = useTranslation()
     const containerRef = useRef<HTMLDivElement>(null)
     const [rowHeight, setRowHeight] = useState(DEFAULT_ROW_HEIGHT)
 
@@ -130,10 +131,10 @@ export function StorageLocationEditor({
         <div className="rounded-xl border bg-card shadow-xs p-5 space-y-4">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold">儲位佈局圖</h3>
+                    <h3 className="text-lg font-semibold">{t('erpDocs.warehouse.layoutDiagram')}</h3>
                     {isEditMode && (
                         <Badge variant="outline" className="text-status-info-text border-status-info-border bg-status-info-bg">
-                            編輯模式
+                            {t('erpDocs.warehouse.editor.editMode')}
                         </Badge>
                     )}
                 </div>
@@ -145,7 +146,7 @@ export function StorageLocationEditor({
                           className="bg-primary hover:bg-primary/90 text-white"
                       >
                           <Plus className="h-4 w-4 mr-1" />
-                          新增儲位
+                          {t('erpDocs.warehouse.editor.addLocation')}
                       </Button>
                     </Can>
                     <Can permission={PERMISSIONS.ERP_STORAGE_EDIT}>
@@ -157,12 +158,12 @@ export function StorageLocationEditor({
                           {isEditMode ? (
                               <>
                                   <Lock className="h-4 w-4 mr-1" />
-                                  鎖定佈局
+                                  {t('erpDocs.warehouse.editor.lockLayout')}
                               </>
                           ) : (
                               <>
                                   <Unlock className="h-4 w-4 mr-1" />
-                                  解鎖佈局
+                                  {t('erpDocs.warehouse.editor.unlockLayout')}
                               </>
                           )}
                       </Button>
@@ -176,7 +177,7 @@ export function StorageLocationEditor({
                                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                               )}
                               <Save className="h-4 w-4 mr-1" />
-                              儲存佈局
+                              {t('erpDocs.warehouse.editor.saveLayout')}
                           </Button>
                       )}
                     </Can>
@@ -185,7 +186,7 @@ export function StorageLocationEditor({
 
             {isEditMode && (
                 <div className="p-3 bg-status-info-bg border border-status-info-border rounded-lg text-xs text-status-info-text">
-                    📐 編輯模式啟用中：拖拽方塊調整位置，拖拽右下角調整大小。建築結構（牆、門、窗）也在此調整。
+                    {t('erpDocs.warehouse.editor.editHint')}
                 </div>
             )}
 
@@ -274,7 +275,7 @@ export function StorageLocationEditor({
                                                         </div>
                                                     )}
                                                     <div className="text-[10px] font-medium opacity-60">
-                                                        {storageLocationTypeNames[loc.location_type]}
+                                                        {t(`erpDocs.warehouse.locationType.${loc.location_type}`)}
                                                     </div>
                                                 </>
                                             )}
@@ -299,7 +300,7 @@ export function StorageLocationEditor({
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-white/50 rounded-lg">
                         <Package className="h-12 w-12 mb-2 opacity-20" />
-                        <p className="text-sm">尚未建立任何儲位或結構</p>
+                        <p className="text-sm">{t('erpDocs.warehouse.editor.empty')}</p>
                     </div>
                 )}
             </div>

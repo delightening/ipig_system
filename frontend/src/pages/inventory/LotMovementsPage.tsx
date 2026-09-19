@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import api, { LotMovementsResponse, LotReconciliationStatus } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,13 +20,24 @@ import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useTableSort } from '@/hooks/useTableSort'
 import { formatDateTime, formatNumber } from '@/lib/utils'
 
-const directionNames: Record<string, string> = {
-  in: '入庫',
-  out: '出庫',
-  transfer_in: '調入',
-  transfer_out: '調出',
-  adjust_in: '調增',
-  adjust_out: '調減',
+/** 異動方向顯示名稱；未知方向原樣顯示。 */
+function directionLabel(t: TFunction, direction: string): string {
+  switch (direction) {
+    case 'in':
+      return t('erpDocs.inventory.direction.in')
+    case 'out':
+      return t('erpDocs.inventory.direction.out')
+    case 'transfer_in':
+      return t('erpDocs.inventory.direction.transferIn')
+    case 'transfer_out':
+      return t('erpDocs.inventory.direction.transferOut')
+    case 'adjust_in':
+      return t('erpDocs.inventory.direction.adjustIn')
+    case 'adjust_out':
+      return t('erpDocs.inventory.direction.adjustOut')
+    default:
+      return direction
+  }
 }
 
 /** 對帳卡片外框：僅「品項總量也對不上」才用 destructive，批號歸屬差異用 warning */
@@ -36,6 +49,7 @@ function reconciliationCardClass(status: LotReconciliationStatus): string | unde
 
 /** 批號完整生命週期查詢頁（R84-6）：時間軸 + 數量對帳，跨倉彙總。見 ERP流程.md §6.2.2 */
 export function LotMovementsPage() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const productId = searchParams.get('product_id') ?? ''
   const batchNo = searchParams.get('batch_no') ?? ''
@@ -60,7 +74,7 @@ export function LotMovementsPage() {
     const isInbound = ['in', 'transfer_in', 'adjust_in'].includes(direction)
     return (
       <Badge variant={isInbound ? 'success' : 'destructive'}>
-        {directionNames[direction] || direction}
+        {directionLabel(t, direction)}
       </Badge>
     )
   }
@@ -68,8 +82,12 @@ export function LotMovementsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="批號生命週期追溯"
-        description={`${productSku ? productSku + ' — ' : ''}批號 ${batchNo}${expiryDate ? `（效期 ${expiryDate}）` : ''}`}
+        title={t('erpDocs.inventory.lot.title')}
+        description={`${productSku ? productSku + ' — ' : ''}${
+          expiryDate
+            ? t('erpDocs.inventory.lot.descriptionWithExpiry', { batchNo, expiry: expiryDate })
+            : t('erpDocs.inventory.lot.description', { batchNo })
+        }`}
       />
 
       {r && (
@@ -87,55 +105,62 @@ export function LotMovementsPage() {
                   }
                 />
               )}
-              數量對帳
+              {t('erpDocs.inventory.lot.reconciliation')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 text-sm">
               <div>
-                <div className="text-muted-foreground">收到</div>
+                <div className="text-muted-foreground">{t('erpDocs.inventory.lot.received')}</div>
                 <div className="font-medium">{formatNumber(r.received, 0)}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">客戶退貨收到</div>
+                <div className="text-muted-foreground">{t('erpDocs.inventory.lot.customerReturned')}</div>
                 <div className="font-medium">{formatNumber(r.customer_returned, 0)}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">內部領用</div>
+                <div className="text-muted-foreground">{t('erpDocs.inventory.lot.internalConsumed')}</div>
                 <div className="font-medium">{formatNumber(r.internal_consumed, 0)}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">退回供應商</div>
+                <div className="text-muted-foreground">{t('erpDocs.inventory.lot.returnedToSupplier')}</div>
                 <div className="font-medium">{formatNumber(r.returned_to_supplier, 0)}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">調整增減（淨額）</div>
+                <div className="text-muted-foreground">{t('erpDocs.inventory.lot.adjustedNet')}</div>
                 <div className="font-medium">{formatNumber(r.adjusted_net, 0)}</div>
               </div>
               <div>
-                <div className="text-muted-foreground">目前剩餘</div>
+                <div className="text-muted-foreground">{t('erpDocs.inventory.lot.remaining')}</div>
                 <div className="font-bold text-primary">{formatNumber(r.remaining, 0)}</div>
               </div>
             </div>
             {r.status === 'attribution_only' && (
               <p className="mt-3 text-sm text-status-warning-text">
-                批號歸屬待確認：本批號依分類加總反推為 {formatNumber(r.derived_remaining, 0)}，
-                儲位實際庫存 {formatNumber(r.remaining, 0)}。
-                但本品項全部批號合計帳實相符（{formatNumber(r.product_remaining_total, 0)}），
-                <span className="font-medium">總量無虞</span>，差異僅是批號之間的歸屬。
-                多半源自 2026-06-10 前的歷史補帳——當時的沖銷未帶批號
-                {Number(r.unattributed_adjust_net) !== 0 && (
-                  <>（本品項未歸批調整淨額 {formatNumber(r.unattributed_adjust_net, 0)}）</>
-                )}
-                ，待全倉盤點重立基準後歸零。
+                <Trans
+                  i18nKey={
+                    Number(r.unattributed_adjust_net) !== 0
+                      ? 'erpDocs.inventory.lot.attributionOnlyWithNet'
+                      : 'erpDocs.inventory.lot.attributionOnly'
+                  }
+                  values={{
+                    derived: formatNumber(r.derived_remaining, 0),
+                    actual: formatNumber(r.remaining, 0),
+                    total: formatNumber(r.product_remaining_total, 0),
+                    net: formatNumber(r.unattributed_adjust_net, 0),
+                  }}
+                  components={{ bold: <span className="font-medium" /> }}
+                />
               </p>
             )}
             {r.status === 'unbalanced' && (
               <p className="mt-3 text-sm text-destructive">
-                ⚠️ 帳實不符：依分類加總反推的剩餘量為 {formatNumber(r.derived_remaining, 0)}，
-                與儲位實際庫存 {formatNumber(r.remaining, 0)} 不一致；本品項全部批號合計也對不上
-                （帳上 {formatNumber(r.product_derived_total, 0)} vs 實際 {formatNumber(r.product_remaining_total, 0)}），
-                需人工查證。
+                {t('erpDocs.inventory.lot.unbalanced', {
+                  derived: formatNumber(r.derived_remaining, 0),
+                  actual: formatNumber(r.remaining, 0),
+                  productDerived: formatNumber(r.product_derived_total, 0),
+                  productActual: formatNumber(r.product_remaining_total, 0),
+                })}
               </p>
             )}
           </CardContent>
@@ -146,11 +171,11 @@ export function LotMovementsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="trx_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>時間</SortableTableHead>
-              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
-              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據</SortableTableHead>
-              <SortableTableHead sortKey="direction" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>方向</SortableTableHead>
-              <SortableTableHead sortKey="qty_base" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">數量</SortableTableHead>
+              <SortableTableHead sortKey="trx_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.time')}</SortableTableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.warehouse')}</SortableTableHead>
+              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.doc')}</SortableTableHead>
+              <SortableTableHead sortKey="direction" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpDocs.shared.directionLabel')}</SortableTableHead>
+              <SortableTableHead sortKey="qty_base" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('erpDocs.shared.quantity')}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -177,7 +202,7 @@ export function LotMovementsPage() {
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={5} icon={FileText} title="尚無此批號的異動紀錄" />
+              <TableEmptyRow colSpan={5} icon={FileText} title={t('erpDocs.inventory.lot.empty')} />
             )}
           </TableBody>
         </Table>

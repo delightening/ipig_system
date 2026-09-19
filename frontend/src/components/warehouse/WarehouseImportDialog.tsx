@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export function WarehouseImportDialog({ open, onOpenChange }: Props) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<WarehouseImportResult | null>(null)
@@ -64,21 +66,21 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: ['all-warehouses'] })
       if (data.error_count === 0) {
         toast({
-          title: '匯入成功',
-          description: `成功匯入 ${data.success_count} 筆倉庫`,
+          title: t('erpDocs.warehouse.import.successTitle'),
+          description: t('erpDocs.warehouse.import.successDesc', { count: data.success_count }),
         })
       } else {
         toast({
-          title: '匯入完成（部分失敗）',
-          description: `成功: ${data.success_count} 筆，失敗: ${data.error_count} 筆`,
+          title: t('erpDocs.warehouse.import.partialTitle'),
+          description: t('erpDocs.warehouse.import.partialDesc', { success: data.success_count, failed: data.error_count }),
           variant: 'destructive',
         })
       }
     },
     onError: (error: unknown) => {
       toast({
-        title: '匯入失敗',
-        description: getApiErrorMessage(error, '發生未知錯誤'),
+        title: t('erpDocs.warehouse.import.failedTitle'),
+        description: getApiErrorMessage(error, t('common.unknown_error')),
         variant: 'destructive',
       })
     },
@@ -93,7 +95,7 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
 
   const handleImport = () => {
     if (!file) {
-      toast({ title: '錯誤', description: '請先選擇檔案', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('erpDocs.warehouse.import.selectFileFirst'), variant: 'destructive' })
       return
     }
     importMutation.mutate(file)
@@ -131,14 +133,14 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
     },
     onSuccess: () => {
       toast({
-        title: '下載成功',
-        description: '範本檔案已開始下載',
+        title: t('erpDocs.warehouse.import.templateSuccessTitle'),
+        description: t('erpDocs.warehouse.import.templateSuccessDesc'),
       })
     },
     onError: (error: unknown) => {
       toast({
-        title: '下載失敗',
-        description: getApiErrorMessage(error, '無法下載範本檔案'),
+        title: t('common.downloadFailed'),
+        description: getApiErrorMessage(error, t('erpDocs.warehouse.import.templateFailedDesc')),
         variant: 'destructive',
       })
     },
@@ -150,10 +152,10 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            匯入倉庫
+            {t('erpDocs.warehouse.importWarehouses')}
           </DialogTitle>
           <DialogDescription>
-            支援 Excel (.xlsx, .xls) 或 CSV 格式，批次匯入多筆倉庫資料
+            {t('erpDocs.warehouse.import.dialogDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -162,7 +164,7 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
           <div className="flex items-center justify-between p-3 bg-status-info-bg rounded-lg">
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-status-info-text" />
-              <span className="text-sm text-status-info-text">下載範本檔案</span>
+              <span className="text-sm text-status-info-text">{t('erpDocs.warehouse.import.downloadTemplateHint')}</span>
             </div>
             <Button
               variant="outline"
@@ -172,14 +174,14 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
               disabled={downloadTemplateMutation.isPending}
             >
               <Download className="h-4 w-4 mr-1" />
-              下載範本 (XLSX)
+              {t('erpDocs.warehouse.import.downloadTemplate')}
             </Button>
           </div>
 
           {/* File Upload */}
           {!result && (
             <label className="block space-y-2">
-              <span className="block text-sm font-medium leading-none">選擇檔案</span>
+              <span className="block text-sm font-medium leading-none">{t('erpDocs.warehouse.import.selectFile')}</span>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv"
@@ -210,20 +212,20 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-status-success-text">
                     <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">成功匯入</span>
+                    <span className="font-medium">{t('erpDocs.warehouse.import.resultSuccess')}</span>
                   </div>
                   <p className="text-2xl font-bold text-status-success-text mt-1">
-                    {result.success_count} 筆
+                    {t('erpDocs.warehouse.import.recordCount', { count: result.success_count })}
                   </p>
                 </div>
                 {result.error_count > 0 && (
                   <div className="flex-1 border-l pl-4">
                     <div className="flex items-center gap-2 text-status-error-text">
                       <AlertCircle className="h-5 w-5" />
-                      <span className="font-medium">匯入失敗</span>
+                      <span className="font-medium">{t('erpDocs.warehouse.import.failedTitle')}</span>
                     </div>
                     <p className="text-2xl font-bold text-status-error-text mt-1">
-                      {result.error_count} 筆
+                      {t('erpDocs.warehouse.import.recordCount', { count: result.error_count })}
                     </p>
                   </div>
                 )}
@@ -232,14 +234,14 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
               {/* Error Details */}
               {result.errors && result.errors.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-status-error-text">錯誤明細</Label>
+                  <Label className="text-status-error-text">{t('erpDocs.warehouse.import.errorDetails')}</Label>
                   <div className="max-h-40 overflow-y-auto border rounded-lg">
                     <table className="w-full text-sm">
                       <thead className="bg-muted sticky top-0">
                         <tr>
-                          <th className="px-3 py-2 text-left font-medium">列</th>
-                          <th className="px-3 py-2 text-left font-medium">代碼</th>
-                          <th className="px-3 py-2 text-left font-medium">錯誤訊息</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('erpDocs.warehouse.import.row')}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('erpDocs.shared.code')}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('erpDocs.warehouse.import.errorMessage')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -261,11 +263,11 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
           {/* Instructions */}
           {!result && (
             <div className="text-sm text-muted-foreground space-y-1">
-              <p className="font-medium">注意事項：</p>
+              <p className="font-medium">{t('erpDocs.warehouse.import.notes')}</p>
               <ul className="list-disc list-inside space-y-0.5">
-                <li>名稱為必填欄位</li>
-                <li>代碼可選，未填時系統自動產生（WH001, WH002...）</li>
-                <li>CSV 欄位順序：名稱、代碼、地址</li>
+                <li>{t('erpDocs.warehouse.import.noteName')}</li>
+                <li>{t('erpDocs.warehouse.import.noteCode')}</li>
+                <li>{t('erpDocs.warehouse.import.noteCsv')}</li>
               </ul>
             </div>
           )}
@@ -273,7 +275,7 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
-            {result ? '關閉' : '取消'}
+            {result ? t('common.closeDialog') : t('common.cancel')}
           </Button>
           {!result && (
             <Button
@@ -282,12 +284,12 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
               className="bg-purple-600 hover:bg-purple-700"
             >
               {importMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              開始匯入
+              {t('erpDocs.warehouse.import.startImport')}
             </Button>
           )}
           {result && result.error_count === 0 && (
             <Button onClick={handleClose} className="bg-status-success-solid hover:bg-green-700">
-              完成
+              {t('erpDocs.warehouse.import.done')}
             </Button>
           )}
         </DialogFooter>

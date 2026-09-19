@@ -1,3 +1,4 @@
+import i18n from '@/lib/i18n'
 import type { DocType } from '@/lib/api'
 
 export interface DocumentLine {
@@ -61,12 +62,48 @@ export interface DocumentFormData {
   lines: DocumentLine[]
 }
 
+/**
+ * 單據類型顯示名稱。
+ *
+ * 用 getter 而非寫死字串：每次讀取當下才呼叫 `i18n.t`，語言切換後不會殘留舊語言，
+ * 且既有呼叫端（`DOC_TYPE_NAMES[type]`、`Object.entries(DOC_TYPE_NAMES)`）不必改。
+ */
 export const DOC_TYPE_NAMES: Record<DocType, string> = {
-  PO: '採購單',
-  GRN: '採購入庫',
-  PR: '採購退貨',
-  SO: '銷貨單',
-  TR: '調撥單',
-  STK: '盤點單',
-  ADJ: '調整單',
+  get PO() {
+    return i18n.t('erpDocs.documents.docType.PO')
+  },
+  get GRN() {
+    return i18n.t('erpDocs.documents.docType.GRN')
+  },
+  get PR() {
+    return i18n.t('erpDocs.documents.docType.PR')
+  },
+  get SO() {
+    return i18n.t('erpDocs.documents.docType.SO')
+  },
+  get TR() {
+    return i18n.t('erpDocs.documents.docType.TR')
+  },
+  get STK() {
+    return i18n.t('erpDocs.documents.docType.STK')
+  },
+  get ADJ() {
+    return i18n.t('erpDocs.documents.docType.ADJ')
+  },
+}
+
+/** 單據狀態顯示名稱（同 `DOC_TYPE_NAMES`，getter 於讀取當下翻譯）。 */
+export const DOC_STATUS_NAMES: Record<string, string> = {
+  get draft() {
+    return i18n.t('erpDocs.documents.status.draft')
+  },
+  get submitted() {
+    return i18n.t('erpDocs.documents.status.submitted')
+  },
+  get approved() {
+    return i18n.t('erpDocs.documents.status.approved')
+  },
+  get cancelled() {
+    return i18n.t('erpDocs.documents.status.cancelled')
+  },
 }

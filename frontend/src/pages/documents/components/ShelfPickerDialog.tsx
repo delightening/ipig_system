@@ -11,6 +11,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, {
   InventoryOnHand,
   StorageLocationType,
@@ -80,6 +81,7 @@ export function ShelfPickerDialog({
   value,
   onSelect,
 }: ShelfPickerDialogProps) {
+  const { t } = useTranslation()
   const [mode, setMode] = useState<string>(() => localStorage.getItem(MODE_KEY) || 'list')
   const [floorWarehouseId, setFloorWarehouseId] = useState<string>('')
 
@@ -182,21 +184,25 @@ export function ShelfPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>選擇儲位{productName ? ` — ${productName}` : ''}</DialogTitle>
+          <DialogTitle>
+            {productName
+              ? t('erpDocs.documents.shelfPicker.titleWithProduct', { product: productName })
+              : t('erpDocs.shared.selectStorageLocation')}
+          </DialogTitle>
           <DialogDescription>
             {hasStockInfo
-              ? '儲位旁顯示此品項現有存量；無存量的儲位不可選。'
-              : '先選品項可顯示各儲位存量。'}
+              ? t('erpDocs.documents.shelfPicker.descWithStock')
+              : t('erpDocs.documents.shelfPicker.descNoStock')}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={changeMode}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="list" className="gap-1.5">
-              <List className="h-4 w-4" /> 清單
+              <List className="h-4 w-4" /> {t('erpDocs.documents.shelfPicker.tabList')}
             </TabsTrigger>
             <TabsTrigger value="floor" className="gap-1.5">
-              <MapIcon className="h-4 w-4" /> 平面圖
+              <MapIcon className="h-4 w-4" /> {t('erpDocs.documents.shelfPicker.tabFloor')}
             </TabsTrigger>
           </TabsList>
 
@@ -208,7 +214,7 @@ export function ShelfPickerDialog({
               </div>
             ) : hasStockInfo && orderedTree.length === 0 ? (
               <div className="rounded-lg border bg-muted/30 py-10 text-center text-sm text-muted-foreground">
-                此品項目前無任何庫存。
+                {t('erpDocs.documents.shelfPicker.noStockAtAll')}
               </div>
             ) : (
               <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
@@ -229,18 +235,18 @@ export function ShelfPickerDialog({
                           />
                           {wh.name}
                           {wh.id === defaultWarehouseId && (
-                            <span className="text-xs font-normal text-muted-foreground">預設倉</span>
+                            <span className="text-xs font-normal text-muted-foreground">{t('erpDocs.documents.shelfPicker.defaultWarehouse')}</span>
                           )}
                         </span>
                         {hasStockInfo && (
-                          <span className="text-xs text-muted-foreground">合計 {fmtQty(whQty)}</span>
+                          <span className="text-xs text-muted-foreground">{t('erpDocs.documents.shelfPicker.total', { qty: fmtQty(whQty) })}</span>
                         )}
                       </div>
                       {shelves.length === 0 ? (
                         <div className="px-3 py-2 text-xs text-muted-foreground">
                           {hasStockInfo
-                            ? `存量 ${fmtQty(whQty)} 皆為「未分配」（不在任何貨架）；請先於倉儲作業上架，或改由該倉出貨後補分配。`
-                            : '此倉無儲位'}
+                            ? t('erpDocs.documents.shelfPicker.allUnassigned', { qty: fmtQty(whQty) })
+                            : t('erpDocs.documents.shelfPicker.noShelves')}
                         </div>
                       ) : (
                         <ul className="divide-y">
@@ -265,7 +271,7 @@ export function ShelfPickerDialog({
                                     {selected && <Check className="h-3.5 w-3.5" />}
                                   </span>
                                   {hasStockInfo && (
-                                    <span className="text-xs font-medium">存量 {fmtQty(qty)}</span>
+                                    <span className="text-xs font-medium">{t('erpDocs.documents.shelfPicker.qtyLabel', { qty: fmtQty(qty) })}</span>
                                   )}
                                 </button>
                               </li>
@@ -285,7 +291,7 @@ export function ShelfPickerDialog({
             <div className="flex items-center gap-3">
               <Select value={effectiveFloorWh} onValueChange={setFloorWarehouseId}>
                 <SelectTrigger className="w-56">
-                  <SelectValue placeholder="選擇倉庫" />
+                  <SelectValue placeholder={t('erpDocs.shared.selectWarehouse')} />
                 </SelectTrigger>
                 <SelectContent>
                   {(hasStockInfo
@@ -293,14 +299,17 @@ export function ShelfPickerDialog({
                     : tree
                   )?.map((wh) => (
                     <SelectItem key={wh.id} value={wh.id}>
-                      {wh.name}
-                      {hasStockInfo ? `（存量 ${fmtQty(qtyByWh.get(wh.id) ?? 0)}）` : ''}
+                      {hasStockInfo
+                        ? t('erpDocs.documents.shelfPicker.nameWithQty', { name: wh.name, qty: fmtQty(qtyByWh.get(wh.id) ?? 0) })
+                        : wh.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <span className="text-xs text-muted-foreground">
-                {hasStockInfo ? '僅顯示有存量的儲位；' : '淡化＝不可收納；'}深灰＝牆/門/窗（定位參考）
+                {hasStockInfo
+                  ? t('erpDocs.documents.shelfPicker.floorHintStock')
+                  : t('erpDocs.documents.shelfPicker.floorHintNoStock')}
               </span>
             </div>
 
@@ -310,7 +319,7 @@ export function ShelfPickerDialog({
               </div>
             ) : !floorLocations || floorLocations.length === 0 ? (
               <div className="rounded-lg border bg-muted/30 py-10 text-center text-sm text-muted-foreground">
-                此倉庫尚未建立儲位佈局，請改用「清單」選取。
+                {t('erpDocs.documents.shelfPicker.noLayout')}
               </div>
             ) : (
               (() => {
@@ -329,7 +338,7 @@ export function ShelfPickerDialog({
                 if (hasStockInfo && stockedCells.length === 0) {
                   return (
                     <div className="rounded-lg border bg-muted/30 py-10 text-center text-sm text-muted-foreground">
-                      此倉存量皆為「未分配」（不在任何貨架）；請先於倉儲作業上架，或改由該倉出貨後補分配。
+                      {t('erpDocs.documents.shelfPicker.floorAllUnassigned')}
                     </div>
                   )
                 }
@@ -350,7 +359,11 @@ export function ShelfPickerDialog({
                           key={loc.id}
                           type="button"
                           disabled={disabled}
-                          title={`${loc.name || loc.code}${hasStockInfo ? `（存量 ${fmtQty(qty)}）` : ''}`}
+                          title={
+                            hasStockInfo
+                              ? t('erpDocs.documents.shelfPicker.nameWithQty', { name: loc.name || loc.code, qty: fmtQty(qty) })
+                              : loc.name || loc.code
+                          }
                           onClick={() => pick(loc.id, loc.warehouse_id, whName, loc.name || loc.code)}
                           className={cn(
                             'flex flex-col items-start justify-center overflow-hidden rounded-md px-1.5 text-left text-[11px] leading-tight text-white transition-transform',
@@ -365,7 +378,7 @@ export function ShelfPickerDialog({
                         >
                           <span className="w-full truncate font-semibold">{loc.name || loc.code}</span>
                           {pickable && hasStockInfo && (
-                            <span className="w-full truncate opacity-90">存量 {fmtQty(qty)}</span>
+                            <span className="w-full truncate opacity-90">{t('erpDocs.documents.shelfPicker.qtyLabel', { qty: fmtQty(qty) })}</span>
                           )}
                         </button>
                       )

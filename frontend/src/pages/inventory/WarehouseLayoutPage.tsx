@@ -168,7 +168,7 @@ export function WarehouseLayoutPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['storage-locations', selectedWarehouseId] })
-            toast({ title: '成功', description: '儲位/結構已建立' })
+            toast({ title: t('common.success'), description: t('erpDocs.warehouse.layout.created') })
             setShowDialog(false)
         },
     })
@@ -184,7 +184,7 @@ export function WarehouseLayoutPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['storage-locations', selectedWarehouseId] })
-            toast({ title: '成功', description: '儲位/結構已更新' })
+            toast({ title: t('common.success'), description: t('erpDocs.warehouse.layout.updated') })
             setShowDialog(false)
         },
     })
@@ -195,7 +195,7 @@ export function WarehouseLayoutPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['storage-locations', selectedWarehouseId] })
-            toast({ title: '成功', description: '佈局已儲存' })
+            toast({ title: t('common.success'), description: t('erpDocs.warehouse.layout.layoutSaved') })
             setHasUnsavedChanges(false)
             setPendingLayoutChanges([])
         },
@@ -226,12 +226,17 @@ export function WarehouseLayoutPage() {
 
     const handleExportWarehouses = () => {
         if (!warehouses || warehouses.length === 0) return
-        const headers = ['代碼', '名稱', '地址', '狀態']
+        const headers = [
+            t('erpDocs.shared.code'),
+            t('erpDocs.shared.name'),
+            t('erpDocs.shared.address'),
+            t('erpDocs.shared.status'),
+        ]
         const rows = warehouses.map((w) => [
             w.code,
             w.name,
             w.address || '',
-            w.is_active ? '啟用' : '停用',
+            w.is_active ? t('erpDocs.warehouse.layout.active') : t('erpDocs.warehouse.layout.inactive'),
         ])
         const csvContent = ['\ufeff' + headers.join(','), ...rows.map(r => r.join(','))].join('\n')
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -278,7 +283,7 @@ export function WarehouseLayoutPage() {
                     />
                 ) : (
                     <div className="h-64 flex items-center justify-center rounded-xl border bg-card shadow-xs text-muted-foreground">
-                        請先選擇一個倉庫以檢視佈局
+                        {t('erpDocs.warehouse.layout.selectFirst')}
                     </div>
                 )}
 
@@ -305,8 +310,8 @@ export function WarehouseLayoutPage() {
             <Dialog open={showDialog} onOpenChange={setShowDialog}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{editingLocation ? '編輯項目' : '新增項目'}</DialogTitle>
-                        <DialogDescription>建立儲位或是牆壁、門、窗等建築結構</DialogDescription>
+                        <DialogTitle>{editingLocation ? t('erpDocs.warehouse.layout.editItem') : t('erpDocs.warehouse.layout.newItem')}</DialogTitle>
+                        <DialogDescription>{t('erpDocs.warehouse.layout.dialogDescription')}</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleLocSubmit((data) => {
                         if (editingLocation) {
@@ -317,11 +322,11 @@ export function WarehouseLayoutPage() {
                     })}>
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="loc-name" className="text-right">名稱 *</Label>
+                                <Label htmlFor="loc-name" className="text-right">{t('erpDocs.shared.nameRequired')}</Label>
                                 <div className="col-span-3">
                                     <Input
                                         id="loc-name"
-                                        {...registerLoc('name', { required: '名稱為必填' })}
+                                        {...registerLoc('name', { required: t('erpDocs.warehouse.layout.nameRequired') })}
                                     />
                                     {locErrors.name && (
                                         <p className="text-sm text-destructive mt-1">{locErrors.name.message}</p>
@@ -329,7 +334,7 @@ export function WarehouseLayoutPage() {
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="loc-type" className="text-right">類型</Label>
+                                <Label htmlFor="loc-type" className="text-right">{t('erpDocs.shared.type')}</Label>
                                 <Select
                                     value={locationType}
                                     onValueChange={(v: StorageLocationType) => {
@@ -341,19 +346,19 @@ export function WarehouseLayoutPage() {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="shelf">貨架</SelectItem>
-                                        <SelectItem value="rack">儲物架</SelectItem>
-                                        <SelectItem value="zone">區域</SelectItem>
-                                        <SelectItem value="bin">儲物格</SelectItem>
-                                        <SelectItem value="wall">牆壁</SelectItem>
-                                        <SelectItem value="door">門</SelectItem>
-                                        <SelectItem value="window">窗戶</SelectItem>
+                                        <SelectItem value="shelf">{t('erpDocs.warehouse.locationType.shelf')}</SelectItem>
+                                        <SelectItem value="rack">{t('erpDocs.warehouse.locationType.rack')}</SelectItem>
+                                        <SelectItem value="zone">{t('erpDocs.warehouse.locationType.zone')}</SelectItem>
+                                        <SelectItem value="bin">{t('erpDocs.warehouse.locationType.bin')}</SelectItem>
+                                        <SelectItem value="wall">{t('erpDocs.warehouse.locationType.wall')}</SelectItem>
+                                        <SelectItem value="door">{t('erpDocs.warehouse.locationType.door')}</SelectItem>
+                                        <SelectItem value="window">{t('erpDocs.warehouse.locationType.window')}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                             {['shelf', 'rack', 'zone', 'bin'].includes(locationType) && (
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="loc-capacity" className="text-right">容量</Label>
+                                    <Label htmlFor="loc-capacity" className="text-right">{t('erpDocs.shared.capacity')}</Label>
                                     <Input
                                         id="loc-capacity"
                                         type="number"
@@ -363,7 +368,7 @@ export function WarehouseLayoutPage() {
                                 </div>
                             )}
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="loc-color" className="text-right">顏色</Label>
+                                <Label htmlFor="loc-color" className="text-right">{t('erpDocs.warehouse.layout.color')}</Label>
                                 <div className="col-span-3 flex gap-2">
                                     <input
                                         type="color"
@@ -372,7 +377,7 @@ export function WarehouseLayoutPage() {
                                         className="h-10 w-14 rounded border cursor-pointer"
                                     />
                                     <Input
-                                        {...registerLoc('color', { required: '請選擇顏色' })}
+                                        {...registerLoc('color', { required: t('erpDocs.warehouse.layout.colorRequired') })}
                                         className="flex-1"
                                     />
                                 </div>
@@ -382,7 +387,7 @@ export function WarehouseLayoutPage() {
                             <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>{t('common.cancel')}</Button>
                             <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
                                 {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                                確認
+                                {t('common.confirm')}
                             </Button>
                         </DialogFooter>
                     </form>

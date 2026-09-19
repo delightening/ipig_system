@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LowStockTotal } from '@/lib/api'
 import {
   Table,
@@ -15,27 +16,29 @@ const COL_COUNT = 5
 
 /** 低庫存狀態 Badge：缺貨 / 低於安全 */
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation()
   if (status === 'out_of_stock') {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-xs font-medium">
-        缺貨
+        {t('erpDocs.inventory.lowStock.outOfStock')}
       </span>
     )
   }
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-status-warning-bg text-status-warning-text text-xs font-medium">
-      低於安全庫存
+      {t('erpDocs.inventory.lowStock.belowSafety')}
     </span>
   )
 }
 
 /** 展開列：該品項在各倉庫的庫存分布 */
 function WarehouseBreakdownRows({ item }: { item: LowStockTotal }) {
+  const { t } = useTranslation()
   if (item.warehouse_breakdown.length === 0) {
     return (
       <TableRow className="bg-muted/20">
         <TableCell colSpan={COL_COUNT} className="py-3 pl-12 text-sm text-muted-foreground">
-          各倉庫皆無此品項庫存
+          {t('erpDocs.inventory.lowStock.noStockInWarehouses')}
         </TableCell>
       </TableRow>
     )
@@ -70,6 +73,7 @@ export function LowStockTotalTable({
   data: LowStockTotal[] | undefined
   isLoading: boolean
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const toggle = (id: string) =>
@@ -86,11 +90,11 @@ export function LowStockTotalTable({
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow>
-              <TableHead className="font-semibold">品項</TableHead>
-              <TableHead className="text-right font-semibold">全公司現有量</TableHead>
-              <TableHead className="font-semibold">單位</TableHead>
-              <TableHead className="text-right font-semibold hidden md:table-cell">安全庫存</TableHead>
-              <TableHead className="font-semibold">狀態</TableHead>
+              <TableHead className="font-semibold">{t('erpDocs.shared.item')}</TableHead>
+              <TableHead className="text-right font-semibold">{t('erpDocs.inventory.lowStock.companyOnHand')}</TableHead>
+              <TableHead className="font-semibold">{t('erpDocs.shared.unit')}</TableHead>
+              <TableHead className="text-right font-semibold hidden md:table-cell">{t('erpDocs.inventory.safetyStock')}</TableHead>
+              <TableHead className="font-semibold">{t('erpDocs.shared.status')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -99,7 +103,7 @@ export function LowStockTotalTable({
                 <TableCell colSpan={COL_COUNT} className="text-center py-24">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground animate-pulse">正在調度庫存數據...</p>
+                    <p className="text-sm text-muted-foreground animate-pulse">{t('erpDocs.inventory.loadingData')}</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -162,9 +166,9 @@ export function LowStockTotalTable({
                     <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-4">
                       <Package className="h-10 w-10 text-muted-foreground/40" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-1">沒有低庫存品項</h3>
+                    <h3 className="text-lg font-semibold mb-1">{t('erpDocs.inventory.lowStock.emptyTitle')}</h3>
                     <p className="text-sm text-muted-foreground text-center">
-                      目前所有已設定安全庫存的品項，全公司總量都在安全水位之上。
+                      {t('erpDocs.inventory.lowStock.emptyDesc')}
                     </p>
                   </div>
                 </TableCell>

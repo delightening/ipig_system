@@ -1,5 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import api, { WarehouseReportData, StorageLocationWithInventory } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -13,6 +15,7 @@ import { uiLocale } from '@/lib/utils'
 const STRUCTURE_TYPES = ['wall', 'door', 'window']
 
 export function WarehouseReportPage() {
+    const { t } = useTranslation()
     const { warehouseId } = useParams<{ warehouseId: string }>()
     const navigate = useNavigate()
 
@@ -55,7 +58,7 @@ export function WarehouseReportPage() {
             const win = window.open(blobUrl, '_blank')
             if (!win) {
                 window.URL.revokeObjectURL(blobUrl)
-                throw new Error('彈出視窗被阻擋；請允許後重試')
+                throw new Error(t('erpDocs.warehouse.report.popupBlocked'))
             }
             // R35-4: PDF 分頁標題從 blob: → 倉庫名稱
             const pdfTitle = `${fileLabel}${REPORT_FILENAME_SUFFIX}`
@@ -67,12 +70,12 @@ export function WarehouseReportPage() {
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '開啟列印 PDF 失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('erpDocs.warehouse.report.openPrintFailed')),
                 variant: 'destructive',
                 action: (
-                    <ToastAction altText="重試列印" onClick={() => printPdfMutation.mutate()}>
-                        重試
+                    <ToastAction altText={t('erpDocs.warehouse.report.retryPrintAlt')} onClick={() => printPdfMutation.mutate()}>
+                        {t('common.retry')}
                     </ToastAction>
                 ),
             })
@@ -96,12 +99,12 @@ export function WarehouseReportPage() {
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, 'PDF 下載失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('erpDocs.warehouse.report.downloadFailed')),
                 variant: 'destructive',
                 action: (
-                    <ToastAction altText="重試下載" onClick={() => downloadPdfMutation.mutate()}>
-                        重試
+                    <ToastAction altText={t('erpDocs.warehouse.report.retryDownloadAlt')} onClick={() => downloadPdfMutation.mutate()}>
+                        {t('common.retry')}
                     </ToastAction>
                 ),
             })
@@ -119,7 +122,7 @@ export function WarehouseReportPage() {
     if (!report) {
         return (
             <div className="flex items-center justify-center min-h-screen">
-                <p className="text-muted-foreground">查無報表資料</p>
+                <p className="text-muted-foreground">{t('erpDocs.warehouse.report.notFound')}</p>
             </div>
         )
     }
@@ -132,19 +135,19 @@ export function WarehouseReportPage() {
             <div className="flex gap-2 mb-6 print:hidden">
                 <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    返回
+                    {t('erpDocs.shared.back')}
                 </Button>
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={() => printPdfMutation.mutate()}
                     disabled={printPdfMutation.isPending}
-                    title="開啟 PDF 預覽（在 PDF viewer 內 Ctrl+P 列印）"
+                    title={t('erpDocs.warehouse.report.printHint')}
                 >
                     {printPdfMutation.isPending
                         ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         : <Printer className="mr-2 h-4 w-4" />}
-                    {printPdfMutation.isPending ? '載入中…' : '列印'}
+                    {printPdfMutation.isPending ? t('erpDocs.warehouse.report.loadingEllipsis') : t('erpDocs.warehouse.report.print')}
                 </Button>
                 <Button
                     variant="outline"
@@ -155,29 +158,31 @@ export function WarehouseReportPage() {
                     {downloadPdfMutation.isPending
                         ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         : <Download className="mr-2 h-4 w-4" />}
-                    {downloadPdfMutation.isPending ? '下載中…' : '下載 PDF'}
+                    {downloadPdfMutation.isPending ? t('erpDocs.warehouse.report.downloading') : t('common.pdfExport.downloadPdf')}
                 </Button>
             </div>
 
             {/* 標題 */}
             <div className="text-center mb-6">
-                <h1 className="text-2xl font-bold print:text-xl">倉庫現況報表</h1>
+                <h1 className="text-2xl font-bold print:text-xl">{t('erpDocs.warehouse.report.title')}</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    產出時間：{new Date(report.generated_at).toLocaleString(uiLocale(), { timeZone: 'Asia/Taipei' })}
+                    {t('erpDocs.warehouse.report.generatedAt', {
+                        time: new Date(report.generated_at).toLocaleString(uiLocale(), { timeZone: 'Asia/Taipei' }),
+                    })}
                 </p>
             </div>
 
             {/* 倉庫基本資訊 */}
             <Card className="mb-4 print:border print:shadow-none">
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-base">倉庫資訊</CardTitle>
+                    <CardTitle className="text-base">{t('erpDocs.warehouse.report.info')}</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-2 text-sm">
-                    <div><span className="text-muted-foreground">代碼：</span>{warehouse.code}</div>
-                    <div><span className="text-muted-foreground">名稱：</span>{warehouse.name}</div>
+                    <div><span className="text-muted-foreground">{t('erpDocs.warehouse.report.codeLabel')}</span>{warehouse.code}</div>
+                    <div><span className="text-muted-foreground">{t('erpDocs.warehouse.report.nameLabel')}</span>{warehouse.name}</div>
                     {warehouse.address && (
                         <div className="col-span-2">
-                            <span className="text-muted-foreground">地址：</span>{warehouse.address}
+                            <span className="text-muted-foreground">{t('erpDocs.warehouse.report.addressLabel')}</span>{warehouse.address}
                         </div>
                     )}
                 </CardContent>
@@ -185,18 +190,18 @@ export function WarehouseReportPage() {
 
             {/* 摘要統計 — R35-3 (redo on R35-16): 5 卡，新增「庫存價值」(SUM(qty × selling_price)，缺價產品不計入) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
-                <SummaryCard label="儲位總數" value={summary.total_locations} />
-                <SummaryCard label="使用中" value={summary.active_locations} />
+                <SummaryCard label={t('erpDocs.warehouse.report.totalLocations')} value={summary.total_locations} />
+                <SummaryCard label={t('erpDocs.warehouse.report.activeLocations')} value={summary.active_locations} />
                 <SummaryCard
-                    label="容量使用"
+                    label={t('erpDocs.warehouse.report.capacityUsage')}
                     value={
                         summary.total_capacity > 0
                             ? `${summary.total_current_count}/${summary.total_capacity}`
                             : `${summary.total_current_count}`
                     }
                 />
-                <SummaryCard label="庫存品項" value={summary.total_inventory_items} />
-                <SummaryCard label="庫存價值" value={formatInventoryValue(summary.total_inventory_value)} />
+                <SummaryCard label={t('erpDocs.warehouse.report.inventoryItems')} value={summary.total_inventory_items} />
+                <SummaryCard label={t('erpDocs.shared.inventoryValue')} value={formatInventoryValue(summary.total_inventory_value)} />
             </div>
 
             {/* 佈局圖 */}
@@ -204,7 +209,7 @@ export function WarehouseReportPage() {
 
             {/* 庫存明細 - 列印時強制換頁 */}
             <div className="mt-6" style={{ pageBreakBefore: 'always' }}>
-                <h2 className="text-lg font-semibold mb-3">各儲位庫存明細</h2>
+                <h2 className="text-lg font-semibold mb-3">{t('erpDocs.warehouse.report.locationDetails')}</h2>
                 {locations
                     .filter(l => !STRUCTURE_TYPES.includes(l.location_type))
                     .map(loc => (
@@ -271,12 +276,13 @@ function stringIntAddOne(s: string): string {
 }
 
 function LayoutDiagram({ locations }: { locations: StorageLocationWithInventory[] }) {
+    const { t } = useTranslation()
     const maxCol = Math.max(...locations.map(l => l.col_index + l.width), 1)
     const maxRow = Math.max(...locations.map(l => l.row_index + l.height), 1)
 
     return (
         <div className="print:break-inside-avoid">
-            <h2 className="text-lg font-semibold mb-3">儲位佈局圖</h2>
+            <h2 className="text-lg font-semibold mb-3">{t('erpDocs.warehouse.layoutDiagram')}</h2>
             <div
                 className="relative border rounded bg-muted"
                 style={{
@@ -301,7 +307,7 @@ function LayoutDiagram({ locations }: { locations: StorageLocationWithInventory[
                                     : (loc.color || '#3b82f6'),
                                 border: '1px solid rgba(255,255,255,0.3)',
                             }}
-                            title={buildLocationTooltip(loc)}
+                            title={buildLocationTooltip(loc, t)}
                         >
                             {loc.name || loc.code}
                         </div>
@@ -313,7 +319,7 @@ function LayoutDiagram({ locations }: { locations: StorageLocationWithInventory[
 }
 
 /** R35-2: 平面圖 hover tooltip — 顯示前 5 項庫存 + 總品項數，列印時瀏覽器自動隱藏 title */
-function buildLocationTooltip(loc: StorageLocationWithInventory): string {
+function buildLocationTooltip(loc: StorageLocationWithInventory, t: TFunction): string {
     const head = `${loc.code}${loc.name ? ` - ${loc.name}` : ''}` +
         ` (${loc.current_count}${loc.capacity && loc.capacity > 0 ? `/${loc.capacity}` : ''})`
     if (loc.inventory.length === 0) return head
@@ -321,7 +327,9 @@ function buildLocationTooltip(loc: StorageLocationWithInventory): string {
         const qty = Math.floor(Number(it.on_hand_qty))
         return `${it.product_name} ×${qty}${it.base_uom}`
     })
-    const more = loc.inventory.length > 5 ? `\n…等共 ${loc.inventory.length} 項` : ''
+    const more = loc.inventory.length > 5
+        ? `\n${t('erpDocs.warehouse.report.moreItems', { count: loc.inventory.length })}`
+        : ''
     return `${head}\n${top.join('\n')}${more}`
 }
 
@@ -335,6 +343,7 @@ function getStructureColor(type: string): string {
 }
 
 function LocationInventoryTable({ location }: { location: StorageLocationWithInventory }) {
+    const { t } = useTranslation()
     const title = location.name
         ? `【${location.code}】${location.name}`
         : `【${location.code}】`
@@ -347,20 +356,20 @@ function LocationInventoryTable({ location }: { location: StorageLocationWithInv
         <div className="mb-4 print:break-inside-avoid">
             <div className="flex items-baseline gap-2 mb-1">
                 <h3 className="text-sm font-semibold">{title}</h3>
-                <span className="text-xs text-muted-foreground">（{capacityInfo}）</span>
+                <span className="text-xs text-muted-foreground">{t('erpDocs.warehouse.report.capacityInfo', { info: capacityInfo })}</span>
             </div>
             {location.inventory.length === 0 ? (
-                <p className="text-xs text-muted-foreground pl-2 mb-2">（無庫存）</p>
+                <p className="text-xs text-muted-foreground pl-2 mb-2">{t('erpDocs.warehouse.report.noStock')}</p>
             ) : (
                 <table className="w-full text-xs border-collapse mb-2">
                     <thead>
                         <tr className="bg-muted print:bg-muted">
-                            <th className="text-left p-1 border">產品名稱</th>
+                            <th className="text-left p-1 border">{t('erpDocs.warehouse.report.productName')}</th>
                             <th className="text-left p-1 border">SKU</th>
-                            <th className="text-right p-1 border">數量</th>
-                            <th className="text-left p-1 border">單位</th>
-                            <th className="text-left p-1 border">批號</th>
-                            <th className="text-left p-1 border">效期</th>
+                            <th className="text-right p-1 border">{t('erpDocs.shared.quantity')}</th>
+                            <th className="text-left p-1 border">{t('erpDocs.shared.unit')}</th>
+                            <th className="text-left p-1 border">{t('erpDocs.shared.batchNo')}</th>
+                            <th className="text-left p-1 border">{t('erpDocs.shared.expiryDate')}</th>
                         </tr>
                     </thead>
                     <tbody>

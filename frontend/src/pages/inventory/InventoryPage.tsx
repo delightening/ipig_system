@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { InventoryOnHand, LowStockTotal } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +22,7 @@ import { InventoryRow } from './components/InventoryRow'
 import { LowStockTotalTable } from './components/LowStockTotalTable'
 
 export function InventoryPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [locationFilter, setLocationFilter] = useState<string>('all')
@@ -112,12 +114,12 @@ export function InventoryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="庫存查詢"
-        description="查看各倉庫與貨架的即時庫存現況"
+        title={t('nav.erpInventory')}
+        description={t('erpDocs.inventory.page.description')}
         actions={hasFilters ? (
           <Button variant="outline" size="sm" onClick={clearFilters} className="h-9 rounded-full px-4 border-dashed hover:border-destructive hover:text-destructive transition-colors">
             <X className="h-4 w-4 mr-2" />
-            清除所有篩選
+            {t('erpDocs.inventory.page.clearAllFilters')}
           </Button>
         ) : undefined}
       />
@@ -125,7 +127,7 @@ export function InventoryPage() {
       {expiryFilter && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-destructive/10 border border-destructive/20">
           <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-          <span className="text-sm font-medium text-destructive">效期預警篩選中 — 顯示 60 天內到期的品項</span>
+          <span className="text-sm font-medium text-destructive">{t('erpDocs.inventory.page.expiryBanner')}</span>
           <button
             onClick={() => { setExpiryFilter(false); setSearchParams({}, { replace: true }) }}
             className="ml-auto p-0.5 rounded hover:bg-destructive/20 text-destructive transition-colors"
@@ -138,7 +140,7 @@ export function InventoryPage() {
       {lowStockFilter && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-status-warning-bg border border-status-warning-border">
           <AlertTriangle className="h-4 w-4 text-status-warning-text shrink-0" />
-          <span className="text-sm font-medium text-status-warning-text">低庫存篩選中 — 顯示全公司總量低於安全庫存的品項（含缺貨）；點品項可展開各倉分布</span>
+          <span className="text-sm font-medium text-status-warning-text">{t('erpDocs.inventory.page.lowStockBanner')}</span>
           <button
             onClick={() => { setLowStockFilter(false); setSearchParams({}, { replace: true }) }}
             className="ml-auto p-0.5 rounded hover:bg-status-warning-text/20 text-status-warning-text transition-colors"
@@ -152,7 +154,7 @@ export function InventoryPage() {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
           <Input
-            placeholder="搜尋品項名稱、SKU..."
+            placeholder={t('erpDocs.inventory.page.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-10 border-muted-foreground/20 focus-visible:ring-primary/30"
@@ -167,7 +169,7 @@ export function InventoryPage() {
             />
             <div className="relative w-full md:w-56">
               <Input
-                placeholder="搜尋批號..."
+                placeholder={t('erpDocs.inventory.page.batchSearchPlaceholder')}
                 value={batchFilter}
                 onChange={(e) => setBatchFilter(e.target.value)}
                 className="h-10 border-muted-foreground/20 focus-visible:ring-primary/30"
@@ -185,21 +187,21 @@ export function InventoryPage() {
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
-                <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">倉庫</SortableTableHead>
-                {isShelfQuery && <SortableTableHead sortKey="storage_location_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">貨架</SortableTableHead>}
-                <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">品項</SortableTableHead>
+                <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">{t('erpDocs.shared.warehouse')}</SortableTableHead>
+                {isShelfQuery && <SortableTableHead sortKey="storage_location_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">{t('erpDocs.warehouse.locationType.shelf')}</SortableTableHead>}
+                <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">{t('erpDocs.shared.item')}</SortableTableHead>
                 {showBatchColumns && (
                   <>
-                    <SortableTableHead sortKey="batch_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">批號</SortableTableHead>
-                    <SortableTableHead sortKey="expiry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">效期</SortableTableHead>
+                    <SortableTableHead sortKey="batch_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">{t('erpDocs.shared.batchNo')}</SortableTableHead>
+                    <SortableTableHead sortKey="expiry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">{t('erpDocs.shared.expiryDate')}</SortableTableHead>
                   </>
                 )}
-                <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">現有量</SortableTableHead>
-                <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">單位</SortableTableHead>
-                <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold hidden md:table-cell">平均成本</SortableTableHead>
-                <TableHead className="text-right font-semibold hidden md:table-cell">庫存價值</TableHead>
-                <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold hidden md:table-cell">安全庫存</SortableTableHead>
-                <SortableTableHead sortKey="last_updated_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold hidden lg:table-cell">最後異動時間</SortableTableHead>
+                <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold">{t('erpDocs.inventory.page.onHand')}</SortableTableHead>
+                <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold">{t('erpDocs.shared.unit')}</SortableTableHead>
+                <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold hidden md:table-cell">{t('erpDocs.inventory.page.avgCost')}</SortableTableHead>
+                <TableHead className="text-right font-semibold hidden md:table-cell">{t('erpDocs.shared.inventoryValue')}</TableHead>
+                <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right font-semibold hidden md:table-cell">{t('erpDocs.inventory.safetyStock')}</SortableTableHead>
+                <SortableTableHead sortKey="last_updated_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="font-semibold hidden lg:table-cell">{t('erpDocs.inventory.page.lastUpdated')}</SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -208,7 +210,7 @@ export function InventoryPage() {
                   <TableCell colSpan={colCount} className="text-center py-24">
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground animate-pulse">正在調度庫存數據...</p>
+                      <p className="text-sm text-muted-foreground animate-pulse">{t('erpDocs.inventory.loadingData')}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -239,16 +241,16 @@ export function InventoryPage() {
                         <Package className="h-10 w-10 text-muted-foreground/40" />
                       </div>
                       <h3 className="text-lg font-semibold mb-1">
-                        {hasFilters ? '找不到符合條件的庫存' : '尚無庫存資料'}
+                        {hasFilters ? t('erpDocs.inventory.page.notFound') : t('erpDocs.inventory.page.noData')}
                       </h3>
                       <p className="text-sm text-muted-foreground text-center">
                         {hasFilters
-                          ? '請嘗試調整搜尋關鍵字或篩選條件。'
-                          : '目前系統中沒有任何庫存記錄，若已入庫請檢查進貨單狀態。'}
+                          ? t('erpDocs.inventory.page.hintFiltered')
+                          : t('erpDocs.inventory.page.hintEmpty')}
                       </p>
                       {hasFilters && (
                         <Button variant="link" onClick={clearFilters} className="mt-2 text-primary">
-                          重置所有篩選
+                          {t('erpDocs.inventory.page.resetFilters')}
                         </Button>
                       )}
                     </div>

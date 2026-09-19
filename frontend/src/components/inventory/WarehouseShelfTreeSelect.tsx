@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { ChevronDown, ChevronRight, FolderOpen, Warehouse, LayoutGrid, Check } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { WarehouseTreeNode } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,17 +20,19 @@ function parseValue(value: string): { type: 'all' | 'wh' | 'loc'; id?: string } 
   return { type: 'all' }
 }
 
+/** `allLabel`：「全部倉庫」的當前語言譯文（找不到對應項目時的回退顯示，呼叫端也拿它判斷是否要改顯示 placeholder） */
 function formatDisplayLabel(
   tree: WarehouseTreeNode[] | undefined,
   value: string,
+  allLabel: string,
 ): string {
   const parsed = parseValue(value)
-  if (parsed.type === 'all') return '全部倉庫'
-  if (!tree || !parsed.id) return '全部倉庫'
+  if (parsed.type === 'all') return allLabel
+  if (!tree || !parsed.id) return allLabel
 
   if (parsed.type === 'wh') {
     const wh = tree.find((w) => w.id === parsed.id)
-    return wh ? wh.name : '全部倉庫'
+    return wh ? wh.name : allLabel
   }
 
   if (parsed.type === 'loc') {
@@ -38,7 +41,7 @@ function formatDisplayLabel(
       if (shelf) return `${wh.name} - ${shelf.name || shelf.code}`
     }
   }
-  return '全部倉庫'
+  return allLabel
 }
 
 interface WarehouseShelfTreeSelectProps {
@@ -67,6 +70,7 @@ export function WarehouseShelfTreeSelect({
   placeholder,
   parentId,
 }: WarehouseShelfTreeSelectProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   // 手風琴：預設倉庫收合，僅記錄「已展開」的倉庫 id（貨架選擇層 selectLevel='shelf' 且非 parentId 內嵌模式時生效）
   const [expandedWarehouses, setExpandedWarehouses] = useState<Set<string>>(new Set())
@@ -102,7 +106,8 @@ export function WarehouseShelfTreeSelect({
     })
   }
 
-  const displayLabel = formatDisplayLabel(tree, value)
+  const allWarehousesLabel = t('erpDocs.shared.allWarehouses')
+  const displayLabel = formatDisplayLabel(tree, value, allWarehousesLabel)
   const handleSelect = (v: WarehouseShelfValue) => {
     onValueChange(v)
     setOpen(false)
@@ -124,7 +129,7 @@ export function WarehouseShelfTreeSelect({
           <div className="flex items-center gap-2 overflow-hidden">
             <Warehouse className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="truncate">
-              {isLoading ? '載入中...' : (displayLabel === '全部倉庫' && placeholder) ? placeholder : displayLabel}
+              {isLoading ? t('common.loading') : (displayLabel === allWarehousesLabel && placeholder) ? placeholder : displayLabel}
             </span>
           </div>
           <ChevronDown className={cn(
@@ -155,7 +160,7 @@ export function WarehouseShelfTreeSelect({
                 >
                   <div className="flex items-center gap-2">
                     <Warehouse className="h-4 w-4" />
-                    <span>全部倉庫</span>
+                    <span>{allWarehousesLabel}</span>
                   </div>
                   {value === 'all' && <Check className="h-4 w-4" />}
                 </button>
@@ -177,7 +182,7 @@ export function WarehouseShelfTreeSelect({
                       (hasShelves ? (
                         <button
                           type="button"
-                          aria-label={isWhExpanded ? '收合貨架' : '展開貨架'}
+                          aria-label={isWhExpanded ? t('erpDocs.inventory.tree.collapseShelves') : t('erpDocs.inventory.tree.expandShelves')}
                           aria-expanded={isWhExpanded}
                           className="flex h-7 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent/50 hover:text-foreground"
                           onClick={(e) => {
@@ -209,7 +214,7 @@ export function WarehouseShelfTreeSelect({
                         <span className="truncate">{wh.name}</span>
                         {accordion && hasShelves && (
                           <span className="shrink-0 text-xs text-muted-foreground/50 font-normal">
-                            {wh.shelves.length} 個貨架
+                            {t('erpDocs.inventory.tree.shelfCount', { count: wh.shelves.length })}
                           </span>
                         )}
                       </div>
