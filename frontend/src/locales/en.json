@@ -3761,5 +3761,318 @@
       "noNotifyEnabled": "No notifications are enabled",
       "save": "Save Notification Settings"
     }
+  },
+  "auth": {
+    "backToLoginPage": "Back to Login",
+    "app": {
+      "pageLoading": "Loading page..."
+    },
+    "guest": {
+      "displayName": "Guest"
+    },
+    "fields": {
+      "email": "Email",
+      "password": "Password",
+      "currentPasswordPlaceholder": "Enter your current password",
+      "newPasswordPlaceholder": "Enter a new password",
+      "confirmNewPasswordPlaceholder": "Re-enter the new password"
+    },
+    "validation": {
+      "emailRequired": "Please enter your email",
+      "emailInvalid": "Please enter a valid email address",
+      "passwordRequired": "Please enter your password",
+      "currentPasswordRequired": "Please enter your current password",
+      "newPasswordRequired": "Please enter a new password",
+      "confirmNewPasswordRequired": "Please confirm your new password",
+      "newPasswordSameAsCurrent": "The new password must be different from your current password",
+      "signatureRequired": "Please complete the handwritten signature"
+    },
+    "passwordRules": {
+      "minLength": "Password must be at least {{min}} characters long",
+      "minLengthShort": "Password must be at least {{min}} characters",
+      "needUppercase": "Password must contain at least one uppercase letter",
+      "needLowercase": "Password must contain at least one lowercase letter",
+      "needNumber": "Password must contain at least one number",
+      "tooCommon": "This password is too simple. Please choose a stronger one"
+    },
+    "passwordStrength": {
+      "veryWeak": "Very weak",
+      "weak": "Weak",
+      "medium": "Medium",
+      "strong": "Strong",
+      "veryStrong": "Very strong"
+    },
+    "passwordChecks": {
+      "minLength": "At least {{min}} characters",
+      "uppercase": "Contains an uppercase letter",
+      "lowercase": "Contains a lowercase letter",
+      "number": "Contains a number",
+      "notCommon": "Not a common weak password",
+      "match": "Passwords match"
+    },
+    "login": {
+      "sessionExpiredTitle": "Session expired",
+      "sessionExpiredDescription": "Please log in again to continue using the system.",
+      "successTitle": "Logged in",
+      "successDescription": "Welcome back!",
+      "failedTitle": "Login failed",
+      "failedFallback": "Please check your email and password",
+      "portalTitle": "iPig Unified Portal",
+      "portalDescription": "Enter your email and password to log in",
+      "emailPlaceholder": "Enter your email",
+      "loggingIn": "Logging in...",
+      "submit": "Log In",
+      "forgotPassword": "Forgot password?",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service"
+    },
+    "twoFactor": {
+      "challengeTitle": "Two-Step Verification",
+      "challengeDescription": "Enter the 6-digit code from your authenticator app",
+      "codeLabel": "Verification Code",
+      "backupHint": "You can also log in with a backup code (8 characters)",
+      "verifying": "Verifying...",
+      "verify": "Verify",
+      "backToLogin": "Back to Login",
+      "verifyFailed": "Verification failed",
+      "codeInvalidOrExpired": "The code is incorrect or has expired",
+      "cardTitle": "Two-Step Verification (2FA)",
+      "cardDescription": "Add extra security to your account with Google Authenticator or another TOTP authenticator app",
+      "enabled": "Enabled",
+      "notEnabled": "Not enabled",
+      "disableButton": "Disable 2FA",
+      "enableButton": "Enable 2FA",
+      "enableFailed": "Failed to enable",
+      "setupDataFailed": "Unable to generate 2FA setup",
+      "enabledToastTitle": "2FA enabled",
+      "enabledToastDescription": "Your account is now protected by two-step verification",
+      "codeInvalidRetry": "The code is incorrect. Please try again",
+      "disabledToastTitle": "2FA disabled",
+      "disableFailed": "Failed to disable",
+      "passwordOrCodeInvalid": "Incorrect password or verification code",
+      "setupDialogTitle": "Set Up Two-Step Verification",
+      "setupDialogDescription": "Scan the QR code below with your authenticator app, then enter the 6-digit code it shows",
+      "supportedApps": "Works with Google Authenticator, Microsoft Authenticator, Authy, and more",
+      "confirmEnable": "Confirm & Enable",
+      "backupCodesTitle": "Backup Codes",
+      "backupCodesDescription": "Keep these backup codes safe. If you can't use your authenticator app, you can log in with a backup code (each code can be used only once).",
+      "copied": "Copied",
+      "copyBackupCodes": "Copy Backup Codes",
+      "done": "Done",
+      "disableDialogTitle": "Disable Two-Step Verification",
+      "disableDialogDescription": "After disabling, your account will no longer require a verification code to log in. Enter your password and current verification code to confirm.",
+      "confirmDisable": "Confirm & Disable"
+    },
+    "forgotPassword": {
+      "checkInboxTitle": "Check Your Inbox",
+      "sentNotice": "If <emphasis>{{email}}</emphasis> is a registered account, you will receive a password reset link.",
+      "noEmailHint": "Didn't receive the email? Check your spam folder, or make sure the address you entered is correct.",
+      "retry": "Try Again",
+      "title": "Forgot Password",
+      "description": "Enter your email address and we'll send you a password reset link",
+      "sending": "Sending...",
+      "submit": "Send Reset Link"
+    },
+    "resetPassword": {
+      "successToastTitle": "Password reset",
+      "successToastDescription": "You can now log in with your new password",
+      "failedFallback": "Password reset failed",
+      "linkExpiredTitle": "Link expired",
+      "linkExpiredDescription": "This password reset link is invalid or has expired. Please request a new one",
+      "invalidLinkTitle": "Invalid Link",
+      "invalidLinkDescription": "This password reset link is invalid or has expired. Please request a new password reset.",
+      "requestAgain": "Request Password Reset Again",
+      "successTitle": "Password Reset Successful!",
+      "successDescription": "Your password has been reset. Please log in with your new password.",
+      "goToLogin": "Go to Login",
+      "title": "Set a New Password",
+      "description": "Enter your new password",
+      "passwordsDoNotMatch": "The two passwords do not match",
+      "submit": "Confirm Password Reset"
+    },
+    "forceChange": {
+      "successToastTitle": "Password changed",
+      "successToastDescription": "Your password has been updated",
+      "failedFallback": "Failed to change password",
+      "title": "Password Change Required",
+      "description": "For your account's security, please change your initial password now",
+      "loggedInAs": "Logged in as: {{email}}",
+      "passwordsDoNotMatch": "The new password and confirmation do not match",
+      "submit": "Confirm Password Change"
+    },
+    "invitation": {
+      "verifying": "Verifying invitation link...",
+      "alreadyAcceptedTitle": "This invitation has already been used",
+      "alreadyAcceptedDescription": "If you forgot your password, go to <resetLink>Reset Password</resetLink>",
+      "expiredTitle": "This invitation has expired",
+      "expiredDescription": "Please contact an administrator to resend the invitation",
+      "revokedTitle": "This invitation has been revoked",
+      "revokedDescription": "Please contact an administrator for a new invitation link",
+      "notFoundTitle": "This invitation link is invalid",
+      "notFoundDescription": "Please check that the link is correct, or contact an administrator",
+      "welcomeToastTitle": "Welcome aboard!",
+      "welcomeToastDescription": "Your account has been created. Taking you to My Projects",
+      "registerFailedTitle": "Registration failed",
+      "completeRegistration": "Complete Registration",
+      "description": "Fill in the details below to finish setting up your account",
+      "assignedRolesLabel": "Assigned roles (set by an administrator; cannot be changed)",
+      "nameLabel": "Name",
+      "namePlaceholder": "Jane Smith",
+      "nameRequired": "Name is required",
+      "nameTooLong": "Name must not exceed 100 characters",
+      "phoneLabel": "Phone",
+      "phoneInvalid": "Phone number must be 9-10 digits",
+      "organizationLabel": "Organization",
+      "organizationPlaceholder": "National Taiwan University Hospital",
+      "organizationRequired": "Organization is required",
+      "positionLabel": "Job title (optional)",
+      "positionPlaceholder": "Attending physician",
+      "passwordPlaceholder": "At least 10 characters, including upper- and lowercase letters and numbers",
+      "passwordCharsRequired": "Password must include upper- and lowercase letters and numbers",
+      "confirmPasswordLabel": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter your password",
+      "passwordMismatch": "Passwords do not match",
+      "termsRequired": "You must agree to the Terms of Service",
+      "agreeTerms": "I agree to the <termsLink>Terms of Service</termsLink>",
+      "creatingAccount": "Creating account..."
+    },
+    "confirmPassword": {
+      "passwordLabel": "Your login password",
+      "passwordPlaceholder": "Enter your password to confirm your identity",
+      "wrongPassword": "The password is incorrect or has expired. Please try again"
+    },
+    "roleSignature": {
+      "desktopMode": "Sign on Desktop",
+      "mobileMode": "Sign on Phone",
+      "auditNotice": "This signature is recorded in the audit trail and can later be used to verify the operator's identity. On a desktop, we recommend switching to \"Sign on Phone\" for easier touch input.",
+      "submit": "Confirm Signature & Submit",
+      "verifyFailed": "Signature verification failed. Please try again",
+      "startSessionFailed": "Failed to start the phone signing session. Please try again",
+      "consumeFailed": "Failed to retrieve the signature. Please try again",
+      "qrExpired": "The QR code has expired. Please generate a new one",
+      "sessionUsed": "The session has already been used",
+      "mobileInstruction": "Scan the QR code below with your phone camera and complete the password and handwritten signature on your phone; the desktop will continue automatically. The QR code is valid for 5 minutes.",
+      "generatingQr": "Generating QR code…",
+      "manualUrlHint": "If your phone can't scan it, open this URL manually",
+      "waitingForMobile": "Waiting for the phone to complete the signature…",
+      "regenerateQr": "Regenerate QR Code"
+    },
+    "permission": {
+      "noAccessTitle": "Access Denied",
+      "noAccessDescription": "You don't have permission to access this page. Please contact a system administrator if you need access."
+    }
+  },
+  "notificationsPage": {
+    "title": "Notification Center",
+    "todoCount": "Items awaiting your action: {{count}}. They disappear automatically once completed",
+    "totalCount": "Total notifications: {{count}}",
+    "markAllReadToast": "All notifications marked as read",
+    "empty": "No notifications yet",
+    "pageIndicator": "Page {{page}} of {{totalPages}}"
+  },
+  "mobileSign": {
+    "purposeDefault": "Electronic Signature",
+    "purposeRole": "Role change: {{op}}",
+    "roleOps": {
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete"
+    },
+    "invalidLinkRegenerate": "The signing link is invalid. Please generate a new QR code from the desktop",
+    "submitFailed": "Failed to submit the signature. Check that your password is correct and the QR code hasn't expired",
+    "doneTitle": "Signing Complete",
+    "doneDescription": "Return to your desktop; the operation will continue automatically within a few seconds. You can close this page.",
+    "invalidTitle": "Invalid Link",
+    "invalidDescription": "The session or token is missing. Please generate a new QR code from the signing window on your desktop.",
+    "title": "Sign on Phone",
+    "operationItem": "Operation: {{purpose}}",
+    "qrNotice": "This QR code is valid for one use within 5 minutes. Your signature and password are recorded in the audit trail.",
+    "submit": "Submit Signature"
+  },
+  "mcpKeys": {
+    "createFailed": "Failed to create",
+    "revoked": "Key revoked",
+    "revokeFailed": "Failed to revoke",
+    "title": "MCP Connection Keys",
+    "generateButton": "Generate New Key",
+    "description": "Used for claude.ai Remote MCP connections so Claude can read protocols directly and help with review. Up to 5 active keys per person.",
+    "empty": "No keys yet. Click \"Generate New Key\" to get started.",
+    "scopeWrite": "Read/Write",
+    "scopeReadOnly": "Read-only",
+    "createdAt": "Created: {{date}}",
+    "lastUsedAt": "Last used: {{date}}",
+    "expiresAt": "Expires: {{date}}",
+    "setup": {
+      "heading": "How to connect claude.ai:",
+      "step1": "1. After generating a key, copy the full key (shown only once)",
+      "urlLine": "URL: {{url}}",
+      "authLine": "Authorization: Bearer <your-key>"
+    },
+    "createDialog": {
+      "title": "Generate New MCP Key",
+      "description": "Give this key a name, for example \"My claude.ai\". The key is shown only once, so copy it right away.",
+      "nameLabel": "Key Name",
+      "namePlaceholder": "My claude.ai",
+      "writeLabel": "Grant write access (allows calling tools that modify data)",
+      "writeHint": "Read-only by default (query / read only). Unless you are sure Claude needs to modify data with this key, keep it read-only. Keys are valid for one year.",
+      "submit": "Generate"
+    },
+    "createdDialog": {
+      "title": "Key Generated",
+      "description": "Copy this key now. You won't be able to see the full key again after closing this dialog.",
+      "copied": "Copied",
+      "copyKey": "Copy Key",
+      "copiedAndClose": "I've copied it, close"
+    },
+    "revokeDialog": {
+      "title": "Confirm Key Revocation",
+      "description": "Once revoked, this key becomes invalid immediately and any MCP connection using it will lose access.",
+      "confirm": "Confirm Revocation"
+    }
+  },
+  "errors": {
+    "tryAgainLater": "Please try again later",
+    "api": {
+      "operationFailed": "Operation failed. Please try again later",
+      "operationFailedTitle": "Operation failed",
+      "timeout": "The request timed out. Check your network connection and try again",
+      "cannotConnect": "Unable to reach the server. Please check your network connection",
+      "networkAbnormal": "Network connection error. Please try again later",
+      "status400": "The request is malformed. Please check your input",
+      "status401": "Your session has expired. Please log in again",
+      "status403": "You don't have permission to perform this action",
+      "status404": "The requested data was not found",
+      "status409": "Data conflict. Please refresh and try again",
+      "status413": "The uploaded file is too large. Please reduce its size and try again",
+      "status422": "The submitted data does not meet the required format",
+      "status429": "Too many requests. Please try again later",
+      "status500": "A server error occurred. Please try again later",
+      "status502": "The server is temporarily unavailable. Please try again later",
+      "status503": "The system is under maintenance. Please try again later",
+      "serverError": "Server error. Please try again later",
+      "requestTimeout": "Request timed out. Please check your network connection",
+      "serverUnreachable": "Unable to connect to the server"
+    },
+    "image": {
+      "heicNoImage": "HEIC decoding failed: the file contains no decodable image",
+      "canvasUnavailable": "Canvas 2D context is unavailable",
+      "heicDecodeError": "HEIC decoding failed: image processing error",
+      "heicToJpegFailed": "HEIC to JPEG conversion failed",
+      "toBlobFailed": "Canvas toBlob failed"
+    },
+    "print": {
+      "popupBlocked": "The pop-up was blocked. Please allow pop-ups and try again"
+    }
+  },
+  "calendarSync": {
+    "configSaved": "Sync settings saved",
+    "saveFailed": "Failed to save",
+    "connected": "Connected to Google Calendar",
+    "connectFailed": "Failed to connect",
+    "checkSettings": "Please check your settings",
+    "disconnected": "Disconnected from Google Calendar",
+    "syncStarted": "Sync started",
+    "resolveFailed": "Failed to resolve",
+    "conflictResolved": "Conflict resolved"
   }
 }

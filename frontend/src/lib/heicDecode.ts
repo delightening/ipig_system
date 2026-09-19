@@ -9,6 +9,8 @@
 //   - lazy dynamic import：只有真的遇到 HEIC 才下載 ~1.5MB 解碼器 chunk，
 //     一般 JPEG/PNG 上傳零額外成本（Vite 自動 code-split）。
 
+import i18n from '@/lib/i18n'
+
 const HEIC_RE = /heic|heif/i
 
 /**
@@ -32,7 +34,7 @@ export async function heicToCanvas(file: File): Promise<HTMLCanvasElement> {
     const decoder = new libheif.HeifDecoder()
     const images = decoder.decode(buffer)
     if (!images || images.length === 0) {
-        throw new Error('HEIC 解碼失敗：檔案不含可解析的影像')
+        throw new Error(i18n.t('errors.image.heicNoImage'))
     }
 
     try {
@@ -44,13 +46,13 @@ export async function heicToCanvas(file: File): Promise<HTMLCanvasElement> {
         canvas.width = width
         canvas.height = height
         const ctx = canvas.getContext('2d')
-        if (!ctx) throw new Error('Canvas 2D context 不可用')
+        if (!ctx) throw new Error(i18n.t('errors.image.canvasUnavailable'))
 
         const imageData = ctx.createImageData(width, height)
         await new Promise<void>((resolve, reject) => {
             image.display(imageData, displayData => {
                 if (!displayData) {
-                    reject(new Error('HEIC 解碼失敗：影像處理錯誤'))
+                    reject(new Error(i18n.t('errors.image.heicDecodeError')))
                     return
                 }
                 resolve()
@@ -75,7 +77,7 @@ export async function heicToJpegFile(file: File, quality = 0.92): Promise<File> 
     const canvas = await heicToCanvas(file)
     const blob: Blob = await new Promise((resolve, reject) => {
         canvas.toBlob(
-            b => (b ? resolve(b) : reject(new Error('HEIC→JPEG 轉檔失敗'))),
+            b => (b ? resolve(b) : reject(new Error(i18n.t('errors.image.heicToJpegFailed')))),
             'image/jpeg',
             quality,
         )

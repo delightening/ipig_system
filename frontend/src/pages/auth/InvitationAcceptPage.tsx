@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useMutation } from '@tanstack/react-query'
+import { Trans, useTranslation } from 'react-i18next'
 import { Loader2, Eye, EyeOff, AlertTriangle } from 'lucide-react'
 
 import { useToggle } from '@/hooks/useToggle'
@@ -93,33 +94,40 @@ function AcceptPageShell({ children }: { children: React.ReactNode }) {
 }
 
 function LoadingState() {
+    const { t } = useTranslation()
     return (
         <Card className="w-full max-w-md animate-fade-in">
             <CardContent className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="ml-3 text-muted-foreground">驗證邀請連結中...</span>
+                <span className="ml-3 text-muted-foreground">{t('auth.invitation.verifying')}</span>
             </CardContent>
         </Card>
     )
 }
 
 function InvalidState({ reason }: { reason: string }) {
+    const { t } = useTranslation()
     const messages: Record<string, { title: string; desc: React.ReactNode }> = {
         already_accepted: {
-            title: '此邀請已使用',
-            desc: <>如忘記密碼，請前往<Link to="/forgot-password" className="text-primary hover:underline ml-1">重設密碼</Link></>,
+            title: t('auth.invitation.alreadyAcceptedTitle'),
+            desc: (
+                <Trans
+                    i18nKey="auth.invitation.alreadyAcceptedDescription"
+                    components={{ resetLink: <Link to="/forgot-password" className="text-primary hover:underline ml-1" /> }}
+                />
+            ),
         },
         expired: {
-            title: '此邀請已過期',
-            desc: '請聯繫管理員重新發送邀請',
+            title: t('auth.invitation.expiredTitle'),
+            desc: t('auth.invitation.expiredDescription'),
         },
         revoked: {
-            title: '此邀請已被撤銷',
-            desc: '請聯繫管理員取得新的邀請連結',
+            title: t('auth.invitation.revokedTitle'),
+            desc: t('auth.invitation.revokedDescription'),
         },
         not_found: {
-            title: '此邀請連結無效',
-            desc: '請確認連結是否正確，或聯繫管理員',
+            title: t('auth.invitation.notFoundTitle'),
+            desc: t('auth.invitation.notFoundDescription'),
         },
     }
     const msg = messages[reason] || messages.not_found
@@ -144,6 +152,7 @@ interface RegistrationFormProps {
 }
 
 function RegistrationForm({ token, verify, showPassword, togglePassword, navigate }: RegistrationFormProps) {
+    const { t } = useTranslation()
     const email = verify.email!
     const form = useForm<AcceptForm>({
         defaultValues: {
@@ -181,11 +190,11 @@ function RegistrationForm({ token, verify, showPassword, togglePassword, navigat
                 isAuthenticated: true,
                 isInitialized: true,
             })
-            toast({ title: '歡迎加入！', description: '帳號已建立，即將前往我的計劃書' })
+            toast({ title: t('auth.invitation.welcomeToastTitle'), description: t('auth.invitation.welcomeToastDescription') })
             navigate('/my-projects')
         },
         onError: (err) => {
-            toast({ variant: 'destructive', title: '註冊失敗', description: getApiErrorMessage(err) })
+            toast({ variant: 'destructive', title: t('auth.invitation.registerFailedTitle'), description: getApiErrorMessage(err) })
         },
     })
 
@@ -195,17 +204,17 @@ function RegistrationForm({ token, verify, showPassword, togglePassword, navigat
                 <div className="mx-auto mb-4">
                     <img src="/pigmodel-logo.png" alt="Logo" className="h-20 w-auto" />
                 </div>
-                <CardTitle className="text-2xl font-bold">完成註冊</CardTitle>
-                <CardDescription>請填寫以下資料完成帳號設定</CardDescription>
+                <CardTitle className="text-2xl font-bold">{t('auth.invitation.completeRegistration')}</CardTitle>
+                <CardDescription>{t('auth.invitation.description')}</CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={form.handleSubmit((d) => acceptMutation.mutate(d))} className="space-y-4">
-                    <FormField label="Email" htmlFor="reg-email">
+                    <FormField label={t('common.email')} htmlFor="reg-email">
                         <Input id="reg-email" value={email} readOnly className="bg-muted" />
                     </FormField>
 
                     {verify.roles.length > 0 && (
-                        <FormField label="指派角色（管理員設定，無法修改）" htmlFor="reg-roles">
+                        <FormField label={t('auth.invitation.assignedRolesLabel')} htmlFor="reg-roles">
                             <div
                                 id="reg-roles"
                                 className="flex flex-wrap gap-2 px-3 py-2 rounded-md bg-muted text-sm"
@@ -222,38 +231,38 @@ function RegistrationForm({ token, verify, showPassword, togglePassword, navigat
                         </FormField>
                     )}
 
-                    <FormField label="姓名" htmlFor="reg-name" error={form.formState.errors.display_name?.message} required>
-                        <Input id="reg-name" placeholder="王大明" {...form.register('display_name', {
-                            required: '姓名為必填',
-                            maxLength: { value: 100, message: '姓名不得超過 100 字' },
+                    <FormField label={t('auth.invitation.nameLabel')} htmlFor="reg-name" error={form.formState.errors.display_name?.message} required>
+                        <Input id="reg-name" placeholder={t('auth.invitation.namePlaceholder')} {...form.register('display_name', {
+                            required: t('auth.invitation.nameRequired'),
+                            maxLength: { value: 100, message: t('auth.invitation.nameTooLong') },
                         })} />
                     </FormField>
 
-                    <FormField label="電話" htmlFor="reg-phone" error={form.formState.errors.phone?.message} required>
+                    <FormField label={t('auth.invitation.phoneLabel')} htmlFor="reg-phone" error={form.formState.errors.phone?.message} required>
                         <Input id="reg-phone" placeholder="0912345678" {...form.register('phone', {
-                            required: '電話必須為 9-10 位數字',
-                            pattern: { value: PHONE_PATTERN, message: '電話必須為 9-10 位數字' },
+                            required: t('auth.invitation.phoneInvalid'),
+                            pattern: { value: PHONE_PATTERN, message: t('auth.invitation.phoneInvalid') },
                         })} />
                     </FormField>
 
-                    <FormField label="組織" htmlFor="reg-org" error={form.formState.errors.organization?.message} required>
-                        <Input id="reg-org" placeholder="台大醫院" {...form.register('organization', { required: '組織為必填' })} />
+                    <FormField label={t('auth.invitation.organizationLabel')} htmlFor="reg-org" error={form.formState.errors.organization?.message} required>
+                        <Input id="reg-org" placeholder={t('auth.invitation.organizationPlaceholder')} {...form.register('organization', { required: t('auth.invitation.organizationRequired') })} />
                     </FormField>
 
-                    <FormField label="職稱（選填）" htmlFor="reg-position">
-                        <Input id="reg-position" placeholder="主治醫師" {...form.register('position')} />
+                    <FormField label={t('auth.invitation.positionLabel')} htmlFor="reg-position">
+                        <Input id="reg-position" placeholder={t('auth.invitation.positionPlaceholder')} {...form.register('position')} />
                     </FormField>
 
-                    <FormField label="密碼" htmlFor="reg-password" error={form.formState.errors.password?.message} required>
+                    <FormField label={t('auth.fields.password')} htmlFor="reg-password" error={form.formState.errors.password?.message} required>
                         <div className="relative">
                             <Input
                                 id="reg-password"
                                 type={showPassword ? 'text' : 'password'}
-                                placeholder="至少 10 字元，含大小寫及數字"
+                                placeholder={t('auth.invitation.passwordPlaceholder')}
                                 {...form.register('password', {
-                                    required: '密碼至少 10 個字元',
-                                    minLength: { value: 10, message: '密碼至少 10 個字元' },
-                                    pattern: { value: PASSWORD_CHAR_PATTERN, message: '密碼必須包含大小寫字母及數字' },
+                                    required: t('auth.passwordRules.minLengthShort', { min: 10 }),
+                                    minLength: { value: 10, message: t('auth.passwordRules.minLengthShort', { min: 10 }) },
+                                    pattern: { value: PASSWORD_CHAR_PATTERN, message: t('auth.invitation.passwordCharsRequired') },
                                 })}
                             />
                             <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={togglePassword}>
@@ -272,15 +281,15 @@ function RegistrationForm({ token, verify, showPassword, togglePassword, navigat
                         )}
                     </FormField>
 
-                    <FormField label="確認密碼" htmlFor="reg-confirm" error={form.formState.errors.confirm_password?.message} required>
-                        <Input id="reg-confirm" type="password" placeholder="再次輸入密碼" {...form.register('confirm_password', {
-                            validate: (value, formValues) => value === formValues.password || '密碼不一致',
+                    <FormField label={t('auth.invitation.confirmPasswordLabel')} htmlFor="reg-confirm" error={form.formState.errors.confirm_password?.message} required>
+                        <Input id="reg-confirm" type="password" placeholder={t('auth.invitation.confirmPasswordPlaceholder')} {...form.register('confirm_password', {
+                            validate: (value, formValues) => value === formValues.password || t('auth.invitation.passwordMismatch'),
                         })} />
                     </FormField>
 
                     <div className="flex items-start gap-2">
                         <input type="hidden" {...form.register('agree_terms', {
-                            validate: v => v === true || '必須同意服務條款',
+                            validate: v => v === true || t('auth.invitation.termsRequired'),
                         })} />
                         <Checkbox
                             id="reg-terms"
@@ -288,10 +297,12 @@ function RegistrationForm({ token, verify, showPassword, togglePassword, navigat
                             onCheckedChange={(checked) => form.setValue('agree_terms', checked === true, { shouldValidate: true })}
                         />
                         <label htmlFor="reg-terms" className="text-sm leading-tight cursor-pointer">
-                            我同意
-                            <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">
-                                服務條款
-                            </a>
+                            <Trans
+                                i18nKey="auth.invitation.agreeTerms"
+                                components={{
+                                    termsLink: <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1" />,
+                                }}
+                            />
                         </label>
                     </div>
                     {form.formState.errors.agree_terms && (
@@ -300,8 +311,8 @@ function RegistrationForm({ token, verify, showPassword, togglePassword, navigat
 
                     <Button type="submit" className="w-full" disabled={acceptMutation.isPending}>
                         {acceptMutation.isPending ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />建立帳號中...</>
-                        ) : '完成註冊'}
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('auth.invitation.creatingAccount')}</>
+                        ) : t('auth.invitation.completeRegistration')}
                     </Button>
                 </form>
             </CardContent>

@@ -10,7 +10,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useAuthStore } from '@/stores/auth'
 import App from './App'
 import './index.css'
-import './lib/i18n' // Initialize i18n
+import i18n from './lib/i18n' // Initialize i18n
 import { reportWebVitals } from './lib/webVitals'
 
 // R28-10：runtime session 過期 redirect kill-switch（與 client.ts interceptor 各自獨立）。
@@ -98,7 +98,7 @@ const queryClient = new QueryClient({
       if (mutation.options.onError) return
 
       toast({
-        title: '操作失敗',
+        title: i18n.t('errors.api.operationFailedTitle'),
         description: getApiErrorMessage(error),
         variant: 'destructive',
       })

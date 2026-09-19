@@ -9,6 +9,7 @@
  */
 
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from '@/components/ui/use-toast'
 import { logger } from '@/lib/logger'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -19,7 +20,8 @@ interface UseApiErrorOptions {
 }
 
 export function useApiError(options: UseApiErrorOptions = {}) {
-    const { defaultTitle = '操作失敗' } = options
+    const { t } = useTranslation()
+    const { defaultTitle } = options
 
     /**
      * 處理 API 錯誤並顯示 toast
@@ -27,12 +29,12 @@ export function useApiError(options: UseApiErrorOptions = {}) {
     const handleError = useCallback((error: unknown, title?: string) => {
         const message = getApiErrorMessage(error)
         toast({
-            title: title || defaultTitle,
+            title: title || defaultTitle || t('errors.api.operationFailedTitle'),
             description: message,
             variant: 'destructive',
         })
         logger.error('[API Error]', error)
-    }, [defaultTitle])
+    }, [defaultTitle, t])
 
     /**
      * 包裝非同步操作，自動處理錯誤
@@ -50,7 +52,7 @@ export function useApiError(options: UseApiErrorOptions = {}) {
             const result = await fn()
             if (successMessage) {
                 toast({
-                    title: '成功',
+                    title: t('common.success'),
                     description: successMessage,
                 })
             }
@@ -59,7 +61,7 @@ export function useApiError(options: UseApiErrorOptions = {}) {
             handleError(error, errorTitle)
             return null
         }
-    }, [handleError])
+    }, [handleError, t])
 
     return { handleError, withErrorHandling }
 }

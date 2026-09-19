@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore, expiresInToTimestamp } from '@/stores/auth'
+import i18n from '@/lib/i18n'
 import { toast } from '@/components/ui/use-toast'
 import { getGuestDemoData, getGuestWriteToast } from '@/lib/guest-demo/routes'
 import { broadcastAuth, markLocalRefresh, msSinceLastBroadcastRefresh } from '@/lib/authBroadcast'
@@ -279,12 +280,12 @@ api.interceptors.response.use(
       if (error.response) {
         const status = error.response.status
         if (status >= 500) {
-          toast({ variant: 'destructive', title: '伺服器錯誤，請稍後再試' })
+          toast({ variant: 'destructive', title: i18n.t('errors.api.serverError') })
         }
       } else if (error.code === 'ECONNABORTED') {
-        toast({ variant: 'destructive', title: '請求逾時，請檢查網路連線' })
+        toast({ variant: 'destructive', title: i18n.t('errors.api.requestTimeout') })
       } else if (!error.response) {
-        toast({ variant: 'destructive', title: '無法連線至伺服器' })
+        toast({ variant: 'destructive', title: i18n.t('errors.api.serverUnreachable') })
       }
     }
 

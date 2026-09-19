@@ -3761,5 +3761,318 @@
   },
   "terms": {
     "title": "服務條款"
+  },
+  "auth": {
+    "backToLoginPage": "返回登入頁面",
+    "app": {
+      "pageLoading": "頁面載入中..."
+    },
+    "guest": {
+      "displayName": "訪客"
+    },
+    "fields": {
+      "email": "電子郵件",
+      "password": "密碼",
+      "currentPasswordPlaceholder": "請輸入目前密碼",
+      "newPasswordPlaceholder": "請輸入新密碼",
+      "confirmNewPasswordPlaceholder": "再次輸入新密碼"
+    },
+    "validation": {
+      "emailRequired": "請輸入電子郵件",
+      "emailInvalid": "請輸入有效的電子郵件",
+      "passwordRequired": "請輸入密碼",
+      "currentPasswordRequired": "請輸入目前密碼",
+      "newPasswordRequired": "請輸入新密碼",
+      "confirmNewPasswordRequired": "請確認新密碼",
+      "newPasswordSameAsCurrent": "新密碼不能與目前密碼相同",
+      "signatureRequired": "請完成手寫簽名"
+    },
+    "passwordRules": {
+      "minLength": "密碼至少需要 {{min}} 個字元",
+      "minLengthShort": "密碼至少 {{min}} 個字元",
+      "needUppercase": "密碼必須包含至少一個大寫英文字母",
+      "needLowercase": "密碼必須包含至少一個小寫英文字母",
+      "needNumber": "密碼必須包含至少一個數字",
+      "tooCommon": "此密碼過於簡單，請使用更複雜的密碼"
+    },
+    "passwordStrength": {
+      "veryWeak": "非常弱",
+      "weak": "弱",
+      "medium": "中等",
+      "strong": "強",
+      "veryStrong": "非常強"
+    },
+    "passwordChecks": {
+      "minLength": "至少 {{min}} 個字元",
+      "uppercase": "包含大寫字母",
+      "lowercase": "包含小寫字母",
+      "number": "包含數字",
+      "notCommon": "非常見弱密碼",
+      "match": "密碼一致"
+    },
+    "login": {
+      "sessionExpiredTitle": "登入時效已到期",
+      "sessionExpiredDescription": "請重新登入以繼續使用系統。",
+      "successTitle": "登入成功",
+      "successDescription": "歡迎回來！",
+      "failedTitle": "登入失敗",
+      "failedFallback": "請檢查您的帳號密碼",
+      "portalTitle": "iPig 統一入口門戶",
+      "portalDescription": "請輸入您的帳號密碼登入系統",
+      "emailPlaceholder": "請輸入電子郵件",
+      "loggingIn": "登入中...",
+      "submit": "登入",
+      "forgotPassword": "忘記密碼？",
+      "privacyPolicy": "隱私權政策",
+      "termsOfService": "服務條款"
+    },
+    "twoFactor": {
+      "challengeTitle": "兩步驟驗證",
+      "challengeDescription": "請輸入驗證器 App 上的 6 位數驗證碼",
+      "codeLabel": "驗證碼",
+      "backupHint": "也可使用備用碼（8 碼）登入",
+      "verifying": "驗證中...",
+      "verify": "驗證",
+      "backToLogin": "返回登入",
+      "verifyFailed": "驗證失敗",
+      "codeInvalidOrExpired": "驗證碼錯誤或已過期",
+      "cardTitle": "兩步驟驗證 (2FA)",
+      "cardDescription": "使用 Google Authenticator 或其他 TOTP 驗證器應用程式增加帳號安全性",
+      "enabled": "已啟用",
+      "notEnabled": "未啟用",
+      "disableButton": "停用 2FA",
+      "enableButton": "啟用 2FA",
+      "enableFailed": "啟用失敗",
+      "setupDataFailed": "無法產生 2FA 設定",
+      "enabledToastTitle": "2FA 已啟用",
+      "enabledToastDescription": "您的帳號已受兩步驟驗證保護",
+      "codeInvalidRetry": "驗證碼錯誤，請重試",
+      "disabledToastTitle": "2FA 已停用",
+      "disableFailed": "停用失敗",
+      "passwordOrCodeInvalid": "密碼或驗證碼錯誤",
+      "setupDialogTitle": "設定兩步驟驗證",
+      "setupDialogDescription": "使用驗證器 App 掃描下方 QR Code，然後輸入顯示的 6 位數驗證碼",
+      "supportedApps": "支援 Google Authenticator、Microsoft Authenticator、Authy 等",
+      "confirmEnable": "確認啟用",
+      "backupCodesTitle": "備用碼",
+      "backupCodesDescription": "請妥善保存以下備用碼。當您無法使用驗證器 App 時，可使用備用碼登入（每組僅能使用一次）。",
+      "copied": "已複製",
+      "copyBackupCodes": "複製備用碼",
+      "done": "完成",
+      "disableDialogTitle": "停用兩步驟驗證",
+      "disableDialogDescription": "停用後帳號將不再需要驗證碼登入。請輸入密碼和目前的驗證碼確認。",
+      "confirmDisable": "確認停用"
+    },
+    "forgotPassword": {
+      "checkInboxTitle": "請檢查您的信箱",
+      "sentNotice": "如果 <emphasis>{{email}}</emphasis> 是已註冊的帳號，您將收到密碼重設連結。",
+      "noEmailHint": "沒有收到郵件？請檢查垃圾郵件資料夾，或確認您輸入的地址正確。",
+      "retry": "重新輸入",
+      "title": "忘記密碼",
+      "description": "請輸入您的電子郵件地址，我們將發送密碼重設連結給您",
+      "sending": "發送中...",
+      "submit": "發送重設連結"
+    },
+    "resetPassword": {
+      "successToastTitle": "密碼重設成功",
+      "successToastDescription": "您可以使用新密碼登入了",
+      "failedFallback": "密碼重設失敗",
+      "linkExpiredTitle": "連結已失效",
+      "linkExpiredDescription": "此密碼重設連結已失效或過期，請重新申請",
+      "invalidLinkTitle": "無效的連結",
+      "invalidLinkDescription": "此密碼重設連結無效或已過期，請重新申請密碼重設。",
+      "requestAgain": "重新申請密碼重設",
+      "successTitle": "密碼重設成功！",
+      "successDescription": "您的密碼已成功重設，請使用新密碼登入。",
+      "goToLogin": "前往登入",
+      "title": "設定新密碼",
+      "description": "請輸入您的新密碼",
+      "passwordsDoNotMatch": "兩次輸入的密碼不一致",
+      "submit": "確認重設密碼"
+    },
+    "forceChange": {
+      "successToastTitle": "密碼變更成功",
+      "successToastDescription": "您的密碼已成功更新",
+      "failedFallback": "密碼變更失敗",
+      "title": "需要變更密碼",
+      "description": "為了您的帳號安全，請立即變更初始密碼",
+      "loggedInAs": "登入帳號：{{email}}",
+      "passwordsDoNotMatch": "新密碼與確認密碼不一致",
+      "submit": "確認變更密碼"
+    },
+    "invitation": {
+      "verifying": "驗證邀請連結中...",
+      "alreadyAcceptedTitle": "此邀請已使用",
+      "alreadyAcceptedDescription": "如忘記密碼，請前往<resetLink>重設密碼</resetLink>",
+      "expiredTitle": "此邀請已過期",
+      "expiredDescription": "請聯繫管理員重新發送邀請",
+      "revokedTitle": "此邀請已被撤銷",
+      "revokedDescription": "請聯繫管理員取得新的邀請連結",
+      "notFoundTitle": "此邀請連結無效",
+      "notFoundDescription": "請確認連結是否正確，或聯繫管理員",
+      "welcomeToastTitle": "歡迎加入！",
+      "welcomeToastDescription": "帳號已建立，即將前往我的計劃書",
+      "registerFailedTitle": "註冊失敗",
+      "completeRegistration": "完成註冊",
+      "description": "請填寫以下資料完成帳號設定",
+      "assignedRolesLabel": "指派角色（管理員設定，無法修改）",
+      "nameLabel": "姓名",
+      "namePlaceholder": "王大明",
+      "nameRequired": "姓名為必填",
+      "nameTooLong": "姓名不得超過 100 字",
+      "phoneLabel": "電話",
+      "phoneInvalid": "電話必須為 9-10 位數字",
+      "organizationLabel": "組織",
+      "organizationPlaceholder": "台大醫院",
+      "organizationRequired": "組織為必填",
+      "positionLabel": "職稱（選填）",
+      "positionPlaceholder": "主治醫師",
+      "passwordPlaceholder": "至少 10 字元，含大小寫及數字",
+      "passwordCharsRequired": "密碼必須包含大小寫字母及數字",
+      "confirmPasswordLabel": "確認密碼",
+      "confirmPasswordPlaceholder": "再次輸入密碼",
+      "passwordMismatch": "密碼不一致",
+      "termsRequired": "必須同意服務條款",
+      "agreeTerms": "我同意<termsLink>服務條款</termsLink>",
+      "creatingAccount": "建立帳號中..."
+    },
+    "confirmPassword": {
+      "passwordLabel": "您的登入密碼",
+      "passwordPlaceholder": "請輸入密碼以確認身份",
+      "wrongPassword": "密碼錯誤或已過期，請重新輸入"
+    },
+    "roleSignature": {
+      "desktopMode": "桌機簽",
+      "mobileMode": "手機簽",
+      "auditNotice": "此簽名會記錄到稽核軌跡，日後可用以鑑定操作人身份。桌機建議切「手機簽」用觸控更順手。",
+      "submit": "確認簽署並送出",
+      "verifyFailed": "簽章驗證失敗，請重試",
+      "startSessionFailed": "開啟手機簽名 session 失敗，請重試",
+      "consumeFailed": "取回簽章失敗，請重試",
+      "qrExpired": "QR 已過期，請重新產生",
+      "sessionUsed": "Session 已使用",
+      "mobileInstruction": "用手機相機掃下方 QR，在手機完成密碼 + 手寫簽名後，桌機會自動接續。QR 5 分鐘有效。",
+      "generatingQr": "正在產生 QR…",
+      "manualUrlHint": "若手機掃不到，可手動開啟此網址",
+      "waitingForMobile": "等待手機完成簽名…",
+      "regenerateQr": "重新產生 QR"
+    },
+    "permission": {
+      "noAccessTitle": "無權限訪問",
+      "noAccessDescription": "您沒有權限訪問此頁面。如需訪問請聯繫系統管理員。"
+    }
+  },
+  "notificationsPage": {
+    "title": "通知中心",
+    "todoCount": "{{count}} 件待你處理，完成後會自動消失",
+    "totalCount": "共 {{count}} 筆通知",
+    "markAllReadToast": "已全部標記為已讀",
+    "empty": "尚無通知",
+    "pageIndicator": "第 {{page}} / {{totalPages}} 頁"
+  },
+  "mobileSign": {
+    "purposeDefault": "電子簽章",
+    "purposeRole": "角色變更：{{op}}",
+    "roleOps": {
+      "create": "建立",
+      "update": "更新",
+      "delete": "刪除"
+    },
+    "invalidLinkRegenerate": "簽名連結無效，請從桌機重新產生 QR",
+    "submitFailed": "簽章送出失敗，請確認密碼正確或 QR 是否已過期",
+    "doneTitle": "簽署完成",
+    "doneDescription": "請回到桌機，操作會在數秒內自動繼續。本頁可關閉。",
+    "invalidTitle": "連結無效",
+    "invalidDescription": "缺少 session 或 token；請從桌機簽章視窗重新產生 QR。",
+    "title": "手機簽名",
+    "operationItem": "操作項目：{{purpose}}",
+    "qrNotice": "此 QR 5 分鐘內單次有效；簽名與密碼會記錄到稽核軌跡。",
+    "submit": "送出簽章"
+  },
+  "mcpKeys": {
+    "createFailed": "建立失敗",
+    "revoked": "金鑰已撤銷",
+    "revokeFailed": "撤銷失敗",
+    "title": "MCP 連線金鑰",
+    "generateButton": "產生新金鑰",
+    "description": "用於 claude.ai Remote MCP 連線，讓 Claude 直接讀取計畫書並協助審查。每人最多 5 個有效金鑰。",
+    "empty": "尚無金鑰。點擊「產生新金鑰」開始使用。",
+    "scopeWrite": "可寫入",
+    "scopeReadOnly": "唯讀",
+    "createdAt": "建立：{{date}}",
+    "lastUsedAt": "最後使用：{{date}}",
+    "expiresAt": "到期：{{date}}",
+    "setup": {
+      "heading": "連接 claude.ai 設定方式：",
+      "step1": "1. 產生金鑰後複製完整 key（僅顯示一次）",
+      "urlLine": "URL：{{url}}",
+      "authLine": "Authorization：Bearer <你的金鑰>"
+    },
+    "createDialog": {
+      "title": "產生新 MCP 金鑰",
+      "description": "為此金鑰取一個名稱，例如「我的 claude.ai」。金鑰只顯示一次，請立即複製。",
+      "nameLabel": "金鑰名稱",
+      "namePlaceholder": "我的 claude.ai",
+      "writeLabel": "授予寫入權限（可呼叫修改類工具）",
+      "writeHint": "預設為唯讀（僅查詢 / 讀取）。除非確定需要讓 Claude 透過此金鑰修改資料，否則請保持唯讀。金鑰有效期一年。",
+      "submit": "產生"
+    },
+    "createdDialog": {
+      "title": "金鑰已產生",
+      "description": "請立即複製此金鑰，關閉後將無法再次查看完整內容。",
+      "copied": "已複製",
+      "copyKey": "複製金鑰",
+      "copiedAndClose": "我已複製，關閉"
+    },
+    "revokeDialog": {
+      "title": "確認撤銷金鑰",
+      "description": "撤銷後此金鑰將立即失效，所有使用此金鑰的 MCP 連線將無法繼續存取。",
+      "confirm": "確認撤銷"
+    }
+  },
+  "errors": {
+    "tryAgainLater": "請稍後再試",
+    "api": {
+      "operationFailed": "操作失敗，請稍後再試",
+      "operationFailedTitle": "操作失敗",
+      "timeout": "請求逾時，請檢查網路連線後再試",
+      "cannotConnect": "無法連線至伺服器，請確認網路狀態",
+      "networkAbnormal": "網路連線異常，請稍後再試",
+      "status400": "請求格式有誤，請檢查輸入內容",
+      "status401": "登入已過期，請重新登入",
+      "status403": "權限不足，無法執行此操作",
+      "status404": "找不到相關資料",
+      "status409": "資料衝突，請重新整理後再試",
+      "status413": "上傳的檔案太大，請縮小檔案後重試",
+      "status422": "提交的資料不符合格式要求",
+      "status429": "操作過於頻繁，請稍後再試",
+      "status500": "伺服器發生錯誤，請稍後再試",
+      "status502": "伺服器暫時無法服務，請稍後再試",
+      "status503": "系統維護中，請稍後再試",
+      "serverError": "伺服器錯誤，請稍後再試",
+      "requestTimeout": "請求逾時，請檢查網路連線",
+      "serverUnreachable": "無法連線至伺服器"
+    },
+    "image": {
+      "heicNoImage": "HEIC 解碼失敗：檔案不含可解析的影像",
+      "canvasUnavailable": "Canvas 2D context 不可用",
+      "heicDecodeError": "HEIC 解碼失敗：影像處理錯誤",
+      "heicToJpegFailed": "HEIC→JPEG 轉檔失敗",
+      "toBlobFailed": "Canvas toBlob 失敗"
+    },
+    "print": {
+      "popupBlocked": "彈出視窗被阻擋；請允許後重試"
+    }
+  },
+  "calendarSync": {
+    "configSaved": "同步設定已儲存",
+    "saveFailed": "儲存失敗",
+    "connected": "已連接 Google Calendar",
+    "connectFailed": "連接失敗",
+    "checkSettings": "請檢查設定",
+    "disconnected": "已斷開 Google Calendar 連接",
+    "syncStarted": "同步已開始",
+    "resolveFailed": "解決失敗",
+    "conflictResolved": "衝突已解決"
   }
 }

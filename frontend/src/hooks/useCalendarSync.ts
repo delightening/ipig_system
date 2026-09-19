@@ -4,6 +4,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -17,6 +18,7 @@ import type { PaginatedResponse } from '@/types/common'
  * @param activeTab 當前啟用的分頁，用於條件查詢
  */
 export function useCalendarSync(activeTab: string) {
+    const { t } = useTranslation()
     const [showConnectDialog, setShowConnectDialog] = useState(false)
     const [calendarId, setCalendarId] = useState('')
     const [authEmail, setAuthEmail] = useState('')
@@ -65,12 +67,12 @@ export function useCalendarSync(activeTab: string) {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['calendar-config'] })
             queryClient.invalidateQueries({ queryKey: ['calendar-status'] })
-            toast({ title: '成功', description: '同步設定已儲存' })
+            toast({ title: t('common.success'), description: t('calendarSync.configSaved') })
         },
         onError: (error: unknown) => {
             toast({
-                title: '儲存失敗',
-                description: getApiErrorMessage(error, '請稍後再試'),
+                title: t('calendarSync.saveFailed'),
+                description: getApiErrorMessage(error, t('errors.tryAgainLater')),
                 variant: 'destructive',
             })
         },
@@ -120,12 +122,12 @@ export function useCalendarSync(activeTab: string) {
             setShowConnectDialog(false)
             setCalendarId('')
             setAuthEmail('')
-            toast({ title: '成功', description: '已連接 Google Calendar' })
+            toast({ title: t('common.success'), description: t('calendarSync.connected') })
         },
         onError: (error: unknown) => {
             toast({
-                title: '連接失敗',
-                description: getApiErrorMessage(error, '請檢查設定'),
+                title: t('calendarSync.connectFailed'),
+                description: getApiErrorMessage(error, t('calendarSync.checkSettings')),
                 variant: 'destructive',
             })
         },
@@ -138,7 +140,7 @@ export function useCalendarSync(activeTab: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['calendar-status'] })
-            toast({ title: '成功', description: '已斷開 Google Calendar 連接' })
+            toast({ title: t('common.success'), description: t('calendarSync.disconnected') })
         },
     })
 
@@ -150,7 +152,7 @@ export function useCalendarSync(activeTab: string) {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['calendar-status'] })
             queryClient.invalidateQueries({ queryKey: ['calendar-history'] })
-            toast({ title: '成功', description: '同步已開始' })
+            toast({ title: t('common.success'), description: t('calendarSync.syncStarted') })
         },
     })
 
@@ -181,13 +183,13 @@ export function useCalendarSync(activeTab: string) {
                 queryClient.setQueryData(['calendar-conflicts', conflictsPage], context.previous)
             }
             toast({
-                title: '解決失敗',
-                description: getApiErrorMessage(error, '請稍後再試'),
+                title: t('calendarSync.resolveFailed'),
+                description: getApiErrorMessage(error, t('errors.tryAgainLater')),
                 variant: 'destructive',
             })
         },
         onSuccess: () => {
-            toast({ title: '成功', description: '衝突已解決' })
+            toast({ title: t('common.success'), description: t('calendarSync.conflictResolved') })
         },
         onSettled: () => {
             // 無論成功/失敗，最終都重新查詢確保資料一致

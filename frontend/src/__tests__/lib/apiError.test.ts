@@ -1,10 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { AxiosError, AxiosHeaders } from 'axios'
 
+// i18n.t() 回傳 key 本身；同專案其他測試的慣例，避免文案改寫影響斷言，
+// 也擋掉 lib/i18n 的 init 副作用（語言偵測結果依環境而異）。
+vi.mock('@/lib/i18n', () => ({
+    default: { t: (key: string) => key },
+}))
+
 describe('getApiErrorMessage', () => {
     it('returns fallback for unknown error', () => {
-        expect(getApiErrorMessage(null)).toBe('操作失敗，請稍後再試')
+        expect(getApiErrorMessage(null)).toBe('errors.api.operationFailed')
     })
 
     it('returns custom fallback', () => {
@@ -56,7 +62,7 @@ describe('getApiErrorMessage', () => {
             headers: {},
             config: { headers: new AxiosHeaders() },
         })
-        expect(getApiErrorMessage(error)).toBe('登入已過期，請重新登入')
+        expect(getApiErrorMessage(error)).toBe('errors.api.status401')
     })
 
     it('returns status-based message for 429', () => {
@@ -67,16 +73,16 @@ describe('getApiErrorMessage', () => {
             headers: {},
             config: { headers: new AxiosHeaders() },
         })
-        expect(getApiErrorMessage(error)).toBe('操作過於頻繁，請稍後再試')
+        expect(getApiErrorMessage(error)).toBe('errors.api.status429')
     })
 
     it('handles network error (no response)', () => {
         const error = new AxiosError('Network Error', 'ERR_NETWORK')
-        expect(getApiErrorMessage(error)).toBe('無法連線至伺服器，請確認網路狀態')
+        expect(getApiErrorMessage(error)).toBe('errors.api.cannotConnect')
     })
 
     it('handles timeout error', () => {
         const error = new AxiosError('timeout', 'ECONNABORTED')
-        expect(getApiErrorMessage(error)).toBe('請求逾時，請檢查網路連線後再試')
+        expect(getApiErrorMessage(error)).toBe('errors.api.timeout')
     })
 })

@@ -42,8 +42,8 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
     },
     onError: (error: unknown) => {
       toast({
-        title: '啟用失敗',
-        description: getErrorMessage(error) || '無法產生 2FA 設定',
+        title: t('auth.twoFactor.enableFailed'),
+        description: getErrorMessage(error) || t('auth.twoFactor.setupDataFailed'),
         variant: 'destructive',
       })
     },
@@ -52,13 +52,13 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
   const confirmSetupMutation = useMutation({
     mutationFn: () => api.post('/auth/2fa/confirm', { code: verifyCode }),
     onSuccess: () => {
-      toast({ title: '2FA 已啟用', description: '您的帳號已受兩步驟驗證保護' })
+      toast({ title: t('auth.twoFactor.enabledToastTitle'), description: t('auth.twoFactor.enabledToastDescription') })
       setStep('backup')
     },
     onError: (error: unknown) => {
       toast({
-        title: '驗證失敗',
-        description: getErrorMessage(error) || '驗證碼錯誤，請重試',
+        title: t('auth.twoFactor.verifyFailed'),
+        description: getErrorMessage(error) || t('auth.twoFactor.codeInvalidRetry'),
         variant: 'destructive',
       })
     },
@@ -78,7 +78,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
   const disableMutation = useMutation({
     mutationFn: () => api.post('/auth/2fa/disable', { password: disablePassword, code: disableCode }),
     onSuccess: () => {
-      toast({ title: '2FA 已停用' })
+      toast({ title: t('auth.twoFactor.disabledToastTitle') })
       dialogs.close('disable')
       setDisablePassword('')
       setDisableCode('')
@@ -86,8 +86,8 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
     },
     onError: (error: unknown) => {
       toast({
-        title: '停用失敗',
-        description: getErrorMessage(error) || '密碼或驗證碼錯誤',
+        title: t('auth.twoFactor.disableFailed'),
+        description: getErrorMessage(error) || t('auth.twoFactor.passwordOrCodeInvalid'),
         variant: 'destructive',
       })
     },
@@ -113,10 +113,10 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5" />
-            兩步驟驗證 (2FA)
+            {t('auth.twoFactor.cardTitle')}
           </CardTitle>
           <CardDescription>
-            使用 Google Authenticator 或其他 TOTP 驗證器應用程式增加帳號安全性
+            {t('auth.twoFactor.cardDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -124,7 +124,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
             <div className="flex items-center gap-3">
               <div className={`h-3 w-3 rounded-full ${totpEnabled ? 'bg-status-success-bg0' : 'bg-muted'}`} />
               <span className="text-sm font-medium">
-                {totpEnabled ? '已啟用' : '未啟用'}
+                {totpEnabled ? t('auth.twoFactor.enabled') : t('auth.twoFactor.notEnabled')}
               </span>
             </div>
             {totpEnabled ? (
@@ -133,12 +133,12 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
                 size="sm"
                 onClick={() => dialogs.open('disable')}
               >
-                <ShieldOff className="mr-2 h-4 w-4" />停用 2FA
+                <ShieldOff className="mr-2 h-4 w-4" />{t('auth.twoFactor.disableButton')}
               </Button>
             ) : (
               <Button size="sm" onClick={() => startSetupMutation.mutate()} disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
-                啟用 2FA
+                {t('auth.twoFactor.enableButton')}
               </Button>
             )}
           </div>
@@ -151,9 +151,9 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
           {step === 'qr' && setupData && (
             <>
               <DialogHeader>
-                <DialogTitle>設定兩步驟驗證</DialogTitle>
+                <DialogTitle>{t('auth.twoFactor.setupDialogTitle')}</DialogTitle>
                 <DialogDescription>
-                  使用驗證器 App 掃描下方 QR Code，然後輸入顯示的 6 位數驗證碼
+                  {t('auth.twoFactor.setupDialogDescription')}
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col items-center gap-4 py-4">
@@ -161,11 +161,11 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
                   <QRCodeSVG value={setupData.otpauth_uri} size={200} level="M" />
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
-                  支援 Google Authenticator、Microsoft Authenticator、Authy 等
+                  {t('auth.twoFactor.supportedApps')}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="verify-code">驗證碼</Label>
+                <Label htmlFor="verify-code">{t('auth.twoFactor.codeLabel')}</Label>
                 <Input
                   id="verify-code"
                   type="text"
@@ -182,7 +182,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
                 <Button variant="outline" onClick={() => dialogs.close('setup')}>{t('common.cancel')}</Button>
                 <Button onClick={confirmSetup} disabled={loading || verifyCode.length < 6}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  確認啟用
+                  {t('auth.twoFactor.confirmEnable')}
                 </Button>
               </DialogFooter>
             </>
@@ -190,9 +190,9 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
           {step === 'backup' && setupData && (
             <>
               <DialogHeader>
-                <DialogTitle>備用碼</DialogTitle>
+                <DialogTitle>{t('auth.twoFactor.backupCodesTitle')}</DialogTitle>
                 <DialogDescription>
-                  請妥善保存以下備用碼。當您無法使用驗證器 App 時，可使用備用碼登入（每組僅能使用一次）。
+                  {t('auth.twoFactor.backupCodesDescription')}
                 </DialogDescription>
               </DialogHeader>
               <div className="rounded-lg border bg-muted/50 p-4">
@@ -206,10 +206,10 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
               </div>
               <Button variant="outline" className="w-full" onClick={copyBackupCodes}>
                 {copied ? <Check className="mr-2 h-4 w-4 text-status-success-solid" /> : <Copy className="mr-2 h-4 w-4" />}
-                {copied ? '已複製' : '複製備用碼'}
+                {copied ? t('auth.twoFactor.copied') : t('auth.twoFactor.copyBackupCodes')}
               </Button>
               <DialogFooter>
-                <Button onClick={finishSetup}>完成</Button>
+                <Button onClick={finishSetup}>{t('auth.twoFactor.done')}</Button>
               </DialogFooter>
             </>
           )}
@@ -220,14 +220,14 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
       <Dialog open={dialogs.isOpen('disable')} onOpenChange={dialogs.setOpen('disable')}>
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>停用兩步驟驗證</DialogTitle>
+            <DialogTitle>{t('auth.twoFactor.disableDialogTitle')}</DialogTitle>
             <DialogDescription>
-              停用後帳號將不再需要驗證碼登入。請輸入密碼和目前的驗證碼確認。
+              {t('auth.twoFactor.disableDialogDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="disable-password">密碼</Label>
+              <Label htmlFor="disable-password">{t('auth.fields.password')}</Label>
               <Input
                 id="disable-password"
                 type="password"
@@ -236,7 +236,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="disable-code">驗證碼</Label>
+              <Label htmlFor="disable-code">{t('auth.twoFactor.codeLabel')}</Label>
               <Input
                 id="disable-code"
                 type="text"
@@ -257,7 +257,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
               disabled={loading || !disablePassword || disableCode.length < 6}
             >
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              確認停用
+              {t('auth.twoFactor.confirmDisable')}
             </Button>
           </DialogFooter>
         </DialogContent>

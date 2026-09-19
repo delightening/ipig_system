@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthHasPermission, useAuthHasRole, useAuthIsGuest, useAuthStore } from '@/stores/auth'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,7 @@ export function RequirePermission({
     redirectTo = '/dashboard',
     guestBlock = false,
 }: RequirePermissionProps) {
+    const { t } = useTranslation()
     const hasPermission = useAuthHasPermission()
     const hasRole = useAuthHasRole()
     const isGuest = useAuthIsGuest()
@@ -88,9 +90,9 @@ export function RequirePermission({
                         <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-status-warning-bg flex items-center justify-center">
                             <AlertTriangle className="h-8 w-8 text-status-warning-text" />
                         </div>
-                        <CardTitle>無權限訪問</CardTitle>
+                        <CardTitle>{t('auth.permission.noAccessTitle')}</CardTitle>
                         <CardDescription>
-                            您沒有權限訪問此頁面。如需訪問請聯繫系統管理員。
+                            {t('auth.permission.noAccessDescription')}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="text-center">
@@ -98,7 +100,7 @@ export function RequirePermission({
                             variant="outline"
                             onClick={() => window.history.back()}
                         >
-                            返回上一頁
+                            {t('notFound.goBack')}
                         </Button>
                     </CardContent>
                 </Card>

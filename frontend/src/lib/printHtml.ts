@@ -1,3 +1,5 @@
+import i18n from '@/lib/i18n'
+
 /**
  * 將一段 body HTML 開到新分頁並觸發瀏覽器列印（純前端列印）。
  *
@@ -11,7 +13,7 @@ export function openPrintWindow(opts: { bodyHtml: string; title: string }): void
   const { bodyHtml, title } = opts
   const win = window.open('', '_blank')
   if (!win) {
-    throw new Error('彈出視窗被阻擋；請允許後重試')
+    throw new Error(i18n.t('errors.print.popupBlocked'))
   }
 
   // 複製當前文件的所有 stylesheet（link + style）→ 新分頁套用相同樣式

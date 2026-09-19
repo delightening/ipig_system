@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   Dialog,
@@ -64,6 +65,7 @@ export function RoleSignatureDialog({
   purpose,
   onSubmit,
 }: RoleSignatureDialogProps) {
+  const { t } = useTranslation()
   const [mode, setMode] = useState<Mode>('desktop')
   const [password, setPassword] = useState('')
   const [signature, setSignature] = useState<SignatureData | null>(null)
@@ -84,10 +86,13 @@ export function RoleSignatureDialog({
   const onSubmitRef = useRef(onSubmit)
   const onOpenChangeRef = useRef(onOpenChange)
   const purposeRef = useRef(purpose)
+  // 輪詢 effect 內要翻譯錯誤訊息，同樣用 ref 追最新的 t（語言切換後仍取得新語言）
+  const tRef = useRef(t)
   useEffect(() => {
     onSubmitRef.current = onSubmit
     onOpenChangeRef.current = onOpenChange
     purposeRef.current = purpose
+    tRef.current = t
   })
 
   const stopPolling = () => {
@@ -116,11 +121,11 @@ export function RoleSignatureDialog({
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!password.trim()) {
-      setError('請輸入密碼')
+      setError(t('auth.validation.passwordRequired'))
       return
     }
     if (!signature?.svg) {
-      setError('請完成手寫簽名')
+      setError(t('auth.validation.signatureRequired'))
       return
     }
     setError(null)
@@ -133,7 +138,7 @@ export function RoleSignatureDialog({
       })
       onOpenChange(false)
     } catch (err) {
-      setError(getErrorMessage(err) || '簽章驗證失敗，請重試')
+      setError(getErrorMessage(err) || t('auth.roleSignature.verifyFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -151,7 +156,7 @@ export function RoleSignatureDialog({
         status: 'PENDING',
       })
     } catch (err) {
-      setBridgeError(getErrorMessage(err) || '開啟手機簽名 session 失敗，請重試')
+      setBridgeError(getErrorMessage(err) || t('auth.roleSignature.startSessionFailed'))
     } finally {
       setBridgeStarting(false)
     }
@@ -198,19 +203,21 @@ export function RoleSignatureDialog({
               await onSubmitRef.current(c.payload)
               onOpenChangeRef.current(false)
             } catch (err) {
-              setBridgeError(getErrorMessage(err) || '簽章驗證失敗，請重試')
+              setBridgeError(getErrorMessage(err) || tRef.current('auth.roleSignature.verifyFailed'))
             } finally {
               setIsSubmitting(false)
             }
           } catch (err) {
-            setBridgeError(getErrorMessage(err) || '取回簽章失敗，請重試')
+            setBridgeError(getErrorMessage(err) || tRef.current('auth.roleSignature.consumeFailed'))
           }
           return // COMPLETED 終態，不再排下一次
         } else if (r.status === 'EXPIRED' || r.status === 'CONSUMED') {
           stopPolling()
           setBridge((b) => (b ? { ...b, status: r.status as BridgeState['status'] } : b))
           setBridgeError(
-            r.status === 'EXPIRED' ? 'QR 已過期，請重新產生' : 'Session 已使用',
+            r.status === 'EXPIRED'
+              ? tRef.current('auth.roleSignature.qrExpired')
+              : tRef.current('auth.roleSignature.sessionUsed'),
           )
           return
         }
@@ -251,7 +258,7 @@ export function RoleSignatureDialog({
             disabled={isSubmitting}
           >
             <Monitor className="h-4 w-4 mr-2" />
-            桌機簽
+            {t('auth.roleSignature.desktopMode')}
           </Button>
           <Button
             type="button"
@@ -261,28 +268,28 @@ export function RoleSignatureDialog({
             disabled={isSubmitting}
           >
             <Smartphone className="h-4 w-4 mr-2" />
-            手機簽
+            {t('auth.roleSignature.mobileMode')}
           </Button>
         </div>
 
         {mode === 'desktop' ? (
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="role-sig-password">您的登入密碼</Label>
+              <Label htmlFor="role-sig-password">{t('auth.confirmPassword.passwordLabel')}</Label>
               <Input
                 id="role-sig-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="請輸入密碼以確認身份"
+                placeholder={t('auth.confirmPassword.passwordPlaceholder')}
                 disabled={isSubmitting}
                 autoFocus
               />
             </div>
             <div className="space-y-2">
-              <Label>手寫簽名</Label>
+              <Label>{t('signature.handwriting')}</Label>
               <p className="text-xs text-muted-foreground">
-                此簽名會記錄到稽核軌跡，日後可用以鑑定操作人身份。桌機建議切「手機簽」用觸控更順手。
+                {t('auth.roleSignature.auditNotice')}
               </p>
               <HandwrittenSignaturePad
                 onSignatureChange={setSignature}
@@ -297,24 +304,24 @@ export function RoleSignatureDialog({
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
               >
-                取消
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                確認簽署並送出
+                {t('auth.roleSignature.submit')}
               </Button>
             </DialogFooter>
           </form>
         ) : (
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              用手機相機掃下方 QR，在手機完成密碼 + 手寫簽名後，桌機會自動接續。QR 5 分鐘有效。
+              {t('auth.roleSignature.mobileInstruction')}
             </p>
             <div className="flex flex-col items-center gap-3">
               {bridgeStarting && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  正在產生 QR…
+                  {t('auth.roleSignature.generatingQr')}
                 </div>
               )}
               {qrUrl && (
@@ -323,14 +330,14 @@ export function RoleSignatureDialog({
                     <QRCodeSVG value={qrUrl} size={220} level="M" />
                   </div>
                   <p className="text-xs text-muted-foreground break-all max-w-full text-center">
-                    若手機掃不到，可手動開啟此網址
+                    {t('auth.roleSignature.manualUrlHint')}
                   </p>
                   <p className="text-xs font-mono break-all max-w-full text-center text-muted-foreground">
                     {qrUrl}
                   </p>
                   <p className="text-xs text-muted-foreground flex items-center gap-2">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    等待手機完成簽名…
+                    {t('auth.roleSignature.waitingForMobile')}
                   </p>
                 </>
               )}
@@ -347,7 +354,7 @@ export function RoleSignatureDialog({
                       void startBridge()
                     }}
                   >
-                    重新產生 QR
+                    {t('auth.roleSignature.regenerateQr')}
                   </Button>
                 </div>
               )}
@@ -359,7 +366,7 @@ export function RoleSignatureDialog({
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
               >
-                取消
+                {t('common.cancel')}
               </Button>
             </DialogFooter>
           </div>
