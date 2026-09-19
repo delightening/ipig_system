@@ -2,6 +2,8 @@
  * ERP 型別（倉庫、產品、交易夥伴、單據、庫存、SKU）
  */
 
+import { createLabelMap } from '@/lib/i18nLabels'
+
 import type { PendingOwner } from './pendingOwner'
 
 // 倉庫
@@ -113,15 +115,11 @@ export interface UpdateStorageLayoutRequest {
     items: StorageLayoutItem[]
 }
 
-export const storageLocationTypeNames: Record<StorageLocationType, string> = {
-    shelf: '貨架',
-    rack: '儲物架',
-    zone: '區域',
-    bin: '儲物格',
-    wall: '牆壁',
-    door: '門',
-    window: '窗戶',
-}
+/** 儲位類型名稱（getter 版：每次讀取才依當下語言翻譯，見 `@/lib/i18nLabels`；沿用 `erpDocs.warehouse.locationType.*`） */
+export const storageLocationTypeNames: Record<StorageLocationType, string> = createLabelMap(
+    'erpDocs.warehouse.locationType',
+    ['shelf', 'rack', 'zone', 'bin', 'wall', 'door', 'window'],
+)
 
 export interface StorageLocationInventoryItem {
     id: string

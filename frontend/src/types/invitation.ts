@@ -2,6 +2,8 @@
  * 邀請制型別
  */
 
+import { createLabelMap } from '@/lib/i18nLabels'
+
 export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked'
 
 export interface InvitationRoleSummary {
@@ -92,12 +94,11 @@ export interface AcceptInvitationResponse {
     expires_in: number
 }
 
-export const invitationStatusNames: Record<InvitationStatus, string> = {
-    pending: '待接受',
-    accepted: '已接受',
-    expired: '已過期',
-    revoked: '已撤銷',
-}
+/** 邀請狀態名稱（getter 版：每次讀取才依當下語言翻譯，見 `@/lib/i18nLabels`） */
+export const invitationStatusNames: Record<InvitationStatus, string> = createLabelMap(
+    'typesLabels.invitationStatus',
+    ['pending', 'accepted', 'expired', 'revoked'],
+)
 
 export const invitationStatusColors: Record<InvitationStatus, 'default' | 'success' | 'secondary' | 'destructive'> = {
     pending: 'default',

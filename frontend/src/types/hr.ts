@@ -1,6 +1,8 @@
 // 前端 API 型別定義擴展
 // HR, Audit, Facility, Calendar 相關型別
 
+import { createLabelMap } from '@/lib/i18nLabels'
+
 import type { PendingOwner } from './pendingOwner'
 
 // ============================================
@@ -271,33 +273,40 @@ export interface CreateAnnualLeaveRequest {
     notes?: string;
 }
 
-// Leave Type 顯示名稱映射
-export const LEAVE_TYPE_NAMES: Record<string, string> = {
-    ANNUAL: '特休假',
-    PERSONAL: '事假',
-    SICK: '病假',
-    COMPENSATORY: '補休假',
-    MARRIAGE: '婚假',
-    BEREAVEMENT: '喪假',
-    MATERNITY: '產假',
-    PATERNITY: '陪產假',
-    MENSTRUAL: '生理假',
-    OFFICIAL: '公假',
-};
+// Leave Type 顯示名稱映射（getter 版：每次讀取才依當下語言翻譯，見 `@/lib/i18nLabels`；沿用 `hrPages.shared.leaveType.*`）
+export const LEAVE_TYPE_NAMES: Record<string, string> = createLabelMap(
+    'hrPages.shared.leaveType',
+    [
+        'ANNUAL',
+        'PERSONAL',
+        'SICK',
+        'COMPENSATORY',
+        'MARRIAGE',
+        'BEREAVEMENT',
+        'MATERNITY',
+        'PATERNITY',
+        'MENSTRUAL',
+        'OFFICIAL',
+    ],
+);
 
-export const LEAVE_STATUS_NAMES: Record<string, string> = {
-    DRAFT: '草稿',
-    PENDING_PROXY: '待代理確認',
-    PENDING_L1: '待單位主管審核',
-    PENDING_L2: '待二級審核',
-    PENDING_HR: '待行政審核',
-    PENDING_GM: '待總經理核准',
-    PENDING_DIRECTOR: '待負責人簽核',
-    APPROVED: '已核准',
-    REJECTED: '已駁回',
-    CANCELLED: '已取消',
-    REVOKED: '已銷假',
-};
+// 請假狀態名稱映射（getter 版；沿用 `hrPages.shared.leaveStatus.*`）
+export const LEAVE_STATUS_NAMES: Record<string, string> = createLabelMap(
+    'hrPages.shared.leaveStatus',
+    [
+        'DRAFT',
+        'PENDING_PROXY',
+        'PENDING_L1',
+        'PENDING_L2',
+        'PENDING_HR',
+        'PENDING_GM',
+        'PENDING_DIRECTOR',
+        'APPROVED',
+        'REJECTED',
+        'CANCELLED',
+        'REVOKED',
+    ],
+);
 
 // ============================================
 // 請假行事曆（原生，GET /hr/leaves/calendar）

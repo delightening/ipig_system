@@ -9689,5 +9689,93 @@
         "systemAdmin": "System Administration"
       }
     }
+  },
+  "typesLabels": {
+    "notificationType": {
+      "low_stock": "Low Stock Alert",
+      "expiry_warning": "Expiry Alert",
+      "document_approval": "Document Approval",
+      "protocol_status": "Protocol Status",
+      "protocol_submitted": "Protocol Submitted",
+      "vet_recommendation": "Veterinarian Recommendation",
+      "system_alert": "System Notice",
+      "monthly_report": "Monthly Report",
+      "leave_approval": "Leave Approval",
+      "review_assignment": "Review Assignment",
+      "review_comment": "Review Comment"
+    },
+    "eventType": {
+      "protocol_submitted": "Protocol Submitted",
+      "protocol_vet_review": "Veterinary Review",
+      "protocol_under_review": "Committee Review",
+      "protocol_resubmitted": "Resubmitted",
+      "protocol_approved": "Protocol Approved",
+      "protocol_rejected": "Protocol Rejected",
+      "review_comment_created": "New Review Comment",
+      "all_reviews_completed": "All Review Comments Submitted",
+      "all_comments_resolved": "All Comments Resolved",
+      "leave_submitted": "Leave Request",
+      "overtime_submitted": "Overtime Request",
+      "leave_approved": "Leave Approved",
+      "overtime_approved": "Overtime Approved",
+      "document_submitted": "Purchase Order Submitted",
+      "low_stock_alert": "Low Stock Alert",
+      "expiry_alert": "Expiry Alert",
+      "emergency_medication": "Emergency Medication",
+      "animal_abnormal_record": "Animal Abnormal Record",
+      "vet_recommendation_created": "Veterinarian Recommendation",
+      "animal_sudden_death": "Animal Sudden Death",
+      "euthanasia_order_created": "Euthanasia Request",
+      "amendment_submitted": "Amendment Submitted",
+      "amendment_decision_recorded": "Amendment Review Decision",
+      "amendment_approved": "Amendment Approved",
+      "amendment_rejected": "Amendment Rejected",
+      "leave_cancelled": "Leave Cancelled",
+      "po_pending_receipt": "Purchase Order Pending Receipt Reminder"
+    },
+    "channel": {
+      "in_app": "In-App Notification",
+      "email": "Email",
+      "both": "Both"
+    },
+    "frequency": {
+      "immediate": "Immediate",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
+    "protocolStatus": {
+      "DRAFT": "Draft",
+      "SUBMITTED": "Submitted",
+      "PRE_REVIEW": "Administrative Pre-Review",
+      "PRE_REVIEW_REVISION_REQUIRED": "Pre-Review Revision Required",
+      "VET_REVIEW": "Veterinary Review",
+      "VET_REVISION_REQUIRED": "Vet Revision Required",
+      "UNDER_REVIEW": "Under Review",
+      "REVISION_REQUIRED": "Revision Required",
+      "RESUBMITTED": "Resubmitted",
+      "APPROVED": "Approved",
+      "APPROVED_WITH_CONDITIONS": "Approved w/ Conditions",
+      "DEFERRED": "Deferred",
+      "REJECTED": "Rejected",
+      "SUSPENDED": "Suspended",
+      "CLOSED": "Closed",
+      "DELETED": "Deleted"
+    },
+    "invitationStatus": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "protocolFormVersion": {
+      "C": "Version C (AD-04-01-01C)",
+      "D": "Version D (AD-04-01-01C, same fields as C)",
+      "E": "Version E (AD-04-01-01E)",
+      "F": "Version F (AD-04-01-01F, current)"
+    },
+    "error": {
+      "unknown": "Unknown error"
+    }
   }
 }

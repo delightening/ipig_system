@@ -1,5 +1,6 @@
 import { AxiosError } from 'axios'
 import { isAxiosError } from '@/lib/api'
+import i18n from '@/lib/i18n'
 
 export interface ApiErrorPayload {
   error: {
@@ -22,5 +23,5 @@ export function getErrorMessage(error: unknown): string {
     return data?.error?.message || error.message
   }
   if (error instanceof Error) return error.message
-  return '未知錯誤'
+  return i18n.t('typesLabels.error.unknown')
 }
