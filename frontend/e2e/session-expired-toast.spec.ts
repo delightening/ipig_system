@@ -8,6 +8,7 @@
  * 測試 `api_session_heartbeat.rs` 驗證 sliding session 機制本體。
  */
 import { test, expect } from './fixtures/coverage'
+import { txt } from './helpers/i18n'
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -17,11 +18,15 @@ test.describe('Session expired toast (F7)', () => {
         await page.waitForLoadState('domcontentloaded')
 
         // Toast 顯示
-        const toastTitle = page.getByText('登入時效已到期').first()
+        const toastTitle = page.getByText(txt('auth.login.sessionExpiredTitle')).first()
         await expect(toastTitle).toBeVisible({ timeout: 5_000 })
 
         // Toast 不是 destructive (紅色) — toast root 不應帶 bg-destructive class
-        const toastRoot = page.locator('[data-state="open"]').filter({ hasText: '登入時效已到期' }).first()
+        // root 的文字含標題＋說明，所以用「包含」而非整段相等
+        const toastRoot = page
+            .locator('[data-state="open"]')
+            .filter({ hasText: txt('auth.login.sessionExpiredTitle', { exact: false }) })
+            .first()
         await expect(toastRoot).not.toHaveClass(/bg-destructive/)
         await expect(toastRoot).not.toHaveClass(/\bdestructive\b/)
 
@@ -36,7 +41,8 @@ test.describe('Session expired toast (F7)', () => {
         await page.waitForLoadState('domcontentloaded')
 
         // 給 3 秒看會不會彈出，理論上不會
-        const toastTitle = page.getByText('登入時效已到期')
+        // 用兩種語言比對：只寫中文時，en 介面下這條永遠通過，等於沒驗
+        const toastTitle = page.getByText(txt('auth.login.sessionExpiredTitle'))
         await expect(toastTitle).toHaveCount(0, { timeout: 3_000 })
     })
 })

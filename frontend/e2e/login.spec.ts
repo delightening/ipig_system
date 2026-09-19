@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures/coverage'
 import { getCredentialsForUserSetup } from './auth-helpers'
+import { txt } from './helpers/i18n'
 
 /**
  * 登入流程 E2E 測試
@@ -14,20 +15,20 @@ test.describe('登入流程', () => {
         await page.goto('/login')
 
         // 確認頁面標題和表單
-        await expect(page.getByText('iPig 統一入口門戶')).toBeVisible()
+        await expect(page.getByText(txt('auth.login.portalTitle'))).toBeVisible()
         await expect(page.locator('#email')).toBeVisible()
         await expect(page.locator('#password')).toBeVisible()
-        await expect(page.getByRole('button', { name: '登入' })).toBeVisible()
+        await expect(page.getByRole('button', { name: txt('auth.login.submit') })).toBeVisible()
     })
 
     test('空白表單送出應顯示驗證錯誤', async ({ page }) => {
         await page.goto('/login')
 
-        await page.getByRole('button', { name: '登入' }).click()
+        await page.getByRole('button', { name: txt('auth.login.submit') }).click()
 
-        // R58 後改 RHF native rules：required → '請輸入電子郵件'，
-        // pattern 才會 fire '請輸入有效的電子郵件'（空表單命中 required）
-        await expect(page.getByText('請輸入電子郵件')).toBeVisible({ timeout: 5_000 })
+        // R58 後改 RHF native rules：required → auth.validation.emailRequired，
+        // pattern 才會 fire「有效的電子郵件」那條（空表單命中 required）
+        await expect(page.getByText(txt('auth.validation.emailRequired'))).toBeVisible({ timeout: 5_000 })
     })
 
     test('錯誤的帳密應顯示錯誤訊息', async ({ page }) => {
@@ -35,10 +36,10 @@ test.describe('登入流程', () => {
 
         await page.locator('#email').fill('wrong@example.com')
         await page.locator('#password').fill('wrongpassword')
-        await page.getByRole('button', { name: '登入' }).click()
+        await page.getByRole('button', { name: txt('auth.login.submit') }).click()
 
-        // API 回傳 401 → toast 顯示「登入失敗」
-        const errorLocator = page.locator('[data-state="open"]').getByText(/登入失敗/i).first()
+        // API 回傳 401 → toast 顯示 auth.login.failedTitle
+        const errorLocator = page.locator('[data-state="open"]').getByText(txt('auth.login.failedTitle')).first()
         await expect(errorLocator).toBeVisible({ timeout: 10_000 })
     })
 
@@ -64,7 +65,7 @@ test.describe('登入流程', () => {
                         r.request().method() === 'POST',
                     { timeout: 20_000 },
                 ),
-                page.getByRole('button', { name: '登入' }).click(),
+                page.getByRole('button', { name: txt('auth.login.submit') }).click(),
             ])
             response = resp
             if (resp.status() === 429 && attempt < maxRetries) {
@@ -96,7 +97,7 @@ test.describe('登入流程', () => {
     test('忘記密碼連結應可見', async ({ page }) => {
         await page.goto('/login')
 
-        const link = page.getByRole('link', { name: '忘記密碼？' })
+        const link = page.getByRole('link', { name: txt('auth.login.forgotPassword') })
         await expect(link).toBeVisible()
         await link.click()
         await expect(page).toHaveURL(/\/forgot-password/)

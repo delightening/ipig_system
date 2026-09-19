@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures/admin-context'
 import { ensureAdminOnPage } from './auth-helpers'
+import { txt } from './helpers/i18n'
 
 test.describe('個人資料設定', () => {
     test.beforeEach(async ({ page }) => {
@@ -89,7 +90,7 @@ test.describe('變更密碼', () => {
         // 若 Cookie 同意橫幅出現，先點擊接受以免阻擋側邊欄按鈕
         try {
             await page.locator('.fixed.bottom-0').waitFor({ state: 'visible', timeout: 2_000 })
-            await page.getByRole('button', { name: '接受' }).click()
+            await page.getByRole('button', { name: txt('cookieConsent.acceptAll') }).click()
             await page.waitForTimeout(300)
         } catch {
             // 橫幅未出現（已接受過）
