@@ -1,6 +1,7 @@
 /**
  * 血液檢查詳情 Dialog
  */
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -34,53 +35,54 @@ export function BloodTestDetailDialog({
   onOpenChange,
   detail,
 }: BloodTestDetailDialogProps) {
+  const { t } = useTranslation()
   const { sortedData, sort, toggleSort } = useTableSort(detail?.items)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>血液檢查詳情</DialogTitle>
+          <DialogTitle>{t('animalRecords.bloodTest.detailTitle')}</DialogTitle>
         </DialogHeader>
 
         {detail ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-muted-foreground text-sm">檢查日期</Label>
+                <Label className="text-muted-foreground text-sm">{t('animalRecords.bloodTest.testDate')}</Label>
                 <p className="font-medium">{detail.blood_test.test_date}</p>
               </div>
               <div>
-                <Label className="text-muted-foreground text-sm">檢驗機構</Label>
+                <Label className="text-muted-foreground text-sm">{t('animalRecords.bloodTest.labName')}</Label>
                 <p className="font-medium">{detail.blood_test.lab_name || '-'}</p>
               </div>
             </div>
             {detail.blood_test.remark && (
               <div>
-                <Label className="text-muted-foreground text-sm">備註</Label>
+                <Label className="text-muted-foreground text-sm">{t('animalRecords.shared.remark')}</Label>
                 <p>{detail.blood_test.remark}</p>
               </div>
             )}
             <div>
-              <Label className="text-muted-foreground text-sm">建立者</Label>
+              <Label className="text-muted-foreground text-sm">{t('animalRecords.bloodTest.createdBy')}</Label>
               <p>{detail.created_by_name || '-'}</p>
             </div>
 
             <div>
               <Label className="text-base font-semibold mb-2 block">
-                檢查項目 ({detail.items.length})
+                {t('animalRecords.bloodTest.itemsWithCount', { count: detail.items.length })}
               </Label>
               <Card className="@container overflow-hidden">
                 <div className="hidden @[500px]:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <SortableTableHead sortKey="item_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>項目名稱</SortableTableHead>
-                        <SortableTableHead sortKey="result_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>結果值</SortableTableHead>
-                        <TableHead className="hidden @[650px]:table-cell">單位</TableHead>
-                        <TableHead className="hidden @[650px]:table-cell">參考範圍</TableHead>
-                        <SortableTableHead sortKey="is_abnormal" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center">狀態</SortableTableHead>
-                        <TableHead className="hidden @[750px]:table-cell">備註</TableHead>
+                        <SortableTableHead sortKey="item_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('animalRecords.bloodTest.itemName')}</SortableTableHead>
+                        <SortableTableHead sortKey="result_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('animalRecords.bloodTest.resultValue')}</SortableTableHead>
+                        <TableHead className="hidden @[650px]:table-cell">{t('animalRecords.shared.unit')}</TableHead>
+                        <TableHead className="hidden @[650px]:table-cell">{t('animalRecords.bloodTest.referenceRange')}</TableHead>
+                        <SortableTableHead sortKey="is_abnormal" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center">{t('animalRecords.bloodTest.status')}</SortableTableHead>
+                        <TableHead className="hidden @[750px]:table-cell">{t('animalRecords.shared.remark')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -97,10 +99,10 @@ export function BloodTestDetailDialog({
                             {item.is_abnormal ? (
                               <Badge variant="destructive" className="gap-1">
                                 <AlertCircle className="h-3 w-3" />
-                                異常
+                                {t('animalRecords.bloodTest.abnormal')}
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-status-success-text border-status-success-border">正常</Badge>
+                              <Badge variant="outline" className="text-status-success-text border-status-success-border">{t('animalRecords.bloodTest.normal')}</Badge>
                             )}
                           </TableCell>
                           <TableCell className="hidden @[750px]:table-cell text-sm">{item.remark || '-'}</TableCell>
@@ -117,16 +119,16 @@ export function BloodTestDetailDialog({
                         <div className="font-medium">{item.item_name}</div>
                         {item.is_abnormal ? (
                           <Badge variant="destructive" className="gap-1 shrink-0">
-                            <AlertCircle className="h-3 w-3" />異常
+                            <AlertCircle className="h-3 w-3" />{t('animalRecords.bloodTest.abnormal')}
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-status-success-text border-status-success-border shrink-0">正常</Badge>
+                          <Badge variant="outline" className="text-status-success-text border-status-success-border shrink-0">{t('animalRecords.bloodTest.normal')}</Badge>
                         )}
                       </div>
                       <div className="text-sm">
                         <span className="font-medium">{item.result_value || '-'}</span>
                         {item.result_unit && <span className="text-muted-foreground ml-1">{item.result_unit}</span>}
-                        {item.reference_range && <span className="text-xs text-muted-foreground ml-2">參考: {item.reference_range}</span>}
+                        {item.reference_range && <span className="text-xs text-muted-foreground ml-2">{t('animalRecords.bloodTest.referenceShort', { value: item.reference_range })}</span>}
                       </div>
                       {item.remark && <div className="text-xs text-muted-foreground">{item.remark}</div>}
                     </div>

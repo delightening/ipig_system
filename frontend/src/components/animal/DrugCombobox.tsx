@@ -10,6 +10,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Search, X, Loader2, ChevronDown, Pill } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { treatmentDrugApi } from '@/lib/api'
@@ -49,10 +50,11 @@ export function DrugCombobox({
     onChange,
     showDosage = true,
     disabled = false,
-    placeholder = '搜尋或輸入藥物名稱...',
+    placeholder,
     className,
     categoryFilter,
 }: DrugComboboxProps) {
+    const { t } = useTranslation()
     const [isFocused, setIsFocused] = useState(false)
     const [searchText, setSearchText] = useState('')
     const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -243,7 +245,7 @@ export function DrugCombobox({
                                 }}
                                 onFocus={() => setIsFocused(true)}
                                 onKeyDown={handleKeyDown}
-                                placeholder={placeholder}
+                                placeholder={placeholder ?? t('animalRecords.drugCombobox.searchPlaceholder')}
                                 disabled={disabled}
                                 className="flex-1 bg-transparent border-0 outline-hidden placeholder:text-muted-foreground text-foreground"
                                 role="combobox"
@@ -267,11 +269,11 @@ export function DrugCombobox({
                     >
                         {isLoading ? (
                             <li className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
-                                <Loader2 className="w-4 h-4 animate-spin" /> 載入中...
+                                <Loader2 className="w-4 h-4 animate-spin" /> {t('common.loading')}
                             </li>
                         ) : filteredOptions.length === 0 ? (
                             <li className="px-3 py-2 text-sm text-muted-foreground">
-                                無符合結果，按 Enter 使用自訂名稱
+                                {t('animalRecords.drugCombobox.noResults')}
                             </li>
                         ) : (
                             filteredOptions.map((option, index) => (
@@ -320,7 +322,7 @@ export function DrugCombobox({
                         onChange={(e) =>
                             onChange({ ...value, dosage_value: e.target.value })
                         }
-                        placeholder="劑量"
+                        placeholder={t('animalRecords.shared.dosePlaceholder')}
                         disabled={disabled}
                         className="w-20 h-9 px-2 rounded-md border border-border text-sm text-center
                        focus:border-status-info-solid focus:ring-1 focus:ring-primary/30 outline-hidden
@@ -336,7 +338,7 @@ export function DrugCombobox({
                        focus:border-status-info-solid focus:ring-1 focus:ring-primary/30 outline-hidden
                        disabled:opacity-50 disabled:bg-muted"
                     >
-                        <option value="">單位</option>
+                        <option value="">{t('animalRecords.shared.unit')}</option>
                         {availableUnits.map((unit) => (
                             <option key={unit} value={unit}>
                                 {unit}

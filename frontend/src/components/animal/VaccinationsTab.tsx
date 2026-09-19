@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { GuestHide } from '@/components/ui/guest-hide'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -33,7 +34,7 @@ import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
-import { OTHER_OPTION, vaccineLabel, type VaccinationOption } from './vaccinationConstants'
+import { getOtherOption, vaccineLabel, type VaccinationOption } from './vaccinationConstants'
 
 interface VaccinationsTabProps {
   animalId: string
@@ -135,6 +136,7 @@ function isVaccinationFormValid(f: VaccinationFormState): boolean {
 }
 
 export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, earTag, afterParam: _afterParam, vaccinations }: VaccinationsTabProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { sortedData, sort, toggleSort } = useTableSort(vaccinations)
 
@@ -154,15 +156,15 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
     ...(drugOptionsRaw ?? [])
       .filter((o) => o.category === '疫苗' && o.name !== 'OTHER')
       .map((o) => ({ value: o.name, label: o.display_name || o.name })),
-    OTHER_OPTION,
-  ], [drugOptionsRaw])
+    getOtherOption(t),
+  ], [drugOptionsRaw, t])
 
   const dewormerOptions = useMemo((): VaccinationOption[] => [
     ...(drugOptionsRaw ?? [])
       .filter((o) => o.category === '驅蟲' && o.name !== 'OTHER')
       .map((o) => ({ value: o.name, label: o.display_name || o.name })),
-    OTHER_OPTION,
-  ], [drugOptionsRaw])
+    getOtherOption(t),
+  ], [drugOptionsRaw, t])
 
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [newVaccination, setNewVaccination] = useState<VaccinationFormState>(emptyVaccinationForm())
@@ -191,14 +193,14 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-vaccinations', animalId] })
-      toast({ title: '成功', description: '疫苗紀錄已新增' })
+      toast({ title: t('common.success'), description: t('animalRecords.vaccinations.added') })
       setShowAddDialog(false)
       setNewVaccination(emptyVaccinationForm())
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '新增失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalRecords.shared.createFailed')),
         variant: 'destructive',
       })
     },
@@ -210,7 +212,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['animal-vaccinations', animalId] })
-      toast({ title: '成功', description: '疫苗紀錄已更新' })
+      toast({ title: t('common.success'), description: t('animalRecords.vaccinations.updated') })
       // 使用者可能在請求進行中切去編輯另一筆；只有目前開啟的仍是同一筆時才清空 dialog
       if (editTarget?.id === variables.id) {
         setEditTarget(null)
@@ -219,8 +221,8 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '更新失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalRecords.shared.updateFailed')),
         variant: 'destructive',
       })
     },
@@ -232,13 +234,13 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-vaccinations', animalId] })
-      toast({ title: '成功', description: '疫苗紀錄已刪除' })
+      toast({ title: t('common.success'), description: t('animalRecords.vaccinations.deleted') })
       setDeleteTarget(null)
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '刪除失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalRecords.shared.deleteFailed')),
         variant: 'destructive',
       })
     },
@@ -249,14 +251,14 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>疫苗/驅蟲紀錄</CardTitle>
-            <CardDescription>記錄疫苗接種與驅蟲紀錄</CardDescription>
+            <CardTitle>{t('animalDetail.tabs.vaccinations')}</CardTitle>
+            <CardDescription>{t('animalRecords.vaccinations.description')}</CardDescription>
           </div>
           <GuestHide>
             <Can permission={PERMISSIONS.ANIMAL_RECORD_CREATE}>
               <Button className="bg-status-purple-solid hover:bg-status-purple-solid/90" onClick={() => setShowAddDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                新增紀錄
+                {t('animalRecords.shared.addRecord')}
               </Button>
             </Can>
           </GuestHide>
@@ -269,22 +271,22 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               <Table className="w-full" style={{ minWidth: 530 }}>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <SortableTableHead style={{ width: 100 }} sortKey="administered_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>施打日期</SortableTableHead>
-                    <SortableTableHead style={{ minWidth: 120 }} sortKey="vaccine" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>疫苗</SortableTableHead>
-                    <TableHead style={{ minWidth: 120 }}>驅蟲劑量</TableHead>
-                    <TableHead style={{ width: 100 }}>記錄者</TableHead>
-                    <SortableTableHead style={{ width: 160 }} sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="hidden @[690px]:table-cell">建立時間</SortableTableHead>
-                    <TableHead style={{ width: 90 }} className="text-right">操作</TableHead>
+                    <SortableTableHead style={{ width: 100 }} sortKey="administered_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('animalRecords.vaccinations.administeredDate')}</SortableTableHead>
+                    <SortableTableHead style={{ minWidth: 120 }} sortKey="vaccine" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('animalRecords.vaccinations.vaccine')}</SortableTableHead>
+                    <TableHead style={{ minWidth: 120 }}>{t('animalRecords.vaccinations.dewormerDose')}</TableHead>
+                    <TableHead style={{ width: 100 }}>{t('animalRecords.shared.recorder')}</TableHead>
+                    <SortableTableHead style={{ width: 160 }} sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="hidden @[690px]:table-cell">{t('animalRecords.shared.createdAt')}</SortableTableHead>
+                    <TableHead style={{ width: 90 }} className="text-right">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {!vaccinations || vaccinations.length === 0 ? (
-                    <TableEmptyRow colSpan={6} icon={Syringe} title="尚無疫苗/驅蟲紀錄" />
+                    <TableEmptyRow colSpan={6} icon={Syringe} title={t('animalRecords.vaccinations.emptyTitle')} />
                   ) : (
                     sortedData?.map((vac) => (
                       <TableRow key={vac.id}>
                         <TableCell style={{ width: 100 }} className="whitespace-nowrap">{new Date(vac.administered_date).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })}</TableCell>
-                        <TableCell style={{ minWidth: 120 }} className="whitespace-normal break-words">{vaccineLabel(vac.vaccine, vaccineOptions) || '-'}</TableCell>
+                        <TableCell style={{ minWidth: 120 }} className="whitespace-normal break-words">{vaccineLabel(vac.vaccine, vaccineOptions, t) || '-'}</TableCell>
                         <TableCell style={{ minWidth: 120 }} className="whitespace-normal break-words">{vac.deworming_dose || '-'}</TableCell>
                         <TableCell style={{ width: 100 }} className="whitespace-normal break-words">{vac.created_by_name || '-'}</TableCell>
                         <TableCell style={{ width: 160 }} className="text-xs text-muted-foreground hidden @[690px]:table-cell">{new Date(vac.created_at).toLocaleString(uiLocale(), { timeZone: 'Asia/Taipei' })}</TableCell>
@@ -292,12 +294,12 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
                           <div className="flex items-center justify-end gap-1">
                             <GuestHide>
                               <Can permission={PERMISSIONS.ANIMAL_RECORD_EDIT}>
-                                <Button variant="ghost" size="icon" onClick={() => openEdit(vac)} aria-label="編輯">
+                                <Button variant="ghost" size="icon" onClick={() => openEdit(vac)} aria-label={t('common.edit')}>
                                   <Edit2 className="h-4 w-4" />
                                 </Button>
                               </Can>
                               <Can permission={PERMISSIONS.ANIMAL_RECORD_DELETE}>
-                                <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(vac.id)} aria-label="刪除">
+                                <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(vac.id)} aria-label={t('common.delete')}>
                                   <Trash2 className="h-4 w-4 text-status-error-solid" />
                                 </Button>
                               </Can>
@@ -316,7 +318,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               {!vaccinations || vaccinations.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                   <Syringe className="h-8 w-8" />
-                  <p className="text-sm">尚無疫苗/驅蟲紀錄</p>
+                  <p className="text-sm">{t('animalRecords.vaccinations.emptyTitle')}</p>
                 </div>
               ) : (
                 sortedData?.map((vac) => (
@@ -326,12 +328,12 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
                     </div>
                     {vac.vaccine && (
                       <div className="text-sm text-muted-foreground">
-                        💉 疫苗：{vaccineLabel(vac.vaccine, vaccineOptions)}
+                        💉 {t('animalRecords.vaccinations.cardVaccine', { value: vaccineLabel(vac.vaccine, vaccineOptions, t) })}
                       </div>
                     )}
                     {vac.deworming_dose && (
                       <div className="text-sm text-muted-foreground">
-                        💊 驅蟲：{vac.deworming_dose}
+                        💊 {t('animalRecords.vaccinations.cardDeworming', { value: vac.deworming_dose })}
                       </div>
                     )}
                     <div className="flex items-center justify-between gap-2 pt-1 border-t">
@@ -339,12 +341,12 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
                       <div className="flex gap-0.5">
                         <GuestHide>
                           <Can permission={PERMISSIONS.ANIMAL_RECORD_EDIT}>
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(vac)} aria-label="編輯">
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(vac)} aria-label={t('common.edit')}>
                               <Edit2 className="h-4 w-4" />
                             </Button>
                           </Can>
                           <Can permission={PERMISSIONS.ANIMAL_RECORD_DELETE}>
-                            <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(vac.id)} aria-label="刪除">
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(vac.id)} aria-label={t('common.delete')}>
                               <Trash2 className="h-4 w-4 text-status-error-solid" />
                             </Button>
                           </Can>
@@ -363,12 +365,12 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新增疫苗/驅蟲紀錄</DialogTitle>
-            <DialogDescription>耳號：{earTag}</DialogDescription>
+            <DialogTitle>{t('animalRecords.vaccinations.addTitle')}</DialogTitle>
+            <DialogDescription>{t('animalRecords.shared.earTagLine', { earTag })}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="vac_date">施打日期 *</Label>
+              <Label htmlFor="vac_date">{t('animalRecords.vaccinations.administeredDateRequired')}</Label>
               <Input
                 id="vac_date"
                 type="date"
@@ -377,13 +379,13 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="vaccine">疫苗</Label>
+              <Label htmlFor="vaccine">{t('animalRecords.vaccinations.vaccine')}</Label>
               <Select
                 value={newVaccination.vaccineCode}
                 onValueChange={(v) => setNewVaccination({ ...newVaccination, vaccineCode: v, vaccineOther: v === 'OTHER' ? newVaccination.vaccineOther : '' })}
               >
                 <SelectTrigger id="vaccine">
-                  <SelectValue placeholder="選擇疫苗" />
+                  <SelectValue placeholder={t('animalRecords.vaccinations.selectVaccine')} />
                 </SelectTrigger>
                 <SelectContent>
                   {vaccineOptions.map((o) => (
@@ -394,21 +396,21 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               {newVaccination.vaccineCode === 'OTHER' && (
                 <Input
                   id="vaccine_other"
-                  aria-label="自訂疫苗名稱"
+                  aria-label={t('animalRecords.vaccinations.customVaccineName')}
                   value={newVaccination.vaccineOther}
                   onChange={(e) => setNewVaccination({ ...newVaccination, vaccineOther: e.target.value })}
-                  placeholder="輸入疫苗名稱"
+                  placeholder={t('animalRecords.vaccinations.enterVaccineName')}
                 />
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dewormer_drug">驅蟲</Label>
+              <Label htmlFor="dewormer_drug">{t('animalRecords.vaccinations.deworming')}</Label>
               <Select
                 value={newVaccination.dewormerDrug}
                 onValueChange={(v) => setNewVaccination({ ...newVaccination, dewormerDrug: v, dewormerOther: v === 'OTHER' ? newVaccination.dewormerOther : '', dewormerLegacyRaw: null })}
               >
                 <SelectTrigger id="dewormer_drug">
-                  <SelectValue placeholder="選擇藥名" />
+                  <SelectValue placeholder={t('animalRecords.vaccinations.selectDrug')} />
                 </SelectTrigger>
                 <SelectContent>
                   {dewormerOptions.map((o) => (
@@ -419,22 +421,22 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               {newVaccination.dewormerDrug === 'OTHER' && (
                 <Input
                   id="dewormer_other"
-                  aria-label="自訂驅蟲藥名"
+                  aria-label={t('animalRecords.vaccinations.customDewormerName')}
                   value={newVaccination.dewormerOther}
                   onChange={(e) => setNewVaccination({ ...newVaccination, dewormerOther: e.target.value, dewormerLegacyRaw: null })}
-                  placeholder="輸入藥名"
+                  placeholder={t('animalRecords.vaccinations.enterDrugName')}
                 />
               )}
               <div className="flex items-center gap-2">
                 <Input
                   id="dewormer_dose"
-                  aria-label="驅蟲劑量 (ml)"
+                  aria-label={t('animalRecords.vaccinations.dewormerDoseAria')}
                   type="number"
                   step="0.1"
                   min="0"
                   value={newVaccination.dewormerDose}
                   onChange={(e) => setNewVaccination({ ...newVaccination, dewormerDose: e.target.value, dewormerLegacyRaw: null })}
-                  placeholder="劑量"
+                  placeholder={t('animalRecords.shared.dosePlaceholder')}
                 />
                 <span className="text-sm text-muted-foreground shrink-0">ml</span>
               </div>
@@ -442,7 +444,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={() => addMutation.mutate(newVaccination)}
@@ -450,7 +452,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               className="bg-status-success-solid hover:bg-status-success-solid/90"
             >
               {addMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              儲存
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -464,12 +466,12 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>編輯疫苗/驅蟲紀錄</DialogTitle>
-            <DialogDescription>耳號：{earTag}</DialogDescription>
+            <DialogTitle>{t('animalRecords.vaccinations.editTitle')}</DialogTitle>
+            <DialogDescription>{t('animalRecords.shared.earTagLine', { earTag })}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit_vac_date">施打日期 *</Label>
+              <Label htmlFor="edit_vac_date">{t('animalRecords.vaccinations.administeredDateRequired')}</Label>
               <Input
                 id="edit_vac_date"
                 type="date"
@@ -478,13 +480,13 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit_vaccine">疫苗</Label>
+              <Label htmlFor="edit_vaccine">{t('animalRecords.vaccinations.vaccine')}</Label>
               <Select
                 value={editForm.vaccineCode}
                 onValueChange={(v) => setEditForm({ ...editForm, vaccineCode: v, vaccineOther: v === 'OTHER' ? editForm.vaccineOther : '' })}
               >
                 <SelectTrigger id="edit_vaccine">
-                  <SelectValue placeholder="選擇疫苗" />
+                  <SelectValue placeholder={t('animalRecords.vaccinations.selectVaccine')} />
                 </SelectTrigger>
                 <SelectContent>
                   {vaccineOptions.map((o) => (
@@ -495,21 +497,21 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               {editForm.vaccineCode === 'OTHER' && (
                 <Input
                   id="edit_vaccine_other"
-                  aria-label="自訂疫苗名稱"
+                  aria-label={t('animalRecords.vaccinations.customVaccineName')}
                   value={editForm.vaccineOther}
                   onChange={(e) => setEditForm({ ...editForm, vaccineOther: e.target.value })}
-                  placeholder="輸入疫苗名稱"
+                  placeholder={t('animalRecords.vaccinations.enterVaccineName')}
                 />
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit_dewormer_drug">驅蟲</Label>
+              <Label htmlFor="edit_dewormer_drug">{t('animalRecords.vaccinations.deworming')}</Label>
               <Select
                 value={editForm.dewormerDrug}
                 onValueChange={(v) => setEditForm({ ...editForm, dewormerDrug: v, dewormerOther: v === 'OTHER' ? editForm.dewormerOther : '', dewormerLegacyRaw: null })}
               >
                 <SelectTrigger id="edit_dewormer_drug">
-                  <SelectValue placeholder="選擇藥名" />
+                  <SelectValue placeholder={t('animalRecords.vaccinations.selectDrug')} />
                 </SelectTrigger>
                 <SelectContent>
                   {dewormerOptions.map((o) => (
@@ -520,22 +522,22 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               {editForm.dewormerDrug === 'OTHER' && (
                 <Input
                   id="edit_dewormer_other"
-                  aria-label="自訂驅蟲藥名"
+                  aria-label={t('animalRecords.vaccinations.customDewormerName')}
                   value={editForm.dewormerOther}
                   onChange={(e) => setEditForm({ ...editForm, dewormerOther: e.target.value, dewormerLegacyRaw: null })}
-                  placeholder="輸入藥名"
+                  placeholder={t('animalRecords.vaccinations.enterDrugName')}
                 />
               )}
               <div className="flex items-center gap-2">
                 <Input
                   id="edit_dewormer_dose"
-                  aria-label="驅蟲劑量 (ml)"
+                  aria-label={t('animalRecords.vaccinations.dewormerDoseAria')}
                   type="number"
                   step="0.1"
                   min="0"
                   value={editForm.dewormerDose}
                   onChange={(e) => setEditForm({ ...editForm, dewormerDose: e.target.value, dewormerLegacyRaw: null })}
-                  placeholder="劑量"
+                  placeholder={t('animalRecords.shared.dosePlaceholder')}
                 />
                 <span className="text-sm text-muted-foreground shrink-0">ml</span>
               </div>
@@ -543,7 +545,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditTarget(null)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={() => editTarget && updateMutation.mutate({ id: editTarget.id, data: editForm })}
@@ -551,7 +553,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               className="bg-status-success-solid hover:bg-status-success-solid/90"
             >
               {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              儲存
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -560,7 +562,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
       <DeleteReasonDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        copy={{ title: '刪除疫苗紀錄', description: '此操作將標記紀錄為已刪除，資料將保留於系統中以符合 GLP 規範。' }}
+        copy={{ title: t('animalRecords.vaccinations.deleteTitle'), description: t('animalRecords.shared.deleteRecordDescription') }}
         onConfirm={(reason) => deleteMutation.mutate({ id: deleteTarget!, reason })}
         isPending={deleteMutation.isPending}
       />

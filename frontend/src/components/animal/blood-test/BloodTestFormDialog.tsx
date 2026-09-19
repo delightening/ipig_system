@@ -2,6 +2,7 @@
  * 血液檢查新增/編輯 Dialog
  */
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { BloodTestItemInput, BloodTestPanel } from '@/lib/api'
 import type { AnimalBloodTestItem } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -88,6 +89,7 @@ export function BloodTestFormDialog({
   onCorrectItem,
   onShowHistory,
 }: BloodTestFormDialogProps) {
+  const { t } = useTranslation()
   const isEditMode = !!editingId
   // 計算每個 panel 是否完全被選取
   const panelActiveStates = useMemo(() => {
@@ -107,7 +109,7 @@ export function BloodTestFormDialog({
     if (!template) return
 
     if (formData.items.some((item) => item.template_id === templateId)) {
-      toast({ title: '提示', description: '該項目已在清單中' })
+      toast({ title: t('animalRecords.bloodTest.notice'), description: t('animalRecords.bloodTest.itemAlreadyAdded') })
       return
     }
 
@@ -174,9 +176,9 @@ export function BloodTestFormDialog({
           ...prev,
           items: [...prev.items, ...newItems],
         }))
-        toast({ title: '已加入', description: `${panel.name}：新增 ${newItems.length} 項` })
+        toast({ title: t('animalRecords.bloodTest.addedTitle'), description: t('animalRecords.bloodTest.panelItemsAdded', { panel: panel.name, count: newItems.length }) })
       } else {
-        toast({ title: '提示', description: '所有項目已在清單中' })
+        toast({ title: t('animalRecords.bloodTest.notice'), description: t('animalRecords.bloodTest.allItemsAlreadyAdded') })
       }
     }
   }
@@ -202,10 +204,10 @@ export function BloodTestFormDialog({
       <DialogContent size="xl">
         <DialogHeader>
           <DialogTitle>
-            {editingId ? '編輯血液檢查' : '新增血液檢查'}
+            {editingId ? t('animalRecords.bloodTest.editTitle') : t('animalRecords.bloodTest.add')}
           </DialogTitle>
           <DialogDescription>
-            填寫檢查基本資訊，並從模板選取或自訂檢查項目
+            {t('animalRecords.bloodTest.formDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -213,7 +215,7 @@ export function BloodTestFormDialog({
           {/* 基本資訊 */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>檢查日期 *</Label>
+              <Label>{t('animalRecords.bloodTest.testDateRequired')}</Label>
               <Input
                 type="date"
                 value={formData.test_date}
@@ -221,7 +223,7 @@ export function BloodTestFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>檢驗機構</Label>
+              <Label>{t('animalRecords.bloodTest.labName')}</Label>
               <Select
                 value={labNameOption}
                 onValueChange={(val) => {
@@ -234,20 +236,20 @@ export function BloodTestFormDialog({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="請選擇檢驗機構" />
+                  <SelectValue placeholder={t('animalRecords.bloodTest.selectLab')} />
                 </SelectTrigger>
                 <SelectContent>
                   {LAB_OPTIONS.map((lab) => (
                     <SelectItem key={lab} value={lab}>{lab}</SelectItem>
                   ))}
-                  <SelectItem value="__other__">其他</SelectItem>
+                  <SelectItem value="__other__">{t('animalRecords.bloodTest.labOther')}</SelectItem>
                 </SelectContent>
               </Select>
               {labNameOption === '__other__' && (
                 <Input
                   value={formData.lab_name}
                   onChange={(e) => setFormData((prev) => ({ ...prev, lab_name: e.target.value }))}
-                  placeholder="請輸入檢驗機構名稱"
+                  placeholder={t('animalRecords.bloodTest.enterLabName')}
                   className="mt-2"
                 />
               )}
@@ -255,18 +257,18 @@ export function BloodTestFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>備註</Label>
+            <Label>{t('animalRecords.shared.remark')}</Label>
             <Input
               value={formData.remark}
               onChange={(e) => setFormData((prev) => ({ ...prev, remark: e.target.value }))}
-              placeholder="選填"
+              placeholder={t('animalRecords.bloodTest.optional')}
             />
           </div>
 
           {/* 組合快速選取（僅新增模式） */}
           {!isEditMode && panels.length > 0 && (
             <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">快速選取組合</Label>
+              <Label className="text-sm text-muted-foreground">{t('animalRecords.bloodTest.quickSelectPanels')}</Label>
               <div className="flex flex-wrap gap-2">
                 {panels.map((panel) => {
                   const isActive = panelActiveStates[panel.id]
@@ -298,23 +300,23 @@ export function BloodTestFormDialog({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-base font-semibold">
-                檢查項目
+                {t('animalRecords.bloodTest.items')}
                 {formData.items.length > 0 && (
                   <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    {isEditMode ? `共 ${formData.items.length} 項` : `已選 ${formData.items.length} 項`}
+                    {isEditMode ? t('animalRecords.bloodTest.itemsTotal', { count: formData.items.length }) : t('animalRecords.bloodTest.itemsSelected', { count: formData.items.length })}
                   </span>
                 )}
               </Label>
               {isEditMode ? (
                 <Button variant="outline" size="sm" onClick={onShowHistory}>
                   <History className="h-4 w-4 mr-1" />
-                  修正歷史
+                  {t('animalRecords.bloodTest.correctionHistory')}
                 </Button>
               ) : (
                 <div className="flex gap-2">
                   <Select onValueChange={addItemFromTemplate}>
                     <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="從模板新增..." />
+                      <SelectValue placeholder={t('animalRecords.bloodTest.addFromTemplate')} />
                     </SelectTrigger>
                     <SelectContent>
                       {templates.map((t) => (
@@ -326,7 +328,7 @@ export function BloodTestFormDialog({
                   </Select>
                   <Button variant="outline" size="sm" onClick={addCustomItem}>
                     <Plus className="h-4 w-4 mr-1" />
-                    自訂項目
+                    {t('animalRecords.bloodTest.customItem')}
                   </Button>
                 </div>
               )}
@@ -334,14 +336,14 @@ export function BloodTestFormDialog({
 
             {isEditMode && (
               <div className="rounded-md border border-status-info-text/40 bg-status-info-bg/40 p-2 text-xs text-status-info-text">
-                ⓘ 血檢項目為 GLP §11.10(c) raw data，不可直接修改。如需修正，請點該項目右側「修正」按鈕並填寫原因，原值會永久保留。
+                {t('animalRecords.bloodTest.glpNotice')}
               </div>
             )}
 
             {formData.items.length === 0 ? (
               <div className="border rounded-lg p-6 text-center text-muted-foreground">
-                <p>尚無檢查項目</p>
-                <p className="text-sm mt-1">從上方模板選取或新增自訂項目</p>
+                <p>{t('animalRecords.bloodTest.noItems')}</p>
+                <p className="text-sm mt-1">{t('animalRecords.bloodTest.noItemsHint')}</p>
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden @container">
@@ -349,12 +351,12 @@ export function BloodTestFormDialog({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[180px]">項目名稱</TableHead>
-                        <TableHead className="w-[120px]">結果值</TableHead>
-                        <TableHead className="w-[80px]">單位</TableHead>
-                        <TableHead className="w-[120px]">參考範圍</TableHead>
-                        <TableHead className="w-[80px] text-center">異常</TableHead>
-                        <TableHead>備註</TableHead>
+                        <TableHead className="w-[180px]">{t('animalRecords.bloodTest.itemName')}</TableHead>
+                        <TableHead className="w-[120px]">{t('animalRecords.bloodTest.resultValue')}</TableHead>
+                        <TableHead className="w-[80px]">{t('animalRecords.shared.unit')}</TableHead>
+                        <TableHead className="w-[120px]">{t('animalRecords.bloodTest.referenceRange')}</TableHead>
+                        <TableHead className="w-[80px] text-center">{t('animalRecords.bloodTest.abnormal')}</TableHead>
+                        <TableHead>{t('animalRecords.shared.remark')}</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -366,30 +368,30 @@ export function BloodTestFormDialog({
                         return (
                           <TableRow key={editingItem?.id || item.template_id || `item-${item.sort_order}`}>
                             <TableCell>
-                              <Input value={item.item_name} onChange={(e) => updateItem(index, 'item_name', e.target.value)} placeholder="項目名稱" className="h-8" readOnly={isEditMode || !!item.template_id} />
+                              <Input value={item.item_name} onChange={(e) => updateItem(index, 'item_name', e.target.value)} placeholder={t('animalRecords.bloodTest.itemName')} className="h-8" readOnly={isEditMode || !!item.template_id} />
                             </TableCell>
                             <TableCell>
-                              <Input value={item.result_value || ''} onChange={(e) => updateItem(index, 'result_value', e.target.value)} placeholder="結果" className="h-8" readOnly={isEditMode} />
+                              <Input value={item.result_value || ''} onChange={(e) => updateItem(index, 'result_value', e.target.value)} placeholder={t('animalRecords.bloodTest.resultPlaceholder')} className="h-8" readOnly={isEditMode} />
                             </TableCell>
                             <TableCell>
-                              <Input value={item.result_unit || ''} onChange={(e) => updateItem(index, 'result_unit', e.target.value)} placeholder="單位" className="h-8" readOnly={isEditMode} />
+                              <Input value={item.result_unit || ''} onChange={(e) => updateItem(index, 'result_unit', e.target.value)} placeholder={t('animalRecords.shared.unit')} className="h-8" readOnly={isEditMode} />
                             </TableCell>
                             <TableCell>
-                              <Input value={item.reference_range || ''} onChange={(e) => updateItem(index, 'reference_range', e.target.value)} placeholder="參考範圍" className="h-8" readOnly={isEditMode} />
+                              <Input value={item.reference_range || ''} onChange={(e) => updateItem(index, 'reference_range', e.target.value)} placeholder={t('animalRecords.bloodTest.referenceRange')} className="h-8" readOnly={isEditMode} />
                             </TableCell>
                             <TableCell className="text-center">
-                              <input type="checkbox" checked={item.is_abnormal} onChange={(e) => updateItem(index, 'is_abnormal', e.target.checked)} className="h-4 w-4 rounded border-border text-status-error-text focus:ring-destructive" aria-label={`項目 ${index + 1} 異常`} disabled={isEditMode} />
+                              <input type="checkbox" checked={item.is_abnormal} onChange={(e) => updateItem(index, 'is_abnormal', e.target.checked)} className="h-4 w-4 rounded border-border text-status-error-text focus:ring-destructive" aria-label={t('animalRecords.bloodTest.itemAbnormalAria', { index: index + 1 })} disabled={isEditMode} />
                             </TableCell>
                             <TableCell>
-                              <Input value={item.remark || ''} onChange={(e) => updateItem(index, 'remark', e.target.value)} placeholder="備註" className="h-8" readOnly={isEditMode} />
+                              <Input value={item.remark || ''} onChange={(e) => updateItem(index, 'remark', e.target.value)} placeholder={t('animalRecords.shared.remark')} className="h-8" readOnly={isEditMode} />
                             </TableCell>
                             <TableCell>
                               {isEditMode && editingItem ? (
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCorrectItem?.(editingItem)} aria-label="修正">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCorrectItem?.(editingItem)} aria-label={t('animalRecords.bloodTest.correct')}>
                                   <Pencil className="h-4 w-4" />
                                 </Button>
                               ) : (
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-status-error-solid" onClick={() => removeItem(index)} aria-label="移除">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-status-error-solid" onClick={() => removeItem(index)} aria-label={t('animalRecords.bloodTest.remove')}>
                                   <X className="h-4 w-4" />
                                 </Button>
                               )}
@@ -409,38 +411,38 @@ export function BloodTestFormDialog({
                     return (
                       <div key={editingItem?.id || item.template_id || `item-${item.sort_order}`} className="p-3 space-y-2">
                         <div className="flex items-start justify-between gap-2">
-                          <Input value={item.item_name} onChange={(e) => updateItem(index, 'item_name', e.target.value)} placeholder="項目名稱" className="h-8 font-medium" readOnly={isEditMode || !!item.template_id} />
+                          <Input value={item.item_name} onChange={(e) => updateItem(index, 'item_name', e.target.value)} placeholder={t('animalRecords.bloodTest.itemName')} className="h-8 font-medium" readOnly={isEditMode || !!item.template_id} />
                           {isEditMode && editingItem ? (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onCorrectItem?.(editingItem)} aria-label="修正">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onCorrectItem?.(editingItem)} aria-label={t('animalRecords.bloodTest.correct')}>
                               <Pencil className="h-4 w-4" />
                             </Button>
                           ) : (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-status-error-solid" onClick={() => removeItem(index)} aria-label="移除">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-status-error-solid" onClick={() => removeItem(index)} aria-label={t('animalRecords.bloodTest.remove')}>
                               <X className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <Label className="text-xs text-muted-foreground">結果值</Label>
-                            <Input value={item.result_value || ''} onChange={(e) => updateItem(index, 'result_value', e.target.value)} placeholder="結果" className="h-8" readOnly={isEditMode} />
+                            <Label className="text-xs text-muted-foreground">{t('animalRecords.bloodTest.resultValue')}</Label>
+                            <Input value={item.result_value || ''} onChange={(e) => updateItem(index, 'result_value', e.target.value)} placeholder={t('animalRecords.bloodTest.resultPlaceholder')} className="h-8" readOnly={isEditMode} />
                           </div>
                           <div>
-                            <Label className="text-xs text-muted-foreground">單位</Label>
-                            <Input value={item.result_unit || ''} onChange={(e) => updateItem(index, 'result_unit', e.target.value)} placeholder="單位" className="h-8" readOnly={isEditMode} />
+                            <Label className="text-xs text-muted-foreground">{t('animalRecords.shared.unit')}</Label>
+                            <Input value={item.result_unit || ''} onChange={(e) => updateItem(index, 'result_unit', e.target.value)} placeholder={t('animalRecords.shared.unit')} className="h-8" readOnly={isEditMode} />
                           </div>
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">參考範圍</Label>
-                          <Input value={item.reference_range || ''} onChange={(e) => updateItem(index, 'reference_range', e.target.value)} placeholder="參考範圍" className="h-8" readOnly={isEditMode} />
+                          <Label className="text-xs text-muted-foreground">{t('animalRecords.bloodTest.referenceRange')}</Label>
+                          <Input value={item.reference_range || ''} onChange={(e) => updateItem(index, 'reference_range', e.target.value)} placeholder={t('animalRecords.bloodTest.referenceRange')} className="h-8" readOnly={isEditMode} />
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">備註</Label>
-                          <Input value={item.remark || ''} onChange={(e) => updateItem(index, 'remark', e.target.value)} placeholder="備註" className="h-8" readOnly={isEditMode} />
+                          <Label className="text-xs text-muted-foreground">{t('animalRecords.shared.remark')}</Label>
+                          <Input value={item.remark || ''} onChange={(e) => updateItem(index, 'remark', e.target.value)} placeholder={t('animalRecords.shared.remark')} className="h-8" readOnly={isEditMode} />
                         </div>
                         <label className="flex items-center gap-2 text-sm">
                           <input type="checkbox" checked={item.is_abnormal} onChange={(e) => updateItem(index, 'is_abnormal', e.target.checked)} className="h-4 w-4 rounded border-border text-status-error-text focus:ring-destructive" disabled={isEditMode} />
-                          標記為異常
+                          {t('animalRecords.bloodTest.markAbnormal')}
                         </label>
                       </div>
                     )
@@ -453,11 +455,11 @@ export function BloodTestFormDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button onClick={onSubmit} disabled={isPending}>
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {editingId ? '更新' : '建立'}
+            {editingId ? t('common.update') : t('animalRecords.bloodTest.createButton')}
           </Button>
         </DialogFooter>
       </DialogContent>

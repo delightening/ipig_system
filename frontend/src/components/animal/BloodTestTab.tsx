@@ -3,6 +3,7 @@
  * 顯示在動物詳情頁 (AnimalDetailPage) 中
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { GuestHide } from '@/components/ui/guest-hide'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -54,6 +55,7 @@ const INITIAL_FORM_DATA: BloodTestFormData = {
 }
 
 export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const [showFormDialog, setShowFormDialog] = useState(false)
     const [showDetailDialog, setShowDetailDialog] = useState(false)
@@ -126,7 +128,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             window.URL.revokeObjectURL(url)
         },
         onError: () => {
-            toast({ title: '錯誤', description: 'PDF 下載失敗', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalRecords.bloodTest.pdfDownloadFailed'), variant: 'destructive' })
         },
     })
 
@@ -137,10 +139,10 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             queryClient.invalidateQueries({ queryKey: ['animal-blood-tests', animalId] })
             setShowFormDialog(false)
             resetForm()
-            toast({ title: '成功', description: '血液檢查紀錄已建立' })
+            toast({ title: t('common.success'), description: t('animalRecords.bloodTest.created') })
         },
         onError: () => {
-            toast({ title: '錯誤', description: '建立失敗', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalRecords.bloodTest.createFailed'), variant: 'destructive' })
         },
     })
 
@@ -153,10 +155,10 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             setShowFormDialog(false)
             setEditingId(null)
             resetForm()
-            toast({ title: '成功', description: '血液檢查紀錄已更新' })
+            toast({ title: t('common.success'), description: t('animalRecords.bloodTest.updated') })
         },
         onError: () => {
-            toast({ title: '錯誤', description: '更新失敗', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalRecords.shared.updateFailed'), variant: 'destructive' })
         },
     })
 
@@ -166,10 +168,10 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['animal-blood-tests', animalId] })
             setDeleteTarget(null)
-            toast({ title: '成功', description: '血液檢查紀錄已刪除' })
+            toast({ title: t('common.success'), description: t('animalRecords.bloodTest.deleted') })
         },
         onError: () => {
-            toast({ title: '錯誤', description: '刪除失敗', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalRecords.shared.deleteFailed'), variant: 'destructive' })
         },
     })
 
@@ -212,7 +214,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             setShowFormDialog(true)
         },
         onError: () => {
-            toast({ title: '錯誤', description: '載入資料失敗', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalRecords.bloodTest.loadFailed'), variant: 'destructive' })
         },
     })
 
@@ -222,7 +224,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
 
     const handleSubmit = () => {
         if (!formData.test_date) {
-            toast({ title: '錯誤', description: '請填寫檢查日期', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalRecords.bloodTest.testDateRequiredError'), variant: 'destructive' })
             return
         }
 
@@ -238,11 +240,11 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
         }
 
         if (formData.items.length === 0) {
-            toast({ title: '錯誤', description: '至少需要一個檢查項目', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalRecords.bloodTest.itemsRequiredError'), variant: 'destructive' })
             return
         }
         if (formData.items.some((item) => !item.item_name.trim())) {
-            toast({ title: '錯誤', description: '所有檢查項目都需要填寫名稱', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalRecords.bloodTest.itemNameRequiredError'), variant: 'destructive' })
             return
         }
 
@@ -267,8 +269,8 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             <Card className="overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>血液檢查紀錄</CardTitle>
-                        <CardDescription>記錄實驗動物的血液檢查結果與檢驗數據</CardDescription>
+                        <CardTitle>{t('animalRecords.bloodTest.title')}</CardTitle>
+                        <CardDescription>{t('animalRecords.bloodTest.description')}</CardDescription>
                     </div>
                     <div className="flex gap-2 shrink-0">
                         <Button
@@ -277,13 +279,13 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                             disabled={exportPdfMutation.isPending || bloodTests.length === 0}
                         >
                             <Download className="h-4 w-4 mr-2" />
-                            {exportPdfMutation.isPending ? '匯出中…' : '下載 PDF'}
+                            {exportPdfMutation.isPending ? t('animalRecords.bloodTest.exporting') : t('common.pdfExport.downloadPdf')}
                         </Button>
                         <GuestHide>
                             <Can permission={PERMISSIONS.ANIMAL_RECORD_CREATE}>
                                 <Button className="bg-destructive hover:bg-destructive/90" onClick={openCreateForm}>
                                     <Plus className="h-4 w-4 mr-2" />
-                                    新增血液檢查
+                                    {t('animalRecords.bloodTest.add')}
                                 </Button>
                             </Can>
                         </GuestHide>
@@ -297,19 +299,19 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                             <Table className="w-full" style={{ minWidth: 595 }}>
                                 <TableHeader>
                                     <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                        <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 100 }}>檢查日期</SortableTableHead>
-                                        <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 130 }}>檢驗機構</SortableTableHead>
-                                        <TableHead style={{ width: 70 }} className="text-center">項目數</TableHead>
-                                        <TableHead style={{ width: 85 }} className="text-center">異常項目</TableHead>
-                                        <TableHead style={{ width: 100 }}>建立者</TableHead>
-                                        <TableHead style={{ width: 110 }} className="text-right">操作</TableHead>
+                                        <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 100 }}>{t('animalRecords.bloodTest.testDate')}</SortableTableHead>
+                                        <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 130 }}>{t('animalRecords.bloodTest.labName')}</SortableTableHead>
+                                        <TableHead style={{ width: 70 }} className="text-center">{t('animalRecords.bloodTest.itemCount')}</TableHead>
+                                        <TableHead style={{ width: 85 }} className="text-center">{t('animalRecords.bloodTest.abnormalItems')}</TableHead>
+                                        <TableHead style={{ width: 100 }}>{t('animalRecords.bloodTest.createdBy')}</TableHead>
+                                        <TableHead style={{ width: 110 }} className="text-right">{t('common.actions')}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow><TableCell colSpan={6} className="p-0"><TableSkeleton rows={5} cols={6} /></TableCell></TableRow>
                                     ) : bloodTests.length === 0 ? (
-                                        <TableEmptyRow colSpan={6} icon={FileText} title="尚無血液檢查紀錄" />
+                                        <TableEmptyRow colSpan={6} icon={FileText} title={t('animalRecords.bloodTest.emptyTitle')} />
                                     ) : (
                                         (sortedBloodTests ?? bloodTests).map((test) => (
                                             <TableRow key={test.id}>
@@ -376,7 +378,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                             ) : bloodTests.length === 0 ? (
                                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                                     <FileText className="h-8 w-8" />
-                                    <p className="text-sm">尚無血液檢查紀錄</p>
+                                    <p className="text-sm">{t('animalRecords.bloodTest.emptyTitle')}</p>
                                 </div>
                             ) : (
                                 (sortedBloodTests ?? bloodTests).map((test) => (
@@ -386,14 +388,14 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                                             <span className="text-xs text-muted-foreground">{test.lab_name || '-'}</span>
                                         </div>
                                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                            <span>{test.item_count} 項目</span>
+                                            <span>{t('animalRecords.bloodTest.itemCountLabel', { count: test.item_count })}</span>
                                             {test.abnormal_count > 0 ? (
                                                 <Badge variant="destructive" className="gap-1">
                                                     <AlertCircle className="h-3 w-3" />
-                                                    {test.abnormal_count} 異常
+                                                    {t('animalRecords.bloodTest.abnormalCountLabel', { count: test.abnormal_count })}
                                                 </Badge>
                                             ) : (
-                                                <span className="text-status-success-text">全部正常</span>
+                                                <span className="text-status-success-text">{t('animalRecords.bloodTest.allNormal')}</span>
                                             )}
                                         </div>
                                         <div className="flex items-center justify-between gap-2 pt-1 border-t">
@@ -491,8 +493,8 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                     onOpenChange={(open) => !open && setDeleteTarget(null)}
                     onConfirm={(reason) => deleteMutation.mutate({ id: deleteTarget.id, reason })}
                     copy={{
-                        title: '刪除血液檢查紀錄',
-                        description: `確定要刪除 ${deleteTarget.date} 的血液檢查紀錄嗎？此操作無法復原。`,
+                        title: t('animalRecords.bloodTest.deleteTitle'),
+                        description: t('animalRecords.bloodTest.deleteDescription', { date: deleteTarget.date }),
                     }}
                     isPending={deleteMutation.isPending}
                 />

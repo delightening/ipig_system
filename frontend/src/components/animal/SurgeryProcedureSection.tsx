@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FileUpload } from '@/components/ui/file-upload'
 import { Label } from '@/components/ui/label'
@@ -12,10 +13,11 @@ interface Props {
 }
 
 export function SurgeryProcedureSection({ formData, onChange, surgeryId }: Props) {
+  const { t } = useTranslation()
   return (
     <>
       {/* 疼痛評估區塊 */}
-      <CollapsibleSection title="疼痛評估">
+      <CollapsibleSection title={t('animalDetail.tabs.painAssessment')}>
         <div className="space-y-4">
           <SurgeryPainSection
             surgeryId={surgeryId}
@@ -24,9 +26,9 @@ export function SurgeryProcedureSection({ formData, onChange, surgeryId }: Props
           />
 
           <div className="pt-2">
-            <Label className="text-sm text-muted-foreground block mb-1">不需用藥/停止用藥</Label>
+            <Label className="text-sm text-muted-foreground block mb-1">{t('animalRecords.shared.noMedicationNeeded')}</Label>
             <Checkbox
-              label="不需用藥/停止用藥"
+              label={t('animalRecords.shared.noMedicationNeeded')}
               checked={formData.no_medication_needed}
               onCheckedChange={(checked) =>
                 onChange({ ...formData, no_medication_needed: checked === true })
@@ -37,27 +39,27 @@ export function SurgeryProcedureSection({ formData, onChange, surgeryId }: Props
       </CollapsibleSection>
 
       {/* 檔案上傳 */}
-      <CollapsibleSection title="檔案上傳" defaultOpen={false}>
+      <CollapsibleSection title={t('animalRecords.surgeries.fileUpload')} defaultOpen={false}>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>相片</Label>
+            <Label>{t('animalRecords.shared.photos')}</Label>
             <FileUpload
               value={formData.photos}
               onChange={(photos) => onChange({ ...formData, photos })}
               accept="image/*"
-              placeholder="拖曳相片到此處，或點擊選擇相片"
+              placeholder={t('animalRecords.shared.photoPlaceholder')}
               maxSize={10}
               maxFiles={10}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>附件</Label>
+            <Label>{t('animalRecords.shared.attachments')}</Label>
             <FileUpload
               value={formData.attachments}
               onChange={(attachments) => onChange({ ...formData, attachments })}
               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
-              placeholder="拖曳附件到此處，或點擊選擇檔案"
+              placeholder={t('animalRecords.shared.attachmentPlaceholder')}
               maxSize={20}
               maxFiles={10}
               showPreview={false}

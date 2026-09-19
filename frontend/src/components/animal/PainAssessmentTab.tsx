@@ -3,6 +3,7 @@
 
 import { lazy, Suspense, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { uiLocale } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,7 @@ interface PainAssessmentTabProps {
 }
 
 export function PainAssessmentTab({ animalId }: PainAssessmentTabProps) {
+    const { t } = useTranslation()
     const [showChart, setShowChart] = useState(false)
 
     const { data: records, isLoading } = useQuery({
@@ -82,7 +84,7 @@ export function PainAssessmentTab({ animalId }: PainAssessmentTabProps) {
                 name: r.post_op_days != null
                     ? `D${r.post_op_days}${r.time_period ? `-${r.time_period}` : ''}`
                     : `#${i + 1}`,
-                總分: total,
+                score: total,
             }
         })
 
@@ -109,21 +111,21 @@ export function PainAssessmentTab({ animalId }: PainAssessmentTabProps) {
         <Card className="overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                    <CardTitle>疼痛評估紀錄</CardTitle>
-                    <CardDescription>依據 TU-03-05-03B 記錄術後疼痛評估與給藥（請於手術紀錄中新增）</CardDescription>
+                    <CardTitle>{t('animalRecords.painAssessment.title')}</CardTitle>
+                    <CardDescription>{t('animalRecords.painAssessment.description')}</CardDescription>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-sm text-muted-foreground mr-2">共 {records?.length ?? 0} 筆</span>
+                    <span className="text-sm text-muted-foreground mr-2">{t('animalRecords.painAssessment.totalCount', { count: records?.length ?? 0 })}</span>
                     <Button variant="outline" onClick={() => setShowChart(!showChart)}>
                         <TrendingUp className="h-4 w-4 mr-1" />
-                        {showChart ? '隱藏趨勢' : '顯示趨勢'}
+                        {showChart ? t('animalRecords.painAssessment.hideTrend') : t('animalRecords.painAssessment.showTrend')}
                     </Button>
                 </div>
             </CardHeader>
             <CardContent className="space-y-4">
                 {showChart && chartData.length > 0 && (
                     <div>
-                        <h4 className="text-base font-semibold mb-2">疼痛總分趨勢</h4>
+                        <h4 className="text-base font-semibold mb-2">{t('animalRecords.painAssessment.trendTitle')}</h4>
                         <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
                             <PainAssessmentChart data={chartData} />
                         </Suspense>
@@ -137,31 +139,31 @@ export function PainAssessmentTab({ animalId }: PainAssessmentTabProps) {
                         <Table className="w-full" style={{ minWidth: 510 }}>
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                    <SortableTableHead style={{ width: 100 }} sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
-                                    <SortableTableHead style={{ width: 60 }} sortKey="post_op_days" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>術後天</SortableTableHead>
-                                    <TableHead style={{ width: 60 }}>時段</TableHead>
-                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">傷口</TableHead>
-                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">行為</TableHead>
-                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">食慾</TableHead>
-                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">排便</TableHead>
-                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">排尿</TableHead>
-                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">疼痛</TableHead>
-                                    <TableHead style={{ width: 50 }} className="text-center">總分</TableHead>
-                                    <TableHead style={{ width: 90 }}>疼痛分級</TableHead>
-                                    <TableHead style={{ width: 150 }}>給藥</TableHead>
+                                    <SortableTableHead style={{ width: 100 }} sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('animalRecords.painAssessment.date')}</SortableTableHead>
+                                    <SortableTableHead style={{ width: 60 }} sortKey="post_op_days" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('animalRecords.painAssessment.postOpDaysShort')}</SortableTableHead>
+                                    <TableHead style={{ width: 60 }}>{t('animalRecords.painAssessment.timePeriod')}</TableHead>
+                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">{t('animalRecords.painAssessment.incisionShort')}</TableHead>
+                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">{t('animalRecords.painAssessment.behaviorShort')}</TableHead>
+                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">{t('animalRecords.painAssessment.items.appetite')}</TableHead>
+                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">{t('animalRecords.painAssessment.items.feces')}</TableHead>
+                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">{t('animalRecords.painAssessment.items.urine')}</TableHead>
+                                    <TableHead style={{ width: 50 }} className="text-center hidden @[810px]:table-cell">{t('animalRecords.painAssessment.painShort')}</TableHead>
+                                    <TableHead style={{ width: 50 }} className="text-center">{t('animalRecords.painAssessment.total')}</TableHead>
+                                    <TableHead style={{ width: 90 }}>{t('animalRecords.painAssessment.gradeHeader')}</TableHead>
+                                    <TableHead style={{ width: 150 }}>{t('animalRecords.painAssessment.medicationHeader')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow><TableCell colSpan={12} className="p-0"><TableSkeleton rows={5} cols={12} /></TableCell></TableRow>
                                 ) : !records || records.length === 0 ? (
-                                    <TableEmptyRow colSpan={12} icon={Activity} title="尚無疼痛評估紀錄" description="請於手術紀錄中新增疼痛評估" />
+                                    <TableEmptyRow colSpan={12} icon={Activity} title={t('animalRecords.painAssessment.emptyTitle')} description={t('animalRecords.painAssessment.emptyHint')} />
                                 ) : (
                                     (sortedRecords ?? records)?.map((r) => {
                                         const total = getRecordTotal(r)
                                         const grade = getPainGrade(total)
                                         const meds = r.post_medications && r.post_medications.length > 0
-                                            ? r.post_medications.map((m) => m.name + (m.dose ? ` ${m.dose}${m.dosage_unit || ''}` : '')).join('、')
+                                            ? r.post_medications.map((m) => m.name + (m.dose ? ` ${m.dose}${m.dosage_unit || ''}` : '')).join(t('animalRecords.shared.listSeparator'))
                                             : [
                                                 r.injection_ketorolac && 'Ketorolac(IM)',
                                                 r.injection_meloxicam && 'Meloxicam(IM)',
@@ -181,7 +183,7 @@ export function PainAssessmentTab({ animalId }: PainAssessmentTabProps) {
                                                 <TableCell style={{ width: 50 }} className="text-center font-bold">{total ?? '-'}</TableCell>
                                                 <TableCell style={{ width: 90 }}>
                                                     {grade ? (
-                                                        <Badge variant={grade.variant}>{grade.label}</Badge>
+                                                        <Badge variant={grade.variant}>{t('animalRecords.painAssessment.gradeWithScore', { label: t(grade.labelKey), score: grade.total })}</Badge>
                                                     ) : '-'}
                                                 </TableCell>
                                                 <TableCell style={{ width: 150 }} className="text-xs text-muted-foreground whitespace-normal break-words">
@@ -202,15 +204,15 @@ export function PainAssessmentTab({ animalId }: PainAssessmentTabProps) {
                         ) : !records || records.length === 0 ? (
                             <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                                 <Activity className="h-8 w-8" />
-                                <p className="text-sm">尚無疼痛評估紀錄</p>
-                                <p className="text-xs">請於手術紀錄中新增疼痛評估</p>
+                                <p className="text-sm">{t('animalRecords.painAssessment.emptyTitle')}</p>
+                                <p className="text-xs">{t('animalRecords.painAssessment.emptyHint')}</p>
                             </div>
                         ) : (
                             (sortedRecords ?? records)?.map((r) => {
                                 const total = getRecordTotal(r)
                                 const grade = getPainGrade(total)
                                 const meds = r.post_medications && r.post_medications.length > 0
-                                    ? r.post_medications.map((m) => m.name + (m.dose ? ` ${m.dose}${m.dosage_unit || ''}` : '')).join('、')
+                                    ? r.post_medications.map((m) => m.name + (m.dose ? ` ${m.dose}${m.dosage_unit || ''}` : '')).join(t('animalRecords.shared.listSeparator'))
                                     : [
                                         r.injection_ketorolac && 'Ketorolac(IM)',
                                         r.injection_meloxicam && 'Meloxicam(IM)',
@@ -226,16 +228,16 @@ export function PainAssessmentTab({ animalId }: PainAssessmentTabProps) {
                                             <span className="text-xs text-muted-foreground">{dayLabel}</span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {grade ? <Badge variant={grade.variant}>{grade.label}</Badge> : null}
-                                            <span className="text-sm font-bold">總分 {total ?? '-'}</span>
+                                            {grade ? <Badge variant={grade.variant}>{t('animalRecords.painAssessment.gradeWithScore', { label: t(grade.labelKey), score: grade.total })}</Badge> : null}
+                                            <span className="text-sm font-bold">{t('animalRecords.painAssessment.totalWithValue', { value: total ?? '-' })}</span>
                                         </div>
                                         <div className="grid grid-cols-3 gap-x-3 gap-y-1 bg-muted/50 p-2 rounded text-xs text-muted-foreground">
-                                            <span>傷口：{r.incision ?? '-'}</span>
-                                            <span>行為：{r.attitude_behavior ?? '-'}</span>
-                                            <span>食慾：{r.appetite ?? '-'}</span>
-                                            <span>排便：{r.feces ?? '-'}</span>
-                                            <span>排尿：{r.urine ?? '-'}</span>
-                                            <span>疼痛：{r.pain_score ?? '-'}</span>
+                                            <span>{t('animalRecords.painAssessment.cardField', { label: t('animalRecords.painAssessment.incisionShort'), value: r.incision ?? '-' })}</span>
+                                            <span>{t('animalRecords.painAssessment.cardField', { label: t('animalRecords.painAssessment.behaviorShort'), value: r.attitude_behavior ?? '-' })}</span>
+                                            <span>{t('animalRecords.painAssessment.cardField', { label: t('animalRecords.painAssessment.items.appetite'), value: r.appetite ?? '-' })}</span>
+                                            <span>{t('animalRecords.painAssessment.cardField', { label: t('animalRecords.painAssessment.items.feces'), value: r.feces ?? '-' })}</span>
+                                            <span>{t('animalRecords.painAssessment.cardField', { label: t('animalRecords.painAssessment.items.urine'), value: r.urine ?? '-' })}</span>
+                                            <span>{t('animalRecords.painAssessment.cardField', { label: t('animalRecords.painAssessment.painShort'), value: r.pain_score ?? '-' })}</span>
                                         </div>
                                         {meds && (
                                             <div className="text-xs text-muted-foreground pt-1 border-t">

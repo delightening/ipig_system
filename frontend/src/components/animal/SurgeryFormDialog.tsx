@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
 import {
@@ -31,6 +32,7 @@ export function SurgeryFormDialog({
   earTag,
   surgery,
 }: Props) {
+  const { t } = useTranslation()
   const isEdit = !!surgery
   const { formData, setFormData, mutation, jumpToNextEmptyField } = useSurgeryForm({
     open,
@@ -53,7 +55,7 @@ export function SurgeryFormDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.surgery_site.trim()) {
-      toast({ title: '錯誤', description: '請填寫手術部位', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('animalRecords.surgeries.surgerySiteRequiredError'), variant: 'destructive' })
       return
     }
     mutation.mutate(formData)
@@ -66,9 +68,9 @@ export function SurgeryFormDialog({
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle>
-                {isEdit ? '編輯手術紀錄' : '新增手術紀錄'}
+                {isEdit ? t('animalRecords.surgeries.editTitle') : t('animalRecords.surgeries.createTitle')}
               </DialogTitle>
-              <DialogDescription>耳號：{earTag}</DialogDescription>
+              <DialogDescription>{t('animalRecords.shared.earTagLine', { earTag })}</DialogDescription>
             </div>
             <Button
               type="button"
@@ -76,10 +78,10 @@ export function SurgeryFormDialog({
               size="sm"
               onClick={jumpToNextEmptyField}
               className="flex items-center gap-2 border-status-purple-border text-status-purple-text hover:bg-status-purple-bg mr-4"
-              title="快捷鍵: Alt + N"
+              title={t('animalRecords.shared.shortcutAltN')}
             >
               <FastForward className="h-4 w-4" />
-              下一個空白欄位
+              {t('animalRecords.shared.jumpNextEmpty')}
             </Button>
           </div>
         </DialogHeader>
@@ -91,7 +93,7 @@ export function SurgeryFormDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
@@ -99,7 +101,7 @@ export function SurgeryFormDialog({
               className="bg-status-success-solid hover:bg-status-success-solid/90"
             >
               {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              儲存
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </form>

@@ -20,8 +20,8 @@ function flatten(tree: Tree, prefix = ''): Record<string, string> {
   return out
 }
 
-const zh = flatten(zhTW as Tree)
-const enFlat = flatten(en as Tree)
+const zh = flatten(zhTW as unknown as Tree)
+const enFlat = flatten(en as unknown as Tree)
 
 // 語言自稱（endonym）本來就該固定寫該語言的文字，不算 en 殘留中文。
 const EN_MAY_CONTAIN_CJK = new Set(['language.zhTW'])

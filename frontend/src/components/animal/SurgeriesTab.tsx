@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { GuestHide } from '@/components/ui/guest-hide'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -35,6 +36,7 @@ import { TableEmptyRow } from '@/components/ui/empty-state'
 import { useTableSort } from '@/hooks/useTableSort'
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { SurgeryFormDialog } from './SurgeryFormDialog'
+import { POSTURE_OPTIONS } from './useSurgeryForm'
 import { VersionHistoryDialog } from './VersionHistoryDialog'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 
@@ -46,6 +48,7 @@ interface SurgeriesTabProps {
 }
 
 export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag, afterParam: _afterParam, surgeries }: SurgeriesTabProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { sortedData, sort, toggleSort } = useTableSort(surgeries)
 
@@ -63,13 +66,13 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-surgeries', animalId] })
-      toast({ title: '成功', description: '手術紀錄已刪除' })
+      toast({ title: t('common.success'), description: t('animalRecords.surgeries.deleted') })
       setDeleteTarget(null)
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '刪除失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalRecords.shared.deleteFailed')),
         variant: 'destructive',
       })
     },
@@ -81,12 +84,12 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-surgeries', animalId] })
-      toast({ title: '成功', description: '手術紀錄已複製，請編輯新紀錄' })
+      toast({ title: t('common.success'), description: t('animalRecords.surgeries.copied') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '複製失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalRecords.shared.copyFailed')),
         variant: 'destructive',
       })
     },
@@ -109,8 +112,8 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
       window.URL.revokeObjectURL(url)
     } catch (error) {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, 'PDF 匯出失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalRecords.surgeries.pdfExportFailed')),
         variant: 'destructive',
       })
     }
@@ -121,14 +124,14 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>手術紀錄</CardTitle>
-            <CardDescription>記錄手術過程、麻醉資訊與術後照護</CardDescription>
+            <CardTitle>{t('animalDetail.tabs.surgeries')}</CardTitle>
+            <CardDescription>{t('animalRecords.surgeries.description')}</CardDescription>
           </div>
           <GuestHide>
             <Can permission={PERMISSIONS.ANIMAL_RECORD_CREATE}>
               <Button className="bg-status-purple-solid hover:bg-status-purple-solid/90" onClick={() => setShowAddDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                新增紀錄
+                {t('animalRecords.shared.addRecord')}
               </Button>
             </Can>
           </GuestHide>
@@ -142,18 +145,18 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead style={{ width: 40 }}></TableHead>
-                    <TableHead style={{ width: 70 }} className="text-center">是否首次</TableHead>
-                    <SortableTableHead style={{ width: 100 }} sortKey="surgery_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>手術日期</SortableTableHead>
-                    <SortableTableHead style={{ minWidth: 150 }} sortKey="surgery_site" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>手術部位</SortableTableHead>
-                    <TableHead style={{ width: 60 }} className="text-center hidden @[690px]:table-cell">停止用藥</TableHead>
-                    <TableHead style={{ width: 110 }} className="text-center whitespace-nowrap">獸醫師讀取</TableHead>
-                    <TableHead style={{ width: 90 }} className="hidden @[690px]:table-cell">記錄者</TableHead>
-                    <TableHead style={{ width: 160, minWidth: 160 }} className="sticky right-0 bg-card border-l text-center px-1 py-2">操作</TableHead>
+                    <TableHead style={{ width: 70 }} className="text-center">{t('animalRecords.surgeries.isFirst')}</TableHead>
+                    <SortableTableHead style={{ width: 100 }} sortKey="surgery_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('animalRecords.surgeries.surgeryDate')}</SortableTableHead>
+                    <SortableTableHead style={{ minWidth: 150 }} sortKey="surgery_site" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('animalRecords.surgeries.surgerySite')}</SortableTableHead>
+                    <TableHead style={{ width: 60 }} className="text-center hidden @[690px]:table-cell">{t('animalRecords.shared.stopMedication')}</TableHead>
+                    <TableHead style={{ width: 110 }} className="text-center whitespace-nowrap">{t('animalRecords.shared.vetReadHeader')}</TableHead>
+                    <TableHead style={{ width: 90 }} className="hidden @[690px]:table-cell">{t('animalRecords.shared.recorder')}</TableHead>
+                    <TableHead style={{ width: 160, minWidth: 160 }} className="sticky right-0 bg-card border-l text-center px-1 py-2">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {!surgeries || surgeries.length === 0 ? (
-                    <TableEmptyRow colSpan={8} icon={Scissors} title="尚無手術紀錄" />
+                    <TableEmptyRow colSpan={8} icon={Scissors} title={t('animalRecords.surgeries.emptyTitle')} />
                   ) : (
                     sortedData?.map((surgery) => (
                       <React.Fragment key={surgery.id}>
@@ -163,8 +166,8 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                               type="button"
                               onClick={() => setExpandedId(expandedId === surgery.id ? null : surgery.id)}
                               className="p-1 hover:bg-muted rounded"
-                              title="展開詳細資料"
-                              aria-label="展開詳細資料"
+                              title={t('animalRecords.shared.expandDetails')}
+                              aria-label={t('animalRecords.shared.expandDetails')}
                             >
                               <ChevronDown
                                 className={`h-4 w-4 transition-transform ${expandedId === surgery.id ? 'rotate-180' : ''}`}
@@ -173,8 +176,8 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                           </TableCell>
                           <TableCell style={{ width: 70 }} className="text-center">
                             {surgery.is_first_experiment
-                              ? <Badge className="bg-status-warning-bg text-status-warning-text">首次</Badge>
-                              : <span className="text-muted-foreground text-sm">否</span>}
+                              ? <Badge className="bg-status-warning-bg text-status-warning-text">{t('animalRecords.surgeries.firstBadge')}</Badge>
+                              : <span className="text-muted-foreground text-sm">{t('common.no')}</span>}
                           </TableCell>
                           <TableCell style={{ width: 100 }} className="whitespace-nowrap">{new Date(surgery.surgery_date).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })}</TableCell>
                           <TableCell style={{ minWidth: 150 }} className="whitespace-normal break-words">{surgery.surgery_site}</TableCell>
@@ -187,38 +190,38 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                           </TableCell>
                           <TableCell style={{ width: 110 }} className="text-center">
                             {surgery.vet_read ? (
-                              <Badge className="bg-status-success-bg text-status-success-text">已讀</Badge>
+                              <Badge className="bg-status-success-bg text-status-success-text">{t('animalRecords.shared.read')}</Badge>
                             ) : (
-                              <Badge variant="outline" className="text-muted-foreground">未讀</Badge>
+                              <Badge variant="outline" className="text-muted-foreground">{t('animalRecords.shared.unread')}</Badge>
                             )}
                           </TableCell>
                           <TableCell style={{ width: 90 }} className="whitespace-normal break-words hidden @[690px]:table-cell">{surgery.created_by_name || '-'}</TableCell>
                           <TableCell style={{ width: 160, minWidth: 160 }} className="px-1 py-1 sticky right-0 bg-card group-hover:bg-muted border-l">
                             <div className="grid grid-cols-4 gap-0.5 justify-items-center">
-                              <Button variant="ghost" size="icon" onClick={() => setExpandedId(surgery.id)} title="檢視詳情" aria-label="檢視詳情">
+                              <Button variant="ghost" size="icon" onClick={() => setExpandedId(surgery.id)} title={t('animalRecords.shared.viewDetails')} aria-label={t('animalRecords.shared.viewDetails')}>
                                 <Eye className="h-4 w-4" />
                               </Button>
                               <GuestHide>
                                 <Can permission={PERMISSIONS.ANIMAL_RECORD_EDIT}>
-                                  <Button variant="ghost" size="icon" onClick={() => { setEditingSurgery(surgery); setShowAddDialog(true) }} title="編輯">
+                                  <Button variant="ghost" size="icon" onClick={() => { setEditingSurgery(surgery); setShowAddDialog(true) }} title={t('common.edit')}>
                                     <Edit2 className="h-4 w-4" />
                                   </Button>
                                 </Can>
                                 <Can permission={PERMISSIONS.ANIMAL_RECORD_COPY}>
-                                  <Button variant="ghost" size="icon" onClick={() => { if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) copyMutation.mutate(surgery.id) }} disabled={copyMutation.isPending} title="複製">
+                                  <Button variant="ghost" size="icon" onClick={() => { if (confirm(t('animalRecords.shared.copyConfirm'))) copyMutation.mutate(surgery.id) }} disabled={copyMutation.isPending} title={t('animalRecords.shared.copy')}>
                                     <Copy className="h-4 w-4" />
                                   </Button>
                                 </Can>
-                                <Button variant="ghost" size="icon" onClick={() => { setVersionHistoryRecordId(surgery.id); setShowVersionHistory(true) }} title="版本歷史">
+                                <Button variant="ghost" size="icon" onClick={() => { setVersionHistoryRecordId(surgery.id); setShowVersionHistory(true) }} title={t('animalRecords.shared.versionHistory')}>
                                   <History className="h-4 w-4" />
                                 </Button>
                                 <Can permission={PERMISSIONS.ANIMAL_EXPORT_SURGERY}>
-                                  <Button variant="ghost" size="icon" onClick={() => downloadSurgeryPdf(surgery.id, surgery.surgery_date)} title="下載 PDF" aria-label="下載 PDF">
+                                  <Button variant="ghost" size="icon" onClick={() => downloadSurgeryPdf(surgery.id, surgery.surgery_date)} title={t('common.pdfExport.downloadPdf')} aria-label={t('common.pdfExport.downloadPdf')}>
                                     <FileDown className="h-4 w-4" />
                                   </Button>
                                 </Can>
                                 <Can permission={PERMISSIONS.ANIMAL_RECORD_DELETE}>
-                                  <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(surgery.id)} title="刪除" aria-label="刪除">
+                                  <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(surgery.id)} title={t('common.delete')} aria-label={t('common.delete')}>
                                     <Trash2 className="h-4 w-4 text-status-error-solid" />
                                   </Button>
                                 </Can>
@@ -231,7 +234,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                             <TableCell colSpan={8} className="bg-muted p-4">
                           <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <Label className="text-muted-foreground">誘導麻醉</Label>
+                              <Label className="text-muted-foreground">{t('animalRecords.surgeries.inductionAnesthesia')}</Label>
                               <p>
                                 {surgery.induction_anesthesia
                                   ? Object.entries(surgery.induction_anesthesia as Record<string, string>)
@@ -242,7 +245,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                               </p>
                             </div>
                             <div>
-                              <Label className="text-muted-foreground">麻醉維持</Label>
+                              <Label className="text-muted-foreground">{t('animalRecords.surgeries.anesthesiaMaintenance')}</Label>
                               <p>
                                 {surgery.anesthesia_maintenance
                                   ? Object.entries(surgery.anesthesia_maintenance as Record<string, string>)
@@ -253,26 +256,34 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                               </p>
                             </div>
                             <div>
-                              <Label className="text-muted-foreground">固定姿勢</Label>
-                              <p>{surgery.positioning ? surgery.positioning.split(',').join('、') : '-'}</p>
+                              <Label className="text-muted-foreground">{t('animalRecords.surgeries.positioning')}</Label>
+                              <p>{surgery.positioning
+                                ? surgery.positioning
+                                  .split(',')
+                                  .map((value) => {
+                                    const posture = POSTURE_OPTIONS.find((p) => p.value === value)
+                                    return posture ? t(posture.labelKey) : value
+                                  })
+                                  .join(t('animalRecords.shared.listSeparator'))
+                                : '-'}</p>
                             </div>
                             {surgery.anesthesia_observation && (
                               <div className="col-span-3">
-                                <Label className="text-muted-foreground">麻醉觀察過程</Label>
+                                <Label className="text-muted-foreground">{t('animalRecords.surgeries.anesthesiaObservation')}</Label>
                                 <p className="whitespace-pre-wrap">{surgery.anesthesia_observation}</p>
                               </div>
                             )}
                             {surgery.vital_signs && surgery.vital_signs.length > 0 && (
                               <div className="col-span-3">
-                                <Label className="text-muted-foreground">生理數值</Label>
+                                <Label className="text-muted-foreground">{t('animalRecords.surgeries.vitalSigns')}</Label>
                                 <div className="mt-2 overflow-x-auto">
                                   <Table className="min-w-full text-sm">
                                     <TableHeader>
                                       <TableRow className="border-b">
-                                        <TableHead className="px-2 py-1 text-left">時間</TableHead>
-                                        <TableHead className="px-2 py-1 text-left">心跳</TableHead>
-                                        <TableHead className="px-2 py-1 text-left">呼吸</TableHead>
-                                        <TableHead className="px-2 py-1 text-left">體溫</TableHead>
+                                        <TableHead className="px-2 py-1 text-left">{t('animalRecords.surgeries.vitalTime')}</TableHead>
+                                        <TableHead className="px-2 py-1 text-left">{t('animalRecords.surgeries.heartRate')}</TableHead>
+                                        <TableHead className="px-2 py-1 text-left">{t('animalRecords.surgeries.respiration')}</TableHead>
+                                        <TableHead className="px-2 py-1 text-left">{t('animalRecords.surgeries.temperature')}</TableHead>
                                         <TableHead className="px-2 py-1 text-left">SPO2</TableHead>
                                       </TableRow>
                                     </TableHeader>
@@ -280,8 +291,8 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                                       {surgery.vital_signs.map((vs, i) => (
                                         <TableRow key={i} className="border-b">
                                           <TableCell className="px-2 py-1">{vs.time}</TableCell>
-                                          <TableCell className="px-2 py-1">{vs.heart_rate}/分</TableCell>
-                                          <TableCell className="px-2 py-1">{vs.respiration_rate}/分</TableCell>
+                                          <TableCell className="px-2 py-1">{t('animalRecords.surgeries.perMinute', { value: vs.heart_rate })}</TableCell>
+                                          <TableCell className="px-2 py-1">{t('animalRecords.surgeries.perMinute', { value: vs.respiration_rate })}</TableCell>
                                           <TableCell className="px-2 py-1">{vs.temperature}°C</TableCell>
                                           <TableCell className="px-2 py-1">{vs.spo2}%</TableCell>
                                         </TableRow>
@@ -293,13 +304,13 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                             )}
                             {surgery.reflex_recovery && (
                               <div className="col-span-3">
-                                <Label className="text-muted-foreground">反射恢復觀察</Label>
+                                <Label className="text-muted-foreground">{t('animalRecords.surgeries.reflexRecovery')}</Label>
                                 <p>{surgery.reflex_recovery}</p>
                               </div>
                             )}
                             {surgery.remark && (
                               <div className="col-span-3">
-                                <Label className="text-muted-foreground">備註</Label>
+                                <Label className="text-muted-foreground">{t('animalRecords.shared.remark')}</Label>
                                 <p>{surgery.remark}</p>
                               </div>
                             )}
@@ -319,7 +330,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
               {!surgeries || surgeries.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                   <Scissors className="h-8 w-8" />
-                  <p className="text-sm">尚無手術紀錄</p>
+                  <p className="text-sm">{t('animalRecords.surgeries.emptyTitle')}</p>
                 </div>
               ) : (
                 sortedData?.map((surgery) => (
@@ -329,46 +340,46 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                         {new Date(surgery.surgery_date).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })}
                       </span>
                       {surgery.is_first_experiment && (
-                        <Badge className="bg-status-warning-bg text-status-warning-text">首次</Badge>
+                        <Badge className="bg-status-warning-bg text-status-warning-text">{t('animalRecords.surgeries.firstBadge')}</Badge>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground leading-snug break-words">{surgery.surgery_site}</p>
                     <div className="flex items-center justify-between gap-2 pt-1 border-t">
                       <div className="flex items-center gap-2">
                         {surgery.vet_read
-                          ? <Badge className="bg-status-success-bg text-status-success-text text-xs">獸醫已讀</Badge>
-                          : <Badge variant="outline" className="text-muted-foreground text-xs">獸醫未讀</Badge>}
+                          ? <Badge className="bg-status-success-bg text-status-success-text text-xs">{t('animalRecords.shared.vetRead')}</Badge>
+                          : <Badge variant="outline" className="text-muted-foreground text-xs">{t('animalRecords.shared.vetUnread')}</Badge>}
                         {surgery.no_medication_needed && (
-                          <span title="停止用藥">
+                          <span title={t('animalRecords.shared.stopMedication')}>
                             <CheckCircle2 className="h-3.5 w-3.5 text-status-success-solid" />
                           </span>
                         )}
                       </div>
                       <div className="grid grid-cols-3 gap-0.5">
-                        <Button variant="ghost" size="icon" onClick={() => setExpandedId(surgery.id)} title="檢視詳情">
+                        <Button variant="ghost" size="icon" onClick={() => setExpandedId(surgery.id)} title={t('animalRecords.shared.viewDetails')}>
                           <Eye className="h-4 w-4" />
                         </Button>
                         <GuestHide>
                           <Can permission={PERMISSIONS.ANIMAL_RECORD_EDIT}>
-                            <Button variant="ghost" size="icon" onClick={() => { setEditingSurgery(surgery); setShowAddDialog(true) }} title="編輯">
+                            <Button variant="ghost" size="icon" onClick={() => { setEditingSurgery(surgery); setShowAddDialog(true) }} title={t('common.edit')}>
                               <Edit2 className="h-4 w-4" />
                             </Button>
                           </Can>
                           <Can permission={PERMISSIONS.ANIMAL_RECORD_COPY}>
-                            <Button variant="ghost" size="icon" onClick={() => { if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) copyMutation.mutate(surgery.id) }} disabled={copyMutation.isPending} title="複製">
+                            <Button variant="ghost" size="icon" onClick={() => { if (confirm(t('animalRecords.shared.copyConfirm'))) copyMutation.mutate(surgery.id) }} disabled={copyMutation.isPending} title={t('animalRecords.shared.copy')}>
                               <Copy className="h-4 w-4" />
                             </Button>
                           </Can>
-                          <Button variant="ghost" size="icon" onClick={() => { setVersionHistoryRecordId(surgery.id); setShowVersionHistory(true) }} title="版本歷史">
+                          <Button variant="ghost" size="icon" onClick={() => { setVersionHistoryRecordId(surgery.id); setShowVersionHistory(true) }} title={t('animalRecords.shared.versionHistory')}>
                             <History className="h-4 w-4" />
                           </Button>
                           <Can permission={PERMISSIONS.ANIMAL_EXPORT_SURGERY}>
-                            <Button variant="ghost" size="icon" onClick={() => downloadSurgeryPdf(surgery.id, surgery.surgery_date)} title="下載 PDF" aria-label="下載 PDF">
+                            <Button variant="ghost" size="icon" onClick={() => downloadSurgeryPdf(surgery.id, surgery.surgery_date)} title={t('common.pdfExport.downloadPdf')} aria-label={t('common.pdfExport.downloadPdf')}>
                               <FileDown className="h-4 w-4" />
                             </Button>
                           </Can>
                           <Can permission={PERMISSIONS.ANIMAL_RECORD_DELETE}>
-                            <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(surgery.id)} title="刪除">
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(surgery.id)} title={t('common.delete')}>
                               <Trash2 className="h-4 w-4 text-status-error-solid" />
                             </Button>
                           </Can>
@@ -408,7 +419,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
       <DeleteReasonDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        copy={{ title: '刪除手術紀錄', description: '此操作將標記紀錄為已刪除，資料將保留於系統中以符合 GLP 規範。' }}
+        copy={{ title: t('animalRecords.surgeries.deleteTitle'), description: t('animalRecords.shared.deleteRecordDescription') }}
         onConfirm={(reason) => deleteMutation.mutate({ id: deleteTarget!, reason })}
         isPending={deleteMutation.isPending}
       />
