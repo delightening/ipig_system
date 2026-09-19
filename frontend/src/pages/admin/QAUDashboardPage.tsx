@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { FileText, ClipboardList, Shield, Stethoscope, AlertTriangle, BookOpen, Calendar } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -114,6 +115,20 @@ function entityLabel(entityType: string, t: TFunction): string {
   return getEntityTypeLabel(t, entityType) ?? entityType
 }
 
+// 後端 display_name 固定中文（backend/src/services/qau.rs），改依 status code 走語言包；
+// 語言包沒有的 code（後端日後新增）退回後端的 display_name，不顯示鍵名。
+// 回傳新陣列，讓 useTableSort 依翻譯後的文字排序。
+function localizeStatusRows<T extends { status: string; display_name: string }>(
+  rows: T[] | undefined,
+  keyPrefix: string,
+  t: TFunction,
+): T[] | undefined {
+  return rows?.map((row) => ({
+    ...row,
+    display_name: t(`${keyPrefix}.${row.status}`, { defaultValue: row.display_name }),
+  }))
+}
+
 export function QAUDashboardPage() {
   const { t } = useTranslation()
   const { data, isLoading, error } = useGuestQuery(
@@ -128,15 +143,25 @@ export function QAUDashboardPage() {
     },
   )
 
+  // react-i18next 切換語言時會換一個新的 t，deps 放 t 即可跟著重算
+  const protocolStatusRows = useMemo(
+    () => localizeStatusRows(data?.protocol_status_summary, 'protocols.status', t),
+    [data?.protocol_status_summary, t],
+  )
+  const animalStatusRows = useMemo(
+    () => localizeStatusRows(data?.animal_summary?.by_status, 'animals.statusLabels', t),
+    [data?.animal_summary?.by_status, t],
+  )
+
   const {
     sortedData: sortedProtocolStatus, sort: protocolSort, toggleSort: toggleProtocolSort,
-  } = useTableSort(data?.protocol_status_summary)
+  } = useTableSort(protocolStatusRows)
   const {
     sortedData: sortedAudit, sort: auditSort, toggleSort: toggleAuditSort,
   } = useTableSort(data?.audit_summary)
   const {
     sortedData: sortedAnimalStatus, sort: animalSort, toggleSort: toggleAnimalSort,
-  } = useTableSort(data?.animal_summary?.by_status)
+  } = useTableSort(animalStatusRows)
 
   if (error) {
     return (
@@ -309,7 +334,7 @@ export function QAUDashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(sortedProtocolStatus ?? data.protocol_status_summary).map((row) => (
+                    {(sortedProtocolStatus ?? protocolStatusRows ?? []).map((row) => (
                       <TableRow key={row.status}>
                         <TableCell>{row.display_name}</TableCell>
                         <TableCell className="text-right">{row.count}</TableCell>
@@ -375,7 +400,7 @@ export function QAUDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(sortedAnimalStatus ?? data.animal_summary.by_status).map((row) => (
+                  {(sortedAnimalStatus ?? animalStatusRows ?? []).map((row) => (
                     <TableRow key={row.status}>
                       <TableCell>{row.display_name}</TableCell>
                       <TableCell className="text-right">{row.count}</TableCell>

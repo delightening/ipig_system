@@ -535,7 +535,7 @@
     "status": {
       "DRAFT": "草稿",
       "SUBMITTED": "已送審",
-      "PRE_REVIEW": "預審中",
+      "PRE_REVIEW": "行政預審中",
       "PRE_REVIEW_REVISION_REQUIRED": "行政預審補件",
       "VET_REVIEW": "獸醫審查",
       "VET_REVISION_REQUIRED": "獸醫要求修訂",
@@ -544,7 +544,7 @@
       "RESUBMITTED": "已重新送審",
       "APPROVED": "已核准",
       "APPROVED_WITH_CONDITIONS": "附條件核准",
-      "DEFERRED": "暫緩",
+      "DEFERRED": "延後審議",
       "REJECTED": "已駁回",
       "SUSPENDED": "已暫停",
       "CLOSED": "已結案",

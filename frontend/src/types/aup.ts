@@ -32,7 +32,7 @@ export type ProtocolStatus =
  * 計畫狀態名稱（getter 版：每次讀取才依當下語言翻譯，見 `@/lib/i18nLabels`）。
  *
  * 不沿用 `protocols.status.*`：該組的 zh-TW 措辭與本表不同（例：本表 PRE_REVIEW＝行政預審、
- * 該組＝預審中），為保持既有顯示不變，另用 `typesLabels.protocolStatus.*`。
+ * 該組＝行政預審中），為保持既有顯示不變，另用 `typesLabels.protocolStatus.*`。
  */
 export const protocolStatusNames: Record<ProtocolStatus, string> = createLabelMap(
     'typesLabels.protocolStatus',
