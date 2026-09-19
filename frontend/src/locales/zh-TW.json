@@ -8153,5 +8153,1541 @@
         "notice": "「{{name}}」<strong>不在例行盤點名單內</strong>——這裡的東西流動快，帳面不維護準確度。若你是照每月盤點的慣例開這張單，請確認是否選錯倉庫；若是因為<strong>領不出來或發現帳實不符</strong>而要校正，那就對了，請繼續。"
       }
     }
+  },
+  "adminGlp": {
+    "shared": {
+      "title": "標題",
+      "titleRequired": "標題 *",
+      "type": "類型",
+      "status": "狀態",
+      "description": "描述",
+      "remarks": "備註",
+      "owner": "負責人",
+      "category": "類別",
+      "severity": "嚴重度",
+      "version": "版本",
+      "documentNumber": "文件編號",
+      "reportNumber": "報告編號",
+      "createdAt": "建立時間",
+      "create": "建立",
+      "loading": "載入中…",
+      "saving": "儲存中…",
+      "createFailed": "建立失敗",
+      "approve": "核准",
+      "approveFailed": "核准失敗",
+      "allStatuses": "所有狀態",
+      "allTypes": "所有類型",
+      "listSeparator": "、",
+      "equipment": "設備",
+      "facility": "設施",
+      "inspectionType": {
+        "protocol": "計畫書",
+        "training": "訓練",
+        "general": "一般"
+      },
+      "statusLabel": {
+        "draft": "草稿",
+        "submitted": "已提交",
+        "underReview": "審查中",
+        "approved": "已核准",
+        "active": "生效中",
+        "obsolete": "已廢止",
+        "inProgress": "進行中",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "closed": "已結案",
+        "overdue": "逾期",
+        "pendingVerification": "待驗證",
+        "verified": "已驗證"
+      }
+    },
+    "qaDashboard": {
+      "title": "QAU 品質保證儀表板",
+      "description": "GLP 合規：研究狀態、審查進度、稽核摘要、動物實驗概覽（唯讀）",
+      "loadFailed": "載入失敗：{{message}}",
+      "noData": "無資料",
+      "statusCount": "{{status}}：{{count}}",
+      "status": {
+        "submitted": "已送出",
+        "planned": "已排定",
+        "scheduled": "已排程",
+        "open": "開放中",
+        "pending": "待辦"
+      },
+      "card": {
+        "statusChanges": "7 日內狀態變更",
+        "statusChangesHint": "計畫狀態變動次數",
+        "protocolsInReview": "審查中計畫",
+        "protocolsInReviewHint": "含預審、獸醫審、正式審查、送審、補件後重送",
+        "pendingPi": "待 PI 回覆",
+        "pendingPiHint": "審查 / 預審 / 獸醫審後需修正",
+        "openNc": "開放中異常 (NC)",
+        "openNcHint": "開放中、處理中、待驗證",
+        "overdueNc": "逾期異常 (NC)",
+        "overdueNcHint": "已超過截止日未結案",
+        "activeSop": "現行 SOP",
+        "activeSopHint": "啟用中的 SOP 文件",
+        "inspectionReports": "稽查報告",
+        "totalAnimals": "動物總數",
+        "inExperiment": "實驗中",
+        "euthanized": "安樂死",
+        "experimentCompleted": "實驗完成"
+      },
+      "protocolStatus": {
+        "title": "計畫狀態分布",
+        "description": "依研究計畫目前狀態統計"
+      },
+      "auditSummary": {
+        "title": "稽核活動摘要（7 日內）",
+        "description": "系統操作紀錄依資料類型統計"
+      },
+      "animalStatus": {
+        "title": "動物狀態分布"
+      },
+      "col": {
+        "count": "數量",
+        "entityType": "資料類型",
+        "recordCount": "筆數"
+      }
+    },
+    "qaInspection": {
+      "title": "稽查報告",
+      "description": "GLP 合規：建立與管理 QAU 稽查報告",
+      "create": "新增稽查報告",
+      "edit": "編輯稽查報告",
+      "inspectionType": "稽查類型",
+      "allTypes": "全部類型",
+      "listTitle": "稽查報告列表",
+      "empty": "尚無稽查報告",
+      "inspectionDate": "稽查日期",
+      "inspector": "稽查人員",
+      "submit": "送出",
+      "close": "關閉",
+      "status": {
+        "closed": "已關閉"
+      },
+      "findings": "稽查發現",
+      "conclusion": "結論",
+      "items": "稽查項目",
+      "itemDescription": "稽查事項",
+      "itemPlaceholder": "稽查事項描述",
+      "result": "結果",
+      "resultPass": "符合",
+      "resultFail": "不符合",
+      "resultNotApplicable": "不適用"
+    },
+    "qaNonConformance": {
+      "title": "不符合事項（NC）",
+      "description": "記錄與追蹤不符合事項及矯正預防行動（CAPA）",
+      "create": "新增 NC",
+      "all": "全部",
+      "listTitle": "不符合事項列表",
+      "empty": "尚無不符合事項",
+      "col": {
+        "ncNumber": "NC 編號",
+        "source": "來源",
+        "dueDate": "截止日"
+      },
+      "severity": {
+        "critical": "重大",
+        "major": "主要",
+        "minor": "輕微"
+      },
+      "status": {
+        "open": "開啟",
+        "inProgress": "處理中"
+      },
+      "source": {
+        "inspection": "稽查發現",
+        "observation": "觀察",
+        "externalAudit": "外部稽核",
+        "selfReport": "自主回報"
+      },
+      "capa": {
+        "title": "矯正預防行動（CAPA）",
+        "create": "新增 CAPA",
+        "edit": "編輯 CAPA",
+        "empty": "尚無 CAPA",
+        "corrective": "矯正",
+        "preventive": "預防",
+        "actionType": "行動類型",
+        "correctiveAction": "矯正行動（CA）",
+        "preventiveAction": "預防行動（PA）",
+        "actionDescription": "行動描述"
+      },
+      "dialog": {
+        "edit": "編輯不符合事項",
+        "create": "新增不符合事項",
+        "assignee": "指派人",
+        "selectAssignee": "選擇指派人",
+        "unassigned": "不指派",
+        "dueDate": "截止日期"
+      }
+    },
+    "qaSop": {
+      "title": "SOP 文件管理",
+      "description": "標準作業程序文件版本控制與閱讀確認",
+      "create": "新增 SOP",
+      "categoryFilter": "類別篩選",
+      "listTitle": "SOP 文件列表",
+      "empty": "尚無 SOP 文件",
+      "col": {
+        "effectiveDate": "生效日",
+        "reviewDate": "審查日",
+        "acknowledgments": "確認數"
+      },
+      "ackPeople": "{{count}} 人",
+      "download": "下載",
+      "acknowledge": "確認閱讀",
+      "dialog": {
+        "edit": "編輯 SOP 文件",
+        "create": "新增 SOP 文件",
+        "effectiveDate": "生效日期",
+        "nextReviewDate": "下次審查日期",
+        "file": "SOP 文件檔案",
+        "fileTooLarge": "檔案大小不得超過 30 MB",
+        "uploaded": "已上傳：{{name}}",
+        "selectFile": "點擊選擇 PDF 或 Word 檔案（最大 30 MB）",
+        "uploadOnSave": "將在儲存時上傳 ({{size}} MB)",
+        "uploading": "上傳中…"
+      }
+    },
+    "qaSchedule": {
+      "title": "稽查排程",
+      "description": "年度 QA 稽查計畫排程與執行追蹤",
+      "create": "建立年度計畫",
+      "year": "年份",
+      "listTitle": "稽查排程列表",
+      "empty": "尚無稽查排程",
+      "col": {
+        "year": "年度",
+        "planName": "計畫名稱",
+        "plannedDate": "計畫日期",
+        "actualDate": "實際日期"
+      },
+      "items": "排程項目",
+      "noItems": "尚無排程項目",
+      "status": {
+        "planned": "計畫中"
+      },
+      "scheduleType": {
+        "annual": "年度",
+        "periodic": "定期",
+        "adhoc": "不定期"
+      },
+      "defaultTitle": "{{year}} 年度稽查計畫",
+      "dialog": {
+        "title": "建立年度稽查計畫",
+        "explanation": "說明",
+        "inspectionTitle": "稽查標題",
+        "createPlan": "建立計畫",
+        "creating": "建立中…"
+      }
+    },
+    "studyFinalReport": {
+      "title": "研究最終報告",
+      "subtitle": "GLP 最終報告管理",
+      "create": "新增報告",
+      "empty": "尚無報告",
+      "col": {
+        "directorSignature": "主持人簽署",
+        "qauSignature": "QAU 簽署"
+      },
+      "status": {
+        "signed": "已簽署"
+      },
+      "dialog": {
+        "create": "新增最終報告",
+        "protocolId": "實驗計畫 ID *",
+        "protocolIdHint": "只有該計畫的計劃負責人（Study Director）本人可以建立報告。"
+      },
+      "summary": "摘要",
+      "methods": "方法",
+      "results": "結果",
+      "conclusions": "結論",
+      "deviations": "偏離事項",
+      "view": {
+        "summary": "摘要：",
+        "methods": "方法：",
+        "results": "結果：",
+        "conclusions": "結論：",
+        "deviations": "偏離事項："
+      },
+      "detail": {
+        "fallbackTitle": "最終報告",
+        "loadFailed": "載入報告失敗",
+        "signedAt": "主持人已於 {{time}} 簽署",
+        "editBody": "編輯報告本文",
+        "signSection": "簽署最終報告（僅本計畫計劃負責人 Study Director 可簽）",
+        "passwordPlaceholder": "密碼確認身分",
+        "sign": "簽署",
+        "qauStatement": "QAU 品保聲明",
+        "qauIssuedAt": "已於 {{time}} 出具",
+        "qauPlaceholder": "品保稽核結論…",
+        "saveQauStatement": "儲存品保聲明",
+        "noQauStatement": "尚無品保聲明"
+      },
+      "toast": {
+        "created": "最終報告已建立",
+        "updated": "報告已更新",
+        "updateFailed": "更新失敗",
+        "signed": "已簽署最終報告",
+        "signFailed": "簽署失敗",
+        "qauSaved": "QAU 品保聲明已儲存",
+        "saveFailed": "儲存失敗"
+      }
+    },
+    "environmentMonitoring": {
+      "title": "環境監控",
+      "subtitle": "GLP / ISO 17025 環境條件管理",
+      "recordReading": "記錄讀數",
+      "addPoint": "新增監控點",
+      "points": "監控點",
+      "col": {
+        "name": "名稱",
+        "locationType": "位置類型",
+        "interval": "監控頻率",
+        "readingTime": "讀數時間",
+        "readings": "讀數"
+      },
+      "active": "啟用",
+      "inactive": "停用",
+      "empty": "尚無監控點",
+      "viewReadings": "查看讀數",
+      "readingsTitle": "讀數紀錄 — {{name}}",
+      "outOfRange": "超標",
+      "normal": "正常",
+      "noReadings": "尚無讀數",
+      "locationType": {
+        "animalRoom": "動物房",
+        "lab": "實驗室",
+        "storage": "儲存區",
+        "cleanRoom": "無塵室"
+      },
+      "interval": {
+        "continuous": "連續",
+        "hourly": "每小時",
+        "daily": "每日"
+      },
+      "form": {
+        "nameRequired": "名稱 *",
+        "locationTypeRequired": "位置類型 *",
+        "intervalRequired": "監控頻率 *",
+        "pointRequired": "監控點 *",
+        "selectPoint": "選擇監控點",
+        "readingTimeRequired": "讀數時間 *",
+        "readingsLabel": "讀數 (參數 / 數值)",
+        "parameterName": "參數名稱",
+        "value": "數值",
+        "addParameter": "+ 新增參數",
+        "record": "記錄"
+      },
+      "toast": {
+        "pointCreated": "監控點已建立",
+        "readingRecorded": "讀數已記錄",
+        "recordFailed": "記錄失敗"
+      }
+    },
+    "documentControl": {
+      "title": "文件控制系統",
+      "subtitle": "ISO 17025 / ISO 9001 受控文件管理",
+      "create": "新增文件",
+      "empty": "尚無文件",
+      "docType": {
+        "qualityManual": "品質手冊",
+        "sop": "SOP",
+        "form": "表單",
+        "external": "外部文件",
+        "policy": "政策",
+        "report": "報告"
+      },
+      "status": {
+        "obsolete": "已作廢"
+      },
+      "acknowledge": "簽收",
+      "dialog": {
+        "title": "新增受控文件",
+        "docTypeRequired": "文件類型 *",
+        "category": "分類",
+        "retentionYears": "保存年限"
+      },
+      "toast": {
+        "created": "文件已建立",
+        "approved": "文件已核准",
+        "acknowledged": "已簽收",
+        "acknowledgeFailed": "簽收失敗"
+      }
+    },
+    "changeControl": {
+      "title": "變更控制",
+      "subtitle": "ISO 9001 變更管理",
+      "create": "新增變更申請",
+      "empty": "尚無變更申請",
+      "col": {
+        "changeNumber": "變更編號",
+        "requester": "申請人"
+      },
+      "type": {
+        "method": "方法",
+        "personnel": "人員",
+        "system": "系統",
+        "process": "流程"
+      },
+      "status": {
+        "implemented": "已實施",
+        "rejected": "已駁回"
+      },
+      "confirm": {
+        "title": "確認核准變更請求",
+        "description": "核准後此變更請求將進入已核准狀態。確認核准？",
+        "label": "確認核准"
+      },
+      "dialog": {
+        "changeTypeRequired": "變更類型 *",
+        "descriptionRequired": "描述 *",
+        "justification": "變更理由"
+      },
+      "toast": {
+        "created": "變更申請已建立",
+        "approved": "變更已核准"
+      }
+    },
+    "riskRegister": {
+      "title": "風險登記簿",
+      "subtitle": "ISO 17025 / ISO 9001 風險管理",
+      "create": "新增風險",
+      "allCategories": "所有類別",
+      "empty": "尚無風險紀錄",
+      "category": {
+        "technical": "技術",
+        "operational": "營運",
+        "compliance": "法規遵循",
+        "safety": "安全"
+      },
+      "status": {
+        "identified": "已辨識",
+        "mitigated": "已緩解",
+        "accepted": "已接受"
+      },
+      "col": {
+        "riskNumber": "風險編號",
+        "likelihood": "可能性",
+        "riskScore": "風險分數"
+      },
+      "dialog": {
+        "categoryRequired": "類別 *",
+        "severityRange": "嚴重度 (1-5) *",
+        "likelihoodRange": "可能性 (1-5) *",
+        "mitigationPlan": "緩解計畫"
+      },
+      "toast": {
+        "created": "風險已登記"
+      }
+    },
+    "competencyAssessment": {
+      "title": "能力評鑑",
+      "subtitle": "ISO 17025 / ISO 9001 人員能力管理",
+      "create": "新增評鑑",
+      "allResults": "所有結果",
+      "empty": "尚無評鑑紀錄",
+      "assessmentType": {
+        "initial": "初次評鑑",
+        "periodic": "定期評鑑",
+        "requalification": "重新資格認定"
+      },
+      "result": {
+        "competent": "合格",
+        "notYetCompetent": "不合格",
+        "requiresSupervision": "需監督"
+      },
+      "method": {
+        "observation": "觀察",
+        "writtenTest": "筆試",
+        "practicalTest": "實作測驗",
+        "peerReview": "同儕審查"
+      },
+      "col": {
+        "assessee": "受評人",
+        "skillArea": "技能領域",
+        "assessmentType": "評鑑類型",
+        "assessmentDate": "評鑑日期",
+        "result": "結果",
+        "score": "分數",
+        "assessor": "評鑑者",
+        "validUntil": "有效至"
+      },
+      "dialog": {
+        "title": "新增能力評鑑",
+        "assesseeIdRequired": "受評人 ID *",
+        "assesseePlaceholder": "使用者 UUID",
+        "skillAreaRequired": "技能領域 *",
+        "assessmentTypeRequired": "評鑑類型 *",
+        "assessmentMethod": "評鑑方法",
+        "assessmentDateRequired": "評鑑日期 *",
+        "resultRequired": "結果 *"
+      },
+      "toast": {
+        "created": "能力評鑑已建立"
+      }
+    },
+    "formulationRecords": {
+      "title": "配製紀錄",
+      "subtitle": "GLP 試驗物質配製紀錄管理",
+      "create": "新增配製紀錄",
+      "empty": "尚無配製紀錄",
+      "col": {
+        "product": "產品",
+        "formulationDate": "配製日期",
+        "batchNumber": "批號",
+        "concentration": "濃度",
+        "volume": "體積",
+        "preparer": "配製者",
+        "verifier": "驗證者",
+        "expiryDate": "效期"
+      },
+      "dialog": {
+        "productIdRequired": "產品 ID *",
+        "productIdPlaceholder": "輸入產品 UUID",
+        "protocolId": "計畫書 ID",
+        "optional": "選填",
+        "formulationDateRequired": "配製日期 *"
+      },
+      "toast": {
+        "created": "配製紀錄已建立"
+      }
+    },
+    "managementReview": {
+      "title": "管理審查",
+      "subtitle": "ISO 17025 / ISO 9001 管理審查紀錄",
+      "create": "新增審查",
+      "empty": "尚無審查紀錄",
+      "status": {
+        "planned": "已規劃"
+      },
+      "col": {
+        "reviewNumber": "審查編號",
+        "reviewDate": "審查日期",
+        "chair": "主持人"
+      },
+      "dialog": {
+        "title": "新增管理審查",
+        "reviewDateRequired": "審查日期 *",
+        "agenda": "議程"
+      },
+      "toast": {
+        "created": "管理審查已建立"
+      }
+    },
+    "fieldCorrections": {
+      "title": "修正審核",
+      "description": "耳號、出生日期、性別、品種等欄位建立後不可直接修改，需經管理員批准後才能套用修正。",
+      "pendingTitle": "待審核申請",
+      "pendingCount": "共 {{count}} 筆待審核",
+      "col": {
+        "field": "欄位",
+        "originalValue": "原值",
+        "newValue": "新值",
+        "reason": "原因",
+        "requester": "申請人",
+        "requestedAt": "申請時間"
+      },
+      "field": {
+        "earTag": "耳號",
+        "birthDate": "出生日期",
+        "gender": "性別",
+        "breed": "品種"
+      },
+      "value": {
+        "male": "公",
+        "female": "母",
+        "miniPig": "迷你豬",
+        "whitePig": "白豬",
+        "other": "其他"
+      },
+      "empty": {
+        "title": "目前沒有待審核的修正申請",
+        "description": "所有修正申請皆已處理完畢"
+      },
+      "approve": "批准",
+      "reject": "拒絕",
+      "confirm": {
+        "title": "確認批准修正",
+        "description": "批准後將直接套用此修正至動物 {{earTag}} 的識別欄位（耳號／出生日期／性別／品種），此動作不可逆。確認批准？",
+        "label": "確認批准"
+      },
+      "rejectDialog": {
+        "title": "拒絕修正申請",
+        "description": "請填寫拒絕原因（必填）。耳號：{{earTag}}",
+        "reasonLabel": "拒絕原因 *",
+        "reasonPlaceholder": "如：經查證原資料正確，無需修正",
+        "confirm": "確認拒絕"
+      },
+      "toast": {
+        "approved": "已批准修正申請",
+        "approveFailed": "批准失敗",
+        "rejected": "已拒絕修正申請",
+        "rejectFailed": "拒絕失敗"
+      }
+    }
+  },
+  "adminOps": {
+    "shared": {
+      "createFailed": "新增失敗",
+      "updateFailed": "更新失敗",
+      "deleteFailed": "刪除失敗",
+      "operationFailed": "操作失敗",
+      "requestFailed": "申請失敗",
+      "generateFailed": "產生失敗",
+      "restoreFailed": "恢復失敗"
+    },
+    "equipment": {
+      "page": {
+        "title": "設備維護管理",
+        "description": "實驗室 GLP 合規：設備管理、校正/確效/查核、維修/保養、報廢",
+        "addEquipment": "新增設備"
+      },
+      "tabs": {
+        "equipment": "設備",
+        "calibrations": "校正/確效/查核",
+        "maintenance": "維修/保養",
+        "idle": "閒置管理",
+        "disposals": "報廢",
+        "annualPlan": "年度計畫"
+      },
+      "confirm": {
+        "deleteEquipment": "確定要刪除設備「{{name}}」嗎？",
+        "deleteRecord": "確定要刪除此紀錄嗎？",
+        "approveDisposal": "確定核准此報廢申請？",
+        "rejectDisposal": "確定駁回此報廢申請？",
+        "restoreEquipment": "確定要恢復此設備為啟用狀態？",
+        "approveIdle": "確定核准此閒置申請？"
+      },
+      "prompt": {
+        "idleReason": "請輸入閒置原因：",
+        "restoreReason": "請輸入恢復原因：",
+        "rejectReason": "請輸入駁回原因："
+      },
+      "history": {
+        "notFound": "找不到該設備",
+        "backToList": "返回設備列表",
+        "title": "設備履歷",
+        "fullHistory": "完整履歷"
+      },
+      "toast": {
+        "equipmentDeleted": "已刪除設備",
+        "recordCreated": "已新增紀錄",
+        "recordUpdated": "已更新紀錄",
+        "recordDeleted": "已刪除紀錄",
+        "equipmentCreated": "已新增設備",
+        "equipmentUpdated": "已更新設備",
+        "planGenerated": "已產生 {{year}} 年度計畫",
+        "planItemCreated": "已新增年度計畫項目",
+        "planItemDeleted": "已刪除年度計畫項目",
+        "disposalProcessed": "已處理報廢申請",
+        "equipmentRestored": "設備已恢復為啟用狀態",
+        "disposalSubmitted": "已送出報廢申請",
+        "maintenanceCreated": "已新增維修/保養紀錄",
+        "maintenanceUpdated": "已更新維修/保養紀錄",
+        "idleSubmitted": "已提交閒置申請",
+        "idleProcessed": "已處理閒置申請"
+      },
+      "validation": {
+        "nameRequired": "設備名稱為必填",
+        "calibEquipmentAndDateRequired": "請選擇設備並填寫執行日期",
+        "calibDateRequired": "執行日期為必填"
+      }
+    },
+    "notificationRouting": {
+      "channelLabel": "通知管道",
+      "descriptionLabel": "描述",
+      "channels": {
+        "inApp": "站內通知",
+        "email": "Email",
+        "both": "站內 + Email"
+      },
+      "resolvers": {
+        "protocolPiSd": "計畫 PI / 計劃負責人(SD)",
+        "protocolPi": "計畫 PI",
+        "assignedReviewers": "被指派審查委員",
+        "eventSubject": "當事人本人",
+        "leaveRequestApprovers": "核准經手人"
+      },
+      "frequency": {
+        "immediate": "即時",
+        "daily": "每日",
+        "weekly": "每週",
+        "monthly": "每月"
+      },
+      "weekdays": {
+        "sun": "星期日",
+        "mon": "星期一",
+        "tue": "星期二",
+        "wed": "星期三",
+        "thu": "星期四",
+        "fri": "星期五",
+        "sat": "星期六"
+      },
+      "page": {
+        "title": "通知路由設定",
+        "description": "管理事件觸發時的通知對象與通知方式",
+        "addRule": "新增規則"
+      },
+      "createDialog": {
+        "title": "新增通知路由規則",
+        "description": "設定當特定事件發生時，通知哪個角色以及使用何種通知方式",
+        "eventTypeLabel": "事件類型 *",
+        "eventTypePlaceholder": "選擇事件類型",
+        "roleLabel": "通知角色 *",
+        "rolePlaceholder": "選擇角色",
+        "descriptionPlaceholder": "例如：計畫提交後通知 IACUC 執行秘書",
+        "submit": "建立"
+      },
+      "editDialog": {
+        "title": "編輯通知路由規則",
+        "activeLabel": "啟用狀態",
+        "descriptionPlaceholder": "規則描述",
+        "frequencySettings": "通知頻率設定",
+        "frequencyLabel": "頻率",
+        "executionTime": "執行時間",
+        "dayOfWeek": "星期幾"
+      },
+      "deleteDialog": {
+        "title": "刪除路由規則",
+        "description": "確定要刪除「{{event}} → {{recipient}}」的路由規則嗎？"
+      },
+      "toast": {
+        "created": "通知路由規則已建立",
+        "createFailed": "建立失敗",
+        "updated": "通知路由規則已更新",
+        "deleted": "通知路由規則已刪除",
+        "toggleFailed": "切換失敗",
+        "selectEventAndRole": "請選擇事件類型與角色"
+      },
+      "table": {
+        "colEventType": "事件類型",
+        "colRecipientSource": "收件人來源",
+        "colActive": "啟用",
+        "emptyTitle": "此分類尚無通知路由規則，可點擊「新增規則」建立",
+        "collapseRecipients": "收合收件人",
+        "expandRecipients": "展開收件人",
+        "resolverBadgeTitle": "關係型：收件人由事件動態決定，不可調整",
+        "recipientsLoading": "載入收件人中…",
+        "resolverDescription": "：{{description}}",
+        "resolverNote": "（關係型，依事件動態決定，不可調整）",
+        "noMembers": "目前無持有此角色的使用者",
+        "actualRecipients": "實際收件人（{{count}} 人）："
+      },
+      "expiry": {
+        "title": "效期通知範圍設定",
+        "updated": "效期通知設定已更新",
+        "warnDaysRange": "提前預警天數需介於 1-365",
+        "cutoffDaysRange": "過期截止天數需介於 1-730",
+        "warnDaysLabel": "提前預警天數",
+        "warnDaysHint": "效期前幾天開始顯示預警（1-365）",
+        "daysUnit": "天",
+        "cutoffDaysLabel": "過期截止天數",
+        "cutoffDaysHint": "過期超過幾天後停止通知（1-730）",
+        "monthlyLabel": "月度彙整通知",
+        "monthlyHint": "過期超過指定天數後，改為每月一次彙整通知並與上月比較",
+        "monthlyPrefix": "過期超過",
+        "monthlySuffix": "天後轉為月度彙整",
+        "currentSummary": "現行設定：效期前 <strong>{{warnDays}}</strong> 天開始預警，過期超過 <strong>{{cutoffDays}}</strong> 天停止通知",
+        "currentSummaryMonthly": "，過期超過 <strong>{{days}}</strong> 天轉月度彙整",
+        "saveButton": "儲存設定"
+      },
+      "fixed": {
+        "title": "固定通知（系統流程決定，不可調整）",
+        "description": "以下通知的收件人由系統流程動態決定、不經路由設定，故不可新增／編輯／刪除；僅供檢視「有什麼狀況會通知誰」。",
+        "colEvent": "事件",
+        "colTrigger": "觸發情境",
+        "colRecipient": "通知對象",
+        "colNote": "說明"
+      },
+      "section": {
+        "title": "通知路由管理",
+        "subtitle": "設定各類事件的通知收件角色與管道",
+        "totalSummary": "（共 {{total}} 條規則，{{active}} 條啟用中）",
+        "addFormTitle": "新增路由規則",
+        "eventType": "事件類型",
+        "role": "角色",
+        "channel": "通道",
+        "channelBoth": "兩者",
+        "descriptionOptional": "說明（選填）",
+        "descriptionPlaceholder": "管理者備註",
+        "loadError": "無法載入通知路由設定",
+        "empty": "尚未設定任何通知路由規則",
+        "categoryOther": "其他",
+        "categoryActiveCount": "{{active}}/{{total}} 啟用",
+        "frequencyLabel": "頻率：",
+        "timeLabel": "時間：",
+        "weekdayLabel": "星期：",
+        "deleteConfirmDescription": "確定要刪除「{{role}}」的此條規則嗎？此操作無法復原。",
+        "toast": {
+          "created": "已新增通知路由規則",
+          "deleted": "規則已刪除",
+          "noticeTitle": "提示",
+          "selectEventAndRole": "請選擇事件類型和角色"
+        }
+      }
+    },
+    "treatmentDrugs": {
+      "page": {
+        "title": "藥物選單管理",
+        "description": "管理治療方式用藥的下拉選單選項",
+        "importFromErp": "從 ERP 匯入",
+        "addDrug": "新增藥物",
+        "createDialogTitle": "新增藥物選項",
+        "editDialogTitle": "編輯藥物選項"
+      },
+      "filter": {
+        "searchPlaceholder": "搜尋藥物名稱...",
+        "categoryPlaceholder": "分類",
+        "allCategories": "全部分類",
+        "statusPlaceholder": "狀態",
+        "all": "全部",
+        "active": "啟用中",
+        "inactive": "已停用"
+      },
+      "form": {
+        "description": "設定藥物名稱、預設單位和分類",
+        "nameLabel": "藥品名稱 *",
+        "namePlaceholder": "例：Meloxicam",
+        "nameHint": "同一「藥物名稱＋分類」僅能有一筆啟用項目，重複時請改為編輯既有項目。",
+        "displayNameLabel": "顯示名稱",
+        "displayNamePlaceholder": "例：Meloxicam（美洛昔康）",
+        "categoryLabel": "分類",
+        "categoryPlaceholder": "選擇分類",
+        "availableUnitsLabel": "可用單位（多選）",
+        "defaultUnitLabel": "預設劑量單位",
+        "unitPlaceholder": "選擇單位",
+        "unitPlaceholderDisabled": "請先勾選可用單位",
+        "sortOrderLabel": "排序（數字越小越前面）"
+      },
+      "table": {
+        "colName": "藥物名稱",
+        "colDisplayName": "顯示名稱",
+        "colCategory": "分類",
+        "colDefaultUnit": "預設單位",
+        "colSort": "排序",
+        "colStatus": "狀態",
+        "statusActive": "啟用",
+        "statusInactive": "停用",
+        "emptyTitle": "尚無藥物選項",
+        "emptyDescription": "點擊「新增藥物」或「從 ERP 匯入」開始建立"
+      },
+      "categories": {
+        "anesthesia": "麻醉",
+        "analgesia": "止痛",
+        "antibiotic": "抗生素",
+        "sedation": "鎮靜",
+        "dewormer": "驅蟲",
+        "vaccine": "疫苗",
+        "other": "其他"
+      },
+      "toast": {
+        "created": "已新增藥物選項",
+        "updated": "已更新藥物選項",
+        "deactivated": "已停用藥物選項",
+        "nameRequired": "藥品名稱為必填"
+      },
+      "confirm": {
+        "deactivate": "確定要停用「{{name}}」嗎？",
+        "activate": "確定要啟用「{{name}}」嗎？"
+      },
+      "import": {
+        "title": "從 ERP 匯入藥物",
+        "description": "搜尋 ERP 產品並匯入為藥物選項",
+        "searchPlaceholder": "搜尋 ERP 產品名稱...",
+        "selectedCount": "已選擇 {{count}} 個產品",
+        "importButton": "匯入 ({{count}})",
+        "noResults": "無符合的產品",
+        "typeToSearch": "請輸入關鍵字搜尋",
+        "successTitle": "匯入成功",
+        "successDescription": "已匯入 {{count}} 個藥物選項",
+        "failedTitle": "匯入失敗"
+      }
+    }
+  },
+  "adminUsers": {
+    "shared": {
+      "createFailed": "創建失敗",
+      "addFailed": "新增失敗",
+      "updateFailed": "更新失敗",
+      "deleteFailed": "刪除失敗",
+      "saveFailed": "儲存失敗",
+      "fillAllRequired": "請填寫所有必填欄位",
+      "fillRequired": "請填寫必填欄位",
+      "externalStaffTag": "（外部人員）",
+      "listSeparator": "、",
+      "affiliation": {
+        "label": "身分",
+        "internal": "本場受僱人員",
+        "internalDetail": "適用請假、加班、特休、打卡與人員訓練；可被指派為研究主持人（SD）。",
+        "external": "外部人員",
+        "externalDetail": "受邀參與，不適用人事作業。例如計畫主持人、委託人、外聘審查委員。",
+        "note": "這與「屬於哪個部門」無關：外部人員（例如 IACUC 外聘委員）一樣可以編入部門。"
+      }
+    },
+    "users": {
+      "description": "管理系統使用者帳號與角色",
+      "showInactive": "顯示停用帳號",
+      "exportAll": "匯出所有使用者",
+      "exportActive": "匯出啟用使用者",
+      "inviteButton": "邀請使用者",
+      "unsettled": {
+        "title": "此人身上還有未結清事項",
+        "forceRemove": "仍要移除（待辦將退回）"
+      },
+      "deleteUserFailed": "刪除使用者失敗",
+      "impersonate": {
+        "title": "模擬登入確認",
+        "description": "確定要以「{{name}}」的身分登入？請輸入您的登入密碼以確認。"
+      },
+      "affiliationRequired": "請選擇這個人是本場受僱人員或外部人員",
+      "validation": {
+        "emailRequired": "請輸入 Email",
+        "emailInvalid": "請輸入有效的 Email",
+        "passwordMinLength": "密碼至少需要 {{min}} 個字元",
+        "nameMinLength": "至少 2 個字元",
+        "nameMaxLength": "最多 50 個字元",
+        "rolesRequired": "請選擇角色"
+      },
+      "toast": {
+        "created": "用戶已創建",
+        "updated": "用戶已更新",
+        "deleted": "用戶已刪除",
+        "passwordReset": "密碼已重設",
+        "resetPasswordFailed": "重設密碼失敗",
+        "passwordWrong": "密碼錯誤，請重新輸入您的登入密碼",
+        "reauthRequired": "請輸入您的登入密碼以確認身份",
+        "fillAllFields": "請填寫所有欄位",
+        "passwordMismatch": "兩次輸入的密碼不一致",
+        "noDataToExport": "無資料可匯出",
+        "noUsers": "目前沒有使用者",
+        "exported": "已匯出 {{count}} 位使用者"
+      },
+      "createError": {
+        "passwordComplexity": "密碼必須包含大寫字母、小寫字母和數字",
+        "emailFormat": "Email 格式不正確",
+        "displayNameRequired": "顯示名稱為必填欄位",
+        "emailTaken": "此 Email 已被使用",
+        "validationFailedPrefix": "驗證失敗:",
+        "badFormat422": "資料格式錯誤 (422)",
+        "serverError": "伺服器內部錯誤，請稍後再試",
+        "forbidden": "權限不足",
+        "requestFailed": "請求失敗 ({{status}})"
+      },
+      "csv": {
+        "phone": "電話",
+        "organization": "組織",
+        "position": "職稱",
+        "entryDate": "到職日",
+        "aupRoles": "AUP角色",
+        "yearsExperience": "年資"
+      },
+      "affiliationAudit": {
+        "title": "有 {{count}} 位使用者的身分與其角色不一致",
+        "body": "下列人員的「本場受僱人員 / 外部人員」設定與其持有的角色相矛盾。 這不一定是錯的——外聘獸醫、外部審查委員本來就會這樣； 但具試驗工作人員等內部職能卻被標為外部的人，<strong>預設不會出現在部門成員的候選名單裡</strong>（需在部門成員對話框明確開啟「一併顯示外部人員」才列得出來、才能指派）， 也不適用請假、加班等人事作業——連帶讓他的假單找不到單位主管簽核。請逐一確認。",
+        "current": "目前：{{status}}",
+        "roles": "角色：{{roles}}",
+        "goEdit": "前往修改"
+      }
+    },
+    "roles": {
+      "description": "管理系統角色與權限設定",
+      "addRole": "新增角色",
+      "noPermissions": "無權限",
+      "moduleCount": "{{module}} {{count}} 項",
+      "viewDetails": "查看詳情 ({{count}} 個權限)",
+      "createDescription": "創建新的系統角色並設定權限",
+      "codeLabel": "角色代碼 *",
+      "codePlaceholder": "例如: manager",
+      "nameLabel": "角色名稱 *",
+      "namePlaceholder": "例如: 經理",
+      "editNameLabel": "角色名稱",
+      "permissionSettings": "權限設定",
+      "createButton": "創建",
+      "editRole": "編輯角色",
+      "editDescription": "修改角色 {{name}} 的設定",
+      "detailTitle": "{{name}} — 權限詳情",
+      "detailDescription": "共 {{count}} 個權限（唯讀）",
+      "confirmDeactivateTitle": "確認停用系統角色",
+      "confirmDeleteTitle": "確認刪除角色",
+      "confirmDeactivateDescription": "確定要停用角色「{{name}}」？請輸入您的登入密碼以確認。",
+      "confirmDeleteDescription": "確定要刪除角色「{{name}}」？請輸入您的登入密碼以確認。",
+      "signature": {
+        "defaultTitle": "電子簽章",
+        "create": "簽署：建立角色",
+        "update": "簽署：更新角色與權限",
+        "delete": "簽署：刪除角色",
+        "deactivate": "簽署：停用角色",
+        "description": "本操作會記錄電子簽章（密碼 + 手寫）至稽核軌跡。請輸入密碼並完成手寫簽名後送出。"
+      },
+      "toast": {
+        "created": "角色已創建",
+        "updated": "角色已更新",
+        "deactivated": "系統角色已停用",
+        "deleted": "角色已刪除"
+      }
+    },
+    "settings": {
+      "description": "管理系統的全域設定參數",
+      "systemSaved": "系統設定已儲存",
+      "notificationSaved": "通知設定已儲存",
+      "loadError": "無法載入系統設定，請確認您有管理員權限",
+      "saveButton": "儲存系統設定"
+    },
+    "invitations": {
+      "description": "管理客戶邀請連結",
+      "addButton": "新增邀請",
+      "status": {
+        "all": "全部",
+        "pending": "待接受",
+        "accepted": "已接受",
+        "expired": "已過期",
+        "revoked": "已撤銷"
+      },
+      "toast": {
+        "revoked": "已撤銷邀請",
+        "resent": "已重新發送邀請",
+        "linkUpdated": "連結已更新：{{link}}..."
+      },
+      "col": {
+        "organization": "組織",
+        "status": "狀態",
+        "invitedBy": "邀請人",
+        "createdAt": "建立時間",
+        "expiresAt": "到期時間"
+      },
+      "empty": "尚無邀請紀錄",
+      "resend": "重新發送",
+      "revoke": "撤銷",
+      "cardMeta": "{{name}} · 建立 {{created}} · 到期 {{expires}}",
+      "affiliationRequired": "請選擇受邀者是本場受僱人員或外部人員"
+    },
+    "audit": {
+      "page": {
+        "description": "監控系統活動與安全事件",
+        "refresh": "重新整理"
+      },
+      "tab": {
+        "overview": "總覽",
+        "activities": "活動記錄",
+        "logins": "登入事件",
+        "sessions": "活躍 Sessions",
+        "alerts": "安全警報",
+        "securityEvents": "安全事件",
+        "ipBlocklist": "IP 黑名單"
+      },
+      "logsPage": {
+        "description": "追蹤所有使用者的操作記錄與變更歷史",
+        "invalidateSignature": "撤銷簽章"
+      },
+      "export": {
+        "actorEmail": "操作者信箱",
+        "suspicious": "可疑",
+        "filenamePrefix": "操作日誌"
+      },
+      "data": {
+        "loggedOutTitle": "已登出",
+        "selfForceLogoutDescription": "您的 Session 已被強制登出，即將返回登入頁面",
+        "sessionForceLoggedOut": "已強制登出該 Session",
+        "alertResolved": "已解決警報",
+        "alertsResolvedCount": "已解決 {{count}} 筆警報"
+      },
+      "category": {
+        "erp": "ERP",
+        "aup": "計畫書",
+        "animal": "實驗動物",
+        "system": "系統",
+        "admin": "系統管理",
+        "audit": "稽核",
+        "equipment": "設施設備",
+        "hr": "人員管理",
+        "messaging": "站內信",
+        "plannedExperiment": "試驗規劃",
+        "protocolTemplate": "計畫書範本",
+        "security": "安全"
+      },
+      "eventType": {
+        "docCreate": "建立單據",
+        "docUpdate": "更新單據",
+        "docDelete": "刪除單據",
+        "docSubmit": "送審單據",
+        "docApprove": "核准單據",
+        "docCancel": "作廢單據",
+        "partnerCreate": "建立夥伴",
+        "partnerUpdate": "更新夥伴",
+        "partnerDelete": "刪除夥伴",
+        "productCreate": "建立產品",
+        "productUpdate": "更新產品",
+        "productDelete": "刪除產品",
+        "categoryCreate": "建立分類",
+        "warehouseCreate": "建立倉庫",
+        "warehouseUpdate": "更新倉庫",
+        "warehouseDelete": "刪除倉庫",
+        "roleCreate": "建立角色",
+        "roleUpdate": "更新角色",
+        "roleDelete": "刪除角色",
+        "animalCreate": "建立動物",
+        "animalUpdate": "更新動物",
+        "animalDelete": "刪除動物",
+        "animalBatchAssign": "批次分配",
+        "observationCreate": "建立觀察",
+        "observationUpdate": "更新觀察",
+        "observationDelete": "刪除觀察",
+        "surgeryCreate": "建立手術",
+        "surgeryUpdate": "更新手術",
+        "surgeryDelete": "刪除手術",
+        "weightCreate": "記錄體重",
+        "weightUpdate": "更新體重",
+        "weightDelete": "刪除體重",
+        "vaccinationCreate": "建立疫苗",
+        "vaccinationUpdate": "更新疫苗",
+        "vaccinationDelete": "刪除疫苗",
+        "sacrificeUpsert": "犧牲/安樂死",
+        "pathologyUpsert": "病理報告",
+        "vetRecommendationAdd": "獸醫建議",
+        "medicalExport": "匯出醫療資料",
+        "bloodTestCreate": "建立血液檢查",
+        "bloodTestUpdate": "更新血液檢查",
+        "bloodTestDelete": "刪除血液檢查",
+        "templateCreate": "建立模板",
+        "templateUpdate": "更新模板",
+        "templateDelete": "刪除模板",
+        "panelCreate": "建立組合",
+        "panelUpdate": "更新組合",
+        "panelDelete": "刪除組合",
+        "protocolCreate": "建立計畫書",
+        "protocolUpdate": "更新計畫書",
+        "protocolSubmit": "送審計畫書",
+        "protocolApprove": "核准計畫書",
+        "protocolReject": "駁回計畫書",
+        "protocolStatusChange": "狀態變更",
+        "protocolReviewerAssign": "指派審查委員",
+        "protocolImportApproved": "核准匯入計畫書",
+        "protocolImportFinalized": "完成匯入計畫書",
+        "protocolImportReviewsRecorded": "記錄匯入審查",
+        "protocolDeleted": "刪除計畫書",
+        "protocolSoftDeleted": "停用計畫書",
+        "protocolPiProvisioned": "開通計畫主持人",
+        "piInviteSend": "寄送主持人邀請",
+        "amendmentClassifyMinor": "判定為次要修正",
+        "amendmentClassifyMajor": "判定為重大修正",
+        "amendmentRevisionRequired": "要求修正案補正",
+        "amendmentEffective": "修正案生效",
+        "amendmentImportBackfilled": "補建匯入修正案",
+        "amendmentImportFinalized": "完成匯入修正案",
+        "amendmentImportReviewsRecorded": "記錄修正案審查",
+        "loginSuccess": "登入成功",
+        "loginFailed": "登入失敗",
+        "logout": "登出",
+        "forceLogout": "強制登出",
+        "impersonateStart": "開始代理登入",
+        "passwordSelfChange": "變更密碼",
+        "passwordAdminReset": "管理員重設密碼",
+        "passwordTokenReset": "重設密碼",
+        "twoFactorEnabled": "啟用兩步驟驗證",
+        "twoFactorDisabled": "停用兩步驟驗證",
+        "ipBlocklistAdd": "封鎖 IP",
+        "ipBlocklistUnblock": "解除 IP 封鎖",
+        "signatureCreate": "電子簽章",
+        "userCreate": "建立使用者",
+        "userUpdate": "更新使用者",
+        "userStatusChange": "使用者狀態變更",
+        "userRoleChange": "使用者角色變更",
+        "userDepartmentChange": "使用者部門變更",
+        "userDeactivateSelf": "停用本人帳號",
+        "userDelete": "刪除使用者",
+        "rolePermissionChange": "角色權限變更",
+        "roleDeactivate": "停用角色",
+        "aiApiKeyCreate": "建立 AI 金鑰",
+        "aiApiKeyDelete": "刪除 AI 金鑰",
+        "leaveCreate": "建立請假",
+        "leaveUpdate": "更新請假",
+        "leaveDelete": "刪除請假",
+        "leaveSubmit": "送出請假",
+        "leaveProxyConfirm": "代理人確認",
+        "leaveProxyReject": "代理人駁回",
+        "leaveApproveInterim": "初步核准請假",
+        "leaveApproveFinal": "核准請假",
+        "leaveApproveInterimOverride": "初步核准請假（覆核）",
+        "leaveApproveFinalOverride": "核准請假（覆核）",
+        "leaveReject": "駁回請假",
+        "leaveCancel": "取消請假",
+        "leaveCancelRetroactive": "追溯取消請假",
+        "overtimeCreate": "建立加班",
+        "overtimeUpdate": "更新加班",
+        "overtimeDelete": "刪除加班",
+        "overtimeSubmit": "送出加班",
+        "overtimeApproveInterim": "初步核准加班",
+        "overtimeApproveFinal": "核准加班",
+        "overtimeReject": "駁回加班",
+        "overtimeVoid": "作廢加班",
+        "compTimeRevoke": "收回補休",
+        "attendanceClockIn": "上班打卡",
+        "attendanceClockOut": "下班打卡",
+        "attendanceClockInDenied": "上班打卡遭拒",
+        "attendanceClockOutDenied": "下班打卡遭拒",
+        "attendanceCorrect": "出勤更正",
+        "attendanceBackfill": "出勤補登",
+        "annualLeaveCreate": "建立特休",
+        "annualLeaveAdjust": "調整特休",
+        "annualLeaveBatchAutoCalc": "批次計算特休",
+        "annualLeaveExpiryRecompute": "特休到期重算",
+        "animalAssign": "分配動物",
+        "animalRemarkUpdate": "更新動物備註",
+        "animalImport": "匯入動物",
+        "iacucChange": "IACUC 變更",
+        "weightImport": "匯入體重",
+        "suddenDeath": "猝死記錄",
+        "bloodTestItemCorrect": "血檢項目更正",
+        "presetCreate": "建立血檢預設",
+        "presetUpdate": "更新血檢預設",
+        "presetDelete": "刪除血檢預設",
+        "careRecordCreate": "建立照護紀錄",
+        "careRecordUpdate": "更新照護紀錄",
+        "careRecordDelete": "刪除照護紀錄",
+        "vetAdviceRecordCreate": "建立獸醫建議",
+        "vetAdviceRecordUpdate": "更新獸醫建議",
+        "vetAdviceRecordDelete": "刪除獸醫建議",
+        "vetPatrolReportCreated": "建立巡場報告",
+        "vetPatrolReportUpdated": "更新巡場報告",
+        "vetPatrolReportSubmittedForFollowup": "巡場報告送追蹤",
+        "vetPatrolReportAcknowledged": "巡場報告已確認",
+        "vetPatrolReportCompleted": "巡場報告完成",
+        "vetPatrolReportDiscarded": "巡場報告作廢",
+        "vetPatrolReportDeleted": "刪除巡場報告",
+        "vetPatrolEntryPhotoDeleted": "刪除巡場照片",
+        "byproductSampleCreate": "建立副產物樣本",
+        "byproductSampleUpdate": "更新副產物樣本",
+        "byproductSampleDelete": "刪除副產物樣本",
+        "animalSourceCreate": "建立動物來源",
+        "animalSourceUpdate": "更新動物來源",
+        "animalSourceDeactivate": "停用動物來源",
+        "transferInitiate": "發起動物轉移",
+        "transferVetEvaluate": "獸醫評估轉移",
+        "transferAssignPlan": "指派轉移計畫",
+        "transferApprove": "核准動物轉移",
+        "transferComplete": "完成動物轉移",
+        "transferReject": "駁回動物轉移",
+        "exportSurgery": "匯出手術資料",
+        "exportBloodTest": "匯出血檢資料",
+        "animalMedicalWeeklyReportRead": "讀取醫療週報",
+        "docWmApprove": "倉管核准單據",
+        "docAdminApprove": "主管核准單據",
+        "docAdminReject": "主管駁回單據",
+        "productCreateWithSku": "建立產品（含 SKU）",
+        "productStatusChange": "產品狀態變更",
+        "productHardDelete": "永久刪除產品",
+        "productCategoryCreate": "建立產品分類",
+        "productImport": "匯入產品",
+        "partnerImport": "匯入夥伴",
+        "warehouseImport": "匯入倉庫",
+        "skuCategoryUpdate": "更新 SKU 分類",
+        "skuCategoryDelete": "刪除 SKU 分類",
+        "skuSubcategoryCreate": "建立 SKU 子分類",
+        "skuSubcategoryUpdate": "更新 SKU 子分類",
+        "skuSubcategoryDelete": "刪除 SKU 子分類",
+        "storageInventoryUpdate": "調整庫存",
+        "apPaymentCreated": "建立應付付款",
+        "arReceiptCreated": "建立應收收款",
+        "dataExport": "匯出資料",
+        "dataImport": "匯入資料",
+        "maintenanceCreate": "建立維護紀錄",
+        "maintenanceUpdate": "更新維護紀錄",
+        "maintenanceDelete": "刪除維護紀錄",
+        "maintenanceReviewerSignature": "維護覆核簽章",
+        "disposalApplicantSignature": "報廢申請簽章",
+        "disposalApproverSignature": "報廢核准簽章",
+        "disposalRestore": "取消設備報廢",
+        "equipmentAutoRestore": "設備自動復原",
+        "facilitySpeciesCreate": "建立物種",
+        "facilitySpeciesUpdate": "更新物種",
+        "facilitySpeciesDelete": "刪除物種",
+        "facilityFacilityCreate": "建立場所",
+        "facilityFacilityUpdate": "更新場所",
+        "facilityFacilityDelete": "刪除場所",
+        "facilityBuildingCreate": "建立建物",
+        "facilityBuildingUpdate": "更新建物",
+        "facilityBuildingDelete": "刪除建物",
+        "facilityZoneCreate": "建立區域",
+        "facilityZoneUpdate": "更新區域",
+        "facilityZoneDelete": "刪除區域",
+        "facilityPenCreate": "建立欄位",
+        "facilityPenBatchCreate": "批次建立欄位",
+        "facilityPenUpdate": "更新欄位",
+        "facilityPenDelete": "刪除欄位",
+        "facilityDepartmentCreate": "建立部門",
+        "facilityDepartmentUpdate": "更新部門",
+        "facilityDepartmentDelete": "刪除部門",
+        "messageThreadCreated": "建立訊息主旨",
+        "messageSent": "傳送訊息",
+        "messageDeleted": "刪除訊息",
+        "create": "建立",
+        "update": "更新",
+        "delete": "刪除",
+        "approve": "核准",
+        "acknowledge": "確認",
+        "accountLockout": "帳號鎖定",
+        "permissionDenied": "權限不足遭拒",
+        "rateLimitApi": "API 頻率限制",
+        "userAutoSuspended": "使用者自動停權",
+        "docHardDelete": "永久刪除單據",
+        "maintenanceReview": "維護覆核",
+        "maintenanceReviewApprove": "維護覆核核准",
+        "animalReserved": "預約動物",
+        "plannedExperimentCreated": "建立試驗規劃",
+        "applicationNoticeCreated": "建立計畫須知",
+        "applicationNoticeContentUpdated": "更新計畫須知內容",
+        "applicationNoticeActivated": "啟用計畫須知",
+        "protocolCoeditorAssign": "指派協作編輯",
+        "protocolVetAssign": "指派獸醫",
+        "protocolImportDeleted": "刪除匯入計畫書",
+        "protocolTemplateVersionCreated": "建立計畫書範本版本",
+        "protocolTemplateVersionDeleted": "刪除計畫書範本版本",
+        "protocolTemplateVersionSetCurrent": "設為現行計畫書範本版本",
+        "vetPatrolReportSubmitted": "送出巡場報告"
+      },
+      "entityType": {
+        "document": "單據",
+        "partner": "夥伴",
+        "partnerImportJob": "夥伴匯入批次",
+        "product": "產品",
+        "productCategory": "產品分類",
+        "warehouse": "倉庫",
+        "role": "角色",
+        "user": "使用者",
+        "session": "登入工作階段",
+        "database": "資料庫",
+        "aiApiKey": "AI API 金鑰",
+        "systemSetting": "系統設定",
+        "animal": "動物",
+        "animalObservation": "觀察記錄",
+        "animalSurgery": "手術記錄",
+        "animalWeight": "體重記錄",
+        "animalVaccination": "疫苗記錄",
+        "animalSacrifice": "犧牲記錄",
+        "animalSuddenDeaths": "猝死記錄",
+        "animalPathology": "病理報告",
+        "animalBloodTest": "血液檢查",
+        "animalBloodTestItem": "血檢項目",
+        "animalSource": "動物來源",
+        "animalTransfers": "動物轉移",
+        "animalImportBatch": "動物匯入批次",
+        "bloodTestTemplate": "血檢模板",
+        "bloodTestPanel": "血檢組合",
+        "bloodTestPreset": "血檢預設",
+        "careMedicationRecord": "日常用藥紀錄",
+        "vetRecommendation": "獸醫建議",
+        "vetPatrolReports": "巡場報告",
+        "euthanasia": "安樂死",
+        "protocol": "計畫書",
+        "amendment": "計畫修正案",
+        "facility": "設施",
+        "equipment": "設備",
+        "maintenanceRecord": "維護紀錄",
+        "overtimeRecord": "加班紀錄",
+        "leaveRequest": "請假申請",
+        "attendanceRecord": "出勤紀錄",
+        "messageThreads": "站內信",
+        "messages": "訊息",
+        "qaInspections": "稽查報告",
+        "qaNonConformances": "品質異常 (NC)",
+        "qaSopDocuments": "SOP 文件",
+        "qaSchedules": "稽查排程",
+        "qaScheduleItems": "稽查排程項目",
+        "annualLeaveEntitlement": "特休額度",
+        "applicationNotice": "計畫須知",
+        "electronicSignature": "電子簽章",
+        "plannedExperiment": "試驗規劃",
+        "protocolTemplateVersion": "計畫書範本版本",
+        "piAccountInvite": "主持人帳號邀請",
+        "species": "物種",
+        "building": "棟別",
+        "zone": "區域",
+        "pen": "欄位",
+        "department": "部門",
+        "equipmentDisposals": "設備報廢",
+        "apPayment": "應付付款",
+        "arReceipt": "應收收款",
+        "byproductSample": "副產物樣本",
+        "referenceStandard": "對照標準品",
+        "documentRevision": "文件修訂",
+        "riskEntry": "風險項目",
+        "changeRequest": "變更申請",
+        "monitoringPoint": "監控點",
+        "environmentReading": "環境監測讀值",
+        "competencyAssessment": "能力評鑑",
+        "trainingRequirement": "訓練需求",
+        "formulationRecord": "配製紀錄",
+        "ipBlocklist": "IP 封鎖"
+      },
+      "alertType": {
+        "cspViolation": "CSP 違規",
+        "cspViolationReportOnly": "CSP 違規（僅回報）",
+        "refreshTokenReuse": "Refresh Token 重用",
+        "bruteForce": "暴力破解嘗試",
+        "idorProbe": "IDOR 探測",
+        "unusualLogin": "異常登入"
+      },
+      "severity": {
+        "critical": "嚴重",
+        "high": "高",
+        "warning": "警告",
+        "medium": "中",
+        "info": "資訊",
+        "low": "低"
+      }
+    },
+    "trainingRecords": {
+      "title": "人員訓練紀錄",
+      "description": "GLP 合規：管理人員訓練與證照有效期限",
+      "addButton": "新增訓練紀錄",
+      "tabRecords": "員工訓練紀錄",
+      "tabExpiring": "證照即將到期",
+      "toast": {
+        "added": "已新增訓練紀錄",
+        "updated": "已更新訓練紀錄",
+        "deleted": "已刪除訓練紀錄"
+      },
+      "fillRequiredWithFields": "請填寫必填欄位（課程名稱、完成日期）",
+      "confirmDelete": "確定要刪除「{{name}}」的訓練紀錄嗎？"
+    },
+    "facilities": {
+      "description": "管理物種分類、設施、棟舍、區域、欄位與部門架構",
+      "cardTitle": "基礎資料維護",
+      "tab": {
+        "species": "物種",
+        "facilities": "設施",
+        "buildings": "棟舍",
+        "zones": "區域",
+        "pens": "欄位",
+        "departments": "部門",
+        "orgChart": "組織圖"
+      },
+      "committeeRoster": {
+        "title": "IACUC 委員名冊",
+        "memberCount": "（{{count}} 人）",
+        "description": "依角色列出，與部門編制無關——委員可以隸屬任何部門，也可以是外聘人員。",
+        "loadFailed": "委員名冊載入失敗，請稍後再試。",
+        "emptyTitle": "尚無委員",
+        "emptyDescription": "指派 IACUC 主席、審查委員或執行秘書角色後，人員會自動出現在此。",
+        "noDepartment": "未編入部門"
+      },
+      "departmentMembers": {
+        "showExternal": "一併顯示外部人員",
+        "externalHint": "外部人員（例如 IACUC 外聘委員）可以編入部門，但不適用請假、加班等人事作業。"
+      }
+    },
+    "permissions": {
+      "tree": {
+        "expandAll": "展開全部",
+        "collapseAll": "摺疊全部",
+        "summary": "共 {{total}} 個權限，已選 {{selected}} 個",
+        "noMatch": "沒有找到符合條件的權限",
+        "empty": "沒有權限",
+        "searchPlaceholder": "搜索權限名稱、代碼或描述...",
+        "moduleFilter": "模組篩選：",
+        "allWithCount": "全部 ({{count}})",
+        "categoryCount": "{{count}} 個分類"
+      },
+      "module": {
+        "aupProtocol": "動物使用計畫",
+        "animalManagement": "動物管理",
+        "inventoryManagement": "庫存管理",
+        "administration": "管理階級",
+        "devTools": "開發工具",
+        "other": "其他"
+      },
+      "term": {
+        "user": "使用者",
+        "role": "角色",
+        "permission": "權限",
+        "audit": "稽核",
+        "protocol": "計畫",
+        "review": "審查",
+        "attachment": "附件",
+        "version": "版本",
+        "animal": "動物",
+        "record": "紀錄",
+        "bloodTestItem": "血檢項目",
+        "vet": "獸醫",
+        "export": "匯出",
+        "pathology": "病理",
+        "source": "來源",
+        "equipment": "設備",
+        "dashboard": "儀表板",
+        "inspectionReport": "稽查報告",
+        "nonConformance": "不符合事項",
+        "sopDocument": "SOP 文件",
+        "inspectionSchedule": "稽查排程",
+        "warehouse": "倉庫",
+        "product": "產品",
+        "partner": "合作夥伴",
+        "document": "文件",
+        "purchase": "採購",
+        "goodsReceipt": "收貨",
+        "sales": "銷貨",
+        "delivery": "出貨",
+        "stock": "庫存",
+        "stocktake": "盤點",
+        "report": "報表",
+        "purchaseOrder": "採購單",
+        "salesOrder": "銷貨單",
+        "transfer": "調撥",
+        "inventoryAdjustment": "庫存調整",
+        "inventoryStatus": "庫存現況",
+        "create": "新增",
+        "approve": "審核",
+        "cancel": "取消",
+        "submit": "提交",
+        "update": "更新",
+        "delete": "刪除",
+        "view": "檢視",
+        "read": "讀取",
+        "edit": "編輯",
+        "schedule": "排程",
+        "download": "下載",
+        "system": "系統",
+        "log": "日誌",
+        "notification": "通知",
+        "database": "資料庫",
+        "manage": "管理",
+        "assign": "指派",
+        "resetPassword": "重設密碼",
+        "query": "查詢",
+        "migrate": "遷移",
+        "seedData": "初始資料",
+        "send": "發送",
+        "backup": "備份",
+        "restore": "還原",
+        "trigger": "觸發",
+        "upload": "上傳",
+        "species": "物種",
+        "department": "部門",
+        "facility": "設施",
+        "building": "建築物",
+        "zone": "區域",
+        "pen": "欄位",
+        "alerts": "警示",
+        "timeline": "時間軸",
+        "leave": "請假",
+        "attendance": "出勤",
+        "overtime": "加班",
+        "leaveBalance": "假期餘額",
+        "hr": "人事",
+        "calendar": "行事曆",
+        "buildingUnit": "棟舍",
+        "viewProtocols": "檢視計畫",
+        "viewAnimals": "檢視動物",
+        "viewAudit": "檢視稽核",
+        "viewQauDashboard": "查看QAU儀表板",
+        "addRecords": "新增紀錄",
+        "createDocuments": "建立單據",
+        "importGroup": "匯入",
+        "systemAdmin": "系統管理"
+      }
+    }
   }
 }

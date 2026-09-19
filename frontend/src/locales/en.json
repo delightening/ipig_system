@@ -8153,5 +8153,1541 @@
         "notice": "\"{{name}}\" <strong>is not on the routine stocktake list</strong> — items here turn over quickly and book figures are not kept accurate. If you are opening this document following the monthly stocktake routine, please check that you did not pick the wrong warehouse; if you need to correct things because <strong>an item cannot be issued or book and physical stock do not match</strong>, then you are in the right place — please continue."
       }
     }
+  },
+  "adminGlp": {
+    "shared": {
+      "title": "Title",
+      "titleRequired": "Title *",
+      "type": "Type",
+      "status": "Status",
+      "description": "Description",
+      "remarks": "Remarks",
+      "owner": "Owner",
+      "category": "Category",
+      "severity": "Severity",
+      "version": "Version",
+      "documentNumber": "Document No.",
+      "reportNumber": "Report No.",
+      "createdAt": "Created At",
+      "create": "Create",
+      "loading": "Loading…",
+      "saving": "Saving…",
+      "createFailed": "Creation failed",
+      "approve": "Approve",
+      "approveFailed": "Approval failed",
+      "allStatuses": "All Status",
+      "allTypes": "All Types",
+      "listSeparator": ", ",
+      "equipment": "Equipment",
+      "facility": "Facility",
+      "inspectionType": {
+        "protocol": "Protocol",
+        "training": "Training",
+        "general": "General"
+      },
+      "statusLabel": {
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "underReview": "Under Review",
+        "approved": "Approved",
+        "active": "Active",
+        "obsolete": "Obsolete",
+        "inProgress": "In Progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "closed": "Closed",
+        "overdue": "Overdue",
+        "pendingVerification": "Pending Verification",
+        "verified": "Verified"
+      }
+    },
+    "qaDashboard": {
+      "title": "QAU Quality Assurance Dashboard",
+      "description": "GLP compliance: study status, review progress, audit summary, and animal experiment overview (read-only)",
+      "loadFailed": "Failed to load: {{message}}",
+      "noData": "No data",
+      "statusCount": "{{status}}: {{count}}",
+      "status": {
+        "submitted": "Submitted",
+        "planned": "Scheduled",
+        "scheduled": "Scheduled",
+        "open": "Open",
+        "pending": "Pending"
+      },
+      "card": {
+        "statusChanges": "Status Changes in Last 7 Days",
+        "statusChangesHint": "Number of protocol status changes",
+        "protocolsInReview": "Protocols in Review",
+        "protocolsInReviewHint": "Includes pre-review, veterinary review, formal review, submission, and resubmission after revisions",
+        "pendingPi": "Awaiting PI Response",
+        "pendingPiHint": "Revisions required after review / pre-review / veterinary review",
+        "openNc": "Open Non-Conformances (NC)",
+        "openNcHint": "Open, in progress, pending verification",
+        "overdueNc": "Overdue Non-Conformances (NC)",
+        "overdueNcHint": "Past the due date and not yet closed",
+        "activeSop": "Active SOPs",
+        "activeSopHint": "SOP documents currently in effect",
+        "inspectionReports": "Inspection Reports",
+        "totalAnimals": "Total Animals",
+        "inExperiment": "In Experiment",
+        "euthanized": "Euthanized",
+        "experimentCompleted": "Experiment Completed"
+      },
+      "protocolStatus": {
+        "title": "Protocol Status Distribution",
+        "description": "Counts by current protocol status"
+      },
+      "auditSummary": {
+        "title": "Audit Activity Summary (Last 7 Days)",
+        "description": "System activity records counted by data type"
+      },
+      "animalStatus": {
+        "title": "Animal Status Distribution"
+      },
+      "col": {
+        "count": "Count",
+        "entityType": "Data Type",
+        "recordCount": "Records"
+      }
+    },
+    "qaInspection": {
+      "title": "Inspection Reports",
+      "description": "GLP compliance: create and manage QAU inspection reports",
+      "create": "New Inspection Report",
+      "edit": "Edit Inspection Report",
+      "inspectionType": "Inspection Type",
+      "allTypes": "All Types",
+      "listTitle": "Inspection Report List",
+      "empty": "No inspection reports yet",
+      "inspectionDate": "Inspection Date",
+      "inspector": "Inspector",
+      "submit": "Submit",
+      "close": "Close",
+      "status": {
+        "closed": "Closed"
+      },
+      "findings": "Findings",
+      "conclusion": "Conclusion",
+      "items": "Inspection Items",
+      "itemDescription": "Inspection Item",
+      "itemPlaceholder": "Describe the inspection item",
+      "result": "Result",
+      "resultPass": "Conforming",
+      "resultFail": "Non-Conforming",
+      "resultNotApplicable": "Not Applicable"
+    },
+    "qaNonConformance": {
+      "title": "Non-Conformances (NC)",
+      "description": "Record and track non-conformances and corrective and preventive actions (CAPA)",
+      "create": "New NC",
+      "all": "All",
+      "listTitle": "Non-Conformance List",
+      "empty": "No non-conformances yet",
+      "col": {
+        "ncNumber": "NC No.",
+        "source": "Source",
+        "dueDate": "Due Date"
+      },
+      "severity": {
+        "critical": "Critical",
+        "major": "Major",
+        "minor": "Minor"
+      },
+      "status": {
+        "open": "Open",
+        "inProgress": "In Progress"
+      },
+      "source": {
+        "inspection": "Inspection Finding",
+        "observation": "Observation",
+        "externalAudit": "External Audit",
+        "selfReport": "Self-Report"
+      },
+      "capa": {
+        "title": "Corrective and Preventive Actions (CAPA)",
+        "create": "New CAPA",
+        "edit": "Edit CAPA",
+        "empty": "No CAPA yet",
+        "corrective": "Corrective",
+        "preventive": "Preventive",
+        "actionType": "Action Type",
+        "correctiveAction": "Corrective Action (CA)",
+        "preventiveAction": "Preventive Action (PA)",
+        "actionDescription": "Action Description"
+      },
+      "dialog": {
+        "edit": "Edit Non-Conformance",
+        "create": "New Non-Conformance",
+        "assignee": "Assignee",
+        "selectAssignee": "Select assignee",
+        "unassigned": "Unassigned",
+        "dueDate": "Due Date"
+      }
+    },
+    "qaSop": {
+      "title": "SOP Document Management",
+      "description": "Version control and read acknowledgment for standard operating procedure documents",
+      "create": "New SOP",
+      "categoryFilter": "Filter by category",
+      "listTitle": "SOP Document List",
+      "empty": "No SOP documents yet",
+      "col": {
+        "effectiveDate": "Effective Date",
+        "reviewDate": "Review Date",
+        "acknowledgments": "Acknowledgments"
+      },
+      "ackPeople": "{{count}}",
+      "download": "Download",
+      "acknowledge": "Acknowledge",
+      "dialog": {
+        "edit": "Edit SOP Document",
+        "create": "New SOP Document",
+        "effectiveDate": "Effective Date",
+        "nextReviewDate": "Next Review Date",
+        "file": "SOP Document File",
+        "fileTooLarge": "File size must not exceed 30 MB",
+        "uploaded": "Uploaded: {{name}}",
+        "selectFile": "Click to select a PDF or Word file (max 30 MB)",
+        "uploadOnSave": "Will be uploaded on save ({{size}} MB)",
+        "uploading": "Uploading…"
+      }
+    },
+    "qaSchedule": {
+      "title": "Inspection Schedule",
+      "description": "Annual QA inspection plan scheduling and execution tracking",
+      "create": "Create Annual Plan",
+      "year": "Year",
+      "listTitle": "Inspection Schedule List",
+      "empty": "No inspection schedules yet",
+      "col": {
+        "year": "Year",
+        "planName": "Plan Name",
+        "plannedDate": "Planned Date",
+        "actualDate": "Actual Date"
+      },
+      "items": "Schedule Items",
+      "noItems": "No schedule items yet",
+      "status": {
+        "planned": "Planned"
+      },
+      "scheduleType": {
+        "annual": "Annual",
+        "periodic": "Periodic",
+        "adhoc": "Ad Hoc"
+      },
+      "defaultTitle": "{{year}} Annual Inspection Plan",
+      "dialog": {
+        "title": "Create Annual Inspection Plan",
+        "explanation": "Description",
+        "inspectionTitle": "Inspection Title",
+        "createPlan": "Create Plan",
+        "creating": "Creating…"
+      }
+    },
+    "studyFinalReport": {
+      "title": "Final Study Reports",
+      "subtitle": "GLP final report management",
+      "create": "New Report",
+      "empty": "No reports yet",
+      "col": {
+        "directorSignature": "Study Director Signature",
+        "qauSignature": "QAU Signature"
+      },
+      "status": {
+        "signed": "Signed"
+      },
+      "dialog": {
+        "create": "New Final Report",
+        "protocolId": "Protocol ID *",
+        "protocolIdHint": "Only the Study Director of this protocol can create a report."
+      },
+      "summary": "Summary",
+      "methods": "Methods",
+      "results": "Results",
+      "conclusions": "Conclusions",
+      "deviations": "Deviations",
+      "view": {
+        "summary": "Summary: ",
+        "methods": "Methods: ",
+        "results": "Results: ",
+        "conclusions": "Conclusions: ",
+        "deviations": "Deviations: "
+      },
+      "detail": {
+        "fallbackTitle": "Final Report",
+        "loadFailed": "Failed to load report",
+        "signedAt": "Signed by the Study Director on {{time}}",
+        "editBody": "Edit Report Body",
+        "signSection": "Sign Final Report (only the Study Director of this protocol can sign)",
+        "passwordPlaceholder": "Enter password to confirm identity",
+        "sign": "Sign",
+        "qauStatement": "QAU Quality Assurance Statement",
+        "qauIssuedAt": "Issued on {{time}}",
+        "qauPlaceholder": "QA audit conclusion…",
+        "saveQauStatement": "Save QA Statement",
+        "noQauStatement": "No QA statement yet"
+      },
+      "toast": {
+        "created": "Final report created",
+        "updated": "Report updated",
+        "updateFailed": "Update failed",
+        "signed": "Final report signed",
+        "signFailed": "Signing failed",
+        "qauSaved": "QAU QA statement saved",
+        "saveFailed": "Save failed"
+      }
+    },
+    "environmentMonitoring": {
+      "title": "Environmental Monitoring",
+      "subtitle": "GLP / ISO 17025 environmental condition management",
+      "recordReading": "Record Reading",
+      "addPoint": "Add Monitoring Point",
+      "points": "Monitoring Points",
+      "col": {
+        "name": "Name",
+        "locationType": "Location Type",
+        "interval": "Monitoring Frequency",
+        "readingTime": "Reading Time",
+        "readings": "Readings"
+      },
+      "active": "Active",
+      "inactive": "Inactive",
+      "empty": "No monitoring points yet",
+      "viewReadings": "View Readings",
+      "readingsTitle": "Readings — {{name}}",
+      "outOfRange": "Out of Range",
+      "normal": "Normal",
+      "noReadings": "No readings yet",
+      "locationType": {
+        "animalRoom": "Animal Room",
+        "lab": "Laboratory",
+        "storage": "Storage Area",
+        "cleanRoom": "Clean Room"
+      },
+      "interval": {
+        "continuous": "Continuous",
+        "hourly": "Hourly",
+        "daily": "Daily"
+      },
+      "form": {
+        "nameRequired": "Name *",
+        "locationTypeRequired": "Location Type *",
+        "intervalRequired": "Monitoring Frequency *",
+        "pointRequired": "Monitoring Point *",
+        "selectPoint": "Select monitoring point",
+        "readingTimeRequired": "Reading Time *",
+        "readingsLabel": "Readings (Parameter / Value)",
+        "parameterName": "Parameter name",
+        "value": "Value",
+        "addParameter": "+ Add Parameter",
+        "record": "Record"
+      },
+      "toast": {
+        "pointCreated": "Monitoring point created",
+        "readingRecorded": "Reading recorded",
+        "recordFailed": "Recording failed"
+      }
+    },
+    "documentControl": {
+      "title": "Document Control System",
+      "subtitle": "ISO 17025 / ISO 9001 controlled document management",
+      "create": "New Document",
+      "empty": "No documents yet",
+      "docType": {
+        "qualityManual": "Quality Manual",
+        "sop": "SOP",
+        "form": "Form",
+        "external": "External Document",
+        "policy": "Policy",
+        "report": "Report"
+      },
+      "status": {
+        "obsolete": "Obsolete"
+      },
+      "acknowledge": "Acknowledge",
+      "dialog": {
+        "title": "New Controlled Document",
+        "docTypeRequired": "Document Type *",
+        "category": "Category",
+        "retentionYears": "Retention Period (Years)"
+      },
+      "toast": {
+        "created": "Document created",
+        "approved": "Document approved",
+        "acknowledged": "Acknowledged",
+        "acknowledgeFailed": "Acknowledgment failed"
+      }
+    },
+    "changeControl": {
+      "title": "Change Control",
+      "subtitle": "ISO 9001 change management",
+      "create": "New Change Request",
+      "empty": "No change requests yet",
+      "col": {
+        "changeNumber": "Change No.",
+        "requester": "Requester"
+      },
+      "type": {
+        "method": "Method",
+        "personnel": "Personnel",
+        "system": "System",
+        "process": "Process"
+      },
+      "status": {
+        "implemented": "Implemented",
+        "rejected": "Rejected"
+      },
+      "confirm": {
+        "title": "Confirm Change Request Approval",
+        "description": "Once approved, this change request will move to Approved status. Confirm approval?",
+        "label": "Confirm Approval"
+      },
+      "dialog": {
+        "changeTypeRequired": "Change Type *",
+        "descriptionRequired": "Description *",
+        "justification": "Justification"
+      },
+      "toast": {
+        "created": "Change request created",
+        "approved": "Change approved"
+      }
+    },
+    "riskRegister": {
+      "title": "Risk Register",
+      "subtitle": "ISO 17025 / ISO 9001 risk management",
+      "create": "Add Risk",
+      "allCategories": "All Categories",
+      "empty": "No risks recorded yet",
+      "category": {
+        "technical": "Technical",
+        "operational": "Operational",
+        "compliance": "Regulatory Compliance",
+        "safety": "Safety"
+      },
+      "status": {
+        "identified": "Identified",
+        "mitigated": "Mitigated",
+        "accepted": "Accepted"
+      },
+      "col": {
+        "riskNumber": "Risk No.",
+        "likelihood": "Likelihood",
+        "riskScore": "Risk Score"
+      },
+      "dialog": {
+        "categoryRequired": "Category *",
+        "severityRange": "Severity (1-5) *",
+        "likelihoodRange": "Likelihood (1-5) *",
+        "mitigationPlan": "Mitigation Plan"
+      },
+      "toast": {
+        "created": "Risk registered"
+      }
+    },
+    "competencyAssessment": {
+      "title": "Competency Assessment",
+      "subtitle": "ISO 17025 / ISO 9001 personnel competency management",
+      "create": "New Assessment",
+      "allResults": "All Results",
+      "empty": "No assessment records yet",
+      "assessmentType": {
+        "initial": "Initial Assessment",
+        "periodic": "Periodic Assessment",
+        "requalification": "Requalification"
+      },
+      "result": {
+        "competent": "Competent",
+        "notYetCompetent": "Not Yet Competent",
+        "requiresSupervision": "Requires Supervision"
+      },
+      "method": {
+        "observation": "Observation",
+        "writtenTest": "Written Test",
+        "practicalTest": "Practical Test",
+        "peerReview": "Peer Review"
+      },
+      "col": {
+        "assessee": "Assessee",
+        "skillArea": "Skill Area",
+        "assessmentType": "Assessment Type",
+        "assessmentDate": "Assessment Date",
+        "result": "Result",
+        "score": "Score",
+        "assessor": "Assessor",
+        "validUntil": "Valid Until"
+      },
+      "dialog": {
+        "title": "New Competency Assessment",
+        "assesseeIdRequired": "Assessee ID *",
+        "assesseePlaceholder": "User UUID",
+        "skillAreaRequired": "Skill Area *",
+        "assessmentTypeRequired": "Assessment Type *",
+        "assessmentMethod": "Assessment Method",
+        "assessmentDateRequired": "Assessment Date *",
+        "resultRequired": "Result *"
+      },
+      "toast": {
+        "created": "Competency assessment created"
+      }
+    },
+    "formulationRecords": {
+      "title": "Formulation Records",
+      "subtitle": "GLP test article formulation record management",
+      "create": "New Formulation Record",
+      "empty": "No formulation records yet",
+      "col": {
+        "product": "Product",
+        "formulationDate": "Formulation Date",
+        "batchNumber": "Batch No.",
+        "concentration": "Concentration",
+        "volume": "Volume",
+        "preparer": "Prepared By",
+        "verifier": "Verified By",
+        "expiryDate": "Expiry Date"
+      },
+      "dialog": {
+        "productIdRequired": "Product ID *",
+        "productIdPlaceholder": "Enter product UUID",
+        "protocolId": "Protocol ID",
+        "optional": "Optional",
+        "formulationDateRequired": "Formulation Date *"
+      },
+      "toast": {
+        "created": "Formulation record created"
+      }
+    },
+    "managementReview": {
+      "title": "Management Review",
+      "subtitle": "ISO 17025 / ISO 9001 management review records",
+      "create": "New Review",
+      "empty": "No review records yet",
+      "status": {
+        "planned": "Planned"
+      },
+      "col": {
+        "reviewNumber": "Review No.",
+        "reviewDate": "Review Date",
+        "chair": "Chairperson"
+      },
+      "dialog": {
+        "title": "New Management Review",
+        "reviewDateRequired": "Review Date *",
+        "agenda": "Agenda"
+      },
+      "toast": {
+        "created": "Management review created"
+      }
+    },
+    "fieldCorrections": {
+      "title": "Correction Review",
+      "description": "Fields such as ear tag number, birth date, gender, and breed cannot be edited directly after creation. Corrections take effect only after administrator approval.",
+      "pendingTitle": "Pending Requests",
+      "pendingCount": "{{count}} pending",
+      "col": {
+        "field": "Field",
+        "originalValue": "Original Value",
+        "newValue": "New Value",
+        "reason": "Reason",
+        "requester": "Requested By",
+        "requestedAt": "Requested At"
+      },
+      "field": {
+        "earTag": "Ear Tag No.",
+        "birthDate": "Birth Date",
+        "gender": "Gender",
+        "breed": "Breed"
+      },
+      "value": {
+        "male": "Male",
+        "female": "Female",
+        "miniPig": "Mini Pig",
+        "whitePig": "White Pig",
+        "other": "Other"
+      },
+      "empty": {
+        "title": "No pending correction requests",
+        "description": "All correction requests have been processed"
+      },
+      "approve": "Approve",
+      "reject": "Reject",
+      "confirm": {
+        "title": "Confirm Correction Approval",
+        "description": "Approving will apply this correction directly to the identification fields (ear tag no. / birth date / gender / breed) of animal {{earTag}}. This action cannot be undone. Confirm approval?",
+        "label": "Confirm Approval"
+      },
+      "rejectDialog": {
+        "title": "Reject Correction Request",
+        "description": "Please enter a rejection reason (required). Ear tag no.: {{earTag}}",
+        "reasonLabel": "Rejection Reason *",
+        "reasonPlaceholder": "e.g., The original data was verified as correct and needs no correction",
+        "confirm": "Confirm Rejection"
+      },
+      "toast": {
+        "approved": "Correction request approved",
+        "approveFailed": "Approval failed",
+        "rejected": "Correction request rejected",
+        "rejectFailed": "Rejection failed"
+      }
+    }
+  },
+  "adminOps": {
+    "shared": {
+      "createFailed": "Failed to create",
+      "updateFailed": "Failed to update",
+      "deleteFailed": "Failed to delete",
+      "operationFailed": "Operation failed",
+      "requestFailed": "Failed to submit request",
+      "generateFailed": "Failed to generate",
+      "restoreFailed": "Failed to restore"
+    },
+    "equipment": {
+      "page": {
+        "title": "Equipment Maintenance Management",
+        "description": "Laboratory GLP compliance: equipment management, calibration / validation / inspection, maintenance / repair, disposal",
+        "addEquipment": "Add Equipment"
+      },
+      "tabs": {
+        "equipment": "Equipment",
+        "calibrations": "Calibration / Validation / Inspection",
+        "maintenance": "Maintenance / Repair",
+        "idle": "Idle Management",
+        "disposals": "Disposal",
+        "annualPlan": "Annual Plan"
+      },
+      "confirm": {
+        "deleteEquipment": "Delete equipment \"{{name}}\"?",
+        "deleteRecord": "Delete this record?",
+        "approveDisposal": "Approve this disposal request?",
+        "rejectDisposal": "Reject this disposal request?",
+        "restoreEquipment": "Restore this equipment to active status?",
+        "approveIdle": "Approve this idle request?"
+      },
+      "prompt": {
+        "idleReason": "Enter the idle reason:",
+        "restoreReason": "Enter the restore reason:",
+        "rejectReason": "Enter the rejection reason:"
+      },
+      "history": {
+        "notFound": "Equipment not found",
+        "backToList": "Back to Equipment List",
+        "title": "Equipment History",
+        "fullHistory": "Full History"
+      },
+      "toast": {
+        "equipmentDeleted": "Equipment deleted",
+        "recordCreated": "Record added",
+        "recordUpdated": "Record updated",
+        "recordDeleted": "Record deleted",
+        "equipmentCreated": "Equipment added",
+        "equipmentUpdated": "Equipment updated",
+        "planGenerated": "{{year}} annual plan generated",
+        "planItemCreated": "Annual plan item added",
+        "planItemDeleted": "Annual plan item deleted",
+        "disposalProcessed": "Disposal request processed",
+        "equipmentRestored": "Equipment restored to active status",
+        "disposalSubmitted": "Disposal request submitted",
+        "maintenanceCreated": "Maintenance / repair record added",
+        "maintenanceUpdated": "Maintenance / repair record updated",
+        "idleSubmitted": "Idle request submitted",
+        "idleProcessed": "Idle request processed"
+      },
+      "validation": {
+        "nameRequired": "Equipment name is required",
+        "calibEquipmentAndDateRequired": "Select equipment and enter the date performed",
+        "calibDateRequired": "Date performed is required"
+      }
+    },
+    "notificationRouting": {
+      "channelLabel": "Notification Channel",
+      "descriptionLabel": "Description",
+      "channels": {
+        "inApp": "In-App",
+        "email": "Email",
+        "both": "In-App + Email"
+      },
+      "resolvers": {
+        "protocolPiSd": "Protocol PI / Study Director (SD)",
+        "protocolPi": "Protocol PI",
+        "assignedReviewers": "Assigned Reviewers",
+        "eventSubject": "Person Concerned",
+        "leaveRequestApprovers": "Leave Request Approvers"
+      },
+      "frequency": {
+        "immediate": "Immediate",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly"
+      },
+      "weekdays": {
+        "sun": "Sunday",
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday"
+      },
+      "page": {
+        "title": "Notification Routing Settings",
+        "description": "Manage who is notified, and how, when events are triggered",
+        "addRule": "Add Rule"
+      },
+      "createDialog": {
+        "title": "Add Notification Routing Rule",
+        "description": "Set which role is notified, and how, when a specific event occurs",
+        "eventTypeLabel": "Event Type *",
+        "eventTypePlaceholder": "Select event type",
+        "roleLabel": "Notified Role *",
+        "rolePlaceholder": "Select role",
+        "descriptionPlaceholder": "e.g. Notify the IACUC Executive Secretary after a protocol is submitted",
+        "submit": "Create"
+      },
+      "editDialog": {
+        "title": "Edit Notification Routing Rule",
+        "activeLabel": "Active",
+        "descriptionPlaceholder": "Rule description",
+        "frequencySettings": "Notification Frequency Settings",
+        "frequencyLabel": "Frequency",
+        "executionTime": "Execution Time",
+        "dayOfWeek": "Day of Week"
+      },
+      "deleteDialog": {
+        "title": "Delete Routing Rule",
+        "description": "Delete the routing rule \"{{event}} → {{recipient}}\"?"
+      },
+      "toast": {
+        "created": "Notification routing rule created",
+        "createFailed": "Failed to create",
+        "updated": "Notification routing rule updated",
+        "deleted": "Notification routing rule deleted",
+        "toggleFailed": "Failed to toggle",
+        "selectEventAndRole": "Select an event type and a role"
+      },
+      "table": {
+        "colEventType": "Event Type",
+        "colRecipientSource": "Recipient Source",
+        "colActive": "Active",
+        "emptyTitle": "No routing rules in this category yet. Click \"Add Rule\" to create one",
+        "collapseRecipients": "Collapse recipients",
+        "expandRecipients": "Expand recipients",
+        "resolverBadgeTitle": "Relational: recipients are determined dynamically by the event and cannot be adjusted",
+        "recipientsLoading": "Loading recipients…",
+        "resolverDescription": ": {{description}}",
+        "resolverNote": "(Relational; determined dynamically by the event and cannot be adjusted)",
+        "noMembers": "No users currently hold this role",
+        "actualRecipients": "Actual recipients ({{count}}):"
+      },
+      "expiry": {
+        "title": "Expiry Notification Range Settings",
+        "updated": "Expiry notification settings updated",
+        "warnDaysRange": "Early warning days must be between 1 and 365",
+        "cutoffDaysRange": "Overdue cutoff days must be between 1 and 730",
+        "warnDaysLabel": "Early Warning Days",
+        "warnDaysHint": "How many days before expiry to start showing warnings (1-365)",
+        "daysUnit": "days",
+        "cutoffDaysLabel": "Overdue Cutoff Days",
+        "cutoffDaysHint": "Stop notifying after this many days past expiry (1-730)",
+        "monthlyLabel": "Monthly Digest Notification",
+        "monthlyHint": "Once the specified number of days past expiry is exceeded, switch to a single monthly digest notification compared with the previous month",
+        "monthlyPrefix": "Expired for more than",
+        "monthlySuffix": "days — switch to monthly digest",
+        "currentSummary": "Current settings: warnings start <strong>{{warnDays}}</strong> days before expiry; notifications stop <strong>{{cutoffDays}}</strong> days after expiry",
+        "currentSummaryMonthly": "; switches to monthly digest <strong>{{days}}</strong> days after expiry",
+        "saveButton": "Save Settings"
+      },
+      "fixed": {
+        "title": "Fixed Notifications (Determined by System Workflow; Not Adjustable)",
+        "description": "The recipients of these notifications are determined dynamically by system workflows and bypass routing settings, so they cannot be added, edited, or deleted; they are shown for reference only, to see which situations notify whom.",
+        "colEvent": "Event",
+        "colTrigger": "Trigger",
+        "colRecipient": "Recipient",
+        "colNote": "Note"
+      },
+      "section": {
+        "title": "Notification Routing Management",
+        "subtitle": "Configure the recipient roles and channels for each type of event notification",
+        "totalSummary": "({{total}} rules, {{active}} active)",
+        "addFormTitle": "Add Routing Rule",
+        "eventType": "Event Type",
+        "role": "Role",
+        "channel": "Channel",
+        "channelBoth": "Both",
+        "descriptionOptional": "Description (optional)",
+        "descriptionPlaceholder": "Administrator note",
+        "loadError": "Unable to load notification routing settings",
+        "empty": "No notification routing rules configured yet",
+        "categoryOther": "Other",
+        "categoryActiveCount": "{{active}}/{{total}} active",
+        "frequencyLabel": "Frequency:",
+        "timeLabel": "Time:",
+        "weekdayLabel": "Day:",
+        "deleteConfirmDescription": "Delete this rule for \"{{role}}\"? This action cannot be undone.",
+        "toast": {
+          "created": "Notification routing rule added",
+          "deleted": "Rule deleted",
+          "noticeTitle": "Notice",
+          "selectEventAndRole": "Select an event type and a role"
+        }
+      }
+    },
+    "treatmentDrugs": {
+      "page": {
+        "title": "Drug List Management",
+        "description": "Manage the dropdown options for drugs used in treatments",
+        "importFromErp": "Import from ERP",
+        "addDrug": "Add Drug",
+        "createDialogTitle": "Add Drug Option",
+        "editDialogTitle": "Edit Drug Option"
+      },
+      "filter": {
+        "searchPlaceholder": "Search drug name...",
+        "categoryPlaceholder": "Category",
+        "allCategories": "All Categories",
+        "statusPlaceholder": "Status",
+        "all": "All",
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "form": {
+        "description": "Set the drug name, default unit, and category",
+        "nameLabel": "Drug Name *",
+        "namePlaceholder": "e.g. Meloxicam",
+        "nameHint": "Only one active entry is allowed per \"drug name + category\" combination. If it already exists, edit the existing entry instead.",
+        "displayNameLabel": "Display Name",
+        "displayNamePlaceholder": "e.g. Meloxicam (Metacam)",
+        "categoryLabel": "Category",
+        "categoryPlaceholder": "Select category",
+        "availableUnitsLabel": "Available Units (multiple)",
+        "defaultUnitLabel": "Default Dosage Unit",
+        "unitPlaceholder": "Select unit",
+        "unitPlaceholderDisabled": "Select available units first",
+        "sortOrderLabel": "Sort Order (smaller comes first)"
+      },
+      "table": {
+        "colName": "Drug Name",
+        "colDisplayName": "Display Name",
+        "colCategory": "Category",
+        "colDefaultUnit": "Default Unit",
+        "colSort": "Sort",
+        "colStatus": "Status",
+        "statusActive": "Active",
+        "statusInactive": "Inactive",
+        "emptyTitle": "No drug options yet",
+        "emptyDescription": "Click \"Add Drug\" or \"Import from ERP\" to get started"
+      },
+      "categories": {
+        "anesthesia": "Anesthesia",
+        "analgesia": "Analgesia",
+        "antibiotic": "Antibiotic",
+        "sedation": "Sedation",
+        "dewormer": "Deworming",
+        "vaccine": "Vaccine",
+        "other": "Other"
+      },
+      "toast": {
+        "created": "Drug option added",
+        "updated": "Drug option updated",
+        "deactivated": "Drug option deactivated",
+        "nameRequired": "Drug name is required"
+      },
+      "confirm": {
+        "deactivate": "Deactivate \"{{name}}\"?",
+        "activate": "Activate \"{{name}}\"?"
+      },
+      "import": {
+        "title": "Import Drugs from ERP",
+        "description": "Search ERP products and import them as drug options",
+        "searchPlaceholder": "Search ERP product name...",
+        "selectedCount": "Products selected: {{count}}",
+        "importButton": "Import ({{count}})",
+        "noResults": "No matching products",
+        "typeToSearch": "Enter a keyword to search",
+        "successTitle": "Import Successful",
+        "successDescription": "Drug options imported: {{count}}",
+        "failedTitle": "Import Failed"
+      }
+    }
+  },
+  "adminUsers": {
+    "shared": {
+      "createFailed": "Failed to create",
+      "addFailed": "Failed to add",
+      "updateFailed": "Failed to update",
+      "deleteFailed": "Failed to delete",
+      "saveFailed": "Failed to save",
+      "fillAllRequired": "Please fill in all required fields",
+      "fillRequired": "Please fill in the required fields",
+      "externalStaffTag": "(External Staff)",
+      "listSeparator": ", ",
+      "affiliation": {
+        "label": "Affiliation",
+        "internal": "In-house Staff",
+        "internalDetail": "Covered by leave, overtime, annual leave, clock-in and staff training; can be assigned as Study Director (SD).",
+        "external": "External Staff",
+        "externalDetail": "Participates by invitation; HR processes do not apply. Examples: Principal Investigators (PIs), sponsors, and external reviewers.",
+        "note": "This is unrelated to \"which department they belong to\": external staff (e.g. external IACUC committee members) can still be assigned to a department."
+      }
+    },
+    "users": {
+      "description": "Manage system user accounts and roles",
+      "showInactive": "Show inactive accounts",
+      "exportAll": "Export All Users",
+      "exportActive": "Export Active Users",
+      "inviteButton": "Invite User",
+      "unsettled": {
+        "title": "This User Has Unsettled Items",
+        "forceRemove": "Remove Anyway (Pending Tasks Will Be Returned)"
+      },
+      "deleteUserFailed": "Failed to delete user",
+      "impersonate": {
+        "title": "Confirm Impersonation",
+        "description": "Are you sure you want to log in as \"{{name}}\"? Enter your login password to confirm."
+      },
+      "affiliationRequired": "Please select whether this person is in-house staff or external staff",
+      "validation": {
+        "emailRequired": "Please enter an email address",
+        "emailInvalid": "Please enter a valid email address",
+        "passwordMinLength": "Password must be at least {{min}} characters",
+        "nameMinLength": "At least 2 characters",
+        "nameMaxLength": "At most 50 characters",
+        "rolesRequired": "Please select a role"
+      },
+      "toast": {
+        "created": "User created",
+        "updated": "User updated",
+        "deleted": "User deleted",
+        "passwordReset": "Password reset",
+        "resetPasswordFailed": "Failed to reset password",
+        "passwordWrong": "Incorrect password. Please re-enter your login password.",
+        "reauthRequired": "Please enter your login password to confirm your identity",
+        "fillAllFields": "Please fill in all fields",
+        "passwordMismatch": "The passwords you entered do not match",
+        "noDataToExport": "No data to export",
+        "noUsers": "There are no users at the moment",
+        "exported": "Exported {{count}} users"
+      },
+      "createError": {
+        "passwordComplexity": "Password must contain uppercase letters, lowercase letters, and numbers",
+        "emailFormat": "Invalid email format",
+        "displayNameRequired": "Display name is required",
+        "emailTaken": "This email is already in use",
+        "validationFailedPrefix": "Validation failed:",
+        "badFormat422": "Invalid data format (422)",
+        "serverError": "Internal server error. Please try again later.",
+        "forbidden": "Insufficient permissions",
+        "requestFailed": "Request failed ({{status}})"
+      },
+      "csv": {
+        "phone": "Phone",
+        "organization": "Organization",
+        "position": "Position",
+        "entryDate": "Start Date",
+        "aupRoles": "AUP Roles",
+        "yearsExperience": "Years of Experience"
+      },
+      "affiliationAudit": {
+        "title": "{{count}} users have an affiliation that conflicts with their roles",
+        "body": "The \"In-house Staff / External Staff\" setting of the people below conflicts with the roles they hold. This is not necessarily wrong — external veterinarians and external review committee members are naturally like this. However, people with internal functions such as Study Staff who are marked as external <strong>do not appear in the department member candidate list by default</strong> (you must explicitly turn on \"Also show external staff\" in the department members dialog before they are listed and can be assigned), and HR processes such as leave and overtime do not apply to them — as a result their leave requests cannot find a unit supervisor to approve them. Please check each one.",
+        "current": "Current: {{status}}",
+        "roles": "Roles: {{roles}}",
+        "goEdit": "Go to Edit"
+      }
+    },
+    "roles": {
+      "description": "Manage system roles and permission settings",
+      "addRole": "Add Role",
+      "noPermissions": "No permissions",
+      "moduleCount": "{{module}} ({{count}})",
+      "viewDetails": "View Details ({{count}} permissions)",
+      "createDescription": "Create a new system role and configure its permissions",
+      "codeLabel": "Role Code *",
+      "codePlaceholder": "e.g. manager",
+      "nameLabel": "Role Name *",
+      "namePlaceholder": "e.g. Manager",
+      "editNameLabel": "Role Name",
+      "permissionSettings": "Permission Settings",
+      "createButton": "Create",
+      "editRole": "Edit Role",
+      "editDescription": "Modify the settings of role {{name}}",
+      "detailTitle": "{{name}} — Permission Details",
+      "detailDescription": "{{count}} permissions (read-only)",
+      "confirmDeactivateTitle": "Confirm Deactivating System Role",
+      "confirmDeleteTitle": "Confirm Deleting Role",
+      "confirmDeactivateDescription": "Are you sure you want to deactivate the role \"{{name}}\"? Enter your login password to confirm.",
+      "confirmDeleteDescription": "Are you sure you want to delete the role \"{{name}}\"? Enter your login password to confirm.",
+      "signature": {
+        "defaultTitle": "Electronic Signature",
+        "create": "Sign: Create Role",
+        "update": "Sign: Update Role and Permissions",
+        "delete": "Sign: Delete Role",
+        "deactivate": "Sign: Deactivate Role",
+        "description": "This action records an electronic signature (password + handwritten) in the audit trail. Enter your password and complete your handwritten signature before submitting."
+      },
+      "toast": {
+        "created": "Role created",
+        "updated": "Role updated",
+        "deactivated": "System role deactivated",
+        "deleted": "Role deleted"
+      }
+    },
+    "settings": {
+      "description": "Manage global system configuration parameters",
+      "systemSaved": "System settings saved",
+      "notificationSaved": "Notification settings saved",
+      "loadError": "Unable to load system settings. Please confirm that you have administrator permissions.",
+      "saveButton": "Save System Settings"
+    },
+    "invitations": {
+      "description": "Manage customer invitation links",
+      "addButton": "New Invitation",
+      "status": {
+        "all": "All",
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "toast": {
+        "revoked": "Invitation revoked",
+        "resent": "Invitation resent",
+        "linkUpdated": "Link updated: {{link}}..."
+      },
+      "col": {
+        "organization": "Organization",
+        "status": "Status",
+        "invitedBy": "Invited By",
+        "createdAt": "Created",
+        "expiresAt": "Expires"
+      },
+      "empty": "No invitation records yet",
+      "resend": "Resend",
+      "revoke": "Revoke",
+      "cardMeta": "{{name}} · Created {{created}} · Expires {{expires}}",
+      "affiliationRequired": "Please select whether the invitee is in-house staff or external staff"
+    },
+    "audit": {
+      "page": {
+        "description": "Monitor system activity and security events",
+        "refresh": "Refresh"
+      },
+      "tab": {
+        "overview": "Overview",
+        "activities": "Activity Records",
+        "logins": "Login Events",
+        "sessions": "Active Sessions",
+        "alerts": "Security Alerts",
+        "securityEvents": "Security Events",
+        "ipBlocklist": "IP Blocklist"
+      },
+      "logsPage": {
+        "description": "Track all user activity records and change history",
+        "invalidateSignature": "Invalidate Signature"
+      },
+      "export": {
+        "actorEmail": "Actor Email",
+        "suspicious": "Suspicious",
+        "filenamePrefix": "activity-log"
+      },
+      "data": {
+        "loggedOutTitle": "Logged Out",
+        "selfForceLogoutDescription": "Your session has been force-logged out. Returning to the login page shortly.",
+        "sessionForceLoggedOut": "Session force-logged out",
+        "alertResolved": "Alert resolved",
+        "alertsResolvedCount": "{{count}} alerts resolved"
+      },
+      "category": {
+        "erp": "ERP",
+        "aup": "Protocol",
+        "animal": "Research Animals",
+        "system": "System",
+        "admin": "System Administration",
+        "audit": "Audit",
+        "equipment": "Facilities & Equipment",
+        "hr": "Personnel Management",
+        "messaging": "Internal Messages",
+        "plannedExperiment": "Experiment Planning",
+        "protocolTemplate": "Protocol Templates",
+        "security": "Security"
+      },
+      "eventType": {
+        "docCreate": "Create Document",
+        "docUpdate": "Update Document",
+        "docDelete": "Delete Document",
+        "docSubmit": "Submit Document",
+        "docApprove": "Approve Document",
+        "docCancel": "Void Document",
+        "partnerCreate": "Create Partner",
+        "partnerUpdate": "Update Partner",
+        "partnerDelete": "Delete Partner",
+        "productCreate": "Create Product",
+        "productUpdate": "Update Product",
+        "productDelete": "Delete Product",
+        "categoryCreate": "Create Category",
+        "warehouseCreate": "Create Warehouse",
+        "warehouseUpdate": "Update Warehouse",
+        "warehouseDelete": "Delete Warehouse",
+        "roleCreate": "Create Role",
+        "roleUpdate": "Update Role",
+        "roleDelete": "Delete Role",
+        "animalCreate": "Create Animal",
+        "animalUpdate": "Update Animal",
+        "animalDelete": "Delete Animal",
+        "animalBatchAssign": "Batch Assign",
+        "observationCreate": "Create Observation",
+        "observationUpdate": "Update Observation",
+        "observationDelete": "Delete Observation",
+        "surgeryCreate": "Create Surgery",
+        "surgeryUpdate": "Update Surgery",
+        "surgeryDelete": "Delete Surgery",
+        "weightCreate": "Record Weight",
+        "weightUpdate": "Update Weight",
+        "weightDelete": "Delete Weight",
+        "vaccinationCreate": "Create Vaccination",
+        "vaccinationUpdate": "Update Vaccination",
+        "vaccinationDelete": "Delete Vaccination",
+        "sacrificeUpsert": "Sacrifice / Euthanasia",
+        "pathologyUpsert": "Pathology Report",
+        "vetRecommendationAdd": "Veterinary Recommendation",
+        "medicalExport": "Export Medical Data",
+        "bloodTestCreate": "Create Blood Test",
+        "bloodTestUpdate": "Update Blood Test",
+        "bloodTestDelete": "Delete Blood Test",
+        "templateCreate": "Create Template",
+        "templateUpdate": "Update Template",
+        "templateDelete": "Delete Template",
+        "panelCreate": "Create Panel",
+        "panelUpdate": "Update Panel",
+        "panelDelete": "Delete Panel",
+        "protocolCreate": "Create Protocol",
+        "protocolUpdate": "Update Protocol",
+        "protocolSubmit": "Submit Protocol",
+        "protocolApprove": "Approve Protocol",
+        "protocolReject": "Reject Protocol",
+        "protocolStatusChange": "Status Change",
+        "protocolReviewerAssign": "Assign Reviewer",
+        "protocolImportApproved": "Approve Imported Protocol",
+        "protocolImportFinalized": "Finalize Imported Protocol",
+        "protocolImportReviewsRecorded": "Record Imported Reviews",
+        "protocolDeleted": "Delete Protocol",
+        "protocolSoftDeleted": "Deactivate Protocol",
+        "protocolPiProvisioned": "Provision PI Account",
+        "piInviteSend": "Send PI Invitation",
+        "amendmentClassifyMinor": "Classified as Minor Amendment",
+        "amendmentClassifyMajor": "Classified as Major Amendment",
+        "amendmentRevisionRequired": "Amendment Revision Required",
+        "amendmentEffective": "Amendment Effective",
+        "amendmentImportBackfilled": "Backfill Imported Amendment",
+        "amendmentImportFinalized": "Finalize Imported Amendment",
+        "amendmentImportReviewsRecorded": "Record Amendment Reviews",
+        "loginSuccess": "Login Success",
+        "loginFailed": "Login Failed",
+        "logout": "Logout",
+        "forceLogout": "Force Logout",
+        "impersonateStart": "Start Impersonation",
+        "passwordSelfChange": "Change Password",
+        "passwordAdminReset": "Admin Password Reset",
+        "passwordTokenReset": "Reset Password",
+        "twoFactorEnabled": "Enable Two-Factor Authentication",
+        "twoFactorDisabled": "Disable Two-Factor Authentication",
+        "ipBlocklistAdd": "Block IP",
+        "ipBlocklistUnblock": "Unblock IP",
+        "signatureCreate": "Electronic Signature",
+        "userCreate": "Create User",
+        "userUpdate": "Update User",
+        "userStatusChange": "User Status Change",
+        "userRoleChange": "User Role Change",
+        "userDepartmentChange": "User Department Change",
+        "userDeactivateSelf": "Deactivate Own Account",
+        "userDelete": "Delete User",
+        "rolePermissionChange": "Role Permission Change",
+        "roleDeactivate": "Deactivate Role",
+        "aiApiKeyCreate": "Create AI Key",
+        "aiApiKeyDelete": "Delete AI Key",
+        "leaveCreate": "Create Leave Request",
+        "leaveUpdate": "Update Leave Request",
+        "leaveDelete": "Delete Leave Request",
+        "leaveSubmit": "Submit Leave Request",
+        "leaveProxyConfirm": "Delegate Confirmed",
+        "leaveProxyReject": "Delegate Rejected",
+        "leaveApproveInterim": "Interim Approve Leave",
+        "leaveApproveFinal": "Approve Leave",
+        "leaveApproveInterimOverride": "Interim Approve Leave (Override)",
+        "leaveApproveFinalOverride": "Approve Leave (Override)",
+        "leaveReject": "Reject Leave",
+        "leaveCancel": "Cancel Leave",
+        "leaveCancelRetroactive": "Retroactively Cancel Leave",
+        "overtimeCreate": "Create Overtime",
+        "overtimeUpdate": "Update Overtime",
+        "overtimeDelete": "Delete Overtime",
+        "overtimeSubmit": "Submit Overtime",
+        "overtimeApproveInterim": "Interim Approve Overtime",
+        "overtimeApproveFinal": "Approve Overtime",
+        "overtimeReject": "Reject Overtime",
+        "overtimeVoid": "Void Overtime",
+        "compTimeRevoke": "Revoke Compensatory Time Off",
+        "attendanceClockIn": "Clock In",
+        "attendanceClockOut": "Clock Out",
+        "attendanceClockInDenied": "Clock-In Denied",
+        "attendanceClockOutDenied": "Clock-Out Denied",
+        "attendanceCorrect": "Attendance Correction",
+        "attendanceBackfill": "Attendance Backfill",
+        "annualLeaveCreate": "Create Annual Leave",
+        "annualLeaveAdjust": "Adjust Annual Leave",
+        "annualLeaveBatchAutoCalc": "Batch Calculate Annual Leave",
+        "annualLeaveExpiryRecompute": "Recompute Annual Leave Expiry",
+        "animalAssign": "Assign Animal",
+        "animalRemarkUpdate": "Update Animal Remarks",
+        "animalImport": "Import Animals",
+        "iacucChange": "IACUC Change",
+        "weightImport": "Import Weights",
+        "suddenDeath": "Sudden Death Record",
+        "bloodTestItemCorrect": "Blood Test Item Correction",
+        "presetCreate": "Create Blood Test Preset",
+        "presetUpdate": "Update Blood Test Preset",
+        "presetDelete": "Delete Blood Test Preset",
+        "careRecordCreate": "Create Care Record",
+        "careRecordUpdate": "Update Care Record",
+        "careRecordDelete": "Delete Care Record",
+        "vetAdviceRecordCreate": "Create Veterinary Recommendation",
+        "vetAdviceRecordUpdate": "Update Veterinary Recommendation",
+        "vetAdviceRecordDelete": "Delete Veterinary Recommendation",
+        "vetPatrolReportCreated": "Create Patrol Report",
+        "vetPatrolReportUpdated": "Update Patrol Report",
+        "vetPatrolReportSubmittedForFollowup": "Patrol Report Submitted for Follow-up",
+        "vetPatrolReportAcknowledged": "Patrol Report Acknowledged",
+        "vetPatrolReportCompleted": "Patrol Report Completed",
+        "vetPatrolReportDiscarded": "Patrol Report Discarded",
+        "vetPatrolReportDeleted": "Delete Patrol Report",
+        "vetPatrolEntryPhotoDeleted": "Delete Patrol Photo",
+        "byproductSampleCreate": "Create Byproduct Sample",
+        "byproductSampleUpdate": "Update Byproduct Sample",
+        "byproductSampleDelete": "Delete Byproduct Sample",
+        "animalSourceCreate": "Create Animal Source",
+        "animalSourceUpdate": "Update Animal Source",
+        "animalSourceDeactivate": "Deactivate Animal Source",
+        "transferInitiate": "Initiate Animal Transfer",
+        "transferVetEvaluate": "Veterinary Transfer Evaluation",
+        "transferAssignPlan": "Assign Transfer Plan",
+        "transferApprove": "Approve Animal Transfer",
+        "transferComplete": "Complete Animal Transfer",
+        "transferReject": "Reject Animal Transfer",
+        "exportSurgery": "Export Surgery Data",
+        "exportBloodTest": "Export Blood Test Data",
+        "animalMedicalWeeklyReportRead": "Read Medical Weekly Report",
+        "docWmApprove": "Warehouse Manager Approve Document",
+        "docAdminApprove": "Supervisor Approve Document",
+        "docAdminReject": "Supervisor Reject Document",
+        "productCreateWithSku": "Create Product (with SKU)",
+        "productStatusChange": "Product Status Change",
+        "productHardDelete": "Permanently Delete Product",
+        "productCategoryCreate": "Create Product Category",
+        "productImport": "Import Products",
+        "partnerImport": "Import Partners",
+        "warehouseImport": "Import Warehouses",
+        "skuCategoryUpdate": "Update SKU Category",
+        "skuCategoryDelete": "Delete SKU Category",
+        "skuSubcategoryCreate": "Create SKU Subcategory",
+        "skuSubcategoryUpdate": "Update SKU Subcategory",
+        "skuSubcategoryDelete": "Delete SKU Subcategory",
+        "storageInventoryUpdate": "Adjust Inventory",
+        "apPaymentCreated": "Create AP Payment",
+        "arReceiptCreated": "Create AR Receipt",
+        "dataExport": "Export Data",
+        "dataImport": "Import Data",
+        "maintenanceCreate": "Create Maintenance Record",
+        "maintenanceUpdate": "Update Maintenance Record",
+        "maintenanceDelete": "Delete Maintenance Record",
+        "maintenanceReviewerSignature": "Maintenance Reviewer Signature",
+        "disposalApplicantSignature": "Disposal Applicant Signature",
+        "disposalApproverSignature": "Disposal Approver Signature",
+        "disposalRestore": "Cancel Equipment Disposal",
+        "equipmentAutoRestore": "Equipment Auto-Restore",
+        "facilitySpeciesCreate": "Create Species",
+        "facilitySpeciesUpdate": "Update Species",
+        "facilitySpeciesDelete": "Delete Species",
+        "facilityFacilityCreate": "Create Location",
+        "facilityFacilityUpdate": "Update Location",
+        "facilityFacilityDelete": "Delete Location",
+        "facilityBuildingCreate": "Create Building",
+        "facilityBuildingUpdate": "Update Building",
+        "facilityBuildingDelete": "Delete Building",
+        "facilityZoneCreate": "Create Zone",
+        "facilityZoneUpdate": "Update Zone",
+        "facilityZoneDelete": "Delete Zone",
+        "facilityPenCreate": "Create Pen",
+        "facilityPenBatchCreate": "Batch Create Pens",
+        "facilityPenUpdate": "Update Pen",
+        "facilityPenDelete": "Delete Pen",
+        "facilityDepartmentCreate": "Create Department",
+        "facilityDepartmentUpdate": "Update Department",
+        "facilityDepartmentDelete": "Delete Department",
+        "messageThreadCreated": "Create Message Thread",
+        "messageSent": "Send Message",
+        "messageDeleted": "Delete Message",
+        "create": "Create",
+        "update": "Update",
+        "delete": "Delete",
+        "approve": "Approve",
+        "acknowledge": "Acknowledge",
+        "accountLockout": "Account Lockout",
+        "permissionDenied": "Permission Denied",
+        "rateLimitApi": "API Rate Limit",
+        "userAutoSuspended": "User Auto-Suspended",
+        "docHardDelete": "Permanently Delete Document",
+        "maintenanceReview": "Maintenance Review",
+        "maintenanceReviewApprove": "Approve Maintenance Review",
+        "animalReserved": "Reserve Animal",
+        "plannedExperimentCreated": "Create Experiment Plan",
+        "applicationNoticeCreated": "Create Application Notice",
+        "applicationNoticeContentUpdated": "Update Application Notice Content",
+        "applicationNoticeActivated": "Activate Application Notice",
+        "protocolCoeditorAssign": "Assign Co-editor",
+        "protocolVetAssign": "Assign Veterinarian",
+        "protocolImportDeleted": "Delete Imported Protocol",
+        "protocolTemplateVersionCreated": "Create Protocol Template Version",
+        "protocolTemplateVersionDeleted": "Delete Protocol Template Version",
+        "protocolTemplateVersionSetCurrent": "Set as Current Protocol Template Version",
+        "vetPatrolReportSubmitted": "Submit Patrol Report"
+      },
+      "entityType": {
+        "document": "Document",
+        "partner": "Partner",
+        "partnerImportJob": "Partner Import Batch",
+        "product": "Product",
+        "productCategory": "Product Category",
+        "warehouse": "Warehouse",
+        "role": "Role",
+        "user": "User",
+        "session": "Login Session",
+        "database": "Database",
+        "aiApiKey": "AI API Key",
+        "systemSetting": "System Setting",
+        "animal": "Animal",
+        "animalObservation": "Observation Record",
+        "animalSurgery": "Surgery Record",
+        "animalWeight": "Weight Record",
+        "animalVaccination": "Vaccination Record",
+        "animalSacrifice": "Sacrifice Record",
+        "animalSuddenDeaths": "Sudden Death Record",
+        "animalPathology": "Pathology Report",
+        "animalBloodTest": "Blood Test",
+        "animalBloodTestItem": "Blood Test Item",
+        "animalSource": "Animal Source",
+        "animalTransfers": "Animal Transfer",
+        "animalImportBatch": "Animal Import Batch",
+        "bloodTestTemplate": "Blood Test Template",
+        "bloodTestPanel": "Blood Test Panel",
+        "bloodTestPreset": "Blood Test Preset",
+        "careMedicationRecord": "Daily Medication Record",
+        "vetRecommendation": "Veterinary Recommendation",
+        "vetPatrolReports": "Patrol Report",
+        "euthanasia": "Euthanasia",
+        "protocol": "Protocol",
+        "amendment": "Protocol Amendment",
+        "facility": "Facility",
+        "equipment": "Equipment",
+        "maintenanceRecord": "Maintenance Record",
+        "overtimeRecord": "Overtime Record",
+        "leaveRequest": "Leave Request",
+        "attendanceRecord": "Attendance Record",
+        "messageThreads": "Internal Message",
+        "messages": "Message",
+        "qaInspections": "Inspection Report",
+        "qaNonConformances": "Non-Conformance (NC)",
+        "qaSopDocuments": "SOP Document",
+        "qaSchedules": "Inspection Schedule",
+        "qaScheduleItems": "Inspection Schedule Item",
+        "annualLeaveEntitlement": "Annual Leave Entitlement",
+        "applicationNotice": "Application Notice",
+        "electronicSignature": "Electronic Signature",
+        "plannedExperiment": "Experiment Plan",
+        "protocolTemplateVersion": "Protocol Template Version",
+        "piAccountInvite": "PI Account Invitation",
+        "species": "Species",
+        "building": "Building",
+        "zone": "Zone",
+        "pen": "Pen",
+        "department": "Department",
+        "equipmentDisposals": "Equipment Disposal",
+        "apPayment": "AP Payment",
+        "arReceipt": "AR Receipt",
+        "byproductSample": "Byproduct Sample",
+        "referenceStandard": "Reference Standard",
+        "documentRevision": "Document Revision",
+        "riskEntry": "Risk Entry",
+        "changeRequest": "Change Request",
+        "monitoringPoint": "Monitoring Point",
+        "environmentReading": "Environmental Monitoring Reading",
+        "competencyAssessment": "Competency Assessment",
+        "trainingRequirement": "Training Requirement",
+        "formulationRecord": "Formulation Record",
+        "ipBlocklist": "IP Block"
+      },
+      "alertType": {
+        "cspViolation": "CSP Violation",
+        "cspViolationReportOnly": "CSP Violation (Report Only)",
+        "refreshTokenReuse": "Refresh Token Reuse",
+        "bruteForce": "Brute-Force Attempt",
+        "idorProbe": "IDOR Probe",
+        "unusualLogin": "Unusual Login"
+      },
+      "severity": {
+        "critical": "Critical",
+        "high": "High",
+        "warning": "Warning",
+        "medium": "Medium",
+        "info": "Info",
+        "low": "Low"
+      }
+    },
+    "trainingRecords": {
+      "title": "Staff Training Records",
+      "description": "GLP compliance: manage staff training and certification expiry dates",
+      "addButton": "Add Training Record",
+      "tabRecords": "Staff Training Records",
+      "tabExpiring": "Certifications Expiring Soon",
+      "toast": {
+        "added": "Training record added",
+        "updated": "Training record updated",
+        "deleted": "Training record deleted"
+      },
+      "fillRequiredWithFields": "Please fill in the required fields (course name, completion date)",
+      "confirmDelete": "Are you sure you want to delete the training record for \"{{name}}\"?"
+    },
+    "facilities": {
+      "description": "Manage species categories, facilities, buildings, zones, pens, and department structure",
+      "cardTitle": "Master Data Maintenance",
+      "tab": {
+        "species": "Species",
+        "facilities": "Facilities",
+        "buildings": "Buildings",
+        "zones": "Zones",
+        "pens": "Pens",
+        "departments": "Departments",
+        "orgChart": "Org Chart"
+      },
+      "committeeRoster": {
+        "title": "IACUC Committee Roster",
+        "memberCount": "({{count}} members)",
+        "description": "Listed by role, independent of department structure — members may belong to any department or be external personnel.",
+        "loadFailed": "Failed to load the committee roster. Please try again later.",
+        "emptyTitle": "No committee members yet",
+        "emptyDescription": "After you assign the IACUC Chair, Reviewer, or Executive Secretary role, people will appear here automatically.",
+        "noDepartment": "Not assigned to a department"
+      },
+      "departmentMembers": {
+        "showExternal": "Also show external staff",
+        "externalHint": "External staff (e.g. external IACUC committee members) can be assigned to departments, but HR processes such as leave and overtime do not apply to them."
+      }
+    },
+    "permissions": {
+      "tree": {
+        "expandAll": "Expand All",
+        "collapseAll": "Collapse All",
+        "summary": "{{total}} permissions in total, {{selected}} selected",
+        "noMatch": "No permissions match your criteria",
+        "empty": "No permissions",
+        "searchPlaceholder": "Search permission name, code, or description...",
+        "moduleFilter": "Filter by module:",
+        "allWithCount": "All ({{count}})",
+        "categoryCount": "{{count}} categories"
+      },
+      "module": {
+        "aupProtocol": "Animal Use Protocols",
+        "animalManagement": "Animal Management",
+        "inventoryManagement": "Inventory Management",
+        "administration": "Administration",
+        "devTools": "Developer Tools",
+        "other": "Other"
+      },
+      "term": {
+        "user": "Users",
+        "role": "Roles",
+        "permission": "Permissions",
+        "audit": "Audit",
+        "protocol": "Protocols",
+        "review": "Review",
+        "attachment": "Attachments",
+        "version": "Versions",
+        "animal": "Animals",
+        "record": "Records",
+        "bloodTestItem": "Blood Test Items",
+        "vet": "Veterinary",
+        "export": "Export",
+        "pathology": "Pathology",
+        "source": "Sources",
+        "equipment": "Equipment",
+        "dashboard": "Dashboard",
+        "inspectionReport": "Inspection Reports",
+        "nonConformance": "Non-conformances",
+        "sopDocument": "SOP Documents",
+        "inspectionSchedule": "Inspection Schedules",
+        "warehouse": "Warehouses",
+        "product": "Products",
+        "partner": "Partners",
+        "document": "Documents",
+        "purchase": "Purchasing",
+        "goodsReceipt": "Goods Receipt",
+        "sales": "Sales",
+        "delivery": "Delivery",
+        "stock": "Inventory",
+        "stocktake": "Stocktake",
+        "report": "Reports",
+        "purchaseOrder": "Purchase Orders",
+        "salesOrder": "Sales Orders",
+        "transfer": "Transfers",
+        "inventoryAdjustment": "Inventory Adjustments",
+        "inventoryStatus": "Inventory Status",
+        "create": "Create",
+        "approve": "Approve",
+        "cancel": "Cancel",
+        "submit": "Submit",
+        "update": "Update",
+        "delete": "Delete",
+        "view": "View",
+        "read": "Read",
+        "edit": "Edit",
+        "schedule": "Schedule",
+        "download": "Download",
+        "system": "System",
+        "log": "Logs",
+        "notification": "Notifications",
+        "database": "Database",
+        "manage": "Manage",
+        "assign": "Assign",
+        "resetPassword": "Reset Password",
+        "query": "Query",
+        "migrate": "Migrate",
+        "seedData": "Seed Data",
+        "send": "Send",
+        "backup": "Backup",
+        "restore": "Restore",
+        "trigger": "Trigger",
+        "upload": "Upload",
+        "species": "Species",
+        "department": "Departments",
+        "facility": "Facilities",
+        "building": "Buildings",
+        "zone": "Zones",
+        "pen": "Pens",
+        "alerts": "Alerts",
+        "timeline": "Timeline",
+        "leave": "Leave",
+        "attendance": "Attendance",
+        "overtime": "Overtime",
+        "leaveBalance": "Leave Balances",
+        "hr": "HR",
+        "calendar": "Calendar",
+        "buildingUnit": "Buildings",
+        "viewProtocols": "View Protocols",
+        "viewAnimals": "View Animals",
+        "viewAudit": "View Audit",
+        "viewQauDashboard": "View QAU Dashboard",
+        "addRecords": "Add Records",
+        "createDocuments": "Create Documents",
+        "importGroup": "Import",
+        "systemAdmin": "System Administration"
+      }
+    }
   }
 }

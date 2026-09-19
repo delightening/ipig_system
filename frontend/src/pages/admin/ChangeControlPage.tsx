@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { useAuthHasPermission } from '@/stores/auth'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
@@ -29,23 +30,24 @@ import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { uiLocale } from '@/lib/utils'
 
+// labelKey 是 i18n 鍵（渲染時才 t()），避免 module 級常數凍結語言。
 const CHANGE_TYPES = [
-  { value: 'equipment', label: '設備' },
-  { value: 'method', label: '方法' },
-  { value: 'personnel', label: '人員' },
-  { value: 'facility', label: '設施' },
-  { value: 'system', label: '系統' },
-  { value: 'process', label: '流程' },
+  { value: 'equipment', labelKey: 'adminGlp.shared.equipment' },
+  { value: 'method', labelKey: 'adminGlp.changeControl.type.method' },
+  { value: 'personnel', labelKey: 'adminGlp.changeControl.type.personnel' },
+  { value: 'facility', labelKey: 'adminGlp.shared.facility' },
+  { value: 'system', labelKey: 'adminGlp.changeControl.type.system' },
+  { value: 'process', labelKey: 'adminGlp.changeControl.type.process' },
 ]
 
 const STATUS_OPTIONS = [
-  { value: 'draft', label: '草稿' },
-  { value: 'submitted', label: '已提交' },
-  { value: 'under_review', label: '審查中' },
-  { value: 'approved', label: '已核准' },
-  { value: 'implemented', label: '已實施' },
-  { value: 'verified', label: '已驗證' },
-  { value: 'rejected', label: '已駁回' },
+  { value: 'draft', labelKey: 'adminGlp.shared.statusLabel.draft' },
+  { value: 'submitted', labelKey: 'adminGlp.shared.statusLabel.submitted' },
+  { value: 'under_review', labelKey: 'adminGlp.shared.statusLabel.underReview' },
+  { value: 'approved', labelKey: 'adminGlp.shared.statusLabel.approved' },
+  { value: 'implemented', labelKey: 'adminGlp.changeControl.status.implemented' },
+  { value: 'verified', labelKey: 'adminGlp.shared.statusLabel.verified' },
+  { value: 'rejected', labelKey: 'adminGlp.changeControl.status.rejected' },
 ]
 
 const STATUS_VARIANTS: Record<
@@ -64,6 +66,7 @@ const STATUS_VARIANTS: Record<
 const INITIAL_FORM = { title: '', change_type: 'equipment', description: '', justification: '' }
 
 export function ChangeControlPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const hasPermission = useAuthHasPermission()
   const canManage = hasPermission('change.request.manage')
@@ -73,9 +76,9 @@ export function ChangeControlPage() {
   // R71-10：核准變更請求送出前加二次確認。
   const handleApprove = async (id: string) => {
     const ok = await confirm({
-      title: '確認核准變更請求',
-      description: '核准後此變更請求將進入已核准狀態。確認核准？',
-      confirmLabel: '確認核准',
+      title: t('adminGlp.changeControl.confirm.title'),
+      description: t('adminGlp.changeControl.confirm.description'),
+      confirmLabel: t('adminGlp.changeControl.confirm.label'),
     })
     if (ok) approveMutation.mutate(id)
   }
@@ -105,31 +108,31 @@ export function ChangeControlPage() {
       queryClient.invalidateQueries({ queryKey: ['change-requests'] })
       setShowCreate(false)
       setForm(INITIAL_FORM)
-      toast({ title: '變更申請已建立' })
+      toast({ title: t('adminGlp.changeControl.toast.created') })
     },
-    onError: (err: unknown) => toast({ title: '建立失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.shared.createFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => approveChangeRequest(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['change-requests'] })
-      toast({ title: '變更已核准' })
+      toast({ title: t('adminGlp.changeControl.toast.approved') })
     },
-    onError: (err: unknown) => toast({ title: '核准失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.shared.approveFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">變更控制</h1>
-          <p className="text-muted-foreground">ISO 9001 變更管理</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('adminGlp.changeControl.title')}</h1>
+          <p className="text-muted-foreground">{t('adminGlp.changeControl.subtitle')}</p>
         </div>
         {canManage && (
           <Button onClick={() => setShowCreate(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            新增變更申請
+            {t('adminGlp.changeControl.create')}
           </Button>
         )}
       </div>
@@ -139,23 +142,23 @@ export function ChangeControlPage() {
           <div className="flex gap-4">
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="所有類型" />
+                <SelectValue placeholder={t('adminGlp.shared.allTypes')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">所有類型</SelectItem>
+                <SelectItem value="">{t('adminGlp.shared.allTypes')}</SelectItem>
                 {CHANGE_TYPES.map((ct) => (
-                  <SelectItem key={ct.value} value={ct.value}>{ct.label}</SelectItem>
+                  <SelectItem key={ct.value} value={ct.value}>{t(ct.labelKey)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="所有狀態" />
+                <SelectValue placeholder={t('adminGlp.shared.allStatuses')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">所有狀態</SelectItem>
+                <SelectItem value="">{t('adminGlp.shared.allStatuses')}</SelectItem>
                 {STATUS_OPTIONS.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  <SelectItem key={s.value} value={s.value}>{t(s.labelKey)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -165,47 +168,51 @@ export function ChangeControlPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>變更編號</TableHead>
-                <TableHead>標題</TableHead>
-                <TableHead>類型</TableHead>
-                <TableHead>狀態</TableHead>
-                <TableHead>申請人</TableHead>
-                <TableHead>建立時間</TableHead>
-                <TableHead>操作</TableHead>
+                <TableHead>{t('adminGlp.changeControl.col.changeNumber')}</TableHead>
+                <TableHead>{t('adminGlp.shared.title')}</TableHead>
+                <TableHead>{t('adminGlp.shared.type')}</TableHead>
+                <TableHead>{t('adminGlp.shared.status')}</TableHead>
+                <TableHead>{t('adminGlp.changeControl.col.requester')}</TableHead>
+                <TableHead>{t('adminGlp.shared.createdAt')}</TableHead>
+                <TableHead>{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="p-0"><TableSkeleton rows={5} cols={7} /></TableCell></TableRow>
               ) : requests.length === 0 ? (
-                <TableEmptyRow colSpan={7} icon={RefreshCw} title="尚無變更申請" />
+                <TableEmptyRow colSpan={7} icon={RefreshCw} title={t('adminGlp.changeControl.empty')} />
               ) : (
-                requests.map((cr) => (
-                  <TableRow key={cr.id}>
-                    <TableCell className="font-mono text-sm">{cr.change_number}</TableCell>
-                    <TableCell className="font-medium">{cr.title}</TableCell>
-                    <TableCell>{CHANGE_TYPES.find((ct) => ct.value === cr.change_type)?.label ?? cr.change_type}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANTS[cr.status] ?? 'secondary'}>
-                        {STATUS_OPTIONS.find((s) => s.value === cr.status)?.label ?? cr.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{cr.requester_name ?? '-'}</TableCell>
-                    <TableCell>{new Date(cr.created_at).toLocaleDateString(uiLocale())}</TableCell>
-                    <TableCell>
-                      {canApprove && (cr.status === 'submitted' || cr.status === 'under_review') && (
-                        <Button variant="outline" size="sm" onClick={() => handleApprove(cr.id)} disabled={approveMutation.isPending}>
-                          {approveMutation.isPending && approveMutation.variables === cr.id ? (
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          ) : (
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                          )}
-                          核准
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                requests.map((cr) => {
+                  const changeType = CHANGE_TYPES.find((ct) => ct.value === cr.change_type)
+                  const statusOption = STATUS_OPTIONS.find((s) => s.value === cr.status)
+                  return (
+                    <TableRow key={cr.id}>
+                      <TableCell className="font-mono text-sm">{cr.change_number}</TableCell>
+                      <TableCell className="font-medium">{cr.title}</TableCell>
+                      <TableCell>{changeType ? t(changeType.labelKey) : cr.change_type}</TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANTS[cr.status] ?? 'secondary'}>
+                          {statusOption ? t(statusOption.labelKey) : cr.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{cr.requester_name ?? '-'}</TableCell>
+                      <TableCell>{new Date(cr.created_at).toLocaleDateString(uiLocale())}</TableCell>
+                      <TableCell>
+                        {canApprove && (cr.status === 'submitted' || cr.status === 'under_review') && (
+                          <Button variant="outline" size="sm" onClick={() => handleApprove(cr.id)} disabled={approveMutation.isPending}>
+                            {approveMutation.isPending && approveMutation.variables === cr.id ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                            )}
+                            {t('adminGlp.shared.approve')}
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
@@ -214,25 +221,25 @@ export function ChangeControlPage() {
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent>
-          <DialogHeader><DialogTitle>新增變更申請</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('adminGlp.changeControl.create')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">標題 *</label>
+              <label className="text-sm font-medium">{t('adminGlp.shared.titleRequired')}</label>
               <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">變更類型 *</label>
+              <label className="text-sm font-medium">{t('adminGlp.changeControl.dialog.changeTypeRequired')}</label>
               <Select value={form.change_type} onValueChange={(v) => setForm((f) => ({ ...f, change_type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {CHANGE_TYPES.map((ct) => (
-                    <SelectItem key={ct.value} value={ct.value}>{ct.label}</SelectItem>
+                    <SelectItem key={ct.value} value={ct.value}>{t(ct.labelKey)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">描述 *</label>
+              <label className="text-sm font-medium">{t('adminGlp.changeControl.dialog.descriptionRequired')}</label>
               <textarea
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 value={form.description}
@@ -240,7 +247,7 @@ export function ChangeControlPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">變更理由</label>
+              <label className="text-sm font-medium">{t('adminGlp.changeControl.dialog.justification')}</label>
               <textarea
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 value={form.justification}
@@ -249,9 +256,9 @@ export function ChangeControlPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => createMutation.mutate()} disabled={!form.title || !form.description || createMutation.isPending}>
-              建立
+              {t('adminGlp.shared.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

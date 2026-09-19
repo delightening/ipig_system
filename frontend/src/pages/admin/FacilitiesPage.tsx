@@ -10,6 +10,7 @@
  * - 部門 (Department) CRUD（樹狀結構）
  */
 
+import { useTranslation } from 'react-i18next'
 import { useAuthHasPermission } from '@/stores/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
 import { PageHeader } from '@/components/ui/page-header'
@@ -27,6 +28,7 @@ import { DepartmentOrgChartTab } from './components/DepartmentOrgChartTab'
 import { CommitteeRoster } from './components/CommitteeRoster'
 
 export function FacilitiesPage() {
+  const { t } = useTranslation()
   const hasPermission = useAuthHasPermission()
   // ⚠️ 原本寫 hasPermission('facilities.manage') —— **後端的碼是 facility.manage（單數）**，
   // 這個字串在 permissions 表裡不存在，永遠回 false。實際能看到管理按鈕的只有 admin
@@ -43,24 +45,24 @@ export function FacilitiesPage() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader
-        title="設施管理"
-        description="管理物種分類、設施、棟舍、區域、欄位與部門架構"
+        title={t('nav.adminFacilities')}
+        description={t('adminUsers.facilities.description')}
       />
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">基礎資料維護</CardTitle>
+          <CardTitle className="text-base">{t('adminUsers.facilities.cardTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           <PageTabs
             tabs={[
-              { value: 'species', label: '物種', icon: TreeDeciduous },
-              { value: 'facilities', label: '設施', icon: MapPin },
-              { value: 'buildings', label: '棟舍', icon: Building2 },
-              { value: 'zones', label: '區域', icon: Layers },
-              { value: 'pens', label: '欄位', icon: Grid3X3 },
-              { value: 'departments', label: '部門', icon: Users },
-              { value: 'org-chart', label: '組織圖', icon: Network },
+              { value: 'species', label: t('adminUsers.facilities.tab.species'), icon: TreeDeciduous },
+              { value: 'facilities', label: t('adminUsers.facilities.tab.facilities'), icon: MapPin },
+              { value: 'buildings', label: t('adminUsers.facilities.tab.buildings'), icon: Building2 },
+              { value: 'zones', label: t('adminUsers.facilities.tab.zones'), icon: Layers },
+              { value: 'pens', label: t('adminUsers.facilities.tab.pens'), icon: Grid3X3 },
+              { value: 'departments', label: t('adminUsers.facilities.tab.departments'), icon: Users },
+              { value: 'org-chart', label: t('adminUsers.facilities.tab.orgChart'), icon: Network },
             ]}
             defaultTab="species"
           >

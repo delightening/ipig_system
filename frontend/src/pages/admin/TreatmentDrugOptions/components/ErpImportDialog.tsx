@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { treatmentDrugApi } from '@/lib/api'
 import api from '@/lib/api'
 import { useSelection } from '@/hooks/useSelection'
@@ -26,6 +27,8 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { Search, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { drugCategoryLabel } from '../constants'
+
 /** ERP 產品型別 */
 interface Product {
     id: string
@@ -42,6 +45,7 @@ interface ErpImportDialogProps {
 }
 
 export function ErpImportDialog({ open, onOpenChange }: ErpImportDialogProps) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const [searchText, setSearchText] = useState('')
     const selection = useSelection<string>()
@@ -69,16 +73,16 @@ export function ErpImportDialog({ open, onOpenChange }: ErpImportDialogProps) {
             queryClient.invalidateQueries({ queryKey: ['admin-treatment-drugs'] })
             queryClient.invalidateQueries({ queryKey: ['treatment-drugs'] })
             toast({
-                title: '匯入成功',
-                description: `已匯入 ${res.data.length} 個藥物選項`,
+                title: t('adminOps.treatmentDrugs.import.successTitle'),
+                description: t('adminOps.treatmentDrugs.import.successDescription', { count: res.data.length }),
             })
             selection.clear()
             onOpenChange(false)
         },
         onError: (err: unknown) => {
             toast({
-                title: '匯入失敗',
-                description: getApiErrorMessage(err, '匯入失敗'),
+                title: t('adminOps.treatmentDrugs.import.failedTitle'),
+                description: getApiErrorMessage(err, t('adminOps.treatmentDrugs.import.failedTitle')),
                 variant: 'destructive',
             })
         },
@@ -88,15 +92,15 @@ export function ErpImportDialog({ open, onOpenChange }: ErpImportDialogProps) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>從 ERP 匯入藥物</DialogTitle>
-                    <DialogDescription>搜尋 ERP 產品並匯入為藥物選項</DialogDescription>
+                    <DialogTitle>{t('adminOps.treatmentDrugs.import.title')}</DialogTitle>
+                    <DialogDescription>{t('adminOps.treatmentDrugs.import.description')}</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                     <div className="flex gap-2">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="搜尋 ERP 產品名稱..."
+                                placeholder={t('adminOps.treatmentDrugs.import.searchPlaceholder')}
                                 value={searchText}
                                 onChange={(e) => setSearchText(e.target.value)}
                                 className="pl-9"
@@ -108,7 +112,7 @@ export function ErpImportDialog({ open, onOpenChange }: ErpImportDialogProps) {
                             </SelectTrigger>
                             <SelectContent>
                                 {DRUG_CATEGORIES.map((cat) => (
-                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                    <SelectItem key={cat} value={cat}>{drugCategoryLabel(cat, t)}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -123,20 +127,20 @@ export function ErpImportDialog({ open, onOpenChange }: ErpImportDialogProps) {
 
                     {selection.size > 0 && (
                         <p className="text-sm text-primary">
-                            已選擇 {selection.size} 個產品
+                            {t('adminOps.treatmentDrugs.import.selectedCount', { count: selection.size })}
                         </p>
                     )}
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         onClick={() => importMutation.mutate()}
                         disabled={selection.size === 0 || importMutation.isPending}
                     >
                         {importMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        匯入 ({selection.size})
+                        {t('adminOps.treatmentDrugs.import.importButton', { count: selection.size })}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -155,6 +159,7 @@ function ProductList({
     searchText: string
     selection: ReturnType<typeof useSelection<string>>
 }) {
+    const { t } = useTranslation()
     if (isLoading) {
         return (
             <div className="max-h-60 overflow-auto border rounded-md">
@@ -169,7 +174,7 @@ function ProductList({
         return (
             <div className="max-h-60 overflow-auto border rounded-md">
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                    {searchText ? '無符合的產品' : '請輸入關鍵字搜尋'}
+                    {searchText ? t('adminOps.treatmentDrugs.import.noResults') : t('adminOps.treatmentDrugs.import.typeToSearch')}
                 </div>
             </div>
         )

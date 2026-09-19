@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -44,24 +46,25 @@ export function CreateRoutingDialog({
     eventCategories,
     roles,
 }: CreateRoutingDialogProps) {
+    const { t } = useTranslation()
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>新增通知路由規則</DialogTitle>
+                    <DialogTitle>{t('adminOps.notificationRouting.createDialog.title')}</DialogTitle>
                     <DialogDescription>
-                        設定當特定事件發生時，通知哪個角色以及使用何種通知方式
+                        {t('adminOps.notificationRouting.createDialog.description')}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label>事件類型 *</Label>
+                        <Label>{t('adminOps.notificationRouting.createDialog.eventTypeLabel')}</Label>
                         <Select
                             value={form.event_type}
                             onValueChange={(v) => onFormChange({ ...form, event_type: v })}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="選擇事件類型" />
+                                <SelectValue placeholder={t('adminOps.notificationRouting.createDialog.eventTypePlaceholder')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {eventCategories?.map((cat) => (
@@ -81,13 +84,13 @@ export function CreateRoutingDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>通知角色 *</Label>
+                        <Label>{t('adminOps.notificationRouting.createDialog.roleLabel')}</Label>
                         <Select
                             value={form.role_code}
                             onValueChange={(v) => onFormChange({ ...form, role_code: v })}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="選擇角色" />
+                                <SelectValue placeholder={t('adminOps.notificationRouting.createDialog.rolePlaceholder')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {roles?.map((r) => (
@@ -100,7 +103,7 @@ export function CreateRoutingDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>通知管道</Label>
+                        <Label>{t('adminOps.notificationRouting.channelLabel')}</Label>
                         <Select
                             value={form.channel}
                             onValueChange={(v) => onFormChange({ ...form, channel: v })}
@@ -111,7 +114,7 @@ export function CreateRoutingDialog({
                             <SelectContent>
                                 {channelOptions.map((opt) => (
                                     <SelectItem key={opt.value} value={opt.value}>
-                                        {opt.label}
+                                        {t(opt.labelKey)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -119,21 +122,21 @@ export function CreateRoutingDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>描述</Label>
+                        <Label>{t('adminOps.notificationRouting.descriptionLabel')}</Label>
                         <Input
                             value={form.description}
                             onChange={(e) => onFormChange({ ...form, description: e.target.value })}
-                            placeholder="例如：計畫提交後通知 IACUC 執行秘書"
+                            placeholder={t('adminOps.notificationRouting.createDialog.descriptionPlaceholder')}
                         />
                     </div>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={onSubmit} disabled={isPending}>
                         {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        建立
+                        {t('adminOps.notificationRouting.createDialog.submit')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

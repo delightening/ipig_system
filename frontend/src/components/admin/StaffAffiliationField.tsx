@@ -7,6 +7,7 @@
  * 規則再度分岔。
  */
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { deriveAffiliation } from '@/lib/staffAffiliation'
@@ -22,16 +23,17 @@ interface StaffAffiliationFieldProps {
     error?: string
 }
 
+// module 級常數存 i18n 鍵、渲染時才 t()（頂層存翻譯後字串會讓語言切換後不更新）
 const OPTIONS = [
     {
         value: true,
-        title: '本場受僱人員',
-        detail: '適用請假、加班、特休、打卡與人員訓練；可被指派為研究主持人（SD）。',
+        titleKey: 'adminUsers.shared.affiliation.internal',
+        detailKey: 'adminUsers.shared.affiliation.internalDetail',
     },
     {
         value: false,
-        title: '外部人員',
-        detail: '受邀參與，不適用人事作業。例如計畫主持人、委託人、外聘審查委員。',
+        titleKey: 'adminUsers.shared.affiliation.external',
+        detailKey: 'adminUsers.shared.affiliation.externalDetail',
     },
 ] as const
 
@@ -41,6 +43,7 @@ export function StaffAffiliationField({
     selectedRoleCodes,
     error,
 }: StaffAffiliationFieldProps) {
+    const { t } = useTranslation()
     // 使用者是否已「自己點過」。
     //
     // ⚠️ 不能用 `value !== null` 代替：那分不出「自動推導出來的值」與「使用者
@@ -67,7 +70,7 @@ export function StaffAffiliationField({
     return (
         <div className="space-y-2">
             <Label>
-                身分 <span className="text-destructive">*</span>
+                {t('adminUsers.shared.affiliation.label')} <span className="text-destructive">*</span>
             </Label>
             <div className="grid gap-2 sm:grid-cols-2">
                 {OPTIONS.map(opt => {
@@ -86,15 +89,15 @@ export function StaffAffiliationField({
                                     : 'border-border hover:border-foreground/40',
                             )}
                         >
-                            <div className="text-sm font-medium">{opt.title}</div>
-                            <div className="mt-1 text-xs text-muted-foreground">{opt.detail}</div>
+                            <div className="text-sm font-medium">{t(opt.titleKey)}</div>
+                            <div className="mt-1 text-xs text-muted-foreground">{t(opt.detailKey)}</div>
                         </button>
                     )
                 })}
             </div>
             {/* 說明為什麼要分——只寫「內部 vs 外部」等於同義反覆，講後果才有用 */}
             <p className="text-xs text-muted-foreground">
-                這與「屬於哪個部門」無關：外部人員（例如 IACUC 外聘委員）一樣可以編入部門。
+                {t('adminUsers.shared.affiliation.note')}
             </p>
             {error && <p className="text-xs text-destructive">{error}</p>}
         </div>

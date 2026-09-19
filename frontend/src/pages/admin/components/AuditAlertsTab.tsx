@@ -29,7 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, ShieldAlert } from 'lucide-react'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
-import { alertTypeLabels, severityLabels } from '../constants/auditLogs'
+import { getAlertTypeLabel, getSeverityLabel } from '../constants/auditLogs'
 
 function getSeverityColor(severity: string) {
     switch (severity) {
@@ -255,8 +255,8 @@ function AlertRow({ alert, isSelected, onCheckChange, onSelect, onResolve, isRes
                     {new Date(alert.created_at).toLocaleTimeString(uiLocale(), { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit' })}
                 </span>
             </TableCell>
-            <TableCell><Badge variant="outline">{alertTypeLabels[alert.alert_type] ?? alert.alert_type}</Badge></TableCell>
-            <TableCell><Badge variant={getSeverityColor(alert.severity)}>{severityLabels[alert.severity] ?? alert.severity}</Badge></TableCell>
+            <TableCell><Badge variant="outline">{getAlertTypeLabel(t, alert.alert_type) ?? alert.alert_type}</Badge></TableCell>
+            <TableCell><Badge variant={getSeverityColor(alert.severity)}>{getSeverityLabel(t, alert.severity) ?? alert.severity}</Badge></TableCell>
             <TableCell>{alert.title}</TableCell>
             <TableCell className="text-sm text-muted-foreground max-w-[300px] whitespace-normal break-words" title={alert.description || ''}>
                 <AlertDescription alert={alert} t={t} />

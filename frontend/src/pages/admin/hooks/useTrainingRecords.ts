@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, isBefore, isAfter } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 
 import api, { deleteResource } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -22,6 +23,7 @@ function createEmptyForm(): TrainingForm {
 }
 
 export function useTrainingRecords() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { hasPermission, user } = useAuthStore()
   const canManage = hasPermission('training.manage') || hasPermission('training.manage_own')
@@ -116,10 +118,10 @@ export function useTrainingRecords() {
       queryClient.invalidateQueries({ queryKey: ['training-records'] })
       dialogs.close('create')
       resetForm()
-      toast({ title: '成功', description: '已新增訓練紀錄' })
+      toast({ title: t('common.success'), description: t('adminUsers.trainingRecords.toast.added') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminUsers.shared.addFailed')), variant: 'destructive' })
     },
   })
 
@@ -130,10 +132,10 @@ export function useTrainingRecords() {
       queryClient.invalidateQueries({ queryKey: ['training-records'] })
       dialogs.close('edit')
       setEditingRecord(null)
-      toast({ title: '成功', description: '已更新訓練紀錄' })
+      toast({ title: t('common.success'), description: t('adminUsers.trainingRecords.toast.updated') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminUsers.shared.updateFailed')), variant: 'destructive' })
     },
   })
 
@@ -141,10 +143,10 @@ export function useTrainingRecords() {
     mutationFn: (id: string) => deleteResource(`/training-records/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-records'] })
-      toast({ title: '成功', description: '已刪除訓練紀錄' })
+      toast({ title: t('common.success'), description: t('adminUsers.trainingRecords.toast.deleted') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '刪除失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminUsers.shared.deleteFailed')), variant: 'destructive' })
     },
   })
 
@@ -169,7 +171,7 @@ export function useTrainingRecords() {
   const handleCreate = () => {
     const userId = canManageAll ? form.user_id : user?.id
     if (!userId || !form.course_name.trim() || !form.completed_at) {
-      toast({ title: '錯誤', description: '請填寫必填欄位（課程名稱、完成日期）', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminUsers.trainingRecords.fillRequiredWithFields'), variant: 'destructive' })
       return
     }
     createMutation.mutate({ ...form, user_id: userId })
@@ -178,7 +180,7 @@ export function useTrainingRecords() {
   const handleUpdate = () => {
     if (!editingRecord) return
     if (!form.course_name.trim() || !form.completed_at) {
-      toast({ title: '錯誤', description: '請填寫必填欄位', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminUsers.shared.fillRequired'), variant: 'destructive' })
       return
     }
     updateMutation.mutate({
@@ -193,7 +195,7 @@ export function useTrainingRecords() {
   }
 
   const handleDelete = (record: TrainingRecordWithUser) => {
-    if (window.confirm(`確定要刪除「${record.course_name}」的訓練紀錄嗎？`)) {
+    if (window.confirm(t('adminUsers.trainingRecords.confirmDelete', { name: record.course_name }))) {
       deleteMutation.mutate(record.id)
     }
   }

@@ -3,6 +3,7 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -25,6 +26,7 @@ interface UseEquipmentDisposalOptions {
 }
 
 export function useEquipmentDisposal(options: UseEquipmentDisposalOptions) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const [disposalPage, setDisposalPage] = useState(1)
@@ -52,10 +54,10 @@ export function useEquipmentDisposal(options: UseEquipmentDisposalOptions) {
       queryClient.invalidateQueries({ queryKey: DISPOSAL_KEYS.list })
       queryClient.invalidateQueries({ queryKey: EQUIP_KEYS.list })
       queryClient.invalidateQueries({ queryKey: EQUIP_KEYS.all })
-      toast({ title: '成功', description: '已處理報廢申請' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.disposalProcessed') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '操作失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.operationFailed')), variant: 'destructive' })
     },
   })
 
@@ -67,10 +69,10 @@ export function useEquipmentDisposal(options: UseEquipmentDisposalOptions) {
       queryClient.invalidateQueries({ queryKey: DISPOSAL_KEYS.list })
       queryClient.invalidateQueries({ queryKey: EQUIP_KEYS.list })
       queryClient.invalidateQueries({ queryKey: EQUIP_KEYS.all })
-      toast({ title: '成功', description: '設備已恢復為啟用狀態' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.equipmentRestored') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '恢復失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.restoreFailed')), variant: 'destructive' })
     },
   })
 
@@ -82,10 +84,10 @@ export function useEquipmentDisposal(options: UseEquipmentDisposalOptions) {
       queryClient.invalidateQueries({ queryKey: EQUIP_KEYS.all })
       options.closeDisposalCreate()
       setDisposalForm(emptyDisposalForm())
-      toast({ title: '成功', description: '已送出報廢申請' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.disposalSubmitted') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '申請失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.requestFailed')), variant: 'destructive' })
     },
   })
 

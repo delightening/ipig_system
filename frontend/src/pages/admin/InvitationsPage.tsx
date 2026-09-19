@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { GuestHide } from '@/components/ui/guest-hide'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -20,17 +21,21 @@ import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { InvitationCreateDialog } from './components/InvitationCreateDialog'
 import type { InvitationStatus } from '@/types/invitation'
-import { invitationStatusNames, invitationStatusColors } from '@/types/invitation'
+import { invitationStatusColors } from '@/types/invitation'
 
-const STATUS_TABS: Array<{ label: string; value: InvitationStatus | 'all' }> = [
-    { label: '全部', value: 'all' },
-    { label: '待接受', value: 'pending' },
-    { label: '已接受', value: 'accepted' },
-    { label: '已過期', value: 'expired' },
-    { label: '已撤銷', value: 'revoked' },
-]
+// 分頁標籤與狀態徽章共用同一組 i18n 鍵（module 級常數不可存翻譯後字串，故存鍵、渲染時才 t()）
+const STATUS_LABEL_KEYS: Record<InvitationStatus | 'all', string> = {
+    all: 'adminUsers.invitations.status.all',
+    pending: 'adminUsers.invitations.status.pending',
+    accepted: 'adminUsers.invitations.status.accepted',
+    expired: 'adminUsers.invitations.status.expired',
+    revoked: 'adminUsers.invitations.status.revoked',
+}
+
+const STATUS_TABS: Array<InvitationStatus | 'all'> = ['all', 'pending', 'accepted', 'expired', 'revoked']
 
 export function InvitationsPage() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const [statusFilter, setStatusFilter] = useState<InvitationStatus | 'all'>('all')
     const [page, setPage] = useState(1)
@@ -52,7 +57,7 @@ export function InvitationsPage() {
     const revokeMutation = useMutation({
         mutationFn: (id: string) => invitationApi.revoke(id),
         onSuccess: () => {
-            toast({ title: '已撤銷邀請' })
+            toast({ title: t('adminUsers.invitations.toast.revoked') })
             queryClient.invalidateQueries({ queryKey: ['invitations'] })
         },
         onError: (err) => toast({ variant: 'destructive', title: getApiErrorMessage(err) }),
@@ -61,7 +66,7 @@ export function InvitationsPage() {
     const resendMutation = useMutation({
         mutationFn: (id: string) => invitationApi.resend(id),
         onSuccess: (res) => {
-            toast({ title: '已重新發送邀請', description: `連結已更新：${res.data.invite_link.slice(0, 40)}...` })
+            toast({ title: t('adminUsers.invitations.toast.resent'), description: t('adminUsers.invitations.toast.linkUpdated', { link: res.data.invite_link.slice(0, 40) }) })
             queryClient.invalidateQueries({ queryKey: ['invitations'] })
         },
         onError: (err) => toast({ variant: 'destructive', title: getApiErrorMessage(err) }),
@@ -74,14 +79,14 @@ export function InvitationsPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="邀請管理"
-                description="管理客戶邀請連結"
+                title={t('nav.hrInvitations')}
+                description={t('adminUsers.invitations.description')}
                 actions={
                     <GuestHide>
                         <Can permission={PERMISSIONS.INVITATION_CREATE}>
                             <Button size="sm" onClick={() => setShowCreateDialog(true)}>
                                 <Plus className="h-4 w-4 mr-2" />
-                                新增邀請
+                                {t('adminUsers.invitations.addButton')}
                             </Button>
                         </Can>
                     </GuestHide>
@@ -92,15 +97,15 @@ export function InvitationsPage() {
             <div className="flex gap-1 border-b">
                 {STATUS_TABS.map(tab => (
                     <button
-                        key={tab.value}
-                        onClick={() => { setStatusFilter(tab.value); setPage(1) }}
+                        key={tab}
+                        onClick={() => { setStatusFilter(tab); setPage(1) }}
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                            statusFilter === tab.value
+                            statusFilter === tab
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        {tab.label}
+                        {t(STATUS_LABEL_KEYS[tab])}
                     </button>
                 ))}
             </div>
@@ -112,12 +117,12 @@ export function InvitationsPage() {
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
                                 <TableHead style={{ minWidth: 180 }}>Email</TableHead>
-                                <TableHead style={{ minWidth: 150 }} className="hidden @[750px]:table-cell">組織</TableHead>
-                                <TableHead style={{ width: 90 }} className="whitespace-nowrap">狀態</TableHead>
-                                <TableHead style={{ minWidth: 96 }} className="hidden @[750px]:table-cell whitespace-nowrap">邀請人</TableHead>
-                                <TableHead style={{ minWidth: 104 }} className="hidden @[750px]:table-cell whitespace-nowrap">建立時間</TableHead>
-                                <TableHead style={{ minWidth: 104 }} className="whitespace-nowrap">到期時間</TableHead>
-                                <TableHead style={{ width: 80 }}>操作</TableHead>
+                                <TableHead style={{ minWidth: 150 }} className="hidden @[750px]:table-cell">{t('adminUsers.invitations.col.organization')}</TableHead>
+                                <TableHead style={{ width: 90 }} className="whitespace-nowrap">{t('adminUsers.invitations.col.status')}</TableHead>
+                                <TableHead style={{ minWidth: 96 }} className="hidden @[750px]:table-cell whitespace-nowrap">{t('adminUsers.invitations.col.invitedBy')}</TableHead>
+                                <TableHead style={{ minWidth: 104 }} className="hidden @[750px]:table-cell whitespace-nowrap">{t('adminUsers.invitations.col.createdAt')}</TableHead>
+                                <TableHead style={{ minWidth: 104 }} className="whitespace-nowrap">{t('adminUsers.invitations.col.expiresAt')}</TableHead>
+                                <TableHead style={{ width: 80 }}>{t('common.actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -128,7 +133,7 @@ export function InvitationsPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : invitations.length === 0 ? (
-                                <TableEmptyRow colSpan={7} icon={Mail} title="尚無邀請紀錄" />
+                                <TableEmptyRow colSpan={7} icon={Mail} title={t('adminUsers.invitations.empty')} />
                             ) : (
                                 invitations.map(inv => (
                                     <TableRow key={inv.id}>
@@ -136,7 +141,7 @@ export function InvitationsPage() {
                                         <TableCell style={{ minWidth: 150 }} className="hidden @[750px]:table-cell whitespace-normal break-words">{inv.organization || '-'}</TableCell>
                                         <TableCell style={{ width: 90 }} className="whitespace-nowrap">
                                             <Badge variant={invitationStatusColors[inv.status]}>
-                                                {invitationStatusNames[inv.status]}
+                                                {t(STATUS_LABEL_KEYS[inv.status])}
                                             </Badge>
                                         </TableCell>
                                         <TableCell style={{ minWidth: 96 }} className="hidden @[750px]:table-cell whitespace-nowrap">{inv.invited_by_name}</TableCell>
@@ -147,13 +152,13 @@ export function InvitationsPage() {
                                                 {(inv.status === 'pending' || inv.status === 'expired') && (
                                                     <div className="flex gap-1">
                                                         <Can permission={PERMISSIONS.INVITATION_RESEND}>
-                                                            <Button variant="ghost" size="icon" onClick={() => resendMutation.mutate(inv.id)} disabled={resendMutation.isPending} title="重新發送">
+                                                            <Button variant="ghost" size="icon" onClick={() => resendMutation.mutate(inv.id)} disabled={resendMutation.isPending} title={t('adminUsers.invitations.resend')}>
                                                                 {resendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
                                                             </Button>
                                                         </Can>
                                                         {inv.status === 'pending' && (
                                                             <Can permission={PERMISSIONS.INVITATION_REVOKE}>
-                                                                <Button variant="ghost" size="icon" onClick={() => revokeMutation.mutate(inv.id)} disabled={revokeMutation.isPending} title="撤銷">
+                                                                <Button variant="ghost" size="icon" onClick={() => revokeMutation.mutate(inv.id)} disabled={revokeMutation.isPending} title={t('adminUsers.invitations.revoke')}>
                                                                     <XCircle className="h-4 w-4 text-destructive" />
                                                                 </Button>
                                                             </Can>
@@ -176,7 +181,7 @@ export function InvitationsPage() {
                     ) : invitations.length === 0 ? (
                         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                             <Mail className="h-8 w-8" />
-                            <p className="text-sm">尚無邀請紀錄</p>
+                            <p className="text-sm">{t('adminUsers.invitations.empty')}</p>
                         </div>
                     ) : (
                         invitations.map(inv => (
@@ -187,23 +192,23 @@ export function InvitationsPage() {
                                         {inv.organization && <div className="text-xs text-muted-foreground">{inv.organization}</div>}
                                     </div>
                                     <Badge variant={invitationStatusColors[inv.status]}>
-                                        {invitationStatusNames[inv.status]}
+                                        {t(STATUS_LABEL_KEYS[inv.status])}
                                     </Badge>
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                    {inv.invited_by_name} · 建立 {formatDate(inv.created_at)} · 到期 {formatDate(inv.expires_at)}
+                                    {t('adminUsers.invitations.cardMeta', { name: inv.invited_by_name, created: formatDate(inv.created_at), expires: formatDate(inv.expires_at) })}
                                 </div>
                                 <GuestHide>
                                     {(inv.status === 'pending' || inv.status === 'expired') && (
                                         <div className="flex justify-end gap-1 pt-1 border-t">
                                             <Can permission={PERMISSIONS.INVITATION_RESEND}>
-                                                <Button variant="ghost" size="icon" onClick={() => resendMutation.mutate(inv.id)} disabled={resendMutation.isPending} title="重新發送">
+                                                <Button variant="ghost" size="icon" onClick={() => resendMutation.mutate(inv.id)} disabled={resendMutation.isPending} title={t('adminUsers.invitations.resend')}>
                                                     {resendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
                                                 </Button>
                                             </Can>
                                             {inv.status === 'pending' && (
                                                 <Can permission={PERMISSIONS.INVITATION_REVOKE}>
-                                                    <Button variant="ghost" size="icon" onClick={() => revokeMutation.mutate(inv.id)} disabled={revokeMutation.isPending} title="撤銷">
+                                                    <Button variant="ghost" size="icon" onClick={() => revokeMutation.mutate(inv.id)} disabled={revokeMutation.isPending} title={t('adminUsers.invitations.revoke')}>
                                                         <XCircle className="h-4 w-4 text-destructive" />
                                                     </Button>
                                                 </Can>
@@ -221,14 +226,14 @@ export function InvitationsPage() {
             {totalPages > 1 && (
                 <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">
-                        共 {total} 筆，第 {page} / {totalPages} 頁
+                        {t('admin.userTable.pageInfo', { total, current: page, totalPages })}
                     </p>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>
-                            上一頁
+                            {t('common.previous')}
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
-                            下一頁
+                            {t('common.next')}
                         </Button>
                     </div>
                 </div>

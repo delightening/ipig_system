@@ -4,6 +4,7 @@
 // 範圍：column 優先級 → ≤3 個 @container query 斷點 → 窄螢幕卡片化，
 // 禁止 truncate、禁止橫向卷軸、套 @tailwindcss/container-queries。
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,7 +24,7 @@ import { uiLocale } from '@/lib/utils'
 import type { UserActivityLog } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 
-import { categoryLabels, eventTypeLabels, entityTypeLabels } from '../constants/auditLogs'
+import { getCategoryLabel, getEventTypeConfig, getEntityTypeLabel } from '../constants/auditLogs'
 
 interface AuditLogTableProps {
   activityLogs: PaginatedResponse<UserActivityLog> | undefined
@@ -46,8 +47,8 @@ function formatDateTimeDisplay(dateStr: string) {
   )
 }
 
-function getEventBadge(eventType: string) {
-  const config = eventTypeLabels[eventType] || { label: eventType, color: 'bg-status-neutral-text' }
+function getEventBadge(eventType: string, t: TFunction) {
+  const config = getEventTypeConfig(t, eventType) || { label: eventType, color: 'bg-status-neutral-text' }
   return (
     <Badge className={`${config.color} text-white`}>
       {config.label}
@@ -101,13 +102,13 @@ export function AuditLogTable({
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">
-                    {categoryLabels[log.event_category] || log.event_category}
+                    {getCategoryLabel(t, log.event_category) || log.event_category}
                   </Badge>
                 </TableCell>
-                <TableCell>{getEventBadge(log.event_type)}</TableCell>
+                <TableCell>{getEventBadge(log.event_type, t)}</TableCell>
                 <TableCell>
                   <Badge variant="secondary">
-                    {entityTypeLabels[log.entity_type || ''] || log.entity_type || '-'}
+                    {getEntityTypeLabel(t, log.entity_type || '') || log.entity_type || '-'}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-sm">

@@ -12,7 +12,7 @@ import type { TFunction } from 'i18next'
 import type { UserActivityLog } from '@/types/hr'
 import { formatDate, formatTime } from '@/lib/utils'
 
-import { categoryLabels, eventTypeLabels, entityTypeLabels } from '../constants/auditLogs'
+import { getCategoryLabel, getEventTypeConfig, getEntityTypeLabel } from '../constants/auditLogs'
 
 // R30-13: 逐 key diff 工具與 DiffView component
 type JsonObj = Record<string, unknown>
@@ -164,8 +164,8 @@ function formatDateTimeDisplay(dateStr: string) {
   )
 }
 
-function getEventBadge(eventType: string) {
-  const config = eventTypeLabels[eventType] || { label: eventType, color: 'bg-muted0' }
+function getEventBadge(eventType: string, t: TFunction) {
+  const config = getEventTypeConfig(t, eventType) || { label: eventType, color: 'bg-muted0' }
   return (
     <Badge className={`${config.color} text-white`}>
       {config.label}
@@ -198,15 +198,15 @@ export function ActivityLogDetailDialog({ selectedLog, onClose }: ActivityLogDet
               </div>
               <div>
                 <Label className="text-muted-foreground">{t('admin.activityLogDetailDialog.eventCategory')}</Label>
-                <p className="font-medium">{categoryLabels[selectedLog.event_category] || selectedLog.event_category}</p>
+                <p className="font-medium">{getCategoryLabel(t, selectedLog.event_category) || selectedLog.event_category}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">{t('admin.activityLogDetailDialog.eventType')}</Label>
-                <div className="mt-1">{getEventBadge(selectedLog.event_type)}</div>
+                <div className="mt-1">{getEventBadge(selectedLog.event_type, t)}</div>
               </div>
               <div>
                 <Label className="text-muted-foreground">{t('admin.activityLogDetailDialog.entityType')}</Label>
-                <p className="font-medium">{entityTypeLabels[selectedLog.entity_type || ''] || selectedLog.entity_type || '-'}</p>
+                <p className="font-medium">{getEntityTypeLabel(t, selectedLog.entity_type || '') || selectedLog.entity_type || '-'}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">{t('admin.activityLogDetailDialog.entityName')}</Label>

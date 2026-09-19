@@ -1,6 +1,8 @@
+import type { TFunction } from 'i18next'
+
 import { Permission } from '@/lib/api'
 
-// 模組配置 - 中文顯示名稱
+// 模組配置 - 中文顯示名稱（中文同時是分組識別；顯示請用檔尾 translate*()，見該區段說明）
 export const MODULE_CONFIG: Record<string, { name: string; order: number }> = {
   // 動物使用計畫（包含資料庫中的 AUP 和 aup）
   aup: { name: '動物使用計畫', order: 1 },
@@ -466,4 +468,136 @@ export function getCategoryName(module: string, category: string): string {
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ') || category
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// i18n：顯示名稱翻譯
+//
+// 上面的 MODULE_CONFIG / CATEGORY_NAMES / OPERATION_NAMES / SUB_CATEGORY_NAMES 刻意維持中文：
+// hooks/permission/usePermissionCategories.ts 把這些中文值「同時」當分組識別
+// （groupsByName 以模組中文名為 key、MODULE_NAME_ORDER 以中文名查排序、依中文 localeCompare 排序）
+// 與顯示文字；直接改成鍵或翻譯後字串，會讓分組／排序／展開狀態一起錯亂。
+// 因此顯示層改在「渲染當下」由 translate*() 依中文值反查 i18n 鍵取譯（呼叫端傳 useTranslation() 的 t，
+// 語言切換會連帶重渲染）。
+//
+// 找不到對照的名稱（本來就是英文的 HR / Facility / Audit、或未知 code 的 title-case fallback）原樣回傳。
+// 新增中文顯示值時，須同步補下方 LABEL_KEYS 與語言包 adminUsers.permissions.{module,term}.*。
+// ─────────────────────────────────────────────────────────────────────────────
+const LABEL_KEYS: Record<string, string> = {
+  '動物使用計畫': 'adminUsers.permissions.module.aupProtocol',
+  '動物管理': 'adminUsers.permissions.module.animalManagement',
+  '庫存管理': 'adminUsers.permissions.module.inventoryManagement',
+  '管理階級': 'adminUsers.permissions.module.administration',
+  '開發工具': 'adminUsers.permissions.module.devTools',
+  '其他': 'adminUsers.permissions.module.other',
+  '使用者': 'adminUsers.permissions.term.user',
+  '角色': 'adminUsers.permissions.term.role',
+  '權限': 'adminUsers.permissions.term.permission',
+  '稽核': 'adminUsers.permissions.term.audit',
+  '計畫': 'adminUsers.permissions.term.protocol',
+  '審查': 'adminUsers.permissions.term.review',
+  '附件': 'adminUsers.permissions.term.attachment',
+  '版本': 'adminUsers.permissions.term.version',
+  '動物': 'adminUsers.permissions.term.animal',
+  '紀錄': 'adminUsers.permissions.term.record',
+  '血檢項目': 'adminUsers.permissions.term.bloodTestItem',
+  '獸醫': 'adminUsers.permissions.term.vet',
+  '匯出': 'adminUsers.permissions.term.export',
+  '病理': 'adminUsers.permissions.term.pathology',
+  '來源': 'adminUsers.permissions.term.source',
+  '設備': 'adminUsers.permissions.term.equipment',
+  '儀表板': 'adminUsers.permissions.term.dashboard',
+  '稽查報告': 'adminUsers.permissions.term.inspectionReport',
+  '不符合事項': 'adminUsers.permissions.term.nonConformance',
+  'SOP 文件': 'adminUsers.permissions.term.sopDocument',
+  '稽查排程': 'adminUsers.permissions.term.inspectionSchedule',
+  '倉庫': 'adminUsers.permissions.term.warehouse',
+  '產品': 'adminUsers.permissions.term.product',
+  '合作夥伴': 'adminUsers.permissions.term.partner',
+  '文件': 'adminUsers.permissions.term.document',
+  '採購': 'adminUsers.permissions.term.purchase',
+  '收貨': 'adminUsers.permissions.term.goodsReceipt',
+  '銷貨': 'adminUsers.permissions.term.sales',
+  '出貨': 'adminUsers.permissions.term.delivery',
+  '庫存': 'adminUsers.permissions.term.stock',
+  '盤點': 'adminUsers.permissions.term.stocktake',
+  '報表': 'adminUsers.permissions.term.report',
+  '採購單': 'adminUsers.permissions.term.purchaseOrder',
+  '銷貨單': 'adminUsers.permissions.term.salesOrder',
+  '調撥': 'adminUsers.permissions.term.transfer',
+  '庫存調整': 'adminUsers.permissions.term.inventoryAdjustment',
+  '庫存現況': 'adminUsers.permissions.term.inventoryStatus',
+  '新增': 'adminUsers.permissions.term.create',
+  '審核': 'adminUsers.permissions.term.approve',
+  '取消': 'adminUsers.permissions.term.cancel',
+  '提交': 'adminUsers.permissions.term.submit',
+  '更新': 'adminUsers.permissions.term.update',
+  '刪除': 'adminUsers.permissions.term.delete',
+  '檢視': 'adminUsers.permissions.term.view',
+  '讀取': 'adminUsers.permissions.term.read',
+  '編輯': 'adminUsers.permissions.term.edit',
+  '排程': 'adminUsers.permissions.term.schedule',
+  '下載': 'adminUsers.permissions.term.download',
+  '系統': 'adminUsers.permissions.term.system',
+  '日誌': 'adminUsers.permissions.term.log',
+  '通知': 'adminUsers.permissions.term.notification',
+  '資料庫': 'adminUsers.permissions.term.database',
+  '管理': 'adminUsers.permissions.term.manage',
+  '指派': 'adminUsers.permissions.term.assign',
+  '重設密碼': 'adminUsers.permissions.term.resetPassword',
+  '查詢': 'adminUsers.permissions.term.query',
+  '遷移': 'adminUsers.permissions.term.migrate',
+  '初始資料': 'adminUsers.permissions.term.seedData',
+  '發送': 'adminUsers.permissions.term.send',
+  '備份': 'adminUsers.permissions.term.backup',
+  '還原': 'adminUsers.permissions.term.restore',
+  '觸發': 'adminUsers.permissions.term.trigger',
+  '上傳': 'adminUsers.permissions.term.upload',
+  '物種': 'adminUsers.permissions.term.species',
+  '部門': 'adminUsers.permissions.term.department',
+  '設施': 'adminUsers.permissions.term.facility',
+  '建築物': 'adminUsers.permissions.term.building',
+  '區域': 'adminUsers.permissions.term.zone',
+  '欄位': 'adminUsers.permissions.term.pen',
+  '警示': 'adminUsers.permissions.term.alerts',
+  '時間軸': 'adminUsers.permissions.term.timeline',
+  '請假': 'adminUsers.permissions.term.leave',
+  '出勤': 'adminUsers.permissions.term.attendance',
+  '加班': 'adminUsers.permissions.term.overtime',
+  '假期餘額': 'adminUsers.permissions.term.leaveBalance',
+  '人事': 'adminUsers.permissions.term.hr',
+  '行事曆': 'adminUsers.permissions.term.calendar',
+  '棟舍': 'adminUsers.permissions.term.buildingUnit',
+  '檢視計畫': 'adminUsers.permissions.term.viewProtocols',
+  '檢視動物': 'adminUsers.permissions.term.viewAnimals',
+  '檢視稽核': 'adminUsers.permissions.term.viewAudit',
+  '查看QAU儀表板': 'adminUsers.permissions.term.viewQauDashboard',
+  '新增紀錄': 'adminUsers.permissions.term.addRecords',
+  '建立單據': 'adminUsers.permissions.term.createDocuments',
+  '匯入': 'adminUsers.permissions.term.importGroup',
+  '系統管理': 'adminUsers.permissions.term.systemAdmin',
+}
+
+/** 依中文顯示值取譯；無對照原樣回傳 */
+export function translatePermissionLabel(t: TFunction, label: string): string {
+  return Object.prototype.hasOwnProperty.call(LABEL_KEYS, label) ? t(LABEL_KEYS[label]) : label
+}
+
+/** 模組顯示名稱（入參是 usePermissionCategories 產出的中文 moduleName） */
+export function translateModuleName(t: TFunction, moduleName: string): string {
+  return translatePermissionLabel(t, moduleName)
+}
+
+/** 類別顯示名稱（入參是 PermissionCategory.category；解析路徑與 usePermissionCategories 一致） */
+export function translateCategoryName(t: TFunction, category: string): string {
+  let name = getCategoryName(category, category)
+  if (name === category && CATEGORY_NAMES[category]?.[category]) {
+    name = CATEGORY_NAMES[category][category]
+  }
+  return translatePermissionLabel(t, name)
+}
+
+/** 子類別顯示名稱（入參是 PermissionSubCategory.subCategory） */
+export function translateSubCategoryName(t: TFunction, subCategory: string): string {
+  return translatePermissionLabel(t, SUB_CATEGORY_NAMES[subCategory] || subCategory)
 }

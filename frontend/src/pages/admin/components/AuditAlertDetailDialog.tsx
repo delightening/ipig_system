@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { formatDateTime } from '@/lib/utils'
 import type { SecurityAlert } from '@/types/hr'
 import { AlertLockPanel } from './AlertLockPanel'
-import { alertTypeLabels, severityLabels } from '../constants/auditLogs'
+import { getAlertTypeLabel, getSeverityLabel } from '../constants/auditLogs'
 
 // R46-6: refresh_token_reuse 處理 SOP — 對齊 backend SEC_EVENT_REFRESH_TOKEN_REUSE 常數
 const ALERT_TYPE_REFRESH_TOKEN_REUSE = 'REFRESH_TOKEN_REUSE'
@@ -125,14 +125,14 @@ export function AuditAlertDetailDialog({
               <div>
                 <Label className="text-muted-foreground">{t('admin.auditAlertDetailDialog.alertType')}</Label>
                 <div className="mt-1">
-                  <Badge variant="outline">{alertTypeLabels[alert.alert_type] ?? alert.alert_type}</Badge>
+                  <Badge variant="outline">{getAlertTypeLabel(t, alert.alert_type) ?? alert.alert_type}</Badge>
                 </div>
               </div>
               <div>
                 <Label className="text-muted-foreground">{t('admin.auditAlertDetailDialog.severity')}</Label>
                 <div className="mt-1">
                   <Badge variant={getSeverityColor(alert.severity)}>
-                    {severityLabels[alert.severity] ?? alert.severity}
+                    {getSeverityLabel(t, alert.severity) ?? alert.severity}
                   </Badge>
                 </div>
               </div>

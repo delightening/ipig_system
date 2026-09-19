@@ -10,7 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { formatDateTime } from '@/lib/utils'
-import { entityTypeLabels } from '../constants/auditLogs'
+import { getEntityTypeLabel } from '../constants/auditLogs'
 import type { AuditLog } from '../types/audit'
 
 interface AuditLogDetailDialogProps {
@@ -77,7 +77,7 @@ export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetail
                 ) : (
                   <p className="font-medium">
                     <Badge variant="outline">
-                      {entityTypeLabels[log.entity_type || ''] || log.entity_type || '-'}
+                      {getEntityTypeLabel(t, log.entity_type || '') || log.entity_type || '-'}
                     </Badge>
                   </p>
                 )}

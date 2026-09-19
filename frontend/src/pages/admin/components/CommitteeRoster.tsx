@@ -17,11 +17,13 @@
  * 資料結構。
  */
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Users } from 'lucide-react'
 import { facilityApi } from '@/lib/api/facility'
 import { EmptyState } from '@/components/ui/empty-state'
 
 export function CommitteeRoster() {
+    const { t } = useTranslation()
     const { data: members = [], isLoading, isError } = useQuery({
         queryKey: ['committee-members'],
         queryFn: async () => (await facilityApi.listCommitteeMembers()).data,
@@ -32,13 +34,13 @@ export function CommitteeRoster() {
         <div className="rounded-lg border bg-card p-4">
             <div className="mb-1 flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-medium">IACUC 委員名冊</h3>
+                <h3 className="text-sm font-medium">{t('adminUsers.facilities.committeeRoster.title')}</h3>
                 {members.length > 0 && (
-                    <span className="text-xs text-muted-foreground">（{members.length} 人）</span>
+                    <span className="text-xs text-muted-foreground">{t('adminUsers.facilities.committeeRoster.memberCount', { count: members.length })}</span>
                 )}
             </div>
             <p className="mb-3 text-xs text-muted-foreground">
-                依角色列出，與部門編制無關——委員可以隸屬任何部門，也可以是外聘人員。
+                {t('adminUsers.facilities.committeeRoster.description')}
             </p>
 
             {isLoading ? (
@@ -51,12 +53,12 @@ export function CommitteeRoster() {
                 /* 錯誤與「真的沒有委員」必須分開講：兩者都讓 members 是空陣列，但
                    「尚無委員」會叫管理員去指派角色，而 403／斷線時角色其實早就指派好了，
                    照著做只會白忙一場。 */
-                <p className="text-sm text-status-error-text">委員名冊載入失敗，請稍後再試。</p>
+                <p className="text-sm text-status-error-text">{t('adminUsers.facilities.committeeRoster.loadFailed')}</p>
             ) : members.length === 0 ? (
                 <EmptyState
                     icon={Users}
-                    title="尚無委員"
-                    description="指派 IACUC 主席、審查委員或執行秘書角色後，人員會自動出現在此。"
+                    title={t('adminUsers.facilities.committeeRoster.emptyTitle')}
+                    description={t('adminUsers.facilities.committeeRoster.emptyDescription')}
                 />
             ) : (
                 <ul className="divide-y">
@@ -66,10 +68,10 @@ export function CommitteeRoster() {
                             {/* 標出人事歸屬——名冊的價值就在於看得出「這位委員平時在哪個部門」，
                                 例如兼任審查委員的獸醫會顯示「獸醫」而不是「IACUC」 */}
                             <span className="text-xs text-muted-foreground">
-                                {m.department_name ?? '未編入部門'}
+                                {m.department_name ?? t('adminUsers.facilities.committeeRoster.noDepartment')}
                             </span>
                             {!m.is_internal && (
-                                <span className="text-xs text-muted-foreground">（外部人員）</span>
+                                <span className="text-xs text-muted-foreground">{t('adminUsers.shared.externalStaffTag')}</span>
                             )}
                         </li>
                     ))}

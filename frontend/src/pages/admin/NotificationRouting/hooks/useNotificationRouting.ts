@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { deleteResource } from '@/lib/api'
 import { useToast } from '@/components/ui/use-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
@@ -21,6 +22,7 @@ import { recipientLabel } from '../constants'
 const QUERY_KEY = ['notification-routing']
 
 export function useNotificationRouting() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { toast } = useToast()
     const { dialogState, confirm } = useConfirmDialog()
@@ -155,10 +157,10 @@ export function useNotificationRouting() {
             queryClient.invalidateQueries({ queryKey: QUERY_KEY })
             setShowCreateDialog(false)
             setCreateForm({ event_type: '', role_code: '', channel: 'both', description: '' })
-            toast({ title: '成功', description: '通知路由規則已建立' })
+            toast({ title: t('common.success'), description: t('adminOps.notificationRouting.toast.created') })
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '建立失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('adminOps.notificationRouting.toast.createFailed')), variant: 'destructive' })
         },
     })
 
@@ -171,10 +173,10 @@ export function useNotificationRouting() {
             queryClient.invalidateQueries({ queryKey: QUERY_KEY })
             setShowEditDialog(false)
             setSelectedRule(null)
-            toast({ title: '成功', description: '通知路由規則已更新' })
+            toast({ title: t('common.success'), description: t('adminOps.notificationRouting.toast.updated') })
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '更新失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('adminOps.shared.updateFailed')), variant: 'destructive' })
         },
     })
 
@@ -184,10 +186,10 @@ export function useNotificationRouting() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: QUERY_KEY })
-            toast({ title: '成功', description: '通知路由規則已刪除' })
+            toast({ title: t('common.success'), description: t('adminOps.notificationRouting.toast.deleted') })
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '刪除失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('adminOps.shared.deleteFailed')), variant: 'destructive' })
         },
     })
 
@@ -200,7 +202,7 @@ export function useNotificationRouting() {
             queryClient.invalidateQueries({ queryKey: QUERY_KEY })
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '切換失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('adminOps.notificationRouting.toast.toggleFailed')), variant: 'destructive' })
         },
     })
 
@@ -208,11 +210,11 @@ export function useNotificationRouting() {
 
     const handleCreate = useCallback(() => {
         if (!createForm.event_type || !createForm.role_code) {
-            toast({ title: '錯誤', description: '請選擇事件類型與角色', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('adminOps.notificationRouting.toast.selectEventAndRole'), variant: 'destructive' })
             return
         }
         createMutation.mutate(createForm)
-    }, [createForm, createMutation, toast])
+    }, [createForm, createMutation, toast, t])
 
     const handleEdit = useCallback((rule: NotificationRouting) => {
         setSelectedRule(rule)
@@ -235,18 +237,18 @@ export function useNotificationRouting() {
     const handleDelete = useCallback(
         async (rule: NotificationRouting) => {
             const eventName = eventNameMap[rule.event_type] || rule.event_type
-            const recipient = recipientLabel(rule, roleNameMap)
+            const recipient = recipientLabel(rule, roleNameMap, t)
             const ok = await confirm({
-                title: '刪除路由規則',
-                description: `確定要刪除「${eventName} → ${recipient}」的路由規則嗎？`,
+                title: t('adminOps.notificationRouting.deleteDialog.title'),
+                description: t('adminOps.notificationRouting.deleteDialog.description', { event: eventName, recipient }),
                 variant: 'destructive',
-                confirmLabel: '確認刪除',
+                confirmLabel: t('common.confirmDelete'),
             })
             if (ok) {
                 deleteMutation.mutate(rule.id)
             }
         },
-        [eventNameMap, roleNameMap, confirm, deleteMutation],
+        [eventNameMap, roleNameMap, confirm, deleteMutation, t],
     )
 
     const handleToggleActive = useCallback(

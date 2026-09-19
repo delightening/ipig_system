@@ -4,6 +4,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,6 +16,7 @@ import { EquipmentInfoCard } from './components/EquipmentInfoCard'
 import { EquipmentTimeline } from './components/EquipmentTimeline'
 
 export function EquipmentHistoryPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
 
   const { data: equipment, isLoading: equipLoading } = useQuery({
@@ -51,9 +53,9 @@ export function EquipmentHistoryPage() {
   if (!equipment) {
     return (
       <div className="text-center py-24 text-muted-foreground">
-        <p>找不到該設備</p>
+        <p>{t('adminOps.equipment.history.notFound')}</p>
         <Link to="/equipment" className="text-primary hover:underline mt-2 inline-block">
-          返回設備列表
+          {t('adminOps.equipment.history.backToList')}
         </Link>
       </div>
     )
@@ -67,14 +69,14 @@ export function EquipmentHistoryPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold">設備履歷</h1>
+        <h1 className="text-2xl font-bold">{t('adminOps.equipment.history.title')}</h1>
       </div>
 
       <EquipmentInfoCard equipment={equipment} />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">完整履歷</CardTitle>
+          <CardTitle className="text-lg">{t('adminOps.equipment.history.fullHistory')}</CardTitle>
         </CardHeader>
         <CardContent>
           <EquipmentTimeline entries={timeline?.data ?? []} />

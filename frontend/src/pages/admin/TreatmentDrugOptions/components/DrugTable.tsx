@@ -1,9 +1,12 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { TreatmentDrugOption } from '@/types/treatment-drug'
 import { Button } from '@/components/ui/button'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { Package, Check, XCircle, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+import { drugCategoryLabel } from '../constants'
 
 interface DrugTableProps {
     drugs: TreatmentDrugOption[]
@@ -20,19 +23,20 @@ export function DrugTable({
     onToggleActive,
     onDelete,
 }: DrugTableProps) {
+    const { t } = useTranslation()
     const columns = useMemo<ColumnDef<TreatmentDrugOption>[]>(() => [
-        { key: 'name', header: '藥物名稱', cell: (d) => <span className="font-medium">{d.name}</span> },
-        { key: 'display', header: '顯示名稱', cell: (d) => d.display_name || '\u2014' },
+        { key: 'name', header: t('adminOps.treatmentDrugs.table.colName'), cell: (d) => <span className="font-medium">{d.name}</span> },
+        { key: 'display', header: t('adminOps.treatmentDrugs.table.colDisplayName'), cell: (d) => d.display_name || '\u2014' },
         {
-            key: 'category', header: '分類',
+            key: 'category', header: t('adminOps.treatmentDrugs.table.colCategory'),
             cell: (d) => d.category ? (
-                <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">{d.category}</span>
+                <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">{drugCategoryLabel(d.category, t)}</span>
             ) : '\u2014',
         },
-        { key: 'unit', header: '預設單位', cell: (d) => d.default_dosage_unit || '\u2014' },
-        { key: 'sort', header: '排序', className: 'text-center', cell: (d) => d.sort_order },
+        { key: 'unit', header: t('adminOps.treatmentDrugs.table.colDefaultUnit'), cell: (d) => d.default_dosage_unit || '\u2014' },
+        { key: 'sort', header: t('adminOps.treatmentDrugs.table.colSort'), className: 'text-center', cell: (d) => d.sort_order },
         {
-            key: 'status', header: '狀態', className: 'text-center',
+            key: 'status', header: t('adminOps.treatmentDrugs.table.colStatus'), className: 'text-center',
             cell: (d) => (
                 <button
                     onClick={() => onToggleActive(d)}
@@ -43,7 +47,7 @@ export function DrugTable({
                             : 'bg-status-error-bg text-destructive hover:bg-status-error-bg/80'
                     )}
                 >
-                    {d.is_active ? '啟用' : '停用'}
+                    {d.is_active ? t('adminOps.treatmentDrugs.table.statusActive') : t('adminOps.treatmentDrugs.table.statusInactive')}
                 </button>
             ),
         },
@@ -54,7 +58,7 @@ export function DrugTable({
                 : <XCircle className="h-4 w-4 text-muted-foreground/50 mx-auto" />,
         },
         {
-            key: 'actions', header: '操作', className: 'text-right',
+            key: 'actions', header: t('common.actions'), className: 'text-right',
             cell: (d) => (
                 <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="sm" onClick={() => onEdit(d)}>
@@ -66,7 +70,7 @@ export function DrugTable({
                 </div>
             ),
         },
-    ], [onEdit, onToggleActive, onDelete])
+    ], [onEdit, onToggleActive, onDelete, t])
 
     return (
         <DataTable
@@ -74,8 +78,8 @@ export function DrugTable({
             data={drugs}
             isLoading={isLoading}
             emptyIcon={Package}
-            emptyTitle="尚無藥物選項"
-            emptyDescription="點擊「新增藥物」或「從 ERP 匯入」開始建立"
+            emptyTitle={t('adminOps.treatmentDrugs.table.emptyTitle')}
+            emptyDescription={t('adminOps.treatmentDrugs.table.emptyDescription')}
             rowKey={(d) => d.id}
             rowClassName={(d) => !d.is_active ? 'opacity-50' : ''}
         />

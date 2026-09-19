@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { useAuthHasPermission } from '@/stores/auth'
 import {
@@ -27,13 +28,14 @@ import { Plus, FileCheck, CheckCircle, Inbox } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
 
+// labelKey 是 i18n 鍵（渲染時才 t()），避免 module 級常數凍結語言。
 const DOC_TYPES = [
-  { value: 'quality_manual', label: '品質手冊' },
-  { value: 'sop', label: 'SOP' },
-  { value: 'form', label: '表單' },
-  { value: 'external', label: '外部文件' },
-  { value: 'policy', label: '政策' },
-  { value: 'report', label: '報告' },
+  { value: 'quality_manual', labelKey: 'adminGlp.documentControl.docType.qualityManual' },
+  { value: 'sop', labelKey: 'adminGlp.documentControl.docType.sop' },
+  { value: 'form', labelKey: 'adminGlp.documentControl.docType.form' },
+  { value: 'external', labelKey: 'adminGlp.documentControl.docType.external' },
+  { value: 'policy', labelKey: 'adminGlp.documentControl.docType.policy' },
+  { value: 'report', labelKey: 'adminGlp.documentControl.docType.report' },
 ]
 
 const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'success' | 'warning'> = {
@@ -44,15 +46,16 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
   obsolete: 'destructive',
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: '草稿',
-  under_review: '審查中',
-  approved: '已核准',
-  active: '生效中',
-  obsolete: '已作廢',
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  draft: 'adminGlp.shared.statusLabel.draft',
+  under_review: 'adminGlp.shared.statusLabel.underReview',
+  approved: 'adminGlp.shared.statusLabel.approved',
+  active: 'adminGlp.shared.statusLabel.active',
+  obsolete: 'adminGlp.documentControl.status.obsolete',
 }
 
 export function DocumentControlPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const hasPermission = useAuthHasPermission()
   const canManage = hasPermission('dms.document.manage')
@@ -84,37 +87,37 @@ export function DocumentControlPage() {
       queryClient.invalidateQueries({ queryKey: ['controlled-documents'] })
       setShowCreate(false)
       setForm({ title: '', doc_type: 'sop', category: '', retention_years: '' })
-      toast({ title: '文件已建立' })
+      toast({ title: t('adminGlp.documentControl.toast.created') })
     },
-    onError: (err: unknown) => toast({ title: '建立失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.shared.createFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => approveControlledDocument(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['controlled-documents'] })
-      toast({ title: '文件已核准' })
+      toast({ title: t('adminGlp.documentControl.toast.approved') })
     },
-    onError: (err: unknown) => toast({ title: '核准失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.shared.approveFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   const acknowledgeMutation = useMutation({
     mutationFn: (id: string) => acknowledgeDocument(id),
-    onSuccess: () => toast({ title: '已簽收' }),
-    onError: (err: unknown) => toast({ title: '簽收失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onSuccess: () => toast({ title: t('adminGlp.documentControl.toast.acknowledged') }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.documentControl.toast.acknowledgeFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">文件控制系統</h1>
-          <p className="text-muted-foreground">ISO 17025 / ISO 9001 受控文件管理</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('adminGlp.documentControl.title')}</h1>
+          <p className="text-muted-foreground">{t('adminGlp.documentControl.subtitle')}</p>
         </div>
         {canManage && (
           <Button onClick={() => setShowCreate(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            新增文件
+            {t('adminGlp.documentControl.create')}
           </Button>
         )}
       </div>
@@ -124,26 +127,26 @@ export function DocumentControlPage() {
           <div className="flex gap-4">
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="所有類型" />
+                <SelectValue placeholder={t('adminGlp.shared.allTypes')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">所有類型</SelectItem>
+                <SelectItem value="">{t('adminGlp.shared.allTypes')}</SelectItem>
                 {DOC_TYPES.map((dt) => (
-                  <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>
+                  <SelectItem key={dt.value} value={dt.value}>{t(dt.labelKey)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="所有狀態" />
+                <SelectValue placeholder={t('adminGlp.shared.allStatuses')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">所有狀態</SelectItem>
-                <SelectItem value="draft">草稿</SelectItem>
-                <SelectItem value="under_review">審查中</SelectItem>
-                <SelectItem value="approved">已核准</SelectItem>
-                <SelectItem value="active">生效中</SelectItem>
-                <SelectItem value="obsolete">已廢止</SelectItem>
+                <SelectItem value="">{t('adminGlp.shared.allStatuses')}</SelectItem>
+                <SelectItem value="draft">{t('adminGlp.shared.statusLabel.draft')}</SelectItem>
+                <SelectItem value="under_review">{t('adminGlp.shared.statusLabel.underReview')}</SelectItem>
+                <SelectItem value="approved">{t('adminGlp.shared.statusLabel.approved')}</SelectItem>
+                <SelectItem value="active">{t('adminGlp.shared.statusLabel.active')}</SelectItem>
+                <SelectItem value="obsolete">{t('adminGlp.shared.statusLabel.obsolete')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -152,45 +155,50 @@ export function DocumentControlPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>文件編號</TableHead>
-                <TableHead>標題</TableHead>
-                <TableHead>類型</TableHead>
-                <TableHead>版本</TableHead>
-                <TableHead>狀態</TableHead>
-                <TableHead>負責人</TableHead>
-                <TableHead>操作</TableHead>
+                <TableHead>{t('adminGlp.shared.documentNumber')}</TableHead>
+                <TableHead>{t('adminGlp.shared.title')}</TableHead>
+                <TableHead>{t('adminGlp.shared.type')}</TableHead>
+                <TableHead>{t('adminGlp.shared.version')}</TableHead>
+                <TableHead>{t('adminGlp.shared.status')}</TableHead>
+                <TableHead>{t('adminGlp.shared.owner')}</TableHead>
+                <TableHead>{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="p-0"><TableSkeleton rows={8} cols={7} /></TableCell></TableRow>
               ) : documents.length === 0 ? (
-                <TableEmptyRow colSpan={7} icon={Inbox} title="尚無文件" />
+                <TableEmptyRow colSpan={7} icon={Inbox} title={t('adminGlp.documentControl.empty')} />
               ) : (
-                documents.map((doc) => (
-                  <TableRow key={doc.id}>
-                    <TableCell className="font-mono text-sm">{doc.doc_number}</TableCell>
-                    <TableCell className="font-medium">{doc.title}</TableCell>
-                    <TableCell>{DOC_TYPES.find((d) => d.value === doc.doc_type)?.label ?? doc.doc_type}</TableCell>
-                    <TableCell>v{doc.current_version}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANTS[doc.status] ?? 'secondary'}>{STATUS_LABELS[doc.status] ?? doc.status}</Badge>
-                    </TableCell>
-                    <TableCell>{doc.owner_name ?? '-'}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {canApprove && (doc.status === 'draft' || doc.status === 'under_review') && (
-                          <Button variant="outline" size="sm" onClick={() => approveMutation.mutate(doc.id)}>
-                            <FileCheck className="h-3 w-3 mr-1" />核准
+                documents.map((doc) => {
+                  const docType = DOC_TYPES.find((d) => d.value === doc.doc_type)
+                  return (
+                    <TableRow key={doc.id}>
+                      <TableCell className="font-mono text-sm">{doc.doc_number}</TableCell>
+                      <TableCell className="font-medium">{doc.title}</TableCell>
+                      <TableCell>{docType ? t(docType.labelKey) : doc.doc_type}</TableCell>
+                      <TableCell>v{doc.current_version}</TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANTS[doc.status] ?? 'secondary'}>
+                          {STATUS_LABEL_KEYS[doc.status] ? t(STATUS_LABEL_KEYS[doc.status]) : doc.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{doc.owner_name ?? '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {canApprove && (doc.status === 'draft' || doc.status === 'under_review') && (
+                            <Button variant="outline" size="sm" onClick={() => approveMutation.mutate(doc.id)}>
+                              <FileCheck className="h-3 w-3 mr-1" />{t('adminGlp.shared.approve')}
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => acknowledgeMutation.mutate(doc.id)}>
+                            <CheckCircle className="h-3 w-3 mr-1" />{t('adminGlp.documentControl.acknowledge')}
                           </Button>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => acknowledgeMutation.mutate(doc.id)}>
-                          <CheckCircle className="h-3 w-3 mr-1" />簽收
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
@@ -199,36 +207,36 @@ export function DocumentControlPage() {
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent>
-          <DialogHeader><DialogTitle>新增受控文件</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('adminGlp.documentControl.dialog.title')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">標題 *</label>
+              <label className="text-sm font-medium">{t('adminGlp.shared.titleRequired')}</label>
               <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">文件類型 *</label>
+              <label className="text-sm font-medium">{t('adminGlp.documentControl.dialog.docTypeRequired')}</label>
               <Select value={form.doc_type} onValueChange={(v) => setForm((f) => ({ ...f, doc_type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DOC_TYPES.map((dt) => (
-                    <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>
+                    <SelectItem key={dt.value} value={dt.value}>{t(dt.labelKey)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">分類</label>
+              <label className="text-sm font-medium">{t('adminGlp.documentControl.dialog.category')}</label>
               <Input value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">保存年限</label>
+              <label className="text-sm font-medium">{t('adminGlp.documentControl.dialog.retentionYears')}</label>
               <Input type="number" value={form.retention_years} onChange={(e) => setForm((f) => ({ ...f, retention_years: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => createMutation.mutate()} disabled={!form.title || createMutation.isPending}>
-              建立
+              {t('adminGlp.shared.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

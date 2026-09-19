@@ -10,6 +10,7 @@
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Upload } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { useDrugOptions } from './TreatmentDrugOptions/hooks/useDrugOptions'
 import { DrugFilterBar } from './TreatmentDrugOptions/components/DrugFilterBar'
@@ -18,6 +19,7 @@ import { DrugFormDialog } from './TreatmentDrugOptions/components/DrugFormDialog
 import { ErpImportDialog } from './TreatmentDrugOptions/components/ErpImportDialog'
 
 export function TreatmentDrugOptionsPage() {
+    const { t } = useTranslation()
     const {
         keyword,
         setKeyword,
@@ -45,8 +47,8 @@ export function TreatmentDrugOptionsPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="藥物選單管理"
-                description="管理治療方式用藥的下拉選單選項"
+                title={t('adminOps.treatmentDrugs.page.title')}
+                description={t('adminOps.treatmentDrugs.page.description')}
                 actions={
                     <div className="flex gap-2">
                         <Button
@@ -54,10 +56,10 @@ export function TreatmentDrugOptionsPage() {
                             variant="outline"
                             onClick={() => dialogs.open('import')}
                         >
-                            <Upload className="h-4 w-4 mr-2" /> 從 ERP 匯入
+                            <Upload className="h-4 w-4 mr-2" /> {t('adminOps.treatmentDrugs.page.importFromErp')}
                         </Button>
                         <Button size="sm" onClick={() => { resetForm(); dialogs.open('create') }}>
-                            <Plus className="h-4 w-4 mr-2" /> 新增藥物
+                            <Plus className="h-4 w-4 mr-2" /> {t('adminOps.treatmentDrugs.page.addDrug')}
                         </Button>
                     </div>
                 }
@@ -86,7 +88,7 @@ export function TreatmentDrugOptionsPage() {
             <DrugFormDialog
                 open={dialogs.isOpen('create')}
                 onOpenChange={dialogs.setOpen('create')}
-                title="新增藥物選項"
+                title={t('adminOps.treatmentDrugs.page.createDialogTitle')}
                 form={form}
                 setForm={setForm}
                 onSubmit={handleCreate}
@@ -96,7 +98,7 @@ export function TreatmentDrugOptionsPage() {
             <DrugFormDialog
                 open={dialogs.isOpen('edit')}
                 onOpenChange={(open) => { dialogs.setOpen('edit')(open); if (!open) setEditingDrug(null) }}
-                title="編輯藥物選項"
+                title={t('adminOps.treatmentDrugs.page.editDialogTitle')}
                 form={form}
                 setForm={setForm}
                 onSubmit={handleUpdate}

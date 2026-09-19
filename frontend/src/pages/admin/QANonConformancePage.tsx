@@ -9,6 +9,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+
 import api from '@/lib/api'
 
 import { Button } from '@/components/ui/button'
@@ -36,24 +38,36 @@ import {
   type NcStatus, type CapaActionType, type CapaStatus, type QaCapa,
 } from '@/lib/api/qaPlan'
 
-const SEVERITY_LABELS: Record<NcSeverity, string> = {
-  critical: '重大', major: '主要', minor: '輕微',
+// 值為 i18n 鍵（渲染時才 t()），避免 module 級常數凍結語言。
+const SEVERITY_LABEL_KEYS: Record<NcSeverity, string> = {
+  critical: 'adminGlp.qaNonConformance.severity.critical',
+  major: 'adminGlp.qaNonConformance.severity.major',
+  minor: 'adminGlp.qaNonConformance.severity.minor',
 }
 
 const SEVERITY_VARIANTS: Record<NcSeverity, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   critical: 'destructive', major: 'default', minor: 'secondary',
 }
 
-const NC_STATUS_LABELS: Record<NcStatus, string> = {
-  open: '開啟', in_progress: '處理中', pending_verification: '待驗證', closed: '已結案',
+const NC_STATUS_LABEL_KEYS: Record<NcStatus, string> = {
+  open: 'adminGlp.qaNonConformance.status.open',
+  in_progress: 'adminGlp.qaNonConformance.status.inProgress',
+  pending_verification: 'adminGlp.shared.statusLabel.pendingVerification',
+  closed: 'adminGlp.shared.statusLabel.closed',
 }
 
-const SOURCE_LABELS: Record<NcSource, string> = {
-  inspection: '稽查發現', observation: '觀察', external_audit: '外部稽核', self_report: '自主回報',
+const SOURCE_LABEL_KEYS: Record<NcSource, string> = {
+  inspection: 'adminGlp.qaNonConformance.source.inspection',
+  observation: 'adminGlp.qaNonConformance.source.observation',
+  external_audit: 'adminGlp.qaNonConformance.source.externalAudit',
+  self_report: 'adminGlp.qaNonConformance.source.selfReport',
 }
 
-const CAPA_STATUS_LABELS: Record<CapaStatus, string> = {
-  open: '開啟', in_progress: '進行中', completed: '已完成', verified: '已驗證',
+const CAPA_STATUS_LABEL_KEYS: Record<CapaStatus, string> = {
+  open: 'adminGlp.qaNonConformance.status.open',
+  in_progress: 'adminGlp.shared.statusLabel.inProgress',
+  completed: 'adminGlp.shared.statusLabel.completed',
+  verified: 'adminGlp.shared.statusLabel.verified',
 }
 
 interface NcForm {
@@ -73,6 +87,7 @@ interface CapaForm {
 }
 
 export function QANonConformancePage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const hasPermission = useAuthHasPermission()
   const canManage = hasPermission('qau.nc.manage')
@@ -180,12 +195,12 @@ export function QANonConformancePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="不符合事項（NC）"
-        description="記錄與追蹤不符合事項及矯正預防行動（CAPA）"
+        title={t('adminGlp.qaNonConformance.title')}
+        description={t('adminGlp.qaNonConformance.description')}
         actions={canManage ? (
           <Button size="sm" onClick={openCreateNc}>
             <Plus className="h-4 w-4 mr-2" />
-            新增 NC
+            {t('adminGlp.qaNonConformance.create')}
           </Button>
         ) : undefined}
       />
@@ -193,23 +208,23 @@ export function QANonConformancePage() {
       <div className="flex gap-3">
         <Select value={filterSeverity} onValueChange={setFilterSeverity}>
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="嚴重度" />
+            <SelectValue placeholder={t('adminGlp.shared.severity')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部</SelectItem>
-            <SelectItem value="critical">重大</SelectItem>
-            <SelectItem value="major">主要</SelectItem>
-            <SelectItem value="minor">輕微</SelectItem>
+            <SelectItem value="all">{t('adminGlp.qaNonConformance.all')}</SelectItem>
+            <SelectItem value="critical">{t(SEVERITY_LABEL_KEYS.critical)}</SelectItem>
+            <SelectItem value="major">{t(SEVERITY_LABEL_KEYS.major)}</SelectItem>
+            <SelectItem value="minor">{t(SEVERITY_LABEL_KEYS.minor)}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="狀態" />
+            <SelectValue placeholder={t('adminGlp.shared.status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部狀態</SelectItem>
-            {Object.entries(NC_STATUS_LABELS).map(([v, l]) => (
-              <SelectItem key={v} value={v}>{l}</SelectItem>
+            <SelectItem value="all">{t('common.allStatus')}</SelectItem>
+            {Object.entries(NC_STATUS_LABEL_KEYS).map(([v, labelKey]) => (
+              <SelectItem key={v} value={v}>{t(labelKey)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -219,7 +234,7 @@ export function QANonConformancePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
-            不符合事項列表
+            {t('adminGlp.qaNonConformance.listTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -230,21 +245,21 @@ export function QANonConformancePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <TableHead>NC 編號</TableHead>
-                  <TableHead>標題</TableHead>
-                  <TableHead>嚴重度</TableHead>
-                  <TableHead>來源</TableHead>
-                  <TableHead>負責人</TableHead>
-                  <TableHead>截止日</TableHead>
-                  <TableHead>狀態</TableHead>
-                  {canManage && <TableHead className="w-20">操作</TableHead>}
+                  <TableHead>{t('adminGlp.qaNonConformance.col.ncNumber')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.title')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.severity')}</TableHead>
+                  <TableHead>{t('adminGlp.qaNonConformance.col.source')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.owner')}</TableHead>
+                  <TableHead>{t('adminGlp.qaNonConformance.col.dueDate')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.status')}</TableHead>
+                  {canManage && <TableHead className="w-20">{t('common.actions')}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {ncList.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      尚無不符合事項
+                      {t('adminGlp.qaNonConformance.empty')}
                     </TableCell>
                   </TableRow>
                 ) : ncList.map(row => (
@@ -264,20 +279,20 @@ export function QANonConformancePage() {
                       <TableCell>{row.title}</TableCell>
                       <TableCell>
                         <Badge variant={SEVERITY_VARIANTS[row.severity]}>
-                          {SEVERITY_LABELS[row.severity]}
+                          {t(SEVERITY_LABEL_KEYS[row.severity])}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {SOURCE_LABELS[row.source]}
+                        {t(SOURCE_LABEL_KEYS[row.source])}
                       </TableCell>
                       <TableCell>{row.assignee_name ?? '—'}</TableCell>
                       <TableCell>{row.due_date ?? '—'}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{NC_STATUS_LABELS[row.status]}</Badge>
+                        <Badge variant="outline">{t(NC_STATUS_LABEL_KEYS[row.status])}</Badge>
                       </TableCell>
                       {canManage && (
                         <TableCell onClick={e => e.stopPropagation()}>
-                          <Button size="sm" variant="ghost" onClick={() => openEditNc(row)}>編輯</Button>
+                          <Button size="sm" variant="ghost" onClick={() => openEditNc(row)}>{t('common.edit')}</Button>
                         </TableCell>
                       )}
                     </TableRow>
@@ -288,24 +303,24 @@ export function QANonConformancePage() {
                         <TableCell colSpan={canManage ? 9 : 8} className="bg-muted/30 p-4">
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                              <span className="font-medium text-sm">矯正預防行動（CAPA）</span>
+                              <span className="font-medium text-sm">{t('adminGlp.qaNonConformance.capa.title')}</span>
                               {canManage && (
                                 <Button size="sm" variant="outline" onClick={openAddCapa}>
                                   <Plus className="h-3 w-3 mr-1" />
-                                  新增 CAPA
+                                  {t('adminGlp.qaNonConformance.capa.create')}
                                 </Button>
                               )}
                             </div>
                             {!ncDetail?.capa?.length ? (
-                              <p className="text-sm text-muted-foreground">尚無 CAPA</p>
+                              <p className="text-sm text-muted-foreground">{t('adminGlp.qaNonConformance.capa.empty')}</p>
                             ) : (
                               <Table className="w-full text-sm">
                                 <TableHeader>
                                   <TableRow className="text-muted-foreground">
-                                    <TableHead className="text-left font-normal pb-1">類型</TableHead>
-                                    <TableHead className="text-left font-normal pb-1">描述</TableHead>
-                                    <TableHead className="text-left font-normal pb-1">狀態</TableHead>
-                                    <TableHead className="text-left font-normal pb-1">截止日</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.shared.type')}</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.shared.description')}</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.shared.status')}</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.qaNonConformance.col.dueDate')}</TableHead>
                                     {canManage && <TableHead />}
                                   </TableRow>
                                 </TableHeader>
@@ -313,19 +328,21 @@ export function QANonConformancePage() {
                                   {ncDetail.capa.map(capa => (
                                     <TableRow key={capa.id} className="border-t">
                                       <TableCell className="py-1 pr-4">
-                                        {capa.action_type === 'corrective' ? '矯正' : '預防'}
+                                        {capa.action_type === 'corrective'
+                                          ? t('adminGlp.qaNonConformance.capa.corrective')
+                                          : t('adminGlp.qaNonConformance.capa.preventive')}
                                       </TableCell>
                                       <TableCell className="py-1 pr-4">{capa.description}</TableCell>
                                       <TableCell className="py-1 pr-4">
                                         <Badge variant="outline" className="text-xs">
-                                          {CAPA_STATUS_LABELS[capa.status]}
+                                          {t(CAPA_STATUS_LABEL_KEYS[capa.status])}
                                         </Badge>
                                       </TableCell>
                                       <TableCell className="py-1 pr-4">{capa.due_date ?? '—'}</TableCell>
                                       {canManage && (
                                         <TableCell className="py-1">
                                           <Button size="sm" variant="ghost" onClick={() => openEditCapa(capa)}>
-                                            編輯
+                                            {t('common.edit')}
                                           </Button>
                                         </TableCell>
                                       )}
@@ -350,52 +367,52 @@ export function QANonConformancePage() {
       <Dialog open={ncDialogOpen} onOpenChange={setNcDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editNcId ? '編輯不符合事項' : '新增不符合事項'}</DialogTitle>
+            <DialogTitle>{editNcId ? t('adminGlp.qaNonConformance.dialog.edit') : t('adminGlp.qaNonConformance.dialog.create')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>標題</Label>
+              <Label>{t('adminGlp.shared.title')}</Label>
               <Input value={ncForm.title} onChange={e => setNcForm(f => ({ ...f, title: e.target.value }))} />
             </div>
             <div className="space-y-1">
-              <Label>描述</Label>
+              <Label>{t('adminGlp.shared.description')}</Label>
               <Textarea rows={3} value={ncForm.description} onChange={e => setNcForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>嚴重度</Label>
+                <Label>{t('adminGlp.shared.severity')}</Label>
                 <Select value={ncForm.severity} onValueChange={v => setNcForm(f => ({ ...f, severity: v as NcSeverity }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="critical">重大</SelectItem>
-                    <SelectItem value="major">主要</SelectItem>
-                    <SelectItem value="minor">輕微</SelectItem>
+                    <SelectItem value="critical">{t(SEVERITY_LABEL_KEYS.critical)}</SelectItem>
+                    <SelectItem value="major">{t(SEVERITY_LABEL_KEYS.major)}</SelectItem>
+                    <SelectItem value="minor">{t(SEVERITY_LABEL_KEYS.minor)}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>來源</Label>
+                <Label>{t('adminGlp.qaNonConformance.col.source')}</Label>
                 <Select value={ncForm.source} onValueChange={v => setNcForm(f => ({ ...f, source: v as NcSource }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="inspection">稽查發現</SelectItem>
-                    <SelectItem value="observation">觀察</SelectItem>
-                    <SelectItem value="external_audit">外部稽核</SelectItem>
-                    <SelectItem value="self_report">自主回報</SelectItem>
+                    <SelectItem value="inspection">{t(SOURCE_LABEL_KEYS.inspection)}</SelectItem>
+                    <SelectItem value="observation">{t(SOURCE_LABEL_KEYS.observation)}</SelectItem>
+                    <SelectItem value="external_audit">{t(SOURCE_LABEL_KEYS.external_audit)}</SelectItem>
+                    <SelectItem value="self_report">{t(SOURCE_LABEL_KEYS.self_report)}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>指派人</Label>
+                <Label>{t('adminGlp.qaNonConformance.dialog.assignee')}</Label>
                 <Select
                   value={ncForm.assignee_id || '__none__'}
                   onValueChange={v => setNcForm(f => ({ ...f, assignee_id: v === '__none__' ? '' : v }))}
                 >
-                  <SelectTrigger><SelectValue placeholder="選擇指派人" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('adminGlp.qaNonConformance.dialog.selectAssignee')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">不指派</SelectItem>
+                    <SelectItem value="__none__">{t('adminGlp.qaNonConformance.dialog.unassigned')}</SelectItem>
                     {users.map(u => (
                       <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>
                     ))}
@@ -403,15 +420,15 @@ export function QANonConformancePage() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>截止日期</Label>
+                <Label>{t('adminGlp.qaNonConformance.dialog.dueDate')}</Label>
                 <Input type="date" value={ncForm.due_date} onChange={e => setNcForm(f => ({ ...f, due_date: e.target.value }))} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNcDialogOpen(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setNcDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => saveMutation.mutate()} disabled={!ncForm.title || saveMutation.isPending}>
-              {saveMutation.isPending ? '儲存中…' : '儲存'}
+              {saveMutation.isPending ? t('adminGlp.shared.saving') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -421,33 +438,33 @@ export function QANonConformancePage() {
       <Dialog open={capaDialogOpen} onOpenChange={setCapaDialogOpen}>
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>{editCapaId ? '編輯 CAPA' : '新增 CAPA'}</DialogTitle>
+            <DialogTitle>{editCapaId ? t('adminGlp.qaNonConformance.capa.edit') : t('adminGlp.qaNonConformance.capa.create')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>行動類型</Label>
+              <Label>{t('adminGlp.qaNonConformance.capa.actionType')}</Label>
               <Select value={capaForm.action_type} onValueChange={v => setCapaForm(f => ({ ...f, action_type: v as CapaActionType }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="corrective">矯正行動（CA）</SelectItem>
-                  <SelectItem value="preventive">預防行動（PA）</SelectItem>
+                  <SelectItem value="corrective">{t('adminGlp.qaNonConformance.capa.correctiveAction')}</SelectItem>
+                  <SelectItem value="preventive">{t('adminGlp.qaNonConformance.capa.preventiveAction')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>行動描述</Label>
+              <Label>{t('adminGlp.qaNonConformance.capa.actionDescription')}</Label>
               <Textarea rows={3} value={capaForm.description} onChange={e => setCapaForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>指派人</Label>
+                <Label>{t('adminGlp.qaNonConformance.dialog.assignee')}</Label>
                 <Select
                   value={capaForm.assignee_id || '__none__'}
                   onValueChange={v => setCapaForm(f => ({ ...f, assignee_id: v === '__none__' ? '' : v }))}
                 >
-                  <SelectTrigger><SelectValue placeholder="選擇指派人" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('adminGlp.qaNonConformance.dialog.selectAssignee')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">不指派</SelectItem>
+                    <SelectItem value="__none__">{t('adminGlp.qaNonConformance.dialog.unassigned')}</SelectItem>
                     {users.map(u => (
                       <SelectItem key={u.id} value={u.id}>{u.display_name}</SelectItem>
                     ))}
@@ -455,15 +472,15 @@ export function QANonConformancePage() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>截止日期</Label>
+                <Label>{t('adminGlp.qaNonConformance.dialog.dueDate')}</Label>
                 <Input type="date" value={capaForm.due_date} onChange={e => setCapaForm(f => ({ ...f, due_date: e.target.value }))} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCapaDialogOpen(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setCapaDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => saveCapaMutation.mutate()} disabled={!capaForm.description || saveCapaMutation.isPending}>
-              {saveCapaMutation.isPending ? '儲存中…' : '儲存'}
+              {saveCapaMutation.isPending ? t('adminGlp.shared.saving') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
