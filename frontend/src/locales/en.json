@@ -4554,5 +4554,854 @@
       "created": "Sacrifice record created",
       "updated": "Sacrifice record updated"
     }
+  },
+  "protocolPages": {
+    "list": {
+      "tabs": {
+        "templates": "Protocol Template Versions",
+        "appNotices": "Application Notice Versions",
+        "piInvites": "PI Account Activation"
+      },
+      "deleteTitle": "Delete Protocol",
+      "copySuccessTitle": "Protocol copied",
+      "copySuccessDescription": "A new draft has been created. Opening the edit page.",
+      "copyFailed": "Copy failed",
+      "copyTitle": "Copy Protocol",
+      "copyConfirm": "Copy \"{{title}}\" to create a new draft?",
+      "copyConfirmLabel": "Confirm Copy",
+      "hardDeleteSuccess": "Protocol deleted",
+      "hardDeleteTitle": "Permanently Delete Protocol",
+      "hardDeleteConfirm": "Permanently delete \"{{title}}\"? This cannot be undone (limited to imported protocols / rejected / drafts with no downstream data such as amendments or waste samples).",
+      "importApproved": "Import Approved Protocol"
+    },
+    "detail": {
+      "importPendingNotice": "This protocol is in \"backfill\" mode: you can edit its content and backfill historical review documents. It will be locked once backfill is completed.",
+      "goToImportReview": "Go to Backfill",
+      "piEmailPending": "Not provided",
+      "approveConfirmTitle": "Confirm Protocol Approval",
+      "approveConfirmDescription": "Approving will generate an IACUC number, automatically create the corresponding client, and move the protocol to \"Approved\" status. Confirm approval?",
+      "approveConfirmLabel": "Confirm Approval"
+    },
+    "shared": {
+      "back": "Back",
+      "submitConfirmTitle": "Submit Protocol",
+      "submitConfirmLabel": "Confirm Submit",
+      "remove": "Remove",
+      "remark": "Remarks",
+      "loadingEllipsis": "Loading…",
+      "select": "Select",
+      "reviewItem": "Review Item",
+      "reviewComment": "Review Comment",
+      "complianceHeader": "Compliance (V/X/-)",
+      "complianceYes": "Compliant (V)",
+      "complianceNo": "Non-compliant (X)",
+      "complianceNa": "N/A (-)",
+      "download": "Download"
+    },
+    "edit": {
+      "demo": {
+        "title": "Demo Mode",
+        "description": "The form below is pre-filled with a sample protocol for you to try. <strong>Anything you enter will not be saved</strong>, and all fields are read-only.",
+        "hint": "For real use, log in with a PI account and create a new protocol under \"Protocol Management\"."
+      },
+      "formVersion": {
+        "label": "Protocol Version",
+        "hint": "Fields are displayed according to this version. Save after changing the version.",
+        "hintLocked": "Fields are displayed according to this version. Save after changing the version. (Locked once backfill is completed)"
+      },
+      "multiSelectRequired": "{{label}} * (multiple choice)",
+      "multiSelect": "{{label}} (multiple choice)"
+    },
+    "importReview": {
+      "provision": {
+        "success": "PI account activated",
+        "createdNew": "Account {{email}} created. The activation email will be sent after an administrator approves it.",
+        "linkedExisting": "Linked to existing account {{email}}",
+        "failed": "Failed to activate PI account",
+        "title": "Activate PI Account",
+        "confirmDescription": "Create a system account for this protocol's PI (guest) and link it. The \"set password\" activation email is sent only after a system administrator approves it. Confirm activation?",
+        "confirmLabel": "Activate",
+        "cardTitle": "PI Account Activation",
+        "cardDescription": "Create a system account for the external PI (guest) and link it so they can log in to respond to reviews, euthanasia requests, and signatures. The \"set password\" activation email is sent only after a system administrator approves it.",
+        "missingEmail": "This protocol's PI has no email yet, so the account cannot be activated. Please enter the PI email under \"Edit Protocol Content\" → Research Information first."
+      },
+      "notFound": "Protocol not found",
+      "backToDetail": "Back to Protocol Details",
+      "pageTitle": "Backfill: {{title}}",
+      "subtitlePending": "Backfill historical review documents. Once completed, a version 1 snapshot is created and the protocol is locked.",
+      "subtitleDone": "Backfill for this protocol is complete (locked).",
+      "doneNotice": "Backfill for this protocol is complete. Backfilled content can no longer be edited.",
+      "viewProtocol": "View Protocol",
+      "step1": {
+        "title": "1. Protocol Content",
+        "description": "Protocol content (section data) can be edited during backfill.",
+        "editButton": "Edit Protocol Content"
+      },
+      "step2": {
+        "title": "2. Backfill Review Documents"
+      },
+      "milestones": {
+        "title": "Review Milestone Dates",
+        "hint": "Enter the historical dates in chronological order (* is required). Optional stages such as revision or second committee review can be added with the buttons below.",
+        "addButton": "Add \"{{label}}\"",
+        "submitted": "Application (submission)",
+        "preReview": "Executive Secretary administrative pre-review",
+        "vetReview": "Veterinarian review",
+        "committeeFirst": "First committee review",
+        "revisionRequired": "Revision / returned for revision",
+        "committeeSecond": "Second committee review",
+        "approved": "Protocol approved"
+      },
+      "piSelector": {
+        "label": "Principal Investigator (PI) *",
+        "placeholder": "Select PI",
+        "other": "Other (external PI, not a system user)"
+      },
+      "externalPi": {
+        "name": "PI Name *",
+        "namePlaceholder": "External PI's name",
+        "emailPlaceholder": "e.g. pi@example.com",
+        "phone": "PI Phone *",
+        "phonePlaceholder": "e.g. 02-XXXX-XXXX",
+        "sponsorHint": "Enter the sponsor under \"Research Information\" below."
+      },
+      "dateRange": {
+        "startDate": "Protocol Start Date (= approval date)",
+        "startDateHint": "Filled in automatically once the \"Protocol approved\" milestone is entered.",
+        "endDate": "Protocol End Date *"
+      },
+      "chairmanLetter": {
+        "uploaded": "Chairman's approval letter uploaded",
+        "uploadFailed": "Upload failed",
+        "title": "3. Ethics Committee Chairman's Approval Letter",
+        "description": "Upload a scan of the paper copy (PDF / image) as an attachment.",
+        "uploadButton": "Upload Approval Letter"
+      },
+      "commentRows": {
+        "sectionNo": "Item No. (optional, matches the protocol, e.g. 4.1.2)",
+        "sectionNoPlaceholder": "e.g. 4.1.2",
+        "contentPlaceholder": "Enter this review comment",
+        "reply": "Applicant / client reply (optional)",
+        "replyPlaceholder": "Enter the applicant's reply to this comment"
+      },
+      "committee": {
+        "addReviewer": "Add Reviewer",
+        "reviewerLabel": "Reviewer {{index}}",
+        "firstRound": "First-round review comments",
+        "addFirstRound": "Add First-round Comment",
+        "secondRound": "Second-round review comments (optional)",
+        "addSecondRound": "Add Second-round Comment"
+      },
+      "reviewerSelect": {
+        "other": "Other (external, enter name)",
+        "externalNamePlaceholder": "External reviewer's name"
+      },
+      "vetReview": {
+        "loadTemplateConfirm": "Load the standard template? This will overwrite the review items you have already filled in.",
+        "veterinarian": "Veterinarian",
+        "decision": "Review conclusion (optional)",
+        "decisionPlaceholder": "e.g. APPROVED",
+        "items": "Review Items",
+        "loadTemplate": "Fill from Standard Template",
+        "empty": "No review items yet. Click \"Fill from Standard Template\" or add items manually.",
+        "itemNamePlaceholder": "Review item name",
+        "commentPlaceholder": "Veterinarian's comment (optional)",
+        "addItem": "Add Item"
+      },
+      "finalize": {
+        "success": "Backfill completed",
+        "failed": "Failed to complete backfill",
+        "versionRequired": "Please select the original protocol version",
+        "title": "4. Complete Backfill",
+        "versionLabel": "Original Protocol Version *",
+        "versionPlaceholder": "Select protocol template version",
+        "effectiveOn": " (effective {{date}})",
+        "currentTag": " (current)",
+        "versionManualPlaceholder": "e.g. v2.1",
+        "autoMatched": "\"{{version}}\" was filled in automatically based on the protocol approval date. Please confirm or change it.",
+        "description": "Completing backfill creates a version 1 content snapshot, records the original version, and clears the \"backfill in progress\" state (the protocol is locked again afterwards).",
+        "confirmPrompt": "Complete backfill? Backfilled content can no longer be edited afterwards.",
+        "confirmButton": "Confirm",
+        "finalizeButton": "Complete Backfill and Lock"
+      },
+      "artifacts": {
+        "secretaryReviewerRequired": "When Executive Secretary comments are entered, please select the Executive Secretary or enter a name",
+        "committeeReviewerRequired": "Each reviewer must be selected or have a name entered",
+        "vetReviewerRequired": "When a veterinary review is entered, please select the veterinarian or enter a name",
+        "saved": "Backfilled review documents saved",
+        "saveFailed": "Failed to save",
+        "secretaryCard": "Executive Secretary Comments (Administrative Pre-review)",
+        "secretaryLabel": "Executive Secretary",
+        "addSecretaryComment": "Add Executive Secretary Comment",
+        "vetCard": "Veterinarian Evaluation and Comments",
+        "committeeCard": "Reviewer Comments",
+        "saveHint": "Saving replaces the previously backfilled review documents with the current form content.",
+        "saveButton": "Save Backfilled Review Documents"
+      }
+    },
+    "importApproved": {
+      "usersLoadFailed": "Failed to load the list of assignable users. Please refresh the page or contact an administrator.",
+      "importSuccess": "Approved protocol imported. Please continue with backfilling the review documents.",
+      "importFailed": "Import failed",
+      "validation": {
+        "titleRequired": "Protocol title is required",
+        "piRequired": "Please select the Principal Investigator (PI)",
+        "externalPiNameRequired": "Please enter the external PI's name",
+        "externalPiEmailRequired": "Please enter the external PI's email",
+        "externalPiEmailInvalid": "The external PI's email format is invalid",
+        "externalPiPhoneRequired": "Please enter the external PI's phone number",
+        "sdRequired": "Please select the Study Director",
+        "iacucNoRequired": "IACUC number is required",
+        "applicationNoRequired": "Application number is required",
+        "endDateRequired": "Protocol end date is required",
+        "endDateBeforeStart": "The end date cannot be earlier than the approval date (start date)",
+        "milestoneRequired": "Review milestone \"{{label}}\" is required",
+        "milestonesOutOfOrder": "Review milestone dates must be in chronological order (Application → Pre-review → Vet → Committee 1st → Revision → Committee 2nd → Approval)"
+      },
+      "backToList": "Back to Protocol List",
+      "title": "Import Approved Protocol",
+      "description": "Backfill an existing protocol that has already passed review at this facility (approved directly, skipping the review workflow). After import, you can link PIs and animals and manage accounting.",
+      "fields": {
+        "title": "Protocol Title *",
+        "titlePlaceholder": "e.g. Xenotransplantation porcine kidney perfusion study",
+        "sd": "Study Director *",
+        "sdPlaceholder": "Select Study Director (study staff only)",
+        "sdHintAll": "Study staff (EXPERIMENT_STAFF) responsible for conducting the study; also the person who can edit this protocol during backfill.",
+        "sdHintSelf": "You have been set as the Study Director automatically (only the Executive Secretary / administrators can assign someone else).",
+        "iacucNo": "IACUC Number * (existing approval number)",
+        "iacucNoPlaceholder": "e.g. PIG-115001",
+        "applicationNo": "Application Number *",
+        "applicationNoPlaceholder": "e.g. APIG-103001",
+        "formVersion": "Protocol Version *",
+        "formVersionHint": "The protocol form version originally submitted for this protocol. Fields are displayed according to that version (fields absent from older versions are hidden; fields specific to older versions appear only there).",
+        "remarkPlaceholder": "Import notes (optional)"
+      },
+      "researchInfo": {
+        "title": "Research Information",
+        "hint": "Fill this in at import time. It is locked after import; to correct it, delete the whole record and re-import."
+      },
+      "submit": "Import Protocol"
+    },
+    "piInvites": {
+      "approved": "Approved",
+      "approvedDescription": "The PI activation email (set password) has been sent",
+      "sendFailed": "Failed to send",
+      "confirmTitle": "Approve and Send Activation Email",
+      "confirmDescription": "A \"set password\" link will be sent to {{email}}. Confirm approval and send?",
+      "approveSend": "Approve & Send",
+      "description": "For accounts activated for external PIs of backfilled imported protocols, the \"set password\" activation email is sent only after a system administrator approves it here.",
+      "columns": {
+        "protocolNo": "Protocol No.",
+        "protocolTitle": "Protocol Title",
+        "provisionedBy": "Activated By",
+        "provisionedAt": "Activated At"
+      },
+      "empty": "No PI activation emails pending approval"
+    },
+    "applicationNotices": {
+      "created": "Notice version added",
+      "createFailed": "Failed to add",
+      "activated": "Set as the active version",
+      "activateFailed": "Failed to set",
+      "activateTitle": "Set as Active Version",
+      "activateConfirm": "Set \"{{label}}\" as the currently active notice? Applicants will be bound to this version when filling in and submitting protocols (other versions are deactivated).",
+      "activateConfirmLabel": "Confirm Activation",
+      "activate": "Set as Active",
+      "validation": {
+        "versionRequired": "Version is required",
+        "titleRequired": "Title is required",
+        "contentRequired": "Notice content is required",
+        "effectiveFromRequired": "Effective date is required"
+      },
+      "description": "Version register of the facility-level animal study application notice. Only system administrators can maintain it; once active, applicants must sign it before submitting for review.",
+      "addVersion": "Add Version",
+      "columns": {
+        "versionLabel": "Version",
+        "title": "Title",
+        "effectiveFrom": "Effective Date",
+        "active": "Active",
+        "createdBy": "Created By"
+      },
+      "empty": "No notice versions yet",
+      "dialogTitle": "Add Application Notice Version",
+      "fields": {
+        "versionLabel": "Version *",
+        "versionLabelPlaceholder": "e.g. September 2025 revision",
+        "title": "Title *",
+        "titlePlaceholder": "Animal Study Application Notice",
+        "effectiveFrom": "Effective Date *",
+        "content": "Notice Content * (markdown supported, shown to applicants)",
+        "contentPlaceholder": "Paste the notice content… (for historical paper versions, enter \"(Paper version, see attached PDF)\")"
+      },
+      "acknowledgement": {
+        "signed": "Application notice signed",
+        "signFailed": "Failed to sign",
+        "cardTitle": "Animal Study Application Notice ({{version}})",
+        "signedStatus": "Signed",
+        "signedOn": "Signed ({{date}})",
+        "unsignedWarning": "Not signed yet — the PI or Study Director (SD) must sign this notice before submission.",
+        "signButton": "Sign Application Notice",
+        "dialogTitle": "Sign: {{title}} ({{version}})",
+        "dialogHint": "Please sign below by hand to confirm that you have read and agree to this application notice.",
+        "confirmSign": "Confirm Signature"
+      }
+    },
+    "templateVersions": {
+      "saved": "Version saved",
+      "saveFailed": "Failed to save",
+      "setCurrentSuccess": "Set as the current version",
+      "setCurrentFailed": "Failed to set",
+      "deleted": "Version deleted",
+      "deleteTitle": "Delete Version",
+      "deleteConfirm": "Delete template version \"{{label}}\"?",
+      "versionRequired": "Version is required",
+      "manifestTitle": "Backfill Protocol Version Reference (Version Roster)",
+      "manifestHint": "When backfilling an import, the version selected first determines which fields are shown. Versions C and D share the same field structure; E and F add or change fields version by version.",
+      "description": "Version register of the facility-level protocol template / application form + SOP. Only system administrators can maintain it.",
+      "addVersion": "Add Version",
+      "columns": {
+        "versionLabel": "Version",
+        "effectiveDate": "Effective Date",
+        "current": "Current",
+        "createdBy": "Created By"
+      },
+      "manageDocuments": "Manage Documents",
+      "setCurrent": "Set as Current",
+      "empty": "No template versions yet",
+      "dialogEditTitle": "Edit Template Version",
+      "dialogCreateTitle": "Add Template Version",
+      "fields": {
+        "versionLabel": "Version *",
+        "versionLabelPlaceholder": "e.g. v3.0",
+        "notesPlaceholder": "Version notes (optional)"
+      },
+      "documentsDialogTitle": "Template Version Documents: {{label}}",
+      "documents": {
+        "uploaded": "Document uploaded",
+        "uploadFailed": "Upload failed",
+        "downloadFailed": "Download failed",
+        "deleteTitle": "Delete Document",
+        "deleteConfirm": "Delete \"{{name}}\"? This permanently deletes the file and cannot be undone.",
+        "description": "Current SOP and form documents (PDF / Word / Excel / images)",
+        "upload": "Upload Document",
+        "loadFailed": "Failed to load documents. Please try again later.",
+        "empty": "No documents yet.",
+        "downloadFile": "Download {{name}}",
+        "deleteFile": "Delete {{name}}"
+      }
+    }
+  },
+  "protocolComponents": {
+    "shared": {
+      "mustFixCount": "Must Fix ({{count}})",
+      "suggestionsCount": "Suggestions ({{count}})",
+      "passedCount": "Passed Checks ({{count}})",
+      "pdfServiceOffline": "PDF service is offline",
+      "pdfServiceOfflineDescription": "Administrators have been notified automatically. Please try again shortly (administrators usually respond in under 5 minutes).",
+      "listSeparator": ", ",
+      "parenthesized": " ({{text}})",
+      "labelValue": "{{label}}: {{value}}",
+      "labelColon": "{{label}}:",
+      "labelWithHint": "{{label}} ({{hint}})",
+      "semicolonSeparator": "; "
+    },
+    "aiReview": {
+      "button": {
+        "label": "AI Pre-Review",
+        "successTitle": "AI pre-review completed",
+        "successDescription": "Please review the pre-review report.",
+        "failedTitle": "AI pre-review failed",
+        "requestFailed": "AI pre-review request failed"
+      },
+      "panel": {
+        "title": "AI Pre-Review Report",
+        "score": "{{score}} pts"
+      }
+    },
+    "historicalAmendment": {
+      "title": "Backfill Historical Amendment",
+      "description": "Backfill a historical amendment that was already approved on paper for this imported protocol. Once completed it is marked effective directly, without generating an electronic signature.",
+      "success": "Historical amendment backfilled and marked effective",
+      "failed": "Backfill failed",
+      "titleRequired": "Please enter the amendment title",
+      "effectiveFromRequired": "Please enter the original effective date",
+      "fields": {
+        "title": "Amendment Title *",
+        "titlePlaceholder": "e.g. Extend the study period by three months",
+        "type": "Amendment Type *",
+        "typeMinor": "Minor (Executive Secretary review)",
+        "typeMajor": "Major (committee review)",
+        "submittedAt": "Original Submission Date",
+        "classifiedAt": "Original Classification Date",
+        "effectiveFrom": "Original Effective Date *",
+        "changeItems": "Change Items",
+        "description": "Amendment Description",
+        "descriptionPlaceholder": "Summary of the changes (optional)"
+      },
+      "submit": "Backfill and Mark Effective"
+    },
+    "historicalReviewers": {
+      "decisionApprove": "Approve",
+      "decisionRevision": "Approve with Revisions",
+      "decisionReject": "Disapprove",
+      "label": "Reviewer comments (select a system reviewer from the dropdown, or choose \"Other\" and enter an external reviewer's name)",
+      "selectPlaceholder": "Select reviewer",
+      "other": "Other (external, enter name)",
+      "externalNamePlaceholder": "External reviewer's name",
+      "commentPlaceholder": "Review comment (optional)",
+      "add": "Add Reviewer"
+    },
+    "attachments": {
+      "deleteTitle": "Delete Attachment"
+    },
+    "comments": {
+      "exportReviewResult": "Review Result (PDF)",
+      "exportReplyForm": "Export Reply Form (PDF)"
+    },
+    "history": {
+      "pagination": "{{total}} records, page {{page}} of {{pages}}",
+      "prevPage": "Previous",
+      "nextPage": "Next"
+    },
+    "timeline": {
+      "submitted": "Submitted",
+      "preReview": "Initial Review",
+      "committee": "Committee",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "deferred": "Deferred",
+      "statusLabel": "Protocol status:",
+      "returnedForRevision": "Returned for revision"
+    },
+    "reviewers": {
+      "vetFormHint": "Note: the content of this form is synchronized to the \"Review Report (PDF)\" automatically. Please make sure it is completed before the protocol is approved.",
+      "assignedOn": "Assigned: {{date}}"
+    },
+    "validation": {
+      "title": "Pre-Submission Validation Report",
+      "backToEdit": "Back to Edit",
+      "ignoreAndSubmit": "Ignore Suggestions and Submit"
+    },
+    "staffReviewAssist": {
+      "flags": {
+        "needsAttention": "Needs Attention",
+        "concern": "Concerns",
+        "suggestion": "Review Suggestions"
+      },
+      "reanalyzed": "Re-analysis completed",
+      "analyzeFailed": "AI analysis failed",
+      "tryAgainLater": "Please try again later",
+      "returnSuccessTitle": "Returned for supplementation",
+      "returnSuccessDescription": "{{count}} review comment(s) created. The protocol has been returned to the applicant.",
+      "returnFailed": "Failed to return for supplementation",
+      "loading": "Loading AI flags...",
+      "title": "Pre-Review Assistant",
+      "reanalyze": "Re-analyze",
+      "noResult": "No AI flags yet. Click \"Re-analyze\" to start.",
+      "noFlags": "No items requiring special attention were found.",
+      "flagGroupTitle": "{{label}} ({{count}})",
+      "selectedCount": "{{count}} selected",
+      "selectHint": "Select flagged items to return the protocol for supplementation",
+      "returnButton": "Return to Applicant ({{count}})",
+      "disclaimer": "AI flags are for reference only. Please rely on your professional judgment in the review.",
+      "dialogTitle": "Confirm Return for Supplementation",
+      "dialogDescription": "The following {{count}} flag(s) will be converted into review comments, and the protocol will be returned to the applicant for supplementation (status changes to \"Pre-Review Revision Required\").",
+      "additionalNote": "Additional note (optional)",
+      "additionalNotePlaceholder": "Add an additional note here. It will be attached as a separate review comment...",
+      "confirmReturn": "Confirm Return"
+    },
+    "vetReviewForm": {
+      "commentHeader": "Review Comment (where it differs from the original protocol)"
+    },
+    "content": {
+      "srSelected": " (selected)",
+      "srNotSelected": " (not selected)"
+    },
+    "comparison": {
+      "itemIndex": "Item {{index}}",
+      "itemCount": "{{count}} item(s) in total",
+      "fields": {
+        "applicationNo": "Application No.",
+        "useTestItem": "Test Substance Administered",
+        "finalHandling": "Final Handling",
+        "carcassDisposal": "Carcass Disposal Method",
+        "hazardsUsed": "Hazardous Substances Used",
+        "controlledSubstancesUsed": "Controlled Substances Used"
+      }
+    }
+  },
+  "animalPages": {
+    "addDialog": {
+      "breedOther": "Specify Breed",
+      "building": "Building",
+      "buildingPlaceholder": "Select Building A or B",
+      "description": "Enter the new animal's basic information",
+      "earTagHint": "Numbers are automatically padded to three digits (e.g. 001)",
+      "penNumber": "Pen Number",
+      "penNumberPlaceholder": "Select number",
+      "preExperimentCodePlaceholder": "e.g. PIG-110000",
+      "selectBuildingFirst": "Select a building first",
+      "selectZoneFirst": "Select a pen zone first",
+      "sourceNone": "None",
+      "sourcePlaceholder": "Select source",
+      "zone": "Pen Zone",
+      "zonePlaceholder": "Select pen zone"
+    },
+    "availablePigs": {
+      "advancedFilters": "Advanced Filters",
+      "ageMax": "Age in Months (Max)",
+      "ageMin": "Age in Months (Min)",
+      "backToList": "Back to Animal List",
+      "columns": {
+        "birthDay": "Birth Date",
+        "latestWeight": "Latest Weight (kg)",
+        "location": "Location",
+        "measuredOn": "Measured On"
+      },
+      "description": "Inventory check before planning a protocol — filter by age / weight / sex to get live counts of available pigs.",
+      "empty": "No available pigs match the criteria",
+      "exportExcel": "Export Excel",
+      "includeBreeding": "Include pigs in breeding plan 000",
+      "loadFailed": "Failed to load",
+      "pagination": {
+        "pageOf": "Page {{page}} of {{total}}"
+      },
+      "summaryExcluded": "{{count}} more excluded because their weight data is older than 40 days",
+      "summaryMatched": "{{total}} matched / ♂ {{male}} / ♀ {{female}}",
+      "title": "Available Pigs Quick Search",
+      "toast": {
+        "downloadStarted": "Download started",
+        "excelGenerated": "The available pigs Excel file has been generated",
+        "retryLater": "Please try again later"
+      },
+      "weightMax": "Max Weight (kg)",
+      "weightMin": "Min Weight (kg)"
+    },
+    "batchAssign": {
+      "confirm": "Confirm Assignment",
+      "description": "Assign the {{count}} selected animals to the specified IACUC protocol",
+      "placeholder": "e.g. PIG-114017",
+      "title": "Assign Animals to Protocol"
+    },
+    "detail": {
+      "editAnimalInfo": "Edit Animal Info",
+      "emergencyMedication": "Emergency Medication",
+      "issueEuthanasiaOrder": "Issue Euthanasia Order",
+      "registerSuddenDeath": "Register Sudden Death",
+      "suddenDeathConfirmDescription": "Are you sure you want to register ear tag {{earTag}} as a sudden death? This action cannot be undone.",
+      "suddenDeathConfirmLabel": "Confirm Registration"
+    },
+    "duplicate": {
+      "birthDateLabel": "Birth Date:",
+      "confirm": "Confirm Creation",
+      "confirmQuestion": "Are you sure you want to create a new animal with a <emphasis>different birth date</emphasis>?",
+      "existing": "Ear tag <tag>{{earTag}}</tag> already exists for the following living animals:",
+      "notSet": "Not set",
+      "penLabel": "Pen:",
+      "title": "Duplicate Ear Tag Warning"
+    },
+    "editPage": {
+      "backToDetail": "Back to Animal Details",
+      "basicInfo": "Basic Information",
+      "basicInfoDescription": "Edit the animal's basic information",
+      "correctionSubmitted": "Correction request submitted; awaiting admin review",
+      "description": "Ear Tag: {{earTag}}",
+      "experimentDate": "Experiment Date",
+      "iacucLocked": "The IACUC No. cannot be changed for animals in experiment",
+      "iacucRequiredInExperiment": "IACUC No. is required when the status is \"In Experiment\"",
+      "penNotExist": "This pen number does not exist. Please select again.",
+      "penNotFoundCheck": "Pen number not found. Please check that it is correct.",
+      "penSearchPlaceholder": "Type a pen number to search...",
+      "requestCorrection": "Request Correction (Ear Tag / Birth Date / Gender / Breed)",
+      "saveChanges": "Save Changes",
+      "selectIacuc": "Select IACUC No.",
+      "sourceNotSpecified": "Not specified",
+      "statusRequired": "Please select a status",
+      "title": "Edit Animal Data",
+      "updated": "Animal data updated"
+    },
+    "headerCard": {
+      "clickToAssignStudy": "Click to assign a study",
+      "clickToEditPen": "Click to edit pen number",
+      "entryWeightValue": "{{weight}} kg (entry)",
+      "experimentAssignment": "Experiment Assignment",
+      "latestWeight": "Latest Weight",
+      "noActiveStudies": "No studies in progress",
+      "penNotFound": "Pen number not found",
+      "penNumber": "Pen No.",
+      "penSearchPlaceholder": "Search pen number...",
+      "penUpdated": "Pen number updated",
+      "searchStudy": "Search studies…",
+      "selectStudy": "Select a study…",
+      "statusChangeViaTransfer": "Status changes must go through the transfer procedure"
+    },
+    "list": {
+      "guestMove": {
+        "alreadyThere": "Animal {{earTag}} is already in {{pen}}",
+        "notFoundDescription": "Ear tag {{earTag}} does not exist",
+        "notFoundTitle": "Animal not found",
+        "noticeTitle": "Notice",
+        "successDescription": "{{earTag}} → {{pen}} (guest mode; resets on refresh)",
+        "successTitle": "Moved successfully"
+      },
+      "vetPatrolRecord": "Vet Patrol Record"
+    },
+    "listTable": {
+      "measuredOn": "Measured on: {{date}}",
+      "openDetailTitle": "Click to open animal details · System ID: {{id}}",
+      "quickEdit": "Quick Edit",
+      "selectAll": "Select all animals",
+      "selectAnimal": "Select animal {{name}}"
+    },
+    "mutations": {
+      "addFailedCheckInput": "Failed to add. Please check the input data.",
+      "alreadyInPen": "Animal {{earTag}} is already in pen {{pen}}",
+      "animalAdded": "Animal added",
+      "animalAddedDuplicateConfirmed": "Animal added (duplicate ear tag confirmed)",
+      "animalMoved": "Animal {{earTag}} moved to {{pen}}",
+      "assignedToStudy": "Animal successfully assigned to the study",
+      "assignFailed": "Assignment failed",
+      "batchAssigned": "Animals have been assigned to the plan and moved into experiment",
+      "batchAssignFailed": "Batch assignment failed",
+      "birthDateFormat": "Birth date format is invalid; it must be YYYY-MM-DD",
+      "entryDateFormat": "Entry date format is invalid; it must be YYYY-MM-DD",
+      "entryWeightInvalid": "Entry weight must be a number greater than 0",
+      "invalidDataFormat": "Invalid data format: please check that all fields are formatted correctly",
+      "loadObservationsFailed": "Failed to load observation records",
+      "moveFailed": "Move failed",
+      "multipleEarTags": "Multiple animals with ear tag \"{{earTag}}\" were found. Please move them manually using the edit function.",
+      "noPendingAdd": "No pending add request",
+      "quickAdded": "Animal {{earTag}} added to {{pen}}",
+      "selectBreed": "Please select a breed",
+      "sourceIdInvalid": "Source ID format is invalid: {{id}}",
+      "suddenDeathFailed": "Failed to register sudden death",
+      "suddenDeathRegistered": "Sudden death recorded; the animal's status has been updated automatically",
+      "suddenDeathRegisteredTitle": "Registered"
+    },
+    "patrolList": {
+      "actions": {
+        "continueEdit": "Continue Editing",
+        "deleteAria": "Delete the patrol report dated {{date}}",
+        "downloadAria": "Download the PDF of the patrol report dated {{date}}",
+        "editAria": "{{action}}: patrol report dated {{date}}",
+        "editDisabled": {
+          "awaitingAcknowledgement": "Waiting for the follow-up owner to acknowledge; cannot be edited yet",
+          "awaitingFollowUp": "Waiting for the follow-up owner to complete it; not your stage",
+          "completed": "Completed (read-only locked); please use \"View\"",
+          "default": "Cannot be edited right now",
+          "draft": "Only the creator can edit a draft"
+        },
+        "retractAria": "Retract the patrol report dated {{date}} to draft",
+        "retractToDraft": "Retract to Draft",
+        "viewAria": "View the patrol report dated {{date}} (read-only)",
+        "viewReadOnly": "View (Read-only)"
+      },
+      "columns": {
+        "accompanying": "Accompanying Staff",
+        "lastUpdated": "Last Updated",
+        "patrolDate": "Patrol Date",
+        "veterinarian": "Veterinarian"
+      },
+      "confirmDelete": "Delete the patrol report dated {{date}}? This action cannot be undone.",
+      "confirmRetract": "Retract the patrol report dated {{date}} to draft? The follow-up workflow will be reset and you will need to edit and submit it again.",
+      "empty": {
+        "all": "No patrol reports yet",
+        "completed": "No completed reports yet",
+        "draft": "No drafts yet",
+        "submitted": "No submitted reports yet"
+      },
+      "newReport": "New Patrol Report",
+      "pdfOffline": {
+        "description": "Administrators have been notified automatically. Please try again later (this is usually resolved in under 5 minutes).",
+        "title": "PDF service unavailable"
+      },
+      "scopeAll": "All (Everyone)",
+      "scopeRelevant": "Relevant to Me",
+      "status": {
+        "completed": "Completed",
+        "draft": "Draft",
+        "submitted": "Submitted"
+      },
+      "statusFilter": "Status Filter",
+      "subtitle": "Past patrol reports · open to edit or download as PDF",
+      "title": "Veterinary Patrol Reports",
+      "toast": {
+        "pdfExportFailed": "PDF export failed",
+        "retracted": "Retracted to draft",
+        "retractFailed": "Retract failed"
+      },
+      "viewScope": "View Scope"
+    },
+    "penView": {
+      "abnormal": "Abnormal",
+      "abnormalTitle": "Abnormal · {{earTag}}",
+      "animalCount": "{{count}} animal(s)",
+      "clickToAdd": "Click to add a pig",
+      "empty": "Empty",
+      "latestAbnormal": "Latest Abnormal",
+      "openDetailTitle": "Click to open animal details · {{earTag}}",
+      "totalAnimals": "Total: {{count}} animal(s)",
+      "vetViewed": "Vet Viewed",
+      "zoneFallbackName": "Zone {{code}}"
+    },
+    "quickAdd": {
+      "confirm": "Confirm Add",
+      "description": "Ear tag <tag>{{earTag}}</tag> does not exist. Fill in the details to add the animal to <pen>{{pen}}</pen>"
+    },
+    "reservation": {
+      "addPlanned": "Add Planned Study",
+      "assignAfterApproval": "Assign (after study approval)",
+      "assignToExperiment": "Assign to Experiment",
+      "chip": {
+        "completed": "Completed {{count}}",
+        "demand": "Demand {{count}}",
+        "inExperiment": "In Experiment {{count}}",
+        "reserved": "Reserved {{count}}",
+        "shortfall": "Short {{count}}"
+      },
+      "createDialog": {
+        "client": "Client",
+        "clientPlaceholder": "e.g. Yuzhan Pharmaceuticals",
+        "createdDescription": "Planned study created",
+        "createdTitle": "Added",
+        "demand": "Number of Animals Required",
+        "description": "A planned (not yet approved) study for reserving animals; link it to the actual protocol once approved.",
+        "submit": "Create",
+        "summary": "Study Summary",
+        "summaryPlaceholder": "e.g. Long-term cardiac stent study"
+      },
+      "description": "Allocate all live pigs by plan: a pinned spare pool for quick matching, with each plan showing demand vs. reserved / in experiment / completed shortfall.",
+      "emptyCanManage": "No study groups yet. Click \"Add Planned Study\" at the top right to start planning, or wait until an approved protocol has animal reservations / assignments.",
+      "emptyGroup": "No reserved / assigned animals yet",
+      "emptyNoPermission": "No study groups yet. They will appear once the Executive Secretary creates a planned study, or an approved protocol has animal reservations / assignments.",
+      "emptyOrphan": "No pending animals",
+      "groupType": {
+        "approved": "Approved",
+        "orphan": "Pending",
+        "planning": "Planning"
+      },
+      "loadError": "Failed to load. Please refresh the page.",
+      "noCaseNo": "(No case number)",
+      "planningLabel": "{{unit}} (Planning)",
+      "remark": {
+        "cancelEdit": "Cancel editing",
+        "clickToEdit": "Click to edit remark",
+        "save": "Save remark"
+      },
+      "searchDialog": {
+        "ageMax": "Max Age (Months)",
+        "ageMin": "Min Age (Months)",
+        "description": "Filter unassigned, unreserved animals by weight / age / sex, then tick them to reserve in bulk for this study.",
+        "noResults": "No reservable animals match the criteria",
+        "reserveSelected": "Reserve {{count}} Selected",
+        "searching": "Searching…",
+        "title": "Find Matching Animals — {{label}}",
+        "weightMax": "Max Weight (kg)",
+        "weightMin": "Min Weight (kg)"
+      },
+      "searchMatch": "Find Matches",
+      "selectAria": "Select {{earTag}}",
+      "sortBy": "Sort by {{label}}",
+      "sparePool": {
+        "clearSelection": "Clear Selection",
+        "collapse": "Collapse",
+        "empty": "No unassigned animals match the criteria",
+        "expand": "Expand",
+        "reserve": "Reserve",
+        "reserveToPlan": "Reserve to plan",
+        "selectedCount": "{{count}} selected →",
+        "selectPlan": "Select a plan…",
+        "title": "Unassigned (Spare Pool)",
+        "total": "{{count}} unassigned live pigs in total"
+      },
+      "status": {
+        "reserved": "Reserved"
+      },
+      "studyFallback": "Study",
+      "title": "Animal Reservation & Study Planning",
+      "toast": {
+        "assignedDescription": "Animals have been formally assigned to the experiment",
+        "assignedTitle": "Assigned",
+        "assignFailed": "Formal assignment failed",
+        "remarkSaveFailed": "Failed to save remark",
+        "reservedCount": "Reserved {{count}} animals",
+        "reserveFailed": "Reservation failed",
+        "unreservedDescription": "Reservation cancelled",
+        "unreservedTitle": "Released",
+        "unreserveFailed": "Failed to cancel reservation"
+      },
+      "unreserve": "Cancel Reservation",
+      "viewAnimalDetails": "View Animal Details"
+    },
+    "shared": {
+      "addFailed": "Failed to add",
+      "ageMonths": "Age (Months)",
+      "all": "All",
+      "birthShort": "Birth",
+      "deleteFailed": "Failed to delete",
+      "enterBreedName": "Enter the breed name",
+      "enterEarTag": "Enter ear tag",
+      "enterWeight": "Enter weight",
+      "entryWeightKg": "Entry Weight (kg)",
+      "example": "e.g. {{value}}",
+      "latestWeight": "Latest Weight",
+      "loadingEllipsis": "Loading…",
+      "monthsValue": "{{count}} mo",
+      "noSpeciesAvailable": "No species available. Please add one under \"Facility Management → Species\" first.",
+      "otherRemarks": "Other remarks...",
+      "preExperimentCode": "Pre-experiment Code",
+      "remark": "Remarks",
+      "selectBreed": "Select breed",
+      "selectPen": "Select pen number",
+      "source": "Source",
+      "unlimited": "Any",
+      "updateFailed": "Failed to update",
+      "weightKg": "Weight (kg)"
+    },
+    "sources": {
+      "active": "Active",
+      "addFirst": "Add the First Source",
+      "address": "Address",
+      "addressPlaceholder": "Full address",
+      "addSource": "Add Source",
+      "code": "Code",
+      "codePlaceholder": "e.g. SOURCE01",
+      "contact": "Contact",
+      "contactPlaceholder": "Contact name",
+      "deleteConfirm": "Are you sure you want to delete the source \"{{name}}\"?",
+      "deleteTitle": "Delete Animal Source",
+      "dialog": {
+        "addDescription": "Enter the new source's information",
+        "addTitle": "Add Animal Source",
+        "editDescription": "Update the source information",
+        "editTitle": "Edit Animal Source"
+      },
+      "empty": "No sources yet",
+      "extPlaceholder": "Ext.",
+      "inactive": "Inactive",
+      "name": "Name",
+      "namePlaceholder": "Source name",
+      "pageDescription": "Manage animal source / supplier information",
+      "pageTitle": "Animal Source Management",
+      "phone": "Phone",
+      "phonePlaceholder": "Contact phone",
+      "sortOrder": "Sort Order",
+      "toast": {
+        "created": "Animal source added",
+        "deleted": "Animal source deleted",
+        "updated": "Animal source updated"
+      }
+    },
+    "suddenDeath": {
+      "confirm": "Confirm Sudden Death Registration",
+      "description": "After registration, the animal's status will be updated to \"Sudden Death\" automatically. This action cannot be undone.",
+      "dialogTitle": "Register Sudden Death — Ear Tag {{earTag}}",
+      "discoveredAt": "Time Discovered",
+      "location": "Location Found",
+      "locationPlaceholder": "e.g. Pen A01",
+      "probableCause": "Probable Cause",
+      "probableCausePlaceholder": "Describe the probable cause of death...",
+      "requiresPathology": "Pathology examination required"
+    }
   }
 }

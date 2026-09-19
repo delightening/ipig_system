@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { reservationPlanningApi, type ReservableQuery } from '@/lib/api/reservationPlanning'
-import { animalGenderNames } from '@/types/animal'
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,7 @@ interface Props {
 
 /** 搜尋配對 modal：依體重/月齡/性別篩未分配未預約動物 → 多選 → 批次預約進此試驗（Phase 4）。 */
 export function ReservationSearchDialog({ open, onOpenChange, target }: Props) {
+  const { t } = useTranslation()
   const [gender, setGender] = useState<'' | 'male' | 'female'>('')
   const [weightMin, setWeightMin] = useState('')
   const [weightMax, setWeightMax] = useState('')
@@ -73,39 +74,39 @@ export function ReservationSearchDialog({ open, onOpenChange, target }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>搜尋配對動物 — {target.label}</DialogTitle>
+          <DialogTitle>{t('animalPages.reservation.searchDialog.title', { label: target.label })}</DialogTitle>
           <DialogDescription>
-            依體重 / 月齡 / 性別篩選未分配未預約動物，勾選後批次預約進此試驗。
+            {t('animalPages.reservation.searchDialog.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            性別
+            {t('animals.gender')}
             <select
               className="h-9 rounded-md border bg-background px-2 text-sm text-foreground"
               value={gender}
               onChange={(e) => setGender(e.target.value as '' | 'male' | 'female')}
             >
-              <option value="">不限</option>
-              <option value="male">公</option>
-              <option value="female">母</option>
+              <option value="">{t('animalPages.shared.unlimited')}</option>
+              <option value="male">{t('animals.genderLabels.male')}</option>
+              <option value="female">{t('animals.genderLabels.female')}</option>
             </select>
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            體重下限(kg)
+            {t('animalPages.reservation.searchDialog.weightMin')}
             <Input className="w-24" type="number" value={weightMin} onChange={(e) => setWeightMin(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            體重上限(kg)
+            {t('animalPages.reservation.searchDialog.weightMax')}
             <Input className="w-24" type="number" value={weightMax} onChange={(e) => setWeightMax(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            月齡下限
+            {t('animalPages.reservation.searchDialog.ageMin')}
             <Input className="w-20" type="number" value={ageMin} onChange={(e) => setAgeMin(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            月齡上限
+            {t('animalPages.reservation.searchDialog.ageMax')}
             <Input className="w-20" type="number" value={ageMax} onChange={(e) => setAgeMax(e.target.value)} />
           </label>
         </div>
@@ -115,25 +116,25 @@ export function ReservationSearchDialog({ open, onOpenChange, target }: Props) {
             <thead className="sticky top-0 bg-muted">
               <tr>
                 <th className="w-10 p-2"></th>
-                <th className="p-2 text-left">耳號</th>
-                <th className="p-2 text-left">性別</th>
-                <th className="p-2 text-left">出生</th>
-                <th className="p-2 text-left">最新體重</th>
-                <th className="p-2 text-left">月齡</th>
+                <th className="p-2 text-left">{t('animals.earTag')}</th>
+                <th className="p-2 text-left">{t('animals.gender')}</th>
+                <th className="p-2 text-left">{t('animalPages.shared.birthShort')}</th>
+                <th className="p-2 text-left">{t('animalPages.shared.latestWeight')}</th>
+                <th className="p-2 text-left">{t('animalPages.shared.ageMonths')}</th>
               </tr>
             </thead>
             <tbody>
               {isFetching && (
                 <tr>
                   <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                    搜尋中…
+                    {t('animalPages.reservation.searchDialog.searching')}
                   </td>
                 </tr>
               )}
               {!isFetching && (rows?.length ?? 0) === 0 && (
                 <tr>
                   <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                    查無符合條件的可預約動物
+                    {t('animalPages.reservation.searchDialog.noResults')}
                   </td>
                 </tr>
               )}
@@ -148,10 +149,10 @@ export function ReservationSearchDialog({ open, onOpenChange, target }: Props) {
                     />
                   </td>
                   <td className="p-2 font-mono">{a.ear_tag}</td>
-                  <td className="p-2">{animalGenderNames[a.gender]}</td>
+                  <td className="p-2">{t(`animals.genderLabels.${a.gender}`)}</td>
                   <td className="p-2">{a.birth_date ?? '—'}</td>
                   <td className="p-2">{a.latest_weight_kg ? `${a.latest_weight_kg}kg` : '—'}</td>
-                  <td className="p-2">{a.age_months != null ? `${a.age_months}月` : '—'}</td>
+                  <td className="p-2">{a.age_months != null ? t('animalPages.shared.monthsValue', { count: a.age_months }) : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -160,10 +161,10 @@ export function ReservationSearchDialog({ open, onOpenChange, target }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button disabled={selected.size === 0 || reserve.isPending} onClick={doReserve}>
-            預約選取的 {selected.size} 隻
+            {t('animalPages.reservation.searchDialog.reserveSelected', { count: selected.size })}
           </Button>
         </DialogFooter>
       </DialogContent>

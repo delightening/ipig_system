@@ -125,7 +125,7 @@ export function AnimalFilters({
               </div>
               <Select value={breedFilter} onValueChange={onBreedFilterChange}>
                 <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="品種" />
+                  <SelectValue placeholder={t('animals.breedFilter')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('animals.allBreeds')}</SelectItem>
@@ -143,7 +143,7 @@ export function AnimalFilters({
                 </span>
                 {statusFilter === 'unassigned' && (
                   <Button variant="outline" size="sm" onClick={onShowBatchAssign}>
-                    分配至計畫
+                    {t('animals.batchAssign')}
                   </Button>
                 )}
               </div>

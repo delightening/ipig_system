@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ExternalLink, MoreHorizontal, Search } from 'lucide-react'
 
 import type { PlanningAnimalRow, ReservationPlanningGroup } from '@/lib/api/reservationPlanning'
-import { animalGenderNames } from '@/types/animal'
 import { Button } from '@/components/ui/button'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -19,20 +19,21 @@ import { ReservationSearchDialog } from './ReservationSearchDialog'
 import { EditableRemarkCell } from './EditableRemarkCell'
 import { fmtDate, fmtMd } from './planningFormat'
 
-/** relation → 狀態標籤（Phase 5 三態）。 */
-function relationBadge(relation: string): { text: string; cls: string } {
+/** relation → 狀態標籤（Phase 5 三態）。textKey 為 i18n 鍵，渲染時才 t()。 */
+function relationBadge(relation: string): { textKey: string; cls: string } {
   switch (relation) {
     case 'reserved':
-      return { text: '已預約', cls: 'bg-status-warning-bg text-status-warning-text' }
+      return { textKey: 'animalPages.reservation.status.reserved', cls: 'bg-status-warning-bg text-status-warning-text' }
     case 'completed':
-      return { text: '實驗完成', cls: 'bg-status-purple-bg text-status-purple-text' }
+      return { textKey: 'animals.statusLabels.completed', cls: 'bg-status-purple-bg text-status-purple-text' }
     case 'in_experiment':
     default:
-      return { text: '實驗中', cls: 'bg-status-success-bg text-status-success-text' }
+      return { textKey: 'animals.statusLabels.in_experiment', cls: 'bg-status-success-bg text-status-success-text' }
   }
 }
 
 export function ReservationPlanningGroupCard({ group }: { group: ReservationPlanningGroup }) {
+  const { t } = useTranslation()
   const [searchOpen, setSearchOpen] = useState(false)
   const { unreserve, assign } = useReservationMutations()
 
@@ -42,7 +43,7 @@ export function ReservationPlanningGroupCard({ group }: { group: ReservationPlan
     0,
     group.demand - group.reserved_count - group.in_experiment_count - group.completed_count,
   )
-  const title = orphan ? group.unit : approved ? (group.iacuc_no ?? '（無案號）') : group.unit
+  const title = orphan ? group.unit : approved ? (group.iacuc_no ?? t('animalPages.reservation.noCaseNo')) : group.unit
   const sub = approved
     ? [group.unit, group.pi_name].filter(Boolean).join(' · ')
     : group.description
@@ -50,7 +51,7 @@ export function ReservationPlanningGroupCard({ group }: { group: ReservationPlan
   const target = {
     kind: approved ? ('protocol' as const) : ('planned' as const),
     id: group.id,
-    label: title ?? group.unit ?? '試驗',
+    label: title ?? group.unit ?? t('animalPages.reservation.studyFallback'),
   }
 
   return (
@@ -66,34 +67,38 @@ export function ReservationPlanningGroupCard({ group }: { group: ReservationPlan
                 : 'bg-status-warning-bg text-status-warning-text'
           }`}
         >
-          {orphan ? '待處理' : approved ? '已核准' : '規劃中'}
+          {orphan
+            ? t('animalPages.reservation.groupType.orphan')
+            : approved
+              ? t('animalPages.reservation.groupType.approved')
+              : t('animalPages.reservation.groupType.planning')}
         </span>
         <span className="font-bold">{title}</span>
         {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-1.5 text-xs tabular-nums">
           {!orphan && (
             <span className="rounded-full bg-status-info-bg px-2 py-0.5 font-bold text-status-info-text">
-              需求 {group.demand}
+              {t('animalPages.reservation.chip.demand', { count: group.demand })}
             </span>
           )}
           <span className="rounded-full bg-status-success-bg px-2 py-0.5 font-bold text-status-success-text">
-            實驗中 {group.in_experiment_count}
+            {t('animalPages.reservation.chip.inExperiment', { count: group.in_experiment_count })}
           </span>
           <span className="rounded-full bg-status-purple-bg px-2 py-0.5 font-bold text-status-purple-text">
-            已完成 {group.completed_count}
+            {t('animalPages.reservation.chip.completed', { count: group.completed_count })}
           </span>
           <span className="rounded-full bg-status-warning-bg px-2 py-0.5 font-bold text-status-warning-text">
-            已預約 {group.reserved_count}
+            {t('animalPages.reservation.chip.reserved', { count: group.reserved_count })}
           </span>
           {!orphan && shortfall > 0 && (
             <span className="rounded-full bg-status-error-bg px-2 py-0.5 font-bold text-status-error-text">
-              缺 {shortfall}
+              {t('animalPages.reservation.chip.shortfall', { count: shortfall })}
             </span>
           )}
           {!orphan && (
             <Can permission={PERMISSIONS.ANIMAL_PLANNING_MANAGE}>
               <Button size="sm" variant="outline" className="ml-1 h-7" onClick={() => setSearchOpen(true)}>
-                <Search className="mr-1 h-3.5 w-3.5" /> 搜尋配對
+                <Search className="mr-1 h-3.5 w-3.5" /> {t('animalPages.reservation.searchMatch')}
               </Button>
             </Can>
           )}
@@ -104,19 +109,19 @@ export function ReservationPlanningGroupCard({ group }: { group: ReservationPlan
       <div className="@container">
         {group.animals.length === 0 ? (
           <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-            {orphan ? '無待處理動物' : '尚無預約 / 分配動物'}
+            {orphan ? t('animalPages.reservation.emptyOrphan') : t('animalPages.reservation.emptyGroup')}
           </div>
         ) : (
           <>
             {/* 桌面表頭 */}
             <div className="hidden border-b bg-muted/40 px-4 py-1.5 text-xs font-medium text-muted-foreground @[600px]:flex">
-              <div className="w-16">耳號</div>
-              <div className="w-12">性別</div>
-              <div className="w-24">出生日期</div>
-              <div className="w-24">最新體重</div>
-              <div className="flex-1">備註</div>
-              <div className="w-20">狀態</div>
-              <div className="w-11 text-center">操作</div>
+              <div className="w-16">{t('animals.earTag')}</div>
+              <div className="w-12">{t('animals.gender')}</div>
+              <div className="w-24">{t('animals.birthDate')}</div>
+              <div className="w-24">{t('animalPages.shared.latestWeight')}</div>
+              <div className="flex-1">{t('animalPages.shared.remark')}</div>
+              <div className="w-20">{t('animals.status')}</div>
+              <div className="w-11 text-center">{t('common.actions')}</div>
             </div>
             {group.animals.map((a) => (
               <AnimalRow
@@ -152,16 +157,17 @@ function AnimalRow({
   onUnreserve: () => void
   onAssign: () => void
 }) {
+  const { t } = useTranslation()
   const reserved = a.relation === 'reserved'
   const badge = relationBadge(a.relation)
   const statusBadge = (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${badge.cls}`}>{badge.text}</span>
+    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${badge.cls}`}>{t(badge.textKey)}</span>
   )
 
   const menu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="操作">
+        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t('common.actions')}>
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -171,18 +177,18 @@ function AnimalRow({
           {reserved && (
             <>
               {approved && iacucNo ? (
-                <DropdownMenuItem onSelect={onAssign}>正式分配進實驗</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onAssign}>{t('animalPages.reservation.assignToExperiment')}</DropdownMenuItem>
               ) : (
-                <DropdownMenuItem disabled>正式分配（試驗核准後）</DropdownMenuItem>
+                <DropdownMenuItem disabled>{t('animalPages.reservation.assignAfterApproval')}</DropdownMenuItem>
               )}
-              <DropdownMenuItem onSelect={onUnreserve}>解除預約</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onUnreserve}>{t('animalPages.reservation.unreserve')}</DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
           )}
         </Can>
         <DropdownMenuItem asChild>
           <Link to={`/animals/${a.id}`}>
-            <ExternalLink className="h-3.5 w-3.5" /> 查看動物詳情
+            <ExternalLink className="h-3.5 w-3.5" /> {t('animalPages.reservation.viewAnimalDetails')}
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -198,15 +204,15 @@ function AnimalRow({
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm @[600px]:contents">
         <span className="@[600px]:w-12">
-          <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">性別</span>
-          {animalGenderNames[a.gender]}
+          <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">{t('animals.gender')}</span>
+          {t(`animals.genderLabels.${a.gender}`)}
         </span>
         <span className="@[600px]:w-24">
-          <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">出生</span>
+          <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">{t('animalPages.shared.birthShort')}</span>
           {fmtDate(a.birth_date)}
         </span>
         <span className="@[600px]:w-24">
-          <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">最新體重</span>
+          <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">{t('animalPages.shared.latestWeight')}</span>
           {a.latest_weight_kg ? (
             <>
               <b className="font-semibold">{a.latest_weight_kg}kg</b>{' '}
@@ -219,7 +225,7 @@ function AnimalRow({
       </div>
       {/* 備註（Phase 5：整格 inline 編輯） */}
       <div className="text-sm text-muted-foreground @[600px]:flex-1">
-        <span className="mr-1 text-[10px] @[600px]:hidden">備註</span>
+        <span className="mr-1 text-[10px] @[600px]:hidden">{t('animalPages.shared.remark')}</span>
         <EditableRemarkCell animalId={a.id} remark={a.remark} />
       </div>
       {/* 桌面狀態欄 */}

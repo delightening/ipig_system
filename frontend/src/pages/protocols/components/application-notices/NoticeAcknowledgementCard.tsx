@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { CheckCircle2, FileSignature, Loader2, AlertTriangle } from 'lucide-react'
 
 import api from '@/lib/api'
@@ -33,6 +34,7 @@ interface Props {
 
 /** 申請須知簽署卡片：DRAFT 計畫填表/送審前，顯示生效須知 + 手寫簽署狀態。 */
 export function NoticeAcknowledgementCard({ protocolId }: Props) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [signOpen, setSignOpen] = useState(false)
   const [sig, setSig] = useState<SignatureData | null>(null)
@@ -49,13 +51,13 @@ export function NoticeAcknowledgementCard({ protocolId }: Props) {
         stroke_data: s.strokeData,
       }),
     onSuccess: () => {
-      toast({ title: '成功', description: '已簽署申請須知' })
+      toast({ title: t('common.success'), description: t('protocolPages.applicationNotices.acknowledgement.signed') })
       qc.invalidateQueries({ queryKey: ['protocol-notice-status', protocolId] })
       qc.invalidateQueries({ queryKey: queryKeys.protocols.detail(protocolId) })
       setSignOpen(false)
       setSig(null)
     },
-    onError: (e) => toast({ title: '錯誤', description: getApiErrorMessage(e, '簽署失敗'), variant: 'destructive' }),
+    onError: (e) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('protocolPages.applicationNotices.acknowledgement.signFailed')), variant: 'destructive' }),
   })
 
   // 載入中或無生效須知 → 不顯示卡片（無須知門檻）
@@ -68,19 +70,21 @@ export function NoticeAcknowledgementCard({ protocolId }: Props) {
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <FileSignature className="h-4 w-4" />
-          動物試驗申請須知（{notice.version_label}）
+          {t('protocolPages.applicationNotices.acknowledgement.cardTitle', { version: notice.version_label })}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {status.acknowledged ? (
           <div className="flex items-center gap-2 text-sm text-status-success-text">
             <CheckCircle2 className="h-4 w-4" />
-            已簽署{status.acknowledged_at ? `（${formatDate(status.acknowledged_at)}）` : ''}
+            {status.acknowledged_at
+              ? t('protocolPages.applicationNotices.acknowledgement.signedOn', { date: formatDate(status.acknowledged_at) })
+              : t('protocolPages.applicationNotices.acknowledgement.signedStatus')}
           </div>
         ) : (
           <div className="flex items-center gap-2 text-sm text-status-warning-text">
             <AlertTriangle className="h-4 w-4" />
-            尚未簽署 — 送審前須由計畫主持人（PI）或計劃負責人（SD）簽署本須知。
+            {t('protocolPages.applicationNotices.acknowledgement.unsignedWarning')}
           </div>
         )}
 
@@ -90,7 +94,7 @@ export function NoticeAcknowledgementCard({ protocolId }: Props) {
 
         {!status.acknowledged && (
           <Button size="sm" onClick={() => setSignOpen(true)}>
-            <FileSignature className="h-4 w-4 mr-2" />簽署申請須知
+            <FileSignature className="h-4 w-4 mr-2" />{t('protocolPages.applicationNotices.acknowledgement.signButton')}
           </Button>
         )}
       </CardContent>
@@ -98,18 +102,18 @@ export function NoticeAcknowledgementCard({ protocolId }: Props) {
       {/* 簽署 dialog */}
       <Dialog open={signOpen} onOpenChange={(o) => { if (!o) { setSignOpen(false); setSig(null) } }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>簽署：{notice.title}（{notice.version_label}）</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('protocolPages.applicationNotices.acknowledgement.dialogTitle', { title: notice.title, version: notice.version_label })}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">請於下方手寫簽名，確認已閱讀並同意本申請須知。</p>
+            <p className="text-sm text-muted-foreground">{t('protocolPages.applicationNotices.acknowledgement.dialogHint')}</p>
             <div className="max-h-40 overflow-y-auto rounded border bg-muted/30 p-3 text-sm whitespace-pre-wrap break-words">
               {notice.content}
             </div>
             <HandwrittenSignaturePad onSignatureChange={setSig} height={180} />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setSignOpen(false); setSig(null) }}>取消</Button>
+            <Button variant="outline" onClick={() => { setSignOpen(false); setSig(null) }}>{t('common.cancel')}</Button>
             <Button onClick={() => sig && ackMutation.mutate(sig)} disabled={!sig || ackMutation.isPending}>
-              {ackMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}確認簽署
+              {ackMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t('protocolPages.applicationNotices.acknowledgement.confirmSign')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -57,7 +57,7 @@ export function SectionAnimals({ formData, updateWorkingContent, setFormData: _s
                 variant="ghost"
                 size="icon"
                 className="absolute right-2 top-2 h-6 w-6 text-destructive"
-                aria-label="刪除"
+                aria-label={t('common.delete')}
                 onClick={() => {
                   const newAnimals = [...formData.working_content.animals.animals]
                   newAnimals.splice(index, 1)

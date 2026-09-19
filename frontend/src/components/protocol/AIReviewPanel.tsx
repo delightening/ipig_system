@@ -5,6 +5,7 @@
  */
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import {
     AlertCircle,
@@ -27,6 +28,7 @@ interface AIReviewPanelProps {
 }
 
 export function AIReviewPanel({ protocolId }: AIReviewPanelProps) {
+    const { t } = useTranslation()
     const [showPassed, setShowPassed] = useState(false)
 
     const { data: review } = useQuery({
@@ -44,7 +46,7 @@ export function AIReviewPanel({ protocolId }: AIReviewPanelProps) {
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
                         <Bot className="h-5 w-5" />
-                        AI 預審報告
+                        {t('protocolComponents.aiReview.panel.title')}
                     </CardTitle>
                     <div className="flex items-center gap-2">
                         {review.score != null && (
@@ -65,7 +67,7 @@ export function AIReviewPanel({ protocolId }: AIReviewPanelProps) {
             <CardContent className="space-y-4">
                 {/* Rule errors */}
                 <IssueSection
-                    title="必須修正"
+                    title={t('protocolComponents.shared.mustFixCount', { count: review.total_errors })}
                     count={review.total_errors}
                     icon={<AlertCircle className="h-4 w-4" />}
                     colorClass="text-status-error-text"
@@ -88,7 +90,7 @@ export function AIReviewPanel({ protocolId }: AIReviewPanelProps) {
 
                 {/* Rule warnings */}
                 <IssueSection
-                    title="建議改善"
+                    title={t('protocolComponents.shared.suggestionsCount', { count: review.total_warnings })}
                     count={review.total_warnings}
                     icon={<AlertTriangle className="h-4 w-4" />}
                     colorClass="text-status-warning-text"
@@ -122,7 +124,7 @@ export function AIReviewPanel({ protocolId }: AIReviewPanelProps) {
                                 <ChevronRight className="h-4 w-4" />
                             )}
                             <CheckCircle2 className="h-4 w-4" />
-                            通過檢查（{review.rule_result?.passed?.length ?? 0} 項）
+                            {t('protocolComponents.shared.passedCount', { count: review.rule_result?.passed?.length ?? 0 })}
                         </button>
                         {showPassed && (
                             <div className="ml-5 text-sm text-muted-foreground">
@@ -170,7 +172,7 @@ function IssueSection({
         <div className="space-y-2">
             <h4 className={`text-sm font-semibold flex items-center gap-1.5 ${colorClass}`}>
                 {icon}
-                {title}（{count} 項）
+                {title}
             </h4>
             <ul className="space-y-2 ml-5">
                 {issues.map((issue) => (
@@ -189,10 +191,11 @@ function IssueSection({
 }
 
 function ScoreBadge({ score }: { score: number }) {
+    const { t } = useTranslation()
     const variant = score >= 80 ? 'success' : score >= 60 ? 'warning' : 'destructive'
     return (
         <Badge variant={variant}>
-            {score} 分
+            {t('protocolComponents.aiReview.panel.score', { score })}
         </Badge>
     )
 }

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -15,17 +17,18 @@ export function DateRangePicker({
   endDate: string
   onEndChange: (v: string) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div className="grid gap-2 min-w-0">
-        <Label>計畫起始日（= 計畫核准通過日）</Label>
+        <Label>{t('protocolPages.importReview.dateRange.startDate')}</Label>
         <Input type="date" className="w-full" value={startDate} readOnly disabled />
         {!startDate && (
-          <p className="text-xs text-muted-foreground">填寫「計畫核准通過」里程碑後自動帶入。</p>
+          <p className="text-xs text-muted-foreground">{t('protocolPages.importReview.dateRange.startDateHint')}</p>
         )}
       </div>
       <div className="grid gap-2 min-w-0">
-        <Label>計畫結束日 *</Label>
+        <Label>{t('protocolPages.importReview.dateRange.endDate')}</Label>
         <Input type="date" className="w-full" value={endDate} onChange={(e) => onEndChange(e.target.value)} />
       </div>
     </div>

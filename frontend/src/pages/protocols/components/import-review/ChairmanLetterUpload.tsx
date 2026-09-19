@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Loader2, Paperclip, Upload } from 'lucide-react'
 
 import api from '@/lib/api'
@@ -10,6 +11,7 @@ import { toast } from '@/components/ui/use-toast'
 
 /** 補登：倫理委員會主席核准同意函——上傳紙本掃描檔（沿用既有附件機制）+ 顯示已上傳清單 */
 export function ChairmanLetterUpload({ protocolId }: { protocolId: string }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -28,11 +30,11 @@ export function ChairmanLetterUpload({ protocolId }: { protocolId: string }) {
       return api.post(`/protocols/${protocolId}/attachments`, formData)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '已上傳主席核准同意函' })
+      toast({ title: t('common.success'), description: t('protocolPages.importReview.chairmanLetter.uploaded') })
       queryClient.invalidateQueries({ queryKey: ['protocol-attachments', protocolId] })
     },
     onError: (err: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '上傳失敗'), variant: 'destructive' }),
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('protocolPages.importReview.chairmanLetter.uploadFailed')), variant: 'destructive' }),
   })
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,14 +45,14 @@ export function ChairmanLetterUpload({ protocolId }: { protocolId: string }) {
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">3. 倫理委員會主席核准同意函</CardTitle></CardHeader>
+      <CardHeader><CardTitle className="text-base">{t('protocolPages.importReview.chairmanLetter.title')}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">上傳紙本掃描檔（PDF / 圖片）作為附件。</p>
+          <p className="text-sm text-muted-foreground">{t('protocolPages.importReview.chairmanLetter.description')}</p>
           <input ref={fileInputRef} type="file" className="hidden" onChange={handleFile} accept=".pdf,.png,.jpg,.jpeg" />
           <Button variant="outline" disabled={uploadMutation.isPending} onClick={() => fileInputRef.current?.click()}>
             {uploadMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-            上傳同意函
+            {t('protocolPages.importReview.chairmanLetter.uploadButton')}
           </Button>
         </div>
         {attachments.length > 0 && (

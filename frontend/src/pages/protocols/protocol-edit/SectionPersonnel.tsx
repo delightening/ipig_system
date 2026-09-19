@@ -113,7 +113,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                               return (
                                 <div key="F" className="space-y-1">
                                   <div className="text-sm font-semibold break-words">
-                                    {t('aup.personnel.trainings.F')}：
+                                    {t('protocolComponents.shared.labelColon', { label: t('aup.personnel.trainings.F') })}
                                   </div>
                                   <div className="text-sm text-muted-foreground break-words pl-4">
                                     {person.trainings_other_text}
@@ -127,7 +127,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                             return (
                               <div key={trainingCode} className="space-y-1">
                                 <div className="text-sm font-semibold break-words">
-                                  {t(`aup.personnel.trainings.${trainingCode}`)}：
+                                  {t('protocolComponents.shared.labelColon', { label: t(`aup.personnel.trainings.${trainingCode}`) })}
                                 </div>
                                 {certificates.length > 0 ? (
                                   certificates.map((cert: { training_code: string; certificate_no: string }, certIndex: number) => (
@@ -150,7 +150,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          aria-label="編輯"
+                          aria-label={t('common.edit')}
                           onClick={() => onEditPersonnel(index)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -160,7 +160,7 @@ export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkin
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive"
-                          aria-label="刪除"
+                          aria-label={t('common.delete')}
                           onClick={() => {
                             const newPersonnel = [...formData.working_content.personnel]
                             newPersonnel.splice(index, 1)

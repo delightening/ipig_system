@@ -62,8 +62,8 @@ export const CommentsTab = React.memo(function CommentsTab({
     if (fresh.data?.glp_ready === true) return true
     toast({
       variant: 'destructive',
-      title: 'PDF 服務未上線',
-      description: '已自動通知管理員。請稍後再試（管理員處理通常 < 5 分鐘）。',
+      title: t('protocolComponents.shared.pdfServiceOffline'),
+      description: t('protocolComponents.shared.pdfServiceOfflineDescription'),
     })
     return false
   }
@@ -225,10 +225,10 @@ export const CommentsTab = React.memo(function CommentsTab({
                     if (await ensurePdfServiceOrAlert()) exportReviewResultMutation.mutate()
                   }}
                   disabled={exportReviewResultMutation.isPending || commentsLoading || !glpReady}
-                  title={!glpReady ? 'PDF 服務未上線' : undefined}
+                  title={!glpReady ? t('protocolComponents.shared.pdfServiceOffline') : undefined}
                 >
                   {exportReviewResultMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                  審核結果 (PDF)
+                  {t('protocolComponents.comments.exportReviewResult')}
                 </Button>
                 <Button
                   variant="outline"
@@ -236,10 +236,10 @@ export const CommentsTab = React.memo(function CommentsTab({
                     if (await ensurePdfServiceOrAlert()) exportCommentsPDFMutation.mutate()
                   }}
                   disabled={exportCommentsPDFMutation.isPending || commentsLoading || !glpReady}
-                  title={!glpReady ? 'PDF 服務未上線' : undefined}
+                  title={!glpReady ? t('protocolComponents.shared.pdfServiceOffline') : undefined}
                 >
                   {exportCommentsPDFMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                  匯出回覆表 (PDF)
+                  {t('protocolComponents.comments.exportReplyForm')}
                 </Button>
                 {canAddComment && protocol.status !== 'DRAFT' && (
                   <Button onClick={() => setShowCommentPanel(prev => !prev)}>

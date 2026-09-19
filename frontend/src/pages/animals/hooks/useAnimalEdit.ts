@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, { Animal, AnimalSource, facilityApi } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -18,6 +19,7 @@ export type AnimalEditFormData = {
 }
 
 export function useAnimalEdit(animalId: string) {
+    const { t } = useTranslation()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
 
@@ -72,11 +74,11 @@ export function useAnimalEdit(animalId: string) {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
             queryClient.invalidateQueries({ queryKey: ['animals'] })
-            toast({ title: '成功', description: '動物資料已更新' })
+            toast({ title: t('common.success'), description: t('animalPages.editPage.updated') })
             navigate(`/animals/${animalId}`)
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '更新失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalPages.shared.updateFailed')), variant: 'destructive' })
         },
     })
 

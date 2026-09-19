@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Loader2 } from 'lucide-react'
 
 import api from '@/lib/api'
@@ -46,10 +48,10 @@ function hasReviewer(reviewer_id: string | null | undefined, name: string | null
 }
 
 /** 驗證 + 正規化補登審查表單 → 送出 payload；回傳錯誤訊息或 payload。 */
-function buildReviewsPayload(s: FormState): { error: string } | { payload: ImportReviewsRequest } {
+function buildReviewsPayload(s: FormState, t: TFunction): { error: string } | { payload: ImportReviewsRequest } {
   const secretary = pruneComments(s.secretaryComments)
   if (secretary.length > 0 && !hasReviewer(s.secretary.reviewer_id, s.secretary.reviewer_name)) {
-    return { error: '有執秘意見時請選擇執秘或填寫姓名' }
+    return { error: t('protocolPages.importReview.artifacts.secretaryReviewerRequired') }
   }
   const committee = s.committeeReviewers
     .map((r) => ({
@@ -60,7 +62,7 @@ function buildReviewsPayload(s: FormState): { error: string } | { payload: Impor
     }))
     .filter((r) => r.first_round.length > 0 || r.second_round.length > 0)
   if (committee.some((r) => !hasReviewer(r.reviewer_id, r.reviewer_name))) {
-    return { error: '每位委員都需選擇委員或填寫姓名' }
+    return { error: t('protocolPages.importReview.artifacts.committeeReviewerRequired') }
   }
   const vetItems = s.vetReview.items.filter((i) => i.item_name.trim().length > 0)
   const hasVet = hasReviewer(s.vetReview.vet_id, s.vetReview.vet_name) || vetItems.length > 0
@@ -68,7 +70,7 @@ function buildReviewsPayload(s: FormState): { error: string } | { payload: Impor
     ? { ...s.vetReview, vet_name: s.vetReview.vet_name?.trim() || null, items: vetItems, signed_at: null }
     : null
   if (vet_review && !hasReviewer(vet_review.vet_id, vet_review.vet_name)) {
-    return { error: '有獸醫評比時請選擇獸醫師或填寫姓名' }
+    return { error: t('protocolPages.importReview.artifacts.vetReviewerRequired') }
   }
   return {
     payload: {
@@ -96,6 +98,7 @@ export function ImportReviewArtifactsForm({
   initialVetReview?: VetReviewAssignment
   onSaved?: () => void
 }) {
+  const { t } = useTranslation()
   const [secretary, setSecretary] = useState<ReviewerValue>(EMPTY_REVIEWER)
   const [secretaryComments, setSecretaryComments] = useState<ImportReviewComment[]>([])
   const [committeeReviewers, setCommitteeReviewers] = useState<ImportCommitteeReviewer[]>([])
@@ -134,18 +137,18 @@ export function ImportReviewArtifactsForm({
   const saveMutation = useMutation({
     mutationFn: (payload: ImportReviewsRequest) => recordImportReviews(protocolId, payload),
     onSuccess: () => {
-      toast({ title: '成功', description: '已記錄補登審查文件' })
+      toast({ title: t('common.success'), description: t('protocolPages.importReview.artifacts.saved') })
       queryClient.invalidateQueries({ queryKey: ['protocol-comments', protocolId] })
       onSaved?.()
     },
     onError: (err: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '記錄失敗'), variant: 'destructive' }),
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('protocolPages.importReview.artifacts.saveFailed')), variant: 'destructive' }),
   })
 
   const handleSave = () => {
-    const result = buildReviewsPayload({ secretary, secretaryComments, committeeReviewers, vetReview })
+    const result = buildReviewsPayload({ secretary, secretaryComments, committeeReviewers, vetReview }, t)
     if ('error' in result) {
-      toast({ title: '錯誤', description: result.error, variant: 'destructive' })
+      toast({ title: t('common.error'), description: result.error, variant: 'destructive' })
       return
     }
     saveMutation.mutate(result.payload)
@@ -153,31 +156,31 @@ export function ImportReviewArtifactsForm({
 
   return (
     <div className="space-y-4">
-      <CollapsibleCard title="執秘意見（行政預審）">
+      <CollapsibleCard title={t('protocolPages.importReview.artifacts.secretaryCard')}>
         <ReviewerSelect
-          label="執行秘書"
+          label={t('protocolPages.importReview.artifacts.secretaryLabel')}
           role={IACUC_STAFF}
           users={users}
           value={secretary}
           onChange={setSecretary}
           disabled={usersLoading}
         />
-        <CommentRows value={secretaryComments} onChange={setSecretaryComments} addLabel="新增執秘意見" />
+        <CommentRows value={secretaryComments} onChange={setSecretaryComments} addLabel={t('protocolPages.importReview.artifacts.addSecretaryComment')} />
       </CollapsibleCard>
 
-      <CollapsibleCard title="獸醫師評比與意見">
+      <CollapsibleCard title={t('protocolPages.importReview.artifacts.vetCard')}>
         <VetReviewSection value={vetReview} onChange={setVetReview} users={users} usersLoading={usersLoading} />
       </CollapsibleCard>
 
-      <CollapsibleCard title="委員意見">
+      <CollapsibleCard title={t('protocolPages.importReview.artifacts.committeeCard')}>
         <CommitteeReviewers value={committeeReviewers} onChange={setCommitteeReviewers} users={users} usersLoading={usersLoading} />
       </CollapsibleCard>
 
       <div className="flex items-center justify-end gap-3">
-        <p className="text-sm text-muted-foreground">儲存會以目前表單內容取代先前補登的審查文件。</p>
+        <p className="text-sm text-muted-foreground">{t('protocolPages.importReview.artifacts.saveHint')}</p>
         <Button onClick={handleSave} disabled={saveMutation.isPending}>
           {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          儲存補登審查文件
+          {t('protocolPages.importReview.artifacts.saveButton')}
         </Button>
       </div>
     </div>

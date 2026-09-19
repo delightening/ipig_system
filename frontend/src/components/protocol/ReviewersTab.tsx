@@ -160,7 +160,7 @@ export function ReviewersTab({
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-4 text-primary font-semibold border-l-4 border-primary pl-3">
                 <ClipboardList className="h-5 w-5" />
-                <span>{t('protocols.detail.sections.vetFormFill', '獸醫師線上審查填寫')}</span>
+                <span>{t('protocols.detail.sections.vetFormFill')}</span>
               </div>
               <VetReviewForm
                 protocolId={protocolId}
@@ -169,7 +169,7 @@ export function ReviewersTab({
               />
               <div className="mt-4 p-4 bg-status-warning-bg border border-amber-100 rounded-lg flex gap-3 text-status-warning-text text-sm">
                 <AlertTriangle className="h-5 w-5 shrink-0" />
-                <p>提示：此表格內容將會自動同步至「審查報告 (PDF)」中。請確保在計畫核准前完成填寫。</p>
+                <p>{t('protocolComponents.reviewers.vetFormHint')}</p>
               </div>
             </div>
           )}
@@ -182,7 +182,7 @@ export function ReviewersTab({
                     <SortableTableHead style={{ minWidth: 180 }} sortKey="reviewer_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('protocols.detail.tables.reviewer')}</SortableTableHead>
                     <SortableTableHead style={{ width: 160 }} sortKey="assigned_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="hidden @[780px]:table-cell">{t('protocols.detail.tables.assignedTime')}</SortableTableHead>
                     <TableHead style={{ width: 100 }} className="hidden @[780px]:table-cell">{t('protocols.detail.tables.assignedBy')}</TableHead>
-                    <TableHead style={{ width: 110 }}>{t('protocols.detail.tables.commentStatus') || '意見狀態'}</TableHead>
+                    <TableHead style={{ width: 110 }}>{t('protocols.detail.tables.commentStatus')}</TableHead>
                     <SortableTableHead style={{ width: 180 }} sortKey="completed_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="hidden @[780px]:table-cell">{t('protocols.detail.tables.completedTime')}</SortableTableHead>
                   </TableRow>
                 </TableHeader>
@@ -213,16 +213,16 @@ export function ReviewersTab({
                             {hasComment ? (
                               <Badge variant="success" className="flex items-center gap-1 w-fit">
                                 <CheckCircle className="h-3 w-3" />
-                                {t('protocols.detail.tables.commented') || '已發表'}
+                                {t('protocols.detail.tables.commented')}
                               </Badge>
                             ) : reviewer.is_primary_reviewer ? (
                               <Badge variant="destructive" className="flex items-center gap-1 w-fit">
                                 <AlertTriangle className="h-3 w-3" />
-                                {t('protocols.detail.tables.pendingComment') || '待發表'}
+                                {t('protocols.detail.tables.pendingComment')}
                               </Badge>
                             ) : (
                               <Badge variant="secondary" className="w-fit">
-                                {t('protocols.detail.tables.optional') || '選填'}
+                                {t('protocols.detail.tables.optional')}
                               </Badge>
                             )}
                           </TableCell>
@@ -261,15 +261,15 @@ export function ReviewersTab({
                         {hasComment ? (
                           <Badge variant="success" className="flex items-center gap-1">
                             <CheckCircle className="h-3 w-3" />
-                            {t('protocols.detail.tables.commented') || '已發表'}
+                            {t('protocols.detail.tables.commented')}
                           </Badge>
                         ) : reviewer.is_primary_reviewer ? (
                           <Badge variant="destructive" className="flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" />
-                            {t('protocols.detail.tables.pendingComment') || '待發表'}
+                            {t('protocols.detail.tables.pendingComment')}
                           </Badge>
                         ) : (
-                          <Badge variant="secondary">{t('protocols.detail.tables.optional') || '選填'}</Badge>
+                          <Badge variant="secondary">{t('protocols.detail.tables.optional')}</Badge>
                         )}
                         {reviewer.completed_at ? (
                           <Badge variant="success">{formatDateTime(reviewer.completed_at)}</Badge>
@@ -278,7 +278,7 @@ export function ReviewersTab({
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        指派：{formatDateTime(reviewer.assigned_at)}
+                        {t('protocolComponents.reviewers.assignedOn', { date: formatDateTime(reviewer.assigned_at) })}
                         {reviewer.assigned_by_name && <> · {reviewer.assigned_by_name}</>}
                       </div>
                     </div>

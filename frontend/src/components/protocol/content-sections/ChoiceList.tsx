@@ -58,7 +58,7 @@ export function ChoiceList({ options, selectedValues }: ChoiceListProps) {
                         <CheckIndicator on={on} />
                         <span className={on ? 'font-medium' : ''}>
                             {label}
-                            <span className="sr-only">{on ? '（已選擇）' : '（未選擇）'}</span>
+                            <span className="sr-only">{on ? t('protocolComponents.content.srSelected') : t('protocolComponents.content.srNotSelected')}</span>
                         </span>
                     </li>
                 )

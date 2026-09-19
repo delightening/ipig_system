@@ -4554,5 +4554,854 @@
       "created": "犧牲紀錄已建立",
       "updated": "犧牲紀錄已更新"
     }
+  },
+  "protocolPages": {
+    "list": {
+      "tabs": {
+        "templates": "計畫書範本版本",
+        "appNotices": "申請須知版本",
+        "piInvites": "PI 帳號開通"
+      },
+      "deleteTitle": "刪除計畫書",
+      "copySuccessTitle": "已複製計畫書",
+      "copySuccessDescription": "新草稿已建立，即將開啟編輯頁。",
+      "copyFailed": "複製失敗",
+      "copyTitle": "複製計畫書",
+      "copyConfirm": "確定要複製「{{title}}」建立新草稿嗎？",
+      "copyConfirmLabel": "確認複製",
+      "hardDeleteSuccess": "計畫已刪除",
+      "hardDeleteTitle": "硬刪除計畫",
+      "hardDeleteConfirm": "確定要硬刪除「{{title}}」嗎？此操作不可復原（限匯入計劃 / 已駁回 / 草稿，且無變更申請或廢棄物樣品等下游資料）。",
+      "importApproved": "匯入已核准計劃"
+    },
+    "detail": {
+      "importPendingNotice": "此計劃為「補登中」：可編輯內容並補登歷史審查文件，完成補登後將鎖定。",
+      "goToImportReview": "前往補登作業",
+      "piEmailPending": "待填",
+      "approveConfirmTitle": "確認核准計畫",
+      "approveConfirmDescription": "核准後將生成 IACUC 編號並自動建立對應客戶，計畫進入「已核准」狀態。確認核准？",
+      "approveConfirmLabel": "確認核准"
+    },
+    "shared": {
+      "back": "返回",
+      "submitConfirmTitle": "送出計畫書",
+      "submitConfirmLabel": "確認送出",
+      "remove": "移除",
+      "remark": "備註",
+      "loadingEllipsis": "載入中…",
+      "select": "選擇",
+      "reviewItem": "審查項目",
+      "reviewComment": "審查意見",
+      "complianceHeader": "符合性 (V/X/-)",
+      "complianceYes": "符合 (V)",
+      "complianceNo": "不符 (X)",
+      "complianceNa": "不適用 (-)",
+      "download": "下載"
+    },
+    "edit": {
+      "demo": {
+        "title": "Demo 模式",
+        "description": "以下表單已填入範例計畫書供你體驗，<strong>輸入內容不會被儲存</strong>，所有欄位為唯讀。",
+        "hint": "正式使用請登入 PI 帳號後在「計畫書管理」建立新計畫書。"
+      },
+      "formVersion": {
+        "label": "計畫書版本",
+        "hint": "依此版本顯示對應欄位；改版後請儲存。",
+        "hintLocked": "依此版本顯示對應欄位；改版後請儲存。（完成補登後鎖定）"
+      },
+      "multiSelectRequired": "{{label}} * (複選)",
+      "multiSelect": "{{label}} (複選)"
+    },
+    "importReview": {
+      "provision": {
+        "success": "已開通 PI 帳號",
+        "createdNew": "已建立帳號 {{email}}；開通信待管理員核准後寄送",
+        "linkedExisting": "已關聯既有帳號 {{email}}",
+        "failed": "開通 PI 帳號失敗",
+        "title": "開通 PI 帳號",
+        "confirmDescription": "為此計畫的 PI（客人）建立系統帳號並關聯；「設定密碼」開通信須由系統管理員核准後才寄出。確認開通？",
+        "confirmLabel": "開通",
+        "cardTitle": "PI 帳號開通",
+        "cardDescription": "為外部 PI（客人）建立系統帳號並關聯，使其可登入回應審查 / 安樂死 / 簽章。「設定密碼」開通信須經系統管理員核准後寄出。",
+        "missingEmail": "此計畫的 PI 尚未填寫 email，無法開通帳號。請先於「編輯計劃內容」→ 研究資料填入 PI email。"
+      },
+      "notFound": "找不到計劃",
+      "backToDetail": "回到計劃詳情",
+      "pageTitle": "補登作業：{{title}}",
+      "subtitlePending": "補登歷史審查文件，完成後建立第 1 版快照並鎖定計劃。",
+      "subtitleDone": "此計劃已完成補登（已鎖定）。",
+      "doneNotice": "此計劃已完成補登，無法再編輯補登內容。",
+      "viewProtocol": "查看計劃",
+      "step1": {
+        "title": "1. 計劃內容",
+        "description": "補登中可編輯計劃書內容（章節資料）。",
+        "editButton": "編輯計劃內容"
+      },
+      "step2": {
+        "title": "2. 補登審查文件"
+      },
+      "milestones": {
+        "title": "審查里程碑日期",
+        "hint": "依時序填寫歷史日期（標 * 為必填）；補件 / 委員二審等非必然階段請按下方按鈕新增。",
+        "addButton": "新增「{{label}}」",
+        "submitted": "申請（送件）",
+        "preReview": "執行秘書行政預審",
+        "vetReview": "獸醫師審查",
+        "committeeFirst": "委員第一次審查",
+        "revisionRequired": "補件 / 修訂退回",
+        "committeeSecond": "委員第二次審查",
+        "approved": "計畫核准通過"
+      },
+      "piSelector": {
+        "label": "計畫主持人（PI）*",
+        "placeholder": "選擇 PI",
+        "other": "其他（外部 PI，非系統使用者）"
+      },
+      "externalPi": {
+        "name": "PI 姓名 *",
+        "namePlaceholder": "外部計畫主持人姓名",
+        "emailPlaceholder": "例：pi@example.com",
+        "phone": "PI 電話 *",
+        "phonePlaceholder": "例：02-XXXX-XXXX",
+        "sponsorHint": "委託單位請於下方「研究資料」填寫。"
+      },
+      "dateRange": {
+        "startDate": "計畫起始日（= 計畫核准通過日）",
+        "startDateHint": "填寫「計畫核准通過」里程碑後自動帶入。",
+        "endDate": "計畫結束日 *"
+      },
+      "chairmanLetter": {
+        "uploaded": "已上傳主席核准同意函",
+        "uploadFailed": "上傳失敗",
+        "title": "3. 倫理委員會主席核准同意函",
+        "description": "上傳紙本掃描檔（PDF / 圖片）作為附件。",
+        "uploadButton": "上傳同意函"
+      },
+      "commentRows": {
+        "sectionNo": "項次（選填，對應計畫書，如 4.1.2）",
+        "sectionNoPlaceholder": "如 4.1.2",
+        "contentPlaceholder": "輸入該條審查意見",
+        "reply": "申請人 / 客戶回覆（選填）",
+        "replyPlaceholder": "輸入申請人對此意見的回覆"
+      },
+      "committee": {
+        "addReviewer": "新增委員",
+        "reviewerLabel": "委員 {{index}}",
+        "firstRound": "第一次審查意見",
+        "addFirstRound": "新增一審意見",
+        "secondRound": "第二次審查意見（選填）",
+        "addSecondRound": "新增二審意見"
+      },
+      "reviewerSelect": {
+        "other": "其他（院外，自行填寫姓名）",
+        "externalNamePlaceholder": "院外審查者姓名"
+      },
+      "vetReview": {
+        "loadTemplateConfirm": "確定要載入標準範本嗎？這將會覆蓋目前已填寫的評比項目。",
+        "veterinarian": "獸醫師",
+        "decision": "評比結論（選填）",
+        "decisionPlaceholder": "例：APPROVED / 同意",
+        "items": "評比項目",
+        "loadTemplate": "從標準範本填入",
+        "empty": "尚無評比項目，請點選「從標準範本填入」或手動新增",
+        "itemNamePlaceholder": "審查項目名稱",
+        "commentPlaceholder": "獸醫師意見（選填）",
+        "addItem": "新增項目"
+      },
+      "finalize": {
+        "success": "已完成補登",
+        "failed": "完成補登失敗",
+        "versionRequired": "請選擇原計劃書版本號",
+        "title": "4. 完成補登",
+        "versionLabel": "原計劃書版本號 *",
+        "versionPlaceholder": "選擇計畫書範本版本",
+        "effectiveOn": "（生效 {{date}}）",
+        "currentTag": "（現行）",
+        "versionManualPlaceholder": "例：v2.1",
+        "autoMatched": "已依計畫核准日自動帶入「{{version}}」，請確認或修改。",
+        "description": "完成補登會建立第 1 版內容快照、記錄原始版本號，並解除「補登中」（之後計劃恢復鎖定）。",
+        "confirmPrompt": "確定完成補登？完成後將無法再編輯補登內容。",
+        "confirmButton": "確定完成",
+        "finalizeButton": "完成補登並鎖定"
+      },
+      "artifacts": {
+        "secretaryReviewerRequired": "有執秘意見時請選擇執秘或填寫姓名",
+        "committeeReviewerRequired": "每位委員都需選擇委員或填寫姓名",
+        "vetReviewerRequired": "有獸醫評比時請選擇獸醫師或填寫姓名",
+        "saved": "已記錄補登審查文件",
+        "saveFailed": "記錄失敗",
+        "secretaryCard": "執秘意見（行政預審）",
+        "secretaryLabel": "執行秘書",
+        "addSecretaryComment": "新增執秘意見",
+        "vetCard": "獸醫師評比與意見",
+        "committeeCard": "委員意見",
+        "saveHint": "儲存會以目前表單內容取代先前補登的審查文件。",
+        "saveButton": "儲存補登審查文件"
+      }
+    },
+    "importApproved": {
+      "usersLoadFailed": "可指派使用者名單載入失敗，請重新整理或聯絡管理員",
+      "importSuccess": "已匯入核准計劃，請接續補登審查文件",
+      "importFailed": "匯入失敗",
+      "validation": {
+        "titleRequired": "計畫名稱為必填",
+        "piRequired": "請選擇計畫主持人（PI）",
+        "externalPiNameRequired": "請填寫外部 PI 姓名",
+        "externalPiEmailRequired": "請填寫外部 PI 的 Email",
+        "externalPiEmailInvalid": "外部 PI 的 Email 格式不正確",
+        "externalPiPhoneRequired": "請填寫外部 PI 的電話",
+        "sdRequired": "請選擇計劃負責人（Study Director）",
+        "iacucNoRequired": "IACUC 編號為必填",
+        "applicationNoRequired": "申請編號為必填",
+        "endDateRequired": "計畫結束日為必填",
+        "endDateBeforeStart": "計畫結束日不可早於計畫核准通過日（起始日）",
+        "milestoneRequired": "審查里程碑「{{label}}」為必填",
+        "milestonesOutOfOrder": "審查里程碑日期必須依時序遞增（申請→預審→獸醫→委員一審→補件→委員二審→核准）"
+      },
+      "backToList": "回到計畫列表",
+      "title": "匯入已核准計劃",
+      "description": "補登場內既有、已通過審查的計劃（直接核准、不再經審查流程）。匯入後即可關聯 PI / 豬隻並進行會計與管理。",
+      "fields": {
+        "title": "計畫名稱 *",
+        "titlePlaceholder": "例：異種移植豬腎臟灌流研究",
+        "sd": "計劃負責人（Study Director）*",
+        "sdPlaceholder": "選擇計劃負責人（限試驗工作人員）",
+        "sdHintAll": "本公司負責執行的試驗工作人員（EXPERIMENT_STAFF）；亦為補登期間可編輯本計劃者。",
+        "sdHintSelf": "已自動帶入您本人為計劃負責人（僅執行秘書／管理員可指派他人）。",
+        "iacucNo": "IACUC 編號 *（既有核准編號）",
+        "iacucNoPlaceholder": "例：PIG-115001",
+        "applicationNo": "申請編號 *",
+        "applicationNoPlaceholder": "例：APIG-103001",
+        "formVersion": "計畫書版本 *",
+        "formVersionHint": "此計劃原始送件的計畫書表單版本；系統依該版顯示對應欄位（舊版沒有的欄位不顯示、舊版特有欄位才出現）。",
+        "remarkPlaceholder": "匯入說明（選填）"
+      },
+      "researchInfo": {
+        "title": "研究資料",
+        "hint": "於匯入時填寫；匯入後此段將鎖定，如需更正請刪除整筆重新匯入。"
+      },
+      "submit": "匯入計劃"
+    },
+    "piInvites": {
+      "approved": "已核准",
+      "approvedDescription": "已寄送 PI 設定密碼開通信",
+      "sendFailed": "寄送失敗",
+      "confirmTitle": "核准並寄送開通信",
+      "confirmDescription": "將寄送「設定密碼」連結至 {{email}}，確認核准寄送？",
+      "approveSend": "核准寄送",
+      "description": "補登匯入計畫為外部 PI 開通的帳號，其「設定密碼」開通信須由系統管理員於此核准後才寄出。",
+      "columns": {
+        "protocolNo": "計畫編號",
+        "protocolTitle": "計畫名稱",
+        "provisionedBy": "開通者",
+        "provisionedAt": "開通時間"
+      },
+      "empty": "目前無待核准的 PI 開通信"
+    },
+    "applicationNotices": {
+      "created": "已新增須知版本",
+      "createFailed": "新增失敗",
+      "activated": "已設為生效版本",
+      "activateFailed": "設定失敗",
+      "activateTitle": "設為生效版本",
+      "activateConfirm": "將「{{label}}」設為當前生效須知？申請人填表/送審時將以此版本為準（停用其他版本）。",
+      "activateConfirmLabel": "確認設為生效",
+      "activate": "設為生效",
+      "validation": {
+        "versionRequired": "版本號為必填",
+        "titleRequired": "標題為必填",
+        "contentRequired": "須知正文為必填",
+        "effectiveFromRequired": "生效日為必填"
+      },
+      "description": "院區層級動物試驗申請須知的版次登記，僅系統管理員可維護；設為生效後申請人送審前須簽署。",
+      "addVersion": "新增版本",
+      "columns": {
+        "versionLabel": "版本號",
+        "title": "標題",
+        "effectiveFrom": "生效日",
+        "active": "生效中",
+        "createdBy": "建立者"
+      },
+      "empty": "尚無須知版本",
+      "dialogTitle": "新增申請須知版本",
+      "fields": {
+        "versionLabel": "版本號 *",
+        "versionLabelPlaceholder": "例：2025年9月修訂版",
+        "title": "標題 *",
+        "titlePlaceholder": "動物試驗申請須知",
+        "effectiveFrom": "生效日 *",
+        "content": "須知正文 *（支援 markdown，顯示給申請人閱讀）",
+        "contentPlaceholder": "貼上須知正文…（歷史紙本版本可填「（紙本版本，詳見附件 PDF）」）"
+      },
+      "acknowledgement": {
+        "signed": "已簽署申請須知",
+        "signFailed": "簽署失敗",
+        "cardTitle": "動物試驗申請須知（{{version}}）",
+        "signedStatus": "已簽署",
+        "signedOn": "已簽署（{{date}}）",
+        "unsignedWarning": "尚未簽署 — 送審前須由計畫主持人（PI）或計劃負責人（SD）簽署本須知。",
+        "signButton": "簽署申請須知",
+        "dialogTitle": "簽署：{{title}}（{{version}}）",
+        "dialogHint": "請於下方手寫簽名，確認已閱讀並同意本申請須知。",
+        "confirmSign": "確認簽署"
+      }
+    },
+    "templateVersions": {
+      "saved": "已儲存版本",
+      "saveFailed": "儲存失敗",
+      "setCurrentSuccess": "已設為現行版本",
+      "setCurrentFailed": "設定失敗",
+      "deleted": "已刪除版本",
+      "deleteTitle": "刪除版本",
+      "deleteConfirm": "確定刪除範本版本「{{label}}」？",
+      "versionRequired": "版本號為必填",
+      "manifestTitle": "補登計畫書版本對照（版本名冊）",
+      "manifestHint": "補登匯入時「先選版本」即依此決定顯示欄位；C 與 D 欄位結構相同，E/F 逐版增修。",
+      "description": "院區層級計畫書範本 / 申請表單 + SOP 的版本登記，僅系統管理員可維護。",
+      "addVersion": "新增版本",
+      "columns": {
+        "versionLabel": "版本號",
+        "effectiveDate": "生效日",
+        "current": "現行",
+        "createdBy": "建立者"
+      },
+      "manageDocuments": "管理文件",
+      "setCurrent": "設為現行",
+      "empty": "尚無範本版本",
+      "dialogEditTitle": "編輯範本版本",
+      "dialogCreateTitle": "新增範本版本",
+      "fields": {
+        "versionLabel": "版本號 *",
+        "versionLabelPlaceholder": "例：v3.0",
+        "notesPlaceholder": "版本說明（選填）"
+      },
+      "documentsDialogTitle": "範本版本文件：{{label}}",
+      "documents": {
+        "uploaded": "已上傳文件",
+        "uploadFailed": "上傳失敗",
+        "downloadFailed": "下載失敗",
+        "deleteTitle": "刪除文件",
+        "deleteConfirm": "確定刪除「{{name}}」？此操作會永久刪除實體檔案，無法復原。",
+        "description": "現行 SOP 與表單文件（PDF / Word / Excel / 圖片）",
+        "upload": "上傳文件",
+        "loadFailed": "文件載入失敗，請稍後再試。",
+        "empty": "尚無文件。",
+        "downloadFile": "下載 {{name}}",
+        "deleteFile": "刪除 {{name}}"
+      }
+    }
+  },
+  "protocolComponents": {
+    "shared": {
+      "mustFixCount": "必須修正（{{count}} 項）",
+      "suggestionsCount": "建議改善（{{count}} 項）",
+      "passedCount": "通過檢查（{{count}} 項）",
+      "pdfServiceOffline": "PDF 服務未上線",
+      "pdfServiceOfflineDescription": "已自動通知管理員。請稍後再試（管理員處理通常 < 5 分鐘）。",
+      "listSeparator": "、",
+      "parenthesized": "（{{text}}）",
+      "labelValue": "{{label}}：{{value}}",
+      "labelColon": "{{label}}：",
+      "labelWithHint": "{{label}}（{{hint}}）",
+      "semicolonSeparator": "；"
+    },
+    "aiReview": {
+      "button": {
+        "label": "AI 預審",
+        "successTitle": "AI 預審完成",
+        "successDescription": "請查看預審報告。",
+        "failedTitle": "AI 預審失敗",
+        "requestFailed": "AI 預審請求失敗"
+      },
+      "panel": {
+        "title": "AI 預審報告",
+        "score": "{{score}} 分"
+      }
+    },
+    "historicalAmendment": {
+      "title": "補登歷史變更",
+      "description": "補登此匯入計劃在紙本世界早已核准過的歷史變更。完成後直接標記為生效，不產生電子簽章。",
+      "success": "已補登歷史變更並標記生效",
+      "failed": "補登失敗",
+      "titleRequired": "請填寫變更標題",
+      "effectiveFromRequired": "請填寫原始生效日期",
+      "fields": {
+        "title": "變更標題 *",
+        "titlePlaceholder": "例：延長試驗期程三個月",
+        "type": "變更類型 *",
+        "typeMinor": "小變更（執秘審）",
+        "typeMajor": "重大變更（委員審）",
+        "submittedAt": "原始送件日",
+        "classifiedAt": "原始分類日",
+        "effectiveFrom": "原始生效日 *",
+        "changeItems": "變更項目",
+        "description": "變更說明",
+        "descriptionPlaceholder": "變更內容摘要（選填）"
+      },
+      "submit": "補登並標記生效"
+    },
+    "historicalReviewers": {
+      "decisionApprove": "同意",
+      "decisionRevision": "修正後同意",
+      "decisionReject": "不同意",
+      "label": "委員審查意見（系統內委員下拉選，或選「其他」填院外姓名）",
+      "selectPlaceholder": "選擇委員",
+      "other": "其他（院外，填姓名）",
+      "externalNamePlaceholder": "院外委員姓名",
+      "commentPlaceholder": "審查意見（選填）",
+      "add": "新增委員"
+    },
+    "attachments": {
+      "deleteTitle": "刪除附件"
+    },
+    "comments": {
+      "exportReviewResult": "審核結果 (PDF)",
+      "exportReplyForm": "匯出回覆表 (PDF)"
+    },
+    "history": {
+      "pagination": "共 {{total}} 筆，第 {{page}} / {{pages}} 頁",
+      "prevPage": "上一頁",
+      "nextPage": "下一頁"
+    },
+    "timeline": {
+      "submitted": "已提交",
+      "preReview": "初審",
+      "committee": "委員會",
+      "approved": "核准",
+      "rejected": "已否決",
+      "deferred": "延後審議",
+      "statusLabel": "計畫狀態：",
+      "returnedForRevision": "退回修改"
+    },
+    "reviewers": {
+      "vetFormHint": "提示：此表格內容將會自動同步至「審查報告 (PDF)」中。請確保在計畫核准前完成填寫。",
+      "assignedOn": "指派：{{date}}"
+    },
+    "validation": {
+      "title": "提交前驗證報告",
+      "backToEdit": "返回修改",
+      "ignoreAndSubmit": "忽略建議，直接提交"
+    },
+    "staffReviewAssist": {
+      "flags": {
+        "needsAttention": "需要注意",
+        "concern": "留意事項",
+        "suggestion": "審查建議"
+      },
+      "reanalyzed": "重新分析完成",
+      "analyzeFailed": "AI 分析失敗",
+      "tryAgainLater": "請稍後再試",
+      "returnSuccessTitle": "退回補件成功",
+      "returnSuccessDescription": "已建立 {{count}} 則審查意見，計畫書已退回申請人。",
+      "returnFailed": "退回補件失敗",
+      "loading": "載入 AI 標註...",
+      "title": "Pre-Review 審查輔助",
+      "reanalyze": "重新分析",
+      "noResult": "尚無 AI 標註結果。點擊「重新分析」開始。",
+      "noFlags": "未發現需特別注意的事項。",
+      "flagGroupTitle": "{{label}}（{{count}} 項）",
+      "selectedCount": "已勾選 {{count}} 項",
+      "selectHint": "勾選標註項目後可退回補件",
+      "returnButton": "退回申請人補件（{{count}} 項）",
+      "disclaimer": "AI 標註僅供參考，請依專業判斷審查。",
+      "dialogTitle": "確認退回補件",
+      "dialogDescription": "將以下 {{count}} 項標註轉為審查意見，並將計畫書退回給申請人補件（狀態改為「行政預審補件」）。",
+      "additionalNote": "補充說明（選填）",
+      "additionalNotePlaceholder": "可在此加入補充說明，將作為獨立審查意見附上...",
+      "confirmReturn": "確認退回"
+    },
+    "vetReviewForm": {
+      "commentHeader": "審查意見 (與原申請計畫不符處)"
+    },
+    "content": {
+      "srSelected": "（已選擇）",
+      "srNotSelected": "（未選擇）"
+    },
+    "comparison": {
+      "itemIndex": "項目 {{index}}",
+      "itemCount": "共 {{count}} 筆項目",
+      "fields": {
+        "applicationNo": "申請編號",
+        "useTestItem": "投予試驗物質",
+        "finalHandling": "最終處理方式",
+        "carcassDisposal": "屍體處理方法",
+        "hazardsUsed": "使用危害性物質",
+        "controlledSubstancesUsed": "使用管制藥品"
+      }
+    }
+  },
+  "animalPages": {
+    "addDialog": {
+      "breedOther": "填寫品種",
+      "building": "棟別",
+      "buildingPlaceholder": "選擇 A 棟或 B 棟",
+      "description": "輸入新動物的基本資料",
+      "earTagHint": "若輸入數字會自動轉換為三位數（如 001）",
+      "penNumber": "欄位編號",
+      "penNumberPlaceholder": "選擇編號",
+      "preExperimentCodePlaceholder": "例如 PIG-110000",
+      "selectBuildingFirst": "請先選棟別",
+      "selectZoneFirst": "請先選欄位區",
+      "sourceNone": "無",
+      "sourcePlaceholder": "選擇來源",
+      "zone": "欄位區",
+      "zonePlaceholder": "選擇欄位區"
+    },
+    "availablePigs": {
+      "advancedFilters": "進階篩選",
+      "ageMax": "月齡（最大）",
+      "ageMin": "月齡（最小）",
+      "backToList": "返回動物列表",
+      "columns": {
+        "birthDay": "出生日",
+        "latestWeight": "最近體重(kg)",
+        "location": "位置",
+        "measuredOn": "量測日"
+      },
+      "description": "規劃 protocol 前的庫存盤點 — 依月齡 / 體重 / 性別篩選，即時統計可用豬。",
+      "empty": "無符合條件的可用豬隻",
+      "exportExcel": "匯出 Excel",
+      "includeBreeding": "包含飼養計畫 000 中的豬",
+      "loadFailed": "載入失敗",
+      "pagination": {
+        "pageOf": "第 {{page}} / {{total}} 頁"
+      },
+      "summaryExcluded": "另有 {{count}} 頭因體重資料 > 40 天未列入",
+      "summaryMatched": "符合 {{total}} 頭 / ♂ {{male}} / ♀ {{female}}",
+      "title": "可用豬隻快速查詢",
+      "toast": {
+        "downloadStarted": "已開始下載",
+        "excelGenerated": "可用豬隻 Excel 已產生",
+        "retryLater": "請稍後再試"
+      },
+      "weightMax": "體重最大 (kg)",
+      "weightMin": "體重最小 (kg)"
+    },
+    "batchAssign": {
+      "confirm": "確認分配",
+      "description": "將選中的 {{count}} 隻動物分配至指定的 IACUC 計畫",
+      "placeholder": "例如 PIG-114017",
+      "title": "分配動物至計畫"
+    },
+    "detail": {
+      "editAnimalInfo": "編輯動物資訊",
+      "emergencyMedication": "緊急給藥",
+      "issueEuthanasiaOrder": "開立安樂死單",
+      "registerSuddenDeath": "登記猝死",
+      "suddenDeathConfirmDescription": "確定要將耳號 {{earTag}} 登記為猝死？此操作不可復原。",
+      "suddenDeathConfirmLabel": "確認登記"
+    },
+    "duplicate": {
+      "birthDateLabel": "出生日期:",
+      "confirm": "確認建立",
+      "confirmQuestion": "確定仍要以<emphasis>不同出生日期</emphasis>建立新動物嗎？",
+      "existing": "耳號 <tag>{{earTag}}</tag> 已存在以下存活動物：",
+      "notSet": "未設定",
+      "penLabel": "欄位:",
+      "title": "耳號重複警告"
+    },
+    "editPage": {
+      "backToDetail": "回到動物詳情",
+      "basicInfo": "基本資料",
+      "basicInfoDescription": "編輯動物的基本資訊",
+      "correctionSubmitted": "修正申請已提交，待管理員審核",
+      "description": "耳號：{{earTag}}",
+      "experimentDate": "實驗日期",
+      "iacucLocked": "實驗中的動物無法更改 IACUC No.",
+      "iacucRequiredInExperiment": "選擇「實驗中」狀態時，IACUC No. 為必填欄位",
+      "penNotExist": "此欄號不存在，請重新選擇",
+      "penNotFoundCheck": "找不到此欄號，請確認欄號正確",
+      "penSearchPlaceholder": "輸入欄號搜尋...",
+      "requestCorrection": "申請修正（耳號/出生日期/性別/品種）",
+      "saveChanges": "儲存變更",
+      "selectIacuc": "選擇 IACUC No.",
+      "sourceNotSpecified": "未指定",
+      "statusRequired": "請選擇狀態",
+      "title": "編輯動物資料",
+      "updated": "動物資料已更新"
+    },
+    "headerCard": {
+      "clickToAssignStudy": "點擊分配試驗",
+      "clickToEditPen": "點擊編輯欄號",
+      "entryWeightValue": "{{weight}} kg (進場)",
+      "experimentAssignment": "實驗分配",
+      "latestWeight": "最近體重",
+      "noActiveStudies": "目前無進行中的試驗",
+      "penNotFound": "找不到此欄號",
+      "penNumber": "欄號",
+      "penSearchPlaceholder": "搜尋欄號...",
+      "penUpdated": "欄號已更新",
+      "searchStudy": "搜尋試驗…",
+      "selectStudy": "選擇試驗…",
+      "statusChangeViaTransfer": "狀態變更需透過轉讓程序"
+    },
+    "list": {
+      "guestMove": {
+        "alreadyThere": "動物 {{earTag}} 已在 {{pen}}",
+        "notFoundDescription": "耳號 {{earTag}} 不存在",
+        "notFoundTitle": "找不到動物",
+        "noticeTitle": "提示",
+        "successDescription": "{{earTag}} → {{pen}}（訪客模式，重整後還原）",
+        "successTitle": "移動成功"
+      },
+      "vetPatrolRecord": "獸醫巡場紀錄"
+    },
+    "listTable": {
+      "measuredOn": "量測日期: {{date}}",
+      "openDetailTitle": "點擊進入動物詳情 · 系統號: {{id}}",
+      "quickEdit": "快速編輯",
+      "selectAll": "全選動物",
+      "selectAnimal": "選取動物 {{name}}"
+    },
+    "mutations": {
+      "addFailedCheckInput": "新增失敗，請檢查輸入資料",
+      "alreadyInPen": "動物 {{earTag}} 已經在 {{pen}} 欄位",
+      "animalAdded": "動物已新增",
+      "animalAddedDuplicateConfirmed": "動物已新增（已確認耳號重複）",
+      "animalMoved": "動物 {{earTag}} 已移動到 {{pen}}",
+      "assignedToStudy": "動物已成功分配到試驗",
+      "assignFailed": "分配失敗",
+      "batchAssigned": "動物已分配至計劃並進入實驗中",
+      "batchAssignFailed": "批次分配失敗",
+      "birthDateFormat": "出生日期格式不正確，必須是 YYYY-MM-DD 格式",
+      "entryDateFormat": "進場日期格式不正確，必須是 YYYY-MM-DD 格式",
+      "entryWeightInvalid": "進場體重必須是大於 0 的數字",
+      "invalidDataFormat": "資料格式錯誤：請檢查所有欄位的格式是否正確",
+      "loadObservationsFailed": "載入觀察紀錄失敗",
+      "moveFailed": "移動失敗",
+      "multipleEarTags": "找到多隻耳號為 \"{{earTag}}\" 的動物，請使用編輯功能手動移動",
+      "noPendingAdd": "無待處理的新增請求",
+      "quickAdded": "已新增動物 {{earTag}} 至 {{pen}}",
+      "selectBreed": "請選擇品種",
+      "sourceIdInvalid": "來源 ID 格式不正確: {{id}}",
+      "suddenDeathFailed": "猝死登記失敗",
+      "suddenDeathRegistered": "猝死紀錄已登記，動物狀態已自動更新",
+      "suddenDeathRegisteredTitle": "已登記"
+    },
+    "patrolList": {
+      "actions": {
+        "continueEdit": "繼續編輯",
+        "deleteAria": "刪除 {{date}} 的巡場報告",
+        "downloadAria": "下載 {{date}} 的巡場報告 PDF",
+        "editAria": "{{action}} {{date}} 的巡場報告",
+        "editDisabled": {
+          "awaitingAcknowledgement": "待追蹤者確認收到，暫不可編輯",
+          "awaitingFollowUp": "待追蹤者填寫，非本人負責階段",
+          "completed": "已完成（唯讀鎖定），請用「檢視」",
+          "default": "目前不可編輯",
+          "draft": "草稿僅建立者可編輯"
+        },
+        "retractAria": "撤回 {{date}} 的巡場報告成草稿",
+        "retractToDraft": "撤回成草稿",
+        "viewAria": "檢視 {{date}} 的巡場報告（唯讀）",
+        "viewReadOnly": "檢視（唯讀）"
+      },
+      "columns": {
+        "accompanying": "陪同人員",
+        "lastUpdated": "最後更新",
+        "patrolDate": "巡場日期",
+        "veterinarian": "獸醫師"
+      },
+      "confirmDelete": "確定要刪除 {{date}} 的巡場報告嗎？此操作不可復原。",
+      "confirmRetract": "確定要把 {{date}} 的巡場報告撤回成草稿嗎？追蹤流程會重置，需重新編輯後再送出。",
+      "empty": {
+        "all": "尚無巡場報告",
+        "completed": "尚無已完成的報告",
+        "draft": "尚無草稿",
+        "submitted": "尚無已送出的報告"
+      },
+      "newReport": "新增巡場報告",
+      "pdfOffline": {
+        "description": "已自動通知管理員。請稍後再試（管理員處理通常 < 5 分鐘）。",
+        "title": "PDF 服務未上線"
+      },
+      "scopeAll": "全部（所有人）",
+      "scopeRelevant": "與我相關",
+      "status": {
+        "completed": "已完成",
+        "draft": "草稿",
+        "submitted": "已送出"
+      },
+      "statusFilter": "狀態篩選",
+      "subtitle": "歷史巡場報告 · 可開啟編輯、下載 PDF",
+      "title": "獸醫巡場報告",
+      "toast": {
+        "pdfExportFailed": "PDF 匯出失敗",
+        "retracted": "已撤回為草稿",
+        "retractFailed": "撤回失敗"
+      },
+      "viewScope": "檢視範圍"
+    },
+    "penView": {
+      "abnormal": "有異常",
+      "abnormalTitle": "有異常 · {{earTag}}",
+      "animalCount": "{{count}} 隻",
+      "clickToAdd": "點擊加入豬隻",
+      "empty": "空",
+      "latestAbnormal": "最新異常",
+      "openDetailTitle": "點擊進入動物詳情 · {{earTag}}",
+      "totalAnimals": "共 {{count}} 隻",
+      "vetViewed": "獸醫檢視",
+      "zoneFallbackName": "{{code}} 區"
+    },
+    "quickAdd": {
+      "confirm": "確認新增",
+      "description": "耳號 <tag>{{earTag}}</tag> 不存在，請填寫資料以新增動物至 <pen>{{pen}}</pen>"
+    },
+    "reservation": {
+      "addPlanned": "新增預定試驗",
+      "assignAfterApproval": "正式分配（試驗核准後）",
+      "assignToExperiment": "正式分配進實驗",
+      "chip": {
+        "completed": "已完成 {{count}}",
+        "demand": "需求 {{count}}",
+        "inExperiment": "實驗中 {{count}}",
+        "reserved": "已預約 {{count}}",
+        "shortfall": "缺 {{count}}"
+      },
+      "createDialog": {
+        "client": "委託單位",
+        "clientPlaceholder": "如：昱展新藥",
+        "createdDescription": "預定試驗已建立",
+        "createdTitle": "已新增",
+        "demand": "需求動物數",
+        "description": "規劃中（未核准）試驗，供預約動物；核准後連結真計畫。",
+        "submit": "建立",
+        "summary": "試驗內容概述",
+        "summaryPlaceholder": "如：心臟支架長期試驗"
+      },
+      "description": "全場活豬按計劃分配：置頂備用池快速配對，各計劃顯示需求 vs 已預約 / 實驗中 / 已完成缺口。",
+      "emptyCanManage": "尚無試驗群組。點右上「新增預定試驗」開始規劃，或待已核准計畫有動物預約 / 分配後顯示。",
+      "emptyGroup": "尚無預約 / 分配動物",
+      "emptyNoPermission": "尚無試驗群組。待執行秘書建立預定試驗，或已核准計畫有動物預約 / 分配後顯示。",
+      "emptyOrphan": "無待處理動物",
+      "groupType": {
+        "approved": "已核准",
+        "orphan": "待處理",
+        "planning": "規劃中"
+      },
+      "loadError": "載入失敗，請重新整理",
+      "noCaseNo": "（無案號）",
+      "planningLabel": "{{unit}}（規劃中）",
+      "remark": {
+        "cancelEdit": "取消編輯",
+        "clickToEdit": "點擊編輯備註",
+        "save": "儲存備註"
+      },
+      "searchDialog": {
+        "ageMax": "月齡上限",
+        "ageMin": "月齡下限",
+        "description": "依體重 / 月齡 / 性別篩選未分配未預約動物，勾選後批次預約進此試驗。",
+        "noResults": "查無符合條件的可預約動物",
+        "reserveSelected": "預約選取的 {{count}} 隻",
+        "searching": "搜尋中…",
+        "title": "搜尋配對動物 — {{label}}",
+        "weightMax": "體重上限(kg)",
+        "weightMin": "體重下限(kg)"
+      },
+      "searchMatch": "搜尋配對",
+      "selectAria": "選取 {{earTag}}",
+      "sortBy": "依{{label}}排序",
+      "sparePool": {
+        "clearSelection": "取消選取",
+        "collapse": "收合",
+        "empty": "無符合條件的未分配動物",
+        "expand": "展開",
+        "reserve": "預約",
+        "reserveToPlan": "預約到計劃",
+        "selectedCount": "已選 {{count}} 隻 →",
+        "selectPlan": "選擇計劃…",
+        "title": "未分配（備用池）",
+        "total": "共 {{count}} 隻未分配活豬"
+      },
+      "status": {
+        "reserved": "已預約"
+      },
+      "studyFallback": "試驗",
+      "title": "動物預約與試驗規劃",
+      "toast": {
+        "assignedDescription": "動物已正式分配進實驗中",
+        "assignedTitle": "已分配",
+        "assignFailed": "正式分配失敗",
+        "remarkSaveFailed": "備註儲存失敗",
+        "reservedCount": "已預約 {{count}} 隻動物",
+        "reserveFailed": "預約失敗",
+        "unreservedDescription": "已解除預約",
+        "unreservedTitle": "已解除",
+        "unreserveFailed": "解除預約失敗"
+      },
+      "unreserve": "解除預約",
+      "viewAnimalDetails": "查看動物詳情"
+    },
+    "shared": {
+      "addFailed": "新增失敗",
+      "ageMonths": "月齡",
+      "all": "全部",
+      "birthShort": "出生",
+      "deleteFailed": "刪除失敗",
+      "enterBreedName": "請輸入品種名稱",
+      "enterEarTag": "輸入耳號",
+      "enterWeight": "輸入體重",
+      "entryWeightKg": "進場體重 (kg)",
+      "example": "例：{{value}}",
+      "latestWeight": "最新體重",
+      "loadingEllipsis": "載入中…",
+      "monthsValue": "{{count}}月",
+      "noSpeciesAvailable": "尚無可選物種，請先至「設施管理 → 物種」新增",
+      "otherRemarks": "其他備註...",
+      "preExperimentCode": "實驗前代號",
+      "remark": "備註",
+      "selectBreed": "選擇品種",
+      "selectPen": "選擇欄號",
+      "source": "來源",
+      "unlimited": "不限",
+      "updateFailed": "更新失敗",
+      "weightKg": "體重(kg)"
+    },
+    "sources": {
+      "active": "啟用",
+      "addFirst": "新增第一個來源",
+      "address": "地址",
+      "addressPlaceholder": "完整地址",
+      "addSource": "新增來源",
+      "code": "代碼",
+      "codePlaceholder": "如：SOURCE01",
+      "contact": "聯絡人",
+      "contactPlaceholder": "聯絡人姓名",
+      "deleteConfirm": "確定要刪除來源「{{name}}」嗎？",
+      "deleteTitle": "刪除動物來源",
+      "dialog": {
+        "addDescription": "輸入新來源的資訊",
+        "addTitle": "新增動物來源",
+        "editDescription": "修改來源資訊",
+        "editTitle": "編輯動物來源"
+      },
+      "empty": "尚無來源資料",
+      "extPlaceholder": "分機",
+      "inactive": "停用",
+      "name": "名稱",
+      "namePlaceholder": "來源名稱",
+      "pageDescription": "管理動物的來源/供應商資訊",
+      "pageTitle": "動物來源管理",
+      "phone": "電話",
+      "phonePlaceholder": "聯絡電話",
+      "sortOrder": "排序",
+      "toast": {
+        "created": "動物來源已新增",
+        "deleted": "動物來源已刪除",
+        "updated": "動物來源已更新"
+      }
+    },
+    "suddenDeath": {
+      "confirm": "確認登記猝死",
+      "description": "登記後動物狀態將自動更新為「猝死」，此操作不可復原。",
+      "dialogTitle": "登記猝死 — 耳號 {{earTag}}",
+      "discoveredAt": "發現時間",
+      "location": "發現地點",
+      "locationPlaceholder": "如：A01 欄位",
+      "probableCause": "可能原因",
+      "probableCausePlaceholder": "描述可能的死因...",
+      "requiresPathology": "需要病理檢查"
+    }
   }
 }

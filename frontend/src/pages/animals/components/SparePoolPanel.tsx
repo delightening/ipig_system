@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, ChevronsUpDown, ExternalLink } from 'lucide-react'
 
 import type { ReservableAnimalRow, ReservableQuery } from '@/lib/api/reservationPlanning'
-import { animalGenderNames } from '@/types/animal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuthHasPermission } from '@/stores/auth'
@@ -27,6 +27,7 @@ type SortKey = 'ear_tag' | 'gender' | 'birth_date' | 'weight'
  * 條件篩選（性別/月齡/體重）+ 內部捲動 + 多選 → 批次「預約到計劃」。可收合。
  */
 export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
+  const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(false)
   const [gender, setGender] = useState<'' | 'male' | 'female'>('')
   const [weightMin, setWeightMin] = useState('')
@@ -102,7 +103,7 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
       type="button"
       onClick={() => toggleSort(k)}
       className={`flex items-center gap-0.5 text-left hover:text-foreground ${w}`}
-      aria-label={`依${label}排序`}
+      aria-label={t('animalPages.reservation.sortBy', { label })}
     >
       {label}
       {sortKey === k ? (
@@ -122,7 +123,7 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
     })
 
   const doReserve = () => {
-    const target = targets.find((t) => `${t.kind}:${t.id}` === targetKey)
+    const target = targets.find((tg) => `${tg.kind}:${tg.id}` === targetKey)
     if (!target || selected.size === 0) return
     const body =
       target.kind === 'planned'
@@ -138,8 +139,8 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
       {/* header */}
       <div className="flex flex-wrap items-center gap-2.5 border-b bg-card px-4 py-2.5">
         <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground" />
-        <span className="font-bold">未分配（備用池）</span>
-        <span className="text-xs text-muted-foreground">共 {count} 隻未分配活豬</span>
+        <span className="font-bold">{t('animalPages.reservation.sparePool.title')}</span>
+        <span className="text-xs text-muted-foreground">{t('animalPages.reservation.sparePool.total', { count })}</span>
         <Button
           variant="outline"
           size="sm"
@@ -147,7 +148,7 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
           onClick={() => setCollapsed((c) => !c)}
         >
           {collapsed ? <ChevronDown className="mr-1 h-3.5 w-3.5" /> : <ChevronUp className="mr-1 h-3.5 w-3.5" />}
-          {collapsed ? '展開' : '收合'}
+          {collapsed ? t('animalPages.reservation.sparePool.expand') : t('animalPages.reservation.sparePool.collapse')}
         </Button>
       </div>
 
@@ -156,19 +157,19 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
           {/* 篩選列 */}
           <div className="flex flex-wrap items-end gap-2 border-b bg-muted/30 px-4 py-2">
             <label className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
-              性別
+              {t('animals.gender')}
               <select
                 className="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
                 value={gender}
                 onChange={(e) => setGender(e.target.value as '' | 'male' | 'female')}
               >
-                <option value="">不限</option>
-                <option value="male">公</option>
-                <option value="female">母</option>
+                <option value="">{t('animalPages.shared.unlimited')}</option>
+                <option value="male">{t('animals.genderLabels.male')}</option>
+                <option value="female">{t('animals.genderLabels.female')}</option>
               </select>
             </label>
             <label className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
-              月齡
+              {t('animalPages.shared.ageMonths')}
               <span className="flex items-center gap-1">
                 <Input className="h-8 w-16" type="number" value={ageMin} onChange={(e) => setAgeMin(e.target.value)} />
                 <span>–</span>
@@ -176,7 +177,7 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
               </span>
             </label>
             <label className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
-              體重(kg)
+              {t('animalPages.shared.weightKg')}
               <span className="flex items-center gap-1">
                 <Input className="h-8 w-16" type="number" value={weightMin} onChange={(e) => setWeightMin(e.target.value)} />
                 <span>–</span>
@@ -191,20 +192,20 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
               {/* 桌面表頭 */}
               <div className="hidden border-b bg-muted/40 px-4 py-1.5 text-xs font-medium text-muted-foreground @[600px]:flex">
                 <div className="w-8" />
-                {sortHead('ear_tag', '耳號', 'w-16')}
-                {sortHead('gender', '性別', 'w-12')}
-                {sortHead('birth_date', '出生日期', 'w-24')}
-                {sortHead('weight', '最新體重', 'w-24')}
-                <div className="flex-1">備註</div>
-                <div className="w-11 text-center">操作</div>
+                {sortHead('ear_tag', t('animals.earTag'), 'w-16')}
+                {sortHead('gender', t('animals.gender'), 'w-12')}
+                {sortHead('birth_date', t('animals.birthDate'), 'w-24')}
+                {sortHead('weight', t('animalPages.shared.latestWeight'), 'w-24')}
+                <div className="flex-1">{t('animalPages.shared.remark')}</div>
+                <div className="w-11 text-center">{t('common.actions')}</div>
               </div>
 
               {isFetching && count === 0 && (
-                <div className="px-4 py-6 text-center text-sm text-muted-foreground">載入中…</div>
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">{t('animalPages.shared.loadingEllipsis')}</div>
               )}
               {!isFetching && count === 0 && (
                 <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                  無符合條件的未分配動物
+                  {t('animalPages.reservation.sparePool.empty')}
                 </div>
               )}
 
@@ -220,22 +221,22 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
                         className="@[600px]:w-8"
                         checked={selected.has(a.id)}
                         onChange={() => toggle(a.id)}
-                        aria-label={`選取 ${a.ear_tag}`}
+                        aria-label={t('animalPages.reservation.selectAria', { earTag: a.ear_tag })}
                       />
                     )}
                     <span className="w-16 font-mono font-semibold @[600px]:font-normal">{a.ear_tag}</span>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm @[600px]:contents">
                     <span className="@[600px]:w-12">
-                      <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">性別</span>
-                      {animalGenderNames[a.gender]}
+                      <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">{t('animals.gender')}</span>
+                      {t(`animals.genderLabels.${a.gender}`)}
                     </span>
                     <span className="@[600px]:w-24">
-                      <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">出生</span>
+                      <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">{t('animalPages.shared.birthShort')}</span>
                       {fmtDate(a.birth_date)}
                     </span>
                     <span className="@[600px]:w-24">
-                      <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">最新體重</span>
+                      <span className="mr-1 text-[10px] text-muted-foreground @[600px]:hidden">{t('animalPages.shared.latestWeight')}</span>
                       {a.latest_weight_kg ? (
                         <>
                           <b className="font-semibold">{a.latest_weight_kg}kg</b>{' '}
@@ -247,14 +248,14 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
                     </span>
                   </div>
                   <div className="text-sm text-muted-foreground @[600px]:flex-1">
-                    <span className="mr-1 text-[10px] @[600px]:hidden">備註</span>
+                    <span className="mr-1 text-[10px] @[600px]:hidden">{t('animalPages.shared.remark')}</span>
                     <EditableRemarkCell animalId={a.id} remark={a.remark} />
                   </div>
                   <div className="absolute right-2 top-2 @[600px]:static @[600px]:w-11 @[600px]:text-center">
                     <Link
                       to={`/animals/${a.id}`}
                       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-                      aria-label="查看動物詳情"
+                      aria-label={t('animalPages.reservation.viewAnimalDetails')}
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Link>
@@ -267,25 +268,25 @@ export function SparePoolPanel({ targets }: { targets: ReserveTarget[] }) {
           {/* 批次列（有操作權且選 ≥1 隻才顯示） */}
           {canReserve && selected.size > 0 && (
             <div className="flex flex-wrap items-center gap-2 border-t bg-accent/10 px-4 py-2 text-sm">
-              <span className="font-semibold text-accent">已選 {selected.size} 隻 →</span>
-              <span>預約到計劃</span>
+              <span className="font-semibold text-accent">{t('animalPages.reservation.sparePool.selectedCount', { count: selected.size })}</span>
+              <span>{t('animalPages.reservation.sparePool.reserveToPlan')}</span>
               <select
                 className="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
                 value={targetKey}
                 onChange={(e) => setTargetKey(e.target.value)}
               >
-                <option value="">選擇計劃…</option>
-                {targets.map((t) => (
-                  <option key={`${t.kind}:${t.id}`} value={`${t.kind}:${t.id}`}>
-                    {t.label}
+                <option value="">{t('animalPages.reservation.sparePool.selectPlan')}</option>
+                {targets.map((tg) => (
+                  <option key={`${tg.kind}:${tg.id}`} value={`${tg.kind}:${tg.id}`}>
+                    {tg.label}
                   </option>
                 ))}
               </select>
               <Button size="sm" className="h-8" disabled={!targetKey || reserve.isPending} onClick={doReserve}>
-                預約
+                {t('animalPages.reservation.sparePool.reserve')}
               </Button>
               <Button size="sm" variant="ghost" className="h-8" onClick={() => setSelected(new Set())}>
-                取消選取
+                {t('animalPages.reservation.sparePool.clearSelection')}
               </Button>
             </div>
           )}

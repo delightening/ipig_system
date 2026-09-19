@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 
 import { PageHeader } from '@/components/ui/page-header'
@@ -12,6 +13,7 @@ import { SparePoolPanel, type ReserveTarget } from './components/SparePoolPanel'
 
 /** 動物預約與試驗規劃頁（Phase 5）：全場活豬按計劃分配清冊 — 置頂備用池 + 各計劃分組 + orphan。 */
 export function ReservationPlanningPage() {
+  const { t } = useTranslation()
   const [createOpen, setCreateOpen] = useState(false)
   const { data: groups, isLoading, isError } = useReservationPlanning()
 
@@ -25,28 +27,28 @@ export function ReservationPlanningPage() {
           id: g.id,
           label:
             g.group_type === 'approved'
-              ? [g.iacuc_no, g.unit].filter(Boolean).join(' · ') || '（無案號）'
-              : `${g.unit}（規劃中）`,
+              ? [g.iacuc_no, g.unit].filter(Boolean).join(' · ') || t('animalPages.reservation.noCaseNo')
+              : t('animalPages.reservation.planningLabel', { unit: g.unit }),
         })),
-    [groups],
+    [groups, t],
   )
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="動物預約與試驗規劃"
-        description="全場活豬按計劃分配：置頂備用池快速配對，各計劃顯示需求 vs 已預約 / 實驗中 / 已完成缺口。"
+        title={t('animalPages.reservation.title')}
+        description={t('animalPages.reservation.description')}
         actions={
           <Can permission={PERMISSIONS.ANIMAL_PLANNING_MANAGE}>
             <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-1 h-4 w-4" /> 新增預定試驗
+              <Plus className="mr-1 h-4 w-4" /> {t('animalPages.reservation.addPlanned')}
             </Button>
           </Can>
         }
       />
 
-      {isLoading && <div className="py-12 text-center text-muted-foreground">載入中…</div>}
-      {isError && <div className="py-12 text-center text-status-error-text">載入失敗，請重新整理</div>}
+      {isLoading && <div className="py-12 text-center text-muted-foreground">{t('animalPages.shared.loadingEllipsis')}</div>}
+      {isError && <div className="py-12 text-center text-status-error-text">{t('animalPages.reservation.loadError')}</div>}
 
       {!isLoading && !isError && (
         <>
@@ -56,9 +58,9 @@ export function ReservationPlanningPage() {
               {/* 無操作權者看不到「新增預定試驗」鈕，空狀態文案不能叫他去點一顆不存在的按鈕 */}
               <Can
                 permission={PERMISSIONS.ANIMAL_PLANNING_MANAGE}
-                fallback={<>尚無試驗群組。待執行秘書建立預定試驗，或已核准計畫有動物預約 / 分配後顯示。</>}
+                fallback={<>{t('animalPages.reservation.emptyNoPermission')}</>}
               >
-                尚無試驗群組。點右上「新增預定試驗」開始規劃，或待已核准計畫有動物預約 / 分配後顯示。
+                {t('animalPages.reservation.emptyCanManage')}
               </Can>
             </div>
           )}

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import api, {
   ProtocolResponse,
   CreateProtocolRequest,
@@ -347,7 +347,7 @@ export function ProtocolEditPage() {
           setIsValidating(false)
           // 驗證 API 失敗不阻擋提交
         }
-        const ok = await confirm({ title: '送出計畫書', description: t('aup.messages.confirmSubmit'), confirmLabel: '確認送出' })
+        const ok = await confirm({ title: t('protocolPages.shared.submitConfirmTitle'), description: t('aup.messages.confirmSubmit'), confirmLabel: t('protocolPages.shared.submitConfirmLabel') })
         if (ok) submitMutation.mutate()
       },
     })
@@ -355,7 +355,7 @@ export function ProtocolEditPage() {
 
   const handleIgnoreAndSubmit = async () => {
     setValidationResult(null)
-    const ok = await confirm({ title: '送出計畫書', description: t('aup.messages.confirmSubmit'), confirmLabel: '確認送出' })
+    const ok = await confirm({ title: t('protocolPages.shared.submitConfirmTitle'), description: t('aup.messages.confirmSubmit'), confirmLabel: t('protocolPages.shared.submitConfirmLabel') })
     if (ok) submitMutation.mutate()
   }
 
@@ -450,7 +450,7 @@ export function ProtocolEditPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="返回">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label={t('protocolPages.shared.back')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <PageHeader
@@ -517,12 +517,12 @@ export function ProtocolEditPage() {
           {isGuestUser && isNew && (
             <Card className="border-status-warning-border bg-status-warning-bg">
               <CardContent className="p-4 space-y-2">
-                <div className="font-semibold text-status-warning-text">Demo 模式</div>
+                <div className="font-semibold text-status-warning-text">{t('protocolPages.edit.demo.title')}</div>
                 <p className="text-sm text-status-warning-text">
-                  以下表單已填入範例計畫書供你體驗，<strong>輸入內容不會被儲存</strong>，所有欄位為唯讀。
+                  <Trans i18nKey="protocolPages.edit.demo.description" components={{ strong: <strong /> }} />
                 </p>
                 <p className="text-xs text-status-warning-text/80">
-                  正式使用請登入 PI 帳號後在「計畫書管理」建立新計畫書。
+                  {t('protocolPages.edit.demo.hint')}
                 </p>
               </CardContent>
             </Card>
@@ -574,7 +574,7 @@ export function ProtocolEditPage() {
           <fieldset disabled={isGuestUser} className="border-0 m-0 p-0 min-w-0 disabled:opacity-70">
             {protocol?.imported_at && (
               <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-3">
-                <span className="text-sm font-medium">計畫書版本</span>
+                <span className="text-sm font-medium">{t('protocolPages.edit.formVersion.label')}</span>
                 <Select
                   value={effectiveVersion}
                   onValueChange={(v) => { setVersionOverride(v as ProtocolFormVersion); setIsDirty(true) }}
@@ -590,7 +590,7 @@ export function ProtocolEditPage() {
                   </SelectContent>
                 </Select>
                 <span className="text-xs text-muted-foreground">
-                  依此版本顯示對應欄位；改版後請儲存。{!protocol?.import_pending && '（完成補登後鎖定）'}
+                  {t(protocol?.import_pending ? 'protocolPages.edit.formVersion.hint' : 'protocolPages.edit.formVersion.hintLocked')}
                 </span>
               </div>
             )}

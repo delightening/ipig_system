@@ -105,22 +105,22 @@ export function AnimalAddDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>新增動物</DialogTitle>
-          <DialogDescription>輸入新動物的基本資料</DialogDescription>
+          <DialogTitle>{t('animals.addAnimal')}</DialogTitle>
+          <DialogDescription>{t('animalPages.addDialog.description')}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="ear_tag">耳號 *</Label>
+            <Label htmlFor="ear_tag">{t('animals.earTag')} *</Label>
             <Input
               id="ear_tag"
               value={newAnimal.ear_tag}
               onChange={(e) => onNewAnimalChange({ ...newAnimal, ear_tag: e.target.value })}
-              placeholder="輸入耳號"
+              placeholder={t('animalPages.shared.enterEarTag')}
             />
-            <p className="text-[10px] text-muted-foreground">若輸入數字會自動轉換為三位數（如 001）</p>
+            <p className="text-[10px] text-muted-foreground">{t('animalPages.addDialog.earTagHint')}</p>
           </div>
           <div className="space-y-2">
-            <Label>棟別 *</Label>
+            <Label>{t('animalPages.addDialog.building')} *</Label>
             <Select
               value={penBuilding}
               onValueChange={(v) => {
@@ -130,7 +130,7 @@ export function AnimalAddDialog({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="選擇 A 棟或 B 棟" />
+                <SelectValue placeholder={t('animalPages.addDialog.buildingPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {buildings.map((building) => (
@@ -142,7 +142,7 @@ export function AnimalAddDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>欄位區 *</Label>
+            <Label>{t('animalPages.addDialog.zone')} *</Label>
             <Select
               value={penZone}
               onValueChange={(v) => {
@@ -152,7 +152,7 @@ export function AnimalAddDialog({
               disabled={!penBuilding}
             >
               <SelectTrigger>
-                <SelectValue placeholder={penBuilding ? "選擇欄位區" : "請先選棟別"} />
+                <SelectValue placeholder={penBuilding ? t('animalPages.addDialog.zonePlaceholder') : t('animalPages.addDialog.selectBuildingFirst')} />
               </SelectTrigger>
               <SelectContent>
                 {zonesForBuilding.map((zone) => (
@@ -162,14 +162,14 @@ export function AnimalAddDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>欄位編號 *</Label>
+            <Label>{t('animalPages.addDialog.penNumber')} *</Label>
             <Select
               value={penCode}
               onValueChange={onPenCodeChange}
               disabled={!penZone}
             >
               <SelectTrigger>
-                <SelectValue placeholder={penZone ? "選擇編號" : "請先選欄位區"} />
+                <SelectValue placeholder={penZone ? t('animalPages.addDialog.penNumberPlaceholder') : t('animalPages.addDialog.selectZoneFirst')} />
               </SelectTrigger>
               <SelectContent>
                 {/* value 用完整 pen code：先前取 code.slice(1) 假設「區碼一字母 + 編號」，
@@ -184,12 +184,12 @@ export function AnimalAddDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>品種 *</Label>
+            <Label>{t('animals.breed')} *</Label>
             <Select
               value={newAnimal.species_id}
               onValueChange={(v) => onNewAnimalChange({ ...newAnimal, species_id: v, breed_other: '' })}
             >
-              <SelectTrigger><SelectValue placeholder="選擇品種" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('animalPages.shared.selectBreed')} /></SelectTrigger>
               <SelectContent>
                 {breedSpecies.length > 0 ? (
                   breedSpecies.map((sp) => (
@@ -197,7 +197,7 @@ export function AnimalAddDialog({
                   ))
                 ) : (
                   <div className="px-2 py-3 text-xs text-muted-foreground">
-                    尚無可選物種，請先至「設施管理 → 物種」新增
+                    {t('animalPages.shared.noSpeciesAvailable')}
                   </div>
                 )}
               </SelectContent>
@@ -205,37 +205,37 @@ export function AnimalAddDialog({
           </div>
           {requiresBreedOther && (
             <div className="space-y-2">
-              <Label htmlFor="breed_other">填寫品種 *</Label>
+              <Label htmlFor="breed_other">{t('animalPages.addDialog.breedOther')} *</Label>
               <Input
                 id="breed_other"
                 value={newAnimal.breed_other}
                 onChange={(e) => onNewAnimalChange({ ...newAnimal, breed_other: e.target.value })}
-                placeholder="請輸入品種名稱"
+                placeholder={t('animalPages.shared.enterBreedName')}
               />
             </div>
           )}
           <div className="space-y-2">
-            <Label>性別 *</Label>
+            <Label>{t('animals.gender')} *</Label>
             <Select
               value={newAnimal.gender}
               onValueChange={(v) => onNewAnimalChange({ ...newAnimal, gender: v as 'male' | 'female' })}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="male">公</SelectItem>
-                <SelectItem value="female">母</SelectItem>
+                <SelectItem value="male">{t('animals.genderLabels.male')}</SelectItem>
+                <SelectItem value="female">{t('animals.genderLabels.female')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>來源</Label>
+            <Label>{t('animalPages.shared.source')}</Label>
             <Select
               value={newAnimal.source_id || 'none'}
               onValueChange={(v) => onNewAnimalChange({ ...newAnimal, source_id: v === 'none' ? '' : v })}
             >
-              <SelectTrigger><SelectValue placeholder="選擇來源" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('animalPages.addDialog.sourcePlaceholder')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">無</SelectItem>
+                <SelectItem value="none">{t('animalPages.addDialog.sourceNone')}</SelectItem>
                 {sourcesData?.map((source) => (
                   <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>
                 ))}
@@ -259,27 +259,27 @@ export function AnimalAddDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="entry_weight">進場體重 (kg) *</Label>
+            <Label htmlFor="entry_weight">{t('animalPages.shared.entryWeightKg')} *</Label>
             <Input
               id="entry_weight"
               type="text"
               inputMode="decimal"
               value={newAnimal.entry_weight}
               onChange={(e) => onNewAnimalChange({ ...newAnimal, entry_weight: sanitizeDecimalInput(e.target.value) })}
-              placeholder="輸入體重"
+              placeholder={t('animalPages.shared.enterWeight')}
             />
           </div>
           <div className="space-y-2 col-span-2">
-            <Label htmlFor="pre_experiment_code">實驗前代號 *</Label>
+            <Label htmlFor="pre_experiment_code">{t('animalPages.shared.preExperimentCode')} *</Label>
             <Input
               id="pre_experiment_code"
               value={newAnimal.pre_experiment_code}
               onChange={(e) => onNewAnimalChange({ ...newAnimal, pre_experiment_code: e.target.value })}
-              placeholder="例如 PIG-110000"
+              placeholder={t('animalPages.addDialog.preExperimentCodePlaceholder')}
             />
           </div>
           <div className="space-y-2 col-span-2">
-            <Label htmlFor="remark">備註</Label>
+            <Label htmlFor="remark">{t('animalPages.shared.remark')}</Label>
             <Input
               id="remark"
               value={newAnimal.remark}
@@ -295,7 +295,7 @@ export function AnimalAddDialog({
             className="bg-primary hover:bg-primary/90"
           >
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            新增
+            {t('common.create')}
           </Button>
         </DialogFooter>
       </DialogContent>

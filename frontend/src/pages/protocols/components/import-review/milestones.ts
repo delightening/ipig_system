@@ -9,14 +9,15 @@ export type MilestoneKey = Extract<
 >
 export type MilestoneState = Record<MilestoneKey, string>
 
-export const MILESTONES: ReadonlyArray<{ key: MilestoneKey; label: string; required: boolean }> = [
-  { key: 'submitted_at', label: '申請（送件）', required: true },
-  { key: 'pre_review_at', label: '執行秘書行政預審', required: true },
-  { key: 'vet_review_at', label: '獸醫師審查', required: true },
-  { key: 'committee_first_review_at', label: '委員第一次審查', required: true },
-  { key: 'revision_required_at', label: '補件 / 修訂退回', required: false },
-  { key: 'committee_second_review_at', label: '委員第二次審查', required: false },
-  { key: 'approved_at', label: '計畫核准通過', required: true },
+// labelKey 為 i18n 鍵；渲染時才 t(labelKey)（模組頂層不可存翻譯後字串）
+export const MILESTONES: ReadonlyArray<{ key: MilestoneKey; labelKey: string; required: boolean }> = [
+  { key: 'submitted_at', labelKey: 'protocolPages.importReview.milestones.submitted', required: true },
+  { key: 'pre_review_at', labelKey: 'protocolPages.importReview.milestones.preReview', required: true },
+  { key: 'vet_review_at', labelKey: 'protocolPages.importReview.milestones.vetReview', required: true },
+  { key: 'committee_first_review_at', labelKey: 'protocolPages.importReview.milestones.committeeFirst', required: true },
+  { key: 'revision_required_at', labelKey: 'protocolPages.importReview.milestones.revisionRequired', required: false },
+  { key: 'committee_second_review_at', labelKey: 'protocolPages.importReview.milestones.committeeSecond', required: false },
+  { key: 'approved_at', labelKey: 'protocolPages.importReview.milestones.approved', required: true },
 ]
 
 export const EMPTY_MILESTONES: MilestoneState = MILESTONES.reduce(

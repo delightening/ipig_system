@@ -8,6 +8,7 @@
 
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
@@ -55,27 +56,29 @@ function statusBucket(status: ReportRow['status']): StatusBucket {
     return 'submitted'
 }
 
-const BUCKET_META: Record<StatusBucket, { label: string; className: string }> = {
-    draft: { label: '草稿', className: 'bg-muted text-muted-foreground' },
-    submitted: { label: '已送出', className: 'bg-status-warning-bg text-status-warning-text' },
-    completed: { label: '已完成', className: 'bg-status-success-bg text-status-success-text' },
+// label 存 i18n 鍵，渲染時才 t()（避免語言切換後不更新）
+const BUCKET_META: Record<StatusBucket, { labelKey: string; className: string }> = {
+    draft: { labelKey: 'animalPages.patrolList.status.draft', className: 'bg-muted text-muted-foreground' },
+    submitted: { labelKey: 'animalPages.patrolList.status.submitted', className: 'bg-status-warning-bg text-status-warning-text' },
+    completed: { labelKey: 'animalPages.patrolList.status.completed', className: 'bg-status-success-bg text-status-success-text' },
 }
 
-const FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
-    { value: 'all', label: '全部' },
-    { value: 'draft', label: '草稿' },
-    { value: 'submitted', label: '已送出' },
-    { value: 'completed', label: '已完成' },
+const FILTER_OPTIONS: { value: StatusFilter; labelKey: string }[] = [
+    { value: 'all', labelKey: 'animalPages.shared.all' },
+    { value: 'draft', labelKey: 'animalPages.patrolList.status.draft' },
+    { value: 'submitted', labelKey: 'animalPages.patrolList.status.submitted' },
+    { value: 'completed', labelKey: 'animalPages.patrolList.status.completed' },
 ]
 
-const EMPTY_HINT: Record<StatusFilter, string> = {
-    all: '尚無巡場報告',
-    draft: '尚無草稿',
-    submitted: '尚無已送出的報告',
-    completed: '尚無已完成的報告',
+const EMPTY_HINT_KEY: Record<StatusFilter, string> = {
+    all: 'animalPages.patrolList.empty.all',
+    draft: 'animalPages.patrolList.empty.draft',
+    submitted: 'animalPages.patrolList.empty.submitted',
+    completed: 'animalPages.patrolList.empty.completed',
 }
 
 export default function VetPatrolReportListPage() {
+    const { t } = useTranslation()
     const qc = useQueryClient()
     // 巡場報告為 GLP 文件，由 print-pdf 渲染，匯出前 pre-check
     const { glpReady, refetch: refetchPdfHealth } = usePdfServiceHealth()
@@ -113,12 +116,12 @@ export default function VetPatrolReportListPage() {
             await api.post(`/vet-patrol-reports/${id}/delete`)
         },
         onSuccess: () => {
-            toast({ title: '已刪除' })
+            toast({ title: t('common.deleted') })
             qc.invalidateQueries({ queryKey: ['vet-patrol-reports'] })
         },
         onError: (err) => toast({
-            title: '錯誤',
-            description: getApiErrorMessage(err, '刪除失敗'),
+            title: t('common.error'),
+            description: getApiErrorMessage(err, t('animalPages.shared.deleteFailed')),
             variant: 'destructive',
         }),
     })
@@ -128,7 +131,7 @@ export default function VetPatrolReportListPage() {
             await api.post(`/vet-patrol-reports/${id}/retract`)
         },
         onSuccess: (_data, id) => {
-            toast({ title: '已撤回為草稿' })
+            toast({ title: t('animalPages.patrolList.toast.retracted') })
             qc.invalidateQueries({ queryKey: ['vet-patrol-reports'] })
             // 編輯/檢視 dialog 查的是單數 key（['vet-patrol-report', id]），全域 staleTime
             // 2 分鐘內若不特別 invalidate，重開會吃到撤回前的舊快取（isReadOnly 誤判仍鎖死），
@@ -136,14 +139,14 @@ export default function VetPatrolReportListPage() {
             qc.invalidateQueries({ queryKey: ['vet-patrol-report', id] })
         },
         onError: (err) => toast({
-            title: '錯誤',
-            description: getApiErrorMessage(err, '撤回失敗'),
+            title: t('common.error'),
+            description: getApiErrorMessage(err, t('animalPages.patrolList.toast.retractFailed')),
             variant: 'destructive',
         }),
     })
 
     const handleRetract = (id: string, patrolDate: string) => {
-        if (!window.confirm(`確定要把 ${patrolDate} 的巡場報告撤回成草稿嗎？追蹤流程會重置，需重新編輯後再送出。`)) return
+        if (!window.confirm(t('animalPages.patrolList.confirmRetract', { date: patrolDate }))) return
         retractMutation.mutate(id)
     }
 
@@ -154,8 +157,8 @@ export default function VetPatrolReportListPage() {
             if (fresh.data?.glp_ready !== true) {
                 toast({
                     variant: 'destructive',
-                    title: 'PDF 服務未上線',
-                    description: '已自動通知管理員。請稍後再試（管理員處理通常 < 5 分鐘）。',
+                    title: t('animalPages.patrolList.pdfOffline.title'),
+                    description: t('animalPages.patrolList.pdfOffline.description'),
                 })
                 return
             }
@@ -176,15 +179,15 @@ export default function VetPatrolReportListPage() {
             document.body.removeChild(a)
         } catch (err) {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(err, 'PDF 匯出失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(err, t('animalPages.patrolList.toast.pdfExportFailed')),
                 variant: 'destructive',
             })
         }
     }
 
     const handleDelete = (id: string, patrolDate: string) => {
-        if (!window.confirm(`確定要刪除 ${patrolDate} 的巡場報告嗎？此操作不可復原。`)) return
+        if (!window.confirm(t('animalPages.patrolList.confirmDelete', { date: patrolDate }))) return
         deleteMutation.mutate(id)
     }
 
@@ -194,43 +197,43 @@ export default function VetPatrolReportListPage() {
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <Stethoscope className="h-6 w-6" />
-                        獸醫巡場報告
+                        {t('animalPages.patrolList.title')}
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        歷史巡場報告 · 可開啟編輯、下載 PDF
+                        {t('animalPages.patrolList.subtitle')}
                     </p>
                 </div>
                 {isVet && (
                     <Button onClick={() => setShowNew(true)}>
                         <Plus className="h-4 w-4 mr-1" />
-                        新增巡場報告
+                        {t('animalPages.patrolList.newReport')}
                     </Button>
                 )}
             </div>
 
             <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">狀態篩選</span>
+                <span className="text-sm text-muted-foreground">{t('animalPages.patrolList.statusFilter')}</span>
                 <Select value={filter} onValueChange={(v) => setFilter(v as StatusFilter)}>
                     <SelectTrigger className="w-36">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                         {FILTER_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            <SelectItem key={opt.value} value={opt.value}>{t(opt.labelKey)}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
                 {/* 管理員專屬：切換檢視範圍（與我相關 / 全系統所有人）。非 admin 不顯示、後端亦 gate。 */}
                 {isAdmin && (
                     <>
-                        <span className="text-sm text-muted-foreground ml-2">檢視範圍</span>
+                        <span className="text-sm text-muted-foreground ml-2">{t('animalPages.patrolList.viewScope')}</span>
                         <Select value={scope} onValueChange={(v) => setScope(v as 'relevant' | 'all')}>
                             <SelectTrigger className="w-40">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="relevant">與我相關</SelectItem>
-                                <SelectItem value="all">全部（所有人）</SelectItem>
+                                <SelectItem value="relevant">{t('animalPages.patrolList.scopeRelevant')}</SelectItem>
+                                <SelectItem value="all">{t('animalPages.patrolList.scopeAll')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </>
@@ -241,24 +244,24 @@ export default function VetPatrolReportListPage() {
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-muted-foreground">
                         <tr>
-                            <th className="px-4 py-2 text-left font-medium">巡場日期</th>
-                            <th className="px-4 py-2 text-left font-medium">獸醫師</th>
-                            <th className="px-4 py-2 text-left font-medium">陪同人員</th>
-                            <th className="px-4 py-2 text-left font-medium">狀態</th>
-                            <th className="px-4 py-2 text-left font-medium">最後更新</th>
-                            <th className="px-4 py-2 text-right font-medium">動作</th>
+                            <th className="px-4 py-2 text-left font-medium">{t('animalPages.patrolList.columns.patrolDate')}</th>
+                            <th className="px-4 py-2 text-left font-medium">{t('animalPages.patrolList.columns.veterinarian')}</th>
+                            <th className="px-4 py-2 text-left font-medium">{t('animalPages.patrolList.columns.accompanying')}</th>
+                            <th className="px-4 py-2 text-left font-medium">{t('animals.status')}</th>
+                            <th className="px-4 py-2 text-left font-medium">{t('animalPages.patrolList.columns.lastUpdated')}</th>
+                            <th className="px-4 py-2 text-right font-medium">{t('animals.actions')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
                         {isLoading ? (
                             <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
                                 <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
-                                載入中...
+                                {t('common.loading')}
                             </td></tr>
                         ) : visibleReports.length === 0 ? (
                             <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
                                 <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                {EMPTY_HINT[filter]}
+                                {t(EMPTY_HINT_KEY[filter])}
                             </td></tr>
                         ) : visibleReports.map((r) => {
                             const bucket = BUCKET_META[statusBucket(r.status)]
@@ -297,7 +300,7 @@ export default function VetPatrolReportListPage() {
                                             兩者在等的人與動作不同，靠 hover 補回被折疊掉的那層資訊 */}
                                         <PendingOwnerBadge owner={r.pending_owner}>
                                             <span className={`inline-block px-2 py-0.5 rounded text-xs ${bucket.className}`}>
-                                                {bucket.label}
+                                                {t(bucket.labelKey)}
                                             </span>
                                         </PendingOwnerBadge>
                                     </td>

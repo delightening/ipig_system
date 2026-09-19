@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, Loader2, X } from 'lucide-react'
 
 import { useAuthHasPermission } from '@/stores/auth'
@@ -17,6 +18,7 @@ interface Props {
  * 清單 invalidate 後回原值。commit guard 防止 blur 與按鈕 click 重複送出。
  */
 export function EditableRemarkCell({ animalId, remark }: Props) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const committed = useRef(false)
@@ -75,7 +77,7 @@ export function EditableRemarkCell({ animalId, remark }: Props) {
         />
         <button
           type="button"
-          aria-label="儲存備註"
+          aria-label={t('animalPages.reservation.remark.save')}
           className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-foreground"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => commit(true)}
@@ -84,7 +86,7 @@ export function EditableRemarkCell({ animalId, remark }: Props) {
         </button>
         <button
           type="button"
-          aria-label="取消編輯"
+          aria-label={t('animalPages.reservation.remark.cancelEdit')}
           className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => commit(false)}
@@ -98,7 +100,7 @@ export function EditableRemarkCell({ animalId, remark }: Props) {
   return (
     <span
       className="-mx-1 flex cursor-text items-center gap-1 rounded px-1 hover:bg-accent/10"
-      title="點擊編輯備註"
+      title={t('animalPages.reservation.remark.clickToEdit')}
       onClick={startEdit}
     >
       <span className="truncate">{display}</span>

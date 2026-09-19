@@ -11,6 +11,8 @@
 // 進入可編輯狀態，按鈕就直接 disabled，不開一個「看起來能編輯、進去才發現被鎖」的 dialog。
 // 唯讀需求改用旁邊的「檢視」按鈕。
 
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { Eye, FileDown, Pencil, Trash2, Undo2 } from 'lucide-react'
 
@@ -27,27 +29,28 @@ interface VetPatrolReportRowActionsProps {
     onDelete: () => void
 }
 
-function editDisabledReason(status: string): string {
+function editDisabledReason(status: string, t: TFunction): string {
     switch (status) {
-        case 'completed': return '已完成（唯讀鎖定），請用「檢視」'
-        case 'awaiting_acknowledgement': return '待追蹤者確認收到，暫不可編輯'
-        case 'awaiting_follow_up': return '待追蹤者填寫，非本人負責階段'
-        case 'draft': return '草稿僅建立者可編輯'
-        default: return '目前不可編輯'
+        case 'completed': return t('animalPages.patrolList.actions.editDisabled.completed')
+        case 'awaiting_acknowledgement': return t('animalPages.patrolList.actions.editDisabled.awaitingAcknowledgement')
+        case 'awaiting_follow_up': return t('animalPages.patrolList.actions.editDisabled.awaitingFollowUp')
+        case 'draft': return t('animalPages.patrolList.actions.editDisabled.draft')
+        default: return t('animalPages.patrolList.actions.editDisabled.default')
     }
 }
 
 export function VetPatrolReportRowActions({
     status, patrolDate, canEdit, canRetract, canDelete, onView, onEdit, onDownload, onRetract, onDelete,
 }: VetPatrolReportRowActionsProps) {
+    const { t } = useTranslation()
     return (
         <div className="flex items-center justify-end gap-1">
             <Button
                 variant="ghost"
                 size="sm"
                 onClick={onView}
-                title="檢視（唯讀）"
-                aria-label={`檢視 ${patrolDate} 的巡場報告（唯讀）`}
+                title={t('animalPages.patrolList.actions.viewReadOnly')}
+                aria-label={t('animalPages.patrolList.actions.viewAria', { date: patrolDate })}
             >
                 <Eye className="h-3.5 w-3.5" />
             </Button>
@@ -56,8 +59,11 @@ export function VetPatrolReportRowActions({
                 size="sm"
                 onClick={onEdit}
                 disabled={!canEdit}
-                title={canEdit ? '繼續編輯' : editDisabledReason(status)}
-                aria-label={`${canEdit ? '編輯' : editDisabledReason(status)} ${patrolDate} 的巡場報告`}
+                title={canEdit ? t('animalPages.patrolList.actions.continueEdit') : editDisabledReason(status, t)}
+                aria-label={t('animalPages.patrolList.actions.editAria', {
+                    action: canEdit ? t('common.edit') : editDisabledReason(status, t),
+                    date: patrolDate,
+                })}
             >
                 <Pencil className="h-3.5 w-3.5" />
             </Button>
@@ -65,8 +71,8 @@ export function VetPatrolReportRowActions({
                 variant="ghost"
                 size="sm"
                 onClick={onDownload}
-                title="下載 PDF"
-                aria-label={`下載 ${patrolDate} 的巡場報告 PDF`}
+                title={t('common.pdfExport.downloadPdf')}
+                aria-label={t('animalPages.patrolList.actions.downloadAria', { date: patrolDate })}
             >
                 <FileDown className="h-3.5 w-3.5" />
             </Button>
@@ -76,8 +82,8 @@ export function VetPatrolReportRowActions({
                     variant="ghost"
                     size="sm"
                     onClick={onRetract}
-                    title="撤回成草稿"
-                    aria-label={`撤回 ${patrolDate} 的巡場報告成草稿`}
+                    title={t('animalPages.patrolList.actions.retractToDraft')}
+                    aria-label={t('animalPages.patrolList.actions.retractAria', { date: patrolDate })}
                     className="text-muted-foreground hover:text-foreground"
                 >
                     <Undo2 className="h-3.5 w-3.5" />
@@ -89,8 +95,8 @@ export function VetPatrolReportRowActions({
                     variant="ghost"
                     size="sm"
                     onClick={onDelete}
-                    title="刪除"
-                    aria-label={`刪除 ${patrolDate} 的巡場報告`}
+                    title={t('common.delete')}
+                    aria-label={t('animalPages.patrolList.actions.deleteAria', { date: patrolDate })}
                     className="text-muted-foreground hover:text-destructive"
                 >
                     <Trash2 className="h-3.5 w-3.5" />

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ export function MilestonesPicker({
   value: MilestoneState
   onChange: (updater: (s: MilestoneState) => MilestoneState) => void
 }) {
+  const { t } = useTranslation()
   // 已加入的選填里程碑：初始含已有值者（編輯既有資料時）
   const [added, setAdded] = useState<Set<MilestoneKey>>(
     () => new Set(MILESTONES.filter((m) => !m.required && value[m.key]).map((m) => m.key)),
@@ -39,13 +41,13 @@ export function MilestonesPicker({
 
   return (
     <div className="grid gap-2">
-      <Label>審查里程碑日期</Label>
-      <p className="text-sm text-muted-foreground">依時序填寫歷史日期（標 * 為必填）；補件 / 委員二審等非必然階段請按下方按鈕新增。</p>
+      <Label>{t('protocolPages.importReview.milestones.title')}</Label>
+      <p className="text-sm text-muted-foreground">{t('protocolPages.importReview.milestones.hint')}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {visible.map((m) => (
           <div key={m.key} className="grid gap-2 min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <Label className="text-sm font-normal text-muted-foreground">{m.label}{m.required ? ' *' : ''}</Label>
+              <Label className="text-sm font-normal text-muted-foreground">{t(m.labelKey)}{m.required ? ' *' : ''}</Label>
               {!m.required && (
                 <Button
                   type="button"
@@ -54,7 +56,7 @@ export function MilestonesPicker({
                   onClick={() => removeMilestone(m.key)}
                   className="h-auto px-1 py-0 text-xs text-muted-foreground hover:text-foreground"
                 >
-                  <X className="h-3 w-3 mr-0.5" />移除
+                  <X className="h-3 w-3 mr-0.5" />{t('protocolPages.shared.remove')}
                 </Button>
               )}
             </div>
@@ -71,7 +73,7 @@ export function MilestonesPicker({
         <div className="flex flex-wrap gap-2">
           {addable.map((m) => (
             <Button key={m.key} type="button" variant="outline" size="sm" onClick={() => addMilestone(m.key)}>
-              <Plus className="h-4 w-4 mr-1" />新增「{m.label}」
+              <Plus className="h-4 w-4 mr-1" />{t('protocolPages.importReview.milestones.addButton', { label: t(m.labelKey) })}
             </Button>
           ))}
         </div>

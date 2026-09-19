@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Send, Inbox } from 'lucide-react'
 
 import { listPiAccountInvites, approveSendPiInvite } from '@/lib/api/protocol'
@@ -25,6 +26,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 /** PI 帳號開通信核准（admin only）：補登匯入計畫的外部 PI 開通信，須 admin 核准後才寄出。 */
 export function PiAccountInvitesTab() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { dialogState, confirm } = useConfirmDialog()
   // R71-8：補前端權限 gate（與後端 require_permission!("aup.pi_invite.approve") 對齊）
@@ -43,18 +45,18 @@ export function PiAccountInvitesTab() {
   const approveMutation = useMutation({
     mutationFn: (inviteId: string) => approveSendPiInvite(inviteId),
     onSuccess: () => {
-      toast({ title: '已核准', description: '已寄送 PI 設定密碼開通信' })
+      toast({ title: t('protocolPages.piInvites.approved'), description: t('protocolPages.piInvites.approvedDescription') })
       queryClient.invalidateQueries({ queryKey: ['pi-account-invites'] })
     },
     onError: (e: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(e, '寄送失敗'), variant: 'destructive' }),
+      toast({ title: t('common.error'), description: getApiErrorMessage(e, t('protocolPages.piInvites.sendFailed')), variant: 'destructive' }),
   })
 
   const handleApprove = async (inviteId: string, email: string) => {
     const ok = await confirm({
-      title: '核准並寄送開通信',
-      description: `將寄送「設定密碼」連結至 ${email}，確認核准寄送？`,
-      confirmLabel: '核准寄送',
+      title: t('protocolPages.piInvites.confirmTitle'),
+      description: t('protocolPages.piInvites.confirmDescription', { email }),
+      confirmLabel: t('protocolPages.piInvites.approveSend'),
     })
     if (ok) approveMutation.mutate(inviteId)
   }
@@ -62,17 +64,17 @@ export function PiAccountInvitesTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        補登匯入計畫為外部 PI 開通的帳號，其「設定密碼」開通信須由系統管理員於此核准後才寄出。
+        {t('protocolPages.piInvites.description')}
       </p>
       <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                計畫編號
+                {t('protocolPages.piInvites.columns.protocolNo')}
               </SortableTableHead>
               <SortableTableHead sortKey="protocol_title" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                計畫名稱
+                {t('protocolPages.piInvites.columns.protocolTitle')}
               </SortableTableHead>
               <SortableTableHead sortKey="pi_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
                 PI
@@ -81,12 +83,12 @@ export function PiAccountInvitesTab() {
                 Email
               </SortableTableHead>
               <SortableTableHead sortKey="provisioned_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                開通者
+                {t('protocolPages.piInvites.columns.provisionedBy')}
               </SortableTableHead>
               <SortableTableHead sortKey="provisioned_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                開通時間
+                {t('protocolPages.piInvites.columns.provisionedAt')}
               </SortableTableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead className="text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -108,7 +110,7 @@ export function PiAccountInvitesTab() {
                   <TableCell className="text-right">
                     {canApprove ? (
                       <Button size="sm" onClick={() => handleApprove(inv.id, inv.email)} disabled={approveMutation.isPending}>
-                        <Send className="h-4 w-4 mr-1" />核准寄送
+                        <Send className="h-4 w-4 mr-1" />{t('protocolPages.piInvites.approveSend')}
                       </Button>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -117,7 +119,7 @@ export function PiAccountInvitesTab() {
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={7} icon={Inbox} title="目前無待核准的 PI 開通信" />
+              <TableEmptyRow colSpan={7} icon={Inbox} title={t('protocolPages.piInvites.empty')} />
             )}
           </TableBody>
         </Table>

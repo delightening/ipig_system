@@ -50,7 +50,7 @@ export function ResearchInfoSection({ basic, protocolTitle, startDate, endDate }
                 <p className="mt-1">
                   {basic.registration_authorities.map((auth: string) =>
                     t(`aup.basic.registrationAuthorityOptions.${auth}`)
-                  ).join('、')}
+                  ).join(t('protocolComponents.shared.listSeparator'))}
                   {basic.registration_authority_other && ` (${basic.registration_authority_other})`}
                 </p>
               </div>
@@ -67,7 +67,7 @@ export function ResearchInfoSection({ basic, protocolTitle, startDate, endDate }
             <Label className="text-sm font-semibold">{t('protocols.content.sections.projectType')}</Label>
             <p className="mt-1">
               {projectTypes.length
-                ? projectTypes.map((v) => t(`aup.projectTypes.${v}`)).join('、')
+                ? projectTypes.map((v) => t(`aup.projectTypes.${v}`)).join(t('protocolComponents.shared.listSeparator'))
                 : '-'}
               {basic.project_type_other && ` (${basic.project_type_other})`}
             </p>
@@ -76,7 +76,7 @@ export function ResearchInfoSection({ basic, protocolTitle, startDate, endDate }
             <Label className="text-sm font-semibold">{t('protocols.content.sections.projectCategory')}</Label>
             <p className="mt-1">
               {projectCategories.length
-                ? projectCategories.map((v) => t(`aup.projectCategories.${v}`)).join('、')
+                ? projectCategories.map((v) => t(`aup.projectCategories.${v}`)).join(t('protocolComponents.shared.listSeparator'))
                 : '-'}
               {basic.project_category_other && ` (${basic.project_category_other})`}
             </p>

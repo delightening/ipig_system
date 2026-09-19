@@ -143,7 +143,7 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
         onSuccess: () => {
             toast({
                 title: t('common.success'),
-                description: t('protocols.amendments.markEffectiveSuccess', { defaultValue: '已標記為生效' }),
+                description: t('protocols.amendments.markEffectiveSuccess'),
             })
             queryClient.invalidateQueries({ queryKey: ['protocol-amendments', protocolId] })
         },
@@ -152,7 +152,7 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                 title: t('common.error'),
                 description: getApiErrorMessage(
                     error,
-                    t('protocols.amendments.markEffectiveFailed', { defaultValue: '標記生效失敗' }),
+                    t('protocols.amendments.markEffectiveFailed'),
                 ),
                 variant: 'destructive',
             })
@@ -161,15 +161,10 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
 
     const handleMarkEffective = async (amendmentId: string, amendmentNo: string) => {
         const ok = await confirm({
-            title: t('protocols.amendments.markEffectiveConfirmTitle', {
-                defaultValue: '標記為生效',
-            }),
-            description: t('protocols.amendments.markEffectiveConfirm', {
-                defaultValue: '確定將 {{no}} 標記為生效？此操作會記錄到稽核軌跡且不可逆。',
-                no: amendmentNo,
-            }),
+            title: t('protocols.amendments.markEffectiveConfirmTitle'),
+            description: t('protocols.amendments.markEffectiveConfirm', { no: amendmentNo }),
             variant: 'destructive',
-            confirmLabel: t('protocols.amendments.markEffective', { defaultValue: '標記生效' }),
+            confirmLabel: t('protocols.amendments.markEffective'),
         })
         if (ok) markEffectiveMutation.mutate(amendmentId)
     }
@@ -247,7 +242,7 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                     {canBackfill && (
                         <Button variant="outline" onClick={() => dialogs.open('historical')}>
                             <History className="mr-2 h-4 w-4" />
-                            補登歷史變更
+                            {t('protocolComponents.historicalAmendment.title')}
                         </Button>
                     )}
                     {/* 徽章掛在操作區本身，不掛在建立按鈕旁（CodeRabbit #53 第六輪）：
@@ -295,7 +290,7 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                                             <TableCell style={{ width: 95 }} className="font-medium whitespace-nowrap">
                                                 {amendment.amendment_no}
                                                 {amendment.is_historical && (
-                                                    <Badge variant="outline" className="ml-1 text-[10px] align-middle">補登</Badge>
+                                                    <Badge variant="outline" className="ml-1 text-[10px] align-middle">{t('amendments.decision.historicalTag')}</Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell style={{ minWidth: 140 }} className="whitespace-normal break-words">{amendment.title}</TableCell>
@@ -311,7 +306,6 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                                                 {amendment.effective_from && (
                                                     <div className="text-[10px] text-muted-foreground mt-1 leading-tight">
                                                         {t('protocols.amendments.effectiveSince', {
-                                                            defaultValue: '生效於 {{date}}',
                                                             date: formatDateTime(amendment.effective_from),
                                                         })}
                                                     </div>
@@ -352,7 +346,7 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                                                                 ) : (
                                                                     <>
                                                                         <CheckCircle2 className="mr-1 h-4 w-4" />
-                                                                        {t('protocols.amendments.markEffective', { defaultValue: '標記生效' })}
+                                                                        {t('protocols.amendments.markEffective')}
                                                                     </>
                                                                 )}
                                                             </Button>
@@ -385,7 +379,7 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                                         <span className="text-sm font-semibold text-foreground">
                                             {amendment.amendment_no}
                                             {amendment.is_historical && (
-                                                <Badge variant="outline" className="ml-1 text-[10px] align-middle">補登</Badge>
+                                                <Badge variant="outline" className="ml-1 text-[10px] align-middle">{t('amendments.decision.historicalTag')}</Badge>
                                             )}
                                         </span>
                                         <Badge variant={amendmentStatusColors[amendment.status]}>
@@ -396,7 +390,6 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                                     {amendment.effective_from && (
                                         <p className="text-xs text-muted-foreground">
                                             {t('protocols.amendments.effectiveSince', {
-                                                defaultValue: '生效於 {{date}}',
                                                 date: formatDateTime(amendment.effective_from),
                                             })}
                                         </p>
@@ -436,7 +429,7 @@ export function AmendmentsTab({ protocolId, protocolStatus, isImported, isStudyD
                                                         ) : (
                                                             <>
                                                                 <CheckCircle2 className="mr-1 h-4 w-4" />
-                                                                {t('protocols.amendments.markEffective', { defaultValue: '標記生效' })}
+                                                                {t('protocols.amendments.markEffective')}
                                                             </>
                                                         )}
                                                     </Button>

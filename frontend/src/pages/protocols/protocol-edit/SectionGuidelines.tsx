@@ -157,7 +157,7 @@ export function SectionGuidelines({ formData, updateWorkingContent, setFormData:
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-destructive mt-1"
-                  aria-label="刪除"
+                  aria-label={t('common.delete')}
                   onClick={() => {
                     const newRefs = [...formData.working_content.guidelines.references]
                     newRefs.splice(index, 1)

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { AnimalListItem } from '@/lib/api'
 import { uiLocale } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -33,6 +34,7 @@ function EarTagQuickInput({
   onCancel: () => void
   disabled: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <Input
       className="h-7 text-sm"
@@ -56,7 +58,7 @@ function EarTagQuickInput({
           }
         }, 150)
       }}
-      placeholder="輸入耳號"
+      placeholder={t('animalPages.shared.enterEarTag')}
       autoFocus
       disabled={disabled}
     />
@@ -75,6 +77,7 @@ export const PenCell = React.memo(function PenCell({
   onSubmit,
   onCancel,
 }: PenCellProps) {
+  const { t } = useTranslation()
   if (!penCode) {
     return <div className="px-3 py-2 text-muted-foreground"></div>
   }
@@ -83,7 +86,7 @@ export const PenCell = React.memo(function PenCell({
     const readOnlyEmptyCell = (
       <div className="grid grid-cols-2 @[600px]:grid-cols-4 gap-1 px-3 py-2 items-center text-sm">
         <div className={`font-semibold ${colors.text}`}>{penCode}</div>
-        <div className="text-muted-foreground italic">空</div>
+        <div className="text-muted-foreground italic">{t('animalPages.penView.empty')}</div>
         <div className="hidden @[600px]:block text-muted-foreground">-</div>
         <div className="hidden @[600px]:block text-muted-foreground">-</div>
       </div>
@@ -104,7 +107,7 @@ export const PenCell = React.memo(function PenCell({
               disabled={isQuickMovePending}
             />
           ) : (
-            <div className="text-muted-foreground italic group-hover:text-foreground transition-colors cursor-text">空</div>
+            <div className="text-muted-foreground italic group-hover:text-foreground transition-colors cursor-text">{t('animalPages.penView.empty')}</div>
           )}
           <div className="hidden @[600px]:block text-muted-foreground">-</div>
           <div className="hidden @[600px]:block text-muted-foreground">-</div>
@@ -142,7 +145,7 @@ export const PenCell = React.memo(function PenCell({
                   onClick={onStartEdit}
                   disabled={isQuickMovePending}
                   className="hover:opacity-60 transition-opacity"
-                  title="點擊加入豬隻"
+                  title={t('animalPages.penView.clickToAdd')}
                 >
                   {penCode}
                 </button>
@@ -152,7 +155,9 @@ export const PenCell = React.memo(function PenCell({
           <Link
             to={`/animals/${animal.id}`}
             className={`font-medium break-words hover:underline cursor-pointer ${animal.has_abnormal_record ? 'text-status-error-text hover:text-status-error-text/80' : 'text-primary hover:text-primary/80'}`}
-            title={animal.has_abnormal_record ? `有異常 · ${animal.ear_tag}` : `點擊進入動物詳情 · ${animal.ear_tag}`}
+            title={animal.has_abnormal_record
+              ? t('animalPages.penView.abnormalTitle', { earTag: animal.ear_tag })
+              : t('animalPages.penView.openDetailTitle', { earTag: animal.ear_tag })}
           >
             {animal.ear_tag}
           </Link>
@@ -160,7 +165,7 @@ export const PenCell = React.memo(function PenCell({
             {animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' }) : '-'}
           </div>
           <div className={`hidden @[600px]:block text-xs break-words ${animal.has_abnormal_record ? 'text-status-error-text font-medium' : 'text-muted-foreground'}`}>
-            {animal.has_abnormal_record ? '有異常' : '-'}
+            {animal.has_abnormal_record ? t('animalPages.penView.abnormal') : '-'}
           </div>
         </div>
       ))}

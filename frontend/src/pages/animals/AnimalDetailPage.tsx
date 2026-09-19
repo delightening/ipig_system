@@ -93,10 +93,10 @@ export function AnimalDetailPage() {
 
   const handleSuddenDeathConfirm = async () => {
     const ok = await confirm({
-      title: '\u767B\u8A18\u731D\u6B7B',
-      description: `\u78BA\u5B9A\u8981\u5C07\u8033\u865F ${animal.ear_tag} \u767B\u8A18\u70BA\u731D\u6B7B\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u5FA9\u539F\u3002`,
+      title: t('animalPages.detail.registerSuddenDeath'),
+      description: t('animalPages.detail.suddenDeathConfirmDescription', { earTag: animal.ear_tag }),
       variant: 'destructive',
-      confirmLabel: '\u78BA\u8A8D\u767B\u8A18',
+      confirmLabel: t('animalPages.detail.suddenDeathConfirmLabel'),
     })
     if (ok) {
       mutations.createSuddenDeathMutation.mutate(mutations.suddenDeathForm)
@@ -120,7 +120,7 @@ export function AnimalDetailPage() {
               <Button variant="outline" asChild>
                 <Link to={`/animals/${animalId}/edit`}>
                   <FileEdit className="h-4 w-4 mr-2" />
-                  編輯動物資訊
+                  {t('animalPages.detail.editAnimalInfo')}
                 </Link>
               </Button>
             </Can>

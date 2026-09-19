@@ -115,7 +115,7 @@ export function ImportApprovedProtocolPage() {
   })
   // 名單載入失敗時明確提示（避免 PI/SD 下拉靜默變空、表單卡死又無原因）
   const userLoadError = usersError
-    ? getApiErrorMessage(usersErrorValue, '可指派使用者名單載入失敗，請重新整理或聯絡管理員')
+    ? getApiErrorMessage(usersErrorValue, t('protocolPages.importApproved.usersLoadFailed'))
     : null
 
   // PI 候選 = 系統內非試驗工作人員（對所有匯入者開放）
@@ -144,31 +144,31 @@ export function ImportApprovedProtocolPage() {
   const importMutation = useMutation({
     mutationFn: (data: ImportApprovedProtocolRequest) => importApprovedProtocol(data),
     onSuccess: (created: { id?: string }) => {
-      toast({ title: '成功', description: '已匯入核准計劃，請接續補登審查文件' })
+      toast({ title: t('common.success'), description: t('protocolPages.importApproved.importSuccess') })
       navigate(created?.id ? `/protocols/${created.id}/import-review` : '/protocols')
     },
     onError: (err: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '匯入失敗'), variant: 'destructive' }),
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('protocolPages.importApproved.importFailed')), variant: 'destructive' }),
   })
 
   const validate = (): string | null => {
-    if (!title.trim()) return '計畫名稱為必填'
-    if (!piUserId) return '請選擇計畫主持人（PI）'
+    if (!title.trim()) return t('protocolPages.importApproved.validation.titleRequired')
+    if (!piUserId) return t('protocolPages.importApproved.validation.piRequired')
     if (isExternalPi) {
-      if (!externalPi.piName.trim()) return '請填寫外部 PI 姓名'
-      if (!externalPi.piEmail.trim()) return '請填寫外部 PI 的 Email'
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(externalPi.piEmail.trim())) return '外部 PI 的 Email 格式不正確'
-      if (!externalPi.piPhone.trim()) return '請填寫外部 PI 的電話'
+      if (!externalPi.piName.trim()) return t('protocolPages.importApproved.validation.externalPiNameRequired')
+      if (!externalPi.piEmail.trim()) return t('protocolPages.importApproved.validation.externalPiEmailRequired')
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(externalPi.piEmail.trim())) return t('protocolPages.importApproved.validation.externalPiEmailInvalid')
+      if (!externalPi.piPhone.trim()) return t('protocolPages.importApproved.validation.externalPiPhoneRequired')
     }
-    if (!sdUserId) return '請選擇計劃負責人（Study Director）'
-    if (!iacucNo.trim()) return 'IACUC 編號為必填'
-    if (!applicationNo.trim()) return '申請編號為必填'
-    if (!endDate) return '計畫結束日為必填'
-    if (startDate && endDate < startDate) return '計畫結束日不可早於計畫核准通過日（起始日）'
+    if (!sdUserId) return t('protocolPages.importApproved.validation.sdRequired')
+    if (!iacucNo.trim()) return t('protocolPages.importApproved.validation.iacucNoRequired')
+    if (!applicationNo.trim()) return t('protocolPages.importApproved.validation.applicationNoRequired')
+    if (!endDate) return t('protocolPages.importApproved.validation.endDateRequired')
+    if (startDate && endDate < startDate) return t('protocolPages.importApproved.validation.endDateBeforeStart')
     const missing = MILESTONES.find((m) => m.required && !milestones[m.key])
-    if (missing) return `審查里程碑「${missing.label}」為必填`
+    if (missing) return t('protocolPages.importApproved.validation.milestoneRequired', { label: t(missing.labelKey) })
     if (milestonesOutOfOrder(milestones)) {
-      return '審查里程碑日期必須依時序遞增（申請→預審→獸醫→委員一審→補件→委員二審→核准）'
+      return t('protocolPages.importApproved.validation.milestonesOutOfOrder')
     }
     return null
   }
@@ -176,7 +176,7 @@ export function ImportApprovedProtocolPage() {
   const handleSubmit = () => {
     const error = validate()
     if (error) {
-      toast({ title: '錯誤', description: error, variant: 'destructive' })
+      toast({ title: t('common.error'), description: error, variant: 'destructive' })
       return
     }
     // PI 資料由 PiSelector 來源衍生（同上方 piOverride，DRY），併入研究資料 basic.pi，避免重複輸入（D5）
@@ -199,13 +199,13 @@ export function ImportApprovedProtocolPage() {
     <div className="space-y-6">
       <div>
         <Link to="/protocols" className="inline-flex items-center text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4 mr-2" />回到計畫列表
+          <ArrowLeft className="h-4 w-4 mr-2" />{t('protocolPages.importApproved.backToList')}
         </Link>
       </div>
 
       <PageHeader
-        title="匯入已核准計劃"
-        description="補登場內既有、已通過審查的計劃（直接核准、不再經審查流程）。匯入後即可關聯 PI / 豬隻並進行會計與管理。"
+        title={t('protocolPages.importApproved.title')}
+        description={t('protocolPages.importApproved.description')}
       />
 
       <div className="max-w-3xl space-y-4 rounded-lg border bg-card p-6">
@@ -213,8 +213,8 @@ export function ImportApprovedProtocolPage() {
           <p className="text-sm text-destructive">{userLoadError}</p>
         )}
         <div className="grid gap-2">
-          <Label>計畫名稱 *</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例：異種移植豬腎臟灌流研究" />
+          <Label>{t('protocolPages.importApproved.fields.title')}</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('protocolPages.importApproved.fields.titlePlaceholder')} />
         </div>
 
         <PiSelector
@@ -228,11 +228,11 @@ export function ImportApprovedProtocolPage() {
         />
 
         <div className="grid gap-2">
-          <Label>計劃負責人（Study Director）*</Label>
+          <Label>{t('protocolPages.importApproved.fields.sd')}</Label>
           {canSelectAllUsers ? (
             <Select value={sdUserId} onValueChange={setSdUserId} disabled={usersLoading}>
               <SelectTrigger>
-                <SelectValue placeholder={usersLoading ? '載入中…' : '選擇計劃負責人（限試驗工作人員）'} />
+                <SelectValue placeholder={usersLoading ? t('protocolPages.shared.loadingEllipsis') : t('protocolPages.importApproved.fields.sdPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {sdOptions.map((u) => (
@@ -242,27 +242,27 @@ export function ImportApprovedProtocolPage() {
             </Select>
           ) : (
             // staff 自行補登：自動帶入本人、唯讀（不可指派他人）
-            <Input value={selfSdUser ? userLabel(selfSdUser) : (usersLoading ? '載入中…' : '—')} readOnly disabled />
+            <Input value={selfSdUser ? userLabel(selfSdUser) : (usersLoading ? t('protocolPages.shared.loadingEllipsis') : '—')} readOnly disabled />
           )}
           <p className="text-sm text-muted-foreground">
             {canSelectAllUsers
-              ? '本公司負責執行的試驗工作人員（EXPERIMENT_STAFF）；亦為補登期間可編輯本計劃者。'
-              : '已自動帶入您本人為計劃負責人（僅執行秘書／管理員可指派他人）。'}
+              ? t('protocolPages.importApproved.fields.sdHintAll')
+              : t('protocolPages.importApproved.fields.sdHintSelf')}
           </p>
         </div>
 
         <div className="grid gap-2">
-          <Label>IACUC 編號 *（既有核准編號）</Label>
-          <Input value={iacucNo} onChange={(e) => setIacucNo(e.target.value)} placeholder="例：PIG-115001" />
+          <Label>{t('protocolPages.importApproved.fields.iacucNo')}</Label>
+          <Input value={iacucNo} onChange={(e) => setIacucNo(e.target.value)} placeholder={t('protocolPages.importApproved.fields.iacucNoPlaceholder')} />
         </div>
 
         <div className="grid gap-2">
-          <Label>申請編號 *</Label>
-          <Input value={applicationNo} onChange={(e) => setApplicationNo(e.target.value)} placeholder="例：APIG-103001" />
+          <Label>{t('protocolPages.importApproved.fields.applicationNo')}</Label>
+          <Input value={applicationNo} onChange={(e) => setApplicationNo(e.target.value)} placeholder={t('protocolPages.importApproved.fields.applicationNoPlaceholder')} />
         </div>
 
         <div className="grid gap-2">
-          <Label>計畫書版本 *</Label>
+          <Label>{t('protocolPages.importApproved.fields.formVersion')}</Label>
           <Select value={sourceFormVersion} onValueChange={setSourceFormVersion}>
             <SelectTrigger>
               <SelectValue />
@@ -274,15 +274,15 @@ export function ImportApprovedProtocolPage() {
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
-            此計劃原始送件的計畫書表單版本；系統依該版顯示對應欄位（舊版沒有的欄位不顯示、舊版特有欄位才出現）。
+            {t('protocolPages.importApproved.fields.formVersionHint')}
           </p>
         </div>
 
         {/* C2：研究資料整段於匯入時一次填入（匯入後於編輯頁鎖定，改錯需刪除重匯入） */}
         <div className="space-y-3 border-t pt-4">
           <div>
-            <h3 className="text-base font-semibold">研究資料</h3>
-            <p className="text-sm text-muted-foreground">於匯入時填寫；匯入後此段將鎖定，如需更正請刪除整筆重新匯入。</p>
+            <h3 className="text-base font-semibold">{t('protocolPages.importApproved.researchInfo.title')}</h3>
+            <p className="text-sm text-muted-foreground">{t('protocolPages.importApproved.researchInfo.hint')}</p>
           </div>
           <ResearchBasicFields basic={basic} onUpdate={updateBasic} piOverride={piOverride} formVersion={normalizeFormVersion(sourceFormVersion)} />
         </div>
@@ -296,17 +296,17 @@ export function ImportApprovedProtocolPage() {
         />
 
         <div className="grid gap-2">
-          <Label>備註</Label>
-          <Textarea value={remark} onChange={(e) => setRemark(e.target.value)} rows={2} placeholder="匯入說明（選填）" />
+          <Label>{t('protocolPages.shared.remark')}</Label>
+          <Textarea value={remark} onChange={(e) => setRemark(e.target.value)} rows={2} placeholder={t('protocolPages.importApproved.fields.remarkPlaceholder')} />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" asChild>
-            <Link to="/protocols">取消</Link>
+            <Link to="/protocols">{t('common.cancel')}</Link>
           </Button>
           <Button onClick={handleSubmit} disabled={importMutation.isPending}>
             {importMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            匯入計劃
+            {t('protocolPages.importApproved.submit')}
           </Button>
         </div>
       </div>

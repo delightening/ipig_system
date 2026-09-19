@@ -7,7 +7,7 @@ interface TrainingCertificatesProps {
   certificates: Array<{ training_code: string; certificate_no: string }>
   allCertificates: Array<{ training_code: string; certificate_no: string }>
   onCertificatesChange: (certs: Array<{ training_code: string; certificate_no: string }>) => void
-  t: (key: string) => string
+  t: (key: string, opts?: Record<string, unknown>) => string
 }
 
 export function TrainingCertificates({
@@ -30,7 +30,7 @@ export function TrainingCertificates({
 
   return (
     <div className="space-y-2 pl-4 border-l-2 border-border">
-      <Label className="text-sm font-semibold">{t(`aup.personnel.trainings.${trainingCode}`)}：</Label>
+      <Label className="text-sm font-semibold">{t('protocolComponents.shared.labelColon', { label: t(`aup.personnel.trainings.${trainingCode}`) })}</Label>
       {certificates.map((cert, certIndex) => {
         const globalCertIndex = findGlobalIndex(certIndex)
         return (
@@ -52,7 +52,7 @@ export function TrainingCertificates({
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-destructive"
-              aria-label="刪除"
+              aria-label={t('common.delete')}
               onClick={() => {
                 const newCerts = [...allCertificates]
                 if (globalCertIndex >= 0 && globalCertIndex < newCerts.length) {

@@ -122,7 +122,7 @@ export function AnimalListTable({
                   <TableHead className="w-12">
                     <input
                       type="checkbox"
-                      aria-label="全選動物"
+                      aria-label={t('animalPages.listTable.selectAll')}
                       checked={selectedAnimals.length === animals.length && animals.length > 0}
                       onChange={onToggleAll}
                       className="rounded border-border"
@@ -149,7 +149,7 @@ export function AnimalListTable({
                     <TableCell>
                       <input
                         type="checkbox"
-                        aria-label={`選取動物 ${animal.ear_tag || animal.id}`}
+                        aria-label={t('animalPages.listTable.selectAnimal', { name: animal.ear_tag || animal.id })}
                         checked={selectedAnimals.includes(animal.id)}
                         onChange={() => onToggleSelection(animal.id)}
                         className="rounded border-border"
@@ -159,7 +159,7 @@ export function AnimalListTable({
                       <Link
                         to={`/animals/${animal.id}`}
                         className="text-status-warning-text hover:text-status-warning-text/80 hover:underline font-medium cursor-pointer block"
-                        title={`點擊進入動物詳情 · 系統號: ${animal.id}`}
+                        title={t('animalPages.listTable.openDetailTitle', { id: animal.id })}
                       >
                         {animal.ear_tag}
                       </Link>
@@ -167,7 +167,7 @@ export function AnimalListTable({
                     <TableCell>{getPenLocationDisplay(animal, t)}</TableCell>
                     <TableCell>
                       {animal.iacuc_no || (
-                        <span className="text-muted-foreground">未分配</span>
+                        <span className="text-muted-foreground">{t('animals.notAssigned')}</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -206,7 +206,7 @@ export function AnimalListTable({
                       {animal.latest_weight ? (
                         <span
                           className="text-sm text-foreground font-medium"
-                          title={animal.latest_weight_date ? `量測日期: ${new Date(animal.latest_weight_date).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })}` : undefined}
+                          title={animal.latest_weight_date ? t('animalPages.listTable.measuredOn', { date: new Date(animal.latest_weight_date).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' }) }) : undefined}
                         >
                           {animal.latest_weight} kg
                         </span>
@@ -221,8 +221,8 @@ export function AnimalListTable({
                             variant="ghost"
                             size="icon"
                             onClick={() => onQuickEdit(animal.id)}
-                            title="快速編輯"
-                            aria-label="快速編輯"
+                            title={t('animalPages.listTable.quickEdit')}
+                            aria-label={t('animalPages.listTable.quickEdit')}
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>

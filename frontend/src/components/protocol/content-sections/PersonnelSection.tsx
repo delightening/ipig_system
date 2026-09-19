@@ -76,7 +76,7 @@ export function PersonnelSection({ personnel }: PersonnelSectionProps) {
               </div>
               {person.years_experience != null && (
                 <div className="text-xs text-muted-foreground">
-                  {t('protocols.content.sections.yearsExperience')}：{person.years_experience} {t('protocols.content.sections.years')}
+                  {t('protocolComponents.shared.labelValue', { label: t('protocols.content.sections.yearsExperience'), value: `${person.years_experience} ${t('protocols.content.sections.years')}` })}
                 </div>
               )}
               <div>
@@ -108,7 +108,7 @@ function RolesDisplay({ person }: { person: PersonnelMember }) {
       {person.roles.map((code: string) => {
         const label = t(`aup.personnel.roles.items.${code}`, code)
         if (code === 'i' && person.roles_other_text) {
-          return <div key={code}>{code}.{label}（{person.roles_other_text}）</div>
+          return <div key={code}>{code}.{label}{t('protocolComponents.shared.parenthesized', { text: person.roles_other_text })}</div>
         }
         return <div key={code}>{code}.{label}</div>
       })}
@@ -124,12 +124,12 @@ function TrainingsDisplay({ person }: { person: PersonnelMember }) {
   return (
     <div className="space-y-1 text-sm">
       {person.trainings.map((code: string) => {
-        const label = t(`aup.trainings.${code}`, code)
+        const label = t(`aup.personnel.trainings.${code}`, code)
 
         if (code === 'F' && person.trainings_other_text) {
           return (
             <div key={code}>
-              <span>{label}（{person.trainings_other_text}）</span>
+              <span>{label}{t('protocolComponents.shared.parenthesized', { text: person.trainings_other_text })}</span>
             </div>
           )
         }
@@ -143,7 +143,7 @@ function TrainingsDisplay({ person }: { person: PersonnelMember }) {
             <span>{label}</span>
             {certs.length > 0 && (
               <span className="text-muted-foreground ml-1">
-                （{certs.map((cert: { certificate_no: string }) => cert.certificate_no).join('；')}）
+                {t('protocolComponents.shared.parenthesized', { text: certs.map((cert: { certificate_no: string }) => cert.certificate_no).join(t('protocolComponents.shared.semicolonSeparator')) })}
               </span>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -70,19 +70,26 @@ export function QuickAddDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>新增動物</DialogTitle>
+          <DialogTitle>{t('animals.addAnimal')}</DialogTitle>
           <DialogDescription>
-            耳號 <span className="font-bold text-primary">{earTag}</span> 不存在，請填寫資料以新增動物至 <span className="font-bold">{penLocation}</span>
+            <Trans
+              i18nKey="animalPages.quickAdd.description"
+              values={{ earTag, pen: penLocation }}
+              components={{
+                tag: <span className="font-bold text-primary" />,
+                pen: <span className="font-bold" />,
+              }}
+            />
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <Label>品種 *</Label>
+            <Label>{t('animals.breed')} *</Label>
             <Select
               value={form.species_id}
               onValueChange={(v) => onFormChange({ ...form, species_id: v, breed_other: '' })}
             >
-              <SelectTrigger><SelectValue placeholder="選擇品種" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('animalPages.shared.selectBreed')} /></SelectTrigger>
               <SelectContent>
                 {breedSpecies.length > 0 ? (
                   breedSpecies.map((sp) => (
@@ -90,14 +97,14 @@ export function QuickAddDialog({
                   ))
                 ) : (
                   <div className="px-2 py-3 text-xs text-muted-foreground">
-                    尚無可選物種，請先至「設施管理 → 物種」新增
+                    {t('animalPages.shared.noSpeciesAvailable')}
                   </div>
                 )}
               </SelectContent>
             </Select>
             {requiresBreedOther && (
               <Input
-                placeholder="請輸入品種名稱"
+                placeholder={t('animalPages.shared.enterBreedName')}
                 value={form.breed_other}
                 onChange={(e) => onFormChange({ ...form, breed_other: e.target.value })}
                 className="mt-2"
@@ -105,15 +112,15 @@ export function QuickAddDialog({
             )}
           </div>
           <div className="space-y-2">
-            <Label>性別 *</Label>
+            <Label>{t('animals.gender')} *</Label>
             <Select
               value={form.gender}
               onValueChange={(v) => onFormChange({ ...form, gender: v as 'male' | 'female' })}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="male">公</SelectItem>
-                <SelectItem value="female">母</SelectItem>
+                <SelectItem value="male">{t('animals.genderLabels.male')}</SelectItem>
+                <SelectItem value="female">{t('animals.genderLabels.female')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -134,14 +141,14 @@ export function QuickAddDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="quick_entry_weight">進場體重 (kg) *</Label>
+            <Label htmlFor="quick_entry_weight">{t('animalPages.shared.entryWeightKg')} *</Label>
             <Input
               id="quick_entry_weight"
               type="text"
               inputMode="decimal"
               value={form.entry_weight}
               onChange={(e) => onFormChange({ ...form, entry_weight: sanitizeDecimalInput(e.target.value) })}
-              placeholder="輸入體重"
+              placeholder={t('animalPages.shared.enterWeight')}
             />
           </div>
         </div>
@@ -153,7 +160,7 @@ export function QuickAddDialog({
             className="bg-primary hover:bg-primary/90"
           >
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            確認新增
+            {t('animalPages.quickAdd.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

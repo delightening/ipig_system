@@ -21,7 +21,7 @@ export function ItemsSection({ items }: ItemsSectionProps) {
 
       {/* 是否使用試驗物質（顯示是/否 + 已選/未選；對齊 spec Q2） */}
       <div className="mb-4">
-        <h3 className="text-lg font-semibold mb-2">{t('aup.items.useTestItemLabel', '是否使用試驗物質')}</h3>
+        <h3 className="text-lg font-semibold mb-2">{t('aup.items.useTestItemLabel')}</h3>
         <ChoiceList options={YES_NO_OPTIONS} selectedValues={boolSelected(items.use_test_item)} />
       </div>
 

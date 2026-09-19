@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -32,10 +33,11 @@ interface UserOption {
 const OTHER = '__OTHER__'
 const userLabel = (u: UserOption) => u.display_name || u.username || u.email || u.id
 
-const DECISION_OPTIONS: { value: ReviewerRow['decision']; label: string }[] = [
-    { value: 'APPROVE', label: '同意' },
-    { value: 'REVISION', label: '修正後同意' },
-    { value: 'REJECT', label: '不同意' },
+// labelKey 為 i18n 鍵；渲染時才 t(labelKey)（模組頂層不可存翻譯後字串）
+const DECISION_OPTIONS: { value: ReviewerRow['decision']; labelKey: string }[] = [
+    { value: 'APPROVE', labelKey: 'protocolComponents.historicalReviewers.decisionApprove' },
+    { value: 'REVISION', labelKey: 'protocolComponents.historicalReviewers.decisionRevision' },
+    { value: 'REJECT', labelKey: 'protocolComponents.historicalReviewers.decisionReject' },
 ]
 
 interface Props {
@@ -44,6 +46,7 @@ interface Props {
 }
 
 export function HistoricalReviewersEditor({ reviewers, onChange }: Props) {
+    const { t } = useTranslation()
     const { data: users = [], isLoading } = useQuery({
         queryKey: ['users', 'reviewer-options'],
         queryFn: async () => (await api.get<UserOption[]>('/users')).data,
@@ -64,7 +67,7 @@ export function HistoricalReviewersEditor({ reviewers, onChange }: Props) {
 
     return (
         <div className="space-y-3">
-            <Label>委員審查意見（系統內委員下拉選，或選「其他」填院外姓名）</Label>
+            <Label>{t('protocolComponents.historicalReviewers.label')}</Label>
             {reviewers.map((r, idx) => (
                 <div key={idx} className="rounded-md border p-3 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -74,13 +77,13 @@ export function HistoricalReviewersEditor({ reviewers, onChange }: Props) {
                             disabled={isLoading}
                         >
                             <SelectTrigger className="w-44">
-                                <SelectValue placeholder={isLoading ? '載入中…' : '選擇委員'} />
+                                <SelectValue placeholder={isLoading ? t('protocolPages.shared.loadingEllipsis') : t('protocolComponents.historicalReviewers.selectPlaceholder')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {reviewerOptions.map((u) => (
                                     <SelectItem key={u.id} value={u.id}>{userLabel(u)}</SelectItem>
                                 ))}
-                                <SelectItem value={OTHER}>其他（院外，填姓名）</SelectItem>
+                                <SelectItem value={OTHER}>{t('protocolComponents.historicalReviewers.other')}</SelectItem>
                             </SelectContent>
                         </Select>
                         {r.reviewer_id === null && (
@@ -88,7 +91,7 @@ export function HistoricalReviewersEditor({ reviewers, onChange }: Props) {
                                 className="w-40"
                                 value={r.reviewer_name}
                                 onChange={(e) => update(idx, { reviewer_name: e.target.value })}
-                                placeholder="院外委員姓名"
+                                placeholder={t('protocolComponents.historicalReviewers.externalNamePlaceholder')}
                             />
                         )}
                         <div className="flex gap-1">
@@ -100,7 +103,7 @@ export function HistoricalReviewersEditor({ reviewers, onChange }: Props) {
                                     variant={r.decision === opt.value ? 'default' : 'outline'}
                                     onClick={() => update(idx, { decision: opt.value })}
                                 >
-                                    {opt.label}
+                                    {t(opt.labelKey)}
                                 </Button>
                             ))}
                         </div>
@@ -111,14 +114,14 @@ export function HistoricalReviewersEditor({ reviewers, onChange }: Props) {
                     <Textarea
                         value={r.comment}
                         onChange={(e) => update(idx, { comment: e.target.value })}
-                        placeholder="審查意見（選填）"
+                        placeholder={t('protocolComponents.historicalReviewers.commentPlaceholder')}
                         rows={2}
                     />
                 </div>
             ))}
             <Button type="button" variant="outline" size="sm" onClick={add}>
                 <Plus className="mr-1 h-4 w-4" />
-                新增委員
+                {t('protocolComponents.historicalReviewers.add')}
             </Button>
         </div>
     )

@@ -99,7 +99,7 @@ export function SectionItems({ formData, updateWorkingContent, setFormData: _set
                     variant="ghost"
                     size="icon"
                     className="absolute right-2 top-2 h-6 w-6 text-destructive"
-                    aria-label="刪除"
+                    aria-label={t('common.delete')}
                     onClick={() => {
                       const newItems = [...formData.working_content.items.test_items]
                       newItems.splice(index, 1)
@@ -255,7 +255,7 @@ export function SectionItems({ formData, updateWorkingContent, setFormData: _set
                     variant="ghost"
                     size="icon"
                     className="absolute right-2 top-2 h-6 w-6 text-destructive"
-                    aria-label="刪除"
+                    aria-label={t('common.delete')}
                     onClick={() => {
                       const newControls = [...formData.working_content.items.control_items]
                       newControls.splice(index, 1)

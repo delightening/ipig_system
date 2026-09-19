@@ -93,7 +93,7 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
             <CardHeader className="bg-muted border-b">
                 <div className="flex justify-between items-center">
                     <CardTitle className="text-xl font-bold text-foreground">
-                        {t('protocols.detail.vet_form.title', '獸醫師審查查檢表')}
+                        {t('protocols.detail.vet_form.title')}
                     </CardTitle>
                     {isEditable && (
                         <Button
@@ -102,7 +102,7 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
                             className="bg-primary hover:bg-primary/90"
                         >
                             {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            {t('common.save', '儲存審查表')}
+                            {t('common.save')}
                         </Button>
                     )}
                 </div>
@@ -113,9 +113,9 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
                         <thead>
                             <tr className="bg-muted text-muted-foreground font-semibold text-sm">
                                 <th className="p-4 text-left border-b w-12">#</th>
-                                <th className="p-4 text-left border-b w-1/3">審查項目</th>
-                                <th className="p-4 text-center border-b w-32 text-nowrap">符合性 (V/X/-)</th>
-                                <th className="p-4 text-left border-b">審查意見 (與原申請計畫不符處)</th>
+                                <th className="p-4 text-left border-b w-1/3">{t('protocolPages.shared.reviewItem')}</th>
+                                <th className="p-4 text-center border-b w-32 text-nowrap">{t('protocolPages.shared.complianceHeader')}</th>
+                                <th className="p-4 text-left border-b">{t('protocolComponents.vetReviewForm.commentHeader')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -139,13 +139,13 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="V" className="text-status-success-text">
-                                                    <div className="flex items-center"><Check className="mr-2 h-4 w-4" /> 符合 (V)</div>
+                                                    <div className="flex items-center"><Check className="mr-2 h-4 w-4" /> {t('protocolPages.shared.complianceYes')}</div>
                                                 </SelectItem>
                                                 <SelectItem value="X" className="text-status-error-text">
-                                                    <div className="flex items-center"><X className="mr-2 h-4 w-4" /> 不符 (X)</div>
+                                                    <div className="flex items-center"><X className="mr-2 h-4 w-4" /> {t('protocolPages.shared.complianceNo')}</div>
                                                 </SelectItem>
                                                 <SelectItem value="-" className="text-muted-foreground">
-                                                    <div className="flex items-center"><Minus className="mr-2 h-4 w-4" /> 不適用 (-)</div>
+                                                    <div className="flex items-center"><Minus className="mr-2 h-4 w-4" /> {t('protocolPages.shared.complianceNa')}</div>
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
@@ -155,7 +155,7 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
                                             disabled={!isEditable}
                                             value={item.comment || ''}
                                             onChange={(e) => handleUpdateItem(index, 'comment', e.target.value)}
-                                            placeholder={t('protocols.detail.vet_form.comment_placeholder', '請輸入審查意見...')}
+                                            placeholder={t('protocols.detail.vet_form.comment_placeholder')}
                                             className="min-h-[80px] resize-y bg-card/50 focus:bg-card transition-all border-border"
                                         />
                                     </td>

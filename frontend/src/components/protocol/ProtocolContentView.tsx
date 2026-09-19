@@ -157,7 +157,7 @@ export function ProtocolContentView({
                   size="sm"
                 >
                   <MessageSquare className="mr-1.5 h-4 w-4" />
-                  {t('protocols.content.reviewComment', '審查意見')}
+                  {t('protocols.content.reviewComment')}
                 </Button>
               )}
             </>

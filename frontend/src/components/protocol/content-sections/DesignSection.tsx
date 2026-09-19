@@ -161,7 +161,7 @@ export function DesignSection({ design }: DesignSectionProps) {
           <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.carcassDisposal')}</h3>
           <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{design.carcass_disposal.method}</p>
           {design.carcass_disposal.vendor_name && (
-            <p className="text-sm mt-1">{design.carcass_disposal.vendor_name}{design.carcass_disposal.vendor_id ? `（${design.carcass_disposal.vendor_id}）` : ''}</p>
+            <p className="text-sm mt-1">{design.carcass_disposal.vendor_name}{design.carcass_disposal.vendor_id ? t('protocolComponents.shared.parenthesized', { text: design.carcass_disposal.vendor_id }) : ''}</p>
           )}
         </div>
       )}
@@ -190,7 +190,7 @@ export function DesignSection({ design }: DesignSectionProps) {
                 <p className="text-sm font-medium">{t(`aup.design.hazardTypes.${type}`, type)}</p>
                 <ul className="text-sm list-disc pl-6 mt-1">
                   {typeMaterials.map((m, i) => (
-                    <li key={i}>{m.agent_name}（{m.amount}）</li>
+                    <li key={i}>{m.agent_name}{t('protocolComponents.shared.parenthesized', { text: m.amount })}</li>
                   ))}
                 </ul>
               </div>

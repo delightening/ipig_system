@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 
 import { finalizeImport } from '@/lib/api/protocol'
@@ -32,6 +33,7 @@ export function FinalizeImportCard({
   protocolId: string
   approvalDate?: string
 }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [versionLabel, setVersionLabel] = useState('')
@@ -63,17 +65,17 @@ export function FinalizeImportCard({
   const finalizeMutation = useMutation({
     mutationFn: () => finalizeImport(protocolId, versionLabel.trim()),
     onSuccess: () => {
-      toast({ title: '成功', description: '已完成補登' })
+      toast({ title: t('common.success'), description: t('protocolPages.importReview.finalize.success') })
       queryClient.invalidateQueries({ queryKey: ['protocol', protocolId] })
       navigate(`/protocols/${protocolId}`)
     },
     onError: (err: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '完成補登失敗'), variant: 'destructive' }),
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('protocolPages.importReview.finalize.failed')), variant: 'destructive' }),
   })
 
   const handleConfirm = () => {
     if (!versionLabel.trim()) {
-      toast({ title: '錯誤', description: '請選擇原計劃書版本號', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('protocolPages.importReview.finalize.versionRequired'), variant: 'destructive' })
       return
     }
     setConfirming(true)
@@ -81,57 +83,57 @@ export function FinalizeImportCard({
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">4. 完成補登</CardTitle></CardHeader>
+      <CardHeader><CardTitle className="text-base">{t('protocolPages.importReview.finalize.title')}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-1 max-w-sm">
-          <Label>原計劃書版本號 *</Label>
+          <Label>{t('protocolPages.importReview.finalize.versionLabel')}</Label>
           {versionsLoading ? (
             // 載入中：先顯示停用下拉，避免閃現手動輸入框再切換成下拉
             <Select disabled value="">
-              <SelectTrigger><SelectValue placeholder="載入中…" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('protocolPages.shared.loadingEllipsis')} /></SelectTrigger>
               <SelectContent />
             </Select>
           ) : sortedVersions.length > 0 ? (
             <Select value={versionLabel} onValueChange={setVersionLabel}>
               <SelectTrigger>
-                <SelectValue placeholder="選擇計畫書範本版本" />
+                <SelectValue placeholder={t('protocolPages.importReview.finalize.versionPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {sortedVersions.map((v) => (
                   <SelectItem key={v.id} value={v.version_label}>
                     {v.version_label}
-                    {v.effective_date ? `（生效 ${formatDate(v.effective_date)}）` : ''}
-                    {v.is_current ? '（現行）' : ''}
+                    {v.effective_date ? t('protocolPages.importReview.finalize.effectiveOn', { date: formatDate(v.effective_date) }) : ''}
+                    {v.is_current ? t('protocolPages.importReview.finalize.currentTag') : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           ) : (
             // 院區尚未登記任何範本版本時，退回手動輸入（仍必填）
-            <Input value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)} placeholder="例：v2.1" />
+            <Input value={versionLabel} onChange={(e) => setVersionLabel(e.target.value)} placeholder={t('protocolPages.importReview.finalize.versionManualPlaceholder')} />
           )}
           {autoMatched && (
             <p className="text-xs text-muted-foreground">
-              已依計畫核准日自動帶入「{autoMatched}」，請確認或修改。
+              {t('protocolPages.importReview.finalize.autoMatched', { version: autoMatched })}
             </p>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          完成補登會建立第 1 版內容快照、記錄原始版本號，並解除「補登中」（之後計劃恢復鎖定）。
+          {t('protocolPages.importReview.finalize.description')}
         </p>
         {confirming ? (
           <div className="flex items-center gap-3 rounded-md border border-status-warning-border bg-status-warning-bg p-3">
-            <span className="text-sm text-status-warning-text">確定完成補登？完成後將無法再編輯補登內容。</span>
+            <span className="text-sm text-status-warning-text">{t('protocolPages.importReview.finalize.confirmPrompt')}</span>
             <Button className="ml-auto" onClick={() => finalizeMutation.mutate()} disabled={finalizeMutation.isPending}>
               {finalizeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              確定完成
+              {t('protocolPages.importReview.finalize.confirmButton')}
             </Button>
             <Button variant="outline" onClick={() => setConfirming(false)} disabled={finalizeMutation.isPending}>
-              取消
+              {t('common.cancel')}
             </Button>
           </div>
         ) : (
-          <Button onClick={handleConfirm}>完成補登並鎖定</Button>
+          <Button onClick={handleConfirm}>{t('protocolPages.importReview.finalize.finalizeButton')}</Button>
         )}
       </CardContent>
     </Card>

@@ -8,6 +8,7 @@
 import { useState } from 'react'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import {
     AlertCircle,
@@ -44,21 +45,22 @@ interface StaffReviewAssistPanelProps {
 
 const FLAG_CONFIG: Record<
     string,
-    { icon: typeof AlertCircle; label: string; colorClass: string }
+    // labelKey 為 i18n 鍵；渲染時才 t(labelKey)（模組頂層不可存翻譯後字串）
+    { icon: typeof AlertCircle; labelKey: string; colorClass: string }
 > = {
     needs_attention: {
         icon: AlertCircle,
-        label: '需要注意',
+        labelKey: 'protocolComponents.staffReviewAssist.flags.needsAttention',
         colorClass: 'text-status-error-text',
     },
     concern: {
         icon: AlertTriangle,
-        label: '留意事項',
+        labelKey: 'protocolComponents.staffReviewAssist.flags.concern',
         colorClass: 'text-status-warning-text',
     },
     suggestion: {
         icon: Info,
-        label: '審查建議',
+        labelKey: 'protocolComponents.staffReviewAssist.flags.suggestion',
         colorClass: 'text-primary',
     },
 }
@@ -66,6 +68,7 @@ const FLAG_CONFIG: Record<
 export function StaffReviewAssistPanel({
     protocolId,
 }: StaffReviewAssistPanelProps) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
     const [showDialog, setShowDialog] = useState(false)
@@ -79,7 +82,7 @@ export function StaffReviewAssistPanel({
     const refreshMutation = useMutation({
         mutationFn: () => aiReviewApi.requestStaffReview(protocolId),
         onSuccess: () => {
-            toast({ title: '重新分析完成' })
+            toast({ title: t('protocolComponents.staffReviewAssist.reanalyzed') })
             setSelectedKeys(new Set())
             queryClient.invalidateQueries({
                 queryKey: ['staff-review', protocolId],
@@ -87,8 +90,8 @@ export function StaffReviewAssistPanel({
         },
         onError: (error: unknown) => {
             toast({
-                title: 'AI 分析失敗',
-                description: getApiErrorMessage(error, '請稍後再試'),
+                title: t('protocolComponents.staffReviewAssist.analyzeFailed'),
+                description: getApiErrorMessage(error, t('protocolComponents.staffReviewAssist.tryAgainLater')),
                 variant: 'destructive',
             })
         },
@@ -102,8 +105,8 @@ export function StaffReviewAssistPanel({
             }),
         onSuccess: (data) => {
             toast({
-                title: '退回補件成功',
-                description: `已建立 ${data.created_comments} 則審查意見，計畫書已退回申請人。`,
+                title: t('protocolComponents.staffReviewAssist.returnSuccessTitle'),
+                description: t('protocolComponents.staffReviewAssist.returnSuccessDescription', { count: data.created_comments }),
             })
             setShowDialog(false)
             setSelectedKeys(new Set())
@@ -113,8 +116,8 @@ export function StaffReviewAssistPanel({
         },
         onError: (error: unknown) => {
             toast({
-                title: '退回補件失敗',
-                description: getApiErrorMessage(error, '請稍後再試'),
+                title: t('protocolComponents.staffReviewAssist.returnFailed'),
+                description: getApiErrorMessage(error, t('protocolComponents.staffReviewAssist.tryAgainLater')),
                 variant: 'destructive',
             })
         },
@@ -146,7 +149,7 @@ export function StaffReviewAssistPanel({
                 <CardContent className="flex items-center justify-center py-6">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     <span className="ml-2 text-sm text-muted-foreground">
-                        載入 AI 標註...
+                        {t('protocolComponents.staffReviewAssist.loading')}
                     </span>
                 </CardContent>
             </Card>
@@ -197,7 +200,7 @@ export function StaffReviewAssistPanel({
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-lg flex items-center gap-2">
                             <Bot className="h-5 w-5" />
-                            Pre-Review 審查輔助
+                            {t('protocolComponents.staffReviewAssist.title')}
                         </CardTitle>
                         <div className="flex items-center gap-2">
                             {review && (
@@ -216,7 +219,7 @@ export function StaffReviewAssistPanel({
                                 ) : (
                                     <RefreshCw className="mr-1 h-3 w-3" />
                                 )}
-                                重新分析
+                                {t('protocolComponents.staffReviewAssist.reanalyze')}
                             </Button>
                         </div>
                     </div>
@@ -229,13 +232,13 @@ export function StaffReviewAssistPanel({
                 <CardContent className="space-y-4">
                     {!hasAnyFlags && !review && (
                         <p className="text-sm text-muted-foreground text-center py-4">
-                            尚無 AI 標註結果。點擊「重新分析」開始。
+                            {t('protocolComponents.staffReviewAssist.noResult')}
                         </p>
                     )}
 
                     {!hasAnyFlags && review && (
                         <p className="text-sm text-muted-foreground text-center py-4">
-                            未發現需特別注意的事項。
+                            {t('protocolComponents.staffReviewAssist.noFlags')}
                         </p>
                     )}
 
@@ -251,7 +254,7 @@ export function StaffReviewAssistPanel({
                                         className={`text-sm font-semibold flex items-center gap-1.5 ${config.colorClass}`}
                                     >
                                         <Icon className="h-4 w-4" />
-                                        {config.label}（{items.length} 項）
+                                        {t('protocolComponents.staffReviewAssist.flagGroupTitle', { label: t(config.labelKey), count: items.length })}
                                     </h4>
                                     <ul className="space-y-2 ml-2">
                                         {items.map(({ flag, idx }) => {
@@ -296,8 +299,8 @@ export function StaffReviewAssistPanel({
                         <div className="flex items-center justify-between pt-2 border-t">
                             <span className="text-xs text-muted-foreground">
                                 {selectedCount > 0
-                                    ? `已勾選 ${selectedCount} 項`
-                                    : '勾選標註項目後可退回補件'}
+                                    ? t('protocolComponents.staffReviewAssist.selectedCount', { count: selectedCount })
+                                    : t('protocolComponents.staffReviewAssist.selectHint')}
                             </span>
                             <Button
                                 size="sm"
@@ -306,14 +309,14 @@ export function StaffReviewAssistPanel({
                                 onClick={() => setShowDialog(true)}
                             >
                                 <Send className="mr-1.5 h-3.5 w-3.5" />
-                                退回申請人補件（{selectedCount} 項）
+                                {t('protocolComponents.staffReviewAssist.returnButton', { count: selectedCount })}
                             </Button>
                         </div>
                     )}
 
                     {/* 免責聲明 */}
                     <p className="text-xs text-muted-foreground pt-1 italic">
-                        AI 標註僅供參考，請依專業判斷審查。
+                        {t('protocolComponents.staffReviewAssist.disclaimer')}
                     </p>
                 </CardContent>
             </Card>
@@ -321,9 +324,9 @@ export function StaffReviewAssistPanel({
             <Dialog open={showDialog} onOpenChange={setShowDialog}>
                 <DialogContent size="sm">
                     <DialogHeader>
-                        <DialogTitle>確認退回補件</DialogTitle>
+                        <DialogTitle>{t('protocolComponents.staffReviewAssist.dialogTitle')}</DialogTitle>
                         <DialogDescription>
-                            將以下 {selectedCount} 項標註轉為審查意見，並將計畫書退回給申請人補件（狀態改為「行政預審補件」）。
+                            {t('protocolComponents.staffReviewAssist.dialogDescription', { count: selectedCount })}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -345,11 +348,11 @@ export function StaffReviewAssistPanel({
 
                         <div className="space-y-1.5">
                             <Label htmlFor="additional-note" className="text-sm">
-                                補充說明（選填）
+                                {t('protocolComponents.staffReviewAssist.additionalNote')}
                             </Label>
                             <Textarea
                                 id="additional-note"
-                                placeholder="可在此加入補充說明，將作為獨立審查意見附上..."
+                                placeholder={t('protocolComponents.staffReviewAssist.additionalNotePlaceholder')}
                                 value={additionalNote}
                                 onChange={(e) => setAdditionalNote(e.target.value)}
                                 rows={3}
@@ -363,7 +366,7 @@ export function StaffReviewAssistPanel({
                             onClick={() => setShowDialog(false)}
                             disabled={batchReturnMutation.isPending}
                         >
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             variant="destructive"
@@ -375,7 +378,7 @@ export function StaffReviewAssistPanel({
                             ) : (
                                 <Send className="mr-1.5 h-4 w-4" />
                             )}
-                            確認退回
+                            {t('protocolComponents.staffReviewAssist.confirmReturn')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

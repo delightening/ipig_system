@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Download, Loader2, Trash2, Upload } from 'lucide-react'
 
 import api from '@/lib/api'
@@ -17,6 +18,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
 
 /** 某計畫書範本版本的現行 SOP / 表單文件：列表 + 上傳 + 下載 + 刪除。 */
 export function TemplateVersionDocuments({ versionId }: { versionId: string }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const { dialogState, confirm } = useConfirmDialog()
@@ -30,16 +32,16 @@ export function TemplateVersionDocuments({ versionId }: { versionId: string }) {
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadTemplateVersionDocument(versionId, file),
     onSuccess: () => {
-      toast({ title: '成功', description: '已上傳文件' })
+      toast({ title: t('common.success'), description: t('protocolPages.templateVersions.documents.uploaded') })
       qc.invalidateQueries({ queryKey: key })
     },
-    onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '上傳失敗'), variant: 'destructive' }),
+    onError: (e: unknown) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('protocolPages.templateVersions.documents.uploadFailed')), variant: 'destructive' }),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (docId: string) => deleteTemplateVersionDocument(versionId, docId),
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
-    onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '刪除失敗'), variant: 'destructive' }),
+    onError: (e: unknown) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('protocols.deleteFailed')), variant: 'destructive' }),
   })
 
   const downloadMutation = useMutation({
@@ -54,7 +56,7 @@ export function TemplateVersionDocuments({ versionId }: { versionId: string }) {
       link.remove()
       window.URL.revokeObjectURL(url)
     },
-    onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '下載失敗'), variant: 'destructive' }),
+    onError: (e: unknown) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('protocolPages.templateVersions.documents.downloadFailed')), variant: 'destructive' }),
   })
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,10 +67,10 @@ export function TemplateVersionDocuments({ versionId }: { versionId: string }) {
 
   const handleDeleteDoc = async (doc: TemplateVersionDocument) => {
     const ok = await confirm({
-      title: '刪除文件',
-      description: `確定刪除「${doc.file_name}」？此操作會永久刪除實體檔案，無法復原。`,
+      title: t('protocolPages.templateVersions.documents.deleteTitle'),
+      description: t('protocolPages.templateVersions.documents.deleteConfirm', { name: doc.file_name }),
       variant: 'destructive',
-      confirmLabel: '確認刪除',
+      confirmLabel: t('common.confirmDelete'),
     })
     if (ok) deleteMutation.mutate(doc.id)
   }
@@ -76,31 +78,31 @@ export function TemplateVersionDocuments({ versionId }: { versionId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">現行 SOP 與表單文件（PDF / Word / Excel / 圖片）</p>
+        <p className="text-sm text-muted-foreground">{t('protocolPages.templateVersions.documents.description')}</p>
         <input ref={fileRef} type="file" className="hidden" onChange={onFile}
           accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" />
         <Button variant="outline" size="sm" disabled={uploadMutation.isPending} onClick={() => fileRef.current?.click()}>
           {uploadMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-          上傳文件
+          {t('protocolPages.templateVersions.documents.upload')}
         </Button>
       </div>
       {isLoading ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : isError ? (
-        <p className="text-sm text-status-error-text">文件載入失敗，請稍後再試。</p>
+        <p className="text-sm text-status-error-text">{t('protocolPages.templateVersions.documents.loadFailed')}</p>
       ) : !docs || docs.length === 0 ? (
-        <p className="text-sm text-muted-foreground">尚無文件。</p>
+        <p className="text-sm text-muted-foreground">{t('protocolPages.templateVersions.documents.empty')}</p>
       ) : (
         <ul className="divide-y rounded-md border">
           {docs.map((doc) => (
             <li key={doc.id} className="flex items-center justify-between gap-2 px-3 py-2">
               <span className="truncate text-sm">{doc.file_name}</span>
               <div className="flex shrink-0 gap-1">
-                <Button variant="ghost" size="icon" title="下載" aria-label={`下載 ${doc.file_name}`} disabled={downloadMutation.isPending}
+                <Button variant="ghost" size="icon" title={t('protocolPages.shared.download')} aria-label={t('protocolPages.templateVersions.documents.downloadFile', { name: doc.file_name })} disabled={downloadMutation.isPending}
                   onClick={() => downloadMutation.mutate(doc)}>
                   <Download className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" title="刪除" aria-label={`刪除 ${doc.file_name}`} disabled={deleteMutation.isPending}
+                <Button variant="ghost" size="icon" title={t('common.delete')} aria-label={t('protocolPages.templateVersions.documents.deleteFile', { name: doc.file_name })} disabled={deleteMutation.isPending}
                   onClick={() => handleDeleteDoc(doc)}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>

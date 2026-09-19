@@ -20,9 +20,9 @@ export function ProtocolsPage() {
 
   const tabs = [
     { value: 'list', label: t('protocols.title'), icon: FileText },
-    { value: 'templates', label: '計畫書範本版本', icon: History, hidden: !isAdmin },
-    { value: 'app-notices', label: '申請須知版本', icon: ClipboardCheck, hidden: !isAdmin },
-    { value: 'pi-invites', label: 'PI 帳號開通', icon: UserPlus, hidden: !isAdmin },
+    { value: 'templates', label: t('protocolPages.list.tabs.templates'), icon: History, hidden: !isAdmin },
+    { value: 'app-notices', label: t('protocolPages.list.tabs.appNotices'), icon: ClipboardCheck, hidden: !isAdmin },
+    { value: 'pi-invites', label: t('protocolPages.list.tabs.piInvites'), icon: UserPlus, hidden: !isAdmin },
   ]
 
   return (

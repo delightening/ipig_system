@@ -175,7 +175,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
                         <TableCell style={{ width: 160 }} className="text-xs text-muted-foreground">{formatDateTime(attachment.created_at)}</TableCell>
                         <TableCell style={{ width: 80 }}>
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => downloadAttachmentMutation.mutate(attachment)} disabled={downloadAttachmentMutation.isPending} title="下載">
+                            <Button variant="ghost" size="icon" onClick={() => downloadAttachmentMutation.mutate(attachment)} disabled={downloadAttachmentMutation.isPending} title={t('protocolPages.shared.download')}>
                               {downloadAttachmentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                             </Button>
                             {canManageAttachments && (
@@ -184,15 +184,15 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
                                 size="icon"
                                 onClick={async () => {
                                   const ok = await confirm({
-                                    title: '刪除附件',
+                                    title: t('protocolComponents.attachments.deleteTitle'),
                                     description: t('protocols.detail.actions.deleteConfirm'),
                                     variant: 'destructive',
-                                    confirmLabel: '確認刪除',
+                                    confirmLabel: t('common.confirmDelete'),
                                   })
                                   if (ok) deleteAttachmentMutation.mutate(attachment.id)
                                 }}
                                 disabled={deleteAttachmentMutation.isPending}
-                                title="刪除"
+                                title={t('common.delete')}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
@@ -225,7 +225,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
                       {attachment.uploaded_by_name && <><span className="mx-1.5">·</span>{attachment.uploaded_by_name}</>}
                     </div>
                     <div className="flex justify-end gap-1 pt-1 border-t">
-                      <Button variant="ghost" size="icon" onClick={() => downloadAttachmentMutation.mutate(attachment)} disabled={downloadAttachmentMutation.isPending} title="下載">
+                      <Button variant="ghost" size="icon" onClick={() => downloadAttachmentMutation.mutate(attachment)} disabled={downloadAttachmentMutation.isPending} title={t('protocolPages.shared.download')}>
                         {downloadAttachmentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                       </Button>
                       {canManageAttachments && (
@@ -234,15 +234,15 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
                           size="icon"
                           onClick={async () => {
                             const ok = await confirm({
-                              title: '刪除附件',
+                              title: t('protocolComponents.attachments.deleteTitle'),
                               description: t('protocols.detail.actions.deleteConfirm'),
                               variant: 'destructive',
-                              confirmLabel: '確認刪除',
+                              confirmLabel: t('common.confirmDelete'),
                             })
                             if (ok) deleteAttachmentMutation.mutate(attachment.id)
                           }}
                           disabled={deleteAttachmentMutation.isPending}
-                          title="刪除"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>

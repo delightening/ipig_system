@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, { isAxiosError } from '@/lib/api'
 import type { Animal, AnimalListItem, CreateAnimalRequest } from '@/types/animal'
@@ -31,6 +32,7 @@ interface MutationsOptions {
 }
 
 export function useAnimalsMutations(opts: MutationsOptions) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const invalidateAll = () => {
@@ -61,27 +63,27 @@ export function useAnimalsMutations(opts: MutationsOptions) {
   const createAnimalMutation = useMutation({
     mutationFn: async (data: NewAnimalForm) => {
       const { penZone, penCode } = opts
-      if (!penZone || !penCode) throw new Error('欄位為必填，請選擇欄位區和欄位編號')
+      if (!penZone || !penCode) throw new Error(t('validation.penRequired'))
       // pen_location 直接用欄位自己的 code。先前是「區碼 + 去掉首字的欄位 code」拼回來，
       // 只在 code 恰好是「一字母 + 編號」時才等價；欄位 code 一旦不符那個形狀就會拼錯。
       const penLocation = penCode
 
-      if (!data.ear_tag?.trim()) throw new Error('耳號為必填')
-      if (!data.entry_date) throw new Error('進場日期為必填')
-      if (!data.birth_date) throw new Error('出生日期為必填')
-      if (!data.pre_experiment_code?.trim()) throw new Error('實驗前代號為必填')
+      if (!data.ear_tag?.trim()) throw new Error(t('validation.earTagRequired'))
+      if (!data.entry_date) throw new Error(t('validation.entryDateRequired'))
+      if (!data.birth_date) throw new Error(t('validation.birthDateRequired'))
+      if (!data.pre_experiment_code?.trim()) throw new Error(t('validation.preExperimentCodeRequired'))
 
       let entryWeight: number | undefined
       if (data.entry_weight && data.entry_weight !== '') {
         const weightValue = parseFloat(data.entry_weight)
-        if (isNaN(weightValue) || weightValue <= 0) throw new Error('進場體重必須是大於 0 的數字')
+        if (isNaN(weightValue) || weightValue <= 0) throw new Error(t('animalPages.mutations.entryWeightInvalid'))
         entryWeight = weightValue
       }
 
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-      if (!dateRegex.test(data.entry_date)) throw new Error('進場日期格式不正確，必須是 YYYY-MM-DD 格式')
+      if (!dateRegex.test(data.entry_date)) throw new Error(t('animalPages.mutations.entryDateFormat'))
       if (data.birth_date && data.birth_date.trim() !== '' && !dateRegex.test(data.birth_date))
-        throw new Error('出生日期格式不正確，必須是 YYYY-MM-DD 格式')
+        throw new Error(t('animalPages.mutations.birthDateFormat'))
 
       let formattedEarTag = data.ear_tag.trim()
       if (/^\d+$/.test(formattedEarTag)) formattedEarTag = formattedEarTag.padStart(3, '0')
@@ -89,7 +91,7 @@ export function useAnimalsMutations(opts: MutationsOptions) {
       // species_id 在後端是 Option<Uuid>，空字串會在反序列化就炸掉、拿不到「請指定物種」
       // 這個可讀錯誤。表單雖然已用 disabled 擋，但不把 UI 當唯一防線。
       const speciesId = data.species_id?.trim()
-      if (!speciesId) throw new Error('請選擇品種')
+      if (!speciesId) throw new Error(t('animalPages.mutations.selectBreed'))
 
       const payload: CreateAnimalRequest & { breed_other?: string } = {
         ear_tag: formattedEarTag,
@@ -109,28 +111,28 @@ export function useAnimalsMutations(opts: MutationsOptions) {
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
         const trimmedSourceId = data.source_id.trim()
         if (uuidRegex.test(trimmedSourceId)) payload.source_id = trimmedSourceId
-        else throw new Error(`來源 ID 格式不正確: ${trimmedSourceId}`)
+        else throw new Error(t('animalPages.mutations.sourceIdInvalid', { id: trimmedSourceId }))
       }
 
       return api.post('/animals', payload)
     },
     onSuccess: () => {
       invalidateAll()
-      toast({ title: '成功', description: '動物已新增' })
+      toast({ title: t('common.success'), description: t('animalPages.mutations.animalAdded') })
       opts.setShowAddDialog(false)
       opts.resetNewAnimalForm()
     },
     onError: (error: unknown) => {
       if (handleDuplicate409(error, 'create')) return
 
-      let errorMessage = '新增失敗，請檢查輸入資料'
+      let errorMessage = t('animalPages.mutations.addFailedCheckInput')
       if (isAxiosError(error) && error.response?.status === 422) {
         const data = error.response.data as { error?: { message?: string }; message?: string } | undefined
-        errorMessage = data?.error?.message || data?.message || '資料格式錯誤：請檢查所有欄位的格式是否正確'
+        errorMessage = data?.error?.message || data?.message || t('animalPages.mutations.invalidDataFormat')
       } else {
         errorMessage = extractErrorMessage(error, errorMessage)
       }
-      toast({ title: '錯誤', description: errorMessage, variant: 'destructive' })
+      toast({ title: t('common.error'), description: errorMessage, variant: 'destructive' })
     },
   })
 
@@ -138,13 +140,13 @@ export function useAnimalsMutations(opts: MutationsOptions) {
     mutationFn: () => api.post('/animals/batch/assign', { animal_ids: opts.selectedAnimals, iacuc_no: opts.assignIacucNo }),
     onSuccess: () => {
       invalidateAll()
-      toast({ title: '成功', description: '動物已分配至計劃並進入實驗中' })
+      toast({ title: t('common.success'), description: t('animalPages.mutations.batchAssigned') })
       opts.setShowBatchAssignDialog(false)
       opts.setSelectedAnimals([])
       opts.setAssignIacucNo('')
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: extractErrorMessage(error, '批次分配失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: extractErrorMessage(error, t('animalPages.mutations.batchAssignFailed')), variant: 'destructive' })
     },
   })
 
@@ -157,10 +159,10 @@ export function useAnimalsMutations(opts: MutationsOptions) {
       const matchingAnimals = (searchRes.data.data ?? []).filter(p => p.ear_tag === formattedEarTag && p.pen_location)
 
       if (matchingAnimals.length === 0) return { notFound: true, formattedEarTag, targetPenLocation }
-      if (matchingAnimals.length > 1) throw new Error(`找到多隻耳號為 "${formattedEarTag}" 的動物，請使用編輯功能手動移動`)
+      if (matchingAnimals.length > 1) throw new Error(t('animalPages.mutations.multipleEarTags', { earTag: formattedEarTag }))
 
       const animal = matchingAnimals[0]
-      if (animal.pen_location === targetPenLocation) throw new Error(`動物 ${formattedEarTag} 已經在 ${targetPenLocation} 欄位`)
+      if (animal.pen_location === targetPenLocation) throw new Error(t('animalPages.mutations.alreadyInPen', { earTag: formattedEarTag, pen: targetPenLocation }))
 
       // R30-B: 帶當前 version 防 lost update（從搜尋結果取）
       return { ...await api.put<Animal>(`/animals/${animal.id}`, { pen_location: targetPenLocation, version: animal.version }), notFound: false }
@@ -178,22 +180,25 @@ export function useAnimalsMutations(opts: MutationsOptions) {
       invalidateAll()
       let formattedEarTag = variables.earTag.trim()
       if (/^\d+$/.test(formattedEarTag)) formattedEarTag = formattedEarTag.padStart(3, '0')
-      toast({ title: '成功', description: `動物 ${formattedEarTag} 已移動到 ${variables.targetPenLocation}` })
+      toast({
+        title: t('common.success'),
+        description: t('animalPages.mutations.animalMoved', { earTag: formattedEarTag, pen: variables.targetPenLocation }),
+      })
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: extractErrorMessage(error, '移動失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: extractErrorMessage(error, t('animalPages.mutations.moveFailed')), variant: 'destructive' })
     },
   })
 
   const quickAddMutation = useMutation({
     mutationFn: async () => {
       const { quickAddPending, quickAddForm } = opts
-      if (!quickAddPending) throw new Error('無待處理的新增請求')
-      if (!quickAddForm.entry_date) throw new Error('進場日期為必填')
-      if (!quickAddForm.birth_date) throw new Error('出生日期為必填')
+      if (!quickAddPending) throw new Error(t('animalPages.mutations.noPendingAdd'))
+      if (!quickAddForm.entry_date) throw new Error(t('validation.entryDateRequired'))
+      if (!quickAddForm.birth_date) throw new Error(t('validation.birthDateRequired'))
 
       const speciesId = quickAddForm.species_id?.trim()
-      if (!speciesId) throw new Error('請選擇品種')
+      if (!speciesId) throw new Error(t('animalPages.mutations.selectBreed'))
 
       return api.post<Animal>('/animals', {
         ear_tag: quickAddPending.earTag,
@@ -208,13 +213,19 @@ export function useAnimalsMutations(opts: MutationsOptions) {
     },
     onSuccess: () => {
       invalidateAll()
-      toast({ title: '成功', description: `已新增動物 ${opts.quickAddPending?.earTag} 至 ${opts.quickAddPending?.penLocation}` })
+      toast({
+        title: t('common.success'),
+        description: t('animalPages.mutations.quickAdded', {
+          earTag: opts.quickAddPending?.earTag,
+          pen: opts.quickAddPending?.penLocation,
+        }),
+      })
       opts.setShowQuickAddDialog(false)
       opts.setQuickAddPending(null)
     },
     onError: (error: unknown) => {
       if (handleDuplicate409(error, 'quickAdd')) return
-      toast({ title: '錯誤', description: extractErrorMessage(error, '新增失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: extractErrorMessage(error, t('animalPages.shared.addFailed')), variant: 'destructive' })
     },
   })
 
@@ -222,7 +233,7 @@ export function useAnimalsMutations(opts: MutationsOptions) {
     mutationFn: (payload: CreateAnimalRequest & { breed_other?: string }) => api.post('/animals', { ...payload, force_create: true }),
     onSuccess: () => {
       invalidateAll()
-      toast({ title: '成功', description: '動物已新增（已確認耳號重複）' })
+      toast({ title: t('common.success'), description: t('animalPages.mutations.animalAddedDuplicateConfirmed') })
       opts.setShowDuplicateWarning(false)
       opts.setDuplicateWarningData(null)
       opts.setShowAddDialog(false)
@@ -231,7 +242,7 @@ export function useAnimalsMutations(opts: MutationsOptions) {
       opts.resetNewAnimalForm()
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: extractErrorMessage(error, '新增失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: extractErrorMessage(error, t('animalPages.shared.addFailed')), variant: 'destructive' })
     },
   })
 

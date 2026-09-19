@@ -78,7 +78,7 @@ export function HazardsSection({ formData, updateWorkingContent, t }: Props) {
       {hazards.used === true && (
         <div className="space-y-4 mt-2 pl-6 border-l-2 border-border">
           <div>
-            <Label className="text-sm font-medium">{t('aup.design.selectHazardType')}（{t('aup.design.hazardMultiSelectHint')}）</Label>
+            <Label className="text-sm font-medium">{t('protocolComponents.shared.labelWithHint', { label: t('aup.design.selectHazardType'), hint: t('aup.design.hazardMultiSelectHint') })}</Label>
             <div className="flex flex-wrap gap-4 mt-2">
               {HAZARD_TYPES.map(type => {
                 const hasType = hazards.materials.some(m => m.type === type)
@@ -119,7 +119,7 @@ export function HazardsSection({ formData, updateWorkingContent, t }: Props) {
                         variant="ghost"
                         size="icon"
                         className="absolute right-2 top-2 h-6 w-6 text-destructive"
-                        aria-label="刪除"
+                        aria-label={t('common.delete')}
                         onClick={() => handleRemoveMaterial(materialIndex)}
                       >
                         X

@@ -80,7 +80,7 @@ export function ControlledSubstancesSection({ formData, updateWorkingContent, t,
                 variant="ghost"
                 size="icon"
                 className="absolute right-2 top-2 h-6 w-6 text-destructive"
-                aria-label="刪除"
+                aria-label={t('common.delete')}
                 onClick={() => handleRemoveItem(index)}
               >
                 X

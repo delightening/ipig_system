@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -31,6 +33,7 @@ export function ReviewerSelect({
   onChange: (v: ReviewerValue) => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   const options = users.filter((u) => (u.roles ?? []).includes(role))
   const isOther = value.reviewer_id === null
   const selected = value.reviewer_id ?? PI_OTHER
@@ -45,20 +48,20 @@ export function ReviewerSelect({
       <Label>{label}</Label>
       <Select value={selected} onValueChange={onSelect} disabled={disabled}>
         <SelectTrigger>
-          <SelectValue placeholder={disabled ? '載入中…' : '選擇'} />
+          <SelectValue placeholder={disabled ? t('protocolPages.shared.loadingEllipsis') : t('protocolPages.shared.select')} />
         </SelectTrigger>
         <SelectContent>
           {options.map((u) => (
             <SelectItem key={u.id} value={u.id}>{userLabel(u)}</SelectItem>
           ))}
-          <SelectItem value={PI_OTHER}>其他（院外，自行填寫姓名）</SelectItem>
+          <SelectItem value={PI_OTHER}>{t('protocolPages.importReview.reviewerSelect.other')}</SelectItem>
         </SelectContent>
       </Select>
       {isOther && (
         <Input
           value={value.reviewer_name}
           onChange={(e) => onChange({ reviewer_id: null, reviewer_name: e.target.value })}
-          placeholder="院外審查者姓名"
+          placeholder={t('protocolPages.importReview.reviewerSelect.externalNamePlaceholder')}
         />
       )}
     </div>
