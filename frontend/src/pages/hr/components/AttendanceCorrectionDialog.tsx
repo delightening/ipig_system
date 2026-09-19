@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,6 +44,7 @@ function taipeiToday(): string {
 export function AttendanceCorrectionDialog({
     open, onOpenChange, record, staffList,
 }: AttendanceCorrectionDialogProps) {
+    const { t } = useTranslation()
     const isCorrection = record !== null
     const { backfillMutation, correctMutation } = useAttendanceCorrection()
 
@@ -125,12 +127,12 @@ export function AttendanceCorrectionDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent size="md">
                 <DialogHeader>
-                    <DialogTitle>{isCorrection ? '更正出勤記錄' : '補登出勤記錄'}</DialogTitle>
+                    <DialogTitle>{isCorrection ? t('hrPages.attendance.correction.titleCorrect') : t('hrPages.attendance.correction.titleBackfill')}</DialogTitle>
                     <DialogDescription>
                         {isCorrection
-                            ? '修改既有紀錄的上下班時間。原始時間會保留於稽核紀錄，工時自動重算。'
-                            : '為完全沒有打卡紀錄的日子補登。已有紀錄的日子請改用該列的「更正」。'}
-                        {' '}不得補登或更正自己的紀錄。
+                            ? t('hrPages.attendance.correction.descriptionCorrect')
+                            : t('hrPages.attendance.correction.descriptionBackfill')}
+                        {' '}{t('hrPages.attendance.correction.noSelf')}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -145,10 +147,10 @@ export function AttendanceCorrectionDialog({
                     ) : (
                         <>
                             <div className="flex flex-col gap-2">
-                                <Label htmlFor="backfill-user">人員</Label>
+                                <Label htmlFor="backfill-user">{t('hrPages.attendance.correction.staff')}</Label>
                                 <Select value={userId} onValueChange={setUserId}>
                                     <SelectTrigger id="backfill-user">
-                                        <SelectValue placeholder="選擇人員" />
+                                        <SelectValue placeholder={t('hrPages.attendance.correction.selectStaff')} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {staffList?.map((s) => (
@@ -158,7 +160,7 @@ export function AttendanceCorrectionDialog({
                                 </Select>
                             </div>
                             <div className="flex flex-col gap-2">
-                                <Label htmlFor="backfill-date">日期</Label>
+                                <Label htmlFor="backfill-date">{t('hrPages.shared.col.date')}</Label>
                                 <Input
                                     id="backfill-date"
                                     type="date"
@@ -172,7 +174,7 @@ export function AttendanceCorrectionDialog({
 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-2">
-                            <Label htmlFor="clock-in">上班時間</Label>
+                            <Label htmlFor="clock-in">{t('hrPages.attendance.correction.clockInTime')}</Label>
                             <Input
                                 id="clock-in"
                                 type="time"
@@ -182,7 +184,7 @@ export function AttendanceCorrectionDialog({
                             />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <Label htmlFor="clock-out">下班時間</Label>
+                            <Label htmlFor="clock-out">{t('hrPages.attendance.correction.clockOutTime')}</Label>
                             <Input
                                 id="clock-out"
                                 type="time"
@@ -194,24 +196,24 @@ export function AttendanceCorrectionDialog({
                     </div>
                     {noTimeGiven && (
                         <p className="text-sm text-muted-foreground">
-                            上班與下班至少要填一個。
+                            {t('hrPages.attendance.correction.atLeastOneTime')}
                         </p>
                     )}
                     {wouldClearExistingTime && (
                         <p className="text-sm text-muted-foreground">
-                            目前不支援清空已有打卡時間，清空後系統會保留原值——如需清空請聯絡系統管理員。
+                            {t('hrPages.attendance.correction.cannotClear')}
                         </p>
                     )}
 
                     <div className="flex flex-col gap-2">
                         <Label htmlFor="correction-reason">
-                            理由（至少 {MIN_CORRECTION_REASON_LENGTH} 個字）
+                            {t('hrPages.attendance.correction.reasonLabel', { count: MIN_CORRECTION_REASON_LENGTH })}
                         </Label>
                         <Textarea
                             id="correction-reason"
                             value={reason}
                             error={reason.length > 0 && reasonTooShort}
-                            placeholder="例：忘記打卡、出差外訪未帶手機"
+                            placeholder={t('hrPages.attendance.correction.reasonPlaceholder')}
                             onChange={(e) => setReason(e.target.value)}
                         />
                     </div>
@@ -219,10 +221,10 @@ export function AttendanceCorrectionDialog({
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={handleSubmit} disabled={!canSubmit}>
-                        {pending ? '送出中...' : isCorrection ? '確認更正' : '確認補登'}
+                        {pending ? t('hrPages.attendance.correction.submitting') : isCorrection ? t('hrPages.attendance.correction.confirmCorrect') : t('hrPages.attendance.correction.confirmBackfill')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

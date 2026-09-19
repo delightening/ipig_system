@@ -5915,5 +5915,525 @@
       "iframeTitle": "欄位狀態表 PDF 預覽",
       "exporting": "匯出中…"
     }
+  },
+  "hrPages": {
+    "annualLeave": {
+      "addEntitlement": "新增特休額度",
+      "balancesOf": "{{name}} 的特休額度",
+      "columns": {
+        "expiresAt": "到期日",
+        "pendingDays": "待補償天數",
+        "staffName": "員工姓名",
+        "totalDays": "總天數",
+        "used": "已使用",
+        "usedDays": "已使用天數",
+        "year": "年度"
+      },
+      "csvFilename": "過期特休補償報表_{{date}}.csv",
+      "dialog": {
+        "creating": "建立中...",
+        "days": "特休天數",
+        "daysPlaceholder": "例：7",
+        "daysPositive": "特休天數必須為正數",
+        "daysRequired": "請輸入特休天數",
+        "description": "為員工建立新年度的特休假額度。若有提供到職日，到期日將自動計算為到職週年日 + 2年。",
+        "grantYear": "授予年度",
+        "hireDate": "到職日（用於計算到期日）",
+        "hireDateHint": "到期日 = 授予年度 + 2年的到職週年日。若不填寫，到期日為授予年度 + 2年的12月31日。",
+        "notes": "備註",
+        "selectStaff": "選擇員工...",
+        "staff": "員工",
+        "staffRequired": "請選擇員工",
+        "yearMax": "年度不得大於 2100",
+        "yearMin": "年度不得小於 2020",
+        "yearRequired": "請選擇年度"
+      },
+      "expiredReport": {
+        "description": "列出所有已過期但仍有剩餘天數的特休假，供會計部門處理補償",
+        "empty": "目前沒有過期待補償的特休假",
+        "exportCsv": "匯出 CSV",
+        "title": "過期特休待補償報表"
+      },
+      "expiryLabel": "到期：{{date}}",
+      "noBalances": "該員工尚無特休額度記錄",
+      "page": {
+        "description": "管理員工特休假額度、查看過期待補償報表",
+        "title": "特休額度管理"
+      },
+      "pendingShort": "待補償",
+      "remaining": "剩餘",
+      "searchPlaceholder": "搜尋員工姓名或 Email...",
+      "selectStaffDescription": "選擇員工以查看其各年度特休假額度與使用狀況",
+      "selectStaffTitle": "選擇員工查看特休額度",
+      "stats": {
+        "internalStaff": "內部員工數",
+        "pendingRecords": "待補償記錄",
+        "pendingTotalDays": "待補償總天數"
+      },
+      "status": {
+        "expired": "已過期",
+        "expiringSoon": "即將到期 ({{days}}天)",
+        "valid": "有效"
+      },
+      "tabs": {
+        "entitlements": "員工特休額度",
+        "expired": "過期待補償"
+      },
+      "toast": {
+        "createFailed": "建立失敗",
+        "createSuccess": "建立成功",
+        "createSuccessDescription": "已成功建立特休額度",
+        "noDataToExport": "無資料可匯出",
+        "reportDownloaded": "報表已下載"
+      },
+      "totalUsed": "總 {{total}} / 用 {{used}}",
+      "usedParen": "（已用 {{used}}）",
+      "yearLabel": "年度：{{year}}"
+    },
+    "attendance": {
+      "correction": {
+        "atLeastOneTime": "上班與下班至少要填一個。",
+        "cannotClear": "目前不支援清空已有打卡時間，清空後系統會保留原值——如需清空請聯絡系統管理員。",
+        "clockInTime": "上班時間",
+        "clockOutTime": "下班時間",
+        "confirmBackfill": "確認補登",
+        "confirmCorrect": "確認更正",
+        "descriptionBackfill": "為完全沒有打卡紀錄的日子補登。已有紀錄的日子請改用該列的「更正」。",
+        "descriptionCorrect": "修改既有紀錄的上下班時間。原始時間會保留於稽核紀錄，工時自動重算。",
+        "noSelf": "不得補登或更正自己的紀錄。",
+        "reasonLabel": "理由（至少 {{count}} 個字）",
+        "reasonPlaceholder": "例：忘記打卡、出差外訪未帶手機",
+        "selectStaff": "選擇人員",
+        "staff": "人員",
+        "submitting": "送出中...",
+        "titleBackfill": "補登出勤記錄",
+        "titleCorrect": "更正出勤記錄"
+      },
+      "history": {
+        "backfill": "補卡",
+        "clockIn": "上班",
+        "clockInShort": "上 {{time}}",
+        "clockOut": "下班",
+        "clockOutShort": "下 {{time}}",
+        "correctAria": "更正 {{name}} {{date}} 的出勤記錄",
+        "corrected": "已更正",
+        "empty": "沒有出勤記錄",
+        "exportExcel": "匯出 Excel",
+        "exporting": "匯出中...",
+        "overtimeShort": "加班 {{hours}}",
+        "remark": "備註",
+        "viewAll": "查看所有人",
+        "workHoursShort": "工時 {{hours}}"
+      },
+      "monthly": {
+        "correctedDays": "補登／更正天數",
+        "correctedShort": "補登／更正 {{days}} 天",
+        "empty": "當月沒有出勤資料",
+        "exportDownloaded": "工時月報已下載",
+        "footnote": "「打卡不完整」指當日只有上班或只有下班卡，那些日子的工時不完整，是補卡的待辦清單。 加班時數來自加班卡的已核准紀錄，與總工時分開計算；匯出的 Excel 會分成 「正常出勤」與「加班」兩個工作表。 本報表不含遲到／早退計數：系統目前沒有上下班時間基準，那兩個數字會恆為 0。",
+        "incompleteDays": "打卡不完整天數",
+        "incompleteShort": "打卡不完整 {{days}} 天",
+        "month": "月份",
+        "selectMonthFirst": "請先選擇月份",
+        "total": "合計",
+        "totalOvertimeHours": "總加班時數",
+        "totalRegularHours": "總工時",
+        "workDays": "出勤天數"
+      },
+      "page": {
+        "description": "打卡、補卡與工時月報",
+        "title": "出勤管理"
+      },
+      "tabs": {
+        "history": "出勤記錄",
+        "monthly": "工時月報",
+        "today": "今日打卡"
+      },
+      "toast": {
+        "backfillFailed": "補卡失敗",
+        "backfillSuccess": "補卡成功",
+        "backfillSuccessDescription": "已補登出勤記錄",
+        "clockFailed": "打卡失敗",
+        "clockInTime": "上班打卡時間：{{time}}",
+        "clockOutTime": "下班打卡時間：{{time}}",
+        "clockSuccess": "打卡成功",
+        "correctFailed": "更正失敗",
+        "correctSuccess": "更正成功",
+        "correctSuccessDescription": "已更正出勤記錄",
+        "exportDownloaded": "出勤記錄已下載",
+        "geoFallback": "請確認您已連接辦公室 WiFi 或允許定位權限"
+      },
+      "today": {
+        "alreadyClocked": "已打卡",
+        "clockInButton": "打卡上班",
+        "clockInLabel": "上班打卡",
+        "clockOutButton": "打卡下班",
+        "clockOutLabel": "下班打卡",
+        "guestDemoTitle": "Demo 模式無法操作",
+        "overtimeHours": "加班時數",
+        "regularHours": "工作時數",
+        "statusDescription": "今日出勤狀態"
+      }
+    },
+    "calendar": {
+      "conflicts": {
+        "acceptGoogle": "接受 Google",
+        "conflictType": "衝突類型",
+        "detectedAt": "偵測時間",
+        "difference": "差異",
+        "differenceLine": "差異：{{summary}}",
+        "dismiss": "忽略",
+        "employee": "員工",
+        "empty": "沒有待處理的衝突",
+        "keepIpig": "保留 iPig",
+        "pagination": "第 {{page}} 頁，共 {{totalPages}} 頁（{{total}} 筆）"
+      },
+      "conflictsDescription": "系統與 Google Calendar 之間的資料不一致需要手動處理",
+      "connect": {
+        "authEmail": "授權 Email",
+        "authEmailHint": "擁有日曆編輯權限的 Google 帳戶",
+        "calendarIdHint": "在 Google Calendar 設定中找到日曆 ID",
+        "calendarIdPlaceholder": "例如: <id>@group.calendar.google.com",
+        "description": "輸入共用日曆的 ID 和授權帳戶 Email",
+        "submit": "連接",
+        "title": "連接 Google Calendar"
+      },
+      "connection": {
+        "description": "連接到共用的 Google Calendar 以同步請假事件",
+        "title": "連線設定"
+      },
+      "events": {
+        "connectInStatusTab": "請先在「連線狀態」分頁連接 Google Calendar",
+        "contactAdmin": "請聯繫系統管理員設定 Google Calendar 連接",
+        "description": "從已連接的 Google Calendar 讀取的事件",
+        "loadingEvents": "載入事件中...",
+        "title": "Google Calendar 事件"
+      },
+      "filterAll": "全部",
+      "history": {
+        "automatic": "自動",
+        "completed": "完成",
+        "completedWithErrors": "部分錯誤",
+        "conflicts": "衝突",
+        "duration": "耗時",
+        "empty": "沒有同步記錄",
+        "manual": "手動",
+        "running": "執行中"
+      },
+      "historyTitle": "同步歷史記錄",
+      "leaveCalendarDescription": "誰哪幾天不在、由誰代理。含審核中的假單（虛線框）。",
+      "leaveTab": {
+        "departmentScope": "僅顯示您所屬部門與相鄰層級",
+        "empty": "這段期間沒有請假紀錄",
+        "emptyForType": "這段期間沒有{{type}}的紀錄",
+        "emptyMine": "這段期間沒有您請的假或需要您代理的假",
+        "loadError": "無法載入請假資料",
+        "loadErrorHint": "這不代表這段期間沒有人請假——請重試，若持續失敗請聯繫系統管理員。",
+        "loading": "載入請假資料中...",
+        "pendingLegend": "虛線 = 審核中（{{count}} 筆）",
+        "scopeAll": "全場",
+        "scopeMine": "與我相關"
+      },
+      "loadFailed": "日曆載入失敗",
+      "loadFailedHint": "可能是瀏覽器環境限制，請重新整理頁面或聯繫系統管理員",
+      "loadingCalendar": "載入日曆中...",
+      "notConnected": "尚未連接 Google Calendar",
+      "page": {
+        "description": "請假與代理狀況；管理員另可管理 Google Calendar 同步",
+        "syncNow": "立即同步"
+      },
+      "pendingConflicts": "待處理衝突",
+      "status": {
+        "autoOff": "自動同步停用",
+        "autoOn": "自動同步啟用",
+        "autoSettings": "自動同步設定",
+        "connected": "已連接",
+        "disconnect": "斷開連接",
+        "enableAuto": "啟用自動同步",
+        "enableAutoDescription": "依排程自動將請假事件同步至 Google Calendar",
+        "eveningHint": "留空表示不設定晚上同步",
+        "eveningTime": "晚上同步時間",
+        "failed": "失敗",
+        "lastSync": "最後同步",
+        "loadingSettings": "載入設定中...",
+        "morningHint": "留空表示不設定早上同步",
+        "morningTime": "早上同步時間",
+        "needsManual": "需要手動處理",
+        "neverSynced": "尚未同步",
+        "nextSync": "下次同步：{{time}}",
+        "notConnectedDescription": "連接後可自動同步核准的請假事件到共用日曆",
+        "partial": "部分完成",
+        "pendingSyncs": "待同步事件",
+        "recentErrors": "過去 24 小時內有 {{count}} 個同步錯誤，請至「同步歷史」查看詳情",
+        "saveSettings": "儲存設定",
+        "syncStatus": "同步狀態"
+      },
+      "tabs": {
+        "conflicts": "衝突處理",
+        "google": "Google 日曆",
+        "history": "同步歷史",
+        "leaveCalendar": "請假行事曆",
+        "status": "連線狀態"
+      },
+      "view": {
+        "allDayRange": "{{range}}（全天）",
+        "delegate": "代理：{{name}}",
+        "notYetConfirmed": "（尚未確認）",
+        "openInGoogle": "在 Google Calendar 中開啟 →",
+        "totalHours": "（共 {{hours}}）"
+      }
+    },
+    "leaves": {
+      "approver": {
+        "delegate": "代理人",
+        "director": "負責人",
+        "reviewer": "審核人",
+        "unitSupervisor": "單位主管"
+      },
+      "approverLabel": "{{label}}：",
+      "balance": {
+        "annualRemaining": "特休剩餘",
+        "annualUsed": "已使用 {{used}} / {{total}} 天",
+        "compRemaining": "補休剩餘",
+        "compUsed": "已使用 {{hours}} 小時",
+        "expiringAnnual": "即將到期（特休）",
+        "expiringComp": "即將到期（補休）",
+        "within30Days": "30 天內到期"
+      },
+      "confirm": {
+        "approveDescription": "確認核准此請假申請？",
+        "approveTitle": "確認核准請假",
+        "delegateDescription": "確認擔任此請假的職務代理人？確認後將送交主管審核。",
+        "rejectDescription": "確認駁回此請假申請？",
+        "rejectTitle": "確認駁回請假",
+        "returnConfirm": "確認退回",
+        "returnDescription": "退回此請假申請？申請將回到草稿，由申請人重新指定代理人。",
+        "returnTitle": "退回申請"
+      },
+      "create": {
+        "attachmentAlt": "附件 {{index}}",
+        "attachments": "附件圖片",
+        "attachmentsHint": "可上傳診斷證明、相關文件等",
+        "delegate": "職務代理人",
+        "delegateHint": "代理人於您請假期間協助職務；送審後會通知對方",
+        "delegateHintDirector": "代理人於您請假期間協助職務；不指定則以報備制送出，直接核准並扣除假別餘額",
+        "delegatePlaceholder": "選擇代理人...",
+        "delegatePlaceholderDirector": "選擇代理人，或不指定...",
+        "description": "填寫請假資訊後送出審核",
+        "hoursHint": "(以 0.5 小時為單位)",
+        "imageUploadFailed": "圖片上傳失敗",
+        "imageUploaded": "圖片已上傳",
+        "leaveTypePlaceholder": "選擇假別",
+        "noDelegate": "不指定（報備制）",
+        "prefillLast": "基於上次申請預填",
+        "reason": "請假事由",
+        "reasonPlaceholder": "請說明請假原因...",
+        "reasonPlaceholderOptional": "選填，可不填寫...",
+        "title": "新增請假申請"
+      },
+      "mine": {
+        "empty": "沒有請假記錄"
+      },
+      "page": {
+        "addLeave": "新增請假",
+        "description": "申請請假與查看假期餘額"
+      },
+      "pending": {
+        "description": "您需要審核，或身為職務代理人需確認的請假申請",
+        "empty": "沒有待審核的請假"
+      },
+      "records": {
+        "allLeaveTypes": "全部假別",
+        "description": "查看所有員工的請假資料",
+        "empty": "沒有符合條件的請假紀錄",
+        "title": "全部請假紀錄"
+      },
+      "submittedAtLabel": "申請時間：{{time}}",
+      "tabs": {
+        "allRecords": "請假紀錄",
+        "myLeaves": "我的請假"
+      },
+      "toast": {
+        "cancelled": "已取消請假",
+        "created": "已建立請假申請",
+        "delegateConfirmed": "已確認代理，申請進入審核",
+        "noHistoryDescription": "找不到之前的請假記錄",
+        "noHistoryTitle": "無歷史紀錄",
+        "prefilledDescription": "已套用上次「{{type}}」假別資訊",
+        "prefilledTitle": "已預填",
+        "rejected": "請假已被駁回",
+        "returned": "已退回申請人重新指定代理人",
+        "returnedTitle": "已退回"
+      },
+      "validation": {
+        "delegateRequired": "請選擇職務代理人",
+        "hoursMinimum": "請假時數至少 0.5 小時，且須為 0.5 的倍數",
+        "reasonRequired": "請填寫請假事由",
+        "requiredFields": "請填寫必填欄位"
+      },
+      "waitedDays": "已等待 <w>{{days}} 天</w>"
+    },
+    "overtime": {
+      "confirm": {
+        "approveDescription": "確認核准此加班申請？",
+        "approveTitle": "確認核准加班",
+        "rejectDescription": "確認駁回此加班申請？",
+        "rejectTitle": "確認駁回加班"
+      },
+      "create": {
+        "button": "新增加班",
+        "date": "加班日期",
+        "dateRequired": "請選擇加班日期",
+        "description": "填寫加班資訊後送出審核",
+        "endTime": "結束時間",
+        "endTimeAfterStart": "結束時間必須晚於開始時間（不支援跨午夜）",
+        "endTimeRequired": "請選擇結束時間",
+        "estimatedCompHours": "預估補休時數",
+        "estimatedHours": "預估加班時數",
+        "reason": "加班事由",
+        "reasonPlaceholder": "請說明加班原因...",
+        "reasonRequired": "請輸入加班事由",
+        "reasonTooLong": "加班事由不得超過 500 字元",
+        "startTime": "開始時間",
+        "startTimeRequired": "請選擇開始時間",
+        "title": "新增加班申請"
+      },
+      "hoursColumn": "加班時數",
+      "mine": {
+        "empty": "沒有加班記錄"
+      },
+      "page": {
+        "description": "申請加班與累積補休時數"
+      },
+      "pending": {
+        "description": "您需要審核的加班申請",
+        "empty": "沒有待審核的加班",
+        "title": "待審核加班"
+      },
+      "records": {
+        "compShort": "(補 {{hours}})",
+        "description": "查看所有員工的加班資料",
+        "empty": "沒有符合條件的加班紀錄",
+        "reasonLine": "事由：{{reason}}",
+        "title": "全部加班紀錄",
+        "voidReason": "作廢原因：{{reason}}"
+      },
+      "tabs": {
+        "allRecords": "加班紀錄",
+        "myOvertime": "我的加班"
+      },
+      "toast": {
+        "created": "已建立加班申請",
+        "deleted": "已刪除加班申請",
+        "rejected": "加班已被駁回",
+        "voidFailed": "作廢失敗",
+        "voided": "加班單已作廢，補休餘額同步收回",
+        "voidedTitle": "已作廢"
+      },
+      "type": "加班類型",
+      "void": {
+        "actionNoun": "作廢",
+        "button": "作廢",
+        "description": "作廢後此加班單不再生效，已授出的補休餘額會一併收回。原始紀錄保留，不會被刪除。",
+        "title": "作廢加班單"
+      }
+    },
+    "shared": {
+      "action": {
+        "approve": "核准",
+        "confirmApprove": "確認核准",
+        "confirmDelegate": "確認代理",
+        "confirmReject": "確認駁回",
+        "create": "建立",
+        "refresh": "重新整理",
+        "reject": "駁回",
+        "return": "退回",
+        "submit": "送審"
+      },
+      "attendanceStatus": {
+        "absent": "缺勤",
+        "early_leave": "早退",
+        "late": "遲到",
+        "normal": "正常"
+      },
+      "col": {
+        "applicant": "申請人",
+        "compLeave": "補休",
+        "date": "日期",
+        "hours": "時數",
+        "leaveType": "假別",
+        "reason": "事由",
+        "staffName": "人員名稱",
+        "status": "狀態",
+        "submittedAt": "申請時間",
+        "time": "時間",
+        "type": "類型"
+      },
+      "daysValue": "{{days}} 天",
+      "filter": {
+        "allStaff": "全部人員",
+        "allTypes": "全部類型",
+        "endDate": "結束日期",
+        "filterStaff": "篩選人員",
+        "fromDate": "起始日期",
+        "startDate": "開始日期"
+      },
+      "hoursValue": "{{hours}} 小時",
+      "leaveStatus": {
+        "APPROVED": "已核准",
+        "CANCELLED": "已取消",
+        "DRAFT": "草稿",
+        "PENDING_DIRECTOR": "待負責人簽核",
+        "PENDING_GM": "待總經理核准",
+        "PENDING_HR": "待行政審核",
+        "PENDING_L1": "待單位主管審核",
+        "PENDING_L2": "待二級審核",
+        "PENDING_PROXY": "待代理確認",
+        "REJECTED": "已駁回",
+        "REVOKED": "已銷假"
+      },
+      "leaveType": {
+        "ANNUAL": "特休假",
+        "BEREAVEMENT": "喪假",
+        "COMPENSATORY": "補休假",
+        "MARRIAGE": "婚假",
+        "MATERNITY": "產假",
+        "MENSTRUAL": "生理假",
+        "OFFICIAL": "公假",
+        "PATERNITY": "陪產假",
+        "PERSONAL": "事假",
+        "SICK": "病假"
+      },
+      "noApprovalPermission": "無核准權限",
+      "optional": "選填",
+      "optionalParen": "(選填)",
+      "overtimeStatus": {
+        "approved": "已核准",
+        "cancelled": "已取消",
+        "draft": "草稿",
+        "pending": "待審核",
+        "pending_admin": "待負責人審核",
+        "pending_admin_staff": "待行政審核",
+        "rejected": "已駁回",
+        "voided": "已作廢"
+      },
+      "overtimeType": {
+        "A": "平日加班",
+        "B": "假日加班",
+        "C": "國定假日加班",
+        "D": "天災加班"
+      },
+      "pendingMyReview": "待我審核",
+      "saving": "儲存中...",
+      "toast": {
+        "approved": "已核准",
+        "createFailed": "建立失敗",
+        "rejectedTitle": "已駁回",
+        "submittedForReview": "已送出審核"
+      },
+      "totalRecords": "共 {{count}} 筆紀錄",
+      "tryAgainLater": "請稍後再試",
+      "yearValue": "{{year}} 年"
+    }
   }
 }

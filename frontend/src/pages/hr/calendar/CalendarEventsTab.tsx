@@ -3,6 +3,7 @@
  * 顯示 FullCalendar 視圖或未連接提示，包含假別篩選 chips 與顏色圖例
  */
 import { lazy, Suspense, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Calendar, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
@@ -32,6 +33,7 @@ export function CalendarEventsTab({
     fullCalendarEvents,
     onDatesSet,
 }: CalendarEventsTabProps) {
+    const { t } = useTranslation()
     // 篩選狀態：null = 全部顯示，否則只顯示選取假別
     const [activeFilter, setActiveFilter] = useState<string | null>(null)
 
@@ -43,7 +45,7 @@ export function CalendarEventsTab({
             if (type) found.add(type)
         }
         // 維持對照表中定義的順序
-        return Object.keys(LEAVE_TYPE_COLORS).filter(t => found.has(t))
+        return Object.keys(LEAVE_TYPE_COLORS).filter(name => found.has(name))
     }, [fullCalendarEvents])
 
     // 套用篩選
@@ -57,7 +59,7 @@ export function CalendarEventsTab({
         return (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                <div className="text-sm text-muted-foreground">載入中...</div>
+                <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
             </div>
         )
     }
@@ -67,14 +69,14 @@ export function CalendarEventsTab({
             <div className="text-center py-8 space-y-4">
                 <Calendar className="h-16 w-16 mx-auto text-muted-foreground" />
                 <div>
-                    <div className="font-medium">尚未連接 Google Calendar</div>
+                    <div className="font-medium">{t('hrPages.calendar.notConnected')}</div>
                     {isAdmin ? (
                         <div className="text-sm text-muted-foreground">
-                            請先在「連線狀態」分頁連接 Google Calendar
+                            {t('hrPages.calendar.events.connectInStatusTab')}
                         </div>
                     ) : (
                         <div className="text-sm text-muted-foreground">
-                            請聯繫系統管理員設定 Google Calendar 連接
+                            {t('hrPages.calendar.events.contactAdmin')}
                         </div>
                     )}
                 </div>
@@ -86,7 +88,7 @@ export function CalendarEventsTab({
         return (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                <div className="text-sm text-muted-foreground">載入事件中...</div>
+                <div className="text-sm text-muted-foreground">{t('hrPages.calendar.events.loadingEvents')}</div>
             </div>
         )
     }
@@ -105,7 +107,7 @@ export function CalendarEventsTab({
                                 : 'bg-background text-muted-foreground border-border hover:border-foreground'
                         }`}
                     >
-                        全部
+                        {t('hrPages.calendar.filterAll')}
                     </button>
                     {presentLeaveTypes.map(type => {
                         const color = LEAVE_TYPE_COLORS[type]
@@ -140,13 +142,13 @@ export function CalendarEventsTab({
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
                         <AlertTriangle className="h-12 w-12 text-destructive" />
                         <div className="text-center space-y-2">
-                            <div className="font-medium">日曆載入失敗</div>
+                            <div className="font-medium">{t('hrPages.calendar.loadFailed')}</div>
                             <div className="text-sm text-muted-foreground max-w-md">
-                                可能是瀏覽器環境限制，請重新整理頁面或聯繫系統管理員
+                                {t('hrPages.calendar.loadFailedHint')}
                             </div>
                         </div>
                         <Button variant="outline" onClick={() => window.location.reload()}>
-                            重新整理
+                            {t('hrPages.shared.action.refresh')}
                         </Button>
                     </div>
                 }
@@ -155,7 +157,7 @@ export function CalendarEventsTab({
                     fallback={
                         <div className="flex flex-col items-center justify-center py-12 gap-4">
                             <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                            <div className="text-sm text-muted-foreground">載入日曆中...</div>
+                            <div className="text-sm text-muted-foreground">{t('hrPages.calendar.loadingCalendar')}</div>
                         </div>
                     }
                 >

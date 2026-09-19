@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Clock } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,10 +26,11 @@ export function PendingApprovalsTabContent({
     isApproving,
     isRejecting,
 }: PendingApprovalsTabContentProps) {
+    const { t } = useTranslation()
     const columns: ColumnDef<OvertimeWithUser>[] = [
         {
             key: 'applicant',
-            header: '申請人',
+            header: t('hrPages.shared.col.applicant'),
             cell: (ot) => (
                 <div>
                     <div className="font-medium">{ot.user_name}</div>
@@ -38,30 +40,30 @@ export function PendingApprovalsTabContent({
         },
         {
             key: 'date',
-            header: '日期',
+            header: t('hrPages.shared.col.date'),
             cell: (ot) => (
                 <span className="whitespace-nowrap">{formatDate(ot.overtime_date)}</span>
             ),
         },
         {
             key: 'time',
-            header: '時間',
+            header: t('hrPages.shared.col.time'),
             cell: (ot) => `${ot.start_time} ~ ${ot.end_time}`,
         },
         {
             key: 'hours',
-            header: '加班時數',
-            cell: (ot) => `${parseDecimal(ot.hours).toFixed(1)} 小時`,
+            header: t('hrPages.overtime.hoursColumn'),
+            cell: (ot) => t('hrPages.shared.hoursValue', { hours: parseDecimal(ot.hours).toFixed(1) }),
         },
         {
             key: 'reason',
-            header: '事由',
+            header: t('hrPages.shared.col.reason'),
             className: 'max-w-[200px] whitespace-normal break-words',
             cell: (ot) => ot.reason,
         },
         {
             key: 'actions',
-            header: '操作',
+            header: t('common.actions'),
             className: 'text-right',
             // R72-2：僅當前使用者於此階段可核准（後端 can_approve）時才顯示核准/駁回鈕
             cell: (ot) => (
@@ -80,8 +82,8 @@ export function PendingApprovalsTabContent({
     return (
         <Card>
                 <CardHeader>
-                    <CardTitle>待審核加班</CardTitle>
-                    <CardDescription>您需要審核的加班申請</CardDescription>
+                    <CardTitle>{t('hrPages.overtime.pending.title')}</CardTitle>
+                    <CardDescription>{t('hrPages.overtime.pending.description')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <DataTable
@@ -89,7 +91,7 @@ export function PendingApprovalsTabContent({
                         data={pendingData?.data}
                         isLoading={isLoading}
                         emptyIcon={Clock}
-                        emptyTitle="沒有待審核的加班"
+                        emptyTitle={t('hrPages.overtime.pending.empty')}
                         rowKey={(row) => row.id}
                     />
                 </CardContent>

@@ -2,6 +2,7 @@ import { useDialogSet } from '@/hooks/useDialogSet'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { CheckCircle, FileText, Plus, Users } from 'lucide-react'
 
 import api from '@/lib/api'
@@ -14,10 +15,10 @@ import { GuestHide } from '@/components/ui/guest-hide'
 import { PageHeader } from '@/components/ui/page-header'
 import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
 import { toast } from '@/components/ui/use-toast'
-import { LEAVE_TYPE_NAMES } from '@/types/hr'
 import type { BalanceSummary, LeaveRequestWithUser, StaffInfo } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 
+import { leaveTypeLabel } from './constants'
 import { useLeaveRequestForm } from './hooks/useLeaveRequestForm'
 import { useLeaveMutations } from './hooks/useLeaveMutations'
 import { LeaveBalanceSummary } from './components/LeaveBalanceSummary'
@@ -27,6 +28,7 @@ import { LeavePendingApprovalsTab } from './components/LeavePendingApprovalsTab'
 import { AllLeaveRecordsTabContent } from './components/AllLeaveRecordsTabContent'
 
 export function HrLeavePage() {
+    const { t } = useTranslation()
     const dialogs = useDialogSet(['create'] as const)
     const currentUser = useAuthUser()
     const hasRole = useAuthHasRole()
@@ -92,31 +94,38 @@ export function HrLeavePage() {
     const handlePrefillLastLeave = () => {
         const last = myLeaves?.data?.[0]
         if (!last) {
-            toast({ title: '無歷史紀錄', description: '找不到之前的請假記錄', variant: 'destructive' })
+            toast({
+                title: t('hrPages.leaves.toast.noHistoryTitle'),
+                description: t('hrPages.leaves.toast.noHistoryDescription'),
+                variant: 'destructive',
+            })
             return
         }
         leaveForm.updateField('leaveType', last.leave_type)
         leaveForm.updateField('reason', last.reason ?? '')
         leaveForm.updateField('proxyUserId', last.proxy_user_id ?? '')
-        toast({ title: '已預填', description: `已套用上次「${LEAVE_TYPE_NAMES[last.leave_type] ?? last.leave_type}」假別資訊` })
+        toast({
+            title: t('hrPages.leaves.toast.prefilledTitle'),
+            description: t('hrPages.leaves.toast.prefilledDescription', { type: leaveTypeLabel(t, last.leave_type) }),
+        })
     }
 
     const handleCreateLeave = () => {
         if (!leaveForm.form.leaveType || !leaveForm.form.startDate || !leaveForm.form.endDate) {
-            toast({ title: '錯誤', description: '請填寫必填欄位', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('hrPages.leaves.validation.requiredFields'), variant: 'destructive' })
             return
         }
         if (!leaveForm.isAnnualLeave && !leaveForm.form.reason.trim()) {
-            toast({ title: '錯誤', description: '請填寫請假事由', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('hrPages.leaves.validation.reasonRequired'), variant: 'destructive' })
             return
         }
         if (!isDirector && (!leaveForm.form.proxyUserId || leaveForm.form.proxyUserId === '__none__')) {
-            toast({ title: '錯誤', description: '請選擇職務代理人', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('hrPages.leaves.validation.delegateRequired'), variant: 'destructive' })
             return
         }
         const hours = parseFloat(leaveForm.form.totalHours) || 0
         if (hours < 0.5) {
-            toast({ title: '錯誤', description: '請假時數至少 0.5 小時，且須為 0.5 的倍數', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('hrPages.leaves.validation.hoursMinimum'), variant: 'destructive' })
             return
         }
         mutations.createLeaveMutation.mutate(leaveForm.buildSubmitPayload())
@@ -125,13 +134,13 @@ export function HrLeavePage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="請假管理"
-                description="申請請假與查看假期餘額"
+                title={t('nav.hrLeaves')}
+                description={t('hrPages.leaves.page.description')}
                 actions={
                     <GuestHide>
                         <Button size="sm" onClick={() => dialogs.open('create')}>
                             <Plus className="h-4 w-4 mr-2" />
-                            新增請假
+                            {t('hrPages.leaves.page.addLeave')}
                         </Button>
                     </GuestHide>
                 }
@@ -152,9 +161,9 @@ export function HrLeavePage() {
 
             <PageTabs
                 tabs={[
-                    { value: 'my-leaves', label: '我的請假', icon: FileText },
-                    { value: 'approvals', label: '待我審核', icon: CheckCircle, badge: actionablePending?.length },
-                    { value: 'all-records', label: '請假紀錄', icon: Users, hidden: !canViewAll },
+                    { value: 'my-leaves', label: t('hrPages.leaves.tabs.myLeaves'), icon: FileText },
+                    { value: 'approvals', label: t('hrPages.shared.pendingMyReview'), icon: CheckCircle, badge: actionablePending?.length },
+                    { value: 'all-records', label: t('hrPages.leaves.tabs.allRecords'), icon: Users, hidden: !canViewAll },
                 ]}
                 defaultTab="my-leaves"
             >
@@ -176,22 +185,40 @@ export function HrLeavePage() {
                         onApprove={async (id) => {
                             // R72-2：核准前二次確認（已開啟確認框時忽略，避免並發覆寫狀態）
                             if (dialogState.open) return
-                            const ok = await confirm({ title: '確認核准請假', description: '確認核准此請假申請？', confirmLabel: '確認核准' })
+                            const ok = await confirm({
+                                title: t('hrPages.leaves.confirm.approveTitle'),
+                                description: t('hrPages.leaves.confirm.approveDescription'),
+                                confirmLabel: t('hrPages.shared.action.confirmApprove'),
+                            })
                             if (ok) mutations.approveLeaveMutation.mutate(id)
                         }}
                         onReject={async (id, reason) => {
                             if (dialogState.open) return
-                            const ok = await confirm({ title: '確認駁回請假', description: '確認駁回此請假申請？', variant: 'destructive', confirmLabel: '確認駁回' })
+                            const ok = await confirm({
+                                title: t('hrPages.leaves.confirm.rejectTitle'),
+                                description: t('hrPages.leaves.confirm.rejectDescription'),
+                                variant: 'destructive',
+                                confirmLabel: t('hrPages.shared.action.confirmReject'),
+                            })
                             if (ok) mutations.rejectLeaveMutation.mutate({ id, reason })
                         }}
                         onProxyConfirm={async (id) => {
                             if (dialogState.open) return
-                            const ok = await confirm({ title: '確認代理', description: '確認擔任此請假的職務代理人？確認後將送交主管審核。', confirmLabel: '確認代理' })
+                            const ok = await confirm({
+                                title: t('hrPages.shared.action.confirmDelegate'),
+                                description: t('hrPages.leaves.confirm.delegateDescription'),
+                                confirmLabel: t('hrPages.shared.action.confirmDelegate'),
+                            })
                             if (ok) mutations.proxyConfirmLeaveMutation.mutate(id)
                         }}
                         onProxyReject={async (id) => {
                             if (dialogState.open) return
-                            const ok = await confirm({ title: '退回申請', description: '退回此請假申請？申請將回到草稿，由申請人重新指定代理人。', variant: 'destructive', confirmLabel: '確認退回' })
+                            const ok = await confirm({
+                                title: t('hrPages.leaves.confirm.returnTitle'),
+                                description: t('hrPages.leaves.confirm.returnDescription'),
+                                variant: 'destructive',
+                                confirmLabel: t('hrPages.leaves.confirm.returnConfirm'),
+                            })
                             if (ok) mutations.proxyRejectLeaveMutation.mutate({ id })
                         }}
                         approvePending={mutations.approveLeaveMutation.isPending}

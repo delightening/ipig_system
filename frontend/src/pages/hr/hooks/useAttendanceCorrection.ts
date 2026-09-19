@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -16,6 +17,7 @@ import type { AttendanceBackfillRequest, AttendanceCorrectionRequest } from '@/t
  * 只把錯誤訊息原樣呈現；兩邊各判一次遲早會分歧。
  */
 export function useAttendanceCorrection() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
 
     const invalidateAttendance = () => {
@@ -31,12 +33,12 @@ export function useAttendanceCorrection() {
         },
         onSuccess: () => {
             invalidateAttendance()
-            toast({ title: '補卡成功', description: '已補登出勤記錄' })
+            toast({ title: t('hrPages.attendance.toast.backfillSuccess'), description: t('hrPages.attendance.toast.backfillSuccessDescription') })
         },
         onError: (error: unknown) => {
             toast({
-                title: '補卡失敗',
-                description: getApiErrorMessage(error, '請稍後再試'),
+                title: t('hrPages.attendance.toast.backfillFailed'),
+                description: getApiErrorMessage(error, t('hrPages.shared.tryAgainLater')),
                 variant: 'destructive',
             })
         },
@@ -49,12 +51,12 @@ export function useAttendanceCorrection() {
         },
         onSuccess: () => {
             invalidateAttendance()
-            toast({ title: '更正成功', description: '已更正出勤記錄' })
+            toast({ title: t('hrPages.attendance.toast.correctSuccess'), description: t('hrPages.attendance.toast.correctSuccessDescription') })
         },
         onError: (error: unknown) => {
             toast({
-                title: '更正失敗',
-                description: getApiErrorMessage(error, '請稍後再試'),
+                title: t('hrPages.attendance.toast.correctFailed'),
+                description: getApiErrorMessage(error, t('hrPages.shared.tryAgainLater')),
                 variant: 'destructive',
             })
         },

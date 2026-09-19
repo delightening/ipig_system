@@ -1,5 +1,7 @@
+import type { TFunction } from 'i18next'
+
 import { parseDecimal, uiLocale } from '@/lib/utils'
-import { LEAVE_STATUS_NAMES } from '@/types/hr'
+import { LEAVE_STATUS_NAMES, LEAVE_TYPE_NAMES } from '@/types/hr'
 import type { StatusVariant } from '@/components/ui/status-badge'
 
 export interface CreateOvertimeData {
@@ -10,22 +12,81 @@ export interface CreateOvertimeData {
     reason: string
 }
 
-export const OVERTIME_TYPE_NAMES: Record<string, string> = {
-    A: '平日加班',
-    B: '假日加班',
-    C: '國定假日加班',
-    D: '天災加班',
+// 加班類型／狀態的顯示文字：模組層只存 i18n 鍵（code → 鍵），渲染時才 t()，
+// 語言切換後才會跟著更新。code 本身（A/B/C/D、draft…）是送後端／比對用的值，不動。
+export const OVERTIME_TYPE_LABEL_KEYS: Record<string, string> = {
+    A: 'hrPages.shared.overtimeType.A',
+    B: 'hrPages.shared.overtimeType.B',
+    C: 'hrPages.shared.overtimeType.C',
+    D: 'hrPages.shared.overtimeType.D',
 }
 
-export const OVERTIME_STATUS_NAMES: Record<string, string> = {
-    draft: '草稿',
-    pending: '待審核',
-    pending_admin_staff: '待行政審核',
-    pending_admin: '待負責人審核',
-    approved: '已核准',
-    rejected: '已駁回',
-    cancelled: '已取消',
-    voided: '已作廢',
+export const OVERTIME_STATUS_LABEL_KEYS: Record<string, string> = {
+    draft: 'hrPages.shared.overtimeStatus.draft',
+    pending: 'hrPages.shared.overtimeStatus.pending',
+    pending_admin_staff: 'hrPages.shared.overtimeStatus.pending_admin_staff',
+    pending_admin: 'hrPages.shared.overtimeStatus.pending_admin',
+    approved: 'hrPages.shared.overtimeStatus.approved',
+    rejected: 'hrPages.shared.overtimeStatus.rejected',
+    cancelled: 'hrPages.shared.overtimeStatus.cancelled',
+    voided: 'hrPages.shared.overtimeStatus.voided',
+}
+
+/** 下拉選單用的 code 清單（順序沿用對照表定義） */
+export const OVERTIME_TYPE_CODES = Object.keys(OVERTIME_TYPE_LABEL_KEYS)
+export const OVERTIME_STATUS_CODES = Object.keys(OVERTIME_STATUS_LABEL_KEYS)
+
+export const overtimeTypeLabel = (t: TFunction, code: string): string => {
+    const key = OVERTIME_TYPE_LABEL_KEYS[code]
+    return key ? t(key) : code
+}
+
+export const overtimeStatusLabel = (t: TFunction, code: string): string => {
+    const key = OVERTIME_STATUS_LABEL_KEYS[code]
+    return key ? t(key) : code
+}
+
+// 假別／請假狀態：code 清單與「對照表沒收錄時的後備文字」仍取自 `@/types/hr`
+// （該檔不歸本頁管），顯示文字改走 i18n 鍵；日後 types 新增 code 而這裡還沒加鍵時，
+// 行為與改前相同（顯示 types 的名稱，再沒有就顯示 code）。
+const LEAVE_TYPE_LABEL_KEYS: Record<string, string> = {
+    ANNUAL: 'hrPages.shared.leaveType.ANNUAL',
+    PERSONAL: 'hrPages.shared.leaveType.PERSONAL',
+    SICK: 'hrPages.shared.leaveType.SICK',
+    COMPENSATORY: 'hrPages.shared.leaveType.COMPENSATORY',
+    MARRIAGE: 'hrPages.shared.leaveType.MARRIAGE',
+    BEREAVEMENT: 'hrPages.shared.leaveType.BEREAVEMENT',
+    MATERNITY: 'hrPages.shared.leaveType.MATERNITY',
+    PATERNITY: 'hrPages.shared.leaveType.PATERNITY',
+    MENSTRUAL: 'hrPages.shared.leaveType.MENSTRUAL',
+    OFFICIAL: 'hrPages.shared.leaveType.OFFICIAL',
+}
+
+const LEAVE_STATUS_LABEL_KEYS: Record<string, string> = {
+    DRAFT: 'hrPages.shared.leaveStatus.DRAFT',
+    PENDING_PROXY: 'hrPages.shared.leaveStatus.PENDING_PROXY',
+    PENDING_L1: 'hrPages.shared.leaveStatus.PENDING_L1',
+    PENDING_L2: 'hrPages.shared.leaveStatus.PENDING_L2',
+    PENDING_HR: 'hrPages.shared.leaveStatus.PENDING_HR',
+    PENDING_GM: 'hrPages.shared.leaveStatus.PENDING_GM',
+    PENDING_DIRECTOR: 'hrPages.shared.leaveStatus.PENDING_DIRECTOR',
+    APPROVED: 'hrPages.shared.leaveStatus.APPROVED',
+    REJECTED: 'hrPages.shared.leaveStatus.REJECTED',
+    CANCELLED: 'hrPages.shared.leaveStatus.CANCELLED',
+    REVOKED: 'hrPages.shared.leaveStatus.REVOKED',
+}
+
+export const LEAVE_TYPE_CODES = Object.keys(LEAVE_TYPE_NAMES)
+export const LEAVE_STATUS_CODES = Object.keys(LEAVE_STATUS_NAMES)
+
+export const leaveTypeLabel = (t: TFunction, code: string): string => {
+    const key = LEAVE_TYPE_LABEL_KEYS[code]
+    return key ? t(key) : (LEAVE_TYPE_NAMES[code] || code)
+}
+
+export const leaveStatusLabel = (t: TFunction, code: string): string => {
+    const key = LEAVE_STATUS_LABEL_KEYS[code]
+    return key ? t(key) : (LEAVE_STATUS_NAMES[code] || code)
 }
 
 /** Format date string to localized format */
@@ -63,9 +124,12 @@ export const calculateOvertimeHours = (start: string, end: string): number => {
 // ============================================
 
 /** 顯示請假時數（以 0.5 小時為單位，total_hours 優先） */
-export const formatLeaveHours = (leave: { total_hours?: number | string | null; total_days: number | string }): string => {
+export const formatLeaveHours = (
+    t: TFunction,
+    leave: { total_hours?: number | string | null; total_days: number | string },
+): string => {
     const hours = leave.total_hours != null ? parseDecimal(leave.total_hours) : parseDecimal(leave.total_days) * 8
-    return `${hours} 小時`
+    return t('hrPages.shared.hoursValue', { hours })
 }
 
 /**
@@ -77,8 +141,8 @@ export const formatLeaveHours = (leave: { total_hours?: number | string | null; 
 export { getWaitingDays as getLeaveWaitingDays, getWaitingDaysClass } from '@/lib/waitingDays'
 
 /** 取得請假狀態的 StatusBadge variant + label */
-export const getLeaveStatusVariant = (status: string): { variant: StatusVariant; label: string } => {
-    const label = LEAVE_STATUS_NAMES[status] || status
+export const getLeaveStatusVariant = (t: TFunction, status: string): { variant: StatusVariant; label: string } => {
+    const label = leaveStatusLabel(t, status)
     switch (status) {
         case 'APPROVED':
             return { variant: 'success', label }

@@ -5915,5 +5915,525 @@
       "iframeTitle": "Pen Status Report PDF Preview",
       "exporting": "Exporting…"
     }
+  },
+  "hrPages": {
+    "annualLeave": {
+      "addEntitlement": "Add Annual Leave Entitlement",
+      "balancesOf": "Annual Leave Entitlements of {{name}}",
+      "columns": {
+        "expiresAt": "Expiry Date",
+        "pendingDays": "Days Pending Compensation",
+        "staffName": "Staff Name",
+        "totalDays": "Total Days",
+        "used": "Used",
+        "usedDays": "Days Used",
+        "year": "Year"
+      },
+      "csvFilename": "Expired_Annual_Leave_Compensation_Report_{{date}}.csv",
+      "dialog": {
+        "creating": "Creating...",
+        "days": "Annual Leave Days",
+        "daysPlaceholder": "e.g., 7",
+        "daysPositive": "Annual leave days must be a positive number",
+        "daysRequired": "Please enter the number of annual leave days",
+        "description": "Create a new year's annual leave entitlement for a staff member. If a hire date is provided, the expiry date is calculated automatically as the hire anniversary + 2 years.",
+        "grantYear": "Grant Year",
+        "hireDate": "Hire Date (used to calculate the expiry date)",
+        "hireDateHint": "Expiry date = the hire anniversary in (grant year + 2). If left blank, the expiry date is December 31 of (grant year + 2).",
+        "notes": "Notes",
+        "selectStaff": "Select staff...",
+        "staff": "Staff",
+        "staffRequired": "Please select a staff member",
+        "yearMax": "The year cannot be later than 2100",
+        "yearMin": "The year cannot be earlier than 2020",
+        "yearRequired": "Please select a year"
+      },
+      "expiredReport": {
+        "description": "Lists all expired annual leave that still has remaining days, for the accounting department to process compensation",
+        "empty": "No expired annual leave pending compensation",
+        "exportCsv": "Export CSV",
+        "title": "Expired Annual Leave Compensation Report"
+      },
+      "expiryLabel": "Expires: {{date}}",
+      "noBalances": "This staff member has no annual leave entitlement records yet",
+      "page": {
+        "description": "Manage employee annual leave entitlements and view the expired-leave compensation report",
+        "title": "Annual Leave Entitlement Management"
+      },
+      "pendingShort": "Pending",
+      "remaining": "Remaining",
+      "searchPlaceholder": "Search by staff name or Email...",
+      "selectStaffDescription": "Select a staff member to view their annual leave entitlements and usage by year",
+      "selectStaffTitle": "Select a Staff Member to View Entitlements",
+      "stats": {
+        "internalStaff": "Internal Staff",
+        "pendingRecords": "Records Pending Compensation",
+        "pendingTotalDays": "Total Days Pending Compensation"
+      },
+      "status": {
+        "expired": "Expired",
+        "expiringSoon": "Expiring soon ({{days}} days)",
+        "valid": "Valid"
+      },
+      "tabs": {
+        "entitlements": "Staff Entitlements",
+        "expired": "Expired (Pending Compensation)"
+      },
+      "toast": {
+        "createFailed": "Creation failed",
+        "createSuccess": "Created successfully",
+        "createSuccessDescription": "Annual leave entitlement created",
+        "noDataToExport": "No data to export",
+        "reportDownloaded": "Report downloaded"
+      },
+      "totalUsed": "Total {{total}} / Used {{used}}",
+      "usedParen": "(Used {{used}})",
+      "yearLabel": "Year: {{year}}"
+    },
+    "attendance": {
+      "correction": {
+        "atLeastOneTime": "Enter at least one of clock-in or clock-out.",
+        "cannotClear": "Clearing an existing punch time is not supported; the system keeps the original value. Contact a system administrator if you need it cleared.",
+        "clockInTime": "Clock-In Time",
+        "clockOutTime": "Clock-Out Time",
+        "confirmBackfill": "Confirm Backfill",
+        "confirmCorrect": "Confirm Correction",
+        "descriptionBackfill": "Backfill a day that has no punch records at all. For a day that already has a record, use \"Correct\" on that row instead.",
+        "descriptionCorrect": "Edit the clock-in and clock-out times of an existing record. The original times are kept in the audit log and the hours are recalculated automatically.",
+        "noSelf": "You may not backfill or correct your own records.",
+        "reasonLabel": "Reason (at least {{count}} characters)",
+        "reasonPlaceholder": "e.g., Forgot to clock in; on a business trip without my phone",
+        "selectStaff": "Select staff",
+        "staff": "Staff",
+        "submitting": "Submitting...",
+        "titleBackfill": "Backfill Attendance Record",
+        "titleCorrect": "Correct Attendance Record"
+      },
+      "history": {
+        "backfill": "Add Missed Punch",
+        "clockIn": "Clock In",
+        "clockInShort": "In {{time}}",
+        "clockOut": "Clock Out",
+        "clockOutShort": "Out {{time}}",
+        "correctAria": "Correct the attendance record of {{name}} on {{date}}",
+        "corrected": "Corrected",
+        "empty": "No attendance records",
+        "exportExcel": "Export Excel",
+        "exporting": "Exporting...",
+        "overtimeShort": "Overtime {{hours}}",
+        "remark": "Remarks",
+        "viewAll": "View All Staff",
+        "workHoursShort": "Hours {{hours}}"
+      },
+      "monthly": {
+        "correctedDays": "Backfilled / Corrected Days",
+        "correctedShort": "Backfilled / corrected: {{days}} days",
+        "empty": "No attendance data for this month",
+        "exportDownloaded": "Monthly hours report downloaded",
+        "footnote": "\"Incomplete punch\" means a day with only a clock-in or only a clock-out record; the hours for those days are incomplete and they form the to-do list for punch corrections. Overtime hours come from approved overtime records and are calculated separately from total hours; the exported Excel file is split into two sheets, \"Regular Attendance\" and \"Overtime\". This report does not include late or early-leave counts: the system has no working-hours baseline yet, so those two figures would always be 0.",
+        "incompleteDays": "Incomplete Punch Days",
+        "incompleteShort": "Incomplete punches: {{days}} days",
+        "month": "Month",
+        "selectMonthFirst": "Please select a month first",
+        "total": "Total",
+        "totalOvertimeHours": "Total Overtime Hours",
+        "totalRegularHours": "Total Hours",
+        "workDays": "Days Worked"
+      },
+      "page": {
+        "description": "Clock in/out, punch corrections, and the monthly hours report",
+        "title": "Attendance Management"
+      },
+      "tabs": {
+        "history": "Attendance Records",
+        "monthly": "Monthly Hours Report",
+        "today": "Today's Clock-In"
+      },
+      "toast": {
+        "backfillFailed": "Backfill failed",
+        "backfillSuccess": "Backfill successful",
+        "backfillSuccessDescription": "Attendance record backfilled",
+        "clockFailed": "Clock-in/out failed",
+        "clockInTime": "Clock-in time: {{time}}",
+        "clockOutTime": "Clock-out time: {{time}}",
+        "clockSuccess": "Clock-in/out successful",
+        "correctFailed": "Correction failed",
+        "correctSuccess": "Correction successful",
+        "correctSuccessDescription": "Attendance record corrected",
+        "exportDownloaded": "Attendance records downloaded",
+        "geoFallback": "Please make sure you are connected to the office Wi-Fi or have allowed location access"
+      },
+      "today": {
+        "alreadyClocked": "Clocked",
+        "clockInButton": "Clock In",
+        "clockInLabel": "Clock-In Time",
+        "clockOutButton": "Clock Out",
+        "clockOutLabel": "Clock-Out Time",
+        "guestDemoTitle": "Not available in demo mode",
+        "overtimeHours": "Overtime Hours",
+        "regularHours": "Work Hours",
+        "statusDescription": "Today's attendance status"
+      }
+    },
+    "calendar": {
+      "conflicts": {
+        "acceptGoogle": "Accept Google",
+        "conflictType": "Conflict Type",
+        "detectedAt": "Detected At",
+        "difference": "Difference",
+        "differenceLine": "Difference: {{summary}}",
+        "dismiss": "Dismiss",
+        "employee": "Employee",
+        "empty": "No pending conflicts",
+        "keepIpig": "Keep iPig",
+        "pagination": "Page {{page}} of {{totalPages}} ({{total}} records)"
+      },
+      "conflictsDescription": "Data inconsistencies between the system and Google Calendar that need to be resolved manually",
+      "connect": {
+        "authEmail": "Authorized Email",
+        "authEmailHint": "A Google account with edit permission on the calendar",
+        "calendarIdHint": "Find the calendar ID in your Google Calendar settings",
+        "calendarIdPlaceholder": "e.g. <id>@group.calendar.google.com",
+        "description": "Enter the shared calendar ID and the authorized account Email",
+        "submit": "Connect",
+        "title": "Connect Google Calendar"
+      },
+      "connection": {
+        "description": "Connect to the shared Google Calendar to sync leave events",
+        "title": "Connection Settings"
+      },
+      "events": {
+        "connectInStatusTab": "Please connect Google Calendar in the \"Connection Status\" tab first",
+        "contactAdmin": "Please contact a system administrator to set up the Google Calendar connection",
+        "description": "Events read from the connected Google Calendar",
+        "loadingEvents": "Loading events...",
+        "title": "Google Calendar Events"
+      },
+      "filterAll": "All",
+      "history": {
+        "automatic": "Automatic",
+        "completed": "Completed",
+        "completedWithErrors": "Completed with Errors",
+        "conflicts": "Conflicts",
+        "duration": "Duration",
+        "empty": "No sync records",
+        "manual": "Manual",
+        "running": "Running"
+      },
+      "historyTitle": "Sync History Log",
+      "leaveCalendarDescription": "Who is out on which days and who covers for them. Includes requests under review (dashed border).",
+      "leaveTab": {
+        "departmentScope": "Showing only your department and adjacent levels",
+        "empty": "No leave records in this period",
+        "emptyForType": "No {{type}} records in this period",
+        "emptyMine": "No leave requested by you, or that you are covering as a delegate, in this period",
+        "loadError": "Unable to load leave data",
+        "loadErrorHint": "This does not mean nobody is on leave in this period. Please retry, and contact a system administrator if it keeps failing.",
+        "loading": "Loading leave data...",
+        "pendingLegend": "Dashed = under review ({{count}})",
+        "scopeAll": "Everyone",
+        "scopeMine": "Related to Me"
+      },
+      "loadFailed": "Failed to load the calendar",
+      "loadFailedHint": "This may be caused by a browser restriction. Please refresh the page or contact a system administrator.",
+      "loadingCalendar": "Loading calendar...",
+      "notConnected": "Google Calendar is not connected",
+      "page": {
+        "description": "Leave and delegate status; administrators can also manage Google Calendar sync",
+        "syncNow": "Sync Now"
+      },
+      "pendingConflicts": "Pending Conflicts",
+      "status": {
+        "autoOff": "Auto Sync Off",
+        "autoOn": "Auto Sync On",
+        "autoSettings": "Auto Sync Settings",
+        "connected": "Connected",
+        "disconnect": "Disconnect",
+        "enableAuto": "Enable Auto Sync",
+        "enableAutoDescription": "Automatically sync leave events to Google Calendar on a schedule",
+        "eveningHint": "Leave blank to disable the evening sync",
+        "eveningTime": "Evening Sync Time",
+        "failed": "Failed",
+        "lastSync": "Last Sync",
+        "loadingSettings": "Loading settings...",
+        "morningHint": "Leave blank to disable the morning sync",
+        "morningTime": "Morning Sync Time",
+        "needsManual": "Needs manual resolution",
+        "neverSynced": "Not synced yet",
+        "nextSync": "Next sync: {{time}}",
+        "notConnectedDescription": "Once connected, approved leave events sync automatically to the shared calendar",
+        "partial": "Partial",
+        "pendingSyncs": "Events Pending Sync",
+        "recentErrors": "{{count}} sync errors in the past 24 hours. See \"Sync History\" for details.",
+        "saveSettings": "Save Settings",
+        "syncStatus": "Sync Status"
+      },
+      "tabs": {
+        "conflicts": "Conflicts",
+        "google": "Google Calendar",
+        "history": "Sync History",
+        "leaveCalendar": "Leave Calendar",
+        "status": "Connection Status"
+      },
+      "view": {
+        "allDayRange": "{{range}} (All day)",
+        "delegate": "Delegate: {{name}}",
+        "notYetConfirmed": "(not yet confirmed)",
+        "openInGoogle": "Open in Google Calendar →",
+        "totalHours": "({{hours}} total)"
+      }
+    },
+    "leaves": {
+      "approver": {
+        "delegate": "Delegate",
+        "director": "Director",
+        "reviewer": "Reviewer",
+        "unitSupervisor": "Unit Supervisor"
+      },
+      "approverLabel": "{{label}}: ",
+      "balance": {
+        "annualRemaining": "Annual Leave Remaining",
+        "annualUsed": "Used {{used}} / {{total}} days",
+        "compRemaining": "Comp Leave Remaining",
+        "compUsed": "Used {{hours}} hrs",
+        "expiringAnnual": "Expiring Soon (Annual Leave)",
+        "expiringComp": "Expiring Soon (Comp Leave)",
+        "within30Days": "Expires within 30 days"
+      },
+      "confirm": {
+        "approveDescription": "Approve this leave request?",
+        "approveTitle": "Confirm Leave Approval",
+        "delegateDescription": "Confirm that you will act as the delegate for this leave request? It will then be sent to the supervisor for review.",
+        "rejectDescription": "Reject this leave request?",
+        "rejectTitle": "Confirm Leave Rejection",
+        "returnConfirm": "Confirm Return",
+        "returnDescription": "Return this leave request? It will go back to draft so the applicant can choose a new delegate.",
+        "returnTitle": "Return Request"
+      },
+      "create": {
+        "attachmentAlt": "Attachment {{index}}",
+        "attachments": "Attachment Images",
+        "attachmentsHint": "You can upload medical certificates, supporting documents, etc.",
+        "delegate": "Delegate",
+        "delegateHint": "A delegate covers your duties while you are on leave. They will be notified once you submit.",
+        "delegateHintDirector": "A delegate covers your duties while you are on leave. If none is assigned, the request is filed as report-only, approved immediately, and deducted from your leave balance.",
+        "delegatePlaceholder": "Select a delegate...",
+        "delegatePlaceholderDirector": "Select a delegate, or leave unassigned...",
+        "description": "Fill in the leave details and submit for review",
+        "hoursHint": "(in 0.5-hour units)",
+        "imageUploadFailed": "Image upload failed",
+        "imageUploaded": "Image uploaded",
+        "leaveTypePlaceholder": "Select leave type",
+        "noDelegate": "None (report-only)",
+        "prefillLast": "Prefill from Last Request",
+        "reason": "Reason for Leave",
+        "reasonPlaceholder": "Please explain the reason for leave...",
+        "reasonPlaceholderOptional": "Optional; you may leave this blank...",
+        "title": "New Leave Request"
+      },
+      "mine": {
+        "empty": "No leave records"
+      },
+      "page": {
+        "addLeave": "New Leave Request",
+        "description": "Apply for leave and view leave balances"
+      },
+      "pending": {
+        "description": "Leave requests you need to review, or confirm as a delegate",
+        "empty": "No leave requests pending review"
+      },
+      "records": {
+        "allLeaveTypes": "All Leave Types",
+        "description": "View leave data for all employees",
+        "empty": "No leave records match the filters",
+        "title": "All Leave Records"
+      },
+      "submittedAtLabel": "Submitted: {{time}}",
+      "tabs": {
+        "allRecords": "Leave Records",
+        "myLeaves": "My Leave"
+      },
+      "toast": {
+        "cancelled": "Leave request cancelled",
+        "created": "Leave request created",
+        "delegateConfirmed": "Delegation confirmed; the request has moved on to review",
+        "noHistoryDescription": "No previous leave request was found",
+        "noHistoryTitle": "No history",
+        "prefilledDescription": "Applied the details of your last \"{{type}}\" request",
+        "prefilledTitle": "Prefilled",
+        "rejected": "The leave request was rejected",
+        "returned": "Returned to the applicant to choose a new delegate",
+        "returnedTitle": "Returned"
+      },
+      "validation": {
+        "delegateRequired": "Please select a delegate",
+        "hoursMinimum": "Leave must be at least 0.5 hours, in multiples of 0.5",
+        "reasonRequired": "Please enter the reason for leave",
+        "requiredFields": "Please fill in the required fields"
+      },
+      "waitedDays": "Waiting <w>{{days}} days</w>"
+    },
+    "overtime": {
+      "confirm": {
+        "approveDescription": "Approve this overtime request?",
+        "approveTitle": "Confirm Overtime Approval",
+        "rejectDescription": "Reject this overtime request?",
+        "rejectTitle": "Confirm Overtime Rejection"
+      },
+      "create": {
+        "button": "New Overtime",
+        "date": "Overtime Date",
+        "dateRequired": "Please select the overtime date",
+        "description": "Fill in the overtime details and submit for review",
+        "endTime": "End Time",
+        "endTimeAfterStart": "End time must be later than start time (overnight shifts are not supported)",
+        "endTimeRequired": "Please select an end time",
+        "estimatedCompHours": "Estimated Comp Leave Hours",
+        "estimatedHours": "Estimated Overtime Hours",
+        "reason": "Overtime Reason",
+        "reasonPlaceholder": "Please explain the reason for the overtime...",
+        "reasonRequired": "Please enter the reason for the overtime",
+        "reasonTooLong": "The overtime reason cannot exceed 500 characters",
+        "startTime": "Start Time",
+        "startTimeRequired": "Please select a start time",
+        "title": "New Overtime Request"
+      },
+      "hoursColumn": "Overtime Hours",
+      "mine": {
+        "empty": "No overtime records"
+      },
+      "page": {
+        "description": "Apply for overtime and accrue comp leave hours"
+      },
+      "pending": {
+        "description": "Overtime requests awaiting your review",
+        "empty": "No overtime requests pending review",
+        "title": "Overtime Pending Review"
+      },
+      "records": {
+        "compShort": "(Comp {{hours}})",
+        "description": "View overtime data for all employees",
+        "empty": "No overtime records match the filters",
+        "reasonLine": "Reason: {{reason}}",
+        "title": "All Overtime Records",
+        "voidReason": "Void reason: {{reason}}"
+      },
+      "tabs": {
+        "allRecords": "Overtime Records",
+        "myOvertime": "My Overtime"
+      },
+      "toast": {
+        "created": "Overtime request created",
+        "deleted": "Overtime request deleted",
+        "rejected": "The overtime request was rejected",
+        "voidFailed": "Void failed",
+        "voided": "The overtime request was voided and the comp leave balance was reclaimed",
+        "voidedTitle": "Voided"
+      },
+      "type": "Overtime Type",
+      "void": {
+        "actionNoun": "voiding",
+        "button": "Void",
+        "description": "Once voided, this overtime request is no longer in effect and any comp leave already granted will be reclaimed. The original record is kept and will not be deleted.",
+        "title": "Void Overtime Request"
+      }
+    },
+    "shared": {
+      "action": {
+        "approve": "Approve",
+        "confirmApprove": "Confirm Approval",
+        "confirmDelegate": "Confirm Delegation",
+        "confirmReject": "Confirm Rejection",
+        "create": "Create",
+        "refresh": "Refresh",
+        "reject": "Reject",
+        "return": "Return",
+        "submit": "Submit"
+      },
+      "attendanceStatus": {
+        "absent": "Absent",
+        "early_leave": "Left Early",
+        "late": "Late",
+        "normal": "Normal"
+      },
+      "col": {
+        "applicant": "Applicant",
+        "compLeave": "Comp Leave",
+        "date": "Date",
+        "hours": "Hours",
+        "leaveType": "Leave Type",
+        "reason": "Reason",
+        "staffName": "Staff Name",
+        "status": "Status",
+        "submittedAt": "Submitted At",
+        "time": "Time",
+        "type": "Type"
+      },
+      "daysValue": "{{days}} days",
+      "filter": {
+        "allStaff": "All Staff",
+        "allTypes": "All Types",
+        "endDate": "End Date",
+        "filterStaff": "Filter by Staff",
+        "fromDate": "From Date",
+        "startDate": "Start Date"
+      },
+      "hoursValue": "{{hours}} hrs",
+      "leaveStatus": {
+        "APPROVED": "Approved",
+        "CANCELLED": "Cancelled",
+        "DRAFT": "Draft",
+        "PENDING_DIRECTOR": "Pending Director Approval",
+        "PENDING_GM": "Pending General Manager Approval",
+        "PENDING_HR": "Pending Administrative Review",
+        "PENDING_L1": "Pending Supervisor Review",
+        "PENDING_L2": "Pending Second-Level Review",
+        "PENDING_PROXY": "Pending Delegate Confirmation",
+        "REJECTED": "Rejected",
+        "REVOKED": "Leave Revoked"
+      },
+      "leaveType": {
+        "ANNUAL": "Annual Leave",
+        "BEREAVEMENT": "Bereavement Leave",
+        "COMPENSATORY": "Compensatory Leave",
+        "MARRIAGE": "Marriage Leave",
+        "MATERNITY": "Maternity Leave",
+        "MENSTRUAL": "Menstrual Leave",
+        "OFFICIAL": "Official Leave",
+        "PATERNITY": "Paternity Leave",
+        "PERSONAL": "Personal Leave",
+        "SICK": "Sick Leave"
+      },
+      "noApprovalPermission": "No approval permission",
+      "optional": "Optional",
+      "optionalParen": "(Optional)",
+      "overtimeStatus": {
+        "approved": "Approved",
+        "cancelled": "Cancelled",
+        "draft": "Draft",
+        "pending": "Pending Review",
+        "pending_admin": "Pending Director Review",
+        "pending_admin_staff": "Pending Administrative Review",
+        "rejected": "Rejected",
+        "voided": "Voided"
+      },
+      "overtimeType": {
+        "A": "Weekday Overtime",
+        "B": "Rest Day Overtime",
+        "C": "National Holiday Overtime",
+        "D": "Natural Disaster Overtime"
+      },
+      "pendingMyReview": "Pending My Review",
+      "saving": "Saving...",
+      "toast": {
+        "approved": "Approved",
+        "createFailed": "Creation failed",
+        "rejectedTitle": "Rejected",
+        "submittedForReview": "Submitted for review"
+      },
+      "totalRecords": "{{count}} records in total",
+      "tryAgainLater": "Please try again later",
+      "yearValue": "{{year}}"
+    }
   }
 }

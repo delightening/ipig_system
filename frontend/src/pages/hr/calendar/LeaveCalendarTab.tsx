@@ -6,6 +6,7 @@
  * 依觀看者的部門與代理關係決定（見 services/hr/leave_calendar.rs）。
  */
 import { lazy, Suspense, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CalendarOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
@@ -22,7 +23,14 @@ interface LeaveCalendarTabProps {
     isActive: boolean
 }
 
+/** 範圍切換的選項：value 是篩選狀態值，labelKey 是顯示文字的 i18n 鍵（渲染時才 t()） */
+const SCOPE_OPTIONS = [
+    { value: 'all', labelKey: 'hrPages.calendar.leaveTab.scopeAll' },
+    { value: 'mine', labelKey: 'hrPages.calendar.leaveTab.scopeMine' },
+] as const
+
 export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
+    const { t } = useTranslation()
     const [scopeFilter, setScopeFilter] = useState<LeaveCalendarFilter>('all')
     const [activeType, setActiveType] = useState<string | null>(null)
 
@@ -36,7 +44,7 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
             const type = getLeaveType(e.title)
             if (type) found.add(type)
         }
-        return Object.keys(LEAVE_TYPE_COLORS).filter(t => found.has(t))
+        return Object.keys(LEAVE_TYPE_COLORS).filter(name => found.has(name))
     }, [events])
 
     const visibleEvents = useMemo(
@@ -55,7 +63,7 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
         return (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                <div className="text-sm text-muted-foreground">載入請假資料中...</div>
+                <div className="text-sm text-muted-foreground">{t('hrPages.calendar.leaveTab.loading')}</div>
             </div>
         )
     }
@@ -68,13 +76,13 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
             <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <AlertTriangle className="h-12 w-12 text-destructive" />
                 <div className="text-center space-y-1">
-                    <div className="font-medium">無法載入請假資料</div>
+                    <div className="font-medium">{t('hrPages.calendar.leaveTab.loadError')}</div>
                     <div className="text-sm text-muted-foreground max-w-md">
-                        這不代表這段期間沒有人請假——請重試，若持續失敗請聯繫系統管理員。
+                        {t('hrPages.calendar.leaveTab.loadErrorHint')}
                     </div>
                 </div>
                 <Button variant="outline" onClick={() => void refetch()}>
-                    重試
+                    {t('common.retry')}
                 </Button>
             </div>
         )
@@ -85,12 +93,7 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
             {/* 範圍切換 + 圖例 */}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                    {(
-                        [
-                            { value: 'all', label: '全場' },
-                            { value: 'mine', label: '與我相關' },
-                        ] as const
-                    ).map(opt => (
+                    {SCOPE_OPTIONS.map(opt => (
                         <button
                             key={opt.value}
                             type="button"
@@ -102,12 +105,12 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
                                     : 'bg-background text-muted-foreground border-border hover:border-foreground'
                             }`}
                         >
-                            {opt.label}
+                            {t(opt.labelKey)}
                         </button>
                     ))}
                     {scope === 'department' && (
                         <span className="text-xs text-muted-foreground">
-                            僅顯示您所屬部門與相鄰層級
+                            {t('hrPages.calendar.leaveTab.departmentScope')}
                         </span>
                     )}
                 </div>
@@ -119,7 +122,7 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
                             className="inline-block h-3 w-5 rounded-sm border-[1.5px] border-dashed border-muted-foreground"
                             aria-hidden="true"
                         />
-                        虛線 = 審核中（{pendingCount} 筆）
+                        {t('hrPages.calendar.leaveTab.pendingLegend', { count: pendingCount })}
                     </div>
                 )}
             </div>
@@ -136,7 +139,7 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
                                 : 'bg-background text-muted-foreground border-border hover:border-foreground'
                         }`}
                     >
-                        全部
+                        {t('hrPages.calendar.filterAll')}
                     </button>
                     {presentTypes.map(type => {
                         const color = LEAVE_TYPE_COLORS[type]
@@ -170,10 +173,10 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
                     <CalendarOff className="h-14 w-14 mx-auto text-muted-foreground" />
                     <div className="text-sm text-muted-foreground">
                         {activeType
-                            ? `這段期間沒有${activeType}的紀錄`
+                            ? t('hrPages.calendar.leaveTab.emptyForType', { type: activeType })
                             : scopeFilter === 'mine'
-                              ? '這段期間沒有您請的假或需要您代理的假'
-                              : '這段期間沒有請假紀錄'}
+                              ? t('hrPages.calendar.leaveTab.emptyMine')
+                              : t('hrPages.calendar.leaveTab.empty')}
                     </div>
                 </div>
             ) : (
@@ -182,13 +185,13 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
                         <div className="flex flex-col items-center justify-center py-12 gap-4">
                             <AlertTriangle className="h-12 w-12 text-destructive" />
                             <div className="text-center space-y-2">
-                                <div className="font-medium">日曆載入失敗</div>
+                                <div className="font-medium">{t('hrPages.calendar.loadFailed')}</div>
                                 <div className="text-sm text-muted-foreground max-w-md">
-                                    可能是瀏覽器環境限制，請重新整理頁面或聯繫系統管理員
+                                    {t('hrPages.calendar.loadFailedHint')}
                                 </div>
                             </div>
                             <Button variant="outline" onClick={() => window.location.reload()}>
-                                重新整理
+                                {t('hrPages.shared.action.refresh')}
                             </Button>
                         </div>
                     }
@@ -197,7 +200,7 @@ export function LeaveCalendarTab({ isActive }: LeaveCalendarTabProps) {
                         fallback={
                             <div className="flex flex-col items-center justify-center py-12 gap-4">
                                 <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                                <div className="text-sm text-muted-foreground">載入日曆中...</div>
+                                <div className="text-sm text-muted-foreground">{t('hrPages.calendar.loadingCalendar')}</div>
                             </div>
                         }
                     >

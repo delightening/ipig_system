@@ -3,6 +3,8 @@
  * 避免在未設定日曆時載入 FullCalendar，防止 cssRules 等錯誤
  */
 import { useState, useRef, useEffect } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import 'temporal-polyfill/global'
 import FullCalendar from '@fullcalendar/react'
 import monarchThemePlugin from '@fullcalendar/react/themes/monarch'
@@ -70,14 +72,16 @@ function formatTime(dateStr: string) {
 }
 
 /** 格式化 popover 的時間顯示 */
-function formatPopoverTime(start: string, end: string, allDay: boolean): string {
+function formatPopoverTime(t: TFunction, start: string, end: string, allDay: boolean): string {
     try {
         if (allDay) {
             const startDate = formatDate(start)
             // FullCalendar 全天事件的 end 是「下一天」，需減一天顯示
             const endMs = new Date(end).getTime() - 86400000
             const endDate = formatDate(new Date(endMs).toISOString())
-            return startDate === endDate ? `${startDate}（全天）` : `${startDate} – ${endDate}（全天）`
+            return t('hrPages.calendar.view.allDayRange', {
+                range: startDate === endDate ? startDate : `${startDate} – ${endDate}`,
+            })
         }
         const startFmt = `${formatDate(start)} ${formatTime(start)}`
         const endFmt = `${formatDate(end)} ${formatTime(end)}`
@@ -92,6 +96,7 @@ function formatPopoverTime(start: string, end: string, allDay: boolean): string 
 }
 
 export function CalendarView({ events, onDatesSet, isFetching = false }: CalendarViewProps) {
+    const { t, i18n } = useTranslation()
     const [popover, setPopover] = useState<EventPopover | null>(null)
     const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -153,7 +158,8 @@ export function CalendarView({ events, onDatesSet, isFetching = false }: Calenda
                     right: 'dayGridMonth,timeGridWeek,timeGridDay',
                 }}
                 locales={[zhTwLocale]}
-                locale="zh-tw"
+                // 英文是 FullCalendar 內建語系（不需註冊）；工具列／星期／月份文字隨 UI 語言切換
+                locale={i18n.language?.startsWith('en') ? 'en' : 'zh-tw'}
                 events={events}
                 datesSet={onDatesSet}
                 eventClick={handleEventClick}
@@ -211,10 +217,10 @@ export function CalendarView({ events, onDatesSet, isFetching = false }: Calenda
                         {/* 代理人 */}
                         {popover.agentName && (
                             <div className="text-xs text-muted-foreground">
-                                代理：{popover.agentName}
+                                {t('hrPages.calendar.view.delegate', { name: popover.agentName })}
                                 {popover.proxyConfirmed === false && (
                                     <span className="ml-1 text-amber-600 dark:text-amber-400">
-                                        （尚未確認）
+                                        {t('hrPages.calendar.view.notYetConfirmed')}
                                     </span>
                                 )}
                             </div>
@@ -223,8 +229,8 @@ export function CalendarView({ events, onDatesSet, isFetching = false }: Calenda
                         {/* 時間。不足整日的假沒有起訖時段可畫，只能把時數標出來，
                             否則半天假與整天假在 popover 上長得一模一樣 */}
                         <div className="text-xs text-muted-foreground">
-                            {formatPopoverTime(popover.start, popover.end, popover.allDay)}
-                            {popover.hours && <span className="ml-1">（共 {popover.hours}）</span>}
+                            {formatPopoverTime(t, popover.start, popover.end, popover.allDay)}
+                            {popover.hours && <span className="ml-1">{t('hrPages.calendar.view.totalHours', { hours: popover.hours })}</span>}
                         </div>
 
                         {/* 地點 */}
@@ -251,7 +257,7 @@ export function CalendarView({ events, onDatesSet, isFetching = false }: Calenda
                                     rel="noopener noreferrer"
                                     className="text-xs text-primary hover:underline"
                                 >
-                                    在 Google Calendar 中開啟 →
+                                    {t('hrPages.calendar.view.openInGoogle')}
                                 </a>
                             )}
                             <button
@@ -259,7 +265,7 @@ export function CalendarView({ events, onDatesSet, isFetching = false }: Calenda
                                 onClick={() => setPopover(null)}
                                 className="text-xs text-muted-foreground hover:text-foreground"
                             >
-                                關閉
+                                {t('common.closeDialog')}
                             </button>
                         </div>
                     </div>

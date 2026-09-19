@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { CheckCircle, Clock, Users } from 'lucide-react'
 
 import api from '@/lib/api'
@@ -19,6 +20,7 @@ import { useMyOvertime, usePendingOvertime, useOvertimeMutations } from './hooks
 import type { CreateOvertimeData } from './constants'
 
 export function HrOvertimePage() {
+    const { t } = useTranslation()
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const hasPermission = useAuthHasPermission()
     const isAdmin = useAuthIsAdmin()
@@ -61,8 +63,8 @@ export function HrOvertimePage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="加班管理"
-                description="申請加班與累積補休時數"
+                title={t('nav.hrOvertime')}
+                description={t('hrPages.overtime.page.description')}
                 actions={
                     <GuestHide>
                         <CreateOvertimeDialog
@@ -77,9 +79,9 @@ export function HrOvertimePage() {
 
             <PageTabs
                 tabs={[
-                    { value: 'my-overtime', label: '我的加班', icon: Clock },
-                    { value: 'approvals', label: '待我審核', icon: CheckCircle, badge: pendingOvertime?.total },
-                    { value: 'all-records', label: '加班紀錄', icon: Users, hidden: !canViewAll },
+                    { value: 'my-overtime', label: t('hrPages.overtime.tabs.myOvertime'), icon: Clock },
+                    { value: 'approvals', label: t('hrPages.shared.pendingMyReview'), icon: CheckCircle, badge: pendingOvertime?.total },
+                    { value: 'all-records', label: t('hrPages.overtime.tabs.allRecords'), icon: Users, hidden: !canViewAll },
                 ]}
                 defaultTab="my-overtime"
             >
@@ -101,12 +103,21 @@ export function HrOvertimePage() {
                         onApprove={async (id) => {
                             // R72-2：核准前二次確認（已開啟確認框時忽略，避免並發覆寫狀態）
                             if (dialogState.open) return
-                            const ok = await confirm({ title: '確認核准加班', description: '確認核准此加班申請？', confirmLabel: '確認核准' })
+                            const ok = await confirm({
+                                title: t('hrPages.overtime.confirm.approveTitle'),
+                                description: t('hrPages.overtime.confirm.approveDescription'),
+                                confirmLabel: t('hrPages.shared.action.confirmApprove'),
+                            })
                             if (ok) approveOvertime.mutate(id)
                         }}
                         onReject={async (id, reason) => {
                             if (dialogState.open) return
-                            const ok = await confirm({ title: '確認駁回加班', description: '確認駁回此加班申請？', variant: 'destructive', confirmLabel: '確認駁回' })
+                            const ok = await confirm({
+                                title: t('hrPages.overtime.confirm.rejectTitle'),
+                                description: t('hrPages.overtime.confirm.rejectDescription'),
+                                variant: 'destructive',
+                                confirmLabel: t('hrPages.shared.action.confirmReject'),
+                            })
                             if (ok) rejectOvertime.mutate({ id, reason })
                         }}
                         isApproving={approveOvertime.isPending}

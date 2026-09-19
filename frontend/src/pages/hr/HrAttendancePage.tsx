@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { BarChart3, Calendar, Clock } from 'lucide-react'
 
 import api from '@/lib/api'
@@ -17,6 +18,7 @@ import { MonthlyReportTab } from './components/MonthlyReportTab'
 import { useAttendanceMutations, prewarmGpsPosition } from './hooks/useAttendanceMutations'
 
 export function HrAttendancePage() {
+    const { t } = useTranslation()
     // 進頁面即預熱定位，使用者按打卡時可重用快取、近乎瞬間送出（打卡延遲修復）
     useEffect(() => {
         prewarmGpsPosition()
@@ -57,13 +59,13 @@ export function HrAttendancePage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader title="出勤管理" description="打卡、補卡與工時月報" />
+            <PageHeader title={t('hrPages.attendance.page.title')} description={t('hrPages.attendance.page.description')} />
 
             <PageTabs
                 tabs={[
-                    { value: 'today', label: '今日打卡', icon: Clock },
-                    { value: 'history', label: '出勤記錄', icon: Calendar },
-                    { value: 'monthly', label: '工時月報', icon: BarChart3, hidden: !canViewMonthly },
+                    { value: 'today', label: t('hrPages.attendance.tabs.today'), icon: Clock },
+                    { value: 'history', label: t('hrPages.attendance.tabs.history'), icon: Calendar },
+                    { value: 'monthly', label: t('hrPages.attendance.tabs.monthly'), icon: BarChart3, hidden: !canViewMonthly },
                 ]}
                 defaultTab="today"
             >

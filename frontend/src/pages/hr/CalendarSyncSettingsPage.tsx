@@ -14,6 +14,7 @@ import {
     Settings,
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthIsAdmin } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -44,6 +45,7 @@ const DEFAULT_TAB = 'leave-calendar'
 const ADMIN_ONLY_TABS = ['calendar', 'history', 'conflicts', 'status'] as const
 
 export function CalendarSyncSettingsPage() {
+    const { t } = useTranslation()
     const [searchParams] = useSearchParams()
     const requestedTab = searchParams.get('tab') ?? DEFAULT_TAB
 
@@ -106,8 +108,8 @@ export function CalendarSyncSettingsPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="行事曆"
-                description="請假與代理狀況；管理員另可管理 Google Calendar 同步"
+                title={t('nav.hrCalendar')}
+                description={t('hrPages.calendar.page.description')}
                 actions={isConfigured && canViewCalendarConfig ? (
                     <Button
                         size="sm"
@@ -115,7 +117,7 @@ export function CalendarSyncSettingsPage() {
                         disabled={syncMutation.isPending}
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                        立即同步
+                        {t('hrPages.calendar.page.syncNow')}
                     </Button>
                 ) : undefined}
             />
@@ -124,11 +126,11 @@ export function CalendarSyncSettingsPage() {
                 一律收在 isAdmin 後面；員工只留「請假行事曆」。 */}
             <PageTabs
                 tabs={[
-                    { value: 'leave-calendar', label: '請假行事曆', icon: CalendarRange, hidden: !canViewLeaveCalendar },
-                    { value: 'calendar', label: 'Google 日曆', icon: CalendarDays, hidden: !isAdmin },
-                    { value: 'history', label: '同步歷史', icon: Clock, hidden: !isAdmin },
-                    { value: 'conflicts', label: '衝突處理', icon: AlertTriangle, badge: conflicts?.total, hidden: !isAdmin },
-                    { value: 'status', label: '連線狀態', icon: Settings, hidden: !isAdmin },
+                    { value: 'leave-calendar', label: t('hrPages.calendar.tabs.leaveCalendar'), icon: CalendarRange, hidden: !canViewLeaveCalendar },
+                    { value: 'calendar', label: t('hrPages.calendar.tabs.google'), icon: CalendarDays, hidden: !isAdmin },
+                    { value: 'history', label: t('hrPages.calendar.tabs.history'), icon: Clock, hidden: !isAdmin },
+                    { value: 'conflicts', label: t('hrPages.calendar.tabs.conflicts'), icon: AlertTriangle, badge: conflicts?.total, hidden: !isAdmin },
+                    { value: 'status', label: t('hrPages.calendar.tabs.status'), icon: Settings, hidden: !isAdmin },
                 ]}
                 defaultTab={canViewLeaveCalendar ? DEFAULT_TAB : 'calendar'}
             >
@@ -137,9 +139,9 @@ export function CalendarSyncSettingsPage() {
                     <PageTabContent value="leave-calendar" className="space-y-4">
                         <Card>
                             <CardHeader>
-                                <CardTitle>請假行事曆</CardTitle>
+                                <CardTitle>{t('hrPages.calendar.tabs.leaveCalendar')}</CardTitle>
                                 <CardDescription>
-                                    誰哪幾天不在、由誰代理。含審核中的假單（虛線框）。
+                                    {t('hrPages.calendar.leaveCalendarDescription')}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -153,9 +155,9 @@ export function CalendarSyncSettingsPage() {
                 <PageTabContent value="status" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>連線設定</CardTitle>
+                            <CardTitle>{t('hrPages.calendar.connection.title')}</CardTitle>
                             <CardDescription>
-                                連接到共用的 Google Calendar 以同步請假事件
+                                {t('hrPages.calendar.connection.description')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -178,9 +180,9 @@ export function CalendarSyncSettingsPage() {
                 <PageTabContent value="calendar" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Google Calendar 事件</CardTitle>
+                            <CardTitle>{t('hrPages.calendar.events.title')}</CardTitle>
                             <CardDescription>
-                                從已連接的 Google Calendar 讀取的事件
+                                {t('hrPages.calendar.events.description')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -201,7 +203,7 @@ export function CalendarSyncSettingsPage() {
                 <PageTabContent value="history" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>同步歷史記錄</CardTitle>
+                            <CardTitle>{t('hrPages.calendar.historyTitle')}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <SyncHistoryTab
@@ -218,9 +220,9 @@ export function CalendarSyncSettingsPage() {
                 <PageTabContent value="conflicts" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>待處理衝突</CardTitle>
+                            <CardTitle>{t('hrPages.calendar.pendingConflicts')}</CardTitle>
                             <CardDescription>
-                                系統與 Google Calendar 之間的資料不一致需要手動處理
+                                {t('hrPages.calendar.conflictsDescription')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -241,25 +243,25 @@ export function CalendarSyncSettingsPage() {
             <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>連接 Google Calendar</DialogTitle>
+                        <DialogTitle>{t('hrPages.calendar.connect.title')}</DialogTitle>
                         <DialogDescription>
-                            輸入共用日曆的 ID 和授權帳戶 Email
+                            {t('hrPages.calendar.connect.description')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label>Calendar ID *</Label>
                             <Input
-                                placeholder="例如: company-leave@group.calendar.google.com"
+                                placeholder={t('hrPages.calendar.connect.calendarIdPlaceholder')}
                                 value={calendarId}
                                 onChange={(e) => setCalendarId(e.target.value)}
                             />
                             <p className="text-xs text-muted-foreground">
-                                在 Google Calendar 設定中找到日曆 ID
+                                {t('hrPages.calendar.connect.calendarIdHint')}
                             </p>
                         </div>
                         <div className="grid gap-2">
-                            <Label>授權 Email *</Label>
+                            <Label>{t('hrPages.calendar.connect.authEmail')} *</Label>
                             <Input
                                 type="email"
                                 placeholder="service-account@example.com"
@@ -267,13 +269,13 @@ export function CalendarSyncSettingsPage() {
                                 onChange={(e) => setAuthEmail(e.target.value)}
                             />
                             <p className="text-xs text-muted-foreground">
-                                擁有日曆編輯權限的 Google 帳戶
+                                {t('hrPages.calendar.connect.authEmailHint')}
                             </p>
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowConnectDialog(false)}>
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             onClick={() =>
@@ -284,7 +286,7 @@ export function CalendarSyncSettingsPage() {
                             }
                             disabled={!calendarId || !authEmail || connectMutation.isPending}
                         >
-                            連接
+                            {t('hrPages.calendar.connect.submit')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

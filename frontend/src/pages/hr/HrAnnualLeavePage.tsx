@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -73,6 +74,7 @@ interface User {
 }
 
 export function HrAnnualLeavePage() {
+    const { t } = useTranslation()
     const dialogs = useDialogSet(['create'] as const)
     const [selectedUserId, setSelectedUserId] = useState<string>('')
     const [searchQuery, setSearchQuery] = useState('')
@@ -132,13 +134,13 @@ export function HrAnnualLeavePage() {
             dialogs.close('create')
             resetForm()
             toast({
-                title: '建立成功',
-                description: '已成功建立特休額度',
+                title: t('hrPages.annualLeave.toast.createSuccess'),
+                description: t('hrPages.annualLeave.toast.createSuccessDescription'),
             })
         },
         onError: (error: Error) => {
             toast({
-                title: '建立失敗',
+                title: t('hrPages.annualLeave.toast.createFailed'),
                 description: error.message,
                 variant: 'destructive',
             })
@@ -172,11 +174,18 @@ export function HrAnnualLeavePage() {
     // 匯出過期報表為 CSV
     const exportExpiredReport = () => {
         if (!expiredLeaves || expiredLeaves.length === 0) {
-            toast({ title: '無資料可匯出', variant: 'destructive' })
+            toast({ title: t('hrPages.annualLeave.toast.noDataToExport'), variant: 'destructive' })
             return
         }
 
-        const headers = ['員工姓名', 'Email', '年度', '已使用天數', '待補償天數', '到期日']
+        const headers = [
+            t('hrPages.annualLeave.columns.staffName'),
+            'Email',
+            t('hrPages.annualLeave.columns.year'),
+            t('hrPages.annualLeave.columns.usedDays'),
+            t('hrPages.annualLeave.columns.pendingDays'),
+            t('hrPages.annualLeave.columns.expiresAt'),
+        ]
         const rows = expiredLeaves.map(item => [
             item.user_name,
             item.user_email,
@@ -187,24 +196,24 @@ export function HrAnnualLeavePage() {
         ])
 
         const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n')
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+        const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
-        link.download = `過期特休補償報表_${format(new Date(), 'yyyy-MM-dd')}.csv`
+        link.download = t('hrPages.annualLeave.csvFilename', { date: format(new Date(), 'yyyy-MM-dd') })
         link.click()
 
-        toast({ title: '匯出成功', description: '報表已下載' })
+        toast({ title: t('common.exportSuccess'), description: t('hrPages.annualLeave.toast.reportDownloaded') })
     }
 
     return (
         <div className="space-y-6">
             <PageHeader
-                title="特休額度管理"
-                description="管理員工特休假額度、查看過期待補償報表"
+                title={t('hrPages.annualLeave.page.title')}
+                description={t('hrPages.annualLeave.page.description')}
                 actions={
                     <Button size="sm" onClick={() => dialogs.open('create')}>
                         <Plus className="h-4 w-4 mr-2" />
-                        新增特休額度
+                        {t('hrPages.annualLeave.addEntitlement')}
                     </Button>
                 }
             />
@@ -213,7 +222,7 @@ export function HrAnnualLeavePage() {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">內部員工數</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t('hrPages.annualLeave.stats.internalStaff')}</CardTitle>
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -222,7 +231,7 @@ export function HrAnnualLeavePage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">待補償記錄</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t('hrPages.annualLeave.stats.pendingRecords')}</CardTitle>
                         <AlertTriangle className="h-4 w-4 text-status-warning-text" />
                     </CardHeader>
                     <CardContent>
@@ -233,12 +242,12 @@ export function HrAnnualLeavePage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">待補償總天數</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t('hrPages.annualLeave.stats.pendingTotalDays')}</CardTitle>
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-status-warning-text">
-                            {totalExpiredDays.toFixed(1)} 天
+                            {t('hrPages.shared.daysValue', { days: totalExpiredDays.toFixed(1) })}
                         </div>
                     </CardContent>
                 </Card>
@@ -246,8 +255,8 @@ export function HrAnnualLeavePage() {
 
             <PageTabs
                 tabs={[
-                    { value: 'entitlements', label: '員工特休額度', icon: User },
-                    { value: 'expired', label: '過期待補償', icon: AlertTriangle, badge: expiredLeaves?.length },
+                    { value: 'entitlements', label: t('hrPages.annualLeave.tabs.entitlements'), icon: User },
+                    { value: 'expired', label: t('hrPages.annualLeave.tabs.expired'), icon: AlertTriangle, badge: expiredLeaves?.length },
                 ]}
                 defaultTab="entitlements"
             >
@@ -255,9 +264,9 @@ export function HrAnnualLeavePage() {
                 <PageTabContent value="entitlements" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>選擇員工查看特休額度</CardTitle>
+                            <CardTitle>{t('hrPages.annualLeave.selectStaffTitle')}</CardTitle>
                             <CardDescription>
-                                選擇員工以查看其各年度特休假額度與使用狀況
+                                {t('hrPages.annualLeave.selectStaffDescription')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -265,7 +274,7 @@ export function HrAnnualLeavePage() {
                             <div className="relative">
                                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="搜尋員工姓名或 Email..."
+                                    placeholder={t('hrPages.annualLeave.searchPlaceholder')}
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
                                     className="pl-8"
@@ -292,7 +301,7 @@ export function HrAnnualLeavePage() {
                             {selectedUserId && (
                                 <div className="mt-4">
                                     <h3 className="text-lg font-semibold mb-2">
-                                        {usersData?.find(u => u.id === selectedUserId)?.display_name} 的特休額度
+                                        {t('hrPages.annualLeave.balancesOf', { name: usersData?.find(u => u.id === selectedUserId)?.display_name })}
                                     </h3>
                                     {loadingBalances ? (
                                         <div className="flex justify-center py-4">
@@ -304,12 +313,12 @@ export function HrAnnualLeavePage() {
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
-                                                            <SortableTableHead sortKey="entitlement_year" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>年度</SortableTableHead>
-                                                            <SortableTableHead sortKey="entitled_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>總天數</SortableTableHead>
-                                                            <SortableTableHead sortKey="used_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>已使用</SortableTableHead>
-                                                            <SortableTableHead sortKey="remaining_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>剩餘</SortableTableHead>
-                                                            <SortableTableHead className="hidden @[650px]:table-cell" sortKey="expires_at" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>到期日</SortableTableHead>
-                                                            <SortableTableHead sortKey="is_expired" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>狀態</SortableTableHead>
+                                                            <SortableTableHead sortKey="entitlement_year" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>{t('hrPages.annualLeave.columns.year')}</SortableTableHead>
+                                                            <SortableTableHead sortKey="entitled_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>{t('hrPages.annualLeave.columns.totalDays')}</SortableTableHead>
+                                                            <SortableTableHead sortKey="used_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>{t('hrPages.annualLeave.columns.used')}</SortableTableHead>
+                                                            <SortableTableHead sortKey="remaining_days" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>{t('hrPages.annualLeave.remaining')}</SortableTableHead>
+                                                            <SortableTableHead className="hidden @[650px]:table-cell" sortKey="expires_at" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>{t('hrPages.annualLeave.columns.expiresAt')}</SortableTableHead>
+                                                            <SortableTableHead sortKey="is_expired" currentSort={balanceSort.column} currentDirection={balanceSort.direction} onSort={toggleBalanceSort}>{t('hrPages.shared.col.status')}</SortableTableHead>
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
@@ -324,15 +333,15 @@ export function HrAnnualLeavePage() {
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     {balance.is_expired ? (
-                                                                        <Badge variant="destructive">已過期</Badge>
+                                                                        <Badge variant="destructive">{t('hrPages.annualLeave.status.expired')}</Badge>
                                                                     ) : balance.days_until_expiry <= 30 ? (
                                                                         <StatusBadge variant="warning">
-                                                                            即將到期 ({balance.days_until_expiry}天)
+                                                                            {t('hrPages.annualLeave.status.expiringSoon', { days: balance.days_until_expiry })}
                                                                         </StatusBadge>
                                                                     ) : (
                                                                         <Badge variant="secondary">
                                                                             <CheckCircle className="h-3 w-3 mr-1" />
-                                                                            有效
+                                                                            {t('hrPages.annualLeave.status.valid')}
                                                                         </Badge>
                                                                     )}
                                                                 </TableCell>
@@ -345,26 +354,26 @@ export function HrAnnualLeavePage() {
                                                 {sortedBalances?.map((balance) => (
                                                     <div key={balance.entitlement_year} className="rounded-lg border bg-card p-3 space-y-1">
                                                         <div className="flex items-center justify-between gap-2">
-                                                            <div className="font-semibold">{balance.entitlement_year} 年</div>
+                                                            <div className="font-semibold">{t('hrPages.shared.yearValue', { year: balance.entitlement_year })}</div>
                                                             {balance.is_expired ? (
-                                                                <Badge variant="destructive">已過期</Badge>
+                                                                <Badge variant="destructive">{t('hrPages.annualLeave.status.expired')}</Badge>
                                                             ) : balance.days_until_expiry <= 30 ? (
                                                                 <StatusBadge variant="warning">
-                                                                    即將到期 ({balance.days_until_expiry}天)
+                                                                    {t('hrPages.annualLeave.status.expiringSoon', { days: balance.days_until_expiry })}
                                                                 </StatusBadge>
                                                             ) : (
                                                                 <Badge variant="secondary">
-                                                                    <CheckCircle className="h-3 w-3 mr-1" />有效
+                                                                    <CheckCircle className="h-3 w-3 mr-1" />{t('hrPages.annualLeave.status.valid')}
                                                                 </Badge>
                                                             )}
                                                         </div>
                                                         <div className="text-sm">
-                                                            剩餘 <span className="font-bold">{balance.remaining_days}</span>
-                                                            <span className="text-muted-foreground"> / {balance.entitled_days} 天</span>
-                                                            <span className="text-xs text-muted-foreground ml-2">（已用 {balance.used_days}）</span>
+                                                            {t('hrPages.annualLeave.remaining')} <span className="font-bold">{balance.remaining_days}</span>
+                                                            <span className="text-muted-foreground"> / {t('hrPages.shared.daysValue', { days: balance.entitled_days })}</span>
+                                                            <span className="text-xs text-muted-foreground ml-2">{t('hrPages.annualLeave.usedParen', { used: balance.used_days })}</span>
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">
-                                                            到期：{format(new Date(balance.expires_at), 'yyyy/MM/dd', { locale: getDateFnsLocale() })}
+                                                            {t('hrPages.annualLeave.expiryLabel', { date: format(new Date(balance.expires_at), 'yyyy/MM/dd', { locale: getDateFnsLocale() }) })}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -372,7 +381,7 @@ export function HrAnnualLeavePage() {
                                         </div>
                                     ) : (
                                         <p className="text-muted-foreground text-center py-4">
-                                            該員工尚無特休額度記錄
+                                            {t('hrPages.annualLeave.noBalances')}
                                         </p>
                                     )}
                                 </div>
@@ -386,14 +395,14 @@ export function HrAnnualLeavePage() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <div>
-                                <CardTitle>過期特休待補償報表</CardTitle>
+                                <CardTitle>{t('hrPages.annualLeave.expiredReport.title')}</CardTitle>
                                 <CardDescription>
-                                    列出所有已過期但仍有剩餘天數的特休假，供會計部門處理補償
+                                    {t('hrPages.annualLeave.expiredReport.description')}
                                 </CardDescription>
                             </div>
                             <Button variant="outline" onClick={exportExpiredReport}>
                                 <Download className="h-4 w-4 mr-2" />
-                                匯出 CSV
+                                {t('hrPages.annualLeave.expiredReport.exportCsv')}
                             </Button>
                         </CardHeader>
                         <CardContent>
@@ -407,13 +416,13 @@ export function HrAnnualLeavePage() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <SortableTableHead sortKey="user_name" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>員工姓名</SortableTableHead>
+                                                    <SortableTableHead sortKey="user_name" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>{t('hrPages.annualLeave.columns.staffName')}</SortableTableHead>
                                                     <SortableTableHead className="hidden @[900px]:table-cell" sortKey="user_email" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>Email</SortableTableHead>
-                                                    <SortableTableHead sortKey="entitlement_year" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>年度</SortableTableHead>
-                                                    <SortableTableHead className="hidden @[800px]:table-cell" sortKey="entitled_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>總天數</SortableTableHead>
-                                                    <SortableTableHead className="hidden @[800px]:table-cell" sortKey="used_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>已使用</SortableTableHead>
-                                                    <SortableTableHead sortKey="remaining_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort} className="text-status-warning-text">待補償天數</SortableTableHead>
-                                                    <SortableTableHead sortKey="expires_at" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>到期日</SortableTableHead>
+                                                    <SortableTableHead sortKey="entitlement_year" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>{t('hrPages.annualLeave.columns.year')}</SortableTableHead>
+                                                    <SortableTableHead className="hidden @[800px]:table-cell" sortKey="entitled_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>{t('hrPages.annualLeave.columns.totalDays')}</SortableTableHead>
+                                                    <SortableTableHead className="hidden @[800px]:table-cell" sortKey="used_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>{t('hrPages.annualLeave.columns.used')}</SortableTableHead>
+                                                    <SortableTableHead sortKey="remaining_days" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort} className="text-status-warning-text">{t('hrPages.annualLeave.columns.pendingDays')}</SortableTableHead>
+                                                    <SortableTableHead sortKey="expires_at" currentSort={expiredSort.column} currentDirection={expiredSort.direction} onSort={toggleExpiredSort}>{t('hrPages.annualLeave.columns.expiresAt')}</SortableTableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -448,21 +457,21 @@ export function HrAnnualLeavePage() {
                                                         <div className="text-xs text-muted-foreground break-words">{item.user_email}</div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <div className="font-bold text-status-warning-text">{item.remaining_days} 天</div>
-                                                        <div className="text-xs text-muted-foreground">待補償</div>
+                                                        <div className="font-bold text-status-warning-text">{t('hrPages.shared.daysValue', { days: item.remaining_days })}</div>
+                                                        <div className="text-xs text-muted-foreground">{t('hrPages.annualLeave.pendingShort')}</div>
                                                     </div>
                                                 </div>
                                                 <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
-                                                    <span>年度：{item.entitlement_year}</span>
-                                                    <span>總 {item.entitled_days} / 用 {item.used_days}</span>
-                                                    <span>到期：{format(new Date(item.expires_at), 'yyyy/MM/dd', { locale: getDateFnsLocale() })}</span>
+                                                    <span>{t('hrPages.annualLeave.yearLabel', { year: item.entitlement_year })}</span>
+                                                    <span>{t('hrPages.annualLeave.totalUsed', { total: item.entitled_days, used: item.used_days })}</span>
+                                                    <span>{t('hrPages.annualLeave.expiryLabel', { date: format(new Date(item.expires_at), 'yyyy/MM/dd', { locale: getDateFnsLocale() }) })}</span>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             ) : (
-                                <EmptyState icon={CheckCircle} title="目前沒有過期待補償的特休假" />
+                                <EmptyState icon={CheckCircle} title={t('hrPages.annualLeave.expiredReport.empty')} />
                             )}
                         </CardContent>
                     </Card>
@@ -473,19 +482,19 @@ export function HrAnnualLeavePage() {
             <Dialog open={dialogs.isOpen('create')} onOpenChange={dialogs.setOpen('create')}>
                 <DialogContent size="sm">
                     <DialogHeader>
-                        <DialogTitle>新增特休額度</DialogTitle>
+                        <DialogTitle>{t('hrPages.annualLeave.addEntitlement')}</DialogTitle>
                         <DialogDescription>
-                            為員工建立新年度的特休假額度。若有提供到職日，到期日將自動計算為到職週年日 + 2年。
+                            {t('hrPages.annualLeave.dialog.description')}
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit(onValidSubmit)} className="space-y-4">
                         {/* 選擇員工 */}
                         <div className="space-y-2">
-                            <Label>員工 *</Label>
-                            <input type="hidden" {...register('userId', { required: '請選擇員工' })} />
+                            <Label>{t('hrPages.annualLeave.dialog.staff')} *</Label>
+                            <input type="hidden" {...register('userId', { required: t('hrPages.annualLeave.dialog.staffRequired') })} />
                             <Select value={watch('userId')} onValueChange={v => setValue('userId', v, { shouldValidate: true })}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="選擇員工..." />
+                                    <SelectValue placeholder={t('hrPages.annualLeave.dialog.selectStaff')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {usersData?.map(user => (
@@ -502,14 +511,14 @@ export function HrAnnualLeavePage() {
 
                         {/* 年度 */}
                         <div className="space-y-2">
-                            <Label>授予年度 *</Label>
+                            <Label>{t('hrPages.annualLeave.dialog.grantYear')} *</Label>
                             <input
                                 type="hidden"
                                 {...register('year', {
-                                    required: '請選擇年度',
+                                    required: t('hrPages.annualLeave.dialog.yearRequired'),
                                     valueAsNumber: true,
-                                    min: { value: 2020, message: '年度不得小於 2020' },
-                                    max: { value: 2100, message: '年度不得大於 2100' },
+                                    min: { value: 2020, message: t('hrPages.annualLeave.dialog.yearMin') },
+                                    max: { value: 2100, message: t('hrPages.annualLeave.dialog.yearMax') },
                                 })}
                             />
                             <Select value={String(watch('year'))} onValueChange={v => setValue('year', Number(v), { shouldValidate: true })}>
@@ -521,7 +530,7 @@ export function HrAnnualLeavePage() {
                                         const year = new Date().getFullYear() - 1 + i
                                         return (
                                             <SelectItem key={year} value={year.toString()}>
-                                                {year} 年
+                                                {t('hrPages.shared.yearValue', { year })}
                                             </SelectItem>
                                         )
                                     })}
@@ -534,17 +543,17 @@ export function HrAnnualLeavePage() {
 
                         {/* 特休天數 */}
                         <div className="space-y-2">
-                            <Label>特休天數 *</Label>
+                            <Label>{t('hrPages.annualLeave.dialog.days')} *</Label>
                             <Input
                                 type="number"
                                 min="0"
                                 step="0.5"
                                 {...register('days', {
-                                    required: '請輸入特休天數',
+                                    required: t('hrPages.annualLeave.dialog.daysRequired'),
                                     valueAsNumber: true,
-                                    min: { value: 0.01, message: '特休天數必須為正數' },
+                                    min: { value: 0.01, message: t('hrPages.annualLeave.dialog.daysPositive') },
                                 })}
-                                placeholder="例：7"
+                                placeholder={t('hrPages.annualLeave.dialog.daysPlaceholder')}
                             />
                             {errors.days && (
                                 <p className="text-sm text-destructive">{errors.days.message}</p>
@@ -553,34 +562,34 @@ export function HrAnnualLeavePage() {
 
                         {/* 到職日 */}
                         <div className="space-y-2">
-                            <Label>到職日（用於計算到期日）</Label>
+                            <Label>{t('hrPages.annualLeave.dialog.hireDate')}</Label>
                             <Input
                                 type="date"
                                 {...register('hireDate')}
                             />
                             <p className="text-xs text-muted-foreground">
-                                到期日 = 授予年度 + 2年的到職週年日。若不填寫，到期日為授予年度 + 2年的12月31日。
+                                {t('hrPages.annualLeave.dialog.hireDateHint')}
                             </p>
                         </div>
 
                         {/* 備註 */}
                         <div className="space-y-2">
-                            <Label>備註</Label>
+                            <Label>{t('hrPages.annualLeave.dialog.notes')}</Label>
                             <Input
                                 {...register('notes')}
-                                placeholder="選填"
+                                placeholder={t('hrPages.shared.optional')}
                             />
                         </div>
                     </form>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => dialogs.close('create')}>
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             onClick={handleSubmit(onValidSubmit)}
                             disabled={createEntitlementMutation.isPending}
                         >
-                            {createEntitlementMutation.isPending ? '建立中...' : '建立'}
+                            {createEntitlementMutation.isPending ? t('hrPages.annualLeave.dialog.creating') : t('hrPages.shared.action.create')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
