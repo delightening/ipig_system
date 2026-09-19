@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
 import api, {
     Warehouse,
     StorageLocationWithWarehouse,
@@ -226,17 +227,19 @@ export function WarehouseLayoutPage() {
 
     const handleExportWarehouses = () => {
         if (!warehouses || warehouses.length === 0) return
+        // 內部匯出檔固定中文（使用者裁定 2026-09-19）
+        const tZh = i18n.getFixedT('zh-TW')
         const headers = [
-            t('erpDocs.shared.code'),
-            t('erpDocs.shared.name'),
-            t('erpDocs.shared.address'),
-            t('erpDocs.shared.status'),
+            tZh('erpDocs.shared.code'),
+            tZh('erpDocs.shared.name'),
+            tZh('erpDocs.shared.address'),
+            tZh('erpDocs.shared.status'),
         ]
         const rows = warehouses.map((w) => [
             w.code,
             w.name,
             w.address || '',
-            w.is_active ? t('erpDocs.warehouse.layout.active') : t('erpDocs.warehouse.layout.inactive'),
+            w.is_active ? tZh('erpDocs.warehouse.layout.active') : tZh('erpDocs.warehouse.layout.inactive'),
         ])
         const csvContent = ['\ufeff' + headers.join(','), ...rows.map(r => r.join(','))].join('\n')
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })

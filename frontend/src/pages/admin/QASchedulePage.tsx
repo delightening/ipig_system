@@ -82,7 +82,8 @@ interface ScheduleForm {
 
 const defaultForm = (t: TFunction): ScheduleForm => ({
   year: new Date().getFullYear(),
-  title: t('adminGlp.qaSchedule.defaultTitle', { year: new Date().getFullYear() }),
+  // 預設標題會寫進資料庫，固定中文（使用者裁定 2026-09-19）
+  title: t('adminGlp.qaSchedule.defaultTitle', { lng: 'zh-TW', year: new Date().getFullYear() }),
   schedule_type: 'annual',
   description: '',
   items: [{ inspection_type: 'general', title: '', planned_date: '', notes: '' }],

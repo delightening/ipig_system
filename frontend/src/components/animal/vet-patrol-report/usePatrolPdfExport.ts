@@ -50,7 +50,8 @@ export function usePatrolPdfExport({
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = t('animalActions.vetPatrol.pdf.fileName', { date: patrolDate.replace(/-/g, '') })
+            // 內部匯出檔固定中文檔名（使用者裁定 2026-09-19）
+            a.download = t('animalActions.vetPatrol.pdf.fileName', { lng: 'zh-TW', date: patrolDate.replace(/-/g, '') })
             document.body.appendChild(a)
             a.click()
             window.URL.revokeObjectURL(url)

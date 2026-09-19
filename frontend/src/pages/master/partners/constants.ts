@@ -24,14 +24,15 @@ export const customerCategoryKeys: Record<string, string> = {
 }
 
 // 以下 format* 在呼叫當下才求值（非 React 情境，例如 CSV 匯出）
-export const formatPartnerType = (type: string) =>
-  partnerTypeKeys[type] ? i18n.t(partnerTypeKeys[type]) : type
+// `lng` 可選：內部匯出檔傳 'zh-TW' 固定中文（使用者裁定 2026-09-19）；不傳則隨 UI 語系
+export const formatPartnerType = (type: string, lng?: string) =>
+  partnerTypeKeys[type] ? i18n.t(partnerTypeKeys[type], { lng }) : type
 
-export const formatSupplierCategory = (c?: string) =>
-  c ? (supplierCategoryKeys[c] ? i18n.t(supplierCategoryKeys[c]) : c) : ''
+export const formatSupplierCategory = (c?: string, lng?: string) =>
+  c ? (supplierCategoryKeys[c] ? i18n.t(supplierCategoryKeys[c], { lng }) : c) : ''
 
-export const formatCustomerCategory = (c?: string) =>
-  c ? (customerCategoryKeys[c] ? i18n.t(customerCategoryKeys[c]) : c) : ''
+export const formatCustomerCategory = (c?: string, lng?: string) =>
+  c ? (customerCategoryKeys[c] ? i18n.t(customerCategoryKeys[c], { lng }) : c) : ''
 
 export type SupplierCategory = 'drug' | 'consumable' | 'feed' | 'equipment'
 export type CustomerCategory = 'internal' | 'external' | 'research' | 'other'

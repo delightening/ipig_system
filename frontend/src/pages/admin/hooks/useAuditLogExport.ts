@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 
+import i18n from '@/lib/i18n'
 import api from '@/lib/api'
 import { formatDateTime } from '@/lib/utils'
 import { logger } from '@/lib/logger'
@@ -90,16 +90,17 @@ function parseFilenameFromContentDisposition(header: string | undefined): string
 }
 
 export function useAuditLogExport(params: ExportParams) {
-  const { t } = useTranslation()
   const exportCSVMutation = useMutation({
     mutationFn: () => fetchExportLogs(params),
     onSuccess: (logs) => {
+      // \u5167\u90E8\u532F\u51FA\u6A94\u56FA\u5B9A\u4E2D\u6587\uFF08\u4F7F\u7528\u8005\u88C1\u5B9A 2026-09-19\uFF09
+      const tZh = i18n.getFixedT('zh-TW')
       const bom = '\uFEFF'
-      const blob = new Blob([bom + buildCsvContent(logs, t)], { type: 'text/csv;charset=utf-8;' })
+      const blob = new Blob([bom + buildCsvContent(logs, tZh)], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${t('adminUsers.audit.export.filenamePrefix')}_${params.dateFrom}_${params.dateTo}.csv`
+      a.download = `${tZh('adminUsers.audit.export.filenamePrefix')}_${params.dateFrom}_${params.dateTo}.csv`
       a.click()
       URL.revokeObjectURL(url)
     },
@@ -120,10 +121,10 @@ export function useAuditLogExport(params: ExportParams) {
       const a = document.createElement('a')
       a.href = url
       // 從 backend Content-Disposition 解出檔名（單一真實來源 per Gemini PR #346）；
-      // 解析失敗才退回前端組合 fallback
+      // 解析失敗才退回前端組合 fallback（檔名前綴固定中文，使用者裁定 2026-09-19）
       a.download = parseFilenameFromContentDisposition(
         res.headers?.['content-disposition'] as string | undefined
-      ) ?? `${t('adminUsers.audit.export.filenamePrefix')}_${params.dateFrom || 'all'}_${params.dateTo || 'all'}.pdf`
+      ) ?? `${i18n.t('adminUsers.audit.export.filenamePrefix', { lng: 'zh-TW' })}_${params.dateFrom || 'all'}_${params.dateTo || 'all'}.pdf`
       document.body.appendChild(a)
       a.click()
       a.remove()

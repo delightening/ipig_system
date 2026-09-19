@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import i18n from '@/lib/i18n'
 import api, { isAxiosError, deleteResource, User, Role, ResetPasswordRequest } from '@/lib/api'
 import { confirmPassword } from '@/lib/api/client'
 import { getErrorMessage, ApiErrorPayload } from '@/types/error'
@@ -505,17 +506,19 @@ export function useUserManagement() {
       toast({ title: t('adminUsers.users.toast.noDataToExport'), description: t('adminUsers.users.toast.noUsers'), variant: 'destructive' })
       return
     }
+    // 內部匯出檔固定中文（使用者裁定 2026-09-19）
+    const tZh = i18n.getFixedT('zh-TW')
     const headers = [
       'Email',
-      t('admin.userTable.name'),
-      t('adminUsers.users.csv.phone'),
-      t('adminUsers.users.csv.organization'),
-      t('admin.userTable.role'),
-      t('adminUsers.users.csv.position'),
-      t('adminUsers.users.csv.entryDate'),
-      t('admin.userTable.status'),
-      t('adminUsers.users.csv.aupRoles'),
-      t('adminUsers.users.csv.yearsExperience'),
+      tZh('admin.userTable.name'),
+      tZh('adminUsers.users.csv.phone'),
+      tZh('adminUsers.users.csv.organization'),
+      tZh('admin.userTable.role'),
+      tZh('adminUsers.users.csv.position'),
+      tZh('adminUsers.users.csv.entryDate'),
+      tZh('admin.userTable.status'),
+      tZh('adminUsers.users.csv.aupRoles'),
+      tZh('adminUsers.users.csv.yearsExperience'),
     ]
     const rows = sortedUsers.map((u) => [
       u.email,
@@ -525,7 +528,7 @@ export function useUserManagement() {
       (u.roles || []).join('; '),
       u.position || '',
       u.entry_date || '',
-      u.is_active ? t('admin.userTable.active') : t('admin.userTable.inactive'),
+      u.is_active ? tZh('admin.userTable.active') : tZh('admin.userTable.inactive'),
       (u.aup_roles || []).join('; '),
       String(u.years_experience ?? ''),
     ])

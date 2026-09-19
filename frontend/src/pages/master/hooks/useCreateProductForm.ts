@@ -230,10 +230,12 @@ export function useCreateProductForm() {
     if (item.id === 'cotton' || item.id === 'gauze' || item.id === 'syringe' || item.id === 'alcohol' || item.id === 'saline') {
       category = 'CON'
     }
+    // 寫進資料的名稱用固定中文 value；label 只是按鈕顯示文字（使用者裁定 2026-09-19）
+    const itemName = item.value ?? item.label
     setFormData(prev => ({
       ...prev,
-      rawInput: item.label,
-      name: item.label,
+      rawInput: itemName,
+      name: itemName,
       spec: '',
       category: category,
       subcategory: item.id === 'glove' ? 'GLV' : '',
@@ -243,12 +245,14 @@ export function useCreateProductForm() {
   const handleSpecSelect = (spec: QuickSelectSpec) => {
     setSelectedSpec(spec)
     if (selectedQuickItem) {
+      // 寫進資料的規格用固定中文 value；primary/secondary 只是按鈕顯示文字（使用者裁定 2026-09-19）
+      const specValue = spec.value ?? { primary: spec.primary, secondary: spec.secondary }
       const fullSpec = selectedQuickItem.id === 'glove'
-        ? `${spec.primary} ${spec.secondary} ${glovesMaterial}`
-        : `${spec.primary}${spec.secondary ? ' ' + spec.secondary : ''}`
+        ? `${specValue.primary} ${specValue.secondary} ${glovesMaterial}`
+        : `${specValue.primary}${specValue.secondary ? ' ' + specValue.secondary : ''}`
       setFormData(prev => ({
         ...prev,
-        rawInput: `${selectedQuickItem.label} ${fullSpec}`,
+        rawInput: `${selectedQuickItem.value ?? selectedQuickItem.label} ${fullSpec}`,
         spec: fullSpec,
       }))
     }

@@ -6,7 +6,10 @@ import { cn } from '@/lib/utils'
 export interface QuickSelectItem {
   id: string
   icon?: React.ReactNode
+  /** 按鈕顯示文字（隨 UI 語系） */
   label: string
+  /** 點按後寫入名稱欄的資料值（固定中文，使用者裁定 2026-09-19）；未提供時退回 label */
+  value?: string
   displayLabel?: React.ReactNode
   sublabel?: string
   specs?: QuickSelectSpec[]
@@ -14,8 +17,11 @@ export interface QuickSelectItem {
 
 export interface QuickSelectSpec {
   id: string
+  /** 按鈕顯示文字（隨 UI 語系） */
   primary: string
   secondary?: string
+  /** 點按後寫入規格欄的資料值（固定中文，使用者裁定 2026-09-19）；未提供時退回 primary / secondary */
+  value?: { primary: string; secondary?: string }
 }
 
 interface QuickSelectCardProps {

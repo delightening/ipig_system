@@ -16,6 +16,7 @@ import {
     Users,
 } from 'lucide-react'
 import api from '@/lib/api'
+import i18n from '@/lib/i18n'
 import { getDateFnsLocale } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -178,13 +179,15 @@ export function HrAnnualLeavePage() {
             return
         }
 
+        // 內部匯出檔固定中文（使用者裁定 2026-09-19）
+        const tZh = i18n.getFixedT('zh-TW')
         const headers = [
-            t('hrPages.annualLeave.columns.staffName'),
+            tZh('hrPages.annualLeave.columns.staffName'),
             'Email',
-            t('hrPages.annualLeave.columns.year'),
-            t('hrPages.annualLeave.columns.usedDays'),
-            t('hrPages.annualLeave.columns.pendingDays'),
-            t('hrPages.annualLeave.columns.expiresAt'),
+            tZh('hrPages.annualLeave.columns.year'),
+            tZh('hrPages.annualLeave.columns.usedDays'),
+            tZh('hrPages.annualLeave.columns.pendingDays'),
+            tZh('hrPages.annualLeave.columns.expiresAt'),
         ]
         const rows = expiredLeaves.map(item => [
             item.user_name,
@@ -199,7 +202,7 @@ export function HrAnnualLeavePage() {
         const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
-        link.download = t('hrPages.annualLeave.csvFilename', { date: format(new Date(), 'yyyy-MM-dd') })
+        link.download = tZh('hrPages.annualLeave.csvFilename', { date: format(new Date(), 'yyyy-MM-dd') })
         link.click()
 
         toast({ title: t('common.exportSuccess'), description: t('hrPages.annualLeave.toast.reportDownloaded') })

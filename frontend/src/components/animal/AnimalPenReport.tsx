@@ -55,7 +55,8 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ onClose }) => 
         const objUrl = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = objUrl
-        a.download = t('animalActions.penReport.fileName', { date: today })
+        // 內部匯出檔固定中文檔名（使用者裁定 2026-09-19）
+        a.download = t('animalActions.penReport.fileName', { lng: 'zh-TW', date: today })
         a.style.display = 'none'
         document.body.appendChild(a)
         a.click()

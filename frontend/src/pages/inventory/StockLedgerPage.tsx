@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import i18n from '@/lib/i18n'
 import api, { StockLedgerDetail } from '@/lib/api'
 import { useTableSort } from '@/hooks/useTableSort'
 import { Badge } from '@/components/ui/badge'
@@ -55,16 +56,18 @@ export function StockLedgerPage() {
   const exportToCSV = () => {
     if (!ledger) return
 
+    // 內部匯出檔固定中文（使用者裁定 2026-09-19）
+    const tZh = i18n.getFixedT('zh-TW')
     const headers = [
-      t('erpDocs.shared.time'),
-      t('erpDocs.shared.warehouse'),
-      t('erpDocs.inventory.ledger.itemCode'),
-      t('erpDocs.shared.itemName'),
-      t('erpDocs.inventory.ledger.docNo'),
-      t('erpDocs.shared.directionLabel'),
-      t('erpDocs.shared.quantity'),
-      t('erpDocs.inventory.ledger.unitCost'),
-      t('erpDocs.shared.batchNo'),
+      tZh('erpDocs.shared.time'),
+      tZh('erpDocs.shared.warehouse'),
+      tZh('erpDocs.inventory.ledger.itemCode'),
+      tZh('erpDocs.shared.itemName'),
+      tZh('erpDocs.inventory.ledger.docNo'),
+      tZh('erpDocs.shared.directionLabel'),
+      tZh('erpDocs.shared.quantity'),
+      tZh('erpDocs.inventory.ledger.unitCost'),
+      tZh('erpDocs.shared.batchNo'),
     ]
     const rows = ledger.map(item => [
       item.trx_date,
@@ -72,7 +75,7 @@ export function StockLedgerPage() {
       item.product_sku,
       item.product_name,
       item.doc_no,
-      directionLabel(t, item.direction),
+      directionLabel(tZh, item.direction),
       item.qty_base,
       item.unit_cost || '',
       item.batch_no || '',
