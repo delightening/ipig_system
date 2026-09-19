@@ -1,0 +1,219 @@
+version: 2
+
+updates:
+  # Rust / Cargo
+  - package-ecosystem: "cargo"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "chore(deps):"
+    # L6: 安全更新優先處理
+    groups:
+      patch-updates:
+        update-types:
+          - "patch"
+
+  # npm / Frontend
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "chore(deps):"
+    # R29-6: 高風險 major 套件單獨成 PR（避免 group bump 一紅就要拆）。
+    # 規則：dependabot 由上而下匹配，先列高風險 → 群組（不互斥；patterns 命中先群組就退出）。
+    groups:
+      # MAJOR-only PRs（不混入 dev-dependencies group）：
+      # 任何匹配下列 patterns 的套件升級，都會自己一個 PR，方便個別 review / rebase。
+      typescript-major:
+        patterns:
+          - "typescript"
+          - "@types/node"
+          - "@typescript-eslint/*"
+        update-types:
+          - "major"
+      tailwindcss-major:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+          - "postcss"
+          - "autoprefixer"
+        update-types:
+          - "major"
+      react-router-major:
+        patterns:
+          - "react-router"
+          - "react-router-dom"
+        update-types:
+          - "major"
+      eslint-major:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+        update-types:
+          - "major"
+      vite-major:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+        update-types:
+          - "major"
+      i18next-major:
+        patterns:
+          - "i18next"
+          - "react-i18next"
+          - "i18next-*"
+        update-types:
+          - "major"
+      # 一般分組（patch / minor 為主）
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "patch"
+          - "minor"
+      react-ecosystem:
+        patterns:
+          - "react*"
+          - "@types/react*"
+        update-types:
+          - "patch"
+          - "minor"
+      patch-updates:
+        update-types:
+          - "patch"
+    # ── 已裁定不升的 major（2026-08-04 寫入）──────────────────────────
+    # 只擋 major；6.x 的 patch/minor 與安全更新照常送來，不影響修補。
+    ignore:
+      # TypeScript 7：lint 工具鏈尚未支援。
+      #   證據：#4 的 CI job「Frontend: tsc + eslint + vitest」失敗，
+      #         錯誤訊息為 `typescript-eslint does not support TS 7.0.`
+      #         （exit code 2）。不是本專案 code 的問題。
+      #   歷史：此升級已第三次出現——ipig_system#1060（關掉）→ #1113（復活）
+      #         → 本 repo #4。關 PR 擋不住，必須寫進設定。
+      #   ✅ 何時可以升：`typescript-eslint` 發布支援 TS 7.0 的版本之後。
+      #      驗證方式＝移除本條、讓 Dependabot 重開 PR，確認
+      #      「Frontend: tsc + eslint + vitest」轉綠即可合。
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
+  # Docker
+  # 本 repo 根目錄沒有 Dockerfile，全部散在子目錄；先前設 directory: "/" 導致 updater
+  # 每次都以 dependency_file_not_found 中止（"No Dockerfiles nor Kubernetes YAML found in /"），
+  # base image 更新從未被提出。改用 directories（複數）逐一指名實際存放位置。
+  # Dependabot docker 的檔名比對是子字串 /dockerfile|containerfile/i（dependabot-core
+  # docker/lib/dependabot/docker/file_fetcher.rb），故 Dockerfile.dev /
+  # Dockerfile.outbox-worker / Dockerfile.backup 等變體檔名亦會被涵蓋。
+  - package-ecosystem: "docker"
+    directories:
+      - "/backend" # Dockerfile, Dockerfile.dev, Dockerfile.outbox-worker
+      - "/frontend" # Dockerfile
+      - "/services/print-pdf" # Dockerfile
+      - "/scripts/backup" # Dockerfile.backup
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker):"
+    # ── 已裁定不升的 major（2026-08-04 寫入）──────────────────────────
+    # 只擋 major；16.x 的 patch/minor 與安全更新照常送來，不影響修補。
+    ignore:
+      # postgres：db-backup 的 base image 必須與 prod DB 主版本綁在一起。
+      #   現況（2026-08-04 實測）：
+      #     prod DB                  = PostgreSQL 16.13
+      #     db-backup 的 pg_dump/psql = 16.12   ← 刻意對齊同一主版本
+      #     Dockerfile.backup base    = postgres:16-alpine
+      #   風險：升到 18 後會用 pg_dump 18 去 dump 一個 16.13 的資料庫。
+      #     dump 那步通常過得去，真正的問題在**還原**——18 產出的檔案不保證
+      #     能被 16 的工具吃下去。而且失敗時機最糟：備份每天照常產生、看起來
+      #     一切正常，直到真的需要還原時才發現用不了。
+      #   ⚠️ CI 綠不算數：CI 只驗映像建得起來，不會實跑一輪 dump → restore。
+      #   ✅ 何時可以升，兩條路擇一：
+      #      (a) prod DB 主版本一起升到 18 —— 兩者必須同步，不可只動備份端；
+      #      (b) 先跑 `scripts/backup/dr_drill.sh` 完整災難復原演練，確認
+      #          跨版本 dump + restore 全流程可用，通過後才合。
+      #      無論走哪條，都要人工確認過才移除本條，不能因為 CI 綠就放行。
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
+
+  # Python / print-pdf
+  # 2026-09-02 補上。此前四個 ecosystem（cargo/npm/docker/github-actions）**沒有 pip**，
+  # 故 `services/print-pdf/requirements.txt` 的漏洞從來不會有 Dependabot PR，
+  # 只能等 osv-scanner 在某支不相干的 PR 上踩紅、再由人回頭查。已發生兩次：
+  # pypdf 6.15.0 那輪，以及 2026-09-02 的 6.16.1（#59，當時擋住的是 infra PR #58）。
+  # 該 job 是 gating，一轉紅會同時擋住 main 與全部 open PR。
+  - package-ecosystem: "pip"
+    directory: "/services/print-pdf"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps):"
+    groups:
+      patch-updates:
+        update-types:
+          - "patch"
+    ignore:
+      # playwright：**不從 pip 這端升**，否則會與 Docker base image 分家。
+      #   `requirements.txt` 的 playwright 必須與 Dockerfile 的
+      #   `mcr.microsoft.com/playwright/python:v<版本>-jammy` tag 同版——base image
+      #   只預裝自己那版的瀏覽器（路徑含版本號），對不上就
+      #   「Executable doesn't exist at /ms-playwright/...」，服務進重啟迴圈。
+      #   2026-08-06 prod 事故 #26 正是這樣炸的（docker 端升到 v1.62.0-jammy、
+      #   本檔仍 1.49.0）。
+      #   ⚠️ 若兩個 ecosystem 都能升它，就會出現兩條**方向相反**的不同步路徑。
+      #   故固定讓 **docker ecosystem 當唯一驅動端**，pip 這端不出 PR；
+      #   docker 開 base image PR 時，人工同步 requirements.txt 的 playwright 後再合。
+      #   ✅ 何時可移除本條：兩邊版本改由單一來源產生（例如 build 時從 base image
+      #      讀出版本再裝），屆時同步不再依賴人工記憶。
+      - dependency-name: "playwright"
+
+  # GitHub Actions
+  # 2026-09-02 由 directory: "/" 改為 directories（複數）。
+  # 原設定只涵蓋 `.github/workflows/` 底下的 workflow 檔——這是 github-actions
+  # ecosystem 對 "/" 的定義，**不包含 `.github/actions/*/action.yml`**。要讓
+  # composite action 內的 `uses:` 也被掃到，必須把每個 action.yml 所在目錄逐一列出
+  # （與上面 docker ecosystem 改用 directories 是同一個道理、同一個坑）。
+  #
+  # 缺口的代價（2026-09-02 實查）：本 repo 建立以來，`.github/actions/` 底下五個
+  # 第三方 action 的 SHA pin **從未被自動更新過一次**，該目錄僅有的兩個 commit 是
+  # initial commit 與一次人工修 ENOSPC（#57）。當日實測落後情形：
+  #   actions/setup-node      v4      → 最新 v7.0.0（#70 只升到 ci.yml 那一處）
+  #   actions/cache           v5.0.5  → 最新 v6.1.0
+  #   pnpm/action-setup       v6.0.8  → 最新 v6.0.10
+  #   slsa-verifier           v2.7.1  → 已是最新
+  #   dtolnay/rust-toolchain  以分支 ref 發布，無 release tag 可比對
+  # 這批 pin 是供應鏈強化措施（R52 / CSO-r3 #8）刻意寫死的 SHA，鎖住版本是本意，
+  # 但「鎖住之後沒有任何機制通知有新版」不是——上游修掉的漏洞不會有人知道。
+  #
+  # ⚠️ 本次只補涵蓋範圍，不順手升 cache / pnpm-setup：讓 Dependabot 自己開 PR，
+  #    每支各自過一次 CI，比在這支 PR 裡一次改四個 action 好回溯。
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/" # .github/workflows/*.yml
+      - "/.github/actions/setup-node-pnpm" # pnpm/action-setup, actions/setup-node
+      - "/.github/actions/setup-osv-scanner" # slsa-framework/slsa-verifier
+      - "/.github/actions/setup-rust" # dtolnay/rust-toolchain, actions/cache
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci):"
