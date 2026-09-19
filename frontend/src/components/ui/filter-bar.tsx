@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useState, useEffect } from 'react'
 import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -28,12 +29,14 @@ interface FilterBarProps {
 export function FilterBar({
   search,
   onSearchChange,
-  searchPlaceholder = '搜尋...',
+  searchPlaceholder: searchPlaceholderProp,
   hasActiveFilters,
   onClearFilters,
   children,
   className,
 }: FilterBarProps) {
+  const { t } = useTranslation()
+  const searchPlaceholder = searchPlaceholderProp ?? t('common.searchEllipsis')
   const [mobileExpanded, setMobileExpanded] = useState(hasActiveFilters ?? false)
   const hasExtraFilters = Boolean(children)
 
@@ -68,7 +71,7 @@ export function FilterBar({
         {hasActiveFilters && onClearFilters && (
           <Button variant="ghost" size="sm" onClick={onClearFilters} className="hidden md:flex shrink-0">
             <X className="h-4 w-4 mr-1" />
-            清除篩選
+            {t('common.clearFilters')}
           </Button>
         )}
 
@@ -89,7 +92,7 @@ export function FilterBar({
 
         {/* 行動端：清除篩選（圖示按鈕） */}
         {hasActiveFilters && onClearFilters && (
-          <Button variant="ghost" size="icon" className="shrink-0 h-10 w-10 md:hidden" onClick={onClearFilters} aria-label="清除篩選">
+          <Button variant="ghost" size="icon" className="shrink-0 h-10 w-10 md:hidden" onClick={onClearFilters} aria-label={t('common.clearFilters')}>
             <X className="h-4 w-4" />
           </Button>
         )}

@@ -1,6 +1,7 @@
 import type React from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   Table,
   TableBody,
@@ -50,11 +51,12 @@ interface PaginationProps {
 }
 
 function DataTablePagination({ page, totalPages, onPageChange, totalItems }: PaginationProps) {
+  const { t } = useTranslation()
   if (totalPages <= 1) return null
   return (
     <div className="flex items-center justify-between px-2 py-3">
       <p className="text-sm text-muted-foreground">
-        {totalItems !== undefined ? `共 ${totalItems} 筆` : `第 ${page} / ${totalPages} 頁`}
+        {totalItems !== undefined ? t('common.totalItems', { count: totalItems }) : t('common.pageOf', { page, totalPages })}
       </p>
       <div className="flex items-center gap-1">
         <Button
@@ -125,7 +127,7 @@ export function DataTable<T>({
   isLoading,
   skeletonRows = 5,
   emptyIcon,
-  emptyTitle = '尚無資料',
+  emptyTitle: emptyTitleProp,
   emptyDescription,
   page,
   totalPages,
@@ -138,6 +140,8 @@ export function DataTable<T>({
   mobileCard,
   cardBreakpoint = 600,
 }: DataTableProps<T>) {
+  const { t } = useTranslation()
+  const emptyTitle = emptyTitleProp ?? t('common.noData')
   const colSpan = columns.length
   const bp = CARD_BREAKPOINT_CLASSES[cardBreakpoint]
   const hasData = !!data && data.length > 0

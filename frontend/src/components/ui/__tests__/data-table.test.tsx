@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { DataTable, type ColumnDef } from '../data-table'
 import { Inbox } from 'lucide-react'
+import i18n from '@/lib/i18n'
 
 // Mock sub-components to keep tests focused on DataTable logic
 vi.mock('@/components/ui/table-skeleton', () => ({
@@ -102,7 +103,7 @@ describe('DataTable', () => {
       />
     )
 
-    expect(screen.getByText('尚無資料')).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('common.noData'))).toBeInTheDocument()
   })
 
   it('shows custom empty state with icon when emptyIcon is provided', () => {
@@ -155,7 +156,7 @@ describe('DataTable', () => {
 
     // Should show page info
     expect(screen.getByText('2 / 5')).toBeInTheDocument()
-    expect(screen.getByText('共 50 筆')).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('common.totalItems', { count: 50 }))).toBeInTheDocument()
 
     // Click next page
     const buttons = screen.getAllByRole('button')

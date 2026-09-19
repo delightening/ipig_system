@@ -102,10 +102,7 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       // 某些瀏覽器或系統可能回傳空字串 MIME type，此時降級為只檢查副檔名
       if (!file.type) {
         if (!ALLOWED_EXTENSIONS.test(file.name)) {
-          return t('common.fileUpload.errorMimeType', {
-            fileName: file.name,
-            defaultValue: `檔案 "${file.name}" 的類型不在允許範圍內`,
-          })
+          return t('common.fileUpload.errorMimeType', { fileName: file.name })
         }
         return null
       }
@@ -113,10 +110,7 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       if (file.type.startsWith('image/') || ALLOWED_MIME_TYPES[file.type]) {
         return null
       }
-      return t('common.fileUpload.errorMimeType', {
-        fileName: file.name,
-        defaultValue: `檔案 "${file.name}" 的類型 (${file.type}) 不在允許範圍內`,
-      })
+      return t('common.fileUpload.errorMimeTypeWithType', { fileName: file.name, fileType: file.type })
     }
 
     const formatFileSize = (bytes: number) => {
@@ -149,9 +143,7 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
           }
           fileArray = converted
         } catch (err) {
-          setError(t('common.fileUpload.errorHeicDecode', {
-            defaultValue: 'HEIC 影像解碼失敗，請改用 JPEG/PNG，或以 iOS「最相容」設定拍攝',
-          }))
+          setError(t('common.fileUpload.errorHeicDecode'))
           logger.error('HEIC decode error:', err)
           return
         } finally {
@@ -203,7 +195,6 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
               ? t('common.fileUpload.errorUploadPartial', {
                   succeeded: uploadedFiles.length,
                   total: fileArray.length,
-                  defaultValue: `已成功上傳 ${uploadedFiles.length} / ${fileArray.length} 個檔案，其餘尚未上傳；請重新選取尚未成功的檔案。`,
                 })
               : t('common.fileUpload.errorUploadFailed')
           )
@@ -293,7 +284,7 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
               <Loader2 className="h-8 w-8 animate-spin text-status-purple-solid mb-2" />
               <p className="text-sm text-muted-foreground">
                 {converting
-                  ? t('common.fileUpload.converting', { defaultValue: '影像處理中…' })
+                  ? t('common.fileUpload.converting')
                   : t('common.fileUpload.uploading')}
               </p>
             </>

@@ -131,7 +131,7 @@ export function NotificationDropdown() {
         size="icon"
         className="relative"
         onClick={() => setShowDropdown(!showDropdown)}
-        aria-label="通知"
+        aria-label={t('common.notifications')}
         aria-haspopup="menu"
         aria-expanded={showDropdown}
         data-testid="notification-bell"

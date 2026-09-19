@@ -17,6 +17,7 @@
 import { Component, type ReactNode } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { logger } from '@/lib/logger'
+import i18n from '@/lib/i18n'
 
 interface ErrorBoundaryProps {
     children: ReactNode
@@ -131,16 +132,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                     <AlertTriangle className="h-12 w-12 text-destructive" />
                     <div className="space-y-1">
                         <h3 className="text-lg font-semibold">
-                            {isChunkError ? '版本更新' : '發生錯誤'}
+                            {isChunkError ? i18n.t('ui.errorBoundary.updateTitle') : i18n.t('ui.errorBoundary.errorTitle')}
                         </h3>
                         <p className="text-sm text-muted-foreground max-w-md">
                             {isChunkError
-                                ? '系統已更新新版本，正在重新整理頁面…'
-                                : '頁面發生未預期的錯誤，請重試或聯繫管理者。'}
+                                ? i18n.t('ui.errorBoundary.updateMessage')
+                                : i18n.t('ui.errorBoundary.errorMessage')}
                         </p>
                         {refreshCountdown > 0 && (
                             <p className="text-sm text-muted-foreground">
-                                {refreshCountdown} 秒後自動重新整理…
+                                {i18n.t('ui.errorBoundary.countdown', { count: refreshCountdown })}
                             </p>
                         )}
                     </div>
@@ -149,7 +150,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                         className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                     >
                         <RefreshCw className="h-4 w-4" />
-                        {isChunkError ? '立即重新整理' : '立即重試'}
+                        {isChunkError ? i18n.t('ui.errorBoundary.refreshNow') : i18n.t('ui.errorBoundary.retryNow')}
                     </button>
                 </div>
             )

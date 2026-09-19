@@ -188,7 +188,7 @@ export function MainLayout() {
             size="icon"
             className="md:hidden h-11 w-11"
             onClick={() => setMobileSidebarOpen(true)}
-            aria-label="開啟選單"
+            aria-label={t('nav.openMenu')}
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -239,10 +239,10 @@ export function MainLayout() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-status-warning-text">
               <AlertTriangle className="h-5 w-5" />
-              啟動配置警告
+              {t('layout.configWarnings.title')}
             </DialogTitle>
             <DialogDescription>
-              系統偵測到以下配置需要注意，請管理員確認。
+              {t('layout.configWarnings.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -284,7 +284,7 @@ export function MainLayout() {
               }}
               className="w-full"
             >
-              確認
+              {t('common.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

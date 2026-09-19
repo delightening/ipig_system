@@ -172,7 +172,7 @@ export function HandwrittenSignaturePad({
                         onClick={() => setShowPreview(false)}
                         className="mt-2"
                     >
-                        {t('signature.resignBtn', '重新簽名')}
+                        {t('signature.resignBtn')}
                     </Button>
                 )}
             </div>
@@ -192,7 +192,7 @@ export function HandwrittenSignaturePad({
                 {/* 空白狀態提示 */}
                 {isEmpty && !disabled && (
                     <div className="signature-placeholder">
-                        {t('signature.signHere', '請在此處簽名')}
+                        {t('signature.signHere')}
                     </div>
                 )}
             </div>
@@ -208,7 +208,7 @@ export function HandwrittenSignaturePad({
                         disabled={isEmpty}
                     >
                         <Undo2 className="w-4 h-4 mr-1" />
-                        {t('signature.undo', '復原')}
+                        {t('signature.undo')}
                     </Button>
                     <Button
                         type="button"
@@ -218,7 +218,7 @@ export function HandwrittenSignaturePad({
                         disabled={isEmpty}
                     >
                         <Eraser className="w-4 h-4 mr-1" />
-                        {t('signature.clear', '清除')}
+                        {t('signature.clear')}
                     </Button>
                 </div>
             )}

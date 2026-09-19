@@ -25,10 +25,7 @@ export function useSidebarNav() {
   const { user, hasRole, hasPermission, isInitialized } = useAuthStore()
   const { t } = useTranslation()
 
-  const translateTitle = (item: { title: string; translate?: boolean }) => {
-    if (item.translate === false) return item.title
-    return t(`nav.${item.title}`) || item.title
-  }
+  const translateTitle = (item: { title: string }) => t(`nav.${item.title}`)
 
   const { data: navOrderData } = useQuery({
     queryKey: ['user-preferences', 'nav_order'],

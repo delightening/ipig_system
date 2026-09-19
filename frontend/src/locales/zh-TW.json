@@ -69,9 +69,31 @@
       "errorMaxSize": "檔案 {{fileName}} 超過 {{maxSize}}MB 限制",
       "errorUploadFailed": "上傳失敗，請重試",
       "errorUploadPartial": "已成功上傳 {{succeeded}} / {{total}} 個檔案，其餘尚未上傳；請重新選取尚未成功的檔案。",
-      "hint": "最大 {{maxSize}}MB，最多 {{maxFiles}} 個檔案"
+      "hint": "最大 {{maxSize}}MB，最多 {{maxFiles}} 個檔案",
+      "errorMimeType": "檔案 \"{{fileName}}\" 的類型不在允許範圍內",
+      "errorMimeTypeWithType": "檔案 \"{{fileName}}\" 的類型 ({{fileType}}) 不在允許範圍內",
+      "errorHeicDecode": "HEIC 影像解碼失敗，請改用 JPEG/PNG，或以 iOS「最相容」設定拍攝",
+      "converting": "影像處理中…"
     },
-    "email": "Email"
+    "email": "Email",
+    "searchEllipsis": "搜尋...",
+    "noResults": "無符合結果",
+    "removeItem": "移除 {{name}}",
+    "totalItems": "共 {{count}} 筆",
+    "pageOf": "第 {{page}} / {{totalPages}} 頁",
+    "expandField": "展開欄位",
+    "collapseField": "收合欄位",
+    "custom": "自訂",
+    "currentValue": "當前值：",
+    "addItem": "新增項目",
+    "retry": "重試",
+    "downloadFailed": "下載失敗",
+    "user": "使用者",
+    "unknown_error": "發生未知錯誤",
+    "showingOf": "顯示第 {{from}}–{{to}} 筆，共 {{total}} 筆",
+    "previous": "上一頁",
+    "next": "下一頁",
+    "deleted": "已刪除"
   },
   "datePicker": {
     "placeholder": "選擇日期",
@@ -147,7 +169,10 @@
     "fontSizeDescription": "放大介面文字，在行動裝置上更易閱讀。",
     "fontSizeDefault": "標準",
     "fontSizeLarge": "大",
-    "fontSizeXl": "特大"
+    "fontSizeXl": "特大",
+    "errors": {
+      "displayNameRequired": "顯示名稱為必填欄位"
+    }
   },
   "nav": {
     "dashboard": "儀表板",
@@ -158,7 +183,60 @@
     "myAmendments": "變更申請",
     "animalManagement": "實驗動物管理",
     "animalList": "動物列表",
-    "expandSidebar": "展開側邊欄"
+    "expandSidebar": "展開側邊欄",
+    "collapseSidebar": "收合側邊欄",
+    "editModeHint": "拖曳項目調整順序",
+    "openMenu": "開啟選單",
+    "logoAlt": "系統標誌",
+    "messaging": "站內信",
+    "reports": "報表中心",
+    "qau": "QAU 品質保證",
+    "qauDashboard": "品質保證儀表板",
+    "qauInspections": "稽查報告",
+    "qauNonConformances": "不符合事項（NC）",
+    "qauSop": "SOP 文件",
+    "qauSchedules": "稽查排程",
+    "hr": "人員管理",
+    "hrAttendance": "出勤打卡",
+    "hrLeaves": "請假管理",
+    "hrOvertime": "加班管理",
+    "hrAnnualLeave": "特休管理",
+    "hrTraining": "人員訓練",
+    "hrInvitations": "邀請管理",
+    "hrCalendar": "行事曆",
+    "animalPlanning": "預約與試驗規劃",
+    "vetPatrol": "巡場報告",
+    "bloodTestAnalysis": "血檢分析",
+    "bloodTestTemplates": "血檢項目",
+    "animalSources": "來源管理",
+    "fieldCorrections": "修正審核",
+    "erp": "ERP",
+    "erpProducts": "產品管理",
+    "erpDocuments": "單據管理",
+    "erpWarehouseOps": "倉儲作業",
+    "erpWarehouses": "倉庫",
+    "erpInventory": "庫存查詢",
+    "erpInventoryLedger": "庫存流水",
+    "erpEquipment": "設備維護",
+    "erpPartners": "供應商／客戶",
+    "admin": "系統管理",
+    "adminUsers": "使用者管理",
+    "adminRoles": "角色權限",
+    "adminSettings": "系統設定",
+    "adminAuditLogs": "操作日誌",
+    "adminSecurityAudit": "安全審計",
+    "adminNotificationRouting": "通知路由",
+    "adminTreatmentDrugs": "藥物選單",
+    "adminFacilities": "設施管理",
+    "adminGlp": "GLP 合規",
+    "glpChangeControl": "變更控制",
+    "glpDocumentControl": "文件控制",
+    "glpRiskRegister": "風險登記簿",
+    "glpManagementReview": "管理審查",
+    "glpFormulationRecords": "配製紀錄",
+    "glpCompetency": "能力評鑑",
+    "glpStudyReports": "研究最終報告",
+    "glpEnvMonitoring": "環境監控"
   },
   "dashboard": {
     "title": "儀表板",
@@ -412,6 +490,14 @@
       "applying": "申請中",
       "ongoing": "進行中",
       "closed": "已結案"
+    },
+    "messages": {
+      "layoutSaveFailed": "儲存佈局失敗",
+      "layoutSaved": "佈局已儲存",
+      "layoutReset": "佈局已重設為預設值"
+    },
+    "layout": {
+      "resetToDefault": "重設為預設佈局"
     }
   },
   "myProjects": {
@@ -522,7 +608,8 @@
         "attachmentsTitle": "附件",
         "attachmentsDesc": "計畫書相關文件與檔案",
         "animalsTitle": "動物紀錄",
-        "animalsDesc": "此計畫下所有已分配動物清單"
+        "animalsDesc": "此計畫下所有已分配動物清單",
+        "vetFormFill": "獸醫師線上審查填寫"
       },
       "dialogs": {
         "status": {
@@ -630,7 +717,11 @@
         "noAttachments": "尚無附件",
         "uploadFirst": "上傳第一個附件",
         "noAnimals": "尚無動物紀錄",
-        "noAnimalsDesc": "此計畫目前尚未分配動物"
+        "noAnimalsDesc": "此計畫目前尚未分配動物",
+        "uploadSuccess": "上傳成功",
+        "uploadFailed": "上傳失敗",
+        "assignSuccess": "審查人員指派成功",
+        "assignFailed": "審查人員指派失敗"
       },
       "actions": {
         "reply": "回覆",
@@ -641,10 +732,17 @@
         "reviewer": "審查委員",
         "reviewerA": "審查委員 A",
         "reviewerB": "審查委員 B",
-        "reviewerC": "審查委員 C"
+        "reviewerC": "審查委員 C",
+        "deleteSuccess": "刪除成功",
+        "deleteFailed": "刪除失敗"
       },
       "downloadPdf": "下載 PDF",
-      "downloadPdfHint": "PDF 為定版輸出（字型內嵌、跨裝置版面一致）"
+      "downloadPdfHint": "PDF 為定版輸出（字型內嵌、跨裝置版面一致）",
+      "vet_form": {
+        "save_success": "審查查檢表已儲存",
+        "title": "獸醫師審查查檢表",
+        "comment_placeholder": "請輸入審查意見..."
+      }
     },
     "content": {
       "exportPDF": "匯出 PDF",
@@ -776,7 +874,9 @@
         "training": "訓練/資格",
         "attachments": "9. 附件",
         "signatures": "10. 電子簽名"
-      }
+      },
+      "reviewComment": "審查意見",
+      "toc": "目錄"
     },
     "amendments": {
       "title": "變更申請",
@@ -815,7 +915,13 @@
       "validation": {
         "titleRequired": "請輸入變更標題",
         "changeItemsRequired": "請至少選擇一個變更項目"
-      }
+      },
+      "markEffectiveSuccess": "已標記為生效",
+      "markEffectiveFailed": "標記生效失敗",
+      "markEffectiveConfirmTitle": "標記為生效",
+      "markEffectiveConfirm": "確定將 {{no}} 標記為生效？此操作會記錄到稽核軌跡且不可逆。",
+      "markEffective": "標記生效",
+      "effectiveSince": "生效於 {{date}}"
     },
     "piDelegate": {
       "title": "PI 代理授權",
@@ -834,7 +940,8 @@
       "expiresLabel": "有效至",
       "validUntil": "（有效至 {{date}}）",
       "noExpiry": "（未設期限）"
-    }
+    },
+    "deleteTitle": "刪除計畫書"
   },
   "language": {
     "zhTW": "繁體中文",
@@ -1287,7 +1394,9 @@
         "drugName": "藥物名稱",
         "approvalNo": "核准編號/字號",
         "drugAmount": "用量",
-        "authorizedPerson": "授權管理人員"
+        "authorizedPerson": "授權管理人員",
+        "anesthesiaOther": "請說明其他麻醉方式",
+        "nonPharma": "請說明物質性質、安全性及使用之科學理由"
       },
       "hazardsLabel": "4.4 是否使用危害性物質材料",
       "selectHazardType": "請選擇危害性物質類型：",
@@ -1410,7 +1519,12 @@
         "expectedImpact": "請詳細描述手術對動物的預期影響",
         "expectedEndPoint": "請詳細說明實驗之預期結束時程",
         "postopCare": "請選擇術後照護類型 (如：止痛藥、抗生素)",
-        "drugInfo": "請填寫手術用藥資訊"
+        "drugInfo": "請填寫手術用藥資訊",
+        "drugName": "請輸入藥品名稱",
+        "drugDose": "例如：10 mg/kg",
+        "drugRoute": "例如：IM",
+        "drugFrequency": "例如：SID",
+        "drugPurpose": "例如：術後止痛"
       },
       "asepticTechniques": {
         "surgical_site_disinfection": "動物術部消毒",
@@ -1454,7 +1568,8 @@
         "drugFrequencyRequired": "請填寫第 {{index}} 個用藥的頻率",
         "drugPurposeRequired": "請填寫第 {{index}} 個用藥的給藥目的"
       },
-      "loadDefaults": "載入預設值"
+      "loadDefaults": "載入預設值",
+      "noDrugs": "尚未新增手術用藥"
     },
     "animals": {
       "_comment": "第 7 節：實驗動物資料",
@@ -1574,7 +1689,8 @@
         "rolesOther": "請說明其他工作內容",
         "experience": "請輸入年數",
         "trainingsOther": "請說明其他訓練/資格",
-        "certNo": "例如：(112)動訓字第 001 號"
+        "certNo": "例如：(112)動訓字第 001 號",
+        "bio": "請輸入學經歷與研究經驗"
       },
       "addDialog": {
         "title": "新增人員",
@@ -1613,6 +1729,14 @@
           "experienceRequired": "請填寫參與動物試驗年數",
           "trainingsRequired": "請至少選擇一項訓練/資格",
           "trainingsOtherRequired": "請說明其他訓練/資格"
+        },
+        "trainings": {
+          "A": "A. 實驗動物照護及使用委員會或小組成員訓練班",
+          "B": "B. IACUC教育訓練研討會",
+          "C": "C. 輻射安全訓練班",
+          "D": "D. 生醫產業用畜禽應用研習會及技術研習會",
+          "E": "E. 實驗動物法規及照護管理班",
+          "F": "F. 其他"
         }
       },
       "editDialog": {
@@ -1639,7 +1763,8 @@
       "subtitle": "審閱並簽署計畫書",
       "label": "簽名檔",
       "placeholder": "拖曳簽名檔到此處，或點擊選擇檔案",
-      "hint": "支援圖片格式，單個檔案大小上限 5MB，最多可上傳 5 個檔案"
+      "hint": "支援圖片格式，單個檔案大小上限 5MB，最多可上傳 5 個檔案",
+      "uploadMode": "上傳簽名檔"
     },
     "messages": {
       "created": "計畫書已建立",
@@ -1926,7 +2051,8 @@
     "pendingTransfer": "轉讓中",
     "pendingTransferHint": "已提出轉讓申請、簽核尚未完成；動物仍在原欄。",
     "sacrificed": "犧牲",
-    "downloadFieldStatus": "下載欄位狀態表"
+    "downloadFieldStatus": "下載欄位狀態表",
+    "noAnimalsFoundDescription": "嘗試調整篩選條件，或新增第一筆動物紀錄"
   },
   "password": {
     "title": "修改密碼",
@@ -1941,7 +2067,15 @@
     "failed": "密碼更新失敗，請檢查目前密碼是否正確",
     "fillAllFields": "請填寫所有欄位",
     "mismatch": "新密碼與確認密碼不符",
-    "minLength": "密碼長度至少需要 6 個字元"
+    "minLength": "密碼長度至少需要 6 個字元",
+    "placeholder": "{{min}} 字元以上，含大小寫與數字",
+    "checks": {
+      "minLength": "至少 {{min}} 個字元",
+      "uppercase": "包含大寫字母",
+      "lowercase": "包含小寫字母",
+      "number": "包含數字",
+      "notCommon": "非常見弱密碼"
+    }
   },
   "amendments": {
     "title": "我的變更申請",
@@ -2110,7 +2244,8 @@
       "painAssessment": "疼痛評估",
       "info": "動物資料",
       "pathology": "病理組織報告",
-      "transfer": "轉讓管理"
+      "transfer": "轉讓管理",
+      "vetRecommendations": "獸醫師建議"
     }
   },
   "notFound": {
@@ -3575,5 +3710,56 @@
       "WAREHOUSE_MANAGER": "倉庫管理員",
       "REVIEWER": "審查委員"
     }
+  },
+  "ui": {
+    "deleteReasonDialog": {
+      "defaultNoun": "刪除",
+      "title": "確認{{noun}}",
+      "description": "此操作無法復原。請提供{{noun}}原因以符合 GLP 規範。",
+      "confirm": "確認{{noun}}",
+      "reasonRequired": "請輸入{{noun}}原因",
+      "reasonTooShort": "{{noun}}原因至少需要 5 個字元",
+      "reasonLabel": "{{noun}}原因",
+      "reasonPlaceholder": "請說明{{noun}}此紀錄的原因...",
+      "glpReminderTitle": "GLP 合規提醒：",
+      "glpReminderBody": "{{noun}}操作將被記錄於操作日誌中，包含{{noun}}原因及操作者資訊。"
+    },
+    "errorBoundary": {
+      "updateTitle": "版本更新",
+      "errorTitle": "發生錯誤",
+      "updateMessage": "系統已更新新版本，正在重新整理頁面…",
+      "errorMessage": "頁面發生未預期的錯誤，請重試或聯繫管理者。",
+      "countdown": "{{count}} 秒後自動重新整理…",
+      "refreshNow": "立即重新整理",
+      "retryNow": "立即重試"
+    },
+    "pageErrorBoundary": {
+      "title": "頁面發生錯誤",
+      "unexpected": "發生未預期的錯誤"
+    }
+  },
+  "layout": {
+    "configWarnings": {
+      "title": "啟動配置警告",
+      "description": "系統偵測到以下配置需要注意，請管理員確認。"
+    }
+  },
+  "cookieConsent": {
+    "message": "本系統使用必要性 Cookie 以維持您的登入狀態與安全性。 選擇「接受全部」將允許載入第三方字型等外部資源以提升顯示效果。",
+    "learnMore": "了解更多",
+    "essentialOnly": "僅必要 Cookie",
+    "acceptAll": "接受全部"
+  },
+  "unsavedChanges": {
+    "title": "離開此頁面？",
+    "description": "您有未儲存的變更。離開後將遺失這些修改。",
+    "continueEditing": "繼續編輯",
+    "leave": "離開"
+  },
+  "privacy": {
+    "title": "隱私權政策"
+  },
+  "terms": {
+    "title": "服務條款"
   }
 }

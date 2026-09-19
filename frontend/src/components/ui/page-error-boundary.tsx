@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logger } from '@/lib/logger'
+import i18n from '@/lib/i18n'
 
 interface Props {
   children: ReactNode
@@ -33,12 +34,12 @@ export class PageErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center py-16 gap-4">
           <AlertTriangle className="h-12 w-12 text-destructive" />
-          <h2 className="text-lg font-semibold">頁面發生錯誤</h2>
+          <h2 className="text-lg font-semibold">{i18n.t('ui.pageErrorBoundary.title')}</h2>
           <p className="text-sm text-muted-foreground max-w-md text-center">
-            {this.state.error?.message || '發生未預期的錯誤'}
+            {this.state.error?.message || i18n.t('ui.pageErrorBoundary.unexpected')}
           </p>
           <Button variant="outline" onClick={() => this.setState({ hasError: false, error: null })}>
-            重試
+            {i18n.t('common.retry')}
           </Button>
         </div>
       )

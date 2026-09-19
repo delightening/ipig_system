@@ -18,13 +18,13 @@ export interface NavItem {
   /** 穩定識別字串（語言無關），用於排序、過濾、drag-and-drop。
    *  與 i18n 翻譯後的 `title` 區隔，避免依賴中文字串造成 brittle filter */
   id: string
+  /** i18n 鍵（語言包 `nav.<title>`），不是顯示文字；顯示文字由 useSidebarNav.translateTitle 依語言解析 */
   title: string
   href?: string
   icon: React.ReactNode
   children?: NavChildItem[]
   permission?: string
   badge?: number
-  translate?: boolean
   /** 子系統色相識別，用於 Sidebar active indicator */
   subsystem?: SubsystemKey
 }
@@ -35,7 +35,6 @@ export interface NavChildItem {
   title: string
   href?: string
   permission?: string
-  translate?: boolean
   children?: NavChildItem[]
 }
 
@@ -96,38 +95,34 @@ export const navItemsConfig: NavItem[] = [
     href: '/dashboard',
     icon: icon(LayoutDashboard),
     permission: 'dashboard.view',
-    translate: true,
   },
   {
     id: 'messaging',
-    title: '站內信',
+    title: 'messaging',
     href: '/messaging',
     icon: icon(MessageSquare),
     permission: 'messaging.send',
-    translate: false,
   },
   {
     // 跨子系統 hub（含 ERP / AUP / 動物管理 / audit）— 必為 top-level，
     // 不可嵌在 ERP 父項下（父項 permission='erp' 會擋掉只有 AUP / 動物管理權限的使用者）
     id: 'reports',
-    title: '報表中心',
+    title: 'reports',
     href: '/reports',
     icon: icon(BarChart3),
-    translate: false,
   },
   {
     id: 'qau',
-    title: 'QAU 品質保證',
+    title: 'qau',
     icon: icon(ClipboardCheck),
     permission: 'qau.dashboard.view',
-    translate: false,
     subsystem: 'admin',
     children: [
-      { title: '品質保證儀表板', href: '/admin/qau', permission: 'qau.dashboard.view', translate: false },
-      { title: '稽查報告', href: '/admin/qau/inspections', permission: 'qau.inspection.view', translate: false },
-      { title: '不符合事項（NC）', href: '/admin/qau/non-conformances', permission: 'qau.nc.view', translate: false },
-      { title: 'SOP 文件', href: '/admin/qau/sop', permission: 'qau.sop.view', translate: false },
-      { title: '稽查排程', href: '/admin/qau/schedules', permission: 'qau.schedule.view', translate: false },
+      { title: 'qauDashboard', href: '/admin/qau', permission: 'qau.dashboard.view' },
+      { title: 'qauInspections', href: '/admin/qau/inspections', permission: 'qau.inspection.view' },
+      { title: 'qauNonConformances', href: '/admin/qau/non-conformances', permission: 'qau.nc.view' },
+      { title: 'qauSop', href: '/admin/qau/sop', permission: 'qau.sop.view' },
+      { title: 'qauSchedules', href: '/admin/qau/schedules', permission: 'qau.schedule.view' },
     ],
   },
   {
@@ -135,105 +130,97 @@ export const navItemsConfig: NavItem[] = [
     title: 'myProjects',
     href: '/my-projects',
     icon: icon(FolderOpen),
-    translate: true,
   },
   {
     id: 'aupReview',
     title: 'aupReview',
     icon: icon(FileText),
-    translate: true,
     subsystem: 'aup',
     children: [
-      { title: 'protocolManagement', href: '/protocols', translate: true },
-      { title: 'newProtocol', href: '/protocols/new', translate: true },
-      { title: 'myAmendments', href: '/my-amendments', translate: true },
+      { title: 'protocolManagement', href: '/protocols' },
+      { title: 'newProtocol', href: '/protocols/new' },
+      { title: 'myAmendments', href: '/my-amendments' },
     ],
   },
   {
     id: 'hr',
-    title: '人員管理',
+    title: 'hr',
     icon: icon(Users),
-    translate: false,
     subsystem: 'hr',
     children: [
-      { title: '出勤打卡', href: '/hr/attendance', translate: false },
-      { title: '請假管理', href: '/hr/leaves', translate: false },
-      { title: '加班管理', href: '/hr/overtime', translate: false },
-      { title: '特休管理', href: '/hr/annual-leave', permission: 'hr.balance.manage', translate: false },
-      { title: '人員訓練', href: '/hr/training-records', permission: 'training.view', translate: false },
-      { id: 'hr.invitations', title: '邀請管理', href: '/hr/invitations', permission: 'invitation.view', translate: false },
-      { title: '行事曆', href: '/hr/calendar', translate: false },
+      { title: 'hrAttendance', href: '/hr/attendance' },
+      { title: 'hrLeaves', href: '/hr/leaves' },
+      { title: 'hrOvertime', href: '/hr/overtime' },
+      { title: 'hrAnnualLeave', href: '/hr/annual-leave', permission: 'hr.balance.manage' },
+      { title: 'hrTraining', href: '/hr/training-records', permission: 'training.view' },
+      { id: 'hr.invitations', title: 'hrInvitations', href: '/hr/invitations', permission: 'invitation.view' },
+      { title: 'hrCalendar', href: '/hr/calendar' },
     ],
   },
   {
     id: 'animalManagement',
     title: 'animalManagement',
     icon: icon(Stethoscope),
-    translate: true,
     subsystem: 'animal',
     children: [
-      { title: 'animalList', href: '/animals', translate: true },
+      { title: 'animalList', href: '/animals' },
       // 選單閘與路由閘一致用「檢視」權限；頁內操作另由 animal.planning.manage 個別守。
       // 用 animal.info.assign 會讓 SD / 試驗工作人員連選單入口都看不到。
-      { title: '預約與試驗規劃', href: '/animals/reservation-planning', permission: 'animal.planning.view', translate: false },
-      { title: '巡場報告', href: '/vet-patrol-reports', permission: 'animal.record.view', translate: false },
-      { title: '血檢分析', href: '/blood-test-analysis', translate: false },
-      { title: '血檢項目', href: '/blood-test-templates', permission: 'animal.blood_test_template.manage', translate: false },
-      { title: '來源管理', href: '/animal-sources', permission: 'animal.source.manage', translate: false },
-      { id: 'animalManagement.fieldCorrections', title: '修正審核', href: '/animals/animal-field-corrections', permission: 'admin', translate: false },
+      { title: 'animalPlanning', href: '/animals/reservation-planning', permission: 'animal.planning.view' },
+      { title: 'vetPatrol', href: '/vet-patrol-reports', permission: 'animal.record.view' },
+      { title: 'bloodTestAnalysis', href: '/blood-test-analysis' },
+      { title: 'bloodTestTemplates', href: '/blood-test-templates', permission: 'animal.blood_test_template.manage' },
+      { title: 'animalSources', href: '/animal-sources', permission: 'animal.source.manage' },
+      { id: 'animalManagement.fieldCorrections', title: 'fieldCorrections', href: '/animals/animal-field-corrections', permission: 'admin' },
     ],
   },
   {
     id: 'erp',
-    title: 'ERP',
+    title: 'erp',
     icon: icon(Package),
-    translate: false,
     permission: 'erp',
     subsystem: 'erp',
     children: [
-      { title: '產品管理', href: '/products', translate: false },
-      { title: '單據管理', href: '/documents', translate: false },
+      { title: 'erpProducts', href: '/products' },
+      { title: 'erpDocuments', href: '/documents' },
       {
-        title: '倉儲作業',
-        translate: false,
+        title: 'erpWarehouseOps',
         children: [
-          { title: '倉庫', href: '/warehouses', translate: false },
-          { title: '庫存查詢', href: '/inventory', translate: false },
-          { title: '庫存流水', href: '/inventory/ledger', translate: false },
+          { title: 'erpWarehouses', href: '/warehouses' },
+          { title: 'erpInventory', href: '/inventory' },
+          { title: 'erpInventoryLedger', href: '/inventory/ledger' },
         ],
       },
-      { title: '設備維護', href: '/equipment', permission: 'equipment.view', translate: false },
-      { title: '供應商／客戶', href: '/partners', translate: false },
+      { title: 'erpEquipment', href: '/equipment', permission: 'equipment.view' },
+      { title: 'erpPartners', href: '/partners' },
     ],
   },
   {
     id: 'admin',
-    title: '系統管理',
+    title: 'admin',
     icon: icon(Settings),
-    translate: false,
     subsystem: 'admin',
     children: [
-      { id: 'admin.users', title: '使用者管理', href: '/admin/users', translate: false },
-      { title: '角色權限', href: '/admin/roles', translate: false },
-      { id: 'admin.settings', title: '系統設定', href: '/admin/settings', translate: false },
-      { title: '操作日誌', href: '/admin/audit-logs', translate: false },
-      { title: '安全審計', href: '/admin/audit', translate: false },
-      { id: 'admin.notificationRouting', title: '通知路由', href: '/admin/notification-routing', translate: false },
-      { title: '藥物選單', href: '/admin/treatment-drugs', translate: false },
-      { title: '設施管理', href: '/admin/facilities', translate: false },
+      { id: 'admin.users', title: 'adminUsers', href: '/admin/users' },
+      { title: 'adminRoles', href: '/admin/roles' },
+      { id: 'admin.settings', title: 'adminSettings', href: '/admin/settings' },
+      { title: 'adminAuditLogs', href: '/admin/audit-logs' },
+      { title: 'adminSecurityAudit', href: '/admin/audit' },
+      { id: 'admin.notificationRouting', title: 'adminNotificationRouting', href: '/admin/notification-routing' },
+      { title: 'adminTreatmentDrugs', href: '/admin/treatment-drugs' },
+      { title: 'adminFacilities', href: '/admin/facilities' },
       {
         id: 'admin.glp',
-        title: 'GLP 合規',
-        translate: false,
+        title: 'adminGlp',
         children: [
-          { title: '變更控制', href: '/admin/change-control', permission: 'change.request.view', translate: false },
-          { title: '文件控制', href: '/admin/document-control', permission: 'dms.document.view', translate: false },
-          { title: '風險登記簿', href: '/admin/risk-register', permission: 'risk.register.view', translate: false },
-          { title: '管理審查', href: '/admin/management-reviews', permission: 'glp.management_review.view', translate: false },
-          { title: '配製紀錄', href: '/admin/formulation-records', permission: 'formulation.record.view', translate: false },
-          { title: '能力評鑑', href: '/admin/competency-assessments', permission: 'competency.assessment.view', translate: false },
-          { title: '研究最終報告', href: '/admin/study-reports', permission: 'study.report.view', translate: false },
-          { title: '環境監控', href: '/admin/environment-monitoring', permission: 'env.monitoring.view', translate: false },
+          { title: 'glpChangeControl', href: '/admin/change-control', permission: 'change.request.view' },
+          { title: 'glpDocumentControl', href: '/admin/document-control', permission: 'dms.document.view' },
+          { title: 'glpRiskRegister', href: '/admin/risk-register', permission: 'risk.register.view' },
+          { title: 'glpManagementReview', href: '/admin/management-reviews', permission: 'glp.management_review.view' },
+          { title: 'glpFormulationRecords', href: '/admin/formulation-records', permission: 'formulation.record.view' },
+          { title: 'glpCompetency', href: '/admin/competency-assessments', permission: 'competency.assessment.view' },
+          { title: 'glpStudyReports', href: '/admin/study-reports', permission: 'study.report.view' },
+          { title: 'glpEnvMonitoring', href: '/admin/environment-monitoring', permission: 'env.monitoring.view' },
         ],
       },
     ],

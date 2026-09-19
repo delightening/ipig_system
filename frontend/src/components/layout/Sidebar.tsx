@@ -131,7 +131,7 @@ export function Sidebar({
             title={sidebarOpen ? t('nav.collapseSidebar') : t('nav.expandSidebar')}
           >
             <span className="w-16 flex items-center justify-center shrink-0">
-              <img src="/pigmodel%20logo%20dark.png" alt="Logo" className="h-9 w-9 object-contain" />
+              <img src="/pigmodel%20logo%20dark.png" alt={t('nav.logoAlt')} className="h-9 w-9 object-contain" />
             </span>
             {sidebarOpen && (
               <span className="text-xl font-bold whitespace-nowrap">ipig system</span>

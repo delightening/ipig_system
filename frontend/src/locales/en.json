@@ -69,9 +69,31 @@
       "errorMaxSize": "File {{fileName}} exceeds {{maxSize}}MB limit",
       "errorUploadFailed": "Upload failed, please try again",
       "errorUploadPartial": "Uploaded {{succeeded}} of {{total}} files; the rest were not uploaded. Please re-select the files that did not succeed.",
-      "hint": "Max {{maxSize}}MB, up to {{maxFiles}} files"
+      "hint": "Max {{maxSize}}MB, up to {{maxFiles}} files",
+      "errorMimeType": "File \"{{fileName}}\" is not an allowed file type",
+      "errorMimeTypeWithType": "File \"{{fileName}}\" has a type ({{fileType}}) that is not allowed",
+      "errorHeicDecode": "HEIC image decoding failed. Please use JPEG/PNG, or set the iOS camera to \"Most Compatible\".",
+      "converting": "Processing image…"
     },
-    "email": "Email"
+    "email": "Email",
+    "searchEllipsis": "Search...",
+    "noResults": "No results found",
+    "removeItem": "Remove {{name}}",
+    "totalItems": "{{count}} total",
+    "pageOf": "Page {{page}} of {{totalPages}}",
+    "expandField": "Expand field",
+    "collapseField": "Collapse field",
+    "custom": "Custom",
+    "currentValue": "Current value:",
+    "addItem": "Add Item",
+    "retry": "Retry",
+    "downloadFailed": "Download failed",
+    "user": "User",
+    "unknown_error": "An unknown error occurred",
+    "showingOf": "Showing {{from}}–{{to}} of {{total}}",
+    "previous": "Previous",
+    "next": "Next",
+    "deleted": "Deleted"
   },
   "datePicker": {
     "placeholder": "Select date",
@@ -147,7 +169,10 @@
     "fontSizeDescription": "Increase interface text for easier reading on mobile devices.",
     "fontSizeDefault": "Standard",
     "fontSizeLarge": "Large",
-    "fontSizeXl": "Extra Large"
+    "fontSizeXl": "Extra Large",
+    "errors": {
+      "displayNameRequired": "Display name is required"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -158,7 +183,60 @@
     "myAmendments": "Amendments",
     "animalManagement": "Animals",
     "animalList": "Animal List",
-    "expandSidebar": "Expand Sidebar"
+    "expandSidebar": "Expand Sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "editModeHint": "Drag items to reorder",
+    "openMenu": "Open menu",
+    "logoAlt": "Logo",
+    "messaging": "Messages",
+    "reports": "Reports Center",
+    "qau": "QAU Quality Assurance",
+    "qauDashboard": "QA Dashboard",
+    "qauInspections": "Inspection Reports",
+    "qauNonConformances": "Non-Conformances (NC)",
+    "qauSop": "SOP Documents",
+    "qauSchedules": "Inspection Schedule",
+    "hr": "Personnel",
+    "hrAttendance": "Attendance",
+    "hrLeaves": "Leave Management",
+    "hrOvertime": "Overtime Management",
+    "hrAnnualLeave": "Annual Leave",
+    "hrTraining": "Staff Training",
+    "hrInvitations": "Invitations",
+    "hrCalendar": "Calendar",
+    "animalPlanning": "Reservation & Study Planning",
+    "vetPatrol": "Vet Patrol Reports",
+    "bloodTestAnalysis": "Blood Test Analysis",
+    "bloodTestTemplates": "Blood Test Items",
+    "animalSources": "Animal Sources",
+    "fieldCorrections": "Correction Review",
+    "erp": "ERP",
+    "erpProducts": "Products",
+    "erpDocuments": "Documents",
+    "erpWarehouseOps": "Warehouse Operations",
+    "erpWarehouses": "Warehouses",
+    "erpInventory": "Inventory Lookup",
+    "erpInventoryLedger": "Inventory Ledger",
+    "erpEquipment": "Equipment Maintenance",
+    "erpPartners": "Suppliers / Customers",
+    "admin": "System Administration",
+    "adminUsers": "User Management",
+    "adminRoles": "Roles & Permissions",
+    "adminSettings": "System Settings",
+    "adminAuditLogs": "Activity Logs",
+    "adminSecurityAudit": "Security Audit",
+    "adminNotificationRouting": "Notification Routing",
+    "adminTreatmentDrugs": "Drug List",
+    "adminFacilities": "Facility Management",
+    "adminGlp": "GLP Compliance",
+    "glpChangeControl": "Change Control",
+    "glpDocumentControl": "Document Control",
+    "glpRiskRegister": "Risk Register",
+    "glpManagementReview": "Management Review",
+    "glpFormulationRecords": "Formulation Records",
+    "glpCompetency": "Competency Assessment",
+    "glpStudyReports": "Final Study Reports",
+    "glpEnvMonitoring": "Environmental Monitoring"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -412,6 +490,14 @@
       "applying": "Applying",
       "ongoing": "Ongoing",
       "closed": "Closed"
+    },
+    "messages": {
+      "layoutSaveFailed": "Failed to save layout",
+      "layoutSaved": "Layout saved",
+      "layoutReset": "Layout reset to default"
+    },
+    "layout": {
+      "resetToDefault": "Reset to Default Layout"
     }
   },
   "myProjects": {
@@ -522,7 +608,8 @@
         "attachmentsTitle": "Attachments",
         "attachmentsDesc": "Related documents and files",
         "animalsTitle": "Animal Records",
-        "animalsDesc": "List of all animals assigned to this protocol"
+        "animalsDesc": "List of all animals assigned to this protocol",
+        "vetFormFill": "Veterinarian Online Review"
       },
       "dialogs": {
         "status": {
@@ -574,7 +661,8 @@
           "title": "Assign Reviewer",
           "desc": "Select a reviewer or veterinarian to assign",
           "placeholder": "Select reviewer",
-          "confirm": "Confirm Assignment"
+          "confirm": "Confirm Assignment",
+          "success": "Reviewer assigned successfully"
         },
         "coeditor": {
           "title": "Assign Co-Editor",
@@ -629,7 +717,11 @@
         "noAttachments": "No attachments",
         "uploadFirst": "Upload the first attachment",
         "noAnimals": "No animal records",
-        "noAnimalsDesc": "No animals have been assigned to this protocol yet"
+        "noAnimalsDesc": "No animals have been assigned to this protocol yet",
+        "uploadSuccess": "Upload successful",
+        "uploadFailed": "Upload failed",
+        "assignSuccess": "Reviewer assigned successfully",
+        "assignFailed": "Failed to assign reviewer"
       },
       "actions": {
         "reply": "Reply",
@@ -640,142 +732,17 @@
         "reviewer": "Reviewer",
         "reviewerA": "Reviewer A",
         "reviewerB": "Reviewer B",
-        "reviewerC": "Reviewer C"
-      },
-      "content": {
-        "exportPDF": "Export PDF",
-        "browserPrint": "Print (browser)",
-        "browserPrintBlocked": "Pop-up blocked; please allow it and retry",
-        "exporting": "Exporting...",
-        "exportFailed": "PDF export failed, please try again",
-        "noContent": "Protocol content not filled yet",
-        "title": "AUP Animal Study Protocol",
-        "sections": {
-          "researchInfo": "1. Research Information",
-          "glpAttribute": "GLP (Good Laboratory Practice) Compliance",
-          "glpCompliant": "GLP",
-          "glpNonCompliant": "Non-GLP",
-          "projectName": "Project Name",
-          "projectType": "Project Type",
-          "projectCategory": "Project Category",
-          "expectedSchedule": "Expected Schedule",
-          "piInfo": "Principal Investigator (PI)",
-          "piName": "Name",
-          "piPhone": "Phone",
-          "piEmail": "Email",
-          "piAddress": "Address",
-          "sponsorInfo": "Sponsor",
-          "sponsorName": "Sponsor Name",
-          "contactPerson": "Contact Person",
-          "contactPhone": "Contact Phone",
-          "contactEmail": "Contact Email",
-          "facility": "Institution and Facility",
-          "facilityName": "Institution Name",
-          "location": "Location",
-          "purpose": "2. Research Purpose",
-          "significance": "2.1 Purpose and Significance of Research",
-          "replacement": "2.2 Replacement Principles of 3Rs",
-          "replacementRationale": "2.2.1 Necessity of Live Animal Study and Reason for Species Selection",
-          "alternativeSearch": "2.2.2 Search for Non-Animal Alternatives",
-          "searchPlatforms": "Search Platforms",
-          "searchKeywords": "Search Keywords",
-          "searchConclusion": "Search Results and Conclusion",
-          "duplicate": "2.2.3 Whether it is a Duplicate Experiment",
-          "duplicateYes": "Yes",
-          "duplicateNo": "No",
-          "duplicateJustification": "Scientific Justification for Duplication:",
-          "reduction": "2.3 Reduction Principles of 3Rs",
-          "reductionDesign": "Study Design and Rationale for Animal Numbers",
-          "items": "3. Test and Control Items",
-          "testItems": "Test Items",
-          "controlItems": "Control Items",
-          "itemName": "Item Name",
-          "itemForm": "Formulation",
-          "itemPurpose": "Purpose",
-          "itemStorage": "Storage Conditions",
-          "isSterile": "Is this item prepared steriley",
-          "sterileYes": "Yes",
-          "sterileNo": "No",
-          "nonSterileJustification": "Explanation:",
-          "omitted": "N/A",
-          "design": "4. Study Design and Methods",
-          "procedures": "Description of Animal Study Procedures",
-          "anesthesia": "Is the study performed under anesthesia",
-          "anesthesiaType": "Anesthesia Type",
-          "painCategory": "Pain Category",
-          "painManagement": "Pain Management Plan:",
-          "endpoints": "Endpoints",
-          "experimentalEndpoint": "Experimental Endpoint",
-          "humaneEndpoint": "Humane Endpoint",
-          "distressSigns": "4.1.5 Possible Pain or Distress Signs",
-          "restrictions": "4.1.4 Food / Water Restriction",
-          "restrictionsNo": "No — no food/water restriction",
-          "finalHandling": "4.1.8 Euthanasia or Final Disposition",
-          "transferRecipient": "Recipient",
-          "transferOrg": "Organization",
-          "transferProject": "Project Name",
-          "carcassDisposal": "4.2 Carcass Disposal Method",
-          "nonPharma": "4.3 Use of Research-grade Chemicals or Non-pharmaceutical Substances",
-          "hazardsTitle": "4.4 Use of Hazardous Materials",
-          "hazardsType": "Type",
-          "hazardsName": "Substance Name",
-          "hazardsAmount": "Quantity Required",
-          "hazardsWasteTitle": "4.5 Hazardous Materials and Waste Handling",
-          "hazardsOperation": "4.5.1 Application Method, Route, and Location",
-          "hazardsProtection": "4.5.2 Protection Measures",
-          "hazardsWaste": "4.5.3 Waste and Carcass Disposal",
-          "controlledSubstances4_5": "4.5 Use of Controlled Drugs",
-          "controlledSubstances4_6": "4.6 Use of Controlled Drugs",
-          "controlledDrugName": "Drug Name",
-          "controlledApprovalNo": "Approval No.",
-          "controlledAmount": "Quantity Required",
-          "controlledAuthorizedPerson": "Controlled Drug Custodian",
-          "yesUsed": "Yes",
-          "noUsed": "No",
-          "notApplicable": "Not applicable",
-          "other": "Other",
-          "otherText": "Description",
-          "guidelines": "5. Relevant Guidelines and References",
-          "guidelinesContent": "Relevant Guidelines Description",
-          "references": "References",
-          "surgery": "6. Animal Surgical Plan",
-          "surgeryType": "Surgery Type",
-          "preop_Preparation": "Pre-operative Preparation",
-          "surgeryDescription": "Surgical Description",
-          "monitoring": "Monitoring Methods",
-          "postopCare": "Post-operative Care",
-          "drugPlan": "Drug Plan",
-          "drugName": "Drug Name",
-          "dose": "Dose",
-          "route": "Route",
-          "frequency": "Frequency",
-          "animals": "7. Experimental Animal Data",
-          "animalGroup": "Animal Group",
-          "species": "Species",
-          "strain": "Strain",
-          "sex": "Sex",
-          "number": "Number",
-          "ageRange": "Age Range",
-          "weightRange": "Weight Range",
-          "housingLocation": "Housing Location",
-          "unlimited": "Any",
-          "totalAnimals": "Total Animals",
-          "numberUnit": "head",
-          "ageUnit": "months",
-          "weightUnit": "kg",
-          "personnel": "8. Study Personnel Data",
-          "person": "Personnel",
-          "position": "Title",
-          "yearsExperience": "Years of Experience in Animal Studies",
-          "years": "Years",
-          "workContent": "Responsibility",
-          "training": "Training/Qualifications",
-          "attachments": "9. Attachments",
-          "signatures": "10. Electronic Signatures"
-        }
+        "reviewerC": "Reviewer C",
+        "deleteSuccess": "Deleted successfully",
+        "deleteFailed": "Delete failed"
       },
       "downloadPdf": "Download PDF",
-      "downloadPdfHint": "PDF is the final-form output (embedded fonts, consistent layout across devices)"
+      "downloadPdfHint": "PDF is the final-form output (embedded fonts, consistent layout across devices)",
+      "vet_form": {
+        "save_success": "Review checklist saved",
+        "title": "Veterinarian Review Checklist",
+        "comment_placeholder": "Enter review comments..."
+      }
     },
     "amendments": {
       "title": "Amendments",
@@ -814,7 +781,13 @@
       "validation": {
         "titleRequired": "Please enter amendment title",
         "changeItemsRequired": "Please select at least one change item"
-      }
+      },
+      "markEffectiveSuccess": "Marked as effective",
+      "markEffectiveFailed": "Failed to mark as effective",
+      "markEffectiveConfirmTitle": "Mark as Effective",
+      "markEffectiveConfirm": "Mark {{no}} as effective? This action is recorded in the audit trail and cannot be undone.",
+      "markEffective": "Mark Effective",
+      "effectiveSince": "Effective since {{date}}"
     },
     "piDelegate": {
       "title": "PI Delegate Authorization",
@@ -833,7 +806,142 @@
       "expiresLabel": "Valid until",
       "validUntil": "(valid until {{date}})",
       "noExpiry": "(no expiry)"
-    }
+    },
+    "content": {
+      "reviewComment": "Review Comments",
+      "toc": "Table of Contents",
+      "exportPDF": "Export PDF",
+      "browserPrint": "Print (browser)",
+      "browserPrintBlocked": "Pop-up blocked; please allow it and retry",
+      "exporting": "Exporting...",
+      "exportFailed": "PDF export failed, please try again",
+      "noContent": "Protocol content not filled yet",
+      "title": "AUP Animal Study Protocol",
+      "sections": {
+        "researchInfo": "1. Research Information",
+        "glpAttribute": "GLP (Good Laboratory Practice) Compliance",
+        "glpCompliant": "GLP",
+        "glpNonCompliant": "Non-GLP",
+        "projectName": "Project Name",
+        "projectType": "Project Type",
+        "projectCategory": "Project Category",
+        "expectedSchedule": "Expected Schedule",
+        "piInfo": "Principal Investigator (PI)",
+        "piName": "Name",
+        "piPhone": "Phone",
+        "piEmail": "Email",
+        "piAddress": "Address",
+        "sponsorInfo": "Sponsor",
+        "sponsorName": "Sponsor Name",
+        "contactPerson": "Contact Person",
+        "contactPhone": "Contact Phone",
+        "contactEmail": "Contact Email",
+        "facility": "Institution and Facility",
+        "facilityName": "Institution Name",
+        "location": "Location",
+        "purpose": "2. Research Purpose",
+        "significance": "2.1 Purpose and Significance of Research",
+        "replacement": "2.2 Replacement Principles of 3Rs",
+        "replacementRationale": "2.2.1 Necessity of Live Animal Study and Reason for Species Selection",
+        "alternativeSearch": "2.2.2 Search for Non-Animal Alternatives",
+        "searchPlatforms": "Search Platforms",
+        "searchKeywords": "Search Keywords",
+        "searchConclusion": "Search Results and Conclusion",
+        "duplicate": "2.2.3 Whether it is a Duplicate Experiment",
+        "duplicateYes": "Yes",
+        "duplicateNo": "No",
+        "duplicateJustification": "Scientific Justification for Duplication:",
+        "reduction": "2.3 Reduction Principles of 3Rs",
+        "reductionDesign": "Study Design and Rationale for Animal Numbers",
+        "items": "3. Test and Control Items",
+        "testItems": "Test Items",
+        "controlItems": "Control Items",
+        "itemName": "Item Name",
+        "itemForm": "Formulation",
+        "itemPurpose": "Purpose",
+        "itemStorage": "Storage Conditions",
+        "isSterile": "Is this item prepared steriley",
+        "sterileYes": "Yes",
+        "sterileNo": "No",
+        "nonSterileJustification": "Explanation:",
+        "omitted": "N/A",
+        "design": "4. Study Design and Methods",
+        "procedures": "Description of Animal Study Procedures",
+        "anesthesia": "Is the study performed under anesthesia",
+        "anesthesiaType": "Anesthesia Type",
+        "painCategory": "Pain Category",
+        "painManagement": "Pain Management Plan:",
+        "endpoints": "Endpoints",
+        "experimentalEndpoint": "Experimental Endpoint",
+        "humaneEndpoint": "Humane Endpoint",
+        "distressSigns": "4.1.5 Possible Pain or Distress Signs",
+        "restrictions": "4.1.4 Food / Water Restriction",
+        "restrictionsNo": "No — no food/water restriction",
+        "finalHandling": "4.1.8 Euthanasia or Final Disposition",
+        "transferRecipient": "Recipient",
+        "transferOrg": "Organization",
+        "transferProject": "Project Name",
+        "carcassDisposal": "4.2 Carcass Disposal Method",
+        "nonPharma": "4.3 Use of Research-grade Chemicals or Non-pharmaceutical Substances",
+        "hazardsTitle": "4.4 Use of Hazardous Materials",
+        "hazardsType": "Type",
+        "hazardsName": "Substance Name",
+        "hazardsAmount": "Quantity Required",
+        "hazardsWasteTitle": "4.5 Hazardous Materials and Waste Handling",
+        "hazardsOperation": "4.5.1 Application Method, Route, and Location",
+        "hazardsProtection": "4.5.2 Protection Measures",
+        "hazardsWaste": "4.5.3 Waste and Carcass Disposal",
+        "controlledSubstances4_5": "4.5 Use of Controlled Drugs",
+        "controlledSubstances4_6": "4.6 Use of Controlled Drugs",
+        "controlledDrugName": "Drug Name",
+        "controlledApprovalNo": "Approval No.",
+        "controlledAmount": "Quantity Required",
+        "controlledAuthorizedPerson": "Controlled Drug Custodian",
+        "yesUsed": "Yes",
+        "noUsed": "No",
+        "notApplicable": "Not applicable",
+        "other": "Other",
+        "otherText": "Description",
+        "guidelines": "5. Relevant Guidelines and References",
+        "guidelinesContent": "Relevant Guidelines Description",
+        "references": "References",
+        "surgery": "6. Animal Surgical Plan",
+        "surgeryType": "Surgery Type",
+        "preop_Preparation": "Pre-operative Preparation",
+        "surgeryDescription": "Surgical Description",
+        "monitoring": "Monitoring Methods",
+        "postopCare": "Post-operative Care",
+        "drugPlan": "Drug Plan",
+        "drugName": "Drug Name",
+        "dose": "Dose",
+        "route": "Route",
+        "frequency": "Frequency",
+        "animals": "7. Experimental Animal Data",
+        "animalGroup": "Animal Group",
+        "species": "Species",
+        "strain": "Strain",
+        "sex": "Sex",
+        "number": "Number",
+        "ageRange": "Age Range",
+        "weightRange": "Weight Range",
+        "housingLocation": "Housing Location",
+        "unlimited": "Any",
+        "totalAnimals": "Total Animals",
+        "numberUnit": "head",
+        "ageUnit": "months",
+        "weightUnit": "kg",
+        "personnel": "8. Study Personnel Data",
+        "person": "Personnel",
+        "position": "Title",
+        "yearsExperience": "Years of Experience in Animal Studies",
+        "years": "Years",
+        "workContent": "Responsibility",
+        "training": "Training/Qualifications",
+        "attachments": "9. Attachments",
+        "signatures": "10. Electronic Signatures"
+      }
+    },
+    "deleteTitle": "Delete Protocol"
   },
   "language": {
     "zhTW": "繁體中文",
@@ -869,7 +977,10 @@
         "studyTitle": "Enter study title",
         "piName": "Study Lead Personnel",
         "contactPerson": "Primary Contact for Study Execution",
-        "studyNo": "To be filled by executive secretary"
+        "studyNo": "To be filled by executive secretary",
+        "selectProjectType": "Select project type",
+        "selectProjectCategory": "Select project category",
+        "specifyOther": "Please specify the other category"
       },
       "studyTitle": "Study Title",
       "expectedPeriod": "Expected Study Period",
@@ -957,7 +1068,10 @@
         "sponsorEmailInvalid": "Invalid sponsor email format",
         "facilityRequired": "Please enter facility name",
         "locationRequired": "Please enter housing location"
-      }
+      },
+      "studyTitlePlaceholder": "Enter study title",
+      "piExtension": "Extension",
+      "_comment": "Section 1: Basic Information"
     },
     "purpose": {
       "title": "Study Purpose",
@@ -1059,7 +1173,8 @@
         "duplicateJustificationRequired": "Please explain the scientific rationale for replication",
         "reductionDesignRequired": "Please enter experimental design description",
         "refinementRequired": "Please enter refinement principle description"
-      }
+      },
+      "_comment": "Section 2: Study Purpose"
     },
     "items": {
       "title": "Testing and Control Item",
@@ -1068,7 +1183,8 @@
         "dosageForm": "e.g., liquid, powder",
         "storageConditions": "Please specify storage conditions",
         "nonSterile": "Please explain why this item is not prepared under sterile conditions",
-        "photos": "Drag and drop photos here, or click to select"
+        "photos": "Drag and drop photos here, or click to select",
+        "controlName": "Enter N/A if there is no control"
       },
       "useTestItemLabel": "Does this study administer \"test substances\" to animals",
       "composition": "Composition",
@@ -1104,7 +1220,12 @@
         "controlPurposeRequired": "Please enter purpose for control substance #{{index}}",
         "controlStorageRequired": "Please enter storage conditions for control substance #{{index}}",
         "controlJustificationRequired": "Please enter non-sterile justification for control substance #{{index}}"
-      }
+      },
+      "dosageFormPlaceholder": "e.g., liquid, powder",
+      "storageConditionsPlaceholder": "Enter storage conditions",
+      "nonSterilePlaceholder": "Please explain why this substance is not prepared sterile",
+      "photosPlaceholder": "Drag photos here, or click to select photos",
+      "_comment": "Section 3: Test and Control Substances"
     },
     "design": {
       "placeholders": {
@@ -1127,7 +1248,11 @@
         "drugName": "Enter drug name",
         "approvalNo": "Enter approval number",
         "drugAmount": "Please enter required amount",
-        "authorizedPerson": "Please enter manager name"
+        "authorizedPerson": "Please enter manager name",
+        "explainOther": "Please describe other anesthesia methods",
+        "explainRestrictionOther": "Please describe other restriction methods",
+        "nonPharmaExplain": "Explain substance properties, safety, and scientific justification",
+        "hazardType": "Select type"
       },
       "title4_1": "4.1 Please provide a detailed description of the animal experiment procedures based on the 3Rs (Replacement, Reduction, Refinement) refinement principle, so that IACUC members can fully understand all procedures:",
       "anesthesiaLabel": "4.1.1 Is the experiment performed under anesthesia?",
@@ -1316,7 +1441,26 @@
         "approvalNoRequired": "Please enter approval number for controlled substance #{{index}}",
         "drugAmountRequired": "Please enter required amount for controlled substance #{{index}}",
         "authorizedPersonRequired": "Please enter administrator for controlled substance #{{index}}"
-      }
+      },
+      "subtitle": "",
+      "explainOtherPlaceholder": "Please describe other anesthesia methods",
+      "proceduresPlaceholder": "Please describe the animal procedures and workflow in detail",
+      "explainRestrictionOtherPlaceholder": "Please describe other restriction methods",
+      "experimentalEndpointPlaceholder": "Please explain when the experiment is expected to end",
+      "humaneEndpointPlaceholder": "Please describe the humane endpoint",
+      "euthanasiaOtherPlaceholder": "Please describe other euthanasia methods",
+      "recipientNamePlaceholder": "Enter recipient name",
+      "recipientOrgPlaceholder": "Enter recipient organization",
+      "projectNamePlaceholder": "Enter project name",
+      "otherHandlingPlaceholder": "Please describe other handling methods",
+      "carcassDisposalPlaceholder": "Please describe how animal carcasses will be disposed of",
+      "agentNamePlaceholder": "Name",
+      "amountPlaceholder": "Required amount",
+      "drugNamePlaceholder": "Enter drug name",
+      "approvalNoPlaceholder": "Enter approval number",
+      "drugAmountPlaceholder": "Enter required amount",
+      "authorizedPersonPlaceholder": "Enter the controlled-substance custodian",
+      "_comment": "Section 4: Study Design and Procedures"
     },
     "guidelines": {
       "title": "Guidelines and References",
@@ -1377,7 +1521,9 @@
         "drugDose": "e.g., 10 mg/kg",
         "drugRoute": "e.g., IM",
         "drugFrequency": "e.g., SID",
-        "drugPurpose": "e.g., Post-op pain"
+        "drugPurpose": "e.g., Post-op pain",
+        "expectedImpact": "Please describe the expected impact of the surgery on the animal in detail",
+        "drugInfo": "Enter surgical medication information"
       },
       "asepticTechniques": {
         "surgical_site_disinfection": "Surgical site disinfection",
@@ -1421,7 +1567,9 @@
         "drugFrequencyRequired": "Please enter frequency for medication #{{index}}",
         "drugPurposeRequired": "Please enter purpose for medication #{{index}}"
       },
-      "loadDefaults": "Load Defaults"
+      "loadDefaults": "Load Defaults",
+      "noDrugs": "No surgical medications added yet",
+      "_comment": "Section 6: Surgical Plan"
     },
     "animals": {
       "title": "Experimental Animal Data",
@@ -1493,7 +1641,8 @@
         "weightMinRequired": "Please enter min weight for animal #{{index}}",
         "weightMaxRequired": "Please enter max weight for animal #{{index}}",
         "weightMaxInvalid": "Max weight for animal #{{index}} must be greater than min weight"
-      }
+      },
+      "_comment": "Section 7: Animal Information"
     },
     "personnel": {
       "title": "Personnel Data",
@@ -1579,6 +1728,14 @@
           "D": "D. Laboratory Animal Technical Workshop",
           "E": "E. Laboratory Animal Regulations and Management",
           "F": "F. Other"
+        },
+        "placeholders": {
+          "name": "Enter name",
+          "position": "Enter job title",
+          "rolesOther": "Please describe other job duties",
+          "experience": "Enter years",
+          "trainingsOther": "Please describe other training/qualifications",
+          "certNo": "Certificate number"
         }
       },
       "editDialog": {
@@ -1591,7 +1748,8 @@
         "D": "D. Laboratory Animal Technical Workshop",
         "E": "E. Laboratory Animal Regulations and Management",
         "F": "F. Other"
-      }
+      },
+      "_comment": "Section 8: Study Personnel"
     },
     "attachments": {
       "title": "Attachments",
@@ -1605,13 +1763,14 @@
       "subtitle": "Review and sign the protocol",
       "label": "Signature File",
       "placeholder": "Drag and drop signature file here, or click to select files",
-      "hint": "Support image formats, max 5MB per file, up to 5 files"
+      "hint": "Support image formats, max 5MB per file, up to 5 files",
+      "uploadMode": "Upload Signature File"
     },
     "messages": {
       "created": "Protocol created successfully",
       "saved": "Draft saved successfully",
       "submitted": "Protocol submitted for review",
-      "confirmSubmit": "確定要提交此計畫書進行審查嗎？ (Are you sure you want to submit this protocol for review?)",
+      "confirmSubmit": "Are you sure you want to submit this protocol for review?",
       "saveFailed": "Failed to save protocol",
       "createFailed": "Failed to create protocol",
       "submitFailed": "Failed to submit protocol",
@@ -1823,7 +1982,8 @@
       "male": "Male",
       "female": "Female"
     },
-    "downloadFieldStatus": "Download Field Status"
+    "downloadFieldStatus": "Download Field Status",
+    "noAnimalsFoundDescription": "Try adjusting the filters, or add the first animal record"
   },
   "password": {
     "title": "Change Password",
@@ -1838,7 +1998,15 @@
     "failed": "Failed to update password. Please check if your current password is correct",
     "fillAllFields": "Please fill in all fields",
     "mismatch": "New password and confirmation do not match",
-    "minLength": "Password must be at least 6 characters long"
+    "minLength": "Password must be at least 6 characters long",
+    "placeholder": "At least {{min}} characters, including upper and lower case letters and numbers",
+    "checks": {
+      "minLength": "At least {{min}} characters",
+      "uppercase": "Contains an uppercase letter",
+      "lowercase": "Contains a lowercase letter",
+      "number": "Contains a number",
+      "notCommon": "Not a commonly used weak password"
+    }
   },
   "amendments": {
     "title": "My Amendments",
@@ -2007,7 +2175,8 @@
       "painAssessment": "Pain Assessment",
       "info": "Animal Info",
       "pathology": "Pathology Report",
-      "transfer": "Transfer Management"
+      "transfer": "Transfer Management",
+      "vetRecommendations": "Veterinarian Recommendations"
     }
   },
   "notFound": {
@@ -3471,6 +3640,126 @@
       "ADMIN_STAFF": "Administrative Staff",
       "WAREHOUSE_MANAGER": "Warehouse Manager",
       "REVIEWER": "Review Committee"
+    }
+  },
+  "ui": {
+    "deleteReasonDialog": {
+      "defaultNoun": "deletion",
+      "title": "Confirm {{noun}}",
+      "description": "This action cannot be undone. Please provide a reason for the {{noun}} to comply with GLP requirements.",
+      "confirm": "Confirm {{noun}}",
+      "reasonRequired": "Please enter a reason for the {{noun}}",
+      "reasonTooShort": "The reason for the {{noun}} must be at least 5 characters",
+      "reasonLabel": "Reason for {{noun}}",
+      "reasonPlaceholder": "Please explain why you are performing this {{noun}} on this record...",
+      "glpReminderTitle": "GLP compliance notice:",
+      "glpReminderBody": "The {{noun}} will be recorded in the activity log, including the reason and the operator."
+    },
+    "errorBoundary": {
+      "updateTitle": "Update Available",
+      "errorTitle": "Something Went Wrong",
+      "updateMessage": "The system has been updated. Refreshing the page…",
+      "errorMessage": "An unexpected error occurred on this page. Please retry or contact your administrator.",
+      "countdown": "Refreshing automatically in {{count}}s…",
+      "refreshNow": "Refresh Now",
+      "retryNow": "Retry Now"
+    },
+    "pageErrorBoundary": {
+      "title": "Something Went Wrong on This Page",
+      "unexpected": "An unexpected error occurred"
+    }
+  },
+  "layout": {
+    "configWarnings": {
+      "title": "Startup Configuration Warnings",
+      "description": "The system detected the following configuration issues. Please have an administrator review them."
+    }
+  },
+  "cookieConsent": {
+    "message": "This system uses essential cookies to keep you signed in and secure. Choosing \"Accept All\" also allows external resources such as third-party fonts to load for a better display.",
+    "learnMore": "Learn more",
+    "essentialOnly": "Essential Only",
+    "acceptAll": "Accept All"
+  },
+  "unsavedChanges": {
+    "title": "Leave this page?",
+    "description": "You have unsaved changes. If you leave, these changes will be lost.",
+    "continueEditing": "Keep Editing",
+    "leave": "Leave"
+  },
+  "privacy": {
+    "title": "Privacy Policy"
+  },
+  "terms": {
+    "title": "Terms of Service"
+  },
+  "settings": {
+    "basic": {
+      "_comment": "Section 11: Basic Settings",
+      "title": "Basic Settings",
+      "description": "Configure basic company information",
+      "companyName": "Company Name",
+      "companyNamePlaceholder": "Enter company name",
+      "defaultWarehouse": "Default Warehouse",
+      "selectWarehouse": "Select default warehouse",
+      "mainWarehouse": "Main Warehouse",
+      "secondaryWarehouse": "Secondary Warehouse"
+    },
+    "inventory": {
+      "_comment": "Section 12: Inventory Settings",
+      "title": "Inventory Settings",
+      "description": "Configure how inventory is calculated",
+      "costMethod": "Costing Method",
+      "weightedAverage": "Weighted Average",
+      "movingAverage": "Moving Average",
+      "fifo": "First In, First Out (FIFO)",
+      "lifo": "Last In, First Out (LIFO)",
+      "supportHint": "The current version supports the weighted average and moving average methods"
+    },
+    "email": {
+      "_comment": "Section 13: Email Settings",
+      "title": "Email Settings",
+      "description": "Configure the SMTP mail server",
+      "smtpServer": "SMTP Server",
+      "port": "Port",
+      "account": "Account"
+    },
+    "security": {
+      "_comment": "Section 14: Security Settings",
+      "title": "Security Settings",
+      "description": "Configure system security parameters",
+      "sessionTimeout": "Session Timeout (minutes)"
+    },
+    "saveSystem": "Save System Settings",
+    "notifications": {
+      "_comment": "Section 15: Notification Settings",
+      "preferences": "Notification Preferences",
+      "preferencesDescription": "Choose the types of notifications you want to receive",
+      "emailTitle": "Email Notifications",
+      "emailDescription": "Choose which events send email notifications",
+      "paramsTitle": "Alert Parameters",
+      "paramsDescription": "Configure the conditions that trigger alerts",
+      "loadFailed": "Unable to load notification settings. Please refresh the page",
+      "lowStock": "Low Stock Alert",
+      "lowStockHint": "Send a notification when product stock falls below the safety level",
+      "immediateNotify": "Immediate Notification",
+      "immediateNotifyHint": "Send notifications immediately instead of a daily digest",
+      "expiryWarning": "Expiry Alert",
+      "expiryWarningHint": "Send a notification when a product is about to expire",
+      "docApproval": "Document Approval Notification",
+      "docApprovalHint": "Notify when a document needs approval or approval is completed",
+      "protocolStatus": "Protocol Status Change",
+      "protocolStatusHint": "Send a notification when the protocol review status changes",
+      "monthlyReport": "Monthly Report Notification",
+      "monthlyReportHint": "Automatically send a monthly inventory and cost summary report",
+      "expiryWarningDetail": "An alert is sent {{days}} days before a product expires",
+      "timeDescription": "Notification Schedule",
+      "lowStockCheck": "Low stock check: runs daily at 8:00 AM",
+      "expiryCheck": "Expiry check: runs daily at 8:00 AM",
+      "cleanupCheck": "Expired notification cleanup: runs every Sunday at 3:00 AM",
+      "summary": "Currently Enabled Notifications",
+      "noNotifyEnabled": "No notifications are enabled",
+      "save": "Save Notification Settings"
     }
   }
 }

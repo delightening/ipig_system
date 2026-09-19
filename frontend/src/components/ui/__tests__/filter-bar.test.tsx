@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { FilterBar } from '../filter-bar'
+import i18n from '@/lib/i18n'
 
 describe('FilterBar', () => {
   it('renders search input when onSearchChange is provided', () => {
@@ -7,13 +8,13 @@ describe('FilterBar', () => {
       <FilterBar search="" onSearchChange={vi.fn()} />
     )
 
-    expect(screen.getByPlaceholderText('搜尋...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(i18n.t('common.searchEllipsis'))).toBeInTheDocument()
   })
 
   it('does not render search input when onSearchChange is undefined', () => {
     render(<FilterBar />)
 
-    expect(screen.queryByPlaceholderText('搜尋...')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(i18n.t('common.searchEllipsis'))).not.toBeInTheDocument()
   })
 
   it('uses custom searchPlaceholder', () => {
@@ -33,7 +34,7 @@ describe('FilterBar', () => {
       <FilterBar search="hello" onSearchChange={vi.fn()} />
     )
 
-    const input = screen.getByPlaceholderText('搜尋...') as HTMLInputElement
+    const input = screen.getByPlaceholderText(i18n.t('common.searchEllipsis')) as HTMLInputElement
     expect(input.value).toBe('hello')
   })
 
@@ -44,7 +45,7 @@ describe('FilterBar', () => {
       <FilterBar search="" onSearchChange={onSearchChange} />
     )
 
-    const input = screen.getByPlaceholderText('搜尋...')
+    const input = screen.getByPlaceholderText(i18n.t('common.searchEllipsis'))
     fireEvent.change(input, { target: { value: 'test' } })
 
     expect(onSearchChange).toHaveBeenCalledWith('test')
@@ -57,7 +58,7 @@ describe('FilterBar', () => {
       <FilterBar hasActiveFilters={true} onClearFilters={onClearFilters} />
     )
 
-    const clearButton = screen.getByText('清除篩選')
+    const clearButton = screen.getByText(i18n.t('common.clearFilters'))
     expect(clearButton).toBeInTheDocument()
   })
 
@@ -66,7 +67,7 @@ describe('FilterBar', () => {
       <FilterBar hasActiveFilters={false} onClearFilters={vi.fn()} />
     )
 
-    expect(screen.queryByText('清除篩選')).not.toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('common.clearFilters'))).not.toBeInTheDocument()
   })
 
   it('does not show clear button when onClearFilters is undefined', () => {
@@ -74,7 +75,7 @@ describe('FilterBar', () => {
       <FilterBar hasActiveFilters={true} />
     )
 
-    expect(screen.queryByText('清除篩選')).not.toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('common.clearFilters'))).not.toBeInTheDocument()
   })
 
   it('calls onClearFilters when clear button is clicked', () => {
@@ -84,7 +85,7 @@ describe('FilterBar', () => {
       <FilterBar hasActiveFilters={true} onClearFilters={onClearFilters} />
     )
 
-    fireEvent.click(screen.getByText('清除篩選'))
+    fireEvent.click(screen.getByText(i18n.t('common.clearFilters')))
     expect(onClearFilters).toHaveBeenCalledTimes(1)
   })
 

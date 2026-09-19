@@ -10,6 +10,7 @@
  */
 
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 interface LoadingOverlayProps {
@@ -22,10 +23,12 @@ interface LoadingOverlayProps {
 }
 
 export function LoadingOverlay({
-    message = '載入中...',
+    message: messageProp,
     fullScreen = false,
     className,
 }: LoadingOverlayProps) {
+    const { t } = useTranslation()
+    const message = messageProp ?? t('common.loading')
     return (
         <div
             className={cn(
