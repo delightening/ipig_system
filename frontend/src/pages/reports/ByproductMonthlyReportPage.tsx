@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Download, Search, FlaskConical, AlertCircle } from 'lucide-react'
 
 import { uiLocale } from '@/lib/utils'
@@ -15,6 +16,7 @@ import {
 } from '@/lib/api/byproductMonthlyReport'
 
 export function ByproductMonthlyReportPage() {
+  const { t } = useTranslation()
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [filter, setFilter] = useState<ByproductMonthlyFilter | null>(null)
@@ -40,7 +42,11 @@ export function ByproductMonthlyReportPage() {
     try {
       await byproductMonthlyReportApi.exportXlsx(filter ?? buildFilter())
     } catch {
-      toast({ title: '匯出失敗', description: '請稍後再試', variant: 'destructive' })
+      toast({
+        title: t('common.exportFailed'),
+        description: t('reportsPages.byproductMonthly.exportRetry'),
+        variant: 'destructive',
+      })
     } finally {
       setExporting(false)
     }
@@ -61,26 +67,26 @@ export function ByproductMonthlyReportPage() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center gap-3">
         <FlaskConical className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">廢棄物再利用月結報表</h1>
+        <h1 className="text-2xl font-bold">{t('reportsPages.byproductMonthly.title')}</h1>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg bg-muted/50">
         <div>
-          <Label>開始日期</Label>
+          <Label>{t('reportsPages.shared.beginDate')}</Label>
           <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
         </div>
         <div>
-          <Label>結束日期</Label>
+          <Label>{t('reportsPages.shared.endDate')}</Label>
           <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
         </div>
         <div className="flex items-end gap-2">
           <Button onClick={handleSearch} disabled={isLoading}>
             <Search className="h-4 w-4 mr-1" />
-            查詢
+            {t('reportsPages.shared.query')}
           </Button>
           <Button variant="outline" onClick={handleExport} disabled={exporting || !hasData}>
             <Download className="h-4 w-4 mr-1" />
-            {exporting ? '匯出中...' : '匯出 Excel'}
+            {exporting ? t('reportsPages.shared.exporting') : t('reportsPages.byproductMonthly.exportExcel')}
           </Button>
         </div>
       </div>
@@ -95,13 +101,13 @@ export function ByproductMonthlyReportPage() {
       {error && (
         <div className="flex items-center gap-2 p-4 border border-destructive/50 rounded-lg bg-destructive/10 text-destructive">
           <AlertCircle className="h-5 w-5 shrink-0" />
-          <span>查詢失敗，請確認權限或稍後再試</span>
+          <span>{t('reportsPages.byproductMonthly.queryFailed')}</span>
         </div>
       )}
 
       {filter == null && !isLoading && (
         <div className="text-center py-12 text-muted-foreground">
-          請選擇日期區間並點擊「查詢」
+          {t('reportsPages.byproductMonthly.selectPrompt')}
         </div>
       )}
 
@@ -110,12 +116,12 @@ export function ByproductMonthlyReportPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted">
               <tr>
-                <th className="px-3 py-2 text-left whitespace-nowrap">採樣日期</th>
-                <th className="px-3 py-2 text-left">案子</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">耳號</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">需求客戶</th>
-                <th className="px-3 py-2 text-left">採樣內容</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">記錄者</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.byproductMonthly.columns.sampledDate')}</th>
+                <th className="px-3 py-2 text-left">{t('reportsPages.byproductMonthly.columns.protocol')}</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.shared.earTag')}</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.byproductMonthly.columns.requester')}</th>
+                <th className="px-3 py-2 text-left">{t('reportsPages.byproductMonthly.columns.sampleContent')}</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.byproductMonthly.columns.collector')}</th>
               </tr>
             </thead>
             <tbody>
@@ -132,14 +138,14 @@ export function ByproductMonthlyReportPage() {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    查無資料
+                    {t('reportsPages.shared.noResults')}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
           <div className="px-3 py-2 text-sm text-muted-foreground border-t">
-            共 {rows.length} 筆
+            {t('common.totalItems', { count: rows.length })}
           </div>
         </div>
       )}

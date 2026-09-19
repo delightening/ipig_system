@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useTableSort } from '@/hooks/useTableSort'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ interface BloodTestCostReport {
 }
 
 export function BloodTestCostReportPage() {
+    const { t } = useTranslation()
     const [iacucNo, setIacucNo] = useState('')
     const { from: dateFrom, to: dateTo, setFrom: setDateFrom, setTo: setDateTo } = useDateRangeFilter()
     const [labName, setLabName] = useState('')
@@ -111,12 +113,12 @@ export function BloodTestCostReportPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="血液檢查費用報表"
-                description="依專案、日期與實驗室查詢血液檢查費用"
+                title={t('reportsPages.bloodTestCost.title')}
+                description={t('reportsPages.bloodTestCost.description')}
                 actions={
                     <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
                         <Download className="mr-2 h-4 w-4" />
-                        匯出 CSV
+                        {t('reportsPages.shared.exportCsv')}
                     </Button>
                 }
             />
@@ -124,21 +126,21 @@ export function BloodTestCostReportPage() {
             {/* 篩選區 */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">篩選條件</CardTitle>
+                    <CardTitle className="text-base">{t('reportsPages.shared.filters')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <div className="space-y-2">
-                            <Label htmlFor="iacuc_no">專案編號 (IACUC No.)</Label>
+                            <Label htmlFor="iacuc_no">{t('reportsPages.shared.iacucNoLabel')}</Label>
                             <Input
                                 id="iacuc_no"
-                                placeholder="例: PIG-115001"
+                                placeholder={t('reportsPages.shared.iacucNoPlaceholder')}
                                 value={iacucNo}
                                 onChange={(e) => setIacucNo(e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="date_from">開始日期</Label>
+                            <Label htmlFor="date_from">{t('reportsPages.shared.beginDate')}</Label>
                             <Input
                                 id="date_from"
                                 type="date"
@@ -147,7 +149,7 @@ export function BloodTestCostReportPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="date_to">結束日期</Label>
+                            <Label htmlFor="date_to">{t('reportsPages.shared.endDate')}</Label>
                             <Input
                                 id="date_to"
                                 type="date"
@@ -156,10 +158,10 @@ export function BloodTestCostReportPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="lab_name">實驗室</Label>
+                            <Label htmlFor="lab_name">{t('reportsPages.shared.lab')}</Label>
                             <Input
                                 id="lab_name"
-                                placeholder="輸入實驗室名稱"
+                                placeholder={t('reportsPages.bloodTestCost.labPlaceholder')}
                                 value={labName}
                                 onChange={(e) => setLabName(e.target.value)}
                             />
@@ -178,7 +180,7 @@ export function BloodTestCostReportPage() {
                                 <DollarSign className="h-6 w-6 text-primary" />
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">總費用</p>
+                                <p className="text-sm text-muted-foreground">{t('reportsPages.bloodTestCost.totalCost')}</p>
                                 <p className="text-2xl font-bold">{formatCurrency(summary.totalCost)}</p>
                             </div>
                         </CardContent>
@@ -189,7 +191,7 @@ export function BloodTestCostReportPage() {
                                 <Hash className="h-6 w-6 text-status-success-text" />
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">檢查項目數</p>
+                                <p className="text-sm text-muted-foreground">{t('reportsPages.shared.testItemCount')}</p>
                                 <p className="text-2xl font-bold">{summary.totalItems}</p>
                             </div>
                         </CardContent>
@@ -200,7 +202,7 @@ export function BloodTestCostReportPage() {
                                 <FlaskConical className="h-6 w-6 text-status-purple-text" />
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">檢查次數</p>
+                                <p className="text-sm text-muted-foreground">{t('reportsPages.shared.testCount')}</p>
                                 <p className="text-2xl font-bold">{summary.totalTests}</p>
                             </div>
                         </CardContent>
@@ -213,13 +215,13 @@ export function BloodTestCostReportPage() {
                 <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>專案編號</SortableTableHead>
-                                <SortableTableHead sortKey="ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>耳號</SortableTableHead>
-                                <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>檢查日期</SortableTableHead>
-                                <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>實驗室</SortableTableHead>
-                                <SortableTableHead sortKey="item_count" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">項目數</SortableTableHead>
-                                <SortableTableHead sortKey="total_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">費用</SortableTableHead>
-                                <SortableTableHead sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立者</SortableTableHead>
+                                <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.bloodTestCost.projectNo')}</SortableTableHead>
+                                <SortableTableHead sortKey="ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.earTag')}</SortableTableHead>
+                                <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.bloodTestCost.testDate')}</SortableTableHead>
+                                <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.lab')}</SortableTableHead>
+                                <SortableTableHead sortKey="item_count" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.bloodTestCost.itemCount')}</SortableTableHead>
+                                <SortableTableHead sortKey="total_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.bloodTestCost.cost')}</SortableTableHead>
+                                <SortableTableHead sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.createdBy')}</SortableTableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -233,7 +235,7 @@ export function BloodTestCostReportPage() {
                                 sortedData.map((row, idx) => (
                                     <TableRow key={`${row.iacuc_no}-${row.ear_tag}-${idx}`}>
                                         <TableCell className="font-mono text-sm">
-                                            {row.iacuc_no || <span className="text-muted-foreground">未分配</span>}
+                                            {row.iacuc_no || <span className="text-muted-foreground">{t('reportsPages.bloodTestCost.unassigned')}</span>}
                                         </TableCell>
                                         <TableCell className="font-medium">{row.ear_tag}</TableCell>
                                         <TableCell>{formatDate(row.test_date)}</TableCell>
@@ -248,7 +250,7 @@ export function BloodTestCostReportPage() {
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableEmptyRow colSpan={7} icon={Droplets} title="尚無血液檢查費用資料" />
+                                <TableEmptyRow colSpan={7} icon={Droplets} title={t('reportsPages.bloodTestCost.emptyTitle')} />
                             )}
                         </TableBody>
                 </Table>

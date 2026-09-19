@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
@@ -38,6 +39,7 @@ function buildQs(from: string, to: string) {
 }
 
 export function PurchaseSalesSummaryPage() {
+  const { t } = useTranslation()
   const { from, to, setFrom, setTo } = useDateRangeFilter()
 
   const qs = useMemo(() => buildQs(from, to), [from, to])
@@ -102,49 +104,49 @@ export function PurchaseSalesSummaryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="進銷貨彙總報表"
-        description="按月份、供應商/客戶、產品類別多維度分析"
+        title={t('reportsPages.purchaseSales.title')}
+        description={t('reportsPages.purchaseSales.description')}
       />
 
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">
-          <Label>起始日期</Label>
-          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" aria-label="起始日期" />
+          <Label>{t('reportsPages.shared.startDate')}</Label>
+          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" aria-label={t('reportsPages.shared.startDate')} />
         </div>
         <div className="space-y-1">
-          <Label>結束日期</Label>
-          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" aria-label="結束日期" />
+          <Label>{t('reportsPages.shared.endDate')}</Label>
+          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" aria-label={t('reportsPages.shared.endDate')} />
         </div>
       </div>
       <GuestDateNotice />
 
       <PageTabs
         tabs={[
-          { value: 'monthly', label: '月份彙總' },
-          { value: 'partner', label: '供應商/客戶排名' },
-          { value: 'category', label: '產品類別分析' },
+          { value: 'monthly', label: t('reportsPages.purchaseSales.tabs.monthly') },
+          { value: 'partner', label: t('reportsPages.purchaseSales.tabs.partner') },
+          { value: 'category', label: t('reportsPages.purchaseSales.tabs.category') },
         ]}
         defaultTab="monthly"
       >
         <PageTabContent value="monthly" className="space-y-4">
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={exportMonthlyCSV} disabled={!monthly?.length}>
-              <Download className="mr-2 h-4 w-4" />匯出 CSV
+              <Download className="mr-2 h-4 w-4" />{t('reportsPages.shared.exportCsv')}
             </Button>
           </div>
           <div className="rounded-lg border bg-card overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <SortableTableHead sortKey="year_month" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort}>月份</SortableTableHead>
-                    <SortableTableHead sortKey="purchase_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">採購總額</SortableTableHead>
-                    <SortableTableHead sortKey="purchase_return" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">採購退貨</SortableTableHead>
-                    <SortableTableHead sortKey="net_purchase" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">淨進貨</SortableTableHead>
-                    <SortableTableHead sortKey="sales_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">銷貨總額</SortableTableHead>
-                    <SortableTableHead sortKey="sales_return" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">銷貨退貨</SortableTableHead>
-                    <SortableTableHead sortKey="net_sales" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">淨銷貨</SortableTableHead>
-                    <SortableTableHead sortKey="cogs_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">銷貨成本</SortableTableHead>
-                    <SortableTableHead sortKey="gross_profit" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">毛利</SortableTableHead>
+                    <SortableTableHead sortKey="year_month" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort}>{t('reportsPages.purchaseSales.monthly.month')}</SortableTableHead>
+                    <SortableTableHead sortKey="purchase_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">{t('reportsPages.purchaseSales.monthly.purchaseTotal')}</SortableTableHead>
+                    <SortableTableHead sortKey="purchase_return" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">{t('reportsPages.purchaseSales.monthly.purchaseReturn')}</SortableTableHead>
+                    <SortableTableHead sortKey="net_purchase" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">{t('reportsPages.purchaseSales.monthly.netPurchase')}</SortableTableHead>
+                    <SortableTableHead sortKey="sales_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">{t('reportsPages.purchaseSales.monthly.salesTotal')}</SortableTableHead>
+                    <SortableTableHead sortKey="sales_return" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">{t('reportsPages.purchaseSales.monthly.salesReturn')}</SortableTableHead>
+                    <SortableTableHead sortKey="net_sales" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">{t('reportsPages.purchaseSales.monthly.netSales')}</SortableTableHead>
+                    <SortableTableHead sortKey="cogs_total" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">{t('reportsPages.purchaseSales.monthly.cogs')}</SortableTableHead>
+                    <SortableTableHead sortKey="gross_profit" currentSort={sortMonthly.column} currentDirection={sortMonthly.direction} onSort={toggleMonthlySort} className="text-right">{t('reportsPages.purchaseSales.monthly.grossProfit')}</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -181,20 +183,20 @@ export function PurchaseSalesSummaryPage() {
         <PageTabContent value="partner" className="space-y-4">
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={exportPartnerCSV} disabled={!byPartner?.length}>
-              <Download className="mr-2 h-4 w-4" />匯出 CSV
+              <Download className="mr-2 h-4 w-4" />{t('reportsPages.shared.exportCsv')}
             </Button>
           </div>
           <div className="rounded-lg border bg-card overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <SortableTableHead sortKey="partner_code" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>代碼</SortableTableHead>
-                    <SortableTableHead sortKey="partner_name" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>名稱</SortableTableHead>
-                    <SortableTableHead sortKey="partner_type" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>類型</SortableTableHead>
-                    <SortableTableHead sortKey="total_amount" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">總金額</SortableTableHead>
-                    <SortableTableHead sortKey="return_amount" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">退貨金額</SortableTableHead>
-                    <SortableTableHead sortKey="net_amount" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">淨金額</SortableTableHead>
-                    <SortableTableHead sortKey="doc_count" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">單據數</SortableTableHead>
+                    <SortableTableHead sortKey="partner_code" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>{t('reportsPages.purchaseSales.partner.code')}</SortableTableHead>
+                    <SortableTableHead sortKey="partner_name" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>{t('reportsPages.purchaseSales.partner.name')}</SortableTableHead>
+                    <SortableTableHead sortKey="partner_type" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort}>{t('reportsPages.purchaseSales.partner.type')}</SortableTableHead>
+                    <SortableTableHead sortKey="total_amount" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">{t('reportsPages.purchaseSales.partner.totalAmount')}</SortableTableHead>
+                    <SortableTableHead sortKey="return_amount" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">{t('reportsPages.purchaseSales.partner.returnAmount')}</SortableTableHead>
+                    <SortableTableHead sortKey="net_amount" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">{t('reportsPages.purchaseSales.partner.netAmount')}</SortableTableHead>
+                    <SortableTableHead sortKey="doc_count" currentSort={sortPartner.column} currentDirection={sortPartner.direction} onSort={togglePartnerSort} className="text-right">{t('reportsPages.purchaseSales.partner.docCount')}</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -211,7 +213,7 @@ export function PurchaseSalesSummaryPage() {
                         <TableCell className="font-medium">{row.partner_name}</TableCell>
                         <TableCell>
                           <Badge variant={row.partner_type === 'supplier' ? 'secondary' : 'outline'}>
-                            {row.partner_type === 'supplier' ? '供應商' : '客戶'}
+                            {row.partner_type === 'supplier' ? t('reportsPages.shared.supplier') : t('reportsPages.shared.customer')}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">${formatNumber(row.total_amount, 2)}</TableCell>
@@ -231,18 +233,18 @@ export function PurchaseSalesSummaryPage() {
         <PageTabContent value="category" className="space-y-4">
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={exportCategoryCSV} disabled={!byCategory?.length}>
-              <Download className="mr-2 h-4 w-4" />匯出 CSV
+              <Download className="mr-2 h-4 w-4" />{t('reportsPages.shared.exportCsv')}
             </Button>
           </div>
           <div className="rounded-lg border bg-card overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <SortableTableHead sortKey="category_name" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort}>產品類別</SortableTableHead>
-                    <SortableTableHead sortKey="purchase_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">採購金額</SortableTableHead>
-                    <SortableTableHead sortKey="sales_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">銷貨金額</SortableTableHead>
-                    <SortableTableHead sortKey="cogs_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">銷貨成本</SortableTableHead>
-                    <SortableTableHead sortKey="gross_profit" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">毛利</SortableTableHead>
+                    <SortableTableHead sortKey="category_name" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort}>{t('reportsPages.purchaseSales.category.productCategory')}</SortableTableHead>
+                    <SortableTableHead sortKey="purchase_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">{t('reportsPages.purchaseSales.category.purchaseAmount')}</SortableTableHead>
+                    <SortableTableHead sortKey="sales_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">{t('reportsPages.purchaseSales.category.salesAmount')}</SortableTableHead>
+                    <SortableTableHead sortKey="cogs_amount" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">{t('reportsPages.purchaseSales.monthly.cogs')}</SortableTableHead>
+                    <SortableTableHead sortKey="gross_profit" currentSort={sortCategory.column} currentDirection={sortCategory.direction} onSort={toggleCategorySort} className="text-right">{t('reportsPages.purchaseSales.monthly.grossProfit')}</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -277,7 +279,8 @@ export function PurchaseSalesSummaryPage() {
 }
 
 function EmptyRow({ colSpan }: { colSpan: number }) {
-  return <TableEmptyRow colSpan={colSpan} icon={BarChart3} title="尚無資料" />
+  const { t } = useTranslation()
+  return <TableEmptyRow colSpan={colSpan} icon={BarChart3} title={t('common.noData')} />
 }
 
 function downloadCSV(filename: string, headers: string[], rows: (string | number | null)[][]) {

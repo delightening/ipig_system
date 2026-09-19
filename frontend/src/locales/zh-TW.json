@@ -6435,5 +6435,431 @@
       "tryAgainLater": "請稍後再試",
       "yearValue": "{{year}} 年"
     }
+  },
+  "reportsPages": {
+    "bloodTestCost": {
+      "title": "血液檢查費用報表",
+      "description": "依專案、日期與實驗室查詢血液檢查費用",
+      "labPlaceholder": "輸入實驗室名稱",
+      "totalCost": "總費用",
+      "projectNo": "專案編號",
+      "testDate": "檢查日期",
+      "itemCount": "項目數",
+      "cost": "費用",
+      "unassigned": "未分配",
+      "emptyTitle": "尚無血液檢查費用資料"
+    },
+    "bloodTestAnalysis": {
+      "title": "血液檢查結果分析",
+      "description": "對血液檢查結果進行統計分析、趨勢追蹤與異常值偵測",
+      "earTagLabel": "動物耳號",
+      "earTagPlaceholder": "輸入耳號搜尋",
+      "abnormalRate": "異常比率",
+      "animalCount": "涵蓋動物數",
+      "abnormalTitle": "異常值警示（共 {{count}} 項）",
+      "abnormalTruncated": "僅顯示前 20 筆，匯出報表可查看完整異常清單",
+      "emptyFilteredTitle": "查無符合條件的血液檢查資料",
+      "emptyFilteredDescription": "請調整篩選條件後重試",
+      "emptyNoFilterTitle": "請先輸入篩選條件",
+      "emptyNoFilterDescription": "輸入專案編號或選擇日期範圍後，系統將顯示血液檢查分析結果",
+      "otherData": "其他（本次資料）",
+      "columns": {
+        "project": "專案",
+        "date": "日期",
+        "item": "項目",
+        "resultValue": "結果值",
+        "referenceRange": "參考範圍",
+        "abnormal": "異常"
+      },
+      "charts": {
+        "trendTab": "趨勢圖",
+        "boxPlotTab": "盒鬚圖",
+        "dataDetails": "資料明細",
+        "trendTitle": "趨勢分析",
+        "trendEmpty": "請選擇具有數值結果的檢查項目以顯示趨勢圖",
+        "boxPlotTitle": "數值分布（盒鬚圖）",
+        "boxPlotEmpty": "需要至少 2 筆數值資料才能繪製盒鬚圖",
+        "tableTruncated": "僅顯示前 200 筆，完整資料請使用匯出功能"
+      },
+      "selector": {
+        "title": "選擇分析項目",
+        "hint": "常用組合一鍵選取，或展開分類勾選；未選擇時顯示全部",
+        "noCategories": "尚無分類資料，請先設定血液檢查組合或執行篩選以產生項目",
+        "clearAll": "全部清除",
+        "selectedCount": "已選 {{count}} 項",
+        "clearSelection": "清除選擇"
+      }
+    },
+    "stockOnHand": {
+      "title": "庫存現況報表",
+      "description": "各倉庫商品庫存量與價值",
+      "safetyStock": "安全庫存",
+      "emptyTitle": "尚無庫存資料"
+    },
+    "stockLedger": {
+      "title": "庫存流水報表",
+      "description": "所有庫存異動記錄",
+      "productFilter": "產品篩選",
+      "singleProduct": "單一產品",
+      "clearProductFilter": "清除產品篩選",
+      "directionIn": "入庫",
+      "directionOut": "出庫",
+      "trxTime": "交易時間",
+      "direction": "方向",
+      "unitCost": "單位成本",
+      "batchNo": "批號",
+      "emptyTitle": "尚無流水資料"
+    },
+    "costSummary": {
+      "title": "成本摘要報表",
+      "description": "庫存成本與價值摘要",
+      "totalInventoryValue": "總庫存價值",
+      "totalQtyOnHand": "總庫存量",
+      "itemCount": "品項數",
+      "emptyTitle": "尚無成本資料"
+    },
+    "purchaseSales": {
+      "title": "進銷貨彙總報表",
+      "description": "按月份、供應商/客戶、產品類別多維度分析",
+      "tabs": {
+        "monthly": "月份彙總",
+        "partner": "供應商/客戶排名",
+        "category": "產品類別分析"
+      },
+      "monthly": {
+        "month": "月份",
+        "purchaseTotal": "採購總額",
+        "purchaseReturn": "採購退貨",
+        "netPurchase": "淨進貨",
+        "salesTotal": "銷貨總額",
+        "salesReturn": "銷貨退貨",
+        "netSales": "淨銷貨",
+        "cogs": "銷貨成本",
+        "grossProfit": "毛利"
+      },
+      "partner": {
+        "code": "代碼",
+        "name": "名稱",
+        "type": "類型",
+        "totalAmount": "總金額",
+        "returnAmount": "退貨金額",
+        "netAmount": "淨金額",
+        "docCount": "單據數"
+      },
+      "category": {
+        "productCategory": "產品類別",
+        "purchaseAmount": "採購金額",
+        "salesAmount": "銷貨金額"
+      }
+    },
+    "salesLines": {
+      "title": "銷貨明細報表",
+      "description": "銷貨單、銷貨出庫明細",
+      "customerCategory": "客戶分類",
+      "allCategories": "全部分類",
+      "categories": {
+        "internal": "內部單位",
+        "external": "外部客戶",
+        "research": "研究計畫",
+        "other": "其他"
+      },
+      "emptyTitle": "尚無銷貨資料"
+    },
+    "purchaseLines": {
+      "title": "採購明細報表",
+      "description": "採購單、採購入庫、採購退貨明細",
+      "totalWithCount": "合計（{{count}} 筆）",
+      "emptyTitle": "尚無採購資料"
+    },
+    "protocolConsumption": {
+      "title": "案件消耗報表",
+      "description": "依計畫統計內部領用的耗材消耗（已扣除沖銷，僅計已核准）",
+      "exportCurrentTab": "匯出目前分頁",
+      "protocol": "計畫",
+      "protocolUnavailable": "（資料截斷中不可用）",
+      "allProtocols": "全部計畫",
+      "truncatedWarning": "資料已達 {{limit}} 組上限而被截斷，下面看到的<strong>不是全部</strong>——排序在後面的計畫整個不在其中，卡在切點的計畫也可能少掉部分品項。<strong>請縮小日期範圍後重查</strong>；計畫篩選在這個狀態下已停用，因為它只會在這份殘缺資料上過濾，不會重新查詢。",
+      "loadFailedTitle": "報表載入失敗",
+      "loadFailedWithMessage": "無法取得案件消耗資料：{{message}}",
+      "loadFailedDescription": "無法取得案件消耗資料。這不代表這段期間沒有領用紀錄，只代表查詢沒有成功。",
+      "retrying": "重試中…",
+      "reload": "重新載入",
+      "tabs": {
+        "byProtocol": "依案件",
+        "byProduct": "依品項",
+        "cross": "交叉表"
+      },
+      "emptyTitle": "這段期間沒有案件領用紀錄",
+      "protocolNo": "計畫編號",
+      "approvalNo": "核准編號",
+      "protocolTitle": "計畫名稱",
+      "itemCount": "品項數",
+      "docCount": "單據數",
+      "period": "期間",
+      "byProtocolNote": "這一層刻意不顯示數量合計——一個案件會同時用到手套（雙）、滴管（包）、紗布（片），把不同單位的數字加起來沒有意義。要看數量請切到「依品項」或「交叉表」。單據數為下界（同一張領用單常同時領多種品項）。",
+      "categoryName": "分類",
+      "protocolCount": "案件數",
+      "consumedQty": "消耗量",
+      "crossTooLargeTitle": "交叉表資料量過大，無法顯示",
+      "crossTooLargeDescription": "目前條件會產生 {{cells}} 格（{{protocols}} 個案件 × {{products}} 個品項），超過 {{limit}} 格的上限。請縮小日期範圍後重查。另外兩個分頁不受影響，仍可正常檢視與匯出。",
+      "crossTooLargeDescriptionWithFilter": "目前條件會產生 {{cells}} 格（{{protocols}} 個案件 × {{products}} 個品項），超過 {{limit}} 格的上限。請縮小日期範圍，或先指定單一計畫後重查。另外兩個分頁不受影響，仍可正常檢視與匯出。",
+      "crossNote": "「—」表示該案件沒有領用過這個品項，與領用後整筆沖銷（不會出現在報表裡）不同。每一行的單位標在表頭，欄與欄之間不可相加。",
+      "summary": "共 {{rows}} 組（案件 × 品項）；{{protocols}} 個案件、{{products}} 個品項。數量已扣除沖銷，僅計已核准的領用。"
+    },
+    "hub": {
+      "title": "報表中心",
+      "subtitle": "跨子系統報表入口；依個人權限顯示可用項目",
+      "emptyTitle": "尚無可存取的報表項目",
+      "emptyDescription": "您目前的權限沒有對應的報表入口；請聯絡系統管理員確認 ERP / GLP / AUP 相關權限是否已開通。",
+      "sections": {
+        "erp": "ERP / 進銷存",
+        "animal": "動物管理 / 血檢",
+        "glp": "GLP 合規",
+        "aup": "研究計畫"
+      },
+      "items": {
+        "stockOnHand": {
+          "description": "目前庫存狀況統計"
+        },
+        "stockLedger": {
+          "description": "庫存異動明細報表"
+        },
+        "purchaseLines": {
+          "description": "採購項目明細統計"
+        },
+        "salesLines": {
+          "description": "銷貨項目明細統計"
+        },
+        "protocolConsumption": {
+          "description": "依計畫統計耗材領用"
+        },
+        "costSummary": {
+          "description": "成本分析與摘要"
+        },
+        "purchaseSales": {
+          "description": "按月份、供應商客戶、產品類別彙總分析"
+        },
+        "accounting": {
+          "description": "試算表、傳票、應付／應收帳款、損益表"
+        },
+        "bloodTestCost": {
+          "description": "依專案與日期查詢血檢費用"
+        },
+        "bloodTestAnalysis": {
+          "description": "血檢數據統計、趨勢分析、異常值偵測"
+        },
+        "warehouseStatus": {
+          "title": "倉庫現況報表",
+          "description": "從倉庫列表進入單倉的現況/平面圖/PDF 報表"
+        },
+        "weeklyMedical": {
+          "title": "每週病歷彙整報表",
+          "description": "依耳號、計畫案、日期查詢每日醫療事件，可匯出 Excel"
+        },
+        "byproductMonthly": {
+          "description": "依時間區間查詢採樣紀錄，匯出 Excel 交負責人對帳"
+        },
+        "vetPatrol": {
+          "title": "獸醫巡場報告",
+          "description": "巡場觀察 / 建議 / 追蹤改善歷史紀錄；可篩選我的草稿、待追蹤、已完成"
+        },
+        "auditLogs": {
+          "title": "操作日誌",
+          "description": "GLP 合規操作軌跡 / HMAC chain 審計"
+        },
+        "protocolsOverview": {
+          "title": "研究計畫總覽",
+          "description": "AUP 研究計畫列表（已核准 / 審核中 / 修正案）"
+        }
+      }
+    },
+    "weeklyMedical": {
+      "title": "豬隻病歷彙整報表",
+      "protocol": "計畫案",
+      "allProtocols": "全部計畫案",
+      "earTagsLabel": "耳號（逗號分隔，可留空）",
+      "columns": {
+        "date": "日期",
+        "type": "類別",
+        "birthDate": "出生日期",
+        "weightKg": "體重(kg)",
+        "studyUnit": "試驗單位",
+        "studyContent": "試驗內容",
+        "specialEquipment": "特殊儀器",
+        "anesthesiaTime": "麻醉時間"
+      },
+      "eventTypes": {
+        "observation": "觀察",
+        "surgery": "手術",
+        "bloodTest": "血檢"
+      }
+    },
+    "byproductMonthly": {
+      "title": "廢棄物再利用月結報表",
+      "exportExcel": "匯出 Excel",
+      "exportRetry": "請稍後再試",
+      "queryFailed": "查詢失敗，請確認權限或稍後再試",
+      "selectPrompt": "請選擇日期區間並點擊「查詢」",
+      "columns": {
+        "sampledDate": "採樣日期",
+        "protocol": "案子",
+        "requester": "需求客戶",
+        "sampleContent": "採樣內容",
+        "collector": "記錄者"
+      }
+    },
+    "accounting": {
+      "title": "會計報表",
+      "description": "試算表、傳票、應付／應收帳款",
+      "tabs": {
+        "trialBalance": "試算表",
+        "journalEntries": "傳票查詢",
+        "apAging": "應付帳款",
+        "arAging": "應收帳款",
+        "profitLoss": "損益表"
+      },
+      "accountCode": "科目代碼",
+      "accountName": "科目名稱",
+      "amountInvalid": "請輸入有效金額",
+      "trialBalance": {
+        "type": "類型",
+        "debitBalance": "借方餘額",
+        "creditBalance": "貸方餘額",
+        "emptyTitle": "尚無試算表資料"
+      },
+      "journalEntries": {
+        "entryNo": "傳票號",
+        "date": "日期",
+        "description": "說明",
+        "totalDebit": "合計借方",
+        "lineNo": "行號",
+        "account": "科目",
+        "debit": "借方",
+        "credit": "貸方",
+        "emptyTitle": "尚無傳票資料"
+      },
+      "apAging": {
+        "addPayment": "新增付款",
+        "dialogTitle": "應付帳款付款",
+        "supplierRequired": "供應商 *",
+        "selectSupplier": "選擇供應商",
+        "supplierError": "請選擇供應商",
+        "paymentDateRequired": "付款日期 *",
+        "paymentDateError": "請選擇付款日期",
+        "amountRequired": "金額 *",
+        "created": "付款已建立",
+        "supplierCode": "供應商代碼",
+        "supplierName": "供應商名稱",
+        "totalPayable": "應付總額",
+        "totalPaid": "已付總額",
+        "emptyTitle": "尚無應付帳款餘額"
+      },
+      "arAging": {
+        "addReceipt": "新增收款",
+        "dialogTitle": "應收帳款收款",
+        "customerRequired": "客戶 *",
+        "selectCustomer": "選擇客戶",
+        "customerError": "請選擇客戶",
+        "receiptDateRequired": "收款日期 *",
+        "receiptDateError": "請選擇收款日期",
+        "amountRequired": "金額 *",
+        "created": "收款已建立",
+        "customerCode": "客戶代碼",
+        "customerName": "客戶名稱",
+        "totalReceivable": "應收總額",
+        "totalReceived": "已收總額",
+        "emptyTitle": "尚無應收帳款餘額"
+      },
+      "profitLoss": {
+        "revenue": "收入",
+        "expenses": "費用",
+        "totalRevenue": "收入合計",
+        "totalExpenses": "費用合計",
+        "netIncome": "淨利（損）",
+        "emptyTitle": "尚無損益資料"
+      }
+    },
+    "shared": {
+      "startDate": "起始日期",
+      "endDate": "結束日期",
+      "beginDate": "開始日期",
+      "dateFrom": "日期起",
+      "dateTo": "日期訖",
+      "asOfDate": "截至日期",
+      "exportCsv": "匯出 CSV",
+      "exporting": "匯出中...",
+      "query": "查詢",
+      "noResults": "查無資料",
+      "filters": "篩選條件",
+      "warehouse": "倉庫",
+      "allWarehouses": "全部倉庫",
+      "supplier": "供應商",
+      "allSuppliers": "全部供應商",
+      "customer": "客戶",
+      "allCustomers": "全部客戶",
+      "product": "產品",
+      "productCode": "產品代碼",
+      "productName": "產品名稱",
+      "category": "類別",
+      "unit": "單位",
+      "docDate": "單據日期",
+      "docNo": "單據編號",
+      "docType": "單據類型",
+      "status": "狀態",
+      "quantity": "數量",
+      "unitPrice": "單價",
+      "amount": "金額",
+      "createdBy": "建立者",
+      "total": "合計",
+      "qtyOnHand": "庫存量",
+      "avgCost": "平均成本",
+      "inventoryValue": "庫存價值",
+      "earTag": "耳號",
+      "lab": "實驗室",
+      "iacucNoLabel": "專案編號 (IACUC No.)",
+      "iacucNoPlaceholder": "例: PIG-115001",
+      "testItemCount": "檢查項目數",
+      "testCount": "檢查次數",
+      "createAction": "建立",
+      "createFailed": "建立失敗",
+      "optional": "選填",
+      "note": "備註",
+      "balance": "餘額",
+      "docStatus": {
+        "draft": "草稿",
+        "submitted": "待核准",
+        "approved": "已核准",
+        "cancelled": "已作廢"
+      }
+    }
+  },
+  "messagingPage": {
+    "newMessage": "新訊息",
+    "noThreads": "尚無對話",
+    "selectPrompt": "從左側選擇對話，或建立新訊息",
+    "participantsCount": "{{count}} 位參與者",
+    "messagePlaceholder": "輸入訊息...",
+    "sendHint": "Ctrl/Cmd + Enter 送出",
+    "deleteTitle": "刪除（30 天後永久刪除）",
+    "uploadFailed": "附件上傳失敗",
+    "sendFailed": "訊息發送失敗",
+    "createFailed": "建立失敗",
+    "created": "已建立對話",
+    "newDialog": {
+      "title": "建立新對話",
+      "recipients": "收件人",
+      "recipientsPlaceholder": "搜尋並新增收件人...",
+      "recipientsSearchPlaceholder": "姓名 / Email...",
+      "recipientsEmpty": "無符合人員",
+      "recipientsHint": "選 1 位 = 1-1 私訊；選多位 = 群組對話",
+      "groupSubject": "群組主旨（選填）",
+      "groupSubjectPlaceholder": "例：GLP 教育訓練 Q3",
+      "firstMessage": "第一封訊息",
+      "firstMessagePlaceholder": "輸入訊息內容...",
+      "attachments": "附件（選填，圖片）",
+      "attachImages": "附加圖片",
+      "remove": "移除",
+      "submit": "建立並發送"
+    }
   }
 }

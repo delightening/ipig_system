@@ -3,6 +3,7 @@ import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
 import { useForm } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
@@ -55,6 +56,7 @@ function CreateApPaymentDialog({
   asOfDate: string
   onSuccess: () => void
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
 
@@ -100,7 +102,7 @@ function CreateApPaymentDialog({
     mutationFn: (payload: { partner_id: string; payment_date: string; amount: number; reference?: string }) =>
       api.post('/accounting/ap-payments', payload),
     onSuccess: () => {
-      toast({ title: '付款已建立' })
+      toast({ title: t('reportsPages.accounting.apAging.created') })
       setOpen(false)
       queryClient.invalidateQueries({ queryKey: ['accounting-ap-aging'] })
       queryClient.invalidateQueries({ queryKey: ['accounting-trial-balance'] })
@@ -108,7 +110,7 @@ function CreateApPaymentDialog({
       onSuccess()
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '建立失敗'
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('reportsPages.shared.createFailed')
       toast({ title: msg, variant: 'destructive' })
     },
   })
@@ -130,22 +132,22 @@ function CreateApPaymentDialog({
         <DialogTrigger asChild>
           <Button size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            新增付款
+            {t('reportsPages.accounting.apAging.addPayment')}
           </Button>
         </DialogTrigger>
       </Can>
       <DialogContent>
         <form onSubmit={handleSubmit(onValid)}>
           <DialogHeader>
-            <DialogTitle>應付帳款付款</DialogTitle>
+            <DialogTitle>{t('reportsPages.accounting.apAging.dialogTitle')}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label>供應商 *</Label>
-              <input type="hidden" {...register('partner_id', { required: '請選擇供應商' })} />
+              <Label>{t('reportsPages.accounting.apAging.supplierRequired')}</Label>
+              <input type="hidden" {...register('partner_id', { required: t('reportsPages.accounting.apAging.supplierError') })} />
               <Select value={partnerId} onValueChange={(v) => setValue('partner_id', v, { shouldValidate: true })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="選擇供應商" />
+                  <SelectValue placeholder={t('reportsPages.accounting.apAging.selectSupplier')} />
                 </SelectTrigger>
                 <SelectContent>
                   {partners?.map((p) => (
@@ -160,12 +162,12 @@ function CreateApPaymentDialog({
               )}
             </div>
             <div className="space-y-2">
-              <Label>付款日期 *</Label>
+              <Label>{t('reportsPages.accounting.apAging.paymentDateRequired')}</Label>
               <Input
                 type="date"
                 {...register('payment_date', {
-                  required: '請選擇付款日期',
-                  pattern: { value: DATE_PATTERN, message: '請選擇付款日期' },
+                  required: t('reportsPages.accounting.apAging.paymentDateError'),
+                  pattern: { value: DATE_PATTERN, message: t('reportsPages.accounting.apAging.paymentDateError') },
                 })}
               />
               {errors.payment_date && (
@@ -173,16 +175,16 @@ function CreateApPaymentDialog({
               )}
             </div>
             <div className="space-y-2">
-              <Label>金額 *</Label>
+              <Label>{t('reportsPages.accounting.apAging.amountRequired')}</Label>
               <Input
                 type="number"
                 step="0.01"
                 min="0"
                 {...register('amount', {
-                  required: '請輸入有效金額',
+                  required: t('reportsPages.accounting.amountInvalid'),
                   validate: (v) => {
                     const n = parseFloat(v)
-                    return (!isNaN(n) && n > 0) || '請輸入有效金額'
+                    return (!isNaN(n) && n > 0) || t('reportsPages.accounting.amountInvalid')
                   },
                 })}
                 placeholder="0.00"
@@ -192,17 +194,17 @@ function CreateApPaymentDialog({
               )}
             </div>
             <div className="space-y-2">
-              <Label>備註</Label>
-              <Input {...register('reference')} placeholder="選填" aria-label="備註" />
+              <Label>{t('reportsPages.shared.note')}</Label>
+              <Input {...register('reference')} placeholder={t('reportsPages.shared.optional')} aria-label={t('reportsPages.shared.note')} />
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={createPaymentMutation.isPending}>
               {createPaymentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              建立
+              {t('reportsPages.shared.createAction')}
             </Button>
           </DialogFooter>
         </form>
@@ -217,6 +219,7 @@ interface ApAgingTabProps {
 }
 
 export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
+  const { t } = useTranslation()
   const { data: apAging, isLoading } = useQuery<ApAgingRow[]>({
     queryKey: ['accounting-ap-aging', asOfDate],
     queryFn: async () => {
@@ -233,7 +236,7 @@ export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
     <div className="space-y-4">
       <div className="flex items-end gap-4 flex-wrap">
         <div className="space-y-2">
-          <Label>截至日期</Label>
+          <Label>{t('reportsPages.shared.asOfDate')}</Label>
           <Input
             type="date"
             value={asOfDate}
@@ -248,11 +251,11 @@ export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="partner_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>供應商代碼</SortableTableHead>
-              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>供應商名稱</SortableTableHead>
-              <SortableTableHead sortKey="total_payable" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">應付總額</SortableTableHead>
-              <SortableTableHead sortKey="total_paid" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">已付總額</SortableTableHead>
-              <SortableTableHead sortKey="balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">餘額</SortableTableHead>
+              <SortableTableHead sortKey="partner_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.apAging.supplierCode')}</SortableTableHead>
+              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.apAging.supplierName')}</SortableTableHead>
+              <SortableTableHead sortKey="total_payable" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.accounting.apAging.totalPayable')}</SortableTableHead>
+              <SortableTableHead sortKey="total_paid" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.accounting.apAging.totalPaid')}</SortableTableHead>
+              <SortableTableHead sortKey="balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.balance')}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -279,7 +282,7 @@ export function ApAgingTab({ asOfDate, onAsOfDateChange }: ApAgingTabProps) {
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={5} icon={FileText} title="尚無應付帳款餘額" />
+              <TableEmptyRow colSpan={5} icon={FileText} title={t('reportsPages.accounting.apAging.emptyTitle')} />
             )}
           </TableBody>
         </Table>

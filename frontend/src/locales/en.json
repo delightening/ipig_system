@@ -6435,5 +6435,431 @@
       "tryAgainLater": "Please try again later",
       "yearValue": "{{year}}"
     }
+  },
+  "reportsPages": {
+    "bloodTestCost": {
+      "title": "Blood Test Cost Report",
+      "description": "Look up blood test costs by project, date and laboratory",
+      "labPlaceholder": "Enter laboratory name",
+      "totalCost": "Total Cost",
+      "projectNo": "Project No.",
+      "testDate": "Test Date",
+      "itemCount": "Items",
+      "cost": "Cost",
+      "unassigned": "Unassigned",
+      "emptyTitle": "No blood test cost data yet"
+    },
+    "bloodTestAnalysis": {
+      "title": "Blood Test Analysis",
+      "description": "Statistical analysis, trend tracking and abnormal value detection for blood test results",
+      "earTagLabel": "Animal Ear Tag No.",
+      "earTagPlaceholder": "Enter ear tag no. to search",
+      "abnormalRate": "Abnormal Rate",
+      "animalCount": "Animals Covered",
+      "abnormalTitle": "Abnormal Value Alerts ({{count}} total)",
+      "abnormalTruncated": "Showing the first 20 only. Export the report to see the full list of abnormal values.",
+      "emptyFilteredTitle": "No blood test data matches the filters",
+      "emptyFilteredDescription": "Adjust the filters and try again",
+      "emptyNoFilterTitle": "Please enter filter criteria first",
+      "emptyNoFilterDescription": "Enter a project number or select a date range to see the blood test analysis results",
+      "otherData": "Other (This Data)",
+      "columns": {
+        "project": "Project",
+        "date": "Date",
+        "item": "Item",
+        "resultValue": "Result",
+        "referenceRange": "Reference Range",
+        "abnormal": "Abnormal"
+      },
+      "charts": {
+        "trendTab": "Trend Chart",
+        "boxPlotTab": "Box Plot",
+        "dataDetails": "Data Details",
+        "trendTitle": "Trend Analysis",
+        "trendEmpty": "Select test items with numeric results to display the trend chart",
+        "boxPlotTitle": "Value Distribution (Box Plot)",
+        "boxPlotEmpty": "At least 2 numeric data points are required to draw a box plot",
+        "tableTruncated": "Showing the first 200 only. Use the export function for the complete data."
+      },
+      "selector": {
+        "title": "Select Analysis Items",
+        "hint": "Pick a common combination in one click, or expand a category to tick items; all items are shown when none is selected",
+        "noCategories": "No category data yet. Set up blood test panels first, or run a filter to generate items.",
+        "clearAll": "Clear All",
+        "selectedCount": "{{count}} selected",
+        "clearSelection": "Clear Selection"
+      }
+    },
+    "stockOnHand": {
+      "title": "Inventory On-Hand Report",
+      "description": "Product stock quantity and value by warehouse",
+      "safetyStock": "Safety Stock",
+      "emptyTitle": "No inventory data yet"
+    },
+    "stockLedger": {
+      "title": "Inventory Ledger Report",
+      "description": "All inventory movement records",
+      "productFilter": "Product Filter",
+      "singleProduct": "Single Product",
+      "clearProductFilter": "Clear product filter",
+      "directionIn": "Stock In",
+      "directionOut": "Stock Out",
+      "trxTime": "Transaction Time",
+      "direction": "Direction",
+      "unitCost": "Unit Cost",
+      "batchNo": "Batch No.",
+      "emptyTitle": "No ledger data yet"
+    },
+    "costSummary": {
+      "title": "Cost Summary Report",
+      "description": "Inventory cost and value summary",
+      "totalInventoryValue": "Total Inventory Value",
+      "totalQtyOnHand": "Total Qty on Hand",
+      "itemCount": "Item Count",
+      "emptyTitle": "No cost data yet"
+    },
+    "purchaseSales": {
+      "title": "Purchase & Sales Summary Report",
+      "description": "Multi-dimensional analysis by month, supplier / customer and product category",
+      "tabs": {
+        "monthly": "Monthly Summary",
+        "partner": "Supplier / Customer Ranking",
+        "category": "Product Category Analysis"
+      },
+      "monthly": {
+        "month": "Month",
+        "purchaseTotal": "Total Purchases",
+        "purchaseReturn": "Purchase Returns",
+        "netPurchase": "Net Purchases",
+        "salesTotal": "Total Sales",
+        "salesReturn": "Sales Returns",
+        "netSales": "Net Sales",
+        "cogs": "Cost of Goods Sold",
+        "grossProfit": "Gross Profit"
+      },
+      "partner": {
+        "code": "Code",
+        "name": "Name",
+        "type": "Type",
+        "totalAmount": "Total Amount",
+        "returnAmount": "Return Amount",
+        "netAmount": "Net Amount",
+        "docCount": "Documents"
+      },
+      "category": {
+        "productCategory": "Product Category",
+        "purchaseAmount": "Purchase Amount",
+        "salesAmount": "Sales Amount"
+      }
+    },
+    "salesLines": {
+      "title": "Sales Lines Report",
+      "description": "Sales orders and sales shipment lines",
+      "customerCategory": "Customer Category",
+      "allCategories": "All Categories",
+      "categories": {
+        "internal": "Internal Unit",
+        "external": "External Customer",
+        "research": "Research Project",
+        "other": "Other"
+      },
+      "emptyTitle": "No sales data yet"
+    },
+    "purchaseLines": {
+      "title": "Purchase Lines Report",
+      "description": "Purchase orders, purchase receipts and purchase return lines",
+      "totalWithCount": "Total ({{count}} records)",
+      "emptyTitle": "No purchase data yet"
+    },
+    "protocolConsumption": {
+      "title": "Protocol Consumption Report",
+      "description": "Internal consumable usage by protocol (reversals deducted; approved only)",
+      "exportCurrentTab": "Export Current Tab",
+      "protocol": "Protocol",
+      "protocolUnavailable": "(unavailable while data is truncated)",
+      "allProtocols": "All Protocols",
+      "truncatedWarning": "The data hit the limit of {{limit}} groups and was truncated, so what you see below is <strong>not everything</strong> — protocols sorted later are missing entirely, and the protocol at the cut-off point may be missing some items. <strong>Narrow the date range and query again</strong>. The protocol filter is disabled in this state because it would only filter this incomplete data and would not re-query.",
+      "loadFailedTitle": "Failed to Load Report",
+      "loadFailedWithMessage": "Unable to fetch protocol consumption data: {{message}}",
+      "loadFailedDescription": "Unable to fetch protocol consumption data. This does not mean there were no usage records in this period; it only means the query did not succeed.",
+      "retrying": "Retrying…",
+      "reload": "Reload",
+      "tabs": {
+        "byProtocol": "By Protocol",
+        "byProduct": "By Product",
+        "cross": "Cross Tab"
+      },
+      "emptyTitle": "No protocol usage records in this period",
+      "protocolNo": "Protocol No.",
+      "approvalNo": "Approval No.",
+      "protocolTitle": "Protocol Title",
+      "itemCount": "Items",
+      "docCount": "Documents",
+      "period": "Period",
+      "byProtocolNote": "Quantity totals are intentionally not shown at this level — a single protocol may use gloves (pairs), droppers (packs) and gauze (pieces), so adding up numbers with different units is meaningless. To see quantities, switch to \"By Product\" or \"Cross Tab\". The document count is a lower bound (one requisition often covers several items).",
+      "categoryName": "Category",
+      "protocolCount": "Protocols",
+      "consumedQty": "Quantity Consumed",
+      "crossTooLargeTitle": "Cross tab is too large to display",
+      "crossTooLargeDescription": "The current criteria would produce {{cells}} cells ({{protocols}} protocols × {{products}} items), exceeding the limit of {{limit}} cells. Please narrow the date range and query again. The other two tabs are not affected and can still be viewed and exported normally.",
+      "crossTooLargeDescriptionWithFilter": "The current criteria would produce {{cells}} cells ({{protocols}} protocols × {{products}} items), exceeding the limit of {{limit}} cells. Please narrow the date range, or specify a single protocol first, and query again. The other two tabs are not affected and can still be viewed and exported normally.",
+      "crossNote": "\"—\" means the protocol never requisitioned this item, which is different from a requisition that was fully reversed (and therefore does not appear in the report). The unit for each column is shown in the header; columns cannot be added together.",
+      "summary": "{{rows}} groups in total (protocol × item); {{protocols}} protocols, {{products}} items. Quantities are net of reversals and count approved requisitions only."
+    },
+    "hub": {
+      "title": "Reports Center",
+      "subtitle": "Cross-system report hub; available items are shown based on your permissions",
+      "emptyTitle": "No Accessible Reports",
+      "emptyDescription": "Your current permissions do not match any report entry. Please contact a system administrator to confirm that ERP / GLP / AUP permissions have been granted.",
+      "sections": {
+        "erp": "ERP / Inventory & Trade",
+        "animal": "Animal Management / Blood Tests",
+        "glp": "GLP Compliance",
+        "aup": "Research Protocols"
+      },
+      "items": {
+        "stockOnHand": {
+          "description": "Current inventory status summary"
+        },
+        "stockLedger": {
+          "description": "Inventory movement detail report"
+        },
+        "purchaseLines": {
+          "description": "Purchase line item summary"
+        },
+        "salesLines": {
+          "description": "Sales line item summary"
+        },
+        "protocolConsumption": {
+          "description": "Consumable usage by protocol"
+        },
+        "costSummary": {
+          "description": "Cost analysis and summary"
+        },
+        "purchaseSales": {
+          "description": "Summary analysis by month, supplier / customer and product category"
+        },
+        "accounting": {
+          "description": "Trial balance, journal entries, accounts payable / receivable, profit & loss"
+        },
+        "bloodTestCost": {
+          "description": "Look up blood test costs by project and date"
+        },
+        "bloodTestAnalysis": {
+          "description": "Blood test statistics, trend analysis and abnormal value detection"
+        },
+        "warehouseStatus": {
+          "title": "Warehouse Status Report",
+          "description": "Open a single warehouse's status / floor plan / PDF report from the warehouse list"
+        },
+        "weeklyMedical": {
+          "title": "Weekly Medical Summary Report",
+          "description": "Look up daily medical events by ear tag, protocol and date; exportable to Excel"
+        },
+        "byproductMonthly": {
+          "description": "Look up sampling records by date range and export to Excel for reconciliation by the responsible person"
+        },
+        "vetPatrol": {
+          "title": "Vet Patrol Reports",
+          "description": "History of patrol observations / recommendations / follow-up improvements; filter by my drafts, pending follow-up or completed"
+        },
+        "auditLogs": {
+          "title": "Activity Logs",
+          "description": "GLP compliance audit trail / HMAC chain audit"
+        },
+        "protocolsOverview": {
+          "title": "Research Protocol Overview",
+          "description": "AUP research protocol list (approved / under review / amendments)"
+        }
+      }
+    },
+    "weeklyMedical": {
+      "title": "Pig Medical Record Summary Report",
+      "protocol": "Protocol",
+      "allProtocols": "All Protocols",
+      "earTagsLabel": "Ear Tag Nos. (comma-separated, optional)",
+      "columns": {
+        "date": "Date",
+        "type": "Type",
+        "birthDate": "Date of Birth",
+        "weightKg": "Weight (kg)",
+        "studyUnit": "Study Unit",
+        "studyContent": "Study Details",
+        "specialEquipment": "Special Equipment",
+        "anesthesiaTime": "Anesthesia Time"
+      },
+      "eventTypes": {
+        "observation": "Observation",
+        "surgery": "Surgery",
+        "bloodTest": "Blood Test"
+      }
+    },
+    "byproductMonthly": {
+      "title": "Byproduct Reuse Monthly Report",
+      "exportExcel": "Export Excel",
+      "exportRetry": "Please try again later",
+      "queryFailed": "Query failed. Please check your permissions or try again later.",
+      "selectPrompt": "Select a date range and click \"Search\"",
+      "columns": {
+        "sampledDate": "Sampling Date",
+        "protocol": "Protocol",
+        "requester": "Requesting Customer",
+        "sampleContent": "Sample Content",
+        "collector": "Recorded By"
+      }
+    },
+    "accounting": {
+      "title": "Accounting Reports",
+      "description": "Trial balance, journal entries, accounts payable / receivable",
+      "tabs": {
+        "trialBalance": "Trial Balance",
+        "journalEntries": "Journal Entries",
+        "apAging": "Accounts Payable (AP)",
+        "arAging": "Accounts Receivable (AR)",
+        "profitLoss": "Profit & Loss"
+      },
+      "accountCode": "Account Code",
+      "accountName": "Account Name",
+      "amountInvalid": "Please enter a valid amount",
+      "trialBalance": {
+        "type": "Type",
+        "debitBalance": "Debit Balance",
+        "creditBalance": "Credit Balance",
+        "emptyTitle": "No trial balance data yet"
+      },
+      "journalEntries": {
+        "entryNo": "Entry No.",
+        "date": "Date",
+        "description": "Description",
+        "totalDebit": "Total Debit",
+        "lineNo": "Line",
+        "account": "Account",
+        "debit": "Debit",
+        "credit": "Credit",
+        "emptyTitle": "No journal entries yet"
+      },
+      "apAging": {
+        "addPayment": "Add Payment",
+        "dialogTitle": "Accounts Payable Payment",
+        "supplierRequired": "Supplier *",
+        "selectSupplier": "Select supplier",
+        "supplierError": "Please select a supplier",
+        "paymentDateRequired": "Payment Date *",
+        "paymentDateError": "Please select a payment date",
+        "amountRequired": "Amount *",
+        "created": "Payment created",
+        "supplierCode": "Supplier Code",
+        "supplierName": "Supplier Name",
+        "totalPayable": "Total Payable",
+        "totalPaid": "Total Paid",
+        "emptyTitle": "No accounts payable balances yet"
+      },
+      "arAging": {
+        "addReceipt": "Add Receipt",
+        "dialogTitle": "Accounts Receivable Receipt",
+        "customerRequired": "Customer *",
+        "selectCustomer": "Select customer",
+        "customerError": "Please select a customer",
+        "receiptDateRequired": "Receipt Date *",
+        "receiptDateError": "Please select a receipt date",
+        "amountRequired": "Amount *",
+        "created": "Receipt created",
+        "customerCode": "Customer Code",
+        "customerName": "Customer Name",
+        "totalReceivable": "Total Receivable",
+        "totalReceived": "Total Received",
+        "emptyTitle": "No accounts receivable balances yet"
+      },
+      "profitLoss": {
+        "revenue": "Revenue",
+        "expenses": "Expenses",
+        "totalRevenue": "Total Revenue",
+        "totalExpenses": "Total Expenses",
+        "netIncome": "Net Income (Loss)",
+        "emptyTitle": "No profit & loss data yet"
+      }
+    },
+    "shared": {
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "beginDate": "Start Date",
+      "dateFrom": "Date From",
+      "dateTo": "Date To",
+      "asOfDate": "As-of Date",
+      "exportCsv": "Export CSV",
+      "exporting": "Exporting...",
+      "query": "Search",
+      "noResults": "No data found",
+      "filters": "Filters",
+      "warehouse": "Warehouse",
+      "allWarehouses": "All Warehouses",
+      "supplier": "Supplier",
+      "allSuppliers": "All Suppliers",
+      "customer": "Customer",
+      "allCustomers": "All Customers",
+      "product": "Product",
+      "productCode": "Product Code",
+      "productName": "Product Name",
+      "category": "Category",
+      "unit": "Unit",
+      "docDate": "Document Date",
+      "docNo": "Document No.",
+      "docType": "Document Type",
+      "status": "Status",
+      "quantity": "Quantity",
+      "unitPrice": "Unit Price",
+      "amount": "Amount",
+      "createdBy": "Created By",
+      "total": "Total",
+      "qtyOnHand": "Qty on Hand",
+      "avgCost": "Average Cost",
+      "inventoryValue": "Inventory Value",
+      "earTag": "Ear Tag No.",
+      "lab": "Laboratory",
+      "iacucNoLabel": "Project No. (IACUC No.)",
+      "iacucNoPlaceholder": "e.g. PIG-115001",
+      "testItemCount": "Test Items",
+      "testCount": "Tests Performed",
+      "createAction": "Create",
+      "createFailed": "Creation failed",
+      "optional": "Optional",
+      "note": "Note",
+      "balance": "Balance",
+      "docStatus": {
+        "draft": "Draft",
+        "submitted": "Pending Approval",
+        "approved": "Approved",
+        "cancelled": "Voided"
+      }
+    }
+  },
+  "messagingPage": {
+    "newMessage": "New Message",
+    "noThreads": "No conversations yet",
+    "selectPrompt": "Select a conversation on the left, or create a new message",
+    "participantsCount": "{{count}} participants",
+    "messagePlaceholder": "Type a message...",
+    "sendHint": "Ctrl/Cmd + Enter to send",
+    "deleteTitle": "Delete (permanently deleted after 30 days)",
+    "uploadFailed": "Failed to upload attachment",
+    "sendFailed": "Failed to send message",
+    "createFailed": "Failed to create conversation",
+    "created": "Conversation created",
+    "newDialog": {
+      "title": "Create New Conversation",
+      "recipients": "Recipients",
+      "recipientsPlaceholder": "Search and add recipients...",
+      "recipientsSearchPlaceholder": "Name / Email...",
+      "recipientsEmpty": "No matching people",
+      "recipientsHint": "Select 1 person for a direct message; select several for a group conversation",
+      "groupSubject": "Group Subject (optional)",
+      "groupSubjectPlaceholder": "e.g. GLP Training Q3",
+      "firstMessage": "First Message",
+      "firstMessagePlaceholder": "Type your message...",
+      "attachments": "Attachments (optional, images)",
+      "attachImages": "Attach Images",
+      "remove": "Remove",
+      "submit": "Create and Send"
+    }
   }
 }

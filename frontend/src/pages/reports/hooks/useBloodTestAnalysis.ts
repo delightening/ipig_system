@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { useTabState } from '@/hooks/useTabState'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { bloodTestAnalysisApi, bloodTestPanelApi, bloodTestPresetApi } from '@/lib/api'
 import type { BloodTestAnalysisRow, BloodTestPanel } from '@/types'
 import { formatDate } from '@/lib/utils'
@@ -31,6 +32,7 @@ export interface BoxPlotData {
 }
 
 export function useBloodTestAnalysis() {
+  const { t } = useTranslation()
   const [iacucNo, setIacucNo] = useState('')
   const [earTag, setEarTag] = useState('')
   const { from: dateFrom, to: dateTo, setFrom: setDateFrom, setTo: setDateTo } = useDateRangeFilter()
@@ -94,9 +96,9 @@ export function useBloodTestAnalysis() {
         .filter(p => p.is_active && p.key !== 'TUBE')
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
       for (const panel of activePanels) {
-        const items = (panel.items ?? []).filter(t => t.is_active !== false).map(t => ({ name: t.name }))
+        const items = (panel.items ?? []).filter(item => item.is_active !== false).map(item => ({ name: item.name }))
         if (items.length > 0) {
-          items.forEach(t => allTemplateNames.add(t.name))
+          items.forEach(item => allTemplateNames.add(item.name))
           groups.push({ key: panel.key, label: panel.name, items })
         }
       }
@@ -104,11 +106,11 @@ export function useBloodTestAnalysis() {
 
     const otherItems = availableItems.filter(n => !allTemplateNames.has(n))
     if (otherItems.length > 0) {
-      groups.push({ key: 'OTHER_DATA', label: '其他（本次資料）', items: otherItems.map(name => ({ name })) })
+      groups.push({ key: 'OTHER_DATA', label: t('reportsPages.bloodTestAnalysis.otherData'), items: otherItems.map(name => ({ name })) })
     }
 
     return groups
-  }, [panelsData, availableItems])
+  }, [panelsData, availableItems, t])
 
   const presetItemNames = useMemo(() => {
     const map = new Map<string, string[]>()

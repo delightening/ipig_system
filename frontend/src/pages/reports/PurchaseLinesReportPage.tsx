@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, { PurchaseLinesReport } from '@/lib/api'
 import { formatNumber, formatDate, formatUom } from '@/lib/utils'
@@ -36,6 +37,7 @@ import type { Partner, Warehouse } from '@/types/erp'
 const ALL_VALUE = '__all__'
 
 export function PurchaseLinesReportPage() {
+  const { t } = useTranslation()
   const { from, to, setFrom, setTo } = useDateRangeFilter()
   const [partnerId, setPartnerId] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
@@ -86,13 +88,13 @@ export function PurchaseLinesReportPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'draft':
-        return <Badge variant="secondary">草稿</Badge>
+        return <Badge variant="secondary">{t('reportsPages.shared.docStatus.draft')}</Badge>
       case 'submitted':
-        return <Badge variant="warning">待核准</Badge>
+        return <Badge variant="warning">{t('reportsPages.shared.docStatus.submitted')}</Badge>
       case 'approved':
-        return <Badge variant="success">已核准</Badge>
+        return <Badge variant="success">{t('reportsPages.shared.docStatus.approved')}</Badge>
       case 'cancelled':
-        return <Badge variant="destructive">已作廢</Badge>
+        return <Badge variant="destructive">{t('reportsPages.shared.docStatus.cancelled')}</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -148,19 +150,19 @@ export function PurchaseLinesReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="採購明細報表"
-        description="採購單、採購入庫、採購退貨明細"
+        title={t('reportsPages.purchaseLines.title')}
+        description={t('reportsPages.purchaseLines.description')}
         actions={
           <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
-            匯出 CSV
+            {t('reportsPages.shared.exportCsv')}
           </Button>
         }
       />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="space-y-1">
-          <Label>起始日期</Label>
+          <Label>{t('reportsPages.shared.startDate')}</Label>
           <Input
             type="date"
             value={from}
@@ -168,7 +170,7 @@ export function PurchaseLinesReportPage() {
           />
         </div>
         <div className="space-y-1">
-          <Label>結束日期</Label>
+          <Label>{t('reportsPages.shared.endDate')}</Label>
           <Input
             type="date"
             value={to}
@@ -176,16 +178,16 @@ export function PurchaseLinesReportPage() {
           />
         </div>
         <div className="space-y-1">
-          <Label>供應商</Label>
+          <Label>{t('reportsPages.shared.supplier')}</Label>
           <Select
             value={partnerId || ALL_VALUE}
             onValueChange={v => setPartnerId(v === ALL_VALUE ? '' : v)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="全部供應商" />
+              <SelectValue placeholder={t('reportsPages.shared.allSuppliers')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_VALUE}>全部供應商</SelectItem>
+              <SelectItem value={ALL_VALUE}>{t('reportsPages.shared.allSuppliers')}</SelectItem>
               {partners?.map(p => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.code} - {p.name}
@@ -195,16 +197,16 @@ export function PurchaseLinesReportPage() {
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>倉庫</Label>
+          <Label>{t('reportsPages.shared.warehouse')}</Label>
           <Select
             value={warehouseId || ALL_VALUE}
             onValueChange={v => setWarehouseId(v === ALL_VALUE ? '' : v)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="全部倉庫" />
+              <SelectValue placeholder={t('reportsPages.shared.allWarehouses')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_VALUE}>全部倉庫</SelectItem>
+              <SelectItem value={ALL_VALUE}>{t('reportsPages.shared.allWarehouses')}</SelectItem>
               {warehouses?.map(w => (
                 <SelectItem key={w.id} value={w.id}>
                   {w.code} - {w.name}
@@ -220,16 +222,16 @@ export function PurchaseLinesReportPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="doc_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據日期</SortableTableHead>
-              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據編號</SortableTableHead>
-              <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
-              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>供應商</SortableTableHead>
-              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
-              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品</SortableTableHead>
-              <SortableTableHead sortKey="qty" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">數量</SortableTableHead>
-              <SortableTableHead sortKey="unit_price" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">單價</SortableTableHead>
-              <SortableTableHead sortKey="line_total" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">金額</SortableTableHead>
-              <SortableTableHead sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立者</SortableTableHead>
+              <SortableTableHead sortKey="doc_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.docDate')}</SortableTableHead>
+              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.docNo')}</SortableTableHead>
+              <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.status')}</SortableTableHead>
+              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.supplier')}</SortableTableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.warehouse')}</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.product')}</SortableTableHead>
+              <SortableTableHead sortKey="qty" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.quantity')}</SortableTableHead>
+              <SortableTableHead sortKey="unit_price" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.unitPrice')}</SortableTableHead>
+              <SortableTableHead sortKey="line_total" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.amount')}</SortableTableHead>
+              <SortableTableHead sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.createdBy')}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -277,14 +279,14 @@ export function PurchaseLinesReportPage() {
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={10} icon={Truck} title="尚無採購資料" />
+              <TableEmptyRow colSpan={10} icon={Truck} title={t('reportsPages.purchaseLines.emptyTitle')} />
             )}
           </TableBody>
           {report && report.length > 0 && (
             <TableFooter>
               <TableRow>
                 <TableCell colSpan={6} className="font-bold">
-                  合計（{report.length} 筆）
+                  {t('reportsPages.purchaseLines.totalWithCount', { count: report.length })}
                 </TableCell>
                 <TableCell className="text-right font-bold">
                   {formatNumber(totals.qty, 0)}

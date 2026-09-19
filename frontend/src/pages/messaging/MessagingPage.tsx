@@ -5,6 +5,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { useAuthUser, useAuthHasPermission } from '@/stores/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -81,6 +82,7 @@ interface StaffOption { id: string; display_name: string; email: string }
 // ── 主頁 ──────────────────────────────
 
 export default function MessagingPage() {
+    const { t } = useTranslation()
     const qc = useQueryClient()
     const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
     const [showNewDialog, setShowNewDialog] = useState(false)
@@ -125,21 +127,21 @@ export default function MessagingPage() {
             <div className="w-80 border-r flex flex-col min-h-0">
                 <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
                     <h2 className="text-lg font-semibold flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5" /> 站內信
+                        <MessageSquare className="h-5 w-5" /> {t('nav.messaging')}
                     </h2>
                     <Button size="sm" onClick={() => setShowNewDialog(true)}>
-                        <Plus className="h-4 w-4 mr-1" /> 新訊息
+                        <Plus className="h-4 w-4 mr-1" /> {t('messagingPage.newMessage')}
                     </Button>
                 </div>
                 <div className="flex-1 overflow-y-auto min-h-0">
                     {threads.length === 0 ? (
-                        <p className="text-center text-muted-foreground text-sm p-6">尚無對話</p>
-                    ) : threads.map(t => (
+                        <p className="text-center text-muted-foreground text-sm p-6">{t('messagingPage.noThreads')}</p>
+                    ) : threads.map(item => (
                         <ThreadListItem
-                            key={t.id}
-                            thread={t}
-                            selected={t.id === selectedThreadId}
-                            onClick={() => setSelectedThreadId(t.id)}
+                            key={item.id}
+                            thread={item}
+                            selected={item.id === selectedThreadId}
+                            onClick={() => setSelectedThreadId(item.id)}
                         />
                     ))}
                 </div>
@@ -151,7 +153,7 @@ export default function MessagingPage() {
                     <ThreadView thread={thread} onMessageSent={() => refetchThread()} />
                 ) : (
                     <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                        從左側選擇對話，或建立新訊息
+                        {t('messagingPage.selectPrompt')}
                     </div>
                 )}
             </div>
@@ -208,6 +210,7 @@ function ThreadListItem({ thread, selected, onClick }: {
 // ── 右側對話檢視 ──────────────────────────────
 
 function ThreadView({ thread, onMessageSent }: { thread: ThreadWithMessages; onMessageSent: () => void }) {
+    const { t } = useTranslation()
     const qc = useQueryClient()
     const [body, setBody] = useState('')
     const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([])
@@ -228,7 +231,7 @@ function ThreadView({ thread, onMessageSent }: { thread: ThreadWithMessages; onM
             return res.data
         },
         onSuccess: (att) => setPendingAttachments(prev => [...prev, att]),
-        onError: (err) => toast({ title: '錯誤', description: getApiErrorMessage(err, '附件上傳失敗'), variant: 'destructive' }),
+        onError: (err) => toast({ title: t('common.error'), description: getApiErrorMessage(err, t('messagingPage.uploadFailed')), variant: 'destructive' }),
     })
 
     const sendMutation = useMutation({
@@ -245,7 +248,7 @@ function ThreadView({ thread, onMessageSent }: { thread: ThreadWithMessages; onM
             onMessageSent()
             qc.invalidateQueries({ queryKey: ['messaging-threads'] })
         },
-        onError: (err) => toast({ title: '錯誤', description: getApiErrorMessage(err, '訊息發送失敗'), variant: 'destructive' }),
+        onError: (err) => toast({ title: t('common.error'), description: getApiErrorMessage(err, t('messagingPage.sendFailed')), variant: 'destructive' }),
     })
 
     const deleteMessageMutation = useMutation({
@@ -278,7 +281,7 @@ function ThreadView({ thread, onMessageSent }: { thread: ThreadWithMessages; onM
                     {thread.type === 'group' && <Users className="h-4 w-4 text-muted-foreground" />}
                     {title}
                 </h3>
-                <p className="text-xs text-muted-foreground">{thread.participants.length} 位參與者</p>
+                <p className="text-xs text-muted-foreground">{t('messagingPage.participantsCount', { count: thread.participants.length })}</p>
             </div>
 
             {/* 訊息列：flex-1 overflow-y-auto 內部捲動；底部 padding 預留 composer 高度 */}
@@ -327,7 +330,7 @@ function ThreadView({ thread, onMessageSent }: { thread: ThreadWithMessages; onM
                     <Textarea
                         value={body}
                         onChange={(e) => setBody(e.target.value)}
-                        placeholder="輸入訊息..."
+                        placeholder={t('messagingPage.messagePlaceholder')}
                         rows={2}
                         className="flex-1 resize-none"
                         onKeyDown={(e) => {
@@ -344,7 +347,7 @@ function ThreadView({ thread, onMessageSent }: { thread: ThreadWithMessages; onM
                         }
                     </Button>
                 </div>
-                <p className="text-[10px] text-muted-foreground">Ctrl/Cmd + Enter 送出</p>
+                <p className="text-[10px] text-muted-foreground">{t('messagingPage.sendHint')}</p>
             </div>
         </>
     )
@@ -353,6 +356,7 @@ function ThreadView({ thread, onMessageSent }: { thread: ThreadWithMessages; onM
 // ── 訊息氣泡 ──────────────────────────────
 
 function MessageBubble({ message, onDelete }: { message: MessageWithSender; onDelete: () => void }) {
+    const { t } = useTranslation()
     // R89-7：後端 soft_delete 只允許 sender 本人或 messaging.admin_view 刪，
     // 這裡的按鈕過去對所有訊息都顯示，其他人的訊息點下去必 403。
     const currentUser = useAuthUser()
@@ -372,7 +376,7 @@ function MessageBubble({ message, onDelete }: { message: MessageWithSender; onDe
                             type="button"
                             onClick={onDelete}
                             className="text-muted-foreground hover:text-destructive"
-                            title="刪除（30 天後永久刪除）"
+                            title={t('messagingPage.deleteTitle')}
                         >
                             <Trash2 className="h-3 w-3" />
                         </button>
@@ -413,6 +417,7 @@ function NewThreadDialog({ open, onOpenChange, onCreated }: {
     onOpenChange: (v: boolean) => void
     onCreated: (id: string) => void
 }) {
+    const { t } = useTranslation()
     const [recipientIds, setRecipientIds] = useState<string[]>([])
     const [subject, setSubject] = useState('')
     const [body, setBody] = useState('')
@@ -449,7 +454,7 @@ function NewThreadDialog({ open, onOpenChange, onCreated }: {
             return res.data
         },
         onSuccess: (att) => setPendingAttachments(prev => [...prev, att]),
-        onError: (err) => toast({ title: '錯誤', description: getApiErrorMessage(err, '附件上傳失敗'), variant: 'destructive' }),
+        onError: (err) => toast({ title: t('common.error'), description: getApiErrorMessage(err, t('messagingPage.uploadFailed')), variant: 'destructive' }),
     })
 
     const canCreate = recipientIds.length > 0
@@ -468,7 +473,7 @@ function NewThreadDialog({ open, onOpenChange, onCreated }: {
             return res.data
         },
         onSuccess: (created) => {
-            toast({ title: '已建立對話' })
+            toast({ title: t('messagingPage.created') })
             onCreated(created.id)
             setRecipientIds([])
             setSubject('')
@@ -476,7 +481,7 @@ function NewThreadDialog({ open, onOpenChange, onCreated }: {
             setPendingAttachments([])
             onOpenChange(false)
         },
-        onError: (err) => toast({ title: '錯誤', description: getApiErrorMessage(err, '建立失敗'), variant: 'destructive' }),
+        onError: (err) => toast({ title: t('common.error'), description: getApiErrorMessage(err, t('messagingPage.createFailed')), variant: 'destructive' }),
     })
 
     const handleSelectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -501,19 +506,19 @@ function NewThreadDialog({ open, onOpenChange, onCreated }: {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent size="lg" className="max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>建立新對話</DialogTitle>
+                    <DialogTitle>{t('messagingPage.newDialog.title')}</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4">
                     <div>
-                        <label className="text-sm font-medium block mb-1">收件人</label>
+                        <label className="text-sm font-medium block mb-1">{t('messagingPage.newDialog.recipients')}</label>
                         <SearchableSelect
                             options={staffOptions.filter(o => !recipientIds.includes(o.value))}
                             value=""
                             onValueChange={(v) => v && setRecipientIds(prev => [...prev, v])}
-                            placeholder="搜尋並新增收件人..."
-                            searchPlaceholder="姓名 / Email..."
-                            emptyMessage="無符合人員"
+                            placeholder={t('messagingPage.newDialog.recipientsPlaceholder')}
+                            searchPlaceholder={t('messagingPage.newDialog.recipientsSearchPlaceholder')}
+                            emptyMessage={t('messagingPage.newDialog.recipientsEmpty')}
                         />
                         {recipientIds.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
@@ -535,31 +540,31 @@ function NewThreadDialog({ open, onOpenChange, onCreated }: {
                             </div>
                         )}
                         <p className="text-[10px] text-muted-foreground mt-1">
-                            選 1 位 = 1-1 私訊；選多位 = 群組對話
+                            {t('messagingPage.newDialog.recipientsHint')}
                         </p>
                     </div>
 
                     {isGroup && (
                         <div>
-                            <label className="text-sm font-medium block mb-1">群組主旨（選填）</label>
-                            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="例：GLP 教育訓練 Q3" />
+                            <label className="text-sm font-medium block mb-1">{t('messagingPage.newDialog.groupSubject')}</label>
+                            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={t('messagingPage.newDialog.groupSubjectPlaceholder')} />
                         </div>
                     )}
 
                     <div>
-                        <label className="text-sm font-medium block mb-1">第一封訊息</label>
-                        <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} placeholder="輸入訊息內容..." />
+                        <label className="text-sm font-medium block mb-1">{t('messagingPage.newDialog.firstMessage')}</label>
+                        <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} placeholder={t('messagingPage.newDialog.firstMessagePlaceholder')} />
                     </div>
 
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <label className="text-sm font-medium">附件（選填，圖片）</label>
+                            <label className="text-sm font-medium">{t('messagingPage.newDialog.attachments')}</label>
                             <label className="flex items-center gap-1 text-xs text-status-success-solid hover:text-green-700 cursor-pointer">
                                 {uploadAttachmentMutation.isPending
                                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     : <ImagePlus className="h-3.5 w-3.5" />
                                 }
-                                附加圖片
+                                {t('messagingPage.newDialog.attachImages')}
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -584,7 +589,7 @@ function NewThreadDialog({ open, onOpenChange, onCreated }: {
                                             type="button"
                                             onClick={() => setPendingAttachments(prev => prev.filter(x => x.id !== a.id))}
                                             className="absolute top-1 right-1 bg-background/80 hover:bg-destructive hover:text-destructive-foreground rounded-full p-1"
-                                            title="移除"
+                                            title={t('messagingPage.newDialog.remove')}
                                         >
                                             <X className="h-3 w-3" />
                                         </button>
@@ -597,10 +602,10 @@ function NewThreadDialog({ open, onOpenChange, onCreated }: {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-4 border-t mt-4">
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={createMutation.isPending}>取消</Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={createMutation.isPending}>{t('common.cancel')}</Button>
                     <Button onClick={() => createMutation.mutate()} disabled={!canCreate || createMutation.isPending}>
                         {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
-                        建立並發送
+                        {t('messagingPage.newDialog.submit')}
                     </Button>
                 </div>
             </DialogContent>

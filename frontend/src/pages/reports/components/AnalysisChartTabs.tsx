@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -53,18 +54,19 @@ export function AnalysisChartTabs({
   chartFilteredData,
   selectedItems,
 }: AnalysisChartTabsProps) {
+  const { t } = useTranslation()
   return (
     <>
       {/* Tab buttons */}
       <div className="flex gap-2 border-b pb-2">
         <Button variant={activeTab === 'trend' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('trend')}>
-          <TrendingUp className="mr-2 h-4 w-4" /> 趨勢圖
+          <TrendingUp className="mr-2 h-4 w-4" /> {t('reportsPages.bloodTestAnalysis.charts.trendTab')}
         </Button>
         <Button variant={activeTab === 'boxplot' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('boxplot')}>
-          <BarChart3 className="mr-2 h-4 w-4" /> 盒鬚圖
+          <BarChart3 className="mr-2 h-4 w-4" /> {t('reportsPages.bloodTestAnalysis.charts.boxPlotTab')}
         </Button>
         <Button variant={activeTab === 'table' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('table')}>
-          <FlaskConical className="mr-2 h-4 w-4" /> 資料明細
+          <FlaskConical className="mr-2 h-4 w-4" /> {t('reportsPages.bloodTestAnalysis.charts.dataDetails')}
         </Button>
       </div>
 
@@ -82,11 +84,12 @@ function TrendChart({
   data: { chartData: Record<string, number | string>[]; animals: string[] }
   selectedItems: string[]
 }) {
+  const { t } = useTranslation()
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          趨勢分析
+          {t('reportsPages.bloodTestAnalysis.charts.trendTitle')}
           {selectedItems.length > 0 && (
             <span className="text-muted-foreground font-normal ml-2 text-sm">
               ({selectedItems.join(', ')})
@@ -128,7 +131,7 @@ function TrendChart({
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <TrendingUp className="h-12 w-12 mb-2" />
-            <p>請選擇具有數值結果的檢查項目以顯示趨勢圖</p>
+            <p>{t('reportsPages.bloodTestAnalysis.charts.trendEmpty')}</p>
           </div>
         )}
       </CardContent>
@@ -137,10 +140,11 @@ function TrendChart({
 }
 
 function BoxPlotTab({ data }: { data: BoxPlotData[] }) {
+  const { t } = useTranslation()
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">數值分布（盒鬚圖）</CardTitle>
+        <CardTitle className="text-base">{t('reportsPages.bloodTestAnalysis.charts.boxPlotTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         {data.length > 0 ? (
@@ -148,7 +152,7 @@ function BoxPlotTab({ data }: { data: BoxPlotData[] }) {
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <BarChart3 className="h-12 w-12 mb-2" />
-            <p>需要至少 2 筆數值資料才能繪製盒鬚圖</p>
+            <p>{t('reportsPages.bloodTestAnalysis.charts.boxPlotEmpty')}</p>
           </div>
         )}
       </CardContent>
@@ -157,27 +161,28 @@ function BoxPlotTab({ data }: { data: BoxPlotData[] }) {
 }
 
 function DataTable({ data }: { data: BloodTestAnalysisRow[] }) {
+  const { t } = useTranslation()
   const { sortedData, sort, toggleSort } = useTableSort(data)
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">資料明細</CardTitle>
+        <CardTitle className="text-base">{t('reportsPages.bloodTestAnalysis.charts.dataDetails')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <SortableTableHead sortKey="ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>耳號</SortableTableHead>
-                <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>專案</SortableTableHead>
-                <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
-                <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>實驗室</SortableTableHead>
-                <SortableTableHead sortKey="item_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>項目</SortableTableHead>
-                <SortableTableHead sortKey="result_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">結果值</SortableTableHead>
-                <TableHead>單位</TableHead>
-                <TableHead>參考範圍</TableHead>
-                <SortableTableHead sortKey="is_abnormal" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center">異常</SortableTableHead>
+                <SortableTableHead sortKey="ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.earTag')}</SortableTableHead>
+                <SortableTableHead sortKey="iacuc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.bloodTestAnalysis.columns.project')}</SortableTableHead>
+                <SortableTableHead sortKey="test_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.bloodTestAnalysis.columns.date')}</SortableTableHead>
+                <SortableTableHead sortKey="lab_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.lab')}</SortableTableHead>
+                <SortableTableHead sortKey="item_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.bloodTestAnalysis.columns.item')}</SortableTableHead>
+                <SortableTableHead sortKey="result_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.bloodTestAnalysis.columns.resultValue')}</SortableTableHead>
+                <TableHead>{t('reportsPages.shared.unit')}</TableHead>
+                <TableHead>{t('reportsPages.bloodTestAnalysis.columns.referenceRange')}</TableHead>
+                <SortableTableHead sortKey="is_abnormal" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-center">{t('reportsPages.bloodTestAnalysis.columns.abnormal')}</SortableTableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -202,7 +207,7 @@ function DataTable({ data }: { data: BloodTestAnalysisRow[] }) {
           </Table>
           {data.length > 200 && (
             <p className="text-sm text-muted-foreground text-center py-2">
-              僅顯示前 200 筆，完整資料請使用匯出功能
+              {t('reportsPages.bloodTestAnalysis.charts.tableTruncated')}
             </p>
           )}
         </div>

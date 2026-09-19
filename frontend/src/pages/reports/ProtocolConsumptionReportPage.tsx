@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Trans, useTranslation } from 'react-i18next'
 
 import api, { ProtocolConsumptionReport } from '@/lib/api'
 import { formatNumber, formatDate, formatUom } from '@/lib/utils'
@@ -66,6 +67,7 @@ function download(filename: string, csv: string) {
 }
 
 export function ProtocolConsumptionReportPage() {
+  const { t } = useTranslation()
   const { from, to, setFrom, setTo } = useDateRangeFilter()
   const [protocolId, setProtocolId] = useState('')
   const { activeTab, setActiveTab } = useTabState<TabKey>('by-protocol')
@@ -224,19 +226,19 @@ export function ProtocolConsumptionReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="案件消耗報表"
-        description="依計畫統計內部領用的耗材消耗（已扣除沖銷，僅計已核准）"
+        title={t('reportsPages.protocolConsumption.title')}
+        description={t('reportsPages.protocolConsumption.description')}
         actions={
           <Button size="sm" onClick={exportCurrentTab} disabled={exportDisabled}>
             <Download className="mr-2 h-4 w-4" />
-            匯出目前分頁
+            {t('reportsPages.protocolConsumption.exportCurrentTab')}
           </Button>
         }
       />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <div className="space-y-1">
-          <Label htmlFor="pc-date-from">起始日期</Label>
+          <Label htmlFor="pc-date-from">{t('reportsPages.shared.startDate')}</Label>
           <Input
             id="pc-date-from"
             type="date"
@@ -245,7 +247,7 @@ export function ProtocolConsumptionReportPage() {
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="pc-date-to">結束日期</Label>
+          <Label htmlFor="pc-date-to">{t('reportsPages.shared.endDate')}</Label>
           <Input
             id="pc-date-to"
             type="date"
@@ -255,9 +257,9 @@ export function ProtocolConsumptionReportPage() {
         </div>
         <div className="space-y-1">
           <Label htmlFor="pc-protocol">
-            計畫
+            {t('reportsPages.protocolConsumption.protocol')}
             {truncated && (
-              <span className="ml-1 font-normal text-muted-foreground">（資料截斷中不可用）</span>
+              <span className="ml-1 font-normal text-muted-foreground">{t('reportsPages.protocolConsumption.protocolUnavailable')}</span>
             )}
           </Label>
           <Select
@@ -266,10 +268,10 @@ export function ProtocolConsumptionReportPage() {
             disabled={isError || !filterEnabled}
           >
             <SelectTrigger id="pc-protocol">
-              <SelectValue placeholder="全部計畫" />
+              <SelectValue placeholder={t('reportsPages.protocolConsumption.allProtocols')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_VALUE}>全部計畫</SelectItem>
+              <SelectItem value={ALL_VALUE}>{t('reportsPages.protocolConsumption.allProtocols')}</SelectItem>
               {protocolOptions.map(p => (
                 <SelectItem key={p.protocol_id} value={p.protocol_id}>
                   {p.protocol_no}
@@ -296,10 +298,11 @@ export function ProtocolConsumptionReportPage() {
         <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <span>
-            資料已達 {ROW_LIMIT} 組上限而被截斷，下面看到的<strong>不是全部</strong>
-            ——排序在後面的計畫整個不在其中，卡在切點的計畫也可能少掉部分品項。
-            <strong>請縮小日期範圍後重查</strong>；計畫篩選在這個狀態下已停用，
-            因為它只會在這份殘缺資料上過濾，不會重新查詢。
+            <Trans
+              i18nKey="reportsPages.protocolConsumption.truncatedWarning"
+              values={{ limit: ROW_LIMIT }}
+              components={{ strong: <strong /> }}
+            />
           </span>
         </div>
       )}
@@ -311,23 +314,25 @@ export function ProtocolConsumptionReportPage() {
       {isError ? (
         <EmptyState
           icon={AlertTriangle}
-          title="報表載入失敗"
+          title={t('reportsPages.protocolConsumption.loadFailedTitle')}
           description={
             error instanceof Error
-              ? `無法取得案件消耗資料：${error.message}`
-              : '無法取得案件消耗資料。這不代表這段期間沒有領用紀錄，只代表查詢沒有成功。'
+              ? t('reportsPages.protocolConsumption.loadFailedWithMessage', { message: error.message })
+              : t('reportsPages.protocolConsumption.loadFailedDescription')
           }
           action={{
-            label: isFetching ? '重試中…' : '重新載入',
+            label: isFetching
+              ? t('reportsPages.protocolConsumption.retrying')
+              : t('reportsPages.protocolConsumption.reload'),
             onClick: () => void refetch(),
           }}
         />
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="by-protocol">依案件</TabsTrigger>
-            <TabsTrigger value="by-product">依品項</TabsTrigger>
-            <TabsTrigger value="cross">交叉表</TabsTrigger>
+            <TabsTrigger value="by-protocol">{t('reportsPages.protocolConsumption.tabs.byProtocol')}</TabsTrigger>
+            <TabsTrigger value="by-product">{t('reportsPages.protocolConsumption.tabs.byProduct')}</TabsTrigger>
+            <TabsTrigger value="cross">{t('reportsPages.protocolConsumption.tabs.cross')}</TabsTrigger>
           </TabsList>
 
           {/* ── 依案件 ───────────────────────────────────────────────── */}
@@ -336,13 +341,13 @@ export function ProtocolConsumptionReportPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead>計畫編號</TableHead>
-                    <TableHead>核准編號</TableHead>
-                    <TableHead>計畫名稱</TableHead>
-                    <TableHead className="text-right">品項數</TableHead>
-                    <TableHead className="text-right">單據數</TableHead>
-                    <TableHead className="text-right">金額</TableHead>
-                    <TableHead>期間</TableHead>
+                    <TableHead>{t('reportsPages.protocolConsumption.protocolNo')}</TableHead>
+                    <TableHead>{t('reportsPages.protocolConsumption.approvalNo')}</TableHead>
+                    <TableHead>{t('reportsPages.protocolConsumption.protocolTitle')}</TableHead>
+                    <TableHead className="text-right">{t('reportsPages.protocolConsumption.itemCount')}</TableHead>
+                    <TableHead className="text-right">{t('reportsPages.protocolConsumption.docCount')}</TableHead>
+                    <TableHead className="text-right">{t('reportsPages.shared.amount')}</TableHead>
+                    <TableHead>{t('reportsPages.protocolConsumption.period')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -356,7 +361,7 @@ export function ProtocolConsumptionReportPage() {
                     <TableEmptyRow
                       colSpan={7}
                       icon={FlaskConical}
-                      title="這段期間沒有案件領用紀錄"
+                      title={t('reportsPages.protocolConsumption.emptyTitle')}
                     />
                   ) : (
                     byProtocol.map(p => (
@@ -377,9 +382,7 @@ export function ProtocolConsumptionReportPage() {
               </Table>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              這一層刻意不顯示數量合計——一個案件會同時用到手套（雙）、滴管（包）、紗布（片），
-              把不同單位的數字加起來沒有意義。要看數量請切到「依品項」或「交叉表」。
-              單據數為下界（同一張領用單常同時領多種品項）。
+              {t('reportsPages.protocolConsumption.byProtocolNote')}
             </p>
           </TabsContent>
 
@@ -389,13 +392,13 @@ export function ProtocolConsumptionReportPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead>產品代碼</TableHead>
-                    <TableHead>產品名稱</TableHead>
-                    <TableHead>分類</TableHead>
-                    <TableHead className="text-right">案件數</TableHead>
-                    <TableHead className="text-right">消耗量</TableHead>
-                    <TableHead>單位</TableHead>
-                    <TableHead className="text-right">金額</TableHead>
+                    <TableHead>{t('reportsPages.shared.productCode')}</TableHead>
+                    <TableHead>{t('reportsPages.shared.productName')}</TableHead>
+                    <TableHead>{t('reportsPages.protocolConsumption.categoryName')}</TableHead>
+                    <TableHead className="text-right">{t('reportsPages.protocolConsumption.protocolCount')}</TableHead>
+                    <TableHead className="text-right">{t('reportsPages.protocolConsumption.consumedQty')}</TableHead>
+                    <TableHead>{t('reportsPages.shared.unit')}</TableHead>
+                    <TableHead className="text-right">{t('reportsPages.shared.amount')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -409,7 +412,7 @@ export function ProtocolConsumptionReportPage() {
                     <TableEmptyRow
                       colSpan={7}
                       icon={FlaskConical}
-                      title="這段期間沒有案件領用紀錄"
+                      title={t('reportsPages.protocolConsumption.emptyTitle')}
                     />
                   ) : (
                     byProduct.map(p => (
@@ -438,14 +441,18 @@ export function ProtocolConsumptionReportPage() {
             {crossTooLarge ? (
               <EmptyState
                 icon={AlertTriangle}
-                title="交叉表資料量過大，無法顯示"
-                description={
-                  `目前條件會產生 ${crossCells.toLocaleString()} 格` +
-                  `（${cross.protocols.length} 個案件 × ${cross.products.length} 個品項），` +
-                  `超過 ${MAX_CROSS_CELLS.toLocaleString()} 格的上限。` +
-                  `請縮小日期範圍${filterEnabled ? '，或先指定單一計畫' : ''}後重查。` +
-                  `另外兩個分頁不受影響，仍可正常檢視與匯出。`
-                }
+                title={t('reportsPages.protocolConsumption.crossTooLargeTitle')}
+                description={t(
+                  filterEnabled
+                    ? 'reportsPages.protocolConsumption.crossTooLargeDescriptionWithFilter'
+                    : 'reportsPages.protocolConsumption.crossTooLargeDescription',
+                  {
+                    cells: crossCells.toLocaleString(),
+                    protocols: cross.protocols.length,
+                    products: cross.products.length,
+                    limit: MAX_CROSS_CELLS.toLocaleString(),
+                  }
+                )}
               />
             ) : (
               <>
@@ -454,7 +461,7 @@ export function ProtocolConsumptionReportPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="sticky left-0 bg-muted/50">計畫編號</TableHead>
+                    <TableHead className="sticky left-0 bg-muted/50">{t('reportsPages.protocolConsumption.protocolNo')}</TableHead>
                     {/* 🔴 表頭要帶 sku，理由與 crossTabCsv 同一條：products 只保證 sku
                         唯一，(product_name, base_uom) 不保證。同名同單位的兩個品項在畫面上
                         會變成兩個一模一樣的欄位標題，底下卻是不同的數字。
@@ -486,7 +493,7 @@ export function ProtocolConsumptionReportPage() {
                     <TableEmptyRow
                       colSpan={cross.products.length + 1}
                       icon={FlaskConical}
-                      title="這段期間沒有案件領用紀錄"
+                      title={t('reportsPages.protocolConsumption.emptyTitle')}
                     />
                   ) : (
                     cross.protocols.map(pr => (
@@ -516,8 +523,7 @@ export function ProtocolConsumptionReportPage() {
               </Table>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  「—」表示該案件沒有領用過這個品項，與領用後整筆沖銷（不會出現在報表裡）不同。
-                  每一行的單位標在表頭，欄與欄之間不可相加。
+                  {t('reportsPages.protocolConsumption.crossNote')}
                 </p>
               </>
             )}
@@ -527,8 +533,11 @@ export function ProtocolConsumptionReportPage() {
 
       {!isError && hasData && (
         <p className="text-xs text-muted-foreground">
-          共 {rows.length} 組（案件 × 品項）；{byProtocol.length} 個案件、{byProduct.length} 個品項。
-          數量已扣除沖銷，僅計已核准的領用。
+          {t('reportsPages.protocolConsumption.summary', {
+            rows: rows.length,
+            protocols: byProtocol.length,
+            products: byProduct.length,
+          })}
         </p>
       )}
     </div>

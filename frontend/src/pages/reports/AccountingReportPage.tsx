@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { PageHeader } from '@/components/ui/page-header'
 import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
@@ -11,6 +12,7 @@ import { ArAgingTab } from './components/ArAgingTab'
 import { ProfitLossTab } from './components/ProfitLossTab'
 
 export function AccountingReportPage() {
+  const { t } = useTranslation()
   const today = new Date().toISOString().slice(0, 10)
   const [asOfDate, setAsOfDate] = useState(today)
   const { from: dateFrom, to: dateTo, setFrom: setDateFrom, setTo: setDateTo } = useDateRangeFilter({
@@ -21,17 +23,17 @@ export function AccountingReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="會計報表"
-        description="試算表、傳票、應付／應收帳款"
+        title={t('reportsPages.accounting.title')}
+        description={t('reportsPages.accounting.description')}
       />
 
       <PageTabs
         tabs={[
-          { value: 'trial-balance', label: '試算表', icon: Calculator },
-          { value: 'journal-entries', label: '傳票查詢', icon: FileText },
-          { value: 'ap-aging', label: '應付帳款', icon: CreditCard },
-          { value: 'ar-aging', label: '應收帳款', icon: Receipt },
-          { value: 'profit-loss', label: '損益表', icon: TrendingUp },
+          { value: 'trial-balance', label: t('reportsPages.accounting.tabs.trialBalance'), icon: Calculator },
+          { value: 'journal-entries', label: t('reportsPages.accounting.tabs.journalEntries'), icon: FileText },
+          { value: 'ap-aging', label: t('reportsPages.accounting.tabs.apAging'), icon: CreditCard },
+          { value: 'ar-aging', label: t('reportsPages.accounting.tabs.arAging'), icon: Receipt },
+          { value: 'profit-loss', label: t('reportsPages.accounting.tabs.profitLoss'), icon: TrendingUp },
         ]}
         defaultTab="trial-balance"
         className="space-y-4"

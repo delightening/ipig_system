@@ -2,6 +2,7 @@
  * 血液檢查結果分析頁面
  * 提供血液檢查數據的統計、趨勢分析、異常標記與視覺化圖表
  */
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
@@ -33,14 +34,15 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 
 export function BloodTestAnalysisPage() {
+  const { t } = useTranslation()
   const analysis = useBloodTestAnalysis()
   const { sortedData: sortedAbnormal, sort: sortAbnormal, toggleSort: toggleAbnormalSort } = useTableSort(analysis.abnormalRecords)
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="血液檢查結果分析"
-        description="對血液檢查結果進行統計分析、趨勢追蹤與異常值偵測"
+        title={t('reportsPages.bloodTestAnalysis.title')}
+        description={t('reportsPages.bloodTestAnalysis.description')}
         actions={
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={analysis.exportToCSV} disabled={!analysis.filteredData.length}>
@@ -56,24 +58,24 @@ export function BloodTestAnalysisPage() {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">篩選條件</CardTitle>
+          <CardTitle className="text-base">{t('reportsPages.shared.filters')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="iacuc_no">專案編號 (IACUC No.)</Label>
-              <Input id="iacuc_no" placeholder="例: PIG-115001" value={analysis.iacucNo} onChange={(e) => analysis.setIacucNo(e.target.value)} />
+              <Label htmlFor="iacuc_no">{t('reportsPages.shared.iacucNoLabel')}</Label>
+              <Input id="iacuc_no" placeholder={t('reportsPages.shared.iacucNoPlaceholder')} value={analysis.iacucNo} onChange={(e) => analysis.setIacucNo(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ear_tag">動物耳號</Label>
-              <Input id="ear_tag" placeholder="輸入耳號搜尋" value={analysis.earTag} onChange={(e) => analysis.setEarTag(e.target.value)} />
+              <Label htmlFor="ear_tag">{t('reportsPages.bloodTestAnalysis.earTagLabel')}</Label>
+              <Input id="ear_tag" placeholder={t('reportsPages.bloodTestAnalysis.earTagPlaceholder')} value={analysis.earTag} onChange={(e) => analysis.setEarTag(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="date_from">開始日期</Label>
+              <Label htmlFor="date_from">{t('reportsPages.shared.beginDate')}</Label>
               <Input id="date_from" type="date" value={analysis.dateFrom} onChange={(e) => analysis.setDateFrom(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="date_to">結束日期</Label>
+              <Label htmlFor="date_to">{t('reportsPages.shared.endDate')}</Label>
               <Input id="date_to" type="date" value={analysis.dateTo} onChange={(e) => analysis.setDateTo(e.target.value)} />
             </div>
           </div>
@@ -91,16 +93,16 @@ export function BloodTestAnalysisPage() {
         <>
           {/* Summary stats */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryCard icon={<FlaskConical className="h-6 w-6 text-primary" />} bgClass="bg-primary/10" label="檢查項目數" value={analysis.summary.totalItems.toLocaleString()} />
+            <SummaryCard icon={<FlaskConical className="h-6 w-6 text-primary" />} bgClass="bg-primary/10" label={t('reportsPages.shared.testItemCount')} value={analysis.summary.totalItems.toLocaleString()} />
             <SummaryCard
               icon={<AlertTriangle className="h-6 w-6 text-destructive" />}
               bgClass="bg-status-error-bg"
-              label="異常比率"
+              label={t('reportsPages.bloodTestAnalysis.abnormalRate')}
               value={`${analysis.summary.abnormalRate.toFixed(1)}%`}
               suffix={`(${analysis.summary.abnormalCount})`}
             />
-            <SummaryCard icon={<Users className="h-6 w-6 text-status-success-text" />} bgClass="bg-status-success-bg" label="涵蓋動物數" value={String(analysis.summary.animalCount)} />
-            <SummaryCard icon={<Activity className="h-6 w-6 text-status-purple-text" />} bgClass="bg-status-purple-bg" label="檢查次數" value={String(analysis.summary.testDates)} />
+            <SummaryCard icon={<Users className="h-6 w-6 text-status-success-text" />} bgClass="bg-status-success-bg" label={t('reportsPages.bloodTestAnalysis.animalCount')} value={String(analysis.summary.animalCount)} />
+            <SummaryCard icon={<Activity className="h-6 w-6 text-status-purple-text" />} bgClass="bg-status-purple-bg" label={t('reportsPages.shared.testCount')} value={String(analysis.summary.testDates)} />
           </div>
 
           {/* Abnormal records */}
@@ -109,7 +111,7 @@ export function BloodTestAnalysisPage() {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2 text-destructive">
                   <AlertTriangle className="h-5 w-5" />
-                  異常值警示（共 {analysis.abnormalRecords.length} 項）
+                  {t('reportsPages.bloodTestAnalysis.abnormalTitle', { count: analysis.abnormalRecords.length })}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -117,12 +119,12 @@ export function BloodTestAnalysisPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <SortableTableHead sortKey="ear_tag" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>耳號</SortableTableHead>
-                        <SortableTableHead sortKey="iacuc_no" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>專案</SortableTableHead>
-                        <SortableTableHead sortKey="test_date" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>日期</SortableTableHead>
-                        <SortableTableHead sortKey="item_name" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>項目</SortableTableHead>
-                        <SortableTableHead sortKey="result_value" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort} className="text-right">結果值</SortableTableHead>
-                        <SortableTableHead sortKey="reference_range" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>參考範圍</SortableTableHead>
+                        <SortableTableHead sortKey="ear_tag" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>{t('reportsPages.shared.earTag')}</SortableTableHead>
+                        <SortableTableHead sortKey="iacuc_no" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>{t('reportsPages.bloodTestAnalysis.columns.project')}</SortableTableHead>
+                        <SortableTableHead sortKey="test_date" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>{t('reportsPages.bloodTestAnalysis.columns.date')}</SortableTableHead>
+                        <SortableTableHead sortKey="item_name" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>{t('reportsPages.bloodTestAnalysis.columns.item')}</SortableTableHead>
+                        <SortableTableHead sortKey="result_value" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort} className="text-right">{t('reportsPages.bloodTestAnalysis.columns.resultValue')}</SortableTableHead>
+                        <SortableTableHead sortKey="reference_range" currentSort={sortAbnormal.column} currentDirection={sortAbnormal.direction} onSort={toggleAbnormalSort}>{t('reportsPages.bloodTestAnalysis.columns.referenceRange')}</SortableTableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -142,7 +144,7 @@ export function BloodTestAnalysisPage() {
                   </Table>
                   {analysis.abnormalRecords.length > 20 && (
                     <p className="text-sm text-muted-foreground text-center py-2">
-                      僅顯示前 20 筆，匯出報表可查看完整異常清單
+                      {t('reportsPages.bloodTestAnalysis.abnormalTruncated')}
                     </p>
                   )}
                 </div>
@@ -176,8 +178,8 @@ export function BloodTestAnalysisPage() {
           <CardContent className="py-4">
             <EmptyState
               icon={FlaskConical}
-              title={analysis.hasFilter ? '查無符合條件的血液檢查資料' : '請先輸入篩選條件'}
-              description={analysis.hasFilter ? '請調整篩選條件後重試' : '輸入專案編號或選擇日期範圍後，系統將顯示血液檢查分析結果'}
+              title={analysis.hasFilter ? t('reportsPages.bloodTestAnalysis.emptyFilteredTitle') : t('reportsPages.bloodTestAnalysis.emptyNoFilterTitle')}
+              description={analysis.hasFilter ? t('reportsPages.bloodTestAnalysis.emptyFilteredDescription') : t('reportsPages.bloodTestAnalysis.emptyNoFilterDescription')}
             />
           </CardContent>
         </Card>

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { CostSummaryReport } from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
@@ -18,6 +19,7 @@ import { Download, DollarSign } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 export function CostSummaryReportPage() {
+  const { t } = useTranslation()
   const { data: report, isLoading } = useQuery<CostSummaryReport[]>({
     queryKey: ['report-cost-summary'],
     queryFn: async () => {
@@ -60,12 +62,12 @@ export function CostSummaryReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="成本摘要報表"
-        description="庫存成本與價值摘要"
+        title={t('reportsPages.costSummary.title')}
+        description={t('reportsPages.costSummary.description')}
         actions={
           <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
-            匯出 CSV
+            {t('reportsPages.shared.exportCsv')}
           </Button>
         }
       />
@@ -74,7 +76,7 @@ export function CostSummaryReportPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">總庫存價值</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('reportsPages.costSummary.totalInventoryValue')}</CardTitle>
             <DollarSign className="h-4 w-4 text-status-success-text" />
           </CardHeader>
           <CardContent>
@@ -83,7 +85,7 @@ export function CostSummaryReportPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">總庫存量</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('reportsPages.costSummary.totalQtyOnHand')}</CardTitle>
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
@@ -92,7 +94,7 @@ export function CostSummaryReportPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">品項數</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('reportsPages.costSummary.itemCount')}</CardTitle>
             <DollarSign className="h-4 w-4 text-status-purple-text" />
           </CardHeader>
           <CardContent>
@@ -105,13 +107,13 @@ export function CostSummaryReportPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
-              <SortableTableHead sortKey="product_sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品代碼</SortableTableHead>
-              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品名稱</SortableTableHead>
-              <SortableTableHead sortKey="category_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類別</SortableTableHead>
-              <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">庫存量</SortableTableHead>
-              <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">平均成本</SortableTableHead>
-              <SortableTableHead sortKey="total_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">庫存價值</SortableTableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.warehouse')}</SortableTableHead>
+              <SortableTableHead sortKey="product_sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.productCode')}</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.productName')}</SortableTableHead>
+              <SortableTableHead sortKey="category_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.category')}</SortableTableHead>
+              <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.qtyOnHand')}</SortableTableHead>
+              <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.avgCost')}</SortableTableHead>
+              <SortableTableHead sortKey="total_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.inventoryValue')}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -145,7 +147,7 @@ export function CostSummaryReportPage() {
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={7} icon={DollarSign} title="尚無成本資料" />
+              <TableEmptyRow colSpan={7} icon={DollarSign} title={t('reportsPages.costSummary.emptyTitle')} />
             )}
           </TableBody>
         </Table>
