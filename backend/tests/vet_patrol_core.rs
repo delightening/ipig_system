@@ -1286,6 +1286,63 @@ async fn delete_report_soft_deletes_hides_from_get_and_writes_audit() {
     );
 }
 
+/// P1-5 迴歸：巡場報告要能用**標準 `DELETE` 方法**刪除。
+///
+/// 2026-09-08 之前 `/vet-patrol-reports/{id}` 只掛了 `get` 與 `put`，刪除只能走
+/// `POST …/delete`——它是全系統 40 條 `POST …/delete` 裡唯一「base 沒有 `DELETE`」的例外
+///（其餘 39 條都是「`DELETE` 為主、`POST` 為備用」，備用是為了避開部分代理／tunnel
+/// 對 `DELETE` 回 405，見 `handlers/warehouse.rs:120`）。這個例外很危險：任何人照
+/// 「移除備用路由」的字面意思整批清掉 `POST …/delete`，就會刪掉巡場報告的唯一刪除途徑。
+///
+/// **鑑別力**：對舊碼這支會紅——axum 對只掛 get/put 的路徑收到 `DELETE` 會回 405，
+/// 第一個 assert 就會炸。上面那支 `delete_report_soft_deletes_…` 走的是 POST，
+/// 改動前後都綠，證明不了這件事。
+#[tokio::test]
+#[serial]
+async fn delete_report_via_standard_delete_method() {
+    let app = TestApp::spawn().await;
+    let (_id, token) = seed_user_with_role(&app, "VET", "httpdelete").await;
+
+    let create_res = app
+        .auth_post(
+            "/api/v1/vet-patrol-reports",
+            &serde_json::json!({"patrol_date": "2026-07-11", "entries": []}),
+            &token,
+        )
+        .await;
+    assert_eq!(create_res.status(), 200);
+    let created: serde_json::Value = create_res.json().await.expect("parse");
+    let report_id_str = created["id"].as_str().expect("id").to_string();
+    let report_id = Uuid::parse_str(&report_id_str).expect("valid uuid");
+
+    let delete_res = app
+        .auth_delete(
+            &format!("/api/v1/vet-patrol-reports/{report_id_str}"),
+            &token,
+        )
+        .await;
+    assert_eq!(
+        delete_res.status(),
+        200,
+        "DELETE /vet-patrol-reports/{{id}} 應可用；405 代表該路徑又只剩 POST 備用路由"
+    );
+
+    // 與 POST 備用路由走同一個 handler，所以行為必須完全一致：軟刪 + 稽核。
+    let deleted_at_set: bool =
+        sqlx::query_scalar("SELECT deleted_at IS NOT NULL FROM vet_patrol_reports WHERE id = $1")
+            .bind(report_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("check deleted_at");
+    assert!(deleted_at_set, "DELETE 方法也應為 soft delete");
+
+    assert_eq!(
+        audit_count(&app, "VET_PATROL_REPORT_DELETED", report_id).await,
+        1,
+        "DELETE 方法也應寫稽核，與 POST 備用路由一致"
+    );
+}
+
 // ── list filter：預設 completed，不含草稿（回歸 filter 邏輯，非僅 permission） ──────────
 
 #[tokio::test]

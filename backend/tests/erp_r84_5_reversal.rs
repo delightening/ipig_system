@@ -22,7 +22,7 @@ use uuid::Uuid;
 use erp_backend::middleware::CurrentUser;
 use erp_backend::models::{CreateDocumentRequest, DocStatus, DocType, DocumentLineInput};
 use erp_backend::services::DocumentService;
-use erp_backend::{ActorContext, SYSTEM_USER_ID};
+use erp_backend::{ActorContext, AppError, SYSTEM_USER_ID};
 
 #[path = "common/test_db.rs"]
 mod test_db;
@@ -524,10 +524,33 @@ async fn reversal_blocked_when_goods_already_consumed() {
     let err = DocumentService::approve_reversal(&pool, &admin, reversal.document.id)
         .await
         .expect_err("貨已不在，沖銷應被擋下");
-    assert!(
-        err.to_string().contains("儲位庫存不足"),
-        "錯誤應說明儲位庫存不足，實際：{err}"
-    );
+    // 斷言改為比對錯誤變體與其欄位，不再比對訊息字串（2026-09-10）。
+    //
+    // 原本斷言 `err.to_string().contains("儲位庫存不足")`。那五個字在 `26cead0`
+    //（倉庫政策旗標與領用卡關訊息）被改掉了——新訊息指出「這多半是帳面與實體不符、
+    // 不是缺貨」並給出下一步（先開盤點單校正），語意比舊的準確。
+    // 所以該改的是斷言，不是訊息。
+    //
+    // 但不是換一組新字串繼續比對：**那則訊息是寫給現場看的，本來就會被改文案**，
+    // 用字串釘住它，等於每次改善措辭都要回頭修測試，而且哪天有人把它改壞了
+    // （例如刪掉引導語）測試照樣綠——它驗的是「有沒有這幾個字」不是「語意對不對」。
+    //
+    // 改用 `AppError::InsufficientStock` 這個結構化變體，順帶驗兩個數字：
+    // 貨已被領光所以帳面是 0，而沖銷要退回的是原入庫的 50。這比原斷言強——
+    // 原本只要訊息裡有那五個字就過，數量錯了也看不出來。
+    match err {
+        AppError::InsufficientStock {
+            on_hand, required, ..
+        } => {
+            assert_eq!(on_hand, Decimal::ZERO, "貨已被領光，儲位帳面應為 0");
+            assert_eq!(
+                required,
+                Decimal::from(50),
+                "沖銷要退回的是原入庫量 50，不是別的數字"
+            );
+        }
+        other => panic!("應為 InsufficientStock（庫存不足擋下沖銷），實際：{other}"),
+    }
 
     // 整筆 rollback：沖銷單仍為未核准，且沒有留下半套的 ledger 列
     let status: String = sqlx::query_scalar("SELECT status::text FROM documents WHERE id = $1")

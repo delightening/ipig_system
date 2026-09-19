@@ -222,9 +222,46 @@ pub async fn is_study_director_of_any_approved(pool: &PgPool, user_id: Uuid) -> 
     Ok(exists)
 }
 
-/// 須知簽署授權（PR-B）：計畫 PI（`pi_user_id` 或 `user_protocols` PI 角色）或 SD。
+/// 須知簽署授權（PR-B）：計畫 PI（`pi_user_id` 或 `user_protocols` PI 角色）或 SD，
+/// 或 SD 核准的生效中 PI 代理人（`protocol_pi_delegates`，見 migration 010）。
 pub async fn can_sign_notice(pool: &PgPool, protocol_id: Uuid, user_id: Uuid) -> Result<bool> {
     let (exists,): (bool,) = sqlx::query_as(
+        r#"SELECT EXISTS(
+            SELECT 1 FROM protocols
+            WHERE id = $1 AND (pi_user_id = $2 OR study_director_user_id = $2)
+            UNION
+            SELECT 1 FROM user_protocols
+            WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol = 'PI'
+            UNION
+            SELECT 1 FROM protocol_pi_delegates
+            WHERE protocol_id = $1 AND delegate_user_id = $2 AND revoked_at IS NULL
+              AND (expires_at IS NULL OR expires_at > now())
+        )"#,
+    )
+    .bind(protocol_id)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(exists)
+}
+
+/// 須知簽署時，這位簽署人是否**只**憑代理授權取得資格；是的話回傳該授權 id。
+///
+/// # 為什麼要分辨「只憑代理授權」而不是「有沒有代理授權」
+///
+/// [`can_sign_notice`] 有四條放行路徑，代理人是本次（migration 010）新加的那一條。
+/// 簽章要記的是「這個人是以什麼身分簽的」：本人有資格（`pi_user_id` / SD /
+/// `user_protocols` 的 PI）就該以個人名義落帳，`delegation_id` 留 NULL；
+/// 只有在**沒有任何個人資格、純粹靠那筆授權才簽得下去**時，才需要把授權證據綁進簽章。
+///
+/// 反過來寫（有授權就一律標記）會讓「本來就是 PI、順便也被指定為代理人」的人
+/// 簽出來的章看起來像代簽——那是假的可歸責資訊，比沒有更糟。
+pub async fn notice_signer_delegation(
+    pool: &PgPool,
+    protocol_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<Uuid>> {
+    let (personally_eligible,): (bool,) = sqlx::query_as(
         r#"SELECT EXISTS(
             SELECT 1 FROM protocols
             WHERE id = $1 AND (pi_user_id = $2 OR study_director_user_id = $2)
@@ -237,7 +274,33 @@ pub async fn can_sign_notice(pool: &PgPool, protocol_id: Uuid, user_id: Uuid) ->
     .bind(user_id)
     .fetch_one(pool)
     .await?;
-    Ok(exists)
+    if personally_eligible {
+        return Ok(None);
+    }
+    active_pi_delegate_id(pool, protocol_id, user_id).await
+}
+
+/// 變更申請寫入時，這位操作者是否**只**憑代理授權取得資格；是的話回傳該授權 id。
+///
+/// 與 [`notice_signer_delegation`] 同一個原則、但個人資格的判準不同：
+/// [`can_write_amendment`] 認的是 admin 與計畫 PI（**不含 SD**），所以這裡也只排除
+/// 這兩者。本人有資格就以個人名義落帳、`delegation_id` 留 NULL；只有「沒有任何
+/// 個人資格、純粹靠那筆授權才寫得下去」時才標記。
+///
+/// 反過來寫（有授權就一律標記）會讓「本來就是 PI、順便也被指定為代理人」的人
+/// 寫出來的變更申請看起來像代簽——那是假的可歸責資訊，比沒有更糟。
+pub async fn amendment_writer_delegation(
+    pool: &PgPool,
+    current_user: &CurrentUser,
+    protocol_id: Uuid,
+) -> Result<Option<Uuid>> {
+    if current_user.is_admin() {
+        return Ok(None);
+    }
+    if is_protocol_pi(pool, protocol_id, current_user.id).await? {
+        return Ok(None);
+    }
+    active_pi_delegate_id(pool, protocol_id, current_user.id).await
 }
 
 /// 使用者是否與計畫有關聯（any role in user_protocols）
@@ -625,9 +688,11 @@ impl Scoped<NoticeSign> {
 /// 守衛：管理者短路，否則須為計畫 PI（`user_protocols` PI 角色）。
 pub struct AmendmentWrite;
 
-/// 是否可建立 / 更新 / 提交此計畫的變更申請：admin 或計畫 PI（沿用 `is_protocol_pi`，
-/// 含 `user_protocols` 成員 PI）。與 `can_edit_protocol` 不同——不含 SD／補登管理者，
-/// 修正案寫入權收得比一般編輯更緊。供 `require_amendment_write` 與
+/// 是否可建立 / 更新 / 提交此計畫的變更申請：admin、計畫 PI（沿用 `is_protocol_pi`，
+/// 含 `user_protocols` 成員 PI），或 SD 核准的生效中 PI 代理人（`protocol_pi_delegates`，
+/// 見 migration 010）。與 `can_edit_protocol` 不同——不含 SD／補登管理者本身，
+/// 修正案寫入權收得比一般編輯更緊；代理人是「代表 PI」而非「以 SD 身分」取得這項權限，
+/// 故仍需獨立檢查，不是靠放寬 SD 就自動涵蓋。供 `require_amendment_write` 與
 /// `ProtocolResponse.can_write_amendment`（前端按鈕 gating）共用同一權威判斷。
 pub async fn can_write_amendment(
     pool: &PgPool,
@@ -637,7 +702,33 @@ pub async fn can_write_amendment(
     if current_user.is_admin() {
         return Ok(true);
     }
-    is_protocol_pi(pool, protocol_id, current_user.id).await
+    if is_protocol_pi(pool, protocol_id, current_user.id).await? {
+        return Ok(true);
+    }
+    Ok(active_pi_delegate_id(pool, protocol_id, current_user.id)
+        .await?
+        .is_some())
+}
+
+/// 此計畫、此使用者的生效中 PI 代理授權 id（`protocol_pi_delegates.revoked_at IS NULL`），
+/// 沒有則 `None`。共用於 `can_write_amendment` / `can_sign_notice` 之外，各處硬性
+/// 要求「登入者 == pi_user_id」的簽署守衛（結案 PI 簽署、安樂死核准/暫緩）各自呼叫——
+/// 回傳的是授權記錄本身的 id，供簽章寫入時綁進 `electronic_signatures.delegation_id`。
+pub async fn active_pi_delegate_id(
+    pool: &PgPool,
+    protocol_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<Uuid>> {
+    let id: Option<Uuid> = sqlx::query_scalar(
+        r#"SELECT id FROM protocol_pi_delegates
+           WHERE protocol_id = $1 AND delegate_user_id = $2 AND revoked_at IS NULL
+             AND (expires_at IS NULL OR expires_at > now())"#,
+    )
+    .bind(protocol_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(id)
 }
 
 /// `can_write_amendment` 的 Result 版守衛：不可寫入時回 `Forbidden`（供
@@ -965,6 +1056,40 @@ pub async fn require_iacuc_protocol_access(
 }
 
 // ============================================
+// IACUC 行政方身分判定
+// ============================================
+
+/// IACUC 行政方（執行秘書 / 主席），或管理員。
+///
+/// 抽出來的理由是同一組判斷在 `handlers/protocol/ai_review.rs` 重複四次
+/// （`RULES_BACKEND.md` §3：同一權限檢查 ≥2 處 → `services/access.rs`），
+/// 而那四處**都漏了 legacy admin**。
+///
+/// ⚠️ **一律用 [`CurrentUser::is_admin`] 判管理員，不要自己比對 `ROLE_SYSTEM_ADMIN`。**
+/// `constants.rs` 有 `SYSTEM_ADMIN` 與 `admin` 兩個代碼，但 `roles` 表**只有 `admin`**
+/// （2026-08-26 實查正式庫 16 個角色 + `backend/migrations/` 全目錄 0 命中）。
+/// 單獨比對 `ROLE_SYSTEM_ADMIN` 的分支在任何從 migration 建起來的部署上都恆為 false。
+pub fn is_iacuc_staff_or_chair(current_user: &CurrentUser) -> bool {
+    current_user.is_admin()
+        || current_user.roles.iter().any(|r| {
+            [
+                crate::constants::ROLE_IACUC_STAFF,
+                crate::constants::ROLE_IACUC_CHAIR,
+            ]
+            .contains(&r.as_str())
+        })
+}
+
+/// 僅 IACUC 執行秘書（**不含主席**），或管理員。
+///
+/// 與 [`is_iacuc_staff_or_chair`] 刻意分開：`ai_review.rs::check_protocol_owner`
+/// 的原始清單就沒有主席。本次只補管理員 fallback，**不改變主席的有無**
+/// ——那是行為變更，需另外裁定。
+pub fn is_iacuc_staff(current_user: &CurrentUser) -> bool {
+    current_user.is_admin() || current_user.has_role(crate::constants::ROLE_IACUC_STAFF)
+}
+
+// ============================================
 // 設備驗收存取權限檢查
 // ============================================
 
@@ -1078,6 +1203,8 @@ pub async fn require_authority_to_assign_roles(
 
     let assigns_system_admin = assigned_guarded_codes
         .iter()
+        // SYSTEM_ADMIN-ONLY：刻意只認 SYSTEM_ADMIN——語意是「只有 X 能指派 X」，
+        // 不是漏 legacy fallback。加 fallback 等於把這條授權規則降級。
         .any(|c| c == crate::constants::ROLE_SYSTEM_ADMIN);
     let assigns_legacy_admin = assigned_guarded_codes
         .iter()
@@ -1107,6 +1234,8 @@ pub async fn require_authority_to_assign_roles(
 
     let actor_is_system_admin = actor_guarded_codes
         .iter()
+        // SYSTEM_ADMIN-ONLY：刻意只認 SYSTEM_ADMIN——語意是「只有 X 能指派 X」，
+        // 不是漏 legacy fallback。加 fallback 等於把這條授權規則降級。
         .any(|c| c == crate::constants::ROLE_SYSTEM_ADMIN);
     let actor_is_admin_tier = actor_guarded_codes
         .iter()

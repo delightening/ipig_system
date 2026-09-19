@@ -108,7 +108,9 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "import_jobs",
     "export_jobs",
     "euthanasia_orders",
-    "euthanasia_appeals",
+    // ⚠️ `euthanasia_appeals` 不在這裡——migration 010 讓它多了
+    // `delegation_id → protocol_pi_delegates(id)`，還原順序必須排在那張表之後，
+    // 所以移到下方 AUP 區塊。沒有任何表 FK 指向 appeals（實查 migrations），移動安全。
     // R53-1 廢棄物再利用紀錄（FK → euthanasia_orders + animals + protocols + users）
     "euthanasia_byproduct_samples",
     "animal_import_batches",
@@ -136,6 +138,14 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "message_attachments",
     // 003 - AUP
     "protocols",
+    // 010 - 外部 PI 代簽授權（FK → protocols + users）。位置必須夾在 `protocols` 之後、
+    // 但在所有「反過來 FK 指向它」的表之前——目前有三張：`amendments`（下方，
+    // created/submitted_delegation_id）、`electronic_signatures`、`euthanasia_appeals`。
+    // 排在這裡是同時滿足三者的最早位置。
+    "protocol_pi_delegates",
+    // 010 - 暫緩申請（FK → euthanasia_orders + users + protocol_pi_delegates）。
+    // 從上方安樂死區塊搬下來，就是為了排在 protocol_pi_delegates 之後。
+    "euthanasia_appeals",
     // 117 - 動物預約與試驗規劃（FK → protocols + users；被 animals.reserved_planned_experiment_id 參照）
     "planned_experiments",
     "user_protocols",
@@ -279,6 +289,19 @@ const INTENTIONALLY_EXCLUDED_TABLES: &[&str] = &[
     // migration 006 建立，migration 130 已 DROP TABLE（vet_recommendations 功能退役，獸醫建議
     // 單一來源改為 animal_vet_advice_records）；此處保留讓測試掃描器略過 006 的 CREATE TABLE 宣告。
     "vet_recommendations",
+    // migration 011 的回退用鷹架，不是業務資料：記下該次遷移改寫掉的單位別名原值
+    // （`BX` → `盒`）、被去重刪掉的列，以及實際插入的列 id，供人工回退腳本精確還原。
+    //
+    // 為什麼排除而不是匯出：它們存的是**遷移當下的暫態副本**。匯出後還原會把過期的舊寫法
+    // 帶回一個已經正規化過的資料庫，反而製造出正規列與別名列並存的髒資料
+    // ——那正是 011 要消滅的東西。
+    //
+    // ⚠️ 已知代價：整庫還原之後這三張表會是空的，屆時 011 的回退腳本只刪得掉它插入的列、
+    // 還原不了別名原值。這個順序（先整庫還原、再回退 011）極罕見，且實查正式環境的換算表
+    // 本身就是空的、備份內容為空。011 確認不再需要回退後，這三張表可自行 DROP。
+    "mig011_conversion_backup",
+    "mig011_pack_unit_backup",
+    "mig011_inserted_conversion",
 ];
 
 /// 從 _sqlx_migrations 讀取最新 schema 版本，格式為 "001".."010"

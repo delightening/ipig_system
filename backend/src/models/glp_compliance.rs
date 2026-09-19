@@ -597,7 +597,32 @@ pub struct UpdateStudyReportRequest {
     pub results: Option<String>,
     pub conclusions: Option<String>,
     pub deviations: Option<String>,
-    pub qau_statement: Option<String>,
+}
+
+/// 給 `#[derive(Validate)]` 用：要求 trim 後非空白。
+///
+/// ⚠️ `length(min = 1)` 對「   」這種純空白字串會**放行**——它的長度是 3。
+/// 而品保聲明一旦寫入就連帶蓋上 `qau_signed_by` / `qau_signed_at`，
+/// 等於用一張空白聲明產生一筆「品保已簽署」的稽核事實。
+/// 同 `models/application_notice.rs:42` 與 `models/planned_experiment.rs:47` 的既有做法。
+fn validate_non_blank(value: &str) -> Result<(), validator::ValidationError> {
+    if value.trim().is_empty() {
+        return Err(validator::ValidationError::new("blank"));
+    }
+    Ok(())
+}
+
+/// QAU 品保聲明填寫，與報告本文分開授權（2026-09-05，見
+/// `docs/reviews/2026-09-03-code-side-issues.md` P0-1）：品保聲明是 GLP SoD 要求
+/// 「只有品保能寫」的欄位，過去與報告本文共用 `UpdateStudyReportRequest`，
+/// 等於同一個權限能同時寫兩者。
+#[derive(Debug, Deserialize, Validate)]
+pub struct QauStatementRequest {
+    #[validate(
+        length(min = 1, message = "品保聲明內容為必填"),
+        custom(function = "validate_non_blank", message = "品保聲明不可為空白")
+    )]
+    pub qau_statement: String,
 }
 
 #[derive(Debug, Deserialize, Default)]

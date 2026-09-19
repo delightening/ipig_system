@@ -34,6 +34,71 @@ const hbStateKey = (job) => `state:hb:${job}`;
 /** 探測成功時，lastOkAt 最多這麼久才回寫一次 KV（免費層每日 1000 writes）。 */
 const OK_WRITE_INTERVAL_MS = 60 * 60 * 1000;
 
+/**
+ * /ping/<job> 同一 job 最多這麼久才真的回寫一次 KV。心跳本來就是低頻事件
+ * （backup 一天一次），這個節流是為了擋用戶端重試迴圈失控時打滿免費層每日
+ * 1000 writes 額度——不影響逾期判斷的正確性，因為視窗遠小於 HEARTBEAT_JOBS
+ * 的門檻（最短 26 小時）。
+ *
+ * 🔴 **這是 best-effort 的成本阻尼，不是安全控制。**
+ * （2026-09-11 訂正；CodeRabbit 於 MR !8 以 CWE-400 指出，判斷正確。）
+ *
+ * 下面 fetch() 裡的判斷是 read-then-write，中間沒有任何互斥，而 Workers KV
+ * **沒有 compare-and-set**。更關鍵的是 KV 為最終一致：同一個 key 寫進去要數十秒
+ * 才傳播到各地副本。所以繞過它的不只是「同一瞬間的平行請求」，而是
+ * **傳播完成前抵達的每一個請求都還讀到舊值**。
+ *
+ * 因此它擋得住的與擋不住的要分開講：
+ *   - 用戶端重試迴圈失控 → **擋得住**。重試是序列的（前一個回來才發下一個），
+ *     第二次讀到的就是第一次寫進去的值。這是本常數存在的理由。
+ *   - PING_TOKEN 外洩後被平行濫用 → **擋不住**，攻擊者可以同時發。
+ *
+ * ⚠️ 本段原本把「擋 token 外洩」也寫成節流的存在理由——那是它結構上做不到的事。
+ *
+ * 🔴 **zone 層的 WAF／Rate limiting rules 不適用，不要去 Dashboard 找那個設定。**
+ * 那類規則綁在 **zone** 上，而本 Worker 刻意只掛在 `*.workers.dev`、不綁
+ * `ipigsystem.asia` 的路由（見 README §3「刻意用 workers.dev」）——`workers.dev`
+ * 不是本帳戶的 zone，所以那條路走不通。要能設就得把心跳端點綁進 zone，而那正是
+ * 設計上刻意拒絕的：看門狗的入口不能跟被監控對象共用故障點。
+ *
+ * ⚠️ **但這不等於「沒有任何 rate limit 可用」。**（2026-09-11 二次訂正。）
+ * Cloudflare 另有 **Workers Rate Limiting API**——在 `wrangler.toml` 宣告
+ * `[[ratelimits]]` binding、在 Worker 內部呼叫，**不需要 zone、不需要路由**。
+ * 它跟 zone 層的 WAF 是兩個不同的東西，`workers.dev` 上照樣能用。
+ * **本設定目前沒有宣告該 binding**（`wrangler.toml.example` 裡沒有），所以現況是
+ * **「沒有用」而不是「用不了」**——那是待辦事項，不是架構限制。
+ *
+ * 這段話今天被寫錯兩次，兩次同一個毛病——**沒查就把結論往外推**：
+ *   第一版：「防線是邊緣 Rate Limiting 規則」→ 查證後發現 zone 層設不了。
+ *   第二版：「所以 rate limit 在本架構下不適用」→ 從「WAF 不行」推到「全都不行」，
+ *           而 Workers Rate Limiting API 從頭到尾沒被查過。（CodeRabbit 於 MR !22 指出。）
+ * 訂正一個錯誤敘述時，**訂正本身一樣要查證**——反方向的斷言不會因為它在否定而免驗。
+ *
+ * 所以 token 外洩時實際靠的是兩件事，外加一個做得到而還沒做的：
+ *   1. **輪換 PING_TOKEN**（`npx wrangler secret put PING_TOKEN`，並同步更新備份
+ *      腳本讀的 `secrets/watchdog_ping_token`）。這是目前唯一的主動處置。
+ *   2. **最壞情況會吵，不會啞**——這點才是它可接受的關鍵。
+ *      ⚠️ **前提是「KV 寫入配額耗盡、但讀取仍可用」**。讀寫配額是分開的（免費層
+ *      寫入每日 1000、讀取每日 10 萬），所以這是常見的那一種。此時 `/ping` 的寫入
+ *      失敗 → `ping:<job>` 不再更新 → 逾期判定成立（本檔
+ *      `overdue = now - lastAt > maxAgeMs`）→ **送出「心跳逾期」告警**，
+ *      降級成**誤報**而不是沉默。
+ *      🔴 **若連 KV 讀取也失敗就不是這樣**：`scheduled()` 會在讀取階段直接中止、
+ *      不寄任何信（見上方 KvUnavailable 的說明），那才是真正的沉默。這兩種要分開
+ *      講，不能用「配額被打滿」一句話概括——本段前一版就是這樣概括的。
+ *      （`state:hb:<job>` 的回寫若一起失敗，會讓它每輪重複告警——更吵，
+ *      但方向仍然是對的。）
+ *   3. **（待辦）宣告 `[[ratelimits]]` binding，在 `/ping` 的權杖檢查後先過它。**
+ *      那是真正在請求層做限制、且不依賴 KV 的機制，跟本常數的 best-effort 節流
+ *      是兩件不同的事。
+ *
+ * 刻意不用 Durable Object：它確實做得到原子，但本 Worker 是整套監控唯一跑在
+ * 那台筆電外面的一層，**它自己壞掉沒有任何東西會通知你**（見 scheduled() 裡
+ * 關於 KV 故障時看門狗會安靜地瞎掉的說明）。為了守一個免費額度而給這道最外層
+ * 防線增加一個故障點，不划算——尤其在最壞情況只是誤報的前提下。
+ */
+const PING_WRITE_MIN_INTERVAL_MS = 10 * 60 * 1000;
+
 export default {
   async scheduled(_event, env, _ctx) {
     const now = Date.now();
@@ -69,10 +134,15 @@ export default {
     // 因為它是純追蹤資料，不受後面送信結果影響（跟 fails/lastOkAt 同一類）。
     await bootstrap.commit();
     const alerts = [...health.alerts, ...heartbeats.flatMap((h) => h.alerts)];
+    // 哪些機制在這一輪有話要說。只用來組主旨，不影響判斷或內文。
+    const scopes = [
+      ...(health.alerts.length > 0 ? ["系統"] : []),
+      ...heartbeats.filter((h) => h.alerts.length > 0).map((h) => `心跳「${h.job}」`),
+    ];
     let sendError = null;
     if (alerts.length > 0) {
       try {
-        await sendAlert(env, alerts, now);
+        await sendAlert(env, alerts, now, scopes);
       } catch (e) {
         sendError = e;
       }
@@ -102,7 +172,17 @@ export default {
       if (!Object.hasOwn(HEARTBEAT_JOBS, job)) {
         return new Response("unknown job", { status: 404 });
       }
-      await env.WATCHDOG_KV.put(pingKey(job), JSON.stringify({ at: Date.now() }));
+      const now = Date.now();
+      let prevPing = null;
+      try {
+        prevPing = await kvGetJSON(env, pingKey(job));
+      } catch (e) {
+        if (!(e instanceof KvUnavailable)) throw e;
+        // 讀不到舊值就當作沒有節流依據——心跳本身比節流精確度重要，照樣寫入
+      }
+      if (!prevPing?.at || now - prevPing.at >= PING_WRITE_MIN_INTERVAL_MS) {
+        await env.WATCHDOG_KV.put(pingKey(job), JSON.stringify({ at: now }));
+      }
       return new Response(null, { status: 204 });
     }
 
@@ -277,6 +357,7 @@ async function checkHeartbeat(env, job, maxAgeMs, now, bootstrapAt) {
   }
 
   return {
+    job,
     alerts,
     async commit(delivered) {
       // 送信失敗時保留原本的 alerted，下一輪重新嘗試通知
@@ -292,9 +373,12 @@ async function checkHeartbeat(env, job, maxAgeMs, now, bootstrapAt) {
 // 通知
 // ============================================================================
 
-async function sendAlert(env, lines, now) {
+async function sendAlert(env, lines, now, scopes) {
   const down = lines.some((l) => l.startsWith("🔴") || l.startsWith("🟠"));
-  const subject = down ? "[iPig 看門狗] 系統異常" : "[iPig 看門狗] 已恢復";
+  // 主旨必須帶機制別。2026-09-05 失敗演練實測：主動探測與心跳的告警主旨完全相同，
+  // Gmail 依主旨把兩封摺進同一個 thread——真實故障若接在別的告警之後，新的那封會被
+  // 埋在舊 thread 裡而不顯眼。這對一個「唯一的外部告警管道」是不能接受的失敗模式。
+  const subject = `[iPig 看門狗] ${down ? "異常" : "已恢復"}：${scopes.join(" + ")}`;
   const text = [
     ...lines,
     "",

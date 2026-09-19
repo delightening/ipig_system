@@ -2,9 +2,10 @@
 // R63-A: 所有 mutation 走 TX + audit logging；approve 加電子簽章
 
 use crate::error::AppError;
-use crate::middleware::ActorContext;
+use crate::middleware::{ActorContext, CurrentUser};
 use crate::models::audit_diff::DataDiff;
 use crate::models::glp_compliance::*;
+use crate::models::Protocol;
 use crate::repositories::glp_compliance as repo;
 use crate::services::audit::{ActivityLogEntry, AuditEntity};
 use crate::services::{AuditService, SignatureService, SignatureType};
@@ -1451,19 +1452,118 @@ impl GlpComplianceService {
 
     // ========================================================================
     // Study Final Reports
+    //
+    // 2026-09-05 授權重構（docs/reviews/2026-09-03-code-side-issues.md P0-1）：
+    // `study.report.manage` 曾是「授給零角色，只有 admin 能用」的角色權限碼；
+    // SD 不是全域角色（2026-08-17 已廢除），只存在於「該計畫的 SD」
+    // （protocols.study_director_user_id），角色授予表達不出「該報告的 SD 才能寫」。
+    // 改走身分即授權，比照 `services/protocol/closure.rs` 的結案雙簽模式。
     // ========================================================================
+
+    /// 是否有權檢視某最終報告：具 `study.report.view` / admin（`has_permission`
+    /// 對 admin 恆真）／`qau.report_statement.write`（QAU 需要先看到報告才能寫聲明）／
+    /// 本人是該計畫的 SD——SD 至少要能看到自己要簽的那份報告。
+    async fn can_view_study_report(
+        pool: &PgPool,
+        user: &CurrentUser,
+        protocol_id: Uuid,
+    ) -> Result<bool> {
+        if user.has_permission("study.report.view")
+            || user.has_permission("qau.report_statement.write")
+        {
+            return Ok(true);
+        }
+        let sd: Option<Uuid> =
+            sqlx::query_scalar("SELECT study_director_user_id FROM protocols WHERE id = $1")
+                .bind(protocol_id)
+                .fetch_optional(pool)
+                .await?
+                .flatten();
+        Ok(sd == Some(user.id))
+    }
+
+    /// 讀出計畫並確認 `user` 是不是該計畫的 Study Director。
+    ///
+    /// `allow_admin_escape`：
+    /// - 撰寫／編輯報告內容（create/update） → `true`：admin 可代為修正，這不是具結行為。
+    /// - 簽署（`sign_study_report`，寫入 signed_by/signed_at/signature_id） → `false`：
+    ///   比照 `protocol_closure` 的結案簽章——**代簽的簽章在稽核上沒有價值**。
+    ///   SD 異動時應改派新 SD（既有的 protocol 編輯流程），不透過本函式繞過簽署。
+    /// # 為什麼收 `&mut PgConnection` 而不是 `&PgPool`（CodeRabbit 於 #102 指出）
+    ///
+    /// 初版收 `&PgPool`，於是 `update_study_report` 在**已經持有一條連線的 tx 內**
+    /// 又去池子要第二條——連線池吃緊時這會等到 acquire timeout 才回一個池子錯誤，
+    /// 是典型的自我死鎖向量。改收呼叫端的連線後，授權查詢與後續寫入共用同一條連線。
+    ///
+    /// 同時把讀取改成 `FOR UPDATE`：授權讀若不在 tx 內、又不上鎖，
+    /// 「舊 SD 通過授權 → SD 被改派並提交 → 本次更新才提交」這個順序是可能的，
+    /// 等於用已經失效的身分寫入。鎖住該列之後，改派必須排在本 tx 之後。
+    async fn require_study_director(
+        conn: &mut sqlx::PgConnection,
+        user: &CurrentUser,
+        protocol_id: Uuid,
+        allow_admin_escape: bool,
+    ) -> Result<Protocol> {
+        let protocol =
+            sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1 FOR UPDATE")
+                .bind(protocol_id)
+                .fetch_optional(&mut *conn)
+                .await?
+                .ok_or_else(|| AppError::NotFound("找不到計劃書".into()))?;
+
+        if allow_admin_escape && user.is_admin() {
+            return Ok(protocol);
+        }
+
+        match protocol.study_director_user_id {
+            Some(uid) if uid == user.id => Ok(protocol),
+            Some(_) => Err(AppError::Forbidden(
+                "只有本計畫的計劃負責人（Study Director）可以撰寫或簽署最終報告。".into(),
+            )),
+            None => Err(AppError::BusinessRule(
+                "本計畫尚未指派計劃負責人（Study Director），無法建立或簽署最終報告。\
+                 請先請執行秘書指派。"
+                    .into(),
+            )),
+        }
+    }
 
     pub async fn list_study_reports(
         pool: &PgPool,
+        user: &CurrentUser,
         params: &StudyReportQuery,
     ) -> Result<Vec<StudyFinalReport>> {
-        repo::find_study_reports(pool, params).await
+        let restrict_to_sd = if user.has_permission("study.report.view")
+            || user.has_permission("qau.report_statement.write")
+        {
+            None
+        } else {
+            Some(user.id)
+        };
+        repo::find_study_reports(pool, params, restrict_to_sd).await
     }
 
-    pub async fn get_study_report(pool: &PgPool, id: Uuid) -> Result<StudyFinalReport> {
-        repo::find_study_report_by_id(pool, id)
+    /// 取單一最終報告。**先查到再判權限**，兩者不可對調。
+    ///
+    /// 找不到回 `NotFound`、找得到但無權看回 `Forbidden`——所以「報告不存在」與
+    /// 「存在但你看不到」是可區分的。這是刻意的：最終報告的 id 由使用者自己的列表取得，
+    /// 不是可枚舉的公開資源，區分兩者對排錯有價值而不構成列舉風險。
+    ///
+    /// 可見範圍由 [`Self::can_view_study_report`] 決定（持 `study.report.view` 的廣泛檢視權
+    /// **或** 身為該計畫的 SD），與「能不能編輯／簽署」是兩回事——後者一律走
+    /// [`Self::require_study_director`]。
+    pub async fn get_study_report(
+        pool: &PgPool,
+        user: &CurrentUser,
+        id: Uuid,
+    ) -> Result<StudyFinalReport> {
+        let item = repo::find_study_report_by_id(pool, id)
             .await?
-            .ok_or(AppError::NotFound("最終報告不存在".into()))
+            .ok_or(AppError::NotFound("最終報告不存在".into()))?;
+        if !Self::can_view_study_report(pool, user, item.protocol_id).await? {
+            return Err(AppError::Forbidden("沒有權限檢視此最終報告".into()));
+        }
+        Ok(item)
     }
 
     pub async fn create_study_report(
@@ -1471,8 +1571,16 @@ impl GlpComplianceService {
         actor: &ActorContext,
         req: &CreateStudyReportRequest,
     ) -> Result<StudyFinalReport> {
+        let user = actor.require_user()?;
+
+        // ⚠️ 產號在 begin() **之前**：它自己要一條連線，放進 tx 之後就變成
+        // 「持有 tx 又向池子取第二條」——正是本輪要修掉的那個形狀。
         let number = Self::generate_report_number(pool).await?;
         let mut tx = pool.begin().await?;
+
+        // 授權移進 tx：與下面的 INSERT 共用同一條連線，且鎖住 protocols 該列，
+        // 避免「通過授權後、寫入前 SD 被改派」。
+        Self::require_study_director(&mut tx, user, req.protocol_id, true).await?;
 
         let after = sqlx::query_as::<_, StudyFinalReport>(r#"
             INSERT INTO study_final_reports
@@ -1518,6 +1626,7 @@ impl GlpComplianceService {
         id: Uuid,
         req: &UpdateStudyReportRequest,
     ) -> Result<StudyFinalReport> {
+        let user = actor.require_user()?;
         let mut tx = pool.begin().await?;
 
         let before = sqlx::query_as::<_, StudyFinalReport>(
@@ -1528,9 +1637,31 @@ impl GlpComplianceService {
         .await?
         .ok_or(AppError::NotFound("最終報告不存在".into()))?;
 
-        // CSO-r2 #4: 「approved/signed」為簽署發布類狀態，不得由僅持 study.report.manage 的泛型
+        Self::require_study_director(&mut tx, user, before.protocol_id, true).await?;
+
+        // 🔴 已簽署的報告不得再改內容（GLP／21 CFR §11 記錄完整性）。
+        //
+        // 下面那道 CSO-r2 #4 守衛擋的是「把 status **設成** signed」，擋不住這條路徑：
+        // 報告已經是 signed → 只帶 `summary` 之類的欄位進來、`status` 不帶 →
+        // `status = COALESCE(NULL, status)` 讓它**維持** signed，而 `signed_by` /
+        // `signed_at` / `signature_id` 一個都不會被清掉。結果是那張電子簽章
+        // 掛在簽署之後才被改過的內容上，簽章因此不再代表任何東西。
+        //
+        // 📌 本專案對「簽章後鎖記錄」另有正規機制（`SignatureService::lock_record_uuid`
+        // ＋ `ensure_not_locked_uuid_tx`，見 observation／surgery／blood_test 等），但
+        // `study_final_reports` 沒有 `is_locked`／`locked_at`／`locked_by` 欄位
+        //（實查 `migrations/002_schema.sql` 建表），改用那套要加 migration＝schema 設計，
+        // 屬 CLAUDE.md §必問。這裡先用已存在的 `status` 擋住破口，遷移到正規機制另案。
+        if before.status == "signed" {
+            return Err(AppError::BusinessRule(
+                "報告已簽署，內容不可再修改；如需更正請先作廢簽章。".into(),
+            ));
+        }
+
+        // CSO-r2 #4: 「approved/signed」為簽署發布類狀態，不得由僅持編輯授權的泛型
         // update 直接設定（會跳過電子簽章、signature 欄位留 NULL），維持最終報告簽署權責分離（SoD）。
-        // 注意：目前尚無正式 sign_study_report 流程，此守衛先止血；完整簽署流程為 follow-up。
+        // 「signed」現已有正式流程（`sign_study_report`）；「approved」（審查核准後、SD 簽署前）
+        // 仍無對應端點，此守衛繼續擋住兩者的直接設定——之後補 approved 流程時這條不必動。
         if let Some(ref new_status) = req.status {
             const RELEASE_STATUSES: [&str; 2] = ["approved", "signed"];
             if RELEASE_STATUSES.contains(&new_status.as_str()) && *new_status != before.status {
@@ -1551,7 +1682,6 @@ impl GlpComplianceService {
                 results = COALESCE($6, results),
                 conclusions = COALESCE($7, conclusions),
                 deviations = COALESCE($8, deviations),
-                qau_statement = COALESCE($9, qau_statement),
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -1565,7 +1695,211 @@ impl GlpComplianceService {
         .bind(&req.results)
         .bind(&req.conclusions)
         .bind(&req.deviations)
-        .bind(&req.qau_statement)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "GLP",
+                event_type: "UPDATE",
+                entity: Some(AuditEntity::new(
+                    "study_final_report",
+                    id,
+                    &after.report_number,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(after)
+    }
+
+    /// SD 簽署最終報告（比照 `services/protocol/closure.rs::sign_closure` 的身分即授權，
+    /// 但為單簽而非雙簽——最終報告只有一個 SD 要簽，QAU 走獨立的 `update_qau_statement`）。
+    ///
+    /// 🔴 無 admin 例外：代簽的簽章在稽核上沒有價值（比照 protocol_closure 的理由）。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn sign_study_report(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        password: Option<&str>,
+        handwriting_svg: Option<&str>,
+        stroke_data: Option<&JsonValue>,
+    ) -> Result<StudyFinalReport> {
+        let user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, StudyFinalReport>(
+            "SELECT * FROM study_final_reports WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(AppError::NotFound("最終報告不存在".into()))?;
+
+        if before.status == "signed" {
+            return Err(AppError::BusinessRule(
+                "此報告已簽署，不可重複簽署。".into(),
+            ));
+        }
+
+        // 身分即授權，無 admin 例外——鎖 protocols 該列，避免簽署期間 SD 被改派（TOCTOU）。
+        let protocol =
+            sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1 FOR UPDATE")
+                .bind(before.protocol_id)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or_else(|| AppError::NotFound("找不到計劃書".into()))?;
+        match protocol.study_director_user_id {
+            Some(uid) if uid == user.id => {}
+            Some(_) => {
+                return Err(AppError::Forbidden(
+                    "只有本計畫的計劃負責人（Study Director）可以簽署最終報告。".into(),
+                ))
+            }
+            None => {
+                return Err(AppError::BusinessRule(
+                    "本計畫尚未指派計劃負責人（Study Director），無法簽署最終報告。".into(),
+                ))
+            }
+        }
+
+        let content = format!(
+            "study_final_report:{},report_number:{},title:{}",
+            before.id, before.report_number, before.title
+        );
+
+        let signature = SignatureService::sign_record_tx(
+            &mut tx,
+            pool,
+            actor,
+            "study_final_report",
+            &before.id.to_string(),
+            user.id,
+            // §11.50 "responsibility"：SD 對報告內容具結，不是審查方核准
+            // （同 protocol_closure 對 Confirm/Approve 的區分理由）。
+            SignatureType::Confirm,
+            &content,
+            password,
+            handwriting_svg,
+            stroke_data,
+        )
+        .await?;
+
+        let after = sqlx::query_as::<_, StudyFinalReport>(
+            r#"
+            UPDATE study_final_reports SET
+                status = 'signed',
+                signed_by = $2,
+                signed_at = NOW(),
+                signature_id = $3,
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
+        "#,
+        )
+        .bind(id)
+        .bind(user.id)
+        .bind(signature.id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "GLP",
+                event_type: "SIGN",
+                entity: Some(AuditEntity::new(
+                    "study_final_report",
+                    id,
+                    &after.report_number,
+                )),
+                data_diff: Some(DataDiff::compute(Some(&before), Some(&after))),
+                request_context: None,
+            },
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(after)
+    }
+
+    /// QAU 品保聲明填寫。呼叫端（handler）已透過 `qau.report_statement.write`
+    /// 權限碼把關；本函式另外擋「QAU 簽署人不得與該計畫 SD 為同一人」——
+    /// 這是結構性 SoD，不只依賴「記得別把兩個角色給同一人」。
+    ///
+    /// # 🔴 沒有 admin 例外（使用者 2026-09-06 裁定，待決事項 102.1）
+    ///
+    /// 初版寫成 `!user.is_admin() && sd == Some(user.id)`，於是**同時是該計畫 SD 的
+    /// admin 可以填自己計畫的品保聲明**，並被寫進 `qau_signed_by`——產出一張
+    /// 「簽署人＝被稽核對象本人」的品保聲明。那在 GLP 上沒有意義，與「admin 代簽
+    /// 最終報告」是同一種無意義；而同一支 PR 的 `sign_study_report` 本來就不給 admin
+    /// 例外。同一份報告上的兩個具結動作標準不一致，是初版的錯，不是 bot 誤解設計。
+    ///
+    /// ⚠️ **已知並接受的代價**：admin 完全無法代填品保聲明，連緊急情況也不行。
+    /// 唯一出路是改派該計畫 SD，或由另一位持 `qau.report_statement.write` 的人填。
+    ///
+    /// 📌 裁定時另有一個選項是「拿掉例外，另外比照 `protocol_closure` 的 admin 旁路
+    /// 設一條『強制填理由 + 專屬 audit action』的稽核式緊急路徑」，使用者看過但未選。
+    /// **那不等於被否決**——日後真的碰到緊急情境時，那是現成的樣板，不必重新設計。
+    pub async fn update_qau_statement(
+        pool: &PgPool,
+        actor: &ActorContext,
+        id: Uuid,
+        qau_statement: &str,
+    ) -> Result<StudyFinalReport> {
+        let user = actor.require_user()?;
+        let mut tx = pool.begin().await?;
+
+        let before = sqlx::query_as::<_, StudyFinalReport>(
+            "SELECT * FROM study_final_reports WHERE id = $1 FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(AppError::NotFound("最終報告不存在".into()))?;
+
+        // 🔒 `FOR UPDATE`：上面鎖的是報告列，SoD 判準卻取自 protocol。少了這道鎖，
+        // 併發的「改派 SD」交易可以在本次讀取之後、commit 之前把 SD 換成現在這個人，
+        // 於是這段檢查是拿舊值下的結論（TOCTOU，CWE-367）。
+        // 鎖順序與 `update_study_report` 一致（先報告列、後 protocol 列，
+        // 後者在該函式是由 `require_study_director` 內的 `FOR UPDATE` 取得），
+        // 兩條路徑同序，不會互相死鎖。
+        let sd: Option<Uuid> = sqlx::query_scalar(
+            "SELECT study_director_user_id FROM protocols WHERE id = $1 FOR UPDATE",
+        )
+        .bind(before.protocol_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .flatten();
+        // 無 admin 例外——理由見本函式的 doc comment（裁定 102.1）。
+        if sd == Some(user.id) {
+            return Err(AppError::Forbidden(
+                "本計畫的 Study Director 不可同時填寫 QAU 品保聲明（職責分離）。".into(),
+            ));
+        }
+
+        let after = sqlx::query_as::<_, StudyFinalReport>(
+            r#"
+            UPDATE study_final_reports SET
+                qau_statement = $2,
+                qau_signed_by = $3,
+                qau_signed_at = NOW(),
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
+        "#,
+        )
+        .bind(id)
+        .bind(qau_statement)
+        .bind(user.id)
         .fetch_one(&mut *tx)
         .await?;
 

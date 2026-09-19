@@ -332,8 +332,57 @@ fn update_study_report_status(status: &str) -> UpdateStudyReportRequest {
         results: None,
         conclusions: None,
         deviations: None,
-        qau_statement: None,
     }
+}
+
+/// 同 `seed_approved_protocol`，但額外指派 `study_director_user_id`——
+/// 2026-09-05 起 `update_study_report` 改走身分即授權（P0-1），`SYSTEM_TEST`
+/// 這種 `ActorContext::System` 不是使用者，`require_user()` 會直接失敗，
+/// 走不到本測試真正要驗的「release status 守衛」。此處建一個真的 SD 使用者，
+/// 用他的身分呼叫 `update_study_report`。
+async fn seed_approved_protocol_with_sd(app: &TestApp) -> (Uuid, Uuid) {
+    let sd = seed_user(app, "sd").await;
+    let admin_id: Uuid =
+        sqlx::query_scalar("SELECT id FROM users WHERE email LIKE '%admin%' LIMIT 1")
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("fetch admin");
+    let id = Uuid::new_v4();
+    let unique = &Uuid::new_v4().to_string()[..8];
+    sqlx::query(
+        r#"INSERT INTO protocols
+             (id, protocol_no, iacuc_no, title, status, pi_user_id, created_by,
+              study_director_user_id, created_at, updated_at)
+           VALUES ($1, $2, $3, 'CSO r2 study report guard', 'APPROVED'::protocol_status,
+                   $4, $4, $5, NOW(), NOW())"#,
+    )
+    .bind(id)
+    .bind(format!("PR-{unique}"))
+    .bind(format!("IACUC-{unique}"))
+    .bind(admin_id)
+    .bind(sd)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert approved protocol with SD");
+    (id, sd)
+}
+
+/// 該計畫 SD 本人的 actor。
+///
+/// `roles` 與 `permissions` **刻意留空**：這正是身分即授權要證明的事——
+/// 一個角色與權限碼都沒有的人，只因為 `protocols.study_director_user_id` 指向他，
+/// 就能編輯自己那份最終報告。若這裡塞了角色，測試便無法區分
+/// 「靠身分過關」與「靠權限碼過關」，本檔的迴歸意義會消失。
+fn sd_actor(sd: Uuid) -> ActorContext {
+    ActorContext::User(CurrentUser {
+        id: sd,
+        email: "cso-r2-sd@test.local".into(),
+        roles: vec![],
+        permissions: vec![],
+        jti: "test".into(),
+        exp: 0,
+        impersonated_by: None,
+    })
 }
 
 async fn seed_study_report(app: &TestApp, protocol_id: Uuid) -> Uuid {
@@ -356,13 +405,14 @@ async fn seed_study_report(app: &TestApp, protocol_id: Uuid) -> Uuid {
 #[serial]
 async fn study_report_update_blocks_release_status() {
     let app = TestApp::spawn().await;
-    let protocol_id = seed_approved_protocol(&app).await;
+    let (protocol_id, sd) = seed_approved_protocol_with_sd(&app).await;
     let report_id = seed_study_report(&app, protocol_id).await;
+    let actor = sd_actor(sd);
 
     for bad in ["approved", "signed"] {
         let err = GlpComplianceService::update_study_report(
             &app.db_pool,
-            &SYSTEM_TEST,
+            &actor,
             report_id,
             &update_study_report_status(bad),
         )
@@ -383,7 +433,7 @@ async fn study_report_update_blocks_release_status() {
 
     GlpComplianceService::update_study_report(
         &app.db_pool,
-        &SYSTEM_TEST,
+        &actor,
         report_id,
         &update_study_report_status("under_review"),
     )

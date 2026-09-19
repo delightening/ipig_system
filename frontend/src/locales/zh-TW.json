@@ -785,6 +785,7 @@
       "noAmendments": "尚無變更申請",
       "noAmendmentsHint": "點擊「新增變更申請」按鈕來建立您的第一個變更申請",
       "notApproved": "計畫書須先核准後才能提出變更申請",
+      "piDelegateBadge": "以 PI 代理人身分操作",
       "createSuccess": "變更申請已建立",
       "createFailed": "建立變更申請失敗",
       "submitSuccess": "變更申請已提交",
@@ -815,6 +816,24 @@
         "titleRequired": "請輸入變更標題",
         "changeItemsRequired": "請至少選擇一個變更項目"
       }
+    },
+    "piDelegate": {
+      "title": "PI 代理授權",
+      "description": "此計畫的 PI 為外部人員，尚未開通系統帳號。由計劃負責人（SD）核准一位代理人，代替 PI 簽署結案、安樂死核准、修正案等動作，並留有核可證據。",
+      "currentLabel": "目前代理人：",
+      "actingBadge": "以代理人身分操作中",
+      "authorizedBy": "（由 {{name}} 於 {{date}} 核准）",
+      "none": "尚未核准代理人。",
+      "selectPlaceholder": "選擇代理人",
+      "authorize": "核准為代理人",
+      "revoke": "撤銷",
+      "authorizeSuccess": "已核准 PI 代理人",
+      "authorizeFailed": "核准失敗",
+      "revokeSuccess": "已撤銷 PI 代理人",
+      "revokeFailed": "撤銷失敗",
+      "expiresLabel": "有效至",
+      "validUntil": "（有效至 {{date}}）",
+      "noExpiry": "（未設期限）"
     }
   },
   "language": {
@@ -2131,6 +2150,7 @@
     "demoMode": "示範模式",
     "demoSaveBlocked": "示範模式無法儲存草稿，僅供體驗操作流程",
     "demoSubmitBlocked": "示範模式無法送出審查，僅供體驗操作流程",
+    "dateFilterInactive": "示範資料為固定樣本，變更日期不會改變下方結果",
     "banner": {
       "title": "訪客試用模式 — 資料為展示用途，操作不會實際儲存",
       "startTour": "🎓 系統導覽",

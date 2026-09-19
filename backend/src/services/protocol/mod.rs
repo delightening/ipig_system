@@ -19,6 +19,7 @@ mod import_review;
 mod my_protocols;
 mod notice;
 mod numbering;
+mod pi_delegate;
 mod pi_provision;
 mod review;
 mod status;

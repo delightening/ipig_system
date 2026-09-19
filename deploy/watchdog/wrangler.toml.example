@@ -1,8 +1,13 @@
 ﻿# ipig-watchdog — 外部看門狗（跑在 Cloudflare，不在 prod 筆電上）
 #
-# 部署前必須替換的 <佔位符> 見 README.md §2。
-# ⚠️ 本檔進版控：禁止寫入任何 token / 密碼 / API key。
+# 這是**樣板**，本檔進版控。實際部署用的 wrangler.toml 由本檔複製而來
+# （`cp wrangler.toml.example wrangler.toml`），.gitignore 已排除，不進版控——
+# R104 最小揭露原則：ALERT_TO / destination_address / KV namespace id 是
+# 本機才填的真實值，不寫回這份樣板。
+# ⚠️ 禁止在任一份檔案寫入 token / 密碼 / API key。
 #    PING_TOKEN 走 `wrangler secret put`，不是 [vars]。
+#
+# 部署前必須替換的 <佔位符> 見 README.md §2。
 
 name = "ipig-watchdog"
 main = "src/worker.js"

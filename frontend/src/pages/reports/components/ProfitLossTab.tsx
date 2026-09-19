@@ -16,6 +16,7 @@ import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 import type { ProfitLossSummary } from '@/types/report'
 
 interface ProfitLossTabProps {
@@ -68,6 +69,7 @@ export function ProfitLossTab({
           />
         </div>
       </div>
+      <GuestDateNotice />
       {isLoading ? (
         <div className="rounded-lg border bg-card overflow-hidden">
           <Table>

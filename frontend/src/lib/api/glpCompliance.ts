@@ -484,8 +484,38 @@ export const createStudyReport = async (payload: {
   return res.data
 }
 
-export const updateStudyReport = async (id: string, payload: Partial<StudyFinalReport>) => {
+export type UpdateStudyReportPayload = Partial<
+  Pick<StudyFinalReport, 'title' | 'status' | 'summary' | 'methods' | 'results' | 'conclusions' | 'deviations'>
+>
+
+/**
+ * 編輯報告本文。授權走身分即授權（該計畫的 SD），不是權限碼。
+ *
+ * ⚠️ 兩件後端會擋、前端不重複判斷的事：
+ * - `qau_statement` **不在** payload 型別內——2026-09-05 起品保聲明走獨立的
+ *   {@link updateQauStatement}，共用同一個 payload 等於同一個權限能寫兩者（P0-1，SoD）。
+ * - 報告一旦 `status === 'signed'` 就整份不可再編輯，後端回 400；
+ *   前端只負責不顯示編輯入口，最終判準在服務層。
+ */
+export const updateStudyReport = async (id: string, payload: UpdateStudyReportPayload) => {
   const res = await api.put<StudyFinalReport>(`/admin/study-reports/${id}`, payload)
+  return res.data
+}
+
+/** SD 簽署最終報告，身分即授權（無 admin 例外）。 */
+export const signStudyReport = async (
+  id: string,
+  payload: { password?: string; handwriting_svg?: string; stroke_data?: unknown },
+) => {
+  const res = await api.post<StudyFinalReport>(`/admin/study-reports/${id}/sign`, payload)
+  return res.data
+}
+
+/** QAU 品保聲明填寫，與報告本文分開授權；服務層另擋「填寫者不得為本計畫 SD」。 */
+export const updateQauStatement = async (id: string, qau_statement: string) => {
+  const res = await api.put<StudyFinalReport>(`/admin/study-reports/${id}/qau-statement`, {
+    qau_statement,
+  })
   return res.data
 }
 

@@ -227,6 +227,11 @@ fn document_routes() -> Router<AppState> {
 fn inventory_routes() -> Router<AppState> {
     Router::new()
         .route("/inventory/on-hand", get(handlers::get_inventory_on_hand))
+        // 建 SO 時依品項庫存建議儲位（migration 015）。唯讀，權限同庫存查詢。
+        .route(
+            "/inventory/issue-location-suggestions",
+            get(handlers::suggest_issue_locations),
+        )
         .route("/inventory/ledger", get(handlers::get_stock_ledger))
         .route("/inventory/lot-movements", get(handlers::get_lot_movements))
         .route("/inventory/low-stock", get(handlers::get_low_stock_totals))

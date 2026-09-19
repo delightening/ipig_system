@@ -6,8 +6,8 @@ use crate::{
     middleware::ActorContext,
     models::{
         audit_diff::DataDiff, AssignUnassignedRequest, DocType, Document, DocumentAuditSnapshot,
-        DocumentLine, InventoryOnHand, InventoryQuery, LowStockTotal, LowStockWarehouseQty,
-        UnassignedInventory, UnassignedSourceDoc, UnassignedSourceQuery,
+        DocumentLine, InventoryOnHand, InventoryQuery, IssueLocationSuggestion, LowStockTotal,
+        LowStockWarehouseQty, UnassignedInventory, UnassignedSourceDoc, UnassignedSourceQuery,
     },
     services::{
         audit::{ActivityLogEntry, AuditEntity},
@@ -114,6 +114,65 @@ impl SliFilterBuilder {
 }
 
 impl StockService {
+    /// 建 SO（領用/銷貨）時的儲位建議：該品項目前有貨、且倉庫被標為領用來源的儲位。
+    ///
+    /// 使用者 2026-09-09 裁定「依品項現有庫存自動帶」——藥品在準備室藥品櫃、
+    /// 耗材在儲藏室鐵櫃，不必人工區分，讓庫存實際位置自己決定預設值。
+    ///
+    /// 過濾條件各有理由：
+    /// - `w.is_default_issue_source`：排除廢棄物處理區這種「有數字但不該從此領貨」的地點。
+    ///   ⚠️ 此旗標預設 false，倉庫管理頁沒勾就沒有任何候選，回空 Vec ⇒ 前端不預設，
+    ///   與現行行為一致（migration 015 的註解說明了這個刻意的漸進上線）。
+    /// - **三個 `is_active` 缺一不可**（CodeRabbit 於 MR !3 指出，2026-09-09 補）：
+    ///   初版只過濾 `w.is_active`，於是**停用儲位裡的殘餘庫存會被建議成預設**。
+    ///   而樹狀選擇器（`list_with_shelves`）與報表（`get_report_data`）都過濾
+    ///   `is_active = true`，使用者根本看不到那個儲位、也就無法改掉這個預設——
+    ///   正是 `services/warehouse.rs` 註解記載的「隱形庫存」失效模式。
+    ///   本檔四個同類查詢（`get_on_hand_by_location` / `_by_warehouse` /
+    ///   `_product_across_warehouses` / `_expiry`）都同時過濾這三個，此處原是唯一破口。
+    ///   `products` 的 JOIN 也是為此才加——初版根本沒 join 到它，談不上過濾。
+    /// - `on_hand_qty > 0`：帳上沒有的東西不該被建議。
+    /// - **未過期**：建議領用過期品是錯的。寧可回空讓人自己選，也不要自動帶一個
+    ///   看起來像系統背書的錯誤選項。無效期概念的品項（`expiry_date IS NULL`）不受此限。
+    ///
+    /// 排序是 FEFO（先到期先出）而非 FIFO：醫療耗材與藥品的標準做法是先出快過期的；
+    /// 效期相同時取量多的儲位，避免把某個儲位剛好清成零而留下畸零批。
+    pub async fn suggest_issue_locations(
+        pool: &PgPool,
+        product_id: Uuid,
+    ) -> Result<Vec<IssueLocationSuggestion>> {
+        let rows = sqlx::query_as::<_, IssueLocationSuggestion>(
+            r#"
+            SELECT
+                sli.storage_location_id,
+                sl.code            AS storage_location_code,
+                sl.name            AS storage_location_name,
+                sl.warehouse_id,
+                w.code             AS warehouse_code,
+                w.name             AS warehouse_name,
+                sli.on_hand_qty,
+                sli.batch_no,
+                sli.expiry_date
+            FROM storage_location_inventory sli
+            JOIN storage_locations sl ON sl.id = sli.storage_location_id
+            JOIN warehouses w         ON w.id = sl.warehouse_id
+            JOIN products p           ON p.id = sli.product_id
+            WHERE sli.product_id = $1
+              AND sli.on_hand_qty > 0
+              AND sl.is_active = true
+              AND w.is_active = true
+              AND p.is_active = true
+              AND w.is_default_issue_source
+              AND (sli.expiry_date IS NULL OR sli.expiry_date >= CURRENT_DATE)
+            ORDER BY sli.expiry_date ASC NULLS LAST, sli.on_hand_qty DESC
+            "#,
+        )
+        .bind(product_id)
+        .fetch_all(pool)
+        .await?;
+        Ok(rows)
+    }
+
     /// 查詢庫存現況
     /// - 指定 storage_location_id：查 storage_location_inventory（貨架級）
     /// - 指定 warehouse_id 或全部：查 stock_ledger（倉庫級）

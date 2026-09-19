@@ -146,6 +146,7 @@ export const eventTypeLabels: Record<string, { label: string; color: string }> =
   ATTENDANCE_CLOCK_IN_DENIED: { label: '上班打卡遭拒', color: 'bg-status-error-text' },
   ATTENDANCE_CLOCK_OUT_DENIED: { label: '下班打卡遭拒', color: 'bg-status-error-text' },
   ATTENDANCE_CORRECT: { label: '出勤更正', color: 'bg-status-warning-text' },
+  ATTENDANCE_BACKFILL: { label: '出勤補登', color: 'bg-status-warning-text' },
   ANNUAL_LEAVE_CREATE: { label: '建立特休', color: 'bg-status-success-text' },
   ANNUAL_LEAVE_ADJUST: { label: '調整特休', color: 'bg-status-info-text' },
   ANNUAL_LEAVE_BATCH_AUTO_CALC: { label: '批次計算特休', color: 'bg-status-neutral-text' },

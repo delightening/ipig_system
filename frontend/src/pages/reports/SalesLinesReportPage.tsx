@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/select'
 import { Download, ShoppingCart } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 
 // 客戶分類對照表
 const CUSTOMER_CATEGORY_MAP: Record<string, string> = {
@@ -186,6 +187,7 @@ export function SalesLinesReportPage() {
           </Select>
         </div>
       </div>
+      <GuestDateNotice />
 
       <div className="rounded-lg border bg-card overflow-hidden">
         <Table>

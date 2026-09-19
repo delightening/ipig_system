@@ -29,6 +29,14 @@ scripts/r38_validation/output/
 # app secrets files (optional)
 secrets/
 
+# R104 最小揭露原則：真實收件信箱 + Cloudflare KV namespace id 只留本機，
+# 樣板見 deploy/watchdog/wrangler.toml.example（ALERT_FROM 本身非個資，已在
+# HEAD 歷史中公開，不受影響——只有 ALERT_TO/destination_address/KV id 需要保護）
+deploy/watchdog/wrangler.toml
+# wrangler dev/deploy 的本機快取，非原始碼。用 glob 是因為它會在
+# 執行指令的當下目錄生成——repo 根目錄與 deploy/watchdog/ 都實際出現過。
+**/.wrangler/
+
 # === local logs（不該進 repo） ===
 logs/
 *.log

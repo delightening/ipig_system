@@ -91,11 +91,60 @@ pub struct ClockOutRequest {
     pub longitude: Option<f64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AttendanceCorrectionRequest {
     pub clock_in_time: Option<DateTime<Utc>>,
     pub clock_out_time: Option<DateTime<Utc>>,
     pub reason: String,
+}
+
+/// 補登出勤（補卡）——為指定人員的**缺漏日**建立出勤紀錄。
+///
+/// 與 `AttendanceCorrectionRequest` 的差別是「建立」而非「更新」：整天沒打卡的日子
+/// 資料庫沒有 row，`PUT /hr/attendance/{id}` 會 404，那條路徑補不了，只能走這個。
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AttendanceBackfillRequest {
+    /// 被補卡的人員（不得為操作者自己，見 `HrService::backfill_attendance`）
+    pub user_id: Uuid,
+    pub work_date: NaiveDate,
+    pub clock_in_time: Option<DateTime<Utc>>,
+    pub clock_out_time: Option<DateTime<Utc>>,
+    pub reason: String,
+}
+
+/// 工時月報查詢。年月必填；`user_id` 未帶時，具 `hr.attendance.view_all` 者看全體、
+/// 其餘只看自己（由 handler 收斂，見 `resolve_monthly_report_scope`）。
+#[derive(Debug, Clone, Deserialize, utoipa::IntoParams)]
+pub struct MonthlyAttendanceQuery {
+    pub year: i32,
+    pub month: u32,
+    pub user_id: Option<Uuid>,
+}
+
+/// 工時月報單列＝某人在該月份的合計。
+///
+/// 刻意不含遲到／早退計數：`status` 欄目前只由 `clock_in` 寫死 `'normal'`，
+/// 系統沒有上下班時間基準也沒有國定假日行事曆，那兩欄會是恆為 0 的假資料。
+#[derive(Debug, Serialize, FromRow, ToSchema)]
+pub struct MonthlyAttendanceSummary {
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub user_email: String,
+    /// 當月有「上班打卡時間」的天數
+    pub work_days: i64,
+    /// ⚠️ 型別是 `f64` 不是 `Decimal`（CodeRabbit PR #35 指出）：
+    /// `rust_decimal` 只開 `serde` feature 時會把 Decimal 序列化成**字串**，
+    /// 而前端 `MonthlyAttendanceSummary` 宣告的是 `number`。字串進到
+    /// `useTableSort` 的 `compareValues` 會走字串比較——`"9.5"` 排在 `"168.5"` 後面。
+    /// 改 Cargo.toml 加 `serde-float` 會全域改變所有 Decimal 欄位的序列化（等於動到
+    /// 既有 API contract），故改在 SQL 端 `::float8`，與同檔 `AttendanceStat.overtime_hours`
+    /// 的既有寫法一致。來源欄位是 `numeric(5,2)`，月度加總的精度遠在 f64 安全範圍內。
+    pub total_regular_hours: f64,
+    pub total_overtime_hours: f64,
+    /// 上下班卡只有一邊的天數——這些日子的工時不完整，是補卡的候選清單
+    pub incomplete_days: i64,
+    /// 當月經補登／更正的天數（`is_corrected`）
+    pub corrected_days: i64,
 }
 
 // ============================================

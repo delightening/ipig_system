@@ -152,3 +152,72 @@ async fn mcp_auth_readonly_role_no_write_tools() {
         "PI（非 write role）不應看到 write 工具，實得：{names:?}"
     );
 }
+
+// ── 管理員不得送出獸醫審查（2026-08-26 使用者裁定 A） ──
+//
+// ⚠️ 這支釘的是**移除**一條授權路徑，方向與上面兩支相反。
+//
+// #32 之前，`is_admin_role` 比對的是 `roles` 表裡不存在的 `ROLE_SYSTEM_ADMIN`，
+// 所以那個閘對所有人回 false——管理員從來看不到這個工具。
+// 把它「修好」成 `user.is_admin()` 會**啟用一條從未執行過的路徑**，而那條路徑是壞的：
+// `submit_vet_review` 的 UPDATE 綁 `WHERE vet_id = <呼叫者>`，未被指派的管理員
+// 更新到 0 列卻拿到 `success: true`，整份簽了名的查檢表靜默消失。
+//
+// 裁定是移除旁路而不是修好它：資料模型只有 `vet_review_assignments`（鍵是 `vet_id`）
+// 這一個位置可放，沒有非指派者的容身處；GLP 簽章歸屬也不該讓非獸醫簽獸醫查檢表。
+#[tokio::test]
+#[serial]
+async fn admin_cannot_submit_vet_review() {
+    let app = TestApp::spawn().await;
+    // `admin` 是 `roles` 表裡真實存在的管理員代碼（不是 `SYSTEM_ADMIN`）。
+    let user_id = seed_user_with_role(&app, "admin").await;
+    let token = seed_mcp_key(&app, user_id, &["read", "write"]).await;
+
+    let list = serde_json::json!({
+        "jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}
+    });
+    let json: Value = app
+        .auth_post("/api/v1/mcp", &list, &token)
+        .await
+        .json()
+        .await
+        .expect("parse tools/list");
+    assert!(
+        json.get("error").is_none(),
+        "管理員認證應成功，實得：{json}"
+    );
+
+    let names = tool_names(&json["result"]);
+    assert!(
+        names.contains(&"create_review_flag".to_string()),
+        "管理員仍應有一般 write 工具（本次移除的只有獸醫審查），實得：{names:?}"
+    );
+    assert!(
+        !names.contains(&"submit_vet_review".to_string()),
+        "管理員不應看到 submit_vet_review。\n\
+         那條路徑在 #32 之前從未執行過（`is_admin_role` 恆為 false），\n\
+         打開它會讓未被指派者的送出更新到 0 列卻回 success。實得：{names:?}"
+    );
+
+    // 工具清單只是給呼叫端看的過濾；真正的閘在 `check_tool_permission`，分開驗——
+    // 自己組 JSON-RPC 的呼叫端根本不看清單。
+    let call = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+            "name": "submit_vet_review",
+            "arguments": { "protocol_id": Uuid::new_v4().to_string(), "items": [] }
+        }
+    });
+    let json: Value = app
+        .auth_post("/api/v1/mcp", &call, &token)
+        .await
+        .json()
+        .await
+        .expect("parse tools/call");
+    assert!(
+        json.get("error").is_some(),
+        "直接呼叫 submit_vet_review 也必須被擋，實得：{json}"
+    );
+}

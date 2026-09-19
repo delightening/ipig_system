@@ -20,6 +20,18 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // 見 docs/audit/button-permission-gate-2026-08-07.md §6。
         ("animal.planning.view", "檢視動物預約與試驗規劃", "animal", "可檢視全場動物按試驗分組的分配清冊與缺口（唯讀）"),
         ("animal.planning.manage", "管理動物預約與試驗規劃", "animal", "可新增預定試驗、批次預約 / 解除預約、正式分配進實驗、編輯規劃頁備註"),
+        // 動物轉讓的協調段（發起 / 指定新計畫 / 完成 / 拒絕）。
+        //
+        // P0-3（2026-09-05 使用者裁定選項 B）：五段簽核原本有四段共用
+        // `animal.record.create`，任何持該碼又能存取該動物的人可獨力把流程從發起推到完成
+        // ——只有第 4 段（PI 同意）有職責分離。本碼把協調段從「登錄動物紀錄」的能力中分離
+        // 出來，授予執行秘書（IACUC_STAFF），與第 2 段（獸醫評估，`animal.vet.recommend`）
+        // 及第 4 段（簽署權責，`check_transfer_signing_authority`）形成三方分權。
+        //
+        // ⚠️ 這是**取代**而非疊加：原本持有 `animal.record.create` 的 EXPERIMENT_STAFF /
+        // INTERN 不再能推進轉讓流程。他們原本做得到只是權限發錯的副作用——這條流程
+        // 本來就該由執秘跑（見 docs/reviews/2026-09-03-code-side-issues.md §P0-3）。
+        ("animal.transfer.manage", "管理動物轉讓流程", "animal", "可發起動物轉讓、指定轉入計畫、完成或拒絕轉讓（獸醫評估與 PI 同意另有專屬權責，不含在內）"),
         // 血檢項目管理（模板、組合、常用組合）
         ("animal.blood_test_template.manage", "血檢項目管理", "animal", "可檢視與編輯血檢項目模板、組合、常用組合"),
         // 版本還原
@@ -122,6 +134,11 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("invitation.resend", "重新發送邀請", "invitation", "可重新發送邀請 Email"),
         // GLP 合規模組 (Migration 016)
         ("glp.study_director.designate", "指定 Study Director", "glp", "可指定研究之 Study Director"),
+        // 2026-09-05：本碼從未接上任何檢查（見 docs/reviews/2026-09-03-code-side-issues.md P0-1）。
+        // 最終報告簽署已改走身分即授權（actor.id == protocol.study_director_user_id，
+        // 見 GlpComplianceService::sign_study_report），比照 protocol_closure 不設 admin 例外——
+        // SD 不是全域角色，任何角色授予都表達不出「該報告的 SD 才能簽」。
+        // 保留此定義供歷史追溯，實際不再由任何 handler 檢查；待 P2-7 死碼清理一併移除。
         ("glp.study_report.sign", "簽署最終報告", "glp", "Study Director 簽署最終研究報告"),
         ("glp.compliance.overview", "GLP 遵循總覽", "glp", "查看 GLP 遵循狀態儀表板"),
         ("glp.management_review.view", "查看管理審查", "glp", "檢視管理審查紀錄"),
@@ -144,8 +161,11 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("competency.assessment.view", "查看能力評鑑", "competency", "檢視能力評鑑紀錄"),
         ("competency.assessment.manage", "管理能力評鑑", "competency", "建立、執行能力評鑑"),
         // 最終報告
-        ("study.report.view", "查看最終報告", "study", "檢視研究最終報告"),
+        ("study.report.view", "查看最終報告", "study", "檢視研究最終報告（無此權限者仍可檢視本人擔任 SD 的計畫報告，見 can_view_study_report）"),
+        // 2026-09-05：撰寫／編輯報告本文改走身分即授權（見 glp.study_report.sign 的同一則註解），
+        // 不再由任何 handler 檢查此碼；保留定義待 P2-7 死碼清理一併移除。
         ("study.report.manage", "管理最終報告", "study", "建立、編輯研究最終報告"),
+        ("qau.report_statement.write", "填寫 QAU 品保聲明", "qau", "GLP 最終報告 QAU 品保聲明填寫，與報告本文分開授權；同時要求填寫者不得為該計畫 SD 本人"),
         // 配製紀錄
         ("formulation.record.view", "查看配製紀錄", "formulation", "檢視試驗物質配製紀錄"),
         ("formulation.record.manage", "管理配製紀錄", "formulation", "建立、編輯配製紀錄"),
@@ -175,7 +195,21 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("admin.treatment_drug.delete", "刪除治療用藥", "admin", "可刪除治療用藥主檔項目"),
         ("erp.product.delete", "刪除產品", "erp", "可刪除產品主檔"),
         ("erp.partner.delete", "刪除夥伴", "erp", "可刪除夥伴主檔"),
-        ("hr.attendance.manage", "管理出勤紀錄", "hr", "可代員工新增 / 修改出勤紀錄"),
+        // 補卡（2026-08-26 統一為單一權限碼）。此前是兩個互不相交的碼：
+        // `hr.attendance.manage` 被 handler 檢查但**沒授予任何角色**；
+        // `hr.attendance.correct` 授予了 admin / ADMIN_STAFF 但**沒有任何 handler 檢查**。
+        // 兩者疊起來的實際效果是「只有 admin 做得到」——靠的是 `has_permission` 對
+        // admin 短路，不是任何一個權限本身。行政拿著更正權按不動整整一段時間沒人發現，
+        // 正是 `permission_codes_exist` 那份稽核講的同一種病。
+        //
+        // 保留 `correct` 作為唯一的補卡權限碼（既有授予不動，行政無縫接上）；
+        // `manage` 依 `erp.adj.approve` 的先例保留為死碼、改名標示，不刪 DB 列。
+        ("hr.attendance.correct", "補卡（補登 / 更正出勤）", "hr", "可代員工補登缺漏日的出勤、或更正既有打卡時間；不得作用於自己的紀錄"),
+        // ⚠️ 死碼：2026-08-26 前由 `correct_attendance` handler 檢查，但從未授予任何角色
+        //（`003_seed.sql` 只 INSERT permission、`role_permissions` 零筆，本檔角色清單零命中）。
+        // 補卡請用上方的 `hr.attendance.correct`，不要復用本碼。
+        // 保留是為了不動任何既有部署的 permissions 列與前端 generated 常數，清除另案。
+        ("hr.attendance.manage", "管理出勤紀錄（死碼）", "hr", "⚠️ 未被任何 handler 檢查、未授予任何角色。補卡請用 hr.attendance.correct"),
         ("animal.euthanasia.create", "開立安樂死單", "animal", "可開立安樂死單據"),
         ("aup.review.reply", "回覆審查意見", "aup", "可回覆被指派的審查意見（非計畫擁有者亦可）"),
         // 同一批漏補：這兩個碼同樣寫在 PI / IACUC_STAFF / EXPERIMENT_STAFF /
@@ -506,6 +540,9 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
                 // 動物預約與試驗規劃：檢視 + 操作（執秘是唯一有操作權的角色）
                 "animal.planning.view",
                 "animal.planning.manage",
+                // 動物轉讓的協調段（發起 / 指定新計畫 / 完成 / 拒絕）。
+                // P0-3：執秘是這條流程的協調者，獸醫評估與 PI 同意各自另有權責把關。
+                "animal.transfer.manage",
                 // AUP 計畫管理：執秘對計畫內容唯讀（不含 edit / submit，對齊原始 spec §4.1
                 // 「編輯草稿 / 提交計畫 ✗」）；保留審查指派 / 核准 / 變更狀態等協調權。
                 "aup.protocol.view_all",
@@ -848,10 +885,28 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
                 // 自身出勤 / 餘額 / 行事曆
                 "hr.attendance.view",
                 "hr.attendance.clock",
+                // 補卡（2026-08-26 使用者裁定）。
+                //
+                // 這一項**看似**違反本角色上方的 R97-1c 原則（負責人是監督與終審，不是操作者），
+                // 實際不違反：補卡在本系統是「不得作用於自己」的操作
+                //（`services/hr/attendance.rs::reject_self_correction`），
+                // 所以負責人拿到它只能補**別人**的卡，仍然不是在替自己操作。
+                //
+                // 為什麼非給不可：使用者裁定「行政也只能找 director 補卡」——
+                // 行政補全體、負責人補行政，兩邊互補才不會有人的卡永遠補不了。
+                // `view_all` 是必要配套而非額外放寬：補別人的卡之前要先查得到那個人的紀錄，
+                // 少了它負責人在補卡畫面上一列都看不到。
+                "hr.attendance.view_all",
+                "hr.attendance.correct",
                 "hr.overtime.create",
                 "hr.balance.view",
                 "hr.calendar.view",
                 "hr.leave.view_calendar",
+                // 2026-09-06（P0-1，使用者裁定）：撤銷電子簽章，與 QAU 同時授予。
+                // 理由見 QAU 那列的同名註解；負責人這一側的定位是「品保不在時的
+                // 第二個可執行者」，而不是把它變成日常操作——本碼的說明文字
+                // （`003_seed.sql:329`）本來就寫著「僅供稀有／緊急情境使用」。
+                "signature.invalidate",
                 // Dashboard
                 "dashboard.view",
             ],
@@ -875,6 +930,18 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
                 "qau.sop.manage",
                 "qau.schedule.view",
                 "qau.schedule.manage",
+                // 2026-09-06（P0-1，使用者裁定）：撤銷電子簽章。
+                // 此碼定義在 `003_seed.sql:329`（不在本檔的 required_permissions 清單），
+                // 在此之前**授予零角色**＝只有 admin 靠 has_permission 短路做得到，
+                // 而「簽章作廢的執行者＝系統管理員」在 GLP 稽核上站不住：作廢是品保
+                // 判斷（簽錯人、離職撤回、key compromise），不是有 root 權限的人該決定的事。
+                // 前端入口已存在（`AuditLogsPage` 的「撤銷簽章」鈕 → `InvalidateSignatureDialog`，
+                // 要求 signature id + 理由 + 密碼二次確認），授予後即可點得到。
+                "signature.invalidate",
+                // 2026-09-05：GLP 最終報告——QAU 需要看到報告才能出具品保聲明，
+                // 且聲明填寫與報告本文分開授權（study.report.manage 已改走身分即授權，見上）
+                "study.report.view",
+                "qau.report_statement.write",
                 // 跨模組唯讀
                 "aup.protocol.view_all",
                 "aup.review.view",

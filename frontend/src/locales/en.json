@@ -784,6 +784,7 @@
       "noAmendments": "No amendments",
       "noAmendmentsHint": "Click 'New Amendment' button to create your first amendment request",
       "notApproved": "Protocol must be approved before amendments can be submitted",
+      "piDelegateBadge": "Acting as PI delegate",
       "createSuccess": "Amendment request created",
       "createFailed": "Failed to create amendment request",
       "submitSuccess": "Amendment request submitted",
@@ -814,6 +815,24 @@
         "titleRequired": "Please enter amendment title",
         "changeItemsRequired": "Please select at least one change item"
       }
+    },
+    "piDelegate": {
+      "title": "PI Delegate Authorization",
+      "description": "The PI of this protocol is an external person without a system account. The Study Director (SD) approves one delegate to sign closure, euthanasia approvals and amendments on the PI’s behalf, leaving a record of the approval.",
+      "currentLabel": "Current delegate: ",
+      "actingBadge": "Acting as delegate",
+      "authorizedBy": "(approved by {{name}} on {{date}})",
+      "none": "No delegate approved yet.",
+      "selectPlaceholder": "Select a delegate",
+      "authorize": "Approve as delegate",
+      "revoke": "Revoke",
+      "authorizeSuccess": "PI delegate approved",
+      "authorizeFailed": "Approval failed",
+      "revokeSuccess": "PI delegate revoked",
+      "revokeFailed": "Revocation failed",
+      "expiresLabel": "Valid until",
+      "validUntil": "(valid until {{date}})",
+      "noExpiry": "(no expiry)"
     }
   },
   "language": {
@@ -2028,6 +2047,7 @@
     "demoMode": "Demo Mode",
     "demoSaveBlocked": "Demo mode cannot save drafts; for UX preview only",
     "demoSubmitBlocked": "Demo mode cannot submit for review; for UX preview only",
+    "dateFilterInactive": "Demo data is a fixed sample — changing dates will not affect the results below",
     "banner": {
       "title": "Guest demo mode — data is for showcase only; actions are not persisted",
       "startTour": "🎓 System Tour",

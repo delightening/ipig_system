@@ -32,10 +32,8 @@ ignore = [
     # 為最新、所有 0.19+ 版皆依賴它、無版本可擺脫）。build-time proc-macro、零執行期
     # 攻擊面、僅 unmaintained 標記、非漏洞。
     "RUSTSEC-2026-0173",
-    # anyhow Error::downcast_mut() unsound（2026-06-30 新發布）。僅在對 anyhow::Error
-    # 先 .context() 後又 .downcast_mut() 取回 context 時觸發 UB；本專案 anyhow 僅用於
-    # 錯誤傳播/?，無 downcast_mut() 取回自訂 context 的用法 → 實際不受影響。無修復版本。
-    "RUSTSEC-2026-0190",
+    # RUSTSEC-2026-0190（anyhow downcast_mut unsound）已移除（2026-09-20）：
+    # 依賴樹中已無受影響版本，cargo-deny 回報 advisory-not-detected。
 ]
 
 # ⚠️ 本清單刻意**不與 `.github/workflows/ci.yml` 的 `cargo audit --ignore` 相同**

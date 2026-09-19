@@ -369,8 +369,15 @@ pub fn routes() -> Router<AppState> {
         )
         .route(
             "/vet-patrol-reports/{id}",
-            get(handlers::get_vet_patrol_report).put(handlers::update_vet_patrol_report),
+            get(handlers::get_vet_patrol_report)
+                .put(handlers::update_vet_patrol_report)
+                .delete(handlers::delete_vet_patrol_report),
         )
+        // 與其他 39 個資源同一個約定：DELETE 為主、POST …/delete 為備用，
+        // 備用是為了避開「部分代理／tunnel 對 DELETE 回 405」（見 handlers/warehouse.rs:120）。
+        // ⚠️ 2026-09-08 之前這裡**只有** POST 這一條，是全系統 40 條 POST …/delete 裡
+        // 唯一「base 沒有 DELETE 方法」的例外。照字面把「備用路由」整批移除會直接刪掉
+        // 巡場報告的唯一刪除途徑，所以補上 DELETE 讓它回到約定內。
         .route(
             "/vet-patrol-reports/{id}/delete",
             post(handlers::delete_vet_patrol_report),

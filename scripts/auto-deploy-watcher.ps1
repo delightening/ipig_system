@@ -89,10 +89,14 @@ try {
     # "From https://..." 到 stderr 會被 PowerShell 5.1 視為 NativeCommandError
     # 拋出，導致 docker build/up 沒跑就被外層 catch 抓走（首次實戰觀察）。
     # 改用 "Continue" 並用 $LASTEXITCODE 判斷成敗（git/docker 都遵循 exit code）。
+    # -NonInteractive：watcher 底下沒有 tty，deploy-prod.ps1 的 Read-Host（無新 commit
+    # 時的確認）會直接把整輪卡到 Task Scheduler 的 ExecutionTimeLimit。本來只有
+    # 「fetch 到新 commit、pull 前 main 又被別的程序拉走」這個競態會走到那裡，但
+    # 那正是無人值守時最不該卡住的路徑。
     $prevEAP = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        & $DeployScript *>&1 | Tee-Object -FilePath $LogFile -Append
+        & $DeployScript -NonInteractive *>&1 | Tee-Object -FilePath $LogFile -Append
         $deployExit = $LASTEXITCODE
     }
     finally {

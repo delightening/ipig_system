@@ -9,7 +9,9 @@
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
     "check": "node --input-type=module --check < src/worker.js",
-    "test": "node --import ./test/register.mjs --test test/*.test.mjs"
+    "test": "node --import ./test/register.mjs --test test/*.test.mjs",
+    "deploy:clean": "bash deploy-from-clean-dir.sh",
+    "test:deploy-script": "bash test/deploy-from-clean-dir.test.sh"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
