@@ -103,10 +103,11 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
       a.style.display = 'none'
 
       const dateStr = new Date().toISOString().split('T')[0]
+      const fileExt = format === 'pdf' ? 'pdf' : 'xlsx'
       const filename =
         type === 'single_animal'
-          ? `動物病歷_${earTag}_${dateStr}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
-          : `計畫病歷匯出_${selectedProject}_${dateStr}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
+          ? t('animalActions.importExport.export.fileNameSingle', { earTag, date: dateStr, ext: fileExt })
+          : t('animalActions.importExport.export.fileNameBatch', { project: selectedProject, date: dateStr, ext: fileExt })
 
       a.download = filename
       document.body.appendChild(a)
@@ -154,12 +155,12 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Download className="h-5 w-5" />
-            {type === 'single_animal' ? '匯出動物病歷' : '批次匯出計畫病歷'}
+            {type === 'single_animal' ? t('animalActions.importExport.export.titleSingle') : t('animalActions.importExport.export.titleBatch')}
           </DialogTitle>
           <DialogDescription>
             {type === 'single_animal'
-              ? `匯出耳號 ${earTag} 的完整病歷資料`
-              : '選擇計畫並匯出該計畫下所有動物的病歷資料'}
+              ? t('animalActions.importExport.export.descriptionSingle', { earTag })
+              : t('animalActions.importExport.export.descriptionBatch')}
           </DialogDescription>
         </DialogHeader>
 
@@ -167,17 +168,17 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
           {/* 計畫選擇（批次匯出時） */}
           {type === 'batch_project' && (
             <div className="space-y-2">
-              <Label>選擇計畫 (IACUC No.) *</Label>
+              <Label>{t('animalActions.importExport.export.selectProject')}</Label>
               <Select value={selectedProject} onValueChange={setSelectedProject}>
                 <SelectTrigger>
-                  <SelectValue placeholder="選擇要匯出的計畫" />
+                  <SelectValue placeholder={t('animalActions.importExport.export.selectProjectHint')} />
                 </SelectTrigger>
                 <SelectContent>
                   {projects?.map((project) => (
                     <SelectItem key={project.iacuc_no} value={project.iacuc_no}>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{project.iacuc_no}</span>
-                        <span className="text-muted-foreground">({project.animal_count} 隻)</span>
+                        <span className="text-muted-foreground">({t('animalActions.common.animalCount', { count: project.animal_count })})</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -188,7 +189,7 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
 
           {/* 匯出格式 */}
           <div className="space-y-2">
-            <Label>匯出格式</Label>
+            <Label>{t('animalActions.importExport.export.format')}</Label>
             <div className="flex gap-3">
               <button
                 type="button"
@@ -229,49 +230,49 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
           {/* 匯出內容選項 */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>匯出內容</Label>
+              <Label>{t('animalActions.importExport.export.content')}</Label>
               <button
                 type="button"
                 onClick={() => handleSelectAll(!allSelected)}
                 className="text-sm text-status-purple-text hover:text-status-purple-text"
               >
-                {allSelected ? '取消全選' : '全選'}
+                {allSelected ? t('animalActions.importExport.export.deselectAll') : t('animalActions.importExport.export.selectAll')}
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3 p-4 bg-muted rounded-lg">
               <Checkbox
-                label="動物基本資料"
+                label={t('animalActions.common.animalBasicInfo')}
                 checked={options.basic_info}
                 onCheckedChange={(checked) => handleOptionChange('basic_info', checked)}
               />
               <Checkbox
-                label="觀察試驗紀錄"
+                label={t('animalDetail.tabs.observations')}
                 checked={options.observations}
                 onCheckedChange={(checked) => handleOptionChange('observations', checked)}
               />
               <Checkbox
-                label="手術紀錄"
+                label={t('animalDetail.tabs.surgeries')}
                 checked={options.surgeries}
                 onCheckedChange={(checked) => handleOptionChange('surgeries', checked)}
               />
               <Checkbox
-                label="體重紀錄"
+                label={t('animalDetail.tabs.weights')}
                 checked={options.weights}
                 onCheckedChange={(checked) => handleOptionChange('weights', checked)}
               />
               <Checkbox
-                label="疫苗/驅蟲紀錄"
+                label={t('animalDetail.tabs.vaccinations')}
                 checked={options.vaccinations}
                 onCheckedChange={(checked) => handleOptionChange('vaccinations', checked)}
               />
               <Checkbox
-                label="犧牲/採樣紀錄"
+                label={t('animalDetail.tabs.sacrifice')}
                 checked={options.sacrifice}
                 onCheckedChange={(checked) => handleOptionChange('sacrifice', checked)}
               />
               <Checkbox
-                label="病理組織報告"
+                label={t('animalDetail.tabs.pathology')}
                 checked={options.pathology}
                 onCheckedChange={(checked) => handleOptionChange('pathology', checked)}
               />
@@ -281,7 +282,7 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={() => exportMutation.mutate()}
@@ -294,7 +295,7 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
           >
             {exportMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             <Download className="h-4 w-4 mr-2" />
-            匯出
+            {t('animalActions.importExport.export.action')}
           </Button>
         </DialogFooter>
       </DialogContent>

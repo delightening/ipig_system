@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+
 import api from '@/lib/api'
 import { uiLocale } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -39,12 +41,13 @@ interface Props {
   recordId: string | number
 }
 
-const recordTypeNames: Record<RecordType, string> = {
-  observation: '觀察試驗紀錄',
-  surgery: '手術紀錄',
+const RECORD_TYPE_KEYS: Record<RecordType, string> = {
+  observation: 'animalDetail.tabs.observations',
+  surgery: 'animalDetail.tabs.surgeries',
 }
 
 export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId }: Props) {
+  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: ['record-versions', recordType, recordId],
     queryFn: async () => {
@@ -76,10 +79,10 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
-            版本歷史
+            {t('animalActions.versionHistory.title')}
           </DialogTitle>
           <DialogDescription>
-            {recordTypeNames[recordType]} - 檢視紀錄的歷史版本
+            {t('animalActions.versionHistory.description', { recordType: t(RECORD_TYPE_KEYS[recordType]) })}
           </DialogDescription>
         </DialogHeader>
 
@@ -91,13 +94,13 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
           ) : !data || data.versions.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p>尚無版本歷史</p>
+              <p>{t('animalActions.versionHistory.empty')}</p>
             </div>
           ) : (
             <div className="space-y-3">
               {/* Current Version */}
               <div className="flex items-center gap-2 px-3 py-2 bg-status-purple-bg rounded-lg">
-                <Badge className="bg-status-purple-solid">目前版本 v{data.current_version}</Badge>
+                <Badge className="bg-status-purple-solid">{t('animalActions.versionHistory.currentVersion', { version: data.current_version })}</Badge>
               </div>
 
               {/* Version Timeline */}
@@ -123,7 +126,7 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
                         </div>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <User className="h-4 w-4" />
-                          <span>{version.changed_by_name ?? '系統'}</span>
+                          <span>{version.changed_by_name ?? t('animalActions.common.system')}</span>
                         </div>
                       </div>
 
@@ -133,15 +136,15 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
                           {recordType === 'observation' && (
                             <>
                               <div>
-                                <span className="text-muted-foreground">紀錄性質：</span>
+                                <span className="text-muted-foreground">{t('animalActions.versionHistory.recordNature')}</span>
                                 <span className="ml-1">{String(version.record_snapshot.record_type ?? '-')}</span>
                               </div>
                               <div>
-                                <span className="text-muted-foreground">事件日期：</span>
+                                <span className="text-muted-foreground">{t('animalActions.versionHistory.eventDate')}</span>
                                 <span className="ml-1">{String(version.record_snapshot.event_date ?? '-')}</span>
                               </div>
                               <div className="col-span-2">
-                                <span className="text-muted-foreground">內容：</span>
+                                <span className="text-muted-foreground">{t('animalActions.versionHistory.content')}</span>
                                 <span className="ml-1 line-clamp-2">
                                   {String(version.record_snapshot.content ?? '-')}
                                 </span>
@@ -151,17 +154,17 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
                           {recordType === 'surgery' && (
                             <>
                               <div>
-                                <span className="text-muted-foreground">手術日期：</span>
+                                <span className="text-muted-foreground">{t('animalActions.versionHistory.surgeryDate')}</span>
                                 <span className="ml-1">{String(version.record_snapshot.surgery_date ?? '-')}</span>
                               </div>
                               <div>
-                                <span className="text-muted-foreground">手術部位：</span>
+                                <span className="text-muted-foreground">{t('animalActions.versionHistory.surgerySite')}</span>
                                 <span className="ml-1">{String(version.record_snapshot.surgery_site ?? '-')}</span>
                               </div>
                               <div>
-                                <span className="text-muted-foreground">首次實驗：</span>
+                                <span className="text-muted-foreground">{t('animalActions.versionHistory.firstExperiment')}</span>
                                 <span className="ml-1">
-                                  {version.record_snapshot.is_first_experiment ? '是' : '否'}
+                                  {version.record_snapshot.is_first_experiment ? t('common.yes') : t('common.no')}
                                 </span>
                               </div>
                             </>
@@ -178,7 +181,7 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
 
         <div className="flex justify-end pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            關閉
+            {t('common.closeDialog')}
           </Button>
         </div>
       </DialogContent>

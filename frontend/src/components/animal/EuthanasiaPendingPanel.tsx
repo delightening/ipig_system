@@ -20,6 +20,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { Loader2, AlertOctagon, CheckCircle2, Hand, Clock, PenLine } from 'lucide-react'
 import { HandwrittenSignaturePad, type SignatureData } from '@/components/ui/handwritten-signature-pad'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 interface EuthanasiaOrder {
     id: string
@@ -36,22 +37,22 @@ interface EuthanasiaOrder {
     pi_name?: string
 }
 
-function formatCountdown(deadline: string): string {
+function formatCountdown(deadline: string, t: TFunction): string {
     const now = new Date()
     const deadlineDate = new Date(deadline)
     const diff = deadlineDate.getTime() - now.getTime()
 
     if (diff <= 0) {
-        return '已到期'
+        return t('animalActions.euthanasia.countdown.expired')
     }
 
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
 
     if (hours > 0) {
-        return `${hours} 小時 ${minutes} 分`
+        return t('animalActions.euthanasia.countdown.hoursMinutes', { hours, minutes })
     }
-    return `${minutes} 分`
+    return t('animalActions.euthanasia.countdown.minutes', { minutes })
 }
 
 export function EuthanasiaPendingPanel() {
@@ -87,16 +88,16 @@ export function EuthanasiaPendingPanel() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['euthanasia-pending'] })
             toast({
-                title: '已同意執行安樂死',
-                description: '簽章已記錄，獸醫師將收到通知並可執行操作。',
+                title: t('animalActions.euthanasia.pending.approvedTitle'),
+                description: t('animalActions.euthanasia.pending.approvedDescription'),
             })
             setSigningOrderId(null)
             setSignatureData(null)
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '操作失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('animalActions.common.operationFailed')),
                 variant: 'destructive',
             })
         },
@@ -109,8 +110,8 @@ export function EuthanasiaPendingPanel() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['euthanasia-pending'] })
             toast({
-                title: '暫緩申請已送出',
-                description: 'CHAIR 將於 24 小時內進行仲裁。',
+                title: t('animalActions.euthanasia.pending.appealSubmittedTitle'),
+                description: t('animalActions.euthanasia.pending.appealSubmittedDescription'),
             })
             setShowAppealDialog(false)
             setAppealReason('')
@@ -118,8 +119,8 @@ export function EuthanasiaPendingPanel() {
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '操作失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('animalActions.common.operationFailed')),
                 variant: 'destructive',
             })
         },
@@ -144,10 +145,10 @@ export function EuthanasiaPendingPanel() {
                 <CardHeader className="pb-3">
                     <CardTitle className="text-status-error-text flex items-center gap-2">
                         <AlertOctagon className="h-5 w-5" />
-                        待處理安樂死單
+                        {t('animalActions.euthanasia.pending.title')}
                     </CardTitle>
                     <CardDescription className="text-status-error-text">
-                        您有 {orders.length} 筆安樂死通知待處理
+                        {t('animalActions.euthanasia.pending.description', { count: orders.length })}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -168,14 +169,14 @@ export function EuthanasiaPendingPanel() {
                                             )}
                                         </div>
                                         <p className="text-sm text-muted-foreground">
-                                            開單獸醫：{order.vet_name}
+                                            {t('animalActions.euthanasia.pending.orderingVet', { name: order.vet_name })}
                                         </p>
                                         <p className="text-sm text-foreground line-clamp-2">
-                                            原因：{order.reason}
+                                            {t('animalActions.euthanasia.pending.reason', { reason: order.reason })}
                                         </p>
                                         <div className="flex items-center gap-2 text-sm text-status-error-text">
                                             <Clock className="h-4 w-4" />
-                                            剩餘時間：{formatCountdown(order.deadline_at)}
+                                            {t('animalActions.euthanasia.pending.timeRemaining', { time: formatCountdown(order.deadline_at, t) })}
                                         </div>
                                     </div>
                                     {signingOrderId !== order.id && (
@@ -190,7 +191,7 @@ export function EuthanasiaPendingPanel() {
                                                 disabled={approveMutation.isPending}
                                             >
                                                 <PenLine className="h-4 w-4 mr-1" />
-                                                同意執行
+                                                {t('animalActions.euthanasia.pending.approveExecute')}
                                             </Button>
                                             <Button
                                                 size="sm"
@@ -202,7 +203,7 @@ export function EuthanasiaPendingPanel() {
                                                 }}
                                             >
                                                 <Hand className="h-4 w-4 mr-1" />
-                                                申請暫緩
+                                                {t('animalActions.euthanasia.pending.requestDeferral')}
                                             </Button>
                                         </div>
                                     )}
@@ -213,7 +214,7 @@ export function EuthanasiaPendingPanel() {
                                     <div className="space-y-3 pt-3 border-t border-red-100">
                                         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                                             <PenLine className="h-4 w-4" />
-                                            {t('signature.handwriting', '手寫簽名')} — 確認同意執行安樂死
+                                            {t('animalActions.euthanasia.pending.signatureConfirmApprove', { signature: t('signature.handwriting') })}
                                         </div>
                                         <HandwrittenSignaturePad
                                             onSignatureChange={setSignatureData}
@@ -228,7 +229,7 @@ export function EuthanasiaPendingPanel() {
                                                     setSignatureData(null)
                                                 }}
                                             >
-                                                取消
+                                                {t('common.cancel')}
                                             </Button>
                                             <Button
                                                 size="sm"
@@ -245,7 +246,7 @@ export function EuthanasiaPendingPanel() {
                                                 ) : (
                                                     <CheckCircle2 className="h-4 w-4 mr-1" />
                                                 )}
-                                                {t('signature.confirmSign', '確認簽署')}
+                                                {t('signature.confirmSign')}
                                             </Button>
                                         </div>
                                     </div>
@@ -262,12 +263,12 @@ export function EuthanasiaPendingPanel() {
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-status-warning-text">
                             <Hand className="h-5 w-5" />
-                            申請暫緩安樂死
+                            {t('animalActions.euthanasia.pending.appealTitle')}
                         </DialogTitle>
                         <DialogDescription>
                             {selectedOrder && (
                                 <>
-                                    耳號：{selectedOrder.animal_ear_tag}
+                                    {t('animalActions.common.earTagLabel', { earTag: selectedOrder.animal_ear_tag })}
                                     {selectedOrder.animal_iacuc_no && ` | IACUC No.: ${selectedOrder.animal_iacuc_no}`}
                                 </>
                             )}
@@ -276,21 +277,21 @@ export function EuthanasiaPendingPanel() {
 
                     <div className="space-y-4">
                         <div className="bg-status-warning-bg border border-status-warning-border rounded-lg p-4 text-sm text-status-warning-text">
-                            <p className="font-medium mb-2">暫緩申請說明：</p>
+                            <p className="font-medium mb-2">{t('animalActions.euthanasia.pending.appealNotesTitle')}</p>
                             <ul className="list-disc pl-4 space-y-1">
-                                <li>提交暫緩申請後，CHAIR 將於 24 小時內進行仲裁</li>
-                                <li>若 CHAIR 未於時限內回應，系統將自動核准執行安樂死</li>
-                                <li>請詳細說明希望暫緩的理由</li>
+                                <li>{t('animalActions.euthanasia.pending.appealNote1')}</li>
+                                <li>{t('animalActions.euthanasia.pending.appealNote2')}</li>
+                                <li>{t('animalActions.euthanasia.pending.appealNote3')}</li>
                             </ul>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="appeal_reason">暫緩理由 *</Label>
+                            <Label htmlFor="appeal_reason">{t('animalActions.euthanasia.pending.appealReasonRequired')}</Label>
                             <Textarea
                                 id="appeal_reason"
                                 value={appealReason}
                                 onChange={(e) => setAppealReason(e.target.value)}
-                                placeholder="請說明希望暫緩安樂死的原因，例如：動物狀況好轉、需要更多觀察時間、計畫需調整等..."
+                                placeholder={t('animalActions.euthanasia.pending.appealReasonHint')}
                                 className="min-h-[120px]"
                                 required
                             />
@@ -306,7 +307,7 @@ export function EuthanasiaPendingPanel() {
                                 setAppealReason('')
                             }}
                         >
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             type="button"
@@ -323,7 +324,7 @@ export function EuthanasiaPendingPanel() {
                             ) : (
                                 <Hand className="h-4 w-4 mr-2" />
                             )}
-                            送出暫緩申請
+                            {t('animalActions.euthanasia.pending.submitAppeal')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

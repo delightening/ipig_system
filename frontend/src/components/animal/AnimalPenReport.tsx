@@ -24,7 +24,7 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ onClose }) => 
 
     // 預覽用：透過 axios fetch（帶認證 + 不被 Cloudflare 提早中斷）→ blob URL → iframe
     const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
-    const [previewError, setPreviewError] = React.useState<string | null>(null)
+    const [previewError, setPreviewError] = React.useState(false)
 
     React.useEffect(() => {
         let revoked = false
@@ -39,7 +39,7 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ onClose }) => 
                 objUrl = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
                 setPreviewUrl(objUrl)
             } catch {
-                if (!revoked) setPreviewError('PDF 預覽載入失敗，請稍後再試或直接下載 PDF')
+                if (!revoked) setPreviewError(true)
             }
         })()
         return () => {
@@ -55,7 +55,7 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ onClose }) => 
         const objUrl = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = objUrl
-        a.download = `欄位狀態表_${today}.pdf`
+        a.download = t('animalActions.penReport.fileName', { date: today })
         a.style.display = 'none'
         document.body.appendChild(a)
         a.click()
@@ -73,8 +73,8 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ onClose }) => 
             <div className="bg-card rounded-lg shadow-xl flex flex-col w-full max-w-5xl h-[90vh] mt-4">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b px-4 py-3">
-                    <h2 className="text-lg font-semibold">欄位狀態表預覽</h2>
-                    <span className="text-sm text-muted-foreground">巡視日期：{today}</span>
+                    <h2 className="text-lg font-semibold">{t('animalActions.penReport.title')}</h2>
+                    <span className="text-sm text-muted-foreground">{t('animalActions.penReport.patrolDate', { date: today })}</span>
                 </div>
 
                 {/* PDF preview (iframe via blob URL) */}
@@ -82,17 +82,17 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ onClose }) => 
                     {!previewUrl && !previewError && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/80 z-10">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            <p className="text-sm text-muted-foreground animate-pulse">PDF 產生中…（首次約需 10–20 秒）</p>
+                            <p className="text-sm text-muted-foreground animate-pulse">{t('animalActions.penReport.generating')}</p>
                         </div>
                     )}
                     {previewError && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 text-center">
-                            <p className="text-sm text-destructive">{previewError}</p>
+                            <p className="text-sm text-destructive">{t('animalActions.penReport.previewFailed')}</p>
                         </div>
                     )}
                     {previewUrl && (
                         <iframe
-                            title="欄位狀態表 PDF 預覽"
+                            title={t('animalActions.penReport.iframeTitle')}
                             src={previewUrl}
                             className="w-full h-full border-0"
                         />
@@ -112,7 +112,7 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ onClose }) => 
                         disabled={exportPDFMutation.isPending}
                         className="px-5 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-80 font-medium disabled:opacity-50"
                     >
-                        {exportPDFMutation.isPending ? '匯出中…' : '下載 PDF'}
+                        {exportPDFMutation.isPending ? t('animalActions.penReport.exporting') : t('common.pdfExport.downloadPdf')}
                     </button>
                 </div>
             </div>

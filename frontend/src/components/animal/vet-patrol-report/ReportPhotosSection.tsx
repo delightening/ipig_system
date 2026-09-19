@@ -1,10 +1,12 @@
 // 整體環境照（report-level 照片）（R82-7 由 VetPatrolReportDialog.tsx 抽出）
 
+import { useTranslation } from 'react-i18next'
 import { Trash2, ImagePlus } from 'lucide-react'
 import { CaptionInput } from './CaptionInput'
 import type { VetPatrolReportVM } from './useVetPatrolReport'
 
 export function ReportPhotosSection({ vm }: { vm: VetPatrolReportVM }) {
+    const { t } = useTranslation()
     // 照片的上傳 / 改說明 / 刪除，後端三個 handler 皆為
     // require_permission!("animal.vet.recommend")（vet-only）。追蹤者在 awaiting_follow_up
     // 階段只能補「追蹤改善」文字，故與同 dialog 內文字欄位用同一組階段旗標判定，
@@ -13,11 +15,11 @@ export function ReportPhotosSection({ vm }: { vm: VetPatrolReportVM }) {
     return (
         <div className="mt-4 pt-3 border-t">
             <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold">整體環境照（選填）</span>
+                <span className="text-sm font-semibold">{t('animalActions.vetPatrol.environmentPhotosOptional')}</span>
                 {canManagePhotos && (vm.savedReportId ? (
                     <label className="flex items-center gap-1 text-xs text-status-success-solid hover:text-status-success-text cursor-pointer">
                         <ImagePlus className="h-3.5 w-3.5" />
-                        上傳照片
+                        {t('animalActions.common.uploadPhotos')}
                         <input
                             type="file"
                             accept="image/*"
@@ -29,7 +31,7 @@ export function ReportPhotosSection({ vm }: { vm: VetPatrolReportVM }) {
                         />
                     </label>
                 ) : (
-                    <span className="text-xs text-muted-foreground">草稿建立中...</span>
+                    <span className="text-xs text-muted-foreground">{t('animalActions.vetPatrol.draftCreating')}</span>
                 ))}
             </div>
             {vm.photos.length > 0 && (
@@ -43,7 +45,7 @@ export function ReportPhotosSection({ vm }: { vm: VetPatrolReportVM }) {
                             />
                             <CaptionInput
                                 value={photo.caption}
-                                placeholder="這張想表達什麼？例：A棟走道積水"
+                                placeholder={t('animalActions.vetPatrol.reportCaptionHint')}
                                 className="text-xs"
                                 disabled={!canManagePhotos}
                                 onSave={(caption) => vm.updateReportCaptionMutation.mutate({
@@ -57,7 +59,7 @@ export function ReportPhotosSection({ vm }: { vm: VetPatrolReportVM }) {
                                     onClick={() => vm.deleteReportPhotoMutation.mutate(photo.id)}
                                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
                                 >
-                                    <Trash2 className="h-3 w-3" /> 刪除
+                                    <Trash2 className="h-3 w-3" /> {t('common.delete')}
                                 </button>
                             )}
                         </div>

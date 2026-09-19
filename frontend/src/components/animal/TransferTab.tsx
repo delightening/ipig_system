@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { GuestHide } from '@/components/ui/guest-hide'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { transferApi } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
@@ -28,6 +29,7 @@ interface Props {
 // ============================================
 
 export function TransferTab({ animalId, animalStatus, earTag }: Props) {
+    const { t } = useTranslation()
     const user = useAuthUser()
     const [showInitiateForm, setShowInitiateForm] = useState(false)
 
@@ -42,13 +44,13 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
     })
 
     // 進行中的轉讓
-    const activeTransfer = transfers.find(t =>
-        !['completed', 'rejected'].includes(t.status)
+    const activeTransfer = transfers.find(tr =>
+        !['completed', 'rejected'].includes(tr.status)
     )
 
     // 歷史轉讓
-    const historyTransfers = transfers.filter(t =>
-        ['completed', 'rejected'].includes(t.status)
+    const historyTransfers = transfers.filter(tr =>
+        ['completed', 'rejected'].includes(tr.status)
     )
 
     // 動作閘：與後端 `handlers/animal/transfer.rs` 逐段對齊（P0-3，2026-09-05）。
@@ -93,7 +95,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
                         onClick={() => setShowInitiateForm(true)}
                     >
                         <Plus className="h-4 w-4 mr-2" />
-                        發起轉讓
+                        {t('animalActions.transfer.tab.initiate')}
                     </Button>
                 </GuestHide>
             )}
@@ -125,8 +127,8 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
                 <Card className="bg-muted">
                     <CardContent className="py-8 text-center text-muted-foreground">
                         <ArrowRightLeft className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-                        <p>此動物尚無轉讓記錄</p>
-                        {canInitiate && <p className="text-xs mt-1">點擊上方按鈕發起轉讓</p>}
+                        <p>{t('animalActions.transfer.tab.empty')}</p>
+                        {canInitiate && <p className="text-xs mt-1">{t('animalActions.transfer.tab.emptyHint')}</p>}
                     </CardContent>
                 </Card>
             )}

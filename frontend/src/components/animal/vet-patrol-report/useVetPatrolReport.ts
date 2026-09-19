@@ -6,6 +6,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
+import { useTranslation } from 'react-i18next'
+
 import api from '@/lib/api'
 import { useAuthUser } from '@/stores/auth'
 import { toast } from '@/components/ui/use-toast'
@@ -24,6 +26,7 @@ interface UseVetPatrolReportArgs {
 }
 
 export function useVetPatrolReport({ open, onOpenChange, editReportId }: UseVetPatrolReportArgs) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const currentUser = useAuthUser()
     const today = format(new Date(), 'yyyy-MM-dd')
@@ -319,7 +322,7 @@ export function useVetPatrolReport({ open, onOpenChange, editReportId }: UseVetP
             }
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '儲存失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalActions.vetPatrol.hook.saveFailed')), variant: 'destructive' })
         },
     })
 
@@ -354,10 +357,10 @@ export function useVetPatrolReport({ open, onOpenChange, editReportId }: UseVetP
             setCommittedAnyChange(true)
             setHasUnsavedTextChanges(false)
             queryClient.invalidateQueries({ queryKey: ['vet-patrol-reports'] })
-            toast({ title: '已存草稿', description: '可繼續編輯或之後再送出' })
+            toast({ title: t('animalActions.vetPatrol.hook.draftSavedTitle'), description: t('animalActions.vetPatrol.hook.draftSavedDescription') })
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '存草稿失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalActions.vetPatrol.hook.saveDraftFailed')), variant: 'destructive' })
         },
     })
 
@@ -387,11 +390,11 @@ export function useVetPatrolReport({ open, onOpenChange, editReportId }: UseVetP
             setHasUnsavedTextChanges(false)
             queryClient.invalidateQueries({ queryKey: ['vet-patrol-reports'] })
             queryClient.invalidateQueries({ queryKey: ['animal-vet-advice-records'] })
-            toast({ title: '成功', description: '已送出給追蹤者，已通知對方' })
+            toast({ title: t('common.success'), description: t('animalActions.vetPatrol.hook.submittedDescription') })
             onOpenChange(false)
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '送出失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalActions.vetPatrol.hook.submitFailed')), variant: 'destructive' })
         },
     })
 
@@ -411,12 +414,12 @@ export function useVetPatrolReport({ open, onOpenChange, editReportId }: UseVetP
             // 留在 dialog 內，狀態會切到 awaiting_follow_up，追蹤者可繼續填回覆內容
             setReportStatus('awaiting_follow_up')
             // 自動與手動觸發共用此 mutation，文案保持中性
-            toast({ title: '已確認收到', description: '可直接填寫追蹤改善欄位，完成後按「確認完成」' })
+            toast({ title: t('animalActions.vetPatrol.hook.acknowledgedTitle'), description: t('animalActions.vetPatrol.hook.acknowledgedDescription') })
         },
         onError: (error: unknown) => {
             // 自動確認失敗 → 重置 guard，讓使用者重開 dialog 時可重試（或改用 fallback 按鈕）
             autoAckedIdRef.current = null
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '確認失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalActions.vetPatrol.hook.acknowledgeFailed')), variant: 'destructive' })
         },
     })
     // mutate 由 React Query 保證 referentially stable，供下方 auto-ack effect 安全放入 deps
@@ -452,11 +455,11 @@ export function useVetPatrolReport({ open, onOpenChange, editReportId }: UseVetP
             setHasUnsavedTextChanges(false)
             queryClient.invalidateQueries({ queryKey: ['vet-patrol-reports'] })
             queryClient.invalidateQueries({ queryKey: ['animal-vet-advice-records'] })
-            toast({ title: '成功', description: '追蹤已完成，報告已鎖定' })
+            toast({ title: t('common.success'), description: t('animalActions.vetPatrol.hook.followUpCompleted') })
             onOpenChange(false)
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '完成追蹤失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalActions.vetPatrol.hook.followUpFailed')), variant: 'destructive' })
         },
     })
 
@@ -486,10 +489,10 @@ export function useVetPatrolReport({ open, onOpenChange, editReportId }: UseVetP
             return
         }
         if (hasUnsavedTextChanges) {
-            if (!window.confirm('有未儲存的變更，關閉後會遺失。確定關閉？')) return
+            if (!window.confirm(t('animalActions.vetPatrol.hook.unsavedConfirm'))) return
         }
         onOpenChange(false)
-    }, [committedAnyChange, hasUnsavedTextChanges, savedReportId, discardDraftMutation, onOpenChange, queryClient])
+    }, [committedAnyChange, hasUnsavedTextChanges, savedReportId, discardDraftMutation, onOpenChange, queryClient, t])
 
     const markInteracted = () => {
         if (!hasInteracted) setHasInteracted(true)

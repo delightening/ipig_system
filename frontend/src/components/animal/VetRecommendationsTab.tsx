@@ -2,6 +2,8 @@
 // 獸醫的撰寫入口統一在巡場報告，這裡只呈現該動物的建議歷史，供交班/查閱。
 
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+
 import api from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -34,6 +36,7 @@ interface VetRecommendationsTabProps {
 }
 
 export function VetRecommendationsTab({ animalId }: VetRecommendationsTabProps) {
+    const { t } = useTranslation()
     const queryKey = ['animal-vet-advice-records', animalId]
 
     const { data: records, isLoading } = useQuery({
@@ -55,11 +58,11 @@ export function VetRecommendationsTab({ animalId }: VetRecommendationsTabProps) 
                 <div className="flex items-center gap-2">
                     <Stethoscope className="h-5 w-5 text-status-success-solid" />
                     <div>
-                        <CardTitle className="text-status-success-solid">獸醫師建議</CardTitle>
-                        <CardDescription>來自巡場報告完成後自動歸位（唯讀）</CardDescription>
+                        <CardTitle className="text-status-success-solid">{t('animalActions.common.vetRecommendation')}</CardTitle>
+                        <CardDescription>{t('animalActions.vetRecommendations.description')}</CardDescription>
                     </div>
                 </div>
-                <span className="text-sm text-muted-foreground shrink-0">共 {records?.length ?? 0} 筆</span>
+                <span className="text-sm text-muted-foreground shrink-0">{t('animalActions.common.totalRecords', { count: records?.length ?? 0 })}</span>
             </CardHeader>
             <CardContent>
                 <div className="@container">
@@ -70,18 +73,18 @@ export function VetRecommendationsTab({ animalId }: VetRecommendationsTabProps) 
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                                     <SortableTableHead style={{ width: 120 }} sortKey="advice_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                                        日期
+                                        {t('animalActions.vetRecommendations.date')}
                                     </SortableTableHead>
-                                    <TableHead style={{ minWidth: 120 }}>觀察</TableHead>
-                                    <TableHead style={{ minWidth: 120 }}>建議</TableHead>
-                                    <TableHead style={{ minWidth: 120 }}>追蹤改善</TableHead>
+                                    <TableHead style={{ minWidth: 120 }}>{t('animalActions.common.observation')}</TableHead>
+                                    <TableHead style={{ minWidth: 120 }}>{t('animalActions.common.recommendation')}</TableHead>
+                                    <TableHead style={{ minWidth: 120 }}>{t('animalActions.common.followUp')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow><TableCell colSpan={4} className="p-0"><TableSkeleton rows={5} cols={4} /></TableCell></TableRow>
                                 ) : !records || records.length === 0 ? (
-                                    <TableEmptyRow colSpan={4} icon={Stethoscope} title="尚無獸醫師建議" description="巡場報告完成後會自動出現在這裡" />
+                                    <TableEmptyRow colSpan={4} icon={Stethoscope} title={t('animalActions.vetRecommendations.emptyTitle')} description={t('animalActions.vetRecommendations.emptyDescription')} />
                                 ) : (
                                     (sortedData ?? records).map((r) => (
                                         <TableRow key={r.id}>
@@ -111,23 +114,23 @@ export function VetRecommendationsTab({ animalId }: VetRecommendationsTabProps) 
                         ) : !records || records.length === 0 ? (
                             <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                                 <Stethoscope className="h-8 w-8" />
-                                <p className="text-sm">尚無獸醫師建議</p>
-                                <p className="text-xs">巡場報告完成後會自動出現在這裡</p>
+                                <p className="text-sm">{t('animalActions.vetRecommendations.emptyTitle')}</p>
+                                <p className="text-xs">{t('animalActions.vetRecommendations.emptyDescription')}</p>
                             </div>
                         ) : (
                             (sortedData ?? records).map((r) => (
                                 <div key={r.id} className="rounded-lg border bg-card p-3 space-y-2">
                                     <span className="text-sm font-medium text-foreground">{r.advice_date}</span>
                                     <div>
-                                        <div className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">觀察</div>
+                                        <div className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{t('animalActions.common.observation')}</div>
                                         <p className={cellText}>{r.observation || '-'}</p>
                                     </div>
                                     <div>
-                                        <div className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">建議</div>
+                                        <div className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{t('animalActions.common.recommendation')}</div>
                                         <p className={cellText}>{r.suggested_treatment || '-'}</p>
                                     </div>
                                     <div>
-                                        <div className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">追蹤改善</div>
+                                        <div className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{t('animalActions.common.followUp')}</div>
                                         <p className={cellText}>{r.follow_up || '-'}</p>
                                     </div>
                                 </div>

@@ -4,31 +4,33 @@ import type { EntryRow } from './types'
 
 /**
  * Category 設定。各 category 有 3 個欄位（觀察/建議/追蹤改善）；
- * - placeholder：使用者沒輸入時顯示的灰字 hint（不影響實際值）
- * - defaultValue：新增條目時的預設值（會塞進 textarea，使用者要刪才會空）
+ * - labelKey / placeholderKeys：i18n key（模組頂層不可存翻譯後字串，渲染時才 t()）。
+ *   placeholderKeys 的值為 '' 表示該欄位沒有 hint（不顯示灰字）。
+ * - defaults：新增條目時的預設值（會塞進 textarea 並隨報告存進 DB，屬資料內容，不翻譯；
+ *   使用者要刪才會空）
  *
  * 2026-05-11 使用者調整：防疫消毒「觀察內容」預填例行清消、其他類別有自訂 hint。
  */
 export const CATEGORIES = [
     {
         key: 'pig_condition',
-        label: '豬隻狀況',
+        labelKey: 'animalActions.vetPatrol.category.pigCondition',
         hasAnimal: true,
-        placeholders: {
-            observation: '例：右後腿輕微跛行...',
-            suggestion: '例:休養觀察 3 日...',
-            follow_up: '請陪同人員扼要填寫',
+        placeholderKeys: {
+            observation: 'animalActions.vetPatrol.placeholder.pigConditionObservation',
+            suggestion: 'animalActions.vetPatrol.placeholder.pigConditionSuggestion',
+            follow_up: 'animalActions.vetPatrol.placeholder.followUpBrief',
         },
         defaults: {},
     },
     {
         key: 'epidemic_prevention',
-        label: '防疫及消毒計畫',
+        labelKey: 'animalActions.vetPatrol.category.epidemicPrevention',
         hasAnimal: false,
-        placeholders: {
+        placeholderKeys: {
             observation: '',
             suggestion: '',
-            follow_up: '請陪同人員扼要填寫',
+            follow_up: 'animalActions.vetPatrol.placeholder.followUpBrief',
         },
         defaults: {
             observation: '全場定期清洗消毒（每週一次，週三）。',
@@ -36,23 +38,23 @@ export const CATEGORIES = [
     },
     {
         key: 'case_record',
-        label: '病歷紀錄',
+        labelKey: 'animalActions.vetPatrol.category.caseRecord',
         hasAnimal: true,
-        placeholders: {
+        placeholderKeys: {
             observation: '',
             suggestion: '',
-            follow_up: '請陪同人員扼要填寫',
+            follow_up: 'animalActions.vetPatrol.placeholder.followUpBrief',
         },
         defaults: {},
     },
     {
         key: 'other',
-        label: '其他',
+        labelKey: 'animalActions.common.other',
         hasAnimal: false,
-        placeholders: {
-            observation: '（時間、棟舍、溫度、濕度、帆布狀況）',
+        placeholderKeys: {
+            observation: 'animalActions.vetPatrol.placeholder.otherObservation',
             suggestion: '',
-            follow_up: '請陪同人員扼要填寫',
+            follow_up: 'animalActions.vetPatrol.placeholder.followUpBrief',
         },
         defaults: {},
     },

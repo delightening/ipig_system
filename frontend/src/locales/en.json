@@ -5403,5 +5403,517 @@
       "probableCausePlaceholder": "Describe the probable cause of death...",
       "requiresPathology": "Pathology examination required"
     }
+  },
+  "animalActions": {
+    "common": {
+      "notes": "Notes",
+      "earTagLabel": "Ear Tag No.: {{earTag}}",
+      "operationFailed": "Operation failed",
+      "done": "Done",
+      "recordsCount": "{{count}} records",
+      "system": "System",
+      "entryWeightKg": "Entry Weight (kg)",
+      "animalBasicInfo": "Animal Basic Info",
+      "updateFailed": "Update failed",
+      "other": "Other",
+      "vetRecommendation": "Veterinarian Recommendations",
+      "totalRecords": "{{count}} records in total",
+      "observation": "Observation",
+      "recommendation": "Recommendation",
+      "followUp": "Follow-up",
+      "listSeparator": ", ",
+      "animalCount": "{{count}} animals",
+      "loadingEllipsis": "Loading…",
+      "uploadPhotos": "Upload Photos"
+    },
+    "byproduct": {
+      "dialog": {
+        "updatedToast": "Sampling record updated",
+        "createdToast": "Sampling record added",
+        "createFailed": "Failed to add",
+        "sampledAtRequired": "Please select the sampling time",
+        "sampleContentRequired": "Please enter the sample content",
+        "externalRequesterRequired": "An external requester must provide an organization name and contact person",
+        "internalRequesterRequired": "An in-system requester must provide a user id",
+        "editTitle": "Edit Byproduct Reuse Record",
+        "createTitle": "Add Byproduct Reuse Record",
+        "sampledAtLabel": "Sampling Time *",
+        "sampleContentLabel": "Sample Content *",
+        "sampleContentHint": "e.g. left hind limb muscle tissue 5g, cardiac blood 10mL",
+        "requesterTypeLabel": "Requester Type *",
+        "requesterExternal": "External (organization / contact person)",
+        "requesterInternal": "In-system (user id)",
+        "orgNameHint": "Organization name (e.g. National Defense Medical University)",
+        "contactNameHint": "Contact person (e.g. Prof. Wang)",
+        "notesHint": "Optional"
+      },
+      "panel": {
+        "deletedToast": "Sampling record deleted",
+        "deleteFailed": "Failed to delete",
+        "cannotAddTitle": "Cannot Add",
+        "cannotAddDescription": "The animal has not been sacrificed yet (sacrifice confirmed / euthanasia performed), so a sampling record cannot be added.",
+        "deleteConfirmTitle": "Delete this sampling record?",
+        "deleteConfirmDescription": "The record sampled at {{time}} / content \"{{content}}\" will be soft-deleted.",
+        "title": "Byproduct Reuse Records",
+        "addSample": "Add Sampling Record",
+        "addRequiresSacrificed": "The animal must be sacrificed (sacrifice confirmed / euthanasia performed) before sampling can be added",
+        "empty": "No records (created when tissue / blood from a closed-out pig is reused by another party)",
+        "sampledAt": "Sampled {{time}}",
+        "requester": "Requester: {{requester}}",
+        "requesterInternal": "(In-system user) {{id}}",
+        "requesterExternal": "{{org}} / {{contact}}",
+        "notes": "Notes: {{notes}}"
+      }
+    },
+    "euthanasia": {
+      "countdown": {
+        "expired": "Expired",
+        "hoursMinutes": "{{hours}} h {{minutes}} min",
+        "minutes": "{{minutes}} min"
+      },
+      "pending": {
+        "approvedTitle": "Euthanasia Approved",
+        "approvedDescription": "Signature recorded. The veterinarian will be notified and can proceed.",
+        "appealSubmittedTitle": "Deferral Request Submitted",
+        "appealSubmittedDescription": "The CHAIR will arbitrate within 24 hours.",
+        "title": "Pending Euthanasia Orders",
+        "description": "You have {{count}} euthanasia notices awaiting action",
+        "orderingVet": "Ordering veterinarian: {{name}}",
+        "reason": "Reason: {{reason}}",
+        "timeRemaining": "Time remaining: {{time}}",
+        "approveExecute": "Approve Execution",
+        "requestDeferral": "Request Deferral",
+        "signatureConfirmApprove": "{{signature}} — Confirm Approval of Euthanasia",
+        "appealTitle": "Request Euthanasia Deferral",
+        "appealNotesTitle": "About deferral requests:",
+        "appealNote1": "After a deferral request is submitted, the CHAIR will arbitrate within 24 hours",
+        "appealNote2": "If the CHAIR does not respond in time, the system will automatically approve euthanasia",
+        "appealNote3": "Please explain in detail why you want to defer",
+        "appealReasonRequired": "Deferral Reason *",
+        "appealReasonHint": "Explain why you want to defer euthanasia, e.g. the animal has improved, more observation time is needed, or the protocol needs adjustment...",
+        "submitAppeal": "Submit Deferral Request"
+      },
+      "chair": {
+        "decisionSubmitted": "Decision Submitted",
+        "approvedDescription": "Deferral approved; euthanasia cancelled.",
+        "rejectedDescription": "Deferral rejected; euthanasia will proceed.",
+        "title": "Euthanasia Deferral Requests Awaiting Arbitration",
+        "description": "You have {{count}} deferral requests awaiting a decision",
+        "vetLabel": "Veterinarian:",
+        "piLabel": "PI:",
+        "vetReasonLabel": "Veterinarian's euthanasia reason:",
+        "piAppealReasonLabel": "PI's deferral reason:",
+        "viewAttachment": "View Attachment",
+        "decisionDeadline": "Decision deadline: {{time}}",
+        "approveDeferral": "Approve Deferral",
+        "rejectAppeal": "Reject Request",
+        "approveExplain": "Once the deferral is approved, the euthanasia order will be cancelled and the animal may remain in the protocol.",
+        "rejectDeferral": "Reject Deferral Request",
+        "rejectExplain": "Once rejected, the veterinarian will be able to carry out euthanasia.",
+        "decisionNoteOptional": "Decision Notes (Optional)",
+        "decisionNoteHint": "Enter the rationale or notes for the decision...",
+        "confirmDecision": "Confirm Decision"
+      },
+      "order": {
+        "createdTitle": "Euthanasia Order Created",
+        "createdDescription": "The PI has been notified. Please wait for a response, or execution unlocks automatically after 24 hours.",
+        "createFailed": "Failed to create order",
+        "reasonRequired": "Please enter the euthanasia reason",
+        "confirmRequired": "Please confirm that you have read the notes",
+        "title": "Create Euthanasia Order",
+        "notesTitle": "Notes",
+        "note1": "The Principal Investigator (PI) will be notified once the order is created",
+        "note2": "The PI must respond with \"Approve\" or \"Request Deferral\" <strong>within 24 hours</strong>",
+        "note3": "If the PI does not respond in time, execution permission unlocks automatically",
+        "executionDeadline": "Execution deadline: {{deadline}}",
+        "reasonLabel": "Euthanasia Reason *",
+        "reasonHint": "Describe in detail why euthanasia is needed, including the animal's condition and clinical signs...",
+        "confirmCheckbox": "I have read and understood the notes above and confirm creating this euthanasia order",
+        "confirmCreate": "Confirm Creation"
+      }
+    },
+    "importExport": {
+      "unknownError": "An unknown error occurred",
+      "import": {
+        "basicTitle": "Import Animal Basic Data",
+        "basicDescription": "Excel (.xlsx, .xls) or CSV format supported",
+        "weightTitle": "Import Animal Weight Data",
+        "weightDescription": "Batch import weight records for multiple animals",
+        "successTitle": "Import Successful",
+        "successDescription": "Successfully imported {{count}} records",
+        "partialTitle": "Import Completed (Partial Failures)",
+        "partialDescription": "Succeeded: {{success}}, failed: {{failed}}",
+        "failedTitle": "Import Failed",
+        "selectFileFirst": "Please select a file first",
+        "conflictTitle": "Both a file and manual entries were detected",
+        "conflictDescription": "The file import will take precedence and manually entered rows will not be submitted. Continue?",
+        "start": "Start Import",
+        "downloadSuccessTitle": "Download Successful",
+        "downloadSuccessDescription": "The template file has started downloading",
+        "downloadFailedTitle": "Download Failed",
+        "downloadFailedDescription": "Unable to download the template file",
+        "imported": "Imported Successfully",
+        "errorDetails": "Error Details",
+        "colRow": "Row",
+        "colErrorMessage": "Error Message",
+        "downloadTemplateFile": "Download template file",
+        "downloadTemplateCsv": "Download Template (CSV)",
+        "downloadTemplateXlsx": "Download Template (XLSX)",
+        "selectFile": "Select File",
+        "notes": "Notes:",
+        "dateFormat": "Date format: YYYY-MM-DD",
+        "manualEntry": "Manual Entry",
+        "batchImport": "Batch Import",
+        "basicNotes": {
+          "earTagRequired": "Ear tag number is required and must be unique",
+          "earTagRule": "Ear tag rule: numeric values are automatically converted to three digits (e.g. 1 becomes 001)",
+          "entryWeightRequired": "Entry weight is required and must be a number greater than 0",
+          "breed": "Breed: miniature/minipig/mini/M (Miniature Pig), white/W (White Pig), other (Other), or the name/code of an enabled species with no sub-species (leaf node) under \"Facility Management → Species\"; an unrecognized breed will block that row and report an error",
+          "gender": "Sex: male/M (Male), female/F (Female)"
+        },
+        "weightNotes": {
+          "earTagMustExist": "The ear tag number must already exist in the system",
+          "measureDateFormat": "Measurement date format: YYYY-MM-DD",
+          "weightUnit": "Weight unit: kilograms (kg)"
+        }
+      },
+      "export": {
+        "fileNameSingle": "AnimalMedicalRecord_{{earTag}}_{{date}}.{{ext}}",
+        "fileNameBatch": "ProtocolMedicalRecordExport_{{project}}_{{date}}.{{ext}}",
+        "titleSingle": "Export Animal Medical Record",
+        "titleBatch": "Batch Export Protocol Medical Records",
+        "descriptionSingle": "Export the complete medical record for ear tag {{earTag}}",
+        "descriptionBatch": "Select a protocol and export the medical records of all animals under it",
+        "selectProject": "Select Protocol (IACUC No.) *",
+        "selectProjectHint": "Select a protocol to export",
+        "format": "Export Format",
+        "content": "Export Content",
+        "selectAll": "Select All",
+        "deselectAll": "Deselect All",
+        "action": "Export"
+      }
+    },
+    "info": {
+      "requestCorrection": "Request Correction",
+      "correctionSubmitted": "Correction request submitted; pending administrator review",
+      "source": "Source",
+      "preExperimentCode": "Pre-experiment Code",
+      "experimentDate": "Experiment Date",
+      "createdAt": "Created At"
+    },
+    "versionHistory": {
+      "title": "Version History",
+      "description": "{{recordType}} - View the historical versions of this record",
+      "empty": "No version history yet",
+      "currentVersion": "Current version v{{version}}",
+      "recordNature": "Record type:",
+      "eventDate": "Event date:",
+      "content": "Content:",
+      "surgeryDate": "Surgery date:",
+      "surgerySite": "Surgery site:",
+      "firstExperiment": "First experiment:"
+    },
+    "quickEdit": {
+      "updated": "Animal data updated",
+      "title": "Quick Edit Animal Data",
+      "description": "Edit the animal's basic information (only fields marked as editable can be changed)",
+      "readonlySection": "Basic Information (Read-only)",
+      "editableSection": "Editable Fields",
+      "entryWeightHint": "Enter weight",
+      "penHint": "e.g. A01",
+      "iacucHint": "Select IACUC No.",
+      "statusSection": "Status Information (For Reference Only)",
+      "onMedication": "On Medication",
+      "onMedicationHint": "Calculated automatically by the system; see the detail page for related records",
+      "vetRecommendationHint": "See the detail page for veterinarian recommendations",
+      "saveChanges": "Save Changes"
+    },
+    "correction": {
+      "earTagHint": "e.g. 001",
+      "genderHint": "Select gender",
+      "breedHint": "Select breed",
+      "title": "Request Field Correction",
+      "description": "Ear tag, birth date, gender, and breed cannot be edited directly once created. If a value was entered incorrectly, you can submit a correction request, which takes effect after a system administrator approves it. Ear tag: {{earTag}}",
+      "selectField": "Select the field to correct",
+      "currentValue": "Current Value",
+      "newValueLabel": "Corrected Value *",
+      "reasonLabel": "Correction Reason *",
+      "reasonHint": "Explain why the correction is needed (e.g. a data entry error)",
+      "submit": "Submit Request"
+    },
+    "sacrifice": {
+      "bloodletting": "Exsanguination",
+      "confirmedSacrifice": "Confirm Sacrifice",
+      "sampling": {
+        "heart": "Heart",
+        "liver": "Liver",
+        "spleen": "Spleen",
+        "lung": "Lung",
+        "kidney": "Kidney",
+        "eye": "Eye",
+        "ear": "Ear",
+        "tongue": "Tongue",
+        "brain": "Brain",
+        "boneTissue": "Bone Tissue",
+        "fat": "Fat",
+        "muscle": "Muscle",
+        "skin": "Skin"
+      },
+      "form": {
+        "editTitle": "Edit Sacrifice / Sampling Record",
+        "createTitle": "Add Sacrifice / Sampling Record",
+        "sacrificeDateRequired": "Sacrifice Date *",
+        "method": "Sacrifice Method",
+        "doseHint": "Enter dose",
+        "electrocution220": "220V Electrocution",
+        "otherMethodHint": "Enter other method",
+        "samplingSites": "Sampling Sites",
+        "otherSamplingHint": "Describe other sampling site",
+        "bloodSampled": "Blood Sampled (ml)",
+        "bloodVolumeHint": "Enter blood sampling volume",
+        "photoPlaceholder": "Drag photos here, or click to select photos"
+      },
+      "tab": {
+        "description": "Record sacrifice and sampling information after the study ends",
+        "createRecord": "Create Record",
+        "empty": "No sacrifice / sampling records yet",
+        "emptyHint": "Click the button above to add one",
+        "sacrificeDate": "Sacrifice Date",
+        "confirmed": "Confirmed",
+        "electrocution200": "200V Electrocution",
+        "otherMethod": "Other Method",
+        "sampling": "Sampling",
+        "bloodSamplingMl": "Blood Sampling (ml)"
+      }
+    },
+    "timeline": {
+      "filter": {
+        "all": "All",
+        "surgery": "Surgeries",
+        "weight": "Weight",
+        "death": "Sacrifice / Death",
+        "other": "Other Events"
+      },
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "weeksAgo": "{{count}} wk ago",
+      "monthsAgo": "{{count}} mo ago",
+      "yearsAgo": "{{count}} yr ago",
+      "firstSurgery": "First Surgery",
+      "createdEntry": "Record Created · Entry",
+      "createdContent": "Ear tag {{earTag}} entered",
+      "createdContentWithWeight": "Ear tag {{earTag}} entered, entry weight {{weight}} kg",
+      "sacrificeSampling": "Sacrifice / Sampling",
+      "electrocution": "Electrocution",
+      "bloodDraw": "Blood draw {{volume}} ml",
+      "samplingDetail": "Sampling: {{value}}",
+      "sacrificed": "Sacrificed",
+      "completedContent": "Ear tag {{earTag}} study completed",
+      "euthanizedContent": "Ear tag {{earTag}} euthanized",
+      "probableCause": "Probable cause: {{value}}",
+      "location": "Location: {{value}}",
+      "requiresPathology": "Pathology examination required",
+      "suddenDeathContent": "Animal found dead unexpectedly",
+      "transferRejected": "Transfer Rejected",
+      "transferInProgress": "Transfer In Progress",
+      "tbd": "TBD",
+      "iacucChange": "IACUC No. Changed",
+      "none": "(None)",
+      "emptyFiltered": "No records under this filter",
+      "recordedBy": "Recorded by: {{name}}",
+      "vetRead": "Read by Vet"
+    },
+    "recordType": {
+      "abnormal": "Abnormal Record",
+      "experiment": "Experiment Record",
+      "observation": "Observation Record"
+    },
+    "transfer": {
+      "typeLabel": "Transfer Type",
+      "type": {
+        "external": "To Another Institution",
+        "internal": "Within Institution"
+      },
+      "status": {
+        "pending": "Pending Review",
+        "vet_evaluated": "Vet Evaluated",
+        "plan_assigned": "New Protocol Assigned",
+        "pi_approved": "PI Approved",
+        "completed": "Transfer Completed",
+        "rejected": "Rejected"
+      },
+      "tab": {
+        "initiate": "Initiate Transfer",
+        "empty": "No transfer records for this animal yet",
+        "emptyHint": "Click the button above to initiate a transfer"
+      },
+      "vetEvaluate": {
+        "submitted": "Veterinary evaluation submitted",
+        "failed": "Evaluation failed",
+        "title": "Veterinary Evaluation",
+        "healthStatusLabel": "Health Status *",
+        "healthStatusHint": "Describe the animal's current health status...",
+        "fitLabel": "Fit for Transfer",
+        "fit": "Fit",
+        "notFit": "Not Fit",
+        "conditionsLabel": "Conditions",
+        "conditionsHint": "Describe any conditions, if applicable",
+        "submit": "Submit Evaluation"
+      },
+      "assignPlan": {
+        "failed": "Assignment failed",
+        "title": "Assign New Protocol",
+        "targetLabel": "Target IACUC No. *",
+        "targetHint": "Select target protocol...",
+        "confirm": "Confirm Assignment"
+      },
+      "reject": {
+        "rejectedDescription": "The transfer request has been rejected",
+        "failed": "Rejection failed",
+        "title": "Reject Transfer",
+        "reasonHint": "Rejection reason (required)",
+        "action": "Reject"
+      },
+      "approve": {
+        "approved": "PI approved the transfer; signature recorded",
+        "failed": "Approval failed",
+        "button": "PI Approves Transfer (Signature Required)",
+        "signatureConfirm": "{{signature}} — Confirm Transfer Approval"
+      },
+      "complete": {
+        "completed": "Transfer completed; the animal has been assigned to the new protocol",
+        "failed": "Completion failed",
+        "button": "Complete Transfer (Signature Required)",
+        "signatureConfirm": "{{signature}} — Confirm Transfer Completion"
+      },
+      "initiate": {
+        "submitted": "Transfer request initiated",
+        "failed": "Failed to initiate",
+        "title": "Initiate Transfer — {{earTag}}",
+        "description": "Please explain the reason for the transfer. Once initiated, the animal's status will change to \"Transferred\" pending veterinary evaluation.",
+        "reasonLabel": "Transfer Reason *",
+        "reasonHint": "Explain the reason for the transfer...",
+        "externalHint": "To another institution: the pen will be cleared once the transfer is completed.",
+        "internalHint": "Within the institution: the pen is kept once the transfer is completed; the animal is only moved out of the original protocol.",
+        "remarkHint": "Optional notes",
+        "confirm": "Confirm and Initiate"
+      },
+      "active": {
+        "title": "Transfer In Progress",
+        "fromPlan": "Original Protocol",
+        "toPlan": "New Protocol",
+        "reason": "Reason",
+        "initiatedAt": "Initiated At"
+      },
+      "stepper": {
+        "initiate": "Initiated",
+        "piApprove": "PI Approval"
+      },
+      "history": {
+        "title": "Transfer History ({{count}})",
+        "type": "Type: {{type}}",
+        "rejectedReason": "Rejection reason: {{reason}}"
+      }
+    },
+    "vetPatrol": {
+      "title": "Vet Patrol Report",
+      "dialogDescription": "Create / edit a vet patrol report: fill in observations, recommendations, and follow-up, and assign a follow-up person to complete the two-stage workflow.",
+      "category": {
+        "pigCondition": "Pig Condition",
+        "epidemicPrevention": "Disease Prevention & Disinfection Plan",
+        "caseRecord": "Medical Records"
+      },
+      "placeholder": {
+        "pigConditionObservation": "e.g. Mild lameness in the right hind leg...",
+        "pigConditionSuggestion": "e.g. Rest and observe for 3 days...",
+        "followUpBrief": "Accompanying personnel: please fill in briefly",
+        "otherObservation": "(Time, building, temperature, humidity, tarp condition)"
+      },
+      "entryNumber": "Entry #{{index}}",
+      "entryAriaLabel": "{{label}}, ear tags {{earTags}}, {{count}} animals in total",
+      "deleteEntry": "Delete Entry",
+      "animal": "Animal",
+      "animalMultiHint": "(Multiple animals allowed; they share the observation and recommendation)",
+      "animalPlaceholder": "Select animals (search by ear tag)",
+      "earTagSearch": "Search ear tag...",
+      "observationContent": "Observation",
+      "filledByAccompanying": "(Filled in by accompanying personnel)",
+      "followUpPendingHint": "To be filled in by the follow-up person after acknowledging receipt",
+      "photoAttachments": "Photo Attachments",
+      "addPhoto": "Add Photo",
+      "draftCreating": "Creating draft...",
+      "entryCaptionHint": "What does this photo show? e.g. Redness at the right neck injection site",
+      "reportCaptionHint": "What does this photo show? e.g. Standing water in the Building A corridor",
+      "addRow": "Add Row",
+      "patrolDate": "Patrol Date",
+      "accompanying": "Accompanying Personnel",
+      "accompanyingPlaceholder": "Select accompanying personnel (also the follow-up person)",
+      "staffSearch": "Search by name...",
+      "staffEmpty": "No matching personnel (you can add staff in the HR module)",
+      "environmentPhotosOptional": "Overall Environment Photos (Optional)",
+      "environmentPhotos": "Overall Environment Photos",
+      "photoUploaded": "Photo uploaded",
+      "photoUploadFailed": "Photo upload failed",
+      "status": {
+        "draft": "Draft",
+        "submitted": "Submitted"
+      },
+      "footer": {
+        "completedLocked": "Report completed and locked (GLP medical records are immutable)",
+        "pressAcknowledge": "Click \"Acknowledge Receipt\" to start filling in",
+        "waitingAcknowledge": "Waiting for the follow-up person to acknowledge receipt",
+        "fillFollowUp": "Fill in the \"Follow-up\" field, then click \"Confirm Completion\"",
+        "waitingFollowUp": "Waiting for the follow-up person to fill in the follow-up",
+        "autoSyncHint": "After saving, Pig Condition / Case Record entries sync automatically to the corresponding animal's \"Veterinarian Recommendations\"",
+        "draftCreatingWait": "Creating draft… please wait",
+        "downloadPdfHint": "Download PDF (may take up to 30 seconds the first time)",
+        "saveDraft": "Save Draft",
+        "selectTrackerFirst": "Select the accompanying personnel as the follow-up person first",
+        "submitToTracker": "Submit to Follow-up Person",
+        "acknowledge": "Acknowledge Receipt",
+        "confirmComplete": "Confirm Completion (Lock)"
+      },
+      "pdf": {
+        "serviceOffline": "PDF Service Offline",
+        "serviceOfflineDescription": "Administrators have been notified automatically. Please try again later.",
+        "generating": "Generating PDF",
+        "generatingDescription": "The first run may take up to 30 seconds. Please do not close the window or click again.",
+        "fileName": "PigFarmPatrolReport_{{date}}.pdf",
+        "exportFailed": "PDF export failed"
+      },
+      "hook": {
+        "saveFailed": "Save failed",
+        "draftSavedTitle": "Draft Saved",
+        "draftSavedDescription": "You can keep editing or submit later",
+        "saveDraftFailed": "Failed to save draft",
+        "submittedDescription": "Submitted to the follow-up person; they have been notified",
+        "submitFailed": "Submit failed",
+        "acknowledgedTitle": "Receipt Acknowledged",
+        "acknowledgedDescription": "You can fill in the Follow-up field directly; click \"Confirm Completion\" when done",
+        "acknowledgeFailed": "Acknowledgement failed",
+        "followUpCompleted": "Follow-up completed; the report is now locked",
+        "followUpFailed": "Failed to complete follow-up",
+        "unsavedConfirm": "You have unsaved changes that will be lost if you close. Close anyway?"
+      },
+      "view": {
+        "description": "Read-only view of the vet patrol report; use \"Download PDF\" to print.",
+        "loadFailed": "Failed to load the report. Please try again later or use \"Download PDF\"."
+      }
+    },
+    "vetRecommendations": {
+      "description": "Filed automatically when a patrol report is completed (read-only)",
+      "date": "Date",
+      "emptyTitle": "No veterinarian recommendations yet",
+      "emptyDescription": "They will appear here automatically once a patrol report is completed"
+    },
+    "penReport": {
+      "fileName": "PenStatusReport_{{date}}.pdf",
+      "title": "Pen Status Report Preview",
+      "patrolDate": "Patrol date: {{date}}",
+      "generating": "Generating PDF… (the first run takes about 10–20 seconds)",
+      "previewFailed": "Failed to load the PDF preview. Please try again later or download the PDF directly",
+      "iframeTitle": "Pen Status Report PDF Preview",
+      "exporting": "Exporting…"
+    }
   }
 }

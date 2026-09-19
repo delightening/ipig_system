@@ -12,6 +12,7 @@
 //   保證 PI 也看不到 audit log 內的此 entity_type 事件）。
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, Plus, Recycle, Trash2 } from 'lucide-react'
 
 import { byproductSampleApi, type ByproductSample } from '@/lib/api'
@@ -37,6 +38,7 @@ export function ByproductSamplesPanel({
   earTag,
   animalSacrificed,
 }: Props) {
+  const { t } = useTranslation()
   const hasPermission = useAuthHasPermission()
   const canView = hasPermission('animal.byproduct_sample.view')
   const canWrite = hasPermission('animal.byproduct_sample.write')
@@ -59,12 +61,12 @@ export function ByproductSamplesPanel({
       queryClient.invalidateQueries({
         queryKey: ['byproduct-samples', 'animal', animalId],
       })
-      toast({ title: '已刪除採樣紀錄' })
+      toast({ title: t('animalActions.byproduct.panel.deletedToast') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '刪除失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalActions.byproduct.panel.deleteFailed')),
         variant: 'destructive',
       })
     },
@@ -75,8 +77,8 @@ export function ByproductSamplesPanel({
   const handleAdd = () => {
     if (!animalSacrificed) {
       toast({
-        title: '無法新增',
-        description: '動物尚未犧牲（確認犧牲 / 安樂死執行），無法新增採樣紀錄。',
+        title: t('animalActions.byproduct.panel.cannotAddTitle'),
+        description: t('animalActions.byproduct.panel.cannotAddDescription'),
         variant: 'destructive',
       })
       return
@@ -92,9 +94,9 @@ export function ByproductSamplesPanel({
 
   const handleDelete = async (s: ByproductSample) => {
     const ok = await confirm({
-      title: '刪除採樣紀錄？',
-      description: `採樣時間 ${formatDateTime(s.sampled_at)} / 內容「${s.sample_content}」將軟刪除。`,
-      confirmLabel: '刪除',
+      title: t('animalActions.byproduct.panel.deleteConfirmTitle'),
+      description: t('animalActions.byproduct.panel.deleteConfirmDescription', { time: formatDateTime(s.sampled_at), content: s.sample_content }),
+      confirmLabel: t('common.delete'),
       variant: 'destructive',
     })
     if (ok) deleteMutation.mutate(s.id)
@@ -109,7 +111,7 @@ export function ByproductSamplesPanel({
       >
         {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         <Recycle className="h-4 w-4 text-muted-foreground" />
-        <span className="font-medium">再利用記錄</span>
+        <span className="font-medium">{t('animalActions.byproduct.panel.title')}</span>
         <span className="text-sm text-muted-foreground ml-2">({samples.length})</span>
       </button>
 
@@ -119,21 +121,21 @@ export function ByproductSamplesPanel({
             <div className="flex flex-col items-end gap-1">
               <Button size="sm" onClick={handleAdd} disabled={!animalSacrificed}>
                 <Plus className="h-4 w-4 mr-1" />
-                新增採樣紀錄
+                {t('animalActions.byproduct.panel.addSample')}
               </Button>
               {!animalSacrificed && (
                 <p className="text-xs text-muted-foreground">
-                  需動物已犧牲（確認犧牲 / 安樂死執行）才能新增採樣
+                  {t('animalActions.byproduct.panel.addRequiresSacrificed')}
                 </p>
               )}
             </div>
           )}
 
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">載入中…</p>
+            <p className="text-sm text-muted-foreground">{t('animalActions.common.loadingEllipsis')}</p>
           ) : samples.length === 0 ? (
             <p className="text-sm text-muted-foreground italic">
-              無紀錄（結案豬隻組織 / 血液再利用給其他研究方時建立）
+              {t('animalActions.byproduct.panel.empty')}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -145,19 +147,20 @@ export function ByproductSamplesPanel({
                   <div className="flex-1 space-y-1">
                     <div className="font-medium">{s.sample_content}</div>
                     <div className="text-muted-foreground text-xs">
-                      採樣 {formatDateTime(s.sampled_at)}
+                      {t('animalActions.byproduct.panel.sampledAt', { time: formatDateTime(s.sampled_at) })}
                       {' / '}
-                      需求方：
-                      {s.requester_user_id
-                        ? `(系統內 user) ${s.requester_user_id}`
-                        : `${s.requester_org_name ?? ''}／${s.requester_contact_name ?? ''}`}
+                      {t('animalActions.byproduct.panel.requester', {
+                        requester: s.requester_user_id
+                          ? t('animalActions.byproduct.panel.requesterInternal', { id: s.requester_user_id })
+                          : t('animalActions.byproduct.panel.requesterExternal', { org: s.requester_org_name ?? '', contact: s.requester_contact_name ?? '' }),
+                      })}
                     </div>
-                    {s.notes && <div className="text-xs text-muted-foreground">備註：{s.notes}</div>}
+                    {s.notes && <div className="text-xs text-muted-foreground">{t('animalActions.byproduct.panel.notes', { notes: s.notes })}</div>}
                   </div>
                   {canWrite && (
                     <div className="flex gap-1 shrink-0">
                       <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}>
-                        編輯
+                        {t('common.edit')}
                       </Button>
                       <Button
                         size="sm"

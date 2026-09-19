@@ -5,6 +5,7 @@
 // radio 切換。Backend service / migration CHECK 雙層守衛，前端 UI 也擋一次。
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Loader2, Recycle } from 'lucide-react'
 
 import {
@@ -45,6 +46,7 @@ export function ByproductSampleDialog({
   earTag,
   existing,
 }: Props) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEdit = Boolean(existing)
 
@@ -132,13 +134,13 @@ export function ByproductSampleDialog({
       queryClient.invalidateQueries({
         queryKey: ['byproduct-samples', 'animal', animalId],
       })
-      toast({ title: isEdit ? '已更新採樣紀錄' : '已新增採樣紀錄' })
+      toast({ title: isEdit ? t('animalActions.byproduct.dialog.updatedToast') : t('animalActions.byproduct.dialog.createdToast') })
       onOpenChange(false)
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, isEdit ? '更新失敗' : '新增失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, isEdit ? t('animalActions.common.updateFailed') : t('animalActions.byproduct.dialog.createFailed')),
         variant: 'destructive',
       })
     },
@@ -147,11 +149,11 @@ export function ByproductSampleDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!sampledAtLocal) {
-      toast({ title: '錯誤', description: '請選擇採樣時間', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('animalActions.byproduct.dialog.sampledAtRequired'), variant: 'destructive' })
       return
     }
     if (!sampleContent.trim()) {
-      toast({ title: '錯誤', description: '請填寫採樣內容', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('animalActions.byproduct.dialog.sampleContentRequired'), variant: 'destructive' })
       return
     }
     if (
@@ -159,16 +161,16 @@ export function ByproductSampleDialog({
       (!requesterOrgName.trim() || !requesterContactName.trim())
     ) {
       toast({
-        title: '錯誤',
-        description: '外部需求方需填寫機構名與聯絡人',
+        title: t('common.error'),
+        description: t('animalActions.byproduct.dialog.externalRequesterRequired'),
         variant: 'destructive',
       })
       return
     }
     if (requesterMode === 'internal' && !requesterUserId.trim()) {
       toast({
-        title: '錯誤',
-        description: '系統內需求方需填寫 user id',
+        title: t('common.error'),
+        description: t('animalActions.byproduct.dialog.internalRequesterRequired'),
         variant: 'destructive',
       })
       return
@@ -182,14 +184,14 @@ export function ByproductSampleDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Recycle className="h-5 w-5" />
-            {isEdit ? '編輯' : '新增'}再利用記錄
+            {isEdit ? t('animalActions.byproduct.dialog.editTitle') : t('animalActions.byproduct.dialog.createTitle')}
           </DialogTitle>
-          <DialogDescription>耳號：{earTag}</DialogDescription>
+          <DialogDescription>{t('animalActions.common.earTagLabel', { earTag })}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="sampled_at">採樣時間 *</Label>
+            <Label htmlFor="sampled_at">{t('animalActions.byproduct.dialog.sampledAtLabel')}</Label>
             <Input
               id="sampled_at"
               type="datetime-local"
@@ -200,19 +202,19 @@ export function ByproductSampleDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="sample_content">採樣內容 *</Label>
+            <Label htmlFor="sample_content">{t('animalActions.byproduct.dialog.sampleContentLabel')}</Label>
             <Textarea
               id="sample_content"
               value={sampleContent}
               onChange={(e) => setSampleContent(e.target.value)}
-              placeholder="例如：左後肢肌肉組織 5g、心臟血 10mL"
+              placeholder={t('animalActions.byproduct.dialog.sampleContentHint')}
               className="min-h-[80px]"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label>需求方類型 *</Label>
+            <Label>{t('animalActions.byproduct.dialog.requesterTypeLabel')}</Label>
             <div className="flex gap-4 text-sm">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -221,7 +223,7 @@ export function ByproductSampleDialog({
                   checked={requesterMode === 'external'}
                   onChange={() => setRequesterMode('external')}
                 />
-                外部（機構 / 聯絡人）
+                {t('animalActions.byproduct.dialog.requesterExternal')}
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -230,7 +232,7 @@ export function ByproductSampleDialog({
                   checked={requesterMode === 'internal'}
                   onChange={() => setRequesterMode('internal')}
                 />
-                系統內（user id）
+                {t('animalActions.byproduct.dialog.requesterInternal')}
               </label>
             </div>
             {requesterMode === 'external' ? (
@@ -238,13 +240,13 @@ export function ByproductSampleDialog({
                 <Input
                   value={requesterOrgName}
                   onChange={(e) => setRequesterOrgName(e.target.value)}
-                  placeholder="機構名（例：國防醫學大學）"
+                  placeholder={t('animalActions.byproduct.dialog.orgNameHint')}
                   required
                 />
                 <Input
                   value={requesterContactName}
                   onChange={(e) => setRequesterContactName(e.target.value)}
-                  placeholder="聯絡人（例：王教授）"
+                  placeholder={t('animalActions.byproduct.dialog.contactNameHint')}
                   required
                 />
               </div>
@@ -259,23 +261,23 @@ export function ByproductSampleDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">備註</Label>
+            <Label htmlFor="notes">{t('animalActions.common.notes')}</Label>
             <Textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="可空白"
+              placeholder={t('animalActions.byproduct.dialog.notesHint')}
               className="min-h-[60px]"
             />
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {isEdit ? '更新' : '新增'}
+              {isEdit ? t('common.update') : t('common.create')}
             </Button>
           </DialogFooter>
         </form>

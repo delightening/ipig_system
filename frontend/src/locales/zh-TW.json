@@ -5403,5 +5403,517 @@
       "probableCausePlaceholder": "描述可能的死因...",
       "requiresPathology": "需要病理檢查"
     }
+  },
+  "animalActions": {
+    "common": {
+      "notes": "備註",
+      "earTagLabel": "耳號：{{earTag}}",
+      "operationFailed": "操作失敗",
+      "done": "完成",
+      "recordsCount": "{{count}} 筆",
+      "system": "系統",
+      "entryWeightKg": "進場體重 (kg)",
+      "animalBasicInfo": "動物基本資料",
+      "updateFailed": "更新失敗",
+      "other": "其他",
+      "vetRecommendation": "獸醫師建議",
+      "totalRecords": "共 {{count}} 筆",
+      "observation": "觀察",
+      "recommendation": "建議",
+      "followUp": "追蹤改善",
+      "listSeparator": "、",
+      "animalCount": "{{count}} 隻",
+      "loadingEllipsis": "載入中…",
+      "uploadPhotos": "上傳照片"
+    },
+    "byproduct": {
+      "dialog": {
+        "updatedToast": "已更新採樣紀錄",
+        "createdToast": "已新增採樣紀錄",
+        "createFailed": "新增失敗",
+        "sampledAtRequired": "請選擇採樣時間",
+        "sampleContentRequired": "請填寫採樣內容",
+        "externalRequesterRequired": "外部需求方需填寫機構名與聯絡人",
+        "internalRequesterRequired": "系統內需求方需填寫 user id",
+        "editTitle": "編輯再利用記錄",
+        "createTitle": "新增再利用記錄",
+        "sampledAtLabel": "採樣時間 *",
+        "sampleContentLabel": "採樣內容 *",
+        "sampleContentHint": "例如：左後肢肌肉組織 5g、心臟血 10mL",
+        "requesterTypeLabel": "需求方類型 *",
+        "requesterExternal": "外部（機構 / 聯絡人）",
+        "requesterInternal": "系統內（user id）",
+        "orgNameHint": "機構名（例：國防醫學大學）",
+        "contactNameHint": "聯絡人（例：王教授）",
+        "notesHint": "可空白"
+      },
+      "panel": {
+        "deletedToast": "已刪除採樣紀錄",
+        "deleteFailed": "刪除失敗",
+        "cannotAddTitle": "無法新增",
+        "cannotAddDescription": "動物尚未犧牲（確認犧牲 / 安樂死執行），無法新增採樣紀錄。",
+        "deleteConfirmTitle": "刪除採樣紀錄？",
+        "deleteConfirmDescription": "採樣時間 {{time}} / 內容「{{content}}」將軟刪除。",
+        "title": "再利用記錄",
+        "addSample": "新增採樣紀錄",
+        "addRequiresSacrificed": "需動物已犧牲（確認犧牲 / 安樂死執行）才能新增採樣",
+        "empty": "無紀錄（結案豬隻組織 / 血液再利用給其他研究方時建立）",
+        "sampledAt": "採樣 {{time}}",
+        "requester": "需求方：{{requester}}",
+        "requesterInternal": "(系統內 user) {{id}}",
+        "requesterExternal": "{{org}}／{{contact}}",
+        "notes": "備註：{{notes}}"
+      }
+    },
+    "euthanasia": {
+      "countdown": {
+        "expired": "已到期",
+        "hoursMinutes": "{{hours}} 小時 {{minutes}} 分",
+        "minutes": "{{minutes}} 分"
+      },
+      "pending": {
+        "approvedTitle": "已同意執行安樂死",
+        "approvedDescription": "簽章已記錄，獸醫師將收到通知並可執行操作。",
+        "appealSubmittedTitle": "暫緩申請已送出",
+        "appealSubmittedDescription": "CHAIR 將於 24 小時內進行仲裁。",
+        "title": "待處理安樂死單",
+        "description": "您有 {{count}} 筆安樂死通知待處理",
+        "orderingVet": "開單獸醫：{{name}}",
+        "reason": "原因：{{reason}}",
+        "timeRemaining": "剩餘時間：{{time}}",
+        "approveExecute": "同意執行",
+        "requestDeferral": "申請暫緩",
+        "signatureConfirmApprove": "{{signature}} — 確認同意執行安樂死",
+        "appealTitle": "申請暫緩安樂死",
+        "appealNotesTitle": "暫緩申請說明：",
+        "appealNote1": "提交暫緩申請後，CHAIR 將於 24 小時內進行仲裁",
+        "appealNote2": "若 CHAIR 未於時限內回應，系統將自動核准執行安樂死",
+        "appealNote3": "請詳細說明希望暫緩的理由",
+        "appealReasonRequired": "暫緩理由 *",
+        "appealReasonHint": "請說明希望暫緩安樂死的原因，例如：動物狀況好轉、需要更多觀察時間、計畫需調整等...",
+        "submitAppeal": "送出暫緩申請"
+      },
+      "chair": {
+        "decisionSubmitted": "裁決已送出",
+        "approvedDescription": "已核准暫緩，安樂死取消。",
+        "rejectedDescription": "已駁回暫緩，將執行安樂死。",
+        "title": "待仲裁安樂死暫緩申請",
+        "description": "您有 {{count}} 筆暫緩申請待裁決",
+        "vetLabel": "獸醫：",
+        "piLabel": "PI：",
+        "vetReasonLabel": "獸醫安樂死原因：",
+        "piAppealReasonLabel": "PI 暫緩理由：",
+        "viewAttachment": "查看附件",
+        "decisionDeadline": "裁決期限：{{time}}",
+        "approveDeferral": "核准暫緩",
+        "rejectAppeal": "駁回申請",
+        "approveExplain": "核准暫緩後，安樂死單將被取消，動物可繼續留在計畫中。",
+        "rejectDeferral": "駁回暫緩申請",
+        "rejectExplain": "駁回後，獸醫師將可執行安樂死操作。",
+        "decisionNoteOptional": "裁決說明（選填）",
+        "decisionNoteHint": "可填寫裁決的理由或說明...",
+        "confirmDecision": "確認裁決"
+      },
+      "order": {
+        "createdTitle": "安樂死單已開立",
+        "createdDescription": "系統已通知計畫主持人，請等待回應或 24 小時後自動解鎖。",
+        "createFailed": "開立失敗",
+        "reasonRequired": "請填寫安樂死原因",
+        "confirmRequired": "請確認已閱讀注意事項",
+        "title": "開立安樂死單",
+        "notesTitle": "注意事項",
+        "note1": "開立後將通知計畫主持人（PI）",
+        "note2": "PI 需在 <strong>24 小時內</strong> 回應「同意」或「申請暫緩」",
+        "note3": "若 PI 未於時限內回應，系統將自動解鎖執行權限",
+        "executionDeadline": "執行期限：{{deadline}}",
+        "reasonLabel": "安樂死原因 *",
+        "reasonHint": "詳細說明執行安樂死的原因，包括動物狀況、臨床症狀等...",
+        "confirmCheckbox": "我已閱讀並理解上述注意事項，確認開立安樂死單據",
+        "confirmCreate": "確認開立"
+      }
+    },
+    "importExport": {
+      "unknownError": "發生未知錯誤",
+      "import": {
+        "basicTitle": "匯入動物基本資料",
+        "basicDescription": "支援 Excel (.xlsx, .xls) 或 CSV 格式",
+        "weightTitle": "匯入動物體重資料",
+        "weightDescription": "批次匯入多隻動物的體重紀錄",
+        "successTitle": "匯入成功",
+        "successDescription": "成功匯入 {{count}} 筆資料",
+        "partialTitle": "匯入完成（部分失敗）",
+        "partialDescription": "成功: {{success}} 筆，失敗: {{failed}} 筆",
+        "failedTitle": "匯入失敗",
+        "selectFileFirst": "請先選擇檔案",
+        "conflictTitle": "同時偵測到檔案與手動填寫",
+        "conflictDescription": "將以「檔案匯入」為準執行，手動填寫的列不會送出。是否繼續？",
+        "start": "開始匯入",
+        "downloadSuccessTitle": "下載成功",
+        "downloadSuccessDescription": "範本檔案已開始下載",
+        "downloadFailedTitle": "下載失敗",
+        "downloadFailedDescription": "無法下載範本檔案",
+        "imported": "成功匯入",
+        "errorDetails": "錯誤明細",
+        "colRow": "列",
+        "colErrorMessage": "錯誤訊息",
+        "downloadTemplateFile": "下載範本檔案",
+        "downloadTemplateCsv": "下載範本 (CSV)",
+        "downloadTemplateXlsx": "下載範本 (XLSX)",
+        "selectFile": "選擇檔案",
+        "notes": "注意事項：",
+        "dateFormat": "日期格式：YYYY-MM-DD",
+        "manualEntry": "手動逐筆登錄",
+        "batchImport": "批量匯入",
+        "basicNotes": {
+          "earTagRequired": "耳號為必填欄位，不可重複",
+          "earTagRule": "耳號規則：若為數字，系統會自動轉換為三位數（例如 1 轉為 001）",
+          "entryWeightRequired": "進場體重為必填欄位，必須是大於 0 的數字",
+          "breed": "品種：miniature/minipig/mini/M (迷你豬)、white/W (白豬)、other (其他)，或「設施管理→物種」中已啟用且無子物種（葉節點）的物種名稱/代碼；填無法辨識的品種會擋下該列並報錯",
+          "gender": "性別：male/M (公)、female/F (母)"
+        },
+        "weightNotes": {
+          "earTagMustExist": "耳號必須已存在於系統中",
+          "measureDateFormat": "測量日期格式：YYYY-MM-DD",
+          "weightUnit": "體重單位：公斤 (kg)"
+        }
+      },
+      "export": {
+        "fileNameSingle": "動物病歷_{{earTag}}_{{date}}.{{ext}}",
+        "fileNameBatch": "計畫病歷匯出_{{project}}_{{date}}.{{ext}}",
+        "titleSingle": "匯出動物病歷",
+        "titleBatch": "批次匯出計畫病歷",
+        "descriptionSingle": "匯出耳號 {{earTag}} 的完整病歷資料",
+        "descriptionBatch": "選擇計畫並匯出該計畫下所有動物的病歷資料",
+        "selectProject": "選擇計畫 (IACUC No.) *",
+        "selectProjectHint": "選擇要匯出的計畫",
+        "format": "匯出格式",
+        "content": "匯出內容",
+        "selectAll": "全選",
+        "deselectAll": "取消全選",
+        "action": "匯出"
+      }
+    },
+    "info": {
+      "requestCorrection": "申請修正",
+      "correctionSubmitted": "修正申請已提交，待管理員審核",
+      "source": "來源",
+      "preExperimentCode": "實驗前代號",
+      "experimentDate": "實驗日期",
+      "createdAt": "建立時間"
+    },
+    "versionHistory": {
+      "title": "版本歷史",
+      "description": "{{recordType}} - 檢視紀錄的歷史版本",
+      "empty": "尚無版本歷史",
+      "currentVersion": "目前版本 v{{version}}",
+      "recordNature": "紀錄性質：",
+      "eventDate": "事件日期：",
+      "content": "內容：",
+      "surgeryDate": "手術日期：",
+      "surgerySite": "手術部位：",
+      "firstExperiment": "首次實驗："
+    },
+    "quickEdit": {
+      "updated": "動物資料已更新",
+      "title": "快速編輯動物資料",
+      "description": "編輯動物的基本資訊（僅可編輯標示為可編輯的欄位）",
+      "readonlySection": "基本資訊（不可編輯）",
+      "editableSection": "可編輯欄位",
+      "entryWeightHint": "輸入體重",
+      "penHint": "如：A01",
+      "iacucHint": "選擇 IACUC No.",
+      "statusSection": "狀態資訊（僅供參考）",
+      "onMedication": "用藥中",
+      "onMedicationHint": "此資訊由系統自動計算，請至詳情頁查看相關記錄",
+      "vetRecommendationHint": "請至詳情頁查看獸醫師建議",
+      "saveChanges": "儲存變更"
+    },
+    "correction": {
+      "earTagHint": "如：001",
+      "genderHint": "選擇性別",
+      "breedHint": "選擇品種",
+      "title": "申請修正欄位",
+      "description": "耳號、出生日期、性別、品種等欄位建立後不可直接修改。若輸入錯誤，可提交修正申請，經系統管理員批准後套用。耳號：{{earTag}}",
+      "selectField": "選擇要修正的欄位",
+      "currentValue": "目前值",
+      "newValueLabel": "修正後的值 *",
+      "reasonLabel": "修正原因 *",
+      "reasonHint": "請說明為何需要修正（例如：建檔時誤植）",
+      "submit": "提交申請"
+    },
+    "sacrifice": {
+      "bloodletting": "放血",
+      "confirmedSacrifice": "確定犧牲",
+      "sampling": {
+        "heart": "心",
+        "liver": "肝",
+        "spleen": "脾",
+        "lung": "肺",
+        "kidney": "腎",
+        "eye": "眼",
+        "ear": "耳",
+        "tongue": "舌",
+        "brain": "腦",
+        "boneTissue": "骨組織",
+        "fat": "脂肪",
+        "muscle": "肌肉",
+        "skin": "皮膚"
+      },
+      "form": {
+        "editTitle": "編輯犧牲/採樣紀錄",
+        "createTitle": "新增犧牲/採樣紀錄",
+        "sacrificeDateRequired": "犧牲日期 *",
+        "method": "犧牲方式",
+        "doseHint": "請輸入劑量",
+        "electrocution220": "220V電擊",
+        "otherMethodHint": "請輸入其他方式",
+        "samplingSites": "採樣部位",
+        "otherSamplingHint": "請輸入其他採樣部位說明",
+        "bloodSampled": "採樣血液 (ml)",
+        "bloodVolumeHint": "請輸入血液採樣量",
+        "photoPlaceholder": "拖曳照片到此處，或點擊選擇照片"
+      },
+      "tab": {
+        "description": "記錄實驗結束後的犧牲與採樣資訊",
+        "createRecord": "建立紀錄",
+        "empty": "尚無犧牲/採樣紀錄",
+        "emptyHint": "點擊上方按鈕新增",
+        "sacrificeDate": "犧牲日期",
+        "confirmed": "已確認",
+        "electrocution200": "200V電擊",
+        "otherMethod": "其他方式",
+        "sampling": "採樣",
+        "bloodSamplingMl": "血液採樣 (ml)"
+      }
+    },
+    "timeline": {
+      "filter": {
+        "all": "全部",
+        "surgery": "手術",
+        "weight": "體重",
+        "death": "犧牲/死亡",
+        "other": "其他事件"
+      },
+      "today": "今天",
+      "yesterday": "昨天",
+      "weeksAgo": "{{count}} 週前",
+      "monthsAgo": "{{count}} 個月前",
+      "yearsAgo": "{{count}} 年前",
+      "firstSurgery": "首次手術",
+      "createdEntry": "資料建立 · 進場",
+      "createdContent": "耳號 {{earTag}} 進場",
+      "createdContentWithWeight": "耳號 {{earTag}} 進場，進場體重 {{weight}} kg",
+      "sacrificeSampling": "犧牲/採樣",
+      "electrocution": "電擊",
+      "bloodDraw": "採血 {{volume}} ml",
+      "samplingDetail": "採樣：{{value}}",
+      "sacrificed": "已犧牲",
+      "completedContent": "耳號 {{earTag}} 實驗已完成",
+      "euthanizedContent": "耳號 {{earTag}} 已安樂死",
+      "probableCause": "可能原因：{{value}}",
+      "location": "地點：{{value}}",
+      "requiresPathology": "需要病理檢查",
+      "suddenDeathContent": "動物猝死",
+      "transferRejected": "轉讓拒絕",
+      "transferInProgress": "轉讓進行中",
+      "tbd": "待定",
+      "iacucChange": "IACUC No. 變更",
+      "none": "（無）",
+      "emptyFiltered": "此篩選下尚無紀錄",
+      "recordedBy": "記錄者：{{name}}",
+      "vetRead": "獸醫已讀"
+    },
+    "recordType": {
+      "abnormal": "異常紀錄",
+      "experiment": "試驗紀錄",
+      "observation": "觀察紀錄"
+    },
+    "transfer": {
+      "typeLabel": "轉讓類型",
+      "type": {
+        "external": "轉給其他機構",
+        "internal": "仍在機構內"
+      },
+      "status": {
+        "pending": "待審",
+        "vet_evaluated": "獸醫已評估",
+        "plan_assigned": "已指定新計劃",
+        "pi_approved": "PI 已同意",
+        "completed": "轉讓完成",
+        "rejected": "已拒絕"
+      },
+      "tab": {
+        "initiate": "發起轉讓",
+        "empty": "此動物尚無轉讓記錄",
+        "emptyHint": "點擊上方按鈕發起轉讓"
+      },
+      "vetEvaluate": {
+        "submitted": "獸醫評估已提交",
+        "failed": "評估失敗",
+        "title": "獸醫評估",
+        "healthStatusLabel": "健康狀態 *",
+        "healthStatusHint": "描述動物當前健康狀態...",
+        "fitLabel": "是否適合轉讓",
+        "fit": "適合",
+        "notFit": "不適合",
+        "conditionsLabel": "附帶條件",
+        "conditionsHint": "如有附帶條件請說明",
+        "submit": "提交評估"
+      },
+      "assignPlan": {
+        "failed": "指定失敗",
+        "title": "指定新計劃",
+        "targetLabel": "目標 IACUC No. *",
+        "targetHint": "選擇目標計劃...",
+        "confirm": "確認指定"
+      },
+      "reject": {
+        "rejectedDescription": "轉讓申請已拒絕",
+        "failed": "拒絕失敗",
+        "title": "拒絕轉讓",
+        "reasonHint": "拒絕原因（必填）",
+        "action": "拒絕"
+      },
+      "approve": {
+        "approved": "PI 已同意轉讓，簽章已記錄",
+        "failed": "同意失敗",
+        "button": "PI 同意轉讓（需簽名）",
+        "signatureConfirm": "{{signature}} — 確認同意轉讓"
+      },
+      "complete": {
+        "completed": "轉讓已完成，動物已分配到新計劃",
+        "failed": "完成失敗",
+        "button": "完成轉讓（需簽名）",
+        "signatureConfirm": "{{signature}} — 確認完成轉讓"
+      },
+      "initiate": {
+        "submitted": "已發起轉讓申請",
+        "failed": "發起失敗",
+        "title": "發起轉讓 — {{earTag}}",
+        "description": "請說明轉讓原因。發起後動物狀態將變為「已轉讓」，等待獸醫評估。",
+        "reasonLabel": "轉讓原因 *",
+        "reasonHint": "說明轉讓原因...",
+        "externalHint": "轉給其他機構：完成轉讓後將清空欄位。",
+        "internalHint": "仍在機構內：完成轉讓後保留欄位，僅移出原計劃。",
+        "remarkHint": "可選備註",
+        "confirm": "確認發起"
+      },
+      "active": {
+        "title": "進行中的轉讓",
+        "fromPlan": "原計劃",
+        "toPlan": "新計劃",
+        "reason": "原因",
+        "initiatedAt": "發起時間"
+      },
+      "stepper": {
+        "initiate": "發起",
+        "piApprove": "PI 同意"
+      },
+      "history": {
+        "title": "歷史轉讓紀錄 ({{count}})",
+        "type": "類型：{{type}}",
+        "rejectedReason": "拒絕原因：{{reason}}"
+      }
+    },
+    "vetPatrol": {
+      "title": "獸醫巡場報告",
+      "dialogDescription": "建立 / 編輯獸醫巡場報告：填寫觀察、建議、追蹤改善，並指派追蹤者完成兩階段流程。",
+      "category": {
+        "pigCondition": "豬隻狀況",
+        "epidemicPrevention": "防疫及消毒計畫",
+        "caseRecord": "病歷紀錄"
+      },
+      "placeholder": {
+        "pigConditionObservation": "例：右後腿輕微跛行...",
+        "pigConditionSuggestion": "例:休養觀察 3 日...",
+        "followUpBrief": "請陪同人員扼要填寫",
+        "otherObservation": "（時間、棟舍、溫度、濕度、帆布狀況）"
+      },
+      "entryNumber": "條目 #{{index}}",
+      "entryAriaLabel": "{{label}}，耳號 {{earTags}}，共 {{count}} 隻",
+      "deleteEntry": "刪除條目",
+      "animal": "動物",
+      "animalMultiHint": "（可選多隻，共用觀察+建議）",
+      "animalPlaceholder": "選擇動物（搜尋耳號）",
+      "earTagSearch": "搜尋耳號...",
+      "observationContent": "觀察內容",
+      "filledByAccompanying": "（陪同人員填寫）",
+      "followUpPendingHint": "待追蹤者於確認收到後填寫",
+      "photoAttachments": "照片附件",
+      "addPhoto": "新增照片",
+      "draftCreating": "草稿建立中...",
+      "entryCaptionHint": "這張想表達什麼？例：右頸注射部位紅腫",
+      "reportCaptionHint": "這張想表達什麼？例：A棟走道積水",
+      "addRow": "新增列",
+      "patrolDate": "巡場日期",
+      "accompanying": "陪同人員",
+      "accompanyingPlaceholder": "選擇陪同人員（也是追蹤者）",
+      "staffSearch": "搜尋姓名...",
+      "staffEmpty": "無符合人員（可在 HR 模組新增 staff）",
+      "environmentPhotosOptional": "整體環境照（選填）",
+      "environmentPhotos": "整體環境照",
+      "photoUploaded": "照片已上傳",
+      "photoUploadFailed": "照片上傳失敗",
+      "status": {
+        "draft": "草稿",
+        "submitted": "已送出"
+      },
+      "footer": {
+        "completedLocked": "報告已完成並鎖定（GLP 醫療紀錄不可變）",
+        "pressAcknowledge": "請按「確認收到」進入填寫階段",
+        "waitingAcknowledge": "待追蹤者確認收到",
+        "fillFollowUp": "請填寫「追蹤改善」欄位後按「確認完成」",
+        "waitingFollowUp": "待追蹤者填寫追蹤改善",
+        "autoSyncHint": "儲存後，豬隻狀況/病例紀錄會自動同步至對應動物的「獸醫師建議」",
+        "draftCreatingWait": "草稿建立中…請稍候",
+        "downloadPdfHint": "下載 PDF（首次可能需 30 秒）",
+        "saveDraft": "存草稿",
+        "selectTrackerFirst": "請先選擇陪同人員作為追蹤者",
+        "submitToTracker": "送出給追蹤者",
+        "acknowledge": "確認收到",
+        "confirmComplete": "確認完成（鎖定）"
+      },
+      "pdf": {
+        "serviceOffline": "PDF 服務未上線",
+        "serviceOfflineDescription": "已自動通知管理員。請稍後再試。",
+        "generating": "PDF 產製中",
+        "generatingDescription": "首次產製可能需要 30 秒，請勿關閉視窗或重複點擊。",
+        "fileName": "試驗豬場巡場報告_{{date}}.pdf",
+        "exportFailed": "PDF 匯出失敗"
+      },
+      "hook": {
+        "saveFailed": "儲存失敗",
+        "draftSavedTitle": "已存草稿",
+        "draftSavedDescription": "可繼續編輯或之後再送出",
+        "saveDraftFailed": "存草稿失敗",
+        "submittedDescription": "已送出給追蹤者，已通知對方",
+        "submitFailed": "送出失敗",
+        "acknowledgedTitle": "已確認收到",
+        "acknowledgedDescription": "可直接填寫追蹤改善欄位，完成後按「確認完成」",
+        "acknowledgeFailed": "確認失敗",
+        "followUpCompleted": "追蹤已完成，報告已鎖定",
+        "followUpFailed": "完成追蹤失敗",
+        "unsavedConfirm": "有未儲存的變更，關閉後會遺失。確定關閉？"
+      },
+      "view": {
+        "description": "唯讀檢視獸醫巡場報告內容；如需列印請使用「下載 PDF」。",
+        "loadFailed": "報告載入失敗，請稍後再試或改用「下載 PDF」。"
+      }
+    },
+    "vetRecommendations": {
+      "description": "來自巡場報告完成後自動歸位（唯讀）",
+      "date": "日期",
+      "emptyTitle": "尚無獸醫師建議",
+      "emptyDescription": "巡場報告完成後會自動出現在這裡"
+    },
+    "penReport": {
+      "fileName": "欄位狀態表_{{date}}.pdf",
+      "title": "欄位狀態表預覽",
+      "patrolDate": "巡視日期：{{date}}",
+      "generating": "PDF 產生中…（首次約需 10–20 秒）",
+      "previewFailed": "PDF 預覽載入失敗，請稍後再試或直接下載 PDF",
+      "iframeTitle": "欄位狀態表 PDF 預覽",
+      "exporting": "匯出中…"
+    }
   }
 }

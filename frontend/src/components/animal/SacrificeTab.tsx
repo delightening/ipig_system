@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
 import { uiLocale } from '@/lib/utils'
 import { GuestHide } from '@/components/ui/guest-hide'
 import { Can } from '@/components/auth'
@@ -19,6 +21,7 @@ interface SacrificeTabProps {
 }
 
 export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps) {
+  const { t } = useTranslation()
   const [showDialog, setShowDialog] = useState(false)
 
   return (
@@ -26,8 +29,8 @@ export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps)
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>犧牲/採樣紀錄</CardTitle>
-            <CardDescription>記錄實驗結束後的犧牲與採樣資訊</CardDescription>
+            <CardTitle>{t('animalDetail.tabs.sacrifice')}</CardTitle>
+            <CardDescription>{t('animalActions.sacrifice.tab.description')}</CardDescription>
           </div>
           <GuestHide>
             <Can permission={PERMISSIONS.ANIMAL_RECORD_CREATE}>
@@ -38,12 +41,12 @@ export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps)
                 {sacrifice ? (
                   <>
                     <Edit2 className="h-4 w-4 mr-2" />
-                    編輯
+                    {t('common.edit')}
                   </>
                 ) : (
                   <>
                     <Plus className="h-4 w-4 mr-2" />
-                    建立紀錄
+                    {t('animalActions.sacrifice.tab.createRecord')}
                   </>
                 )}
               </Button>
@@ -54,14 +57,14 @@ export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps)
           {!sacrifice ? (
             <div className="text-center py-12 text-muted-foreground">
               <Heart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p>尚無犧牲/採樣紀錄</p>
-              <p className="text-sm mt-1">點擊上方按鈕新增</p>
+              <p>{t('animalActions.sacrifice.tab.empty')}</p>
+              <p className="text-sm mt-1">{t('animalActions.sacrifice.tab.emptyHint')}</p>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">犧牲日期</Label>
+                  <Label className="text-muted-foreground">{t('animalActions.sacrifice.tab.sacrificeDate')}</Label>
                   <p className="font-medium">
                     {sacrifice.sacrifice_date
                       ? new Date(sacrifice.sacrifice_date).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })
@@ -70,11 +73,11 @@ export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps)
                   </p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">確定犧牲</Label>
+                  <Label className="text-muted-foreground">{t('animalActions.sacrifice.confirmedSacrifice')}</Label>
                   <p className="font-medium">
                     {sacrifice.confirmed_sacrifice ? (
-                      <Badge className="bg-status-error-bg text-status-error-text">已確認</Badge>
-                    ) : '否'}
+                      <Badge className="bg-status-error-bg text-status-error-text">{t('animalActions.sacrifice.tab.confirmed')}</Badge>
+                    ) : t('common.no')}
                   </p>
                 </div>
                 <div>
@@ -82,23 +85,23 @@ export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps)
                   <p className="font-medium">{sacrifice.zoletil_dose || '-'}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">200V電擊</Label>
-                  <p className="font-medium">{sacrifice.method_electrocution ? '是' : '否'}</p>
+                  <Label className="text-muted-foreground">{t('animalActions.sacrifice.tab.electrocution200')}</Label>
+                  <p className="font-medium">{sacrifice.method_electrocution ? t('common.yes') : t('common.no')}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">放血</Label>
-                  <p className="font-medium">{sacrifice.method_bloodletting ? '是' : '否'}</p>
+                  <Label className="text-muted-foreground">{t('animalActions.sacrifice.bloodletting')}</Label>
+                  <p className="font-medium">{sacrifice.method_bloodletting ? t('common.yes') : t('common.no')}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">其他方式</Label>
+                  <Label className="text-muted-foreground">{t('animalActions.sacrifice.tab.otherMethod')}</Label>
                   <p className="font-medium">{sacrifice.method_other || '-'}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">採樣</Label>
+                  <Label className="text-muted-foreground">{t('animalActions.sacrifice.tab.sampling')}</Label>
                   <p className="font-medium">{sacrifice.sampling || '-'}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">血液採樣 (ml)</Label>
+                  <Label className="text-muted-foreground">{t('animalActions.sacrifice.tab.bloodSamplingMl')}</Label>
                   <p className="font-medium">{sacrifice.blood_volume_ml || '-'}</p>
                 </div>
               </div>

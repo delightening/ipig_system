@@ -24,6 +24,15 @@ import { PERMISSIONS } from '@/lib/permissions.generated'
  * 直接斷言 `TransferTab` 算出來的布林，不繞道 UI 細節。
  */
 
+// ── i18n 替身：t(key) 回 key，斷言比對 key（專案慣例）────────────────────────────
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({ t: (key: string) => key }),
+    initReactI18next: { type: '3rdParty', init: () => {} },
+}))
+
+// 「發起轉讓」按鈕的 i18n key（t() 在測試中回傳 key 本身）
+const INITIATE_BUTTON = /animalActions\.transfer\.tab\.initiate/
+
 // ── 授權替身：每個測試自行決定「這個使用者有哪些權限碼、哪些角色」 ──────────────
 const granted = new Set<string>()
 let roles: string[] = []
@@ -94,7 +103,7 @@ describe('TransferTab 動作閘', () => {
     it('持 animal.transfer.manage 者看得到「發起轉讓」', async () => {
         granted.add(PERMISSIONS.ANIMAL_TRANSFER_MANAGE)
         await renderTab()
-        expect(screen.getByRole('button', { name: /發起轉讓/ })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: INITIATE_BUTTON })).toBeInTheDocument()
     })
 
     // 核心回歸：後端已把協調段從 animal.record.create 換成 animal.transfer.manage，
@@ -102,20 +111,20 @@ describe('TransferTab 動作閘', () => {
     it('只持 animal.record.create 者看不到「發起轉讓」', async () => {
         granted.add(PERMISSIONS.ANIMAL_RECORD_CREATE)
         await renderTab()
-        expect(screen.queryByRole('button', { name: /發起轉讓/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: INITIATE_BUTTON })).not.toBeInTheDocument()
     })
 
     it('動物狀態不是 completed 時不得發起（即使有權限）', async () => {
         granted.add(PERMISSIONS.ANIMAL_TRANSFER_MANAGE)
         await renderTab('in_experiment')
-        expect(screen.queryByRole('button', { name: /發起轉讓/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: INITIATE_BUTTON })).not.toBeInTheDocument()
     })
 
     it('已有進行中的轉讓時不得重複發起', async () => {
         granted.add(PERMISSIONS.ANIMAL_TRANSFER_MANAGE)
         transfers = [{ id: 't-1', status: 'pending' }]
         await renderTab()
-        expect(screen.queryByRole('button', { name: /發起轉讓/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: INITIATE_BUTTON })).not.toBeInTheDocument()
     })
 
     // 🔴 這一條是那個打錯字的直接回歸：`canComplete` 曾經恆為 false，
@@ -181,7 +190,7 @@ describe('TransferTab 動作閘', () => {
         roles = ['ADMIN']
         transfers = [{ id: 't-1', status: 'pi_approved' }]
         await renderTab()
-        expect(screen.queryByRole('button', { name: /發起轉讓/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: INITIATE_BUTTON })).not.toBeInTheDocument()
         expect(card()).toHaveAttribute('data-can-complete', 'false')
         expect(card()).toHaveAttribute('data-can-assign-plan', 'false')
         expect(card()).toHaveAttribute('data-can-reject', 'false')

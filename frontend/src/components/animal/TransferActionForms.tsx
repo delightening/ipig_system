@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { transferApi } from '@/lib/api'
 import type { AnimalTransfer } from '@/lib/api'
@@ -18,6 +19,7 @@ import { Stethoscope, FileCheck, Loader2, AlertTriangle } from 'lucide-react'
 // --- Vet Evaluate Form ---
 
 export function VetEvaluateForm({ transferId, invalidate }: { transferId: string; invalidate: () => void }) {
+    const { t } = useTranslation()
     const [healthStatus, setHealthStatus] = useState('')
     const [fit, setFit] = useState(true)
     const [conditions, setConditions] = useState('')
@@ -29,12 +31,12 @@ export function VetEvaluateForm({ transferId, invalidate }: { transferId: string
             conditions: conditions || undefined,
         }),
         onSuccess: () => {
-            toast({ title: '成功', description: '獸醫評估已提交' })
+            toast({ title: t('common.success'), description: t('animalActions.transfer.vetEvaluate.submitted') })
             setHealthStatus('')
             setConditions('')
             invalidate()
         },
-        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '評估失敗'), variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('animalActions.transfer.vetEvaluate.failed')), variant: 'destructive' }),
     })
 
     return (
@@ -42,37 +44,37 @@ export function VetEvaluateForm({ transferId, invalidate }: { transferId: string
             <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                     <Stethoscope className="h-4 w-4 text-status-success-text" />
-                    獸醫評估
+                    {t('animalActions.transfer.vetEvaluate.title')}
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
                 <div className="space-y-2">
-                    <Label>健康狀態 *</Label>
+                    <Label>{t('animalActions.transfer.vetEvaluate.healthStatusLabel')}</Label>
                     <Textarea
                         value={healthStatus}
                         onChange={e => setHealthStatus(e.target.value)}
-                        placeholder="描述動物當前健康狀態..."
+                        placeholder={t('animalActions.transfer.vetEvaluate.healthStatusHint')}
                         className="min-h-[60px]"
                     />
                 </div>
                 <div className="flex items-center gap-3">
-                    <Label>是否適合轉讓</Label>
+                    <Label>{t('animalActions.transfer.vetEvaluate.fitLabel')}</Label>
                     <Select value={fit ? 'yes' : 'no'} onValueChange={v => setFit(v === 'yes')}>
                         <SelectTrigger className="w-[140px]">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="yes">適合</SelectItem>
-                            <SelectItem value="no">不適合</SelectItem>
+                            <SelectItem value="yes">{t('animalActions.transfer.vetEvaluate.fit')}</SelectItem>
+                            <SelectItem value="no">{t('animalActions.transfer.vetEvaluate.notFit')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label>附帶條件</Label>
+                    <Label>{t('animalActions.transfer.vetEvaluate.conditionsLabel')}</Label>
                     <Input
                         value={conditions}
                         onChange={e => setConditions(e.target.value)}
-                        placeholder="如有附帶條件請說明"
+                        placeholder={t('animalActions.transfer.vetEvaluate.conditionsHint')}
                     />
                 </div>
                 <Button
@@ -81,7 +83,7 @@ export function VetEvaluateForm({ transferId, invalidate }: { transferId: string
                     className="bg-emerald-600 hover:bg-emerald-700"
                 >
                     {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    提交評估
+                    {t('animalActions.transfer.vetEvaluate.submit')}
                 </Button>
             </CardContent>
         </Card>
@@ -91,6 +93,7 @@ export function VetEvaluateForm({ transferId, invalidate }: { transferId: string
 // --- Assign Plan Form ---
 
 export function AssignPlanForm({ transfer, invalidate }: { transfer: AnimalTransfer; invalidate: () => void }) {
+    const { t } = useTranslation()
     const [targetIacuc, setTargetIacuc] = useState('')
 
     const { data: approvedProtocols } = useAssignableProtocols()
@@ -98,11 +101,11 @@ export function AssignPlanForm({ transfer, invalidate }: { transfer: AnimalTrans
     const mutation = useMutation({
         mutationFn: () => transferApi.assignPlan(transfer.id, { to_iacuc_no: targetIacuc }),
         onSuccess: () => {
-            toast({ title: '成功', description: '已指定新計劃' })
+            toast({ title: t('common.success'), description: t('animalActions.transfer.status.plan_assigned') })
             setTargetIacuc('')
             invalidate()
         },
-        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '指定失敗'), variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('animalActions.transfer.assignPlan.failed')), variant: 'destructive' }),
     })
 
     return (
@@ -110,15 +113,15 @@ export function AssignPlanForm({ transfer, invalidate }: { transfer: AnimalTrans
             <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                     <FileCheck className="h-4 w-4 text-status-info-text" />
-                    指定新計劃
+                    {t('animalActions.transfer.assignPlan.title')}
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
                 <div className="space-y-2">
-                    <Label>目標 IACUC No. *</Label>
+                    <Label>{t('animalActions.transfer.assignPlan.targetLabel')}</Label>
                     <Select value={targetIacuc} onValueChange={setTargetIacuc}>
                         <SelectTrigger>
-                            <SelectValue placeholder="選擇目標計劃..." />
+                            <SelectValue placeholder={t('animalActions.transfer.assignPlan.targetHint')} />
                         </SelectTrigger>
                         <SelectContent>
                             {approvedProtocols?.filter(p => p.iacuc_no !== transfer.from_iacuc_no).map(p => (
@@ -135,7 +138,7 @@ export function AssignPlanForm({ transfer, invalidate }: { transfer: AnimalTrans
                     className="bg-primary hover:bg-primary/90"
                 >
                     {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    確認指定
+                    {t('animalActions.transfer.assignPlan.confirm')}
                 </Button>
             </CardContent>
         </Card>
@@ -145,16 +148,17 @@ export function AssignPlanForm({ transfer, invalidate }: { transfer: AnimalTrans
 // --- Reject Form ---
 
 export function RejectForm({ transferId, invalidate }: { transferId: string; invalidate: () => void }) {
+    const { t } = useTranslation()
     const [reason, setReason] = useState('')
 
     const mutation = useMutation({
         mutationFn: () => transferApi.reject(transferId, { reason }),
         onSuccess: () => {
-            toast({ title: '已拒絕', description: '轉讓申請已拒絕' })
+            toast({ title: t('animalActions.transfer.status.rejected'), description: t('animalActions.transfer.reject.rejectedDescription') })
             setReason('')
             invalidate()
         },
-        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '拒絕失敗'), variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('animalActions.transfer.reject.failed')), variant: 'destructive' }),
     })
 
     return (
@@ -162,13 +166,13 @@ export function RejectForm({ transferId, invalidate }: { transferId: string; inv
             <CardContent className="pt-4 space-y-3">
                 <div className="flex items-center gap-2 text-status-error-text text-sm font-medium">
                     <AlertTriangle className="h-4 w-4" />
-                    拒絕轉讓
+                    {t('animalActions.transfer.reject.title')}
                 </div>
                 <div className="flex gap-2">
                     <Input
                         value={reason}
                         onChange={e => setReason(e.target.value)}
-                        placeholder="拒絕原因（必填）"
+                        placeholder={t('animalActions.transfer.reject.reasonHint')}
                         className="flex-1"
                     />
                     <Button
@@ -177,7 +181,7 @@ export function RejectForm({ transferId, invalidate }: { transferId: string; inv
                         disabled={!reason.trim() || mutation.isPending}
                     >
                         {mutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        拒絕
+                        {t('animalActions.transfer.reject.action')}
                     </Button>
                 </div>
             </CardContent>

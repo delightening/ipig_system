@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
+
 import api from '@/lib/api'
 import { useAuthHasRole } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
@@ -39,25 +42,26 @@ interface EuthanasiaAppeal {
     vet_reason?: string
 }
 
-function formatCountdown(deadline: string): string {
+function formatCountdown(deadline: string, t: TFunction): string {
     const now = new Date()
     const deadlineDate = new Date(deadline)
     const diff = deadlineDate.getTime() - now.getTime()
 
     if (diff <= 0) {
-        return '已到期'
+        return t('animalActions.euthanasia.countdown.expired')
     }
 
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
 
     if (hours > 0) {
-        return `${hours} 小時 ${minutes} 分`
+        return t('animalActions.euthanasia.countdown.hoursMinutes', { hours, minutes })
     }
-    return `${minutes} 分`
+    return t('animalActions.euthanasia.countdown.minutes', { minutes })
 }
 
 export function EuthanasiaChairArbitrationPanel() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     // R72-1：仲裁為 IACUC 主席專屬（後端 decide_appeal 亦 require IACUC_CHAIR）；非主席不取資料亦不顯示。
     const hasRole = useAuthHasRole()
@@ -83,8 +87,8 @@ export function EuthanasiaChairArbitrationPanel() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['euthanasia-appeals-pending'] })
             toast({
-                title: '裁決已送出',
-                description: decision === 'approve_appeal' ? '已核准暫緩，安樂死取消。' : '已駁回暫緩，將執行安樂死。',
+                title: t('animalActions.euthanasia.chair.decisionSubmitted'),
+                description: decision === 'approve_appeal' ? t('animalActions.euthanasia.chair.approvedDescription') : t('animalActions.euthanasia.chair.rejectedDescription'),
             })
             setShowDecisionDialog(false)
             setDecision('')
@@ -93,8 +97,8 @@ export function EuthanasiaChairArbitrationPanel() {
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '操作失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('animalActions.common.operationFailed')),
                 variant: 'destructive',
             })
         },
@@ -123,10 +127,10 @@ export function EuthanasiaChairArbitrationPanel() {
                 <CardHeader className="pb-3">
                     <CardTitle className="text-status-warning-text flex items-center gap-2">
                         <Gavel className="h-5 w-5" />
-                        待仲裁安樂死暫緩申請
+                        {t('animalActions.euthanasia.chair.title')}
                     </CardTitle>
                     <CardDescription className="text-status-warning-text">
-                        您有 {appeals.length} 筆暫緩申請待裁決
+                        {t('animalActions.euthanasia.chair.description', { count: appeals.length })}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -149,25 +153,25 @@ export function EuthanasiaChairArbitrationPanel() {
 
                                         <div className="grid grid-cols-2 gap-4 text-sm">
                                             <div>
-                                                <span className="text-muted-foreground">獸醫：</span>
+                                                <span className="text-muted-foreground">{t('animalActions.euthanasia.chair.vetLabel')}</span>
                                                 <span className="ml-1">{appeal.vet_name}</span>
                                             </div>
                                             <div>
-                                                <span className="text-muted-foreground">PI：</span>
+                                                <span className="text-muted-foreground">{t('animalActions.euthanasia.chair.piLabel')}</span>
                                                 <span className="ml-1">{appeal.pi_name}</span>
                                             </div>
                                         </div>
 
                                         <div className="bg-status-error-bg rounded p-3 text-sm">
                                             <p className="text-muted-foreground mb-1">
-                                                <strong>獸醫安樂死原因：</strong>
+                                                <strong>{t('animalActions.euthanasia.chair.vetReasonLabel')}</strong>
                                             </p>
                                             <p className="text-foreground">{appeal.vet_reason}</p>
                                         </div>
 
                                         <div className="bg-status-warning-bg rounded p-3 text-sm">
                                             <p className="text-muted-foreground mb-1">
-                                                <strong>PI 暫緩理由：</strong>
+                                                <strong>{t('animalActions.euthanasia.chair.piAppealReasonLabel')}</strong>
                                             </p>
                                             <p className="text-foreground">{appeal.reason}</p>
                                             {safeHref(appeal.attachment_path) && (
@@ -178,14 +182,14 @@ export function EuthanasiaChairArbitrationPanel() {
                                                     className="inline-flex items-center gap-1 text-status-info-text hover:underline mt-2"
                                                 >
                                                     <FileText className="h-4 w-4" />
-                                                    查看附件
+                                                    {t('animalActions.euthanasia.chair.viewAttachment')}
                                                 </a>
                                             )}
                                         </div>
 
                                         <div className="flex items-center gap-2 text-sm text-status-warning-text">
                                             <Clock className="h-4 w-4" />
-                                            裁決期限：{formatCountdown(appeal.chair_deadline_at)}
+                                            {t('animalActions.euthanasia.chair.decisionDeadline', { time: formatCountdown(appeal.chair_deadline_at, t) })}
                                         </div>
                                     </div>
 
@@ -201,7 +205,7 @@ export function EuthanasiaChairArbitrationPanel() {
                                             }}
                                         >
                                             <CheckCircle2 className="h-4 w-4 mr-1" />
-                                            核准暫緩
+                                            {t('animalActions.euthanasia.chair.approveDeferral')}
                                         </Button>
                                         <Button
                                             size="sm"
@@ -214,7 +218,7 @@ export function EuthanasiaChairArbitrationPanel() {
                                             }}
                                         >
                                             <XCircle className="h-4 w-4 mr-1" />
-                                            駁回申請
+                                            {t('animalActions.euthanasia.chair.rejectAppeal')}
                                         </Button>
                                     </div>
                                 </div>
@@ -231,15 +235,15 @@ export function EuthanasiaChairArbitrationPanel() {
                         <DialogTitle className="flex items-center gap-2">
                             <Gavel className="h-5 w-5" />
                             {decision === 'approve_appeal' ? (
-                                <span className="text-status-success-text">核准暫緩</span>
+                                <span className="text-status-success-text">{t('animalActions.euthanasia.chair.approveDeferral')}</span>
                             ) : (
-                                <span className="text-status-error-text">駁回申請</span>
+                                <span className="text-status-error-text">{t('animalActions.euthanasia.chair.rejectAppeal')}</span>
                             )}
                         </DialogTitle>
                         <DialogDescription>
                             {selectedAppeal && (
                                 <>
-                                    耳號：{selectedAppeal.animal_ear_tag}
+                                    {t('animalActions.common.earTagLabel', { earTag: selectedAppeal.animal_ear_tag })}
                                     {selectedAppeal.animal_iacuc_no && ` | IACUC No.: ${selectedAppeal.animal_iacuc_no}`}
                                 </>
                             )}
@@ -249,23 +253,23 @@ export function EuthanasiaChairArbitrationPanel() {
                     <div className="space-y-4">
                         {decision === 'approve_appeal' ? (
                             <div className="bg-status-success-bg border border-status-success-border rounded-lg p-4 text-sm text-status-success-text">
-                                <p className="font-medium mb-2">核准暫緩</p>
-                                <p>核准暫緩後，安樂死單將被取消，動物可繼續留在計畫中。</p>
+                                <p className="font-medium mb-2">{t('animalActions.euthanasia.chair.approveDeferral')}</p>
+                                <p>{t('animalActions.euthanasia.chair.approveExplain')}</p>
                             </div>
                         ) : (
                             <div className="bg-status-error-bg border border-status-error-border rounded-lg p-4 text-sm text-status-error-text">
-                                <p className="font-medium mb-2">駁回暫緩申請</p>
-                                <p>駁回後，獸醫師將可執行安樂死操作。</p>
+                                <p className="font-medium mb-2">{t('animalActions.euthanasia.chair.rejectDeferral')}</p>
+                                <p>{t('animalActions.euthanasia.chair.rejectExplain')}</p>
                             </div>
                         )}
 
                         <div className="space-y-2">
-                            <Label htmlFor="decision_reason">裁決說明（選填）</Label>
+                            <Label htmlFor="decision_reason">{t('animalActions.euthanasia.chair.decisionNoteOptional')}</Label>
                             <Textarea
                                 id="decision_reason"
                                 value={decisionReason}
                                 onChange={(e) => setDecisionReason(e.target.value)}
-                                placeholder="可填寫裁決的理由或說明..."
+                                placeholder={t('animalActions.euthanasia.chair.decisionNoteHint')}
                                 className="min-h-[100px]"
                             />
                         </div>
@@ -281,7 +285,7 @@ export function EuthanasiaChairArbitrationPanel() {
                                 setDecisionReason('')
                             }}
                         >
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             type="button"
@@ -302,7 +306,7 @@ export function EuthanasiaChairArbitrationPanel() {
                             ) : (
                                 <Gavel className="h-4 w-4 mr-2" />
                             )}
-                            確認裁決
+                            {t('animalActions.euthanasia.chair.confirmDecision')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

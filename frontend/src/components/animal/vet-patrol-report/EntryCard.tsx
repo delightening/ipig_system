@@ -1,5 +1,7 @@
 // 單筆觀察卡片（R82-7 由 VetPatrolReportDialog.tsx 抽出）
 
+import { useTranslation } from 'react-i18next'
+
 import { Textarea } from '@/components/ui/input'
 import { SearchableMultiSelect } from '@/components/ui/searchable-multi-select'
 import { Trash2, ImagePlus } from 'lucide-react'
@@ -21,6 +23,9 @@ export function EntryCard({
     row: EntryRow
     idx: number
 }) {
+    const { t } = useTranslation()
+    // placeholderKeys 的值為 '' 代表該欄位沒有 hint
+    const ph = (key: string) => (key ? t(key) : '')
     const rowEntryPhotos = row.id ? (vm.entryPhotosByEntry.get(row.id) ?? []) : []
     // 條目結構（刪條目）與照片（上傳/改說明/刪除）都不是追蹤者能碰的：
     // 後端照片三個 handler 為 require_permission!("animal.vet.recommend")，刪條目則由
@@ -30,13 +35,13 @@ export function EntryCard({
     return (
         <div data-temp-key={row.tempKey} className="border rounded-lg bg-card p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
-                <span className="text-xs text-muted-foreground">條目 #{idx + 1}</span>
+                <span className="text-xs text-muted-foreground">{t('animalActions.vetPatrol.entryNumber', { index: idx + 1 })}</span>
                 {canEditStructure && (
                     <button
                         type="button"
                         onClick={() => vm.removeRow(cat.key, idx)}
                         className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        title="刪除條目"
+                        title={t('animalActions.vetPatrol.deleteEntry')}
                     >
                         <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -46,15 +51,15 @@ export function EntryCard({
             {cat.hasAnimal && (
                 <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                        動物
-                        <span className="ml-2 text-[10px] text-muted-foreground/70">（可選多隻，共用觀察+建議）</span>
+                        {t('animalActions.vetPatrol.animal')}
+                        <span className="ml-2 text-[10px] text-muted-foreground/70">{t('animalActions.vetPatrol.animalMultiHint')}</span>
                     </label>
                     <SearchableMultiSelect
                         options={vm.animalOptions}
                         value={row.animal_ids}
                         onValueChange={(v) => vm.setAnimalIds(cat.key, idx, v)}
-                        placeholder="選擇動物（搜尋耳號）"
-                        searchPlaceholder="搜尋耳號..."
+                        placeholder={t('animalActions.vetPatrol.animalPlaceholder')}
+                        searchPlaceholder={t('animalActions.vetPatrol.earTagSearch')}
                         disabled={vm.isReadOnly || vm.canEditFollowUpOnly}
                     />
                 </div>
@@ -62,22 +67,22 @@ export function EntryCard({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">觀察內容</label>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('animalActions.vetPatrol.observationContent')}</label>
                     <Textarea
                         value={row.observation}
                         onChange={(e) => vm.updateRow(cat.key, idx, 'observation', e.target.value)}
-                        placeholder={cat.placeholders.observation}
+                        placeholder={ph(cat.placeholderKeys.observation)}
                         className="min-h-[64px] text-sm resize-none"
                         rows={3}
                         disabled={vm.isReadOnly || vm.canEditFollowUpOnly}
                     />
                 </div>
                 <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">建議</label>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('animalActions.common.recommendation')}</label>
                     <Textarea
                         value={row.suggestion}
                         onChange={(e) => vm.updateRow(cat.key, idx, 'suggestion', e.target.value)}
-                        placeholder={cat.placeholders.suggestion}
+                        placeholder={ph(cat.placeholderKeys.suggestion)}
                         className="min-h-[64px] text-sm resize-none"
                         rows={3}
                         disabled={vm.isReadOnly || vm.canEditFollowUpOnly}
@@ -85,13 +90,13 @@ export function EntryCard({
                 </div>
                 <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                        追蹤改善
-                        <span className="ml-2 text-[10px] text-muted-foreground/70">（陪同人員填寫）</span>
+                        {t('animalActions.common.followUp')}
+                        <span className="ml-2 text-[10px] text-muted-foreground/70">{t('animalActions.vetPatrol.filledByAccompanying')}</span>
                     </label>
                     <Textarea
                         value={row.follow_up}
                         onChange={(e) => vm.updateRow(cat.key, idx, 'follow_up', e.target.value)}
-                        placeholder={vm.canEditFollowUpOnly ? cat.placeholders.follow_up : '待追蹤者於確認收到後填寫'}
+                        placeholder={vm.canEditFollowUpOnly ? ph(cat.placeholderKeys.follow_up) : t('animalActions.vetPatrol.followUpPendingHint')}
                         className="min-h-[64px] text-sm resize-none"
                         rows={3}
                         disabled={!vm.canEditFollowUpOnly}
@@ -102,11 +107,11 @@ export function EntryCard({
             {/* Entry-level 照片區塊 */}
             <div className="border-t pt-2">
                 <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium text-muted-foreground">照片附件</label>
+                    <label className="text-xs font-medium text-muted-foreground">{t('animalActions.vetPatrol.photoAttachments')}</label>
                     {canEditStructure && (row.id ? (
                         <label className="flex items-center gap-1 text-xs text-status-success-solid hover:text-status-success-text cursor-pointer">
                             <ImagePlus className="h-3.5 w-3.5" />
-                            新增照片
+                            {t('animalActions.vetPatrol.addPhoto')}
                             <input
                                 type="file"
                                 accept="image/*"
@@ -118,7 +123,7 @@ export function EntryCard({
                             />
                         </label>
                     ) : (
-                        <span className="text-xs text-muted-foreground italic">草稿建立中...</span>
+                        <span className="text-xs text-muted-foreground italic">{t('animalActions.vetPatrol.draftCreating')}</span>
                     ))}
                 </div>
                 {rowEntryPhotos.length > 0 && (
@@ -136,7 +141,7 @@ export function EntryCard({
                                             type="button"
                                             onClick={() => vm.deleteEntryPhotoMutation.mutate(photo.id)}
                                             className="absolute top-1 right-1 bg-background/80 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
-                                            title="刪除"
+                                            title={t('common.delete')}
                                         >
                                             <Trash2 className="h-3 w-3" />
                                         </button>
@@ -146,7 +151,7 @@ export function EntryCard({
                                     「說明（選填）」沒有告訴填寫者要寫什麼，導致 PDF 圖說只剩耳號。 */}
                                 <CaptionInput
                                     value={photo.caption}
-                                    placeholder="這張想表達什麼？例：右頸注射部位紅腫"
+                                    placeholder={t('animalActions.vetPatrol.entryCaptionHint')}
                                     className="text-xs h-7"
                                     disabled={!canEditStructure}
                                     onSave={(caption) => vm.updateEntryCaptionMutation.mutate({
