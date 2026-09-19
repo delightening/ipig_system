@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
@@ -12,6 +13,7 @@ import { BloodTestPanelFormDialog } from './components/BloodTestPanelFormDialog'
 import type { ShowFilter } from './hooks/useBloodTestTemplates'
 
 export function BloodTestTemplatesPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const m = useBloodTestTemplates()
 
@@ -22,23 +24,23 @@ export function BloodTestTemplatesPage() {
           variant="ghost"
           size="icon"
           onClick={() => navigate('/animals')}
-          aria-label="返回"
+          aria-label={t('erpMaster.common.back')}
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <PageHeader
-          title="血檢項目"
-          description={`管理血檢項目模板（共 ${m.totalCount} 個，啟用 ${m.activeCount} 個）`}
+          title={t('erpMaster.bloodTest.templates.title')}
+          description={t('erpMaster.bloodTest.templates.description', { total: m.totalCount, active: m.activeCount })}
           className="flex-1"
           actions={
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => navigate('/blood-test-panels')}>
                 <Settings className="mr-2 h-4 w-4" />
-                管理分類
+                {t('erpMaster.bloodTest.templates.manageCategories')}
               </Button>
               <Button size="sm" variant="outline" onClick={() => navigate('/blood-test-presets')}>
                 <Star className="mr-2 h-4 w-4" />
-                管理常用組合
+                {t('erpMaster.bloodTest.templates.managePresets')}
               </Button>
               <Button
                 size="sm"
@@ -48,7 +50,7 @@ export function BloodTestTemplatesPage() {
                 }}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                新增項目
+                {t('erpMaster.bloodTest.templates.addItem')}
               </Button>
             </div>
           }
@@ -62,7 +64,7 @@ export function BloodTestTemplatesPage() {
           onClick={() => m.setSelectedPanel('all')}
           className="gap-1"
         >
-          全部
+          {t('erpMaster.common.all')}
         </Button>
         {m.panels?.map((p) => (
           <Button
@@ -85,7 +87,7 @@ export function BloodTestTemplatesPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="搜尋代碼或名稱..."
+            placeholder={t('erpMaster.bloodTest.searchCodeOrName')}
             value={m.search}
             onChange={(e) => m.setSearch(e.target.value)}
             className="pl-9"
@@ -99,7 +101,7 @@ export function BloodTestTemplatesPage() {
               size="sm"
               onClick={() => m.setShowFilter(f)}
             >
-              {f === 'all' ? '全部' : f === 'active' ? '啟用中' : '已停用'}
+              {f === 'all' ? t('erpMaster.common.all') : f === 'active' ? t('erpMaster.common.activeFilter') : t('erpMaster.common.inactiveFilter')}
             </Button>
           ))}
         </div>

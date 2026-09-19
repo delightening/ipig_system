@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import { Loader2, AlertCircle, Download } from 'lucide-react'
 
@@ -11,13 +13,15 @@ export function NoSkuColumnPrompt({
   onAutoGenerateSku,
   onDownloadTemplate,
 }: NoSkuColumnPromptProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-4 p-4 border border-status-info-border bg-status-info-bg rounded-lg">
       <div className="flex items-center gap-2 text-status-info-text">
         <AlertCircle className="h-5 w-5" />
-        <span className="font-medium">此檔案未含 SKU 編碼欄位</span>
+        <span className="font-medium">{t('erpMaster.import.noSku.title')}</span>
       </div>
-      <p className="text-sm text-status-info-text">請選擇處理方式：</p>
+      <p className="text-sm text-status-info-text">{t('erpMaster.import.noSku.chooseAction')}</p>
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
@@ -27,7 +31,7 @@ export function NoSkuColumnPrompt({
           className="border-blue-600 text-status-info-text hover:bg-status-info-bg"
         >
           {previewMutationIsPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          依序設定 SKU
+          {t('erpMaster.import.noSku.setManually')}
         </Button>
         <Button
           size="sm"
@@ -36,7 +40,7 @@ export function NoSkuColumnPrompt({
           className="bg-primary hover:bg-primary/90"
         >
           {importIsPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          由系統自動產生 SKU 並繼續匯入
+          {t('erpMaster.import.noSku.autoGenerate')}
         </Button>
         <Button
           variant="outline"
@@ -45,7 +49,7 @@ export function NoSkuColumnPrompt({
           className="border-blue-600 text-status-info-text hover:bg-status-info-bg"
         >
           <Download className="h-4 w-4 mr-1" />
-          取消，改下載含 SKU 的範本
+          {t('erpMaster.import.noSku.downloadTemplate')}
         </Button>
       </div>
     </div>

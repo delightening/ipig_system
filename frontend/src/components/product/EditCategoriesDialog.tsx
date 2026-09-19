@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,6 +44,7 @@ interface EditCategoriesDialogProps {
 }
 
 export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialogProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const hasRole = useAuthHasRole()
   const isAdmin = hasRole('admin')
@@ -106,12 +108,12 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
       queryClient.invalidateQueries({ queryKey: ['sku-categories'] })
       queryClient.invalidateQueries({ queryKey: ['sku-categories-tree'] })
       queryClient.invalidateQueries({ queryKey: ['sku-subcategories'] })
-      toast({ title: '已儲存', description: '品類已更新' })
+      toast({ title: t('erpMaster.categories.toast.saved'), description: t('erpMaster.categories.toast.categoryUpdated') })
     },
     onError: (err: unknown) => {
       toast({
-        title: '儲存失敗',
-        description: getApiErrorMessage(err, '品類更新失敗'),
+        title: t('erpMaster.categories.toast.saveFailed'),
+        description: getApiErrorMessage(err, t('erpMaster.categories.toast.categoryUpdateFailed')),
         variant: 'destructive',
       })
     },
@@ -133,12 +135,12 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
       queryClient.invalidateQueries({ queryKey: ['sku-categories'] })
       queryClient.invalidateQueries({ queryKey: ['sku-categories-tree'] })
       queryClient.invalidateQueries({ queryKey: ['sku-subcategories'] })
-      toast({ title: '已儲存', description: '子類已更新' })
+      toast({ title: t('erpMaster.categories.toast.saved'), description: t('erpMaster.categories.toast.subcategoryUpdated') })
     },
     onError: (err: unknown) => {
       toast({
-        title: '儲存失敗',
-        description: getApiErrorMessage(err, '子類更新失敗'),
+        title: t('erpMaster.categories.toast.saveFailed'),
+        description: getApiErrorMessage(err, t('erpMaster.categories.toast.subcategoryUpdateFailed')),
         variant: 'destructive',
       })
     },
@@ -162,7 +164,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
       queryClient.invalidateQueries({ queryKey: ['sku-categories'] })
       queryClient.invalidateQueries({ queryKey: ['sku-categories-tree'] })
       queryClient.invalidateQueries({ queryKey: ['sku-subcategories'] })
-      toast({ title: '已建立', description: '子類已新增' })
+      toast({ title: t('erpMaster.categories.toast.created'), description: t('erpMaster.categories.toast.subcategoryCreated') })
       setNewSubCategoryCode(variables.categoryCode)
       setNewSubCode('')
       setNewSubName('')
@@ -173,8 +175,8 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
     },
     onError: (err: unknown) => {
       toast({
-        title: '建立失敗',
-        description: getApiErrorMessage(err, '子類建立失敗'),
+        title: t('erpMaster.categories.toast.createFailed'),
+        description: getApiErrorMessage(err, t('erpMaster.categories.toast.subcategoryCreateFailed')),
         variant: 'destructive',
       })
     },
@@ -188,14 +190,14 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
       queryClient.invalidateQueries({ queryKey: ['sku-categories'] })
       queryClient.invalidateQueries({ queryKey: ['sku-categories-tree'] })
       queryClient.invalidateQueries({ queryKey: ['sku-subcategories'] })
-      toast({ title: '已刪除', description: '品類已刪除' })
+      toast({ title: t('common.deleted'), description: t('erpMaster.categories.toast.categoryDeleted') })
       setSelectedCategoryCode('')
       setSelectedTarget('')
     },
     onError: (err: unknown) => {
       toast({
-        title: '刪除失敗',
-        description: getApiErrorMessage(err, '品類刪除失敗'),
+        title: t('erpMaster.categories.toast.deleteFailed'),
+        description: getApiErrorMessage(err, t('erpMaster.categories.toast.categoryDeleteFailed')),
         variant: 'destructive',
       })
     },
@@ -209,14 +211,14 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
       queryClient.invalidateQueries({ queryKey: ['sku-categories'] })
       queryClient.invalidateQueries({ queryKey: ['sku-categories-tree'] })
       queryClient.invalidateQueries({ queryKey: ['sku-subcategories'] })
-      toast({ title: '已刪除', description: '子類已刪除' })
+      toast({ title: t('common.deleted'), description: t('erpMaster.categories.toast.subcategoryDeleted') })
       setSelectedCategoryCode('')
       setSelectedTarget('')
     },
     onError: (err: unknown) => {
       toast({
-        title: '刪除失敗',
-        description: getApiErrorMessage(err, '子類刪除失敗'),
+        title: t('erpMaster.categories.toast.deleteFailed'),
+        description: getApiErrorMessage(err, t('erpMaster.categories.toast.subcategoryDeleteFailed')),
         variant: 'destructive',
       })
     },
@@ -251,14 +253,13 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
 
   const handleDelete = async () => {
     if (!selectedCategory) return
-    const label = isEditingCategory
-      ? `品類「${selectedCategory.code} ${selectedCategory.name}」`
-      : `子類「${selectedSub?.code} ${selectedSub?.name}」`
     const ok = await confirm({
-      title: '刪除分類',
-      description: `確定要刪除${label}嗎？此操作無法復原。`,
+      title: t('erpMaster.categories.deleteTitle'),
+      description: isEditingCategory
+        ? t('erpMaster.categories.deleteCategoryDescription', { code: selectedCategory.code, name: selectedCategory.name })
+        : t('erpMaster.categories.deleteSubcategoryDescription', { code: selectedSub?.code, name: selectedSub?.name }),
       variant: 'destructive',
-      confirmLabel: '確認刪除',
+      confirmLabel: t('common.confirmDelete'),
     })
     if (!ok) return
     if (isEditingCategory) {
@@ -275,8 +276,8 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
     const catCode = newSubCategoryCode || selectedCategory?.code
     if (!catCode) {
       toast({
-        title: '請選擇品類',
-        description: '新增子類前請先選擇所屬品類',
+        title: t('erpMaster.categories.toast.selectCategory'),
+        description: t('erpMaster.categories.toast.selectCategoryHint'),
         variant: 'destructive',
       })
       return
@@ -284,16 +285,16 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
     const code = newSubCode.trim().toUpperCase()
     if (code.length !== 3) {
       toast({
-        title: '驗證失敗',
-        description: '子類代碼須為 3 碼',
+        title: t('erpMaster.categories.toast.validationFailed'),
+        description: t('erpMaster.categories.toast.subcodeLength'),
         variant: 'destructive',
       })
       return
     }
     if (!newSubName.trim()) {
       toast({
-        title: '驗證失敗',
-        description: '請輸入子類名稱',
+        title: t('erpMaster.categories.toast.validationFailed'),
+        description: t('erpMaster.categories.toast.subnameRequired'),
         variant: 'destructive',
       })
       return
@@ -338,10 +339,10 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
         <DialogHeader className="px-6 pt-6 pb-2 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Tags className="h-5 w-5" />
-            編輯分類
+            {t('erpMaster.products.editCategories')}
           </DialogTitle>
           <DialogDescription>
-            左側為既有品類與子類，點選後於右側編輯；右側下方可新增子類，既有與新增一目了然。
+            {t('erpMaster.categories.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -355,7 +356,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
             <div className="w-[280px] shrink-0 border-r flex flex-col bg-muted/20">
               <div className="px-3 py-2 border-b flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <FolderTree className="h-4 w-4" />
-                既有分類
+                {t('erpMaster.categories.existing')}
               </div>
               <div className="flex-1 overflow-auto p-2">
                 {categories.map(cat => {
@@ -376,7 +377,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                           type="button"
                           onClick={e => hasSubs && toggleExpand(cat.code, e)}
                           className="shrink-0 p-0.5 rounded hover:bg-muted/80"
-                          aria-label={expanded ? '收合' : '展開'}
+                          aria-label={expanded ? t('erpMaster.common.collapse') : t('erpMaster.common.expand')}
                         >
                           {hasSubs ? (
                             expanded ? (
@@ -397,7 +398,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                           <span className="font-mono">{cat.code}</span>
                           <span className="truncate">{cat.name}</span>
                           {!cat.is_active && (
-                            <span className="text-xs text-muted-foreground ml-auto">停用</span>
+                            <span className="text-xs text-muted-foreground ml-auto">{t('erpMaster.common.inactive')}</span>
                           )}
                         </button>
                       </div>
@@ -420,7 +421,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                               <span className="font-mono">{sub.code}</span>
                               <span className="truncate">{sub.name}</span>
                               {!sub.is_active && (
-                                <span className="text-xs text-muted-foreground ml-auto">停用</span>
+                                <span className="text-xs text-muted-foreground ml-auto">{t('erpMaster.common.inactive')}</span>
                               )}
                             </button>
                           ))}
@@ -438,7 +439,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                 {/* 上區：編輯選取項目 */}
                 <section className="space-y-3">
                   <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    編輯選取項目
+                    {t('erpMaster.categories.editSelected')}
                     {selectedCategory && selectedTarget && (
                       <span className="font-normal text-foreground">
                         {isEditingCategory
@@ -451,19 +452,19 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                     <div className="space-y-4 rounded-lg border p-4 bg-card">
                       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                         <div className="space-y-2">
-                          <Label className="text-muted-foreground">代碼</Label>
+                          <Label className="text-muted-foreground">{t('erpMaster.common.code')}</Label>
                           <div className="font-mono text-sm py-2">{displayCode}</div>
                         </div>
                         <div className="space-y-2 col-span-2 sm:col-span-1">
-                          <Label className="text-muted-foreground">名稱</Label>
+                          <Label className="text-muted-foreground">{t('erpMaster.common.name')}</Label>
                           <Input
                             value={formName}
                             onChange={e => setFormName(e.target.value)}
-                            placeholder="顯示名稱"
+                            placeholder={t('erpMaster.categories.displayName')}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-muted-foreground">排序</Label>
+                          <Label className="text-muted-foreground">{t('erpMaster.common.sortOrder')}</Label>
                           <Input
                             type="number"
                             min={0}
@@ -473,7 +474,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                           />
                         </div>
                         <div className="flex items-center gap-2 space-y-2">
-                          <Label className="text-muted-foreground">啟用</Label>
+                          <Label className="text-muted-foreground">{t('erpMaster.categories.enabled')}</Label>
                           <Switch checked={formIsActive} onCheckedChange={setFormIsActive} />
                         </div>
                       </div>
@@ -482,10 +483,10 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                           {saving ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              儲存中…
+                              {t('erpMaster.categories.saving')}
                             </>
                           ) : (
-                            '儲存'
+                            t('common.save')
                           )}
                         </Button>
                         {isAdmin && (
@@ -496,14 +497,14 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                             onClick={handleDelete}
                           >
                             <Trash2 className="h-4 w-4 mr-1" />
-                            刪除
+                            {t('common.delete')}
                           </Button>
                         )}
                       </div>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground py-2">
-                      請從左側點選一個品類或子類以編輯。
+                      {t('erpMaster.categories.selectPrompt')}
                     </p>
                   )}
                 </section>
@@ -512,12 +513,12 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                 <section className="space-y-3">
                   <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Plus className="h-4 w-4" />
-                    新增子類
+                    {t('erpMaster.categories.addSubcategory')}
                   </h3>
                   <div className="rounded-lg border border-dashed p-4 bg-muted/20 space-y-4">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <div className="space-y-2">
-                        <Label className="text-muted-foreground">所屬品類</Label>
+                        <Label className="text-muted-foreground">{t('erpMaster.categories.parentCategory')}</Label>
                         <Select
                           value={newSubCategoryCode || selectedCategoryCode}
                           onValueChange={v => {
@@ -526,7 +527,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="選擇品類" />
+                            <SelectValue placeholder={t('erpMaster.categories.selectCategory')} />
                           </SelectTrigger>
                           <SelectContent>
                             {categories.map(cat => (
@@ -538,25 +539,25 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-muted-foreground">子類代碼（3 碼）</Label>
+                        <Label className="text-muted-foreground">{t('erpMaster.categories.subcodeLabel')}</Label>
                         <Input
                           value={newSubCode}
                           onChange={e => setNewSubCode(e.target.value.toUpperCase().slice(0, 3))}
-                          placeholder="例如 OTH"
+                          placeholder={t('erpMaster.categories.subcodePlaceholder')}
                           maxLength={3}
                           className="font-mono"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-muted-foreground">名稱</Label>
+                        <Label className="text-muted-foreground">{t('erpMaster.common.name')}</Label>
                         <Input
                           value={newSubName}
                           onChange={e => setNewSubName(e.target.value)}
-                          placeholder="顯示名稱"
+                          placeholder={t('erpMaster.categories.displayName')}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-muted-foreground">排序</Label>
+                        <Label className="text-muted-foreground">{t('erpMaster.common.sortOrder')}</Label>
                         <Input
                           type="number"
                           min={0}
@@ -568,7 +569,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        <Label className="text-muted-foreground">啟用</Label>
+                        <Label className="text-muted-foreground">{t('erpMaster.categories.enabled')}</Label>
                         <Switch checked={newSubIsActive} onCheckedChange={setNewSubIsActive} />
                       </div>
                       <Button
@@ -579,7 +580,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                         {createSubcategoryMutation.isPending ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : null}
-                        建立子類
+                        {t('erpMaster.categories.createSubcategory')}
                       </Button>
                     </div>
                   </div>

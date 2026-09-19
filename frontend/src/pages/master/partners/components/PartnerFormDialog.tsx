@@ -1,4 +1,5 @@
 import { UseFormRegister, FieldErrors } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,9 +42,11 @@ interface PartnerFormDialogProps {
   onClose: () => void
 }
 
+// message 是 i18n 鍵（見 usePartnerForm 的 FIELD_RULES），在此顯示時才翻譯
 function FieldError({ message }: { message?: string }) {
+  const { t } = useTranslation()
   if (!message) return null
-  return <p className="text-sm text-destructive col-start-2 col-span-3">{message}</p>
+  return <p className="text-sm text-destructive col-start-2 col-span-3">{t(message)}</p>
 }
 
 export function PartnerFormDialog({
@@ -61,13 +64,15 @@ export function PartnerFormDialog({
   onSubmit,
   onClose,
 }: PartnerFormDialogProps) {
+  const { t } = useTranslation()
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? '編輯夥伴' : '新增夥伴'}</DialogTitle>
+          <DialogTitle>{isEditing ? t('erpMaster.partners.form.editTitle') : t('erpMaster.partners.form.addTitle')}</DialogTitle>
           <DialogDescription>
-            {isEditing ? '修改夥伴資料' : '建立新的供應商或客戶'}
+            {isEditing ? t('erpMaster.partners.form.editDescription') : t('erpMaster.partners.form.addDescription')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit}>
@@ -93,7 +98,7 @@ export function PartnerFormDialog({
             )}
             <CodeField code={formData.code} isGenerating={isGeneratingCode} />
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">名稱</Label>
+              <Label htmlFor="name" className="text-right">{t('erpMaster.common.name')}</Label>
               <Input
                 id="name"
                 {...register('name')}
@@ -103,12 +108,12 @@ export function PartnerFormDialog({
               <FieldError message={errors.name?.message} />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="tax_id" className="text-right">統編</Label>
+              <Label htmlFor="tax_id" className="text-right">{t('erpMaster.partners.taxId')}</Label>
               <Input
                 id="tax_id"
                 {...register('tax_id')}
                 className="col-span-3"
-                placeholder="留白或 8 碼數字"
+                placeholder={t('erpMaster.partners.form.taxIdPlaceholder')}
                 disabled={isEditing}
               />
               <FieldError message={errors.tax_id?.message} />
@@ -123,28 +128,28 @@ export function PartnerFormDialog({
                 id="email"
                 {...register('email')}
                 className="col-span-3"
-                placeholder="留白或正確 Email 格式"
+                placeholder={t('erpMaster.partners.form.emailPlaceholder')}
               />
               <FieldError message={errors.email?.message} />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">地址</Label>
+              <Label htmlFor="address" className="text-right">{t('erpMaster.partners.address')}</Label>
               <Input
                 id="address"
                 {...register('address')}
                 className="col-span-3"
-                placeholder="留白或地址字串"
+                placeholder={t('erpMaster.partners.form.addressPlaceholder')}
               />
               <FieldError message={errors.address?.message} />
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isPending}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? '更新' : '建立'}
+              {isEditing ? t('common.update') : t('erpMaster.common.createSubmit')}
             </Button>
           </DialogFooter>
         </form>
@@ -164,16 +169,18 @@ function PartnerTypeField({
   onChange: (v: 'supplier' | 'customer') => void
   disabled: boolean
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="grid grid-cols-4 items-center gap-4">
-      <Label className="text-right">類型</Label>
+      <Label className="text-right">{t('erpMaster.partners.table.type')}</Label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger className="col-span-3">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="supplier">供應商</SelectItem>
-          <SelectItem value="customer">客戶</SelectItem>
+          <SelectItem value="supplier">{t('erpMaster.partners.type.supplier')}</SelectItem>
+          <SelectItem value="customer">{t('erpMaster.partners.type.customer')}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -189,18 +196,20 @@ function SupplierCategoryField({
   onChange: (v: SupplierCategory) => void
   disabled: boolean
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="grid grid-cols-4 items-center gap-4">
-      <Label className="text-right">提供商類型</Label>
+      <Label className="text-right">{t('erpMaster.partners.form.supplierCategoryLabel')}</Label>
       <Select value={value} onValueChange={onChange as (v: string) => void} disabled={disabled}>
         <SelectTrigger className="col-span-3">
-          <SelectValue placeholder="請選擇提供商類型" />
+          <SelectValue placeholder={t('erpMaster.partners.form.supplierCategoryPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="drug">藥物</SelectItem>
-          <SelectItem value="consumable">耗材</SelectItem>
-          <SelectItem value="feed">飼料</SelectItem>
-          <SelectItem value="equipment">儀器</SelectItem>
+          <SelectItem value="drug">{t('erpMaster.partners.supplierCategory.drug')}</SelectItem>
+          <SelectItem value="consumable">{t('erpMaster.partners.supplierCategory.consumable')}</SelectItem>
+          <SelectItem value="feed">{t('erpMaster.partners.supplierCategory.feed')}</SelectItem>
+          <SelectItem value="equipment">{t('erpMaster.partners.supplierCategory.equipment')}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -216,18 +225,20 @@ function CustomerCategoryField({
   onChange: (v: CustomerCategory) => void
   disabled: boolean
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="grid grid-cols-4 items-center gap-4">
-      <Label className="text-right">客戶分類</Label>
+      <Label className="text-right">{t('erpMaster.partners.customerCategoryLabel')}</Label>
       <Select value={value} onValueChange={onChange as (v: string) => void} disabled={disabled}>
         <SelectTrigger className="col-span-3">
-          <SelectValue placeholder="請選擇客戶分類" />
+          <SelectValue placeholder={t('erpMaster.partners.form.customerCategoryPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="internal">內部單位</SelectItem>
-          <SelectItem value="external">外部客戶</SelectItem>
-          <SelectItem value="research">研究計畫</SelectItem>
-          <SelectItem value="other">其他</SelectItem>
+          <SelectItem value="internal">{t('erpMaster.partners.customerCategory.internal')}</SelectItem>
+          <SelectItem value="external">{t('erpMaster.partners.customerCategory.external')}</SelectItem>
+          <SelectItem value="research">{t('erpMaster.partners.customerCategory.research')}</SelectItem>
+          <SelectItem value="other">{t('erpMaster.partners.customerCategory.other')}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -235,16 +246,18 @@ function CustomerCategoryField({
 }
 
 function CodeField({ code, isGenerating }: { code: string; isGenerating: boolean }) {
+  const { t } = useTranslation()
+
   return (
     <div className="grid grid-cols-4 items-center gap-4">
-      <Label htmlFor="code" className="text-right">代碼</Label>
+      <Label htmlFor="code" className="text-right">{t('erpMaster.common.code')}</Label>
       <div className="col-span-3 flex gap-2">
         <Input
           id="code"
           value={code}
           disabled
           required
-          placeholder={isGenerating ? '生成中...' : '系統自動編號'}
+          placeholder={isGenerating ? t('erpMaster.partners.form.generating') : t('erpMaster.partners.form.codePlaceholder')}
         />
         {isGenerating && (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground self-center" />
@@ -261,21 +274,23 @@ function PhoneField({
   register: UseFormRegister<PartnerFormData>
   errors: FieldErrors<PartnerFormData>
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="grid grid-cols-4 items-center gap-4">
-      <Label htmlFor="phone" className="text-right">電話</Label>
+      <Label htmlFor="phone" className="text-right">{t('erpMaster.partners.phone')}</Label>
       <div className="col-span-3 flex gap-2">
         <Input
           id="phone"
           className="flex-1"
           {...register('phone')}
-          placeholder="留白或 9-10 碼數字"
+          placeholder={t('erpMaster.partners.form.phonePlaceholder')}
         />
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-muted-foreground">#</span>
           <Input
             className="w-24"
-            placeholder="分機"
+            placeholder={t('erpMaster.partners.form.extension')}
             {...register('phone_ext')}
           />
         </div>

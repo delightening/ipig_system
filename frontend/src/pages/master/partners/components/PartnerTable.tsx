@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Partner } from '@/lib/api'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -39,17 +41,18 @@ export function PartnerTable({
   onDelete,
   confirm,
 }: PartnerTableProps) {
+  const { t } = useTranslation()
   const { sortedData, sort, toggleSort } = useTableSort(partners)
 
   const handleDeleteClick = async (partner: Partner) => {
     const isAdmin = useAuthStore.getState().user?.roles.includes('admin')
     const ok = await confirm({
-      title: isAdmin ? '管理員權限：永久刪除夥伴' : '刪除夥伴',
+      title: isAdmin ? t('erpMaster.partners.table.hardDeleteTitle') : t('erpMaster.partners.table.deleteTitle'),
       description: isAdmin
-        ? '警告：具有管理員權限，此操作將永久從資料庫中移除資料，且無法復原。確定要執行硬刪除嗎？'
-        : '確定要刪除此夥伴嗎？',
+        ? t('erpMaster.partners.table.hardDeleteDescription')
+        : t('erpMaster.partners.table.deleteDescription'),
       variant: 'destructive',
-      confirmLabel: isAdmin ? '執行硬刪除' : '確認刪除',
+      confirmLabel: isAdmin ? t('erpMaster.partners.table.hardDeleteConfirm') : t('common.confirmDelete'),
     })
     if (ok) {
       onDelete(partner, !!isAdmin)
@@ -61,13 +64,13 @@ export function PartnerTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
-            <SortableTableHead sortKey="partner_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
-            <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>代碼</SortableTableHead>
-            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
-            <SortableTableHead sortKey="tax_id" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>統編</SortableTableHead>
-            <SortableTableHead sortKey="phone" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>電話</SortableTableHead>
-            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
-            <TableHead className="text-right">操作</TableHead>
+            <SortableTableHead sortKey="partner_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpMaster.partners.table.type')}</SortableTableHead>
+            <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpMaster.common.code')}</SortableTableHead>
+            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpMaster.common.name')}</SortableTableHead>
+            <SortableTableHead sortKey="tax_id" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpMaster.partners.taxId')}</SortableTableHead>
+            <SortableTableHead sortKey="phone" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpMaster.partners.phone')}</SortableTableHead>
+            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpMaster.common.status')}</SortableTableHead>
+            <TableHead className="text-right">{t('common.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -87,7 +90,7 @@ export function PartnerTable({
               />
             ))
           ) : (
-            <TableEmptyRow colSpan={7} icon={Users} title="尚無夥伴資料" />
+            <TableEmptyRow colSpan={7} icon={Users} title={t('erpMaster.partners.table.empty')} />
           )}
         </TableBody>
       </Table>
@@ -104,11 +107,13 @@ function PartnerRow({
   onEdit: (p: Partner) => void
   onDelete: (p: Partner) => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <TableRow className={cn(!partner.is_active && 'bg-muted/40')}>
       <TableCell>
         <Badge variant={partner.partner_type === 'supplier' ? 'default' : 'secondary'}>
-          {partner.partner_type === 'supplier' ? '供應商' : '客戶'}
+          {partner.partner_type === 'supplier' ? t('erpMaster.partners.type.supplier') : t('erpMaster.partners.type.customer')}
         </Badge>
       </TableCell>
       <TableCell className="font-mono">{partner.code}</TableCell>
@@ -120,14 +125,14 @@ function PartnerRow({
       </TableCell>
       <TableCell>
         {partner.is_active ? (
-          <Badge variant="success">啟用</Badge>
+          <Badge variant="success">{t('erpMaster.common.active')}</Badge>
         ) : (
-          <Badge variant="destructive">停用</Badge>
+          <Badge variant="destructive">{t('erpMaster.common.inactive')}</Badge>
         )}
       </TableCell>
       <TableCell className="text-right">
         <Can permission={PERMISSIONS.ERP_PARTNER_EDIT}>
-          <Button variant="ghost" size="icon" onClick={() => onEdit(partner)} aria-label="編輯">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(partner)} aria-label={t('common.edit')}>
             <Edit className="h-4 w-4" />
           </Button>
         </Can>
@@ -136,7 +141,7 @@ function PartnerRow({
             刻意留白等它補齊；#58 已把碼補進目錄，這裡才補上閘。
             目前沒有任何角色被授予此碼 → 實際只有管理員看得到，與後端行為一致。 */}
         <Can permission={PERMISSIONS.ERP_PARTNER_DELETE}>
-          <Button variant="ghost" size="icon" onClick={() => onDelete(partner)} aria-label="刪除">
+          <Button variant="ghost" size="icon" onClick={() => onDelete(partner)} aria-label={t('common.delete')}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </Can>

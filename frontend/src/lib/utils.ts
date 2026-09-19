@@ -142,8 +142,15 @@ export function formatUnitPrice(value: string | number): string {
 }
 
 /**
- * 庫存單位代碼對照表（英文代碼 → 中文顯示）
+ * 庫存單位代碼 → **固定 zh-TW** 名稱對照表（不隨 UI 語系變動）。
  * 涵蓋 CreateProductPage UNITS、編輯產品包裝單位及單據顯示用。
+ *
+ * 用途只有兩個：
+ * 1. 單位代碼清單（`Object.keys(UOM_MAP)`）。
+ * 2. 舊資料反查：新增產品流程曾把中文單位名（例「個」「箱」）直接寫進 `base_uom`／`pack_unit`，
+ *    編輯頁要用這張表把中文名稱反查回代碼，所以這裡的值必須維持 zh-TW，不可翻譯。
+ *
+ * ⚠️ 畫面**顯示**單位一律走 {@link formatUom}（i18n `uom.<code>`），不要直接讀本表的值。
  */
 export const UOM_MAP: Record<string, string> = {
   // 計數／個體
@@ -175,10 +182,14 @@ export const UOM_MAP: Record<string, string> = {
 }
 
 /**
- * 將庫存單位代碼轉換為中文顯示
+ * 將庫存單位代碼轉換為目前 UI 語系的顯示名稱（i18n `uom.<code>`）。
+ * 找不到對應代碼（含自填量詞、舊資料的中文單位名）時原樣回傳。
+ * 呼叫當下才求值，語系切換後重繪即取得新值。
  */
 export function formatUom(uom: string): string {
-  return UOM_MAP[uom] || uom
+  if (!uom) return uom
+  const key = `uom.${uom}`
+  return i18n.exists(key) ? i18n.t(key) : uom
 }
 
 export function sanitizeDecimalInput(value: string): string {

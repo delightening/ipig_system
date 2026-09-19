@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Loader2, Boxes, ChevronRight, PackagePlus } from 'lucide-react'
 import api from '@/lib/api'
 import type { InventoryOnHand, UnassignedSourceDoc } from '@/types/erp'
@@ -57,6 +58,7 @@ function UnassignedLocRow({
   uomLabel,
   canAssign,
 }: UnassignedLocRowProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
 
@@ -83,7 +85,7 @@ function UnassignedLocRow({
           <ChevronRight
             className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
           />
-          未分配
+          {t('erpMaster.productDetail.snapshot.unassigned')}
         </button>
         <div className="flex items-center gap-2">
           <span className="text-amber-600 dark:text-amber-500">
@@ -97,7 +99,7 @@ function UnassignedLocRow({
               onClick={() => setAssignOpen(true)}
             >
               <PackagePlus className="h-3.5 w-3.5" />
-              分配
+              {t('erpMaster.productDetail.snapshot.assign')}
             </Button>
           )}
         </div>
@@ -107,11 +109,11 @@ function UnassignedLocRow({
         <div className="px-3 pb-2 pl-8 text-xs">
           {isLoading ? (
             <div className="flex items-center gap-2 py-1 text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> 載入來源單據…
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('erpMaster.productDetail.snapshot.loadingSources')}
             </div>
           ) : !sources || sources.length === 0 ? (
             <p className="py-1 text-muted-foreground">
-              無可追溯的採購入庫來源（可能為調整單 / 期初匯入）。
+              {t('erpMaster.productDetail.snapshot.noSources')}
             </p>
           ) : (
             <ul className="space-y-1.5">
@@ -132,8 +134,12 @@ function UnassignedLocRow({
                   </div>
                   {(s.batch_no || s.expiry_date) && (
                     <div className="text-muted-foreground/80">
-                      {s.batch_no ? `批號 ${s.batch_no}` : '無批號'}
-                      {s.expiry_date ? ` · 效期 ${s.expiry_date}` : ''}
+                      {s.batch_no
+                        ? t('erpMaster.productDetail.snapshot.batchNo', { batchNo: s.batch_no })
+                        : t('erpMaster.productDetail.snapshot.noBatchNo')}
+                      {s.expiry_date
+                        ? ` · ${t('erpMaster.productDetail.snapshot.expiry', { date: s.expiry_date })}`
+                        : ''}
                     </div>
                   )}
                 </li>
@@ -167,6 +173,7 @@ function UnassignedLocRow({
  * 因此入庫 / 分配 / 調撥等 mutation 後會自動刷新（見 AssignToShelfDialog / queryInvalidation.ts）。
  */
 export function ProductInventorySnapshot({ productId, uomLabel }: ProductInventorySnapshotProps) {
+  const { t } = useTranslation()
   const { data, isLoading, isError } = useQuery({
     queryKey: ['inventory', 'on-hand', 'product', productId],
     queryFn: async () => {
@@ -186,10 +193,10 @@ export function ProductInventorySnapshot({ productId, uomLabel }: ProductInvento
     )
   }
   if (isError) {
-    return <div className="py-8 text-center text-sm text-destructive">載入庫存分佈失敗，請稍後再試。</div>
+    return <div className="py-8 text-center text-sm text-destructive">{t('erpMaster.productDetail.snapshot.loadFailed')}</div>
   }
   if (!data || data.length === 0) {
-    return <EmptyState icon={Boxes} title="目前無庫存" />
+    return <EmptyState icon={Boxes} title={t('erpMaster.productDetail.snapshot.empty')} />
   }
 
   // 品項層級欄位對本 productId 為定值，取首列供分配對話框帶入。
@@ -209,7 +216,7 @@ export function ProductInventorySnapshot({ productId, uomLabel }: ProductInvento
     const isUnassigned = !row.storage_location_id
     const locKey = row.storage_location_id ?? '__unassigned__'
     const locName = isUnassigned
-      ? '未分配'
+      ? t('erpMaster.productDetail.snapshot.unassigned')
       : row.storage_location_name || row.storage_location_code || '—'
     const loc = wh.locations.get(locKey) ?? { name: locName, qty: 0, unassigned: isUnassigned }
     loc.qty += qty
@@ -224,7 +231,7 @@ export function ProductInventorySnapshot({ productId, uomLabel }: ProductInvento
           <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-2">
             <span className="font-medium">{wh.name}</span>
             <span className="text-sm text-muted-foreground">
-              合計 {fmtQty(wh.total)} {uomLabel}
+              {t('erpMaster.productDetail.snapshot.total', { qty: fmtQty(wh.total), uom: uomLabel })}
             </span>
           </div>
           <ul className="divide-y">

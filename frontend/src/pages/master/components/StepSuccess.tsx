@@ -1,7 +1,9 @@
 import { Check, ListPlus, FileText, LayoutGrid } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { formatUom } from '@/lib/utils'
 import { UNITS } from '../constants'
 import type { CreateProductFormReturn } from '../hooks/useCreateProductForm'
 
@@ -10,6 +12,8 @@ interface StepSuccessProps {
 }
 
 export function StepSuccess({ form }: StepSuccessProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="animate-fade-in">
       <Card className="overflow-hidden">
@@ -18,7 +22,7 @@ export function StepSuccess({ form }: StepSuccessProps) {
             <Check className="w-8 h-8 text-success" />
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-2">
-            產品建立成功！
+            {t('erpMaster.createProduct.created')}
           </h2>
           <p className="text-muted-foreground">
             {form.formData.name} {form.formData.spec}
@@ -33,38 +37,38 @@ export function StepSuccess({ form }: StepSuccessProps) {
                 <span className="font-mono font-bold text-lg text-primary">{form.finalSku}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-muted-foreground">分類</span>
+                <span className="text-sm text-muted-foreground">{t('erpMaster.createProduct.category')}</span>
                 <span>{form.skuCategories.find(c => c.code === form.formData.category)?.name ?? '—'}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-muted-foreground">單位</span>
-                <span>{UNITS.base.find(u => u.code === form.formData.baseUnit)?.name || '—'}</span>
+                <span className="text-sm text-muted-foreground">{t('erpMaster.common.unit')}</span>
+                <span>{UNITS.base.some(u => u.code === form.formData.baseUnit) ? formatUom(form.formData.baseUnit) : '—'}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">追蹤</span>
+                <span className="text-sm text-muted-foreground">{t('erpMaster.createProduct.track')}</span>
                 <span>
-                  {form.formData.trackBatch && '批號'} {form.formData.trackBatch && form.formData.trackExpiry && '/'} {form.formData.trackExpiry && '效期'}
-                  {!form.formData.trackBatch && !form.formData.trackExpiry && '無'}
+                  {form.formData.trackBatch && t('erpMaster.products.table.batchNo')} {form.formData.trackBatch && form.formData.trackExpiry && '/'} {form.formData.trackExpiry && t('erpMaster.products.table.expiry')}
+                  {!form.formData.trackBatch && !form.formData.trackExpiry && t('erpMaster.createProduct.trackNone')}
                 </span>
               </div>
             </div>
 
             <p className="text-sm text-muted-foreground">
-              接下來您可以：
+              {t('erpMaster.createProduct.nextSteps')}
             </p>
 
             <div className="grid grid-cols-3 gap-3">
               <Button variant="outline" className="flex-col h-auto py-4" onClick={form.handleReset}>
                 <ListPlus className="h-5 w-5 mb-1" />
-                <span className="text-xs">繼續新增</span>
+                <span className="text-xs">{t('erpMaster.createProduct.addAnother')}</span>
               </Button>
               <Button variant="outline" className="flex-col h-auto py-4" onClick={() => form.navigate('/documents?type=PO')}>
                 <FileText className="h-5 w-5 mb-1" />
-                <span className="text-xs">建立採購單</span>
+                <span className="text-xs">{t('erpMaster.createProduct.createPurchaseOrder')}</span>
               </Button>
               <Button variant="outline" className="flex-col h-auto py-4" onClick={() => form.navigate('/products')}>
                 <LayoutGrid className="h-5 w-5 mb-1" />
-                <span className="text-xs">產品列表</span>
+                <span className="text-xs">{t('erpMaster.createProduct.productList')}</span>
               </Button>
             </div>
           </div>

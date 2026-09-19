@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Search, X, Package, Plus, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -30,10 +31,11 @@ export function SmartInput({
   onCreateNew,
   suggestions = [],
   isLoading = false,
-  placeholder = "輸入產品名稱和規格...",
+  placeholder,
   disabled = false,
   className,
 }: SmartInputProps) {
+  const { t } = useTranslation()
   const [isFocused, setIsFocused] = React.useState(false)
   const [selectedIndex, setSelectedIndex] = React.useState(-1)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -101,7 +103,7 @@ export function SmartInput({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setTimeout(() => setIsFocused(false), 200)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t('erpMaster.smartInput.placeholder')}
           disabled={disabled}
           className={cn(
             "flex-1 text-base bg-transparent border-0 outline-hidden",
@@ -142,7 +144,7 @@ export function SmartInput({
           {isLoading ? (
             <li className="px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" />
-              搜尋中...
+              {t('erpMaster.smartInput.searching')}
             </li>
           ) : (
             <>
@@ -207,7 +209,11 @@ export function SmartInput({
                     <div className="flex items-center gap-3">
                       <Plus className="w-5 h-5 text-primary" />
                       <span className="text-foreground dark:text-muted-foreground">
-                        建立新產品「<span className="font-medium">{value}</span>」
+                        <Trans
+                          i18nKey="erpMaster.smartInput.createNew"
+                          values={{ name: value }}
+                          components={{ bold: <span className="font-medium" /> }}
+                        />
                       </span>
                     </div>
                   </li>

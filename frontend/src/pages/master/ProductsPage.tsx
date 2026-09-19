@@ -3,6 +3,7 @@ import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { useToggle } from '@/hooks/useToggle'
 import { useSelection } from '@/hooks/useSelection'
@@ -34,6 +35,7 @@ import { ProductImportDialog } from '@/components/product/ProductImportDialog'
 import { EditCategoriesDialog } from '@/components/product/EditCategoriesDialog'
 
 export function ProductsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const user = useAuthUser()
@@ -81,12 +83,12 @@ export function ProductsPage() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['products'] })
       queryClient.invalidateQueries({ queryKey: ['product', variables.id] })
-      toast({ title: '成功', description: '產品狀態已更新' })
+      toast({ title: t('common.success'), description: t('erpMaster.products.toast.statusUpdated') })
       dialogs.close('status')
       setTargetProduct(null)
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(error, '狀態更新失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(error, t('erpMaster.products.toast.statusUpdateFailed')), variant: 'destructive' })
     },
   })
 
@@ -94,12 +96,12 @@ export function ProductsPage() {
     mutationFn: async (id: string) => api.post(`/products/${id}/hard-delete`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] })
-      toast({ title: '成功', description: '產品已永久刪除' })
+      toast({ title: t('common.success'), description: t('erpMaster.products.toast.hardDeleted') })
       dialogs.close('hardDelete')
       setHardDeleteProduct(null)
     },
     onError: (error: unknown) => {
-      toast({ title: '硬刪除失敗', description: getApiErrorMessage(error, '無法硬刪除產品'), variant: 'destructive' })
+      toast({ title: t('erpMaster.products.toast.hardDeleteFailedTitle'), description: getApiErrorMessage(error, t('erpMaster.products.toast.hardDeleteFailed')), variant: 'destructive' })
     },
   })
 
@@ -108,12 +110,12 @@ export function ProductsPage() {
       Promise.all(ids.map(id => api.patch(`/products/${id}/status`, { status }))),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] })
-      toast({ title: '成功', description: `已更新 ${selection.size} 個產品的狀態` })
+      toast({ title: t('common.success'), description: t('erpMaster.products.toast.batchUpdated', { count: selection.size }) })
       dialogs.close('batchStatus')
       selection.clear()
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(error, '批次更新失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(error, t('erpMaster.products.toast.batchUpdateFailed')), variant: 'destructive' })
     },
   })
 
@@ -125,7 +127,7 @@ export function ProductsPage() {
 
   const handleExportCSV = () => {
     if (products.length === 0) {
-      toast({ title: '無資料可匯出', description: '請先篩選或新增產品', variant: 'destructive' })
+      toast({ title: t('erpMaster.products.toast.nothingToExport'), description: t('erpMaster.products.toast.nothingToExportHint'), variant: 'destructive' })
       return
     }
     exportProductsCsv(products, 'products')
@@ -134,8 +136,8 @@ export function ProductsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="產品管理"
-        description="管理系統中的產品/品項資料"
+        title={t('erpMaster.products.title')}
+        description={t('erpMaster.products.description')}
         actions={
           <>
             {/* 編輯分類 → create_category、匯入 → import_products、新增 → create_product，
@@ -144,24 +146,24 @@ export function ProductsPage() {
             <Can permission={PERMISSIONS.ERP_PRODUCT_CREATE}>
               <Button variant="outline" size="sm" onClick={() => dialogs.open('editCategories')}>
                 <FolderEdit className="mr-2 h-4 w-4" />
-                編輯分類
+                {t('erpMaster.products.editCategories')}
               </Button>
             </Can>
             <Can permission={PERMISSIONS.ERP_PRODUCT_CREATE}>
               <Button variant="outline" size="sm" onClick={() => dialogs.open('import')}>
                 <Upload className="mr-2 h-4 w-4" />
-                匯入
+                {t('erpMaster.common.import')}
               </Button>
             </Can>
             <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={products.length === 0}>
               <Download className="mr-2 h-4 w-4" />
-              匯出
+              {t('erpMaster.common.export')}
             </Button>
             <GuestHide>
               <Can permission={PERMISSIONS.ERP_PRODUCT_CREATE}>
                 <Button size="sm" onClick={() => navigate('/products/new')}>
                   <Plus className="mr-2 h-4 w-4" />
-                  新增產品
+                  {t('erpMaster.products.create')}
                 </Button>
               </Can>
             </GuestHide>

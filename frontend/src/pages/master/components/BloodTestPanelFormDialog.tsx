@@ -1,4 +1,5 @@
 import { type UseFormReturn } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ export function BloodTestPanelFormDialog({
   isPending,
   onSubmit,
 }: BloodTestPanelFormDialogProps) {
+  const { t } = useTranslation()
   const { register, watch, formState: { errors } } = form
   const iconValue = watch('icon')
 
@@ -43,60 +45,60 @@ export function BloodTestPanelFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>新增檢查分類</DialogTitle>
+          <DialogTitle>{t('erpMaster.bloodTest.panelForm.title')}</DialogTitle>
           <DialogDescription>
-            建立新的血液檢查分類（如：CBC、肝臟、腎臟等）
+            {t('erpMaster.bloodTest.panelForm.description')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="panel_key" className="text-right">
-                代碼 <span className="text-destructive">*</span>
+                {t('erpMaster.common.code')} <span className="text-destructive">*</span>
               </Label>
               <div className="col-span-3 space-y-1">
                 <Input
                   id="panel_key"
                   {...register('key', {
-                    required: '代碼為必填',
+                    required: 'erpMaster.bloodTest.validation.codeRequired',
                     onChange: (e) => {
                       e.target.value = e.target.value.toUpperCase()
                     },
                   })}
                   className="font-mono"
-                  placeholder="如: CBC、LIVER、RENAL"
+                  placeholder={t('erpMaster.bloodTest.panelForm.codePlaceholder')}
                   maxLength={20}
                 />
                 {errors.key && (
-                  <p className="text-sm text-destructive">{errors.key.message}</p>
+                  <p className="text-sm text-destructive">{t(errors.key.message ?? 'validation.required')}</p>
                 )}
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="panel_name" className="text-right">
-                名稱 <span className="text-destructive">*</span>
+                {t('erpMaster.common.name')} <span className="text-destructive">*</span>
               </Label>
               <div className="col-span-3 space-y-1">
                 <Input
                   id="panel_name"
-                  {...register('name', { required: '名稱為必填' })}
-                  placeholder="如: 全血球計數、肝臟功能"
+                  {...register('name', { required: 'erpMaster.bloodTest.validation.nameRequired' })}
+                  placeholder={t('erpMaster.bloodTest.panelForm.namePlaceholder')}
                   maxLength={100}
                 />
                 {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                  <p className="text-sm text-destructive">{t(errors.name.message ?? 'validation.required')}</p>
                 )}
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="panel_icon" className="text-right">
-                圖示
+                {t('erpMaster.common.icon')}
               </Label>
               <div className="col-span-3 flex items-center gap-2">
                 <Input
                   id="panel_icon"
                   {...register('icon')}
-                  placeholder="Emoji 或 SVG 路徑"
+                  placeholder={t('erpMaster.bloodTest.panelForm.iconPlaceholder')}
                   maxLength={200}
                 />
                 {iconValue && (
@@ -107,11 +109,11 @@ export function BloodTestPanelFormDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isPending}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              建立
+              {t('erpMaster.common.createSubmit')}
             </Button>
           </DialogFooter>
         </form>

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Partner } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import {
@@ -7,13 +9,30 @@ import {
 } from '../constants'
 
 export function usePartnerExport(partners: Partner[] | undefined) {
+  const { t } = useTranslation()
+
   const handleExportCSV = () => {
     if (!partners || partners.length === 0) {
-      toast({ title: '無資料可匯出', description: '請先新增夥伴', variant: 'destructive' })
+      toast({
+        title: t('erpMaster.products.toast.nothingToExport'),
+        description: t('erpMaster.partners.toast.nothingToExportHint'),
+        variant: 'destructive',
+      })
       return
     }
 
-    const headers = ['類型', '代碼', '名稱', '供應商類別', '客戶分類', '統編', '電話', 'Email', '地址', '狀態']
+    const headers = [
+      t('erpMaster.partners.table.type'),
+      t('erpMaster.common.code'),
+      t('erpMaster.common.name'),
+      t('erpMaster.partners.supplierCategoryHeader'),
+      t('erpMaster.partners.customerCategoryLabel'),
+      t('erpMaster.partners.taxId'),
+      t('erpMaster.partners.phone'),
+      t('common.email'),
+      t('erpMaster.partners.address'),
+      t('erpMaster.common.status'),
+    ]
     const rows = partners.map(p => {
       const ext = p as Partner & { supplier_category?: string }
       return [
@@ -26,7 +45,7 @@ export function usePartnerExport(partners: Partner[] | undefined) {
         p.phone || '',
         p.email || '',
         p.address || '',
-        p.is_active ? '啟用' : '停用',
+        p.is_active ? t('erpMaster.common.active') : t('erpMaster.common.inactive'),
       ]
     })
 
@@ -40,7 +59,10 @@ export function usePartnerExport(partners: Partner[] | undefined) {
     link.download = `partners_${new Date().toISOString().split('T')[0]}.csv`
     link.click()
     URL.revokeObjectURL(link.href)
-    toast({ title: '匯出成功', description: `已匯出 ${partners.length} 筆夥伴` })
+    toast({
+      title: t('common.exportSuccess'),
+      description: t('erpMaster.partners.toast.exported', { count: partners.length }),
+    })
   }
 
   return { handleExportCSV }

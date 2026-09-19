@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -110,10 +111,12 @@ export function CompactStepIndicator({
   currentStep,
   className,
 }: CompactStepIndicatorProps) {
+  const { t } = useTranslation()
+
   return (
     <div className={cn("flex items-center justify-between", className)}>
       <span className="text-sm font-medium text-foreground dark:text-muted-foreground">
-        步驟 {currentStep + 1} / {steps.length}
+        {t('erpMaster.stepIndicator.stepOf', { current: currentStep + 1, total: steps.length })}
       </span>
       <span className="text-sm text-muted-foreground">
         {steps[currentStep]?.label}

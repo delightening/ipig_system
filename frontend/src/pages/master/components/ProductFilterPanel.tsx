@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -25,6 +27,8 @@ export function ProductFilterPanel({
   showAdvancedFilters,
   onToggleAdvancedFilters,
 }: ProductFilterPanelProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3 items-center">
@@ -32,7 +36,7 @@ export function ProductFilterPanel({
         <div className="relative w-full sm:w-[280px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="搜尋 SKU、名稱、規格、標籤..."
+            placeholder={t('erpMaster.products.filter.searchPlaceholder')}
             value={listState.filters.search}
             onChange={(e) => listState.setFilter('search', e.target.value)}
             className="pl-9 pr-9"
@@ -41,7 +45,7 @@ export function ProductFilterPanel({
             <button
               onClick={() => listState.setFilter('search', '')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label="清除搜尋"
+              aria-label={t('erpMaster.products.filter.clearSearch')}
             >
               <X className="h-4 w-4" />
             </button>
@@ -53,10 +57,10 @@ export function ProductFilterPanel({
           {/* 品類篩選 */}
           <Select value={listState.filters.categoryFilter} onValueChange={listState.handleCategoryChange}>
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="品類" />
+              <SelectValue placeholder={t('erpMaster.products.category')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部品類</SelectItem>
+              <SelectItem value="all">{t('erpMaster.products.filter.allCategories')}</SelectItem>
               {categoriesForFilter.map(cat => (
                 <SelectItem key={cat.code} value={cat.code}>
                   {cat.name}
@@ -72,10 +76,10 @@ export function ProductFilterPanel({
             disabled={listState.filters.categoryFilter === 'all'}
           >
             <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="子類" />
+              <SelectValue placeholder={t('erpMaster.products.subcategory')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部子類</SelectItem>
+              <SelectItem value="all">{t('erpMaster.products.filter.allSubcategories')}</SelectItem>
               {listState.subcategories.map(sub => (
                 <SelectItem key={sub.code} value={sub.code}>
                   {sub.name}
@@ -88,12 +92,12 @@ export function ProductFilterPanel({
         {/* 狀態篩選 */}
         <Select value={listState.filters.statusFilter} onValueChange={(v) => listState.setFilter('statusFilter', v)}>
           <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="狀態" />
+            <SelectValue placeholder={t('erpMaster.common.status')} />
           </SelectTrigger>
           <SelectContent>
             {STATUS_OPTIONS.map(opt => (
               <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
+                {t(opt.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -107,7 +111,7 @@ export function ProductFilterPanel({
           className="relative"
         >
           <Filter className="mr-2 h-4 w-4" />
-          更多篩選
+          {t('erpMaster.products.filter.moreFilters')}
           {listState.activeFilterCount > 0 && (
             <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
               {listState.activeFilterCount}
@@ -119,7 +123,7 @@ export function ProductFilterPanel({
         {(listState.filters.search || listState.activeFilterCount > 0) && (
           <Button variant="ghost" size="sm" onClick={listState.resetFilters}>
             <X className="mr-1 h-4 w-4" />
-            清除篩選
+            {t('common.clearFilters')}
           </Button>
         )}
       </div>
@@ -128,15 +132,15 @@ export function ProductFilterPanel({
       {showAdvancedFilters && (
         <div className="flex flex-wrap gap-3 p-4 bg-muted/50 rounded-lg border">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">追蹤批號：</span>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">{t('erpMaster.products.filter.trackBatchLabel')}</span>
             <Select value={listState.filters.trackBatchFilter} onValueChange={(v) => listState.setFilter('trackBatchFilter', v)}>
               <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="全部" />
+                <SelectValue placeholder={t('erpMaster.common.all')} />
               </SelectTrigger>
               <SelectContent>
                 {BOOLEAN_OPTIONS.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -144,15 +148,15 @@ export function ProductFilterPanel({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">追蹤效期：</span>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">{t('erpMaster.products.filter.trackExpiryLabel')}</span>
             <Select value={listState.filters.trackExpiryFilter} onValueChange={(v) => listState.setFilter('trackExpiryFilter', v)}>
               <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="全部" />
+                <SelectValue placeholder={t('erpMaster.common.all')} />
               </SelectTrigger>
               <SelectContent>
                 {BOOLEAN_OPTIONS.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>

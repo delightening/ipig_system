@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,13 +10,14 @@ interface EditTrackingCardProps {
 }
 
 export function EditTrackingCard({ formReturn }: EditTrackingCardProps) {
+  const { t } = useTranslation()
   const { form, updateField } = formReturn
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>追蹤設定</CardTitle>
-        <CardDescription>批號、效期追蹤</CardDescription>
+        <CardTitle>{t('erpMaster.productDetail.trackingSettings')}</CardTitle>
+        <CardDescription>{t('erpMaster.productEdit.trackingDescription')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2">
@@ -25,7 +28,7 @@ export function EditTrackingCard({ formReturn }: EditTrackingCardProps) {
             onChange={(e) => updateField('trackBatch', e.target.checked)}
             className="rounded"
           />
-          <Label htmlFor="trackBatch">追蹤批號</Label>
+          <Label htmlFor="trackBatch">{t('erpMaster.products.trackBatch')}</Label>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -35,11 +38,11 @@ export function EditTrackingCard({ formReturn }: EditTrackingCardProps) {
             onChange={(e) => updateField('trackExpiry', e.target.checked)}
             className="rounded"
           />
-          <Label htmlFor="trackExpiry">追蹤效期</Label>
+          <Label htmlFor="trackExpiry">{t('erpMaster.products.trackExpiry')}</Label>
         </div>
         {form.trackExpiry && (
           <div className="grid gap-2">
-            <Label htmlFor="defaultExpiryDays">預設有效天數</Label>
+            <Label htmlFor="defaultExpiryDays">{t('erpMaster.productEdit.defaultExpiryDays')}</Label>
             <Input
               id="defaultExpiryDays"
               type="number"
@@ -51,7 +54,7 @@ export function EditTrackingCard({ formReturn }: EditTrackingCardProps) {
                   e.target.value === '' ? '' : parseInt(e.target.value, 10),
                 )
               }
-              placeholder="例：365"
+              placeholder={t('erpMaster.productEdit.expiryDaysPlaceholder')}
             />
           </div>
         )}

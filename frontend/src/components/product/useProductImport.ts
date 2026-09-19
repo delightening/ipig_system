@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -18,6 +19,7 @@ import type {
 } from './importTypes'
 
 export function useProductImport(open: boolean) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<ProductImportResult | null>(null)
@@ -74,7 +76,7 @@ export function useProductImport(open: boolean) {
       return res.data
     },
     onError: (error: unknown) => {
-      toast({ title: '產生 SKU 失敗', description: getApiErrorMessage(error, '請稍後再試'), variant: 'destructive' })
+      toast({ title: t('erpMaster.import.toast.generateSkuFailed'), description: getApiErrorMessage(error, t('errors.tryAgainLater')), variant: 'destructive' })
     },
   })
 
@@ -98,17 +100,17 @@ export function useProductImport(open: boolean) {
       setSkuOverrides({})
       queryClient.invalidateQueries({ queryKey: ['products'] })
       if (data.error_count === 0) {
-        toast({ title: '匯入成功', description: `成功匯入 ${data.success_count} 筆產品` })
+        toast({ title: t('erpMaster.import.toast.success'), description: t('erpMaster.import.product.toastSuccessDescription', { count: data.success_count }) })
       } else {
         toast({
-          title: '匯入完成（部分失敗）',
-          description: `成功: ${data.success_count} 筆，失敗: ${data.error_count} 筆`,
+          title: t('erpMaster.import.toast.partial'),
+          description: t('erpMaster.import.toast.partialDescription', { success: data.success_count, failed: data.error_count }),
           variant: 'destructive',
         })
       }
     },
     onError: (error: unknown) => {
-      toast({ title: '匯入失敗', description: getApiErrorMessage(error, '發生未知錯誤'), variant: 'destructive' })
+      toast({ title: t('erpMaster.import.result.failed'), description: getApiErrorMessage(error, t('common.unknown_error')), variant: 'destructive' })
     },
   })
 
@@ -132,7 +134,7 @@ export function useProductImport(open: boolean) {
       }
     },
     onError: (error: unknown) => {
-      toast({ title: '預檢失敗', description: getApiErrorMessage(error, '無法檢查重複'), variant: 'destructive' })
+      toast({ title: t('erpMaster.import.toast.checkFailed'), description: getApiErrorMessage(error, t('erpMaster.import.toast.checkFailedDescription')), variant: 'destructive' })
     },
   })
 
@@ -165,7 +167,7 @@ export function useProductImport(open: boolean) {
       setCategorySubcategoryOverrides(initialOverrides)
     },
     onError: (error: unknown) => {
-      toast({ title: '預覽失敗', description: getApiErrorMessage(error, '無法解析檔案'), variant: 'destructive' })
+      toast({ title: t('erpMaster.import.toast.previewFailed'), description: getApiErrorMessage(error, t('erpMaster.import.toast.previewFailedDescription')), variant: 'destructive' })
     },
   })
 
@@ -182,7 +184,7 @@ export function useProductImport(open: boolean) {
 
   const handleImport = () => {
     if (!file) {
-      toast({ title: '錯誤', description: '請先選擇檔案', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('erpMaster.import.toast.selectFileFirst'), variant: 'destructive' })
       return
     }
     setCheckResult(null)
@@ -207,7 +209,7 @@ export function useProductImport(open: boolean) {
   }
 
   const buildCsvWithSku = (): File => {
-    if (!previewRows?.length) throw new Error('無預覽資料')
+    if (!previewRows?.length) throw new Error(t('erpMaster.import.toast.noPreviewData'))
     const escape = (v: string) => {
       const s = String(v ?? '').trim()
       if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
@@ -238,8 +240,8 @@ export function useProductImport(open: boolean) {
       doImport(f, false, false)
     } catch (e) {
       toast({
-        title: '無法產生匯入檔',
-        description: e instanceof Error ? e.message : '請稍後再試',
+        title: t('erpMaster.import.toast.buildCsvFailed'),
+        description: e instanceof Error ? e.message : t('errors.tryAgainLater'),
         variant: 'destructive',
       })
     }
@@ -264,12 +266,12 @@ export function useProductImport(open: boolean) {
       window.URL.revokeObjectURL(url)
     },
     onSuccess: () => {
-      toast({ title: '下載成功', description: '範本檔案已開始下載' })
+      toast({ title: t('erpMaster.import.toast.downloaded'), description: t('erpMaster.import.toast.downloadedDescription') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '下載失敗',
-        description: getApiErrorMessage(error, '無法下載範本檔案'),
+        title: t('common.downloadFailed'),
+        description: getApiErrorMessage(error, t('erpMaster.import.toast.downloadFailedDescription')),
         variant: 'destructive',
       })
     },

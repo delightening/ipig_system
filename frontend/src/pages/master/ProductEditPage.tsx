@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Loader2, Package } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { EditTrackingCard } from './components/EditTrackingCard'
 import { EditInventoryCard } from './components/EditInventoryCard'
 
 export function ProductEditPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const formReturn = useProductEditForm(id)
   const { product, isLoading, error, updateMutation, handleSubmit, navigate } =
@@ -27,12 +29,12 @@ export function ProductEditPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
         <Package className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">找不到產品</h2>
+        <h2 className="text-xl font-semibold mb-2">{t('erpMaster.productDetail.notFoundTitle')}</h2>
         <p className="text-muted-foreground mb-4">
-          該產品可能已被刪除或不存在
+          {t('erpMaster.productDetail.notFoundDescription')}
         </p>
         <Button variant="outline" onClick={() => navigate('/products')}>
-          返回產品列表
+          {t('erpMaster.productDetail.backToList')}
         </Button>
       </div>
     )
@@ -49,15 +51,15 @@ export function ProductEditPage() {
           variant="ghost"
           size="icon"
           onClick={() => navigate(`/products/${id}`)}
-          aria-label="返回"
+          aria-label={t('erpMaster.common.back')}
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <PageHeader
-          title="編輯產品"
+          title={t('erpMaster.productEdit.title')}
           description={`SKU: ${product.sku}${isDefaultCategory
-            ? '（目前為預設分類 GEN-OTH，變更分類後將自動產生新 SKU）'
-            : '（唯讀，不可修改）'}`}
+            ? t('erpMaster.productEdit.skuDefaultCategoryNote')
+            : t('erpMaster.productEdit.skuReadonlyNote')}`}
         />
       </div>
 
@@ -73,14 +75,14 @@ export function ProductEditPage() {
               {updateMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              儲存變更
+              {t('erpMaster.productEdit.saveChanges')}
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => navigate(`/products/${id}`)}
             >
-              取消
+              {t('common.cancel')}
             </Button>
           </div>
         </div>

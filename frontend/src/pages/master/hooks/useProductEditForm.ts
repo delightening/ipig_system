@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, { Product } from '@/lib/api'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
@@ -25,7 +26,11 @@ export interface ExtendedProduct extends Product {
   tags?: string[]
 }
 
-/** Reverse-lookup: display name or code -> unit code */
+/**
+ * Reverse-lookup: display name or code -> unit code
+ * ⚠️ 這裡比對的是 UOM_MAP 的**固定 zh-TW 名稱**（舊資料曾把中文單位名直接存進 base_uom／pack_unit），
+ * 與目前 UI 語系無關，所以刻意不改走 i18n。
+ */
 function unitToCode(value: string | undefined): string {
   if (!value?.trim()) return ''
   if (UOM_MAP[value]) return value
@@ -62,6 +67,7 @@ export interface ProductEditFormState {
 export type ProductEditFormReturn = ReturnType<typeof useProductEditForm>
 
 export function useProductEditForm(id: string | undefined) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const {
@@ -221,7 +227,7 @@ export function useProductEditForm(id: string | undefined) {
         tags: form.tagsInput.trim()
           ? form.tagsInput
               .split(/,\s*/)
-              .map((t) => t.trim())
+              .map((tag) => tag.trim())
               .filter(Boolean)
           : undefined,
       })
@@ -229,13 +235,13 @@ export function useProductEditForm(id: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['product', id] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
-      toast({ title: '產品已更新', description: '變更已儲存' })
+      toast({ title: t('erpMaster.productEdit.toast.updated'), description: t('erpMaster.productEdit.toast.updatedDescription') })
       navigate(`/products/${id}`)
     },
     onError: (err: unknown) => {
       toast({
-        title: '更新失敗',
-        description: getApiErrorMessage(err, '儲存時發生錯誤'),
+        title: t('erpMaster.productEdit.toast.updateFailed'),
+        description: getApiErrorMessage(err, t('erpMaster.productEdit.toast.saveError')),
         variant: 'destructive',
       })
     },
@@ -246,7 +252,7 @@ export function useProductEditForm(id: string | undefined) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name.trim()) {
-      toast({ title: '請輸入產品名稱', variant: 'destructive' })
+      toast({ title: t('erpMaster.createProduct.toast.enterName'), variant: 'destructive' })
       return
     }
     updateMutation.mutate()

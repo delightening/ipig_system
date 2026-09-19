@@ -1,10 +1,12 @@
+import { useTranslation } from 'react-i18next'
+
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { SmartInput, ProductSuggestion } from '@/components/product/SmartInput'
 import { QuickSelectGrid, QuickSelectItem, SpecSelectionPanel, QuickSelectSpec } from '@/components/product/QuickSelectCard'
 import { ArrowRight } from 'lucide-react'
-import { QUICK_ITEMS, GLOVE_SPECS } from '@/components/product/createProductTypes'
+import { getQuickItems, getGloveSpecs } from '@/components/product/createProductTypes'
 
 interface ProductInputStepProps {
   rawInput: string
@@ -39,6 +41,8 @@ export function ProductInputStep({
   onGlovesMaterialChange,
   onNext,
 }: ProductInputStepProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-6 animate-fade-in">
       <Card>
@@ -46,7 +50,7 @@ export function ProductInputStep({
           <div className="space-y-6">
             {/* Smart Input */}
             <div className="space-y-3">
-              <Label className="text-base">輸入產品名稱和規格</Label>
+              <Label className="text-base">{t('erpMaster.createProduct.inputLabel')}</Label>
               <SmartInput
                 value={rawInput}
                 onChange={onInputChange}
@@ -54,19 +58,19 @@ export function ProductInputStep({
                 onCreateNew={() => onCreateNew()}
                 suggestions={suggestions}
                 isLoading={isSuggestionsLoading}
-                placeholder="例如：Amoxicillin 500mg tablet"
+                placeholder={t('erpMaster.createProduct.inputPlaceholder')}
               />
               <p className="text-xs text-muted-foreground">
-                💡 直接輸入「名稱 規格」，例如：手套 L號 無粉、生理食鹽水 500ml
+                💡 {t('erpMaster.createProduct.inputHint')}
               </p>
             </div>
 
             <div className="border-t pt-6">
               <Label className="text-sm text-muted-foreground dark:text-muted-foreground mb-3 block">
-                🏷️ 快速選擇常用品項
+                🏷️ {t('erpMaster.createProduct.quickSelectLabel')}
               </Label>
               <QuickSelectGrid
-                items={QUICK_ITEMS}
+                items={getQuickItems(t)}
                 selectedId={selectedQuickItem?.id}
                 onSelect={onQuickItemSelect}
                 showMore
@@ -79,15 +83,15 @@ export function ProductInputStep({
               <div className="border-t pt-6">
                 <SpecSelectionPanel
                   title={selectedQuickItem.label}
-                  specs={GLOVE_SPECS}
+                  specs={getGloveSpecs(t)}
                   selectedId={selectedSpec?.id}
                   onSelect={onSpecSelect}
                   extraOptions={[
                     {
-                      label: '材質',
+                      label: t('erpMaster.createProduct.material.label'),
                       options: [
-                        { value: 'NBR', label: 'NBR丁腈' },
-                        { value: 'LATEX', label: '乳膠' },
+                        { value: 'NBR', label: t('erpMaster.createProduct.material.nbr') },
+                        { value: 'LATEX', label: t('erpMaster.createProduct.material.latex') },
                         { value: 'PVC', label: 'PVC' },
                         { value: 'PE', label: 'PE' },
                       ],
@@ -109,7 +113,7 @@ export function ProductInputStep({
           disabled={!rawInput && !name}
           size="lg"
         >
-          下一步
+          {t('erpMaster.createProduct.next')}
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>

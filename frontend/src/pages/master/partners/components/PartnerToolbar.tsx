@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -33,27 +35,29 @@ export function PartnerToolbar({
   onExport,
   onAdd,
 }: PartnerToolbarProps) {
+  const { t } = useTranslation()
+
   return (
     <>
       <PageHeader
-        title="供應商/客戶管理"
-        description="管理系統中的供應商與客戶資料"
+        title={t('erpMaster.partners.title')}
+        description={t('erpMaster.partners.description')}
         actions={
           <>
             <Can permission={PERMISSIONS.ERP_PARTNER_CREATE}>
               <Button variant="outline" size="sm" onClick={onImport}>
                 <Upload className="mr-2 h-4 w-4" />
-                匯入
+                {t('erpMaster.common.import')}
               </Button>
             </Can>
             <Button variant="outline" size="sm" onClick={onExport} disabled={!hasPartners}>
               <Download className="mr-2 h-4 w-4" />
-              匯出
+              {t('erpMaster.common.export')}
             </Button>
             <Can permission={PERMISSIONS.ERP_PARTNER_CREATE}>
               <Button size="sm" onClick={onAdd}>
                 <Plus className="mr-2 h-4 w-4" />
-                新增夥伴
+                {t('erpMaster.partners.add')}
               </Button>
             </Can>
           </>
@@ -63,16 +67,16 @@ export function PartnerToolbar({
       <FilterBar
         search={search}
         onSearchChange={onSearchChange}
-        searchPlaceholder="搜尋夥伴..."
+        searchPlaceholder={t('erpMaster.partners.searchPlaceholder')}
       >
         <Select value={typeFilter} onValueChange={onTypeFilterChange}>
           <SelectTrigger className="w-40">
-            <SelectValue placeholder="全部類型" />
+            <SelectValue placeholder={t('erpMaster.partners.allTypes')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部類型</SelectItem>
-            <SelectItem value="supplier">供應商</SelectItem>
-            <SelectItem value="customer">客戶</SelectItem>
+            <SelectItem value="all">{t('erpMaster.partners.allTypes')}</SelectItem>
+            <SelectItem value="supplier">{t('erpMaster.partners.type.supplier')}</SelectItem>
+            <SelectItem value="customer">{t('erpMaster.partners.type.customer')}</SelectItem>
           </SelectContent>
         </Select>
       </FilterBar>

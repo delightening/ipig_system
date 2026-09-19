@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import {
   Select,
   SelectContent,
@@ -5,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { UNITS } from '../constants'
+import { UNITS, unitDisplayName } from '../constants'
 import type { ProductFormData } from '../constants'
 
 const ALL_UNITS = [...UNITS.outer, ...UNITS.inner, ...UNITS.base]
@@ -51,16 +53,17 @@ function buildAvailableUnits(formData: ProductFormData, includeBase: boolean): U
   return units
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  outer: '外',
-  inner: '內',
-  base: '基礎',
+// 值是 i18n 鍵（模組頂層不存翻譯後字串），渲染時才 t()
+const TYPE_LABEL_KEYS: Record<string, string> = {
+  outer: 'erpMaster.packaging.typeShort.outer',
+  inner: 'erpMaster.packaging.typeShort.inner',
+  base: 'erpMaster.packaging.typeShort.base',
 }
 
-const TYPE_LABELS_LONG: Record<string, string> = {
-  outer: '外層',
-  inner: '內層',
-  base: '基礎',
+const TYPE_LABEL_LONG_KEYS: Record<string, string> = {
+  outer: 'erpMaster.packaging.outerLayer',
+  inner: 'erpMaster.packaging.innerLayer',
+  base: 'erpMaster.packaging.baseLayer',
 }
 
 export function PackagingUnitSelect({
@@ -71,23 +74,24 @@ export function PackagingUnitSelect({
   includeBase = false,
   className,
 }: PackagingUnitSelectProps) {
+  const { t } = useTranslation()
   const units = buildAvailableUnits(formData, includeBase)
 
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger className={className}>
-        <SelectValue placeholder="選擇單位" />
+        <SelectValue placeholder={t('erpMaster.packaging.selectUnit')} />
       </SelectTrigger>
       <SelectContent>
         {units.length === 0
           ? UNITS.base.map((unit) => (
               <SelectItem key={unit.code} value={unit.name}>
-                {unit.name} ({unit.code})
+                {unitDisplayName(unit.name)} ({unit.code})
               </SelectItem>
             ))
           : units.map((unit) => (
               <SelectItem key={unit.code} value={unit.name}>
-                {unit.name} ({unit.code}) - {includeBase ? `${TYPE_LABELS_LONG[unit.type]}包裝` : TYPE_LABELS[unit.type]}
+                {unitDisplayName(unit.name)} ({unit.code}) - {includeBase ? t(TYPE_LABEL_LONG_KEYS[unit.type]) : t(TYPE_LABEL_KEYS[unit.type])}
               </SelectItem>
             ))
         }

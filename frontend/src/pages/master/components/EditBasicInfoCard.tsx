@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,8 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { UOM_MAP } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import { cn, formatUom } from '@/lib/utils'
 import { STORAGE_CONDITIONS } from '@/lib/constants/product'
 import { CATEGORY_ICONS } from '../constants'
 import type { ProductEditFormReturn } from '../hooks/useProductEditForm'
@@ -19,6 +20,7 @@ interface EditBasicInfoCardProps {
 }
 
 export function EditBasicInfoCard({ formReturn }: EditBasicInfoCardProps) {
+  const { t } = useTranslation()
   const {
     form,
     updateField,
@@ -38,34 +40,34 @@ export function EditBasicInfoCard({ formReturn }: EditBasicInfoCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>基本資訊</CardTitle>
-        <CardDescription>產品名稱、規格、分類等</CardDescription>
+        <CardTitle>{t('erpMaster.productDetail.basicInfo')}</CardTitle>
+        <CardDescription>{t('erpMaster.productEdit.basicInfoDescription')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-2">
-          <Label htmlFor="name">產品名稱 *</Label>
+          <Label htmlFor="name">{t('erpMaster.productEdit.productNameRequired')}</Label>
           <Input
             id="name"
             value={form.name}
             onChange={(e) => updateField('name', e.target.value)}
-            placeholder="例：紗布"
+            placeholder={t('erpMaster.productEdit.namePlaceholder')}
             required
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="spec">規格描述</Label>
+          <Label htmlFor="spec">{t('erpMaster.productDetail.specDescription')}</Label>
           <Input
             id="spec"
             value={form.spec}
             onChange={(e) => updateField('spec', e.target.value)}
-            placeholder="例：4x4"
+            placeholder={t('erpMaster.productEdit.specPlaceholder')}
           />
         </div>
         <div className="grid gap-2">
-          <Label>分類（與新增產品一致）</Label>
+          <Label>{t('erpMaster.productEdit.categoryLabel')}</Label>
           {isDefaultCategory && (
             <p className="text-muted-foreground text-xs">
-              此產品為匯入預設 GEN-OTH，選擇新分類並儲存後將自動產生新 SKU。
+              {t('erpMaster.productEdit.defaultCategoryNote')}
             </p>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -105,13 +107,13 @@ export function EditBasicInfoCard({ formReturn }: EditBasicInfoCardProps) {
         </div>
         {subcategories.length > 0 && (
           <div className="grid gap-2">
-            <Label>子分類</Label>
+            <Label>{t('erpMaster.createProduct.subcategory')}</Label>
             <Select
               value={form.subcategoryCode}
               onValueChange={(v) => updateField('subcategoryCode', v)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="選擇子分類" />
+                <SelectValue placeholder={t('erpMaster.createProduct.selectSubcategory')} />
               </SelectTrigger>
               <SelectContent>
                 {subcategories.map((s) => (
@@ -124,24 +126,24 @@ export function EditBasicInfoCard({ formReturn }: EditBasicInfoCardProps) {
           </div>
         )}
         <div className="grid gap-2">
-          <Label>庫存單位（消耗單位，唯讀）</Label>
+          <Label>{t('erpMaster.productEdit.baseUomReadonly')}</Label>
           <Input
-            value={`${product.base_uom} (${UOM_MAP[product.base_uom] || product.base_uom})`}
+            value={`${product.base_uom} (${formatUom(product.base_uom)})`}
             disabled
             className="bg-muted"
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="barcode">原廠條碼</Label>
+          <Label htmlFor="barcode">{t('erpMaster.productDetail.barcode')}</Label>
           <Input
             id="barcode"
             value={form.barcode}
             onChange={(e) => updateField('barcode', e.target.value)}
-            placeholder="選填"
+            placeholder={t('erpMaster.common.optional')}
           />
         </div>
         <div className="grid gap-2">
-          <Label>保存條件</Label>
+          <Label>{t('erpMaster.productDetail.storageCondition')}</Label>
           <Select
             value={form.storageCondition || '__none__'}
             onValueChange={(v) =>
@@ -149,43 +151,43 @@ export function EditBasicInfoCard({ formReturn }: EditBasicInfoCardProps) {
             }
           >
             <SelectTrigger>
-              <SelectValue placeholder="選填" />
+              <SelectValue placeholder={t('erpMaster.common.optional')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">不設定</SelectItem>
-              {Object.entries(STORAGE_CONDITIONS).map(([code, label]) => (
+              <SelectItem value="__none__">{t('erpMaster.productEdit.notSet')}</SelectItem>
+              {Object.entries(STORAGE_CONDITIONS).map(([code, labelKey]) => (
                 <SelectItem key={code} value={code}>
-                  {label}
+                  {t(labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="licenseNo">許可證號</Label>
+          <Label htmlFor="licenseNo">{t('erpMaster.productDetail.licenseNo')}</Label>
           <Input
             id="licenseNo"
             value={form.licenseNo}
             onChange={(e) => updateField('licenseNo', e.target.value)}
-            placeholder="選填"
+            placeholder={t('erpMaster.common.optional')}
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="tags">搜尋標籤（逗號分隔）</Label>
+          <Label htmlFor="tags">{t('erpMaster.productEdit.tagsLabel')}</Label>
           <Input
             id="tags"
             value={form.tagsInput}
             onChange={(e) => updateField('tagsInput', e.target.value)}
-            placeholder="例：敷料, 急救"
+            placeholder={t('erpMaster.productEdit.tagsPlaceholder')}
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="remark">備註</Label>
+          <Label htmlFor="remark">{t('erpMaster.common.remark')}</Label>
           <Input
             id="remark"
             value={form.remark}
             onChange={(e) => updateField('remark', e.target.value)}
-            placeholder="選填"
+            placeholder={t('erpMaster.common.optional')}
           />
         </div>
       </CardContent>

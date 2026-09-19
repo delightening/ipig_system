@@ -6,6 +6,7 @@ import { useState, useMemo } from 'react'
 import { STALE_TIME } from '@/lib/query'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import {
   bloodTestPresetApi,
   bloodTestPanelApi,
@@ -65,6 +66,7 @@ import { TableEmptyRow } from '@/components/ui/empty-state'
 type ShowFilter = 'all' | 'active' | 'inactive'
 
 export function BloodTestPresetsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
@@ -101,14 +103,14 @@ export function BloodTestPresetsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blood-test-presets'] })
       queryClient.invalidateQueries({ queryKey: ['blood-test-presets-all'] })
-      toast({ title: '成功', description: '常用組合已建立' })
+      toast({ title: t('common.success'), description: t('erpMaster.bloodTest.toast.presetCreated') })
       setDialogOpen(false)
       resetForm()
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '建立失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.bloodTest.toast.createFailed')),
         variant: 'destructive',
       })
     },
@@ -125,14 +127,14 @@ export function BloodTestPresetsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blood-test-presets'] })
       queryClient.invalidateQueries({ queryKey: ['blood-test-presets-all'] })
-      toast({ title: '成功', description: '常用組合已更新' })
+      toast({ title: t('common.success'), description: t('erpMaster.bloodTest.toast.presetUpdated') })
       setDialogOpen(false)
       resetForm()
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '更新失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.bloodTest.toast.updateFailed')),
         variant: 'destructive',
       })
     },
@@ -145,14 +147,14 @@ export function BloodTestPresetsPage() {
       queryClient.invalidateQueries({ queryKey: ['blood-test-presets'] })
       queryClient.invalidateQueries({ queryKey: ['blood-test-presets-all'] })
       toast({
-        title: '成功',
-        description: vars.is_active ? '常用組合已恢復啟用' : '常用組合已停用',
+        title: t('common.success'),
+        description: vars.is_active ? t('erpMaster.bloodTest.toast.presetRestored') : t('erpMaster.bloodTest.toast.presetDeactivated'),
       })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '操作失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.bloodTest.toast.operationFailed')),
         variant: 'destructive',
       })
     },
@@ -228,13 +230,13 @@ export function BloodTestPresetsPage() {
           variant="ghost"
           size="icon"
           onClick={() => navigate('/blood-test-templates')}
-          aria-label="返回"
+          aria-label={t('erpMaster.common.back')}
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <PageHeader
-          title="血液檢查常用組合管理"
-          description={`管理血液檢查結果分析頁面的一鍵選取組合（共 ${totalCount} 個，啟用 ${activeCount} 個）`}
+          title={t('erpMaster.bloodTest.presets.title')}
+          description={t('erpMaster.bloodTest.presets.description', { total: totalCount, active: activeCount })}
           className="flex-1"
           actions={
             <Button
@@ -245,7 +247,7 @@ export function BloodTestPresetsPage() {
               }}
             >
               <Plus className="mr-2 h-4 w-4" />
-              新增常用組合
+              {t('erpMaster.bloodTest.presets.add')}
             </Button>
           }
         />
@@ -255,7 +257,7 @@ export function BloodTestPresetsPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="搜尋名稱..."
+            placeholder={t('erpMaster.bloodTest.presets.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -269,7 +271,7 @@ export function BloodTestPresetsPage() {
               size="sm"
               onClick={() => setShowFilter(f)}
             >
-              {f === 'all' ? '全部' : f === 'active' ? '啟用中' : '已停用'}
+              {f === 'all' ? t('erpMaster.common.all') : f === 'active' ? t('erpMaster.common.activeFilter') : t('erpMaster.common.inactiveFilter')}
             </Button>
           ))}
         </div>
@@ -279,12 +281,12 @@ export function BloodTestPresetsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-[60px]">圖示</TableHead>
-              <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
-              <TableHead>包含分類</TableHead>
-              <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">排序</SortableTableHead>
-              <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">狀態</SortableTableHead>
-              <TableHead className="w-[140px] text-right">操作</TableHead>
+              <TableHead className="w-[60px]">{t('erpMaster.common.icon')}</TableHead>
+              <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpMaster.common.name')}</SortableTableHead>
+              <TableHead>{t('erpMaster.bloodTest.presets.includedCategories')}</TableHead>
+              <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">{t('erpMaster.common.sortOrder')}</SortableTableHead>
+              <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">{t('erpMaster.common.status')}</SortableTableHead>
+              <TableHead className="w-[140px] text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -295,7 +297,7 @@ export function BloodTestPresetsPage() {
                 </TableCell>
               </TableRow>
             ) : filteredPresets.length === 0 ? (
-              <TableEmptyRow colSpan={6} icon={Layers} title="沒有符合條件的常用組合" />
+              <TableEmptyRow colSpan={6} icon={Layers} title={t('erpMaster.bloodTest.presets.noMatch')} />
             ) : (
               (sortedData ?? filteredPresets).map((preset) => (
                 <TableRow
@@ -309,14 +311,14 @@ export function BloodTestPresetsPage() {
                   <TableCell className="text-sm text-muted-foreground">
                     {(preset.panel_keys || [])
                       .map((k) => panels?.find((p) => p.key === k)?.name ?? k)
-                      .join('、') || '—'}
+                      .join(t('erpMaster.common.listSeparator')) || '—'}
                   </TableCell>
                   <TableCell className="text-center">{preset.sort_order}</TableCell>
                   <TableCell className="text-center">
                     <Badge
                       variant={preset.is_active ? 'default' : 'outline'}
                     >
-                      {preset.is_active ? '啟用' : '停用'}
+                      {preset.is_active ? t('erpMaster.common.active') : t('erpMaster.common.inactive')}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -325,7 +327,7 @@ export function BloodTestPresetsPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEdit(preset)}
-                        title="編輯"
+                        title={t('common.edit')}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -338,7 +340,7 @@ export function BloodTestPresetsPage() {
                             is_active: !preset.is_active,
                           })
                         }
-                        title={preset.is_active ? '停用' : '啟用'}
+                        title={preset.is_active ? t('erpMaster.products.actions.deactivate') : t('erpMaster.products.actions.activate')}
                       >
                         {preset.is_active ? (
                           <PowerOff className="h-4 w-4 text-destructive" />
@@ -367,44 +369,44 @@ export function BloodTestPresetsPage() {
         <DialogContent size="md">
           <DialogHeader>
             <DialogTitle>
-              {editingPreset ? '編輯常用組合' : '新增常用組合'}
+              {editingPreset ? t('erpMaster.bloodTest.presets.edit') : t('erpMaster.bloodTest.presets.add')}
             </DialogTitle>
             <DialogDescription>
               {editingPreset
-                ? '修改組合的名稱、圖示與包含分類'
-                : '請輸入常用組合的資訊，供分析頁一鍵選取'}
+                ? t('erpMaster.bloodTest.presets.editDescription')
+                : t('erpMaster.bloodTest.presets.addDescription')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={rhfHandleSubmit(onSubmit)}>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="preset-name" className="text-right">
-                  名稱
+                  {t('erpMaster.common.name')}
                 </Label>
                 <div className="col-span-3 space-y-1">
                   <Input
                     id="preset-name"
                     {...register('name', { required: 'validation.required' })}
-                    placeholder="例：肝腎功能"
+                    placeholder={t('erpMaster.bloodTest.presets.namePlaceholder')}
                   />
                   {errors.name && (
-                    <p className="text-sm text-destructive">{errors.name.message}</p>
+                    <p className="text-sm text-destructive">{t(errors.name.message ?? 'validation.required')}</p>
                   )}
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="preset-icon" className="text-right">
-                  圖示
+                  {t('erpMaster.common.icon')}
                 </Label>
                 <Input
                   id="preset-icon"
                   {...register('icon')}
                   className="col-span-3"
-                  placeholder="emoji 或 /icons/xxx.svg"
+                  placeholder={t('erpMaster.bloodTest.presets.iconPlaceholder')}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right pt-2">包含分類</Label>
+                <Label className="text-right pt-2">{t('erpMaster.bloodTest.presets.includedCategories')}</Label>
                 <div className="col-span-3 flex flex-wrap gap-3">
                   {activePanels
                     .filter((p) => p.key !== 'TUBE')
@@ -425,7 +427,7 @@ export function BloodTestPresetsPage() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="preset-sort" className="text-right">
-                  排序
+                  {t('erpMaster.common.sortOrder')}
                 </Label>
                 <Input
                   id="preset-sort"
@@ -441,13 +443,13 @@ export function BloodTestPresetsPage() {
                 variant="outline"
                 onClick={() => setDialogOpen(false)}
               >
-                取消
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={isSaving}>
                 {isSaving && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                {editingPreset ? '儲存' : '建立'}
+                {editingPreset ? t('common.save') : t('erpMaster.common.createSubmit')}
               </Button>
             </DialogFooter>
           </form>

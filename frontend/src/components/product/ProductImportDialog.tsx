@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -20,7 +22,25 @@ interface Props {
   onOpenChange: (open: boolean) => void
 }
 
+/**
+ * 匯入檔的 CSV 欄位標題。⚠️ 這是後端（product_parser.rs）依欄名比對的**契約值**，
+ * 必須維持中文，不可隨語系翻譯；說明文字只是把它們原樣帶進句子。
+ */
+const IMPORT_HEADERS = {
+  sku: 'SKU編碼',
+  name: '名稱',
+  spec: '規格',
+  category: '品類代碼',
+  subcategory: '子類代碼',
+  unit: '單位',
+  trackBatch: '追蹤批號',
+  trackExpiry: '追蹤效期',
+  safetyStock: '安全庫存',
+  remark: '備註',
+} as const
+
 export function ProductImportDialog({ open, onOpenChange }: Props) {
+  const { t } = useTranslation()
   const {
     file, result, checkResult, previewRows, skuOverrides, setSkuOverrides,
     rowCategoryCode, setRowCategoryCode, rowSubcategoryCode, setRowSubcategoryCode,
@@ -40,10 +60,10 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            匯入產品
+            {t('erpMaster.import.product.title')}
           </DialogTitle>
           <DialogDescription>
-            支援 Excel (.xlsx, .xls) 或 CSV 格式，批次匯入多筆產品資料
+            {t('erpMaster.import.product.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -52,7 +72,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
           <div className="flex items-center justify-between p-3 bg-status-info-bg rounded-lg">
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-status-info-text" />
-              <span className="text-sm text-status-info-text">下載範本檔案</span>
+              <span className="text-sm text-status-info-text">{t('erpMaster.import.downloadTemplateHint')}</span>
             </div>
             <Button
               variant="outline"
@@ -62,14 +82,14 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
               disabled={downloadTemplateMutation.isPending}
             >
               <Download className="h-4 w-4 mr-1" />
-              下載範本 (XLSX)
+              {t('erpMaster.import.downloadTemplate')}
             </Button>
           </div>
 
           {/* File Upload */}
           {!result && (
             <label className="block space-y-2">
-              <span className="block text-sm font-medium leading-none">選擇檔案</span>
+              <span className="block text-sm font-medium leading-none">{t('erpMaster.import.selectFile')}</span>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv"
@@ -154,13 +174,13 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
           {/* Instructions */}
           {!result && (
             <div className="text-sm text-muted-foreground space-y-1">
-              <p className="font-medium">注意事項：</p>
+              <p className="font-medium">{t('erpMaster.import.notesTitle')}</p>
               <ul className="list-disc list-inside space-y-0.5">
-                <li>名稱為必填欄位</li>
-                <li>單位為必填欄位（預設 PCS）</li>
-                <li>品類代碼、子類代碼可選，未填時預設為 GEN-OTH；於編輯頁變更分類後將自動產生新 SKU（僅 GEN-OTH 可改動 SKU）</li>
-                <li>追蹤批號、追蹤效期：true/false 或 是/否</li>
-                <li>CSV 欄位順序：SKU編碼、名稱、規格、品類代碼、子類代碼、單位、追蹤批號、追蹤效期、安全庫存、備註（SKU 可留空由系統自動產生）</li>
+                <li>{t('erpMaster.import.product.noteName', { name: IMPORT_HEADERS.name })}</li>
+                <li>{t('erpMaster.import.product.noteUnit', { unit: IMPORT_HEADERS.unit })}</li>
+                <li>{t('erpMaster.import.product.noteCategory', { category: IMPORT_HEADERS.category, subcategory: IMPORT_HEADERS.subcategory })}</li>
+                <li>{t('erpMaster.import.product.noteTrack', { trackBatch: IMPORT_HEADERS.trackBatch, trackExpiry: IMPORT_HEADERS.trackExpiry, yesNo: '是/否' })}</li>
+                <li>{t('erpMaster.import.product.noteColumns', { columns: Object.values(IMPORT_HEADERS).join(t('erpMaster.common.listSeparator')) })}</li>
               </ul>
             </div>
           )}
@@ -168,7 +188,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={closeDialog}>
-            {result ? '關閉' : '取消'}
+            {result ? t('common.closeDialog') : t('common.cancel')}
           </Button>
           {!result && !checkResult && !previewRows && (
             <Button
@@ -179,12 +199,12 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
               {(checkMutation.isPending || importMutation.isPending) && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
-              開始匯入
+              {t('erpMaster.import.startImport')}
             </Button>
           )}
           {result && result.error_count === 0 && (
             <Button onClick={closeDialog} className="bg-status-success-solid hover:bg-green-700">
-              完成
+              {t('erpMaster.common.done')}
             </Button>
           )}
         </DialogFooter>

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Copy, Check, Info, ChevronDown, ChevronUp, RefreshCw, Loader2, AlertCircle, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -56,22 +57,30 @@ interface SkuPreviewBlockProps {
   compact?: boolean
 }
 
-const statusLabels: Record<SkuStatus, { text: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' }> = {
-  S0: { text: '尚無法預覽', variant: 'outline' },
-  S1: { text: '可預覽', variant: 'secondary' },
-  S2: { text: '計算中', variant: 'secondary' },
-  S3: { text: '預覽', variant: 'default' },
-  S4: { text: '預覽失敗', variant: 'destructive' },
-  S5: { text: '建立中', variant: 'secondary' },
-  S6: { text: '已建立', variant: 'success' },
+// textKey / titleKey 為 i18n 鍵（模組頂層不存翻譯後字串），渲染時才 t()
+const statusLabels: Record<SkuStatus, { textKey: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' }> = {
+  S0: { textKey: 'erpMaster.skuPreview.status.S0', variant: 'outline' },
+  S1: { textKey: 'erpMaster.skuPreview.status.S1', variant: 'secondary' },
+  S2: { textKey: 'erpMaster.skuPreview.status.S2', variant: 'secondary' },
+  S3: { textKey: 'erpMaster.skuPreview.status.S3', variant: 'default' },
+  S4: { textKey: 'erpMaster.skuPreview.status.S4', variant: 'destructive' },
+  S5: { textKey: 'erpMaster.skuPreview.status.S5', variant: 'secondary' },
+  S6: { textKey: 'erpMaster.skuPreview.status.S6', variant: 'success' },
 }
 
-const errorMessages: Record<string, { title: string; icon: React.ReactNode }> = {
-  E1: { title: '缺少必填欄位', icon: <AlertCircle className="h-4 w-4" /> },
-  E2: { title: '規則無對應', icon: <AlertCircle className="h-4 w-4" /> },
-  E3: { title: '規格值不合法', icon: <AlertCircle className="h-4 w-4" /> },
-  E4: { title: '片段生成衝突', icon: <AlertCircle className="h-4 w-4" /> },
-  E5: { title: '系統錯誤', icon: <AlertCircle className="h-4 w-4" /> },
+const errorMessages: Record<string, { titleKey: string; icon: React.ReactNode }> = {
+  E1: { titleKey: 'erpMaster.skuPreview.error.E1', icon: <AlertCircle className="h-4 w-4" /> },
+  E2: { titleKey: 'erpMaster.skuPreview.error.E2', icon: <AlertCircle className="h-4 w-4" /> },
+  E3: { titleKey: 'erpMaster.skuPreview.error.E3', icon: <AlertCircle className="h-4 w-4" /> },
+  E4: { titleKey: 'erpMaster.skuPreview.error.E4', icon: <AlertCircle className="h-4 w-4" /> },
+  E5: { titleKey: 'erpMaster.skuPreview.error.E5', icon: <AlertCircle className="h-4 w-4" /> },
+}
+
+// 已知片段代碼 → 顯示名稱的 i18n 鍵（呼叫端傳入的 label 可能是舊語系下產生的，這裡以代碼為準）
+const SEGMENT_LABEL_KEYS: Record<string, string> = {
+  CATEGORY: 'erpMaster.skuPreview.segment.CATEGORY',
+  ITEM: 'erpMaster.skuPreview.segment.ITEM',
+  SERIAL: 'erpMaster.skuPreview.segment.SERIAL',
 }
 
 // SKU 片段色彩映射
@@ -100,6 +109,7 @@ export function SkuPreviewBlock({
   className,
   compact = false,
 }: SkuPreviewBlockProps) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   const [expanded, setExpanded] = useState(true)
   const [infoOpen, setInfoOpen] = useState(false)
@@ -110,12 +120,15 @@ export function SkuPreviewBlock({
   const displaySku = useMemo(() => {
     if (status === 'S6' && finalSku) return finalSku
     if (status === 'S3' && previewResult?.preview_sku) return previewResult.preview_sku
-    if (status === 'S2') return '計算中...'
-    if (status === 'S4') return '預覽失敗'
-    if (status === 'S5') return '建立中...'
+    if (status === 'S2') return t('erpMaster.skuPreview.calculating')
+    if (status === 'S4') return t('erpMaster.skuPreview.status.S4')
+    if (status === 'S5') return t('erpMaster.skuPreview.creating')
     if (status === 'S1' && previewResult?.preview_sku) return previewResult.preview_sku
     return '— — — — — —'
-  }, [status, previewResult, finalSku])
+  }, [status, previewResult, finalSku, t])
+
+  const segmentLabel = (seg: SkuSegment) =>
+    SEGMENT_LABEL_KEYS[seg.code] ? t(SEGMENT_LABEL_KEYS[seg.code]) : seg.label
 
   const canCopy = useMemo(() => {
     return ['S1', 'S3', 'S6'].includes(status) && (previewResult?.preview_sku || finalSku)
@@ -139,11 +152,11 @@ export function SkuPreviewBlock({
 
     // 預設結構：種類、品項、流水號
     return [
-      { code: 'CATEGORY', label: '種類', value: '—', source: '主分類' },
-      { code: 'ITEM', label: '品項', value: '—', source: '子分類' },
-      { code: 'SERIAL', label: '流水號', value: status === 'S6' ? '—' : '001', source: '自動遞增序號' },
+      { code: 'CATEGORY', label: t('erpMaster.skuPreview.segment.CATEGORY'), value: '—', source: t('erpMaster.skuPreview.sourceMainCategory') },
+      { code: 'ITEM', label: t('erpMaster.skuPreview.segment.ITEM'), value: '—', source: t('erpMaster.skuPreview.sourceSubcategory') },
+      { code: 'SERIAL', label: t('erpMaster.skuPreview.segment.SERIAL'), value: status === 'S6' ? '—' : '001', source: t('erpMaster.skuPreview.serialSource') },
     ]
-  }, [previewResult, status])
+  }, [previewResult, status, t])
 
   return (
     <div className={cn(
@@ -157,7 +170,7 @@ export function SkuPreviewBlock({
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-            SKU 預覽
+            {t('erpMaster.skuPreview.title')}
           </h3>
           <Button
             variant="ghost"
@@ -174,7 +187,7 @@ export function SkuPreviewBlock({
             status === 'S6' && "bg-success text-success-foreground"
           )}
         >
-          {statusLabels[status].text}
+          {t(statusLabels[status].textKey)}
         </Badge>
       </div>
 
@@ -194,7 +207,7 @@ export function SkuPreviewBlock({
             {status === 'S2' || status === 'S5' ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="text-slate-500">{status === 'S2' ? '計算中...' : '建立中...'}</span>
+                <span className="text-slate-500">{status === 'S2' ? t('erpMaster.skuPreview.calculating') : t('erpMaster.skuPreview.creating')}</span>
               </div>
             ) : (status === 'S3' || status === 'S6' || status === 'S1') && previewResult?.segments ? (
               <div className="flex items-center">
@@ -270,7 +283,7 @@ export function SkuPreviewBlock({
               className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1 transition-colors"
               onClick={() => setRuleVersionExpanded(!ruleVersionExpanded)}
             >
-              規則版本 {previewResult.rule_version}
+              {t('erpMaster.skuPreview.ruleVersion', { version: previewResult.rule_version })}
               {ruleVersionExpanded ? (
                 <ChevronUp className="h-3 w-3" />
               ) : (
@@ -280,7 +293,7 @@ export function SkuPreviewBlock({
             {ruleVersionExpanded && (
               <div className="mt-2 p-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs space-y-2 animate-fade-in">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">最後更新時間</span>
+                  <span className="text-slate-500">{t('erpMaster.skuPreview.lastUpdated')}</span>
                   <span className="text-slate-700 dark:text-slate-300 font-medium">
                     {previewResult.rule_updated_at
                       ? new Date(previewResult.rule_updated_at).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })
@@ -288,14 +301,14 @@ export function SkuPreviewBlock({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">變更摘要</span>
+                  <span className="text-slate-500">{t('erpMaster.skuPreview.changeSummary')}</span>
                   <span className="text-slate-700 dark:text-slate-300">
-                    {previewResult.rule_change_summary || '初始版本'}
+                    {previewResult.rule_change_summary || t('erpMaster.skuPreview.initialVersion')}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">規則狀態</span>
-                  <span className="text-success font-medium">啟用中</span>
+                  <span className="text-slate-500">{t('erpMaster.skuPreview.ruleStatus')}</span>
+                  <span className="text-success font-medium">{t('erpMaster.skuPreview.ruleActive')}</span>
                 </div>
               </div>
             )}
@@ -310,11 +323,11 @@ export function SkuPreviewBlock({
             <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-semibold text-red-700 dark:text-red-400">
-                {errorMessages[error.code]?.title || '發生錯誤'}
+                {errorMessages[error.code] ? t(errorMessages[error.code].titleKey) : t('erpMaster.skuPreview.error.generic')}
               </p>
               {error.failed_segment && (
                 <p className="text-xs text-red-500 dark:text-red-400 mt-1">
-                  推導失敗於片段：<span className="font-mono font-bold">{error.failed_segment}</span>
+                  {t('erpMaster.skuPreview.failedSegment')}<span className="font-mono font-bold">{error.failed_segment}</span>
                 </p>
               )}
               <p className="text-sm text-red-600 dark:text-red-300 mt-1">
@@ -332,7 +345,7 @@ export function SkuPreviewBlock({
                   className="h-auto p-0 mt-2 text-red-600 dark:text-red-400 font-medium"
                   onClick={() => onFieldClick(error.field!)}
                 >
-                  前往修正 →
+                  {t('erpMaster.skuPreview.goFix')}
                 </Button>
               )}
             </div>
@@ -344,7 +357,7 @@ export function SkuPreviewBlock({
       {status === 'S0' && missingFields.length > 0 && (
         <div className="mx-4 mb-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
           <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-3">
-            請填寫以下欄位以預覽 SKU：
+            {t('erpMaster.skuPreview.fillMissing')}
           </p>
           <div className="flex flex-wrap gap-2">
             {missingFields.map((field) => (
@@ -370,7 +383,7 @@ export function SkuPreviewBlock({
             className="w-full flex items-center justify-between px-4 py-3 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
             onClick={() => setExpanded(!expanded)}
           >
-            <span className="font-medium">SKU 片段解析</span>
+            <span className="font-medium">{t('erpMaster.skuPreview.segmentBreakdown')}</span>
             {expanded ? (
               <ChevronUp className="h-4 w-4" />
             ) : (
@@ -403,7 +416,7 @@ export function SkuPreviewBlock({
                           {seg.code}
                         </span>
                         <span className="text-[10px] text-slate-400">
-                          {seg.label}
+                          {segmentLabel(seg)}
                         </span>
                       </div>
                       <div className={cn(
@@ -419,8 +432,8 @@ export function SkuPreviewBlock({
                       {/* Tooltip on hover */}
                       {hoveredSegment === seg.code && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs whitespace-nowrap z-10 shadow-lg">
-                          <div className="font-semibold mb-1">{seg.label}片段</div>
-                          <div className="text-slate-300">來源：{seg.source}</div>
+                          <div className="font-semibold mb-1">{t('erpMaster.skuPreview.segmentTitle', { label: segmentLabel(seg) })}</div>
+                          <div className="text-slate-300">{t('erpMaster.skuPreview.segmentSource', { source: seg.source })}</div>
                           <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
                         </div>
                       )}
@@ -443,7 +456,7 @@ export function SkuPreviewBlock({
             onClick={() => setAdvancedMode(!advancedMode)}
           >
             <Settings2 className="h-4 w-4 mr-2" />
-            進階設定
+            {t('erpMaster.skuPreview.advanced.title')}
             {advancedMode ? (
               <ChevronUp className="h-4 w-4 ml-auto" />
             ) : (
@@ -453,43 +466,43 @@ export function SkuPreviewBlock({
           {advancedMode && (
             <div className="mt-3 space-y-4 animate-fade-in">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                進階模式允許調整 SKU 生成策略，但不能直接輸入 SKU 值。所有調整將記錄於稽核日誌。
+                {t('erpMaster.skuPreview.advanced.description')}
               </p>
 
               <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800">
                 <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                  名稱縮寫策略
+                  {t('erpMaster.skuPreview.advanced.nameStrategy')}
                 </label>
                 <div className="mt-2 space-y-2">
                   <label className="flex items-center gap-2 text-xs">
                     <input type="radio" name="name-strategy" defaultChecked className="h-3 w-3" />
-                    <span>自動縮寫（英文取首字母、中文取拼音）</span>
+                    <span>{t('erpMaster.skuPreview.advanced.nameAuto')}</span>
                   </label>
                   <label className="flex items-center gap-2 text-xs">
                     <input type="radio" name="name-strategy" className="h-3 w-3" />
-                    <span>保留完整名稱前 6 字元</span>
+                    <span>{t('erpMaster.skuPreview.advanced.nameKeep6')}</span>
                   </label>
                 </div>
               </div>
 
               <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800">
                 <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                  規格碼策略
+                  {t('erpMaster.skuPreview.advanced.specStrategy')}
                 </label>
                 <div className="mt-2 space-y-2">
                   <label className="flex items-center gap-2 text-xs">
                     <input type="radio" name="spec-strategy" defaultChecked className="h-3 w-3" />
-                    <span>數字 + 單位 + 特徵（如 500MGTB）</span>
+                    <span>{t('erpMaster.skuPreview.advanced.specFull')}</span>
                   </label>
                   <label className="flex items-center gap-2 text-xs">
                     <input type="radio" name="spec-strategy" className="h-3 w-3" />
-                    <span>純數字（如 500）</span>
+                    <span>{t('erpMaster.skuPreview.advanced.specNumeric')}</span>
                   </label>
                 </div>
               </div>
 
               <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                ⚠️ 調整生成策略需填寫原因，並將記錄於稽核日誌
+                ⚠️ {t('erpMaster.skuPreview.advanced.reasonRequired')}
               </p>
             </div>
           )}
@@ -500,12 +513,12 @@ export function SkuPreviewBlock({
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
         <DialogContent size="lg">
           <DialogHeader>
-            <DialogTitle>SKU 編碼說明</DialogTitle>
+            <DialogTitle>{t('erpMaster.skuPreview.info.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-6">
             {/* New Structure */}
             <div>
-              <h4 className="font-medium mb-3">SKU 結構（新版）</h4>
+              <h4 className="font-medium mb-3">{t('erpMaster.skuPreview.info.structure')}</h4>
               <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-lg font-mono text-sm">
                 <div className="flex flex-wrap items-center gap-3">
                   {['CATEGORY', 'ITEM', 'SERIAL'].map((seg) => {
@@ -515,20 +528,20 @@ export function SkuPreviewBlock({
                         key={seg}
                         className={cn("px-4 py-2 rounded-lg border font-bold text-base", colors.bg, colors.text, colors.border)}
                       >
-                        {seg === 'CATEGORY' ? '種類' : seg === 'ITEM' ? '品項' : '流水號'}
+                        {t(SEGMENT_LABEL_KEYS[seg])}
                       </span>
                     )
                   })}
                 </div>
                 <p className="text-slate-500 text-xs mt-4">
-                  種類-品項-流水號
+                  {t('erpMaster.skuPreview.info.structureFormat')}
                 </p>
               </div>
             </div>
 
             {/* Current Mapping */}
             <div>
-              <h4 className="font-medium mb-3">本頁對照</h4>
+              <h4 className="font-medium mb-3">{t('erpMaster.skuPreview.info.mapping')}</h4>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {segments.map((seg) => {
                   const colors = getSegmentColor(seg.code)
@@ -544,30 +557,30 @@ export function SkuPreviewBlock({
 
             {/* FAQ */}
             <div>
-              <h4 className="font-medium mb-3">常見問題</h4>
+              <h4 className="font-medium mb-3">{t('erpMaster.skuPreview.info.faq')}</h4>
               <div className="space-y-3 text-sm">
                 <details className="group">
                   <summary className="cursor-pointer font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900">
-                    為什麼我不能手改 SKU？
+                    {t('erpMaster.skuPreview.info.q1')}
                   </summary>
                   <p className="mt-2 text-slate-600 dark:text-slate-400 pl-4">
-                    SKU 完整值永遠由系統決定，以確保編碼的一致性與唯一性。這也便於後續的追蹤與管理。
+                    {t('erpMaster.skuPreview.info.a1')}
                   </p>
                 </details>
                 <details className="group">
                   <summary className="cursor-pointer font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900">
-                    為什麼預覽沒有序號？
+                    {t('erpMaster.skuPreview.info.q2')}
                   </summary>
                   <p className="mt-2 text-slate-600 dark:text-slate-400 pl-4">
-                    序號 (SEQ) 和檢查碼 (CHK) 只有在產品正式建立時才會分配，預覽階段不會保留序號。
+                    {t('erpMaster.skuPreview.info.a2')}
                   </p>
                 </details>
                 <details className="group">
                   <summary className="cursor-pointer font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900">
-                    如何產生名稱縮寫？
+                    {t('erpMaster.skuPreview.info.q3')}
                   </summary>
                   <p className="mt-2 text-slate-600 dark:text-slate-400 pl-4">
-                    英文取每個單詞首字母（如 Amoxicillin → AMX），中文取拼音首字母（如 手套 → SLT）。
+                    {t('erpMaster.skuPreview.info.a3', { zhExample: '手套 → SLT' })}
                   </p>
                 </details>
               </div>

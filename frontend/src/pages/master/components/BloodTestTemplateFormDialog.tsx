@@ -1,4 +1,5 @@
 import { type UseFormReturn } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,7 @@ export function BloodTestTemplateFormDialog({
   isUpdatePending,
   onSubmit,
 }: BloodTestTemplateFormDialogProps) {
+  const { t } = useTranslation()
   const { register, setValue, watch, formState: { errors } } = form
   const panelIdValue = watch('panel_id')
 
@@ -61,82 +63,82 @@ export function BloodTestTemplateFormDialog({
       <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>
-            {editingTemplate ? '編輯檢查項目' : '新增檢查項目'}
+            {editingTemplate ? t('erpMaster.bloodTest.templateForm.editTitle') : t('erpMaster.bloodTest.templateForm.addTitle')}
           </DialogTitle>
           <DialogDescription>
             {editingTemplate
-              ? `修改 ${editingTemplate.code} 的項目資料`
-              : '建立新的血檢項目模板'}
+              ? t('erpMaster.bloodTest.templateForm.editDescription', { code: editingTemplate.code })
+              : t('erpMaster.bloodTest.templateForm.addDescription')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="code" className="text-right">
-                代碼 <span className="text-destructive">*</span>
+                {t('erpMaster.common.code')} <span className="text-destructive">*</span>
               </Label>
               <div className="col-span-3 space-y-1">
                 <Input
                   id="code"
                   {...register('code', {
-                    required: !editingTemplate ? '代碼為必填' : false,
+                    required: !editingTemplate ? 'erpMaster.bloodTest.validation.codeRequired' : false,
                     onChange: (e) => {
                       e.target.value = e.target.value.toUpperCase()
                     },
                   })}
                   className="font-mono"
-                  placeholder="如: WBC、RBC、AST"
+                  placeholder={t('erpMaster.bloodTest.templateForm.codePlaceholder')}
                   disabled={!!editingTemplate}
                   maxLength={20}
                 />
                 {errors.code && (
-                  <p className="text-sm text-destructive">{errors.code.message}</p>
+                  <p className="text-sm text-destructive">{t(errors.code.message ?? 'validation.required')}</p>
                 )}
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
-                名稱 <span className="text-destructive">*</span>
+                {t('erpMaster.common.name')} <span className="text-destructive">*</span>
               </Label>
               <div className="col-span-3 space-y-1">
                 <Input
                   id="name"
-                  {...register('name', { required: '名稱為必填' })}
-                  placeholder="如: WBC (白血球計數)"
+                  {...register('name', { required: 'erpMaster.bloodTest.validation.nameRequired' })}
+                  placeholder={t('erpMaster.bloodTest.templateForm.namePlaceholder')}
                   maxLength={200}
                 />
                 {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                  <p className="text-sm text-destructive">{t(errors.name.message ?? 'validation.required')}</p>
                 )}
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="default_unit" className="text-right">
-                預設單位
+                {t('erpMaster.bloodTest.templateForm.defaultUnit')}
               </Label>
               <Input
                 id="default_unit"
                 {...register('default_unit')}
                 className="col-span-3"
-                placeholder="如: 10³/μL、mg/dL、U/L"
+                placeholder={t('erpMaster.bloodTest.templateForm.unitPlaceholder')}
                 maxLength={50}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="reference_range" className="text-right">
-                參考範圍
+                {t('erpMaster.bloodTest.referenceRange')}
               </Label>
               <Input
                 id="reference_range"
                 {...register('reference_range')}
                 className="col-span-3"
-                placeholder="如: 4.0-10.0"
+                placeholder={t('erpMaster.bloodTest.templateForm.rangePlaceholder')}
                 maxLength={100}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="default_price" className="text-right">
-                預設價格
+                {t('erpMaster.bloodTest.templateForm.defaultPrice')}
               </Label>
               <Input
                 id="default_price"
@@ -150,7 +152,7 @@ export function BloodTestTemplateFormDialog({
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="panel_id" className="text-right">
-                所屬分類
+                {t('erpMaster.bloodTest.templateForm.panel')}
               </Label>
               <Select
                 value={panelIdValue || 'none'}
@@ -159,10 +161,10 @@ export function BloodTestTemplateFormDialog({
                 }
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="選擇分類" />
+                  <SelectValue placeholder={t('erpMaster.bloodTest.templateForm.selectPanel')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">未分類</SelectItem>
+                  <SelectItem value="none">{t('erpMaster.bloodTest.uncategorized')}</SelectItem>
                   {panels?.map((panel) => (
                     <SelectItem key={panel.id} value={panel.id}>
                       <PanelIcon icon={panel.icon} /> {panel.name}
@@ -174,7 +176,7 @@ export function BloodTestTemplateFormDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
@@ -183,7 +185,7 @@ export function BloodTestTemplateFormDialog({
               {(isCreatePending || isUpdatePending) && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              {editingTemplate ? '更新' : '建立'}
+              {editingTemplate ? t('common.update') : t('erpMaster.common.createSubmit')}
             </Button>
           </DialogFooter>
         </form>

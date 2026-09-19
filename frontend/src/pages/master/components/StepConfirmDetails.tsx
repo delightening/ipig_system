@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { ArrowLeft, Loader2, Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { UNITS } from '../constants'
+import { UNITS, unitDisplayName } from '../constants'
 import type { ProductFormData } from '../constants'
 import { UnitButtonGroup } from './UnitButtonGroup'
 import { BasicInfoCard } from './BasicInfoCard'
@@ -18,6 +19,7 @@ interface StepConfirmDetailsProps {
 }
 
 export function StepConfirmDetails({ form }: StepConfirmDetailsProps) {
+  const { t } = useTranslation()
   const {
     formData, setFormData, isCreated, isCreating, skuStatus,
     isOuterCustom, setIsOuterCustom, customOuter, setCustomOuter,
@@ -50,7 +52,7 @@ export function StepConfirmDetails({ form }: StepConfirmDetailsProps) {
       {/* Packaging Units */}
       <Card>
         <CardContent className="pt-6">
-          <h3 className="text-lg font-semibold mb-4">包裝單位</h3>
+          <h3 className="text-lg font-semibold mb-4">{t('erpMaster.createProduct.packagingUnits')}</h3>
           <div className="space-y-6">
             <PackagingLayerToggle formData={formData} setFormData={setFormData} disabled={isCreated} />
 
@@ -88,7 +90,7 @@ export function StepConfirmDetails({ form }: StepConfirmDetailsProps) {
       <div className="flex justify-between">
         <Button variant="outline" onClick={handleBack} disabled={isCreating}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          上一步
+          {t('erpMaster.createProduct.previous')}
         </Button>
         <Button
           onClick={handleNext}
@@ -98,11 +100,11 @@ export function StepConfirmDetails({ form }: StepConfirmDetailsProps) {
           {isCreating ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              建立中...
+              {t('erpMaster.createProduct.creating')}
             </>
           ) : (
             <>
-              建立產品
+              {t('erpMaster.createProduct.submit')}
               <Check className="ml-2 h-4 w-4" />
             </>
           )}
@@ -121,9 +123,11 @@ function PackagingLayerToggle({
   setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>
   disabled: boolean
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-3">
-      <Label className="text-sm font-medium">包裝層數</Label>
+      <Label className="text-sm font-medium">{t('erpMaster.packaging.layerCount')}</Label>
       <div className="flex gap-3">
         <button
           type="button"
@@ -139,8 +143,8 @@ function PackagingLayerToggle({
               : "border-border hover:border-primary/50"
           )}
         >
-          兩層包裝
-          <span className="block text-xs mt-1 text-muted-foreground">外層 → 內層（消耗每內層）</span>
+          {t('erpMaster.packaging.twoLayer')}
+          <span className="block text-xs mt-1 text-muted-foreground">{t('erpMaster.packaging.twoLayerDescription')}</span>
         </button>
         <button
           type="button"
@@ -153,8 +157,8 @@ function PackagingLayerToggle({
               : "border-border hover:border-primary/50"
           )}
         >
-          三層包裝
-          <span className="block text-xs mt-1 text-muted-foreground">外層 → 內層 → 基礎（消耗每基礎）</span>
+          {t('erpMaster.packaging.threeLayer')}
+          <span className="block text-xs mt-1 text-muted-foreground">{t('erpMaster.packaging.threeLayerDescription')}</span>
         </button>
       </div>
     </div>
@@ -172,9 +176,11 @@ interface UnitSectionProps {
 }
 
 function OuterUnitSection({ formData, setFormData, disabled, isCustom, setIsCustom, customValue, setCustomValue }: UnitSectionProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-3">
-      <Label className="text-sm font-medium">外層包裝</Label>
+      <Label className="text-sm font-medium">{t('erpMaster.packaging.outerLayer')}</Label>
       <UnitButtonGroup
         units={[...UNITS.outer]}
         selectedUnit={formData.outerUnit}
@@ -202,13 +208,14 @@ function OuterUnitSection({ formData, setFormData, disabled, isCustom, setIsCust
         disabled={disabled}
       />
       {formData.outerUnit && (
-        <UnitDisplay label="1" unit={formData.outerUnit} />
+        <UnitDisplay label="1" unit={unitDisplayName(formData.outerUnit)} />
       )}
     </div>
   )
 }
 
 function InnerUnitSection({ formData, setFormData, disabled, isCustom, setIsCustom, customValue, setCustomValue }: UnitSectionProps) {
+  const { t } = useTranslation()
   const isTwoLayer = formData.packagingLayers === 2
 
   const applyInnerUnit = (unitName: string) => {
@@ -223,8 +230,8 @@ function InnerUnitSection({ formData, setFormData, disabled, isCustom, setIsCust
   return (
     <div className="space-y-3">
       <Label className="text-sm font-medium">
-        內層包裝
-        {isTwoLayer && <span className="text-xs text-muted-foreground ml-2">（消耗單位）</span>}
+        {t('erpMaster.packaging.innerLayer')}
+        {isTwoLayer && <span className="text-xs text-muted-foreground ml-2">{t('erpMaster.packaging.consumptionUnitNote')}</span>}
       </Label>
       <UnitButtonGroup
         units={[...UNITS.inner]}
@@ -248,7 +255,7 @@ function InnerUnitSection({ formData, setFormData, disabled, isCustom, setIsCust
       {formData.innerUnit && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border whitespace-nowrap ml-auto">
           <span className="text-sm text-muted-foreground">
-            {formData.outerUnit ? `一${formData.outerUnit}` : '一'}
+            {formData.outerUnit ? t('erpMaster.packaging.oneUnit', { unit: unitDisplayName(formData.outerUnit) }) : t('erpMaster.packaging.one')}
           </span>
           <Input
             type="number" min={1}
@@ -257,7 +264,7 @@ function InnerUnitSection({ formData, setFormData, disabled, isCustom, setIsCust
             className="w-16 h-8 text-center"
             disabled={disabled}
           />
-          <span className="text-sm text-muted-foreground">{formData.innerUnit}</span>
+          <span className="text-sm text-muted-foreground">{unitDisplayName(formData.innerUnit)}</span>
         </div>
       )}
     </div>
@@ -272,6 +279,7 @@ function BaseUnitSection({
   displayUnits: Array<{ code: string; name: string }>
   highlightedCodes: string[]
 }) {
+  const { t } = useTranslation()
   const applyBaseUnit = (unitName: string) => ({
     baseUnit: unitName,
     safetyStockUnit: unitName,
@@ -282,8 +290,8 @@ function BaseUnitSection({
   return (
     <div className="space-y-3">
       <Label className="text-sm font-medium">
-        基礎單位（消耗單位）
-        <span className="text-xs text-muted-foreground ml-2">(庫存管理)</span>
+        {t('erpMaster.packaging.baseUnitLabel')}
+        <span className="text-xs text-muted-foreground ml-2">{t('erpMaster.packaging.inventoryManagementNote')}</span>
       </Label>
       <UnitButtonGroup
         units={displayUnits}
@@ -307,7 +315,7 @@ function BaseUnitSection({
       />
       {formData.innerUnit && formData.baseUnit && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border whitespace-nowrap ml-auto">
-          <span className="text-sm text-muted-foreground">一{formData.innerUnit}</span>
+          <span className="text-sm text-muted-foreground">{t('erpMaster.packaging.oneUnit', { unit: unitDisplayName(formData.innerUnit) })}</span>
           <Input
             type="number" min={1}
             value={formData.baseQty}
@@ -315,7 +323,7 @@ function BaseUnitSection({
             className="w-16 h-8 text-center"
             disabled={disabled}
           />
-          <span className="text-sm text-muted-foreground">{formData.baseUnit}</span>
+          <span className="text-sm text-muted-foreground">{unitDisplayName(formData.baseUnit)}</span>
         </div>
       )}
     </div>
