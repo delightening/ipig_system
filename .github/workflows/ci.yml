@@ -1262,19 +1262,20 @@ jobs:
   # 成本可接受：base 是 postgres:16-alpine 加 6 個 apk 套件，無編譯步驟，
   # 與 trivy-scan 要 build Rust backend 的量級差一個數量級。
   #
-  # 🔴 **首輪 non-blocking（`exit-code: "0"`），比照 semgrep 的先例**（本檔 R41-5 段）。
-  # 2026-09-20 本機實測現況（`--ignore-unfixed`，即以下全部都有修補版可用）：
+  # **blocking（`exit-code: "1"`）**。這一步有過程，寫在這裡免得後人以為它一直是這樣：
+  #
+  # 本 job 首輪原本設計為 non-blocking（比照本檔 R41-5 semgrep 的先例），因為 2026-09-20
+  # 本機實測時這支映像帶著 59 個可修補的 CRITICAL/HIGH（`--ignore-unfixed` 後）：
   #   alpine 3.24.1 套件層  37 個（HIGH 34 / CRITICAL 3）
   #   usr/local/bin/gosu    22 個（gobinary）
-  # 這 59 個**不是任何一支 PR 帶進來的**，是這支映像長期無人掃描累積的結果。
-  # 首輪就設 `exit-code: "1"` 會讓**每一支 PR** 紅在與它無關的既有債上，
-  # 那只會逼人去關掉這個 job——可見性反而歸零。先讓 SARIF 進 Security tab
-  # 建立 baseline，債清掉之後再收緊為 blocking。
-  # 分工（實測）：`apk upgrade` 可處理 alpine 那 37 個的大宗（會升 17 個套件，
-  # 含 libcrypto3/libssl3、libcurl、rclone、rsync、openssh）；gosu 那 22 個
-  # 是 postgres 官方映像 COPY 進來的 Go 二進位，CVE 在 Go 標準函式庫，
-  # **apk 管不到**，只能等上游重編或個案豁免。
-  # ⚠️ 收緊成 blocking 前要先處理這兩塊，否則等於把紅燈變成常態。
+  # 那 59 個不是任何一支 PR 帶進來的，首輪就 blocking 會讓每支 PR 紅在無關的既有債上。
+  #
+  # 2026-09-21 債已清償（同一支 PR 內，見 `scripts/backup/Dockerfile.backup` 的兩段註解），
+  # 本機實測 **59 → 0**，故直接以 blocking 落地，不留 non-blocking 的中間狀態：
+  #   * `apk upgrade`（與 apk add 併為同一層）→ alpine 那 37 個歸零。
+  #   * 移除 base image 帶入、本映像從未使用的 `gosu` → 那 22 個連同整個 gobinary
+  #     target 一起消失（Trivy 回報 `Number of language-specific files num=0`）。
+  # ⚠️ 之後若再出現 findings，**先修映像，不要改回 `"0"`**——那等於把這個 job 變成裝飾。
   # =========================
   trivy-backup-scan:
     name: "🐳 Security: Trivy backup image"
@@ -1292,15 +1293,13 @@ jobs:
       - name: Build backup image
         run: docker build --no-cache --progress=plain -t ipig-db-backup:ci -f ./scripts/backup/Dockerfile.backup ./scripts/backup
 
-      # exit-code 刻意為 "0"（non-blocking，理由見上方區塊註解）。
-      # ⚠️ 收緊時改的是這一行，不是刪掉整個 job。
       - name: Trivy 掃描備份映像
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: "ipig-db-backup:ci"
           format: "table"
           severity: "CRITICAL,HIGH"
-          exit-code: "0"
+          exit-code: "1"
           ignore-unfixed: true
           trivyignores: .trivyignore
           vuln-type: "os,library"

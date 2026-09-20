@@ -8,7 +8,30 @@ FROM postgres:16-alpine
 # rclone 同時支援 R2 (s3 backend) + NAS-B SMB share + WebDAV，比 rsync over SSH 維運簡單
 # curl：送外部看門狗心跳（deploy/watchdog）。busybox 內建的 wget 對 POST + header
 # 的支援隨版本而異，備份鏈上不賭這個。
-RUN apk add --no-cache dcron rsync openssh-client gnupg rclone ca-certificates su-exec curl
+#
+# 2026-09-21 補 `apk upgrade`（issue #112）：base image 的套件層會落後於 alpine 已發布的
+# 修補版，而 postgres 官方何時重建映像不由我們控制。補上這步之前，Trivy 實測這支映像帶
+# 37 個可修補的 CRITICAL/HIGH（HIGH 34 / CRITICAL 3），全部出在 base image 自帶的套件，
+# 沒有一個是本檔裝的東西帶進來的。
+# ⚠️ upgrade 與 add 合併在同一個 RUN：分兩層的話，upgrade 那層會被快取，
+#    之後重 build 就拿不到新的修補版——那正是本來要解決的問題。
+RUN apk upgrade --no-cache \
+    && apk add --no-cache dcron rsync openssh-client gnupg rclone ca-certificates su-exec curl
+
+# 移除 base image 帶入、本映像從未使用的 gosu（issue #112）。
+#
+# 依據（2026-09-21 實查，四項都成立才動手）：
+#   1. 本映像以自己的 entrypoint.sh 取代官方 docker-entrypoint.sh（見本檔末 ENTRYPOINT），
+#      而官方那支才是唯一呼叫 gosu 的地方。
+#   2. docker-compose.yml 的 db-backup 沒有 `command:` 覆寫，不會繞回官方 entrypoint。
+#   3. entrypoint.sh 自 2026-07-04 起全程以 root 執行、不切換身分（見該檔 L22-25 的說明：
+#      「GPG / cron / 備份寫入一律以 root 執行」）。
+#   4. 整個 scripts/backup/ 對 `gosu` 零命中。
+#
+# 為什麼是移除而不是加進 .trivyignore：它是靜態編譯的 Go 二進位，CVE 位於 Go 標準函式庫，
+# apk 無從升級，只能等上游重編。留著就是 22 個永遠掃得到、又沒有任何人用的 CRITICAL/HIGH。
+# 一個沒有呼叫點的 setuid-capable 二進位本來就該從映像裡拿掉，豁免只是把它藏起來。
+RUN rm -f /usr/local/bin/gosu
 
 # 複製備份腳本（sed 去除 Windows CRLF 換行符）
 COPY pg_backup.sh /usr/local/bin/pg_backup.sh
