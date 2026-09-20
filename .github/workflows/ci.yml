@@ -124,6 +124,13 @@ jobs:
               # 分片合計 3120 秒）。只改 scripts/ 的 PR 原本要付這整份成本。
               # ⚠️ 掃描器自己的測試（pii-scan-test）刻意不掛 changed-paths 過濾，
               #    所以改 scripts/ 時它仍然會跑——這條分類不會讓工具鏈失去把關。
+              # 🔴 **「不進任何映像」對 scripts/backup/ 不成立**（2026-09-20 訂正）：
+              #    scripts/backup/Dockerfile.backup 自己就是一支映像的建置來源
+              #    （ipig-db-backup，見 cd.yml），且會 COPY 同目錄的 pg_backup.sh
+              #    與 entrypoint.sh。上面那句依據「6 個 Dockerfile 都沒有 COPY scripts/」
+              #    查的是「別人有沒有引用 scripts/」，漏了「scripts/ 裡有沒有 Dockerfile」。
+              #    本行的分類本身仍正確——改它確實不需要重跑 backend／frontend——
+              #    但它不能是該目錄唯一的把關。缺的那層由 trivy-backup-scan 無條件補上。
               scripts/*|.husky/*) ;;
               backend/*) BACKEND=true ;;
               frontend/*) FRONTEND=true ;;
@@ -1276,6 +1283,93 @@ jobs:
         with:
           sarif_file: trivy-frontend.sarif
           category: trivy-frontend
+
+  # =========================
+  # 🐳 備份映像安全掃描 (Trivy)
+  #
+  # 2026-09-20 補。缺口：scripts/backup/Dockerfile.backup 在 PR 階段**零 CI 涵蓋**。
+  #   * 上面的 trivy-scan 只 build backend/ 與 frontend/ 兩支。
+  #   * cd.yml 雖會 build ipig-db-backup，但它的觸發是 `workflow_run` +
+  #     `branches: [main]`——只在**合併之後**才跑，擋不住任何一支 PR。
+  #   * changes job 把 scripts/* 歸為「不觸發任一 stack」，所以連 trivy-scan 的
+  #     if 條件都不會成立（該分類本身正確，理由見該處 2026-09-20 的訂正註解）。
+  # 也就是說，這支映像的 base image 更新 PR，合併前沒有任何檢查會看它一眼。
+  # 而 .github/dependabot.yml 的 docker ecosystem **有**監看 /scripts/backup，
+  # 會實際開出這種 PR；CLAUDE.md 授權節 (g)（Docker base image 更新免 bot 閘）
+  # 以「Trivy 綠」為條件，對這支因此不成立——本 job 讓它成立。
+  #
+  # ⚠️ **本 job 不驗版本綁定，只驗 CVE。** 該映像的 pg_dump/psql 必須與 prod DB
+  # 主版本對齊，dependabot.yml 的 ignore 註解記載升錯的後果是「備份每天照常產生、
+  # 看起來一切正常，直到真的需要還原時才發現用不了」——那件事本 job 看不到，
+  # 它不會實跑 dump → restore。版本綁定仍由 dependabot.yml 的 ignore（擋 major）
+  # 與人工演練（scripts/backup/dr_drill.sh）負責。不要把本 job 的綠當成可以升 major。
+  #
+  # 無 needs/if：理由同 python-audit / npm-lockfile-audit——條件式 job 會 skip，
+  # skip 的 required check 會讓 PR 永遠卡 pending（#16 已踩過）。
+  # 成本可接受：base 是 postgres:16-alpine 加 6 個 apk 套件，無編譯步驟，
+  # 與 trivy-scan 要 build Rust backend 的量級差一個數量級。
+  #
+  # 🔴 **首輪 non-blocking（`exit-code: "0"`），比照 semgrep 的先例**（本檔 R41-5 段）。
+  # 2026-09-20 本機實測現況（`--ignore-unfixed`，即以下全部都有修補版可用）：
+  #   alpine 3.24.1 套件層  37 個（HIGH 34 / CRITICAL 3）
+  #   usr/local/bin/gosu    22 個（gobinary）
+  # 這 59 個**不是任何一支 PR 帶進來的**，是這支映像長期無人掃描累積的結果。
+  # 首輪就設 `exit-code: "1"` 會讓**每一支 PR** 紅在與它無關的既有債上，
+  # 那只會逼人去關掉這個 job——可見性反而歸零。先讓 SARIF 進 Security tab
+  # 建立 baseline，債清掉之後再收緊為 blocking。
+  # 分工（實測）：`apk upgrade` 可處理 alpine 那 37 個的大宗（會升 17 個套件，
+  # 含 libcrypto3/libssl3、libcurl、rclone、rsync、openssh）；gosu 那 22 個
+  # 是 postgres 官方映像 COPY 進來的 Go 二進位，CVE 在 Go 標準函式庫，
+  # **apk 管不到**，只能等上游重編或個案豁免。
+  # ⚠️ 收緊成 blocking 前要先處理這兩塊，否則等於把紅燈變成常態。
+  # =========================
+  trivy-backup-scan:
+    name: "🐳 Security: Trivy backup image"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # checkout + docker build context
+      security-events: write # upload-sarif → GitHub Security tab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # context 與 dockerfile 路徑與 cd.yml 的 ipig-db-backup 一致（該檔 L145-147）,
+      # 否則 CI 掃的與實際部署的不是同一支映像。
+      - name: Build backup image
+        run: docker build --no-cache --progress=plain -t ipig-db-backup:ci -f ./scripts/backup/Dockerfile.backup ./scripts/backup
+
+      # exit-code 刻意為 "0"（non-blocking，理由見上方區塊註解）。
+      # ⚠️ 收緊時改的是這一行，不是刪掉整個 job。
+      - name: Trivy 掃描備份映像
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: "ipig-db-backup:ci"
+          format: "table"
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          vuln-type: "os,library"
+
+      - name: Trivy 備份映像 SARIF
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        if: always()
+        with:
+          image-ref: "ipig-db-backup:ci"
+          format: "sarif"
+          output: "trivy-backup.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          vuln-type: "os,library"
+
+      - name: Upload Trivy 備份映像 SARIF
+        uses: github/codeql-action/upload-sarif@fee9466b8957867761f2d78f922ab084e3e2dd17 # v3
+        if: always()
+        with:
+          sarif_file: trivy-backup.sarif
+          category: trivy-backup
 
   # =========================
   # 🧪 E2E 整合測試 (Playwright)
