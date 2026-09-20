@@ -957,6 +957,53 @@ jobs:
         run: osv-scanner scan --config=frontend/osv-scanner.toml --lockfile=frontend/pnpm-lock.yaml
 
   # =========================
+  # 🔒 npm lockfile 依賴漏洞掃描（OSV）
+  #
+  # 2026-09-20 補：CLAUDE.md 授權節 (f)（純依賴更新免 bot 閘）以「該 stack 的依賴
+  # 漏洞掃描綠」為閘，但在此之前 Node 這條線只掃 frontend/pnpm-lock.yaml，repo 內
+  # 另外兩個 npm lockfile（根目錄、deploy/watchdog/）形同無把關——與 2026-08-04
+  # 補 python-audit 前 requirements.txt 的處境相同（見下方 python-audit 註解），
+  # 同一個坑換成 npm 又發生一次。
+  #
+  # 實例：#109（bump sharp / wrangler in /deploy/watchdog）送審時，main 的
+  # deploy/watchdog/package-lock.json 帶著 GHSA-rgj7-g3m4-5g8c（sharp 0.35.2、
+  # CVSS 8.9 High），而 CI 從未報過，因為沒有任何 job 掃它。CodeRabbit 同時因
+  # 作者過濾整支略過（commit status state=success、description 為
+  # "Review skipped: author ignored by configuration"），兩道閘一起落空，該 PR
+  # 形同零把關。本 job 存在的唯一理由就是讓這種缺口不再是隱性的。
+  #
+  # 無 needs/if：理由同 python-audit——條件式 job 會 skip，skip 的 required check
+  # 會讓 PR 永遠卡 pending（#16 已踩過）。lockfile 掃描很快，無條件執行才能保證
+  # 恆有 check-run，可安全設為 branch protection 的 required check。
+  #
+  # 不帶 --no-resolve：package-lock.json 是含 transitive 依賴的完整 lockfile，
+  # osv-scanner 直接解析檔案內容，不會打 deps.dev 的解析 RPC（該旗標是為
+  # requirements.txt 這類「只列直接依賴、無 lockfile」的格式而設）。
+  #
+  # 不帶 --config：目前兩份 lockfile 均無待豁免項。日後如需豁免，比照
+  # frontend/osv-scanner.toml 另建清單，每條均須附評估理由與 ignoreUntil 到期日。
+  #
+  # ⚠️ 新增 npm lockfile 時要在此加一行 --lockfile，否則它一樣是無主的。
+  # =========================
+  npm-lockfile-audit:
+    name: "🔒 Security: npm 依賴掃描"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-osv-scanner
+
+      - name: OSV 依賴漏洞掃描（根目錄 + deploy/watchdog）
+        run: |
+          osv-scanner scan \
+            --lockfile=package-lock.json \
+            --lockfile=deploy/watchdog/package-lock.json
+
+  # =========================
   # 🔒 Python 依賴漏洞掃描
   # 2026-08-04 補：CLAUDE.md 授權節 (f)（純依賴更新免 bot 閘）以「該 stack 的依賴
   # 漏洞掃描綠」為閘，但當時 CI 只有 Rust 與 Node 兩條線，**Python 完全沒有掃描**
